@@ -108,7 +108,7 @@ void StackAddrEscapeChecker::EmitStackError(CheckerContext &C, const MemRegion *
   llvm::raw_svector_ostream os(buf);
   SourceRange range = genName(os, R, C.getASTContext());
   os << " returned to caller";
-  auto report = llvm::make_unique<BugReport>(*BT_returnstack, os.str(), N);
+  auto report = std::make_unique<BugReport>(*BT_returnstack, os.str(), N);
   report->addRange(RetE->getSourceRange());
   if (range.isValid())
     report->addRange(range);
@@ -231,7 +231,7 @@ void StackAddrEscapeChecker::checkEndFunction(CheckerContext &Ctx) const {
     const VarRegion *VR = cast<VarRegion>(cb.V[i].first->getBaseRegion());
     os << *VR->getDecl()
        << "' upon returning to the caller.  This will be a dangling reference";
-    auto report = llvm::make_unique<BugReport>(*BT_stackleak, os.str(), N);
+    auto report = std::make_unique<BugReport>(*BT_stackleak, os.str(), N);
     if (range.isValid())
       report->addRange(range);
 

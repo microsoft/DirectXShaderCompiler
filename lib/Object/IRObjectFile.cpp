@@ -312,5 +312,5 @@ llvm::object::IRObjectFile::create(MemoryBufferRef Object,
     return EC;
 
   std::unique_ptr<Module> &M = MOrErr.get();
-  return llvm::make_unique<IRObjectFile>(Object, std::move(M));
+  return std::make_unique<IRObjectFile>(Object, std::move(M));
 }

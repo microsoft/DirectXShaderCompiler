@@ -207,7 +207,7 @@ void NilArgChecker::generateBugReport(ExplodedNode *N,
   if (!BT)
     BT.reset(new APIMisuse(this, "nil argument"));
 
-  auto R = llvm::make_unique<BugReport>(*BT, Msg, N);
+  auto R = std::make_unique<BugReport>(*BT, Msg, N);
   R->addRange(Range);
   bugreporter::trackNullOrUndefValue(N, E, *R);
   C.emitReport(std::move(R));
@@ -516,7 +516,7 @@ void CFNumberCreateChecker::checkPreStmt(const CallExpr *CE,
     if (!BT)
       BT.reset(new APIMisuse(this, "Bad use of CFNumberCreate"));
 
-    auto report = llvm::make_unique<BugReport>(*BT, os.str(), N);
+    auto report = std::make_unique<BugReport>(*BT, os.str(), N);
     report->addRange(CE->getArg(2)->getSourceRange());
     C.emitReport(std::move(report));
   }
@@ -605,7 +605,7 @@ void CFRetainReleaseChecker::checkPreStmt(const CallExpr *CE,
     else
       llvm_unreachable("impossible case");
 
-    auto report = llvm::make_unique<BugReport>(*BT, description, N);
+    auto report = std::make_unique<BugReport>(*BT, description, N);
     report->addRange(Arg->getSourceRange());
     bugreporter::trackNullOrUndefValue(N, Arg, *report);
     C.emitReport(std::move(report));
@@ -666,7 +666,7 @@ void ClassReleaseChecker::checkPreObjCMessage(const ObjCMethodCall &msg,
           "of class '" << Class->getName()
        << "' and not the class directly";
   
-    auto report = llvm::make_unique<BugReport>(*BT, os.str(), N);
+    auto report = std::make_unique<BugReport>(*BT, os.str(), N);
     report->addRange(msg.getSourceRange());
     C.emitReport(std::move(report));
   }
@@ -819,7 +819,7 @@ void VariadicMethodTypeChecker::checkPreObjCMessage(const ObjCMethodCall &msg,
     ArgTy.print(os, C.getLangOpts());
     os << "'";
 
-    auto R = llvm::make_unique<BugReport>(*BT, os.str(), errorNode.getValue());
+    auto R = std::make_unique<BugReport>(*BT, os.str(), errorNode.getValue());
     R->addRange(msg.getArgSourceRange(I));
     C.emitReport(std::move(R));
   }

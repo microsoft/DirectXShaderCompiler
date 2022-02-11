@@ -83,7 +83,7 @@ void UndefinedAssignmentChecker::checkBind(SVal location, SVal val,
     break;
   }
 
-  auto R = llvm::make_unique<BugReport>(*BT, str, N);
+  auto R = std::make_unique<BugReport>(*BT, str, N);
   if (ex) {
     R->addRange(ex->getSourceRange());
     bugreporter::trackNullOrUndefValue(N, ex, *R);

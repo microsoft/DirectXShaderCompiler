@@ -86,7 +86,7 @@ public:
                                         bool shouldMessage = false) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
-    std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
+    std::unique_ptr<DxcOpts> opts = std::make_unique<DxcOpts>();
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
     EXPECT_EQ(shouldFail, result != 0);
@@ -98,7 +98,7 @@ public:
       const char *expectErrorMsg) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
-    std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
+    std::unique_ptr<DxcOpts> opts = std::make_unique<DxcOpts>();
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
     EXPECT_EQ(result, 1);

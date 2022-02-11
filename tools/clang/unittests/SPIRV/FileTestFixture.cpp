@@ -123,6 +123,7 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
     // Print effcee's error message (if any).
     if (result.status() != effcee::Result::Status::Ok) {
       fprintf(stderr, "%s\n", result.message().c_str());
+      fprintf(stderr, "%s\n", generatedSpirvAsm.c_str());
     }
 
     // All checks must have passed.

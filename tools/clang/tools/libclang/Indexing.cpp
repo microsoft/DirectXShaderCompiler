@@ -425,16 +425,16 @@ public:
 
     IndexCtx.setASTContext(CI.getASTContext());
     Preprocessor &PP = CI.getPreprocessor();
-    PP.addPPCallbacks(llvm::make_unique<IndexPPCallbacks>(PP, IndexCtx));
+    PP.addPPCallbacks(std::make_unique<IndexPPCallbacks>(PP, IndexCtx));
     IndexCtx.setPreprocessor(PP);
 
     if (SKData) {
       auto *PPRec = new PPConditionalDirectiveRecord(PP.getSourceManager());
       PP.addPPCallbacks(std::unique_ptr<PPCallbacks>(PPRec));
-      SKCtrl = llvm::make_unique<TUSkipBodyControl>(*SKData, *PPRec, PP);
+      SKCtrl = std::make_unique<TUSkipBodyControl>(*SKData, *PPRec, PP);
     }
 
-    return llvm::make_unique<IndexingConsumer>(IndexCtx, SKCtrl.get());
+    return std::make_unique<IndexingConsumer>(IndexCtx, SKCtrl.get());
   }
 
   void EndSourceFileAction() override {

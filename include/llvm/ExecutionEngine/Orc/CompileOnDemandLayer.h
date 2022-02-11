@@ -174,7 +174,7 @@ private:
     LMResources.SourceModule = SrcM;
 
     // Create the GVs-and-stubs module.
-    auto GVsAndStubsM = llvm::make_unique<Module>(
+    auto GVsAndStubsM = std::make_unique<Module>(
                           (SrcM->getName() + ".globals_and_stubs").str(),
                           SrcM->getContext());
     GVsAndStubsM->setDataLayout(SrcM->getDataLayout());
@@ -235,7 +235,7 @@ private:
     GVsAndStubsMSet.push_back(std::move(GVsAndStubsM));
     auto GVsAndStubsH =
       BaseLayer.addModuleSet(std::move(GVsAndStubsMSet),
-                             llvm::make_unique<SectionMemoryManager>(),
+                             std::make_unique<SectionMemoryManager>(),
                              std::move(GVsAndStubsResolver));
     LD.addToLogicalModule(LMH, GVsAndStubsH);
   }
@@ -307,7 +307,7 @@ private:
       NewName += F->getName();
     }
 
-    auto M = llvm::make_unique<Module>(NewName, SrcM.getContext());
+    auto M = std::make_unique<Module>(NewName, SrcM.getContext());
     M->setDataLayout(SrcM.getDataLayout());
     ValueToValueMapTy VMap;
     GlobalDeclMaterializer GDM(*M, &LMResources.StubsToClone);
@@ -321,7 +321,7 @@ private:
       moveFunctionBody(*F, VMap, &GDM);
 
     // Create memory manager and symbol resolver.
-    auto MemMgr = llvm::make_unique<SectionMemoryManager>();
+    auto MemMgr = std::make_unique<SectionMemoryManager>();
     auto Resolver = createLambdaResolver(
         [this, &LD, LMH](const std::string &Name) {
           if (auto Symbol = LD.findSymbolInternally(LMH, Name))

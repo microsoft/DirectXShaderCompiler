@@ -292,7 +292,7 @@ public:
     checkerMgr = createCheckerManager(*Opts, PP.getLangOpts(), Plugins,
                                       PP.getDiagnostics());
 
-    Mgr = llvm::make_unique<AnalysisManager>(
+    Mgr = std::make_unique<AnalysisManager>(
         *Ctx, PP.getDiagnostics(), PP.getLangOpts(), PathConsumers,
         CreateStoreMgr, CreateConstraintMgr, checkerMgr.get(), *Opts, Injector);
   }
@@ -703,7 +703,7 @@ ento::CreateAnalysisConsumer(CompilerInstance &CI) {
   AnalyzerOptionsRef analyzerOpts = CI.getAnalyzerOpts();
   bool hasModelPath = analyzerOpts->Config.count("model-path") > 0;
 
-  return llvm::make_unique<AnalysisConsumer>(
+  return std::make_unique<AnalysisConsumer>(
       CI.getPreprocessor(), CI.getFrontendOpts().OutputFile, analyzerOpts,
       CI.getFrontendOpts().Plugins,
       hasModelPath ? new ModelInjector(CI) : nullptr);
@@ -739,9 +739,9 @@ static std::unique_ptr<ExplodedNode::Auditor> CreateUbiViz() {
   llvm::sys::fs::createTemporaryFile("llvm_ubi", "", FD, P);
   llvm::errs() << "Writing '" << P << "'.\n";
 
-  auto Stream = llvm::make_unique<llvm::raw_fd_ostream>(FD, true);
+  auto Stream = std::make_unique<llvm::raw_fd_ostream>(FD, true);
 
-  return llvm::make_unique<UbigraphViz>(std::move(Stream), P);
+  return std::make_unique<UbigraphViz>(std::move(Stream), P);
 }
 
 void UbigraphViz::AddEdge(ExplodedNode *Src, ExplodedNode *Dst) {

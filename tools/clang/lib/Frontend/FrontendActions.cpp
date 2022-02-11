@@ -40,7 +40,7 @@ using namespace clang;
 
 std::unique_ptr<ASTConsumer>
 InitOnlyAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
-  return llvm::make_unique<ASTConsumer>();
+  return std::make_unique<ASTConsumer>();
 }
 
 void InitOnlyAction::ExecuteAction() {
@@ -97,7 +97,7 @@ GeneratePCHAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 
   auto Buffer = std::make_shared<PCHBuffer>();
   std::vector<std::unique_ptr<ASTConsumer>> Consumers;
-  Consumers.push_back(llvm::make_unique<PCHGenerator>(
+  Consumers.push_back(std::make_unique<PCHGenerator>(
       CI.getPreprocessor(), OutputFile, nullptr, Sysroot, Buffer));
   Consumers.push_back(
       CI.getPCHContainerWriter().CreatePCHContainerGenerator(
@@ -105,7 +105,7 @@ GeneratePCHAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
           CI.getPreprocessorOpts(), CI.getTargetOpts(), CI.getLangOpts(),
           InFile, OutputFile, OS, Buffer));
 
-  return llvm::make_unique<MultiplexConsumer>(std::move(Consumers));
+  return std::make_unique<MultiplexConsumer>(std::move(Consumers));
 }
 
 raw_pwrite_stream *GeneratePCHAction::ComputeASTConsumerArguments(
@@ -143,14 +143,14 @@ GenerateModuleAction::CreateASTConsumer(CompilerInstance &CI,
 
   auto Buffer = std::make_shared<PCHBuffer>();
   std::vector<std::unique_ptr<ASTConsumer>> Consumers;
-  Consumers.push_back(llvm::make_unique<PCHGenerator>(
+  Consumers.push_back(std::make_unique<PCHGenerator>(
       CI.getPreprocessor(), OutputFile, Module, Sysroot, Buffer));
   Consumers.push_back(
       CI.getPCHContainerWriter().CreatePCHContainerGenerator(
           CI.getDiagnostics(), CI.getHeaderSearchOpts(),
           CI.getPreprocessorOpts(), CI.getTargetOpts(), CI.getLangOpts(),
           InFile, OutputFile, OS, Buffer));
-  return llvm::make_unique<MultiplexConsumer>(std::move(Consumers));
+  return std::make_unique<MultiplexConsumer>(std::move(Consumers));
 }
 
 static SmallVectorImpl<char> &
@@ -405,19 +405,19 @@ raw_pwrite_stream *GenerateModuleAction::ComputeASTConsumerArguments(
 
 std::unique_ptr<ASTConsumer>
 SyntaxOnlyAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
-  return llvm::make_unique<ASTConsumer>();
+  return std::make_unique<ASTConsumer>();
 }
 
 #if 0 // HLSL Change Starts - no support for modules or PCH
 std::unique_ptr<ASTConsumer>
 DumpModuleInfoAction::CreateASTConsumer(CompilerInstance &CI,
                                         StringRef InFile) {
-  return llvm::make_unique<ASTConsumer>();
+  return std::make_unique<ASTConsumer>();
 }
 
 std::unique_ptr<ASTConsumer>
 VerifyPCHAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
-  return llvm::make_unique<ASTConsumer>();
+  return std::make_unique<ASTConsumer>();
 }
 
 void VerifyPCHAction::ExecuteAction() {
@@ -705,7 +705,7 @@ HLSLRootSignatureAction::HLSLRootSignatureAction(StringRef rootSigMacro,
                                                  unsigned major, unsigned minor)
     : HLSLRootSignatureMacro(rootSigMacro), rootSigMajor(major),
       rootSigMinor(minor) {
-  rootSigHandle = llvm::make_unique<hlsl::RootSignatureHandle>();
+  rootSigHandle = std::make_unique<hlsl::RootSignatureHandle>();
 }
 
 void HLSLRootSignatureAction::ExecuteAction() {

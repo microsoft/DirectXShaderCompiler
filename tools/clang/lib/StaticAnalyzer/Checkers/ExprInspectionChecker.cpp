@@ -98,7 +98,7 @@ void ExprInspectionChecker::analyzerEval(const CallExpr *CE,
     BT.reset(new BugType(this, "Checking analyzer assumptions", "debug"));
 
   C.emitReport(
-      llvm::make_unique<BugReport>(*BT, getArgumentValueString(CE, C), N));
+      std::make_unique<BugReport>(*BT, getArgumentValueString(CE, C), N));
 }
 
 void ExprInspectionChecker::analyzerWarnIfReached(const CallExpr *CE,
@@ -108,7 +108,7 @@ void ExprInspectionChecker::analyzerWarnIfReached(const CallExpr *CE,
   if (!BT)
     BT.reset(new BugType(this, "Checking analyzer assumptions", "debug"));
 
-  C.emitReport(llvm::make_unique<BugReport>(*BT, "REACHABLE", N));
+  C.emitReport(std::make_unique<BugReport>(*BT, "REACHABLE", N));
 }
 
 void ExprInspectionChecker::analyzerCheckInlined(const CallExpr *CE,
@@ -128,7 +128,7 @@ void ExprInspectionChecker::analyzerCheckInlined(const CallExpr *CE,
     BT.reset(new BugType(this, "Checking analyzer assumptions", "debug"));
 
   C.emitReport(
-      llvm::make_unique<BugReport>(*BT, getArgumentValueString(CE, C), N));
+      std::make_unique<BugReport>(*BT, getArgumentValueString(CE, C), N));
 }
 
 void ExprInspectionChecker::analyzerCrash(const CallExpr *CE,

@@ -193,7 +193,7 @@ LTOModule *LTOModule::makeLTOModule(MemoryBufferRef Buffer,
                                     LLVMContext *Context) {
   std::unique_ptr<LLVMContext> OwnedContext;
   if (!Context) {
-    OwnedContext = llvm::make_unique<LLVMContext>();
+    OwnedContext = std::make_unique<LLVMContext>();
     Context = OwnedContext.get();
   }
 

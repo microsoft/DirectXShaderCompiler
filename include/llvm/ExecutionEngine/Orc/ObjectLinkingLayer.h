@@ -40,7 +40,7 @@ protected:
   public:
     LinkedObjectSet(RuntimeDyld::MemoryManager &MemMgr,
                     RuntimeDyld::SymbolResolver &Resolver)
-        : RTDyld(llvm::make_unique<RuntimeDyld>(MemMgr, Resolver)),
+        : RTDyld(std::make_unique<RuntimeDyld>(MemMgr, Resolver)),
           State(Raw) {}
 
     virtual ~LinkedObjectSet() {}
@@ -139,7 +139,7 @@ private:
   std::unique_ptr<LinkedObjectSet>
   createLinkedObjectSet(MemoryManagerPtrT MemMgr, SymbolResolverPtrT Resolver) {
     typedef ConcreteLinkedObjectSet<MemoryManagerPtrT, SymbolResolverPtrT> LOS;
-    return llvm::make_unique<LOS>(std::move(MemMgr), std::move(Resolver));
+    return std::make_unique<LOS>(std::move(MemMgr), std::move(Resolver));
   }
 
 public:

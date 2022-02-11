@@ -253,7 +253,7 @@ void Calculate(DominatorTreeBase<typename GraphTraits<NodeT>::NodeType>& DT,
 
   DT.RootNode =
       (DT.DomTreeNodes[Root] =
-           llvm::make_unique<DomTreeNodeBase<typename GraphT::NodeType>>(
+           std::make_unique<DomTreeNodeBase<typename GraphT::NodeType>>(
                Root, nullptr)).get();
 
   // Loop over all of the reachable blocks in the function...
@@ -275,7 +275,7 @@ void Calculate(DominatorTreeBase<typename GraphTraits<NodeT>::NodeType>& DT,
     // Add a new tree node for this BasicBlock, and link it as a child of
     // IDomNode
     DT.DomTreeNodes[W] = IDomNode->addChild(
-        llvm::make_unique<DomTreeNodeBase<typename GraphT::NodeType>>(
+        std::make_unique<DomTreeNodeBase<typename GraphT::NodeType>>(
             W, IDomNode));
   }
 

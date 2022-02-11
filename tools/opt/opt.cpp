@@ -505,7 +505,7 @@ int __cdecl main(int argc, char **argv) {
         OutputFilename = "-";
 
       std::error_code EC;
-      Out = llvm::make_unique<tool_output_file>(OutputFilename, EC,
+      Out = std::make_unique<tool_output_file>(OutputFilename, EC,
                                                 sys::fs::F_None);
       if (EC) {
         errs() << EC.message() << '\n';

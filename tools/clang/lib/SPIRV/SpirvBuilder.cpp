@@ -28,7 +28,7 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt,
                            FeatureManager &featureMgr)
     : astContext(&ac), context(ctx), featureManager(featureMgr),
-      mod(llvm::make_unique<SpirvModule>()), function(nullptr),
+      mod(std::make_unique<SpirvModule>()), function(nullptr),
       moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
       builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
       stringLiterals() {}
@@ -36,7 +36,7 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
 SpirvBuilder::SpirvBuilder(SpirvContext &ctx, const SpirvCodeGenOptions &opt,
                            FeatureManager &featureMg)
     : astContext(nullptr), context(ctx), featureManager(featureMg),
-      mod(llvm::make_unique<SpirvModule>()), function(nullptr),
+      mod(std::make_unique<SpirvModule>()), function(nullptr),
       moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
       builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
       stringLiterals() {}

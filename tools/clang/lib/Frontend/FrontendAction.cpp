@@ -169,7 +169,7 @@ FrontendAction::CreateWrappedASTConsumer(CompilerInstance &CI,
     }
   }
 
-  return llvm::make_unique<MultiplexConsumer>(std::move(Consumers));
+  return std::make_unique<MultiplexConsumer>(std::move(Consumers));
 }
 
 bool FrontendAction::BeginSourceFile(CompilerInstance &CI,

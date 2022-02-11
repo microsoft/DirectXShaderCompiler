@@ -155,7 +155,7 @@ GetOutputStream(const char *TargetName, Triple::OSType OS,
   sys::fs::OpenFlags OpenFlags = sys::fs::F_None;
   if (!Binary)
     OpenFlags |= sys::fs::F_Text;
-  auto FDOut = llvm::make_unique<tool_output_file>(OutputFilename, EC,
+  auto FDOut = std::make_unique<tool_output_file>(OutputFilename, EC,
                                                    OpenFlags);
   if (EC) {
     errs() << EC.message() << '\n';

@@ -552,14 +552,14 @@ std::string FileInfo::getCoveragePath(StringRef Filename,
 std::unique_ptr<raw_ostream>
 FileInfo::openCoveragePath(StringRef CoveragePath) {
   if (Options.NoOutput)
-    return llvm::make_unique<raw_null_ostream>();
+    return std::make_unique<raw_null_ostream>();
 
   std::error_code EC;
-  auto OS = llvm::make_unique<raw_fd_ostream>(CoveragePath, EC,
+  auto OS = std::make_unique<raw_fd_ostream>(CoveragePath, EC,
                                               sys::fs::F_Text);
   if (EC) {
     errs() << EC.message() << "\n";
-    return llvm::make_unique<raw_null_ostream>();
+    return std::make_unique<raw_null_ostream>();
   }
   return std::move(OS);
 }

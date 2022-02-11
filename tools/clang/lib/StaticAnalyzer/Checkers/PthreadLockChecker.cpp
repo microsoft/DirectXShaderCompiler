@@ -145,7 +145,7 @@ void PthreadLockChecker::AcquireLock(CheckerContext &C, const CallExpr *CE,
       ExplodedNode *N = C.generateSink();
       if (!N)
         return;
-      auto report = llvm::make_unique<BugReport>(
+      auto report = std::make_unique<BugReport>(
           *BT_doublelock, "This lock has already been acquired", N);
       report->addRange(CE->getArg(0)->getSourceRange());
       C.emitReport(std::move(report));
@@ -207,7 +207,7 @@ void PthreadLockChecker::ReleaseLock(CheckerContext &C, const CallExpr *CE,
       ExplodedNode *N = C.generateSink();
       if (!N)
         return;
-      auto Report = llvm::make_unique<BugReport>(
+      auto Report = std::make_unique<BugReport>(
           *BT_doubleunlock, "This lock has already been unlocked", N);
       Report->addRange(CE->getArg(0)->getSourceRange());
       C.emitReport(std::move(Report));
@@ -230,7 +230,7 @@ void PthreadLockChecker::ReleaseLock(CheckerContext &C, const CallExpr *CE,
       ExplodedNode *N = C.generateSink();
       if (!N)
         return;
-      auto report = llvm::make_unique<BugReport>(
+      auto report = std::make_unique<BugReport>(
           *BT_lor, "This was not the most recently acquired lock. Possible "
                    "lock order reversal", N);
       report->addRange(CE->getArg(0)->getSourceRange());
@@ -275,7 +275,7 @@ void PthreadLockChecker::DestroyLock(CheckerContext &C, const CallExpr *CE,
   ExplodedNode *N = C.generateSink();
   if (!N)
     return;
-  auto Report = llvm::make_unique<BugReport>(*BT_destroylock, Message, N);
+  auto Report = std::make_unique<BugReport>(*BT_destroylock, Message, N);
   Report->addRange(CE->getArg(0)->getSourceRange());
   C.emitReport(std::move(Report));
 }
@@ -310,7 +310,7 @@ void PthreadLockChecker::InitLock(CheckerContext &C, const CallExpr *CE,
   ExplodedNode *N = C.generateSink();
   if (!N)
     return;
-  auto Report = llvm::make_unique<BugReport>(*BT_initlock, Message, N);
+  auto Report = std::make_unique<BugReport>(*BT_initlock, Message, N);
   Report->addRange(CE->getArg(0)->getSourceRange());
   C.emitReport(std::move(Report));
 }
@@ -323,7 +323,7 @@ void PthreadLockChecker::reportUseDestroyedBug(CheckerContext &C,
   ExplodedNode *N = C.generateSink();
   if (!N)
     return;
-  auto Report = llvm::make_unique<BugReport>(
+  auto Report = std::make_unique<BugReport>(
       *BT_destroylock, "This lock has already been destroyed", N);
   Report->addRange(CE->getArg(0)->getSourceRange());
   C.emitReport(std::move(Report));

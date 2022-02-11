@@ -329,7 +329,7 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
     if (CorrectedII) {
       TypoCorrection Correction = CorrectTypo(
           Result.getLookupNameInfo(), Kind, S, SS,
-          llvm::make_unique<TypeNameValidatorCCC>(true, isClassName),
+          std::make_unique<TypeNameValidatorCCC>(true, isClassName),
           CTK_ErrorRecovery);
       IdentifierInfo *NewII = Correction.getCorrectionAsIdentifierInfo();
       TemplateTy Template;
@@ -566,7 +566,7 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
   // results, in case we have something that we can suggest.
   if (TypoCorrection Corrected =
           CorrectTypo(DeclarationNameInfo(II, IILoc), LookupOrdinaryName, S, SS,
-                      llvm::make_unique<TypeNameValidatorCCC>(
+                      std::make_unique<TypeNameValidatorCCC>(
                           false, false, AllowClassTemplates),
                       CTK_ErrorRecovery)) {
     if (Corrected.isKeyword()) {
@@ -1645,7 +1645,7 @@ ObjCInterfaceDecl *Sema::getObjCInterfaceDecl(IdentifierInfo *&Id,
     // find an Objective-C class name.
     if (TypoCorrection C = CorrectTypo(
             DeclarationNameInfo(Id, IdLoc), LookupOrdinaryName, TUScope, nullptr,
-            llvm::make_unique<DeclFilterCCC<ObjCInterfaceDecl>>(),
+            std::make_unique<DeclFilterCCC<ObjCInterfaceDecl>>(),
             CTK_ErrorRecovery)) {
       diagnoseTypo(C, PDiag(diag::err_undef_interface_suggest) << Id);
       IDecl = C.getCorrectionDeclAs<ObjCInterfaceDecl>();
@@ -6788,7 +6788,7 @@ static NamedDecl *DiagnoseInvalidRedeclaration(
   } else if ((Correction = SemaRef.CorrectTypo(
                   Prev.getLookupNameInfo(), Prev.getLookupKind(), S,
                   &ExtraArgs.D.getCXXScopeSpec(),
-                  llvm::make_unique<DifferentNameValidatorCCC>(
+                  std::make_unique<DifferentNameValidatorCCC>(
                       SemaRef.Context, NewFD, MD ? MD->getParent() : nullptr),
                   Sema::CTK_ErrorRecovery, IsLocalFriend ? nullptr : NewDC))) {
     // Set up everything for the call to ActOnFunctionDeclarator
@@ -11155,7 +11155,7 @@ NamedDecl *Sema::ImplicitlyDefineFunction(SourceLocation Loc,
     if (S &&
         (Corrected = CorrectTypo(
              DeclarationNameInfo(&II, Loc), LookupOrdinaryName, S, nullptr,
-             llvm::make_unique<DeclFilterCCC<FunctionDecl>>(), CTK_NonError)))
+             std::make_unique<DeclFilterCCC<FunctionDecl>>(), CTK_NonError)))
       diagnoseTypo(Corrected, PDiag(diag::note_function_suggestion),
                    /*ErrorRecovery*/false);
   }

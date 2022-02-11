@@ -768,7 +768,7 @@ public:
       CComPtr<AbstractMemoryStream> pReflectionStream;
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-          llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
+          std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
       SetupCompilerForCompile(compiler, &m_langExtensionsHelper, pUtf8SourceName, diagPrinter.get(), defines, opts, pArguments, argCount);
       msfPtr->SetupForCompilerInstance(compiler);
 

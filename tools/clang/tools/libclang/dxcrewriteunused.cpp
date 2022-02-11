@@ -664,7 +664,7 @@ HRESULT GenerateAST(DxcLangExtensionsHelper *pExtHelper, LPCSTR pFileName,
   compiler.getLangOpts().EnableTemplates = opts.EnableTemplates;
 
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-      llvm::make_unique<TextDiagnosticPrinter>(w,
+      std::make_unique<TextDiagnosticPrinter>(w,
                                                &compiler.getDiagnosticOpts());
   std::string definesStr = DefinesToString(pDefines, defineCount);
 
@@ -1253,7 +1253,7 @@ HRESULT preprocessRewrittenFiles(
   // PrintPreprocessedAction will createPreprocessor.
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-      llvm::make_unique<TextDiagnosticPrinter>(w,
+      std::make_unique<TextDiagnosticPrinter>(w,
                                                &compiler.getDiagnosticOpts());
   SetupCompilerForPreprocess(compiler, pExtHelper, pFileName, diagPrinter.get(),
                              pPreprocessRemap.get(), opts, pDefines,

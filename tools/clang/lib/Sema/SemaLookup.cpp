@@ -4292,7 +4292,7 @@ std::unique_ptr<TypoCorrectionConsumer> Sema::makeTypoCorrectionConsumer(
   }
 
   CorrectionCandidateCallback &CCCRef = *CCC;
-  auto Consumer = llvm::make_unique<TypoCorrectionConsumer>(
+  auto Consumer = std::make_unique<TypoCorrectionConsumer>(
       *this, TypoName, LookupKind, S, SS, std::move(CCC), MemberContext,
       EnteringContext);
 

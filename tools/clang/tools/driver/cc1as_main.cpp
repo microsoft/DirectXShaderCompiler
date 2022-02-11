@@ -264,7 +264,7 @@ getOutputStream(AssemblerInvocation &Opts, DiagnosticsEngine &Diags,
     sys::RemoveFileOnSignal(Opts.OutputPath);
 
   std::error_code EC;
-  auto Out = llvm::make_unique<raw_fd_ostream>(
+  auto Out = std::make_unique<raw_fd_ostream>(
       Opts.OutputPath, EC, (Binary ? sys::fs::F_None : sys::fs::F_Text));
   if (EC) {
     Diags.Report(diag::err_fe_unable_to_open_output) << Opts.OutputPath
@@ -365,7 +365,7 @@ static bool ExecuteAssembler(AssemblerInvocation &Opts,
       CE = TheTarget->createMCCodeEmitter(*MCII, *MRI, Ctx);
       MAB = TheTarget->createMCAsmBackend(*MRI, Opts.Triple, Opts.CPU);
     }
-    auto FOut = llvm::make_unique<formatted_raw_ostream>(*Out);
+    auto FOut = std::make_unique<formatted_raw_ostream>(*Out);
     Str.reset(TheTarget->createAsmStreamer(
         Ctx, std::move(FOut), /*asmverbose*/ true,
         /*useDwarfDirectory*/ true, IP, CE, MAB, Opts.ShowInst));

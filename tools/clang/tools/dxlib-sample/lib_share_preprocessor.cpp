@@ -202,5 +202,5 @@ HRESULT IncludeToLibPreprocessorImpl::Preprocess(
 
 std::unique_ptr<IncludeToLibPreprocessor>
   IncludeToLibPreprocessor::CreateIncludeToLibPreprocessor(IDxcIncludeHandler *handler) {
-  return llvm::make_unique<IncludeToLibPreprocessorImpl>(handler);
+  return std::make_unique<IncludeToLibPreprocessorImpl>(handler);
 }

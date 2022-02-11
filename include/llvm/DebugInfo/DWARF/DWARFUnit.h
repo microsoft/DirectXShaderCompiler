@@ -89,7 +89,7 @@ private:
     DataExtractor Data(Section.Data, LE, 0);
     uint32_t Offset = 0;
     while (Data.isValidOffset(Offset)) {
-      auto U = llvm::make_unique<UnitType>(Context, Section, DA, RS, SS, SOS,
+      auto U = std::make_unique<UnitType>(Context, Section, DA, RS, SS, SOS,
                                            AOS, LE, *this);
       if (!U->extract(Data, &Offset))
         break;

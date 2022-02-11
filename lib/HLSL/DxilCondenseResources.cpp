@@ -1686,7 +1686,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
 
     EltTy =
         UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
-    Type *rowTy = VectorType::get(EltTy, cols);
+    Type *rowTy = FixedVectorType::get(EltTy, cols);
 
     // Matrix should be aligned like array if rows > 1,
     // otherwise, it's just like a vector.
@@ -1696,14 +1696,14 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
       return rowTy;
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     return UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
-  } else if (Ty->isVectorTy()) {
-    Type *EltTy = Ty->getVectorElementType();
+  } else if (FixedVectorType *VTy = dyn_cast<FixedVectorType>(Ty)) {
+    Type *EltTy = VTy->getElementType();
     Type *UpdatedTy =
         UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
     else
-      return VectorType::get(UpdatedTy, Ty->getVectorNumElements());
+      return FixedVectorType::get(UpdatedTy, Ty->getVectorNumElements());
   } else {
     Type *i32Ty = Type::getInt32Ty(Ty->getContext());
     // Basic types.
@@ -1952,9 +1952,9 @@ Value *flattenGepIdx(GEPOperator *GEP) {
     // Must be instruction for multi dim array.
     std::unique_ptr<IRBuilder<>> Builder;
     if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
-      Builder = llvm::make_unique<IRBuilder<>>(GEPInst);
+      Builder = std::make_unique<IRBuilder<>>(GEPInst);
     } else {
-      Builder = llvm::make_unique<IRBuilder<>>(GEP->getContext());
+      Builder = std::make_unique<IRBuilder<>>(GEP->getContext());
     }
     for (; GEPIt != E; ++GEPIt) {
       if (GEPIt->isArrayTy()) {

@@ -135,7 +135,7 @@ CodeCoverageTool::attachExpansionSubViews(SourceCoverageView &View,
       continue;
 
     auto SubViewExpansions = ExpansionCoverage.getExpansions();
-    auto SubView = llvm::make_unique<SourceCoverageView>(
+    auto SubView = std::make_unique<SourceCoverageView>(
         SourceBuffer.get(), ViewOpts, std::move(ExpansionCoverage));
     attachExpansionSubViews(*SubView, SubViewExpansions, Coverage);
     View.addExpansion(Expansion.Region, std::move(SubView));
@@ -153,7 +153,7 @@ CodeCoverageTool::createFunctionView(const FunctionRecord &Function,
     return nullptr;
 
   auto Expansions = FunctionCoverage.getExpansions();
-  auto View = llvm::make_unique<SourceCoverageView>(
+  auto View = std::make_unique<SourceCoverageView>(
       SourceBuffer.get(), ViewOpts, std::move(FunctionCoverage));
   attachExpansionSubViews(*View, Expansions, Coverage);
 
@@ -171,14 +171,14 @@ CodeCoverageTool::createSourceFileView(StringRef SourceFile,
     return nullptr;
 
   auto Expansions = FileCoverage.getExpansions();
-  auto View = llvm::make_unique<SourceCoverageView>(
+  auto View = std::make_unique<SourceCoverageView>(
       SourceBuffer.get(), ViewOpts, std::move(FileCoverage));
   attachExpansionSubViews(*View, Expansions, Coverage);
 
   for (auto Function : Coverage.getInstantiations(SourceFile)) {
     auto SubViewCoverage = Coverage.getCoverageForFunction(*Function);
     auto SubViewExpansions = SubViewCoverage.getExpansions();
-    auto SubView = llvm::make_unique<SourceCoverageView>(
+    auto SubView = std::make_unique<SourceCoverageView>(
         SourceBuffer.get(), ViewOpts, std::move(SubViewCoverage));
     attachExpansionSubViews(*SubView, SubViewExpansions, Coverage);
 
@@ -323,10 +323,10 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
     if (!NameFilters.empty() || !NameRegexFilters.empty()) {
       auto NameFilterer = new CoverageFilters;
       for (const auto &Name : NameFilters)
-        NameFilterer->push_back(llvm::make_unique<NameCoverageFilter>(Name));
+        NameFilterer->push_back(std::make_unique<NameCoverageFilter>(Name));
       for (const auto &Regex : NameRegexFilters)
         NameFilterer->push_back(
-            llvm::make_unique<NameRegexCoverageFilter>(Regex));
+            std::make_unique<NameRegexCoverageFilter>(Regex));
       Filters.push_back(std::unique_ptr<CoverageFilter>(NameFilterer));
     }
     if (RegionCoverageLtFilter.getNumOccurrences() ||
@@ -335,16 +335,16 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
         LineCoverageGtFilter.getNumOccurrences()) {
       auto StatFilterer = new CoverageFilters;
       if (RegionCoverageLtFilter.getNumOccurrences())
-        StatFilterer->push_back(llvm::make_unique<RegionCoverageFilter>(
+        StatFilterer->push_back(std::make_unique<RegionCoverageFilter>(
             RegionCoverageFilter::LessThan, RegionCoverageLtFilter));
       if (RegionCoverageGtFilter.getNumOccurrences())
-        StatFilterer->push_back(llvm::make_unique<RegionCoverageFilter>(
+        StatFilterer->push_back(std::make_unique<RegionCoverageFilter>(
             RegionCoverageFilter::GreaterThan, RegionCoverageGtFilter));
       if (LineCoverageLtFilter.getNumOccurrences())
-        StatFilterer->push_back(llvm::make_unique<LineCoverageFilter>(
+        StatFilterer->push_back(std::make_unique<LineCoverageFilter>(
             LineCoverageFilter::LessThan, LineCoverageLtFilter));
       if (LineCoverageGtFilter.getNumOccurrences())
-        StatFilterer->push_back(llvm::make_unique<LineCoverageFilter>(
+        StatFilterer->push_back(std::make_unique<LineCoverageFilter>(
             RegionCoverageFilter::GreaterThan, LineCoverageGtFilter));
       Filters.push_back(std::unique_ptr<CoverageFilter>(StatFilterer));
     }

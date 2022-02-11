@@ -275,7 +275,7 @@ bool DWARFUnit::parseDWO() {
     sys::path::append(AbsolutePath, CompilationDir);
   }
   sys::path::append(AbsolutePath, DWOFileName);
-  DWO = llvm::make_unique<DWOHolder>(AbsolutePath);
+  DWO = std::make_unique<DWOHolder>(AbsolutePath);
   DWARFUnit *DWOCU = DWO->getUnit();
   // Verify that compile unit in .dwo file is valid.
   if (!DWOCU || DWOCU->getDWOId() != getDWOId()) {

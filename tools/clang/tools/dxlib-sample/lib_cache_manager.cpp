@@ -189,7 +189,7 @@ bool LibCacheManagerImpl::GetLibBlob(std::string &processedHeader,
 
 LibCacheManager *GetLibCacheManagerPtr(bool bFree) {
   static std::unique_ptr<LibCacheManagerImpl> g_LibCache =
-      llvm::make_unique<LibCacheManagerImpl>();
+      std::make_unique<LibCacheManagerImpl>();
   if (bFree)
     g_LibCache.reset();
   return g_LibCache.get();

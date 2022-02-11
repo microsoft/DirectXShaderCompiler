@@ -833,7 +833,7 @@ public:
                     StringRef DiagKind) const override {
     FSet.removeLock(FactMan, Cp);
     if (!Cp.negative()) {
-      FSet.addLock(FactMan, llvm::make_unique<LockableFactEntry>(
+      FSet.addLock(FactMan, std::make_unique<LockableFactEntry>(
                                 !Cp, LK_Exclusive, UnlockLoc));
     }
   }
@@ -874,7 +874,7 @@ public:
     assert(!Cp.negative() && "Managing object cannot be negative.");
     for (const til::SExpr *UnderlyingMutex : UnderlyingMutexes) {
       CapabilityExpr UnderCp(UnderlyingMutex, false);
-      auto UnderEntry = llvm::make_unique<LockableFactEntry>(
+      auto UnderEntry = std::make_unique<LockableFactEntry>(
           !UnderCp, LK_Exclusive, UnlockLoc);
 
       if (FullyRemove) {
@@ -1444,11 +1444,11 @@ void ThreadSafetyAnalyzer::getEdgeLockset(FactSet& Result,
   // Add and remove locks.
   SourceLocation Loc = Exp->getExprLoc();
   for (const auto &ExclusiveLockToAdd : ExclusiveLocksToAdd)
-    addLock(Result, llvm::make_unique<LockableFactEntry>(ExclusiveLockToAdd,
+    addLock(Result, std::make_unique<LockableFactEntry>(ExclusiveLockToAdd,
                                                          LK_Exclusive, Loc),
             CapDiagKind);
   for (const auto &SharedLockToAdd : SharedLocksToAdd)
-    addLock(Result, llvm::make_unique<LockableFactEntry>(SharedLockToAdd,
+    addLock(Result, std::make_unique<LockableFactEntry>(SharedLockToAdd,
                                                          LK_Shared, Loc),
             CapDiagKind);
 }
@@ -1729,7 +1729,7 @@ void BuildLockset::handleCall(Expr *Exp, const NamedDecl *D, VarDecl *VD) {
         Analyzer->getMutexIDs(AssertLocks, A, Exp, D, VD);
         for (const auto &AssertLock : AssertLocks)
           Analyzer->addLock(FSet,
-                            llvm::make_unique<LockableFactEntry>(
+                            std::make_unique<LockableFactEntry>(
                                 AssertLock, LK_Exclusive, Loc, false, true),
                             ClassifyDiagnostic(A));
         break;
@@ -1740,7 +1740,7 @@ void BuildLockset::handleCall(Expr *Exp, const NamedDecl *D, VarDecl *VD) {
         CapExprSet AssertLocks;
         Analyzer->getMutexIDs(AssertLocks, A, Exp, D, VD);
         for (const auto &AssertLock : AssertLocks)
-          Analyzer->addLock(FSet, llvm::make_unique<LockableFactEntry>(
+          Analyzer->addLock(FSet, std::make_unique<LockableFactEntry>(
                                       AssertLock, LK_Shared, Loc, false, true),
                             ClassifyDiagnostic(A));
         break;
@@ -1792,11 +1792,11 @@ void BuildLockset::handleCall(Expr *Exp, const NamedDecl *D, VarDecl *VD) {
 
   // Add locks.
   for (const auto &M : ExclusiveLocksToAdd)
-    Analyzer->addLock(FSet, llvm::make_unique<LockableFactEntry>(
+    Analyzer->addLock(FSet, std::make_unique<LockableFactEntry>(
                                 M, LK_Exclusive, Loc, isScopedVar),
                       CapDiagKind);
   for (const auto &M : SharedLocksToAdd)
-    Analyzer->addLock(FSet, llvm::make_unique<LockableFactEntry>(
+    Analyzer->addLock(FSet, std::make_unique<LockableFactEntry>(
                                 M, LK_Shared, Loc, isScopedVar),
                       CapDiagKind);
 
@@ -1812,7 +1812,7 @@ void BuildLockset::handleCall(Expr *Exp, const NamedDecl *D, VarDecl *VD) {
     std::copy(ScopedSharedReqs.begin(), ScopedSharedReqs.end(),
               std::back_inserter(SharedLocksToAdd));
     Analyzer->addLock(FSet,
-                      llvm::make_unique<ScopedLockableFactEntry>(
+                      std::make_unique<ScopedLockableFactEntry>(
                           Scp, MLoc, ExclusiveLocksToAdd, SharedLocksToAdd),
                       CapDiagKind);
   }
@@ -2176,12 +2176,12 @@ void ThreadSafetyAnalyzer::runAnalysis(AnalysisDeclContext &AC) {
 
     // FIXME -- Loc can be wrong here.
     for (const auto &Mu : ExclusiveLocksToAdd) {
-      auto Entry = llvm::make_unique<LockableFactEntry>(Mu, LK_Exclusive, Loc);
+      auto Entry = std::make_unique<LockableFactEntry>(Mu, LK_Exclusive, Loc);
       Entry->setDeclared(true);
       addLock(InitialLockset, std::move(Entry), CapDiagKind, true);
     }
     for (const auto &Mu : SharedLocksToAdd) {
-      auto Entry = llvm::make_unique<LockableFactEntry>(Mu, LK_Shared, Loc);
+      auto Entry = std::make_unique<LockableFactEntry>(Mu, LK_Shared, Loc);
       Entry->setDeclared(true);
       addLock(InitialLockset, std::move(Entry), CapDiagKind, true);
     }
@@ -2353,10 +2353,10 @@ void ThreadSafetyAnalyzer::runAnalysis(AnalysisDeclContext &AC) {
   // issue the appropriate warning.
   // FIXME: the location here is not quite right.
   for (const auto &Lock : ExclusiveLocksAcquired)
-    ExpectedExitSet.addLock(FactMan, llvm::make_unique<LockableFactEntry>(
+    ExpectedExitSet.addLock(FactMan, std::make_unique<LockableFactEntry>(
                                          Lock, LK_Exclusive, D->getLocation()));
   for (const auto &Lock : SharedLocksAcquired)
-    ExpectedExitSet.addLock(FactMan, llvm::make_unique<LockableFactEntry>(
+    ExpectedExitSet.addLock(FactMan, std::make_unique<LockableFactEntry>(
                                          Lock, LK_Shared, D->getLocation()));
   for (const auto &Lock : LocksReleased)
     ExpectedExitSet.removeLock(FactMan, Lock);

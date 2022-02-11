@@ -117,7 +117,7 @@ std::unique_ptr<PathDiagnosticPiece> BugReporterVisitor::getDefaultEndPath(
 
   // Only add the statement itself as a range if we didn't specify any
   // special ranges for this report.
-  auto P = llvm::make_unique<PathDiagnosticEventPiece>(
+  auto P = std::make_unique<PathDiagnosticEventPiece>(
       L, BR.getDescription(), Ranges.begin() == Ranges.end());
   for (const SourceRange &Range : Ranges)
     P->addRange(Range);
@@ -219,7 +219,7 @@ public:
         EnableNullFPSuppression = State->isNull(*RetLoc).isConstrainedTrue();
 
     BR.markInteresting(CalleeContext);
-    BR.addVisitor(llvm::make_unique<ReturnVisitor>(CalleeContext,
+    BR.addVisitor(std::make_unique<ReturnVisitor>(CalleeContext,
                                                    EnableNullFPSuppression));
   }
 
@@ -567,7 +567,7 @@ PathDiagnosticPiece *FindLastStoreBRVisitor::VisitNode(const ExplodedNode *Succ,
           if (const VarRegion *OriginalR = BDR->getOriginalRegion(VR)) {
             if (Optional<KnownSVal> KV =
                 State->getSVal(OriginalR).getAs<KnownSVal>())
-              BR.addVisitor(llvm::make_unique<FindLastStoreBRVisitor>(
+              BR.addVisitor(std::make_unique<FindLastStoreBRVisitor>(
                   *KV, OriginalR, EnableNullFPSuppression));
           }
         }
@@ -977,7 +977,7 @@ bool bugreporter::trackNullOrUndefValue(const ExplodedNode *N,
       // got initialized.
       if (const MemRegion *RR = getLocationRegionIfReference(Inner, N)) {
         if (Optional<KnownSVal> KV = LVal.getAs<KnownSVal>())
-          report.addVisitor(llvm::make_unique<FindLastStoreBRVisitor>(
+          report.addVisitor(std::make_unique<FindLastStoreBRVisitor>(
               *KV, RR, EnableNullFPSuppression));
       }
     }
@@ -988,11 +988,11 @@ bool bugreporter::trackNullOrUndefValue(const ExplodedNode *N,
 
       report.markInteresting(R);
       report.markInteresting(V);
-      report.addVisitor(llvm::make_unique<UndefOrNullArgVisitor>(R));
+      report.addVisitor(std::make_unique<UndefOrNullArgVisitor>(R));
 
       // If the contents are symbolic, find out when they became null.
       if (V.getAsLocSymbol(/*IncludeBaseRegions*/ true))
-        report.addVisitor(llvm::make_unique<TrackConstraintBRVisitor>(
+        report.addVisitor(std::make_unique<TrackConstraintBRVisitor>(
             V.castAs<DefinedSVal>(), false));
 
       // Add visitor, which will suppress inline defensive checks.
@@ -1000,13 +1000,13 @@ bool bugreporter::trackNullOrUndefValue(const ExplodedNode *N,
         if (!DV->isZeroConstant() && LVState->isNull(*DV).isConstrainedTrue() &&
             EnableNullFPSuppression) {
           report.addVisitor(
-              llvm::make_unique<SuppressInlineDefensiveChecksVisitor>(*DV,
+              std::make_unique<SuppressInlineDefensiveChecksVisitor>(*DV,
                                                                       LVNode));
         }
       }
 
       if (Optional<KnownSVal> KV = V.getAs<KnownSVal>())
-        report.addVisitor(llvm::make_unique<FindLastStoreBRVisitor>(
+        report.addVisitor(std::make_unique<FindLastStoreBRVisitor>(
             *KV, R, EnableNullFPSuppression));
       return true;
     }
@@ -1038,11 +1038,11 @@ bool bugreporter::trackNullOrUndefValue(const ExplodedNode *N,
       RVal = state->getSVal(L->getRegion());
 
     const MemRegion *RegionRVal = RVal.getAsRegion();
-    report.addVisitor(llvm::make_unique<UndefOrNullArgVisitor>(L->getRegion()));
+    report.addVisitor(std::make_unique<UndefOrNullArgVisitor>(L->getRegion()));
 
     if (RegionRVal && isa<SymbolicRegion>(RegionRVal)) {
       report.markInteresting(RegionRVal);
-      report.addVisitor(llvm::make_unique<TrackConstraintBRVisitor>(
+      report.addVisitor(std::make_unique<TrackConstraintBRVisitor>(
           loc::MemRegionVal(RegionRVal), false));
     }
   }
@@ -1126,7 +1126,7 @@ void FindLastStoreBRVisitor::registerStatementVarDecls(BugReport &BR,
 
         if (V.getAs<loc::ConcreteInt>() || V.getAs<nonloc::ConcreteInt>()) {
           // Register a new visitor with the BugReport.
-          BR.addVisitor(llvm::make_unique<FindLastStoreBRVisitor>(
+          BR.addVisitor(std::make_unique<FindLastStoreBRVisitor>(
               V.castAs<KnownSVal>(), R, EnableNullFPSuppression));
         }
       }

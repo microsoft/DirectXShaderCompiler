@@ -191,7 +191,7 @@ struct ValidationContext {
     for (Function &F : llvmModule.functions()) {
       if (DxilMod.HasDxilEntryProps(&F)) {
         DxilEntryProps &entryProps = DxilMod.GetDxilEntryProps(&F);
-        entryStatusMap[&F] = llvm::make_unique<EntryStatus>(entryProps);
+        entryStatusMap[&F] = std::make_unique<EntryStatus>(entryProps);
       }
     }
 

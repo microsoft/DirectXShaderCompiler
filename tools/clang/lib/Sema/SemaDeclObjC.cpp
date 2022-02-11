@@ -484,7 +484,7 @@ ActOnSuperClassOfClassInterface(Scope *S,
     if (TypoCorrection Corrected = CorrectTypo(
             DeclarationNameInfo(SuperName, SuperLoc),
             LookupOrdinaryName, TUScope,
-            NULL, llvm::make_unique<ObjCInterfaceValidatorCCC>(IDecl),
+            NULL, std::make_unique<ObjCInterfaceValidatorCCC>(IDecl),
             CTK_ErrorRecovery)) {
       diagnoseTypo(Corrected, PDiag(diag::err_undef_superclass_suggest)
                    << SuperName << ClassName);
@@ -1194,7 +1194,7 @@ Sema::FindProtocolDeclaration(bool WarnOnDeclarations, bool ForObjCContainer,
       TypoCorrection Corrected = CorrectTypo(
           DeclarationNameInfo(ProtocolId[i].first, ProtocolId[i].second),
           LookupObjCProtocolName, TUScope, nullptr,
-          llvm::make_unique<DeclFilterCCC<ObjCProtocolDecl>>(),
+          std::make_unique<DeclFilterCCC<ObjCProtocolDecl>>(),
           CTK_ErrorRecovery);
       if ((PDecl = Corrected.getCorrectionDeclAs<ObjCProtocolDecl>()))
         diagnoseTypo(Corrected, PDiag(diag::err_undeclared_protocol_suggest)
@@ -1567,7 +1567,7 @@ void Sema::actOnObjCTypeArgsOrProtocolQualifiers(
     TypoCorrection corrected = CorrectTypo(
         DeclarationNameInfo(identifiers[i], identifierLocs[i]), lookupKind, S,
         nullptr,
-        llvm::make_unique<ObjCTypeArgOrProtocolValidatorCCC>(Context,
+        std::make_unique<ObjCTypeArgOrProtocolValidatorCCC>(Context,
                                                              lookupKind),
         CTK_ErrorRecovery);
     if (corrected) {
@@ -1857,7 +1857,7 @@ Decl *Sema::ActOnStartClassImplementation(
     // typos in the class name.
     TypoCorrection Corrected = CorrectTypo(
         DeclarationNameInfo(ClassName, ClassLoc), LookupOrdinaryName, TUScope,
-        nullptr, llvm::make_unique<ObjCInterfaceValidatorCCC>(), CTK_NonError);
+        nullptr, std::make_unique<ObjCInterfaceValidatorCCC>(), CTK_NonError);
     if (Corrected.getCorrectionDeclAs<ObjCInterfaceDecl>()) {
       // Suggest the (potentially) correct interface name. Don't provide a
       // code-modification hint or use the typo name for recovery, because

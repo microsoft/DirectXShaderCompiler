@@ -426,7 +426,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
            "else CGMSHLSLRuntime Constructor needs to be updated");
 
   // add globalCB
-  unique_ptr<HLCBuffer> CB = llvm::make_unique<HLCBuffer>(false, false);
+  unique_ptr<HLCBuffer> CB = std::make_unique<HLCBuffer>(false, false);
   std::string globalCBName = "$Globals";
   CB->SetGlobalSymbol(nullptr);
   CB->SetGlobalName(globalCBName);
@@ -1421,7 +1421,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   DiagnosticsEngine &Diags = CGM.getDiags();
 
   std::unique_ptr<DxilFunctionProps> funcProps =
-      llvm::make_unique<DxilFunctionProps>();
+      std::make_unique<DxilFunctionProps>();
   funcProps->shaderKind = DXIL::ShaderKind::Invalid;
   bool isCS = false;
   bool isGS = false;
@@ -3457,7 +3457,7 @@ void CGMSHLSLRuntime::AddConstantToCB(GlobalVariable *CV, StringRef Name,
                                       QualType Ty, unsigned LowerBound,
                                       HLCBuffer &CB) {
   std::unique_ptr<DxilResourceBase> pHlslConst =
-      llvm::make_unique<DxilResourceBase>(DXIL::ResourceClass::Invalid);
+      std::make_unique<DxilResourceBase>(DXIL::ResourceClass::Invalid);
   pHlslConst->SetLowerBound(LowerBound);
   pHlslConst->SetSpaceID(0);
   pHlslConst->SetGlobalSymbol(CV);
@@ -3585,7 +3585,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
 
 namespace {
 unique_ptr<HLCBuffer> CreateHLCBuf(NamedDecl *D, bool bIsView, bool bIsTBuf) {
-  unique_ptr<HLCBuffer> CB = llvm::make_unique<HLCBuffer>(bIsView, bIsTBuf);
+  unique_ptr<HLCBuffer> CB = std::make_unique<HLCBuffer>(bIsView, bIsTBuf);
 
   // setup the CB
   CB->SetGlobalSymbol(nullptr);

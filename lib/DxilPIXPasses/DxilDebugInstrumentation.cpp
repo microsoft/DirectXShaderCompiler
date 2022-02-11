@@ -322,7 +322,7 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
 
       if (Existing_SV_VertexId == InputElements.end()) {
         auto Added_SV_VertexId =
-            llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+            std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
         Added_SV_VertexId->Initialize("VertexId", hlsl::CompType::getF32(),
                                       hlsl::DXIL::InterpolationMode::Undefined,
                                       1, 1);
@@ -346,7 +346,7 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
 
       if (Existing_SV_InstanceId == InputElements.end()) {
         auto Added_SV_InstanceId =
-            llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+            std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
         Added_SV_InstanceId->Initialize(
             "InstanceId", hlsl::CompType::getF32(),
             hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
@@ -382,7 +382,7 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
     // If not present, we add it.
     if (Existing_SV_Position == InputElements.end()) {
       auto Added_SV_Position =
-          llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+          std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
       Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
                                     hlsl::DXIL::InterpolationMode::Linear, 1,
                                     4);

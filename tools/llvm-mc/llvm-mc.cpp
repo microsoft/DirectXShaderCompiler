@@ -212,7 +212,7 @@ static std::unique_ptr<tool_output_file> GetOutputStream() {
     OutputFilename = "-";
 
   std::error_code EC;
-  auto Out = llvm::make_unique<tool_output_file>(OutputFilename, EC,
+  auto Out = std::make_unique<tool_output_file>(OutputFilename, EC,
                                                  sys::fs::F_None);
   if (EC) {
     errs() << EC.message() << '\n';
@@ -491,7 +491,7 @@ int __cdecl main(int argc, char **argv) {
       CE = TheTarget->createMCCodeEmitter(*MCII, *MRI, Ctx);
       MAB = TheTarget->createMCAsmBackend(*MRI, TripleName, MCPU);
     }
-    auto FOut = llvm::make_unique<formatted_raw_ostream>(*OS);
+    auto FOut = std::make_unique<formatted_raw_ostream>(*OS);
     Str.reset(TheTarget->createAsmStreamer(
         Ctx, std::move(FOut), /*asmverbose*/ true,
         /*useDwarfDirectory*/ true, IP, CE, MAB, ShowInst));

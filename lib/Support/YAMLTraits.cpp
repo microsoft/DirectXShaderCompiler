@@ -337,14 +337,14 @@ std::unique_ptr<Input::HNode> Input::createHNodes(Node *N) {
       memcpy(Buf, &StringStorage[0], Len);
       KeyStr = StringRef(Buf, Len);
     }
-    return llvm::make_unique<ScalarHNode>(N, KeyStr);
+    return std::make_unique<ScalarHNode>(N, KeyStr);
   } else if (BlockScalarNode *BSN = dyn_cast<BlockScalarNode>(N)) {
     StringRef Value = BSN->getValue();
     char *Buf = StringAllocator.Allocate<char>(Value.size());
     memcpy(Buf, Value.data(), Value.size());
-    return llvm::make_unique<ScalarHNode>(N, StringRef(Buf, Value.size()));
+    return std::make_unique<ScalarHNode>(N, StringRef(Buf, Value.size()));
   } else if (SequenceNode *SQ = dyn_cast<SequenceNode>(N)) {
-    auto SQHNode = llvm::make_unique<SequenceHNode>(N);
+    auto SQHNode = std::make_unique<SequenceHNode>(N);
     for (Node &SN : *SQ) {
       auto Entry = this->createHNodes(&SN);
       if (EC)
@@ -353,7 +353,7 @@ std::unique_ptr<Input::HNode> Input::createHNodes(Node *N) {
     }
     return std::move(SQHNode);
   } else if (MappingNode *Map = dyn_cast<MappingNode>(N)) {
-    auto mapHNode = llvm::make_unique<MapHNode>(N);
+    auto mapHNode = std::make_unique<MapHNode>(N);
     for (KeyValueNode &KVN : *Map) {
       Node *KeyNode = KVN.getKey();
       ScalarNode *KeyScalar = dyn_cast<ScalarNode>(KeyNode);
@@ -377,7 +377,7 @@ std::unique_ptr<Input::HNode> Input::createHNodes(Node *N) {
     }
     return std::move(mapHNode);
   } else if (isa<NullNode>(N)) {
-    return llvm::make_unique<EmptyHNode>(N);
+    return std::make_unique<EmptyHNode>(N);
   } else {
     setError(N, "unknown node kind");
     return nullptr;

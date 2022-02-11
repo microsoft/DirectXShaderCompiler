@@ -1395,7 +1395,7 @@ void AsmMatcherInfo::buildInfo() {
     std::vector<Record*> AllInstAliases =
       Records.getAllDerivedDefinitions("InstAlias");
     for (unsigned i = 0, e = AllInstAliases.size(); i != e; ++i) {
-      auto Alias = llvm::make_unique<CodeGenInstAlias>(AllInstAliases[i],
+      auto Alias = std::make_unique<CodeGenInstAlias>(AllInstAliases[i],
                                                        AsmVariantNo, Target);
 
       // If the tblgen -match-prefix option is specified (for tblgen hackers),

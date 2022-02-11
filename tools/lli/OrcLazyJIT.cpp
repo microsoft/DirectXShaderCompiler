@@ -51,7 +51,7 @@ OrcLazyJIT::createCallbackManagerBuilder(Triple T) {
                                              orc::OrcX86_64> CCMgrT;
       return [](IRDumpLayerT &IRDumpLayer, RuntimeDyld::MemoryManager &MemMgr,
                 LLVMContext &Context) {
-               return llvm::make_unique<CCMgrT>(IRDumpLayer, MemMgr, Context, 0,
+               return std::make_unique<CCMgrT>(IRDumpLayer, MemMgr, Context, 0,
                                                 64);
              };
     }

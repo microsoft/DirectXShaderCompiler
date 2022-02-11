@@ -992,7 +992,7 @@ HLSLReservedKeyword:
     CXXScopeSpec ScopeSpec;
     SourceLocation TemplateKWLoc;
     Token Replacement;
-    auto Validator = llvm::make_unique<CastExpressionIdValidator>(
+    auto Validator = std::make_unique<CastExpressionIdValidator>(
         Tok, isTypeCast != NotTypeCast, isTypeCast != IsTypeCast);
     Validator->IsAddressOfOperand = isAddressOfOperand;
     if (Tok.isOneOf(tok::periodstar, tok::arrowstar)) {

@@ -87,7 +87,7 @@ FileOutputBuffer::create(StringRef FilePath, size_t Size,
     return EC;
 #endif
 
-  auto MappedFile = llvm::make_unique<mapped_file_region>(
+  auto MappedFile = std::make_unique<mapped_file_region>(
       FD, mapped_file_region::readwrite, Size, 0, EC);
   int Ret = close(FD);
   if (EC)

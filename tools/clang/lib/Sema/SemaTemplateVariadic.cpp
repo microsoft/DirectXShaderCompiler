@@ -857,7 +857,7 @@ ExprResult Sema::ActOnSizeofParameterPackExpr(Scope *S,
   case LookupResult::NotFoundInCurrentInstantiation:
     if (TypoCorrection Corrected =
             CorrectTypo(R.getLookupNameInfo(), R.getLookupKind(), S, nullptr,
-                        llvm::make_unique<ParameterPackValidatorCCC>(),
+                        std::make_unique<ParameterPackValidatorCCC>(),
                         CTK_ErrorRecovery)) {
       diagnoseTypo(Corrected,
                    PDiag(diag::err_sizeof_pack_no_pack_name_suggest) << &Name,

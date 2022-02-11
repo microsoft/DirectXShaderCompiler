@@ -1242,7 +1242,7 @@ void Sema::ActOnStartOfLambdaDefinition(LambdaIntroducer &Intro,
         // FIXME: Disable corrections that would add qualification?
         CXXScopeSpec ScopeSpec;
         if (DiagnoseEmptyLookup(CurScope, ScopeSpec, R,
-                                llvm::make_unique<DeclFilterCCC<VarDecl>>()))
+                                std::make_unique<DeclFilterCCC<VarDecl>>()))
           continue;
       }
 

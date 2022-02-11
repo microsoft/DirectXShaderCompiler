@@ -268,8 +268,8 @@ void MacOSKeychainAPIChecker::
 
   os << "Deallocator doesn't match the allocator: '"
      << FunctionsToTrack[PDeallocIdx].Name << "' should be used.";
-  auto Report = llvm::make_unique<BugReport>(*BT, os.str(), N);
-  Report->addVisitor(llvm::make_unique<SecKeychainBugVisitor>(AP.first));
+  auto Report = std::make_unique<BugReport>(*BT, os.str(), N);
+  Report->addVisitor(std::make_unique<SecKeychainBugVisitor>(AP.first));
   Report->addRange(ArgExpr->getSourceRange());
   markInteresting(Report.get(), AP);
   C.emitReport(std::move(Report));
@@ -313,8 +313,8 @@ void MacOSKeychainAPIChecker::checkPreStmt(const CallExpr *CE,
               << "the allocator: missing a call to '"
               << FunctionsToTrack[DIdx].Name
               << "'.";
-          auto Report = llvm::make_unique<BugReport>(*BT, os.str(), N);
-          Report->addVisitor(llvm::make_unique<SecKeychainBugVisitor>(V));
+          auto Report = std::make_unique<BugReport>(*BT, os.str(), N);
+          Report->addVisitor(std::make_unique<SecKeychainBugVisitor>(V));
           Report->addRange(ArgExpr->getSourceRange());
           Report->markInteresting(AS->Region);
           C.emitReport(std::move(Report));
@@ -369,7 +369,7 @@ void MacOSKeychainAPIChecker::checkPreStmt(const CallExpr *CE,
     if (!N)
       return;
     initBugType();
-    auto Report = llvm::make_unique<BugReport>(
+    auto Report = std::make_unique<BugReport>(
         *BT, "Trying to free data which has not been allocated.", N);
     Report->addRange(ArgExpr->getSourceRange());
     if (AS)
@@ -435,9 +435,9 @@ void MacOSKeychainAPIChecker::checkPreStmt(const CallExpr *CE,
     if (!N)
       return;
     initBugType();
-    auto Report = llvm::make_unique<BugReport>(
+    auto Report = std::make_unique<BugReport>(
         *BT, "Only call free if a valid (non-NULL) buffer was returned.", N);
-    Report->addVisitor(llvm::make_unique<SecKeychainBugVisitor>(ArgSM));
+    Report->addVisitor(std::make_unique<SecKeychainBugVisitor>(ArgSM));
     Report->addRange(ArgExpr->getSourceRange());
     Report->markInteresting(AS->Region);
     C.emitReport(std::move(Report));
@@ -546,10 +546,10 @@ MacOSKeychainAPIChecker::generateAllocatedDataNotReleasedReport(
                                               AllocNode->getLocationContext());
 
   auto Report =
-      llvm::make_unique<BugReport>(*BT, os.str(), N, LocUsedForUniqueing,
+      std::make_unique<BugReport>(*BT, os.str(), N, LocUsedForUniqueing,
                                   AllocNode->getLocationContext()->getDecl());
 
-  Report->addVisitor(llvm::make_unique<SecKeychainBugVisitor>(AP.first));
+  Report->addVisitor(std::make_unique<SecKeychainBugVisitor>(AP.first));
   markInteresting(Report.get(), AP);
   return Report;
 }

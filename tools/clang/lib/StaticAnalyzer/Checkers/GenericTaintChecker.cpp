@@ -642,7 +642,7 @@ bool GenericTaintChecker::generateReportIfTainted(const Expr *E,
   // Generate diagnostic.
   if (ExplodedNode *N = C.addTransition()) {
     initBugType();
-    auto report = llvm::make_unique<BugReport>(*BT, Msg, N);
+    auto report = std::make_unique<BugReport>(*BT, Msg, N);
     report->addRange(E->getSourceRange());
     C.emitReport(std::move(report));
     return true;

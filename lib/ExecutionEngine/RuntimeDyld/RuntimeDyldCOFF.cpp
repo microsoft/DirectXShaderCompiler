@@ -57,7 +57,7 @@ std::unique_ptr<RuntimeDyld::LoadedObjectInfo>
 RuntimeDyldCOFF::loadObject(const object::ObjectFile &O) {
   unsigned SectionStartIdx, SectionEndIdx;
   std::tie(SectionStartIdx, SectionEndIdx) = loadObjectImpl(O);
-  return llvm::make_unique<LoadedCOFFObjectInfo>(*this, SectionStartIdx,
+  return std::make_unique<LoadedCOFFObjectInfo>(*this, SectionStartIdx,
                                                  SectionEndIdx);
 }
 

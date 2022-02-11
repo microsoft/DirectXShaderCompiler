@@ -190,7 +190,7 @@ private:
                                            bool ExportedSymbolsOnly) const {
       assert(!MangledSymbols && "Mangled symbols map already exists?");
 
-      auto Symbols = llvm::make_unique<StringMap<const GlobalValue*>>();
+      auto Symbols = std::make_unique<StringMap<const GlobalValue*>>();
 
       for (const auto &M : Ms) {
         Mangler Mang;
@@ -294,7 +294,7 @@ LazyEmittingLayer<BaseLayerT>::EmissionDeferredSet::create(
     SymbolResolverPtrT Resolver) {
   typedef EmissionDeferredSetImpl<ModuleSetT, MemoryManagerPtrT, SymbolResolverPtrT>
     EDS;
-  return llvm::make_unique<EDS>(std::move(Ms), std::move(MemMgr),
+  return std::make_unique<EDS>(std::move(Ms), std::move(MemMgr),
                                 std::move(Resolver));
 }
 

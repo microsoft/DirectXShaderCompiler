@@ -151,7 +151,7 @@ void OProfileJITEventListener::NotifyFreeingObject(const ObjectFile &Obj) {
 
 namespace llvm {
 JITEventListener *JITEventListener::createOProfileJITEventListener() {
-  return new OProfileJITEventListener(llvm::make_unique<OProfileWrapper>());
+  return new OProfileJITEventListener(std::make_unique<OProfileWrapper>());
 }
 
 } // namespace llvm

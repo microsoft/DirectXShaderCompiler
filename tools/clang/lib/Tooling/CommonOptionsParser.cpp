@@ -133,7 +133,7 @@ CommonOptionsParser::CommonOptionsParser(int &argc, const char **argv,
       llvm::report_fatal_error(ErrorMessage);
   }
   auto AdjustingCompilations =
-      llvm::make_unique<ArgumentsAdjustingCompilations>(
+      std::make_unique<ArgumentsAdjustingCompilations>(
           std::move(Compilations));
   AdjustingCompilations->appendArgumentsAdjuster(
       getInsertArgumentAdjuster(ArgsBefore, ArgumentInsertPosition::BEGIN));

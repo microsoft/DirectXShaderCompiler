@@ -69,7 +69,7 @@ void clang::AttachHeaderIncludeGen(Preprocessor &PP, bool ShowAllHeaders,
     }
   }
 
-  PP.addPPCallbacks(llvm::make_unique<HeaderIncludesCallback>(&PP,
+  PP.addPPCallbacks(std::make_unique<HeaderIncludesCallback>(&PP,
                                                               ShowAllHeaders,
                                                               OutputFile,
                                                               OwnsOutputFile,

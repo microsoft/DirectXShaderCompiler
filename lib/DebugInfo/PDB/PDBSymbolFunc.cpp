@@ -92,7 +92,7 @@ std::unique_ptr<PDBSymbolTypeFunctionSig> PDBSymbolFunc::getSignature() const {
 
 std::unique_ptr<IPDBEnumChildren<PDBSymbolData>>
 PDBSymbolFunc::getArguments() const {
-  return llvm::make_unique<FunctionArgEnumerator>(Session, *this);
+  return std::make_unique<FunctionArgEnumerator>(Session, *this);
 }
 
 std::unique_ptr<PDBSymbolTypeUDT> PDBSymbolFunc::getClassParent() const {

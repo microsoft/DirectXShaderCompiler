@@ -1073,7 +1073,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth) {
 
   auto &BSRef = BlocksSchedules[BB];
   if (!BSRef) {
-    BSRef = llvm::make_unique<BlockScheduling>(BB);
+    BSRef = std::make_unique<BlockScheduling>(BB);
   }
   BlockScheduling &BS = *BSRef.get();
 
@@ -2834,7 +2834,7 @@ void BoUpSLP::BlockScheduling::initScheduleData(Instruction *FromI,
       // Allocate a new ScheduleData for the instruction.
       if (ChunkPos >= ChunkSize) {
         ScheduleDataChunks.push_back(
-            llvm::make_unique<ScheduleData[]>(ChunkSize));
+            std::make_unique<ScheduleData[]>(ChunkSize));
         ChunkPos = 0;
       }
       SD = &(ScheduleDataChunks.back()[ChunkPos++]);

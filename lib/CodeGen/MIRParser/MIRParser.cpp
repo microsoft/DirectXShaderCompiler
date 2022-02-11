@@ -187,7 +187,7 @@ std::unique_ptr<Module> MIRParserImpl::parse() {
     if (In.error())
       return nullptr;
     // Create an empty module when the MIR file is empty.
-    return llvm::make_unique<Module>(Filename, Context);
+    return std::make_unique<Module>(Filename, Context);
   }
 
   std::unique_ptr<Module> M;
@@ -208,7 +208,7 @@ std::unique_ptr<Module> MIRParserImpl::parse() {
       return M;
   } else {
     // Create an new, empty module.
-    M = llvm::make_unique<Module>(Filename, Context);
+    M = std::make_unique<Module>(Filename, Context);
     NoLLVMIR = true;
   }
 
@@ -224,7 +224,7 @@ std::unique_ptr<Module> MIRParserImpl::parse() {
 
 bool MIRParserImpl::parseMachineFunction(yaml::Input &In, Module &M,
                                          bool NoLLVMIR) {
-  auto MF = llvm::make_unique<yaml::MachineFunction>();
+  auto MF = std::make_unique<yaml::MachineFunction>();
   yaml::yamlize(In, *MF, false);
   if (In.error())
     return true;
@@ -508,6 +508,6 @@ std::unique_ptr<MIRParser>
 llvm::createMIRParser(std::unique_ptr<MemoryBuffer> Contents,
                       LLVMContext &Context) {
   auto Filename = Contents->getBufferIdentifier();
-  return llvm::make_unique<MIRParser>(
-      llvm::make_unique<MIRParserImpl>(std::move(Contents), Filename, Context));
+  return std::make_unique<MIRParser>(
+      std::make_unique<MIRParserImpl>(std::move(Contents), Filename, Context));
 }

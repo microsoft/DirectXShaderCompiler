@@ -134,11 +134,11 @@ bool DependencyCollector::sawDependency(StringRef Filename, bool FromModule,
 DependencyCollector::~DependencyCollector() { }
 void DependencyCollector::attachToPreprocessor(Preprocessor &PP) {
   PP.addPPCallbacks(
-      llvm::make_unique<DepCollectorPPCallbacks>(*this, PP.getSourceManager()));
+      std::make_unique<DepCollectorPPCallbacks>(*this, PP.getSourceManager()));
 }
 #if 0 // HLSL Change Starts - no support for AST serialization
 void DependencyCollector::attachToASTReader(ASTReader &R) {
-  R.addListener(llvm::make_unique<DepCollectorASTListener>(*this));
+  R.addListener(std::make_unique<DepCollectorASTListener>(*this));
 }
 #endif // HLSL Change Ends - no support for AST serialization
 
@@ -231,7 +231,7 @@ DependencyFileGenerator *DependencyFileGenerator::CreateAndAttachToPreprocessor(
 void DependencyFileGenerator::AttachToASTReader(ASTReader &R) {
   DFGImpl *I = reinterpret_cast<DFGImpl *>(Impl);
   assert(I && "missing implementation");
-  R.addListener(llvm::make_unique<DFGASTReaderListener>(*I));
+  R.addListener(std::make_unique<DFGASTReaderListener>(*I));
 }
 #endif // HLSL Change Starts - no support for AST serialization
 

@@ -1723,7 +1723,7 @@ LoopAccessAnalysis::getInfo(Loop *L, const ValueToValueMap &Strides) {
 
   if (!LAI) {
     const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
-    LAI = llvm::make_unique<LoopAccessInfo>(L, SE, DL, TLI, AA, DT, LI,
+    LAI = std::make_unique<LoopAccessInfo>(L, SE, DL, TLI, AA, DT, LI,
                                             Strides);
 #ifndef NDEBUG
     LAI->NumSymbolicStrides = Strides.size();

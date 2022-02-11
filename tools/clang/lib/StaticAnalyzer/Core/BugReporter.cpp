@@ -2916,7 +2916,7 @@ bool TrimmedGraph::popNextReportGraph(ReportGraph &GraphWrapper) {
 
   // Create a new graph with a single path.  This is the graph
   // that will be returned to the caller.
-  auto GNew = llvm::make_unique<ExplodedGraph>();
+  auto GNew = std::make_unique<ExplodedGraph>();
   GraphWrapper.BackMap.clear();
 
   // Now walk from the error node up the BFS path, always taking the
@@ -3104,9 +3104,9 @@ bool GRBugReporter::generatePathDiagnostic(PathDiagnostic& PD,
     const ExplodedNode *N = ErrorGraph.ErrorNode;
 
     // Register additional node visitors.
-    R->addVisitor(llvm::make_unique<NilReceiverBRVisitor>());
-    R->addVisitor(llvm::make_unique<ConditionBRVisitor>());
-    R->addVisitor(llvm::make_unique<LikelyFalsePositiveSuppressionBRVisitor>());
+    R->addVisitor(std::make_unique<NilReceiverBRVisitor>());
+    R->addVisitor(std::make_unique<ConditionBRVisitor>());
+    R->addVisitor(std::make_unique<LikelyFalsePositiveSuppressionBRVisitor>());
 
     BugReport::VisitorList visitors;
     unsigned origReportConfigToken, finalReportConfigToken;
@@ -3424,7 +3424,7 @@ void BugReporter::FlushReport(BugReport *exampleReport,
   // of the issue.
   if (D->path.empty()) {
     PathDiagnosticLocation L = exampleReport->getLocation(getSourceManager());
-    auto piece = llvm::make_unique<PathDiagnosticEventPiece>(
+    auto piece = std::make_unique<PathDiagnosticEventPiece>(
         L, exampleReport->getDescription());
     for (const SourceRange &Range : exampleReport->getRanges())
       piece->addRange(Range);
@@ -3457,7 +3457,7 @@ void BugReporter::EmitBasicReport(const Decl *DeclWithIssue,
 
   // 'BT' is owned by BugReporter.
   BugType *BT = getBugTypeForName(CheckName, name, category);
-  auto R = llvm::make_unique<BugReport>(*BT, str, Loc);
+  auto R = std::make_unique<BugReport>(*BT, str, Loc);
   R->setDeclWithIssue(DeclWithIssue);
   for (ArrayRef<SourceRange>::iterator I = Ranges.begin(), E = Ranges.end();
        I != E; ++I)

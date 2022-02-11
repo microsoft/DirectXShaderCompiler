@@ -1208,7 +1208,7 @@ Init *TGParser::ParseSimpleValue(Record *CurRec, RecTy *ItemType,
     SMLoc EndLoc = Lex.getLoc();
 
     // Create the new record, set it as CurRec temporarily.
-    auto NewRecOwner = llvm::make_unique<Record>(GetNewAnonymousName(), NameLoc,
+    auto NewRecOwner = std::make_unique<Record>(GetNewAnonymousName(), NameLoc,
                                                  Records, /*IsAnonymous=*/true);
     Record *NewRec = NewRecOwner.get(); // Keep a copy since we may release.
     SubClassReference SCRef;
@@ -1992,7 +1992,7 @@ bool TGParser::ParseDef(MultiClass *CurMultiClass) {
   if (Name)
     CurRecOwner = make_unique<Record>(Name, DefLoc, Records);
   else
-    CurRecOwner = llvm::make_unique<Record>(GetNewAnonymousName(), DefLoc,
+    CurRecOwner = std::make_unique<Record>(GetNewAnonymousName(), DefLoc,
                                             Records, /*IsAnonymous=*/true);
   Record *CurRec = CurRecOwner.get(); // Keep a copy since we may release.
 
@@ -2123,7 +2123,7 @@ bool TGParser::ParseClass() {
   } else {
     // If this is the first reference to this class, create and add it.
     auto NewRec =
-        llvm::make_unique<Record>(Lex.getCurStrVal(), Lex.getLoc(), Records);
+        std::make_unique<Record>(Lex.getCurStrVal(), Lex.getLoc(), Records);
     CurRec = NewRec.get();
     Records.addClass(std::move(NewRec));
   }
@@ -2245,7 +2245,7 @@ bool TGParser::ParseMultiClass() {
 
   auto Result =
     MultiClasses.insert(std::make_pair(Name,
-                    llvm::make_unique<MultiClass>(Name, Lex.getLoc(),Records)));
+                    std::make_unique<MultiClass>(Name, Lex.getLoc(),Records)));
 
   if (!Result.second)
     return TokError("multiclass '" + Name + "' already defined");

@@ -297,7 +297,7 @@ public:
                         bool* IsNew = nullptr);
 
   std::unique_ptr<ExplodedGraph> MakeEmptyGraph() const {
-    return llvm::make_unique<ExplodedGraph>();
+    return std::make_unique<ExplodedGraph>();
   }
 
   /// addRoot - Add an untyped node to the set of roots.

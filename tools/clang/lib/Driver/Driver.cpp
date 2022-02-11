@@ -442,7 +442,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   }
 
   std::unique_ptr<llvm::opt::InputArgList> UArgs =
-      llvm::make_unique<InputArgList>(std::move(Args));
+      std::make_unique<InputArgList>(std::move(Args));
 
   // Perform the default argument translations.
   DerivedArgList *TranslatedArgs = TranslateInputArgs(*UArgs);
@@ -1516,7 +1516,7 @@ Driver::ConstructPhaseAction(const ToolChain &TC, const ArgList &Args,
       assert(OutputTy != types::TY_INVALID &&
              "Cannot preprocess this input type!");
     }
-    return llvm::make_unique<PreprocessJobAction>(std::move(Input), OutputTy);
+    return std::make_unique<PreprocessJobAction>(std::move(Input), OutputTy);
   }
   case phases::Precompile: {
     types::ID OutputTy = types::TY_PCH;
@@ -1524,52 +1524,52 @@ Driver::ConstructPhaseAction(const ToolChain &TC, const ArgList &Args,
       // Syntax checks should not emit a PCH file
       OutputTy = types::TY_Nothing;
     }
-    return llvm::make_unique<PrecompileJobAction>(std::move(Input), OutputTy);
+    return std::make_unique<PrecompileJobAction>(std::move(Input), OutputTy);
   }
   case phases::Compile: {
     if (Args.hasArg(options::OPT_fsyntax_only))
-      return llvm::make_unique<CompileJobAction>(std::move(Input),
+      return std::make_unique<CompileJobAction>(std::move(Input),
                                                  types::TY_Nothing);
     if (Args.hasArg(options::OPT_rewrite_objc))
-      return llvm::make_unique<CompileJobAction>(std::move(Input),
+      return std::make_unique<CompileJobAction>(std::move(Input),
                                                  types::TY_RewrittenObjC);
     if (Args.hasArg(options::OPT_rewrite_legacy_objc))
-      return llvm::make_unique<CompileJobAction>(std::move(Input),
+      return std::make_unique<CompileJobAction>(std::move(Input),
                                                  types::TY_RewrittenLegacyObjC);
     if (Args.hasArg(options::OPT__analyze, options::OPT__analyze_auto))
-      return llvm::make_unique<AnalyzeJobAction>(std::move(Input),
+      return std::make_unique<AnalyzeJobAction>(std::move(Input),
                                                  types::TY_Plist);
     if (Args.hasArg(options::OPT__migrate))
-      return llvm::make_unique<MigrateJobAction>(std::move(Input),
+      return std::make_unique<MigrateJobAction>(std::move(Input),
                                                  types::TY_Remap);
     if (Args.hasArg(options::OPT_emit_ast))
-      return llvm::make_unique<CompileJobAction>(std::move(Input),
+      return std::make_unique<CompileJobAction>(std::move(Input),
                                                  types::TY_AST);
     if (Args.hasArg(options::OPT_module_file_info))
-      return llvm::make_unique<CompileJobAction>(std::move(Input),
+      return std::make_unique<CompileJobAction>(std::move(Input),
                                                  types::TY_ModuleFile);
     if (Args.hasArg(options::OPT_verify_pch))
-      return llvm::make_unique<VerifyPCHJobAction>(std::move(Input),
+      return std::make_unique<VerifyPCHJobAction>(std::move(Input),
                                                    types::TY_Nothing);
-    return llvm::make_unique<CompileJobAction>(std::move(Input),
+    return std::make_unique<CompileJobAction>(std::move(Input),
                                                types::TY_LLVM_BC);
   }
   case phases::Backend: {
     if (IsUsingLTO(Args)) {
       types::ID Output =
           Args.hasArg(options::OPT_S) ? types::TY_LTO_IR : types::TY_LTO_BC;
-      return llvm::make_unique<BackendJobAction>(std::move(Input), Output);
+      return std::make_unique<BackendJobAction>(std::move(Input), Output);
     }
     if (Args.hasArg(options::OPT_emit_llvm)) {
       types::ID Output =
           Args.hasArg(options::OPT_S) ? types::TY_LLVM_IR : types::TY_LLVM_BC;
-      return llvm::make_unique<BackendJobAction>(std::move(Input), Output);
+      return std::make_unique<BackendJobAction>(std::move(Input), Output);
     }
-    return llvm::make_unique<BackendJobAction>(std::move(Input),
+    return std::make_unique<BackendJobAction>(std::move(Input),
                                                types::TY_PP_Asm);
   }
   case phases::Assemble:
-    return llvm::make_unique<AssembleJobAction>(std::move(Input),
+    return std::make_unique<AssembleJobAction>(std::move(Input),
                                                 types::TY_Object);
   }
 

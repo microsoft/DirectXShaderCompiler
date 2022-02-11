@@ -935,7 +935,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     ClonedIteration *PrevIteration = nullptr;
     if (Iterations.size())
       PrevIteration = Iterations.back().get();
-    Iterations.push_back(llvm::make_unique<ClonedIteration>());
+    Iterations.push_back(std::make_unique<ClonedIteration>());
     ClonedIteration &CurIteration = *Iterations.back().get();
 
     // Clone the blocks.

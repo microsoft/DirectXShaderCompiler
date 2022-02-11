@@ -84,7 +84,7 @@ void UndefResultChecker::checkPostStmt(const BinaryOperator *B,
          << BinaryOperator::getOpcodeStr(B->getOpcode())
          << "' expression is undefined";
     }
-    auto report = llvm::make_unique<BugReport>(*BT, OS.str(), N);
+    auto report = std::make_unique<BugReport>(*BT, OS.str(), N);
     if (Ex) {
       report->addRange(Ex->getSourceRange());
       bugreporter::trackNullOrUndefValue(N, Ex, *report);

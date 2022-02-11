@@ -57,7 +57,7 @@ std::unique_ptr<ASTConsumer> RawPCHContainerWriter::CreatePCHContainerGenerator(
     const LangOptions &LO, const std::string &MainFileName,
     const std::string &OutputFileName, llvm::raw_pwrite_stream *OS,
     std::shared_ptr<PCHBuffer> Buffer) const {
-  return llvm::make_unique<RawPCHContainerGenerator>(
+  return std::make_unique<RawPCHContainerGenerator>(
       Diags, HSO, PPO, TO, LO, MainFileName, OutputFileName, OS, Buffer);
 }
 
@@ -68,6 +68,6 @@ void RawPCHContainerReader::ExtractPCH(
 }
 
 PCHContainerOperations::PCHContainerOperations() {
-  registerWriter(llvm::make_unique<RawPCHContainerWriter>());
-  registerReader(llvm::make_unique<RawPCHContainerReader>());
+  registerWriter(std::make_unique<RawPCHContainerWriter>());
+  registerReader(std::make_unique<RawPCHContainerReader>());
 }

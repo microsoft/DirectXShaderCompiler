@@ -724,5 +724,5 @@ public:
 }
 
 std::unique_ptr<FileSystemStatCache> PTHManager::createStatCache() {
-  return llvm::make_unique<PTHStatCache>(*FileLookup);
+  return std::make_unique<PTHStatCache>(*FileLookup);
 }

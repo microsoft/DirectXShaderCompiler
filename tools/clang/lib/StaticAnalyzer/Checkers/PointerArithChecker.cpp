@@ -58,7 +58,7 @@ void PointerArithChecker::checkPreStmt(const BinaryOperator *B,
                            "Pointer arithmetic done on non-array variables "
                            "means reliance on memory layout, which is "
                            "dangerous."));
-      auto R = llvm::make_unique<BugReport>(*BT, BT->getDescription(), N);
+      auto R = std::make_unique<BugReport>(*BT, BT->getDescription(), N);
       R->addRange(B->getSourceRange());
       C.emitReport(std::move(R));
     }

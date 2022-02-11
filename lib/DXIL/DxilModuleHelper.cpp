@@ -36,7 +36,7 @@
 #include <unordered_set>
 
 #ifndef _WIN32
-using llvm::make_unique;
+using std::make_unique;
 #else
 using std::make_unique;
 #endif

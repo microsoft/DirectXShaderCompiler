@@ -185,7 +185,7 @@ void Preprocessor::InitializeForModelFile() {
 
   // Reset pragmas
   PragmaHandlersBackup = std::move(PragmaHandlers);
-  PragmaHandlers = llvm::make_unique<PragmaNamespace>(StringRef());
+  PragmaHandlers = std::make_unique<PragmaNamespace>(StringRef());
   RegisterBuiltinPragmas();
 
   // Reset PredefinesFileID

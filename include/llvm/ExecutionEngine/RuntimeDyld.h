@@ -80,7 +80,7 @@ public:
                            unsigned EndIdx)
         : LoadedObjectInfo(RTDyld, BeginIdx, EndIdx) {}
     std::unique_ptr<llvm::LoadedObjectInfo> clone() const override {
-      return llvm::make_unique<Derived>(static_cast<const Derived &>(*this));
+      return std::make_unique<Derived>(static_cast<const Derived &>(*this));
     }
   };
 

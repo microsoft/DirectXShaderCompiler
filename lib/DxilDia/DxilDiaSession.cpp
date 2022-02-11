@@ -39,7 +39,7 @@ void dxil_dia::Session::Init(
   m_module = mod;
   m_context = context;
   m_finder = finder;
-  m_dxilModule = llvm::make_unique<hlsl::DxilModule>(mod.get());
+  m_dxilModule = std::make_unique<hlsl::DxilModule>(mod.get());
 
   llvm::legacy::PassManager PM;
   llvm::initializeDxilDbgValueToDbgDeclarePass(*llvm::PassRegistry::getPassRegistry());

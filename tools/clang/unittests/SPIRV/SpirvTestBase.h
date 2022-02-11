@@ -48,7 +48,7 @@ private:
     std::string warnings;
     llvm::raw_string_ostream w(warnings);
     std::unique_ptr<clang::TextDiagnosticPrinter> diagPrinter =
-        llvm::make_unique<clang::TextDiagnosticPrinter>(
+        std::make_unique<clang::TextDiagnosticPrinter>(
             w, &compilerInstance.getDiagnosticOpts());
 
     std::shared_ptr<clang::TargetOptions> targetOptions(

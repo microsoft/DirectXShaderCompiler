@@ -593,7 +593,7 @@ std::unique_ptr<ASTConsumer>
 clang::CreateObjCRewriter(const std::string &InFile, raw_ostream *OS,
                           DiagnosticsEngine &Diags, const LangOptions &LOpts,
                           bool SilenceRewriteMacroWarning) {
-  return llvm::make_unique<RewriteObjCFragileABI>(InFile, OS, Diags, LOpts,
+  return std::make_unique<RewriteObjCFragileABI>(InFile, OS, Diags, LOpts,
                                                   SilenceRewriteMacroWarning);
 }
 

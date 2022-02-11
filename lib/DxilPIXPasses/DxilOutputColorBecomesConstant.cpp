@@ -158,7 +158,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
         Type::getFloatTy(Ctx)};
     llvm::StructType *CBStructTy =
         llvm::StructType::create(Elements, "PIX_ConstantColorCB_Type");
-    std::unique_ptr<DxilCBuffer> pCBuf = llvm::make_unique<DxilCBuffer>();
+    std::unique_ptr<DxilCBuffer> pCBuf = std::make_unique<DxilCBuffer>();
     pCBuf->SetGlobalName("PIX_ConstantColorCBName");
     pCBuf->SetGlobalSymbol(UndefValue::get(CBStructTy));
     pCBuf->SetID(0);

@@ -38,7 +38,7 @@ public:
 }
 
 void ModuleDependencyCollector::attachToASTReader(ASTReader &R) {
-  R.addListener(llvm::make_unique<ModuleDependencyListener>(*this));
+  R.addListener(std::make_unique<ModuleDependencyListener>(*this));
 }
 
 void ModuleDependencyCollector::writeFileMap() {

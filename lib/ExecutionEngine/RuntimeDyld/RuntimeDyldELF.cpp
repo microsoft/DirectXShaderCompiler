@@ -124,7 +124,7 @@ createRTDyldELFObject(MemoryBufferRef Buffer,
   typedef typename ELFDataTypeTypedefHelper<ELFT>::value_type addr_type;
 
   std::unique_ptr<DyldELFObject<ELFT>> Obj =
-    llvm::make_unique<DyldELFObject<ELFT>>(Buffer, ec);
+    std::make_unique<DyldELFObject<ELFT>>(Buffer, ec);
 
   // Iterate over all sections in the object.
   for (const auto &Sec : Obj->sections()) {
@@ -217,7 +217,7 @@ std::unique_ptr<RuntimeDyld::LoadedObjectInfo>
 RuntimeDyldELF::loadObject(const object::ObjectFile &O) {
   unsigned SectionStartIdx, SectionEndIdx;
   std::tie(SectionStartIdx, SectionEndIdx) = loadObjectImpl(O);
-  return llvm::make_unique<LoadedELFObjectInfo>(*this, SectionStartIdx,
+  return std::make_unique<LoadedELFObjectInfo>(*this, SectionStartIdx,
                                                 SectionEndIdx);
 }
 

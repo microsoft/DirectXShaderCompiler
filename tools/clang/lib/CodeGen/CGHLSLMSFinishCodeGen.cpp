@@ -2469,7 +2469,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
           IRBuilder<> *instBuilder = &Builder;
           std::unique_ptr<IRBuilder<>> B;
           if (I) {
-            B = llvm::make_unique<IRBuilder<>>(I);
+            B = std::make_unique<IRBuilder<>>(I);
             instBuilder = B.get();
           }
 
@@ -3107,7 +3107,7 @@ void LowerExportFunctions(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM,
         // add DxilFunctionProps if entry
         if (HLM.HasDxilFunctionProps(F)) {
           DxilFunctionProps &props = HLM.GetDxilFunctionProps(F);
-          auto newProps = llvm::make_unique<DxilFunctionProps>(props);
+          auto newProps = std::make_unique<DxilFunctionProps>(props);
           HLM.AddDxilFunctionProps(pClone, newProps);
         }
       }

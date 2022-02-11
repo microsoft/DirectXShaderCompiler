@@ -84,7 +84,7 @@ IndexedInstrProfReader::create(std::unique_ptr<MemoryBuffer> Buffer) {
   // Create the reader.
   if (!IndexedInstrProfReader::hasFormat(*Buffer))
     return instrprof_error::bad_magic;
-  auto Result = llvm::make_unique<IndexedInstrProfReader>(std::move(Buffer));
+  auto Result = std::make_unique<IndexedInstrProfReader>(std::move(Buffer));
 
   // Initialize the reader and return the result.
   if (std::error_code EC = initializeReader(*Result))

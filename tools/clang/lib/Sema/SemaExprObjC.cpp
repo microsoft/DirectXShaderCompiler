@@ -2211,7 +2211,7 @@ HandleExprPropertyRefExpr(const ObjCObjectPointerType *OPT,
   if (TypoCorrection Corrected =
           CorrectTypo(DeclarationNameInfo(MemberName, MemberLoc),
                       LookupOrdinaryName, nullptr, nullptr,
-                      llvm::make_unique<DeclFilterCCC<ObjCPropertyDecl>>(),
+                      std::make_unique<DeclFilterCCC<ObjCPropertyDecl>>(),
                       CTK_ErrorRecovery, IFace, false, OPT)) {
     diagnoseTypo(Corrected, PDiag(diag::err_property_not_found_suggest)
                               << MemberName << QualType(OPT, 0));
@@ -2437,7 +2437,7 @@ Sema::ObjCMessageKind Sema::getObjCMessageKind(Scope *S,
 
   if (TypoCorrection Corrected = CorrectTypo(
           Result.getLookupNameInfo(), Result.getLookupKind(), S, nullptr,
-          llvm::make_unique<ObjCInterfaceOrSuperCCC>(getCurMethodDecl()),
+          std::make_unique<ObjCInterfaceOrSuperCCC>(getCurMethodDecl()),
           CTK_ErrorRecovery, nullptr, false, nullptr, false)) {
     if (Corrected.isKeyword()) {
       // If we've found the keyword "super" (the only keyword that would be

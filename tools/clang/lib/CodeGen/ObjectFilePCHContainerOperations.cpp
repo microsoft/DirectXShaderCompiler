@@ -162,7 +162,7 @@ ObjectFilePCHContainerWriter::CreatePCHContainerGenerator(
     const LangOptions &LO, const std::string &MainFileName,
     const std::string &OutputFileName, llvm::raw_pwrite_stream *OS,
     std::shared_ptr<PCHBuffer> Buffer) const {
-  return llvm::make_unique<PCHContainerGenerator>(
+  return std::make_unique<PCHContainerGenerator>(
       Diags, HSO, PPO, TO, LO, MainFileName, OutputFileName, OS, Buffer);
 }
 

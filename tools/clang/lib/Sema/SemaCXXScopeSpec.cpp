@@ -589,7 +589,7 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S,
     Found.clear();
     if (TypoCorrection Corrected = CorrectTypo(
             Found.getLookupNameInfo(), Found.getLookupKind(), S, &SS,
-            llvm::make_unique<NestedNameSpecifierValidatorCCC>(*this),
+            std::make_unique<NestedNameSpecifierValidatorCCC>(*this),
             CTK_ErrorRecovery, LookupCtx, EnteringContext)) {
       if (LookupCtx) {
         bool DroppedSpecifier =

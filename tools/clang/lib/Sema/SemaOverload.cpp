@@ -10827,8 +10827,8 @@ static std::unique_ptr<CorrectionCandidateCallback>
 MakeValidator(Sema &SemaRef, MemberExpr *ME, size_t NumArgs,
               bool HasTemplateArgs, bool AllowTypoCorrection) {
   if (!AllowTypoCorrection)
-    return llvm::make_unique<NoTypoCorrectionCCC>();
-  return llvm::make_unique<FunctionCallFilterCCC>(SemaRef, NumArgs,
+    return std::make_unique<NoTypoCorrectionCCC>();
+  return std::make_unique<FunctionCallFilterCCC>(SemaRef, NumArgs,
                                                   HasTemplateArgs, ME);
 }
 

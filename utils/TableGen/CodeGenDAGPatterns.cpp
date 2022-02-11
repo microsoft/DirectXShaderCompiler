@@ -2431,7 +2431,7 @@ void CodeGenDAGPatterns::ParsePatternFragments(bool OutFrags) {
 
     DagInit *Tree = Fragments[i]->getValueAsDag("Fragment");
     TreePattern *P =
-        (PatternFragments[Fragments[i]] = llvm::make_unique<TreePattern>(
+        (PatternFragments[Fragments[i]] = std::make_unique<TreePattern>(
              Fragments[i], Tree, !Fragments[i]->isSubClassOf("OutPatFrag"),
              *this)).get();
 

@@ -245,7 +245,7 @@ ProgramStateRef CStringChecker::checkNonNull(CheckerContext &C,
 
     // Generate a report for this bug.
     BuiltinBug *BT = static_cast<BuiltinBug*>(BT_Null.get());
-    auto report = llvm::make_unique<BugReport>(*BT, os.str(), N);
+    auto report = std::make_unique<BugReport>(*BT, os.str(), N);
 
     report->addRange(S->getSourceRange());
     bugreporter::trackNullOrUndefValue(N, S, *report);
@@ -306,7 +306,7 @@ ProgramStateRef CStringChecker::CheckLocation(CheckerContext &C,
     // Generate a report for this bug.
     std::unique_ptr<BugReport> report;
     if (warningMsg) {
-      report = llvm::make_unique<BugReport>(*BT, warningMsg, N);
+      report = std::make_unique<BugReport>(*BT, warningMsg, N);
     } else {
       assert(CurrentFunctionDescription);
       assert(CurrentFunctionDescription[0] != '\0');
@@ -316,7 +316,7 @@ ProgramStateRef CStringChecker::CheckLocation(CheckerContext &C,
       os << toUppercase(CurrentFunctionDescription[0])
          << &CurrentFunctionDescription[1]
          << " accesses out-of-bound array element";
-      report = llvm::make_unique<BugReport>(*BT, os.str(), N);
+      report = std::make_unique<BugReport>(*BT, os.str(), N);
     }
 
     // FIXME: It would be nice to eventually make this diagnostic more clear,
@@ -534,7 +534,7 @@ void CStringChecker::emitOverlapBug(CheckerContext &C, ProgramStateRef state,
                                  categories::UnixAPI, "Improper arguments"));
 
   // Generate a report for this bug.
-  auto report = llvm::make_unique<BugReport>(
+  auto report = std::make_unique<BugReport>(
       *BT_Overlap, "Arguments must not be overlapping buffers", N);
   report->addRange(First->getSourceRange());
   report->addRange(Second->getSourceRange());
@@ -603,7 +603,7 @@ ProgramStateRef CStringChecker::checkAdditionOverflow(CheckerContext &C,
 
       // Generate a report for this bug.
       C.emitReport(
-          llvm::make_unique<BugReport>(*BT_AdditionOverflow, warning, N));
+          std::make_unique<BugReport>(*BT_AdditionOverflow, warning, N));
 
       return nullptr;
     }
@@ -720,7 +720,7 @@ SVal CStringChecker::getCStringLength(CheckerContext &C, ProgramStateRef &state,
            << "', which is not a null-terminated string";
 
         // Generate a report for this bug.
-        auto report = llvm::make_unique<BugReport>(*BT_NotCString, os.str(), N);
+        auto report = std::make_unique<BugReport>(*BT_NotCString, os.str(), N);
 
         report->addRange(Ex->getSourceRange());
         C.emitReport(std::move(report));        
@@ -784,7 +784,7 @@ SVal CStringChecker::getCStringLength(CheckerContext &C, ProgramStateRef &state,
         os << "not a null-terminated string";
 
       // Generate a report for this bug.
-      auto report = llvm::make_unique<BugReport>(*BT_NotCString, os.str(), N);
+      auto report = std::make_unique<BugReport>(*BT_NotCString, os.str(), N);
 
       report->addRange(Ex->getSourceRange());
       C.emitReport(std::move(report));        

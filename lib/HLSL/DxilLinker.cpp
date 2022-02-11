@@ -203,7 +203,7 @@ DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
       F.setName(MID + F.getName());
     }
     m_functionNameMap[F.getName()] =
-        llvm::make_unique<DxilFunctionLinkInfo>(&F);
+        std::make_unique<DxilFunctionLinkInfo>(&F);
     if (m_DM.IsEntry(&F))
       m_entrySet.insert(&F);
   }
@@ -512,7 +512,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
     DxilResourceBase *basePtr = nullptr;
     switch (res->GetClass()) {
     case DXIL::ResourceClass::UAV: {
-      std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+      std::unique_ptr<DxilResource> pUAV = std::make_unique<DxilResource>();
       DxilResource *ptr = pUAV.get();
       // Copy the content.
       *ptr = *(static_cast<DxilResource *>(res));
@@ -520,7 +520,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       basePtr = &DM.GetUAV(ID);
     } break;
     case DXIL::ResourceClass::SRV: {
-      std::unique_ptr<DxilResource> pSRV = llvm::make_unique<DxilResource>();
+      std::unique_ptr<DxilResource> pSRV = std::make_unique<DxilResource>();
       DxilResource *ptr = pSRV.get();
       // Copy the content.
       *ptr = *(static_cast<DxilResource *>(res));
@@ -528,7 +528,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       basePtr = &DM.GetSRV(ID);
     } break;
     case DXIL::ResourceClass::CBuffer: {
-      std::unique_ptr<DxilCBuffer> pCBuf = llvm::make_unique<DxilCBuffer>();
+      std::unique_ptr<DxilCBuffer> pCBuf = std::make_unique<DxilCBuffer>();
       DxilCBuffer *ptr = pCBuf.get();
       // Copy the content.
       *ptr = *(static_cast<DxilCBuffer *>(res));
@@ -536,7 +536,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       basePtr = &DM.GetCBuffer(ID);
     } break;
     case DXIL::ResourceClass::Sampler: {
-      std::unique_ptr<DxilSampler> pSampler = llvm::make_unique<DxilSampler>();
+      std::unique_ptr<DxilSampler> pSampler = std::make_unique<DxilSampler>();
       DxilSampler *ptr = pSampler.get();
       // Copy the content.
       *ptr = *(static_cast<DxilSampler *>(res));
@@ -746,7 +746,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   // Create new module.
   std::unique_ptr<Module> pM =
-      llvm::make_unique<Module>(entryFunc->getName(), entryDM.GetCtx());
+      std::make_unique<Module>(entryFunc->getName(), entryDM.GetCtx());
   // Set target.
   pM->setTargetTriple(entryDM.GetModule()->getTargetTriple());
   // Add dxil operation functions before create DxilModule.
@@ -772,7 +772,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   DxilEntryPropsMap EntryPropMap;
   std::unique_ptr<DxilEntryProps> pProps =
-      llvm::make_unique<DxilEntryProps>(entryDM.GetDxilEntryProps(entryFunc));
+      std::make_unique<DxilEntryProps>(entryDM.GetDxilEntryProps(entryFunc));
   EntryPropMap[NewEntryFunc] = std::move(pProps);
   DM.ResetEntryPropsMap(std::move(EntryPropMap));
 
@@ -889,7 +889,7 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   DxilModule &tmpDM = pLib->GetDxilModule();
   // Create new module.
   std::unique_ptr<Module> pM =
-      llvm::make_unique<Module>("merged_lib", tmpDM.GetCtx());
+      std::make_unique<Module>("merged_lib", tmpDM.GetCtx());
   // Set target.
   pM->setTargetTriple(tmpDM.GetModule()->getTargetTriple());
   // Add dxil operation functions and external decls before create DxilModule.
@@ -920,7 +920,7 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
       Function *NewF = m_newFunctions[F->getName()];
       DxilEntryProps &props = tmpDM.GetDxilEntryProps(F);
       std::unique_ptr<DxilEntryProps> pProps =
-          llvm::make_unique<DxilEntryProps>(props);
+          std::make_unique<DxilEntryProps>(props);
       EntryPropMap[NewF] = std::move(pProps);
     }
   }
@@ -1302,7 +1302,7 @@ bool DxilLinkerImpl::RegisterLib(StringRef name,
 
   pM->setModuleIdentifier(name);
   std::unique_ptr<DxilLib> pLib =
-      llvm::make_unique<DxilLib>(std::move(pM));
+      std::make_unique<DxilLib>(std::move(pM));
   m_LibMap[name] = std::move(pLib);
   return true;
 }

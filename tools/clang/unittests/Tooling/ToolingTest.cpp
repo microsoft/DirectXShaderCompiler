@@ -62,7 +62,7 @@ class FindTopLevelDeclConsumer : public clang::ASTConsumer {
 TEST(runToolOnCode, FindsNoTopLevelDeclOnEmptyCode) {
   bool FoundTopLevelDecl = false;
   EXPECT_TRUE(
-      runToolOnCode(new TestAction(llvm::make_unique<FindTopLevelDeclConsumer>(
+      runToolOnCode(new TestAction(std::make_unique<FindTopLevelDeclConsumer>(
                         &FoundTopLevelDecl)),
                     ""));
   EXPECT_FALSE(FoundTopLevelDecl);
@@ -102,14 +102,14 @@ bool FindClassDeclX(ASTUnit *AST) {
 TEST(runToolOnCode, FindsClassDecl) {
   bool FoundClassDeclX = false;
   EXPECT_TRUE(
-      runToolOnCode(new TestAction(llvm::make_unique<FindClassDeclXConsumer>(
+      runToolOnCode(new TestAction(std::make_unique<FindClassDeclXConsumer>(
                         &FoundClassDeclX)),
                     "class X;"));
   EXPECT_TRUE(FoundClassDeclX);
 
   FoundClassDeclX = false;
   EXPECT_TRUE(
-      runToolOnCode(new TestAction(llvm::make_unique<FindClassDeclXConsumer>(
+      runToolOnCode(new TestAction(std::make_unique<FindClassDeclXConsumer>(
                         &FoundClassDeclX)),
                     "class Y;"));
   EXPECT_FALSE(FoundClassDeclX);
@@ -134,7 +134,7 @@ TEST(newFrontendActionFactory, CreatesFrontendActionFactoryFromType) {
 
 struct IndependentFrontendActionCreator {
   std::unique_ptr<ASTConsumer> newASTConsumer() {
-    return llvm::make_unique<FindTopLevelDeclConsumer>(nullptr);
+    return std::make_unique<FindTopLevelDeclConsumer>(nullptr);
   }
 };
 
@@ -191,7 +191,7 @@ struct VerifyEndCallback : public SourceFileCallbacks {
   }
   void handleEndSource() override { ++EndCalled; }
   std::unique_ptr<ASTConsumer> newASTConsumer() {
-    return llvm::make_unique<FindTopLevelDeclConsumer>(&Matched);
+    return std::make_unique<FindTopLevelDeclConsumer>(&Matched);
   }
   unsigned BeginCalled;
   unsigned EndCalled;
@@ -233,7 +233,7 @@ struct SkipBodyAction : public clang::ASTFrontendAction {
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &Compiler,
                                                  StringRef) override {
     Compiler.getFrontendOpts().SkipFunctionBodies = true;
-    return llvm::make_unique<SkipBodyConsumer>();
+    return std::make_unique<SkipBodyConsumer>();
   }
 };
 

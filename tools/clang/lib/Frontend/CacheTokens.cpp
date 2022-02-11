@@ -581,7 +581,7 @@ void clang::CacheTokens(Preprocessor &PP, raw_pwrite_stream *OS) {
   PTHWriter PW(*OS, PP);
 
   // Install the 'stat' system call listener in the FileManager.
-  auto StatCacheOwner = llvm::make_unique<StatListener>(PW.getPM());
+  auto StatCacheOwner = std::make_unique<StatListener>(PW.getPM());
   StatListener *StatCache = StatCacheOwner.get();
   PP.getFileManager().addStatCache(std::move(StatCacheOwner),
                                    /*AtBeginning=*/true);

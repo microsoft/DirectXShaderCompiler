@@ -88,7 +88,7 @@ public:
 template <class DERIVED>
 class BugReporterVisitorImpl : public BugReporterVisitor {
   std::unique_ptr<BugReporterVisitor> clone() const override {
-    return llvm::make_unique<DERIVED>(*static_cast<const DERIVED *>(this));
+    return std::make_unique<DERIVED>(*static_cast<const DERIVED *>(this));
   }
 };
 

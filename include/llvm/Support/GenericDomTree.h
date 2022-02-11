@@ -559,7 +559,7 @@ public:
     assert(IDomNode && "Not immediate dominator specified for block!");
     DFSInfoValid = false;
     return (DomTreeNodes[BB] = IDomNode->addChild(
-                llvm::make_unique<DomTreeNodeBase<NodeT>>(BB, IDomNode))).get();
+                std::make_unique<DomTreeNodeBase<NodeT>>(BB, IDomNode))).get();
   }
 
   /// changeImmediateDominator - This method is used to update the dominator
@@ -654,7 +654,7 @@ protected:
     // Add a new tree node for this NodeT, and link it as a child of
     // IDomNode
     return (this->DomTreeNodes[BB] = IDomNode->addChild(
-                llvm::make_unique<DomTreeNodeBase<NodeT>>(BB, IDomNode))).get();
+                std::make_unique<DomTreeNodeBase<NodeT>>(BB, IDomNode))).get();
   }
 
   NodeT *getIDom(NodeT *BB) const { return IDoms.lookup(BB); }

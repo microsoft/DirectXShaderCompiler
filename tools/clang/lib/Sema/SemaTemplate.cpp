@@ -328,7 +328,7 @@ void Sema::LookupTemplateName(LookupResult &Found,
     DeclarationName Name = Found.getLookupName();
     Found.clear();
     // Simple filter callback that, for keywords, only accepts the C++ *_cast
-    auto FilterCCC = llvm::make_unique<CorrectionCandidateCallback>();
+    auto FilterCCC = std::make_unique<CorrectionCandidateCallback>();
     FilterCCC->WantTypeSpecifiers = false;
     FilterCCC->WantExpressionKeywords = false;
     FilterCCC->WantRemainingKeywords = false;

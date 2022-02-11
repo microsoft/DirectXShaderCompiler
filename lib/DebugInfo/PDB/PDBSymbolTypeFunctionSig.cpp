@@ -75,7 +75,7 @@ std::unique_ptr<PDBSymbol> PDBSymbolTypeFunctionSig::getReturnType() const {
 
 std::unique_ptr<IPDBEnumSymbols>
 PDBSymbolTypeFunctionSig::getArguments() const {
-  return llvm::make_unique<FunctionArgEnumerator>(Session, *this);
+  return std::make_unique<FunctionArgEnumerator>(Session, *this);
 }
 
 std::unique_ptr<PDBSymbol> PDBSymbolTypeFunctionSig::getClassParent() const {
