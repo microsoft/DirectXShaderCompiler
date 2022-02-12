@@ -1,8 +1,8 @@
 // RUN: %dxc -T lib_6_5 %s | %D3DReflect %s | FileCheck %s
 
-// CHECK:DxilRuntimeData (size = 272 bytes):
+// CHECK:DxilRuntimeData (size = 220 bytes):
 // CHECK:  StringBuffer (size = 28 bytes)
-// CHECK:  IndexTable (size = 28 bytes)
+// CHECK:  IndexTable (size = 12 bytes)
 // CHECK:  RawBytes (size = 0 bytes)
 // CHECK:  RecordTable (stride = 32 bytes) ResourceTable[2] = {
 // CHECK:    <0:RuntimeDataResourceInfo> = {
@@ -26,31 +26,13 @@
 // CHECK:      Flags: 0 (None)
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 52 bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo2> = {
+// CHECK:  RecordTable (stride = 44 bytes) FunctionTable[1] = {
+// CHECK:    <0:RuntimeDataFunctionInfo> = {
 // CHECK:      Name: "main"
 // CHECK:      UnmangledName: "main"
 // CHECK:      Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
-// CHECK:        [0]: <0:RuntimeDataResourceInfo> = {
-// CHECK:          Class: SRV
-// CHECK:          Kind: TypedBuffer
-// CHECK:          ID: 0
-// CHECK:          Space: 0
-// CHECK:          LowerBound: 1
-// CHECK:          UpperBound: 1
-// CHECK:          Name: "inputs"
-// CHECK:          Flags: 0 (None)
-// CHECK:        }
-// CHECK:        [1]: <1:RuntimeDataResourceInfo> = {
-// CHECK:          Class: UAV
-// CHECK:          Kind: TypedBuffer
-// CHECK:          ID: 0
-// CHECK:          Space: 0
-// CHECK:          LowerBound: 1
-// CHECK:          UpperBound: 1
-// CHECK:          Name: "g_Intensities"
-// CHECK:          Flags: 0 (None)
-// CHECK:        }
+// CHECK:        [0]: <0:RuntimeDataResourceInfo>
+// CHECK:        [1]: <1:RuntimeDataResourceInfo>
 // CHECK:      }
 // CHECK:      FunctionDependencies: <string[0]> = {}
 // CHECK:      ShaderKind: Compute
@@ -60,19 +42,6 @@
 // CHECK:      FeatureInfo2: 0
 // CHECK:      ShaderStageFlag: 32
 // CHECK:      MinShaderTarget: 327776
-// CHECK:      MinimumExpectedWaveLaneCount: 0
-// CHECK:      MaximumExpectedWaveLaneCount: 0
-// CHECK:      ShaderFlags: 0 (None)
-// CHECK:      CS: <0:CSInfo> = {
-// CHECK:        NumThreads: <3:array[3]> = { 64, 2, 2 }
-// CHECK:        GroupSharedBytesUsed: 16
-// CHECK:      }
-// CHECK:    }
-// CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) CSInfoTable[1] = {
-// CHECK:    <0:CSInfo> = {
-// CHECK:      NumThreads: <3:array[3]> = { 64, 2, 2 }
-// CHECK:      GroupSharedBytesUsed: 16
 // CHECK:    }
 // CHECK:  }
 // CHECK:ID3D12LibraryReflection:

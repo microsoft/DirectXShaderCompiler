@@ -5,9 +5,9 @@
 
 // CHECK-NOT: CBufUnused
 
-// CHECK: DxilRuntimeData (size = 440 bytes):
-// CHECK:   StringBuffer (size = 52 bytes)
-// CHECK:   IndexTable (size = 28 bytes)
+// CHECK: DxilRuntimeData (size = 320 bytes):
+// CHECK:   StringBuffer (size = 44 bytes)
+// CHECK:   IndexTable (size = 20 bytes)
 // CHECK:   RawBytes (size = 0 bytes)
 // CHECK:   RecordTable (stride = 32 bytes) ResourceTable[3] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
@@ -41,8 +41,8 @@
 // CHECK:       Flags: 0 (None)
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 52 bytes) FunctionTable[2] = {
-// CHECK:     <0:RuntimeDataFunctionInfo2> = {
+// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[2] = {
+// CHECK:     <0:RuntimeDataFunctionInfo> = {
 // CHECK:       Name: "\01?foo@@YAMXZ"
 // CHECK:       UnmangledName: "foo"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -56,11 +56,8 @@
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 32767
 // CHECK:       MinShaderTarget: 393312
-// CHECK:       MinimumExpectedWaveLaneCount: 0
-// CHECK:       MaximumExpectedWaveLaneCount: 0
-// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo2> = {
+// CHECK:     <1:RuntimeDataFunctionInfo> = {
 // CHECK:       Name: "main"
 // CHECK:       UnmangledName: "main"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -75,43 +72,6 @@
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 2
 // CHECK:       MinShaderTarget: 65632
-// CHECK:       MinimumExpectedWaveLaneCount: 0
-// CHECK:       MaximumExpectedWaveLaneCount: 0
-// CHECK:       ShaderFlags: 0 (None)
-// CHECK:       VS: <0:VSInfo>
-// CHECK:     }
-// CHECK:   }
-// CHECK:   RecordTable (stride = 16 bytes) SignatureElementTable[2] = {
-// CHECK:     <0:SignatureElement> = {
-// CHECK:       SemanticName: "IDX"
-// CHECK:       SemanticIndices: <5:array[1]> = { 0 }
-// CHECK:       SemanticKind: Arbitrary
-// CHECK:       ComponentType: I32
-// CHECK:       InterpolationMode: Undefined
-// CHECK:       StartRow: 0
-// CHECK:       ColsAndStream: 0
-// CHECK:       UsageAndDynIndexMasks: 0
-// CHECK:     }
-// CHECK:     <1:SignatureElement> = {
-// CHECK:       SemanticName: "OUT"
-// CHECK:       SemanticIndices: <5:array[1]> = { 0 }
-// CHECK:       SemanticKind: Arbitrary
-// CHECK:       ComponentType: F32
-// CHECK:       InterpolationMode: Linear
-// CHECK:       StartRow: 0
-// CHECK:       ColsAndStream: 0
-// CHECK:       UsageAndDynIndexMasks: 0
-// CHECK:     }
-// CHECK:   }
-// CHECK:   RecordTable (stride = 16 bytes) VSInfoTable[1] = {
-// CHECK:     <0:VSInfo> = {
-// CHECK:       SigInputElements: <5:RecordArrayRef<SignatureElement>[1]>  = {
-// CHECK:         [0]: <0:SignatureElement>
-// CHECK:       }
-// CHECK:       SigOutputElements: <0:RecordArrayRef<SignatureElement>[1]>  = {
-// CHECK:         [0]: <1:SignatureElement>
-// CHECK:       }
-// CHECK:       ViewIDOutputMask: <0:bytes[0]>
 // CHECK:     }
 // CHECK:   }
 
