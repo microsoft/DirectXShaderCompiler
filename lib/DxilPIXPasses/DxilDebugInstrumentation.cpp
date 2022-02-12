@@ -194,6 +194,13 @@ private:
       unsigned PrimitiveId;
       unsigned InstanceId;
     } GeometryShader;
+    struct HullShaderParameters {
+      unsigned PrimitiveId;
+      unsigned ControlPointId;
+    } HullShader;
+    struct DomainShaderParameters {
+      unsigned PrimitiveId;
+    } DomainShader;
   } m_Parameters = {{0, 0, 0}};
 
   union SystemValueIndices {
@@ -204,10 +211,6 @@ private:
       unsigned VertexId;
       unsigned InstanceId;
     } VertexShader;
-    struct GeometryShaderParameters {
-      unsigned PrimitiveId;
-      unsigned InstanceId;
-    } GeometryShader;
   };
 
   uint64_t m_UAVSize = 1024 * 1024;
@@ -262,12 +265,14 @@ private:
                                     SystemValueIndices SVIndices,
                                     DXIL::ShaderKind shaderKind);
   Value *addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
-  Value *addGeometryShaderProlog(BuilderContext &BC,
-                                 SystemValueIndices SVIndices);
+  Value *addGeometryShaderProlog(BuilderContext &BC);
   Value *addDispatchedShaderProlog(BuilderContext &BC);
   Value* addRaygenShaderProlog(BuilderContext& BC);
   Value* addVertexShaderProlog(BuilderContext& BC,
                                SystemValueIndices SVIndices);
+  Value *addHullhaderProlog(BuilderContext &BC);
+  Value *addComparePrimitiveIdProlog(BuilderContext &BC,
+                               unsigned SVIndices);
   void addDebugEntryValue(BuilderContext &BC, Value *TheValue);
   void addInvocationStartMarker(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
@@ -295,7 +300,40 @@ uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
-DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC, DXIL::ShaderKind shaderKind) {
+static unsigned
+FindOrAddInputSignatureElement(hlsl::DxilSignature &InputSignature,
+    const char * name,
+    DXIL::SigPointKind sigPointKind,
+                               hlsl::DXIL::SemanticKind semanticKind) {
+
+  auto &InputElements = InputSignature.GetElements();
+
+  auto ExistingElement =
+      std::find_if(InputElements.begin(), InputElements.end(),
+                   [&](const std::unique_ptr<DxilSignatureElement> &Element) {
+                     return Element->GetSemantic()->GetKind() == semanticKind;
+                   });
+
+  if (ExistingElement == InputElements.end()) {
+    auto AddedElement =
+        llvm::make_unique<DxilSignatureElement>(sigPointKind);
+    AddedElement->Initialize(name, hlsl::CompType::getF32(),
+                                  hlsl::DXIL::InterpolationMode::Undefined, 1,
+                                  1);
+    AddedElement->AppendSemanticIndex(0);
+    AddedElement->SetSigPointKind(sigPointKind);
+    AddedElement->SetKind(semanticKind);
+
+    auto index = InputSignature.AppendElement(std::move(AddedElement));
+    return InputElements[index]->GetID();
+  } else {
+    return ExistingElement->get()->GetID();
+  }
+}
+
+DxilDebugInstrumentation::SystemValueIndices
+  DxilDebugInstrumentation::addRequiredSystemValues(
+      BuilderContext & BC, DXIL::ShaderKind shaderKind) {
   SystemValueIndices SVIndices{};
 
   switch (shaderKind) {
@@ -310,61 +348,18 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
-    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    auto &InputElements = InputSignature.GetElements();
-    {
-      auto Existing_SV_VertexId = std::find_if(
-          InputElements.begin(), InputElements.end(),
-          [](const std::unique_ptr<DxilSignatureElement> &Element) {
-            return Element->GetSemantic()->GetKind() ==
-                   hlsl::DXIL::SemanticKind::VertexID;
-          });
-
-      if (Existing_SV_VertexId == InputElements.end()) {
-        auto Added_SV_VertexId =
-            llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
-        Added_SV_VertexId->Initialize("VertexId", hlsl::CompType::getF32(),
-                                      hlsl::DXIL::InterpolationMode::Undefined,
-                                      1, 1);
-        Added_SV_VertexId->AppendSemanticIndex(0);
-        Added_SV_VertexId->SetSigPointKind(DXIL::SigPointKind::VSIn);
-        Added_SV_VertexId->SetKind(hlsl::DXIL::SemanticKind::VertexID);
-
-        auto index = InputSignature.AppendElement(std::move(Added_SV_VertexId));
-        SVIndices.VertexShader.VertexId = InputElements[index]->GetID();
-      } else {
-        SVIndices.VertexShader.VertexId = Existing_SV_VertexId->get()->GetID();
-      }
-    }
-    {
-      auto Existing_SV_InstanceId = std::find_if(
-          InputElements.begin(), InputElements.end(),
-          [](const std::unique_ptr<DxilSignatureElement> &Element) {
-            return Element->GetSemantic()->GetKind() ==
-                   hlsl::DXIL::SemanticKind::InstanceID;
-          });
-
-      if (Existing_SV_InstanceId == InputElements.end()) {
-        auto Added_SV_InstanceId =
-            llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
-        Added_SV_InstanceId->Initialize(
-            "InstanceId", hlsl::CompType::getF32(),
-            hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
-        Added_SV_InstanceId->AppendSemanticIndex(0);
-        Added_SV_InstanceId->SetSigPointKind(DXIL::SigPointKind::VSIn);
-        Added_SV_InstanceId->SetKind(hlsl::DXIL::SemanticKind::InstanceID);
-
-        auto index =
-            InputSignature.AppendElement(std::move(Added_SV_InstanceId));
-        SVIndices.VertexShader.InstanceId = InputElements[index]->GetID();
-      } else {
-        SVIndices.VertexShader.InstanceId =
-            Existing_SV_InstanceId->get()->GetID();
-      }
-    }
+      hlsl::DxilSignature& InputSignature = BC.DM.GetInputSignature();
+      SVIndices.VertexShader.VertexId = FindOrAddInputSignatureElement(
+        InputSignature, "VertexId", DXIL::SigPointKind::VSIn,
+        hlsl::DXIL::SemanticKind::VertexID);
+    SVIndices.VertexShader.InstanceId = FindOrAddInputSignatureElement(
+        InputSignature, "InstanceId", DXIL::SigPointKind::VSIn,
+        hlsl::DXIL::SemanticKind::InstanceID);
   } break;
   case DXIL::ShaderKind::Geometry:
-    // GS Instance Id and Primitive Id are not in the input signature
+  case DXIL::ShaderKind::Hull:
+  case DXIL::ShaderKind::Domain:
+    // GS, HS, DS Primitive id, HS control point id, and GS Instance id are not in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
@@ -508,19 +503,49 @@ DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext &BC,
   return CompareBoth;
 }
 
-Value *DxilDebugInstrumentation::addGeometryShaderProlog(
-    BuilderContext &BC, SystemValueIndices SVIndices) {
+Value * DxilDebugInstrumentation::addHullhaderProlog(BuilderContext &BC) {
+  auto LoadControlPointFunction = BC.HlslOP->GetOpFunc(
+      DXIL::OpCode::OutputControlPointID, Type::getInt32Ty(BC.Ctx));
+  Constant *LoadControlPointOpcode =
+      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::OutputControlPointID);
+  auto ControlPointId =
+      BC.Builder.CreateCall(LoadControlPointFunction,
+                            {LoadControlPointOpcode},
+                            "ControlPointId");
 
-  auto PrimitiveIdOpFunc =
+  auto *CompareToPrimId =
+      addComparePrimitiveIdProlog(BC, m_Parameters.HullShader.PrimitiveId);
+
+  auto CompareToControlPoint = BC.Builder.CreateICmpEQ(
+      ControlPointId,
+      BC.HlslOP->GetU32Const(m_Parameters.HullShader.ControlPointId),
+      "CompareToControlPointId");
+
+  auto CompareBoth =
+      BC.Builder.CreateAnd(CompareToControlPoint, CompareToPrimId, "CompareBoth");
+
+  return CompareBoth;
+}
+
+Value * DxilDebugInstrumentation::addComparePrimitiveIdProlog(BuilderContext &BC,
+                                                unsigned primId) {
+  auto PrimitiveIdFunction =
       BC.HlslOP->GetOpFunc(DXIL::OpCode::PrimitiveID, Type::getInt32Ty(BC.Ctx));
   Constant *PrimitiveIdOpcode =
       BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::PrimitiveID);
   auto PrimId =
-      BC.Builder.CreateCall(PrimitiveIdOpFunc, {PrimitiveIdOpcode}, "PrimId");
+      BC.Builder.CreateCall(PrimitiveIdFunction,
+                            {PrimitiveIdOpcode},
+                            "PrimId");
 
-  auto CompareToPrim = BC.Builder.CreateICmpEQ(
-      PrimId, BC.HlslOP->GetU32Const(m_Parameters.GeometryShader.PrimitiveId),
-      "CompareToPrimId");
+  return BC.Builder.CreateICmpEQ(PrimId, BC.HlslOP->GetU32Const(primId),
+                                 "CompareToPrimId");
+}
+
+Value * DxilDebugInstrumentation::addGeometryShaderProlog(
+    BuilderContext &BC) {
+  auto CompareToPrim =
+      addComparePrimitiveIdProlog(BC, m_Parameters.GeometryShader.PrimitiveId);
 
   if (BC.DM.GetGSInstanceCount() <= 1) {
     return CompareToPrim;
@@ -606,10 +631,16 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
     ParameterTestResult = addDispatchedShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Geometry:
-    ParameterTestResult = addGeometryShaderProlog(BC, SVIndices);
+    ParameterTestResult = addGeometryShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Vertex:
     ParameterTestResult = addVertexShaderProlog(BC, SVIndices);
+    break;
+  case DXIL::ShaderKind::Hull:
+    ParameterTestResult = addHullhaderProlog(BC);
+    break;
+  case DXIL::ShaderKind::Domain:
+    ParameterTestResult = addComparePrimitiveIdProlog(BC, m_Parameters.DomainShader.PrimitiveId);
     break;
   case DXIL::ShaderKind::Pixel:
     ParameterTestResult = addPixelShaderProlog(BC, SVIndices);
@@ -956,6 +987,8 @@ bool DxilDebugInstrumentation::RunOnFunction(
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::Hull:
+  case DXIL::ShaderKind::Domain:
     break;
     //todo:
   case DXIL::ShaderKind::Intersection:
