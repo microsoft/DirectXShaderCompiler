@@ -876,12 +876,6 @@ void VariableRegisters::PopulateAllocaMap(
         PopulateAllocaMap(baseType);
       } else {
         m_Offsets.AlignToAndAddUnhandledType(CompositeTy);
-        //if (CompositeTy->getSizeInBits() == 32) {
-        //  PopulateAllocaMap_BasicType(Type::getInt32Ty(m_B.getContext()));
-        //} else if (CompositeTy->getSizeInBits() == 64) {
-        //  PopulateAllocaMap_BasicType(Type::getInt64Ty(m_B.getContext()));
-        //} else {
-        //}
       }
     }
       return;
