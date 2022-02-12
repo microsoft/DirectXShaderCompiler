@@ -20,6 +20,14 @@ RDAT_ENUM_START(DxilResourceFlag, uint32_t)
   RDAT_ENUM_VALUE(Atomics64Use,             1 << 4)
 RDAT_ENUM_END()
 
+RDAT_ENUM_START(DxilShaderFlags, uint32_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(OutputPositionPresent, 1 << 0)
+  RDAT_ENUM_VALUE(DepthOutput, 1 << 1)
+  RDAT_ENUM_VALUE(SampleFrequency, 1 << 2)
+  RDAT_ENUM_VALUE(UsesViewID, 1 << 3)
+RDAT_ENUM_END()
+
 #endif // DEF_RDAT_ENUMS
 
 #ifdef DEF_DXIL_ENUMS
@@ -232,6 +240,153 @@ RDAT_STRUCT_TABLE(RuntimeDataFunctionInfo, FunctionTable)
                       : 0;
   }
 #endif
+
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE SignatureElement
+RDAT_STRUCT_TABLE(SignatureElement, SignatureElementTable)
+  RDAT_STRING(SemanticName)
+  RDAT_INDEX_ARRAY_REF(SemanticIndices)         // Rows = SemanticIndices.Count()
+  RDAT_ENUM(uint8_t, hlsl::DXIL::SemanticKind, SemanticKind)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, ComponentType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::InterpolationMode, InterpolationMode)
+  RDAT_VALUE(uint8_t, StartRow)                 // Starting row of packed location if allocated, otherwise 0xFF
+  // TODO: use struct with bitfields or accessors for ColsAndStream and UsageAndDynIndexMasks
+  RDAT_VALUE(uint8_t, ColsAndStream)            // 0:2 = (Cols-1) (0-3), 2:4 = StartCol (0-3), 4:6 = OutputStream (0-3)
+  RDAT_VALUE(uint8_t, UsageAndDynIndexMasks)    // 0:4 = UsageMask, 4:8 = DynamicIndexMask
+#if DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
+  uint8_t GetCols() const { return (ColsAndStream & 3) + 1; }
+  uint8_t GetStartCol() const { return (ColsAndStream >> 2) & 3; }
+  uint8_t GetOutputStream() const { return (ColsAndStream >> 4) & 3; }
+  uint8_t GetUsageMask() const { return UsageAndDynIndexMasks & 0xF; }
+  uint8_t GetDynamicIndexMask() const { return (UsageAndDynIndexMasks >> 4) & 0xF; }
+  void SetCols(unsigned cols) { ColsAndStream &= ~3; ColsAndStream |= (cols - 1) & 3; }
+  void SetStartCol(unsigned col) { ColsAndStream &= ~(3 << 2); ColsAndStream |= (col & 3) << 2; }
+  void SetOutputStream(unsigned stream) { ColsAndStream &= ~(3 << 4); ColsAndStream |= (stream & 3) << 4; }
+  void SetUsageMask(unsigned mask) { UsageAndDynIndexMasks &= ~0xF; UsageAndDynIndexMasks |= mask & 0xF; }
+  void SetDynamicIndexMask(unsigned mask) { UsageAndDynIndexMasks &= ~(0xF << 4); UsageAndDynIndexMasks |= (mask & 0xF) << 4; }
+#endif
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE VSInfo
+RDAT_STRUCT_TABLE(VSInfo, VSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE PSInfo
+RDAT_STRUCT_TABLE(PSInfo, PSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE HSInfo
+RDAT_STRUCT_TABLE(HSInfo, HSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPatchConstOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(ViewIDPatchConstOutputMask)
+  RDAT_BYTES(InputToOutputMasks)
+  RDAT_BYTES(InputToPatchConstOutputMasks)
+  RDAT_VALUE(uint8_t, InputControlPointCount)
+  RDAT_VALUE(uint8_t, OutputControlPointCount)
+  RDAT_VALUE(uint8_t, TessellatorDomain)
+  RDAT_VALUE(uint8_t, TessellatorOutputPrimitive)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE DSInfo
+RDAT_STRUCT_TABLE(DSInfo, DSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPatchConstInputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(InputToOutputMasks)
+  RDAT_BYTES(PatchConstInputToOutputMasks)
+  RDAT_VALUE(uint8_t, InputControlPointCount)
+  RDAT_VALUE(uint8_t, TessellatorDomain)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE GSInfo
+RDAT_STRUCT_TABLE(GSInfo, GSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(InputToOutputMasks)
+  RDAT_VALUE(uint8_t, InputPrimitive)
+  RDAT_VALUE(uint8_t, OutputTopology)
+  RDAT_VALUE(uint8_t, MaxVertexCount)
+  RDAT_VALUE(uint8_t, OutputStreamMask)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE CSInfo
+RDAT_STRUCT_TABLE(CSInfo, CSInfoTable)
+  RDAT_INDEX_ARRAY_REF(NumThreads)  // ref to array of X, Y, Z.  If < 3 elements, default value is 1
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE MSInfo
+RDAT_STRUCT_TABLE(MSInfo, MSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPrimOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(ViewIDPrimOutputMask)
+  RDAT_INDEX_ARRAY_REF(NumThreads)  // ref to array of X, Y, Z.  If < 3 elements, default value is 1
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
+  RDAT_VALUE(uint32_t, GroupSharedBytesDependentOnViewID)
+  RDAT_VALUE(uint32_t, PayloadSizeInBytes)
+  RDAT_VALUE(uint16_t, MaxOutputVertices)
+  RDAT_VALUE(uint16_t, MaxOutputPrimitives)
+  RDAT_VALUE(uint8_t, MeshOutputTopology)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE ASInfo
+RDAT_STRUCT_TABLE(ASInfo, ASInfoTable)
+  RDAT_INDEX_ARRAY_REF(NumThreads)  // ref to array of X, Y, Z.  If < 3 elements, default value is 1
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
+  RDAT_VALUE(uint32_t, PayloadSizeInBytes)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE RuntimeDataFunctionInfo2
+RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo2, RuntimeDataFunctionInfo, FunctionTable)
+
+  // 128 lanes is maximum that could be supported by HLSL
+  RDAT_VALUE(uint8_t, MinimumExpectedWaveLaneCount) // 0 = none specified
+  RDAT_VALUE(uint8_t, MaximumExpectedWaveLaneCount) // 0 = none specified
+  RDAT_FLAGS(uint16_t, hlsl::RDAT::DxilShaderFlags, ShaderFlags)
+
+  RDAT_UNION()
+    RDAT_UNION_IF(VS, (getShaderKind() == hlsl::DXIL::ShaderKind::Vertex))
+      RDAT_RECORD_REF(VSInfo, VS)
+    RDAT_UNION_ELIF(PS, (getShaderKind() == hlsl::DXIL::ShaderKind::Pixel))
+      RDAT_RECORD_REF(PSInfo, PS)
+    RDAT_UNION_ELIF(HS, (getShaderKind() == hlsl::DXIL::ShaderKind::Hull))
+      RDAT_RECORD_REF(HSInfo, HS)
+    RDAT_UNION_ELIF(DS, (getShaderKind() == hlsl::DXIL::ShaderKind::Domain))
+      RDAT_RECORD_REF(DSInfo, DS)
+    RDAT_UNION_ELIF(GS, (getShaderKind() == hlsl::DXIL::ShaderKind::Geometry))
+      RDAT_RECORD_REF(GSInfo, GS)
+    RDAT_UNION_ELIF(CS, (getShaderKind() == hlsl::DXIL::ShaderKind::Compute))
+      RDAT_RECORD_REF(CSInfo, CS)
+    RDAT_UNION_ELIF(MS, (getShaderKind() == hlsl::DXIL::ShaderKind::Mesh))
+      RDAT_RECORD_REF(MSInfo, MS)
+    RDAT_UNION_ELIF(AS, (getShaderKind() == hlsl::DXIL::ShaderKind::Amplification))
+      RDAT_RECORD_REF(ASInfo, AS)
+    RDAT_UNION_ELIF(RawShaderRef, (getShaderKind() == hlsl::DXIL::ShaderKind::Invalid))
+      RDAT_VALUE(uint32_t, RawShaderRef)
+    RDAT_UNION_ENDIF()
+  RDAT_UNION_END()
 
 RDAT_STRUCT_END()
 #undef RECORD_TYPE

@@ -47,6 +47,18 @@ enum class RuntimeDataPartType : uint32_t {
   RawBytes            = 5,
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
+  // PRERELEASE-TODO: assign values explicitly to all enums before release
+  SignatureElementTable,
+  VSInfoTable,
+  PSInfoTable,
+  HSInfoTable,
+  DSInfoTable,
+  GSInfoTable,
+  CSInfoTable,
+  MSInfoTable,
+  ASInfoTable,
+  Last_1_7 = ASInfoTable, // PRERELEASE-TODO: change to last necessary 1.7 part before release.
+  // Insert experimental here.
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
 };
@@ -57,8 +69,10 @@ RuntimeDataPartType MaxPartTypeForValVer(unsigned Major, unsigned Minor) {
              ? RuntimeDataPartType::Invalid // No RDAT before 1.3
          : DXIL::CompareVersions(Major, Minor, 1, 4) < 0
              ? RuntimeDataPartType::Last_1_3
-         : DXIL::CompareVersions(Major, Minor, 1, 7) <= 0
+         : DXIL::CompareVersions(Major, Minor, 1, 7) < 0
              ? RuntimeDataPartType::Last_1_4
+         : DXIL::CompareVersions(Major, Minor, 1, 7) == 0
+             ? RuntimeDataPartType::Last_1_7
              : RuntimeDataPartType::LastExperimental;
 }
 
@@ -66,6 +80,15 @@ enum class RecordTableIndex : unsigned {
   ResourceTable,
   FunctionTable,
   SubobjectTable,
+  SignatureElementTable,
+  VSInfoTable,
+  PSInfoTable,
+  HSInfoTable,
+  DSInfoTable,
+  GSInfoTable,
+  CSInfoTable,
+  MSInfoTable,
+  ASInfoTable,
   RecordTableCount
 };
 
@@ -611,6 +634,90 @@ struct DxilResourceDesc {
   uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 };
 
+struct DxilSignatureElementDesc {
+  LPCWSTR SemanticName;
+  uint32_t *SemanticIndices;                  // array size is Rows
+  DXIL::SemanticKind SemanticKind;
+  DXIL::ComponentType ComponentType;
+  DXIL::InterpolationMode InterpolationMode;
+  uint8_t Rows;
+  uint8_t Cols;
+  uint8_t StartRow;
+  uint8_t StartCol;
+  uint8_t OutputStream;
+  uint8_t UsageMask;
+  uint8_t DynamicIndexMask;
+};
+
+struct DxilSignatureDesc {
+  const DxilSignatureElementDesc *const *Elements;
+  uint32_t NumElements;
+};
+
+struct DxilVSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  // PRERELEASE-TODO: ViewID data
+};
+
+struct DxilPSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+};
+
+struct DxilHSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  DxilSignatureDesc OutputPatchConstantSignature;
+  uint32_t InputControlPointCount;
+  uint32_t OutputControlPointCount;
+  DXIL::TessellatorDomain TessellatorDomain;
+  DXIL::TessellatorOutputPrimitive TessellatorOutputPrimitive;
+  // PRERELEASE-TODO: ViewID data
+};
+
+struct DxilDSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  DxilSignatureDesc InputPatchConstantSignature;
+  uint32_t InputControlPointCount;
+  DXIL::TessellatorDomain TessellatorDomain;
+  // PRERELEASE-TODO: ViewID data
+};
+
+struct DxilGSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  DXIL::InputPrimitive InputPrimitive;
+  DXIL::PrimitiveTopology OutputTopology;
+  uint32_t MaxOutputVertices;
+  uint32_t OutputStreamMask;            // max streams == 4
+  // PRERELEASE-TODO: ViewID data
+};
+
+struct DxilCSDesc {
+  uint32_t NumThreads[3];
+};
+
+struct DxilMSDesc {
+  DxilSignatureDesc OutputSignature;
+  DxilSignatureDesc OutputPrimitiveSignature;
+  uint32_t NumThreads[3];
+  uint32_t GroupSharedBytesUsed;
+  uint32_t GroupSharedBytesDependentOnViewID;
+  uint32_t PayloadSizeInBytes;
+  uint32_t MaxOutputVertices;
+  uint32_t MaxOutputPrimitives;
+  DXIL::MeshOutputTopology MeshOutputTopology;
+  // PRERELEASE-TODO: ViewID data
+};
+
+struct DxilASDesc {
+  uint32_t NumThreads[3];
+  uint32_t GroupSharedBytesUsed;
+  uint32_t PayloadSizeInBytes;
+};
+
 typedef const DxilResourceDesc *const *DxilResourceDescPtrArray;
 
 struct DxilFunctionDesc {
@@ -628,6 +735,22 @@ struct DxilFunctionDesc {
   uint32_t FeatureInfo2;         // second 32 bits of feature flag
   uint32_t ShaderStageFlag;      // valid shader stage flag.
   uint32_t MinShaderTarget;      // minimum shader target.
+
+  // 1.7+
+  uint32_t MinimumExpectedWaveLaneCount;
+  uint32_t MaximumExpectedWaveLaneCount;
+  uint32_t ShaderFlags;          // RDAT::DxilShaderFlags
+
+  union {
+    DxilVSDesc *VS;
+    DxilPSDesc *PS;
+    DxilHSDesc *HS;
+    DxilDSDesc *DS;
+    DxilGSDesc *GS;
+    DxilCSDesc *CS;
+    DxilMSDesc *MS;
+    DxilASDesc *AS;
+  };
 };
 
 struct DxilSubobjectDesc {

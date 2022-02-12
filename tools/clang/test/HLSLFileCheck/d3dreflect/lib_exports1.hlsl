@@ -21,9 +21,9 @@ float4 PSMain(int idx : INDEX) : SV_Target {
   return T2[T0.Load(idx)].f;
 }
 
-// CHECK: DxilRuntimeData (size = 444 bytes):
-// CHECK:   StringBuffer (size = 124 bytes)
-// CHECK:   IndexTable (size = 20 bytes)
+// CHECK: DxilRuntimeData (size = 572 bytes):
+// CHECK:   StringBuffer (size = 140 bytes)
+// CHECK:   IndexTable (size = 28 bytes)
 // CHECK:   RawBytes (size = 0 bytes)
 // CHECK:   RecordTable (stride = 32 bytes) ResourceTable[3] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
@@ -57,8 +57,8 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Flags: 0 (None)
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[3] = {
-// CHECK:     <0:RuntimeDataFunctionInfo> = {
+// CHECK:   RecordTable (stride = 52 bytes) FunctionTable[3] = {
+// CHECK:     <0:RuntimeDataFunctionInfo2> = {
 // CHECK:       Name: "\01?VS_RENAMED@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z"
 // CHECK:       UnmangledName: "VS_RENAMED"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -72,8 +72,11 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 32767
 // CHECK:       MinShaderTarget: 393312
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo> = {
+// CHECK:     <1:RuntimeDataFunctionInfo2> = {
 // CHECK:       Name: "\01?PS_RENAMED@@YA?AV?$vector@M$03@@H@Z"
 // CHECK:       UnmangledName: "PS_RENAMED"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -88,8 +91,11 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 32767
 // CHECK:       MinShaderTarget: 393312
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <2:RuntimeDataFunctionInfo> = {
+// CHECK:     <2:RuntimeDataFunctionInfo2> = {
 // CHECK:       Name: "PS_RENAMED"
 // CHECK:       UnmangledName: "PS_RENAMED"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -104,6 +110,42 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 1
 // CHECK:       MinShaderTarget: 96
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
+// CHECK:       PS: <0:PSInfo>
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = 16 bytes) SignatureElementTable[2] = {
+// CHECK:     <0:SignatureElement> = {
+// CHECK:       SemanticName: "INDEX"
+// CHECK:       SemanticIndices: <5:array[1]> = { 0 }
+// CHECK:       SemanticKind: Arbitrary
+// CHECK:       ComponentType: I32
+// CHECK:       InterpolationMode: Constant
+// CHECK:       StartRow: 0
+// CHECK:       ColsAndStream: 0
+// CHECK:       UsageAndDynIndexMasks: 0
+// CHECK:     }
+// CHECK:     <1:SignatureElement> = {
+// CHECK:       SemanticName: "SV_Target"
+// CHECK:       SemanticIndices: <5:array[1]> = { 0 }
+// CHECK:       SemanticKind: Target
+// CHECK:       ComponentType: F32
+// CHECK:       InterpolationMode: Undefined
+// CHECK:       StartRow: 0
+// CHECK:       ColsAndStream: 3
+// CHECK:       UsageAndDynIndexMasks: 0
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = 8 bytes) PSInfoTable[1] = {
+// CHECK:     <0:PSInfo> = {
+// CHECK:       SigInputElements: <5:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:         [0]: <0:SignatureElement>
+// CHECK:       }
+// CHECK:       SigOutputElements: <0:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:         [0]: <1:SignatureElement>
+// CHECK:       }
 // CHECK:     }
 // CHECK:   }
 

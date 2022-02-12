@@ -1,9 +1,9 @@
 // RUN: %dxc  -T lib_6_7 %s | %D3DReflect %s | FileCheck %s
 
 
-// CHECK:DxilRuntimeData (size = 180 bytes):
+// CHECK:DxilRuntimeData (size = 236 bytes):
 // CHECK:  StringBuffer (size = 24 bytes)
-// CHECK:  IndexTable (size = 8 bytes)
+// CHECK:  IndexTable (size = 24 bytes)
 // CHECK:  RawBytes (size = 0 bytes)
 // CHECK:  RecordTable (stride = 32 bytes) ResourceTable[1] = {
 // CHECK:    <0:RuntimeDataResourceInfo> = {
@@ -17,8 +17,8 @@
 // CHECK:      Flags: 0 (None)
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 44 bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo> = {
+// CHECK:  RecordTable (stride = 52 bytes) FunctionTable[1] = {
+// CHECK:    <0:RuntimeDataFunctionInfo2> = {
 // CHECK:      Name: "amplification"
 // CHECK:      UnmangledName: "amplification"
 // CHECK:      Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -41,6 +41,21 @@
 // CHECK:      FeatureInfo2: 0
 // CHECK:      ShaderStageFlag: 16384
 // CHECK:      MinShaderTarget: 917605
+// CHECK:      MinimumExpectedWaveLaneCount: 0
+// CHECK:      MaximumExpectedWaveLaneCount: 0
+// CHECK:      ShaderFlags: 0 (None)
+// CHECK:      AS: <0:ASInfo> = {
+// CHECK:        NumThreads: <2:array[3]> = { 4, 1, 1 }
+// CHECK:        GroupSharedBytesUsed: 32
+// CHECK:        PayloadSizeInBytes: 16
+// CHECK:      }
+// CHECK:    }
+// CHECK:  }
+// CHECK:  RecordTable (stride = 12 bytes) ASInfoTable[1] = {
+// CHECK:    <0:ASInfo> = {
+// CHECK:      NumThreads: <2:array[3]> = { 4, 1, 1 }
+// CHECK:      GroupSharedBytesUsed: 32
+// CHECK:      PayloadSizeInBytes: 16
 // CHECK:    }
 // CHECK:  }
 // CHECK:ID3D12LibraryReflection:
