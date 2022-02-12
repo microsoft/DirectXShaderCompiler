@@ -90,12 +90,12 @@ HSPerPatchData HSPerPatchFunc1()
   return d;
 }
 
-// CHECK: DxilRuntimeData (size = 804 bytes):
-// CHECK:   StringBuffer (size = 236 bytes)
-// CHECK:   IndexTable (size = 40 bytes)
+// CHECK: DxilRuntimeData (size = 436 bytes):
+// CHECK:   StringBuffer (size = 176 bytes)
+// CHECK:   IndexTable (size = 0 bytes)
 // CHECK:   RawBytes (size = 0 bytes)
-// CHECK:   RecordTable (stride = 52 bytes) FunctionTable[5] = {
-// CHECK:     <0:RuntimeDataFunctionInfo2> = {
+// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[5] = {
+// CHECK:     <0:RuntimeDataFunctionInfo> = {
 // CHECK:       Name: "\01?HSMain1@@YAXIV?$InputPatch@UPSSceneIn@@$02@@@Z"
 // CHECK:       UnmangledName: "HSMain1"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -107,11 +107,8 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 32767
 // CHECK:       MinShaderTarget: 393312
-// CHECK:       MinimumExpectedWaveLaneCount: 0
-// CHECK:       MaximumExpectedWaveLaneCount: 0
-// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo2> = {
+// CHECK:     <1:RuntimeDataFunctionInfo> = {
 // CHECK:       Name: "\01?HSMain3@@YAXIV?$InputPatch@UPSSceneIn@@$02@@@Z"
 // CHECK:       UnmangledName: "HSMain3"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -123,11 +120,8 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 32767
 // CHECK:       MinShaderTarget: 393312
-// CHECK:       MinimumExpectedWaveLaneCount: 0
-// CHECK:       MaximumExpectedWaveLaneCount: 0
-// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <2:RuntimeDataFunctionInfo2> = {
+// CHECK:     <2:RuntimeDataFunctionInfo> = {
 // CHECK:       Name: "HSMain1"
 // CHECK:       UnmangledName: "HSMain1"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -139,12 +133,8 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 8
 // CHECK:       MinShaderTarget: 196704
-// CHECK:       MinimumExpectedWaveLaneCount: 0
-// CHECK:       MaximumExpectedWaveLaneCount: 0
-// CHECK:       ShaderFlags: 0 (None)
-// CHECK:       HS: <0:HSInfo>
 // CHECK:     }
-// CHECK:     <3:RuntimeDataFunctionInfo2> = {
+// CHECK:     <3:RuntimeDataFunctionInfo> = {
 // CHECK:       Name: "HSMain3"
 // CHECK:       UnmangledName: "HSMain3"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -156,12 +146,8 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 8
 // CHECK:       MinShaderTarget: 196704
-// CHECK:       MinimumExpectedWaveLaneCount: 0
-// CHECK:       MaximumExpectedWaveLaneCount: 0
-// CHECK:       ShaderFlags: 0 (None)
-// CHECK:       HS: <1:HSInfo>
 // CHECK:     }
-// CHECK:     <4:RuntimeDataFunctionInfo2> = {
+// CHECK:     <4:RuntimeDataFunctionInfo> = {
 // CHECK:       Name: "\01?HSPerPatchFunc1@@YA?AUHSPerPatchData@@XZ"
 // CHECK:       UnmangledName: "HSPerPatchFunc1"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -173,103 +159,6 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 8
 // CHECK:       MinShaderTarget: 393312
-// CHECK:       MinimumExpectedWaveLaneCount: 0
-// CHECK:       MaximumExpectedWaveLaneCount: 0
-// CHECK:       ShaderFlags: 0 (None)
-// CHECK:     }
-// CHECK:   }
-// CHECK:   RecordTable (stride = 16 bytes) SignatureElementTable[5] = {
-// CHECK:     <0:SignatureElement> = {
-// CHECK:       SemanticName: "SV_Position"
-// CHECK:       SemanticIndices: <0:array[1]> = { 0 }
-// CHECK:       SemanticKind: Position
-// CHECK:       ComponentType: F32
-// CHECK:       InterpolationMode: LinearNoperspective
-// CHECK:       StartRow: 0
-// CHECK:       ColsAndStream: 3
-// CHECK:       UsageAndDynIndexMasks: 0
-// CHECK:     }
-// CHECK:     <1:SignatureElement> = {
-// CHECK:       SemanticName: "TEXCOORD"
-// CHECK:       SemanticIndices: <0:array[1]> = { 0 }
-// CHECK:       SemanticKind: Arbitrary
-// CHECK:       ComponentType: F32
-// CHECK:       InterpolationMode: Linear
-// CHECK:       StartRow: 1
-// CHECK:       ColsAndStream: 1
-// CHECK:       UsageAndDynIndexMasks: 0
-// CHECK:     }
-// CHECK:     <2:SignatureElement> = {
-// CHECK:       SemanticName: "NORMAL"
-// CHECK:       SemanticIndices: <0:array[1]> = { 0 }
-// CHECK:       SemanticKind: Arbitrary
-// CHECK:       ComponentType: F32
-// CHECK:       InterpolationMode: Linear
-// CHECK:       StartRow: 2
-// CHECK:       ColsAndStream: 2
-// CHECK:       UsageAndDynIndexMasks: 0
-// CHECK:     }
-// CHECK:     <3:SignatureElement> = {
-// CHECK:       SemanticName: "SV_TessFactor"
-// CHECK:       SemanticIndices: <2:array[3]> = { 0, 1, 2 }
-// CHECK:       SemanticKind: TessFactor
-// CHECK:       ComponentType: F32
-// CHECK:       InterpolationMode: Undefined
-// CHECK:       StartRow: 0
-// CHECK:       ColsAndStream: 12
-// CHECK:       UsageAndDynIndexMasks: 0
-// CHECK:     }
-// CHECK:     <4:SignatureElement> = {
-// CHECK:       SemanticName: "SV_InsideTessFactor"
-// CHECK:       SemanticIndices: <0:array[1]> = { 0 }
-// CHECK:       SemanticKind: InsideTessFactor
-// CHECK:       ComponentType: F32
-// CHECK:       InterpolationMode: Undefined
-// CHECK:       StartRow: 3
-// CHECK:       ColsAndStream: 0
-// CHECK:       UsageAndDynIndexMasks: 0
-// CHECK:     }
-// CHECK:   }
-// CHECK:   RecordTable (stride = 48 bytes) HSInfoTable[2] = {
-// CHECK:     <0:HSInfo> = {
-// CHECK:       SigInputElements: <2:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:         [0]: <0:SignatureElement>
-// CHECK:         [1]: <1:SignatureElement>
-// CHECK:         [2]: <2:SignatureElement>
-// CHECK:       }
-// CHECK:       SigOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
-// CHECK:       SigPatchConstOutputElements: <7:RecordArrayRef<SignatureElement>[2]>  = {
-// CHECK:         [0]: <3:SignatureElement>
-// CHECK:         [1]: <4:SignatureElement>
-// CHECK:       }
-// CHECK:       ViewIDOutputMask: <0:bytes[0]>
-// CHECK:       ViewIDPatchConstOutputMask: <0:bytes[0]>
-// CHECK:       InputToOutputMasks: <0:bytes[0]>
-// CHECK:       InputToPatchConstOutputMasks: <0:bytes[0]>
-// CHECK:       InputControlPointCount: 3
-// CHECK:       OutputControlPointCount: 3
-// CHECK:       TessellatorDomain: 2
-// CHECK:       TessellatorOutputPrimitive: 3
-// CHECK:     }
-// CHECK:     <1:HSInfo> = {
-// CHECK:       SigInputElements: <2:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:         [0]: <0:SignatureElement>
-// CHECK:         [1]: <1:SignatureElement>
-// CHECK:         [2]: <2:SignatureElement>
-// CHECK:       }
-// CHECK:       SigOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
-// CHECK:       SigPatchConstOutputElements: <7:RecordArrayRef<SignatureElement>[2]>  = {
-// CHECK:         [0]: <3:SignatureElement>
-// CHECK:         [1]: <4:SignatureElement>
-// CHECK:       }
-// CHECK:       ViewIDOutputMask: <0:bytes[0]>
-// CHECK:       ViewIDPatchConstOutputMask: <0:bytes[0]>
-// CHECK:       InputToOutputMasks: <0:bytes[0]>
-// CHECK:       InputToPatchConstOutputMasks: <0:bytes[0]>
-// CHECK:       InputControlPointCount: 3
-// CHECK:       OutputControlPointCount: 3
-// CHECK:       TessellatorDomain: 2
-// CHECK:       TessellatorOutputPrimitive: 4
 // CHECK:     }
 // CHECK:   }
 
