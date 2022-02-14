@@ -754,7 +754,7 @@ bool EmitVisitor::visit(SpirvVariable *inst) {
       if (templateParams.size() > 0) {
         formattedUserType += ":<";
         formattedUserType += templateParams[0];
-        for (int i = 1; i < templateParams.size(); i++) {
+        for (size_t i = 1; i < templateParams.size(); i++) {
           formattedUserType += ",";
           formattedUserType += templateParams[i];
         }
