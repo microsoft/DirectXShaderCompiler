@@ -1934,7 +1934,7 @@ class db_dxil(object):
 
         # Set interesting properties.
         self.build_indices()
-        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,SampleCmpLevel".split(","):
+        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(","):
             self.name_idx[i].is_gradient = True
         for i in "DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
             assert self.name_idx[i].is_gradient == True, "all derivatives are marked as requiring gradients"
