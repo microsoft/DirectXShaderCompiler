@@ -18,7 +18,7 @@ HRESULT dxil_dia::StringRefToBSTR(llvm::StringRef value, BSTR *pRetVal) {
   try {
     wchar_t *wide;
     size_t sideSize;
-    if (!Unicode::UTF8BufferToUTF16Buffer(value.data(), value.size(), &wide,
+    if (!Unicode::UTF8BufferToWideBuffer(value.data(), value.size(), &wide,
       &sideSize))
       return E_FAIL;
     *pRetVal = SysAllocString(wide);

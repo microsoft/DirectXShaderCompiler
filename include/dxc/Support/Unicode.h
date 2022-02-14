@@ -52,45 +52,45 @@ _Success_(return != false)
 bool UTF8ToConsoleString(_In_z_ const char* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
 
 _Success_(return != false)
-bool UTF16ToConsoleString(_In_opt_count_(textLen) const wchar_t* text, _In_ size_t textLen, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
+bool WideToConsoleString(_In_opt_count_(textLen) const wchar_t* text, _In_ size_t textLen, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
 
 _Success_(return != false)
-bool UTF16ToConsoleString(_In_z_ const wchar_t* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
+bool WideToConsoleString(_In_z_ const wchar_t* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
 
 _Success_(return != false)
-bool UTF8ToUTF16String(_In_opt_z_ const char *pUTF8, _Inout_ std::wstring *pUTF16);
+bool UTF8ToWideString(_In_opt_z_ const char *pUTF8, _Inout_ std::wstring *pWide);
 
 _Success_(return != false)
-bool UTF8ToUTF16String(_In_opt_count_(cbUTF8) const char *pUTF8, size_t cbUTF8, _Inout_ std::wstring *pUTF16);
+bool UTF8ToWideString(_In_opt_count_(cbUTF8) const char *pUTF8, size_t cbUTF8, _Inout_ std::wstring *pWide);
 
-std::wstring UTF8ToUTF16StringOrThrow(_In_z_ const char *pUTF8);
+std::wstring UTF8ToWideStringOrThrow(_In_z_ const char *pUTF8);
 
 _Success_(return != false)
-bool UTF16ToUTF8String(_In_z_ const wchar_t *pUTF16, size_t cUTF16, _Inout_ std::string *pUTF8);
-bool UTF16ToUTF8String(_In_z_ const wchar_t *pUTF16, _Inout_ std::string *pUTF8);
+bool WideToUTF8String(_In_z_ const wchar_t *pWide, size_t cWide, _Inout_ std::string *pUTF8);
+bool WideToUTF8String(_In_z_ const wchar_t *pWide, _Inout_ std::string *pUTF8);
 
-std::string UTF16ToUTF8StringOrThrow(_In_z_ const wchar_t *pUTF16);
+std::string WideToUTF8StringOrThrow(_In_z_ const wchar_t *pWide);
 
 bool IsStarMatchUTF8(_In_reads_opt_(maskLen) const char *pMask, size_t maskLen,
                      _In_reads_opt_(nameLen) const char *pName, size_t nameLen);
-bool IsStarMatchUTF16(_In_reads_opt_(maskLen) const wchar_t *pMask, size_t maskLen,
+bool IsStarMatchWide(_In_reads_opt_(maskLen) const wchar_t *pMask, size_t maskLen,
                       _In_reads_opt_(nameLen) const wchar_t *pName, size_t nameLen);
 
 _Success_(return != false)
-bool UTF8BufferToUTF16ComHeap(_In_z_ const char *pUTF8,
-                              _Outptr_result_z_ wchar_t **ppUTF16) throw();
+bool UTF8BufferToWideComHeap(_In_z_ const char *pUTF8,
+                              _Outptr_result_z_ wchar_t **ppWide) throw();
 
 _Success_(return != false)
-bool UTF8BufferToUTF16Buffer(
+bool UTF8BufferToWideBuffer(
   _In_NLS_string_(cbUTF8) const char *pUTF8,
   int cbUTF8, 
-  _Outptr_result_buffer_(*pcchUTF16) wchar_t **ppUTF16,
-  size_t *pcchUTF16) throw();
+  _Outptr_result_buffer_(*pcchWide) wchar_t **ppWide,
+  size_t *pcchWide) throw();
 
 _Success_(return != false)
-bool UTF16BufferToUTF8Buffer(
-  _In_NLS_string_(cchUTF16) const wchar_t *pUTF16,
-  int cchUTF16,
+bool WideBufferToUTF8Buffer(
+  _In_NLS_string_(cchWide) const wchar_t *pWide,
+  int cchWide,
   _Outptr_result_buffer_(*pcbUTF8) char **ppUTF8,
   size_t *pcbUTF8) throw();
 

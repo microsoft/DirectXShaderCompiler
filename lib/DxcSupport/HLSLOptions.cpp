@@ -81,10 +81,10 @@ UINT32 DxcDefines::ComputeNumberOfWCharsNeededForDefines() {
   for (llvm::StringRef &S : DefineStrings) {
     DXASSERT(S.size() > 0,
              "else DxcDefines::push_back should not have added this");
-    const int utf16Length = ::MultiByteToWideChar(
+    const int wideLength = ::MultiByteToWideChar(
         CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(), nullptr, 0);
-    IFTARG(utf16Length != 0);
-    wcharSize += utf16Length + 1; // adding null terminated character
+    IFTARG(wideLength != 0);
+    wcharSize += wideLength + 1; // adding null terminated character
   }
   return wcharSize;
 }
@@ -103,12 +103,12 @@ void DxcDefines::BuildDefines() {
   for (size_t i = 0; i < DefineStrings.size(); ++i) {
     llvm::StringRef &S = DefineStrings[i];
     DxcDefine &D = DefineVector[i];
-    const int utf16Length =
+    const int wideLength =
         ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(),
                               pWriteCursor, remaining);
-    DXASSERT(utf16Length > 0,
+    DXASSERT(wideLength > 0,
              "else it should have failed during size calculation");
-    LPWSTR pDefineEnd = pWriteCursor + utf16Length;
+    LPWSTR pDefineEnd = pWriteCursor + wideLength;
     D.Name = pWriteCursor;
 
     LPWSTR pEquals = std::find(pWriteCursor, pDefineEnd, L'=');
@@ -120,13 +120,13 @@ void DxcDefines::BuildDefines() {
     }
 
     // Advance past converted characters and include the null terminator.
-    pWriteCursor += utf16Length;
+    pWriteCursor += wideLength;
     *pWriteCursor = L'\0';
     ++pWriteCursor;
 
     DXASSERT(pWriteCursor <= DefineValues + wcharSize,
              "else this function is calculating this incorrectly");
-    remaining -= (utf16Length + 1);
+    remaining -= (wideLength + 1);
   }
 }
 
@@ -170,7 +170,7 @@ MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
     Utf8StringVector.reserve(argc - skipArgCount);
     Utf8CharPtrVector.reserve(argc - skipArgCount);
     for (int i = skipArgCount; i < argc; ++i) {
-      Utf8StringVector.emplace_back(Unicode::UTF16ToUTF8StringOrThrow(argv[i]));
+      Utf8StringVector.emplace_back(Unicode::WideToUTF8StringOrThrow(argv[i]));
       Utf8CharPtrVector.push_back(Utf8StringVector.back().data());
     }
   }
@@ -208,9 +208,9 @@ MainArgs& MainArgs::operator=(const MainArgs &other) {
   return *this;
 }
 
-StringRefUtf16::StringRefUtf16(llvm::StringRef value) {
+StringRefWide::StringRefWide(llvm::StringRef value) {
   if (!value.empty())
-    m_value = Unicode::UTF8ToUTF16StringOrThrow(value.data());
+    m_value = Unicode::UTF8ToWideStringOrThrow(value.data());
 }
 
 static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major, unsigned *minor) {
@@ -364,11 +364,23 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (!encoding.empty()) {
     if (encoding.equals_lower("utf8")) {
       opts.DefaultTextCodePage = DXC_CP_UTF8;
+#ifdef _WIN32
     } else if (encoding.equals_lower("utf16")) {
-      opts.DefaultTextCodePage = DXC_CP_UTF16;
+      opts.DefaultTextCodePage = DXC_CP_UTF16; // Only on Windows
+#else
+    } else if (encoding.equals_lower("utf32")) {
+      opts.DefaultTextCodePage = DXC_CP_UTF32; // Only on *nix
+#endif
+    } else if (encoding.equals_lower("wide")) {
+      opts.DefaultTextCodePage = DXC_CP_WIDE;
     } else {
       errors << "Unsupported value '" << encoding
-        << "for -encoding option.  Allowed values: utf8, utf16.";
+        << "for -encoding option.  Allowed values: wide, utf8, "
+#ifdef _WIN32
+        "utf16.";
+#else
+        "utf32.";
+#endif
       return 1;
     }
   }
@@ -1144,7 +1156,7 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
                        llvm::raw_ostream &errors) {
   if (!opts.ExternalLib.empty()) {
     DXASSERT(!opts.ExternalFn.empty(), "else ReadDxcOpts should have failed");
-    StringRefUtf16 externalLib(opts.ExternalLib);
+    StringRefWide externalLib(opts.ExternalLib);
     HRESULT hrLoad =
         dxcSupport.InitializeForDll(externalLib, opts.ExternalFn.data());
     if (DXC_FAILED(hrLoad)) {
@@ -1166,7 +1178,7 @@ void CopyArgsToWStrings(const InputArgList &inArgs, unsigned flagsToInclude,
     }
   }
   for (const char *argText : stringList) {
-    outArgs.emplace_back(Unicode::UTF8ToUTF16StringOrThrow(argText));
+    outArgs.emplace_back(Unicode::UTF8ToWideStringOrThrow(argText));
   }
 }
 
