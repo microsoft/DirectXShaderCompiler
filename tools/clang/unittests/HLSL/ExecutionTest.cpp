@@ -314,6 +314,7 @@ public:
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
+  TEST_METHOD(QuadAnyAll);
 
   TEST_METHOD(CBufferTestHalf);
 
@@ -9564,6 +9565,96 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
     testPassed &= smPassed;
   }
   VERIFY_ARE_EQUAL(testPassed, true);
+}
+
+struct int2 {
+  int x;
+  int y;
+};
+
+bool VerifyQuadAnyAllResults(int2 *Res) {
+    if (Res[0].x != 2) return false;
+    if (Res[0].y != 4) return false;
+    for (int Idx = 1; Idx < 63; ++Idx) {
+      if (Res[Idx].x != 1) return false;
+      if (Res[Idx].y != 4) return false;
+    }
+    if (Res[63].x != 1) return false;
+    if (Res[63].y != 3) return false;
+    return true;
+}
+
+TEST_F(ExecutionTest, QuadAnyAll) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("QuadAnyAll");
+
+  LPCSTR args = "/Od";
+
+  if (args[0]) {
+    for (st::ShaderOpShader& S : pShaderOp->Shaders)
+      S.Arguments = args;
+  }
+
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_6, D3D_SHADER_MODEL_6_7 };
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    if (sm == D3D_SHADER_MODEL_6_6) {
+      // Reassign shader stages to 6.6 versions
+      LPCSTR CS66 = nullptr, AS66 = nullptr, MS66 = nullptr;
+      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+        if (!strcmp(S.Name, "CS66")) CS66 = S.Name;
+        if (!strcmp(S.Name, "AS66")) AS66 = S.Name;
+        if (!strcmp(S.Name, "MS66")) MS66 = S.Name;
+      }
+      pShaderOp->CS = CS66;
+      pShaderOp->AS = AS66;
+      pShaderOp->MS = MS66;
+    }
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+      continue;
+    }
+
+    if (!DoesDeviceSupportWaveOps(pDevice)) {
+      LogCommentFmt(L"Device does not support wave operations in shader model 6.%1u", ((UINT)sm & 0x0f));
+      continue;
+    }
+
+    // test compute
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+      CleanUAVBuffer0Buffer, ShaderOpSet);
+
+    MappedData uavData;
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    bool Result = VerifyQuadAnyAllResults((int2*)uavData.data());
+    VERIFY_IS_TRUE(Result);
+
+    // test mesh
+    pShaderOp->CS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+      CleanUAVBuffer0Buffer, ShaderOpSet);
+
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    Result = VerifyQuadAnyAllResults((int2*)uavData.data());
+    VERIFY_IS_TRUE(Result);
+
+    // test amplification
+    pShaderOp->MS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+      CleanUAVBuffer0Buffer, ShaderOpSet);
+
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    Result = VerifyQuadAnyAllResults((int2*)uavData.data());
+    VERIFY_IS_TRUE(Result);
+  }
 }
 
 #ifndef _HLK_CONF

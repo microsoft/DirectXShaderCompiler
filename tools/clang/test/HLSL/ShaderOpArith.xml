@@ -2933,4 +2933,33 @@
 ]]>
     </Shader>
   </ShaderOp>
+  <ShaderOp Name="QuadAnyAll" CS="CS" MS="MS" AS="AS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="256" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" />
+    <Shader Name="MS66" Target="ms_6_6" EntryPoint="main" Text="@CS"/>
+    <Shader Name="AS66" Target="as_6_6" EntryPoint="main" Text="@CS"/>
+    <Shader Name="CS66" Target="cs_6_6" EntryPoint="main" Text="@CS"/>
+    <Shader Name="MS" Target="ms_6_7" EntryPoint="main" Text="@CS"/>
+    <Shader Name="AS" Target="as_6_7" EntryPoint="main" Text="@CS"/>
+    <Shader Name="CS" Target="cs_6_7" EntryPoint="main">
+    <![CDATA[
+RWStructuredBuffer<int2> Values;
+
+[numthreads(8, 8, 1)]
+void main(uint3 ID: SV_DispatchThreadID) {
+  uint Idx = (ID.z * 64) + (ID.y * 8) + ID.x;
+  uint QuadId = (4*(ID.y/2) + (ID.x/2));
+  uint QuadX = ID.x % 2;
+  uint QuadY = ID.y % 2;
+  uint QuadElem = (QuadY*2) + QuadX;
+
+  uint QuadBool = 0x000F & QuadId;
+  bool ThreadBool = (QuadBool & (0x1 << QuadElem)) == 0;
+
+  Values[Idx].x = QuadAny(ThreadBool) ? 1 : 2;
+  Values[Idx].y = QuadAll(ThreadBool) ? 3 : 4;
+}
+]]>
+    </Shader>
+  </ShaderOp>
 </ShaderOpSet>
