@@ -1061,6 +1061,8 @@ std::string getHlslResourceTypeName(QualType type) {
         name == "RWTexture2DArray" || name == "Buffer" || name == "RWBuffer" ||
         name == "SubpassInput" || name == "SubpassInputMS" ||
         name == "InputPatch" || name == "OutputPatch") {
+      // Get resource type name with template params. Operation is safe because
+      // type has already been null checked.
       return type.getLocalUnqualifiedType().getAsString();
     }
   }
