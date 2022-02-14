@@ -43,6 +43,7 @@
 #include "dxc/DXIL/DxilShaderModel.h"
 #include <array>
 #include <algorithm>
+#include <bitset>
 #include <float.h>
 
 enum ArBasicKind {
@@ -3101,7 +3102,7 @@ private:
   using ObjectTypeDeclMapType = std::array<std::pair<CXXRecordDecl*,unsigned>, _countof(g_ArBasicKindsAsTypes)+_countof(g_DeprecatedEffectObjectNames)>;
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
   // Mask for object which not has methods created.
-  uint64_t m_objectTypeLazyInitMask;
+  std::bitset<_countof(g_ArBasicKindsAsTypes)> m_objectTypeLazyInitMask;
 
   UsedIntrinsicStore m_usedIntrinsics;
 
@@ -3552,7 +3553,7 @@ private:
 
     QualType float4Type = LookupVectorType(HLSLScalarType_float, 4);
     TypeSourceInfo *float4TypeSourceInfo = m_context->getTrivialTypeSourceInfo(float4Type, NoLoc);
-    m_objectTypeLazyInitMask = 0;
+    m_objectTypeLazyInitMask.reset();
     unsigned effectKindIndex = 0;
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
@@ -3658,7 +3659,7 @@ private:
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
-      m_objectTypeLazyInitMask |= ((uint64_t)1)<<i;
+      m_objectTypeLazyInitMask.set(i);
     }
 
     // Create an alias for SamplerState. 'sampler' is very commonly used.
@@ -5120,18 +5121,16 @@ public:
   ImplicitConversionSequence TrySubscriptIndexInitialization(_In_ clang::Expr* SrcExpr, clang::QualType DestType);
 
   void AddHLSLObjectMethodsIfNotReady(QualType qt) {
-    static_assert((sizeof(uint64_t)*8) >= _countof(g_ArBasicKindsAsTypes), "Bitmask size is too small");
     // Everything is ready.
-    if (m_objectTypeLazyInitMask == 0)
+    if (m_objectTypeLazyInitMask.none())
       return;
     CXXRecordDecl *recordDecl = const_cast<CXXRecordDecl *>(GetRecordDeclForBuiltInOrStruct(qt->getAsCXXRecordDecl()));
     int idx = FindObjectBasicKindIndex(recordDecl);
     // Not object type.
     if (idx == -1)
       return;
-    uint64_t bit = ((uint64_t)1)<<idx;
     // Already created.
-    if ((m_objectTypeLazyInitMask & bit) == 0)
+    if (!m_objectTypeLazyInitMask[idx])
       return;
     
     ArBasicKind kind = g_ArBasicKindsAsTypes[idx];
@@ -5150,7 +5149,7 @@ public:
 
     AddObjectMethods(kind, recordDecl, startDepth);
     // Clear the object.
-    m_objectTypeLazyInitMask &= ~bit;
+    m_objectTypeLazyInitMask.reset(idx);
   }
 
   FunctionDecl* AddHLSLIntrinsicMethod(
