@@ -39,7 +39,7 @@ private:
     try {
       IFTPTR(name);
       std::string s;
-      if (!Unicode::UTF16ToUTF8String(name, &s)) {
+      if (!Unicode::WideToUTF8String(name, &s)) {
         throw ::hlsl::Exception(E_INVALIDARG);
       }
       here.push_back(s);
@@ -53,7 +53,7 @@ private:
     try {
       IFTPTR(name);
       std::string s;
-      if (!Unicode::UTF16ToUTF8String(name, &s)) {
+      if (!Unicode::WideToUTF8String(name, &s)) {
         throw ::hlsl::Exception(E_INVALIDARG);
       }
       here.insert(s);

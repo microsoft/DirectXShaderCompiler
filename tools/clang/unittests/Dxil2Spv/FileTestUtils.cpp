@@ -44,7 +44,7 @@ bool translateFileWithDxil2Spv(const llvm::StringRef inputFilePath,
                                std::string *errorMessages) {
   bool success = true;
 
-  hlsl::options::StringRefUtf16 filename(inputFilePath);
+  hlsl::options::StringRefWide filename(inputFilePath);
 
   std::string stdoutStr;
   std::string stderrStr;

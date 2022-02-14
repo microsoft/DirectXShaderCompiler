@@ -790,7 +790,7 @@ HRESULT dxil_dia::hlsl_symbols::CompilandSymbol::Create(IMalloc *pMalloc, Sessio
   if (pSession->MainFileName()) {
     llvm::StringRef strRef = llvm::dyn_cast<llvm::MDString>(pSession->MainFileName()->getOperand(0)->getOperand(0))->getString();
     std::string str(strRef.begin(), strRef.size()); // To make sure str is null terminated
-    (*ppSym)->SetSourceFileName(_bstr_t(Unicode::UTF8ToUTF16StringOrThrow(str.data()).c_str()));
+    (*ppSym)->SetSourceFileName(_bstr_t(Unicode::UTF8ToWideStringOrThrow(str.data()).c_str()));
   }
 
   return S_OK;
