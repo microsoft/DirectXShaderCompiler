@@ -1284,42 +1284,6 @@ private:
       }
     }
 
-    // Collect total groupshared memory potentially used by every function
-    const DataLayout &DL = M->getDataLayout();
-    ValueMap<const Function *, uint32_t> TGSMInFunc;
-    // Initialize all function TGSM usage to zero
-    for (auto &function : M->getFunctionList()) {
-      TGSMInFunc[&function] = 0;
-    }
-    for (GlobalVariable &GV : M->globals()) {
-      if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
-        SmallPtrSet<llvm::Function *, 8> completeFuncs;
-        SmallVector<User *, 16> WorkList;
-        uint32_t gvSize = DL.getTypeAllocSize(GV.getType()->getElementType());
-
-        WorkList.append(GV.user_begin(), GV.user_end());
-
-        while (!WorkList.empty()) {
-          User *U = WorkList.pop_back_val();
-          // If const, keep going until we find something we can use
-          if (isa<Constant>(U)) {
-            WorkList.append(U->user_begin(), U->user_end());
-            continue;
-          }
-
-          if (Instruction *I = dyn_cast<Instruction>(U)) {
-            llvm::Function *F = I->getParent()->getParent();
-            if (completeFuncs.insert(F).second) {
-              // If function is new, process it and its users
-              // Add users to the worklist
-              WorkList.append(F->user_begin(), F->user_end());
-              // Add groupshared size to function's total
-              TGSMInFunc[F] += gvSize;
-            }
-          }
-        }
-      }
-    }
 
     for (auto &function : M->getFunctionList()) {
       if (!function.isDeclaration()) {
