@@ -2669,6 +2669,7 @@
       <Shader Name="CS66" Target="cs_6_6" EntryPoint="CSMain65" Text="@CS"/>
       <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
       <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
+      <Shader Name="PS67" Target="ps_6_7" EntryPoint="PSMain65" Text="@CS"/>
       <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
         <![CDATA[
 #ifdef ISHELPERLANE_PLACEHOLDER
@@ -2873,6 +2874,9 @@
             return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
         }
 
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+        [waveopsincludehelperlanes]
+#endif
         uint4 PSMain65(PSInput input) : SV_TARGET {
             HelperLaneWaveTestResult tr;
             tr.sm60_wave = RunHelperLaneWaveTests60();

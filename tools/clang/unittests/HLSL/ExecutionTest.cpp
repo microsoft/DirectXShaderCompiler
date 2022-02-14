@@ -480,6 +480,7 @@ public:
     D3D_SHADER_MODEL_6_4 = 0x64,
     D3D_SHADER_MODEL_6_5 = 0x65,
     D3D_SHADER_MODEL_6_6 = 0x66,
+    D3D_SHADER_MODEL_6_7 = 0x67,
 } D3D_SHADER_MODEL;
 
 #if WDK_NTDDI_VERSION == NTDDI_WIN10_RS2
@@ -9307,6 +9308,15 @@ HelperLaneWaveTestResult HelperLane_PSAfterDiscard_ExpectedResults = {
   { {0xA, 0, 0, 0}, 1, 2, 4, 1, 0, 0 }
 };
 
+HelperLaneWaveTestResult IncludesHelperLane_PS_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 1, 0, { 0xF, 0, 0, 0 }, 4, 0, 4, 16, 256, 0, 1, 1, 1, 10, 3, 64, 8 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 1 },
+  // HelperLaneWaveTestResult65
+  { {0xF, 0, 0, 0}, 3, 8, 64, 0, 1, 1 }
+};
+
 bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, uint32_t expectedValue, uint32_t actualValue) {
   bool matches = (expectedValue == actualValue);
   LogCommentFmt(L"%s%s, expected = %u, actual = %u", matches ? L" - " : L"FAILED: ", testDesc, expectedValue, actualValue);
@@ -9415,7 +9425,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
 
   bool testPassed = true;
 
-  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5, D3D_SHADER_MODEL_6_6 };
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5, D3D_SHADER_MODEL_6_6, D3D_SHADER_MODEL_6_7 };
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
     LogCommentFmt(L"\r\nVerifying IsHelperLane using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
@@ -9460,6 +9470,13 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       pShaderOp->CS = CS66;
       pShaderOp->VS = VS66;
       pShaderOp->PS = PS66;
+    } else if (sm == D3D_SHADER_MODEL_6_7) {
+      // Reassign shader stages to 6.7 versions
+      LPCSTR PS67 = nullptr;
+      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+        if (!strcmp(S.Name, "PS67")) PS67 = S.Name;
+      }
+      pShaderOp->PS = PS67;
     }
 
     const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1, PS_INDEX_AFTER_DISCARD = 2;
@@ -9475,7 +9492,15 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       LogCommentFmt(L"\r\nCompute shader");
       smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[CS_INDEX], HelperLane_CS_ExpectedResults, true);
     }
-    
+
+    HelperLaneWaveTestResult &PS_ExpectedResults =
+        (sm >= D3D_SHADER_MODEL_6_7) ? IncludesHelperLane_PS_ExpectedResults
+                                     : HelperLane_PS_ExpectedResults;
+    HelperLaneWaveTestResult &PSAfterDiscard_ExpectedResults =
+        (sm >= D3D_SHADER_MODEL_6_7)
+            ? IncludesHelperLane_PS_ExpectedResults
+            : HelperLane_PSAfterDiscard_ExpectedResults;
+
     // Test Vertex + Pixel shader
     {
       pShaderOp->CS = nullptr;
@@ -9487,9 +9512,9 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       LogCommentFmt(L"\r\nVertex shader");
       smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[VS_INDEX], HelperLane_VS_ExpectedResults, false);
       LogCommentFmt(L"\r\nPixel shader");
-      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX], HelperLane_PS_ExpectedResults, true);
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX], PS_ExpectedResults, true);
       LogCommentFmt(L"\r\nPixel shader with discarded pixel");
-      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX_AFTER_DISCARD], HelperLane_PSAfterDiscard_ExpectedResults, true);
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX_AFTER_DISCARD], PSAfterDiscard_ExpectedResults, true);
       
       MappedData renderData;
       test->Test->GetReadBackData("RTarget", &renderData);
