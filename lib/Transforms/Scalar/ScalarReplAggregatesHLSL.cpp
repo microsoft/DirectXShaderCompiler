@@ -1734,7 +1734,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       dbgOffset.debugOffset = 0;
     } else {
       // merge GEP use for global.
-      HLModule::MergeGepUse(&GV);
+      dxilutil::MergeGepUse(&GV);
     }
   }
   // Add static GVs to work list.
@@ -1755,7 +1755,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         if (!A->user_empty()) {
           WorkList.push(A);
           // merge GEP use for the allocs
-          HLModule::MergeGepUse(A);
+          dxilutil::MergeGepUse(A);
         }
       }
   }
@@ -1894,7 +1894,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         if (!Ty->isAggregateType() && !Ty->isVectorTy())
           continue;
         // merge GEP use for global.
-        HLModule::MergeGepUse(GV);
+        dxilutil::MergeGepUse(GV);
       }
 
       const bool bAllowReplace = true;
@@ -5513,7 +5513,7 @@ static void LegalizeDxilInputOutputs(Function *F,
   // Map from output to the temp created for it.
   MapVector<Argument *, Value*> outputTempMap; // Need deterministic order of iteration
   for (Argument &arg : F->args()) {
-    HLModule::MergeGepUse(&arg);
+    dxilutil::MergeGepUse(&arg);
     Type *Ty = arg.getType();
 
     DxilParameterAnnotation &paramAnnotation = EntryAnnotation->GetParameterAnnotation(arg.getArgNo());
@@ -5683,7 +5683,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   // Add all argument to worklist.
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
-    HLModule::MergeGepUse(&Arg);
+    dxilutil::MergeGepUse(&Arg);
 
     unsigned prevFlatParamCount = FlatParamList.size();
 
@@ -5965,7 +5965,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       if (isa<Instruction>(flatArg))
         DeadInsts.emplace_back(flatArg);
 
-      HLModule::MergeGepUse(Arg);
+      dxilutil::MergeGepUse(Arg);
       // Flatten store of array parameter.
       if (Arg->getType()->isPointerTy()) {
         Type *Ty = Arg->getType()->getPointerElementType();
