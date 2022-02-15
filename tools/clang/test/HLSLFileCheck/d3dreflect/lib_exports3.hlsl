@@ -17,6 +17,130 @@ float4 PSMain(int idx : INDEX) : SV_Target {
   return T2[T0.Load(idx)].f;
 }
 
+// CHECK: DxilRuntimeData (size = 572 bytes):
+// CHECK:   StringBuffer (size = 160 bytes)
+// CHECK:   IndexTable (size = 12 bytes)
+// CHECK:   RawBytes (size = 0 bytes)
+// CHECK:   RecordTable (stride = 32 bytes) ResourceTable[2] = {
+// CHECK:     <0:RuntimeDataResourceInfo> = {
+// CHECK:       Class: SRV
+// CHECK:       Kind: TypedBuffer
+// CHECK:       ID: 0
+// CHECK:       Space: 13
+// CHECK:       LowerBound: 0
+// CHECK:       UpperBound: 0
+// CHECK:       Name: "T0"
+// CHECK:       Flags: 0 (None)
+// CHECK:     }
+// CHECK:     <1:RuntimeDataResourceInfo> = {
+// CHECK:       Class: SRV
+// CHECK:       Kind: StructuredBuffer
+// CHECK:       ID: 1
+// CHECK:       Space: 13
+// CHECK:       LowerBound: 1
+// CHECK:       UpperBound: 1
+// CHECK:       Name: "T2"
+// CHECK:       Flags: 0 (None)
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[6] = {
+// CHECK:     <0:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "\01?PSMain@@YA?AV?$vector@M$03@@H@Z"
+// CHECK:       UnmangledName: "PSMain"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:         [1]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 32767
+// CHECK:       MinShaderTarget: 393312
+// CHECK:     }
+// CHECK:     <1:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "\01?PSMain_Clone1@@YA?AV?$vector@M$03@@H@Z"
+// CHECK:       UnmangledName: "PSMain_Clone1"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:         [1]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 32767
+// CHECK:       MinShaderTarget: 393312
+// CHECK:     }
+// CHECK:     <2:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "\01?PSMain_Clone2@@YA?AV?$vector@M$03@@H@Z"
+// CHECK:       UnmangledName: "PSMain_Clone2"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:         [1]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 32767
+// CHECK:       MinShaderTarget: 393312
+// CHECK:     }
+// CHECK:     <3:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "PSMain"
+// CHECK:       UnmangledName: "PSMain"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:         [1]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Pixel
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 1
+// CHECK:       MinShaderTarget: 96
+// CHECK:     }
+// CHECK:     <4:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "PSMain_Clone1"
+// CHECK:       UnmangledName: "PSMain_Clone1"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:         [1]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Pixel
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 1
+// CHECK:       MinShaderTarget: 96
+// CHECK:     }
+// CHECK:     <5:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "PSMain_Clone2"
+// CHECK:       UnmangledName: "PSMain_Clone2"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:         [1]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Pixel
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 1
+// CHECK:       MinShaderTarget: 96
+// CHECK:     }
+// CHECK:   }
 
 // CHECK: ID3D12LibraryReflection:
 // CHECK:   D3D12_LIBRARY_DESC:

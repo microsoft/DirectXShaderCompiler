@@ -912,6 +912,11 @@ def HLSLWaveSize : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {
+  let Spellings = [CXX11<"", "waveopsincludehelperlanes", 2015>];
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts

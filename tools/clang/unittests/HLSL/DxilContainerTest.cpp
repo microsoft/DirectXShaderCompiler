@@ -1005,61 +1005,61 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       // Validate using DxilRuntimeData
       DxilRuntimeData context;
       context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
-      ResourceTableReader *resTableReader = context.GetResourceTableReader();
-      VERIFY_ARE_EQUAL(funcTableReader->GetNumFunctions(), 4);
+      auto funcTable = context.GetFunctionTable();
+      auto resTable = context.GetResourceTable();
+      VERIFY_ARE_EQUAL(funcTable.Count(), 4);
       std::string str("function");
-      for (uint32_t j = 0; j < funcTableReader->GetNumFunctions(); ++j) {
-        FunctionReader funcReader = funcTableReader->GetItem(j);
-        std::string funcName(funcReader.GetUnmangledName());
+      for (uint32_t j = 0; j < funcTable.Count(); ++j) {
+        auto funcReader = funcTable[j];
+        std::string funcName(funcReader.getUnmangledName());
         VERIFY_IS_TRUE(str.compare(funcName.substr(0,8)) == 0);
         std::string cur_str = str;
         cur_str.push_back('0' + j);
         if (cur_str.compare("function0") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 1);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 1);
           hlsl::ShaderFlags flag;
           flag.SetUAVLoadAdditionalFormats(true);
           flag.SetLowPrecisionPresent(true);
           uint64_t rawFlag = flag.GetFeatureInfo();
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
-          ResourceReader resReader = funcReader.GetResource(0);
-          VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
-          VERIFY_ARE_EQUAL(resReader.GetResourceKind(), hlsl::DXIL::ResourceKind::Texture1D);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags(), rawFlag);
+          auto resReader = funcReader.getResources()[0];
+          VERIFY_ARE_EQUAL(resReader.getClass(), hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(resReader.getKind(), hlsl::DXIL::ResourceKind::Texture1D);
         }
         else if (cur_str.compare("function1") == 0) {
           hlsl::ShaderFlags flag;
           flag.SetLowPrecisionPresent(true);
           uint64_t rawFlag = flag.GetFeatureInfo();
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 3);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags(), rawFlag);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 3);
         }
         else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 0);
-          std::string dependency = funcReader.GetDependency(0);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags() & 0xffffffffffffffff, 0);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 0);
+          std::string dependency = funcReader.getFunctionDependencies()[0];
           VERIFY_IS_TRUE(dependency.find("function_import") != std::string::npos);
         }
         else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), numResFlagCheck);
-          for (unsigned i = 0; i < funcReader.GetNumResources(); ++i) {
-            ResourceReader resReader = funcReader.GetResource(0);
-            VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags() & 0xffffffffffffffff, 0);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), numResFlagCheck);
+          for (unsigned i = 0; i < funcReader.getResources().Count(); ++i) {
+            auto resReader = funcReader.getResources()[0];
+            VERIFY_ARE_EQUAL(resReader.getClass(), hlsl::DXIL::ResourceClass::UAV);
             unsigned j = 0;
             for (; j < numResFlagCheck; ++j) {
-              if (resFlags[j].name.compare(resReader.GetName()) == 0)
+              if (resFlags[j].name.compare(resReader.getName()) == 0)
                 break;
             }
             VERIFY_IS_LESS_THAN(j, numResFlagCheck);
-            VERIFY_ARE_EQUAL(resReader.GetResourceKind(), resFlags[j].kind);
-            VERIFY_ARE_EQUAL(resReader.GetFlags(), static_cast<uint32_t>(resFlags[j].flag));
+            VERIFY_ARE_EQUAL(resReader.getKind(), resFlags[j].kind);
+            VERIFY_ARE_EQUAL(resReader.getFlags(), static_cast<uint32_t>(resFlags[j].flag));
           }
         }
         else {
           IFTBOOLMSG(false, E_FAIL, "unknown function name");
         }
       }
-      VERIFY_ARE_EQUAL(resTableReader->GetNumResources(), 8);
+      VERIFY_ARE_EQUAL(resTable.Count(), 8);
       // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
       unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
       VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(), pBlob->GetBufferSize()));
@@ -1184,19 +1184,19 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
       IFT(pReflection->GetPartContent(i, &pBlob));
       DxilRuntimeData context;
       context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
-      ResourceTableReader *resTableReader = context.GetResourceTableReader();
-      VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 1);
-      VERIFY_IS_TRUE(resTableReader->GetNumResources() == 3);
-      FunctionReader funcReader = funcTableReader->GetItem(0);
-      llvm::StringRef name(funcReader.GetUnmangledName());
+      auto funcTable = context.GetFunctionTable();
+      auto resTable = context.GetResourceTable();
+      VERIFY_IS_TRUE(funcTable.Count() == 1);
+      VERIFY_IS_TRUE(resTable.Count() == 3);
+      auto funcReader = funcTable[0];
+      llvm::StringRef name(funcReader.getUnmangledName());
       VERIFY_IS_TRUE(name.compare("RayGenMain") == 0);
-      VERIFY_IS_TRUE(funcReader.GetShaderKind() ==
+      VERIFY_IS_TRUE(funcReader.getShaderKind() ==
                      hlsl::DXIL::ShaderKind::RayGeneration);
-      VERIFY_IS_TRUE(funcReader.GetNumResources() == 3);
-      VERIFY_IS_TRUE(funcReader.GetNumDependencies() == 1);
+      VERIFY_IS_TRUE(funcReader.getResources().Count() == 3);
+      VERIFY_IS_TRUE(funcReader.getFunctionDependencies().Count() == 1);
       llvm::StringRef dependencyName =
-          hlsl::dxilutil::DemangleFunctionName(funcReader.GetDependency(0));
+          hlsl::dxilutil::DemangleFunctionName(funcReader.getFunctionDependencies()[0]);
       VERIFY_IS_TRUE(dependencyName.compare("function1") == 0);
     }
   }

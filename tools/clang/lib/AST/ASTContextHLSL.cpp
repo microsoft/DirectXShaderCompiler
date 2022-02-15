@@ -703,7 +703,7 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
       // Only need array type for inputpatch and outputpatch.
       // Avoid Texture2DMS which may use 0 count.
       // TODO: use hlsl types to do the check.
-      !name.startswith("Texture")) {
+      !name.startswith("Texture") && !name.startswith("RWTexture")) {
     Expr *countExpr = DeclRefExpr::Create(
         context, NestedNameSpecifierLoc(), NoLoc, countTemplateParamDecl, false,
         DeclarationNameInfo(countTemplateParamDecl->getDeclName(), NoLoc),

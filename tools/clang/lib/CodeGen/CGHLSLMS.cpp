@@ -388,6 +388,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bDisableOptimizations = CGM.getCodeGenOpts().DisableLLVMOpts;
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
+  opts.bResMayAlias = CGM.getCodeGenOpts().HLSLResMayAlias;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
   opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;
@@ -1558,6 +1559,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  if (auto *Attr = FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+    if (SM->IsSM67Plus() &&
+        (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
+         (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
+      F->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
+  }
   if (isEntry) {
     funcProps->shaderKind = SM->GetKind();
     if (funcProps->shaderKind == DXIL::ShaderKind::Mesh) {

@@ -44,9 +44,11 @@
 
 #ifdef _WIN32 // Reflection unsupported
 #include "dxc/Test/D3DReflectionDumper.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/Test/RDATDumper.h"
 
 #include "d3d12shader.h"
-using namespace refl_dump;
+using namespace hlsl::dump;
 #endif // WIN32 - Reflection unsupported
 
 using namespace std;
@@ -713,6 +715,13 @@ FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSu
       else
         VERIFY_SUCCEEDED(containerReflection->GetPartReflection(i, IID_PPV_ARGS(&pShaderReflection)));
       break;
+    } else if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      CComPtr<IDxcBlob> pPart;
+      IFT(containerReflection->GetPartContent(i, &pPart));
+      hlsl::RDAT::DxilRuntimeData rdat(pPart->GetBufferPointer(),
+                                       pPart->GetBufferSize());
+      DumpContext d(ss);
+      DumpRuntimeData(rdat, d);
     }
   }
 
