@@ -909,6 +909,12 @@ static const ArTypeObjectKind g_NullTT[] =
   AR_TOBJ_UNKNOWN
 };
 
+static const ArTypeObjectKind g_ArrayTT[] =
+{
+  AR_TOBJ_ARRAY,
+  AR_TOBJ_UNKNOWN
+};
+
 const ArTypeObjectKind* g_LegalIntrinsicTemplates[] =
 {
   g_NullTT,
@@ -917,6 +923,7 @@ const ArTypeObjectKind* g_LegalIntrinsicTemplates[] =
   g_MatrixTT,
   g_AnyTT,
   g_ObjectTT,
+  g_ArrayTT,
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicTemplates) == LITEMPLATE_COUNT);
 
@@ -1829,13 +1836,14 @@ static bool IsVariadicArgument(const HLSL_INTRINSIC_ARGUMENT &arg) {
 
 static hlsl::ParameterModifier
 ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
-  if (pArg->qwUsage == AR_QUAL_IN_OUT) {
+  UINT64 qwUsage = pArg->qwUsage & AR_QUAL_IN_OUT;
+  if (qwUsage == AR_QUAL_IN_OUT) {
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::InOut);
   }
-  if (pArg->qwUsage == AR_QUAL_OUT) {
+  if (qwUsage == AR_QUAL_OUT) {
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Out);
   }
-  DXASSERT(pArg->qwUsage & AR_QUAL_IN, "else usage is incorrect");
+  DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
   return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
 }
 
@@ -5900,6 +5908,7 @@ bool HLSLExternalSource::MatchArguments(
     case AR_TOBJ_BASIC:
     case AR_TOBJ_OBJECT:
     case AR_TOBJ_STRING:
+    case AR_TOBJ_ARRAY:
       break;
     default:
       badArgIdx = std::min(badArgIdx, iArg); // no struct, arrays or void
@@ -5929,6 +5938,12 @@ bool HLSLExternalSource::MatchArguments(
         // Outside of simple splats and truncations, templates must match
         badArgIdx = std::min(badArgIdx, iArg);
       }
+    }
+
+    // Process component type from object element after loop
+    if (pIntrinsicArg->uComponentTypeId == INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
+      ++iArg;
+      continue;
     }
 
     DXASSERT(
@@ -6264,13 +6279,50 @@ bool HLSLExternalSource::MatchArguments(
       CAB(uCols > 0 && uCols <= MaxVectorSize && uRows > 0 && uRows <= MaxVectorSize, i);
 
       // Const
-      UINT64 qwQual = pArgument->qwUsage & (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR);
+      UINT64 qwQual =
+          pArgument->qwUsage &
+          (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR | AR_QUAL_GROUPSHARED);
 
       if ((0 == i) || !(pArgument->qwUsage & AR_QUAL_OUT))
         qwQual |= AR_QUAL_CONST;
 
       DXASSERT_VALIDBASICKIND(pEltType);
       pNewType = NewSimpleAggregateType(Template[pArgument->uTemplateId], pEltType, qwQual, uRows, uCols);
+
+      // If array type, wrap in the argument's array type.
+      if (i > 0 && Template[pArgument->uTemplateId] == AR_TOBJ_ARRAY) {
+        QualType arrayElt = Args[i - 1]->getType();
+        SmallVector<UINT, 4> sizes;
+        while (arrayElt->isArrayType()) {
+          UINT size = 0;
+          if (arrayElt->isConstantArrayType()) {
+            const ConstantArrayType *arrayType =
+                (const ConstantArrayType *)arrayElt->getAsArrayTypeUnsafe();
+            size = arrayType->getSize().getLimitedValue();
+          }
+          arrayElt = QualType(arrayElt->getAsArrayTypeUnsafe()->getArrayElementTypeNoTypeQual(), 0);
+          sizes.push_back(size);
+        }
+        // Wrap element in matching array dimensions:
+        while (sizes.size()) {
+          uint64_t size = sizes.pop_back_val();
+          if (size) {
+            pNewType = m_context->getConstantArrayType(
+                pNewType, llvm::APInt(32, size, false),
+                ArrayType::ArraySizeModifier::Normal, 0);
+          } else {
+            pNewType = m_context->getIncompleteArrayType(
+                pNewType, ArrayType::ArraySizeModifier::Normal, 0);
+          }
+        }
+        if (qwQual & AR_QUAL_CONST) {
+          pNewType = QualType(pNewType.getTypePtr(), Qualifiers::Const);
+        }
+        if (qwQual & AR_QUAL_GROUPSHARED) {
+          pNewType = m_context->getAddrSpaceQualType(pNewType, DXIL::kTGSMAddrSpace);
+        }
+        pNewType = m_context->getLValueReferenceType(pNewType);
+      }
     }
 
     DXASSERT(!pNewType.isNull(), "otherwise there's a branch in this function that fails to assign this");

@@ -27,6 +27,7 @@ typedef struct ID3D10Blob ID3D10Blob;
 #define AR_QUAL_CONST          0x0000000000000200ULL
 #define AR_QUAL_ROWMAJOR       0x0000000000000400ULL
 #define AR_QUAL_COLMAJOR       0x0000000000000800ULL
+#define AR_QUAL_GROUPSHARED    0x0000000000001000ULL
 
 #define AR_QUAL_IN_OUT (AR_QUAL_IN | AR_QUAL_OUT)
 
@@ -42,8 +43,9 @@ enum LEGAL_INTRINSIC_TEMPLATES {
   LITEMPLATE_MATRIX = 3,  // Matrix types (eg. float3x3).
   LITEMPLATE_ANY    = 4,  // Any one of scalar, vector or matrix types (but not object).
   LITEMPLATE_OBJECT = 5,  // Object types.
+  LITEMPLATE_ARRAY  = 6,  // Scalar array.
 
-  LITEMPLATE_COUNT = 6
+  LITEMPLATE_COUNT = 7
 };
 
 // INTRIN_COMPTYPE_FROM_TYPE_ELT0 is for object method intrinsics to indicate

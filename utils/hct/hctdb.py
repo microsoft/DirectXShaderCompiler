@@ -2951,7 +2951,9 @@ class db_hlsl(object):
             "inout": "AR_QUAL_IN | AR_QUAL_OUT",
             "out": "AR_QUAL_OUT",
             "col_major": "AR_QUAL_COLMAJOR",
-            "row_major": "AR_QUAL_ROWMAJOR"}
+            "row_major": "AR_QUAL_ROWMAJOR",
+            "groupshared": "AR_QUAL_GROUPSHARED",
+            }
         self.intrinsics = []
         self.load_intrinsics(intrinsic_defs)
         self.create_namespaces()
@@ -2982,6 +2984,8 @@ class db_hlsl(object):
         type_matrix_re = re.compile(r"(\S+)<(\S+)@(\S+)>$")
         type_vector_re = re.compile(r"(\S+)<(\S+)>$")
         type_any_re = re.compile(r"(\S+)<>$")
+        type_array_re = re.compile(r"(\S+)\[\]$")
+        type_object_re = re.compile(r"(sampler\w*|string$|(?:RW)?(?:Texture\w*|ByteAddressBuffer)|WaveMatrix\w*|acceleration_struct$|ray_desc$)")
         digits_re = re.compile(r"^\d+$")
         opt_param_match_re = re.compile(r"^\$match<(\S+)@(\S+)>$")
         ns_idx = 0
@@ -3046,32 +3050,46 @@ class db_hlsl(object):
                     assert done_idx <= len(args) + 1, "$type must refer to a processed arg"
                     done_arg = done_args[done_idx]
                     type_name = done_arg.type_name
-            # Determine matrix/vector/any/scalar type names.
-            type_matrix_match = type_matrix_re.match(type_name)
-            if type_matrix_match:
-                base_type = type_matrix_match.group(1)
-                rows = type_matrix_match.group(2)
-                cols = type_matrix_match.group(3)
+
+            # Determine matrix/vector/any/scalar/array/object type names.
+            base_type = type_name
+            def do_matrix(m):
+                base_type, rows, cols = m.groups()
                 template_list = "LITEMPLATE_MATRIX"
+                return base_type, rows, cols, template_list
+            def do_vector(m):
+                base_type, cols = m.groups()
+                template_list = "LITEMPLATE_VECTOR"
+                return base_type, rows, cols, template_list
+            def do_any(m):
+                base_type = m.group(1)
+                rows = "r"
+                cols = "c"
+                template_list = "LITEMPLATE_ANY"
+                return base_type, rows, cols, template_list
+            def do_array(m):
+                base_type = m.group(1)
+                cols = "c"
+                template_list = "LITEMPLATE_ARRAY"
+                return base_type, rows, cols, template_list
+            def do_object(m):
+                template_list = "LITEMPLATE_OBJECT"
+                return base_type, rows, cols, template_list
+            templates = [
+                (do_matrix, type_matrix_re),
+                (do_vector, type_vector_re),
+                (do_any, type_any_re),
+                (do_array, type_array_re),
+                (do_object, type_object_re),
+                ]
+            for do, type_re in templates:
+                m = type_re.match(type_name)
+                if m:
+                    base_type, rows, cols, template_list = do(m)
+                    break
             else:
-                type_vector_match = type_vector_re.match(type_name)
-                if type_vector_match:
-                    base_type = type_vector_match.group(1)
-                    cols = type_vector_match.group(2)
-                    template_list = "LITEMPLATE_VECTOR"
-                else:
-                    type_any_match = type_any_re.match(type_name)
-                    if type_any_match:
-                        base_type = type_any_match.group(1)
-                        rows = "r"
-                        cols = "c"
-                        template_list = "LITEMPLATE_ANY"
-                    else:
-                        base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
-                            template_list = "LITEMPLATE_OBJECT"
-                        else:
-                            template_list = "LITEMPLATE_SCALAR"
+                template_list = "LITEMPLATE_SCALAR"
+
             assert base_type in self.base_types, "Unknown base type '%s' in '%s'" % (base_type, desc)
             component_list = self.base_types[base_type]
             rows = translate_rowcol(rows)

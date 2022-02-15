@@ -432,6 +432,7 @@ class db_oload_gen:
             "obj": "A(obj);",
             "resproperty": "A(resProperty);",
             "resbind": "A(resBind);",
+            "$gsptr": "A(pGSEltPtrTy);",
         }
         last_category = None
         for i in self.instrs:
@@ -459,9 +460,11 @@ class db_oload_gen:
         udt_ty = "udt"
         obj_ty = "obj"
         vec_ty = "$vec"
+        gsptr_ty = "$gsptr"
         last_category = None
 
         index_dict = collections.OrderedDict()
+        ptr_index_dict = collections.OrderedDict()
         single_dict = collections.OrderedDict()
         struct_list = []
 
@@ -501,6 +504,15 @@ class db_oload_gen:
                         index_dict[index] = [instr.name]
                     else:
                         index_dict[index].append(instr.name)
+                    in_param_ty = True
+                    break
+                if (op_type == gsptr_ty):
+                    # Skip return op
+                    index = index - 1
+                    if index not in ptr_index_dict:
+                        ptr_index_dict[index] = [instr.name]
+                    else:
+                        ptr_index_dict[index].append(instr.name)
                     in_param_ty = True
                     break
                 if (op_type == udt_ty or op_type == obj_ty):
@@ -547,6 +559,16 @@ class db_oload_gen:
 
             line = line + "  DXASSERT_NOMSG(FT->getNumParams() > " + str(index) + ");\n"
             line = line + "  return FT->getParamType(" + str(index) + ");"
+            print(line)
+
+        # ptr_index_dict for overload based on pointer element type
+        for index, opcodes in ptr_index_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+
+            line = line + "  DXASSERT_NOMSG(FT->getNumParams() > " + str(index) + ");\n"
+            line = line + "  return FT->getParamType(" + str(index) + ")->getPointerElementType();"
             print(line)
 
         for code, opcodes in single_dict.items():

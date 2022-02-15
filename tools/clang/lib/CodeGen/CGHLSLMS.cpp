@@ -6103,6 +6103,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
           Ptr = GEP->getPointerOperand();
         }
         if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
+          // Never copy groupshared pointers
+          if (GV->getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace &&
+              ParamTy.getAddressSpace() == DXIL::kTGSMAddrSpace)
+            continue;
           bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
         }
         // Skip copy-in copy-out when safe.
