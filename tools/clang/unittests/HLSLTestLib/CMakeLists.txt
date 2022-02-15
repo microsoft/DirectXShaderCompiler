@@ -13,6 +13,7 @@ add_clang_library(HLSLTestLib
 else(WIN32)
 set(HLSL_IGNORE_SOURCES
   D3DReflectionDumper.cpp
+  RDATDumper.cpp
 )
 add_clang_library(HLSLTestLib
   DxcTestUtils.cpp
