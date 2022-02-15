@@ -335,6 +335,14 @@ class db_enumhelp_gen:
             print("  " + lastName + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
         print("};")
 
+    def print_rdat_enum(self, e, **kwargs):
+        nodef = kwargs.get("nodef", False)
+        for v in e.values:
+            line_format = "RDAT_ENUM_VALUE_NODEF({name})" if nodef else "RDAT_ENUM_VALUE({value}, {name})"
+            if v.doc:
+                line_format += " // {doc}"
+            print(line_format.format(name=v.name, value=v.value, doc=v.doc))
+
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e : e.name):
             self.print_enum(e)
@@ -822,6 +830,11 @@ def get_enum_decl(name, **kwargs):
     db = get_db_dxil()
     gen = db_enumhelp_gen(db)
     return run_with_stdout(lambda: gen.print_enum(db.enum_idx[name], **kwargs))
+
+def get_rdat_enum_decl(name, **kwargs):
+    db = get_db_dxil()
+    gen = db_enumhelp_gen(db)
+    return run_with_stdout(lambda: gen.print_rdat_enum(db.enum_idx[name], **kwargs))
 
 def get_valrule_enum():
     return get_enum_decl("ValidationRule", hide_val=True)
@@ -1484,6 +1497,7 @@ if __name__ == "__main__":
             'include/dxc/DXIL/DxilCounters.h',
             'lib/DXIL/DxilCounters.cpp',
             'lib/DXIL/DxilMetadataHelper.cpp',
+            'include/dxc/DxilContainer/RDAT_LibraryTypes.inl',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

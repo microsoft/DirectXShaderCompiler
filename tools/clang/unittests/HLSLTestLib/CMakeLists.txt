@@ -8,6 +8,7 @@ add_clang_library(HLSLTestLib
   DxcTestUtils.cpp
   FileCheckerTest.cpp
   FileCheckForTest.cpp
+  RDATDumper.cpp
 )
 else(WIN32)
 set(HLSL_IGNORE_SOURCES

@@ -216,12 +216,18 @@ enum ArBasicKind {
   // Heap Resource
   AR_OBJECT_HEAP_RESOURCE,
   AR_OBJECT_HEAP_SAMPLER,
+
+  AR_OBJECT_RWTEXTURE2DMS,
+  AR_OBJECT_RWTEXTURE2DMS_ARRAY,
+
   AR_BASIC_MAXIMUM_COUNT
 };
 
 #define AR_BASIC_TEXTURE_MS_CASES \
     case AR_OBJECT_TEXTURE2DMS: \
-    case AR_OBJECT_TEXTURE2DMS_ARRAY
+    case AR_OBJECT_TEXTURE2DMS_ARRAY: \
+    case AR_OBJECT_RWTEXTURE2DMS: \
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY
 
 #define AR_BASIC_NON_TEXTURE_MS_CASES \
     case AR_OBJECT_TEXTURE1D: \
@@ -506,6 +512,10 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAY_QUERY,
   0,      //AR_OBJECT_HEAP_RESOURCE,
   0,      //AR_OBJECT_HEAP_SAMPLER,
+
+  BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS
+  BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1139,6 +1149,8 @@ static const ArBasicKind g_Texture2DArrayCT[] =
 static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
                                            AR_BASIC_UNKNOWN};
 
+static const ArBasicKind g_SamplerStateCT[] = {AR_OBJECT_HEAP_SAMPLER, AR_BASIC_UNKNOWN};
+
 static const ArBasicKind g_RayDescCT[] =
 {
   AR_OBJECT_RAY_DESC,
@@ -1427,6 +1439,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAY_QUERY,
   AR_OBJECT_HEAP_RESOURCE,
   AR_OBJECT_HEAP_SAMPLER,
+
+  AR_OBJECT_RWTEXTURE2DMS,        // RWTexture2DMS
+  AR_OBJECT_RWTEXTURE2DMS_ARRAY,  // RWTexture2DMSArray
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1519,6 +1534,9 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_RAY_QUERY,
   0, // AR_OBJECT_HEAP_RESOURCE,
   0, // AR_OBJECT_HEAP_SAMPLER,
+
+  2, // AR_OBJECT_RWTEXTURE2DMS
+  2, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1621,6 +1639,9 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_RESOURCE,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_SAMPLER,
+
+  { 2, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS (RWTexture2DMS)
+  { 3, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS_ARRAY (RWTexture2DMSArray)
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1746,6 +1767,9 @@ const char* g_ArBasicTypeNames[] =
   "RayQuery",
   "HEAP_Resource",
   "HEAP_Sampler",
+
+  "RWTexture2DMS",
+  "RWTexture2DMSArray",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -2379,6 +2403,14 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
   case AR_OBJECT_RAY_QUERY:
     *intrinsics = g_RayQueryMethods;
     *intrinsicCount = _countof(g_RayQueryMethods);
+    break;
+  case AR_OBJECT_RWTEXTURE2DMS:
+    *intrinsics = g_RWTexture2DMSMethods;
+    *intrinsicCount = _countof(g_RWTexture2DMSMethods);
+    break;
+  case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
+    *intrinsics = g_RWTexture2DMSArrayMethods;
+    *intrinsicCount = _countof(g_RWTexture2DMSArrayMethods);
     break;
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -3386,8 +3418,8 @@ private:
              "of the position parameter");
 
     bool isReadWrite = GetBasicKindProps(kind) & BPROP_RWBUFFER;
-    DXASSERT(!isReadWrite || (op.HasMips == false && op.HasSample == false),
-             "read/write objects don't have .mips or .sample members");
+    DXASSERT(!isReadWrite || (op.HasMips == false),
+             "read/write objects don't have .mips members");
 
     // Return early if there is no work to be done.
     if (op.SubscriptCardinality == 0) {
@@ -4340,6 +4372,8 @@ public:
     case AR_OBJECT_ACCELERATION_STRUCT:
     case AR_OBJECT_RAY_DESC:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
+    case AR_OBJECT_RWTEXTURE2DMS:
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
     {
         const ArBasicKind* match = std::find(g_ArBasicKindsAsTypes, &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
         DXASSERT(match != &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], "otherwise can't find constant in basic kinds");
@@ -5708,12 +5742,19 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
   case IntrinsicOp::MOP_Sample:
   case IntrinsicOp::MOP_SampleBias:
   case IntrinsicOp::MOP_SampleCmp:
+  case IntrinsicOp::MOP_SampleCmpLevel:
   case IntrinsicOp::MOP_SampleCmpLevelZero:
   case IntrinsicOp::MOP_SampleGrad:
   case IntrinsicOp::MOP_SampleLevel: {
     ArBasicKind kind = GetTypeElementKind(objectElement);
     UINT uBits = GET_BPROP_BITS(kind);
     return IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64;
+  }
+  case IntrinsicOp::MOP_GatherRaw: {
+    ArBasicKind kind = GetTypeElementKind(objectElement);
+    UINT uBits = GET_BPROP_BITS(kind);
+    UINT numEles = GetNumElements(objectElement);
+    return IS_BASIC_UINT(kind) && numEles == 1;
   } break;
   default:
     return true;
@@ -9831,8 +9872,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       FunctionTemplate->getCanonicalDecl());
 
     if (IsBuiltinTable(tableName) && !IsValidateObjectElement(*cursor, objectElement)) {
+      UINT numEles = GetNumElements(objectElement);
+      std::string typeName(g_ArBasicTypeNames[GetTypeElementKind(objectElement)]);
+      if (numEles > 1) typeName += std::to_string(numEles);
       m_sema->Diag(Args[0]->getExprLoc(), diag::err_hlsl_invalid_resource_type_on_intrinsic) <<
-          nameIdentifier << g_ArBasicTypeNames[GetTypeElementKind(objectElement)];
+          nameIdentifier << typeName;
     }
     return Sema::TemplateDeductionResult::TDK_Success;
   }
@@ -12062,6 +12106,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLWaveSize:
     declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
+    declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
