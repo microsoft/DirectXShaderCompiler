@@ -239,11 +239,25 @@ public:
 template<typename _T>
 class RecordTraits {
 public:
-  static constexpr const char *TypeName() { static_assert(false, ""); return nullptr; }
+  static constexpr const char *TypeName() {
+#ifdef _WIN32
+    static_assert(false, "");
+#else
+    assert(false);
+#endif
+    return nullptr;
+  }
   // If the following static assert is hit, it means a structure defined with
   // RDAT_STRUCT is being used in ref type, which requires the struct to have
   // a table and be defined with RDAT_STRUCT_TABLE instead.
-  static constexpr RecordTableIndex TableIndex() { static_assert(false, ""); return (RecordTableIndex)-1; }
+  static constexpr RecordTableIndex TableIndex() {
+#ifdef _WIN32
+    static_assert(false, "");
+#else
+    assert(false);
+#endif
+    return (RecordTableIndex)-1;
+  }
   // RecordSize() is defined in order to allow for use of forward decl type in RecordRef
   static constexpr size_t RecordSize() { /*static_assert(false, "");*/ return sizeof(_T); }
 };
@@ -286,7 +300,7 @@ protected:
 
   template<typename _ReaderTy>
   const _ReaderTy asReader() const {
-    if (*this && m_Size >= RecordTraits<_ReaderTy::RecordType>::RecordSize())
+    if (*this && m_Size >= RecordTraits<typename _ReaderTy::RecordType>::RecordSize())
       return _ReaderTy(*this);
     return {};
   }
@@ -323,7 +337,7 @@ class RecordArrayReader {
 public:
   RecordArrayReader(const RDATContext *ctx, uint32_t indexOffset)
       : m_pContext(ctx), m_IndexOffset(indexOffset) {
-    typedef _ReaderTy::RecordType RecordType;
+    typedef typename _ReaderTy::RecordType RecordType;
     const TableReader &Table = m_pContext->Table<RecordType>();
     // RecordArrays must be declared with the base record type,
     // with element reader upcast as necessary.
@@ -335,7 +349,7 @@ public:
     return *this ? m_pContext->IndexTable.getRow(m_IndexOffset).Count() : 0;
   }
   const _ReaderTy operator[](uint32_t idx) const {
-    typedef _ReaderTy::RecordType RecordType;
+    typedef typename _ReaderTy::RecordType RecordType;
     if (*this) {
       const TableReader &Table = m_pContext->Table<RecordType>();
       return _ReaderTy(BaseRecordReader(
@@ -385,7 +399,7 @@ struct RecordRef {
 
   template<typename RecordType = _T>
   const _T *Get(const RDATContext &ctx) const {
-    return ctx.Table<_T>().Row<RecordType>(Index);
+    return ctx.Table<_T>(). template Row<RecordType>(Index);
   }
   RecordRef &operator =(uint32_t index) { Index = index; return *this; }
   operator uint32_t&() { return Index; }
@@ -479,7 +493,7 @@ class RecordReader : public BaseRecordReader {
 public:
   typedef _RecordReader ThisReaderType;
   RecordReader(const BaseRecordReader &base) : BaseRecordReader(base) {
-    typedef _RecordReader::RecordType RecordType;
+    typedef typename _RecordReader::RecordType RecordType;
     if ((m_pContext || m_pRecord) && m_Size < RecordTraits<RecordType>::RecordSize())
       InvalidateReader();
   }
@@ -491,17 +505,17 @@ protected:
   _FieldRecordReader GetField_RecordValue(const void *pField) const {
     if (*this) {
       return _FieldRecordReader(BaseRecordReader(
-          m_pContext, pField, (uint32_t)RecordTraits<_FieldRecordReader::RecordType>::RecordSize()));
+          m_pContext, pField, (uint32_t)RecordTraits<typename _FieldRecordReader::RecordType>::RecordSize()));
     }
     return {};
   }
   template<typename _FieldRecordReader>
   _FieldRecordReader GetField_RecordRef(const void *pIndex) const {
-    typedef _FieldRecordReader::RecordType RecordType;
+    typedef typename _FieldRecordReader::RecordType RecordType;
     if (*this) {
       const TableReader &Table = m_pContext->Table<RecordType>();
       return _FieldRecordReader(BaseRecordReader(
-          m_pContext, (const void *)Table.Row<RecordType>(*(uint32_t*)pIndex),
+          m_pContext, (const void *)Table.Row<RecordType>(*(const uint32_t*)pIndex),
           Table.Stride()));
     }
     return {};
@@ -510,7 +524,7 @@ protected:
   RecordArrayReader<_FieldRecordReader> GetField_RecordArrayRef(const void *pIndex) const {
     if (*this) {
       return RecordArrayReader<_FieldRecordReader>(m_pContext,
-                                                   *(uint32_t *)pIndex);
+                                                   *(const uint32_t *)pIndex);
     }
     return {};
   }
@@ -523,7 +537,7 @@ protected:
   }
   IndexTableReader::IndexRow GetField_IndexArray(const void *pIndex) const {
     if (*this) {
-      return m_pContext->IndexTable.getRow(*(uint32_t *)pIndex);
+      return m_pContext->IndexTable.getRow(*(const uint32_t *)pIndex);
     }
     return {};
   }
@@ -537,17 +551,17 @@ protected:
     return *(const ArrayType*)nullptr;
   }
   const char *GetField_String(const void *pIndex) const {
-    return *this ? m_pContext->StringBuffer.Get(*(uint32_t*)pIndex) : nullptr;
+    return *this ? m_pContext->StringBuffer.Get(*(const uint32_t*)pIndex) : nullptr;
   }
   StringArrayReader GetField_StringArray(const void *pIndex) const {
-    return *this ? StringArrayReader(m_pContext, *(uint32_t *)pIndex)
+    return *this ? StringArrayReader(m_pContext, *(const uint32_t *)pIndex)
                  : StringArrayReader(nullptr, 0);
   }
   const void *GetField_Bytes(const void *pIndex) const {
-    return *this ? m_pContext->RawBytes.Get(*(uint32_t*)pIndex) : nullptr;
+    return *this ? m_pContext->RawBytes.Get(*(const uint32_t*)pIndex) : nullptr;
   }
-  const uint32_t GetField_BytesSize(const void *pIndex) const {
-    return *this ? *(((uint32_t*)pIndex) + 1) : 0;
+  uint32_t GetField_BytesSize(const void *pIndex) const {
+    return *this ? *(((const uint32_t*)pIndex) + 1) : 0;
   }
 };
 
@@ -558,13 +572,13 @@ public:
   RecordTableReader(const RDATContext *pContext) : m_pContext(pContext) {}
   template<typename RecordReaderType = _RecordReader>
   RecordReaderType Row(uint32_t index) const {
-    typedef _RecordReader::RecordType RecordType;
+    typedef typename _RecordReader::RecordType RecordType;
     const TableReader &Table = m_pContext->Table<RecordType>();
     return RecordReaderType(BaseRecordReader(
         m_pContext, Table.Row<RecordType>(index), Table.Stride()));
   }
   uint32_t Count() const {
-    return m_pContext->Table<_RecordReader::RecordType>().Count();
+    return m_pContext->Table<typename _RecordReader::RecordType>().Count();
   }
   uint32_t size() const { return Count(); }
   const _RecordReader operator[](uint32_t index) const { return Row(index); }

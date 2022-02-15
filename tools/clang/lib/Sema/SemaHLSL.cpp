@@ -1157,8 +1157,6 @@ static const ArBasicKind g_Texture2DArrayCT[] =
 static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
                                            AR_BASIC_UNKNOWN};
 
-static const ArBasicKind g_SamplerStateCT[] = {AR_OBJECT_HEAP_SAMPLER, AR_BASIC_UNKNOWN};
-
 static const ArBasicKind g_RayDescCT[] =
 {
   AR_OBJECT_RAY_DESC,
@@ -5759,7 +5757,6 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
   }
   case IntrinsicOp::MOP_GatherRaw: {
     ArBasicKind kind = GetTypeElementKind(objectElement);
-    UINT uBits = GET_BPROP_BITS(kind);
     UINT numEles = GetNumElements(objectElement);
     return IS_BASIC_UINT(kind) && numEles == 1;
   } break;

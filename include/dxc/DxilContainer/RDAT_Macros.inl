@@ -211,14 +211,14 @@
 #elif DEF_RDAT_TYPES == DEF_RDAT_TRAITS
 
   #define RDAT_STRUCT(type) \
-    constexpr const char *RecordTraits<type>::TypeName() { return #type; }
+    template<> constexpr const char *RecordTraits<type>::TypeName() { return #type; }
   #define RDAT_STRUCT_DERIVED(type, base) RDAT_STRUCT(type)
   #define RDAT_STRUCT_TABLE(type, table) \
     RDAT_STRUCT(type) \
-    constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; }
+    template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; }
   #define RDAT_STRUCT_TABLE_DERIVED(type, base, table) \
     RDAT_STRUCT_DERIVED(type, base) \
-    constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; }
+    template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; }
 
 #endif // DEF_RDAT_TYPES cases
 
