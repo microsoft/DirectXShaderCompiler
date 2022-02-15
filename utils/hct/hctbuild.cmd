@@ -42,6 +42,7 @@ set SPV_TEST=OFF
 set DXILCONV=ON
 set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
+set WINSDK_MIN_VERSION=10.0.17763.0
 
 :parse_args
 if "%1"=="" (
@@ -237,7 +238,7 @@ if "%CMAKE_PATH%"=="" (
   set CMAKE_PATH=cmake
 )
 
-rem Get SDK version from VSDevCmd (needed for ARM64X builds), strip the backslash at the end
+rem Get SDK version from VSDevCmd, strip the backslash at the end
 set ENV_SDK_VERSION=%WindowsSDKVersion%
 if "%ENV_SDK_VERSION:~-1%"=="\" (
   set "ENV_SDK_VERSION=%ENV_SDK_VERSION:~0,-1%"
@@ -283,18 +284,16 @@ if /i "%BUILD_ARCH%"=="arm64ec" (
   set BUILD_GENERATOR_PLATFORM=ARM64EC
   set BUILD_ARM_CROSSCOMPILING=1
   set VS2019ARCH=-AARM64EC
-  if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
-    if "%ENV_SDK_VERSION%"=="" (
-      set DXC_CMAKE_SYSTEM_VERSION=10.0.21330.0
-    ) else (
-      set DXC_CMAKE_SYSTEM_VERSION=%ENV_SDK_VERSION%
-    )
-  )
+  set WINSDK_MIN_VERSION=10.0.21330.0
   set CMAKE_OPTS=%CMAKE_OPTS% -DMSVC_BUILD_AS_X=1
 )
 
 if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
-  set DXC_CMAKE_SYSTEM_VERSION=10.0.17763.0
+  if "%ENV_SDK_VERSION%"=="" (
+    set DXC_CMAKE_SYSTEM_VERSION=%WINSDK_MIN_VERSION%
+  ) else (
+    set DXC_CMAKE_SYSTEM_VERSION=%ENV_SDK_VERSION%
+  )
 )
 
 if "%ENABLE_LIT%"=="" (
