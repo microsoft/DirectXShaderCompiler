@@ -1393,11 +1393,19 @@ public:
       CGOpts.DwarfVersion = 4; // Latest version.
       // TODO: consider
       // DebugPass, DebugCompilationDir, DwarfDebugFlags, SplitDwarfFile
+
+      // Prevent attemt to fill this in automatically, which leads to call
+      // into include handler with the current working directory.
+      CGOpts.DebugCompilationDir = ".";
     }
     else {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       CGOpts.setDebugInfo(CodeGenOptions::LocTrackingOnly);
       CGOpts.DebugColumnInfo = 1;
+
+      // Prevent attemt to fill this in automatically, which leads to call
+      // into include handler with the current working directory.
+      CGOpts.DebugCompilationDir = ".";
     }
 
     clang::PreprocessorOptions &PPOpts(compiler.getPreprocessorOpts());
