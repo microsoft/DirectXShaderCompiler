@@ -1850,13 +1850,17 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
   const char *pLineEnd = pText;
   while (pLineEnd < pEnd && *pLineEnd != '\n') pLineEnd++;
 
-  // Create a UTF-16-backing store.
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > w;
-  std::wstring line = w.from_bytes(pText, pLineEnd);
+  // Create a wide char backing store.
+  auto state = std::mbstate_t();
+  size_t size = std::mbsrtowcs(nullptr, &pText, 0, &state);
+  if (size == static_cast<size_t>(-1))
+    return E_INVALIDARG;
+
+  std::unique_ptr<wchar_t[]> pWText(new wchar_t[size + 1]);
+  std::mbsrtowcs(pWText.get(), &pText, size + 1, &state);
 
   // Find starting and ending '-*-' delimiters.
-  const wchar_t *pWText = line.c_str();
-  const wchar_t *pVarStart = wcsstr(pWText, L"-*-");
+  const wchar_t *pVarStart = wcsstr(pWText.get(), L"-*-");
   if (!pVarStart) return E_INVALIDARG;
   pVarStart += 3;
   const wchar_t *pVarEnd = wcsstr(pVarStart, L"-*-");

@@ -269,12 +269,12 @@ public:
 };
 
 /// Use this class to convert a StringRef into a wstring, handling empty values as nulls.
-class StringRefUtf16 {
+class StringRefWide {
 private:
   std::wstring m_value;
 
 public:
-  StringRefUtf16(llvm::StringRef value);
+  StringRefWide(llvm::StringRef value);
   operator LPCWSTR() const { return m_value.size() ? m_value.data() : nullptr; }
 };
 

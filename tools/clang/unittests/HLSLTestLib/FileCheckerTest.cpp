@@ -293,7 +293,7 @@ static void AddOutputsToFileMap(IUnknown *pUnkResult, FileMap *pVFS) {
     if (SUCCEEDED(pUnkResult->QueryInterface(IID_PPV_ARGS(&pResult)))) {
       for (unsigned i = 0; i < pResult->GetNumOutputs(); i++) {
         CComPtr<IDxcBlob> pOutput;
-        CComPtr<IDxcBlobUtf16> pOutputName;
+        CComPtr<IDxcBlobWide> pOutputName;
         if (SUCCEEDED(pResult->GetOutput(pResult->GetOutputByIndex(i),
                                 IID_PPV_ARGS(&pOutput), &pOutputName)) &&
             pOutput && pOutputName && pOutputName->GetStringLength() > 0) {
@@ -317,9 +317,9 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   CComPtr<IDxcBlob> pPDBBlob;
 
   std::wstring entry =
-      Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+      Unicode::UTF8ToWideStringOrThrow(opts.EntryPoint.str().c_str());
   std::wstring profile =
-      Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
+      Unicode::UTF8ToWideStringOrThrow(opts.TargetProfile.str().c_str());
 
   IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
@@ -478,9 +478,9 @@ FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, 
   if (readOptsResult.ExitCode) return readOptsResult;
 
   std::wstring entry =
-      Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+      Unicode::UTF8ToWideStringOrThrow(opts.EntryPoint.str().c_str());
   std::wstring profile =
-      Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
+      Unicode::UTF8ToWideStringOrThrow(opts.TargetProfile.str().c_str());
   std::vector<LPCWSTR> flags;
   if (opts.CodeGenHighLevel) {
     flags.push_back(L"-fcgl");
@@ -645,7 +645,7 @@ FileRunCommandResult FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, 
   std::vector<std::wstring> optionStrings;
   for (llvm::StringRef S : splitArgs) {
     optionStrings.push_back(
-        Unicode::UTF8ToUTF16StringOrThrow(strtrim(S.str()).c_str()));
+        Unicode::UTF8ToWideStringOrThrow(strtrim(S.str()).c_str()));
   }
 
   // Add the options outside the above loop in case the vector is resized.
@@ -749,7 +749,7 @@ FileRunCommandResult FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport, 
   if (readOptsResult.ExitCode) return readOptsResult;
 
   std::wstring entry =
-    Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+    Unicode::UTF8ToWideStringOrThrow(opts.EntryPoint.str().c_str());
 
   std::vector<LPCWSTR> flags;
   std::vector<std::wstring> argWStrings;
@@ -796,9 +796,9 @@ FileRunCommandResult FileRunCommandPart::RunLink(dxc::DxcDllSupport &DllSupport,
   if (readOptsResult.ExitCode) return readOptsResult;
 
   std::wstring entry =
-      Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+      Unicode::UTF8ToWideStringOrThrow(opts.EntryPoint.str().c_str());
   std::wstring profile =
-      Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
+      Unicode::UTF8ToWideStringOrThrow(opts.TargetProfile.str().c_str());
   std::vector<LPCWSTR> flags;
 
   // Skip targets that require a newer compiler or validator.
@@ -834,11 +834,11 @@ FileRunCommandResult FileRunCommandPart::RunLink(dxc::DxcDllSupport &DllSupport,
   // Parse semicolon separated list of library names.
   llvm::StringRef optLibraries = opts.Args.getLastArgValue(hlsl::options::OPT_INPUT);
   auto libs_utf8 = strtok(optLibraries.str().c_str(), ";");
-  std::vector<std::wstring> libs_utf16;
+  std::vector<std::wstring> libs_wide;
   for (auto name : libs_utf8)
-    libs_utf16.emplace_back(Unicode::UTF8ToUTF16StringOrThrow(name.c_str()));
+    libs_wide.emplace_back(Unicode::UTF8ToWideStringOrThrow(name.c_str()));
   std::vector<LPCWSTR> libNames;
-  for (auto &name : libs_utf16)
+  for (auto &name : libs_wide)
     libNames.emplace_back(name.data());
 
   CComPtr<IDxcLibrary> pLibrary;

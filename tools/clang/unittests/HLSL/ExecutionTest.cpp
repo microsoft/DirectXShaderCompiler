@@ -598,7 +598,7 @@ public:
       CComPtr<IDxcBlobEncoding> errors;
       VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&errors));
 #ifndef _HLK_CONF
-      LogCommentFmt(L"Failed to compile shader: %s", BlobToUtf16(errors).data());
+      LogCommentFmt(L"Failed to compile shader: %s", BlobToWide(errors).data());
 #endif
     }
     VERIFY_SUCCEEDED(resultCode);
