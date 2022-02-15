@@ -347,7 +347,7 @@ void DxaContext::DumpRS() {
 void DxaContext::DumpRDAT() {
   CComPtr<IDxcBlob> pPart;
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
   if (pSource->GetBufferSize() < sizeof(hlsl::RDAT::RuntimeDataHeader)) {
     printf("Invalid input file, use binary DxilContainer or raw RDAT part.");
     return;
