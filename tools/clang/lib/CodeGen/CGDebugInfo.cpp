@@ -292,8 +292,8 @@ unsigned CGDebugInfo::getColumnNumber(SourceLocation Loc, bool Force) {
 }
 
 StringRef CGDebugInfo::getCurrentDirname() {
-  if (CGM.getLangOpts().HLSL) return "";  // HLSL Change
-  if (!CGM.getCodeGenOpts().DebugCompilationDir.empty())
+  if (!CGM.getCodeGenOpts().DebugCompilationDir.empty()
+      || CGM.getLangOpts().HLSL) // HLSL Change
     return CGM.getCodeGenOpts().DebugCompilationDir;
 
   if (!CWDName.empty())
