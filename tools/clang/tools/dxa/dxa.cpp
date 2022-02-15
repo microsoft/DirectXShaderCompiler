@@ -88,7 +88,7 @@ void DxaContext::Assemble() {
 
   {
     CComPtr<IDxcBlobEncoding> pSource;
-    ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+    ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
     CComPtr<IDxcAssembler> pAssembler;
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
@@ -122,7 +122,7 @@ void DxaContext::Assemble() {
         }
       }
 
-      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_ACP);
+      WriteBlobToFile(pContainer, StringRefWide(OutputFilename), DXC_CP_ACP);
       printf("Output written to \"%s\"\n", OutputFilename.c_str());
     }
   } else {
@@ -160,7 +160,7 @@ HRESULT DxaContext::FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcL
 
 void DxaContext::ListFiles() {
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
@@ -178,7 +178,7 @@ void DxaContext::ListFiles() {
 
 bool DxaContext::ExtractFile(const char *pName) {
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
@@ -205,7 +205,7 @@ bool DxaContext::ExtractFile(const char *pName) {
 
 bool DxaContext::ExtractPart(uint32_t PartKind, IDxcBlob **ppTargetBlob) {
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
   return ExtractPart(pSource, PartKind, ppTargetBlob);
 }
 
@@ -280,7 +280,7 @@ bool DxaContext::ExtractPart(const char *pName) {
     std::swap(pModuleBlob, pContent);
   }
 
-  WriteBlobToFile(pContent, StringRefUtf16(OutputFilename),
+  WriteBlobToFile(pContent, StringRefWide(OutputFilename),
                   DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
   printf("%Iu bytes written to %s\n", pContent->GetBufferSize(),
          OutputFilename.c_str());
@@ -289,7 +289,7 @@ bool DxaContext::ExtractPart(const char *pName) {
 
 void DxaContext::ListParts() {
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
   CComPtr<IDxcContainerReflection> pReflection;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
