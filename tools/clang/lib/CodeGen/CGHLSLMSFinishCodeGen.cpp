@@ -2937,22 +2937,7 @@ void AddRegBindingsForResourceInConstantBuffer(
 
 // extension codegen.
 void ExtensionCodeGen(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM) {
-  // Add semantic defines for extensions if any are available.
-  HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
-      CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(
-          HLM.GetModule());
-
-  clang::DiagnosticsEngine &Diags = CGM.getDiags();
-  for (const HLSLExtensionsCodegenHelper::SemanticDefineError &error : errors) {
-    clang::DiagnosticsEngine::Level level = clang::DiagnosticsEngine::Error;
-    if (error.IsWarning())
-      level = clang::DiagnosticsEngine::Warning;
-    unsigned DiagID = Diags.getCustomDiagID(level, "%0");
-    Diags.Report(clang::SourceLocation::getFromRawEncoding(error.Location()),
-                 DiagID)
-        << error.Message();
-  }
-
+  auto &Diags = CGM.getDiags();
   // Add root signature from a #define. Overrides root signature in function
   // attribute.
   {

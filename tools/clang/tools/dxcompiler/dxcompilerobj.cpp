@@ -479,7 +479,7 @@ public:
   {}
 
   // Write semantic defines as metadata in the module.
-  virtual std::vector<SemanticDefineError> WriteSemanticDefines(llvm::Module *M) override {
+  virtual void WriteSemanticDefines(llvm::Module *M) override {
     // Grab the semantic defines seen by the parser.
     ParsedSemanticDefineList defines =
       CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
@@ -487,14 +487,31 @@ public:
     // Nothing to do if we have no defines.
     SemanticDefineErrorList errors;
     if (!defines.size())
-      return errors;
+      return;
 
     ParsedSemanticDefineList validated;
     GetValidatedSemanticDefines(defines, validated, errors);
     WriteSemanticDefines(M, validated);
-    return errors;
-  }
 
+    auto &Diags = m_CI.getDiagnostics();
+    for (const auto &error : errors) {
+      clang::DiagnosticsEngine::Level level = clang::DiagnosticsEngine::Error;
+      if (error.IsWarning())
+        level = clang::DiagnosticsEngine::Warning;
+      unsigned DiagID = Diags.getCustomDiagID(level, "%0");
+      Diags.Report(clang::SourceLocation::getFromRawEncoding(error.Location()),
+                   DiagID)
+          << error.Message();
+    }
+
+  }
+  // Update CodeGenOption based on HLSLOptimizationToggles.
+  void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
+    auto &CodeGenOpts = m_CI.getCodeGenOpts();
+    CGO.HLSLEnableLifetimeMarkers &=
+        (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
+         CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
+  }
   virtual bool IsOptionEnabled(std::string option) override {
     return m_CI.getCodeGenOpts().HLSLOptimizationToggles.count(option) &&
       m_CI.getCodeGenOpts().HLSLOptimizationToggles.find(option)->second;
