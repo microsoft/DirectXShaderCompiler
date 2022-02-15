@@ -65,7 +65,7 @@ int main(int argc, const char **argv_) {
     llvm::errs() << "Required input file argument is missing\n";
     return DXC_E_GENERAL_INTERNAL_ERROR;
   }
-  hlsl::options::StringRefUtf16 filename(argv_[1]);
+  hlsl::options::StringRefWide filename(argv_[1]);
 
   // Read input file.
   dxc::DxcDllSupport dxcSupport;

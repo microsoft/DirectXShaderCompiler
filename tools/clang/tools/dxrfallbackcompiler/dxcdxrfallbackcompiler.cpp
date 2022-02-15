@@ -209,7 +209,7 @@ static inline std::string GetUnmangledName(StringRef name) {
 
 static Function* getFunctionFromName(Module &M, const std::wstring& exportName) {
     for (auto F = M.begin(), E = M.end(); F != E; ++F) {
-        std::wstring functionName = Unicode::UTF8ToUTF16StringOrThrow(GetUnmangledName(F->getName()).c_str());
+        std::wstring functionName = Unicode::UTF8ToWideStringOrThrow(GetUnmangledName(F->getName()).c_str());
         if (exportName == functionName) {
             return F;
         }

@@ -314,7 +314,7 @@ private:
         if (m_bDisplayIncludeProcess) {
           std::string openFileStr;
           raw_string_ostream s(openFileStr);
-          std::string fileName = Unicode::UTF16ToUTF8StringOrThrow(lpFileName);
+          std::string fileName = Unicode::WideToUTF8StringOrThrow(lpFileName);
           s << "Opening file [" << fileName << "], stack top [" << (index-1)
             << "]\n";
           s.flush();
@@ -403,11 +403,11 @@ public:
     for (unsigned i = 0, e = entries.size(); i != e; ++i) {
       const clang::HeaderSearchOptions::Entry &E = entries[i];
       if (dxcutil::IsAbsoluteOrCurDirRelative(E.Path.c_str())) {
-        m_searchEntries.emplace_back(Unicode::UTF8ToUTF16StringOrThrow(E.Path.c_str()));
+        m_searchEntries.emplace_back(Unicode::UTF8ToWideStringOrThrow(E.Path.c_str()));
       }
       else {
         std::wstring ws(L"./");
-        ws += Unicode::UTF8ToUTF16StringOrThrow(E.Path.c_str());
+        ws += Unicode::UTF8ToWideStringOrThrow(E.Path.c_str());
         m_searchEntries.emplace_back(std::move(ws));
       }
     }
@@ -802,13 +802,13 @@ public:
 
   // fake my way toward as linux-y a file_status as I can get
   virtual int Stat(const char *lpFileName, struct stat *Status) throw() override {
-    CA2W fileName_utf16(lpFileName, CP_UTF8);
+    CA2W fileName_wide(lpFileName, CP_UTF8);
 
-    DWORD attr = GetFileAttributesW(fileName_utf16);
+    DWORD attr = GetFileAttributesW(fileName_wide);
     if (attr == INVALID_FILE_ATTRIBUTES)
       return -1;
 
-    HANDLE H = CreateFileW(fileName_utf16, 0, // Attributes only.
+    HANDLE H = CreateFileW(fileName_wide, 0, // Attributes only.
                            FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
     if (H == INVALID_HANDLE_VALUE)

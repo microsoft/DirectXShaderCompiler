@@ -66,7 +66,7 @@ static void FatalErrorHandlerStreamWrite(void *user_data, const std::string& rea
   throw std::exception();
 }
 
-static HRESULT Utf8ToUtf16CoTaskMalloc(LPCSTR pValue, LPWSTR *ppResult) {
+static HRESULT Utf8ToWideCoTaskMalloc(LPCSTR pValue, LPWSTR *ppResult) {
   if (ppResult == nullptr)
     return E_POINTER;
   int count = MultiByteToWideChar(CP_UTF8, 0, pValue, -1, nullptr, 0);
@@ -111,10 +111,10 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE GetOptionName(_COM_Outptr_ LPWSTR *ppResult) override {
-    return Utf8ToUtf16CoTaskMalloc(m_pOptionName, ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pOptionName, ppResult);
   }
   HRESULT STDMETHODCALLTYPE GetDescription(_COM_Outptr_ LPWSTR *ppResult) override {
-    return Utf8ToUtf16CoTaskMalloc(m_pDescription, ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pDescription, ppResult);
   }
 
   HRESULT STDMETHODCALLTYPE GetOptionArgCount(_Out_ UINT32 *pCount) override {
@@ -126,12 +126,12 @@ public:
   HRESULT STDMETHODCALLTYPE GetOptionArgName(UINT32 argIndex, LPWSTR *ppResult) override {
     if (!ppResult) return E_INVALIDARG;
     if (argIndex >= m_pArgNames.size()) return E_INVALIDARG;
-    return Utf8ToUtf16CoTaskMalloc(m_pArgNames[argIndex], ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pArgNames[argIndex], ppResult);
   }
   HRESULT STDMETHODCALLTYPE GetOptionArgDescription(UINT32 argIndex, LPWSTR *ppResult) override {
     if (!ppResult) return E_INVALIDARG;
     if (argIndex >= m_pArgDescriptions.size()) return E_INVALIDARG;
-    return Utf8ToUtf16CoTaskMalloc(m_pArgDescriptions[argIndex], ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pArgDescriptions[argIndex], ppResult);
   }
 };
 

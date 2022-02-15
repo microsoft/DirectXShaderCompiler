@@ -227,7 +227,6 @@ void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes) {
 std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
   if (!pBlob)
     return std::string();
-  const UINT CP_UTF16 = 1200;
   CComPtr<IDxcBlobUtf8> pBlobUtf8;
   if (SUCCEEDED(pBlob->QueryInterface(&pBlobUtf8)))
     return std::string(pBlobUtf8->GetStringPointer(), pBlobUtf8->GetStringLength());
@@ -245,12 +244,12 @@ std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
     throw std::runtime_error("unknown codepage for blob.");
   }
   std::string result;
-  if (codePage == CP_UTF16) {
+  if (codePage == DXC_CP_WIDE) {
     const wchar_t* text = (const wchar_t *)pBlob->GetBufferPointer();
     size_t length = pBlob->GetBufferSize() / 2;
     if (length >= 1 && text[length-1] == L'\0')
       length -= 1;  // Exclude null-terminator
-    Unicode::UTF16ToUTF8String(text, length, &result);
+    Unicode::WideToUTF8String(text, length, &result);
     return result;
   } else if (codePage == CP_UTF8) {
     const char* text = (const char *)pBlob->GetBufferPointer();
@@ -265,13 +264,12 @@ std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
   }
 }
 
-std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
+std::wstring BlobToWide(_In_ IDxcBlob *pBlob) {
   if (!pBlob)
     return std::wstring();
-  const UINT CP_UTF16 = 1200;
-  CComPtr<IDxcBlobUtf16> pBlobUtf16;
-  if (SUCCEEDED(pBlob->QueryInterface(&pBlobUtf16)))
-    return std::wstring(pBlobUtf16->GetStringPointer(), pBlobUtf16->GetStringLength());
+  CComPtr<IDxcBlobWide> pBlobWide;
+  if (SUCCEEDED(pBlob->QueryInterface(&pBlobWide)))
+    return std::wstring(pBlobWide->GetStringPointer(), pBlobWide->GetStringLength());
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   IFT(pBlob->QueryInterface(&pBlobEncoding));
   BOOL known;
@@ -281,7 +279,7 @@ std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
     throw std::runtime_error("unknown codepage for blob.");
   }
   std::wstring result;
-  if (codePage == CP_UTF16) {
+  if (codePage == DXC_CP_WIDE) {
     const wchar_t* text = (const wchar_t *)pBlob->GetBufferPointer();
     size_t length = pBlob->GetBufferSize() / 2;
     if (length >= 1 && text[length-1] == L'\0')
@@ -294,7 +292,7 @@ std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
     size_t length = pBlob->GetBufferSize();
     if (length >= 1 && text[length-1] == '\0')
       length -= 1;  // Exclude null-terminator
-    Unicode::UTF8ToUTF16String(text, length, &result);
+    Unicode::UTF8ToWideString(text, length, &result);
     return result;
   } else {
     throw std::runtime_error("Unsupported codepage.");
@@ -332,18 +330,17 @@ void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
   Utf8ToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
+void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
                  _Outptr_ IDxcBlobEncoding **ppBlob) {
-  const UINT32 CP_UTF16 = 1200;
   CComPtr<IDxcLibrary> library;
   IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
   IFT(library->CreateBlobWithEncodingOnHeapCopy(
-      val.data(), val.size() * sizeof(wchar_t), CP_UTF16, ppBlob));
+      val.data(), val.size() * sizeof(wchar_t), DXC_CP_WIDE, ppBlob));
 }
 
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
+void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
                  _Outptr_ IDxcBlob **ppBlob) {
-  Utf16ToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
+  WideToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
