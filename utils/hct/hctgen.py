@@ -23,7 +23,8 @@ parser.add_argument('mode', choices=['HLSLIntrinsicOp',
                                      'DxilPIXPasses',
                                      'DxcDisassembler',
                                      'DxilCounters',
-                                     'DxilMetadata'
+                                     'DxilMetadata',
+                                     'RDAT_LibraryTypes'
                                      ])
 parser.add_argument('--output', required=True)
 parser.add_argument('--input', default=None)

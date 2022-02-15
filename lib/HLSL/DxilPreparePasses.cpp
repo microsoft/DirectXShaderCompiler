@@ -173,11 +173,14 @@ static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
     attrKind = attribute.getKindAsString();
     attrValue = attribute.getValueAsString();
   }
+  bool helperLane = attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kWaveOpsIncludeHelperLanesString);
   if (F == NewFunc) {
     NewFunc->removeAttributes(AttributeSet::FunctionIndex, attributeSet);
   }
   if (!attrKind.empty() && !attrValue.empty())
     NewFunc->addFnAttr(attrKind, attrValue);
+  if (helperLane)
+    NewFunc->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
 }
 
 // If this returns non-null, the old function F has been stripped and can be deleted.
@@ -610,6 +613,54 @@ public:
     }
   }
 
+  void convertQuadVote(Module &M, hlsl::OP *hlslOP) {
+    for (auto FnIt : hlslOP->GetOpFuncList(DXIL::OpCode::QuadVote)) {
+      Function *F = FnIt.second;
+      if (!F)
+        continue;
+      for (auto UserIt = F->user_begin(); UserIt != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(UserIt++));
+
+        IRBuilder<> B(CI);
+        DXASSERT_NOMSG(CI->getOperand(1)->getType() ==
+                       Type::getInt1Ty(M.getContext()));
+
+        Type *i32Ty = Type::getInt32Ty(M.getContext());
+        Value *Cond = B.CreateSExt(CI->getOperand(1), i32Ty);
+
+        Function *QuadOpFn = hlslOP->GetOpFunc(DXIL::OpCode::QuadOp, i32Ty);
+        const std::string &OpName = hlslOP->GetOpCodeName(DXIL::OpCode::QuadOp);
+
+        Value *refArgs[] = {hlslOP->GetU32Const((unsigned)DXIL::OpCode::QuadOp),
+                            Cond, nullptr};
+        refArgs[2] =
+            hlslOP->GetI8Const((unsigned)DXIL::QuadOpKind::ReadAcrossX);
+        Value *X = B.CreateCall(QuadOpFn, refArgs, OpName);
+        refArgs[2] =
+            hlslOP->GetI8Const((unsigned)DXIL::QuadOpKind::ReadAcrossY);
+        Value *Y = B.CreateCall(QuadOpFn, refArgs, OpName);
+        refArgs[2] =
+            hlslOP->GetI8Const((unsigned)DXIL::QuadOpKind::ReadAcrossDiagonal);
+        Value *Z = B.CreateCall(QuadOpFn, refArgs, OpName);
+        Value *Result = nullptr;
+
+        uint64_t OpKind = cast<ConstantInt>(CI->getOperand(2))->getZExtValue();
+
+        if (OpKind == (uint64_t)DXIL::QuadVoteOpKind::All) {
+          Value *XY = B.CreateAnd(X, Y);
+          Result = B.CreateAnd(XY, Z);
+        } else {
+          DXASSERT_NOMSG(OpKind == (uint64_t)DXIL::QuadVoteOpKind::Any);
+          Value *XY = B.CreateOr(X, Y);
+          Result = B.CreateOr(XY, Z);
+        }
+        Value *Res = B.CreateTrunc(Result, Type::getInt1Ty(M.getContext()));
+        CI->replaceAllUsesWith(Res);
+        CI->eraseFromParent();
+      }
+    }
+  }
+
   // Replace llvm.lifetime.start/.end intrinsics with undef or zeroinitializer
   // stores (for earlier validator versions) unless the pointer is a global
   // that has an initializer.
@@ -732,6 +783,11 @@ public:
       // Basic down-conversions for Dxil < 1.6
       if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 6) < 0) {
         patchDxil_1_6(M, hlslOP, ValMajor, ValMinor);
+      }
+
+      // Convert quad vote
+      if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 7) < 0) {
+        convertQuadVote(M, DM.GetOP());
       }
 
       // Remove store undef output.

@@ -384,7 +384,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-soures]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-sources]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project

@@ -18,6 +18,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/test/RDATDumper.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support//MSFileSystem.h"
@@ -59,12 +60,17 @@ static cl::opt<bool> DumpRootSig("dumprs",
                                cl::desc("Dump root signature"),
                                cl::init(false));
 
+static cl::opt<bool> DumpRDAT("dumprdat",
+                              cl::desc("Dump RDAT"),
+                              cl::init(false));
+
 class DxaContext {
 
 private:
   DxcDllSupport &m_dxcSupport;
   HRESULT FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcBlob **ppTarget);
   bool ExtractPart(uint32_t Part, IDxcBlob **ppTargetBlob);
+  bool ExtractPart(IDxcBlob* pSource, uint32_t Part, IDxcBlob **ppTargetBlob);
 public:
   DxaContext(DxcDllSupport &dxcSupport) : m_dxcSupport(dxcSupport) {}
 
@@ -74,6 +80,7 @@ public:
   void ListFiles();
   void ListParts();
   void DumpRS();
+  void DumpRDAT();
 };
 
 void DxaContext::Assemble() {
@@ -197,10 +204,14 @@ bool DxaContext::ExtractFile(const char *pName) {
 }
 
 bool DxaContext::ExtractPart(uint32_t PartKind, IDxcBlob **ppTargetBlob) {
-  CComPtr<IDxcContainerReflection> pReflection;
   CComPtr<IDxcBlobEncoding> pSource;
-  UINT32 partCount;
   ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+  return ExtractPart(pSource, PartKind, ppTargetBlob);
+}
+
+bool DxaContext::ExtractPart(IDxcBlob* pSource, uint32_t PartKind, IDxcBlob **ppTargetBlob) {
+  CComPtr<IDxcContainerReflection> pReflection;
+  UINT32 partCount;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
   IFT(pReflection->Load(pSource));
   IFT(pReflection->GetPartCount(&partCount));
@@ -333,6 +344,41 @@ void DxaContext::DumpRS() {
   }
 }
 
+void DxaContext::DumpRDAT() {
+  CComPtr<IDxcBlob> pPart;
+  CComPtr<IDxcBlobEncoding> pSource;
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+  if (pSource->GetBufferSize() < sizeof(hlsl::RDAT::RuntimeDataHeader)) {
+    printf("Invalid input file, use binary DxilContainer or raw RDAT part.");
+    return;
+  }
+
+  // If DXBC, extract part, otherwise, try to read raw RDAT binary.
+  if (hlsl::DFCC_Container == *(UINT *)pSource->GetBufferPointer()) {
+    if (!ExtractPart(pSource, hlsl::DFCC_RuntimeData, &pPart)) {
+      printf("cannot find RDAT part");
+      return;
+    }
+  } else if (hlsl::RDAT::RDAT_Version_10 != *(UINT *)pSource->GetBufferPointer()) {
+    printf("Invalid input file, use binary DxilContainer or raw RDAT part.");
+    return;
+  } else {
+    pPart = pSource;  // Try assuming the source is pure RDAT part
+  }
+
+  hlsl::RDAT::DxilRuntimeData rdat;
+  if (!rdat.InitFromRDAT(pPart->GetBufferPointer(), pPart->GetBufferSize())) {
+    // If any error occurred trying to read as RDAT, assume it's not the right kind of input.
+    printf("Invalid input file, use binary DxilContainer or raw RDAT part.");
+    return;
+  }
+
+  std::ostringstream ss;
+  hlsl::dump::DumpContext d(ss);
+  hlsl::dump::DumpRuntimeData(rdat, d);
+  printf("%s", ss.str().c_str());
+}
+
 using namespace hlsl::options;
 
 int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
@@ -387,6 +433,9 @@ int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
     } else if (DumpRootSig) {
       pStage = "Dump root sig";
       context.DumpRS();
+    } else if (DumpRDAT) {
+      pStage = "Dump RDAT";
+      context.DumpRDAT();
     }
     else {
       pStage = "Assembling";

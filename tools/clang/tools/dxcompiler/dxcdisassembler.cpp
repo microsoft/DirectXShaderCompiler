@@ -347,6 +347,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "Sampler descriptor heap indexing",
     "<RESERVED>",
     "64-bit Atomics on Heap Resources",
+    "Advanced Texture Ops",
+    "Writeable MSAA Textures",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -1705,10 +1707,9 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     if (pRDATPart) {
       RDAT::DxilRuntimeData runtimeData(GetDxilPartData(pRDATPart), pRDATPart->PartSize);
       // TODO: Print the rest of the RDAT info
-      if (RDAT::SubobjectTableReader *pSubobjectTableReader =
-        runtimeData.GetSubobjectTableReader()) {
+      if (runtimeData.GetSubobjectTable()) {
         dxilModule.ResetSubobjects(new DxilSubobjects());
-        if (!LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), pSubobjectTableReader)) {
+        if (!LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), runtimeData)) {
           Stream << "; error occurred while loading Subobjects from RDAT.\n";
         }
       }

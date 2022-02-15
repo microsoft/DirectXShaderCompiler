@@ -887,10 +887,14 @@ static void ValidateCalcLODResourceDimensionCoord(CallInst *CI, DXIL::ResourceKi
 static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
                                    ArrayRef<Value *> offsets,
                                    ValidationContext &ValCtx) {
+  const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+
   unsigned numOffsets = DxilResource::GetNumOffsets(resKind);
   bool hasOffset = !isa<UndefValue>(offsets[0]);
 
   auto validateOffset = [&](Value *offset) {
+    // 6.7 Advanced Textures allow programmable offsets
+    if (pSM->IsSM67Plus()) return;
     if (ConstantInt *cOffset = dyn_cast<ConstantInt>(offset)) {
       int offset = cOffset->getValue().getSExtValue();
       if (offset > 7 || offset < -8) {
@@ -1631,6 +1635,16 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         /*IsSampleC*/ true, ValCtx);
     ValidateDerivativeOp(CI, ValCtx);
   } break;
+  case DXIL::OpCode::SampleCmpLevel: {
+    // sampler must be comparison mode.
+    DxilInst_SampleCmpLevel sample(CI);
+    ValidateSampleInst(
+        CI, sample.get_srv(), sample.get_sampler(),
+        {sample.get_coord0(), sample.get_coord1(), sample.get_coord2(),
+         sample.get_coord3()},
+        {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
+        /*IsSampleC*/ true, ValCtx);
+  } break;
   case DXIL::OpCode::SampleCmpLevelZero: {
     // sampler must be comparison mode.
     DxilInst_SampleCmpLevelZero sample(CI);
@@ -1769,6 +1783,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     case DXIL::ResourceKind::Texture1DArray:
     case DXIL::ResourceKind::Texture2D:
     case DXIL::ResourceKind::Texture2DArray:
+    case DXIL::ResourceKind::Texture2DMS:
+    case DXIL::ResourceKind::Texture2DMSArray:
     case DXIL::ResourceKind::Texture3D:
       break;
     default:
@@ -1830,7 +1846,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         ValCtx.EmitInstrError(CI, ValidationRule::InstrOffsetOnUAVLoad);
       }
       if (!isa<UndefValue>(mipLevel)) {
-        ValCtx.EmitInstrError(CI, ValidationRule::InstrMipOnUAVLoad);
+        if (resKind != DXIL::ResourceKind::Texture2DMS && resKind != DXIL::ResourceKind::Texture2DMSArray )
+          ValCtx.EmitInstrError(CI, ValidationRule::InstrMipOnUAVLoad);
       }
     } else {
       if (resClass != DXIL::ResourceClass::SRV) {
@@ -2038,6 +2055,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::TextureGatherCmp:
   case DXIL::OpCode::Sample:
   case DXIL::OpCode::SampleCmp:
+  case DXIL::OpCode::SampleCmpLevel:
   case DXIL::OpCode::SampleCmpLevelZero:
   case DXIL::OpCode::SampleBias:
   case DXIL::OpCode::SampleGrad:
@@ -2836,7 +2854,8 @@ static void ValidateFunctionAttribute(Function *F, ValidationContext &ValCtx) {
         continue;
       }
       StringRef kind = AttrIter->getKindAsString();
-      if (!kind.equals(DXIL::kFP32DenormKindString)) {
+      if (!kind.equals(DXIL::kFP32DenormKindString) &&
+          !kind.equals(DXIL::kWaveOpsIncludeHelperLanesString)) {
         ValCtx.EmitFnAttributeError(F, AttrIter->getKindAsString(),
                                     AttrIter->getValueAsString());
       }
@@ -3879,8 +3898,6 @@ static void ValidateResources(ValidationContext &ValCtx) {
       }
     }
     switch (uav->GetKind()) {
-    case DXIL::ResourceKind::Texture2DMS:
-    case DXIL::ResourceKind::Texture2DMSArray:
     case DXIL::ResourceKind::TextureCube:
     case DXIL::ResourceKind::TextureCubeArray:
       ValCtx.EmitResourceError(uav.get(),
@@ -5491,16 +5508,17 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
   // otherwise, load subobject into DxilModule to generate reference RDAT.
   if (!ValCtx.DxilMod.GetSubobjects()) {
     RDAT::DxilRuntimeData rdat(pRDATData, RDATSize);
-    auto *pSubobjReader = rdat.GetSubobjectTableReader();
-    if (pSubobjReader && pSubobjReader->GetCount() > 0) {
+    auto table = rdat.GetSubobjectTable();
+    if (table && table.Count() > 0) {
       ValCtx.DxilMod.ResetSubobjects(new DxilSubobjects());
-      if (!LoadSubobjectsFromRDAT(*ValCtx.DxilMod.GetSubobjects(), pSubobjReader)) {
+      if (!LoadSubobjectsFromRDAT(*ValCtx.DxilMod.GetSubobjects(), rdat)) {
         ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, { PartName });
         return;
       }
     }
   }
 
+  // TODO: Implement deep validation, instead of binary comparison before 1.7 release.
   unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
 
@@ -5632,6 +5650,10 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     // Runtime Data (RDAT) for libraries
     case DFCC_RuntimeData:
       if (ValCtx.isLibProfile) {
+        // TODO: validate without exact binary comparison of serialized data
+        //  - support earlier versions
+        //  - verify no newer record versions than known here (size no larger than newest version)
+        //  - verify all data makes sense and matches expectations based on module
         VerifyRDATMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       } else {
         ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });

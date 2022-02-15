@@ -85,6 +85,10 @@ public:
     // Run simple optimization to legalize offsets.
     LegalizeOffsets(ssaIllegalOffsets);
 
+    // If 6.7 or more, permit remaining "illegal" offsets
+    if (DM.GetShaderModel()->IsSM67Plus())
+      return true;
+
     FinalCheck(F, hlslOP);
 
     return true;

@@ -288,15 +288,15 @@ class db_dxil(object):
             self.name_idx[i].category = "Quaternary"
         for i in "Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
-        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(","):
+        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].category = "Resources"
-        for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
+        for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,SampleCmpLevel,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
         for i in "Sample,SampleBias,SampleCmp".split(","):
             self.name_idx[i].shader_stages = ("library", "pixel", "compute", "amplification", "mesh")
         for i in "RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].shader_stages = ("pixel",)
-        for i in "TextureGather,TextureGatherCmp".split(","):
+        for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
@@ -411,6 +411,8 @@ class db_dxil(object):
         for i in "AnnotateHandle,CreateHandleFromBinding,CreateHandleFromHeap".split(","):
             self.name_idx[i].category = "Get handle from heap"
             self.name_idx[i].shader_model = 6,6
+        for i in "AnnotateHandle,CreateHandleFromBinding".split(","):
+            self.name_idx[i].shader_model_translated = 6,0
         for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
             self.name_idx[i].category = "Dot product with accumulate"
             self.name_idx[i].shader_model = 6,4
@@ -452,6 +454,10 @@ class db_dxil(object):
         for i in "IsHelperLane".split(","):
             self.name_idx[i].category = "Helper Lanes"
             self.name_idx[i].shader_model = 6,6
+        for i in "QuadVote,TextureGatherRaw,SampleCmpLevel,TextureStoreSample".split(","):
+            self.name_idx[i].shader_model = 6,7
+        for i in "QuadVote".split(","):
+            self.name_idx[i].shader_model_translated = 6,0
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1869,6 +1875,63 @@ class db_dxil(object):
         self.set_op_count_for_version(1, 6, next_op_idx)
         assert next_op_idx == 222, "222 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
+        self.add_enum_type("QuadVoteOpKind", "Kind of cross-quad vote operation", [
+            (0, "Any", "true if any condition is true in this quad"),
+            (1, "All", "true if all conditions are true in this quad")])
+        self.add_dxil_op("QuadVote", next_op_idx, "QuadVote", "compares boolean accross a quad", "1", "", [
+            db_dxil_param(0, "i1", "", "result - uniform across quad"),
+            db_dxil_param(2, "i1", "cond", "condition"),
+            db_dxil_param(3, "i8", "op", "QuadVoteOpKind: 0=Any, 1=All", enum_name="QuadVoteOpKind", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("TextureGatherRaw", next_op_idx, "TextureGatherRaw", "Gather raw elements from 4 texels with no type conversions (SRV type is constrained)", "wil", "ro", [
+            db_dxil_param(0, "$r", "", "four raw texture elements gathered"),
+            db_dxil_param(2, "res", "srv", "handle of type-matched SRV to gather from"),
+            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
+            db_dxil_param(4, "f", "coord0", "coordinate"),
+            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
+            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
+            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
+            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
+            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray")],
+            counters=('tex_norm',))
+        next_op_idx += 1
+
+        self.add_dxil_op("SampleCmpLevel", next_op_idx, "SampleCmpLevel", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
+            db_dxil_param(0, "$r", "", "the result of the filtered comparisons"),
+            db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
+            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
+            db_dxil_param(4, "f", "coord0", "coordinate"),
+            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
+            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
+            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
+            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
+            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
+            db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
+            db_dxil_param(11, "f", "compareValue", "the value to compare with"),
+            db_dxil_param(12, "f", "lod", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")],
+            counters=('tex_cmp',))
+        next_op_idx += 1
+
+        self.add_dxil_op("TextureStoreSample", next_op_idx, "TextureStoreSample", "stores texel data at specified sample index", "hfwi", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "srv", "handle of Texture2DMS[Array] UAV to store to"),
+            db_dxil_param(3, "i32", "coord0", "coordinate"),
+            db_dxil_param(4, "i32", "coord1", "coordinate"),
+            db_dxil_param(5, "i32", "coord2", "coordinate"),
+            db_dxil_param(6, "$o", "value0", "value"),
+            db_dxil_param(7, "$o", "value1", "value"),
+            db_dxil_param(8, "$o", "value2", "value"),
+            db_dxil_param(9, "$o", "value3", "value"),
+            db_dxil_param(10,"i8", "mask", "written value mask", is_const=True),
+            db_dxil_param(11, "i32", "sampleIdx", "sample index")],
+            counters=('tex_store',))
+        next_op_idx += 1
+
+        # End of DXIL 1.7 opcodes.
+        self.set_op_count_for_version(1, 7, next_op_idx)
+        assert next_op_idx == 226, "226 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
+
         # Set interesting properties.
         self.build_indices()
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(","):
@@ -2618,7 +2681,7 @@ class db_dxil(object):
         self.add_valrule("Sm.GSValidInputPrimitive", "GS input primitive unrecognized.")
         self.add_valrule("Sm.GSValidOutputPrimitiveTopology", "GS output primitive topology unrecognized.")
         self.add_valrule("Sm.AppendAndConsumeOnSameUAV", "BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.")
-        self.add_valrule("Sm.InvalidTextureKindOnUAV", "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs.")
+        self.add_valrule("Sm.InvalidTextureKindOnUAV", "TextureCube[Array] resources are not supported with UAVs.")
         self.add_valrule("Sm.InvalidResourceKind", "Invalid resources kind.")
         self.add_valrule("Sm.InvalidResourceCompType","Invalid resource return type.")
         self.add_valrule("Sm.InvalidSamplerFeedbackType","Invalid sampler feedback type.")
