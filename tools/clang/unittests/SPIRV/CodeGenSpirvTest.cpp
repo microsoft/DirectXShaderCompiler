@@ -3005,6 +3005,9 @@ TEST_F(FileTest, ShaderDebugInfoSource) {
 TEST_F(FileTest, ShaderDebugInfoSourceContinued) {
   runFileTest("shader.debug.sourcecontinued.hlsl");
 }
+TEST_F(FileTest, ShaderDebugInfoRuntimeArray) {
+  runFileTest("shader.debug.runtimearray.hlsl");
+}
 TEST_F(FileTest, ShaderDebugInfoLine) {
   runFileTest("shader.debug.line.hlsl");
 }
