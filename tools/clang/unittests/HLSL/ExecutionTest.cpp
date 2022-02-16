@@ -72,6 +72,26 @@ static const GUID D3D12ExperimentalShaderModelsID = { /* 76f5573e-f13a-40f5-b297
   { 0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f }
 };
 
+// Used to create D3D12SDKConfiguration to enable AgilitySDK programmatically.
+typedef HRESULT(WINAPI *D3D12GetInterfaceFn)(REFCLSID rclsid, REFIID riid, void   **ppvDebug);
+
+#ifndef __ID3D12SDKConfiguration_INTERFACE_DEFINED__
+// Copied from AgilitySDK D3D12.h to programmatically enable when in developer mode.
+#define __ID3D12SDKConfiguration_INTERFACE_DEFINED__
+
+EXTERN_C const GUID DECLSPEC_SELECTANY IID_ID3D12SDKConfiguration = {0xe9eb5314,0x33aa,0x42b2, {0xa7,0x18,0xd7,0x7f,0x58,0xb1,0xf1,0xc7}};
+EXTERN_C const GUID DECLSPEC_SELECTANY CLSID_D3D12SDKConfiguration = {0x7cda6aca, 0xa03e, 0x49c8, {0x94, 0x58, 0x03, 0x34, 0xd2, 0x0e, 0x07, 0xce}};
+
+MIDL_INTERFACE("e9eb5314-33aa-42b2-a718-d77f58b1f1c7")
+ID3D12SDKConfiguration : public IUnknown
+{
+public:
+    virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(
+        UINT SDKVersion,
+        _In_z_  LPCSTR SDKPath) = 0;
+};
+#endif 	/* __ID3D12SDKConfiguration_INTERFACE_DEFINED__ */
+
 using namespace DirectX;
 using namespace hlsl_test;
 
@@ -1286,10 +1306,20 @@ public:
     return hr;
   }
 
-  static HRESULT EnableExperimentalShaderModels() {
+  static HRESULT
+  EnableExperimentalShaderModels(bool bExperimentalShaderModels = true,
+                                 UINT SDKVersion = 0, LPCSTR SDKPath = "") {
     HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
     if (hRuntime == NULL) {
       return HRESULT_FROM_WIN32(GetLastError());
+    }
+
+    if (SDKVersion) {
+      D3D12GetInterfaceFn pD3D12GetInterface =
+          (D3D12GetInterfaceFn)GetProcAddress(hRuntime, "D3D12GetInterface");
+      CComPtr<ID3D12SDKConfiguration> pD3D12SDKConfiguration;
+      IFR(pD3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&pD3D12SDKConfiguration)));
+      IFR(pD3D12SDKConfiguration->SetSDKVersion(SDKVersion, SDKPath));
     }
 
     D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
@@ -1300,9 +1330,15 @@ public:
       return HRESULT_FROM_WIN32(GetLastError());
     }
 
-    HRESULT hr = pD3D12EnableExperimentalFeatures(
-        1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
-    FreeLibrary(hRuntime);
+    HRESULT hr = S_OK;
+    if (bExperimentalShaderModels) {
+      hr = pD3D12EnableExperimentalFeatures(
+          1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
+    }
+
+    // Do not: FreeLibrary(hRuntime);
+    // If it actually frees the library, it defeats the purpose of this function.
+
     return hr;
   }
 
@@ -1310,11 +1346,34 @@ public:
     if (m_ExperimentalModeEnabled) {
       return S_OK;
     }
-    if (!GetTestParamBool(L"ExperimentalShaders")) {
-      return S_FALSE;
+
+    bool bExperimentalShaderModels = GetTestParamBool(L"ExperimentalShaders");
+
+    // Non-zero D3D12SDKVersion will trigger attempt to set AgilitySDK version.
+    UINT SDKVersion = 0;
+    WEX::TestExecution::RuntimeParameters::TryGetValue(
+            L"D3D12SDKVersion", SDKVersion);
+
+    if (!bExperimentalShaderModels && SDKVersion == 0)
+      return S_OK;
+
+    // SDKPath must be relative path from .exe, which means relative to TE.exe
+    // location, such as ".\\D3D12\\"
+    std::string SDKPath = "";
+    WEX::Common::String ParamValue;
+    if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+            L"D3D12SDKPath", ParamValue))) {
+      SDKPath = CW2A(ParamValue);
+      // Make sure path ends in backslash
+      if (!SDKPath.empty() && SDKPath.back() != '\\') {
+        SDKPath.append("\\");
+      }
     }
-    HRESULT hr = EnableExperimentalShaderModels();
-    if (SUCCEEDED(hr)) {
+
+    HRESULT hr = EnableExperimentalShaderModels(bExperimentalShaderModels,
+                                                SDKVersion, SDKPath.c_str());
+
+    if (SUCCEEDED(hr) && bExperimentalShaderModels) {
       m_ExperimentalModeEnabled = true;
     }
     return hr;
