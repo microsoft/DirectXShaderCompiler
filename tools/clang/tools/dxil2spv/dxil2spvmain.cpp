@@ -80,6 +80,9 @@ int main(int argc, const char **argv_) {
   instance.createDiagnostics(diagnosticPrinter, false);
   instance.setOutStream(&llvm::outs());
 
+  // TODO: Allow configuration of targetEnv via options.
+  instance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
+
   // Run translator.
   clang::dxil2spv::Translator translator(instance);
   return translator.Run(blob);
