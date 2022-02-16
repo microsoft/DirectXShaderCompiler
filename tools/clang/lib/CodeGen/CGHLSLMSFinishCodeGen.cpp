@@ -2523,7 +2523,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     }
     if (!cbSubscript->user_empty()) {
       // merge GEP use for cbSubscript.
-      HLModule::MergeGepUse(cbSubscript);
+      dxilutil::MergeGepUse(cbSubscript);
     }
   }
   return true;

@@ -197,8 +197,6 @@ public:
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
 
-  static void MergeGepUse(llvm::Value *V);
-
   // HL code gen.
   static llvm::Function *GetHLOperationFunction(
       HLOpcodeGroup group, unsigned opcode, llvm::Type *RetType,
