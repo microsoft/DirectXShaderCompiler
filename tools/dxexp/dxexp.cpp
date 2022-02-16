@@ -186,6 +186,7 @@ static char *RaytracingTierToStr(D3D12_RAYTRACING_TIER Tier) {
   switch (Tier) {
   case D3D12_RAYTRACING_TIER_NOT_SUPPORTED: return "NO";
   case D3D12_RAYTRACING_TIER_1_0: return "1.0";
+  case D3D12_RAYTRACING_TIER_1_1: return "1.1";
   default: return "ERROR";
   }
 }
