@@ -61,6 +61,7 @@ namespace dxilutil {
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
   bool HasDynamicIndexing(llvm::Value *V);
+  void MergeGepUse(llvm::Value *V);
 
   // Find alloca insertion point, given instruction
   llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I); // Considers entire parent function
