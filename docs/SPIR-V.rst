@@ -364,12 +364,12 @@ Macro for SPIR-V
 
 If SPIR-V CodeGen is enabled and ``-spirv`` flag is used as one of the command
 line options (meaning that "generates SPIR-V code"), it defines an implicit
-macro ``__spirv``. For example, this macro definition can be used for SPIR-V
+macro ``__spirv__``. For example, this macro definition can be used for SPIR-V
 specific part of the HLSL code:
 
 .. code:: hlsl
 
-  #ifdef __spirv
+  #ifdef __spirv__
   [[vk::binding(X, Y), vk::counter_binding(Z)]]
   #endif
   RWStructuredBuffer<S> mySBuffer;

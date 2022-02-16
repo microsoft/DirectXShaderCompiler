@@ -10,7 +10,7 @@ cbuffer cb : register(b0) {
 [numthreads(8, 8, 1)]
 void main(uint id : SV_DispatchThreadId) {
     float x = foo;
-#if defined(__spirv)
+#if defined(__spirv__)
     x -= 1;
 #else
     x += 1;
