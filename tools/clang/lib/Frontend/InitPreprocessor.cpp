@@ -396,7 +396,7 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
     if (LangOpts.SPIRV) {
-      Builder.defineMacro("__spirv");
+      Builder.defineMacro("__spirv__");
     }
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV Change Ends

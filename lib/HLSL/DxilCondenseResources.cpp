@@ -1810,9 +1810,9 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
         Res.GetKind() == DXIL::ResourceKind::StructuredBuffer);
   if (ST != UpdatedST) {
     // Support Array of ConstantBuffer/StructuredBuffer.
-    UpdatedST = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
+    Type *UpdatedTy = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
     GlobalVariable *NewGV = cast<GlobalVariable>(
-        M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
+        M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedTy));
     Res.SetGlobalSymbol(NewGV);
     Res.SetHLSLType(NewGV->getType());
     OP *hlslOP = DM.GetOP();
@@ -1821,25 +1821,57 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
       TypeSys.EraseStructAnnotation(ST);
       // If it's a library, we need to replace the GV which involves a few replacements
       Function *NF = hlslOP->GetOpFunc(hlsl::OP::OpCode::CreateHandleForLib, UpdatedST);
+      Value *opArg =
+          hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib);
+      auto replaceResLd = [&NF,&opArg](LoadInst *ldInst, Value *NewPtr) {
+        if (!ldInst->user_empty()) {
+          IRBuilder<> Builder = IRBuilder<>(ldInst);
+          LoadInst *newLoad = Builder.CreateLoad(NewPtr);
+          Value *args[] = {opArg, newLoad};
 
+          for (auto user = ldInst->user_begin(), E = ldInst->user_end();
+               user != E;) {
+            CallInst *CI = cast<CallInst>(*(user++));
+            CallInst *newCI = CallInst::Create(NF, args, "", CI);
+            CI->replaceAllUsesWith(newCI);
+            CI->eraseFromParent();
+          }
+        }
+        ldInst->eraseFromParent();
+      };
+      // Merge GEP to simplify replace old GV.
+      if (!arrayDims.empty())
+        dxilutil::MergeGepUse(Symbol);
       // Replace old GV.
       for (auto UserIt = Symbol->user_begin(), userEnd = Symbol->user_end(); UserIt != userEnd;) {
         Value *User = *(UserIt++);
 
         if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
-          if (!ldInst->user_empty()) {
-            IRBuilder<> Builder = IRBuilder<>(ldInst);
-            LoadInst *newLoad = Builder.CreateLoad(NewGV);
-            Value *args[] = {hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib), newLoad};
-
-            for (auto user = ldInst->user_begin(), E = ldInst->user_end(); user != E;) {
-              CallInst *CI = cast<CallInst>(*(user++));
-              CallInst *newCI = CallInst::Create(NF, args, "", CI);
-              CI->replaceAllUsesWith(newCI);
-              CI->eraseFromParent();
+          replaceResLd(ldInst, NewGV);
+        } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(User)) {
+          IRBuilder<> Builder(GEP->getContext());
+          StringRef Name = "";
+          if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+            Builder.SetInsertPoint(I);
+            Name = GEP->getName();
+          }
+          SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+          Value *NewPtr = Builder.CreateGEP(NewGV, Indices);
+          for (auto GEPUserIt = GEP->user_begin(), GEPuserEnd = GEP->user_end();
+               GEPUserIt != GEPuserEnd;) {
+            Value *User = *(GEPUserIt++);
+            if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
+              replaceResLd(ldInst, NewPtr);
+            } else {
+              User->dump();
+              DXASSERT(0, "unsupported user when update resouce type");
             }
           }
-          ldInst->eraseFromParent();
+          if (Instruction *I = dyn_cast<Instruction>(GEP))
+            I->eraseFromParent();
+        } else {
+          User->dump();
+          DXASSERT(0,"unsupported user when update resouce type");
         }
       }
     } else {
