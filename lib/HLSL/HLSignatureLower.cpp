@@ -865,7 +865,7 @@ void collectInputOutputAccessInfo(
     std::vector<InputOutputAccessInfo> &accessInfoList, bool hasVertexOrPrimID,
     bool bInput, bool bRowMajor, bool isMS) {
   // merge GEP use for input output.
-  HLModule::MergeGepUse(GV);
+  dxilutil::MergeGepUse(GV);
   for (auto User = GV->user_begin(); User != GV->user_end();) {
     Value *I = *(User++);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(I)) {
