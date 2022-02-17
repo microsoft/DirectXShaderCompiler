@@ -12,6 +12,7 @@
 #ifndef __DXIL2SPV_DXIL2SPV__
 #define __DXIL2SPV_DXIL2SPV__
 
+#include "dxc/DXIL/DxilSignature.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include "dxc/dxcapi.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -34,6 +35,9 @@ private:
   spirv::SpirvContext spvContext;
   spirv::FeatureManager featureManager;
   spirv::SpirvBuilder spvBuilder;
+
+  const spirv::SpirvType *toSpirvType(hlsl::CompType compType);
+  const spirv::SpirvType *toSpirvType(hlsl::DxilSignatureElement *elem);
 
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]);
 };

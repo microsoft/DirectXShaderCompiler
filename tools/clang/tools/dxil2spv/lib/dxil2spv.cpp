@@ -17,6 +17,7 @@
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/Global.h"
 
+#include "clang/SPIRV/SpirvType.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
@@ -34,11 +35,7 @@ Translator::Translator(CompilerInstance &instance)
     : ci(instance), diagnosticsEngine(ci.getDiagnostics()),
       spirvOptions(ci.getCodeGenOpts().SpirvOptions),
       featureManager(diagnosticsEngine, spirvOptions),
-      spvBuilder(spvContext, spirvOptions, featureManager) {
-
-  // TODO: Allow configuration of targetEnv via options.
-  ci.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
-}
+      spvBuilder(spvContext, spirvOptions, featureManager) {}
 
 int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
   const char *blobContext =
@@ -100,6 +97,20 @@ int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
                             spv::MemoryModel::GLSL450);
 
+  // Add stage variable interface.
+  for (auto &elem : program.GetInputSignature().GetElements()) {
+    spvBuilder.addStageIOVar(
+        spvContext.getPointerType(toSpirvType(elem.get()),
+                                  spv::StorageClass::Input),
+        spv::StorageClass::Input, elem->GetSemanticName(), false, {});
+  }
+  for (auto &elem : program.GetOutputSignature().GetElements()) {
+    spvBuilder.addStageIOVar(
+        spvContext.getPointerType(toSpirvType(elem.get()),
+                                  spv::StorageClass::Output),
+        spv::StorageClass::Output, elem->GetSemanticName(), false, {});
+  }
+
   // Contsruct the SPIR-V module.
   std::vector<uint32_t> m = spvBuilder.takeModuleForDxilToSpv();
 
@@ -117,6 +128,35 @@ int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
   *ci.getOutStream() << assembly;
 
   return 0;
+}
+
+const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {
+  if (compType.IsFloatTy() || compType.IsSNorm() || compType.IsUNorm())
+    return spvContext.getFloatType(compType.GetSizeInBits());
+  else if (compType.IsSIntTy())
+    return spvContext.getSIntType(compType.GetSizeInBits());
+  else if (compType.IsUIntTy())
+    return spvContext.getUIntType(compType.GetSizeInBits());
+
+  llvm_unreachable("Unhandled DXIL Component Type");
+}
+
+const spirv::SpirvType *
+Translator::toSpirvType(hlsl::DxilSignatureElement *elem) {
+  uint32_t rowCount = elem->GetRows();
+  uint32_t colCount = elem->GetCols();
+  const spirv::SpirvType *componentType = toSpirvType(elem->GetCompType());
+
+  if (rowCount == 1 && colCount == 1)
+    return componentType;
+
+  const spirv::SpirvType *vecType =
+      spvContext.getVectorType(componentType, colCount);
+
+  if (rowCount == 1)
+    return vecType;
+
+  return spvContext.getMatrixType(vecType, rowCount);
 }
 
 template <unsigned N>
