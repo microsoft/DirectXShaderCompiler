@@ -9465,7 +9465,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
 
   bool testPassed = true;
 
-  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5, D3D_SHADER_MODEL_6_6, D3D_SHADER_MODEL_6_7 };
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0 };
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
     LogCommentFmt(L"\r\nVerifying IsHelperLane using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
@@ -9573,14 +9573,19 @@ struct int2 {
 };
 
 bool VerifyQuadAnyAllResults(int2 *Res) {
-    if (Res[0].x != 2) return false;
-    if (Res[0].y != 4) return false;
-    for (int Idx = 1; Idx < 63; ++Idx) {
+    int Idx = 0;
+    for ( ; Idx < 4; ++Idx) {
+      if (Res[Idx].x != 2) return false;
+      if (Res[Idx].y != 4) return false;
+    }
+    for ( ; Idx < 60; ++Idx) {
       if (Res[Idx].x != 1) return false;
       if (Res[Idx].y != 4) return false;
     }
-    if (Res[63].x != 1) return false;
-    if (Res[63].y != 3) return false;
+    for ( ; Idx < 64; ++Idx) {
+      if (Res[Idx].x != 1) return false;
+      if (Res[Idx].y != 3) return false;
+    }
     return true;
 }
 
@@ -9600,22 +9605,14 @@ TEST_F(ExecutionTest, QuadAnyAll) {
       S.Arguments = args;
   }
 
-  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_6, D3D_SHADER_MODEL_6_7 };
+  bool Skipped = true;
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_7 };
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
     LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
 
-    if (sm == D3D_SHADER_MODEL_6_6) {
-      // Reassign shader stages to 6.6 versions
-      LPCSTR CS66 = nullptr, AS66 = nullptr, MS66 = nullptr;
-      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
-        if (!strcmp(S.Name, "CS66")) CS66 = S.Name;
-        if (!strcmp(S.Name, "AS66")) AS66 = S.Name;
-        if (!strcmp(S.Name, "MS66")) MS66 = S.Name;
-      }
-      pShaderOp->CS = CS66;
-      pShaderOp->AS = AS66;
-      pShaderOp->MS = MS66;
+    if (sm == D3D_SHADER_MODEL_6_7) {
+      pShaderOp->CS = "CS67";
     }
 
     CComPtr<ID3D12Device> pDevice;
@@ -9623,10 +9620,16 @@ TEST_F(ExecutionTest, QuadAnyAll) {
       continue;
     }
 
+    if (IsDeviceBasicAdapter(pDevice)) {
+      WEX::Logging::Log::Comment(L"QuadAny/All fails on basic render driver.");
+      continue;
+    }
+
     if (!DoesDeviceSupportWaveOps(pDevice)) {
       LogCommentFmt(L"Device does not support wave operations in shader model 6.%1u", ((UINT)sm & 0x0f));
       continue;
     }
+    Skipped = false;
 
     // test compute
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
@@ -9636,25 +9639,9 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     test->Test->GetReadBackData("UAVBuffer0", &uavData);
     bool Result = VerifyQuadAnyAllResults((int2*)uavData.data());
     VERIFY_IS_TRUE(Result);
-
-    // test mesh
-    pShaderOp->CS = nullptr;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
-      CleanUAVBuffer0Buffer, ShaderOpSet);
-
-    test->Test->GetReadBackData("UAVBuffer0", &uavData);
-    Result = VerifyQuadAnyAllResults((int2*)uavData.data());
-    VERIFY_IS_TRUE(Result);
-
-    // test amplification
-    pShaderOp->MS = nullptr;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
-      CleanUAVBuffer0Buffer, ShaderOpSet);
-
-    test->Test->GetReadBackData("UAVBuffer0", &uavData);
-    Result = VerifyQuadAnyAllResults((int2*)uavData.data());
-    VERIFY_IS_TRUE(Result);
   }
+  if (Skipped)
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 }
 
 #ifndef _HLK_CONF

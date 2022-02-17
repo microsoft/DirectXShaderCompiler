@@ -2933,29 +2933,36 @@
 ]]>
     </Shader>
   </ShaderOp>
-  <ShaderOp Name="QuadAnyAll" CS="CS" MS="MS" AS="AS" DispatchX="8" DispatchY="8">
-    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
-    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="256" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" />
-    <Shader Name="MS66" Target="ms_6_6" EntryPoint="main" Text="@CS"/>
-    <Shader Name="AS66" Target="as_6_6" EntryPoint="main" Text="@CS"/>
-    <Shader Name="CS66" Target="cs_6_6" EntryPoint="main" Text="@CS"/>
-    <Shader Name="MS" Target="ms_6_7" EntryPoint="main" Text="@CS"/>
-    <Shader Name="AS" Target="as_6_7" EntryPoint="main" Text="@CS"/>
-    <Shader Name="CS" Target="cs_6_7" EntryPoint="main">
+  <ShaderOp Name="QuadAnyAll" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="1024" InitialResourceState="COPY_DEST" Init="Zero" Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="UAVBuffer0"/>
+    </RootValues>
+    <Shader Name="CS67" Target="cs_6_7" EntryPoint="main" Text="@CS"/>
+    <Shader Name="CS" Target="cs_6_0" EntryPoint="main">
     <![CDATA[
 RWStructuredBuffer<int2> Values;
-
+groupshared uint WaveOffset = 0;
 [numthreads(8, 8, 1)]
-void main(uint3 ID: SV_DispatchThreadID) {
-  uint Idx = (ID.z * 64) + (ID.y * 8) + ID.x;
-  uint QuadId = (4*(ID.y/2) + (ID.x/2));
-  uint QuadX = ID.x % 2;
-  uint QuadY = ID.y % 2;
-  uint QuadElem = (QuadY*2) + QuadX;
-
-  uint QuadBool = 0x000F & QuadId;
-  bool ThreadBool = (QuadBool & (0x1 << QuadElem)) == 0;
-
+void main(uint TID: SV_GroupIndex) {
+  if (TID == 0)
+    WaveOffset = 0;
+  GroupMemoryBarrierWithGroupSync();
+  uint Offset = 0;
+  uint QuadElem = WaveGetLaneIndex() & 3;
+  if (QuadElem == 0)
+    Offset = WavePrefixSum(4);
+  Offset = QuadReadLaneAt(Offset, 0) + QuadElem;
+  uint LocalWaveOffset = 0;
+  if (WaveGetLaneIndex() == 0) {
+    InterlockedAdd(WaveOffset, WaveGetLaneCount(), LocalWaveOffset);
+  }
+  uint Idx = Offset + WaveReadLaneFirst(LocalWaveOffset);
+  uint2 ID = {Idx / 8, Idx % 8};
+  uint QuadId = Idx / 4;
+  uint QuadMask = 0x1U << QuadElem;
+  bool ThreadBool = (QuadMask & QuadId) != 0;
   Values[Idx].x = QuadAny(ThreadBool) ? 1 : 2;
   Values[Idx].y = QuadAll(ThreadBool) ? 3 : 4;
 }
