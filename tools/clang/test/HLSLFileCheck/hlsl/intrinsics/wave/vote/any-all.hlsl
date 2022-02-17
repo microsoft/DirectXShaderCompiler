@@ -10,7 +10,8 @@
 // SM66-NEXT: [[y:%[a-zA-Z0-9]+]] = call i32 @dx.op.quadOp.i32(i32 123, i32 [[cond]], i8 1)
 // SM66-NEXT: [[z:%[a-zA-Z0-9]+]] = call i32 @dx.op.quadOp.i32(i32 123, i32 [[cond]], i8 2)
 // SM66-NEXT: [[xy:%[a-z0-9]+]] = or i32 [[x]], [[y]]
-// SM66-NEXT: [[wide:%[a-z0-9]+]] = or i32 [[xy]], [[z]]
+// SM66-NEXT: [[xyz:%[a-z0-9]+]] = or i32 [[xy]], [[z]]
+// SM66-NEXT: [[wide:%[a-z0-9]+]] = or i32 [[xyz]], [[cond]]
 // SM66-NEXT: [[any:%[a-z0-9]+]] = trunc i32 [[wide]] to i1 
 
 // SM67:      [[cond:%[a-z0-9]+]] = icmp ne i1 %{{[a-z0-9]+}}, false
@@ -24,7 +25,8 @@
 // SM66-NEXT: [[y:%[a-zA-Z0-9]+]] = call i32 @dx.op.quadOp.i32(i32 123, i32 [[cond]], i8 1)
 // SM66-NEXT: [[z:%[a-zA-Z0-9]+]] = call i32 @dx.op.quadOp.i32(i32 123, i32 [[cond]], i8 2)
 // SM66-NEXT: [[xy:%[a-z0-9]+]] = and i32 [[x]], [[y]]
-// SM66-NEXT: [[wide:%[a-z0-9]+]] = and i32 [[xy]], [[z]]
+// SM66-NEXT: [[xyz:%[a-z0-9]+]] = and i32 [[xy]], [[z]]
+// SM66-NEXT: [[wide:%[a-z0-9]+]] = and i32 [[xyz]], [[cond]]
 // SM66-NEXT: [[all:%[a-z0-9]+]] = trunc i32 [[wide]] to i1
 
 // SM67:      [[cond:%[a-z0-9]+]] = icmp ne i1 %{{[a-z0-9]+}}, false
