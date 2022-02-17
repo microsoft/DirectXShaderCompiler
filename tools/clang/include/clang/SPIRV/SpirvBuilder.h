@@ -607,6 +607,9 @@ public:
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
                                std::string name, bool isPrecise,
                                SourceLocation loc);
+  SpirvVariable *addStageIOVar(const SpirvType *type,
+                               spv::StorageClass storageClass, std::string name,
+                               bool isPrecise, SourceLocation loc);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///
