@@ -416,6 +416,11 @@ TValue map_get_or_null(const std::map<TKey, TValue> &amap, const TKey& key) {
 void ShaderOpTest::CreatePipelineState() {
   CreateRootSignature();
   CreateShaders();
+  // Root signature may come from XML, or from shader.
+  if (!m_pRootSignature) {
+    ShaderOpLogFmt(L"No root signature found\r\n");
+    CHECK_HR(E_FAIL);
+  }
   if (m_pShaderOp->IsCompute()) {
     CComPtr<ID3D10Blob> pCS;
     pCS = m_Shaders[m_pShaderOp->CS];
@@ -690,7 +695,9 @@ void ShaderOpTest::CreateResources() {
 
 void ShaderOpTest::CreateRootSignature() {
   if (m_pShaderOp->RootSignature == nullptr) {
-    AtlThrow(E_INVALIDARG);
+    // Root signature may be provided as part of shader
+    m_pRootSignature.Release();
+    return;
   }
   CComPtr<ID3DBlob> pCode;
   CComPtr<ID3DBlob> pRootSignatureBlob;
@@ -813,6 +820,16 @@ void ShaderOpTest::CreateShaders() {
     }
     CHECK_HR(hr);
     m_Shaders[S.Name] = pCode;
+
+    if (!m_pRootSignature) {
+      // Try to create root signature from shader instead.
+      HRESULT hr = m_pDevice->CreateRootSignature(
+          0, pCode->GetBufferPointer(),
+          pCode->GetBufferSize(), IID_PPV_ARGS(&m_pRootSignature));
+      if (SUCCEEDED(hr)) {
+        ShaderOpLogFmt(L"Root signature created from shader %S\r\n", S.Name);
+      }
+    }
   }
 }
 
