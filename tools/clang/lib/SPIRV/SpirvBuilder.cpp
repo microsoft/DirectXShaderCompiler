@@ -1254,7 +1254,18 @@ SpirvExtInstImport *SpirvBuilder::getDebugInfoExtInstSet(bool vulkanDebugInfo) {
 
 SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
                                            spv::StorageClass storageClass,
-                                           std::string name, bool isPrecise,
+                                           llvm::StringRef name, bool isPrecise,
+                                           SourceLocation loc) {
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);
+  var->setDebugName(name);
+  mod->addVariable(var);
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addStageIOVar(const SpirvType *type,
+                                           spv::StorageClass storageClass,
+                                           llvm::StringRef name, bool isPrecise,
                                            SourceLocation loc) {
   // Note: We store the underlying type in the variable, *not* the pointer type.
   auto *var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);

@@ -105,8 +105,18 @@ attributes #1 = { nounwind }
 ; ; SPIR-V
 ; ; Version: 1.0
 ; ; Generator: Google spiregg; 0
-; ; Bound: 1
+; ; Bound: 8
 ; ; Schema: 0
 ;                OpCapability Shader
 ;                OpCapability Linkage
 ;                OpMemoryModel Logical GLSL450
+;                OpName %SV_Position "SV_Position"
+;                OpName %COLOR "COLOR"
+;                OpName %SV_Target "SV_Target"
+;       %float = OpTypeFloat 32
+;     %v4float = OpTypeVector %float 4
+; %_ptr_Input_v4float = OpTypePointer Input %v4float
+; %_ptr_Output_v4float = OpTypePointer Output %v4float
+; %SV_Position = OpVariable %_ptr_Input_v4float Input
+;       %COLOR = OpVariable %_ptr_Input_v4float Input
+;   %SV_Target = OpVariable %_ptr_Output_v4float Output
