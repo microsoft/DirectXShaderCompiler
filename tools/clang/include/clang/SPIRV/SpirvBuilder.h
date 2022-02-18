@@ -574,7 +574,7 @@ public:
   /// \brief Adds an entry point for the module under construction. We only
   /// support a single entry point per module for now.
   inline void addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
-                            std::string targetName,
+                            llvm::StringRef targetName,
                             llvm::ArrayRef<SpirvVariable *> interfaces);
 
   /// \brief Sets the shader model version, source file name, and source file
@@ -605,7 +605,11 @@ public:
   /// Note: the corresponding pointer type of the given type will not be
   /// constructed in this method.
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
-                               std::string name, bool isPrecise,
+                               llvm::StringRef name, bool isPrecise,
+                               SourceLocation loc);
+  SpirvVariable *addStageIOVar(const SpirvType *type,
+                               spv::StorageClass storageClass,
+                               llvm::StringRef name, bool isPrecise,
                                SourceLocation loc);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
@@ -828,7 +832,7 @@ private:
 
   // To avoid generating multiple OpStrings for the same string literal
   // the SpirvBuilder will generate and reuse them.
-  llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
+  llvm::DenseMap<llvm::StringRef, SpirvString *, StringMapInfo> stringLiterals;
 
   /// Mapping of CTBuffers including matrix 1xN with FXC memory layout to their
   /// clone variables. We need it to avoid multiple clone variables for the same
@@ -860,7 +864,7 @@ void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
 }
 
 void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
-                                 std::string targetName,
+                                 llvm::StringRef targetName,
                                  llvm::ArrayRef<SpirvVariable *> interfaces) {
   mod->addEntryPoint(new (context) SpirvEntryPoint(
       target->getSourceLocation(), em, target, targetName, interfaces));
