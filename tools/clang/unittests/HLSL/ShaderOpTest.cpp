@@ -304,11 +304,14 @@ void ShaderOpTest::CreateDescriptorHeaps() {
     if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
     for (ShaderOpDescriptor &D : H.Descriptors) {
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
-      if (R == nullptr) {
-        LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
-        ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
-        CHECK_HR(E_INVALIDARG);
+      ShaderOpResource *R = nullptr;
+      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
+        R = m_pShaderOp->GetResourceByName(D.ResName);
+        if (R == nullptr) {
+          LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
+          ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
+          CHECK_HR(E_INVALIDARG);
+        }
       }
 
       ShaderOpResourceData &Data = m_ResourceData[D.ResName];
@@ -345,7 +348,8 @@ void ShaderOpTest::CreateDescriptorHeaps() {
       }
 
       DData.CPUHandle = cpuHandle;
-      m_DescriptorData[R->Name] = DData;
+      if (R)
+        m_DescriptorData[R->Name] = DData;
       cpuHandle = cpuHandle.Offset(descriptorSize);
       if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
           H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
