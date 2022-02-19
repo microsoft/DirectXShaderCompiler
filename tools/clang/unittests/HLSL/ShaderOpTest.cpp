@@ -340,11 +340,15 @@ void ShaderOpTest::CreateDescriptorHeaps() {
         cbvDesc.SizeInBytes = (UINT)Data.Resource->GetDesc().Width;
         m_pDevice->CreateConstantBufferView(&cbvDesc, cpuHandle);
       }
+      else if (0 == _stricmp(D.Kind, "SAMPLER")) {
+        m_pDevice->CreateSampler(&D.SamplerDesc, cpuHandle);
+      }
 
       DData.CPUHandle = cpuHandle;
       m_DescriptorData[R->Name] = DData;
       cpuHandle = cpuHandle.Offset(descriptorSize);
-      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV) {
+      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
+          H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
         DData.GPUHandle = gpuHandle;
         gpuHandle = gpuHandle.Offset(descriptorSize);
       }
