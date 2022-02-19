@@ -1794,7 +1794,7 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
   bool isCBV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "CBV");
   bool isSAMPLER = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "SAMPLER");
   pDesc->SrvDescPresent = false;
-  DXGI_FORMAT *pFormat;
+  DXGI_FORMAT *pFormat = nullptr;
   if (isSRV) {
     // D3D12_SHADER_RESOURCE_VIEW_DESC
     pFormat = &pDesc->SrvDesc.Format;
@@ -1802,8 +1802,9 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
     // D3D12_UNORDERED_ACCESS_VIEW_DESC - default for parsing
     pFormat = &pDesc->UavDesc.Format;
   }
+  HRESULT hrFormat = E_FAIL;
   if (isSRV || isUAV) {
-    HRESULT hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", pFormat);
+    hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", pFormat);
     CHECK_HR(hrFormat);
   }
   if (isSRV) {
