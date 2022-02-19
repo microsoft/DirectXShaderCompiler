@@ -301,29 +301,32 @@ void ShaderOpTest::CreateDescriptorHeaps() {
     const UINT descriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(H.Desc.Type);
     CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(pHeap->GetCPUDescriptorHandleForHeapStart());
     CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle = {};
-    if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
-        gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
+    if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
+        H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+      gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
     for (ShaderOpDescriptor &D : H.Descriptors) {
+      ShaderOpDescriptorData DData;
+      DData.Descriptor = &D;
+      ID3D12Resource *pResource = nullptr;
       if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
         ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
-        if (R == nullptr) {
+        auto itResData = m_ResourceData.find(D.ResName);
+        if (R == nullptr || itResData == m_ResourceData.end()) {
           LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
           ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
           CHECK_HR(E_INVALIDARG);
         }
+        DData.ResData = &itResData->second;
+        pResource = DData.ResData->Resource;
       }
 
-      ShaderOpResourceData &Data = m_ResourceData[D.ResName];
-      ShaderOpDescriptorData DData;
-      DData.Descriptor = &D;
-      DData.ResData = &Data;
       if (0 == _stricmp(D.Kind, "UAV")) {
         ID3D12Resource *pCounterResource = nullptr;
         if (D.CounterName && *D.CounterName) {
           ShaderOpResourceData &CounterData = m_ResourceData[D.CounterName];
           pCounterResource = CounterData.Resource;
         }
-        m_pDevice->CreateUnorderedAccessView(Data.Resource, pCounterResource,
+        m_pDevice->CreateUnorderedAccessView(pResource, pCounterResource,
                                              &D.UavDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "SRV")) {
@@ -331,15 +334,15 @@ void ShaderOpTest::CreateDescriptorHeaps() {
         if (D.SrvDescPresent) {
           pSrvDesc = &D.SrvDesc;
         }
-        m_pDevice->CreateShaderResourceView(Data.Resource, pSrvDesc, cpuHandle);
+        m_pDevice->CreateShaderResourceView(pResource, pSrvDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "RTV")) {
-        m_pDevice->CreateRenderTargetView(Data.Resource, nullptr, cpuHandle);
+        m_pDevice->CreateRenderTargetView(pResource, nullptr, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "CBV")) {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-        cbvDesc.BufferLocation = Data.Resource->GetGPUVirtualAddress();
-        cbvDesc.SizeInBytes = (UINT)Data.Resource->GetDesc().Width;
+        cbvDesc.BufferLocation = pResource->GetGPUVirtualAddress();
+        cbvDesc.SizeInBytes = (UINT)pResource->GetDesc().Width;
         m_pDevice->CreateConstantBufferView(&cbvDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "SAMPLER")) {
