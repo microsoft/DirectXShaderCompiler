@@ -51,7 +51,8 @@ DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
 DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX);
 DxilPartWriter *NewRDATWriter(const DxilModule &M);
 
-DxilContainerWriter *NewDxilContainerWriter();
+// Unaligned is for matching container for validator version < 1.7.
+DxilContainerWriter *NewDxilContainerWriter(bool bUnaligned = false);
 
 // Set validator version to 0,0 (not validated) then re-emit as much reflection metadata as possible.
 void ReEmitLatestReflectionData(llvm::Module *pReflectionM);
@@ -63,14 +64,14 @@ void WriteProgramPart(const hlsl::ShaderModel *pModel,
                       AbstractMemoryStream *pModuleBitcode,
                       IStream *pStream);
 
-void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
-                                     AbstractMemoryStream *pModuleBitcode,
-                                     AbstractMemoryStream *pStream,
-                                     llvm::StringRef DebugName,
-                                     SerializeDxilFlags Flags,
-                                     DxilShaderHash *pShaderHashOut = nullptr,
-                                     AbstractMemoryStream *pReflectionStreamOut = nullptr,
-                                     AbstractMemoryStream *pRootSigStreamOut = nullptr);
+void SerializeDxilContainerForModule(
+    hlsl::DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    AbstractMemoryStream *pStream, llvm::StringRef DebugName,
+    SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut = nullptr,
+    AbstractMemoryStream *pReflectionStreamOut = nullptr,
+    AbstractMemoryStream *pRootSigStreamOut = nullptr,
+    void *pPrivateData = nullptr,
+    size_t PrivateDataSize = 0);
 void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
                                      AbstractMemoryStream *pStream);
 

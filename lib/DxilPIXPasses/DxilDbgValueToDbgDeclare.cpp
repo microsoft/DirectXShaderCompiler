@@ -814,7 +814,7 @@ VariableRegisters::VariableRegisters(
     llvm::Module *M)
   : m_dbgLoc(DbgValue->getDebugLoc())
   , m_Variable(Variable)
-  , m_B(DbgValue)
+  , m_B(DbgValue->getParent()->getParent()->getEntryBlock().begin())
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {
@@ -870,9 +870,14 @@ void VariableRegisters::PopulateAllocaMap(
     case llvm::dwarf::DW_TAG_class_type:
       PopulateAllocaMap_StructType(CompositeTy);
       return;
-    case llvm::dwarf::DW_TAG_enumeration_type:
-      // enum base type is int:
-      PopulateAllocaMap(CompositeTy->getBaseType().resolve(EmptyMap));
+    case llvm::dwarf::DW_TAG_enumeration_type: {
+      auto * baseType = CompositeTy->getBaseType().resolve(EmptyMap);
+      if (baseType != nullptr) {
+        PopulateAllocaMap(baseType);
+      } else {
+        m_Offsets.AlignToAndAddUnhandledType(CompositeTy);
+      }
+    }
       return;
     }
   }

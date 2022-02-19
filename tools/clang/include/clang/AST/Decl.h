@@ -1231,6 +1231,7 @@ public:
   bool isNRVOVariable() const {
     return isa<ParmVarDecl>(this) ? false : NonParmVarDeclBits.NRVOVariable;
   }
+
   void setNRVOVariable(bool NRVO) {
     assert(!isa<ParmVarDecl>(this));
     NonParmVarDeclBits.NRVOVariable = NRVO;

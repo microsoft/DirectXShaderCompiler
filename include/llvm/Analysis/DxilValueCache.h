@@ -19,6 +19,7 @@ class Module;
 class DominatorTree;
 class Constant;
 class ConstantInt;
+class PHINode;
 
 struct DxilValueCache : public ImmutablePass {
   static char ID;
@@ -46,7 +47,7 @@ struct DxilValueCache : public ImmutablePass {
     void dump() const;
   private:
     Value *GetSentinel(LLVMContext &Ctx);
-    std::unique_ptr<Value> Sentinel;
+    std::unique_ptr<PHINode> Sentinel;
   };
 
 private:
@@ -69,7 +70,7 @@ private:
 
 public:
 
-  const char *getPassName() const override;
+  StringRef getPassName() const override;
   DxilValueCache();
   void getAnalysisUsage(AnalysisUsage &) const override;
 

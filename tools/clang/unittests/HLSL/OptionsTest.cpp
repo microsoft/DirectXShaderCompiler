@@ -267,24 +267,24 @@ TEST_F(OptionsTest, ReadOptionsForApiWhenApiArgMissingThenOK) {
 
 
 TEST_F(OptionsTest, ConvertWhenFailThenThrow) {
-  std::wstring utf16;
+  std::wstring wstr;
 
   // Simple test to verify conversion works.
-  EXPECT_EQ(true, Unicode::UTF8ToUTF16String("test", &utf16));
-  EXPECT_STREQW(L"test", utf16.data());
+  EXPECT_EQ(true, Unicode::UTF8ToWideString("test", &wstr));
+  EXPECT_STREQW(L"test", wstr.data());
 
   // Simple test to verify conversion works with actual UTF-8 and not just ASCII.
   // n with tilde is Unicode 0x00F1, encoded in UTF-8 as 0xC3 0xB1
-  EXPECT_EQ(true, Unicode::UTF8ToUTF16String("\xC3\xB1", &utf16));
-  EXPECT_STREQW(L"\x00F1", utf16.data());
+  EXPECT_EQ(true, Unicode::UTF8ToWideString("\xC3\xB1", &wstr));
+  EXPECT_STREQW(L"\x00F1", wstr.data());
 
   // Fail when the sequence is incomplete.
-  EXPECT_EQ(false, Unicode::UTF8ToUTF16String("\xC3", &utf16));
+  EXPECT_EQ(false, Unicode::UTF8ToWideString("\xC3", &wstr));
 
   // Throw on failure.
   bool thrown = false;
   try {
-    Unicode::UTF8ToUTF16StringOrThrow("\xC3");
+    Unicode::UTF8ToWideStringOrThrow("\xC3");
   }
   catch (...) {
     thrown = true;

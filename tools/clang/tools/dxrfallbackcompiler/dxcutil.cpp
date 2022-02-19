@@ -135,7 +135,7 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
     finished = true;
     return;
   }
-  DXASSERT(opts.HLSLVersion > 2015,
+  DXASSERT(opts.HLSLVersion > hlsl::LangStd::v2015,
            "else ReadDxcOpts didn't fail for non-isense");
   finished = false;
 }

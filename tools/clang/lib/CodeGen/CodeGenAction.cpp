@@ -469,7 +469,7 @@ void BackendConsumer::EmitOptimizationMessage(
       Loc = FD->getASTContext().getFullLoc(FD->getBodyRBrace());
 
   Diags.Report(Loc, DiagID)
-      << AddFlagValue(D.getPassName() ? D.getPassName() : "")
+      << AddFlagValue(D.getPassName())
       << D.getMsg().str();
 
   if (DILoc.isInvalid() && D.isLocationAvailable())

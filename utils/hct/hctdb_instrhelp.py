@@ -335,6 +335,14 @@ class db_enumhelp_gen:
             print("  " + lastName + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
         print("};")
 
+    def print_rdat_enum(self, e, **kwargs):
+        nodef = kwargs.get("nodef", False)
+        for v in e.values:
+            line_format = "RDAT_ENUM_VALUE_NODEF({name})" if nodef else "RDAT_ENUM_VALUE({value}, {name})"
+            if v.doc:
+                line_format += " // {doc}"
+            print(line_format.format(name=v.name, value=v.value, doc=v.doc))
+
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e : e.name):
             self.print_enum(e)
@@ -823,6 +831,11 @@ def get_enum_decl(name, **kwargs):
     gen = db_enumhelp_gen(db)
     return run_with_stdout(lambda: gen.print_enum(db.enum_idx[name], **kwargs))
 
+def get_rdat_enum_decl(name, **kwargs):
+    db = get_db_dxil()
+    gen = db_enumhelp_gen(db)
+    return run_with_stdout(lambda: gen.print_rdat_enum(db.enum_idx[name], **kwargs))
+
 def get_valrule_enum():
     return get_enum_decl("ValidationRule", hide_val=True)
 
@@ -1200,7 +1213,7 @@ shader_profiles = [ shader_profile(0, "ps", "Kind::Pixel", "4_0", 32, 8),
 
 def getShaderProfiles():
     # order match DXIL::ShaderKind.
-    profiles = {"ps":"4_0", "vs":"4_0", "gs":"4_0", "hs":"5_0", "ds":"5_0", "cs":"4_0", "lib":"6_1", "ms":"6_5", "as":"6_5"}
+    profiles = (("ps", "4_0"), ("vs", "4_0"), ("gs", "4_0"), ("hs", "5_0"), ("ds", "5_0"), ("cs", "4_0"), ("lib", "6_1"), ("ms", "6_5"), ("as", "6_5"))
     return profiles;
 
 def get_shader_models():
@@ -1341,7 +1354,7 @@ def get_target_profiles():
     shader_models = getShaderModels()
 
     base_sm = "%d_0"%highest_major
-    for profile, min_sm in profiles.items():
+    for profile, min_sm in profiles:
         for shader_model in shader_models:
             if (base_sm > shader_model):
                 continue
@@ -1484,6 +1497,7 @@ if __name__ == "__main__":
             'include/dxc/DXIL/DxilCounters.h',
             'lib/DXIL/DxilCounters.cpp',
             'lib/DXIL/DxilMetadataHelper.cpp',
+            'include/dxc/DxilContainer/RDAT_LibraryTypes.inl',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

@@ -229,6 +229,12 @@ def _version : Flag<["--"], "version">, Group<hlslcore_Group>, Flags<[DriverOpti
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
+def dump_dependencies : Flag<["-", "/"], "M">, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Dumps the list of the compilation target dependencies.">;
+def write_dependencies : Flag<["-", "/"], "MD">, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Write a file with .d extension that will contain the list of the compilation target dependencies.">;
+def write_dependencies_to : JoinedOrSeparate<["-", "/"], "MF">, MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Write the specfied file that will contain the list of the compilation target dependencies.">;
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
 def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
@@ -273,11 +279,13 @@ def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Gr
 def precise_output : Separate<["-", "/"], "precise-output">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
     HelpText<"Mark output semantic as precise">;
 def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
-  HelpText<"Set default encoding for text outputs (utf8|utf16) default=utf8">;
+  HelpText<"Set default encoding for source inputs and text outputs (utf8|utf16(win)|utf32(*nix)|wide) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
+def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Print LLVM IR after a specific pass.">;
 def ignore_opt_semdefs : Flag<["-", "/"], "ignore-opt-semdefs">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Ignore optional semantic defines which are not required to ensure program correctness.">;
 def ignore_semdef : Separate<["-", "/"], "ignore-semdef">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -344,7 +352,7 @@ def fspv_debug_EQ : Joined<["-"], "fspv-debug=">, Group<spirv_Group>, Flags<[Cor
 def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
+  HelpText<"Specify the target environment: vulkan1.0 (default), vulkan1.1, vulkan1.2, or vulkan1.3">;
 def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Flatten arrays of resources so each array element takes one binding number">;
 def fspv_reduce_load_size: Flag<["-"], "fspv-reduce-load-size">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -438,7 +446,7 @@ def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption, DriverOp
   HelpText<"Strip debug information from 4_0+ shader bytecode  (must be used with /Fo <file>)">;
 def Qembed_debug : Flag<["-", "/"], "Qembed_debug">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Embed PDB in shader container (must be used with /Zi)">;
-def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Generate old PDB format.">;
@@ -485,7 +493,7 @@ def all_resources_bound : Flag<["-", "/"], "all-resources-bound">, Flags<[CoreOp
 def all_resources_bound_ : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Enables agressive flattening">;
 
-def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
+def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[CoreOption, DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Private data to add to compiled shader blob">;
 def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Save private data from shader blob">;

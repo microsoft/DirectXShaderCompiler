@@ -61,12 +61,12 @@ llvm_regfree(llvm_regex_t *preg)
 	g->magic = 0;			/* mark it invalid */
 
 	if (g->strip != NULL)
-		free((char *)g->strip);
+		regex_free((char *)g->strip);
 	if (g->sets != NULL)
-		free((char *)g->sets);
+		regex_free((char *)g->sets);
 	if (g->setbits != NULL)
-		free((char *)g->setbits);
+		regex_free((char *)g->setbits);
 	if (g->must != NULL)
-		free(g->must);
-	free((char *)g);
+		regex_free(g->must);
+	regex_free((char *)g);
 }

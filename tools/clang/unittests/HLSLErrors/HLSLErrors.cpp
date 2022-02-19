@@ -134,7 +134,7 @@ int main()
     // Save shader binary.
     //
     CComPtr<IDxcBlob> pShader = nullptr;
-    CComPtr<IDxcBlobUtf16> pShaderName = nullptr;
+    CComPtr<IDxcBlobWide> pShaderName = nullptr;
     if (SUCCEEDED(pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), &pShaderName)) &&
         pShader != nullptr)
     {
@@ -149,7 +149,7 @@ int main()
     // Save pdb.
     //
     CComPtr<IDxcBlob> pPDB = nullptr;
-    CComPtr<IDxcBlobUtf16> pPDBName = nullptr;
+    CComPtr<IDxcBlobWide> pPDBName = nullptr;
     if(SUCCEEDED(pResults->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPDB), &pPDBName)))
     {
         FILE* fp = NULL;

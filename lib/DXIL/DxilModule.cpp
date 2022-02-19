@@ -84,6 +84,8 @@ const char *kDxBreakMDName = "dx.break.br";
 const char *kDxIsHelperGlobalName = "dx.ishelper";
 
 const char *kHostLayoutTypePrefix = "hostlayout.";
+
+const char* kWaveOpsIncludeHelperLanesString = "waveops-include-helper-lanes";
 }
 
 void SetDxilHook(Module &M);
@@ -577,6 +579,14 @@ void DxilModule::SetAllResourcesBound(bool ResourcesBound) {
 
 bool DxilModule::GetAllResourcesBound() const {
   return m_bAllResourcesBound;
+}
+
+void DxilModule::SetResMayAlias(bool resMayAlias) {
+  m_bResMayAlias = resMayAlias;
+}
+
+bool DxilModule::GetResMayAlias() const {
+  return m_bResMayAlias;
 }
 
 void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
@@ -1551,6 +1561,7 @@ void DxilModule::LoadDxilMetadata() {
     m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
     m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
     m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
+    m_bResMayAlias = !m_ShaderFlags.GetResMayNotAlias();
   }
 
   // Now that we have the UseMinPrecision flag, set shader model:

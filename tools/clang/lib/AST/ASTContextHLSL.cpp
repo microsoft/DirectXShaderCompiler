@@ -193,7 +193,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
   }
   // fixed width types (int16_t, uint16_t, int32_t, uint32_t, float16_t, float32_t, float64_t)
   // are only supported in HLSL 2018
-  if (langOptions.HLSLVersion >= 2018) {
+  if (langOptions.HLSLVersion >= hlsl::LangStd::v2018) {
     switch (typeLen) {
     case 7: // int16_t, int32_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {
@@ -666,13 +666,27 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
   uint8_t templateArgCount, 
   _In_opt_ TypeSourceInfo* defaultTypeArgValue)
 {
+  return DeclareTemplateTypeWithHandleInDeclContext(context,
+                                                    context.getTranslationUnitDecl(),
+                                                    name,
+                                                    templateArgCount,
+                                                    defaultTypeArgValue);
+}
+
+CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
+  ASTContext& context,
+  DeclContext *declContext,
+  StringRef name,
+  uint8_t templateArgCount,
+  _In_opt_ TypeSourceInfo* defaultTypeArgValue)
+{
   DXASSERT(templateArgCount != 0, "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated for a different template pattern");
 
   // Create an object template declaration in translation unit scope.
   // templateArgCount=1: template<typename element> typeName { ... }
   // templateArgCount=2: template<typename element, int count> typeName { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, name);
   TemplateTypeParmDecl* elementTemplateParamDecl = typeDeclBuilder.addTypeTemplateParam("element", defaultTypeArgValue);
   NonTypeTemplateParmDecl* countTemplateParamDecl = nullptr;
   if (templateArgCount > 1)
@@ -689,7 +703,7 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
       // Only need array type for inputpatch and outputpatch.
       // Avoid Texture2DMS which may use 0 count.
       // TODO: use hlsl types to do the check.
-      !name.startswith("Texture")) {
+      !name.startswith("Texture") && !name.startswith("RWTexture")) {
     Expr *countExpr = DeclRefExpr::Create(
         context, NestedNameSpecifierLoc(), NoLoc, countTemplateParamDecl, false,
         DeclarationNameInfo(countTemplateParamDecl->getDeclName(), NoLoc),

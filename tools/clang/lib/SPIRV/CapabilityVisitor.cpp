@@ -213,22 +213,15 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
-  // AccelerationStructureTypeNV type
-  else if (isa<AccelerationStructureTypeNV>(type)) {
-    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
-      addCapability(spv::Capability::RayTracingNV);
-      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
-    } else {
-      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
-      // extention or Vulkan 1.2.
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
-                                      "Raytracing", {});
-      addCapability(spv::Capability::RayTracingKHR);
-      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
-    }
-  }
-  // RayQueryTypeKHR type
-  else if (isa<RayQueryTypeKHR>(type)) {
+  // AccelerationStructureTypeNV and RayQueryTypeKHR type
+  // Note: Because AccelerationStructureType can be provided by both
+  // SPV_KHR_ray_query and SPV_{NV,KHR}_ray_tracing extensions, this logic will
+  // result in SPV_KHR_ray_query being unnecessarily required in some cases. If
+  // this is an issue in future (more devices are identified that support
+  // ray_tracing but not ray_query), then we should consider addressing this
+  // interaction with a spirv-opt pass instead.
+  else if (isa<AccelerationStructureTypeNV>(type) ||
+           isa<RayQueryTypeKHR>(type)) {
     addCapability(spv::Capability::RayQueryKHR);
     addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
@@ -255,6 +248,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
   }
   // Capabilities needed for built-ins
   case spv::Decoration::BuiltIn: {
+    AddVulkanMemoryModelForVolatile(decor, loc);
     assert(decor->getParams().size() == 1);
     const auto builtin = static_cast<spv::BuiltIn>(decor->getParams()[0]);
     switch (builtin) {
@@ -530,11 +524,28 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpRayQueryInitializeKHR: {
     auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
     if (rayQueryInst && rayQueryInst->hasCullFlags()) {
-      addCapability(
-          spv::Capability::RayTraversalPrimitiveCullingKHR);
+      addCapability(spv::Capability::RayTraversalPrimitiveCullingKHR);
     }
 
     break;
+  }
+
+  case spv::Op::OpReportIntersectionKHR:
+  case spv::Op::OpIgnoreIntersectionKHR:
+  case spv::Op::OpTerminateRayKHR:
+  case spv::Op::OpTraceRayKHR:
+  case spv::Op::OpExecuteCallableKHR: {
+    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
+      addCapability(spv::Capability::RayTracingNV);
+      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    } else {
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
+      addCapability(spv::Capability::RayTracingKHR);
+      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
+    }
   }
 
   default:
@@ -640,11 +651,83 @@ bool CapabilityVisitor::visit(SpirvAtomic *instr) {
   return true;
 }
 
-bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
-  addCapability(spv::Capability::DemoteToHelperInvocationEXT,
+bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
+  addCapability(spv::Capability::DemoteToHelperInvocation,
                 inst->getSourceLocation());
-  addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
-               inst->getSourceLocation());
+  if (!featureManager.isTargetEnvVulkan1p3OrAbove()) {
+    addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
+                 inst->getSourceLocation());
+  }
+  return true;
+}
+
+bool CapabilityVisitor::IsShaderModelForRayTracing() {
+  switch (shaderModel) {
+  case spv::ExecutionModel::RayGenerationKHR:
+  case spv::ExecutionModel::ClosestHitKHR:
+  case spv::ExecutionModel::MissKHR:
+  case spv::ExecutionModel::CallableKHR:
+  case spv::ExecutionModel::IntersectionKHR:
+    return true;
+  default:
+    return false;
+  }
+}
+
+void CapabilityVisitor::AddVulkanMemoryModelForVolatile(SpirvDecoration *decor,
+                                                        SourceLocation loc) {
+  // For Vulkan 1.3 or above, we can simply add Volatile decoration. We do not
+  // need VulkanMemoryModel capability.
+  if (featureManager.isTargetEnvVulkan1p3OrAbove()) {
+    return;
+  }
+
+  const auto builtin = static_cast<spv::BuiltIn>(decor->getParams()[0]);
+  bool enableVkMemoryModel = false;
+  switch (builtin) {
+  case spv::BuiltIn::SubgroupSize:
+  case spv::BuiltIn::SubgroupLocalInvocationId:
+  case spv::BuiltIn::SMIDNV:
+  case spv::BuiltIn::WarpIDNV:
+  case spv::BuiltIn::SubgroupEqMask:
+  case spv::BuiltIn::SubgroupGeMask:
+  case spv::BuiltIn::SubgroupGtMask:
+  case spv::BuiltIn::SubgroupLeMask:
+  case spv::BuiltIn::SubgroupLtMask: {
+    if (IsShaderModelForRayTracing()) {
+      enableVkMemoryModel = true;
+    }
+    break;
+  }
+  case spv::BuiltIn::RayTmaxKHR: {
+    if (shaderModel == spv::ExecutionModel::IntersectionKHR) {
+      enableVkMemoryModel = true;
+    }
+    break;
+  }
+  default:
+    break;
+  }
+
+  if (enableVkMemoryModel) {
+    // VulkanMemoryModel was promoted to the core for Vulkan 1.2 or above. For
+    // Vulkan 1.1 or earlier, we have to use SPV_KHR_vulkan_memory_model
+    // extension.
+    if (!featureManager.isTargetEnvVulkan1p2OrAbove()) {
+      addExtension(Extension::KHR_vulkan_memory_model,
+                   "Volatile builtin variable in raytracing", loc);
+    }
+    addCapability(spv::Capability::VulkanMemoryModel, loc);
+    spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
+                              spv::MemoryModel::VulkanKHR);
+  }
+}
+
+bool CapabilityVisitor::visit(SpirvIsHelperInvocationEXT *inst) {
+  addCapability(spv::Capability::DemoteToHelperInvocation,
+                inst->getSourceLocation());
+  addExtension(Extension::EXT_demote_to_helper_invocation,
+               "[[vk::HelperInvocation]]", inst->getSourceLocation());
   return true;
 }
 

@@ -5,6 +5,76 @@
 
 // CHECK-NOT: CBufUnused
 
+// CHECK: DxilRuntimeData (size = 320 bytes):
+// CHECK:   StringBuffer (size = 44 bytes)
+// CHECK:   IndexTable (size = 20 bytes)
+// CHECK:   RawBytes (size = 0 bytes)
+// CHECK:   RecordTable (stride = 32 bytes) ResourceTable[3] = {
+// CHECK:     <0:RuntimeDataResourceInfo> = {
+// CHECK:       Class: CBuffer
+// CHECK:       Kind: CBuffer
+// CHECK:       ID: 0
+// CHECK:       Space: 13
+// CHECK:       LowerBound: 0
+// CHECK:       UpperBound: 0
+// CHECK:       Name: "CBuf0"
+// CHECK:       Flags: 0 (None)
+// CHECK:     }
+// CHECK:     <1:RuntimeDataResourceInfo> = {
+// CHECK:       Class: CBuffer
+// CHECK:       Kind: CBuffer
+// CHECK:       ID: 1
+// CHECK:       Space: 13
+// CHECK:       LowerBound: 1
+// CHECK:       UpperBound: 1
+// CHECK:       Name: "CBuf1"
+// CHECK:       Flags: 0 (None)
+// CHECK:     }
+// CHECK:     <2:RuntimeDataResourceInfo> = {
+// CHECK:       Class: CBuffer
+// CHECK:       Kind: CBuffer
+// CHECK:       ID: 2
+// CHECK:       Space: 13
+// CHECK:       LowerBound: 2
+// CHECK:       UpperBound: 4294967295
+// CHECK:       Name: "CBuf2"
+// CHECK:       Flags: 0 (None)
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[2] = {
+// CHECK:     <0:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "\01?foo@@YAMXZ"
+// CHECK:       UnmangledName: "foo"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
+// CHECK:         [0]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 32767
+// CHECK:       MinShaderTarget: 393312
+// CHECK:     }
+// CHECK:     <1:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "main"
+// CHECK:       UnmangledName: "main"
+// CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:         [1]: <2:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Vertex
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 2
+// CHECK:       MinShaderTarget: 65632
+// CHECK:     }
+// CHECK:   }
+
 // CHECK: D3D12_SHADER_BUFFER_DESC: Name: CBuf1
 // CHECK: Num Variables: 1
 // CHECK: D3D12_SHADER_VARIABLE_DESC: Name: CBuf1

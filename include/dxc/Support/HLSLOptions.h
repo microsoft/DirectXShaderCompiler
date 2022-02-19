@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "dxc/dxcapi.h"
+#include "dxc/Support/HLSLVersion.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include <map>
 #include <set>
@@ -121,6 +122,7 @@ public:
   llvm::StringRef OutputReflectionFile; // OPT_Fre
   llvm::StringRef OutputRootSigFile; // OPT_Frs
   llvm::StringRef OutputShaderHashFile; // OPT_Fsh
+  llvm::StringRef OutputFileForDependencies; // OPT_write_dependencies_to
   llvm::StringRef Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
@@ -146,6 +148,8 @@ public:
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
   bool DumpBin = false;        // OPT_dumpbin
+  bool DumpDependencies = false;  // OPT_dump_dependencies
+  bool WriteDependencies = false; // OPT_write_dependencies
   bool Link = false;        // OPT_link
   bool WarningAsError = false; // OPT__SLASH_WX
   bool IEEEStrict = false;     // OPT_Gis
@@ -160,7 +164,7 @@ public:
   bool EnableStrictMode = false;     // OPT_Ges
   bool EnableDX9CompatMode = false;     // OPT_Gec
   bool EnableFXCCompatMode = false;     // internal flag
-  unsigned long HLSLVersion = 0; // OPT_hlsl_version (2015-2018)
+  LangStd HLSLVersion = LangStd::vUnset; // OPT_hlsl_version (2015-2021)
   bool Enable16BitTypes = false; // OPT_enable_16bit_types
   bool OptDump = false; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
@@ -218,6 +222,7 @@ public:
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
 
   bool PrintAfterAll; // OPT_print_after_all
+  std::set<std::string> PrintAfter; // OPT_print_after
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
   bool HandleExceptions = false; // OPT_disable_exception_handling
 
@@ -264,12 +269,12 @@ public:
 };
 
 /// Use this class to convert a StringRef into a wstring, handling empty values as nulls.
-class StringRefUtf16 {
+class StringRefWide {
 private:
   std::wstring m_value;
 
 public:
-  StringRefUtf16(llvm::StringRef value);
+  StringRefWide(llvm::StringRef value);
   operator LPCWSTR() const { return m_value.size() ? m_value.data() : nullptr; }
 };
 

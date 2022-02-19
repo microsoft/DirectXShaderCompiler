@@ -94,7 +94,8 @@ static void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
     finished = true;
     return;
   }
-  DXASSERT(opts.HLSLVersion > 2015, "else ReadDxcOpts didn't fail for non-isense");
+  DXASSERT(opts.HLSLVersion > hlsl::LangStd::v2015,
+           "else ReadDxcOpts didn't fail for non-isense");
   finished = false;
 }
 
@@ -201,8 +202,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       linker->RegisterLibrary(hashList.back(), pOutputBlob);
       pOutputBlob.Detach(); // Ownership is in libCache.
     }
-    std::wstring wEntry = Unicode::UTF8ToUTF16StringOrThrow(pEntrypoint);
-    std::wstring wTarget = Unicode::UTF8ToUTF16StringOrThrow(Target);
+    std::wstring wEntry = Unicode::UTF8ToWideStringOrThrow(pEntrypoint);
+    std::wstring wTarget = Unicode::UTF8ToWideStringOrThrow(Target);
 
     // Link
 #ifdef LIB_SHARE_DBG

@@ -211,6 +211,22 @@ namespace {
         M.reset();
         return;
       }
+      // HLSL Change Begins.
+      if (&Ctx == this->Ctx) {
+        if (Builder) {
+          // Add semantic defines for extensions if any are available.
+          auto &CodeGenOpts =
+              const_cast<CodeGenOptions &>(Builder->getCodeGenOpts());
+          if (CodeGenOpts.HLSLExtensionsCodegen) {
+            CodeGenOpts.HLSLExtensionsCodegen->WriteSemanticDefines(
+                    M.get());
+            // Builder->CodeGenOpts is a copy. So update it for every Builder.
+            CodeGenOpts.HLSLExtensionsCodegen->UpdateCodeGenOptions(
+                CodeGenOpts);
+          }
+        }
+      }
+      // HLSL Change Ends.
       if (Builder)
         Builder->Release();
 

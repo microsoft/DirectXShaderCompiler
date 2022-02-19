@@ -24,7 +24,7 @@
 
 #include "dxc/dxcapi.h"             // IDxcCompiler
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/Unicode.h"    // IsStarMatchUTF16
+#include "dxc/Support/Unicode.h"    // IsStarMatchWide
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
@@ -104,7 +104,7 @@ bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
 
   if (!AdapterName)
     return true;
-  return Unicode::IsStarMatchUTF16(AdapterName, wcslen(AdapterName),
+  return Unicode::IsStarMatchWide(AdapterName, wcslen(AdapterName),
                                    desc.Description, wcslen(desc.Description));
 }
 
@@ -416,6 +416,11 @@ TValue map_get_or_null(const std::map<TKey, TValue> &amap, const TKey& key) {
 void ShaderOpTest::CreatePipelineState() {
   CreateRootSignature();
   CreateShaders();
+  // Root signature may come from XML, or from shader.
+  if (!m_pRootSignature) {
+    ShaderOpLogFmt(L"No root signature found\r\n");
+    CHECK_HR(E_FAIL);
+  }
   if (m_pShaderOp->IsCompute()) {
     CComPtr<ID3D10Blob> pCS;
     pCS = m_Shaders[m_pShaderOp->CS];
@@ -690,14 +695,14 @@ void ShaderOpTest::CreateResources() {
 
 void ShaderOpTest::CreateRootSignature() {
   if (m_pShaderOp->RootSignature == nullptr) {
-    AtlThrow(E_INVALIDARG);
+    // Root signature may be provided as part of shader
+    m_pRootSignature.Release();
+    return;
   }
-  CComPtr<ID3DBlob> pCode;
-  CComPtr<ID3DBlob> pRootSignatureBlob;
-  CComPtr<ID3DBlob> pError;
+  CComPtr<IDxcBlob> pRootSignatureBlob;
   std::string sQuoted;
-  sQuoted.reserve(2 + strlen(m_pShaderOp->RootSignature) + 1);
-  sQuoted.append("\"");
+  sQuoted.reserve(15 + strlen(m_pShaderOp->RootSignature) + 1);
+  sQuoted.append("#define main \"");
   sQuoted.append(m_pShaderOp->RootSignature);
   sQuoted.append("\"");
   char *ch = (char *)sQuoted.data();
@@ -706,20 +711,30 @@ void ShaderOpTest::CreateRootSignature() {
     ++ch;
   }
 
-  D3D_SHADER_MACRO M[2] = {
-    { "RootSigVal", sQuoted.c_str() },
-    { nullptr, nullptr }
-  };
-  HRESULT hr = D3DCompile(nullptr, 0, "RootSigShader", M, nullptr, sQuoted.c_str(),
-                          "rootsig_1_0", 0, 0, &pCode, &pError);
-  if (FAILED(hr) && pError != nullptr) {
-    ShaderOpLogFmt(L"Failed to compile root signature:\r\n%*S",
-      (int)pError->GetBufferSize(),
-      (LPCSTR)pError->GetBufferPointer());
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcBlobEncoding> pTextBlob;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  CHECK_HR(pLibrary->CreateBlobWithEncodingFromPinned(
+      sQuoted.c_str(), (UINT32)sQuoted.size(), CP_UTF8, &pTextBlob));
+  CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  CHECK_HR(pCompiler->Compile(pTextBlob, L"RootSigShader", nullptr,
+                              L"rootsig_1_0",
+                              nullptr, 0, // args
+                              nullptr, 0, // defines
+                              nullptr, &pResult));
+  HRESULT resultCode;
+  CHECK_HR(pResult->GetStatus(&resultCode));
+  if (FAILED(resultCode)) {
+    CComPtr<IDxcBlobEncoding> errors;
+    CHECK_HR(pResult->GetErrorBuffer(&errors));
+    ShaderOpLogFmt(L"Failed to compile root signature: %*S\r\n",
+                   (int)errors->GetBufferSize(),
+                   (LPCSTR)errors->GetBufferPointer());
   }
-  CHECK_HR(hr);
-  CHECK_HR(D3DGetBlobPart(pCode->GetBufferPointer(), pCode->GetBufferSize(),
-                          D3D_BLOB_ROOT_SIGNATURE, 0, &pRootSignatureBlob));
+  CHECK_HR(resultCode);
+  CHECK_HR(pResult->GetResult(&pRootSignatureBlob));
   CHECK_HR(m_pDevice->CreateRootSignature(
       0, pRootSignatureBlob->GetBufferPointer(),
       pRootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_pRootSignature)));
@@ -798,9 +813,9 @@ void ShaderOpTest::CreateShaders() {
       CHECK_HR(pResult->GetResult(&pCode));
       CComPtr<IDxcBlobEncoding> pBlob;
       CHECK_HR(pCompiler->Disassemble((IDxcBlob *)pCode, (IDxcBlobEncoding **)&pBlob));
-      CComPtr<IDxcBlobEncoding> pUtf16Blob;
-      pLibrary->GetBlobAsUtf16(pBlob, &pUtf16Blob);
-      hlsl_test::LogCommentFmt(L"%*s", (int)pUtf16Blob->GetBufferSize() / 2, (LPCWSTR)pUtf16Blob->GetBufferPointer());
+      CComPtr<IDxcBlobEncoding> pWideBlob;
+      pLibrary->GetBlobAsWide(pBlob, &pWideBlob);
+      hlsl_test::LogCommentFmt(L"%*s", (int)pWideBlob->GetBufferSize() / 2, (LPCWSTR)pWideBlob->GetBufferPointer());
 #endif
     } else {
       CComPtr<ID3DBlob> pError;
@@ -813,6 +828,16 @@ void ShaderOpTest::CreateShaders() {
     }
     CHECK_HR(hr);
     m_Shaders[S.Name] = pCode;
+
+    if (!m_pRootSignature) {
+      // Try to create root signature from shader instead.
+      HRESULT hr = m_pDevice->CreateRootSignature(
+          0, pCode->GetBufferPointer(),
+          pCode->GetBufferSize(), IID_PPV_ARGS(&m_pRootSignature));
+      if (SUCCEEDED(hr)) {
+        ShaderOpLogFmt(L"Root signature created from shader %S\r\n", S.Name);
+      }
+    }
   }
 }
 

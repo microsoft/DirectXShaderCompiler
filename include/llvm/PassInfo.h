@@ -65,7 +65,7 @@ public:
 
   /// getPassName - Return the friendly name for the pass, never returns null
   ///
-  const char *getPassName() const { return PassName; }
+  StringRef getPassName() const { return PassName; }
 
   /// getPassArgument - Return the command line option that may be passed to
   /// 'opt' that will cause this pass to be run.  This will return null if there

@@ -115,6 +115,8 @@ uint32_t getHeaderVersion(llvm::StringRef env) {
     return 0x00010300u;
   if (env == "vulkan1.2" || env == "universal1.5")
     return 0x00010500u;
+  if (env == "vulkan1.3")
+    return 0x00010600u;
   return 0x00010000u;
 }
 
@@ -296,7 +298,7 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   }
 
   auto fileId = debugMainFileId;
-  const auto &sm = astContext.getSourceManager();
+  const auto &sm = astContext->getSourceManager();
   const char *fileName = sm.getPresumedLoc(loc).getFilename();
   if (fileName)
     fileId = getOrCreateOpStringId(fileName);
@@ -585,8 +587,16 @@ bool EmitVisitor::visit(SpirvExecutionMode *inst) {
   initInstruction(inst);
   curInst.push_back(getOrAssignResultId<SpirvFunction>(inst->getEntryPoint()));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionMode()));
-  curInst.insert(curInst.end(), inst->getParams().begin(),
-                 inst->getParams().end());
+  if (inst->getopcode() == spv::Op::OpExecutionMode) {
+    curInst.insert(curInst.end(), inst->getParams().begin(),
+                   inst->getParams().end());
+  } else {
+    for (uint32_t param : inst->getParams()) {
+      curInst.push_back(typeHandler.getOrCreateConstantInt(
+          llvm::APInt(32, param), context.getUIntType(32),
+          /*isSpecConst */ false));
+    }
+  }
   finalizeInstruction(&preambleBinary);
   return true;
 }
@@ -730,12 +740,30 @@ bool EmitVisitor::visit(SpirvVariable *inst) {
                           : &globalVarsBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
+
   if (spvOptions.enableReflect && inst->hasBinding() &&
       !inst->getHlslUserType().empty()) {
-    typeHandler.emitDecoration(
-        getOrAssignResultId<SpirvInstruction>(inst),
-        spv::Decoration::UserTypeGOOGLE,
-        string::encodeSPIRVString(inst->getHlslUserType().lower()));
+    std::pair<llvm::StringRef, llvm::StringRef> splitUserType =
+        inst->getHlslUserType().split('<');
+    std::string formattedUserType = splitUserType.first.lower();
+
+    // Format and append template arguments.
+    if (!splitUserType.second.empty()) {
+      llvm::SmallVector<llvm::StringRef, 4> templateParams;
+      splitUserType.second.split(templateParams, ", ");
+      if (templateParams.size() > 0) {
+        formattedUserType += ":<";
+        formattedUserType += templateParams[0];
+        for (size_t i = 1; i < templateParams.size(); i++) {
+          formattedUserType += ",";
+          formattedUserType += templateParams[i];
+        }
+      }
+    }
+
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::UserTypeGOOGLE,
+                               string::encodeSPIRVString(formattedUserType));
   }
   return true;
 }
@@ -1342,8 +1370,16 @@ bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
+bool EmitVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
   initInstruction(inst);
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvIsHelperInvocationEXT *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   finalizeInstruction(&mainBinary);
   return true;
 }

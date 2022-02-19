@@ -79,7 +79,7 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
   //  }
   }
   return ptrInfoMap[V];
-};
+}
 
 struct ValueInfo {
   bool isCbuffer : 1;
@@ -173,8 +173,9 @@ bool CountDxilOp_tex_bias(unsigned op) {
   return op == 61;
 }
 bool CountDxilOp_tex_cmp(unsigned op) {
-  // Instructions: SampleCmp=64, SampleCmpLevelZero=65, TextureGatherCmp=74
-  return (64 <= op && op <= 65) || op == 74;
+  // Instructions: SampleCmp=64, SampleCmpLevelZero=65, TextureGatherCmp=74,
+  // SampleCmpLevel=224
+  return (64 <= op && op <= 65) || op == 74 || op == 224;
 }
 bool CountDxilOp_tex_grad(unsigned op) {
   // Instructions: SampleGrad=63
@@ -185,14 +186,16 @@ bool CountDxilOp_tex_load(unsigned op) {
   return op == 66 || op == 68 || op == 139;
 }
 bool CountDxilOp_tex_norm(unsigned op) {
-  // Instructions: Sample=60, SampleLevel=62, TextureGather=73
-  return op == 60 || op == 62 || op == 73;
+  // Instructions: Sample=60, SampleLevel=62, TextureGather=73,
+  // TextureGatherRaw=223
+  return op == 60 || op == 62 || op == 73 || op == 223;
 }
 bool CountDxilOp_tex_store(unsigned op) {
   // Instructions: TextureStore=67, BufferStore=69, RawBufferStore=140,
   // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175,
-  // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177
-  return op == 67 || op == 69 || op == 140 || (174 <= op && op <= 177);
+  // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177,
+  // TextureStoreSample=225
+  return op == 67 || op == 69 || op == 140 || (174 <= op && op <= 177) || op == 225;
 }
 bool CountDxilOp_uints(unsigned op) {
   // Instructions: Bfrev=30, Countbits=31, FirstbitLo=32, FirstbitHi=33,

@@ -55,7 +55,7 @@ class DxilPIXMeshShaderOutputInstrumentation : public ModulePass
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilPIXMeshShaderOutputInstrumentation() : ModulePass(ID) {}
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL mesh shader output instrumentation";
   }
   void applyOptions(PassOptions O) override;

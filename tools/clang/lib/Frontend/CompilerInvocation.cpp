@@ -1723,25 +1723,14 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.SanitizerBlacklistFiles = Args.getAllArgValues(OPT_fsanitize_blacklist);
 #else
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  if (ver.empty()) { Opts.HLSLVersion = 2018; }   // Default to latest
+  if (ver.empty()) {
+    Opts.HLSLVersion = hlsl::LangStd::vLatest;
+  } // Default to latest
   else {
-    try {
-      Opts.HLSLVersion = std::stoi(std::string(ver));
-      if (Opts.HLSLVersion < 2015 || Opts.HLSLVersion > 2018) {
-       Diags.Report(diag::err_drv_invalid_value)
-        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
-        << ver;
-      }
-    }
-    catch (const std::invalid_argument &) {
+    Opts.HLSLVersion = hlsl::parseHLSLVersion(ver);
+    if (Opts.HLSLVersion == hlsl::LangStd::vError) {
       Diags.Report(diag::err_drv_invalid_value)
-        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
-        << ver;
-    }
-    catch (const std::out_of_range &) {
-      Diags.Report(diag::err_drv_invalid_value)
-        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
-        << ver;
+          << Args.getLastArg(OPT_hlsl_version)->getAsString(Args) << ver;
     }
   }
   // Enable low precision for HLSL 2018
@@ -1752,13 +1741,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // If the HLSL version is 2016 or 2018, allow them only
   // when the individual option is enabled.
   // If the HLSL version is 2015, dissallow these features
-  if (Opts.HLSLVersion >= 2021) {
+  if (Opts.HLSLVersion >= hlsl::LangStd::v2021) {
     // Enable operator overloading in structs
     Opts.EnableOperatorOverloading = true;
     // Enable template support
     Opts.EnableTemplates = true;
     // Determine overload matching based on UDT names, not just types
     Opts.StrictUDTCasting = true;
+    // Experimental option to enable short-circuiting operators
+    Opts.EnableShortCircuit = true;
     // Enable bitfield support
     Opts.EnableBitfields = true;
 
@@ -1768,7 +1759,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.StrictUDTCasting = Args.hasArg(OPT_strict_udt_casting);
     Opts.EnableBitfields = Args.hasArg(OPT_enable_bitfields);
 
-    if (Opts.HLSLVersion <= 2015) {
+    if (Opts.HLSLVersion <= hlsl::LangStd::v2015) {
       if (Opts.EnableOperatorOverloading)
         Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-operator-overloading" << ver;
       if (Opts.EnableTemplates)

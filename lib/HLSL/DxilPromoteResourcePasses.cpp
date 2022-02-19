@@ -51,7 +51,7 @@ public:
   explicit DxilPromoteStaticResources()
       : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Legalize Static Resource Use";
   }
 
@@ -74,7 +74,7 @@ public:
   explicit DxilPromoteLocalResources()
       : FunctionPass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Legalize Resource Use";
   }
 
@@ -254,7 +254,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilMutateResourceToHandle() : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Mutate resource to handle";
   }
 

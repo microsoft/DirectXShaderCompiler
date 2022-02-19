@@ -10,6 +10,7 @@ add_dxilconv_project_test_library(dxilconv-tests SHARED
 
 target_link_libraries(dxilconv-tests PRIVATE
   HLSLTestLib
+  LLVMDxilContainer # for RDAT used by HLSLTestLib
   LLVMDxcSupport
   LLVMMSSupport
   LLVMSupport

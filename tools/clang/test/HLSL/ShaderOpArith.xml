@@ -2669,6 +2669,7 @@
       <Shader Name="CS66" Target="cs_6_6" EntryPoint="CSMain65" Text="@CS"/>
       <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
       <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
+      <Shader Name="PS67" Target="ps_6_7" EntryPoint="PSMain65" Text="@CS"/>
       <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
         <![CDATA[
 #ifdef ISHELPERLANE_PLACEHOLDER
@@ -2873,6 +2874,9 @@
             return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
         }
 
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+        [waveopsincludehelperlanes]
+#endif
         uint4 PSMain65(PSInput input) : SV_TARGET {
             HelperLaneWaveTestResult tr;
             tr.sm60_wave = RunHelperLaneWaveTests60();
@@ -2926,6 +2930,42 @@
                 g_TestResults[CS_INDEX] = tr;
             }
         }
+]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="QuadAnyAll" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="1024" InitialResourceState="COPY_DEST" Init="Zero" Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="UAVBuffer0"/>
+    </RootValues>
+    <Shader Name="CS67" Target="cs_6_7" EntryPoint="main" Text="@CS"/>
+    <Shader Name="CS" Target="cs_6_0" EntryPoint="main">
+    <![CDATA[
+RWStructuredBuffer<int2> Values;
+groupshared uint WaveOffset = 0;
+[numthreads(8, 8, 1)]
+void main(uint TID: SV_GroupIndex) {
+  if (TID == 0)
+    WaveOffset = 0;
+  GroupMemoryBarrierWithGroupSync();
+  uint Offset = 0;
+  uint QuadElem = WaveGetLaneIndex() & 3;
+  if (QuadElem == 0)
+    Offset = WavePrefixSum(4);
+  Offset = QuadReadLaneAt(Offset, 0) + QuadElem;
+  uint LocalWaveOffset = 0;
+  if (WaveGetLaneIndex() == 0) {
+    InterlockedAdd(WaveOffset, WaveGetLaneCount(), LocalWaveOffset);
+  }
+  uint Idx = Offset + WaveReadLaneFirst(LocalWaveOffset);
+  uint2 ID = {Idx / 8, Idx % 8};
+  uint QuadId = Idx / 4;
+  uint QuadMask = 0x1U << QuadElem;
+  bool ThreadBool = (QuadMask & QuadId) != 0;
+  Values[Idx].x = QuadAny(ThreadBool) ? 1 : 2;
+  Values[Idx].y = QuadAll(ThreadBool) ? 3 : 4;
+}
 ]]>
     </Shader>
   </ShaderOp>

@@ -66,7 +66,7 @@ static void FatalErrorHandlerStreamWrite(void *user_data, const std::string& rea
   throw std::exception();
 }
 
-static HRESULT Utf8ToUtf16CoTaskMalloc(LPCSTR pValue, LPWSTR *ppResult) {
+static HRESULT Utf8ToWideCoTaskMalloc(LPCSTR pValue, LPWSTR *ppResult) {
   if (ppResult == nullptr)
     return E_POINTER;
   int count = MultiByteToWideChar(CP_UTF8, 0, pValue, -1, nullptr, 0);
@@ -111,10 +111,10 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE GetOptionName(_COM_Outptr_ LPWSTR *ppResult) override {
-    return Utf8ToUtf16CoTaskMalloc(m_pOptionName, ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pOptionName, ppResult);
   }
   HRESULT STDMETHODCALLTYPE GetDescription(_COM_Outptr_ LPWSTR *ppResult) override {
-    return Utf8ToUtf16CoTaskMalloc(m_pDescription, ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pDescription, ppResult);
   }
 
   HRESULT STDMETHODCALLTYPE GetOptionArgCount(_Out_ UINT32 *pCount) override {
@@ -126,12 +126,12 @@ public:
   HRESULT STDMETHODCALLTYPE GetOptionArgName(UINT32 argIndex, LPWSTR *ppResult) override {
     if (!ppResult) return E_INVALIDARG;
     if (argIndex >= m_pArgNames.size()) return E_INVALIDARG;
-    return Utf8ToUtf16CoTaskMalloc(m_pArgNames[argIndex], ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pArgNames[argIndex], ppResult);
   }
   HRESULT STDMETHODCALLTYPE GetOptionArgDescription(UINT32 argIndex, LPWSTR *ppResult) override {
     if (!ppResult) return E_INVALIDARG;
     if (argIndex >= m_pArgDescriptions.size()) return E_INVALIDARG;
-    return Utf8ToUtf16CoTaskMalloc(m_pArgDescriptions[argIndex], ppResult);
+    return Utf8ToWideCoTaskMalloc(m_pArgDescriptions[argIndex], ppResult);
   }
 };
 
@@ -174,7 +174,7 @@ public:
   }
 
   size_t size() const { return Passes.size(); }
-  const char *getPassNameAt(size_t index) const {
+  StringRef getPassNameAt(size_t index) const {
     return Passes[index]->getPassName();
   }
   llvm::AnalysisID getPassIDAt(size_t index) const {
@@ -216,7 +216,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
     return E_INVALIDARG;
   return DxcOptimizerPass::Create(
       m_pMalloc, m_passes[index]->getPassArgument(),
-      m_passes[index]->getPassName(),
+      m_passes[index]->getPassName().data(),
       GetPassArgNames(m_passes[index]->getPassArgument()),
       GetPassArgDescriptions(m_passes[index]->getPassArgument()), ppResult);
 }

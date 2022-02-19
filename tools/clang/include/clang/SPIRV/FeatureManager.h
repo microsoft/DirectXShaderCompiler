@@ -53,6 +53,7 @@ enum class Extension {
   KHR_ray_query,
   EXT_shader_image_int64,
   KHR_physical_storage_buffer,
+  KHR_vulkan_memory_model,
   Unknown,
 };
 
@@ -109,6 +110,10 @@ public:
   /// Returns true if the target environment is Vulkan 1.2 or above.
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p2OrAbove();
+
+  /// Returns true if the target environment is Vulkan 1.3 or above.
+  /// Returns false otherwise.
+  bool isTargetEnvVulkan1p3OrAbove();
 
 private:
   /// Returns whether codegen should allow usage of this extension by default.

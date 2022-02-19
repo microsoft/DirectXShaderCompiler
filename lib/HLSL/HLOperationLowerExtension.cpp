@@ -894,7 +894,7 @@ private:
         SmallVector<StringRef, 14> Splits;
         ArgSpec.split(Splits, ",");
 
-        for (const StringRef Split : Splits)
+        for (const StringRef &Split : Splits)
         {
             StringRef Field = Split.trim();
             StringRef HighLevelArgInfo;

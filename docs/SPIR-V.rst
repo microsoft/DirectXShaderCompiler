@@ -164,6 +164,10 @@ lets you to specify the descriptor for the source at a certain register.
 ``-fvk-{b|s|t|u}-shift`` lets you to apply shifts to all register numbers
 of a certain register type. They cannot be used together, though.
 
+When the ``[[vk::combinedImageSampler]]`` attribute is applied, only the
+``-fvk-t-shift`` value will be used to apply shifts to combined texture and
+sampler resource bindings and any ``-fvk-s-shift`` value will be ignored.
+
 Without attribute and command-line option, ``:register(xX, spaceY)`` will be
 mapped to binding ``X`` in descriptor set ``Y``. Note that register type ``x``
 is ignored, so this may cause overlap.
@@ -259,7 +263,13 @@ language. To support them, ``[[vk::builtin("<builtin>")]]`` is introduced.
 Right now the following ``<builtin>`` are supported:
 
 * ``PointSize``: The GLSL equivalent is ``gl_PointSize``.
-* ``HelperInvocation``: The GLSL equivalent is ``gl_HelperInvocation``.
+* ``HelperInvocation``: For Vulkan 1.3 or above, we use its GLSL equivalent
+  ``gl_HelperInvocation`` and decorate it with ``HelperInvocation`` builtin
+  since Vulkan 1.3 or above supports ``Volatile`` decoration for builtin
+  variables. For Vulkan 1.2 or earlier, we do not create a builtin variable for
+  ``HelperInvocation``. Instead, we create a variable with ``Private`` storage
+  class and set its value as the result of `OpIsHelperInvocationEXT <https://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/EXT/SPV_EXT_demote_to_helper_invocation.html#OpIsHelperInvocationEXT>`_
+  instruction.
 * ``BaseVertex``: The GLSL equivalent is ``gl_BaseVertexARB``.
   Need ``SPV_KHR_shader_draw_parameters`` extension.
 * ``BaseInstance``: The GLSL equivalent is ``gl_BaseInstanceARB``.
@@ -287,6 +297,7 @@ Supported extensions
 * SPV_EXT_shader_stencil_support
 * SPV_AMD_shader_explicit_vertex_parameter
 * SPV_GOOGLE_hlsl_functionality1
+* SPV_GOOGLE_user_type
 * SPV_NV_mesh_shader
 
 Vulkan specific attributes
@@ -324,6 +335,11 @@ The namespace ``vk`` will be used for all Vulkan attributes:
   location. Used for dual-source blending.
 - ``post_depth_coverage``: The input variable decorated with SampleMask will
   reflect the result of the EarlyFragmentTests. Only valid on pixel shader entry points.
+- ``combinedImageSampler``: For specifying a Texture (e.g., ``Texture2D``,
+  ``Texture1DArray``, ``TextureCube``) and ``SamplerState`` to use the combined image
+  sampler (or sampled image) type with the same descriptor set and binding numbers (see
+  `wiki page <https://github.com/microsoft/DirectXShaderCompiler/wiki/Vulkan-combined-image-sampler-type>`_
+  for more detail).
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
@@ -342,6 +358,21 @@ interface variables:
   [[vk::location(M)]] float4
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
+
+Macro for SPIR-V
+----------------
+
+If SPIR-V CodeGen is enabled and ``-spirv`` flag is used as one of the command
+line options (meaning that "generates SPIR-V code"), it defines an implicit
+macro ``__spirv__``. For example, this macro definition can be used for SPIR-V
+specific part of the HLSL code:
+
+.. code:: hlsl
+
+  #ifdef __spirv__
+  [[vk::binding(X, Y), vk::counter_binding(Z)]]
+  #endif
+  RWStructuredBuffer<S> mySBuffer;
 
 SPIR-V version and extension
 ----------------------------
@@ -546,6 +577,18 @@ HLSL semantic strings are by default not emitted into the SPIR-V binary module.
 If you need them, by specifying ``-fspv-reflect``, the compiler will use
 the ``Op*DecorateStringGOOGLE`` instruction in `SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
 extension to emit them.
+
+HLSL User Types
+~~~~~~~~~~~~~~~
+
+HLSL type information is by default not emitted into the SPIR-V binary module.
+If you need them, by specifying ``-fspv-reflect``, the compiler will emit
+``OpDecorateString*`` instructions with a ``UserTypeGOOGLE`` decoration and the
+`SPV_GOOGLE_user_type <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/GOOGLE/SPV_GOOGLE_user_type.asciidoc>`_
+extension. A string name for the unambiguous type of the decorated object will
+be included in the user's source using the lowercase type name followed by
+template params. For example, ``Texture2DMSArray<float4, 64> arr`` would be
+decorated with ``OpDecorateString %arr UserTypeGOOGLE "texture2dmsarray:<float4,64>"``.
 
 Counter buffers for RW/Append/Consume StructuredBuffer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3789,6 +3832,16 @@ Example:
     uint Value = vk::RawBufferLoad(Address);
     return asfloat(Value);
   }
+
+Inline SPIR-V (HLSL version of GL_EXT_spirv_intrinsics)
+=======================================================
+
+GL_EXT_spirv_intrinsics is an extension of GLSL that allows users to embed
+arbitrary SPIR-V instructions in the GLSL code similar to the concept of
+inline assembly in the C code. We support the HLSL version of
+GL_EXT_spirv_intrinsics. See
+`wiki <https://github.com/microsoft/DirectXShaderCompiler/wiki/GL_EXT_spirv_intrinsics-for-SPIR-V-code-gen>`_
+for the details.
 
 Supported Command-line Options
 ==============================
