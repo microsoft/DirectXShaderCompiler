@@ -692,12 +692,10 @@ void ShaderOpTest::CreateRootSignature() {
   if (m_pShaderOp->RootSignature == nullptr) {
     AtlThrow(E_INVALIDARG);
   }
-  CComPtr<ID3DBlob> pCode;
-  CComPtr<ID3DBlob> pRootSignatureBlob;
-  CComPtr<ID3DBlob> pError;
+  CComPtr<IDxcBlob> pRootSignatureBlob;
   std::string sQuoted;
-  sQuoted.reserve(2 + strlen(m_pShaderOp->RootSignature) + 1);
-  sQuoted.append("\"");
+  sQuoted.reserve(15 + strlen(m_pShaderOp->RootSignature) + 1);
+  sQuoted.append("#define main \"");
   sQuoted.append(m_pShaderOp->RootSignature);
   sQuoted.append("\"");
   char *ch = (char *)sQuoted.data();
@@ -706,20 +704,30 @@ void ShaderOpTest::CreateRootSignature() {
     ++ch;
   }
 
-  D3D_SHADER_MACRO M[2] = {
-    { "RootSigVal", sQuoted.c_str() },
-    { nullptr, nullptr }
-  };
-  HRESULT hr = D3DCompile(nullptr, 0, "RootSigShader", M, nullptr, sQuoted.c_str(),
-                          "rootsig_1_0", 0, 0, &pCode, &pError);
-  if (FAILED(hr) && pError != nullptr) {
-    ShaderOpLogFmt(L"Failed to compile root signature:\r\n%*S",
-      (int)pError->GetBufferSize(),
-      (LPCSTR)pError->GetBufferPointer());
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcBlobEncoding> pTextBlob;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  CHECK_HR(pLibrary->CreateBlobWithEncodingFromPinned(
+      sQuoted.c_str(), (UINT32)sQuoted.size(), CP_UTF8, &pTextBlob));
+  CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  CHECK_HR(pCompiler->Compile(pTextBlob, L"RootSigShader", nullptr,
+                              L"rootsig_1_0",
+                              nullptr, 0, // args
+                              nullptr, 0, // defines
+                              nullptr, &pResult));
+  HRESULT resultCode;
+  CHECK_HR(pResult->GetStatus(&resultCode));
+  if (FAILED(resultCode)) {
+    CComPtr<IDxcBlobEncoding> errors;
+    CHECK_HR(pResult->GetErrorBuffer(&errors));
+    ShaderOpLogFmt(L"Failed to compile root signature: %*S\r\n",
+                   (int)errors->GetBufferSize(),
+                   (LPCSTR)errors->GetBufferPointer());
   }
-  CHECK_HR(hr);
-  CHECK_HR(D3DGetBlobPart(pCode->GetBufferPointer(), pCode->GetBufferSize(),
-                          D3D_BLOB_ROOT_SIGNATURE, 0, &pRootSignatureBlob));
+  CHECK_HR(resultCode);
+  CHECK_HR(pResult->GetResult(&pRootSignatureBlob));
   CHECK_HR(m_pDevice->CreateRootSignature(
       0, pRootSignatureBlob->GetBufferPointer(),
       pRootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_pRootSignature)));
