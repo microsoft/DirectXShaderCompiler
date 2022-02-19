@@ -304,11 +304,14 @@ void ShaderOpTest::CreateDescriptorHeaps() {
     if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
     for (ShaderOpDescriptor &D : H.Descriptors) {
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
-      if (R == nullptr) {
-        LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
-        ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
-        CHECK_HR(E_INVALIDARG);
+      ShaderOpResource *R = nullptr;
+      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
+        R = m_pShaderOp->GetResourceByName(D.ResName);
+        if (R == nullptr) {
+          LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
+          ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
+          CHECK_HR(E_INVALIDARG);
+        }
       }
 
       ShaderOpResourceData &Data = m_ResourceData[D.ResName];
@@ -340,11 +343,16 @@ void ShaderOpTest::CreateDescriptorHeaps() {
         cbvDesc.SizeInBytes = (UINT)Data.Resource->GetDesc().Width;
         m_pDevice->CreateConstantBufferView(&cbvDesc, cpuHandle);
       }
+      else if (0 == _stricmp(D.Kind, "SAMPLER")) {
+        m_pDevice->CreateSampler(&D.SamplerDesc, cpuHandle);
+      }
 
       DData.CPUHandle = cpuHandle;
-      m_DescriptorData[R->Name] = DData;
+      if (R)
+        m_DescriptorData[R->Name] = DData;
       cpuHandle = cpuHandle.Offset(descriptorSize);
-      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV) {
+      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
+          H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
         DData.GPUHandle = gpuHandle;
         gpuHandle = gpuHandle.Offset(descriptorSize);
       }
@@ -1204,7 +1212,10 @@ enum class ParserEnumKind {
   SRV_DIMENSION,
   UAV_DIMENSION,
   PRIMITIVE_TOPOLOGY,
-  PRIMITIVE_TOPOLOGY_TYPE
+  PRIMITIVE_TOPOLOGY_TYPE,
+  FILTER,
+  TEXTURE_ADDRESS_MODE,
+  COMPARISON_FUNC,
 };
 
 struct ParserEnumValue {
@@ -1514,6 +1525,65 @@ static const ParserEnumValue PRIMITIVE_TOPOLOGY_TYPE_TABLE[] = {
     { L"PATCH", D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH }
 };
 
+static const ParserEnumValue FILTER_TABLE[] = {
+  { L"FILTER_MIN_MAG_MIP_POINT", D3D12_FILTER_MIN_MAG_MIP_POINT },
+  { L"FILTER_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR },
+  { L"FILTER_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT },
+  { L"FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MIN_MAG_MIP_LINEAR },
+  { L"FILTER_ANISOTROPIC", D3D12_FILTER_ANISOTROPIC },
+  { L"FILTER_COMPARISON_MIN_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT },
+  { L"FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR },
+  { L"FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT },
+  { L"FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_COMPARISON_MIN_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR },
+  { L"FILTER_COMPARISON_ANISOTROPIC", D3D12_FILTER_COMPARISON_ANISOTROPIC },
+  { L"FILTER_MINIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT },
+  { L"FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR },
+  { L"FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT },
+  { L"FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_MINIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR },
+  { L"FILTER_MINIMUM_ANISOTROPIC", D3D12_FILTER_MINIMUM_ANISOTROPIC },
+  { L"FILTER_MAXIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_POINT },
+  { L"FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR },
+  { L"FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT },
+  { L"FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT },
+  { L"FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR },
+  { L"FILTER_MAXIMUM_ANISOTROPIC", D3D12_FILTER_MAXIMUM_ANISOTROPIC },
+};
+
+static const ParserEnumValue TEXTURE_ADDRESS_MODE_TABLE[] = {
+  { L"TEXTURE_ADDRESS_MODE_WRAP", D3D12_TEXTURE_ADDRESS_MODE_WRAP },
+  { L"TEXTURE_ADDRESS_MODE_MIRROR", D3D12_TEXTURE_ADDRESS_MODE_MIRROR },
+  { L"TEXTURE_ADDRESS_MODE_CLAMP", D3D12_TEXTURE_ADDRESS_MODE_CLAMP },
+  { L"TEXTURE_ADDRESS_MODE_BORDER", D3D12_TEXTURE_ADDRESS_MODE_BORDER },
+  { L"TEXTURE_ADDRESS_MODE_MIRROR_ONCE", D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE },
+};
+
+static const ParserEnumValue COMPARISON_FUNC_TABLE[] = {
+  { L"COMPARISON_FUNC_NEVER", D3D12_COMPARISON_FUNC_NEVER },
+  { L"COMPARISON_FUNC_LESS", D3D12_COMPARISON_FUNC_LESS },
+  { L"COMPARISON_FUNC_EQUAL", D3D12_COMPARISON_FUNC_EQUAL },
+  { L"COMPARISON_FUNC_LESS_EQUAL", D3D12_COMPARISON_FUNC_LESS_EQUAL },
+  { L"COMPARISON_FUNC_GREATER", D3D12_COMPARISON_FUNC_GREATER },
+  { L"COMPARISON_FUNC_NOT_EQUAL", D3D12_COMPARISON_FUNC_NOT_EQUAL },
+  { L"COMPARISON_FUNC_GREATER_EQUAL", D3D12_COMPARISON_FUNC_GREATER_EQUAL },
+  { L"COMPARISON_FUNC_ALWAYS", D3D12_COMPARISON_FUNC_ALWAYS },
+};
+
+
 static const ParserEnumTable g_ParserEnumTables[] = {
   { _countof(INPUT_CLASSIFICATION_TABLE), INPUT_CLASSIFICATION_TABLE, ParserEnumKind::INPUT_CLASSIFICATION },
   { _countof(DXGI_FORMAT_TABLE), DXGI_FORMAT_TABLE, ParserEnumKind::DXGI_FORMAT },
@@ -1531,6 +1601,9 @@ static const ParserEnumTable g_ParserEnumTables[] = {
   { _countof(UAV_DIMENSION_TABLE), UAV_DIMENSION_TABLE, ParserEnumKind::UAV_DIMENSION },
   { _countof(PRIMITIVE_TOPOLOGY_TABLE), PRIMITIVE_TOPOLOGY_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY },
   { _countof(PRIMITIVE_TOPOLOGY_TYPE_TABLE), PRIMITIVE_TOPOLOGY_TYPE_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY_TYPE },
+  { _countof(FILTER_TABLE), FILTER_TABLE, ParserEnumKind::FILTER },
+  { _countof(TEXTURE_ADDRESS_MODE_TABLE), TEXTURE_ADDRESS_MODE_TABLE, ParserEnumKind::TEXTURE_ADDRESS_MODE },
+  { _countof(COMPARISON_FUNC_TABLE), COMPARISON_FUNC_TABLE, ParserEnumKind::COMPARISON_FUNC },
 };
 
 static HRESULT GetEnumValue(LPCWSTR name, ParserEnumKind K, UINT *pValue) {
@@ -1636,6 +1709,18 @@ static HRESULT ReadAttrPRIMITIVE_TOPOLOGY_TYPE(IXmlReader *pReader, LPCWSTR pAtt
   return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::PRIMITIVE_TOPOLOGY_TYPE, pValue, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
 }
 
+static HRESULT ReadAttrFILTER(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_FILTER *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::FILTER, pValue, D3D12_FILTER_ANISOTROPIC);
+}
+
+static HRESULT ReadAttrTEXTURE_ADDRESS_MODE(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_TEXTURE_ADDRESS_MODE *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::TEXTURE_ADDRESS_MODE, pValue, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+}
+
+static HRESULT ReadAttrCOMPARISON_FUNC(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_COMPARISON_FUNC *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::FILTER, pValue, D3D12_COMPARISON_FUNC_LESS_EQUAL);
+}
+
 HRESULT ShaderOpParser::ReadAttrStr(IXmlReader *pReader, LPCWSTR pAttrName, LPCSTR *ppValue) {
   if (S_FALSE == CHECK_HR_RET(pReader->MoveToAttributeByName(pAttrName, nullptr))) {
     *ppValue = nullptr;
@@ -1738,18 +1823,23 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
   CHECK_HR(ReadAttrStr(pReader, L"CounterName", &pDesc->CounterName));
   CHECK_HR(ReadAttrStr(pReader, L"Kind", &pDesc->Kind));
   bool isSRV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "SRV");
+  bool isUAV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "UAV");
+  bool isCBV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "CBV");
+  bool isSAMPLER = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "SAMPLER");
   pDesc->SrvDescPresent = false;
-  DXGI_FORMAT *pFormat;
+  DXGI_FORMAT *pFormat = nullptr;
   if (isSRV) {
     // D3D12_SHADER_RESOURCE_VIEW_DESC
     pFormat = &pDesc->SrvDesc.Format;
-  }
-  else {
+  } else if (isUAV) {
     // D3D12_UNORDERED_ACCESS_VIEW_DESC - default for parsing
     pFormat = &pDesc->UavDesc.Format;
   }
-  HRESULT hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", pFormat);
-  CHECK_HR(hrFormat);
+  HRESULT hrFormat = E_FAIL;
+  if (isSRV || isUAV) {
+    hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", pFormat);
+    CHECK_HR(hrFormat);
+  }
   if (isSRV) {
     pDesc->SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     pDesc->SrvDescPresent |= S_OK ==
@@ -1775,8 +1865,7 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
     default:
       CHECK_HR(E_NOTIMPL);
     }
-  }
-  else {
+  } else if (isUAV) {
     CHECK_HR(ReadAttrUAV_DIMENSION(pReader, L"Dimension", &pDesc->UavDesc.ViewDimension));
     switch (pDesc->UavDesc.ViewDimension) {
     case D3D12_UAV_DIMENSION_BUFFER:
@@ -1820,6 +1909,32 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
       CHECK_HR(ReadAttrUINT(pReader, L"WSize", &pDesc->UavDesc.Texture3D.WSize));
       break;
     }
+  } else if (isCBV) {
+  } else if (isSAMPLER) {
+    // Defaults:
+    //                [ Filter = FILTER_ANISOTROPIC,
+    //                  AddressU = TEXTURE_ADDRESS_WRAP,
+    //                  AddressV = TEXTURE_ADDRESS_WRAP,
+    //                  AddressW = TEXTURE_ADDRESS_WRAP,
+    //                  MipLODBias = 0,
+    //                  MaxAnisotropy = 16,
+    //                  ComparisonFunc = COMPARISON_LESS_EQUAL,
+    //                  BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE,
+    //                  MinLOD = 0.f,
+    //                  MaxLOD = 3.402823466e+38f ] )
+    CHECK_HR(ReadAttrFILTER(pReader, L"Filter", &pDesc->SamplerDesc.Filter));
+    CHECK_HR(ReadAttrTEXTURE_ADDRESS_MODE(pReader, L"AddressU", &pDesc->SamplerDesc.AddressU));
+    CHECK_HR(ReadAttrTEXTURE_ADDRESS_MODE(pReader, L"AddressV", &pDesc->SamplerDesc.AddressV));
+    CHECK_HR(ReadAttrTEXTURE_ADDRESS_MODE(pReader, L"AddressW", &pDesc->SamplerDesc.AddressW));
+    CHECK_HR(ReadAttrFloat(pReader, L"MipLODBias", &pDesc->SamplerDesc.MipLODBias, 0.0F));
+    CHECK_HR(ReadAttrUINT(pReader, L"MaxAnisotropy", &pDesc->SamplerDesc.MaxAnisotropy, 16));
+    CHECK_HR(ReadAttrCOMPARISON_FUNC(pReader, L"ComparisonFunc", &pDesc->SamplerDesc.ComparisonFunc));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorR", &pDesc->SamplerDesc.BorderColor[0], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorG", &pDesc->SamplerDesc.BorderColor[1], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorB", &pDesc->SamplerDesc.BorderColor[2], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorA", &pDesc->SamplerDesc.BorderColor[3], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"MinLOD", &pDesc->SamplerDesc.MinLOD, 0.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"MaxLOD", &pDesc->SamplerDesc.MaxLOD, 3.402823466e+38f));
   }
 
   // If either is missing, set one from the other.
@@ -1830,7 +1945,8 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
     ShaderOpLogFmt(L"Descriptor '%S' is missing Kind attribute.", pDesc->Name);
     CHECK_HR(E_INVALIDARG);
   } else if (0 != _stricmp(K, "UAV") && 0 != _stricmp(K, "SRV") &&
-             0 != _stricmp(K, "CBV") && 0 != _stricmp(K, "RTV")) {
+             0 != _stricmp(K, "CBV") && 0 != _stricmp(K, "RTV") &&
+             0 != _stricmp(K, "SAMPLER")) {
     ShaderOpLogFmt(L"Descriptor '%S' references unknown kind '%S'",
                    pDesc->Name, K);
     CHECK_HR(E_INVALIDARG);
