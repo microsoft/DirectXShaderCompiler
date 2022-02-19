@@ -125,6 +125,7 @@ public:
   D3D12_SHADER_RESOURCE_VIEW_DESC   SrvDesc;
   bool                              SrvDescPresent;
   D3D12_UNORDERED_ACCESS_VIEW_DESC  UavDesc;
+  D3D12_SAMPLER_DESC                SamplerDesc;
 };
 
 // Use this class to represent a heap of D3D12 resource descriptors.
