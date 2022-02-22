@@ -32,9 +32,9 @@ namespace clang {
 namespace spirv {
 
 void BuildPredefinesForSPIRV(llvm::raw_ostream &Output,
-                             bool isTemplateEnabled) {
+                             bool isHlsl2021OrAbove) {
   Output << kSpirvDefinition;
-  if (isTemplateEnabled) {
+  if (isHlsl2021OrAbove) {
     Output << kRawBufferLoad;
   }
 }

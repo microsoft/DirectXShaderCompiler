@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -enable-templates
+// RUN: %dxc -T ps_6_0 -E main -HV 2021
 
 // CHECK: OpCapability PhysicalStorageBufferAddresses
 // CHECK: OpExtension "SPV_KHR_physical_storage_buffer"

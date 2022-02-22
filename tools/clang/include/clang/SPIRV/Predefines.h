@@ -13,7 +13,7 @@
 namespace clang {
 namespace spirv {
 
-void BuildPredefinesForSPIRV(llvm::raw_ostream &Output, bool isTemplateEnabled);
+void BuildPredefinesForSPIRV(llvm::raw_ostream &Output, bool isHlsl2021OrAbove);
 
 } // namespace spirv
 } // namespace clang

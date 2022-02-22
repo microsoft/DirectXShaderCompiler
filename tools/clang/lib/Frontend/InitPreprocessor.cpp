@@ -1040,8 +1040,8 @@ void clang::InitializePreprocessor(
 
 #ifdef ENABLE_SPIRV_CODEGEN
   if (LangOpts.SPIRV) {
-    spirv::BuildPredefinesForSPIRV(Predefines,
-                                   PP.getLangOpts().EnableTemplates);
+    spirv::BuildPredefinesForSPIRV(Predefines, PP.getLangOpts().HLSLVersion >=
+                                                   hlsl::LangStd::v2021);
   }
 #endif // ENABLE_SPIRV_CODEGEN
 

@@ -3785,7 +3785,7 @@ implicit ``vk`` namepsace.
     void     RawBufferLoadInto(out T output, in uint64_t deviceAddress,
                                in uint alignment = 4);
 
-    // Defined when the template support is enabled.
+    // Defined only when the HLSL version is 2021 or above.
     T        RawBufferLoad<T, alignment>(in uint64_t deviceAddress);
   } // end namespace
 
@@ -3836,7 +3836,7 @@ We add the following intrinsic funcions to support the feature in DXC:
   void RawBufferLoadInto(out T output, in uint64_t deviceAddress,
                          in uint alignment = 4);
 
-  // Defined only when the template support is enabled.
+  // Defined only when the HLSL version is 2021 or above.
   T RawBufferLoad<T, alignment>(in uint64_t deviceAddress);
 
 They expose a subset of the `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
