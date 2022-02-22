@@ -2561,11 +2561,15 @@ static unsigned GetCBOffset(Value *V, OffsetForValueMap &visited) {
 
 typedef std::map<unsigned, DxilFieldAnnotation*> FieldAnnotationByOffsetMap;
 
-static void MarkCBUse(unsigned offset, FieldAnnotationByOffsetMap &fieldMap) {
+// Returns size in bits of the field if it's a basic type, otherwise 0.
+static unsigned MarkCBUse(unsigned offset, FieldAnnotationByOffsetMap &fieldMap) {
   auto it = fieldMap.upper_bound(offset);
   it--;
-  if (it != fieldMap.end())
+  if (it != fieldMap.end()) {
     it->second->SetCBVarUsed(true);
+    return it->second->GetCompType().GetSizeInBits();
+  }
+  return 0;
 }
 
 // Detect patterns of lshr v,16 or trunc to 16-bits and return low and high
@@ -2578,11 +2582,11 @@ static unsigned DetectLowAndHighWordUsage(ExtractValueInst *EV) {
   if (EV->getType()->getScalarSizeInBits() == 32) {
     for (auto U : EV->users()) {
       Instruction *I = cast<Instruction>(U);
-      if (I->getOpcode() == LLVMLShr) {
+      if (I->getOpcode() == Instruction::LShr) {
         ConstantInt *CShift = dyn_cast<ConstantInt>(I->getOperand(1));
         if (CShift && CShift->getLimitedValue() == 16)
           result |= kHighWordUsed;
-      } else if (I->getOpcode() == LLVMTrunc &&
+      } else if (I->getOpcode() == Instruction::Trunc &&
                I->getType()->getPrimitiveSizeInBits() == 16) {
         result |= kLowWordUsed;
       } else {
@@ -2617,9 +2621,17 @@ static void MarkCBUsesForExtractElement(
     ExtractValueInst *EV, bool bMinPrecision) {
   unsigned lowHighWordUsage = 0;
   unsigned evOffset = GetOffsetForCBExtractValue(EV, bMinPrecision, lowHighWordUsage);
+
+  // For tbuffer, where value extracted is always 32-bits:
+  // If lowHighWordUsage is 0, it means 32-bits used.
+  // If field marked is < 32 bits, we still need to mark the high 16-bits as
+  // used, in case there is another 16-bit field.
+  // Since MarkCBUse could return 0 on non-basic type field, look for 16
+  // when determining whether we still need to mark high word as used.
+  bool highUnmarked = EV->getType()->getScalarSizeInBits() == 32;
   if (!lowHighWordUsage || 0 != (lowHighWordUsage & kLowWordUsed))
-    MarkCBUse(offset + evOffset, fieldMap);
-  if (lowHighWordUsage & kHighWordUsed)
+    highUnmarked &= MarkCBUse(offset + evOffset, fieldMap) == 16;
+  if (highUnmarked && (!lowHighWordUsage || 0 != (lowHighWordUsage & kHighWordUsed)))
     MarkCBUse(offset + evOffset + 2, fieldMap);
 }
 
