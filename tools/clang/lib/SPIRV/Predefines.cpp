@@ -13,15 +13,15 @@
 
 #include "clang/SPIRV/Predefines.h"
 
-static const char *kSpirvDefinition = "#define __spirv 1\n";
+static const char *kSpirvDefinition = "#define __spirv__ 1\n";
 
 static const char *kRawBufferLoad = R"(
 namespace vk {
 
-template<typename T>
-T LoadRawBuffer(uint64_t addr) {
+template<typename T, uint alignment>
+T RawBufferLoad(uint64_t address) {
   T output;
-  vk::RawBufferLoadToParam(output, addr);
+  vk::RawBufferLoadInto(output, address, alignment);
   return output;
 }
 

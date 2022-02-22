@@ -626,12 +626,13 @@ private:
   /// Process spirv intrinsic type definition
   SpirvInstruction *processSpvIntrinsicTypeDef(const CallExpr *expr);
 
-  /// Custom intrinsic to support basic buffer_reference use case.
-  /// processLoadRawBuffer() handles `T vk::LoadRawBuffer<T>()` and
-  /// processRawBufferLoad() handles `uint vk::RawBufferLoad()`.
-  SpirvInstruction *processLoadRawBuffer(const CallExpr *callExpr);
+  /// Custom intrinsic to support `void vk::RawBufferLoadInto(out T output, in
+  /// uint64_t address, in uint alignment)` that loads data from a given device
+  /// address.
+  SpirvInstruction *processRawBufferLoadInto(const CallExpr *callExpr);
   SpirvInstruction *processRawBufferLoad(const Expr *addressExpr,
                                          QualType bufferType,
+                                         uint32_t alignment,
                                          SourceLocation loc);
 
   /// Process vk::ext_execution_mode intrinsic

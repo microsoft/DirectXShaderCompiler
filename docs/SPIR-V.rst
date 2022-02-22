@@ -3782,11 +3782,11 @@ implicit ``vk`` namepsace.
     const uint QueueFamilyScope = 5;
   
     uint64_t ReadClock(in uint scope);
-    uint     RawBufferLoad(in uint64_t deviceAddress);
-    void     RawBufferLoadToParam(out T output, in uint64_t deviceAddress);
+    void     RawBufferLoadInto(out T output, in uint64_t deviceAddress,
+                               in uint alignment = 4);
 
     // Defined when the template support is enabled.
-    T        LoadRawBuffer<T>(in uint64_t deviceAddress);
+    T        RawBufferLoad<T, alignment>(in uint64_t deviceAddress);
   } // end namespace
 
 
@@ -3833,22 +3833,31 @@ We add the following intrinsic funcions to support the feature in DXC:
 
 .. code:: hlsl
 
-  uint RawBufferLoad(in uint64_t deviceAddress);
-  void RawBufferLoadToParam(out T output, in uint64_t deviceAddress);
+  void RawBufferLoadInto(out T output, in uint64_t deviceAddress,
+                         in uint alignment = 4);
 
-  // Defined when the template support is enabled.
-  T LoadRawBuffer<T>(in uint64_t deviceAddress);
+  // Defined only when the template support is enabled.
+  T RawBufferLoad<T, alignment>(in uint64_t deviceAddress);
 
 They expose a subset of the `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
-and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_ 
-functionality to HLSL. 
+and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_
+functionality to HLSL.
 
-It allows the shader program to load a single 32 bit value from a GPU
+It allows the shader program to load a single value with type T from a GPU
 accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
-Like ``ByteAddressBuffer``, the intrinsics require a 4 byte aligned address.
+The intrinsics require an alignment in bytes as a parameter. We set 4 as a
+default alignment for ``void RawBufferLoadInto(..)``.
 
-Using the intrinsics adds ``PhysicalStorageBufferAddresses`` capability and 
-``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing 
+Note that we support the aligned data load, but we do not support setting
+memory layout for the data. Since it is supposed to load "arbitrary" data
+from a random device address, we assume that it loads some "bytes of data"
+but its format or layout is unknown. Therefore, keep it in mind that it
+loads ``sizeof(T)`` bytes of data, but loading data with a complicated type
+``T`` is a undefined behavior because of the missing memory layout support.
+Loading data with a memory layout is a future work.
+
+Using the intrinsics adds ``PhysicalStorageBufferAddresses`` capability and
+``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing
 the addressing model to ``PhysicalStorageBuffer64``.
 
 Example:
@@ -3857,14 +3866,13 @@ Example:
 
   uint64_t Address;
   float4 main() : SV_Target0 {
-    uint x = vk::RawBufferLoad(Address);
-    float y;
-    vk::RawBufferLoadToParam(bar, Address);
-    bool z = vk::LoadRawBuffer<bool>(Address);
+    float foo;
+    vk::RawBufferLoadInto(foo, Address);
+    double bar = vk::LoadRawBuffer<double, 8>(Address);
     ...
   }
 
-Note that ``void RawBufferLoadToParam(out T output, in uint64_t deviceAddress)``
+Note that ``void RawBufferLoadInto(out T output, in uint64_t deviceAddress)``
 stores the loaded value to the first parameter similar to a function parameter
 with the `out` keyword.
 

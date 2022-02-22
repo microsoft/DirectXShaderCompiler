@@ -3506,6 +3506,30 @@ private:
     return templateTypeParmDecls;
   }
 
+  SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount>
+  CreateParmDeclsForVkIntrinsicFunction(
+      const HLSL_INTRINSIC *intrinsic,
+      const SmallVectorImpl<QualType> &paramTypes,
+      const SmallVectorImpl<ParameterModifier> &paramMods) {
+    auto &context = m_sema->getASTContext();
+    SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls;
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    for (UINT i = 1, numVariadicArgs = 0; i < uNumArgs; ++i) {
+      if (IsVariadicArgument(pArgs[i])) {
+        ++numVariadicArgs;
+        continue;
+      }
+      IdentifierInfo *id = &context.Idents.get(StringRef(pArgs[i].pName));
+      ParmVarDecl *paramDecl = ParmVarDecl::Create(
+          context, nullptr, NoLoc, NoLoc, id, paramTypes[i - numVariadicArgs],
+          nullptr, StorageClass::SC_None, nullptr,
+          paramMods[i - 1 - numVariadicArgs]);
+      paramDecls.push_back(paramDecl);
+    }
+    return paramDecls;
+  }
+
   SmallVector<QualType, 2> VkIntrinsicFunctionParamTypes(
       const HLSL_INTRINSIC *intrinsic,
       const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
@@ -3550,23 +3574,35 @@ private:
     return paramTypes;
   }
 
-  QualType VkIntrinsicFunctionType(
-      const HLSL_INTRINSIC *intrinsic,
-      const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
-    SmallVector<QualType, 2> paramTypes =
-        VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
-
-    SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
-    InitParamMods(intrinsic, paramMods);
+  QualType
+  VkIntrinsicFunctionType(const SmallVectorImpl<QualType> &paramTypes,
+                          const SmallVectorImpl<ParameterModifier> &paramMods) {
+    DXASSERT(!paramTypes.empty(), "Given param type vector is empty");
 
     ArrayRef<QualType> params({});
-    if (intrinsic->uNumArgs > 1) {
+    if (paramTypes.size() > 1) {
       params = ArrayRef<QualType>(&paramTypes[1], paramTypes.size() - 1);
     }
 
     FunctionProtoType::ExtProtoInfo EmptyEPI;
     return m_sema->getASTContext().getFunctionType(paramTypes[0], params,
                                                    EmptyEPI, paramMods);
+  }
+
+  void SetParmDeclsForVkIntrinsicFunction(
+      QualType fnType, FunctionDecl *functionDecl,
+      const SmallVectorImpl<ParmVarDecl *> &paramDecls) {
+    TypeSourceInfo *TInfo =
+        m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
+    FunctionProtoTypeLoc Proto =
+        TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
+
+    // Attach the parameters
+    for (unsigned P = 0; P < paramDecls.size(); ++P) {
+      paramDecls[P]->setOwningFunction(functionDecl);
+      Proto.setParam(P, paramDecls[P]);
+    }
+    functionDecl->setParams(paramDecls);
   }
 
   // Adds intrinsic function declarations to the "vk" namespace.
@@ -3586,15 +3622,29 @@ private:
           intrinsic->pArgs->pName, tok::TokenKind::identifier);
       DeclarationName functionName(&fnII);
 
+      // Create TemplateTypeParmDecl.
       SmallVector<NamedDecl *, 1> templateTypeParmDecls =
           CreateTemplateTypeParmDeclsForVkIntrinsicFunction(intrinsic);
 
+      // Get types for parameters.
+      SmallVector<QualType, 2> paramTypes =
+          VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
+      SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+      InitParamMods(intrinsic, paramMods);
+
+      // Create FunctionDecl.
+      QualType fnType = VkIntrinsicFunctionType(paramTypes, paramMods);
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          VkIntrinsicFunctionType(intrinsic, templateTypeParmDecls), nullptr,
-          StorageClass::SC_Extern, InlineSpecifiedFalse,
+          fnType, nullptr, StorageClass::SC_Extern, InlineSpecifiedFalse,
           HasWrittenPrototypeTrue);
       m_vkNSDecl->addDecl(functionDecl);
+
+      // Create and set ParmVarDecl.
+      SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
+          CreateParmDeclsForVkIntrinsicFunction(intrinsic, paramTypes,
+                                                paramMods);
+      SetParmDeclsForVkIntrinsicFunction(fnType, functionDecl, paramDecls);
 
       if (!templateTypeParmDecls.empty()) {
         TemplateParameterList *templateParmList = TemplateParameterList::Create(
