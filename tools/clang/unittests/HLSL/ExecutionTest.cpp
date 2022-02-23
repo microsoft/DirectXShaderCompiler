@@ -304,6 +304,7 @@ public:
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
+  TEST_METHOD(ATOWriteMSAA);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
   TEST_METHOD(AtomicsRawHeap64Test);
@@ -3638,6 +3639,40 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
     VerifySampleResults(pPixels, 84);
   }
+}
+
+TEST_F(ExecutionTest, ATOWriteMSAA) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_7))
+      return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("WriteMSAA");
+
+  // Test compute shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "WriteMSAA", nullptr, ShaderOpSet);
+  MappedData data;
+
+  test->Test->GetReadBackData("U0", &data);
+  float *pPixels = (float*)data.data();
+  for (int i = 0; i < 4; i++)
+    VERIFY_ARE_EQUAL(pPixels[64*64*i + 16*64 + 16], i + 1);
+
+  // Disable CS so PS goes forward
+  pShaderOp->CS = nullptr;
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "WriteMSAA", nullptr, ShaderOpSet);
+
+  test->Test->GetReadBackData("U0", &data);
+  pPixels = (float*)data.data();
+  for (int i = 0; i < 4; i++)
+    VERIFY_ARE_EQUAL(pPixels[64*64*i + 16*64 + 16], i + 1);
 }
 
 // Executing a simple binop to verify shadel model 6.1 support; runs with

@@ -2538,6 +2538,93 @@
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="WriteMSAA" PS="PS" VS="VS" CS="CS">
+    <RootSignature>
+      RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+      DescriptorTable(UAV(u0) ,UAV(u1)),
+      StaticSampler(s0, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_MIN_MAG_LINEAR_MIP_POINT)
+    </RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
+    <Resource Name="U0" Dimension="TEXTURE2D" Width="64" Height="64" DepthOrArraySize="4" Format="R32_FLOAT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U1" Dimension="TEXTURE2D" Width="64" Height="64" SampleCount="4" Format="R32_FLOAT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name="U0" Kind="UAV" ResName="U0" Dimension="TEXTURE2DARRAY"
+                  ArraySize="4" FirstArraySlice="0" NumElements="16384" Format="R32_FLOAT" />
+      <Descriptor Name="U1" Kind="UAV" ResName="U1" Dimension="TEXTURE2D"
+                  NumElements="65536" Format="R32_FLOAT" />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="VS"   Target="vs_6_6" EntryPoint="VSMain" Text="@CS"/>
+    <Shader Name="PS"   Target="ps_6_6" EntryPoint="PSMain" Text="@CS"/>
+    <Shader Name="CS"   Target="cs_6_6" EntryPoint="CSMain">
+      <![CDATA[
+        #define SAMPLES 4
+        struct PSInput {
+          float4 position : SV_POSITION;
+          float2 uv : TEXCOORD;
+        };
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+        RWTexture2DMS<float> g_tex : register(u1);
+#else
+        RWTexture2DArray<float> g_tex : register(u0);
+#endif
+
+        PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          return result;
+        }
+
+        void AssignSamples(uint2 coord) {
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+          for(int i = 0; i < SAMPLES; i++)
+            g_tex.sample[i][coord] = i+1;// Don't like testing for zeros
+#else
+          for(int i = 0; i < SAMPLES; i++)
+            g_tex[uint3(coord, i)] = i+1;
+#endif
+        }
+
+        float4 PSMain(PSInput input) : SV_TARGET {
+          AssignSamples(uint2(input.uv*64.0));
+          return 1;
+        }
+
+        [NumThreads(32, 32, 1)]
+        void CSMain(uint3 id : SV_GroupThreadID) {
+          AssignSamples(id.xy);
+        }
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="HelperLaneTestNoWave" PS="PS" VS="VS" TopologyType="TRIANGLE">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
     <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">

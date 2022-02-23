@@ -623,6 +623,7 @@ void ShaderOpTest::CreateResources() {
         uploadDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
         uploadDesc.Width = totalBytes;
         uploadDesc.Height = 1;
+        uploadDesc.DepthOrArraySize = 1;
         uploadDesc.MipLevels = 1;
         uploadDesc.Format = DXGI_FORMAT_UNKNOWN;
         uploadDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
