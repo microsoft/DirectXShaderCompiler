@@ -576,7 +576,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                 hasUAVs = true;
             }
           }
-        }
+        } break;
         case DXIL::OpCode::TextureStoreSample:
           hasWriteableMSAATextures = true;
           __fallthrough;
