@@ -105,6 +105,9 @@ static HRESULT ThreadMallocDxcCreateInstance(
   else if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
     hr = CreateDxcIntelliSense(riid, ppv);
   }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
+    hr = CreateDxcContainerBuilder(riid, ppv);
+  }
 // Note: The following targets are not yet enabled for non-Windows platforms.
 #ifdef _WIN32
   else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
@@ -118,9 +121,6 @@ static HRESULT ThreadMallocDxcCreateInstance(
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcLinker)) {
     hr = CreateDxcLinker(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
-    hr = CreateDxcContainerBuilder(riid, ppv);
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcPdbUtils)) {
     hr = CreateDxcPdbUtils(riid, ppv);
