@@ -1370,7 +1370,7 @@ public:
       // this case shouldn't be hit, fail if it is.
       return HRESULT_FROM_WIN32(GetLastError());
     }
-    return S_OK; //pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
+    return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
   }
 
   static HRESULT EnableExperimentalShaderModels(HMODULE hRuntime) {
