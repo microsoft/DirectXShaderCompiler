@@ -9612,7 +9612,19 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
 
     if (sm == D3D_SHADER_MODEL_6_7) {
-      pShaderOp->CS = "CS67";
+      bool Found = false;
+      for (auto &Sh : pShaderOp->Shaders) {
+        if (!strcmp(Sh.Name, "CS67")) {
+          pShaderOp->CS = Sh.Name;
+          Found = true;
+          break;
+        }
+      }
+
+      if (!Found) {
+        LogCommentFmt(L"Shader Model 6.7 variant of shader not found.");
+        continue;
+      }
     }
 
     CComPtr<ID3D12Device> pDevice;
