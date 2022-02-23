@@ -390,6 +390,12 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasViewportOrRTArrayIndexBackCombat = valMajor == 1 && valMinor < 4;
   bool hasBarycentricsBackCompat = valMajor == 1 && valMinor < 6;
 
+  // Setting additional flag for downlevel shader model may cause some driver to
+  // fail shader create due to an unrecognized flag.
+  uint32_t dxilMajor, dxilMinor;
+  M->GetDxilVersion(dxilMajor, dxilMinor);
+  bool canSetResMayNotAlias = DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
+
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
 
@@ -570,7 +576,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                 hasUAVs = true;
             }
           }
-        }
+        } break;
         case DXIL::OpCode::TextureStoreSample:
           hasWriteableMSAATextures = true;
           __fallthrough;
@@ -695,8 +701,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
 
   // Only bother setting the flag when there are UAVs.
-  flag.SetResMayNotAlias(DXIL::CompareVersions(valMajor, valMinor, 1, 7) >= 0 &&
-                         hasUAVs && !M->GetResMayAlias());
+  flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
+                         !M->GetResMayAlias());
 
   return flag;
 }

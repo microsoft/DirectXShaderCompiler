@@ -648,11 +648,13 @@ public:
 
         if (OpKind == (uint64_t)DXIL::QuadVoteOpKind::All) {
           Value *XY = B.CreateAnd(X, Y);
-          Result = B.CreateAnd(XY, Z);
+          Value *XYZ = B.CreateAnd(XY, Z);
+          Result = B.CreateAnd(XYZ, Cond);
         } else {
           DXASSERT_NOMSG(OpKind == (uint64_t)DXIL::QuadVoteOpKind::Any);
           Value *XY = B.CreateOr(X, Y);
-          Result = B.CreateOr(XY, Z);
+          Value *XYZ = B.CreateOr(XY, Z);
+          Result = B.CreateOr(XYZ, Cond);
         }
         Value *Res = B.CreateTrunc(Result, Type::getInt1Ty(M.getContext()));
         CI->replaceAllUsesWith(Res);

@@ -321,15 +321,22 @@ void EmitNoteOnContext(LLVMContext &Ctx, Twine Msg) {
   EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Note);
 }
 
-static DbgValueInst *FindDbgValueInst(Value *Val) {
-  if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
-    if (auto *ValMDAsVal =
-            MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
-      for (User *ValMDUser : ValMDAsVal->users()) {
-        if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(ValMDUser))
-          return DbgValInst;
-      }
+Value::user_iterator mdv_users_end(Value *V) {
+  return Value::user_iterator();
+}
+Value::user_iterator mdv_users_begin(Value *V) {
+  if (auto *L = LocalAsMetadata::getIfExists(V)) {
+    if (auto *MDV = MetadataAsValue::getIfExists(L->getContext(), L)) {
+      return MDV->user_begin();
     }
+  }
+  return mdv_users_end(V);
+}
+
+static DbgValueInst *FindDbgValueInst(Value *Val) {
+  for (auto it = mdv_users_begin(Val), end = mdv_users_end(Val); it != end; it++) {
+    if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(*it))
+      return DbgValInst;
   }
   return nullptr;
 }
