@@ -463,6 +463,9 @@ void ShaderOpTest::CreatePipelineState() {
     pAS = map_get_or_null(m_Shaders, m_pShaderOp->AS);
     pMS = map_get_or_null(m_Shaders, m_pShaderOp->MS);
     pPS = map_get_or_null(m_Shaders, m_pShaderOp->PS);
+    CHECK_HR((m_pShaderOp->AS && !pAS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->MS && !pMS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->PS && !pPS) ? E_FAIL : S_OK);
 
     ZeroMemory(&MDesc, sizeof(MDesc));
     MDesc.RootSignature = CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE(m_pRootSignature.p);
@@ -502,6 +505,12 @@ void ShaderOpTest::CreatePipelineState() {
     pGS = map_get_or_null(m_Shaders, m_pShaderOp->GS);
     pHS = map_get_or_null(m_Shaders, m_pShaderOp->HS);
     pDS = map_get_or_null(m_Shaders, m_pShaderOp->DS);
+    // Check for missing shaders with explicitly requested names
+    CHECK_HR((m_pShaderOp->PS && !pPS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->VS && !pVS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->GS && !pGS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->HS && !pHS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->DS && !pDS) ? E_FAIL : S_OK);
     D3D12_GRAPHICS_PIPELINE_STATE_DESC GDesc;
     ZeroMemory(&GDesc, sizeof(GDesc));
     InitByteCode(&GDesc.VS, pVS);

@@ -8859,20 +8859,11 @@ TEST_F(ExecutionTest, Atomics64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CS")) CS64 = S.Name;
-    if (!strcmp(S.Name, "VS")) VS64 = S.Name;
-    if (!strcmp(S.Name, "PS")) PS64 = S.Name;
-    if (!strcmp(S.Name, "AS")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MS")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->VS = VS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CS");
+  pShaderOp->VS = pShaderOp->GetString("VS");
+  pShaderOp->PS = pShaderOp->GetString("PS");
+  pShaderOp->AS = pShaderOp->GetString("AS");
+  pShaderOp->MS = pShaderOp->GetString("MS");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
@@ -8923,20 +8914,11 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CS64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "VS64")) VS64 = S.Name;
-    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
-    if (!strcmp(S.Name, "AS64")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MS64")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->VS = VS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CS64");
+  pShaderOp->VS = pShaderOp->GetString("VS64");
+  pShaderOp->PS = pShaderOp->GetString("PS64");
+  pShaderOp->AS = pShaderOp->GetString("AS64");
+  pShaderOp->MS = pShaderOp->GetString("MS64");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in compute shader");
@@ -8987,20 +8969,11 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CSTY64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "VSTY64")) VS64 = S.Name;
-    if (!strcmp(S.Name, "PSTY64")) PS64 = S.Name;
-    if (!strcmp(S.Name, "ASTY64")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MSTY64")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->VS = VS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CSTY64");
+  pShaderOp->VS = pShaderOp->GetString("VSTY64");
+  pShaderOp->PS = pShaderOp->GetString("PSTY64");
+  pShaderOp->AS = pShaderOp->GetString("ASTY64");
+  pShaderOp->MS = pShaderOp->GetString("MSTY64");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in compute shader");
@@ -9051,19 +9024,10 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
-    if (!strcmp(S.Name, "ASSH64")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MSSH64")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CSSH64");
+  pShaderOp->PS = pShaderOp->GetString("PS64");
+  pShaderOp->AS = pShaderOp->GetString("ASSH64");
+  pShaderOp->MS = pShaderOp->GetString("MSSH64");
 
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
@@ -9490,26 +9454,14 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
 
     if (sm == D3D_SHADER_MODEL_6_5) {
       // Reassign shader stages to 6.5 versions
-      LPCSTR CS65 = nullptr, VS65 = nullptr, PS65 = nullptr;
-      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
-        if (!strcmp(S.Name, "CS65")) CS65 = S.Name;
-        if (!strcmp(S.Name, "VS65")) VS65 = S.Name;
-        if (!strcmp(S.Name, "PS65")) PS65 = S.Name;
-      }
-      pShaderOp->CS = CS65;
-      pShaderOp->VS = VS65;
-      pShaderOp->PS = PS65;
+      pShaderOp->CS = pShaderOp->GetString("CS65");
+      pShaderOp->VS = pShaderOp->GetString("VS65");
+      pShaderOp->PS = pShaderOp->GetString("PS65");
     } else if (sm == D3D_SHADER_MODEL_6_6) {
       // Reassign shader stages to 6.6 versions
-      LPCSTR CS66 = nullptr, VS66 = nullptr, PS66 = nullptr;
-      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
-        if (!strcmp(S.Name, "CS66")) CS66 = S.Name;
-        if (!strcmp(S.Name, "VS66")) VS66 = S.Name;
-        if (!strcmp(S.Name, "PS66")) PS66 = S.Name;
-      }
-      pShaderOp->CS = CS66;
-      pShaderOp->VS = VS66;
-      pShaderOp->PS = PS66;
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      pShaderOp->VS = pShaderOp->GetString("VS66");
+      pShaderOp->PS = pShaderOp->GetString("PS66");
     } else if (sm == D3D_SHADER_MODEL_6_7) {
       // Reassign shader stages to 6.7 versions
       LPCSTR PS67 = nullptr;
@@ -9612,7 +9564,7 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
 
     if (sm == D3D_SHADER_MODEL_6_7) {
-      pShaderOp->CS = "CS67";
+      pShaderOp->CS = pShaderOp->GetString("CS67");
     }
 
     CComPtr<ID3D12Device> pDevice;
