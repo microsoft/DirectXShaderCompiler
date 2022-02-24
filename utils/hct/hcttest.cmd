@@ -300,6 +300,9 @@ if "%TEST_CMD%"=="1" (
 
 if "%TEST_EXEC%"=="1" (
   call :copyagility
+)
+
+if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
   call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:ExecutionTest::BasicTriangleTest /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
   set RES_EXEC=!ERRORLEVEL!
@@ -439,7 +442,7 @@ rem %4 - third argument to te
 if %HLSL_TAEF_DIR%=="" (
   set TE=te
 ) else (
-  set TE="%HLSL_TAEF_DIR%\te"
+  set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\te"
 )
 echo %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 call %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
@@ -483,11 +486,12 @@ goto :eof
 if "%HLSL_AGILITYSDK_DIR%"=="" (
   exit /b 0
 )
-set %USE_AGILITY_SDK%=/p:D3D12SDKVersion=1
+set USE_AGILITY_SDK=/p:D3D12SDKVersion=1
 if "%HLSL_TAEF_DIR%"=="" (
   echo HLSL_AGILITYSDK_DIR set, but no HLSL_TAEF_DIR set, no AgilitySDK will be copied
   exit /b 1
 )
+echo MARK 4
 set FULL_AGILITY_PATH=
 if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
   set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%
@@ -499,6 +503,6 @@ if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%\D3D12Cor
   echo HLSL_AGILITYSDK_DIR is set, but unable to resolve path to binaries
   exit /b 1
 )
-mkdir "%HLSL_TAEF_DIR%\D3D12" 1>nul 2>nul
-call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
+mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" 1>nul 2>nul
+call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
 exit /b %ERRORLEVEL%

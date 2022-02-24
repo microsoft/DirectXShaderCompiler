@@ -55,7 +55,7 @@ goto :eof
 
 :copytobin
 if not "%HLSL_TAEF_DIR%"=="" (
-  call %HCT_DIR%\hctcopy.cmd "%HLSL_TAEF_DIR%" "%~1" TE.Common.dll Wex.Common.dll Wex.Communication.dll Wex.Logger.dll
+  call %HCT_DIR%\hctcopy.cmd "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%" "%~1" TE.Common.dll Wex.Common.dll Wex.Communication.dll Wex.Logger.dll
 )
 if not "%FULL_AGILITY_PATH%"=="" (
   mkdir "%~1\D3D12" 1>nul 2>nul
