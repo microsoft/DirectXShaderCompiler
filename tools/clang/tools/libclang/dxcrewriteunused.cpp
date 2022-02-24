@@ -546,6 +546,15 @@ void SetupCompilerCommon(CompilerInstance &compiler,
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
+  compiler.getLangOpts().EnableTemplates = opts.EnableTemplates;
+  compiler.getLangOpts().EnableOperatorOverloading = opts.EnableOperatorOverloading;
+  compiler.getLangOpts().StrictUDTCasting = opts.StrictUDTCasting;
+  compiler.getLangOpts().EnablePayloadAccessQualifiers = opts.EnablePayloadQualifiers;
+  compiler.getLangOpts().EnableShortCircuit = opts.EnableShortCircuit;
+  compiler.getLangOpts().EnableBitfields = opts.EnableBitfields;
+#ifdef ENABLE_SPIRV_CODEGEN
+  compiler.getLangOpts().SPIRV = opts.GenSPIRV;
+#endif
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getCodeGenOpts().MainFileName = pMainFile;
 
@@ -838,7 +847,9 @@ HRESULT ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
   IFT(CreateMemoryStream(GetGlobalHeapMalloc(), &pOutputStream));
   raw_stream_ostream outStream(pOutputStream);
 
-  if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::HlslFlags::RewriteOption,
+  if (0 != hlsl::options::ReadDxcOpts(table,
+                                      hlsl::options::HlslFlags::RewriteOption |
+                                          hlsl::options::HlslFlags::CoreOption,
                                       mainArgs, opts, outStream)) {
     CComPtr<IDxcBlob> pErrorBlob;
     IFT(pOutputStream->QueryInterface(&pErrorBlob));
