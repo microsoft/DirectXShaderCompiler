@@ -491,7 +491,6 @@ if "%HLSL_TAEF_DIR%"=="" (
   echo HLSL_AGILITYSDK_DIR set, but no HLSL_TAEF_DIR set, no AgilitySDK will be copied
   exit /b 1
 )
-echo MARK 4
 set FULL_AGILITY_PATH=
 if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
   set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%
