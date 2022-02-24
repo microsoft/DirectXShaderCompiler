@@ -88,6 +88,7 @@ if errorlevel 1 (
   call :findpython
 )
 
+call :findminte
 where te.exe 1>nul 2>nul
 if errorlevel 1 (
   call :findte
@@ -132,6 +133,26 @@ if errorlevel 1 (
 )
 echo Path adjusted to include cmake.
 goto :eof
+
+:findminte 
+set HLSL_TAEF_DIR=
+set HLSL_TAEF_MINTE=
+if exist "%HLSL_SRC_DIR%\external\taef\build\Binaries\%BUILD_ARCH:Win32=x86%\Te.exe" set HLSL_TAEF_MINTE=%HLSL_SRC_DIR%\external\taef\build\Binaries\%BUILD_ARCH:Win32=x86%
+if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe
+if exist "%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe
+if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles%\windows kits\10\Testing\Runtimes\TAEF\MinTe
+if exist "%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\MinTe
+if "%HLSL_TAEF_MINTE%"=="" (
+  echo Unable to find matching MinTe, will not auto-copy AgilitySDK binaries.
+  exit /b 1
+)
+echo Found TAEF at %HLSL_TAEF_MINTE%
+set HLSL_TAEF_DIR=%HLSL_BLD_DIR%\TAEF
+echo Copying to %HLSL_TAEF_DIR% for use with AgilitySDK
+mkdir "%HLSL_TAEF_DIR%" 1>nul 2>nul
+robocopy /NP /NJH /NJS /S "%HLSL_TAEF_MINTE%" "%HLSL_TAEF_DIR%" *
+set path=%path%;%HLSL_TAEF_DIR%
+goto:eof
 
 :findte 
 if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles%\windows kits\10\Testing\Runtimes\TAEF
