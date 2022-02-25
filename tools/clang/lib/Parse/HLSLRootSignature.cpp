@@ -360,7 +360,7 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
 
     case 'S':
         bKW = KW(space) || KW(Sampler) || KW(StaticSampler) || KW(SRV) ||
-              KW(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED) || KW(SAMPLER_HEAP_DIRECTLY_INDEXED) ||
+              KW(SAMPLER_HEAP_DIRECTLY_INDEXED) ||
               KW(SHADER_VISIBILITY_ALL)      ||  KW(SHADER_VISIBILITY_VERTEX) || 
               KW(SHADER_VISIBILITY_HULL)     || KW(SHADER_VISIBILITY_DOMAIN)  ||
               KW(SHADER_VISIBILITY_GEOMETRY) || KW(SHADER_VISIBILITY_PIXEL) ||

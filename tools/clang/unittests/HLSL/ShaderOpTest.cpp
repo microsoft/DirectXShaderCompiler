@@ -301,30 +301,32 @@ void ShaderOpTest::CreateDescriptorHeaps() {
     const UINT descriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(H.Desc.Type);
     CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(pHeap->GetCPUDescriptorHandleForHeapStart());
     CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle = {};
-    if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
-        gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
+    if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
+        H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+      gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
     for (ShaderOpDescriptor &D : H.Descriptors) {
-      ShaderOpResource *R = nullptr;
+      ShaderOpDescriptorData DData;
+      DData.Descriptor = &D;
+      ID3D12Resource *pResource = nullptr;
       if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
-        R = m_pShaderOp->GetResourceByName(D.ResName);
-        if (R == nullptr) {
+        ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
+        auto itResData = m_ResourceData.find(D.ResName);
+        if (R == nullptr || itResData == m_ResourceData.end()) {
           LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
           ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
           CHECK_HR(E_INVALIDARG);
         }
+        DData.ResData = &itResData->second;
+        pResource = DData.ResData->Resource;
       }
 
-      ShaderOpResourceData &Data = m_ResourceData[D.ResName];
-      ShaderOpDescriptorData DData;
-      DData.Descriptor = &D;
-      DData.ResData = &Data;
       if (0 == _stricmp(D.Kind, "UAV")) {
         ID3D12Resource *pCounterResource = nullptr;
         if (D.CounterName && *D.CounterName) {
           ShaderOpResourceData &CounterData = m_ResourceData[D.CounterName];
           pCounterResource = CounterData.Resource;
         }
-        m_pDevice->CreateUnorderedAccessView(Data.Resource, pCounterResource,
+        m_pDevice->CreateUnorderedAccessView(pResource, pCounterResource,
                                              &D.UavDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "SRV")) {
@@ -332,15 +334,15 @@ void ShaderOpTest::CreateDescriptorHeaps() {
         if (D.SrvDescPresent) {
           pSrvDesc = &D.SrvDesc;
         }
-        m_pDevice->CreateShaderResourceView(Data.Resource, pSrvDesc, cpuHandle);
+        m_pDevice->CreateShaderResourceView(pResource, pSrvDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "RTV")) {
-        m_pDevice->CreateRenderTargetView(Data.Resource, nullptr, cpuHandle);
+        m_pDevice->CreateRenderTargetView(pResource, nullptr, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "CBV")) {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-        cbvDesc.BufferLocation = Data.Resource->GetGPUVirtualAddress();
-        cbvDesc.SizeInBytes = (UINT)Data.Resource->GetDesc().Width;
+        cbvDesc.BufferLocation = pResource->GetGPUVirtualAddress();
+        cbvDesc.SizeInBytes = (UINT)pResource->GetDesc().Width;
         m_pDevice->CreateConstantBufferView(&cbvDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "SAMPLER")) {
@@ -348,14 +350,13 @@ void ShaderOpTest::CreateDescriptorHeaps() {
       }
 
       DData.CPUHandle = cpuHandle;
-      if (R)
-        m_DescriptorData[R->Name] = DData;
       cpuHandle = cpuHandle.Offset(descriptorSize);
       if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
           H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
         DData.GPUHandle = gpuHandle;
         gpuHandle = gpuHandle.Offset(descriptorSize);
       }
+      m_DescriptorData[D.Name] = DData;
     }
   }
 
@@ -462,6 +463,9 @@ void ShaderOpTest::CreatePipelineState() {
     pAS = map_get_or_null(m_Shaders, m_pShaderOp->AS);
     pMS = map_get_or_null(m_Shaders, m_pShaderOp->MS);
     pPS = map_get_or_null(m_Shaders, m_pShaderOp->PS);
+    CHECK_HR((m_pShaderOp->AS && !pAS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->MS && !pMS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->PS && !pPS) ? E_FAIL : S_OK);
 
     ZeroMemory(&MDesc, sizeof(MDesc));
     MDesc.RootSignature = CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE(m_pRootSignature.p);
@@ -501,6 +505,12 @@ void ShaderOpTest::CreatePipelineState() {
     pGS = map_get_or_null(m_Shaders, m_pShaderOp->GS);
     pHS = map_get_or_null(m_Shaders, m_pShaderOp->HS);
     pDS = map_get_or_null(m_Shaders, m_pShaderOp->DS);
+    // Check for missing shaders with explicitly requested names
+    CHECK_HR((m_pShaderOp->PS && !pPS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->VS && !pVS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->GS && !pGS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->HS && !pHS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->DS && !pDS) ? E_FAIL : S_OK);
     D3D12_GRAPHICS_PIPELINE_STATE_DESC GDesc;
     ZeroMemory(&GDesc, sizeof(GDesc));
     InitByteCode(&GDesc.VS, pVS);
@@ -897,7 +907,7 @@ void ShaderOpTest::RunCommandList() {
       // Use the first render target to set up the viewport and scissors.
       ShaderOpRenderTarget& rt = m_pShaderOp->RenderTargets[0];
       ShaderOpResource *R = m_pShaderOp->GetResourceByName(rt.Name);
-      if (rt.Viewport.Width != 0 && rt.Viewport.Height != 0 ) {
+      if (rt.Viewport.Width > 0 && rt.Viewport.Height > 0 ) {
         memcpy(&viewport, &rt.Viewport, sizeof(rt.Viewport));
       }
       else {
@@ -1085,7 +1095,7 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
   m_CommandList.Queue = pCommandQueue;
   // Simplification - add the render target name if missing, set it up 'by hand' if not.
   if (pShaderOp->RenderTargets.empty()) {
-    ShaderOpRenderTarget RT;
+    ShaderOpRenderTarget RT = {};
     RT.Name = pShaderOp->Strings.insert("RTarget");
     pShaderOp->RenderTargets.push_back(RT);
     ShaderOpResource R;
@@ -1106,7 +1116,7 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
   // Create a render target heap to put this in.
   ShaderOpDescriptorHeap *pRtvHeap = pShaderOp->GetDescriptorHeapByName("RtvHeap");
   if (pRtvHeap == nullptr) {
-    ShaderOpDescriptorHeap H;
+    ShaderOpDescriptorHeap H = {};
     ZeroMemory(&H, sizeof(H));
     H.Name = pShaderOp->Strings.insert("RtvHeap");
     H.Desc.NumDescriptors = 1;
@@ -1115,7 +1125,7 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
     pRtvHeap = &pShaderOp->DescriptorHeaps.back();
   }
   if (pRtvHeap->Descriptors.empty()) {
-    ShaderOpDescriptor D;
+    ShaderOpDescriptor D = {};
     ZeroMemory(&D, sizeof(D));
     D.Name = pShaderOp->Strings.insert("RTarget");
     D.ResName = D.Name;
@@ -1526,61 +1536,61 @@ static const ParserEnumValue PRIMITIVE_TOPOLOGY_TYPE_TABLE[] = {
 };
 
 static const ParserEnumValue FILTER_TABLE[] = {
-  { L"FILTER_MIN_MAG_MIP_POINT", D3D12_FILTER_MIN_MAG_MIP_POINT },
-  { L"FILTER_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR },
-  { L"FILTER_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT },
-  { L"FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MIN_MAG_MIP_LINEAR },
-  { L"FILTER_ANISOTROPIC", D3D12_FILTER_ANISOTROPIC },
-  { L"FILTER_COMPARISON_MIN_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT },
-  { L"FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR },
-  { L"FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT },
-  { L"FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_COMPARISON_MIN_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR },
-  { L"FILTER_COMPARISON_ANISOTROPIC", D3D12_FILTER_COMPARISON_ANISOTROPIC },
-  { L"FILTER_MINIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT },
-  { L"FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR },
-  { L"FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT },
-  { L"FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_MINIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR },
-  { L"FILTER_MINIMUM_ANISOTROPIC", D3D12_FILTER_MINIMUM_ANISOTROPIC },
-  { L"FILTER_MAXIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_POINT },
-  { L"FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR },
-  { L"FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT },
-  { L"FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
-  { L"FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT },
-  { L"FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR },
-  { L"FILTER_MAXIMUM_ANISOTROPIC", D3D12_FILTER_MAXIMUM_ANISOTROPIC },
+  { L"MIN_MAG_MIP_POINT", D3D12_FILTER_MIN_MAG_MIP_POINT },
+  { L"MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR },
+  { L"MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR },
+  { L"MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT },
+  { L"MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT },
+  { L"MIN_MAG_MIP_LINEAR", D3D12_FILTER_MIN_MAG_MIP_LINEAR },
+  { L"ANISOTROPIC", D3D12_FILTER_ANISOTROPIC },
+  { L"COMPARISON_MIN_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT },
+  { L"COMPARISON_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR },
+  { L"COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"COMPARISON_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR },
+  { L"COMPARISON_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT },
+  { L"COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"COMPARISON_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT },
+  { L"COMPARISON_MIN_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR },
+  { L"COMPARISON_ANISOTROPIC", D3D12_FILTER_COMPARISON_ANISOTROPIC },
+  { L"MINIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT },
+  { L"MINIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR },
+  { L"MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"MINIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR },
+  { L"MINIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT },
+  { L"MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"MINIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT },
+  { L"MINIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR },
+  { L"MINIMUM_ANISOTROPIC", D3D12_FILTER_MINIMUM_ANISOTROPIC },
+  { L"MAXIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_POINT },
+  { L"MAXIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR },
+  { L"MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"MAXIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR },
+  { L"MAXIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT },
+  { L"MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"MAXIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT },
+  { L"MAXIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR },
+  { L"MAXIMUM_ANISOTROPIC", D3D12_FILTER_MAXIMUM_ANISOTROPIC },
 };
 
 static const ParserEnumValue TEXTURE_ADDRESS_MODE_TABLE[] = {
-  { L"TEXTURE_ADDRESS_MODE_WRAP", D3D12_TEXTURE_ADDRESS_MODE_WRAP },
-  { L"TEXTURE_ADDRESS_MODE_MIRROR", D3D12_TEXTURE_ADDRESS_MODE_MIRROR },
-  { L"TEXTURE_ADDRESS_MODE_CLAMP", D3D12_TEXTURE_ADDRESS_MODE_CLAMP },
-  { L"TEXTURE_ADDRESS_MODE_BORDER", D3D12_TEXTURE_ADDRESS_MODE_BORDER },
-  { L"TEXTURE_ADDRESS_MODE_MIRROR_ONCE", D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE },
+  { L"WRAP", D3D12_TEXTURE_ADDRESS_MODE_WRAP },
+  { L"MIRROR", D3D12_TEXTURE_ADDRESS_MODE_MIRROR },
+  { L"CLAMP", D3D12_TEXTURE_ADDRESS_MODE_CLAMP },
+  { L"BORDER", D3D12_TEXTURE_ADDRESS_MODE_BORDER },
+  { L"MIRROR_ONCE", D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE },
 };
 
 static const ParserEnumValue COMPARISON_FUNC_TABLE[] = {
-  { L"COMPARISON_FUNC_NEVER", D3D12_COMPARISON_FUNC_NEVER },
-  { L"COMPARISON_FUNC_LESS", D3D12_COMPARISON_FUNC_LESS },
-  { L"COMPARISON_FUNC_EQUAL", D3D12_COMPARISON_FUNC_EQUAL },
-  { L"COMPARISON_FUNC_LESS_EQUAL", D3D12_COMPARISON_FUNC_LESS_EQUAL },
-  { L"COMPARISON_FUNC_GREATER", D3D12_COMPARISON_FUNC_GREATER },
-  { L"COMPARISON_FUNC_NOT_EQUAL", D3D12_COMPARISON_FUNC_NOT_EQUAL },
-  { L"COMPARISON_FUNC_GREATER_EQUAL", D3D12_COMPARISON_FUNC_GREATER_EQUAL },
-  { L"COMPARISON_FUNC_ALWAYS", D3D12_COMPARISON_FUNC_ALWAYS },
+  { L"NEVER", D3D12_COMPARISON_FUNC_NEVER },
+  { L"LESS", D3D12_COMPARISON_FUNC_LESS },
+  { L"EQUAL", D3D12_COMPARISON_FUNC_EQUAL },
+  { L"LESS_EQUAL", D3D12_COMPARISON_FUNC_LESS_EQUAL },
+  { L"GREATER", D3D12_COMPARISON_FUNC_GREATER },
+  { L"NOT_EQUAL", D3D12_COMPARISON_FUNC_NOT_EQUAL },
+  { L"GREATER_EQUAL", D3D12_COMPARISON_FUNC_GREATER_EQUAL },
+  { L"ALWAYS", D3D12_COMPARISON_FUNC_ALWAYS },
 };
 
 
@@ -1757,7 +1767,7 @@ HRESULT ShaderOpParser::ReadAttrUINT64(IXmlReader *pReader, LPCWSTR pAttrName, U
   }
   LPCWSTR pText;
   CHECK_HR(pReader->GetValue(&pText, nullptr));
-  long long ll = _wtol(pText);
+  long long ll = _wtoll(pText);
   if (errno == ERANGE) CHECK_HR(E_INVALIDARG);
   *pValue = ll;
   CHECK_HR(pReader->MoveToElement());
@@ -2323,7 +2333,17 @@ void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType
   else if (compType == DXIL::ComponentType::I32) {
     int val = _wtoi(pText);
     pB = (BYTE *)&val;
-    V.insert(V.end(), pB, pB + sizeof(int));
+    V.insert(V.end(), pB, pB + sizeof(int32_t));
+  }
+  else if (compType == DXIL::ComponentType::U32) {
+    long long llval = _wtoll(pText);
+    if (errno == ERANGE) CHECK_HR(E_INVALIDARG);
+    unsigned int val = 0;
+    if (llval > UINT32_MAX)
+      CHECK_HR(E_INVALIDARG);
+    val = (unsigned int)llval;
+    pB = (BYTE *)&val;
+    V.insert(V.end(), pB, pB + sizeof(uint32_t));
   }
   else {
     DXASSERT_ARGS(false, "Unsupported stream component type : %u", compType);
