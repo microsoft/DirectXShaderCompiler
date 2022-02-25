@@ -3587,7 +3587,7 @@ TEST_F(ExecutionTest, ATOProgOffset) {
                         int ix = 0;
                         for (size_t j = 0; j < texHeight; ++j) {
                           for (size_t i = 0; i < texWidth; ++i) {
-                            pPrimitives[ix] = float(ix);//float(texWidth*j + i);
+                            pPrimitives[ix] = float(ix);
                             ix++;
                           }
                         }
@@ -3600,9 +3600,10 @@ TEST_F(ExecutionTest, ATOProgOffset) {
   test->Test->GetReadBackData("U0", &data);
   VerifyProgOffsetResults((UINT*)data.data());
 
+  // Disable CS so graphics shaders go forward
+  pShaderOp->CS = nullptr;
+
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-    // Disable CS so mesh goes forward
-    pShaderOp->CS = nullptr;
     test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
 
     test->Test->GetReadBackData("U0", &data);
