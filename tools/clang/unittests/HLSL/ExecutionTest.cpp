@@ -303,7 +303,7 @@ public:
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
-  TEST_METHOD(SampleCmpLevelTest);
+  TEST_METHOD(ATOSampleCmpLevelTest);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
   TEST_METHOD(AtomicsRawHeap64Test);
@@ -3539,13 +3539,13 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   }
 }
 
-TEST_F(ExecutionTest, SampleCmpLevelTest) {
+TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
   CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_7))
       return;
 
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
@@ -3563,17 +3563,17 @@ TEST_F(ExecutionTest, SampleCmpLevelTest) {
                         size_t size = sizeof(float) * texWidth * texHeight * 2;
                         Data.resize(size);
                         float *pPrimitives = (float *)Data.data();
-                        float lod = 0.0;
+                        float val = 0.5;
                         int ix = 0;
                         while (texHeight > 0 && texWidth > 0) {
                           if(!texHeight) texHeight = 1;
                           if(!texWidth) texWidth = 1;
                           for (size_t j = 0; j < texHeight; ++j) {
                             for (size_t i = 0; i < texWidth; ++i) {
-                              pPrimitives[ix++] = lod;
+                              pPrimitives[ix++] = val;
                             }
                           }
-                          lod += 1.0;
+                          val += 1.0;
                           texHeight >>= 1;
                           texWidth >>= 1;
                         }

@@ -653,11 +653,12 @@
         SamplerComparisonState g_sampCmp : register(s1);
 
         uint2 DoSampleCmpLevel( float2 coord, uint lod ) {
-#if __SHADER_TARGET_MINOR == 7
-          return uint2( g_tex.SampleCmpLevelZero(g_sampCmp, coord) == g_tex.SampleCmpLevel(g_sampCmp, coord, 0),
-                        g_tex.SampleCmpLevel(g_sampCmp, coord, lod));
+          float expected = float(lod) + 0.5;
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+          return uint2( g_tex.SampleCmpLevelZero(g_sampCmp, coord, expected) == g_tex.SampleCmpLevel(g_sampCmp, coord, expected, 0),
+                        g_tex.SampleCmpLevel(g_sampCmp, coord, expected, lod));
 #else
-          return uint2(1, g_tex.SampleLevel(g_samp, coord, lod) == lod);
+          return uint2(1, g_tex.SampleLevel(g_samp, coord, lod) == expected);
 #endif
         }
 
