@@ -2933,26 +2933,82 @@
 ]]>
     </Shader>
   </ShaderOp>
-  <ShaderOp Name="QuadAnyAll" CS="CS" DispatchX="8" DispatchY="8">
-    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="1024" InitialResourceState="COPY_DEST" Init="Zero" Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true" />
+  <ShaderOp Name="QuadAnyAll" CS="CS" PS="PS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="2048" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ZERO" ReadBack="true"/>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
     <RootValues>
-      <RootValue Index="0" ResName="UAVBuffer0"/>
+      <RootValue Index="0" ResName="UAVBuffer0" />
     </RootValues>
-    <Shader Name="CS67" Target="cs_6_7" EntryPoint="main" Text="@CS"/>
-    <Shader Name="CS" Target="cs_6_0" EntryPoint="main">
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget">
+        <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
+      </RenderTarget>
+    </RenderTargets>
+    
+    <Shader Name="PS" Target="ps_6_5" EntryPoint="PSMain" Text="@CS"/>
+    <Shader Name="AS67" Target="as_6_7" EntryPoint="ASMain" Text="@CS"/>
+    <Shader Name="AS" Target="as_6_5" EntryPoint="ASMain" Text="@CS"/>
+    <Shader Name="MS67" Target="ms_6_7" EntryPoint="MSMain" Text="@CS"/>
+    <Shader Name="MS" Target="ms_6_5" EntryPoint="MSMain" Text="@CS"/>
+    <Shader Name="CS67" Target="cs_6_7" EntryPoint="CSMain" Text="@CS"/>
+    <Shader Name="CS" Target="cs_6_0" EntryPoint="CSMain">
     <![CDATA[
-RWStructuredBuffer<int2> Values;
+RWStructuredBuffer<int2> Values : register(u0);
 groupshared uint WaveOffset = 0;
-[numthreads(8, 8, 1)]
-void main(uint TID: SV_GroupIndex) {
-  if (TID == 0)
+
+struct PSInput {
+  float4 position : SV_POSITION;
+  float2 uv : TEXCOORD;
+};
+
+static float4 g_Verts[6] = {
+  { -1.0f,  1.0f, 0.0f, 1.0f },
+  {  1.0f,  1.0f, 0.0f, 1.0f },
+  { -1.0f, -1.0f, 0.0f, 1.0f },
+
+  { -1.0f, -1.0f, 0.0f, 1.0f },
+  {  1.0f,  1.0f, 0.0f, 1.0f },
+  {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+static float2 g_UV[6] = {
+  { 0.0f, 0.0f },
+  { 1.0f, 0.0f },
+  { 0.0f, 1.0f },
+
+  { 0.0f, 1.0f },
+  { 1.0f, 0.0f },
+  { 1.0f, 1.0f }};
+
+float4 PSMain(PSInput input) : SV_TARGET {
+  // This output doesn't actually matter
+  return input.position;
+}
+
+void QuadAnyAllTest(uint GID, uint StartOffset) {
+  if (GID == 0)
     WaveOffset = 0;
   GroupMemoryBarrierWithGroupSync();
-  uint Offset = 0;
+  uint Offset = StartOffset;
   uint QuadElem = WaveGetLaneIndex() & 3;
   if (QuadElem == 0)
-    Offset = WavePrefixSum(4);
+    Offset += WavePrefixSum(4);
   Offset = QuadReadLaneAt(Offset, 0) + QuadElem;
   uint LocalWaveOffset = 0;
   if (WaveGetLaneIndex() == 0) {
@@ -2965,6 +3021,37 @@ void main(uint TID: SV_GroupIndex) {
   bool ThreadBool = (QuadMask & QuadId) != 0;
   Values[Idx].x = QuadAny(ThreadBool) ? 1 : 2;
   Values[Idx].y = QuadAll(ThreadBool) ? 3 : 4;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint GID: SV_GroupIndex) {
+  QuadAnyAllTest(GID, 0);
+}
+
+struct Payload {
+  uint nothing;
+};
+
+groupshared Payload P{0};
+
+[numthreads(8, 8, 1)]
+void ASMain(uint GID : SV_GroupIndex) {
+  QuadAnyAllTest(GID, 0);
+  DispatchMesh(1, 1, 1, P);
+}
+
+[numthreads(8, 8, 1)]
+[OutputTopology("triangle")]
+void MSMain(uint GID : SV_GroupIndex,
+            in payload Payload payload,
+            out vertices PSInput verts[6],
+            out indices uint3 tris[2]) {
+    SetMeshOutputCounts(6, 2);
+    // Assign static fullscreen 2 tri quad
+    verts[GID%6].position = g_Verts[GID%6];
+    verts[GID%6].uv = g_UV[GID%6];
+    tris[GID&1] = uint3((GID&1)*3, (GID&1)*3 + 1, (GID&1)*3 + 2);
+    QuadAnyAllTest(GID, 64);
 }
 ]]>
     </Shader>
