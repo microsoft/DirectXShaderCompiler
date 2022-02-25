@@ -9627,45 +9627,62 @@ struct int2 {
 };
 
 bool VerifyQuadAnyAllResults(int2 *Res) {
-    int Idx = 0;
-    for ( ; Idx < 4; ++Idx) {
-      if (Res[Idx].x != 2) return false;
-      if (Res[Idx].y != 4) return false;
-    }
-    for ( ; Idx < 60; ++Idx) {
-      if (Res[Idx].x != 1) return false;
-      if (Res[Idx].y != 4) return false;
-    }
-    for ( ; Idx < 64; ++Idx) {
-      if (Res[Idx].x != 1) return false;
-      if (Res[Idx].y != 3) return false;
-    }
-    return true;
+  int Idx = 0;
+  for (; Idx < 4; ++Idx) {
+    if (Res[Idx].x != 2)
+      return false;
+    if (Res[Idx].y != 4)
+      return false;
+  }
+  for (; Idx < 60; ++Idx) {
+    if (Res[Idx].x != 1)
+      return false;
+    if (Res[Idx].y != 4)
+      return false;
+  }
+  for (; Idx < 64; ++Idx) {
+    if (Res[Idx].x != 1)
+      return false;
+    if (Res[Idx].y != 3)
+      return false;
+  }
+  return true;
 }
 
 TEST_F(ExecutionTest, QuadAnyAll) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
-  st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("QuadAnyAll");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("QuadAnyAll");
 
   LPCSTR args = "/Od";
 
   if (args[0]) {
-    for (st::ShaderOpShader& S : pShaderOp->Shaders)
+    for (st::ShaderOpShader &S : pShaderOp->Shaders)
       S.Arguments = args;
   }
 
   bool Skipped = true;
-  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_7 };
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0,
+                                         D3D_SHADER_MODEL_6_5,
+                                         D3D_SHADER_MODEL_6_7};
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
-    LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+    LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in "
+                  L"shader model 6.%1u",
+                  ((UINT)sm & 0x0f));
 
-    if (sm == D3D_SHADER_MODEL_6_7) {
+    if (sm == D3D_SHADER_MODEL_6_5) {
+      pShaderOp->MS = pShaderOp->GetString("MS");
+      pShaderOp->AS = pShaderOp->GetString("AS");
+    } else if (sm == D3D_SHADER_MODEL_6_7) {
+      pShaderOp->AS = pShaderOp->GetString("AS67");
+      pShaderOp->MS = pShaderOp->GetString("MS67");
       pShaderOp->CS = pShaderOp->GetString("CS67");
     }
 
@@ -9680,18 +9697,34 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     }
 
     if (!DoesDeviceSupportWaveOps(pDevice)) {
-      LogCommentFmt(L"Device does not support wave operations in shader model 6.%1u", ((UINT)sm & 0x0f));
+      LogCommentFmt(
+          L"Device does not support wave operations in shader model 6.%1u",
+          ((UINT)sm & 0x0f));
       continue;
     }
     Skipped = false;
 
     // test compute
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
-      CleanUAVBuffer0Buffer, ShaderOpSet);
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+        pDevice, m_support, "QuadAnyAll", CleanUAVBuffer0Buffer, ShaderOpSet);
 
     MappedData uavData;
     test->Test->GetReadBackData("UAVBuffer0", &uavData);
-    bool Result = VerifyQuadAnyAllResults((int2*)uavData.data());
+    bool Result = VerifyQuadAnyAllResults((int2 *)uavData.data());
+    VERIFY_IS_TRUE(Result);
+
+    if (sm < D3D_SHADER_MODEL_6_5 || !DoesDeviceSupportMeshShaders(pDevice))
+      continue;
+
+    pShaderOp->CS = nullptr;
+    // test AS/MS
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+                                     CleanUAVBuffer0Buffer, ShaderOpSet);
+
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    Result = VerifyQuadAnyAllResults((int2 *)uavData.data());
+    VERIFY_IS_TRUE(Result);
+    Result = VerifyQuadAnyAllResults(&((int2 *)uavData.data())[64]);
     VERIFY_IS_TRUE(Result);
   }
   if (Skipped)
