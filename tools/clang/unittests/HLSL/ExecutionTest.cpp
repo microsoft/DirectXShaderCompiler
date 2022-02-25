@@ -52,6 +52,7 @@
 #include <d3dcompiler.h>
 #include <wincodec.h>
 #include "ShaderOpTest.h"
+#include <libloaderapi.h>
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")
@@ -461,28 +462,52 @@ public:
 
   dxc::DxcDllSupport m_support;
   VersionSupportInfo m_ver;
+
+  bool m_D3DInitCompleted = false;
   bool m_ExperimentalModeEnabled = false;
+  bool m_AgilitySDKEnabled = false;
 
   const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 
   bool DivergentClassSetup() {
-    HRESULT hr;
-    hr = EnableExperimentalMode();
-    if (FAILED(hr)) {
-      LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
-    } else if (hr == S_FALSE) {
-      LogCommentFmt(L"Experimental mode not enabled.");
-    } else {
-      LogCommentFmt(L"Experimental mode enabled.");
-    }
+    // Run this only once.
+    if (!m_D3DInitCompleted) {
+      m_D3DInitCompleted = true;
 
-    hr = EnableDebugLayer();
-    if (FAILED(hr)) {
-      LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
-    } else if (hr == S_FALSE) {
-      LogCommentFmt(L"Debug layer not enabled.");
-    } else {
-      LogCommentFmt(L"Debug layer enabled.");
+      HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
+      if (hRuntime == NULL)
+        return false;
+      // Do not: FreeLibrary(hRuntime);
+      // If we actually free the library, it defeats the purpose of
+      // EnableAgilitySDK and EnableExperimentalMode.
+
+      HRESULT hr;
+      hr = EnableAgilitySDK(hRuntime);
+      if (FAILED(hr)) {
+        LogCommentFmt(L"Unable to enable Agility SDK - 0x%08x.", hr);
+      } else if (hr == S_FALSE) {
+        LogCommentFmt(L"Agility SDK not enabled.");
+      } else {
+        LogCommentFmt(L"Agility SDK enabled.");
+      }
+
+      hr = EnableExperimentalMode(hRuntime);
+      if (FAILED(hr)) {
+        LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
+      } else if (hr == S_FALSE) {
+        LogCommentFmt(L"Experimental mode not enabled.");
+      } else {
+        LogCommentFmt(L"Experimental mode enabled.");
+      }
+
+      hr = EnableDebugLayer();
+      if (FAILED(hr)) {
+        LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
+      } else if (hr == S_FALSE) {
+        LogCommentFmt(L"Debug layer not enabled.");
+      } else {
+        LogCommentFmt(L"Debug layer enabled.");
+      }
     }
 
     return true;
@@ -1288,76 +1313,153 @@ public:
     return hr;
   }
 
-  static HRESULT
-  EnableExperimentalShaderModels(bool bExperimentalShaderModels = true,
-                                 UINT SDKVersion = 0, LPCSTR SDKPath = "") {
-    HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
-    if (hRuntime == NULL) {
-      return HRESULT_FROM_WIN32(GetLastError());
+  static std::wstring GetModuleName() {
+    wchar_t moduleName[MAX_PATH+1] = {0};
+    DWORD length = GetModuleFileNameW(NULL, moduleName, MAX_PATH);
+    if (length == 0 || length == MAX_PATH) {
+      return std::wstring(); // Error condition
     }
+    return std::wstring(moduleName, length);
+  }
 
-    if (SDKVersion) {
-      D3D12GetInterfaceFn pD3D12GetInterface =
-          (D3D12GetInterfaceFn)GetProcAddress(hRuntime, "D3D12GetInterface");
-      CComPtr<ID3D12SDKConfiguration> pD3D12SDKConfiguration;
-      IFR(pD3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&pD3D12SDKConfiguration)));
-      IFR(pD3D12SDKConfiguration->SetSDKVersion(SDKVersion, SDKPath));
+  static std::wstring ComputeSDKFullPath(std::wstring SDKPath) {
+    std::wstring modulePath = GetModuleName();
+    size_t pos = modulePath.rfind('\\');
+    if (pos == std::wstring::npos)
+      return SDKPath;
+    if (SDKPath.substr(0, 2) != L".\\")
+      return SDKPath;
+    return modulePath.substr(0, pos) + SDKPath.substr(1);
+  }
+
+  static UINT GetD3D12SDKVersion(std::wstring SDKPath) {
+    // Try to automatically get the D3D12SDKVersion from the DLL
+    UINT SDKVersion = 0;
+    std::wstring D3DCorePath = ComputeSDKFullPath(SDKPath);
+    D3DCorePath.append(L"D3D12Core.dll");
+    HMODULE hCore = LoadLibraryW(D3DCorePath.c_str());
+    if (hCore) {
+      if (UINT *pSDKVersion = (UINT*)GetProcAddress(hCore, "D3D12SDKVersion"))
+        SDKVersion = *pSDKVersion;
+      FreeModule(hCore);
     }
+    return SDKVersion;
+  }
 
+  static HRESULT EnableAgilitySDK(HMODULE hRuntime, UINT SDKVersion,
+                                  LPCWSTR SDKPath) {
+    D3D12GetInterfaceFn pD3D12GetInterface =
+        (D3D12GetInterfaceFn)GetProcAddress(hRuntime, "D3D12GetInterface");
+    CComPtr<ID3D12SDKConfiguration> pD3D12SDKConfiguration;
+    IFR(pD3D12GetInterface(CLSID_D3D12SDKConfiguration,
+                           IID_PPV_ARGS(&pD3D12SDKConfiguration)));
+    IFR(pD3D12SDKConfiguration->SetSDKVersion(SDKVersion, CW2A(SDKPath)));
+
+    // Currently, it appears that the SetSDKVersion will succeed even when
+    // D3D12Core is not found, or its version doesn't match.  When that's the
+    // case, will cause a failure in the very next thing that actually requires
+    // D3D12Core.dll to be loaded instead.  So, we attempt to clear experimental
+    // features next, which is a valid use case and a no-op at this point.  This
+    // requires D3D12Core to be loaded.  If this fails, we know the AgilitySDK
+    // setting actually failed.
     D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
         (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
             hRuntime, "D3D12EnableExperimentalFeatures");
     if (pD3D12EnableExperimentalFeatures == nullptr) {
-      FreeLibrary(hRuntime);
+      // If this failed, D3D12 must be too old for AgilitySDK.  But if that's
+      // the case, creating D3D12SDKConfiguration should have failed.  So while
+      // this case shouldn't be hit, fail if it is.
       return HRESULT_FROM_WIN32(GetLastError());
     }
+    return pD3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
+  }
 
-    HRESULT hr = S_OK;
-    if (bExperimentalShaderModels) {
-      hr = pD3D12EnableExperimentalFeatures(
-          1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
+  static HRESULT EnableExperimentalShaderModels(HMODULE hRuntime) {
+    D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+        (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
+            hRuntime, "D3D12EnableExperimentalFeatures");
+    if (pD3D12EnableExperimentalFeatures == nullptr) {
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+    return pD3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModelsID,
+                                            nullptr, nullptr);
+  }
+
+  static HRESULT EnableExperimentalShaderModels() {
+    HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
+    if (hRuntime == NULL)
+      return E_FAIL;
+    return EnableExperimentalShaderModels(hRuntime);
+  }
+
+  HRESULT EnableAgilitySDK(HMODULE hRuntime) {
+    // D3D12SDKVersion > 1 will use provided version, otherwise, auto-detect.
+    // D3D12SDKVersion == 1 means fail if we can't auto-detect.
+    UINT SDKVersion = 0;
+    WEX::TestExecution::RuntimeParameters::TryGetValue(
+            L"D3D12SDKVersion", SDKVersion);
+
+    // SDKPath must be relative path from .exe, which means relative to
+    // TE.exe location, and must start with ".\\", such as with the
+    // default: ".\\D3D12\\"
+    WEX::Common::String SDKPath;
+    if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+            L"D3D12SDKPath", SDKPath))) {
+      // Make sure path ends in backslash
+      if (!SDKPath.IsEmpty() && SDKPath.Right(1) != "\\") {
+        SDKPath.Append("\\");
+      }
+    }
+    if (SDKPath.IsEmpty()) {
+      SDKPath = L".\\D3D12\\";
     }
 
-    // Do not: FreeLibrary(hRuntime);
-    // If it actually frees the library, it defeats the purpose of this function.
+    bool mustFind = SDKVersion > 0;
+    if (SDKVersion <= 1) {
+      // lookup version from D3D12Core.dll
+      SDKVersion = GetD3D12SDKVersion((LPCWSTR)SDKPath);
+      if (mustFind && SDKVersion == 0) {
+        LogErrorFmt(L"Agility SDK not found in relative path: %s", (LPCWSTR)SDKPath);
+        return E_FAIL;
+      }
+    }
 
+    // Not found, not asked for.
+    if (SDKVersion == 0)
+      return S_FALSE;
+
+    HRESULT hr= EnableAgilitySDK(hRuntime, SDKVersion, (LPCWSTR)SDKPath);
+    if (FAILED(hr)) {
+      // If SDKVersion provided, fail if not successful.
+      // 1 means we should find it, and fill in the version automatically.
+      if (mustFind) {
+        LogErrorFmt(L"Failed to set Agility SDK version %d at path: %s", SDKVersion, (LPCWSTR)SDKPath);
+        return hr;
+      }
+      return S_FALSE;
+    }
+    if (hr == S_OK) {
+      LogCommentFmt(L"Agility SDK version set to: %d", SDKVersion);
+      m_AgilitySDKEnabled = true;
+    }
     return hr;
   }
 
-  HRESULT EnableExperimentalMode() {
+  HRESULT EnableExperimentalMode(HMODULE hRuntime) {
     if (m_ExperimentalModeEnabled) {
       return S_OK;
     }
 
     bool bExperimentalShaderModels = GetTestParamBool(L"ExperimentalShaders");
 
-    // Non-zero D3D12SDKVersion will trigger attempt to set AgilitySDK version.
-    UINT SDKVersion = 0;
-    WEX::TestExecution::RuntimeParameters::TryGetValue(
-            L"D3D12SDKVersion", SDKVersion);
-
-    if (!bExperimentalShaderModels && SDKVersion == 0)
-      return S_OK;
-
-    // SDKPath must be relative path from .exe, which means relative to TE.exe
-    // location, such as ".\\D3D12\\"
-    std::string SDKPath = "";
-    WEX::Common::String ParamValue;
-    if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-            L"D3D12SDKPath", ParamValue))) {
-      SDKPath = CW2A(ParamValue);
-      // Make sure path ends in backslash
-      if (!SDKPath.empty() && SDKPath.back() != '\\') {
-        SDKPath.append("\\");
+    HRESULT hr = S_FALSE;
+    if (bExperimentalShaderModels) {
+      hr = EnableExperimentalShaderModels(hRuntime);
+      if (SUCCEEDED(hr)) {
+        m_ExperimentalModeEnabled = true;
       }
     }
 
-    HRESULT hr = EnableExperimentalShaderModels(bExperimentalShaderModels,
-                                                SDKVersion, SDKPath.c_str());
-
-    if (SUCCEEDED(hr) && bExperimentalShaderModels) {
-      m_ExperimentalModeEnabled = true;
-    }
     return hr;
   }
 
@@ -8942,20 +9044,11 @@ TEST_F(ExecutionTest, Atomics64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CS")) CS64 = S.Name;
-    if (!strcmp(S.Name, "VS")) VS64 = S.Name;
-    if (!strcmp(S.Name, "PS")) PS64 = S.Name;
-    if (!strcmp(S.Name, "AS")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MS")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->VS = VS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CS");
+  pShaderOp->VS = pShaderOp->GetString("VS");
+  pShaderOp->PS = pShaderOp->GetString("PS");
+  pShaderOp->AS = pShaderOp->GetString("AS");
+  pShaderOp->MS = pShaderOp->GetString("MS");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
@@ -9006,20 +9099,11 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CS64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "VS64")) VS64 = S.Name;
-    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
-    if (!strcmp(S.Name, "AS64")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MS64")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->VS = VS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CS64");
+  pShaderOp->VS = pShaderOp->GetString("VS64");
+  pShaderOp->PS = pShaderOp->GetString("PS64");
+  pShaderOp->AS = pShaderOp->GetString("AS64");
+  pShaderOp->MS = pShaderOp->GetString("MS64");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in compute shader");
@@ -9070,20 +9154,11 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CSTY64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "VSTY64")) VS64 = S.Name;
-    if (!strcmp(S.Name, "PSTY64")) PS64 = S.Name;
-    if (!strcmp(S.Name, "ASTY64")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MSTY64")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->VS = VS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CSTY64");
+  pShaderOp->VS = pShaderOp->GetString("VSTY64");
+  pShaderOp->PS = pShaderOp->GetString("PSTY64");
+  pShaderOp->AS = pShaderOp->GetString("ASTY64");
+  pShaderOp->MS = pShaderOp->GetString("MSTY64");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in compute shader");
@@ -9134,19 +9209,10 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
-  LPCSTR CS64 = nullptr, PS64 = nullptr;
-  LPCSTR AS64 = nullptr, MS64 = nullptr;
-  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
-    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
-    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
-    if (!strcmp(S.Name, "ASSH64")) AS64 = S.Name;
-    if (!strcmp(S.Name, "MSSH64")) MS64 = S.Name;
-  }
-  pShaderOp->CS = CS64;
-  pShaderOp->PS = PS64;
-  pShaderOp->AS = AS64;
-  pShaderOp->MS = MS64;
+  pShaderOp->CS = pShaderOp->GetString("CSSH64");
+  pShaderOp->PS = pShaderOp->GetString("PS64");
+  pShaderOp->AS = pShaderOp->GetString("ASSH64");
+  pShaderOp->MS = pShaderOp->GetString("MSSH64");
 
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
@@ -9573,26 +9639,14 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
 
     if (sm == D3D_SHADER_MODEL_6_5) {
       // Reassign shader stages to 6.5 versions
-      LPCSTR CS65 = nullptr, VS65 = nullptr, PS65 = nullptr;
-      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
-        if (!strcmp(S.Name, "CS65")) CS65 = S.Name;
-        if (!strcmp(S.Name, "VS65")) VS65 = S.Name;
-        if (!strcmp(S.Name, "PS65")) PS65 = S.Name;
-      }
-      pShaderOp->CS = CS65;
-      pShaderOp->VS = VS65;
-      pShaderOp->PS = PS65;
+      pShaderOp->CS = pShaderOp->GetString("CS65");
+      pShaderOp->VS = pShaderOp->GetString("VS65");
+      pShaderOp->PS = pShaderOp->GetString("PS65");
     } else if (sm == D3D_SHADER_MODEL_6_6) {
       // Reassign shader stages to 6.6 versions
-      LPCSTR CS66 = nullptr, VS66 = nullptr, PS66 = nullptr;
-      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
-        if (!strcmp(S.Name, "CS66")) CS66 = S.Name;
-        if (!strcmp(S.Name, "VS66")) VS66 = S.Name;
-        if (!strcmp(S.Name, "PS66")) PS66 = S.Name;
-      }
-      pShaderOp->CS = CS66;
-      pShaderOp->VS = VS66;
-      pShaderOp->PS = PS66;
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      pShaderOp->VS = pShaderOp->GetString("VS66");
+      pShaderOp->PS = pShaderOp->GetString("PS66");
     } else if (sm == D3D_SHADER_MODEL_6_7) {
       // Reassign shader stages to 6.7 versions
       LPCSTR PS67 = nullptr;
@@ -9656,46 +9710,63 @@ struct int2 {
 };
 
 bool VerifyQuadAnyAllResults(int2 *Res) {
-    int Idx = 0;
-    for ( ; Idx < 4; ++Idx) {
-      if (Res[Idx].x != 2) return false;
-      if (Res[Idx].y != 4) return false;
-    }
-    for ( ; Idx < 60; ++Idx) {
-      if (Res[Idx].x != 1) return false;
-      if (Res[Idx].y != 4) return false;
-    }
-    for ( ; Idx < 64; ++Idx) {
-      if (Res[Idx].x != 1) return false;
-      if (Res[Idx].y != 3) return false;
-    }
-    return true;
+  int Idx = 0;
+  for (; Idx < 4; ++Idx) {
+    if (Res[Idx].x != 2)
+      return false;
+    if (Res[Idx].y != 4)
+      return false;
+  }
+  for (; Idx < 60; ++Idx) {
+    if (Res[Idx].x != 1)
+      return false;
+    if (Res[Idx].y != 4)
+      return false;
+  }
+  for (; Idx < 64; ++Idx) {
+    if (Res[Idx].x != 1)
+      return false;
+    if (Res[Idx].y != 3)
+      return false;
+  }
+  return true;
 }
 
 TEST_F(ExecutionTest, QuadAnyAll) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
-  st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("QuadAnyAll");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("QuadAnyAll");
 
   LPCSTR args = "/Od";
 
   if (args[0]) {
-    for (st::ShaderOpShader& S : pShaderOp->Shaders)
+    for (st::ShaderOpShader &S : pShaderOp->Shaders)
       S.Arguments = args;
   }
 
   bool Skipped = true;
-  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_7 };
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0,
+                                         D3D_SHADER_MODEL_6_5,
+                                         D3D_SHADER_MODEL_6_7};
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
-    LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+    LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in "
+                  L"shader model 6.%1u",
+                  ((UINT)sm & 0x0f));
 
-    if (sm == D3D_SHADER_MODEL_6_7) {
-      pShaderOp->CS = "CS67";
+    if (sm == D3D_SHADER_MODEL_6_5) {
+      pShaderOp->MS = pShaderOp->GetString("MS");
+      pShaderOp->AS = pShaderOp->GetString("AS");
+    } else if (sm == D3D_SHADER_MODEL_6_7) {
+      pShaderOp->AS = pShaderOp->GetString("AS67");
+      pShaderOp->MS = pShaderOp->GetString("MS67");
+      pShaderOp->CS = pShaderOp->GetString("CS67");
     }
 
     CComPtr<ID3D12Device> pDevice;
@@ -9709,18 +9780,34 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     }
 
     if (!DoesDeviceSupportWaveOps(pDevice)) {
-      LogCommentFmt(L"Device does not support wave operations in shader model 6.%1u", ((UINT)sm & 0x0f));
+      LogCommentFmt(
+          L"Device does not support wave operations in shader model 6.%1u",
+          ((UINT)sm & 0x0f));
       continue;
     }
     Skipped = false;
 
     // test compute
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
-      CleanUAVBuffer0Buffer, ShaderOpSet);
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+        pDevice, m_support, "QuadAnyAll", CleanUAVBuffer0Buffer, ShaderOpSet);
 
     MappedData uavData;
     test->Test->GetReadBackData("UAVBuffer0", &uavData);
-    bool Result = VerifyQuadAnyAllResults((int2*)uavData.data());
+    bool Result = VerifyQuadAnyAllResults((int2 *)uavData.data());
+    VERIFY_IS_TRUE(Result);
+
+    if (sm < D3D_SHADER_MODEL_6_5 || !DoesDeviceSupportMeshShaders(pDevice))
+      continue;
+
+    pShaderOp->CS = nullptr;
+    // test AS/MS
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadAnyAll",
+                                     CleanUAVBuffer0Buffer, ShaderOpSet);
+
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    Result = VerifyQuadAnyAllResults((int2 *)uavData.data());
+    VERIFY_IS_TRUE(Result);
+    Result = VerifyQuadAnyAllResults(&((int2 *)uavData.data())[64]);
     VERIFY_IS_TRUE(Result);
   }
   if (Skipped)
