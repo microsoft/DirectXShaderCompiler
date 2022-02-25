@@ -3040,10 +3040,11 @@ struct Payload {
   uint nothing;
 };
 
+groupshared Payload P{0};
+
 [numthreads(8, 8, 1)]
 void ASMain(uint GID : SV_GroupIndex) {
   QuadAnyAllTest(GID, 0);
-  Payload P = {0};
   DispatchMesh(1, 1, 1, P);
 }
 

@@ -9669,7 +9669,8 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 
   bool Skipped = true;
   D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0,
-                                         D3D_SHADER_MODEL_6_5};
+                                         D3D_SHADER_MODEL_6_5,
+                                         D3D_SHADER_MODEL_6_7};
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
     LogCommentFmt(L"\r\nVerifying QuadAny/QuadAll using Wave intrinsics in "
@@ -9712,7 +9713,7 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     bool Result = VerifyQuadAnyAllResults((int2 *)uavData.data());
     VERIFY_IS_TRUE(Result);
 
-    if (!DoesDeviceSupportMeshShaders(pDevice))
+    if (sm < D3D_SHADER_MODEL_6_5 || !DoesDeviceSupportMeshShaders(pDevice))
       continue;
 
     pShaderOp->CS = nullptr;
