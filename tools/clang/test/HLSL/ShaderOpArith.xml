@@ -662,7 +662,8 @@
 
         uint4 DoTests( int2 coord, int2 offset ) {
 #if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
-          float cmp = (coord.y + offset.y)*1000 + coord.x + offset.x;
+          int2 coffset = ClampOffset(offset);
+          float cmp = (coord.y + coffset.y)*1000 + coord.x + coffset.x;
           float2 fcoord = (coord + 0.5)/1000.0;
           return uint4( g_tex.Sample(g_samp, fcoord, offset),
                         g_tex.SampleCmp(g_sampCmp, fcoord, cmp, offset),
