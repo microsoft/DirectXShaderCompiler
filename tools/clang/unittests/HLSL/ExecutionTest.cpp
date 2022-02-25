@@ -3539,6 +3539,9 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   }
 }
 
+// A mipmapped texture containing the value of LOD at each location in each
+// level is used to sample at each level using SampleCmpLevel and confirm
+// that the correct level is used for the comparison.
 TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -3588,6 +3591,8 @@ TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
 
   // Check that each LOD matches what's expected
   unsigned count = 2*7;
+  // Since the results consist of a boolean, which should be true followed by the result of a sampcmplvl,
+  // the only result expected is 1.
   for (unsigned i = 0; i < count; i++)
     VERIFY_ARE_EQUAL(pPixels[i], 1U);
 
