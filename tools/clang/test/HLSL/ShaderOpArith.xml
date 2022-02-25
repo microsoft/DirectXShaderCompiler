@@ -2933,7 +2933,7 @@
 ]]>
     </Shader>
   </ShaderOp>
-  <ShaderOp Name="QuadAnyAll" CS="CS" VS="VS" PS="PS" DispatchX="8" DispatchY="8">
+  <ShaderOp Name="QuadAnyAll" CS="CS" PS="PS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
     <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="2048" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ZERO" ReadBack="true"/>
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
@@ -2963,7 +2963,6 @@
     </RenderTargets>
     
     <Shader Name="PS" Target="ps_6_5" EntryPoint="PSMain" Text="@CS"/>
-    <Shader Name="VS" Target="vs_6_5" EntryPoint="VSMain" Text="@CS"/>
     <Shader Name="AS67" Target="as_6_7" EntryPoint="ASMain" Text="@CS"/>
     <Shader Name="AS" Target="as_6_5" EntryPoint="ASMain" Text="@CS"/>
     <Shader Name="MS67" Target="ms_6_7" EntryPoint="MSMain" Text="@CS"/>
@@ -3002,13 +3001,6 @@ float4 PSMain(PSInput input) : SV_TARGET {
   return input.position;
 }
 
-PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD) {
-  PSInput result;
-  result.position = float4(position, 1.0);
-  result.uv = uv;
-  return result;
-}
-
 void QuadAnyAllTest(uint GID, uint StartOffset) {
   if (GID == 0)
     WaveOffset = 0;
@@ -3016,7 +3008,7 @@ void QuadAnyAllTest(uint GID, uint StartOffset) {
   uint Offset = StartOffset;
   uint QuadElem = WaveGetLaneIndex() & 3;
   if (QuadElem == 0)
-    Offset = WavePrefixSum(4);
+    Offset += WavePrefixSum(4);
   Offset = QuadReadLaneAt(Offset, 0) + QuadElem;
   uint LocalWaveOffset = 0;
   if (WaveGetLaneIndex() == 0) {
