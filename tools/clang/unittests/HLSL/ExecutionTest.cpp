@@ -3539,7 +3539,11 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   }
 }
 
+// Used to determine how an out of bounds offset should be converted
 #define CLAMPOFFSET(offset) ((offset<<28)>>28)
+
+// Determine if the values in pPixels correspond to the expected locations encoded into a uint
+// based on the coordinates and offsets that were provided.
 void VerifyProgOffsetResults(unsigned *pPixels) {
   // Check that each element matches the expected value given the offset
   unsigned ix = 0;
@@ -3561,6 +3565,10 @@ void VerifyProgOffsetResults(unsigned *pPixels) {
   }
 }
 
+// Fills a 1000x1000 float texture with index values increasing in row-major order
+// The shader then uses non-immediate offsets extending from -9 to 8 to access these using
+// Load, Sample, SampleCmp and variants thereof.
+// The test verifies that the locations accessed correspond to where they should.
 TEST_F(ExecutionTest, ATOProgOffset) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;

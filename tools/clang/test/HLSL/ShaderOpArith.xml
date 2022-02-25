@@ -652,26 +652,33 @@
         SamplerState g_samp : register(s0);
         SamplerComparisonState g_sampCmp : register(s1);
 
-        int2 ClampOffset(int2 offset) {
-          if (offset.x < -8 || offset.x > 7)
-            offset.x = (offset.x << 28) >> 28;
-          if (offset.y < -8 || offset.y > 7)
-            offset.y = (offset.y << 28) >> 28;
+        // It's not exactly a mask because of sign extension, but the concept
+        // is that it's treated like a 4-bit signed integer using the lowest 4 bits
+        int2 Mask4Offset(int2 offset) {
+          offset.x = (offset.x << 28) >> 28;
+          offset.y = (offset.y << 28) >> 28;
           return offset;
         }
 
+        // Tests Sample and SampleCmp variants with programmed offsets
         uint4 DoTests( int2 coord, int2 offset ) {
 #if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
-          int2 coffset = ClampOffset(offset);
-          float cmp = (coord.y + coffset.y)*1000 + coord.x + coffset.x;
+          // offset for purposes of the compare value, which should only acknowledge the lower 4 bits
+          int2 moffset = Mask4Offset(offset);
+          // The index that should correspond to this location is the expected value
+          float cmp = (coord.y + moffset.y)*1000 + coord.x + moffset.x;
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
           float2 fcoord = (coord + 0.5)/1000.0;
           return uint4( g_tex.Sample(g_samp, fcoord, offset),
                         g_tex.SampleCmp(g_sampCmp, fcoord, cmp, offset),
                         g_tex.SampleCmpLevel(g_sampCmp, fcoord, cmp, 0, offset),
                         g_tex.SampleCmpLevelZero(g_sampCmp, fcoord, cmp, offset));
 #else
-          coord += ClampOffset(offset);
+          // Fake the offset by adding it to the integer coords
+          coord += Mask4Offset(offset);
+          // The index that should correspond to this location
           float cmp = (coord.y)*1000 + coord.x;
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
           float2 fcoord = (coord + 0.5)/1000.0;
           return uint4( g_tex.Sample(g_samp, fcoord),
                         g_tex.SampleCmp(g_sampCmp, fcoord, cmp),
@@ -680,17 +687,23 @@
 #endif
         }
 
+        // Tests Load and Sample* variants with programmed offsets
         uint4 DoMoarTests( int2 coord, int2 offset ) {
+          // Load requires a uint3 unlike the rest
           uint3 lcoord = uint3(coord, 0);
 #if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
           float2 fcoord = (coord + 0.5)/1000.0;
           return uint4( g_tex.Load(lcoord, offset),
                         g_tex.SampleBias(g_samp, fcoord, -1.0, offset),
                         g_tex.SampleGrad(g_samp, fcoord, 1.0, 1.0, offset),
                         g_tex.SampleLevel(g_samp, fcoord, 0, offset));
 #else
-          coord += ClampOffset(offset);
+          // Fake the offset by adding it to the integer coords
+          coord += Mask4Offset(offset);
+          // Load requires a uint3 unlike the rest
           lcoord = uint3(coord, 0);
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
           float2 fcoord = (coord + 0.5)/1000.0;
           return uint4( g_tex.Load(lcoord),
                         g_tex.SampleBias(g_samp, fcoord, -1.0),
@@ -722,6 +735,7 @@
         };
 
         // Clearly these could be calculated in place, but it's illustrative to write them out
+        // These values were chosen to represent a selection of locations and the complete gamut of offsets
         static const int coords[OFFSETS] = {100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950};
         static const int offsets[OFFSETS] = {-9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8};
         [NumThreads(2, 2, 1)]
@@ -758,8 +772,8 @@
               for (int x = 0; x < 9; x++) {
                 float2 coord = float2(coords[9*id.x+x], coords[9*id.y+y]);
                 int2 offset = uint2(offsets[9*id.x+x], offsets[9*id.y+y]);
-                g_bufAmp[2*9*9*ix + 9*y + x + 0] = DoTests(coord, offset);
-                g_bufAmp[2*9*9*ix + 9*y + x + 1] = DoMoarTests(coord, offset);
+                g_bufMesh[2*9*9*ix + 9*y + x + 0] = DoTests(coord, offset);
+                g_bufMesh[2*9*9*ix + 9*y + x + 1] = DoMoarTests(coord, offset);
               }
             }
           }
@@ -773,6 +787,7 @@
 
         float4 PSMain(PSInput input) : SV_TARGET {
           uint ix = uint(input.uv.y * OFFSETS)*OFFSETS + input.uv.x*OFFSETS;
+          // Retrieve coords and offsets based on texcoords
           float2 coord = float2(coords[input.uv.x*OFFSETS], coords[input.uv.y*OFFSETS]);
           uint2 offset = uint2(offsets[input.uv.x*OFFSETS], offsets[input.uv.y*OFFSETS]);
           g_bufMain[2*ix] = DoTests(coord, offset);
