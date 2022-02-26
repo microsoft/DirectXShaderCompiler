@@ -281,11 +281,9 @@ public:
  
   void TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip);
 
-#ifdef _WIN32 // No ContainerBuilder support yet
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
     return m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, ppResult);
   }
-#endif
 
   template <typename T, typename TDefault, typename TIface>
   void WriteIfValue(TIface *pSymbol, std::wstringstream &o,
@@ -855,8 +853,6 @@ TEST_F(CompilerTest, CompileWhenWorksThenDisassembleWorks) {
   // WEX::Logging::Log::Comment(disassembleStringW.m_psz);
 }
 
-#ifdef _WIN32 // Container builder unsupported
-
 TEST_F(CompilerTest, CompileWhenDebugWorksThenStripDebug) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -1031,6 +1027,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
   VERIFY_IS_NULL(pPartHeader);
 }
 
+#ifdef _WIN32 // No PDBUtil support
 static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
     const WCHAR *pMainFileName,
@@ -1469,7 +1466,6 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
   }
 }
 
-#ifdef _WIN32
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
@@ -1986,7 +1982,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
   VERIFY_ARE_EQUAL(pEntryName, L"main");
 }
 
-#endif
+#endif //  _WIN32 - No PDBUtil support
 
 void CompilerTest::TestResourceBindingImpl(
   const char *bindingFileContent,
@@ -2330,6 +2326,7 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   VERIFY_IS_NOT_NULL(pPartHeader);
 }
 
+#if _WIN32 // API -setrootsignature requires reflection, which isn't supported on non-win
 TEST_F(CompilerTest, CompileThenSetRootSignatureThenValidate) {
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
@@ -2464,7 +2461,7 @@ TEST_F(CompilerTest, CompileThenSetRootSignatureThenValidate) {
                              pRSBlobReplace->GetBufferPointer(),
                              pRSBlob->GetBufferSize()));
 }
-
+#endif // _WIN32 - API -setrootsignature requires reflection, which isn't supported on non-win
 TEST_F(CompilerTest, CompileSetPrivateThenWithStripPrivate) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -2585,7 +2582,6 @@ TEST_F(CompilerTest, CompileWithMultiplePrivateOptionsThenFail) {
       "Cannot specify /Qpdb_in_private and /setprivate together.";
   CheckOperationResultMsgs(pResult, &pErrorMsg2, 1, false, false);
 }
-#endif // Container builder unsupported
 
 TEST_F(CompilerTest, CompileWhenIncludeThenLoadInvoked) {
   CComPtr<IDxcCompiler> pCompiler;

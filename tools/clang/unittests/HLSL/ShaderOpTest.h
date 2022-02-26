@@ -195,6 +195,7 @@ public:
   LPCSTR CS = nullptr, VS = nullptr, PS = nullptr;
   LPCSTR GS = nullptr, DS = nullptr, HS = nullptr;
   LPCSTR AS = nullptr, MS = nullptr;
+  LPCSTR GetString(LPCSTR str) { return Strings.insert(str); }
   UINT DispatchX = 1, DispatchY = 1, DispatchZ = 1;
   D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
