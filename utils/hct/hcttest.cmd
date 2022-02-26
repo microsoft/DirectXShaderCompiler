@@ -439,7 +439,7 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-if %HLSL_TAEF_DIR%=="" (
+if "%HLSL_TAEF_DIR%"=="" (
   set TE=te
 ) else (
   set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\te"
