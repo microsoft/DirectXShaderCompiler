@@ -3714,7 +3714,7 @@ TEST_F(ExecutionTest, ATOProgOffset) {
     if (!CreateDevice(&pDevice, sm, /*skipUnsupported*/false)) {
       LogCommentFmt(L"Device does not support shader model 6.%1u",
                     ((UINT)sm & 0x0f));
-      continue;
+      break;
     }
 
     bool bSupportMSASDeriv = DoesDeviceSupportMeshAmpDerivatives(pDevice);
