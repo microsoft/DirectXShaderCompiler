@@ -304,6 +304,7 @@ public:
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
+  TEST_METHOD(ATOProgOffset);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
   TEST_METHOD(AtomicsRawHeap64Test);
@@ -3638,6 +3639,164 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
     VerifySampleResults(pPixels, 84);
   }
+}
+
+// Used to determine how an out of bounds offset should be converted
+#define CLAMPOFFSET(offset) ((offset<<28)>>28)
+
+// Determine if the values in pPixels correspond to the expected locations encoded into a uint
+// based on the coordinates and offsets that were provided.
+void VerifyProgOffsetResults(unsigned *pPixels, bool bCheckDeriv) {
+  // Check that each element matches the expected value given the offset
+  unsigned ix = 0;
+  int coords[18] = {100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950};
+  int offsets[18] = {CLAMPOFFSET(-9), -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, CLAMPOFFSET(8)};
+  for (unsigned y = 0; y < _countof(coords); y++) {
+    for (unsigned x = 0; x < _countof(coords); x++) {
+      unsigned cmp = (coords[y] + offsets[y])*1000 + coords[x] + offsets[x];
+      if (bCheckDeriv) {
+        VERIFY_ARE_EQUAL(pPixels[2*4*ix+0], cmp); // Sample
+        VERIFY_ARE_EQUAL(pPixels[2*4*ix+1], 1U); // SampleCmp
+      }
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+2], 1U); // SampleCmpLevel
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+3], 1U); // SampleCmpLevelZero
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+4], cmp); // Load
+      if (bCheckDeriv) {
+        VERIFY_ARE_EQUAL(pPixels[2*4*ix+5], cmp); // SampleBias
+      }
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+6], cmp); // SampleGrad
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+7], cmp); // SampleLevel
+      ix++;
+    }
+  }
+}
+
+// Fills a 1000x1000 float texture with index values increasing in row-major order
+// The shader then uses non-immediate offsets extending from -9 to 8 to access these using
+// Load, Sample, SampleCmp and variants thereof.
+// The test verifies that the locations accessed correspond to where they should.
+TEST_F(ExecutionTest, ATOProgOffset) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ProgOffset");
+
+  auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+                        UNREFERENCED_PARAMETER(pShaderOp);
+                        D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName(Name)->Desc;
+                        UINT texWidth = (UINT)texDesc.Width;
+                        UINT texHeight = (UINT)texDesc.Height;
+                        size_t size = sizeof(float) * texWidth * texHeight;
+                        Data.resize(size);
+                        float *pPrimitives = (float *)Data.data();
+                        int ix = 0;
+                        for (size_t j = 0; j < texHeight; ++j) {
+                          for (size_t i = 0; i < texWidth; ++i) {
+                            pPrimitives[ix] = float(ix);
+                            ix++;
+                          }
+                        }
+                      };
+
+  bool bTestsSkipped = true;
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_5,
+                                         D3D_SHADER_MODEL_6_6,
+                                         D3D_SHADER_MODEL_6_7};
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, /*skipUnsupported*/false)) {
+      LogCommentFmt(L"Device does not support shader model 6.%1u",
+                    ((UINT)sm & 0x0f));
+      break;
+    }
+
+    bool bSupportMSASDeriv = DoesDeviceSupportMeshAmpDerivatives(pDevice);
+
+    bool bCheckDerivCS = sm >= D3D_SHADER_MODEL_6_6;
+    bool bCheckDerivMSAS = bCheckDerivCS && bSupportMSASDeriv;
+
+    if (bCheckDerivCS && !bSupportMSASDeriv) {
+      LogCommentFmt(L"Device does not support derivatives in Mesh and Amplification shaders");
+    }
+
+    switch (sm) {
+    case D3D_SHADER_MODEL_6_5:
+      pShaderOp->CS = pShaderOp->GetString("CS");
+      pShaderOp->PS = pShaderOp->GetString("PS");
+      pShaderOp->MS = pShaderOp->GetString("MS");
+      pShaderOp->AS = pShaderOp->GetString("AS");
+      break;
+    case D3D_SHADER_MODEL_6_6:
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      pShaderOp->PS = pShaderOp->GetString("PS");
+      if (bCheckDerivMSAS) {
+        pShaderOp->MS = pShaderOp->GetString("MS66D");
+        pShaderOp->AS = pShaderOp->GetString("AS66D");
+      } else {
+        pShaderOp->MS = pShaderOp->GetString("MS66");
+        pShaderOp->AS = pShaderOp->GetString("AS66");
+      }
+      break;
+    case D3D_SHADER_MODEL_6_7:
+      pShaderOp->CS = pShaderOp->GetString("CS67");
+      pShaderOp->PS = pShaderOp->GetString("PS67");
+      if (bCheckDerivMSAS) {
+        pShaderOp->MS = pShaderOp->GetString("MS67D");
+        pShaderOp->AS = pShaderOp->GetString("AS67D");
+      } else {
+        pShaderOp->MS = pShaderOp->GetString("MS67");
+        pShaderOp->AS = pShaderOp->GetString("AS67");
+      }
+      break;
+    }
+
+    // Test compute shader
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
+    MappedData data;
+
+    test->Test->GetReadBackData("U0", &data);
+    VerifyProgOffsetResults((UINT*)data.data(), bCheckDerivCS);
+
+    // Disable CS so graphics shaders go forward
+    pShaderOp->CS = nullptr;
+
+    if (DoesDeviceSupportMeshShaders(pDevice)) {
+      test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
+
+      // PS
+      test->Test->GetReadBackData("U0", &data);
+      VerifyProgOffsetResults((UINT*)data.data(), true);
+
+      // MS
+      test->Test->GetReadBackData("U1", &data);
+      VerifyProgOffsetResults((UINT*)data.data(), bCheckDerivMSAS);
+
+      // AS
+      test->Test->GetReadBackData("U2", &data);
+      VerifyProgOffsetResults((UINT*)data.data(), bCheckDerivMSAS);
+    }
+
+    // Disable MS so PS goes forward
+    pShaderOp->MS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
+
+    test->Test->GetReadBackData("U0", &data);
+    VerifyProgOffsetResults((UINT*)data.data(), true);
+
+    bTestsSkipped = false;
+  }
+
+  if (bTestsSkipped) {
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
+
 }
 
 // Executing a simple binop to verify shadel model 6.1 support; runs with
