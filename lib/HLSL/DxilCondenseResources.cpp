@@ -1696,14 +1696,14 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
       return rowTy;
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     return UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
-  } else if (Ty->isVectorTy()) {
-    Type *EltTy = Ty->getVectorElementType();
+  } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    Type *EltTy = VT->getElementType();
     Type *UpdatedTy =
         UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
     else
-      return VectorType::get(UpdatedTy, Ty->getVectorNumElements());
+      return VectorType::get(UpdatedTy, VT->getNumElements());
   } else {
     Type *i32Ty = Type::getInt32Ty(Ty->getContext());
     // Basic types.
