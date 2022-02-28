@@ -9371,7 +9371,6 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
   pShaderOp->CS = pShaderOp->GetString("CSSH64");
-  pShaderOp->PS = pShaderOp->GetString("PS64");
   pShaderOp->AS = pShaderOp->GetString("ASSH64");
   pShaderOp->MS = pShaderOp->GetString("MSSH64");
 
