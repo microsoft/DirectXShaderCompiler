@@ -3857,7 +3857,7 @@ TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
   for (unsigned i = 0; i < count; i++)
     VERIFY_ARE_EQUAL(pPixels[i], 1U);
 
-  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
     // Disable CS so mesh goes forward
     pShaderOp->CS = nullptr;
     test = RunShaderOpTestAfterParse(pDevice, m_support, "SampleCmpLevel", SampleInitFn, ShaderOpSet);
