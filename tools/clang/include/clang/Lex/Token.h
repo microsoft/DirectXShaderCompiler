@@ -311,7 +311,7 @@ public:
       is(tok::kw_reinterpret_cast) ||
       is(tok::kw_signed) || is(tok::kw_sizeof) || is(tok::kw_static_cast) ||
       is(tok::kw_template) || is(tok::kw_throw) || is(tok::kw_try) || is(tok::kw_typename) ||
-      is(tok::kw_union) || is(tok::kw_using) ||
+      is(tok::kw_union) ||
       is(tok::kw_virtual);
   }
   // HLSL Change Starts  

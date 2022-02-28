@@ -2035,11 +2035,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
     SingleDecl = ParseNamespace(Context, DeclEnd);
     break;
   case tok::kw_using:
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
-      SkipMalformedDecl();
-      return DeclGroupPtrTy();
-    }
     SingleDecl = ParseUsingDirectiveOrDeclaration(Context, ParsedTemplateInfo(),
                                                   DeclEnd, attrs, &OwnedType);
     break;
