@@ -581,6 +581,282 @@
       ]]>
     </Shader>
   </ShaderOp>
+  <ShaderOp Name="ProgOffset" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
+    <RootSignature>
+      RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+      DescriptorTable(SRV(t0,numDescriptors=1), UAV(u0), UAV(u1), UAV(u2)),
+      StaticSampler(s0, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_MIN_MAG_MIP_POINT),
+      StaticSampler(s1, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_COMPARISON_MIN_MAG_MIP_POINT)
+    </RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="T0" Dimension="Texture2D" Width="1000" Height="1000" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_FLOAT" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="18" Height="18" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
+    <Resource Name="U0" Dimension="BUFFER" Width="11552"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U1" Dimension="BUFFER" Width="11552"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U2" Dimension="BUFFER" Width="11552"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='T0' Kind='SRV' ResName='T0' />
+      <Descriptor Name='U0' Kind='UAV' ResName='U0'
+                  NumElements="722" StructureByteStride="16" />
+      <Descriptor Name='U1' Kind='UAV' ResName='U1'
+                  NumElements="722" StructureByteStride="16" />
+      <Descriptor Name='U2' Kind='UAV' ResName='U2'
+                  NumElements="722" StructureByteStride="16" />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="CS" Target="cs_6_5" EntryPoint="CSMain" Text="@PS"/>
+    <Shader Name="CS66" Target="cs_6_6" EntryPoint="CSMain" Text="@PS"/>
+    <Shader Name="CS67" Target="cs_6_7" EntryPoint="CSMain" Text="@PS"/>
+    <Shader Name="VS" Target="vs_6_5" EntryPoint="VSMain" Text="@PS"/>
+    <Shader Name="MS" Target="ms_6_5" EntryPoint="MSMain" Text="@PS"/>
+    <Shader Name="MS66" Target="ms_6_6" EntryPoint="MSMain" Text="@PS"/>
+    <Shader Name="MS67" Target="ms_6_7" EntryPoint="MSMain" Text="@PS"/>
+    <Shader Name="MS66D" Target="ms_6_6" EntryPoint="MSMain" Arguments="/DDERIV_MESH_AMP=true" Text="@PS"/>
+    <Shader Name="MS67D" Target="ms_6_7" EntryPoint="MSMain" Arguments="/DDERIV_MESH_AMP=true" Text="@PS"/>
+    <Shader Name="AS" Target="as_6_5" EntryPoint="ASMain" Text="@PS"/>
+    <Shader Name="AS66" Target="as_6_6" EntryPoint="ASMain" Text="@PS"/>
+    <Shader Name="AS67" Target="as_6_7" EntryPoint="ASMain" Text="@PS"/>
+    <Shader Name="AS66D" Target="as_6_6" EntryPoint="ASMain" Arguments="/DDERIV_MESH_AMP=true" Text="@PS"/>
+    <Shader Name="AS67D" Target="as_6_7" EntryPoint="ASMain" Arguments="/DDERIV_MESH_AMP=true" Text="@PS"/>
+    <Shader Name="PS67" Target="ps_6_7" EntryPoint="PSMain" Text="@PS"/>
+    <Shader Name="PS" Target="ps_6_5" EntryPoint="PSMain">
+      <![CDATA[
+        #define OFFSETS 18
+        #ifndef DERIV_MESH_AMP
+        #define DERIV_MESH_AMP false
+        #endif
+        struct PSInput {
+          float4 position : SV_POSITION;
+          float2 uv : TEXCOORD;
+        };
+
+        Texture2D<float> g_tex : register(t0);
+        RWStructuredBuffer<uint4> g_bufMain : register(u0);
+        RWStructuredBuffer<uint4> g_bufMesh : register(u1);
+        RWStructuredBuffer<uint4> g_bufAmp : register(u2);
+
+        SamplerState g_samp : register(s0);
+        SamplerComparisonState g_sampCmp : register(s1);
+
+        // It's not exactly a mask because of sign extension, but the concept
+        // is that it's treated like a 4-bit signed integer using the lowest 4 bits
+        int2 Mask4Offset(int2 offset) {
+          offset.x = (offset.x << 28) >> 28;
+          offset.y = (offset.y << 28) >> 28;
+          return offset;
+        }
+
+        // Tests Sample and SampleCmp variants with programmed offsets
+        uint4 DoTests( int2 coord, int2 offset, bool bDeriv ) {
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+          // offset for purposes of the compare value, which should only acknowledge the lower 4 bits
+          int2 moffset = Mask4Offset(offset);
+          // The index that should correspond to this location is the expected value
+          float cmp = (coord.y + moffset.y)*1000 + coord.x + moffset.x;
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
+          float2 fcoord = (coord + 0.5)/1000.0;
+          if (bDeriv) {
+            return uint4( g_tex.Sample(g_samp, fcoord, offset),
+                          g_tex.SampleCmp(g_sampCmp, fcoord, cmp, offset),
+                          g_tex.SampleCmpLevel(g_sampCmp, fcoord, cmp, 0, offset),
+                          g_tex.SampleCmpLevelZero(g_sampCmp, fcoord, cmp, offset));
+          } else {
+            return uint4( -1, -1,
+                          g_tex.SampleCmpLevel(g_sampCmp, fcoord, cmp, 0, offset),
+                          g_tex.SampleCmpLevelZero(g_sampCmp, fcoord, cmp, offset));
+          }
+#else
+          // Fake the offset by adding it to the integer coords
+          coord += Mask4Offset(offset);
+          // The index that should correspond to this location
+          float cmp = (coord.y)*1000 + coord.x;
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
+          float2 fcoord = (coord + 0.5)/1000.0;
+          if (bDeriv) {
+            return uint4( g_tex.Sample(g_samp, fcoord),
+                          g_tex.SampleCmp(g_sampCmp, fcoord, cmp),
+                          g_tex.SampleLevel(g_samp, fcoord, 0) == cmp,
+                          g_tex.SampleCmpLevelZero(g_sampCmp, fcoord, cmp));
+          } else {
+            return uint4( -1, -1,
+                          g_tex.SampleLevel(g_samp, fcoord, 0) == cmp,
+                          g_tex.SampleCmpLevelZero(g_sampCmp, fcoord, cmp));
+          }
+#endif
+        }
+
+        // Tests Load and Sample* variants with programmed offsets
+        uint4 DoMoarTests( int2 coord, int2 offset, bool bDeriv ) {
+          // Load requires a uint3 unlike the rest
+          uint3 lcoord = uint3(coord, 0);
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
+          float2 fcoord = (coord + 0.5)/1000.0;
+          if (bDeriv) {
+            return uint4( g_tex.Load(lcoord, offset),
+                          g_tex.SampleBias(g_samp, fcoord, -1.0, offset),
+                          g_tex.SampleGrad(g_samp, fcoord, 1.0, 1.0, offset),
+                          g_tex.SampleLevel(g_samp, fcoord, 0, offset));
+          } else {
+            return uint4( g_tex.Load(lcoord, offset),
+                          -1,
+                          g_tex.SampleGrad(g_samp, fcoord, 1.0, 1.0, offset),
+                          g_tex.SampleLevel(g_samp, fcoord, 0, offset));
+          }
+#else
+          // Fake the offset by adding it to the integer coords
+          coord += Mask4Offset(offset);
+          // Load requires a uint3 unlike the rest
+          lcoord = uint3(coord, 0);
+          // Samples require float coords 0.0-1.0. Adding 0.5 prevents edge conditions
+          float2 fcoord = (coord + 0.5)/1000.0;
+          if (bDeriv) {
+            return uint4( g_tex.Load(lcoord),
+                          g_tex.SampleBias(g_samp, fcoord, -1.0),
+                          g_tex.SampleGrad(g_samp, fcoord, 1.0, 1.0),
+                          g_tex.SampleLevel(g_samp, fcoord, 0));
+          } else {
+            return uint4( g_tex.Load(lcoord),
+                          -1,
+                          g_tex.SampleGrad(g_samp, fcoord, 1.0, 1.0),
+                          g_tex.SampleLevel(g_samp, fcoord, 0));
+          }
+#endif
+        }
+
+        static float4 g_Verts[6] = {
+          { -1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+        static float2 g_UV[6] = {
+          { 0.0f, 0.0f },
+          { 1.0f, 0.0f },
+          { 0.0f, 1.0f },
+
+          { 0.0f, 1.0f },
+          { 1.0f, 0.0f },
+          { 1.0f, 1.0f }};
+
+        struct Payload {
+          uint nothing;
+        };
+
+        // Clearly these could be calculated in place, but it's illustrative to write them out
+        // These values were chosen to represent a selection of locations and the complete gamut of offsets
+        static const int coords[OFFSETS] = {100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950};
+        static const int offsets[OFFSETS] = {-9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+        [NumThreads(2, 2, 1)]
+        void ASMain(uint3 id : SV_GroupThreadId) {
+          Payload payload;
+          // Bunching up work to compensate for small numthreads limits
+          for (int y = 0; y < 9; y++) {
+            for (int x = 0; x < 9; x++) {
+              float2 coord = float2(coords[9*id.x+x], coords[9*id.y+y]);
+              int2 offset = uint2(offsets[9*id.x+x], offsets[9*id.y+y]);
+              g_bufAmp[2*(18*(9*id.y + y) + 9*id.x + x) + 0] = DoTests(coord, offset, DERIV_MESH_AMP);
+              g_bufAmp[2*(18*(9*id.y + y) + 9*id.x + x) + 1] = DoMoarTests(coord, offset, DERIV_MESH_AMP);
+            }
+          }
+          payload.nothing = 0;
+          DispatchMesh(1, 1, 1, payload);
+        }
+
+        [NumThreads(2, 2, 1)]
+        [OutputTopology("triangle")]
+        void MSMain(
+          uint3 id : SV_GroupThreadId,
+          uint ix : SV_GroupIndex,
+          in payload Payload payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            // Assign static fullscreen 2 tri quad
+            if (ix == 0) {
+              for (uint i = 0; i < 6; ++i) {
+                verts[i].position = g_Verts[i];
+                verts[i].uv = g_UV[i];
+              }
+            }
+            if (ix < 2) {
+              tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
+            }
+            // Bunching up work to compensate for small numthreads limits
+            for (int y = 0; y < 9; y++) {
+              for (int x = 0; x < 9; x++) {
+                float2 coord = float2(coords[9*id.x+x], coords[9*id.y+y]);
+                int2 offset = uint2(offsets[9*id.x+x], offsets[9*id.y+y]);
+                g_bufMesh[2*(18*(9*id.y + y) + 9*id.x + x) + 0] = DoTests(coord, offset, DERIV_MESH_AMP);
+                g_bufMesh[2*(18*(9*id.y + y) + 9*id.x + x) + 1] = DoMoarTests(coord, offset, DERIV_MESH_AMP);
+              }
+            }
+          }
+
+        PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          return result;
+        }
+
+        float4 PSMain(PSInput input) : SV_TARGET {
+          uint ix = uint(input.uv.y * OFFSETS)*OFFSETS + uint(input.uv.x*OFFSETS);
+          // Retrieve coords and offsets based on texcoords
+          float2 coord = float2(coords[input.uv.x*OFFSETS], coords[input.uv.y*OFFSETS]);
+          uint2 offset = uint2(offsets[input.uv.x*OFFSETS], offsets[input.uv.y*OFFSETS]);
+          g_bufMain[2*ix] = DoTests(coord, offset, true);
+          g_bufMain[2*ix+1] = DoMoarTests(coord, offset, true);
+          return 1;
+        }
+
+        [NumThreads(OFFSETS, OFFSETS, 1)]
+        void CSMain(precise uint3 id : SV_GroupThreadId, precise uint ix : SV_GroupIndex) {
+          int2 coord = int2(coords[id.x], coords[id.y]);
+          int2 offset = int2(offsets[id.x], offsets[id.y]);
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 6)
+          g_bufMain[2*ix] = DoTests(coord, offset, true);
+          g_bufMain[2*ix+1] = DoMoarTests(coord, offset, true);
+#else
+          g_bufMain[2*ix] = DoTests(coord, offset, false);
+          g_bufMain[2*ix+1] = DoMoarTests(coord, offset, false);
+#endif
+        }
+
+      ]]>
+    </Shader>
+  </ShaderOp>
   <ShaderOp Name="OOB" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0,numDescriptors=2))</RootSignature>
     <Resource Name="CB0" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" TransitionTo="VERTEX_AND_CONSTANT_BUFFER">
@@ -3020,26 +3296,82 @@
 ]]>
     </Shader>
   </ShaderOp>
-  <ShaderOp Name="QuadAnyAll" CS="CS" DispatchX="8" DispatchY="8">
-    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="1024" InitialResourceState="COPY_DEST" Init="Zero" Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true" />
+  <ShaderOp Name="QuadAnyAll" CS="CS" PS="PS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="2048" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ZERO" ReadBack="true"/>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
     <RootValues>
-      <RootValue Index="0" ResName="UAVBuffer0"/>
+      <RootValue Index="0" ResName="UAVBuffer0" />
     </RootValues>
-    <Shader Name="CS67" Target="cs_6_7" EntryPoint="main" Text="@CS"/>
-    <Shader Name="CS" Target="cs_6_0" EntryPoint="main">
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget">
+        <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
+      </RenderTarget>
+    </RenderTargets>
+    
+    <Shader Name="PS" Target="ps_6_5" EntryPoint="PSMain" Text="@CS"/>
+    <Shader Name="AS67" Target="as_6_7" EntryPoint="ASMain" Text="@CS"/>
+    <Shader Name="AS" Target="as_6_5" EntryPoint="ASMain" Text="@CS"/>
+    <Shader Name="MS67" Target="ms_6_7" EntryPoint="MSMain" Text="@CS"/>
+    <Shader Name="MS" Target="ms_6_5" EntryPoint="MSMain" Text="@CS"/>
+    <Shader Name="CS67" Target="cs_6_7" EntryPoint="CSMain" Text="@CS"/>
+    <Shader Name="CS" Target="cs_6_0" EntryPoint="CSMain">
     <![CDATA[
-RWStructuredBuffer<int2> Values;
+RWStructuredBuffer<int2> Values : register(u0);
 groupshared uint WaveOffset = 0;
-[numthreads(8, 8, 1)]
-void main(uint TID: SV_GroupIndex) {
-  if (TID == 0)
+
+struct PSInput {
+  float4 position : SV_POSITION;
+  float2 uv : TEXCOORD;
+};
+
+static float4 g_Verts[6] = {
+  { -1.0f,  1.0f, 0.0f, 1.0f },
+  {  1.0f,  1.0f, 0.0f, 1.0f },
+  { -1.0f, -1.0f, 0.0f, 1.0f },
+
+  { -1.0f, -1.0f, 0.0f, 1.0f },
+  {  1.0f,  1.0f, 0.0f, 1.0f },
+  {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+static float2 g_UV[6] = {
+  { 0.0f, 0.0f },
+  { 1.0f, 0.0f },
+  { 0.0f, 1.0f },
+
+  { 0.0f, 1.0f },
+  { 1.0f, 0.0f },
+  { 1.0f, 1.0f }};
+
+float4 PSMain(PSInput input) : SV_TARGET {
+  // This output doesn't actually matter
+  return input.position;
+}
+
+void QuadAnyAllTest(uint GID, uint StartOffset) {
+  if (GID == 0)
     WaveOffset = 0;
   GroupMemoryBarrierWithGroupSync();
-  uint Offset = 0;
+  uint Offset = StartOffset;
   uint QuadElem = WaveGetLaneIndex() & 3;
   if (QuadElem == 0)
-    Offset = WavePrefixSum(4);
+    Offset += WavePrefixSum(4);
   Offset = QuadReadLaneAt(Offset, 0) + QuadElem;
   uint LocalWaveOffset = 0;
   if (WaveGetLaneIndex() == 0) {
@@ -3052,6 +3384,37 @@ void main(uint TID: SV_GroupIndex) {
   bool ThreadBool = (QuadMask & QuadId) != 0;
   Values[Idx].x = QuadAny(ThreadBool) ? 1 : 2;
   Values[Idx].y = QuadAll(ThreadBool) ? 3 : 4;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint GID: SV_GroupIndex) {
+  QuadAnyAllTest(GID, 0);
+}
+
+struct Payload {
+  uint nothing;
+};
+
+groupshared Payload P{0};
+
+[numthreads(8, 8, 1)]
+void ASMain(uint GID : SV_GroupIndex) {
+  QuadAnyAllTest(GID, 0);
+  DispatchMesh(1, 1, 1, P);
+}
+
+[numthreads(8, 8, 1)]
+[OutputTopology("triangle")]
+void MSMain(uint GID : SV_GroupIndex,
+            in payload Payload payload,
+            out vertices PSInput verts[6],
+            out indices uint3 tris[2]) {
+    SetMeshOutputCounts(6, 2);
+    // Assign static fullscreen 2 tri quad
+    verts[GID%6].position = g_Verts[GID%6];
+    verts[GID%6].uv = g_UV[GID%6];
+    tris[GID&1] = uint3((GID&1)*3, (GID&1)*3 + 1, (GID&1)*3 + 2);
+    QuadAnyAllTest(GID, 64);
 }
 ]]>
     </Shader>
