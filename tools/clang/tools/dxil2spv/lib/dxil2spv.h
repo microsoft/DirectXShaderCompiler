@@ -26,7 +26,7 @@ namespace dxil2spv {
 class Translator {
 public:
   Translator(CompilerInstance &instance);
-  int Run(CComPtr<IDxcBlobEncoding> blob);
+  int Run();
 
 private:
   CompilerInstance &ci;
