@@ -1075,7 +1075,7 @@ HRESULT CShaderReflectionType::Initialize(
       std::swap(cbRows, cbCols);
     }
   }
-  else if( type->isVectorTy() )
+  else if(FixedVectorType *VT = dyn_cast<FixedVectorType>(type) )
   {
     // We assume that LLVM vectors either represent matrices (handled above)
     // or HLSL vectors.
@@ -1084,9 +1084,9 @@ HRESULT CShaderReflectionType::Initialize(
     // and N columns.
     m_Desc.Class = D3D_SVC_VECTOR;
     m_Desc.Rows = 1;
-    m_Desc.Columns = type->getVectorNumElements();
+    m_Desc.Columns = VT->getNumElements();
 
-    m_Name += std::to_string(type->getVectorNumElements());
+    m_Name += std::to_string(VT->getNumElements());
 
     cbRows = m_Desc.Rows;
     cbCols = m_Desc.Columns;
@@ -1339,9 +1339,8 @@ static unsigned CalcTypeSize(Type *Ty, unsigned &alignment) {
     result = (unsigned)RoundUpToAlignment(result, alignment);
     return result;
   }
-  else if (Ty->isVectorTy()) {
-    VectorType *VT = dyn_cast<VectorType>(Ty);
-    return VT->getVectorNumElements() * CalcTypeSize(VT->getVectorElementType(), alignment);
+  else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    return VT->getNumElements() * CalcTypeSize(VT->getElementType(), alignment);
   }
   else {
     return alignment = Ty->getPrimitiveSizeInBits() / 8;

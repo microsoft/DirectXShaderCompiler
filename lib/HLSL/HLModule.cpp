@@ -974,8 +974,8 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
       cols = matrix.Rows;
       rows = matrix.Cols;
     }
-  } else if (Ty->isVectorTy())
-    cols = Ty->getVectorNumElements();
+  } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty))
+    cols = VT->getNumElements();
 
   rows *= arraySize;
 }
@@ -1102,8 +1102,8 @@ void HLModule::MarkPreciseAttributeOnValWithFunctionCall(
       cast<Function>(M.getOrInsertFunction(preciseFuncName, preciseFuncTy));
   if (!HLModule::HasPreciseAttribute(preciseFunc))
     MarkPreciseAttribute(preciseFunc);
-  if (Ty->isVectorTy()) {
-    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+  if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    for (unsigned i = 0; i < VT->getNumElements(); i++) {
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateCall(preciseFunc, {Elt});
     }
