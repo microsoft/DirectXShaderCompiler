@@ -1998,7 +1998,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
 void PixTest::ValidateAllocaWrite(std::vector<AllocaWrite> const &allocaWrites,
                                   size_t index, const char *name) {
   VERIFY_ARE_EQUAL(index, allocaWrites[index].regBase + allocaWrites[index].index);
-#if DBG
+#ifndef NDEBUG
   // Compilation may add a prefix to the struct member name:
   VERIFY_IS_TRUE(0 == strncmp(name, allocaWrites[index].memberName.c_str(), strlen(name)));
 #endif

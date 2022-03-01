@@ -908,7 +908,7 @@ void DxbcConverter::ConvertSignature(SignatureHelper &SigHelper, DxilSignature &
               E.SetRows(Rows);
               SigHelper.m_Signature.AppendElement(std::move(pE));
             } else {
-#ifdef DBG
+#ifndef NDEBUG
               // Verify match with range representative element.
               DxilSignatureElement &RE = SigHelper.m_Signature.GetElement(itKeyDxilEl->second);
               DXASSERT_DXBC(RE.GetCompType() == E.GetCompType());
@@ -1862,7 +1862,7 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       DXASSERT_DXBC(Inst.m_NumOperands == 0);
       auto& Iface = m_Interfaces[Inst.m_InterfaceDecl.InterfaceNumber];
       Iface.Tables.assign(Inst.m_InterfaceDecl.pFunctionTableIdentifiers, Inst.m_InterfaceDecl.pFunctionTableIdentifiers + Inst.m_InterfaceDecl.TableLength);
-#ifdef DBG
+#ifndef NDEBUG
       for (unsigned TableIdx : Iface.Tables) {
           DXASSERT_DXBC(m_FunctionTables[TableIdx].size() == Inst.m_InterfaceDecl.ExpectedTableSize);
       }

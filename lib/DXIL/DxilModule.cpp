@@ -124,7 +124,7 @@ DxilModule::DxilModule(Module *pModule)
   DXASSERT_NOMSG(m_pModule != nullptr);
   SetDxilHook(*m_pModule);
 
-#if defined(_DEBUG) || defined(DBG)
+#ifdef NDEBUG
   // Pin LLVM dump methods.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
   void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
@@ -1622,7 +1622,7 @@ void DxilModule::LoadDxilMetadata() {
     m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
-#ifdef DBG
+#ifndef NDEBUG
     throw;
 #endif
     m_pTypeSystem->GetStructAnnotationMap().clear();
@@ -1634,7 +1634,7 @@ void DxilModule::LoadDxilMetadata() {
     m_pMDHelper->LoadDxrPayloadAnnotations(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
-#ifdef DBG
+#ifndef NDEBUG
     throw;
 #endif
     m_pTypeSystem->GetPayloadAnnotationMap().clear();
