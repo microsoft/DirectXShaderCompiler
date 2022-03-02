@@ -508,7 +508,6 @@ Decl *Parser::ParseUsingDeclaration(unsigned Context,
   // alias-declaration.
   ParsedAttributesWithRange MisplacedAttrs(AttrFactory);
   MaybeParseCXX11Attributes(MisplacedAttrs);
-  assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - using not allowed
 
   // Ignore optional 'typename'.
   // FIXME: This is wrong; we should parse this as a typename-specifier.
@@ -567,7 +566,6 @@ Decl *Parser::ParseUsingDeclaration(unsigned Context,
   ParsedAttributesWithRange Attrs(AttrFactory);
   MaybeParseGNUAttributes(Attrs);
   MaybeParseCXX11Attributes(Attrs);
-  assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - using not allowed
 
   // Maybe this is an alias-declaration.
   TypeResult TypeAlias;
@@ -2382,13 +2380,6 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
   MaybeParseMicrosoftAttributes(attrs);
 
   if (Tok.is(tok::kw_using)) {
-    // HLSL Change Starts
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
-      SkipUntil(tok::semi, StopBeforeMatch);
-      return;
-    }
-    // HLSL Change Ends
     ProhibitAttributes(attrs);
 
     // Eat 'using'.

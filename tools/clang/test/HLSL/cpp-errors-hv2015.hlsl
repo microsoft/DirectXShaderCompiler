@@ -292,7 +292,7 @@ namespace MyNs {
 // namespace alias definition.
 namespace NamespaceAlias = MyNs; // expected-error {{expected identifier}}
 
-using MyNS; // expected-error {{'using' is a reserved keyword in HLSL}}
+using namespace MyNS;
 int using; // expected-error {{'using' is a reserved keyword in HLSL}}
 
 struct my_struct { };
@@ -336,7 +336,7 @@ struct s_with_template_member {
 };
 
 struct s_with_using {
-  using MyNS; // expected-error {{'using' is a reserved keyword in HLSL}}
+  using namespace MyNS; // expected-error {{'using namespace' is not allowed in classes}}
 };
 
 struct s_with_init {
