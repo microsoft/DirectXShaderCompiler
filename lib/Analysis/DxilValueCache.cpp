@@ -68,16 +68,34 @@ bool DxilValueCache::IsAlwaysReachable_(BasicBlock *BB) {
 }
 
 bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
-  BranchInst *Br = dyn_cast<BranchInst>(A->getTerminator());
-  if (!Br) return false;
+  TerminatorInst *Term = A->getTerminator();
+  if (BranchInst *Br = dyn_cast<BranchInst>(Term)) {
+    if (Br->isUnconditional() && Br->getSuccessor(0) == B)
+      return true;
 
-  if (Br->isUnconditional() && Br->getSuccessor(0) == B)
-    return true;
+    if (ConstantInt *C = dyn_cast<ConstantInt>(TryGetCachedValue(Br->getCondition()))) {
+      unsigned SuccIndex = C->getLimitedValue() != 0 ? 0 : 1;
+      return Br->getSuccessor(SuccIndex) == B;
+    }
 
-  if (ConstantInt *C = dyn_cast<ConstantInt>(TryGetCachedValue(Br->getCondition()))) {
-    unsigned SuccIndex = C->getLimitedValue() != 0 ? 0 : 1;
-    return Br->getSuccessor(SuccIndex) == B;
+  } else if (SwitchInst *Sw = dyn_cast<SwitchInst>(Term)) {
+    if (ConstantInt *C =
+            dyn_cast<ConstantInt>(TryGetCachedValue(Sw->getCondition()))) {
+      for (auto Case : Sw->cases()) {
+        if (Case.getCaseValue() == C)
+          return Case.getCaseSuccessor() == B;
+      }
+      return Sw->getDefaultDest() == B;
+    }
+
+  } else if (isa<ReturnInst>(Term) || isa<UnreachableInst>(Term)) {
+    return false;
+
+  } else {
+    // Should not see: IndirectBrInst, InvokeInst, ResumeInst
+    assert(false && "otherwise, unexpected terminator instruction.");
   }
+
   return true;
 }
 
