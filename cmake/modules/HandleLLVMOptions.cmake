@@ -57,6 +57,8 @@ endif()
 
 if( LLVM_ENABLE_ASSERTIONS )
   # MSVC doesn't like _DEBUG on release builds. See PR 4379.
+  # HLSL Note: the above comment referrs to llvm.org problem, not pull request: 
+  #            https://bugs.llvm.org/show_bug.cgi?id=4379
   if( NOT MSVC )
     add_definitions( -D_DEBUG )
   endif()
