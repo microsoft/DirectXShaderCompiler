@@ -11,6 +11,7 @@
 //
 
 
+#include "dxc/Support/Global.h"
 #include "llvm/Pass.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "llvm/Analysis/DxilSimplify.h"
@@ -93,7 +94,7 @@ bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
 
   } else {
     // Should not see: IndirectBrInst, InvokeInst, ResumeInst
-    assert(false && "otherwise, unexpected terminator instruction.");
+    DXASSERT(false, "otherwise, unexpected terminator instruction.");
   }
 
   return true;
