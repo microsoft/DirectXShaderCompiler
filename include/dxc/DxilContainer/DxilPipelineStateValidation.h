@@ -31,11 +31,11 @@ inline uint32_t PSVComputeInputOutputTableDwords(uint32_t InputVectors, uint32_t
 #define PSVALIGN(ptr, alignbits) (((ptr) + ((1 << (alignbits))-1)) & ~((1 << (alignbits))-1))
 #define PSVALIGN4(ptr) (((ptr) + 3) & ~3)
 
-#ifdef DBG
+#ifndef NDEBUG
 #define PSV_RETB(exp) do { if(!(exp)) { assert(false && #exp); return false; } } while(0)
-#else   // DBG
+#else   // NDEBUG
 #define PSV_RETB(exp) do { if(!(exp)) { return false; } } while(0)
-#endif  // DBG
+#endif  // NDEBUG
 
 struct VSInfo {
   char OutputPositionPresent;

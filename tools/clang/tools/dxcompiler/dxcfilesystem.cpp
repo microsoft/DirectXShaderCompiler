@@ -43,7 +43,7 @@ namespace {
 #endif
 
 #ifdef _WIN32
-#ifdef DBG
+#ifndef NDEBUG
 
 // This should be improved with global enabled mask rather than a compile-time mask.
 #define DXTRACE_MASK_ENABLED  0
@@ -61,7 +61,7 @@ namespace {
 
 #define DXTRACE_FMT_APIFS(...)
 
-#endif // DBG
+#endif // NDEBUG
 #else  // _WIN32
 #define DXTRACE_FMT_APIFS(...)
 #endif // _WIN32
@@ -732,7 +732,7 @@ public:
       return -1;
     }
 
-#ifdef _DEBUG
+#ifndef NDEBUG
     if (fd == STDERR_FILENO) {
         char* copyWithNull = new char[count+1];
         strncpy(copyWithNull, (const char*)buffer, count);

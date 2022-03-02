@@ -469,7 +469,7 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
       if (bFullyAllocated) {
         // Found a spot, do real allocation
         PackGreedy(clipcullElements, row, DXIL::kMaxClipOrCullDistanceElementCount);
-#ifdef DBG
+#ifndef NDEBUG
         for (auto &SE : clipcullElements) {
           bFullyAllocated &= SE->IsAllocated();
           if (!bFullyAllocated)
