@@ -1619,7 +1619,7 @@ public:
     if (pFlags == nullptr)
       return E_INVALIDARG;
     *pFlags = DxcVersionInfoFlags_None;
-#ifdef _DEBUG
+#ifndef NDEBUG
     *pFlags |= DxcVersionInfoFlags_Debug;
 #endif
     return S_OK;
