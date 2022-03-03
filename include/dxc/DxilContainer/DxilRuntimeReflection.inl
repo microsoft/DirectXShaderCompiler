@@ -146,11 +146,11 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
           continue; // Skip unrecognized parts
         }
       }
-#ifdef DBG
+#ifndef NDEBUG
       return Validate();
-#else  // DBG
+#else  // NDEBUG
       return true;
-#endif // DBG
+#endif // NDEBUG
     } catch(CheckedReader::exception e) {
       // TODO: error handling
       //throw hlsl::Exception(DXC_E_MALFORMED_CONTAINER, e.what());

@@ -821,7 +821,7 @@ QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
 
   QualType matrixSpecializationType = GetOrCreateTemplateSpecialization(context, *sema, matrixTemplateDecl, ArrayRef<TemplateArgument>(templateArgs));
 
-#ifdef DBG
+#ifndef NDEBUG
   // Verify that we can read the field member from the template record.
   DXASSERT(matrixSpecializationType->getAsCXXRecordDecl(), 
            "type of non-dependent specialization is not a RecordType");
@@ -852,7 +852,7 @@ QualType GetOrCreateVectorSpecialization(ASTContext& context, Sema* sema,
 
   QualType vectorSpecializationType = GetOrCreateTemplateSpecialization(context, *sema, vectorTemplateDecl, ArrayRef<TemplateArgument>(templateArgs));
 
-#ifdef DBG
+#ifndef NDEBUG
   // Verify that we can read the field member from the template record.
   DXASSERT(vectorSpecializationType->getAsCXXRecordDecl(), 
            "type of non-dependent specialization is not a RecordType");

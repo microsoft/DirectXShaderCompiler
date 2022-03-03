@@ -745,7 +745,7 @@ static bool ProcessUnhandledObjectType(
   D3D_SHADER_VARIABLE_TYPE    *outObjectType)
 {
   // Don't actually make this a hard error, but instead report the problem using a suitable debug message.
-#ifdef DBG
+#ifndef NDEBUG
   OutputDebugFormatA("DxilContainerReflection.cpp: error: unhandled object type '%s'.\n", structType->getName().str().c_str());
 #endif
   *outObjectType = D3D_SVT_VOID;
@@ -1034,7 +1034,7 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   default:
-#ifdef DBG
+#ifndef NDEBUG
     OutputDebugStringA("DxilContainerReflection.cpp: error: unknown component type\n");
 #endif
     break;
@@ -1051,7 +1051,7 @@ HRESULT CShaderReflectionType::Initialize(
     switch(matrixAnnotation.Orientation)
     {
     default:
-#ifdef DBG
+#ifndef NDEBUG
       OutputDebugStringA("DxilContainerReflection.cpp: error: unknown matrix orientation\n");
 #endif
     // Note: column-major layout is the default
@@ -1193,7 +1193,7 @@ HRESULT CShaderReflectionType::Initialize(
   }
   else if( type->isPointerTy() )
   {
-#ifdef DBG
+#ifndef NDEBUG
       OutputDebugStringA("DxilContainerReflection.cpp: error: cannot reflect pointer type\n");
 #endif
   }
