@@ -1166,7 +1166,9 @@ public:
     factory->EnumAdapterByLuid(adapterID, IID_PPV_ARGS(&adapter));
     DXGI_ADAPTER_DESC1 AdapterDesc;
     VERIFY_SUCCEEDED(adapter->GetDesc1(&AdapterDesc));
-    return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE);
+    return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) ||
+           (AdapterDesc.VendorId == 0x1414 &&
+            (AdapterDesc.DeviceId == 0x8c || AdapterDesc.DeviceId == 0x8d));
   }
 
   bool DoesDeviceSupportInt64(ID3D12Device *pDevice) {
