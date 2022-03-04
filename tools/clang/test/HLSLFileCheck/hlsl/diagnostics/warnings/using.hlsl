@@ -2,7 +2,10 @@
 
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
 
-// CHECK:keyword 'using' may not be supported by compilers prior to HLSL2021
+// CHECK:using.hlsl:14:5: warning: keyword 'using' may not be supported by compilers prior to HLSL2021.
+// CHECK:using.hlsl:21:1: warning: keyword 'using' may not be supported by compilers prior to HLSL2021.
+// CHECK:using.hlsl:22:1: warning: keyword 'using' may not be supported by compilers prior to HLSL2021.
+
 // CHECK:error: control reaches end of non-void function
 
 // HV2021-NOT:keyword 'using' may not be supported by compilers prior to HLSL2021
