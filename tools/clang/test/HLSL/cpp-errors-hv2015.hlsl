@@ -292,7 +292,7 @@ namespace MyNs {
 // namespace alias definition.
 namespace NamespaceAlias = MyNs; // expected-error {{expected identifier}}
 
-using namespace MyNS;
+using namespace MyNS;  // expected-warning {{keyword 'using' may not be supported by compilers prior to HLSL2021}}
 int using; // expected-error {{'using' is a reserved keyword in HLSL}}
 
 struct my_struct { };
