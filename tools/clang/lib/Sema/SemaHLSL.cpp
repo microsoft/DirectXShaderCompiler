@@ -3098,8 +3098,6 @@ private:
   // Map from object decl to the object index.
   using ObjectTypeDeclMapType = std::array<std::pair<CXXRecordDecl*,unsigned>, _countof(g_ArBasicKindsAsTypes)+_countof(g_DeprecatedEffectObjectNames)>;
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
-  // Mask for object which not has methods created.
-  uint64_t m_objectTypeLazyInitMask;
 
   UsedIntrinsicStore m_usedIntrinsics;
 
@@ -3550,7 +3548,6 @@ private:
 
     QualType float4Type = LookupVectorType(HLSLScalarType_float, 4);
     TypeSourceInfo *float4TypeSourceInfo = m_context->getTrivialTypeSourceInfo(float4Type, NoLoc);
-    m_objectTypeLazyInitMask = 0;
     unsigned effectKindIndex = 0;
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
@@ -3656,7 +3653,6 @@ private:
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
-      m_objectTypeLazyInitMask |= ((uint64_t)1)<<i;
     }
 
     // Create an alias for SamplerState. 'sampler' is very commonly used.
@@ -5117,19 +5113,20 @@ public:
   /// </remarks>
   ImplicitConversionSequence TrySubscriptIndexInitialization(_In_ clang::Expr* SrcExpr, clang::QualType DestType);
 
-  void AddHLSLObjectMethodsIfNotReady(QualType qt) {
-    static_assert((sizeof(uint64_t)*8) >= _countof(g_ArBasicKindsAsTypes), "Bitmask size is too small");
-    // Everything is ready.
-    if (m_objectTypeLazyInitMask == 0)
+  void CompleteType(TagDecl *Tag) override {
+    if(Tag->isCompleteDefinition() || !isa<CXXRecordDecl>(Tag))
       return;
-    CXXRecordDecl *recordDecl = const_cast<CXXRecordDecl *>(GetRecordDeclForBuiltInOrStruct(qt->getAsCXXRecordDecl()));
+
+    CXXRecordDecl *recordDecl = cast<CXXRecordDecl>(Tag);
+    if (auto TDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl))
+      recordDecl = TDecl->getSpecializedTemplate()->getTemplatedDecl();
+
+    if (recordDecl->isCompleteDefinition())
+      return;
+    
     int idx = FindObjectBasicKindIndex(recordDecl);
     // Not object type.
     if (idx == -1)
-      return;
-    uint64_t bit = ((uint64_t)1)<<idx;
-    // Already created.
-    if ((m_objectTypeLazyInitMask & bit) == 0)
       return;
     
     ArBasicKind kind = g_ArBasicKindsAsTypes[idx];
@@ -5147,8 +5144,7 @@ public:
     }
 
     AddObjectMethods(kind, recordDecl, startDepth);
-    // Clear the object.
-    m_objectTypeLazyInitMask &= ~bit;
+    recordDecl->completeDefinition();
   }
 
   FunctionDecl* AddHLSLIntrinsicMethod(
@@ -12688,16 +12684,12 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       D.setInvalidType();
       return false;
     }
-    // Add methods if not ready.
-    hlslSource->AddHLSLObjectMethodsIfNotReady(qt);
   } else if (qt->isArrayType()) {
     QualType eltQt(qt->getArrayElementTypeNoTypeQual(), 0);
     while (eltQt->isArrayType())
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
 
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
-      // Add methods if not ready.
-      hlslSource->AddHLSLObjectMethodsIfNotReady(eltQt);
       bIsObject = true;
     }
   }
