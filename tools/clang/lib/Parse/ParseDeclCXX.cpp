@@ -442,7 +442,7 @@ Decl *Parser::ParseUsingDirective(unsigned Context,
   if (getLangOpts().HLSL) {
     if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021)
       Diag(UsingLoc, diag::warn_hlsl_new_feature) << "keyword 'using'"
-                                                  << "HLSL2021";
+                                                  << "2021";
   }
   // HLSL change end.
 
@@ -595,7 +595,7 @@ Decl *Parser::ParseUsingDeclaration(unsigned Context,
     if (getLangOpts().HLSL) {
       if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021)
         Diag(UsingLoc, diag::warn_hlsl_new_feature) << "keyword 'using'"
-                                                  << "HLSL2021";
+                                                  << "2021";
     } else
     // HLSL change end.
     Diag(Tok.getLocation(), getLangOpts().CPlusPlus11 ?

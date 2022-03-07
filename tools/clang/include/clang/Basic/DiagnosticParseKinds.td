@@ -1028,7 +1028,7 @@ def warn_hlsl_semantic_identifier_collision : Warning <
 def err_hlsl_enum : Error<
   "enum is unsupported in HLSL before 2017">;
 def warn_hlsl_new_feature : Warning <
-  "%0 may not be supported by compilers prior to %1.">;
+  "%0 is a HLSL %1 feature, and is available in older versions as a non-portable extension.">;
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<
