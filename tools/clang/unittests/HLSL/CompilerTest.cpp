@@ -3514,7 +3514,7 @@ TEST_F(CompilerTest, CompileHlsl2022ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_M_ARM64) // this test has issues on ARM64; disable until we figure out what it going on
 
 #pragma fenv_access(on)
 #pragma optimize("", off)
@@ -3556,7 +3556,6 @@ void VerifyDivByZeroThrows() {
   VERIFY_IS_TRUE(bCaughtExpectedException);
 }
 
-#ifndef _M_ARM64 // this test has issues on ARM64; disable until we figure out what it going on
 TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
   unsigned int fpOriginal;
   VERIFY_IS_TRUE(_controlfp_s(&fpOriginal, 0, 0) == 0);
@@ -3588,18 +3587,17 @@ TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
   VERIFY_IS_TRUE(_controlfp_s(&fpLocal, 0, 0) == 0);
   VERIFY_ARE_EQUAL(fpLocal, fpOriginal);
 }
-#endif
 
 #pragma optimize("", on)
 
-#else   // _WIN32
+#else   //  defined(_WIN32) && !defined(_M_ARM64)
 
 // Only implemented on Win32
 TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
   VERIFY_IS_TRUE(true);
 }
 
-#endif  // _WIN32
+#endif  //  defined(_WIN32) && !defined(_M_ARM64)
 
 TEST_F(CompilerTest, CodeGenInclude) {
   CodeGenTestCheck(L"Include.hlsl");
