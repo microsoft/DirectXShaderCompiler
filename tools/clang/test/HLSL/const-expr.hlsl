@@ -59,7 +59,7 @@ float fn_f_f(float r)
         | |-ImplicitCastExpr <col:17> 'vector<float, 2> (*)(vector<float, 2>, matrix<float, 2, 2>)' <FunctionToPointerDecay>
         | | `-DeclRefExpr <col:17> 'vector<float, 2> (vector<float, 2>, matrix<float, 2, 2>)' lvalue Function 'mul' 'vector<float, 2> (vector<float, 2>, matrix<float, 2, 2>)'
         | |-ImplicitCastExpr <col:21, col:33> 'float2':'vector<float, 2>' <LValueToRValue>
-        | | `-ArraySubscriptExpr <col:21, col:33> 'const float2':'const vector<float, 2>' lvalue
+        | | `-ArraySubscriptExpr <col:21, col:33> 'float2':'vector<float, 2>' lvalue
         | |   |-ImplicitCastExpr <col:21> 'const float2 [8]' <LValueToRValue>
         | |   | `-DeclRefExpr <col:21> 'const float2 [8]' lvalue Var 'g_f2_arr' 'const float2 [8]'
         | |   `-ImplicitCastExpr <col:30> 'int' <LValueToRValue>
@@ -119,7 +119,7 @@ uint fn_f3_f3io_u(float3 wn, inout float3 tsn)
     CompoundAssignOperator <col:3, col:58> 'float3':'vector<float, 3>' lvalue '*=' ComputeLHSTy='float3':'vector<float, 3>' ComputeResultTy='float3':'vector<float, 3>'
     |-DeclRefExpr <col:3> 'float3':'vector<float, 3>' lvalue ParmVar 'tsn' 'float3 &__restrict'
     `-CXXFunctionalCastExpr <col:10, col:58> 'float3':'vector<float, 3>' functional cast to float3 <NoOp>
-      `-InitListExpr <col:18, col:52> 'float3':'vector<float, 3>'
+      `-InitListExpr <col:17, col:58> 'float3':'vector<float, 3>'
         |-BinaryOperator <col:18, col:24> 'float' '/'
         | |-ImplicitCastExpr <col:18> 'float' <FloatingCast>
         | | `-FloatingLiteral <col:18> 'literal float' 1.000000e+00

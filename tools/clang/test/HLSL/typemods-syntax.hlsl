@@ -630,6 +630,21 @@ void vain() {
 
     float3x4 column_major l_column_after;                   /* expected-error {{modifiers must appear before type}} fxc-error {{X3000: syntax error: unexpected token 'column_major'}} */
 
+    // Various random cases that previously caused some internal errors from unreachable:
+    float4 unorm = float4(1,2,3,4);                      /* expected-error {{expected unqualified-id}} expected-error {{modifiers must appear before type}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
+    float4 f;
+    f = unorm;                                           /* expected-error {{expected expression}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
+    f = unorm(f);                                        /* expected-error {{expected expression}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
+    f = (unorm)f;                                        /* expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{snorm and unorm qualifier can only be used on floating-point types}} fxc-error {{X3000: syntax error: unexpected token ')'}} fxc-error {{X3000: syntax error: unexpected token 'f'}} */
+    float4 row_major = float4(1,2,3,4);                  /* expected-error {{expected unqualified-id}} expected-error {{modifiers must appear before type}} fxc-error {{X3000: syntax error: unexpected token 'row_major'}} */
+    f = row_major(1);                                    /* expected-error {{expected expression}} fxc-error {{X3000: syntax error: unexpected token 'row_major'}} */
+    row_major float4x4 foobar = {unorm.x};               /* expected-error {{expected expression}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
+    row_major float4x4 foo;
+    float4 unorm = foo[0];                               /* expected-error {{expected unqualified-id}} expected-error {{modifiers must appear before type}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
+    foo[0] = unorm;                                      /* expected-error {{expected expression}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
+    float4 f2 = unorm col_major;                         /* expected-error {{expected expression}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
+    f = ((row_major unorm float4x4)foo)[0];
+
 }
 
 //////////////////////////////////////////////////////////////////////////////
