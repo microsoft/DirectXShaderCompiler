@@ -5114,24 +5114,25 @@ public:
   ImplicitConversionSequence TrySubscriptIndexInitialization(_In_ clang::Expr* SrcExpr, clang::QualType DestType);
 
   void CompleteType(TagDecl *Tag) override {
-    if(Tag->isCompleteDefinition() || !isa<CXXRecordDecl>(Tag))
+    if (Tag->isCompleteDefinition() || !isa<CXXRecordDecl>(Tag))
       return;
 
     CXXRecordDecl *recordDecl = cast<CXXRecordDecl>(Tag);
-    if (auto TDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl))
+    if (auto TDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
       recordDecl = TDecl->getSpecializedTemplate()->getTemplatedDecl();
 
-    if (recordDecl->isCompleteDefinition())
-      return;
-    
+      if (recordDecl->isCompleteDefinition())
+        return;
+    }
+
     int idx = FindObjectBasicKindIndex(recordDecl);
     // Not object type.
     if (idx == -1)
       return;
-    
+
     ArBasicKind kind = g_ArBasicKindsAsTypes[idx];
     uint8_t templateArgCount = g_ArBasicKindsTemplateCount[idx];
-    
+
     int startDepth = 0;
 
     if (templateArgCount > 0) {
