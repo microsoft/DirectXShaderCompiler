@@ -150,6 +150,8 @@ if "%1"=="-clean" (
   set BUILD_ARCH=x64
 ) else if "%1"=="-arm" (
   set BUILD_ARCH=ARM
+) else if "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
 ) else if "%1"=="-adapter" (
   set TEST_ADAPTER= /p:"Adapter=%~2"
   shift /1
@@ -402,6 +404,7 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
+echo   -arm64 targets an ARM64 build
 echo.
 echo target(s):
 echo  clang         - run clang tests.

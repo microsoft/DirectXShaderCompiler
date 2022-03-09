@@ -7056,8 +7056,16 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
-  // Read data from the table
 
+#ifdef _M_ARM64
+  if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
+    WEX::Logging::Log::Comment(L"WARP has an issue with DenormTertiaryFloatOpTest on ARM64.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+#endif
+
+  // Read data from the table
   int tableSize = sizeof(DenormTertiaryFPOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(DenormTertiaryFPOpParameters, tableSize);
 
