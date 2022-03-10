@@ -23,6 +23,14 @@ SpirvFunction::SpirvFunction(QualType returnType, SourceLocation loc,
       functionLoc(loc), functionName(name), isWrapperOfEntry(false),
       debugScope(nullptr) {}
 
+SpirvFunction::SpirvFunction(const SpirvType *returnType, SourceLocation loc,
+                             llvm::StringRef name, bool isPrecise,
+                             bool isNoInline)
+    : functionId(0), astReturnType({}), returnType(returnType), fnType(nullptr),
+      relaxedPrecision(false), precise(isPrecise), noInline(isNoInline),
+      containsAlias(false), rvalue(false), functionLoc(loc), functionName(name),
+      isWrapperOfEntry(false), debugScope(nullptr) {}
+
 SpirvFunction::~SpirvFunction() {
   for (auto *param : parameters)
     param->releaseMemory();

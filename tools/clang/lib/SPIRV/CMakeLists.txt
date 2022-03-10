@@ -31,6 +31,7 @@ add_clang_library(clangSPIRV
   SpirvModule.cpp
   SpirvType.cpp
   String.cpp
+  SpirvUtils.cpp
 
   LINK_LIBS
   clangAST

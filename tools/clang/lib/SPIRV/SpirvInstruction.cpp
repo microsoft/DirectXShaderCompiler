@@ -534,6 +534,15 @@ SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
   assert(type->isIntegerType());
 }
 
+SpirvConstantInteger::SpirvConstantInteger(const SpirvType *type,
+                                           llvm::APInt val, bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
+      value(val) {
+  assert(isa<IntegerType>(type));
+}
+
 bool SpirvConstantInteger::operator==(const SpirvConstantInteger &that) const {
   return resultType == that.resultType && astResultType == that.astResultType &&
          value == that.value && opcode == that.opcode;

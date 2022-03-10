@@ -1152,6 +1152,8 @@ class SpirvConstantInteger : public SpirvConstant {
 public:
   SpirvConstantInteger(QualType type, llvm::APInt value,
                        bool isSpecConst = false);
+  SpirvConstantInteger(const SpirvType *type, llvm::APInt value,
+                       bool isSpecConst = false);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantInteger)
 
