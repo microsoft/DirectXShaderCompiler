@@ -26,6 +26,7 @@ set TEST_MANUAL_FILE_CHECK=0
 set SINGLE_FILE_CHECK_NAME=0
 set CUSTOM_BIN_SET=
 set USE_AGILITY_SDK=
+set BUILD_ARCH=x64
 
 rem Begin SPIRV change
 set TEST_SPIRV=0
@@ -143,13 +144,15 @@ if "%1"=="-clean" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Debug" (
   set BUILD_CONFIG=Debug
-) else if "%1"=="-x86" (
+) else if /i "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.
-  set BUILD_ARCH=Win32
-) else if "%1"=="-x64" (
+  set BUILD_ARCH=x86
+) else if /i "%1"=="-x64" (
   set BUILD_ARCH=x64
-) else if "%1"=="-arm" (
+) else if /i "%1"=="-arm" (
   set BUILD_ARCH=ARM
+) else if /i "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
 ) else if "%1"=="-adapter" (
   set TEST_ADAPTER= /p:"Adapter=%~2"
   shift /1
@@ -442,7 +445,7 @@ rem %4 - third argument to te
 if "%HLSL_TAEF_DIR%"=="" (
   set TE=te
 ) else (
-  set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\te"
+  set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH%\te"
 )
 echo %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 call %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
@@ -492,16 +495,16 @@ if "%HLSL_TAEF_DIR%"=="" (
   exit /b 1
 )
 set FULL_AGILITY_PATH=
-if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
-  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%
-) else if exist "%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
-  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH:Win32=x86%
+if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH%\D3D12Core.dll" (
+  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH%
+) else if exist "%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH%\D3D12Core.dll" (
+  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH%
 ) else if exist "%HLSL_AGILITYSDK_DIR%\D3D12Core.dll" (
   set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%
 ) else (
   echo HLSL_AGILITYSDK_DIR is set, but unable to resolve path to binaries
   exit /b 1
 )
-mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" 1>nul 2>nul
-call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
+mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH%\D3D12" 1>nul 2>nul
+call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\%BUILD_ARCH%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
 exit /b %ERRORLEVEL%
