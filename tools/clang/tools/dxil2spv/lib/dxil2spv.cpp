@@ -47,7 +47,8 @@ int Translator::Run() {
         << filename << errorOrInputFile.getError().message();
     return DXC_E_GENERAL_INTERNAL_ERROR;
   }
-  llvm::MemoryBuffer *memoryBuffer = errorOrInputFile.get().release();
+  std::unique_ptr<llvm::MemoryBuffer> memoryBuffer =
+      std::move(errorOrInputFile.get());
   const char *blobContext = memoryBuffer->getBufferStart();
   unsigned blobSize = memoryBuffer->getBufferSize();
 
@@ -69,21 +70,26 @@ int Translator::Run() {
 
     // Parse DXIL program to module.
     if (IsValidDxilProgramHeader(programHeader, partHeader->PartSize)) {
-      std::string diagStr;
+      std::string diagStr; // Note: diagStr is not used by the callee.
       GetDxilProgramBitcode(programHeader, &blobContext, &blobSize);
       module = hlsl::dxilutil::LoadModuleFromBitcode(
           llvm::StringRef(blobContext, blobSize), llvmContext, diagStr);
+    }
+
+    if (module == nullptr) {
+      emitError("Could not parse DXIL module from bitcode");
+      return DXC_E_GENERAL_INTERNAL_ERROR;
     }
   }
   // Parse LLVM module from IR.
   else {
     llvm::SMDiagnostic err;
     module = parseIR(memoryBuffer->getMemBufferRef(), err, llvmContext);
-  }
 
-  if (module == nullptr) {
-    emitError("Could not parse DXIL module");
-    return DXC_E_GENERAL_INTERNAL_ERROR;
+    if (module == nullptr) {
+      emitError("Could not parse DXIL module from IR: %0") << err.getMessage();
+      return DXC_E_GENERAL_INTERNAL_ERROR;
+    }
   }
 
   // Construct DXIL module.
