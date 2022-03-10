@@ -209,71 +209,10 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
         hlsl::OP::GetDxilOpFuncCallInst(&instruction);
     switch (dxilOpcode) {
     case hlsl::DXIL::OpCode::LoadInput: {
-      unsigned inputID = cast<llvm::ConstantInt>(
-                             callInstruction.getArgOperand(
-                                 hlsl::DXIL::OperandIndex::kLoadInputIDOpIdx))
-                             ->getLimitedValue();
-      spirv::SpirvVariable *inputVar = inputSignatureElementMap[inputID];
-      const spirv::SpirvType *pointeeType =
-          cast<spirv::SpirvPointerType>(inputVar->getResultType())
-              ->getPointeeType();
-
-      // TODO: Handle other input signature types. Only vector for initial
-      // passthrough shader support.
-      assert(isa<spirv::VectorType>(pointeeType));
-      const spirv::SpirvType *elemType =
-          cast<spirv::VectorType>(pointeeType)->getElementType();
-
-      // Translate index into variable to SPIR-V constant.
-      const llvm::APInt col =
-          dyn_cast<llvm::Constant>(
-              callInstruction.getArgOperand(
-                  hlsl::DXIL::OperandIndex::kLoadInputColOpIdx))
-              ->getUniqueInteger();
-      spirv::SpirvConstant *index =
-          spvBuilder.getConstantInt(spvContext.getUIntType(32), col);
-
-      // Create access chain and load.
-      spirv::SpirvAccessChain *loadPtr =
-          spvBuilder.createAccessChain(elemType, inputVar, {index}, {});
-      spirv::SpirvLoad *loadInstr =
-          spvBuilder.createLoad(elemType, loadPtr, {});
-
-      instructionMap[&callInstruction] = loadInstr;
+      createLoadInputInstruction(callInstruction);
     } break;
     case hlsl::DXIL::OpCode::StoreOutput: {
-      unsigned outputID =
-          cast<llvm::ConstantInt>(
-              callInstruction.getArgOperand(
-                  hlsl::DXIL::OperandIndex::kStoreOutputIDOpIdx))
-              ->getLimitedValue();
-      spirv::SpirvVariable *outputVar = outputSignatureElementMap[outputID];
-      const spirv::SpirvType *pointeeType =
-          cast<spirv::SpirvPointerType>(outputVar->getResultType())
-              ->getPointeeType();
-
-      // TODO: Handle other output signature types. Only vector for initial
-      // passthrough shader support.
-      assert(isa<spirv::VectorType>(pointeeType));
-      const spirv::SpirvType *elemType =
-          cast<spirv::VectorType>(pointeeType)->getElementType();
-
-      // Translate index into variable to SPIR-V constant.
-      const llvm::APInt col =
-          dyn_cast<llvm::Constant>(
-              callInstruction.getArgOperand(
-                  hlsl::DXIL::OperandIndex::kLoadInputColOpIdx))
-              ->getUniqueInteger();
-      spirv::SpirvConstant *index =
-          spvBuilder.getConstantInt(spvContext.getUIntType(32), col);
-
-      // Create access chain and store.
-      spirv::SpirvAccessChain *outputVarPtr =
-          spvBuilder.createAccessChain(elemType, outputVar, {index}, {});
-      spirv::SpirvInstruction *valueToStore =
-          instructionMap[callInstruction.getArgOperand(
-              hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx)];
-      spvBuilder.createStore(outputVarPtr, valueToStore, {});
+      createStoreOutputInstruction(callInstruction);
     } break;
     default: {
       emitError("Unhandled DXIL opcode");
@@ -282,6 +221,71 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
   } else if (isa<llvm::ReturnInst>(instruction)) {
     spvBuilder.createReturn({});
   }
+}
+
+void Translator::createLoadInputInstruction(llvm::CallInst &instruction) {
+  unsigned inputID =
+      cast<llvm::ConstantInt>(instruction.getArgOperand(
+                                  hlsl::DXIL::OperandIndex::kLoadInputIDOpIdx))
+          ->getLimitedValue();
+  spirv::SpirvVariable *inputVar = inputSignatureElementMap[inputID];
+  const spirv::SpirvType *pointeeType =
+      cast<spirv::SpirvPointerType>(inputVar->getResultType())
+          ->getPointeeType();
+
+  // TODO: Handle other input signature types. Only vector for initial
+  // passthrough shader support.
+  assert(isa<spirv::VectorType>(pointeeType));
+  const spirv::SpirvType *elemType =
+      cast<spirv::VectorType>(pointeeType)->getElementType();
+
+  // Translate index into variable to SPIR-V constant.
+  const llvm::APInt col = dyn_cast<llvm::Constant>(
+                              instruction.getArgOperand(
+                                  hlsl::DXIL::OperandIndex::kLoadInputColOpIdx))
+                              ->getUniqueInteger();
+  spirv::SpirvConstant *index =
+      spvBuilder.getConstantInt(spvContext.getUIntType(32), col);
+
+  // Create access chain and load.
+  spirv::SpirvAccessChain *loadPtr =
+      spvBuilder.createAccessChain(elemType, inputVar, {index}, {});
+  spirv::SpirvLoad *loadInstr = spvBuilder.createLoad(elemType, loadPtr, {});
+
+  instructionMap[&instruction] = loadInstr;
+}
+
+void Translator::createStoreOutputInstruction(llvm::CallInst &instruction) {
+  unsigned outputID = cast<llvm::ConstantInt>(
+                          instruction.getArgOperand(
+                              hlsl::DXIL::OperandIndex::kStoreOutputIDOpIdx))
+                          ->getLimitedValue();
+  spirv::SpirvVariable *outputVar = outputSignatureElementMap[outputID];
+  const spirv::SpirvType *pointeeType =
+      cast<spirv::SpirvPointerType>(outputVar->getResultType())
+          ->getPointeeType();
+
+  // TODO: Handle other output signature types. Only vector for initial
+  // passthrough shader support.
+  assert(isa<spirv::VectorType>(pointeeType));
+  const spirv::SpirvType *elemType =
+      cast<spirv::VectorType>(pointeeType)->getElementType();
+
+  // Translate index into variable to SPIR-V constant.
+  const llvm::APInt col = dyn_cast<llvm::Constant>(
+                              instruction.getArgOperand(
+                                  hlsl::DXIL::OperandIndex::kLoadInputColOpIdx))
+                              ->getUniqueInteger();
+  spirv::SpirvConstant *index =
+      spvBuilder.getConstantInt(spvContext.getUIntType(32), col);
+
+  // Create access chain and store.
+  spirv::SpirvAccessChain *outputVarPtr =
+      spvBuilder.createAccessChain(elemType, outputVar, {index}, {});
+  spirv::SpirvInstruction *valueToStore =
+      instructionMap[instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx)];
+  spvBuilder.createStore(outputVarPtr, valueToStore, {});
 }
 
 const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {

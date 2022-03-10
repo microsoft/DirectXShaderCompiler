@@ -63,6 +63,8 @@ private:
 
   // Create SPIR-V instruction(s) from DXIL instruction.
   void createInstruction(llvm::Instruction &instruction);
+  void createLoadInputInstruction(llvm::CallInst &instruction);
+  void createStoreOutputInstruction(llvm::CallInst &instruction);
 
   // Translate HLSL/DXIL types to corresponding SPIR-V types.
   const spirv::SpirvType *toSpirvType(hlsl::CompType compType);
