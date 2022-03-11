@@ -25,6 +25,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 
 #include "spirv-tools/libspirv.hpp"
+#include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 
@@ -37,48 +38,58 @@ Translator::Translator(CompilerInstance &instance)
       featureManager(diagnosticsEngine, spirvOptions),
       spvBuilder(spvContext, spirvOptions, featureManager) {}
 
-int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
-  const char *blobContext =
-      reinterpret_cast<const char *>(blob->GetBufferPointer());
-  unsigned blobSize = blob->GetBufferSize();
-
-  llvm::LLVMContext context;
-  llvm::SMDiagnostic err;
-  std::unique_ptr<llvm::MemoryBuffer> memoryBuffer;
-  std::unique_ptr<llvm::Module> module;
+int Translator::Run() {
+  // Read input file to memory buffer.
+  std::string filename = ci.getCodeGenOpts().MainFileName;
+  auto errorOrInputFile = llvm::MemoryBuffer::getFileOrSTDIN(filename);
+  if (!errorOrInputFile) {
+    emitError("Error reading %0: %1")
+        << filename << errorOrInputFile.getError().message();
+    return DXC_E_GENERAL_INTERNAL_ERROR;
+  }
+  std::unique_ptr<llvm::MemoryBuffer> memoryBuffer =
+      std::move(errorOrInputFile.get());
+  const char *blobContext = memoryBuffer->getBufferStart();
+  unsigned blobSize = memoryBuffer->getBufferSize();
 
   // Parse LLVM module from bitcode.
-  hlsl::DxilContainerHeader *pBlobHeader =
-      (hlsl::DxilContainerHeader *)blob->GetBufferPointer();
-  if (hlsl::IsValidDxilContainer(pBlobHeader,
-                                 pBlobHeader->ContainerSizeInBytes)) {
+  llvm::LLVMContext llvmContext;
+  std::unique_ptr<llvm::Module> module;
+  const hlsl::DxilContainerHeader *blobHeader =
+      reinterpret_cast<const hlsl::DxilContainerHeader *>(blobContext);
+  if (hlsl::IsValidDxilContainer(blobHeader,
+                                 blobHeader->ContainerSizeInBytes)) {
 
     // Get DXIL program from container.
-    const hlsl::DxilPartHeader *pPartHeader =
-        hlsl::GetDxilPartByType(pBlobHeader, hlsl::DxilFourCC::DFCC_DXIL);
-    IFTBOOL(pPartHeader != nullptr, DXC_E_MISSING_PART);
-    const hlsl::DxilProgramHeader *pProgramHeader =
+    const hlsl::DxilPartHeader *partHeader =
+        hlsl::GetDxilPartByType(blobHeader, hlsl::DxilFourCC::DFCC_DXIL);
+    IFTBOOL(partHeader != nullptr, DXC_E_MISSING_PART);
+    const hlsl::DxilProgramHeader *programHeader =
         reinterpret_cast<const hlsl::DxilProgramHeader *>(
-            GetDxilPartData(pPartHeader));
+            GetDxilPartData(partHeader));
 
     // Parse DXIL program to module.
-    if (IsValidDxilProgramHeader(pProgramHeader, pPartHeader->PartSize)) {
-      std::string DiagStr;
-      GetDxilProgramBitcode(pProgramHeader, &blobContext, &blobSize);
+    if (IsValidDxilProgramHeader(programHeader, partHeader->PartSize)) {
+      std::string diagStr; // Note: diagStr is not used by the callee.
+      GetDxilProgramBitcode(programHeader, &blobContext, &blobSize);
       module = hlsl::dxilutil::LoadModuleFromBitcode(
-          llvm::StringRef(blobContext, blobSize), context, DiagStr);
+          llvm::StringRef(blobContext, blobSize), llvmContext, diagStr);
+    }
+
+    if (module == nullptr) {
+      emitError("Could not parse DXIL module from bitcode");
+      return DXC_E_GENERAL_INTERNAL_ERROR;
     }
   }
   // Parse LLVM module from IR.
   else {
-    llvm::StringRef bufStrRef(blobContext, blobSize);
-    memoryBuffer = llvm::MemoryBuffer::getMemBufferCopy(bufStrRef);
-    module = parseIR(memoryBuffer->getMemBufferRef(), err, context);
-  }
+    llvm::SMDiagnostic err;
+    module = parseIR(memoryBuffer->getMemBufferRef(), err, llvmContext);
 
-  if (module == nullptr) {
-    emitError("Could not parse DXIL module");
-    return DXC_E_GENERAL_INTERNAL_ERROR;
+    if (module == nullptr) {
+      emitError("Could not parse DXIL module from IR: %0") << err.getMessage();
+      return DXC_E_GENERAL_INTERNAL_ERROR;
+    }
   }
 
   // Construct DXIL module.
