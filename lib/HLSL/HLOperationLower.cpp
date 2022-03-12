@@ -38,6 +38,7 @@ using namespace llvm;
 using namespace hlsl;
 
 struct HLOperationLowerHelper {
+  HLModule &M;
   OP &hlslOP;
   Type *voidTy;
   Type *f32Ty;
@@ -53,7 +54,7 @@ struct HLOperationLowerHelper {
 };
 
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
-    : hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
+    : M(HLM), hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
       dataLayout(DataLayout(HLM.GetHLOptions().bUseMinPrecision
                                   ? hlsl::DXIL::kLegacyLayoutString
                                   : hlsl::DXIL::kNewLayoutString)) {
@@ -1044,6 +1045,31 @@ Value *TranslateQuadReadLaneAt(CallInst *CI, IntrinsicOp IOP,
   return TrivialDxilOperation(DXIL::OpCode::QuadReadLaneAt, refArgs,
                               CI->getOperand(1)->getType(), CI, hlslOP);
 }
+
+// Quad intrinsics of the form fn(val,QuadOpKind)->val
+Value *TranslateQuadAnyAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                           HLOperationLowerHelper &helper,
+                           HLObjectOperationLowerHelper *pObjHelper,
+                           bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  DXIL::QuadVoteOpKind opKind;
+  switch (IOP) {
+  case IntrinsicOp::IOP_QuadAll:
+    opKind = DXIL::QuadVoteOpKind::All;
+    break;
+  case IntrinsicOp::IOP_QuadAny:
+    opKind = DXIL::QuadVoteOpKind::Any;
+    break;
+  default:
+    llvm_unreachable(
+        "QuadAny/QuadAll translation called with wrong isntruction");
+  }
+  Constant *OpArg = hlslOP->GetI8Const((unsigned)opKind);
+  Value *refArgs[] = {nullptr, CI->getOperand(1), OpArg};
+  return TrivialDxilOperation(DXIL::OpCode::QuadVote, refArgs,
+                              CI->getOperand(1)->getType(), CI, hlslOP);
+}
+
 // Wave intrinsics of the form fn(val,QuadOpKind)->val
 Value *TranslateQuadReadAcross(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                                HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
@@ -2830,6 +2856,12 @@ SampleHelper::SampleHelper(
     SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex - cube);
     SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex - cube);
     break;
+  case OP::OpCode::SampleCmpLevel:
+    SetCompareValue(CI, HLOperandIndex::kSampleCmpCmpValArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpLOffsetArgIndex);
+    SetLOD(CI, HLOperandIndex::kSampleCmpLLevelArgIndex);
+    SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex - cube);
+    break;
   case OP::OpCode::SampleCmpLevelZero:
     SetCompareValue(CI, HLOperandIndex::kSampleCmpLZCmpValArgIndex);
     TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpLZOffsetArgIndex);
@@ -3009,6 +3041,20 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.compareValue,
         // Clamp.
         sampleHelper.clamp};
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
+  } break;
+  case OP::OpCode::SampleCmpLevel: {
+    Value *sampleArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // Offset.
+        sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
+        // CmpVal.
+        sampleHelper.compareValue,
+        // LOD.
+        sampleHelper.lod};
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleCmpLevelZero:
@@ -3208,6 +3254,16 @@ GatherHelper::GatherHelper(
     }
     SetStatus(CI, statusIdx);
   } break;
+  case OP::OpCode::TextureGatherRaw: {
+    unsigned statusIdx;
+    TranslateOffset(CI, HLOperandIndex::kGatherOffsetArgIndex, offsetSize);
+    // Gather all don't have sample offset version overload.
+    DXASSERT(ch == GatherChannel::GatherAll, "Raw gather must use all channels");
+    DXASSERT(!cube, "Raw gather can't be used with cube textures");
+    DXASSERT(!hasSampleOffsets, "Raw gather doesn't support individual offsets");
+    statusIdx = HLOperandIndex::kGatherStatusArgIndex;
+    SetStatus(CI, statusIdx);
+  } break;
   default:
     DXASSERT(0, "invalid opcode for Gather");
     break;
@@ -3268,6 +3324,7 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   switch (IOP) {
   case IntrinsicOp::MOP_Gather:
   case IntrinsicOp::MOP_GatherCmp:
+  case IntrinsicOp::MOP_GatherRaw:
     ch = GatherHelper::GatherChannel::GatherAll;
     break;
   case IntrinsicOp::MOP_GatherRed:
@@ -3331,6 +3388,17 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         gatherHelper.special};
     GenerateDxilGather(CI, F, gatherArgs, gatherHelper, hlslOP);
   } break;
+  case OP::OpCode::TextureGatherRaw: {
+    Value *gatherArgs[] = {
+        opArg, gatherHelper.texHandle, gatherHelper.samplerHandle,
+        // Coord.
+        gatherHelper.coord[0], gatherHelper.coord[1], gatherHelper.coord[2],
+        gatherHelper.coord[3],
+        // Offset.
+        gatherHelper.offset[0], gatherHelper.offset[1]};
+    GenerateDxilGather(CI, F, gatherArgs, gatherHelper, hlslOP);
+    break;
+  }
   default:
     DXASSERT(0, "invalid opcode for Gather");
     break;
@@ -3416,8 +3484,6 @@ static Value* TranslateWriteSamplerFeedback(CallInst* CI, IntrinsicOp IOP, OP::O
 struct ResLoadHelper {
   ResLoadHelper(CallInst *CI, DxilResource::Kind RK, DxilResourceBase::Class RC,
                 Value *h, IntrinsicOp IOP, bool bForSubscript=false);
-  ResLoadHelper(CallInst *CI, DxilResource::Kind RK, DxilResourceBase::Class RC,
-                Value *h, Value *mip);
   // For double subscript.
   ResLoadHelper(Instruction *ldInst, Value *h, Value *idx, Value *mip)
       : opcode(OP::OpCode::TextureLoad),
@@ -3495,6 +3561,16 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
 
       if (argc > statusIdx)
         status = CI->getArgOperand(statusIdx);
+    } else if (RC == DxilResourceBase::Class::UAV &&
+               (RK == DxilResource::Kind::Texture2DMS ||
+                RK == DxilResource::Kind::Texture2DMSArray)) {
+      unsigned statusIdx = HLOperandIndex::kTex2DMSLoadStatusOpIdx;
+      mipLevel =
+        CI->getArgOperand(HLOperandIndex::kTex2DMSLoadSampleIdxOpIdx);
+
+      if (argc > statusIdx)
+        status = CI->getArgOperand(statusIdx);
+
     } else {
       const unsigned kStatusIdx = HLOperandIndex::kRWTexLoadStatusOpIdx;
 
@@ -3508,30 +3584,6 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
   }
 }
 
-ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
-                             DxilResourceBase::Class RC, Value *hdl, Value *mip)
-    : handle(hdl), offset(nullptr), status(nullptr) {
-  DXASSERT(RK != DxilResource::Kind::RawBuffer &&
-               RK != DxilResource::Kind::TypedBuffer &&
-               RK != DxilResource::Kind::Invalid,
-           "invalid resource kind");
-  opcode = OP::OpCode::TextureLoad;
-
-  retVal = CI;
-  mipLevel = mip;
-
-  const unsigned kAddrIdx = HLOperandIndex::kMipLoadAddrOpIdx;
-  addr = CI->getArgOperand(kAddrIdx);
-  unsigned argc = CI->getNumArgOperands();
-
-  const unsigned kOffsetIdx = HLOperandIndex::kMipLoadOffsetOpIdx;
-  const unsigned kStatusIdx = HLOperandIndex::kMipLoadStatusOpIdx;
-  if (argc > kOffsetIdx)
-    offset = CI->getArgOperand(kOffsetIdx);
-
-  if (argc > kStatusIdx)
-    status = CI->getArgOperand(kStatusIdx);
-}
 
 void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
                                  hlsl::OP *OP, HLResource::Kind RK, const DataLayout &DL);
@@ -3819,7 +3871,8 @@ void Split64bitValForStore(Type *EltTy, ArrayRef<Value *> vals, unsigned size,
 }
 
 void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
-                    Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
+                    Value *offset, IRBuilder<> &Builder, hlsl::OP *OP,
+                    Value *sampIdx = nullptr) {
   Type *Ty = val->getType();
 
   // This function is no longer used for lowering stores to a
@@ -3838,12 +3891,17 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   case DxilResource::Kind::Invalid:
     DXASSERT(0, "invalid resource kind");
     break;
+  case DxilResource::Kind::Texture2DMS:
+  case DxilResource::Kind::Texture2DMSArray:
+    opcode = OP::OpCode::TextureStoreSample;
+    break;
   default:
     opcode = OP::OpCode::TextureStore;
     break;
   }
 
   bool isTyped = opcode == OP::OpCode::TextureStore ||
+                 opcode == OP::OpCode::TextureStoreSample ||
                  RK == DxilResource::Kind::TypedBuffer;
 
   Type *i32Ty = Builder.getInt32Ty();
@@ -3996,7 +4054,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
         size = std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) - (j * MaxStoreElemCount);
       }
       DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
-      unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
+      unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore || opcode == DXIL::OpCode::TextureStoreSample
         ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
         : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
       Value* V0 = storeArgsList[j][val0OpIdx];
@@ -4024,6 +4082,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     storeArgsList[j].emplace_back(OP->GetU8Const(mask)); // mask
     if (opcode == DXIL::OpCode::RawBufferStore)
       storeArgsList[j].emplace_back(Alignment); // alignment only for raw buffer
+    else if (opcode == DXIL::OpCode::TextureStoreSample) {
+      storeArgsList[j].emplace_back(sampIdx?sampIdx:Builder.getInt32(0)); // sample idx only for MS textures
+    }
     Builder.CreateCall(F, storeArgsList[j]);
   }
 }
@@ -5498,6 +5559,8 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_ProcessTriTessFactorsAvg, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ProcessTriTessFactorsMax, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ProcessTriTessFactorsMin, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_QuadAll, TranslateQuadAnyAll, DXIL::OpCode::QuadVote},
+    {IntrinsicOp::IOP_QuadAny, TranslateQuadAnyAll, DXIL::OpCode::QuadVote},
     {IntrinsicOp::IOP_QuadReadAcrossDiagonal, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossX, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossY, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
@@ -5674,6 +5737,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_Sample, TranslateSample, DXIL::OpCode::Sample},
     {IntrinsicOp::MOP_SampleBias, TranslateSample, DXIL::OpCode::SampleBias},
     {IntrinsicOp::MOP_SampleCmp, TranslateSample, DXIL::OpCode::SampleCmp},
+    {IntrinsicOp::MOP_SampleCmpLevel, TranslateSample, DXIL::OpCode::SampleCmpLevel},
     {IntrinsicOp::MOP_SampleCmpLevelZero, TranslateSample, DXIL::OpCode::SampleCmpLevelZero},
     {IntrinsicOp::MOP_SampleGrad, TranslateSample, DXIL::OpCode::SampleGrad},
     {IntrinsicOp::MOP_SampleLevel, TranslateSample, DXIL::OpCode::SampleLevel},
@@ -5686,6 +5750,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_GatherCmpGreen, TranslateGather, DXIL::OpCode::TextureGatherCmp},
     {IntrinsicOp::MOP_GatherCmpRed, TranslateGather, DXIL::OpCode::TextureGatherCmp},
     {IntrinsicOp::MOP_GatherGreen, TranslateGather, DXIL::OpCode::TextureGather},
+    {IntrinsicOp::MOP_GatherRaw, TranslateGather, DXIL::OpCode::TextureGatherRaw},
     {IntrinsicOp::MOP_GatherRed, TranslateGather, DXIL::OpCode::TextureGather},
     {IntrinsicOp::MOP_GetSamplePosition, TranslateGetSamplePosition, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Load2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
@@ -7819,7 +7884,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
 
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
   if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-    HLModule::MergeGepUse(CI);
+    dxilutil::MergeGepUse(CI);
     // Resource ptr.
     Value *handle = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
     if (helper.bLegacyCBufferLoad)
@@ -7841,13 +7906,20 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
         CI->getArgOperand(HLOperandIndex::kDoubleSubscriptMipLevelOpIdx);
 
     auto U = CI->user_begin();
-    DXASSERT(CI->hasOneUse(), "subscript should only has one use");
-    // TODO: support store.
-    Instruction *ldInst = cast<Instruction>(*U);
-    ResLoadHelper ldHelper(ldInst, handle, coord, mipLevel);
+    DXASSERT(CI->hasOneUse(), "subscript should only have one use");
     IRBuilder<> Builder(CI);
-    TranslateLoad(ldHelper, RK, Builder, hlslOP, helper.dataLayout);
-    ldInst->eraseFromParent();
+    if (LoadInst *ldInst = dyn_cast<LoadInst>(*U)) {
+      ResLoadHelper ldHelper(ldInst, handle, coord, mipLevel);
+      TranslateLoad(ldHelper, RK, Builder, hlslOP, helper.dataLayout);
+      ldInst->eraseFromParent();
+    } else {
+      StoreInst *stInst = cast<StoreInst>(*U);
+      Value *val = stInst->getValueOperand();
+      TranslateStore(RK, handle, val,
+                     CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx),
+                     Builder, hlslOP, mipLevel);
+      stInst->eraseFromParent();
+    }
     Translated = true;
     return;
   } else {

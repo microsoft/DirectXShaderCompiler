@@ -1840,7 +1840,7 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
 namespace CGHLSLMSHelper {
 
 Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
-                        unsigned hlslVersion) {
+                        hlsl::LangStd hlslVersion) {
   switch (intriOp) {
   case IntrinsicOp::IOP_tan: {
     return EvalUnaryIntrinsic(CI, tanf, tan);
@@ -1955,7 +1955,7 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
     // For back compat, DXC still preserves the above behavior for language
     // versions 2016 or below. However, for newer language versions, DXC now
     // always use nearest even for round() intrinsic in all cases.
-    if (hlslVersion <= 2016) {
+    if (hlslVersion <= hlsl::LangStd::v2016) {
       return EvalUnaryIntrinsic(CI, roundf, round);
     } else {
       auto roundingMode = fegetround();
@@ -2523,7 +2523,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     }
     if (!cbSubscript->user_empty()) {
       // merge GEP use for cbSubscript.
-      HLModule::MergeGepUse(cbSubscript);
+      dxilutil::MergeGepUse(cbSubscript);
     }
   }
   return true;
@@ -2937,22 +2937,7 @@ void AddRegBindingsForResourceInConstantBuffer(
 
 // extension codegen.
 void ExtensionCodeGen(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM) {
-  // Add semantic defines for extensions if any are available.
-  HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
-      CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(
-          HLM.GetModule());
-
-  clang::DiagnosticsEngine &Diags = CGM.getDiags();
-  for (const HLSLExtensionsCodegenHelper::SemanticDefineError &error : errors) {
-    clang::DiagnosticsEngine::Level level = clang::DiagnosticsEngine::Error;
-    if (error.IsWarning())
-      level = clang::DiagnosticsEngine::Warning;
-    unsigned DiagID = Diags.getCustomDiagID(level, "%0");
-    Diags.Report(clang::SourceLocation::getFromRawEncoding(error.Location()),
-                 DiagID)
-        << error.Message();
-  }
-
+  auto &Diags = CGM.getDiags();
   // Add root signature from a #define. Overrides root signature in function
   // attribute.
   {
@@ -3245,7 +3230,7 @@ void FinishEntries(
     // const global to allow writing to it.
     // TODO: Verfiy the behavior of static globals in hull shader
     if (CGM.getLangOpts().EnableDX9CompatMode &&
-        CGM.getLangOpts().HLSLVersion <= 2016)
+        CGM.getLangOpts().HLSLVersion <= hlsl::LangStd::v2016)
       CreateWriteEnabledStaticGlobals(HLM.GetModule(), HLM.GetEntryFunction());
     if (HLM.GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry, HSEntryPatchConstantFuncAttr,

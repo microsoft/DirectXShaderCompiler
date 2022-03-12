@@ -1297,7 +1297,7 @@ public:
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  const char *getPassName() const override { return "SROA"; }
+  StringRef getPassName() const override { return "SROA"; }
   static char ID;
 
 private:

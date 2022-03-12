@@ -55,8 +55,15 @@ static const std::string ToUtf8String(const std::wstring &str) {
 }
 
 static std::wstring ToWstring(const char *ptr, size_t size) {
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > converter;
-  return converter.from_bytes(ptr, ptr+size);
+  std::wstring wstr;
+  auto state = std::mbstate_t();
+  size_t wsize = std::mbsrtowcs(nullptr, &ptr, 0, &state);
+  if (wsize != static_cast<size_t>(-1)) {
+    std::unique_ptr<wchar_t[]> pNew(new wchar_t[wsize + 1]);
+    std::mbsrtowcs(pNew.get(), &ptr, size + 1, &state);
+    wstr = pNew.get();
+  }
+  return wstr;
 }
 static std::wstring ToWstring(const char *ptr) {
   return ToWstring(ptr, strlen(ptr));
@@ -82,10 +89,10 @@ static HRESULT CopyWstringToBSTR(const std::wstring &str, BSTR *pResult) {
 static std::wstring NormalizePath(const WCHAR *path) {
   std::wstring PathStorage;
   dxcutil::MakeAbsoluteOrCurDirRelativeW(path, PathStorage);
-  std::string FilenameStr8 = Unicode::UTF16ToUTF8StringOrThrow(path);
+  std::string FilenameStr8 = Unicode::WideToUTF8StringOrThrow(path);
   llvm::SmallString<128> NormalizedPath;
   llvm::sys::path::native(FilenameStr8, NormalizedPath);
-  std::wstring FilenameStr16 = Unicode::UTF8ToUTF16StringOrThrow(NormalizedPath.c_str());
+  std::wstring FilenameStr16 = Unicode::UTF8ToWideStringOrThrow(NormalizedPath.c_str());
   return FilenameStr16;
 }
 
@@ -894,7 +901,7 @@ public:
     IFR(CompileResult);
 
     CComPtr<IDxcBlob> pFullPDB;
-    CComPtr<IDxcBlobUtf16> pFullPDBName;
+    CComPtr<IDxcBlobWide> pFullPDBName;
     IFR(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pFullPDB), &pFullPDBName));
 
     return pFullPDB.QueryInterface(ppFullPDB);

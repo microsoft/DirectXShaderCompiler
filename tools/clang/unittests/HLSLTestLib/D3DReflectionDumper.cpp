@@ -13,35 +13,14 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/test/D3DReflectionDumper.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/dxcapi.h"
 #include <sstream>
 
 // Remove this workaround once newer version of d3dcommon.h can be compiled against
 #define ADD_16_64_BIT_TYPES
-// Disable warning about value not being valid in enum
-#pragma warning( disable : 4063 )
 
-// Copied from llvm/ADT/StringExtras.h
-static inline char hexdigit(unsigned X, bool LowerCase = false) {
-  const char HexChar = LowerCase ? 'a' : 'A';
-  return X < 10 ? '0' + X : HexChar + X - 10;
-}
-// Copied from lib/IR/AsmWriter.cpp
-// PrintEscapedString - Print each character of the specified string, escaping
-// it if it is not printable or if it is an escape char.
-static std::string EscapedString(const char *text) {
-  std::ostringstream ss;
-  size_t size = strlen(text);
-  for (unsigned i = 0, e = size; i != e; ++i) {
-    unsigned char C = text[i];
-    if (isprint(C) && C != '\\' && C != '"')
-      ss << C;
-    else
-      ss << '\\' << hexdigit(C >> 4) << hexdigit(C & 0x0F);
-  }
-  return ss.str();
-}
-
-namespace refl_dump {
+namespace hlsl {
+namespace dump {
 
 LPCSTR ToString(D3D_CBUFFER_TYPE CBType) {
   switch (CBType) {
@@ -235,6 +214,8 @@ LPCSTR ToString(D3D_SHADER_VARIABLE_CLASS Class) {
 }
 
 #ifdef ADD_16_64_BIT_TYPES
+// Disable warning about value not being valid in enum
+#pragma warning( disable : 4063 )
 #define D3D_SVT_INT16   ((D3D_SHADER_VARIABLE_TYPE)58)
 #define D3D_SVT_UINT16  ((D3D_SHADER_VARIABLE_TYPE)59)
 #define D3D_SVT_FLOAT16 ((D3D_SHADER_VARIABLE_TYPE)60)
@@ -852,4 +833,5 @@ void D3DReflectionDumper::Dump(ID3D12LibraryReflection *pLibraryReflection) {
   Dedent();
 }
 
-} // namespace refl_dump
+} // namespace dump
+} // namespace hlsl

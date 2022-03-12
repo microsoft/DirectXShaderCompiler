@@ -125,6 +125,7 @@ public:
   D3D12_SHADER_RESOURCE_VIEW_DESC   SrvDesc;
   bool                              SrvDescPresent;
   D3D12_UNORDERED_ACCESS_VIEW_DESC  UavDesc;
+  D3D12_SAMPLER_DESC                SamplerDesc;
 };
 
 // Use this class to represent a heap of D3D12 resource descriptors.
@@ -194,6 +195,7 @@ public:
   LPCSTR CS = nullptr, VS = nullptr, PS = nullptr;
   LPCSTR GS = nullptr, DS = nullptr, HS = nullptr;
   LPCSTR AS = nullptr, MS = nullptr;
+  LPCSTR GetString(LPCSTR str) { return Strings.insert(str); }
   UINT DispatchX = 1, DispatchY = 1, DispatchZ = 1;
   D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 

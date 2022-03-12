@@ -80,7 +80,7 @@ namespace {
 /// ThreadSanitizer: instrument the code in module to find races.
 struct ThreadSanitizer : public FunctionPass {
   ThreadSanitizer() : FunctionPass(ID) {}
-  const char *getPassName() const override;
+  StringRef getPassName() const override;
   bool runOnFunction(Function &F) override;
   bool doInitialization(Module &M) override;
   static char ID;  // Pass identification, replacement for typeid.

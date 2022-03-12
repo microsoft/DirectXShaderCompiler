@@ -971,7 +971,7 @@ int MSFileSystemForIface::Fstat(int FD, struct stat *Status) throw() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Blocked MSFileSystem implementation.
 
-#ifdef DBG
+#ifndef NDEBUG
 static void MSFileSystemBlockedCalled() { DebugBreak(); }
 #else
 static void MSFileSystemBlockedCalled() { }

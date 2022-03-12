@@ -296,7 +296,13 @@ public:
                           ArrayRef<const Attr *> Attrs) override;
   void MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
                                  clang::QualType QaulTy) override;
-  void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
+  void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
+                     llvm::Value *V) override;
+  const clang::Expr *CheckReturnStmtGLCMismatch(
+      CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
+      clang::QualType FnRetTy,
+      const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap)
+      override;
   void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
                       BasicBlock *endSwitch) override;
@@ -382,6 +388,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bDisableOptimizations = CGM.getCodeGenOpts().DisableLLVMOpts;
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
+  opts.bResMayAlias = CGM.getCodeGenOpts().HLSLResMayAlias;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
   opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;
@@ -1001,7 +1008,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     if (Field->isBitField()) {
       // TODO(?): Consider refactoring, as this branch duplicates much
       // of the logic of CGRecordLowering::accumulateBitFields().
-      DXASSERT(CGM.getLangOpts().HLSLVersion > 2015, "We should have already ensured we have no bitfields.");
+      DXASSERT(CGM.getLangOpts().HLSLVersion > hlsl::LangStd::v2015,
+               "We should have already ensured we have no bitfields.");
       CodeGenTypes &Types = CGM.getTypes();
       ASTContext &Context = Types.getContext();
       const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
@@ -1551,6 +1559,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  if (auto *Attr = FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+    if (SM->IsSM67Plus() &&
+        (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
+         (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
+      F->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
+  }
   if (isEntry) {
     funcProps->shaderKind = SM->GetKind();
     if (funcProps->shaderKind == DXIL::ShaderKind::Mesh) {
@@ -2575,8 +2589,9 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
   }
 }
 
-void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
-                                           clang::QualType QualTy) {
+void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF,
+                                                llvm::Value *V,
+                                                clang::QualType QualTy) {
   // Save object properties for temp that may be created for
   // call args, return value, or agg expr copy.
   if (objectProperties.GetResource(V).isValid())
@@ -2584,10 +2599,8 @@ void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Valu
   AddValToPropertyMap(V, QualTy);
 }
 
-static bool isGLCMismatch(QualType Ty0, QualType Ty1,
-                             const Expr *SrcExp,
-                             clang::SourceLocation Loc,
-                             DiagnosticsEngine &Diags) {
+static bool isGLCMismatch(QualType Ty0, QualType Ty1, const Expr *SrcExp,
+                          clang::SourceLocation Loc, DiagnosticsEngine &Diags) {
   if (HasHLSLGloballyCoherent(Ty0) == HasHLSLGloballyCoherent(Ty1))
     return false;
   if (const CastExpr *Cast = dyn_cast<CastExpr>(SrcExp)) {
@@ -2620,6 +2633,50 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
       objectProperties.updateGLC(V);
     }
   }
+}
+
+const clang::Expr *CGMSHLSLRuntime::CheckReturnStmtGLCMismatch(
+    CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
+    clang::QualType FnRetTy,
+    const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
+  if (!isGLCMismatch(RV->getType(), FnRetTy, RV, S.getReturnLoc(),
+                     CGM.getDiags())) {
+    return RV;
+  }
+  const FunctionDecl *FD = cast<FunctionDecl>(CGF.CurFuncDecl);
+  // create temp Var
+  VarDecl *tmpArg =
+      VarDecl::Create(CGF.getContext(), const_cast<FunctionDecl *>(FD),
+                      SourceLocation(), SourceLocation(),
+                      /*IdentifierInfo*/ nullptr, FnRetTy,
+                      CGF.getContext().getTrivialTypeSourceInfo(FnRetTy),
+                      StorageClass::SC_Auto);
+
+  // Aggregate type will be indirect param convert to pointer type.
+  // So don't update to ReferenceType, use RValue for it.
+  const DeclRefExpr *tmpRef = DeclRefExpr::Create(
+      CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
+      /*enclosing*/ false, tmpArg->getLocation(), FnRetTy, VK_RValue);
+
+  // create alloc for the tmp arg
+  Value *tmpArgAddr = nullptr;
+  BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
+  Function *F = InsertBlock->getParent();
+
+  // Make sure the alloca is in entry block to stop inline create stacksave.
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+  tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(FnRetTy));
+
+  // add it to local decl map
+  TmpArgMap(tmpArg, tmpArgAddr);
+
+  LValue argLV = CGF.EmitLValue(RV);
+  Value *argAddr = argLV.getAddress();
+
+  // Annotate return value when mismatch with function return type.
+  DxilResourceProperties RP = BuildResourceProperty(RV->getType());
+  CopyAndAnnotateResourceArgument(argAddr, tmpArgAddr, RP, *m_pHLModule, CGF);
+  return tmpRef;
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
@@ -3771,7 +3828,8 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
           StringRef intrinsicGroup;
           hlsl::GetIntrinsicOp(FD, intrinsicOpcode, intrinsicGroup);
           IntrinsicOp opcode = static_cast<IntrinsicOp>(intrinsicOpcode);
-          if (Value *Result = TryEvalIntrinsic(CI, opcode, CGM.getLangOpts().HLSLVersion)) {
+          if (Value *Result =
+                  TryEvalIntrinsic(CI, opcode, CGM.getLangOpts().HLSLVersion)) {
             RV = RValue::get(Result);
           }
         }

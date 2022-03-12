@@ -461,7 +461,7 @@ public:
   // Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override;
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Function Pass Manager";
   }
 

@@ -644,10 +644,10 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
 // HLSL Change Ends
 
 /// \brief Normalizes an attribute name by dropping prefixed and suffixed __.
-static StringRef normalizeAttrName(StringRef Name) {
+static std::string normalizeAttrName(StringRef Name) {  // HLSL Change: return std::string
   if (Name.size() >= 4 && Name.startswith("__") && Name.endswith("__"))
     Name = Name.drop_front(2).drop_back(2);
-  return Name;
+  return Name.lower();  // HLSL Change: make lowercase
 }
 
 /// \brief Determine whether the given attribute has an identifier argument.
@@ -2035,11 +2035,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
     SingleDecl = ParseNamespace(Context, DeclEnd);
     break;
   case tok::kw_using:
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
-      SkipMalformedDecl();
-      return DeclGroupPtrTy();
-    }
     SingleDecl = ParseUsingDirectiveOrDeclaration(Context, ParsedTemplateInfo(),
                                                   DeclEnd, attrs, &OwnedType);
     break;
@@ -2282,7 +2277,11 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   // global variable can be inside a global structure as a static member.
   // Check if the global is a static member and skip global const pass.
   // in backcompat mode, the check for global const is deferred to later stage in CGMSHLSLRuntime::FinishCodeGen()
-  bool CheckGlobalConst = getLangOpts().HLSL && getLangOpts().EnableDX9CompatMode && getLangOpts().HLSLVersion <= 2016 ? false : true;
+  bool CheckGlobalConst =
+      getLangOpts().HLSL && getLangOpts().EnableDX9CompatMode &&
+              getLangOpts().HLSLVersion <= hlsl::LangStd::v2016
+          ? false
+          : true;
   if (NestedNameSpecifier *nameSpecifier = D.getCXXScopeSpec().getScopeRep()) {
     if (nameSpecifier->getKind() == NestedNameSpecifier::SpecifierKind::TypeSpec) {
       const Type *type = D.getCXXScopeSpec().getScopeRep()->getAsType();
@@ -4555,7 +4554,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                 const ParsedTemplateInfo &TemplateInfo,
                                 AccessSpecifier AS, DeclSpecContext DSC) {
   // HLSL Change Starts
-  if (getLangOpts().HLSL && getLangOpts().HLSLVersion < 2017) {
+  if (getLangOpts().HLSL && getLangOpts().HLSLVersion < hlsl::LangStd::v2017) {
     Diag(Tok, diag::err_hlsl_enum);
     // Skip the rest of this declarator, up until the comma or semicolon.
     SkipUntil(tok::comma, StopAtSemi);
@@ -4615,7 +4614,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 
   bool AllowFixedUnderlyingType = AllowDeclaration &&
     (getLangOpts().CPlusPlus11 || getLangOpts().MicrosoftExt ||
-     getLangOpts().ObjC2 || getLangOpts().HLSLVersion >= 2017);
+     getLangOpts().ObjC2 || getLangOpts().HLSLVersion >= hlsl::LangStd::v2017);
 
   CXXScopeSpec &SS = DS.getTypeSpecScope();
   if (getLangOpts().CPlusPlus) {
@@ -4917,7 +4916,8 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 ///         identifier
 ///
 void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
-  assert(getLangOpts().HLSLVersion >= 2017 && "HLSL does not support enums before 2017"); // HLSL Change
+  assert(getLangOpts().HLSLVersion >= hlsl::LangStd::v2017 &&
+         "HLSL does not support enums before 2017"); // HLSL Change
 
   // Enter the scope of the enum body and start the definition.
   ParseScope EnumScope(this, Scope::DeclScope | Scope::EnumScope);

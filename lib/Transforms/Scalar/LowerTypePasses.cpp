@@ -546,7 +546,7 @@ bool MultiDimArrayToOneDimArray::needToLower(Value *V) {
     return false;
   } else {
     // Merge all GEP.
-    HLModule::MergeGepUse(V);
+    dxilutil::MergeGepUse(V);
     return true;
   }
 }

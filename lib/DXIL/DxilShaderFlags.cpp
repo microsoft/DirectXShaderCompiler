@@ -59,6 +59,9 @@ ShaderFlags::ShaderFlags():
 , m_bResourceDescriptorHeapIndexing(false)
 , m_bSamplerDescriptorHeapIndexing(false)
 , m_bAtomicInt64OnHeapResource(false)
+, m_bResMayNotAlias(false)
+, m_bAdvancedTextureOps(false)
+, m_bWriteableMSAATextures(false)
 , m_align1(0)
 {
   // Silence unused field warnings
@@ -115,6 +118,9 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bResourceDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_ResourceDescriptorHeapIndexing : 0;
   Flags |= m_bSamplerDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_SamplerDescriptorHeapIndexing : 0;
   Flags |= m_bAtomicInt64OnHeapResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource : 0;
+
+  Flags |= m_bAdvancedTextureOps ? hlsl::DXIL::ShaderFeatureInfo_AdvancedTextureOps : 0;
+  Flags |= m_bWriteableMSAATextures ? hlsl::DXIL::ShaderFeatureInfo_WriteableMSAATextures : 0;
 
   return Flags;
 }
@@ -175,6 +181,9 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetResourceDescriptorHeapIndexing(true);
   Flags.SetSamplerDescriptorHeapIndexing(true);
   Flags.SetAtomicInt64OnHeapResource(true);
+  Flags.SetResMayNotAlias(true);
+  Flags.SetAdvancedTextureOps(true);
+  Flags.SetWriteableMSAATextures(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -368,12 +377,24 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasSamplerDescriptorHeapIndexing = false;
   bool hasAtomicInt64OnHeapResource = false;
 
+  // Used to determine whether to set ResMayNotAlias flag.
+  bool hasUAVs = M->GetUAVs().size() > 0;
+
+  bool hasAdvancedTextureOps = false;
+  bool hasWriteableMSAATextures = false;
+
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
   bool hasMulticomponentUAVLoadsBackCompat = valMajor == 1 && valMinor == 0;
   bool hasViewportOrRTArrayIndexBackCombat = valMajor == 1 && valMinor < 4;
   bool hasBarycentricsBackCompat = valMajor == 1 && valMinor < 6;
+
+  // Setting additional flag for downlevel shader model may cause some driver to
+  // fail shader create due to an unrecognized flag.
+  uint32_t dxilMajor, dxilMinor;
+  M->GetDxilVersion(dxilMajor, dxilMinor);
+  bool canSetResMayNotAlias = DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
@@ -385,6 +406,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     ResourceKey key = {(uint8_t)res->GetClass(), res->GetSpaceID(),
                        res->GetLowerBound(), res->GetUpperBound()};
     resMap.insert({key, res.get()});
+    if (res->GetKind() == DXIL::ResourceKind::Texture2DMS ||
+        res->GetKind() == DXIL::ResourceKind::Texture2DMSArray)
+      hasWriteableMSAATextures = true;
   }
 
   for (const BasicBlock &BB : F->getBasicBlockList()) {
@@ -452,11 +476,16 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::Msad:
           hasMSAD = true;
           break;
-        case DXIL::OpCode::BufferLoad:
-        case DXIL::OpCode::TextureLoad: {
+        case DXIL::OpCode::TextureLoad:
+          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset2OpIdx)))
+            hasAdvancedTextureOps = true;
+          __fallthrough;
+        case DXIL::OpCode::BufferLoad: {
           if (hasMulticomponentUAVLoads) continue;
           // This is the old-style computation (overestimating requirements).
-          Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
+          Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferLoadHandleOpIdx);
           CallInst *handleCall = FindCallToCreateHandle(resHandle);
           // Check if this is a library handle or general create handle
           if (handleCall) {
@@ -507,14 +536,27 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
           break;
+        case DXIL::OpCode::SampleGrad:
+        case DXIL::OpCode::SampleLevel:
+        case DXIL::OpCode::SampleCmpLevelZero:
+          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
+            hasAdvancedTextureOps = true;
+          break;
+        case DXIL::OpCode::Sample:
+        case DXIL::OpCode::SampleBias:
+        case DXIL::OpCode::SampleCmp:
+          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
+            hasAdvancedTextureOps = true;
+          __fallthrough;
         case DXIL::OpCode::DerivFineX:
         case DXIL::OpCode::DerivFineY:
         case DXIL::OpCode::DerivCoarseX:
         case DXIL::OpCode::DerivCoarseY:
-        case DXIL::OpCode::CalculateLOD:
-        case DXIL::OpCode::Sample:
-        case DXIL::OpCode::SampleBias:
-        case DXIL::OpCode::SampleCmp: {
+        case DXIL::OpCode::CalculateLOD: {
           const ShaderModel *pSM = M->GetShaderModel();
           if (pSM->IsAS() || pSM->IsMS())
             hasDerivativesInMeshAndAmpShaders = true;
@@ -522,11 +564,26 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::CreateHandleFromHeap: {
           ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(
                         CI->getArgOperand(DXIL::OperandIndex::kCreateHandleFromHeapSamplerHeapOpIdx));
-          if (isSamplerVal->getLimitedValue())
+          if (isSamplerVal->getLimitedValue()) {
             hasSamplerDescriptorHeapIndexing = true;
-          else
+          } else {
             hasResourceDescriptorHeapIndexing = true;
-        }
+            if (!hasUAVs) {
+              // If not already marked, check if UAV.
+              DxilResourceProperties RP = GetResourcePropertyFromHandleCall(
+                  M, const_cast<CallInst *>(CI));
+              if (RP.isUAV())
+                hasUAVs = true;
+            }
+          }
+        } break;
+        case DXIL::OpCode::TextureStoreSample:
+          hasWriteableMSAATextures = true;
+          __fallthrough;
+        case DXIL::OpCode::SampleCmpLevel:
+        case DXIL::OpCode::TextureGatherRaw:
+          hasAdvancedTextureOps = true;
+          break;
         default:
           // Normal opcodes.
           break;
@@ -640,6 +697,12 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetResourceDescriptorHeapIndexing(hasResourceDescriptorHeapIndexing);
   flag.SetSamplerDescriptorHeapIndexing(hasSamplerDescriptorHeapIndexing);
   flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
+  flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
+  flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
+
+  // Only bother setting the flag when there are UAVs.
+  flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
+                         !M->GetResMayAlias());
 
   return flag;
 }

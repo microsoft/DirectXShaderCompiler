@@ -1734,7 +1734,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       dbgOffset.debugOffset = 0;
     } else {
       // merge GEP use for global.
-      HLModule::MergeGepUse(&GV);
+      dxilutil::MergeGepUse(&GV);
     }
   }
   // Add static GVs to work list.
@@ -1755,7 +1755,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         if (!A->user_empty()) {
           WorkList.push(A);
           // merge GEP use for the allocs
-          HLModule::MergeGepUse(A);
+          dxilutil::MergeGepUse(A);
         }
       }
   }
@@ -1894,7 +1894,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         if (!Ty->isAggregateType() && !Ty->isVectorTy())
           continue;
         // merge GEP use for global.
-        HLModule::MergeGepUse(GV);
+        dxilutil::MergeGepUse(GV);
       }
 
       const bool bAllowReplace = true;
@@ -3215,9 +3215,12 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 }
 
 static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder) {
+  Function *F = Builder.GetInsertBlock()->getParent();
   for (auto it = C->user_begin(); it != C->user_end(); ) {
     User *U = *(it++);
     if (Instruction *I = dyn_cast<Instruction>(U)) {
+      if (I->getParent()->getParent() != F)
+        continue;
       I->replaceUsesOfWith(C, V);
     } else {
       // Skip unused ConstantExpr.
@@ -3923,6 +3926,97 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
   return false;
 }
 
+// Recursively search all loads and stores of Ptr, and record all the scopes
+// they are in.
+static void FindAllScopesOfLoadsAndStores(Value *Ptr, std::unordered_set<MDNode *> *OutScopes) {
+  for (User *U : Ptr->users()) {
+    if (isa<GEPOperator>(U) || isa<BitCastOperator>(U)) {
+      FindAllScopesOfLoadsAndStores(U, OutScopes);
+      continue;
+    }
+    Instruction *I = dyn_cast<Instruction>(U);
+    if (!I)
+      continue;
+    DebugLoc DL = I->getDebugLoc();
+    if (!DL)
+      continue;
+
+    if (isa<LoadInst>(I) || isa<StoreInst>(I) || isa<MemCpyInst>(I) ||
+        isa<CallInst>(I)) // Could be some arbitrary HL op
+    {
+      DILocation *loc = DL.get();
+      while (loc) {
+        DILocalScope *scope = dyn_cast<DILocalScope>(loc->getScope());
+        while (scope) {
+          OutScopes->insert(scope);
+          if (auto lexicalScope = dyn_cast<DILexicalBlockBase>(scope))
+            scope = lexicalScope->getScope();
+          else if (isa<DISubprogram>(scope))
+            break;
+        }
+        loc = loc->getInlinedAt();
+      }
+    }
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Delete all dbg.declare instructions for allocas that are never touched in
+// scopes. This could greatly improve compilation speed and binary size at the
+// cost of in-scope but unused (part of) variables being invisible in certain
+// functions. For example:
+//
+//     struct Context {
+//        float a, b, c;
+//     };
+//     void bar(inout Context ctx) {
+//       ctx.b = ctx.a * 2;
+//     }
+//     void foo(inout Context ctx) {
+//       ctx.a = 10;
+//       bar(ctx);
+//     }
+//     
+//     float main() : SV_Target {
+//       Context ctx = (Context)0;
+//       foo(ctx);
+//       return ctx.a + ctx.b + ctx.c;
+//     }
+//
+// Before running this, shader would generate dbg.declare for members 'a', 'b',
+// and 'c' for variable 'ctx' in every scope ('main', 'foo', and 'bar'). In
+// the call stack with 'foo' and 'bar', member 'c' is never used in any way, so
+// it's a waste to generate dbg.declare for member 'c' for the 'ctx' in scope
+// 'foo' and scope 'bar', so they can be removed.
+//===----------------------------------------------------------------------===//
+static void DeleteOutOfScopeDebugInfo(Function &F) {
+  if (!llvm::hasDebugInfo(*F.getParent()))
+    return;
+
+  std::unordered_set<MDNode *> Scopes;
+  for (Instruction &I : F.getEntryBlock()) {
+    auto AI = dyn_cast<AllocaInst>(&I);
+    if (!AI)
+      continue;
+
+    Scopes.clear();
+    FindAllScopesOfLoadsAndStores(AI, &Scopes);
+    for (auto it = hlsl::dxilutil::mdv_users_begin(AI),
+              end = hlsl::dxilutil::mdv_users_end(AI);
+        it != end;)
+    {
+      User *U = *(it++);
+      if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U)) {
+        DILocalVariable *var = DDI->getVariable();
+        DILocalScope *scope = var->getScope();
+        if (!Scopes.count(scope)) {
+          DDI->eraseFromParent();
+        }
+      }
+    }
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // SROA on function parameters.
 //===----------------------------------------------------------------------===//
@@ -3940,7 +4034,7 @@ class SROA_Parameter_HLSL : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit SROA_Parameter_HLSL() : ModulePass(ID) {}
-  const char *getPassName() const override { return "SROA Parameter HLSL"; }
+  StringRef getPassName() const override { return "SROA Parameter HLSL"; }
   static void RewriteBitcastWithIdenticalStructs(Function *F);
   static void RewriteBitcastWithIdenticalStructs(BitCastInst *BCI);
   static bool DeleteSimpleStoreOnlyAlloca(AllocaInst *AI);
@@ -4072,6 +4166,8 @@ public:
       for (AllocaInst *AI : simpleStoreOnlyAllocas) {
         DeleteSimpleStoreOnlyAlloca(AI);
       }
+
+      DeleteOutOfScopeDebugInfo(F);
     }
     return true;
   }
@@ -4186,14 +4282,11 @@ bool SROA_Parameter_HLSL::DeleteSimpleStoreOnlyAlloca(AllocaInst *AI) {
   }
 
   // Delete dbg.declare's too
-  LLVMContext &Ctx = AI->getContext();
-  if (auto *L = LocalAsMetadata::getIfExists(AI))
-    if (auto *MDV = MetadataAsValue::getIfExists(Ctx, L))
-      for (auto it = MDV->user_begin(), end = MDV->user_end(); it != end;) {
-        User *U = *(it++);
-        if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
-          DDI->eraseFromParent();
-      }
+  for (auto it = hlsl::dxilutil::mdv_users_begin(AI), end = hlsl::dxilutil::mdv_users_end(AI); it != end;) {
+    User *U = *(it++);
+    if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
+      DDI->eraseFromParent();
+  }
 
   AI->eraseFromParent();
   return true;
@@ -5510,7 +5603,7 @@ static void LegalizeDxilInputOutputs(Function *F,
   // Map from output to the temp created for it.
   MapVector<Argument *, Value*> outputTempMap; // Need deterministic order of iteration
   for (Argument &arg : F->args()) {
-    HLModule::MergeGepUse(&arg);
+    dxilutil::MergeGepUse(&arg);
     Type *Ty = arg.getType();
 
     DxilParameterAnnotation &paramAnnotation = EntryAnnotation->GetParameterAnnotation(arg.getArgNo());
@@ -5680,7 +5773,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   // Add all argument to worklist.
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
-    HLModule::MergeGepUse(&Arg);
+    dxilutil::MergeGepUse(&Arg);
 
     unsigned prevFlatParamCount = FlatParamList.size();
 
@@ -5962,7 +6055,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       if (isa<Instruction>(flatArg))
         DeadInsts.emplace_back(flatArg);
 
-      HLModule::MergeGepUse(Arg);
+      dxilutil::MergeGepUse(Arg);
       // Flatten store of array parameter.
       if (Arg->getType()->isPointerTy()) {
         Type *Ty = Arg->getType()->getPointerElementType();
@@ -6002,7 +6095,7 @@ class LowerStaticGlobalIntoAlloca : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit LowerStaticGlobalIntoAlloca() : ModulePass(ID) {}
-  const char *getPassName() const override { return "Lower static global into Alloca"; }
+  StringRef getPassName() const override { return "Lower static global into Alloca"; }
 
   bool runOnModule(Module &M) override {
     m_DbgFinder.processModule(M);

@@ -25,7 +25,7 @@ class DxilRemoveDiscards : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilRemoveDiscards() : ModulePass(ID) {}
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Remove all discard instructions";
   }
   bool runOnModule(Module &M) override;

@@ -84,6 +84,8 @@ const char *kDxBreakMDName = "dx.break.br";
 const char *kDxIsHelperGlobalName = "dx.ishelper";
 
 const char *kHostLayoutTypePrefix = "hostlayout.";
+
+const char* kWaveOpsIncludeHelperLanesString = "waveops-include-helper-lanes";
 }
 
 void SetDxilHook(Module &M);
@@ -122,7 +124,7 @@ DxilModule::DxilModule(Module *pModule)
   DXASSERT_NOMSG(m_pModule != nullptr);
   SetDxilHook(*m_pModule);
 
-#if defined(_DEBUG) || defined(DBG)
+#ifndef NDEBUG
   // Pin LLVM dump methods.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
   void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
@@ -577,6 +579,14 @@ void DxilModule::SetAllResourcesBound(bool ResourcesBound) {
 
 bool DxilModule::GetAllResourcesBound() const {
   return m_bAllResourcesBound;
+}
+
+void DxilModule::SetResMayAlias(bool resMayAlias) {
+  m_bResMayAlias = resMayAlias;
+}
+
+bool DxilModule::GetResMayAlias() const {
+  return m_bResMayAlias;
 }
 
 void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
@@ -1551,6 +1561,7 @@ void DxilModule::LoadDxilMetadata() {
     m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
     m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
     m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
+    m_bResMayAlias = !m_ShaderFlags.GetResMayNotAlias();
   }
 
   // Now that we have the UseMinPrecision flag, set shader model:
@@ -1611,7 +1622,7 @@ void DxilModule::LoadDxilMetadata() {
     m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
-#ifdef DBG
+#ifndef NDEBUG
     throw;
 #endif
     m_pTypeSystem->GetStructAnnotationMap().clear();
@@ -1623,7 +1634,7 @@ void DxilModule::LoadDxilMetadata() {
     m_pMDHelper->LoadDxrPayloadAnnotations(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
-#ifdef DBG
+#ifndef NDEBUG
     throw;
 #endif
     m_pTypeSystem->GetPayloadAnnotationMap().clear();

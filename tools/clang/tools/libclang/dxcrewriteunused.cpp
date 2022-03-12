@@ -312,6 +312,12 @@ bool MacroPairCompareIsLessThan(
   return left.first->getName().compare(right.first->getName()) < 0;
 }
 
+bool ParsedSemanticDefineCompareIsLessThan(
+    const ParsedSemanticDefine &left,
+    const ParsedSemanticDefine &right) {
+    return left.Name < right.Name;
+}
+
 ParsedSemanticDefineList
 CollectUserMacrosParsedByCompiler(CompilerInstance &compiler) {
   ParsedSemanticDefineList parsedDefines;
@@ -496,7 +502,6 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   }
 
   if (!macros.empty()) {
-    std::sort(macros.begin(), macros.end(), MacroPairCompareIsLessThan);
     MacroExpander expander(pp);
     for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
       std::string expandedValue;
@@ -507,6 +512,7 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
     }
   }
 
+  std::stable_sort(parsedDefines.begin(), parsedDefines.end(), ParsedSemanticDefineCompareIsLessThan);
   return parsedDefines;
 }
 
@@ -535,7 +541,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
   if (opts.WarningAsError)
     compiler.getDiagnostics().setWarningsAsErrors(true);
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
-  compiler.getLangOpts().HLSLVersion = (unsigned)opts.HLSLVersion;
+  compiler.getLangOpts().HLSLVersion = opts.HLSLVersion;
   compiler.getLangOpts().StrictUDTCasting = opts.StrictUDTCasting;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
@@ -973,7 +979,7 @@ DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper, _In_ LPCSTR pFileName,
 
   ASTHelper astHelper;
   hlsl::options::DxcOpts opts;
-  opts.HLSLVersion = 2015;
+  opts.HLSLVersion = hlsl::LangStd::v2015;
 
   GenerateAST(pHelper, pFileName, pRemap, pDefines, defineCount, astHelper,
               opts, msfPtr, w);
@@ -1639,7 +1645,7 @@ public:
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fakeName, pBuffer.release()));
 
       hlsl::options::DxcOpts opts;
-      opts.HLSLVersion = 2015;
+      opts.HLSLVersion = hlsl::LangStd::v2015;
 
       std::string errors;
       std::string rewrite;
@@ -1689,7 +1695,7 @@ public:
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fName, pBuffer.release()));
 
       hlsl::options::DxcOpts opts;
-      opts.HLSLVersion = 2015;
+      opts.HLSLVersion = hlsl::LangStd::v2015;
 
       opts.RWOpt.SkipFunctionBody |=
           rewriteOption & RewriterOptionMask::SkipFunctionBody;

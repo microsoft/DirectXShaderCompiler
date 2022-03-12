@@ -443,6 +443,36 @@ if %Failed% neq 0 goto :failed
 call :run dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 
+set testname=Test Version macro
+for %%v in (2016 2017 2018 2021) do (
+  call :run dxc.exe -HV %%v -P %%v.hlsl.pp %testfiles%\VersionMacro.hlsl
+  if %Failed% neq 0 goto :failed
+  call :check_file %%v.hlsl.pp find %%v del
+  if %Failed% neq 0 goto :failed
+)
+
+set testname=Test v202x macro
+call :run dxc.exe -HV 202x -P v202x.hlsl.pp %testfiles%\VersionMacro.hlsl
+if %Failed% neq 0 goto :failed
+call :check_file v202x.hlsl.pp find 2029 del
+if %Failed% neq 0 goto :failed
+
+set testname=Test shader profile macro
+for %%p in (vs ps gs hs ds cs lib) do (
+  for %%v in (5 6) do (
+    if "%%p" == "lib" ( if %%v leq 2 goto :next )
+    if "%%p" == "ms" ( if %%v leq 4 goto :next )
+    if "%%p" == "as" ( if %%v leq 4 goto :next )
+    call :run dxc.exe -T %%p_6_%%v -P %%p_%%v.hlsl.pp %testfiles%\PipelineStage.hlsl
+    if %Failed% neq 0 goto :failed
+    call :check_file %%p_%%v.hlsl.pp find "%%p 6 %%v" del
+    if %Failed% neq 0 goto :failed
+
+    :next
+    rem Skip to the next iteration
+  )
+)
+
 set testname=Byte Order Markers
 call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-ascii.hlsl"
 call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf8.hlsl"

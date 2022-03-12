@@ -1,6 +1,7 @@
 set(LLVM_LINK_COMPONENTS
   Core
 #  MC # HLSL Change
+  DxcSupport # HLSL Change
   Support
   )
 

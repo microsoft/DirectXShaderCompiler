@@ -22,7 +22,7 @@ class DxilForceEarlyZ : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilForceEarlyZ() : ModulePass(ID) {}
-  const char *getPassName() const override { return "DXIL Force Early Z"; }
+  StringRef getPassName() const override { return "DXIL Force Early Z"; }
   bool runOnModule(Module &M) override;
 };
 

@@ -88,13 +88,12 @@
 #define FALSE 0
 #define TRUE 1
 
-#define REGDB_E_CLASSNOTREG 1
-
 // We ignore the code page completely on Linux.
 #define GetConsoleOutputCP() 0
 
 #define _HRESULT_TYPEDEF_(_sc) ((HRESULT)_sc)
 #define DISP_E_BADINDEX _HRESULT_TYPEDEF_(0x8002000BL)
+#define REGDB_E_CLASSNOTREG _HRESULT_TYPEDEF_(0x80040154L)
 
 // This is an unsafe conversion. If needed, we can later implement a safe
 // conversion that throws exceptions for overflow cases.

@@ -159,8 +159,8 @@ void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *GV,
       semKind == Semantic::Kind::GroupID ||
       semKind == Semantic::Kind::DispatchThreadID) {
     unsigned vecSize = 1;
-    if (Ty->isVectorTy())
-      vecSize = Ty->getVectorNumElements();
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty))
+      vecSize = VT->getNumElements();
 
     newArg = Builder.CreateCall(dxilFunc, { OpArg,
       semKind == Semantic::Kind::DomainLocation ? hlslOP->GetU8Const(0) : hlslOP->GetU32Const(0) });
@@ -865,7 +865,7 @@ void collectInputOutputAccessInfo(
     std::vector<InputOutputAccessInfo> &accessInfoList, bool hasVertexOrPrimID,
     bool bInput, bool bRowMajor, bool isMS) {
   // merge GEP use for input output.
-  HLModule::MergeGepUse(GV);
+  dxilutil::MergeGepUse(GV);
   for (auto User = GV->user_begin(); User != GV->user_end();) {
     Value *I = *(User++);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(I)) {
@@ -1264,8 +1264,8 @@ void HLSignatureLower::GenerateDxilCSInputs() {
       newArg = Builder.CreateCall(dxilFunc, {OpArg});
     } else {
       unsigned vecSize = 1;
-      if (NumTy->isVectorTy())
-        vecSize = NumTy->getVectorNumElements();
+      if (FixedVectorType *VT = dyn_cast<FixedVectorType>(NumTy))
+        vecSize = VT->getNumElements();
 
       newArg = Builder.CreateCall(dxilFunc, {OpArg, hlslOP->GetU32Const(0)});
       if (vecSize > 1) {

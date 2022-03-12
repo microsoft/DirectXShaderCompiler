@@ -517,9 +517,27 @@ bool insertSeenSemanticsForEntryPointIfNotExist(
   return true;
 }
 
-// Returns whether the type is float4 or a composite type recursively including
-// only float4 e.g., float4, float4[1], struct S { float4 foo[1]; }.
-bool containOnlyVecWithFourFloats(QualType type) {
+// Returns whether the type is translated to a 32-bit floating point type,
+// depending on whether SPIR-V codegen options are configured to use 16-bit
+// types when possible.
+bool is32BitFloatingPointType(BuiltinType::Kind kind, bool use16Bit) {
+  // Always translated into 32-bit floating point types.
+  if (kind == BuiltinType::Float || kind == BuiltinType::LitFloat)
+    return true;
+
+  // Translated into 32-bit floating point types when run without
+  // -enable-16bit-types.
+  if (kind == BuiltinType::Half || kind == BuiltinType::HalfFloat ||
+      kind == BuiltinType::Min10Float || kind == BuiltinType::Min16Float)
+    return !use16Bit;
+
+  return false;
+}
+
+// Returns whether the type is a 4-component 32-bit float or a composite type
+// recursively including only such a vector e.g., float4, float4[1], struct S {
+// float4 foo[1]; }.
+bool containOnlyVecWithFourFloats(QualType type, bool use16Bit) {
   if (type->isReferenceType())
     type = type->getPointeeType();
 
@@ -532,7 +550,7 @@ bool containOnlyVecWithFourFloats(QualType type) {
         (const ConstantArrayType *)type->getAsArrayTypeUnsafe();
     elemCount = hlsl::GetArraySize(type);
     return elemCount == 1 &&
-           containOnlyVecWithFourFloats(arrayType->getElementType());
+           containOnlyVecWithFourFloats(arrayType->getElementType(), use16Bit);
   }
 
   if (const auto *structType = type->getAs<RecordType>()) {
@@ -540,7 +558,7 @@ bool containOnlyVecWithFourFloats(QualType type) {
     for (const auto *field : structType->getDecl()->fields()) {
       if (fieldCount != 0)
         return false;
-      if (!containOnlyVecWithFourFloats(field->getType()))
+      if (!containOnlyVecWithFourFloats(field->getType(), use16Bit))
         return false;
       ++fieldCount;
     }
@@ -550,7 +568,8 @@ bool containOnlyVecWithFourFloats(QualType type) {
   QualType elemType = {};
   if (isVectorType(type, &elemType, &elemCount)) {
     if (const auto *builtinType = elemType->getAs<BuiltinType>()) {
-      return elemCount == 4 && builtinType->getKind() == BuiltinType::Float;
+      return elemCount == 4 &&
+             is32BitFloatingPointType(builtinType->getKind(), use16Bit);
     }
     return false;
   }
@@ -3300,9 +3319,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // by VSOut, HS/DS/GS In/Out, MSOut.
   case hlsl::Semantic::Kind::Position: {
     if (sigPointKind == hlsl::SigPoint::Kind::VSOut &&
-        !containOnlyVecWithFourFloats(type)) {
-      emitError("semantic Position must be float4 or a composite type "
-                "recursively including only float4",
+        !containOnlyVecWithFourFloats(
+            type, theEmitter.getSpirvOptions().enable16BitTypes)) {
+      emitError("SV_Position must be a 4-component 32-bit float vector or a "
+                "composite which recursively contains only such a vector",
                 srcLoc);
     }
 

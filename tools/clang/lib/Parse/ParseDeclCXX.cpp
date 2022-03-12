@@ -438,6 +438,13 @@ Decl *Parser::ParseUsingDirective(unsigned Context,
 
   // Eat 'namespace'.
   SourceLocation NamespcLoc = ConsumeToken();
+  // HLSL change begin -warning ext before HLSL2021.
+  if (getLangOpts().HLSL) {
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021)
+      Diag(UsingLoc, diag::warn_hlsl_new_feature) << "keyword 'using'"
+                                                  << "2021";
+  }
+  // HLSL change end.
 
   if (Tok.is(tok::code_completion)) {
     Actions.CodeCompleteUsingDirective(getCurScope());
@@ -508,7 +515,6 @@ Decl *Parser::ParseUsingDeclaration(unsigned Context,
   // alias-declaration.
   ParsedAttributesWithRange MisplacedAttrs(AttrFactory);
   MaybeParseCXX11Attributes(MisplacedAttrs);
-  assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - using not allowed
 
   // Ignore optional 'typename'.
   // FIXME: This is wrong; we should parse this as a typename-specifier.
@@ -567,7 +573,6 @@ Decl *Parser::ParseUsingDeclaration(unsigned Context,
   ParsedAttributesWithRange Attrs(AttrFactory);
   MaybeParseGNUAttributes(Attrs);
   MaybeParseCXX11Attributes(Attrs);
-  assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - using not allowed
 
   // Maybe this is an alias-declaration.
   TypeResult TypeAlias;
@@ -586,7 +591,13 @@ Decl *Parser::ParseUsingDeclaration(unsigned Context,
     }
 
     ConsumeToken();
-
+    // HLSL change begin -warning ext before HLSL2021.
+    if (getLangOpts().HLSL) {
+      if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021)
+        Diag(UsingLoc, diag::warn_hlsl_new_feature) << "keyword 'using'"
+                                                  << "2021";
+    } else
+    // HLSL change end.
     Diag(Tok.getLocation(), getLangOpts().CPlusPlus11 ?
          diag::warn_cxx98_compat_alias_declaration :
          diag::ext_alias_declaration);
@@ -2382,13 +2393,6 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
   MaybeParseMicrosoftAttributes(attrs);
 
   if (Tok.is(tok::kw_using)) {
-    // HLSL Change Starts
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
-      SkipUntil(tok::semi, StopBeforeMatch);
-      return;
-    }
-    // HLSL Change Ends
     ProhibitAttributes(attrs);
 
     // Eat 'using'.
@@ -2891,20 +2895,21 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         NonNestedClass = false;
 
         // HLSL Change Starts
-        if (getLangOpts().HLSL && getLangOpts().HLSLVersion < 2016 &&
+        if (getLangOpts().HLSL &&
+            getLangOpts().HLSLVersion < hlsl::LangStd::v2016 &&
             cast<NamedDecl>(TagDecl)->getDeclName()) {
           Diag(RecordLoc, diag::err_hlsl_unsupported_nested_struct);
           break;
         } else {
-        // HLSL Change Ends - succeeding block is now conditional
-        // The Microsoft extension __interface does not permit nested classes.
-        if (getCurrentClass().IsInterface) {
-          Diag(RecordLoc, diag::err_invalid_member_in_interface)
-            << /*ErrorType=*/6
-            << (isa<NamedDecl>(TagDecl)
-                  ? cast<NamedDecl>(TagDecl)->getQualifiedNameAsString()
-                  : "(anonymous)");
-        }
+          // HLSL Change Ends - succeeding block is now conditional
+          // The Microsoft extension __interface does not permit nested classes.
+          if (getCurrentClass().IsInterface) {
+            Diag(RecordLoc, diag::err_invalid_member_in_interface)
+                << /*ErrorType=*/6
+                << (isa<NamedDecl>(TagDecl)
+                        ? cast<NamedDecl>(TagDecl)->getQualifiedNameAsString()
+                        : "(anonymous)");
+          }
         } // HLSL Change - close conditional
         break;
       }
