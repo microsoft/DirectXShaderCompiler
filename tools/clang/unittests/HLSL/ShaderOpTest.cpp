@@ -1728,7 +1728,7 @@ static HRESULT ReadAttrTEXTURE_ADDRESS_MODE(IXmlReader *pReader, LPCWSTR pAttrNa
 }
 
 static HRESULT ReadAttrCOMPARISON_FUNC(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_COMPARISON_FUNC *pValue) {
-  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::FILTER, pValue, D3D12_COMPARISON_FUNC_LESS_EQUAL);
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::COMPARISON_FUNC, pValue, D3D12_COMPARISON_FUNC_LESS_EQUAL);
 }
 
 HRESULT ShaderOpParser::ReadAttrStr(IXmlReader *pReader, LPCWSTR pAttrName, LPCSTR *ppValue) {
