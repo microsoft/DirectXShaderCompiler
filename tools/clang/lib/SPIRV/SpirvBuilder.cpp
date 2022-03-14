@@ -30,9 +30,10 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            FeatureManager &featureMgr)
     : astContext(&ac), context(ctx), featureManager(featureMgr),
       mod(llvm::make_unique<SpirvModule>()), function(nullptr),
-      moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
-      builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
-      stringLiterals() {}
+      moduleInit(nullptr), moduleInitInsertPoint(nullptr),
+      moduleFinish(nullptr), moduleFinishInsertPoint(nullptr),
+      spirvOptions(opt), builtinVars(), debugNone(nullptr),
+      nullDebugExpr(nullptr), stringLiterals() {}
 
 SpirvBuilder::SpirvBuilder(SpirvContext &ctx, const SpirvCodeGenOptions &opt,
                            FeatureManager &featureMg)
@@ -359,7 +360,7 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
   llvm::SmallVector<SpirvInstruction *, 2> indexInsts;
   for (uint32_t index : indexes) {
     indexInsts.push_back(
-        getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, index)));
+        getConstantInt(astContext->UnsignedIntTy, llvm::APInt(32, index)));
   }
   return createAccessChain(resultType, base, indexInsts, loc, range);
 }
@@ -1215,7 +1216,7 @@ void SpirvBuilder::switchInsertPointToModuleInit() {
 
 void SpirvBuilder::switchInsertPointToModuleFinish() {
   if (moduleFinishInsertPoint == nullptr) {
-    moduleFinish = createSpirvFunction(astContext.VoidTy, SourceLocation(),
+    moduleFinish = createSpirvFunction(astContext->VoidTy, SourceLocation(),
                                        "module.finish", false);
     moduleFinishInsertPoint = new (context) SpirvBasicBlock("module.finish.bb");
     moduleFinish->addBasicBlock(moduleFinishInsertPoint);
@@ -1281,16 +1282,10 @@ void SpirvBuilder::copyFromFlattenedStageVar(QualType type, SpirvVariable *var,
   insertPoint = oldInsertPoint;
 }
 
-void SpirvBuilder::copyToFlattenedStageVar(QualType type, SpirvVariable *var,
-                                           SpirvVariable *flattenedVar,
-                                           llvm::ArrayRef<uint32_t> indices,
-                                           uint32_t extraArraySize) {
-  assert(var != nullptr && flattenedVar != nullptr &&
-         flattenedVar->getStorageClass() == spv::StorageClass::Output);
-
-  auto *oldInsertPoint = insertPoint;
-  switchInsertPointToModuleFinish();
-
+void SpirvBuilder::syncFlattenedStageVars(QualType type, SpirvVariable *var,
+                                          SpirvVariable *flattenedVar,
+                                          llvm::ArrayRef<uint32_t> indices,
+                                          uint32_t extraArraySize) {
   if (extraArraySize) {
     llvm::SmallVector<uint32_t, 2> newIndices({0});
     newIndices.insert(newIndices.end(), indices.begin(), indices.end());
@@ -1309,6 +1304,35 @@ void SpirvBuilder::copyToFlattenedStageVar(QualType type, SpirvVariable *var,
     auto *value = createLoad(type, ptrToStageVar, /*SourceLocation=*/{});
     createStore(flattenedVar, value, /*SourceLocation=*/{});
   }
+}
+
+void SpirvBuilder::copyToFlattenedStageVar(
+    QualType type, SpirvVariable *var, SpirvVariable *flattenedVar,
+    llvm::ArrayRef<uint32_t> indices, uint32_t extraArraySize,
+    const llvm::DenseMap<SpirvVariable *, InsertPointInfo>
+        &hsCPOutVarToStorePoint) {
+  assert(var != nullptr && flattenedVar != nullptr &&
+         flattenedVar->getStorageClass() == spv::StorageClass::Output);
+
+  auto *oldInsertPoint = insertPoint;
+
+  auto itr = hsCPOutVarToStorePoint.find(var);
+  if (itr != hsCPOutVarToStorePoint.end()) {
+    // Since we replace a stage variable for array/matrix HSCPOut with the
+    // flattened ones, the store instruction to only the original stage variable
+    // can cause the issue that the actual stage variables (flattened ones) are
+    // not updated correctly. It is problematic in the patch control function,
+    // because the values of stage variables are shared between threads.
+    // Therefore, we have to update the flattened variables as well.
+    auto storePointInfo = itr->second;
+    insertPoint = storePointInfo.block;
+    insertPoint->setInsertionPointAfter(storePointInfo.instruction);
+    syncFlattenedStageVars(type, var, flattenedVar, indices, extraArraySize);
+    insertPoint->setInsertionPointAfter(nullptr);
+  }
+
+  switchInsertPointToModuleFinish();
+  syncFlattenedStageVars(type, var, flattenedVar, indices, extraArraySize);
 
   insertPoint = oldInsertPoint;
 }
@@ -1793,7 +1817,7 @@ void SpirvBuilder::addModuleFinishCallToEntryPoints() {
 
   for (auto *entry : mod->getEntryPoints()) {
     auto *instruction = new (context)
-        SpirvFunctionCall(astContext.VoidTy, /* SourceLocation */ {},
+        SpirvFunctionCall(astContext->VoidTy, /* SourceLocation */ {},
                           moduleFinish, /* params */ {});
     instruction->setRValue(true);
     entry->getEntryPoint()->addInstructionBeforeTermination(instruction);

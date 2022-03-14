@@ -980,6 +980,10 @@ private:
   /// accessed using stage IO variables.
   llvm::DenseMap<uint32_t, SpirvVariable *> builtinToVarMap;
 
+  /// A mapping from SPIR-V variable for HSCPOut signature to the insert point
+  /// of its store instruction.
+  llvm::DenseMap<SpirvVariable *, InsertPointInfo> hsCPOutVarToStorePoint;
+
   /// Whether the translated SPIR-V binary needs legalization.
   ///
   /// The following cases will require legalization:

@@ -86,9 +86,43 @@ public:
     setDebugScope(scope);
   }
 
-  /// Adds an instruction to the vector of instructions belonging to this basic
+  /// Sets the instruction insertion point. After calling this method, the new
+  /// instructions will be added before the instruction after |inst|.
+  void setInsertionPointAfter(SpirvInstruction *inst) {
+    if (inst == nullptr) {
+      insertionPoint = nullptr;
+      return;
+    }
+
+    auto nextInsertionPoint = instructions.end();
+    for (auto itr = instructions.begin(); itr != instructions.end(); ++itr) {
+      if (itr->instruction == inst) {
+        nextInsertionPoint = itr;
+        ++nextInsertionPoint;
+        break;
+      }
+    }
+    if (nextInsertionPoint == instructions.end()) {
+      insertionPoint = nullptr;
+      return;
+    }
+    insertionPoint = nextInsertionPoint->instruction;
+  }
+
+  /// Adds an instruction to the list of instructions belonging to this basic
   /// block.
-  void addInstruction(SpirvInstruction *inst) { instructions.push_back(inst); }
+  void addInstruction(SpirvInstruction *inst) {
+    auto nextInsertionPoint = instructions.end();
+    if (insertionPoint != nullptr) {
+      for (auto itr = instructions.begin(); itr != instructions.end(); ++itr) {
+        if (itr->instruction == insertionPoint) {
+          nextInsertionPoint = itr;
+          break;
+        }
+      }
+    }
+    instructions.insert(nextInsertionPoint, inst);
+  }
 
   /// Adds the given instruction as the first instruction of this SPIR-V basic
   /// block.
@@ -96,13 +130,22 @@ public:
     instructions.push_front(inst);
   }
 
+  /// Returns the last instruction in this basic block.
+  SpirvInstruction *getLastInstruction() {
+    if (empty())
+      return nullptr;
+    auto itr = instructions.end();
+    --itr;
+    return itr->instruction;
+  }
+
   /// Adds an instruction at the end before the termination instruction.
   void addInstructionBeforeTermination(SpirvInstruction *inst) {
     if (!hasTerminator())
       addInstruction(inst);
-    auto insertionPoint = instructions.end();
-    --insertionPoint;
-    instructions.insert(insertionPoint, inst);
+    auto itr = instructions.end();
+    --itr;
+    instructions.insert(itr, inst);
   }
 
   /// Return true if instructions is empty. Otherwise, return false.
@@ -136,6 +179,9 @@ private:
 
   /// Instructions belonging to this basic block.
   llvm::ilist<SpirvInstructionNode> instructions;
+
+  /// The instruction where we will add new instructions if it is not null.
+  SpirvInstruction *insertionPoint;
 
   /// Successors to this basic block.
   llvm::SmallVector<SpirvBasicBlock *, 2> successors;

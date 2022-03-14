@@ -2102,7 +2102,7 @@ StageVar DeclResultIdMapper::createFlattenedStageVar(
                                          extraArraySize);
   } else {
     spvBuilder.copyToFlattenedStageVar(type, var, flattenedVar, indexes,
-                                       extraArraySize);
+                                       extraArraySize, hsCPOutVarToStorePoint);
   }
 
   StageVar flattenedStageVar(
@@ -3133,6 +3133,14 @@ bool DeclResultIdMapper::createStageVars(
       // For all normal cases
       else {
         spvBuilder.createStore(ptr, *value, thisSemantic.loc);
+      }
+
+      if (sigPointKind == hlsl::DXIL::SigPointKind::HSCPOut) {
+        SpirvBasicBlock *insertPointBlock = spvBuilder.getInsertPoint();
+        SpirvInstruction *lastInstr = insertPointBlock->getLastInstruction();
+        auto result = hsCPOutVarToStorePoint.insert(
+            {varInstr, {insertPointBlock, lastInstr}});
+        assert(result.second);
       }
     }
 

@@ -35,6 +35,13 @@ struct StringMapInfo {
   }
 };
 
+// A struct keeping the information of the insertion point including the basic
+// block and the instruction in the basic block.
+struct InsertPointInfo {
+  SpirvBasicBlock *block;
+  SpirvInstruction *instruction;
+};
+
 /// The SPIR-V in-memory representation builder class.
 ///
 /// This class exports API for constructing SPIR-V in-memory representation
@@ -666,14 +673,15 @@ public:
                                  uint32_t extraArraySize);
 
   /// \brief Creates instructions to copy the indices th (recursive) component
-  /// of var to flattenedVar. When extraArraySize is not
-  /// zero, the stage variable has the extra arrayness for hull/domain shader.
-  /// In that case, we handle the extra arrayness by assuming there is one
-  /// more outmost array for both var and flattenedVar.
-  void copyToFlattenedStageVar(QualType type, SpirvVariable *var,
-                               SpirvVariable *flattenedVar,
-                               llvm::ArrayRef<uint32_t> indices,
-                               uint32_t extraArraySize);
+  /// of var to flattenedVar. When extraArraySize is not zero, the stage
+  /// variable has the extra arrayness for hull/domain shader. In that case, we
+  /// handle the extra arrayness by assuming there is one more outmost array
+  /// for both var and flattenedVar.
+  void copyToFlattenedStageVar(
+      QualType type, SpirvVariable *var, SpirvVariable *flattenedVar,
+      llvm::ArrayRef<uint32_t> indices, uint32_t extraArraySize,
+      const llvm::DenseMap<SpirvVariable *, InsertPointInfo>
+          &hsCPOutVarToStorePoint);
 
   /// \brief Decorates the given target with the given location.
   void decorateLocation(SpirvInstruction *target, uint32_t location);
@@ -850,6 +858,16 @@ private:
   SpirvVariable *createCloneVarForFxcCTBuffer(QualType astType,
                                               const SpirvType *spvType,
                                               SpirvInstruction *var);
+
+  /// \brief Creates instructions to update flattenedVar with the indices th
+  /// (recursive) component of var. When extraArraySize is not zero, the stage
+  /// variable has the extra arrayness for hull/domain shader. In that case, we
+  /// handle the extra arrayness by assuming there is one more outmost array
+  /// for both var and flattenedVar.
+  void syncFlattenedStageVars(QualType type, SpirvVariable *var,
+                              SpirvVariable *flattenedVar,
+                              llvm::ArrayRef<uint32_t> indices,
+                              uint32_t extraArraySize);
 
 private:
   ASTContext *astContext;

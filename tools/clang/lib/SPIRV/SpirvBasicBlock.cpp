@@ -14,8 +14,8 @@ namespace clang {
 namespace spirv {
 
 SpirvBasicBlock::SpirvBasicBlock(llvm::StringRef name)
-    : labelId(0), labelName(name), mergeTarget(nullptr),
-      continueTarget(nullptr), debugScope(nullptr) {}
+    : labelId(0), labelName(name), insertionPoint(nullptr),
+      mergeTarget(nullptr), continueTarget(nullptr), debugScope(nullptr) {}
 
 SpirvBasicBlock::~SpirvBasicBlock() {
   for (auto instructionNode : instructions)
