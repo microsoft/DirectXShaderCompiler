@@ -52,6 +52,17 @@ SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
   return fn;
 }
 
+SpirvFunction *SpirvBuilder::createSpirvFunction(const SpirvType *returnType,
+                                                 SourceLocation loc,
+                                                 llvm::StringRef name,
+                                                 bool isPrecise,
+                                                 bool isNoInline) {
+  auto *fn =
+      new (context) SpirvFunction(returnType, loc, name, isPrecise, isNoInline);
+  mod->addFunction(fn);
+  return fn;
+}
+
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
                                            SourceLocation loc,
                                            llvm::StringRef funcName,
@@ -61,6 +72,27 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
   if (func) {
     function = func;
     function->setAstReturnType(returnType);
+    function->setSourceLocation(loc);
+    function->setFunctionName(funcName);
+    function->setPrecise(isPrecise);
+    function->setNoInline(isNoInline);
+  } else {
+    function =
+        createSpirvFunction(returnType, loc, funcName, isPrecise, isNoInline);
+  }
+
+  return function;
+}
+
+SpirvFunction *SpirvBuilder::beginFunction(const SpirvType *returnType,
+                                           SourceLocation loc,
+                                           llvm::StringRef funcName,
+                                           bool isPrecise, bool isNoInline,
+                                           SpirvFunction *func) {
+  assert(!function && "found nested function");
+  if (func) {
+    function = func;
+    function->setReturnType(returnType);
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
@@ -1551,6 +1583,14 @@ void SpirvBuilder::decorateWithStrings(
 
 SpirvConstant *SpirvBuilder::getConstantInt(QualType type, llvm::APInt value,
                                             bool specConst) {
+  // We do not reuse existing constant integers. Just create a new one.
+  auto *intConst = new (context) SpirvConstantInteger(type, value, specConst);
+  mod->addConstant(intConst);
+  return intConst;
+}
+
+SpirvConstant *SpirvBuilder::getConstantInt(const SpirvType *type,
+                                            llvm::APInt value, bool specConst) {
   // We do not reuse existing constant integers. Just create a new one.
   auto *intConst = new (context) SpirvConstantInteger(type, value, specConst);
   mod->addConstant(intConst);
