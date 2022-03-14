@@ -74,6 +74,9 @@ public:
   SpirvFunction *createSpirvFunction(QualType returnType, SourceLocation,
                                      llvm::StringRef name, bool isPrecise,
                                      bool isNoInline = false);
+  SpirvFunction *createSpirvFunction(const SpirvType *returnType,
+                                     SourceLocation, llvm::StringRef name,
+                                     bool isPrecise, bool isNoInline = false);
 
   /// \brief Begins building a SPIR-V function by allocating a SpirvFunction
   /// object. Returns the pointer for the function on success. Returns nullptr
@@ -81,6 +84,10 @@ public:
   ///
   /// At any time, there can only exist at most one function under building.
   SpirvFunction *beginFunction(QualType returnType, SourceLocation,
+                               llvm::StringRef name = "",
+                               bool isPrecise = false, bool isNoInline = false,
+                               SpirvFunction *func = nullptr);
+  SpirvFunction *beginFunction(const SpirvType *returnType, SourceLocation,
                                llvm::StringRef name = "",
                                bool isPrecise = false, bool isNoInline = false,
                                SpirvFunction *func = nullptr);
@@ -720,6 +727,8 @@ public:
   /// Each of these methods can acquire a unique constant from the SpirvContext,
   /// and add the context to the list of constants in the module.
   SpirvConstant *getConstantInt(QualType type, llvm::APInt value,
+                                bool specConst = false);
+  SpirvConstant *getConstantInt(const SpirvType *type, llvm::APInt value,
                                 bool specConst = false);
   SpirvConstant *getConstantFloat(QualType type, llvm::APFloat value,
                                   bool specConst = false);
