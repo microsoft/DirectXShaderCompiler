@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LowerTypeVisitor.h"
+#include "SpirvTypeVisitor.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"
@@ -117,34 +118,14 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     }
     break;
   }
-  // Variables and function parameters must have a pointer type.
+  // Variables and function parameters must have a corresponding HLSL types set.
   case spv::Op::OpFunctionParameter:
   case spv::Op::OpVariable: {
     if (auto *var = dyn_cast<SpirvVariable>(instr)) {
       if (var->hasBinding() && var->getHlslUserType().empty()) {
         var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
       }
-
-      auto vkImgFeatures = spvContext.getVkImageFeaturesForSpirvVariable(var);
-      if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
-        if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
-          resultType = spvContext.getImageType(imageType, vkImgFeatures.format);
-          instr->setResultType(resultType);
-        }
-      }
     }
-    const SpirvType *pointerType =
-        spvContext.getPointerType(resultType, instr->getStorageClass());
-    instr->setResultType(pointerType);
-    break;
-  }
-  // Access chains must have a pointer type. The storage class for the pointer
-  // is the same as the storage class of the access base.
-  case spv::Op::OpAccessChain: {
-    const auto *pointerType = spvContext.getPointerType(
-        resultType,
-        cast<SpirvAccessChain>(instr)->getBase()->getStorageClass());
-    instr->setResultType(pointerType);
     break;
   }
   // OpImageTexelPointer's result type must be a pointer with image storage
@@ -175,6 +156,11 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   default:
     break;
   }
+
+  // Apply additional SPIR-V type transformations, including ensuring variables
+  // and function parameters have a pointer type.
+  SpirvTypeVisitor spirvTypeVisitor(context, opts);
+  spirvTypeVisitor.visitInstruction(instr);
 
   // The instruction does not have a result-type, so nothing to do.
   return true;

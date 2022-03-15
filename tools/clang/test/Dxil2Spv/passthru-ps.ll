@@ -105,15 +105,19 @@ attributes #1 = { nounwind }
 ; ; SPIR-V
 ; ; Version: 1.0
 ; ; Generator: Google spiregg; 0
-; ; Bound: 29
+; ; Bound: 31
 ; ; Schema: 0
 ;                OpCapability Shader
 ;                OpMemoryModel Logical GLSL450
 ;                OpEntryPoint Fragment %PSMain "PSMain" %SV_Position %COLOR %SV_Target
+;                OpExecutionMode %PSMain OriginUpperLeft
 ;                OpName %SV_Position "SV_Position"
 ;                OpName %COLOR "COLOR"
 ;                OpName %SV_Target "SV_Target"
 ;                OpName %PSMain "PSMain"
+;                OpDecorate %SV_Position Location 0
+;                OpDecorate %COLOR Location 1
+;                OpDecorate %SV_Target Location 0
 ;        %uint = OpTypeInt 32 0
 ;      %uint_0 = OpConstant %uint 0
 ;      %uint_1 = OpConstant %uint 1
@@ -125,26 +129,28 @@ attributes #1 = { nounwind }
 ; %_ptr_Output_v4float = OpTypePointer Output %v4float
 ;        %void = OpTypeVoid
 ;          %15 = OpTypeFunction %void
+; %_ptr_Input_float = OpTypePointer Input %float
+; %_ptr_Output_float = OpTypePointer Output %float
 ; %SV_Position = OpVariable %_ptr_Input_v4float Input
 ;       %COLOR = OpVariable %_ptr_Input_v4float Input
 ;   %SV_Target = OpVariable %_ptr_Output_v4float Output
 ;      %PSMain = OpFunction %void None %15
 ;          %16 = OpLabel
-;          %17 = OpAccessChain %float %COLOR %uint_0
-;          %18 = OpLoad %float %17
-;          %19 = OpAccessChain %float %COLOR %uint_1
-;          %20 = OpLoad %float %19
-;          %21 = OpAccessChain %float %COLOR %uint_2
-;          %22 = OpLoad %float %21
-;          %23 = OpAccessChain %float %COLOR %uint_3
-;          %24 = OpLoad %float %23
-;          %25 = OpAccessChain %float %SV_Target %uint_0
-;                OpStore %25 %18
-;          %26 = OpAccessChain %float %SV_Target %uint_1
-;                OpStore %26 %20
-;          %27 = OpAccessChain %float %SV_Target %uint_2
-;                OpStore %27 %22
-;          %28 = OpAccessChain %float %SV_Target %uint_3
-;                OpStore %28 %24
+;          %18 = OpAccessChain %_ptr_Input_float %COLOR %uint_0
+;          %19 = OpLoad %float %18
+;          %20 = OpAccessChain %_ptr_Input_float %COLOR %uint_1
+;          %21 = OpLoad %float %20
+;          %22 = OpAccessChain %_ptr_Input_float %COLOR %uint_2
+;          %23 = OpLoad %float %22
+;          %24 = OpAccessChain %_ptr_Input_float %COLOR %uint_3
+;          %25 = OpLoad %float %24
+;          %27 = OpAccessChain %_ptr_Output_float %SV_Target %uint_0
+;                OpStore %27 %19
+;          %28 = OpAccessChain %_ptr_Output_float %SV_Target %uint_1
+;                OpStore %28 %21
+;          %29 = OpAccessChain %_ptr_Output_float %SV_Target %uint_2
+;                OpStore %29 %23
+;          %30 = OpAccessChain %_ptr_Output_float %SV_Target %uint_3
+;                OpStore %30 %25
 ;                OpReturn
 ;                OpFunctionEnd

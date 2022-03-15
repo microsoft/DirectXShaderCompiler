@@ -18,6 +18,7 @@
 #include "RelaxedPrecisionVisitor.h"
 #include "RemoveBufferBlockVisitor.h"
 #include "SortDebugInfoVisitor.h"
+#include "SpirvTypeVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/String.h"
 
@@ -1698,17 +1699,17 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   mod->invokeVisitor(&nonUniformVisitor);
 
   // Lower types
-    LowerTypeVisitor lowerTypeVisitor(*astContext, context, spirvOptions);
-    mod->invokeVisitor(&lowerTypeVisitor);
+  LowerTypeVisitor lowerTypeVisitor(*astContext, context, spirvOptions);
+  mod->invokeVisitor(&lowerTypeVisitor);
 
-    // Generate debug types (if needed)
-    if (spirvOptions.debugInfoRich) {
-      DebugTypeVisitor debugTypeVisitor(*astContext, context, spirvOptions,
-                                        *this, lowerTypeVisitor);
-      SortDebugInfoVisitor sortDebugInfoVisitor(context, spirvOptions);
-      mod->invokeVisitor(&debugTypeVisitor);
-      mod->invokeVisitor(&sortDebugInfoVisitor);
-    }
+  // Generate debug types (if needed)
+  if (spirvOptions.debugInfoRich) {
+    DebugTypeVisitor debugTypeVisitor(*astContext, context, spirvOptions, *this,
+                                      lowerTypeVisitor);
+    SortDebugInfoVisitor sortDebugInfoVisitor(context, spirvOptions);
+    mod->invokeVisitor(&debugTypeVisitor);
+    mod->invokeVisitor(&sortDebugInfoVisitor);
+  }
 
   // Add necessary capabilities and extensions
   CapabilityVisitor capabilityVisitor(*astContext, context, spirvOptions, *this,
@@ -1743,6 +1744,10 @@ std::vector<uint32_t> SpirvBuilder::takeModuleForDxilToSpv() {
   // Propagate NonUniform decorations
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
   mod->invokeVisitor(&nonUniformVisitor);
+
+  // Amend SPIR-V types.
+  SpirvTypeVisitor spirvTypeVisitor(context, spirvOptions);
+  mod->invokeVisitor(&spirvTypeVisitor);
 
   // Add necessary capabilities and extensions
   CapabilityVisitor capabilityVisitor(*astContext, context, spirvOptions, *this,
