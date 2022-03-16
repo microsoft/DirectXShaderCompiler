@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2016  %s
+// :FXC_VERIFY_ARGUMENTS: /T ps_5_0 /E main
 
 float4 planes1[8];
 float4 planes2[3+2]; 
