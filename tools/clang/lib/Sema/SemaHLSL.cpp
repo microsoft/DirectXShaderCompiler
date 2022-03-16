@@ -4027,35 +4027,39 @@ public:
     return IsRayQueryBasicKind(GetTypeElementKind(type));
   }
 
-  void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
+  void WarnMinPrecision(QualType Type, SourceLocation Loc) {
+     Type = Type.getCanonicalType();
+     if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
+       Type = GetOriginalMatrixOrVectorElementType(Type);
+     }
     // TODO: enalbe this once we introduce precise master option
     bool UseMinPrecision = m_context->getLangOpts().UseMinPrecision;
-    if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType =
-          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_int_min16]
-                          : HLSLScalarTypeNames[HLSLScalarType_int16];
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-          << HLSLScalarTypeNames[type] << PromotedType;
-    } else if (type == HLSLScalarType_float_min10) {
-      const char *PromotedType =
-          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_float_min16]
-                          : HLSLScalarTypeNames[HLSLScalarType_float16];
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-          << HLSLScalarTypeNames[type] << PromotedType;
+    if (Type == m_context->Min12IntTy) {
+      QualType PromotedType =
+          UseMinPrecision ? m_context->Min16IntTy
+                          : m_context->ShortTy;
+      m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << Type << PromotedType;
+    } else if (Type == m_context->Min10FloatTy) {
+      QualType PromotedType =
+          UseMinPrecision ? m_context->Min16FloatTy
+                          : m_context->HalfTy;
+      m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << Type << PromotedType;
     }
     if (!UseMinPrecision) {
-      if (type == HLSLScalarType_float_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-            << HLSLScalarTypeNames[type]
-            << HLSLScalarTypeNames[HLSLScalarType_float16];
-      } else if (type == HLSLScalarType_int_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-            << HLSLScalarTypeNames[type]
-            << HLSLScalarTypeNames[HLSLScalarType_int16];
-      } else if (type == HLSLScalarType_uint_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-            << HLSLScalarTypeNames[type]
-            << HLSLScalarTypeNames[HLSLScalarType_uint16];
+      if (Type == m_context->Min16FloatTy) {
+        m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << Type
+            << m_context->HalfTy;
+      } else if (Type == m_context->Min16IntTy) {
+        m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << Type
+            << m_context->ShortTy;
+      } else if (Type == m_context->Min16UIntTy) {
+        m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << Type
+            << m_context->UnsignedShortTy;
       }
     }
   }
@@ -4116,20 +4120,19 @@ public:
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
+        if (!DiagnoseHLSLScalarType(parsedType, R.getNameLoc()))
+          return false;
         TypedefDecl *typeDecl = LookupScalarTypeDef(parsedType);
-        if (!typeDecl) return false;
+        if (!typeDecl)
+          return false;
         R.addDecl(typeDecl);
-      }
-      else if (rowCount == 0) { // vector
+      } else if (rowCount == 0) { // vector
         TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
         R.addDecl(qts);
-      }
-      else { // matrix
+      } else { // matrix
         TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
         R.addDecl(qts);
       }
-      WarnMinPrecision(parsedType, R.getNameLoc());
-      DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
       return true;
     }
     // string
@@ -12785,6 +12788,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   const Type* pType = qt.getTypePtrOrNull();
   HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
 
+  if (!isFunction)
+    hlslSource->WarnMinPrecision(qt, D.getLocStart());
+
   // Early checks - these are not simple attribution errors, but constructs that
   // are fundamentally unsupported,
   // and so we avoid errors that might indicate they can be repaired.
@@ -12842,6 +12848,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     const FunctionProtoType *pFP = pType->getAs<FunctionProtoType>();
     if (pFP) {
       qt = pFP->getReturnType();
+      hlslSource->WarnMinPrecision(qt, D.getLocStart());
       pType = qt.getTypePtrOrNull();
 
       // prohibit string as a return type
