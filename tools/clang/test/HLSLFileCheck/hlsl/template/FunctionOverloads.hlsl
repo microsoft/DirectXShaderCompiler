@@ -1,6 +1,5 @@
 // RUN: %dxc -T ps_6_6 -E main -HV 2021 -ast-dump %s | FileCheck %s
 
-// CHECK: main
 template <typename T> struct MyTex2D {
   uint heapId;
 
@@ -20,11 +19,11 @@ float4 main() : SV_Target {
   return output;
 }
 
-// CHECK:      FunctionTemplateDecl {{0x[0-9a-fA-F]+}} <line:7:3, col:73> col:30 Load
-// CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <col:13, col:22> col:22 typename Arg0
-// CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <col:28, col:73> col:30 Load 'vector<float, 4> (Arg0)'
+// CHECK:      FunctionTemplateDecl {{0x[0-9a-fA-F]+}} <line:6:3, col:73> col:30 Load
+// CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <col:13, col:22> col:22 referenced typename Arg0
+// CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <col:28, col:73> col:30 Load 'T (Arg0)'
 
-// CHECK:      FunctionTemplateDecl {{0x[0-9a-fA-F]+}} <line:9:3, line:11:3> line:9:45 Load
-// CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <col:13, col:22> col:22 typename Arg0
-// CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <col:28, col:37> col:37 typename Arg1
-// CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <col:43, line:11:3> line:9:45 Load 'vector<float, 4> (Arg0, Arg1)'
+// CHECK:      FunctionTemplateDecl {{0x[0-9a-fA-F]+}} <line:8:3, line:10:3> line:8:45 Load
+// CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <col:13, col:22> col:22 referenced typename Arg0
+// CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <col:28, col:37> col:37 referenced typename Arg1
+// CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <col:43, line:10:3> line:8:45 Load 'T (Arg0, Arg1)'
