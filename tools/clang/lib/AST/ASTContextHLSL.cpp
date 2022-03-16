@@ -407,7 +407,7 @@ CXXRecordDecl* hlsl::DeclareRecordTypeWithHandle(ASTContext& context, StringRef 
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name, TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 // creates a global static constant unsigned integer with value.
@@ -725,7 +725,7 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
 
   typeDeclBuilder.addField("h", elementType);
 
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 FunctionTemplateDecl* hlsl::CreateFunctionTemplateDecl(
@@ -866,7 +866,7 @@ CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
   typeDeclBuilder.addIntegerTemplateParam(templateParamName, context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 clang::CXXRecordDecl *
@@ -887,7 +887,7 @@ hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
 
-  typeDeclBuilder.completeDefinition();
+  typeDeclBuilder.getRecordDecl();
 
   return templateRecordDecl;
 }
@@ -907,7 +907,7 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   CreateConstructorDeclaration(context, typeDeclBuilder.getRecordDecl(), context.VoidTy, {}, context.DeclarationNames.getCXXConstructorName(canQualType), false, &pConstructorDecl, &pTypeSourceInfo);
   typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
 
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
@@ -920,7 +920,7 @@ CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
 
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
-  CXXRecordDecl *recordDecl = typeDeclBuilder.completeDefinition();
+  CXXRecordDecl *recordDecl = typeDeclBuilder.getRecordDecl();
 
   QualType indexType = context.UnsignedIntTy;
   QualType resultType = context.getRecordType(recordDecl);

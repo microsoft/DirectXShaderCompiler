@@ -105,18 +105,46 @@ attributes #1 = { nounwind }
 ; ; SPIR-V
 ; ; Version: 1.0
 ; ; Generator: Google spiregg; 0
-; ; Bound: 8
+; ; Bound: 29
 ; ; Schema: 0
 ;                OpCapability Shader
-;                OpCapability Linkage
 ;                OpMemoryModel Logical GLSL450
+;                OpEntryPoint Fragment %PSMain "PSMain" %SV_Position %COLOR %SV_Target
 ;                OpName %SV_Position "SV_Position"
 ;                OpName %COLOR "COLOR"
 ;                OpName %SV_Target "SV_Target"
+;                OpName %PSMain "PSMain"
+;        %uint = OpTypeInt 32 0
+;      %uint_0 = OpConstant %uint 0
+;      %uint_1 = OpConstant %uint 1
+;      %uint_2 = OpConstant %uint 2
+;      %uint_3 = OpConstant %uint 3
 ;       %float = OpTypeFloat 32
 ;     %v4float = OpTypeVector %float 4
 ; %_ptr_Input_v4float = OpTypePointer Input %v4float
 ; %_ptr_Output_v4float = OpTypePointer Output %v4float
+;        %void = OpTypeVoid
+;          %15 = OpTypeFunction %void
 ; %SV_Position = OpVariable %_ptr_Input_v4float Input
 ;       %COLOR = OpVariable %_ptr_Input_v4float Input
 ;   %SV_Target = OpVariable %_ptr_Output_v4float Output
+;      %PSMain = OpFunction %void None %15
+;          %16 = OpLabel
+;          %17 = OpAccessChain %float %COLOR %uint_0
+;          %18 = OpLoad %float %17
+;          %19 = OpAccessChain %float %COLOR %uint_1
+;          %20 = OpLoad %float %19
+;          %21 = OpAccessChain %float %COLOR %uint_2
+;          %22 = OpLoad %float %21
+;          %23 = OpAccessChain %float %COLOR %uint_3
+;          %24 = OpLoad %float %23
+;          %25 = OpAccessChain %float %SV_Target %uint_0
+;                OpStore %25 %18
+;          %26 = OpAccessChain %float %SV_Target %uint_1
+;                OpStore %26 %20
+;          %27 = OpAccessChain %float %SV_Target %uint_2
+;                OpStore %27 %22
+;          %28 = OpAccessChain %float %SV_Target %uint_3
+;                OpStore %28 %24
+;                OpReturn
+;                OpFunctionEnd

@@ -51,7 +51,7 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
   else if (opts.targetEnv == "vulkan1.2")
     targetEnv = SPV_ENV_VULKAN_1_2;
   else if (opts.targetEnv == "vulkan1.3")
-    targetEnv = SPV_ENV_UNIVERSAL_1_6;
+    targetEnv = SPV_ENV_VULKAN_1_3;
   else if(opts.targetEnv == "universal1.5")
     targetEnv = SPV_ENV_UNIVERSAL_1_5;
   else {
