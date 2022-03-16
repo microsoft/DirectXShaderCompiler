@@ -541,8 +541,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
 
     // nested-name-specifier:
     //   type-name '<'
-    bool nextIsLess = Next.is(tok::less);
-    if (nextIsLess || getLangOpts().HLSL) { // HLSL Change
+    if (Next.is(tok::less)) {
       TemplateTy Template;
       UnqualifiedId TemplateName;
       TemplateName.setIdentifier(&II, Tok.getLocation());
@@ -553,31 +552,21 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
                                                         ObjectType,
                                                         EnteringContext,
                                                         Template,
-                                              MemberOfUnknownSpecialization,
-                                                        nextIsLess)) {  // HLSL Change
+                                              MemberOfUnknownSpecialization)) {
         // We have found a template name, so annotate this token
         // with a template-id annotation. We do not permit the
         // template-id to be translated into a type annotation,
         // because some clients (e.g., the parsing of class template
         // specializations) still want to see the original template-id
         // token.
-        if (nextIsLess) { // HLSL Change
         ConsumeToken();
-        }
         if (AnnotateTemplateIdToken(Template, TNK, SS, SourceLocation(),
                                     TemplateName, false))
           return true;
         continue;
       }
 
-      // HLSL Change: avoid handling other cases and emitting incorrect
-      // diagnostics if the template lookup fails.
-      if (!nextIsLess && getLangOpts().HLSL) {
-        break;
-      }
-
-      if (getLangOpts().EnableTemplates && // HLSL Change - template fixup only available when templates enabled
-          MemberOfUnknownSpecialization && (ObjectType || SS.isSet()) && 
+      if (MemberOfUnknownSpecialization && (ObjectType || SS.isSet()) && 
           (IsTypename || IsTemplateArgumentList(1))) {
         // We have something like t::getAs<T>, where getAs is a 
         // member of an unknown specialization. However, this will only

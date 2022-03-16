@@ -31,6 +31,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
@@ -4127,6 +4128,8 @@ public:
         TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
         R.addDecl(qts);
       }
+      WarnMinPrecision(parsedType, R.getNameLoc());
+      DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
       return true;
     }
     // string
@@ -13298,23 +13301,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   return result;
 }
 
-// Diagnose HLSL types on lookup
-bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
-  const DeclarationNameInfo declName = R.getLookupNameInfo();
-  IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
-  if (idInfo) {
-    StringRef nameIdentifier = idInfo->getName();
-    HLSLScalarType parsedType;
-    int rowCount, colCount;
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getLangOpts())) {
-      HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
-      hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
-      return hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
-    }
-  }
-  return true;
-}
-
 static QualType getUnderlyingType(QualType Type)
 {
   while (const TypedefType *TD = dyn_cast<TypedefType>(Type))
@@ -13422,30 +13408,26 @@ clang::QualType hlsl::GetOriginalMatrixOrVectorElementType(
 {
   // TODO: Determine if this is really the best way to get the matrix/vector specialization
   // without losing the AttributedType on the template parameter
-  if (const Type* pType = type.getTypePtrOrNull()) {
+  if (const Type* Ty = type.getTypePtrOrNull()) {
     // A non-dependent template specialization type is always "sugar",
     // typically for a RecordType.  For example, a class template
     // specialization type of @c vector<int> will refer to a tag type for
     // the instantiation @c std::vector<int, std::allocator<int>>.
-    if (const TemplateSpecializationType* pTemplate = pType->getAs<TemplateSpecializationType>()) {
+    if (const TemplateSpecializationType* pTemplate = Ty->getAs<TemplateSpecializationType>()) {
       // If we have enough arguments, pull them from the template directly, rather than doing
       // the extra lookups.
       if (pTemplate->getNumArgs() > 0)
         return pTemplate->getArg(0).getAsType();
 
       QualType templateRecord = pTemplate->desugar();
-      const Type *pTemplateRecordType = templateRecord.getTypePtr();
-      if (pTemplateRecordType) {
-        const TagType *pTemplateTagType = pTemplateRecordType->getAs<TagType>();
-        if (pTemplateTagType) {
-          const ClassTemplateSpecializationDecl *specializationDecl =
-              dyn_cast_or_null<ClassTemplateSpecializationDecl>(
-                  pTemplateTagType->getDecl());
-          if (specializationDecl) {
-            return specializationDecl->getTemplateArgs()[0].getAsType();
-          }
-        }
-      }
+      Ty = templateRecord.getTypePtr();
+    }
+    if (!Ty)
+      return QualType();
+    
+    if (const auto *TagTy = Ty->getAs<TagType>()) {
+      if (const auto *SpecDecl = dyn_cast_or_null<ClassTemplateSpecializationDecl>(TagTy->getDecl()))
+        return SpecDecl->getTemplateArgs()[0].getAsType();
     }
   }
   return QualType();
@@ -13967,4 +13949,31 @@ clang::QualType ApplyTypeSpecSignToParsedType(
 )
 {
     return HLSLExternalSource::FromSema(self)->ApplyTypeSpecSignToParsedType(type, TSS, Loc);
+}
+
+ClassTemplateSpecializationDecl *
+Sema::getHLSLDefaultSpecialization(ClassTemplateDecl *Decl) {
+  if (Decl->getTemplateParameters()->getMinRequiredArguments() == 0) {
+    void *InsertPos = nullptr;
+    TemplateArgumentListInfo EmptyArgs;
+    EmptyArgs.setLAngleLoc(Decl->getSourceRange().getEnd());
+    EmptyArgs.setRAngleLoc(Decl->getSourceRange().getEnd());
+    SmallVector<TemplateArgument, 2> Converted;
+    if (!CheckTemplateArgumentList(Decl, Decl->getSourceRange().getEnd(), EmptyArgs,
+                                   false, Converted)) {
+      ClassTemplateSpecializationDecl *DefaultSpec =
+          Decl->findSpecialization(Converted, InsertPos);
+      if (!DefaultSpec) {
+        DefaultSpec = ClassTemplateSpecializationDecl::Create(
+            getASTContext(), TagDecl::TagKind::TTK_Class,
+            getASTContext().getTranslationUnitDecl(), SourceLocation(),
+            SourceLocation(), Decl, Converted.data(), Converted.size(),
+            DefaultSpec);
+        Decl->AddSpecialization(DefaultSpec, InsertPos);
+        DefaultSpec->setImplicit(true);
+      }
+      return DefaultSpec;
+    }
+  }
+  return nullptr;
 }

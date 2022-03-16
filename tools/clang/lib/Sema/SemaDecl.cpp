@@ -445,6 +445,10 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
     (void)DiagnoseUseOfDecl(IDecl, NameLoc);
     if (!HasTrailingDot)
       T = Context.getObjCInterfaceType(IDecl);
+  } else if (getLangOpts().HLSL) { // HLSL - omit empty template argument lists
+    if (ClassTemplateDecl *TD = dyn_cast<ClassTemplateDecl>(IIDecl))
+      if (TypeDecl *DefaultSpec = getHLSLDefaultSpecialization(TD))
+        T = Context.getTypeDeclType(DefaultSpec); // HLSL Change end
   }
 
   if (T.isNull()) {
