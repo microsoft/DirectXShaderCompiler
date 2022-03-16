@@ -4485,7 +4485,7 @@ public:
   /// <summary>Validate object element on intrinsic to catch case like integer on Sample.</summary>
   /// <param name="pIntrinsic">Intrinsic function to validate.</param>
   /// <param name="objectElement">Type element on the class intrinsic belongs to; possibly null (eg, 'float' in 'Texture2D<float>').</param>
-  bool IsValidateObjectElement(
+  bool IsValidObjectElement(
     _In_ const HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement);
 
@@ -5730,8 +5730,8 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
 }
 
 _Use_decl_annotations_ bool
-HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
-                                            QualType objectElement) {
+HLSLExternalSource::IsValidObjectElement(const HLSL_INTRINSIC *pIntrinsic,
+                                         QualType objectElement) {
   IntrinsicOp op = static_cast<IntrinsicOp>(pIntrinsic->Op);
   switch (op) {
   case IntrinsicOp::MOP_Sample:
@@ -5743,7 +5743,16 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
   case IntrinsicOp::MOP_SampleLevel: {
     ArBasicKind kind = GetTypeElementKind(objectElement);
     UINT uBits = GET_BPROP_BITS(kind);
-    return IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64;
+    if (IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64)
+      return true;
+    // 6.7 adds UINT sampler support
+    if (IS_BASIC_UINT(kind) || IS_BASIC_SINT(kind)) {
+      const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+      return SM->IsSM67Plus();
+    }
+    return false;
+
   }
   case IntrinsicOp::MOP_GatherRaw: {
     ArBasicKind kind = GetTypeElementKind(objectElement);
@@ -9865,7 +9874,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
-    if (IsBuiltinTable(tableName) && !IsValidateObjectElement(*cursor, objectElement)) {
+    if (IsBuiltinTable(tableName) && !IsValidObjectElement(*cursor, objectElement)) {
       UINT numEles = GetNumElements(objectElement);
       std::string typeName(g_ArBasicTypeNames[GetTypeElementKind(objectElement)]);
       if (numEles > 1) typeName += std::to_string(numEles);
