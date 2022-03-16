@@ -767,7 +767,7 @@ class db_dxil(object):
             db_dxil_param(2, "res", "handle", "cbuffer handle"),
             db_dxil_param(3, "u32", "regIndex", "0-based index into cbuffer instance")])
         next_op_idx += 1
-        self.add_dxil_op("Sample", next_op_idx, "Sample", "samples a texture", "hf", "ro", [
+        self.add_dxil_op("Sample", next_op_idx, "Sample", "samples a texture", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -781,7 +781,7 @@ class db_dxil(object):
             db_dxil_param(11, "f", "clamp", "clamp value")],
             counters=('tex_norm',))
         next_op_idx += 1
-        self.add_dxil_op("SampleBias", next_op_idx, "SampleBias", "samples a texture after applying the input bias to the mipmap level", "hf", "ro", [
+        self.add_dxil_op("SampleBias", next_op_idx, "SampleBias", "samples a texture after applying the input bias to the mipmap level", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -796,7 +796,7 @@ class db_dxil(object):
             db_dxil_param(12, "f", "clamp", "clamp value")],
             counters=('tex_bias',))
         next_op_idx += 1
-        self.add_dxil_op("SampleLevel", next_op_idx, "SampleLevel", "samples a texture using a mipmap-level offset", "hf", "ro", [
+        self.add_dxil_op("SampleLevel", next_op_idx, "SampleLevel", "samples a texture using a mipmap-level offset", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -810,7 +810,7 @@ class db_dxil(object):
             db_dxil_param(11, "f", "LOD", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")],
             counters=('tex_norm',))
         next_op_idx += 1
-        self.add_dxil_op("SampleGrad", next_op_idx, "SampleGrad", "samples a texture using a gradient to influence the way the sample location is calculated", "hf", "ro", [
+        self.add_dxil_op("SampleGrad", next_op_idx, "SampleGrad", "samples a texture using a gradient to influence the way the sample location is calculated", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -830,7 +830,7 @@ class db_dxil(object):
             db_dxil_param(17, "f", "clamp", "clamp value")],
             counters=('tex_grad',))
         next_op_idx += 1
-        self.add_dxil_op("SampleCmp", next_op_idx, "SampleCmp", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
+        self.add_dxil_op("SampleCmp", next_op_idx, "SampleCmp", "samples a texture and compares a single component against the specified comparison value", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -845,7 +845,7 @@ class db_dxil(object):
             db_dxil_param(12, "f", "clamp", "clamp value")],
             counters=('tex_cmp',))
         next_op_idx += 1
-        self.add_dxil_op("SampleCmpLevelZero", next_op_idx, "SampleCmpLevelZero", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
+        self.add_dxil_op("SampleCmpLevelZero", next_op_idx, "SampleCmpLevelZero", "samples a texture and compares a single component against the specified comparison value", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
