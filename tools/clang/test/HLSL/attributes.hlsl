@@ -401,11 +401,11 @@ HSFoo HSMain( InputPatch<HSFoo, 16> p,
   | `-SemanticDecl <col:30> "SV_PrimitiveID"
   |-CompoundStmt <line:462:1, line:468:1>
   | |-DeclStmt <line:463:5, col:17>
-  | | `-VarDecl <col:5, col:11> col:11 used output 'HSFoo' nrvo
+  | | `-VarDecl <col:5, col:11> col:11 used output 'HSFoo'
   | |-DeclStmt <line:464:5, col:41>
   | | `-VarDecl <col:5, col:40> col:12 used r 'float4':'vector<float, 4>' cinit
   | |   `-CXXFunctionalCastExpr <col:16, col:40> 'float4':'vector<float, 4>' functional cast to float4 <NoOp>
-  | |     `-InitListExpr <col:23, col:39> 'float4':'vector<float, 4>'
+  | |     `-InitListExpr <col:22, col:40> 'float4':'vector<float, 4>'
   | |       |-ImplicitCastExpr <col:23, col:34> 'const float3':'const vector<float, 3>' <LValueToRValue>
   | |       | `-MemberExpr <col:23, col:34> 'const float3':'const vector<float, 3>' lvalue .pos
   | |       |   `-CXXOperatorCallExpr <col:23, col:32> 'const HSFoo' lvalue
@@ -563,12 +563,12 @@ void clipplanes_bad_scalar_swizzle();
 /*verify-ast
   HLSLClipPlanesAttr <col:2, line:582:3>
   |-DeclRefExpr <line:579:3> 'const float4':'const vector<float, 4>' lvalue Var 'f4' 'const float4':'const vector<float, 4>'
-  |-ArraySubscriptExpr <line:580:3, col:8> 'const float4':'const vector<float, 4>' lvalue
+  |-ArraySubscriptExpr <line:580:3, col:8> 'float4':'vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3> 'const float4 [2]' <LValueToRValue>
   | | `-DeclRefExpr <col:3> 'const float4 [2]' lvalue Var 'cp4' 'const float4 [2]'
   | `-IntegerLiteral <col:7> 'literal int' 0
-  |-ArraySubscriptExpr <line:581:3, col:11> 'float4':'vector<float, 4>' lvalue
-  | |-ImplicitCastExpr <col:3, col:6> 'float4 [5]' <LValueToRValue>
+  |-ArraySubscriptExpr <line:581:3, col:11> 'const float4':'const vector<float, 4>' lvalue
+  | |-ImplicitCastExpr <col:3, col:6> 'float4 const[5]' <LValueToRValue>
   | | `-MemberExpr <col:3, col:6> 'float4 const[5]' lvalue .cp5
   | |   `-DeclRefExpr <col:3> 'const global_struct' lvalue Var 'gs' 'const global_struct'
   | `-IntegerLiteral <col:10> 'literal int' 2
@@ -588,20 +588,20 @@ float4 clipplanes_good();
   HLSLClipPlanesAttr <col:2, line:616:3>
   |-ParenExpr <line:612:3, col:6> 'const float4':'const vector<float, 4>' lvalue
   | `-DeclRefExpr <col:4> 'const float4':'const vector<float, 4>' lvalue Var 'f4' 'const float4':'const vector<float, 4>'
-  |-ArraySubscriptExpr <line:613:3, col:10> 'const float4':'const vector<float, 4>' lvalue
+  |-ArraySubscriptExpr <line:613:3, col:10> 'float4':'vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3> 'const float4 [2]' <LValueToRValue>
   | | `-DeclRefExpr <col:3> 'const float4 [2]' lvalue Var 'cp4' 'const float4 [2]'
   | `-ParenExpr <col:7, col:9> 'literal int'
   |   `-IntegerLiteral <col:8> 'literal int' 0
-  |-ArraySubscriptExpr <line:614:3, col:13> 'float4':'vector<float, 4>' lvalue
-  | |-ImplicitCastExpr <col:3, col:8> 'float4 [5]' <LValueToRValue>
+  |-ArraySubscriptExpr <line:614:3, col:13> 'const float4':'const vector<float, 4>' lvalue
+  | |-ImplicitCastExpr <col:3, col:8> 'float4 const[5]' <LValueToRValue>
   | | `-MemberExpr <col:3, col:8> 'float4 const[5]' lvalue .cp5
   | |   `-ParenExpr <col:3, col:6> 'const global_struct' lvalue
   | |     `-DeclRefExpr <col:4> 'const global_struct' lvalue Var 'gs' 'const global_struct'
   | `-IntegerLiteral <col:12> 'literal int' 2
-  |-ParenExpr <line:615:3, col:15> 'float4':'vector<float, 4>' lvalue
-  | `-ArraySubscriptExpr <col:4, col:14> 'float4':'vector<float, 4>' lvalue
-  |   |-ImplicitCastExpr <col:4, col:9> 'float4 [5]' <LValueToRValue>
+  |-ParenExpr <line:615:3, col:15> 'const float4':'const vector<float, 4>' lvalue
+  | `-ArraySubscriptExpr <col:4, col:14> 'const float4':'const vector<float, 4>' lvalue
+  |   |-ImplicitCastExpr <col:4, col:9> 'float4 const[5]' <LValueToRValue>
   |   | `-MemberExpr <col:4, col:9> 'float4 const[5]' lvalue .cp5
   |   |   `-ParenExpr <col:4, col:7> 'const global_struct' lvalue
   |   |     `-DeclRefExpr <col:5> 'const global_struct' lvalue Var 'gs' 'const global_struct'
