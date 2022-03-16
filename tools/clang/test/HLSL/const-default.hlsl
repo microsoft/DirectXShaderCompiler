@@ -5,7 +5,7 @@ int4 g_vec1;                                                /* expected-note {{v
 uint64_t3x4 g_mat1;                                         /* fxc-error {{X3000: unrecognized identifier 'uint64_t3x4'}} */
 
 cbuffer g_cbuffer {
-    min12int m_buffer_min12int;                             /* expected-note {{variable 'm_buffer_min12int' declared const here}} expected-warning {{min12int is promoted to min16int}} fxc-pass {{}} */
+    min12int m_buffer_min12int;                             /* expected-note {{variable 'm_buffer_min12int' declared const here}} fxc-pass {{}} */
     float4 m_buffer_float4;                                 /* expected-note {{variable 'm_buffer_float4' declared const here}} fxc-pass {{}} */
     int3x4 m_buffer_int3x4;
 }
@@ -22,7 +22,7 @@ struct MyStruct {
 };
 
 ConstantBuffer<MyStruct> g_const_buffer;
-TextureBuffer<MyStruct> g_texture_buffer;                
+TextureBuffer<MyStruct> g_texture_buffer;
 
 float4 main() : SV_TARGET
 {
