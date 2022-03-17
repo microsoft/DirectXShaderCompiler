@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "LowerTypeVisitor.h"
-#include "SpirvTypeVisitor.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"
