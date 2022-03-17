@@ -39,6 +39,7 @@ Environment variables - set these to ensure this tool works properly:
 """
 
 import os, sys, re
+import subprocess
 
 try:    DiffTool = os.environ['HLSL_DIFF_TOOL']
 except: DiffTool = None
@@ -48,78 +49,93 @@ HlslVerifierTestCpp = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\unittests
 HlslDataDir = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\test\HLSL')
 HlslBinDir = os.path.expandvars(r'${HLSL_BLD_DIR}\Debug\bin')
 VerifierTests = {
-    'RunArrayIndexOutOfBounds': 'array-index-out-of-bounds-HV-2016.hlsl',
-    'RunArrayLength': 'array-length.hlsl',
-    'RunAttributes': 'attributes.hlsl',
-    'RunBadInclude': 'bad-include.hlsl',
-    'RunBinopDims': 'binop-dims.hlsl',
-    'RunBitfields': 'bitfields.hlsl',
-    'RunBuiltinTypesNoInheritance': 'builtin-types-no-inheritance.hlsl',
-    'RunCXX11Attributes': 'cxx11-attributes.hlsl',
-    'RunConstAssign': 'const-assign.hlsl',
-    'RunConstDefault': 'const-default.hlsl',
-    'RunConstExpr': 'const-expr.hlsl',
-    'RunConversionsBetweenTypeShapes': 'conversions-between-type-shapes.hlsl',
-    'RunConversionsBetweenTypeShapesStrictUDT': 'conversions-between-type-shapes-strictudt.hlsl',
-    'RunConversionsNonNumericAggregates': 'conversions-non-numeric-aggregates.hlsl',
-    'RunCppErrors': 'cpp-errors.hlsl',
-    'RunCppErrorsHV2015': 'cpp-errors-hv2015.hlsl',
-    'RunDerivedToBaseCasts': 'derived-to-base.hlsl',
-    'RunEffectsSyntax': 'effects-syntax.hlsl',
-    'RunEnums': 'enums.hlsl',
-    'RunFunctions': 'functions.hlsl',
-    'RunImplicitCasts': 'implicit-casts.hlsl',
-    'RunIncompleteArray': 'incomp_array_err.hlsl',
-    'RunIncompleteType': 'incomplete-type.hlsl',
-    'RunIndexingOperator': 'indexing-operator.hlsl',
-    'RunIntrinsicExamples': 'intrinsic-examples.hlsl',
-    'RunLiterals': 'literals.hlsl',
-    'RunMatrixAssignments': 'matrix-assignments.hlsl',
-    'RunMatrixSyntax': 'matrix-syntax.hlsl',
-    'RunMatrixSyntaxExactPrecision': 'matrix-syntax-exact-precision.hlsl',
-    'RunMintypesPromotionWarnings': 'mintypes-promotion-warnings.hlsl',
-    'RunMoreOperators': 'more-operators.hlsl',
-    'RunObjectOperators': 'object-operators.hlsl',
-    'RunPackReg': 'packreg.hlsl',
-    'RunRayTracings': "raytracing.hlsl",
-    'RunScalarAssignments': 'scalar-assignments.hlsl',
-    'RunScalarAssignmentsExactPrecision': 'scalar-assignments-exact-precision.hlsl',
-    'RunScalarOperators': 'scalar-operators.hlsl',
-    'RunScalarOperatorsAssign': 'scalar-operators-assign.hlsl',
-    'RunScalarOperatorsAssignExactPrecision': 'scalar-operators-assign-exact-precision.hlsl',
-    'RunScalarOperatorsExactPrecision': 'scalar-operators-exact-precision.hlsl',
-    'RunSemantics': 'semantics.hlsl',
-    'RunSizeof': 'sizeof.hlsl',
-    'RunString': 'string.hlsl',
-    'RunStructAssignments': 'struct-assignments.hlsl',
-    'RunSubobjects': 'subobjects-syntax.hlsl',
-    'RunTemplateChecks': 'template-checks.hlsl',
-    'RunTypemodsSyntax': 'typemods-syntax.hlsl',
-    'RunUint4Add3': 'uint4_add3.hlsl',
-    'RunVarmodsSyntax': 'varmods-syntax.hlsl',
-    'RunVectorAssignments': 'vector-assignments.hlsl',
-    'RunVectorConditional': 'vector-conditional.hlsl',
-    'RunVectorSyntax': 'vector-syntax.hlsl',
-    'RunVectorSyntaxExactPrecision': 'vector-syntax-exact-precision.hlsl',
-    'RunVectorSyntaxMix': 'vector-syntax-mix.hlsl',
-    'RunWave': 'wave.hlsl',
+    'RunArrayConstAssign':                       'array-const-assign.hlsl',
+    'RunArrayIndexOutOfBounds':                  'array-index-out-of-bounds-HV-2016.hlsl',
+    'RunArrayLength':                            'array-length.hlsl',
+    'RunAttributes':                             'attributes.hlsl',
+    'RunBadInclude':                             'bad-include.hlsl',
+    'RunBinopDims':                              'binop-dims.hlsl',
+    'RunBitfields':                              'bitfields.hlsl',
+    'RunBuiltinTypesNoInheritance':              'builtin-types-no-inheritance.hlsl',
+    'RunCXX11Attributes':                        'cxx11-attributes.hlsl',
+    'RunConstAssign':                            'const-assign.hlsl',
+    'RunConstDefault':                           'const-default.hlsl',
+    'RunConstExpr':                              'const-expr.hlsl',
+    'RunConversionsBetweenTypeShapes':           'conversions-between-type-shapes.hlsl',
+    'RunConversionsBetweenTypeShapesStrictUDT':  'conversions-between-type-shapes-strictudt.hlsl',
+    'RunConversionsNonNumericAggregates':        'conversions-non-numeric-aggregates.hlsl',
+    'RunCppErrors':                              'cpp-errors.hlsl',
+    'RunCppErrorsHV2015':                        'cpp-errors-hv2015.hlsl',
+    'RunDerivedToBaseCasts':                     'derived-to-base.hlsl',
+    'RunEffectsSyntax':                          'effects-syntax.hlsl',
+    'RunEnums':                                  'enums.hlsl',
+    'RunFunctions':                              'functions.hlsl',
+    'RunImplicitCasts':                          'implicit-casts.hlsl',
+    'RunIncompleteArray':                        'incomp_array_err.hlsl',
+    'RunIncompleteType':                         'incomplete-type.hlsl',
+    'RunIndexingOperator':                       'indexing-operator.hlsl',
+    'RunInputPatchConst':                        'InputPatch-const.hlsl',
+    'RunIntrinsicExamples':                      'intrinsic-examples.hlsl',
+    'RunLiterals':                               'literals.hlsl',
+    'RunMatrixAssignments':                      'matrix-assignments.hlsl',
+    'RunMatrixSyntax':                           'matrix-syntax.hlsl',
+    'RunMatrixSyntaxExactPrecision':             'matrix-syntax-exact-precision.hlsl',
+    'RunMintypesPromotionWarnings':              'mintypes-promotion-warnings.hlsl',
+    'RunMoreOperators':                          'more-operators.hlsl',
+    'RunObjectOperators':                        'object-operators.hlsl',
+    'RunOperatorOverloadingForNewDelete':        'overloading-new-delete-errors.hlsl',
+    'RunOperatorOverloadingNotDefinedBinaryOp':  'use-undefined-overloaded-operator.hlsl',
+    'RunPackReg':                                'packreg.hlsl',
+    'RunRayTracings':                            'raytracings.hlsl',
+    'RunScalarAssignments':                      'scalar-assignments.hlsl',
+    'RunScalarAssignmentsExactPrecision':        'scalar-assignments-exact-precision.hlsl',
+    'RunScalarOperators':                        'scalar-operators.hlsl',
+    'RunScalarOperatorsAssign':                  'scalar-operators-assign.hlsl',
+    'RunScalarOperatorsAssignExactPrecision':    'scalar-operators-assign-exact-precision.hlsl',
+    'RunScalarOperatorsExactPrecision':          'scalar-operators-exact-precision.hlsl',
+    'RunSemantics':                              'semantics.hlsl',
+    'RunSizeof':                                 'sizeof.hlsl',
+    'RunString':                                 'string.hlsl',
+    'RunStructAssignments':                      'struct-assignments.hlsl',
+    'RunSubobjects':                             'subobjects-syntax.hlsl',
+    'RunTemplateChecks':                         'template-checks.hlsl',
+    'RunTemplateLiteralSubstitutionFailure':     'template-literal-substitution-failure.hlsl',
+    'RunTypemodsSyntax':                         'typemods-syntax.hlsl',
+    'RunUint4Add3':                              'uint4_add3.hlsl',
+    'RunVarmodsSyntax':                          'varmods-syntax.hlsl',
+    'RunVectorAnd':                              'vector-and.hlsl',
+    'RunVectorAssignments':                      'vector-assignments.hlsl',
+    'RunVectorConditional':                      'vector-conditional.hlsl',
+    'RunVectorOr':                               'vector-or.hlsl',
+    'RunVectorSelect':                           'vector-select.hlsl',
+    'RunVectorSyntax':                           'vector-syntax.hlsl',
+    'RunVectorSyntaxExactPrecision':             'vector-syntax-exact-precision.hlsl',
+    'RunVectorSyntaxMix':                        'vector-syntax-mix.hlsl',
+    'RunWave':                                   'wave.hlsl',
 }
 
 # The following test(s) do not work in fxc mode:
 fxcExcludedTests = [
+    'RunArrayLength',
     'RunBitfields',
     'RunCppErrors',
     'RunCppErrorsHV2015',
     'RunCXX11Attributes',
+    'RunConversionsBetweenTypeShapesStrictUDT',
     'RunEnums',
     'RunIncompleteType',
     'RunIntrinsicExamples',
     'RunMatrixSyntaxExactPrecision',
+    'RunOperatorOverloadingForNewDelete',
+    'RunOperatorOverloadingNotDefinedBinaryOp',
     'RunRayTracings',
     'RunScalarAssignmentsExactPrecision',
     'RunScalarOperatorsAssignExactPrecision',
     'RunScalarOperatorsExactPrecision',
+    'RunSizeof',
     'RunSubobjects',
+    'RunTemplateChecks',
+    'RunTemplateLiteralSubstitutionFailure',
     'RunVectorSyntaxExactPrecision',
     'RunWave',
 ]
@@ -553,11 +569,15 @@ class File(object):
                 if verify_arguments is None:
                     fout.write("\n[numthreads(1,1,1)] void _test_main() {  }\n")
             if verify_arguments is None:
-                args = '/E _test_main /T cs_5_1'
+                args = '/E _test_main /T cs_5_1'.split()
             else:
-                args = verify_arguments
-            os.system('%s /nologo "%s.fxc_temp" %s /DVERIFY_FXC=1 /Fo "%s.fxo" /Fe "%s.err" 1> "%s.log" 2>&1' % 
-                      (FxcPath, temp_filename, args, temp_filename, temp_filename, temp_filename))
+                args = verify_arguments.split()
+            fxcres = subprocess.run(['%s' % FxcPath,
+                                     temp_filename + '.fxc_temp',
+                                     *args, "/nologo", "/DVERIFY_FXC=1",
+                                     "/Fo", temp_filename + '.fxo',
+                                     "/Fe", temp_filename + '.err'],
+                                    capture_output=True, text=True)
             with open(temp_filename+'.err', 'rt') as f:
                 errors = [m for m in map(rxFxcErr.match, f.readlines()) if m]
             errors = sorted(errors, key=lambda m: int(m.group(2)))
@@ -597,29 +617,24 @@ class File(object):
         temp_filename = os.path.expandvars(r'${TEMP}\%s' % os.path.split(self.filename)[1])
         if result_filename is None:
             result_filename = temp_filename + '.ast'
-        try:    os.unlink(temp_filename+'.ast_dump')
-        except: pass
         try:    os.unlink(result_filename)
         except: pass
-##        result = os.system('%s\\clang.exe -cc1 -fsyntax-only -ast-dump %s 1>"%s.ast_dump" 2>"%s.log"' %
-        result = os.system('%s\\dxc.exe -ast-dump %s -E main -T ps_5_0 1>"%s.ast_dump" 2>"%s.log"' %
-                           (HlslBinDir, self.filename, temp_filename, temp_filename))
+        result = subprocess.run(['%s\\dxc.exe' % HlslBinDir,
+                                 "-ast-dump", "-E", "main", "-T", "ps_5_0",
+                                 self.filename],
+                                capture_output=True, text=True)
         # dxc dumps ast even if there exists any syntax error. If there is any error, dxc returns some nonzero errorcode.
-        if not os.path.isfile(temp_filename+'.ast_dump'):
-            print('ast-dump failed, see log:\n  %s.log' % (temp_filename))
+        if not result.stdout:
+            with open("%s.log" % temp_filename, "wt") as f:
+                f.write(result.stderr)
+            print('ast-dump failed, see log:\n  "%s.log"' % (temp_filename))
             return
-##        elif result:
-##            print('ast-dump succeeded, but exited with error code %d, see log:\n  %s.log' % (result, temp_filename))
-        astlines = []
-        with open(temp_filename+'.ast_dump', 'rt') as fin:
-            for line in fin.readlines():
-                if line[-1] == '\n':
-                    line = line[:-1]
-                astlines.append(line)
         try:
-            ast_root = ParseAst(astlines)
+            ast_root = ParseAst(result.stdout.splitlines())
         except:
-            print('ParseAst failed on "%s"' % (temp_filename + '.ast_dump'))
+            with open("%s" % result_filename, "wt") as f:
+                f.write(result.stdout)
+            print('ParseAst failed on "%s"' % (result_filename))
             raise
         inlines = []
         with open(self.filename, 'rt') as fin:
@@ -705,7 +720,8 @@ def maybe_compare(filename1, filename2):
     if before.strip() != after.strip():
         print('Differences found.  Compare:\n  %s\nwith:\n  %s' % (filename1, filename2))
         if DiffTool:
-            os.system('%s %s %s' % (DiffTool, filename1, filename2))
+            subprocess.Popen([DiffTool, filename1, filename2],
+                             creationflags=subprocess.DETACHED_PROCESS)
         return True
     return False
 

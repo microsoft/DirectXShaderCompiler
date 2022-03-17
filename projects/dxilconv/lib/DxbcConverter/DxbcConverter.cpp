@@ -289,8 +289,13 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
       IFT(dxbcReader.FindFirstPartKind(IOSigFourCCArray[i], &uBlob));
       if(uBlob != DXIL_CONTAINER_BLOB_NOT_FOUND) {
         IFT(dxbcReader.GetPartContent(uBlob, &pBlobData, &uElemSize));
-        pContainerWriter->AddPart(IOSigFourCCArray[i], uElemSize, [=](AbstractMemoryStream *pStream) {
+        pContainerWriter->AddPart(IOSigFourCCArray[i], PSVALIGN4(uElemSize), [=](AbstractMemoryStream *pStream) {
           WritePart(pStream, pBlobData, uElemSize);
+          unsigned padding = PSVALIGN4(uElemSize) - uElemSize;
+          if (padding) {
+            const char padZeros[4] = {0,0,0,0};
+            WritePart(pStream, padZeros, padding);
+          }
         });
       }
     }
