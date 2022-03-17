@@ -517,9 +517,27 @@ bool insertSeenSemanticsForEntryPointIfNotExist(
   return true;
 }
 
-// Returns whether the type is float4 or a composite type recursively including
-// only float4 e.g., float4, float4[1], struct S { float4 foo[1]; }.
-bool containOnlyVecWithFourFloats(QualType type) {
+// Returns whether the type is translated to a 32-bit floating point type,
+// depending on whether SPIR-V codegen options are configured to use 16-bit
+// types when possible.
+bool is32BitFloatingPointType(BuiltinType::Kind kind, bool use16Bit) {
+  // Always translated into 32-bit floating point types.
+  if (kind == BuiltinType::Float || kind == BuiltinType::LitFloat)
+    return true;
+
+  // Translated into 32-bit floating point types when run without
+  // -enable-16bit-types.
+  if (kind == BuiltinType::Half || kind == BuiltinType::HalfFloat ||
+      kind == BuiltinType::Min10Float || kind == BuiltinType::Min16Float)
+    return !use16Bit;
+
+  return false;
+}
+
+// Returns whether the type is a 4-component 32-bit float or a composite type
+// recursively including only such a vector e.g., float4, float4[1], struct S {
+// float4 foo[1]; }.
+bool containOnlyVecWithFourFloats(QualType type, bool use16Bit) {
   if (type->isReferenceType())
     type = type->getPointeeType();
 
@@ -532,7 +550,7 @@ bool containOnlyVecWithFourFloats(QualType type) {
         (const ConstantArrayType *)type->getAsArrayTypeUnsafe();
     elemCount = hlsl::GetArraySize(type);
     return elemCount == 1 &&
-           containOnlyVecWithFourFloats(arrayType->getElementType());
+           containOnlyVecWithFourFloats(arrayType->getElementType(), use16Bit);
   }
 
   if (const auto *structType = type->getAs<RecordType>()) {
@@ -540,7 +558,7 @@ bool containOnlyVecWithFourFloats(QualType type) {
     for (const auto *field : structType->getDecl()->fields()) {
       if (fieldCount != 0)
         return false;
-      if (!containOnlyVecWithFourFloats(field->getType()))
+      if (!containOnlyVecWithFourFloats(field->getType(), use16Bit))
         return false;
       ++fieldCount;
     }
@@ -550,7 +568,8 @@ bool containOnlyVecWithFourFloats(QualType type) {
   QualType elemType = {};
   if (isVectorType(type, &elemType, &elemCount)) {
     if (const auto *builtinType = elemType->getAs<BuiltinType>()) {
-      return elemCount == 4 && builtinType->getKind() == BuiltinType::Float;
+      return elemCount == 4 &&
+             is32BitFloatingPointType(builtinType->getKind(), use16Bit);
     }
     return false;
   }
@@ -1052,6 +1071,21 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   }
 
   return varInstr;
+}
+
+SpirvInstruction *DeclResultIdMapper::createResultId(const VarDecl *var) {
+  assert(isExtResultIdType(var->getType()));
+
+  // Without initialization, we cannot generate the result id.
+  if (!var->hasInit()) {
+    emitError("Found uninitialized variable for result id.",
+              var->getLocation());
+    return nullptr;
+  }
+
+  SpirvInstruction *init = theEmitter.doExpr(var->getInit());
+  astDecls[var] = createDeclSpirvInfo(init);
+  return init;
 }
 
 SpirvInstruction *
@@ -2474,23 +2508,7 @@ bool DeclResultIdMapper::createStageVars(
         stageVar.getStorageClass() == spv::StorageClass::Output) {
       stageVar.setEntryPoint(entryFunction);
     }
-
-    if (decl->hasAttr<VKDecorateExtAttr>()) {
-      auto checkBuiltInLocationDecoration =
-          [&stageVar](const VKDecorateExtAttr *decoAttr) {
-            auto decorate =
-                static_cast<spv::Decoration>(decoAttr->getDecorate());
-            if (decorate == spv::Decoration::BuiltIn ||
-                decorate == spv::Decoration::Location) {
-              // This information will be used to avoid
-              // assigning multiple location decorations
-              // in finalizeStageIOLocations()
-              stageVar.setIsLocOrBuiltinDecorateAttr();
-            }
-          };
-      decorateWithIntrinsicAttrs(decl, varInstr,
-                                 checkBuiltInLocationDecoration);
-    }
+    decorateStageVarWithIntrinsicAttrs(decl, &stageVar, varInstr);
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -3195,6 +3213,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   switch (builtIn) {
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
+    needsLegalization = true;
   case spv::BuiltIn::HitTNV:
   case spv::BuiltIn::RayTmaxNV:
   case spv::BuiltIn::RayTminNV:
@@ -3300,9 +3319,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // by VSOut, HS/DS/GS In/Out, MSOut.
   case hlsl::Semantic::Kind::Position: {
     if (sigPointKind == hlsl::SigPoint::Kind::VSOut &&
-        !containOnlyVecWithFourFloats(type)) {
-      emitError("semantic Position must be float4 or a composite type "
-                "recursively including only float4",
+        !containOnlyVecWithFourFloats(
+            type, theEmitter.getSpirvOptions().enable16BitTypes)) {
+      emitError("SV_Position must be a 4-component 32-bit float vector or a "
+                "composite which recursively contains only such a vector",
                 srcLoc);
     }
 
@@ -3993,29 +4013,55 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
   astDecls[varDecl].instr = constVal;
 }
 
-template <typename Functor>
-void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
-                                                    SpirvVariable *varInst,
-                                                    Functor func) {
+void DeclResultIdMapper::decorateWithIntrinsicAttrs(
+    const NamedDecl *decl, SpirvVariable *varInst,
+    llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr) {
   if (!decl->hasAttrs())
     return;
 
+  // TODO: Handle member field in a struct and function parameter.
   for (auto &attr : decl->getAttrs()) {
     if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
-      func(decoAttr);
-      spvBuilder.decorateLiterals(
-          varInst, decoAttr->getDecorate(), decoAttr->literal_begin(),
-          decoAttr->literal_size(), varInst->getSourceLocation());
-    } else if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
-      spvBuilder.decorateString(varInst, decoAttr->getDecorate(),
-                                decoAttr->getLiterals());
+      spvBuilder.decorateWithLiterals(
+          varInst, decoAttr->getDecorate(),
+          {decoAttr->literals_begin(), decoAttr->literals_end()},
+          varInst->getSourceLocation());
+      extraFunctionForDecoAttr(decoAttr);
+      continue;
+    }
+    if (auto decoAttr = dyn_cast<VKDecorateIdExtAttr>(attr)) {
+      llvm::SmallVector<SpirvInstruction *, 2> args;
+      for (Expr *arg : decoAttr->arguments()) {
+        args.push_back(theEmitter.doExpr(arg));
+      }
+      spvBuilder.decorateWithIds(varInst, decoAttr->getDecorate(), args,
+                                 varInst->getSourceLocation());
+      continue;
+    }
+    if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
+      llvm::SmallVector<llvm::StringRef, 2> args(decoAttr->arguments_begin(),
+                                                 decoAttr->arguments_end());
+      spvBuilder.decorateWithStrings(varInst, decoAttr->getDecorate(), args,
+                                     varInst->getSourceLocation());
+      continue;
     }
   }
 }
 
-void DeclResultIdMapper::decorateVariableWithIntrinsicAttrs(
-    const NamedDecl *decl, SpirvVariable *varInst) {
-  decorateWithIntrinsicAttrs(decl, varInst, [](VKDecorateExtAttr *) {});
+void DeclResultIdMapper::decorateStageVarWithIntrinsicAttrs(
+    const NamedDecl *decl, StageVar *stageVar, SpirvVariable *varInst) {
+  auto checkBuiltInLocationDecoration =
+      [stageVar](const VKDecorateExtAttr *decoAttr) {
+        auto decorate = static_cast<spv::Decoration>(decoAttr->getDecorate());
+        if (decorate == spv::Decoration::BuiltIn ||
+            decorate == spv::Decoration::Location) {
+          // This information will be used to avoid
+          // assigning multiple location decorations
+          // in finalizeStageIOLocations()
+          stageVar->setIsLocOrBuiltinDecorateAttr();
+        }
+      };
+  decorateWithIntrinsicAttrs(decl, varInst, checkBuiltInLocationDecoration);
 }
 
 void DeclResultIdMapper::copyHullOutStageVarsToOutputPatch(

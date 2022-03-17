@@ -193,7 +193,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
   }
   // fixed width types (int16_t, uint16_t, int32_t, uint32_t, float16_t, float32_t, float64_t)
   // are only supported in HLSL 2018
-  if (langOptions.HLSLVersion >= 2018) {
+  if (langOptions.HLSLVersion >= hlsl::LangStd::v2018) {
     switch (typeLen) {
     case 7: // int16_t, int32_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {
@@ -407,7 +407,7 @@ CXXRecordDecl* hlsl::DeclareRecordTypeWithHandle(ASTContext& context, StringRef 
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name, TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 // creates a global static constant unsigned integer with value.
@@ -666,13 +666,27 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
   uint8_t templateArgCount, 
   _In_opt_ TypeSourceInfo* defaultTypeArgValue)
 {
+  return DeclareTemplateTypeWithHandleInDeclContext(context,
+                                                    context.getTranslationUnitDecl(),
+                                                    name,
+                                                    templateArgCount,
+                                                    defaultTypeArgValue);
+}
+
+CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
+  ASTContext& context,
+  DeclContext *declContext,
+  StringRef name,
+  uint8_t templateArgCount,
+  _In_opt_ TypeSourceInfo* defaultTypeArgValue)
+{
   DXASSERT(templateArgCount != 0, "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated for a different template pattern");
 
   // Create an object template declaration in translation unit scope.
   // templateArgCount=1: template<typename element> typeName { ... }
   // templateArgCount=2: template<typename element, int count> typeName { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, name);
   TemplateTypeParmDecl* elementTemplateParamDecl = typeDeclBuilder.addTypeTemplateParam("element", defaultTypeArgValue);
   NonTypeTemplateParmDecl* countTemplateParamDecl = nullptr;
   if (templateArgCount > 1)
@@ -689,7 +703,7 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
       // Only need array type for inputpatch and outputpatch.
       // Avoid Texture2DMS which may use 0 count.
       // TODO: use hlsl types to do the check.
-      !name.startswith("Texture")) {
+      !name.startswith("Texture") && !name.startswith("RWTexture")) {
     Expr *countExpr = DeclRefExpr::Create(
         context, NestedNameSpecifierLoc(), NoLoc, countTemplateParamDecl, false,
         DeclarationNameInfo(countTemplateParamDecl->getDeclName(), NoLoc),
@@ -711,7 +725,7 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
 
   typeDeclBuilder.addField("h", elementType);
 
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 FunctionTemplateDecl* hlsl::CreateFunctionTemplateDecl(
@@ -852,7 +866,7 @@ CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
   typeDeclBuilder.addIntegerTemplateParam(templateParamName, context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 clang::CXXRecordDecl *
@@ -873,7 +887,7 @@ hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
 
-  typeDeclBuilder.completeDefinition();
+  typeDeclBuilder.getRecordDecl();
 
   return templateRecordDecl;
 }
@@ -893,7 +907,7 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   CreateConstructorDeclaration(context, typeDeclBuilder.getRecordDecl(), context.VoidTy, {}, context.DeclarationNames.getCXXConstructorName(canQualType), false, &pConstructorDecl, &pTypeSourceInfo);
   typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
 
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
@@ -906,7 +920,7 @@ CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
 
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
-  CXXRecordDecl *recordDecl = typeDeclBuilder.completeDefinition();
+  CXXRecordDecl *recordDecl = typeDeclBuilder.getRecordDecl();
 
   QualType indexType = context.UnsignedIntTy;
   QualType resultType = context.getRecordType(recordDecl);

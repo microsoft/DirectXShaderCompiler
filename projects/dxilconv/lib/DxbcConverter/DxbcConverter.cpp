@@ -289,8 +289,13 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
       IFT(dxbcReader.FindFirstPartKind(IOSigFourCCArray[i], &uBlob));
       if(uBlob != DXIL_CONTAINER_BLOB_NOT_FOUND) {
         IFT(dxbcReader.GetPartContent(uBlob, &pBlobData, &uElemSize));
-        pContainerWriter->AddPart(IOSigFourCCArray[i], uElemSize, [=](AbstractMemoryStream *pStream) {
+        pContainerWriter->AddPart(IOSigFourCCArray[i], PSVALIGN4(uElemSize), [=](AbstractMemoryStream *pStream) {
           WritePart(pStream, pBlobData, uElemSize);
+          unsigned padding = PSVALIGN4(uElemSize) - uElemSize;
+          if (padding) {
+            const char padZeros[4] = {0,0,0,0};
+            WritePart(pStream, padZeros, padding);
+          }
         });
       }
     }
@@ -908,7 +913,7 @@ void DxbcConverter::ConvertSignature(SignatureHelper &SigHelper, DxilSignature &
               E.SetRows(Rows);
               SigHelper.m_Signature.AppendElement(std::move(pE));
             } else {
-#ifdef DBG
+#ifndef NDEBUG
               // Verify match with range representative element.
               DxilSignatureElement &RE = SigHelper.m_Signature.GetElement(itKeyDxilEl->second);
               DXASSERT_DXBC(RE.GetCompType() == E.GetCompType());
@@ -1862,7 +1867,7 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       DXASSERT_DXBC(Inst.m_NumOperands == 0);
       auto& Iface = m_Interfaces[Inst.m_InterfaceDecl.InterfaceNumber];
       Iface.Tables.assign(Inst.m_InterfaceDecl.pFunctionTableIdentifiers, Inst.m_InterfaceDecl.pFunctionTableIdentifiers + Inst.m_InterfaceDecl.TableLength);
-#ifdef DBG
+#ifndef NDEBUG
       for (unsigned TableIdx : Iface.Tables) {
           DXASSERT_DXBC(m_FunctionTables[TableIdx].size() == Inst.m_InterfaceDecl.ExpectedTableSize);
       }

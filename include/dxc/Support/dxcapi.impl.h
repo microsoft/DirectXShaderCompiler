@@ -38,19 +38,19 @@ HRESULT TranslateUtf8StringForOutput(
     _In_opt_count_(size) LPCSTR pStr, SIZE_T size, UINT32 codePage, IDxcBlobEncoding **ppBlobEncoding) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(pStr, size, DXC_CP_UTF8, &pBlobEncoding));
-  if (codePage == DXC_CP_UTF16) {
-    CComPtr<IDxcBlobUtf16> pBlobUtf16;
-    IFT(hlsl::DxcGetBlobAsUtf16(pBlobEncoding, nullptr, &pBlobUtf16))
-      pBlobEncoding = pBlobUtf16;
+  if (codePage == DXC_CP_WIDE) {
+    CComPtr<IDxcBlobWide> pBlobWide;
+    IFT(hlsl::DxcGetBlobAsWide(pBlobEncoding, nullptr, &pBlobWide))
+      pBlobEncoding = pBlobWide;
   }
   *ppBlobEncoding = pBlobEncoding.Detach();
   return S_OK;
 }
 
-HRESULT TranslateUtf16StringForOutput(
+HRESULT TranslateWideStringForOutput(
     _In_opt_count_(size) LPCWSTR pStr, SIZE_T size, UINT32 codePage, IDxcBlobEncoding **ppBlobEncoding) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
-  IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(pStr, size, DXC_CP_UTF16, &pBlobEncoding));
+  IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(pStr, size, DXC_CP_WIDE, &pBlobEncoding));
   if (codePage == DXC_CP_UTF8) {
     CComPtr<IDxcBlobUtf8> pBlobUtf8;
     IFT(hlsl::DxcGetBlobAsUtf8(pBlobEncoding, nullptr, &pBlobUtf8))
@@ -69,8 +69,8 @@ HRESULT TranslateStringBlobForOutput(IDxcBlob *pBlob, UINT32 codePage, IDxcBlobE
   IFRBOOL(known, E_INVALIDARG);
   if (inputCP == DXC_CP_UTF8) {
     return TranslateUtf8StringForOutput((LPCSTR)pBlob->GetBufferPointer(), pBlob->GetBufferSize(), codePage, ppBlobEncoding);
-  } else if (inputCP == DXC_CP_UTF16) {
-    return TranslateUtf16StringForOutput((LPCWSTR)pBlob->GetBufferPointer(), pBlob->GetBufferSize(), codePage, ppBlobEncoding);
+  } else if (inputCP == DXC_CP_WIDE) {
+    return TranslateWideStringForOutput((LPCWSTR)pBlob->GetBufferPointer(), pBlob->GetBufferSize(), codePage, ppBlobEncoding);
   }
   return E_INVALIDARG;
 }
@@ -109,7 +109,7 @@ static const LPCWSTR DxcOutNoName = nullptr;
 
 struct DxcOutputObject {
   CComPtr<IUnknown> object;
-  CComPtr<IDxcBlobUtf16> name;
+  CComPtr<IDxcBlobWide> name;
   DXC_OUT_KIND kind = DXC_OUT_NONE;
 
   /////////////////////////
@@ -151,7 +151,7 @@ struct DxcOutputObject {
     if (size == kAutoSize)
       size = wcslen(pText);
     CComPtr<IDxcBlobEncoding> pBlobEncoding;
-    IFR(TranslateUtf16StringForOutput(pText, size, codePage, &pBlobEncoding));
+    IFR(TranslateWideStringForOutput(pText, size, codePage, &pBlobEncoding));
     object = pBlobEncoding;
     return S_OK;
   }
@@ -166,7 +166,7 @@ struct DxcOutputObject {
     object = pBlobEncoding;
     return S_OK;
   }
-  HRESULT SetName(_In_opt_z_ IDxcBlobUtf16 *pName) {
+  HRESULT SetName(_In_opt_z_ IDxcBlobWide *pName) {
     DXASSERT_NOMSG(!name);
     name = pName;
     return S_OK;
@@ -177,7 +177,7 @@ struct DxcOutputObject {
       return S_OK;
     CComPtr<IDxcBlobEncoding> pBlobEncoding;
     IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
-          pName, (wcslen(pName) + 1) * sizeof(wchar_t), DXC_CP_UTF16, &pBlobEncoding));
+          pName, (wcslen(pName) + 1) * sizeof(wchar_t), DXC_CP_WIDE, &pBlobEncoding));
     return pBlobEncoding->QueryInterface(&name);
   }
   HRESULT SetName(_In_opt_z_ LPCSTR pName) {
@@ -185,7 +185,7 @@ struct DxcOutputObject {
     if (!pName)
       return S_OK;
     CComPtr<IDxcBlobEncoding> pBlobEncoding;
-    IFR(TranslateUtf8StringForOutput(pName, strlen(pName) + 1, DXC_CP_UTF16, &pBlobEncoding));
+    IFR(TranslateUtf8StringForOutput(pName, strlen(pName) + 1, DXC_CP_WIDE, &pBlobEncoding));
     return pBlobEncoding->QueryInterface(&name);
   }
   HRESULT SetName(_In_opt_z_ llvm::StringRef Name) {
@@ -193,7 +193,7 @@ struct DxcOutputObject {
     if (Name.empty())
       return S_OK;
     CComPtr<IDxcBlobEncoding> pBlobEncoding;
-    IFR(TranslateUtf8StringForOutput(Name.data(), Name.size(), DXC_CP_UTF16, &pBlobEncoding));
+    IFR(TranslateUtf8StringForOutput(Name.data(), Name.size(), DXC_CP_WIDE, &pBlobEncoding));
     return pBlobEncoding->QueryInterface(&name);
   }
 
@@ -287,8 +287,8 @@ struct DxcOutputObject {
 };
 
 struct DxcExtraOutputObject {
-  CComPtr<IDxcBlobUtf16> pType; // Custom name to identify the object
-  CComPtr<IDxcBlobUtf16> pName; // The file path for the output
+  CComPtr<IDxcBlobWide> pType; // Custom name to identify the object
+  CComPtr<IDxcBlobWide> pName; // The file path for the output
   CComPtr<IUnknown> pObject;    // The object itself
 };
 
@@ -321,8 +321,8 @@ public:
 
   HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex,
     _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
-    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputType,
-    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputName) override
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppOutputType,
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppOutputName) override
   {
     if (uIndex >= m_uCount)
       return E_INVALIDARG;
@@ -431,7 +431,7 @@ public:
   }
   HRESULT STDMETHODCALLTYPE GetOutput(_In_ DXC_OUT_KIND dxcOutKind,
       _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
-      _COM_Outptr_ IDxcBlobUtf16 **ppOutputName) override {
+      _COM_Outptr_ IDxcBlobWide **ppOutputName) override {
     if (ppvObject == nullptr)
       return E_INVALIDARG;
     if (dxcOutKind <= DXC_OUT_NONE || (unsigned)dxcOutKind > kNumDxcOutputTypes)
@@ -479,7 +479,7 @@ public:
   /////////////////////
 
   HRESULT SetEncoding(UINT32 textEncoding) {
-    if (textEncoding != DXC_CP_ACP && textEncoding != DXC_CP_UTF8 && textEncoding != DXC_CP_UTF16)
+    if (textEncoding != DXC_CP_ACP && textEncoding != DXC_CP_UTF8 && textEncoding != DXC_CP_WIDE)
       return E_INVALIDARG;
     m_textEncoding = textEncoding;
     return S_OK;

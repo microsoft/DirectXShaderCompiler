@@ -29,6 +29,7 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
+#include "CodeGenFunction.h"
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -55,27 +56,57 @@ using namespace CGHLSLMSHelper;
 
 namespace {
 
+template <typename BuilderTy>
+Value *EmitHLOperationCall(HLModule &HLM, BuilderTy &Builder,
+                           HLOpcodeGroup group, unsigned opcode, Type *RetType,
+                           ArrayRef<Value *> paramList, llvm::Module &M) {
+  // Add the opcode param
+  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
+
+  Function *opFunc =
+      HLM.GetHLOperationFunction(group, opcode, RetType, paramList, M);
+
+  SmallVector<Value *, 4> opcodeParamList;
+  Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
+  opcodeParamList.emplace_back(opcodeConst);
+  opcodeParamList.append(paramList.begin(), paramList.end());
+
+  return Builder.CreateCall(opFunc, opcodeParamList);
+}
+
+template <typename BuilderTy>
 Value *CreateHandleFromResPtr(Value *ResPtr, HLModule &HLM,
-                              llvm::Type *HandleTy, IRBuilder<> &Builder) {
+                              llvm::Type *HandleTy, BuilderTy &Builder) {
   Module &M = *HLM.GetModule();
   // Load to make sure resource only have Ld/St use so mem2reg could remove
   // temp resource.
   Value *ldObj = Builder.CreateLoad(ResPtr);
   Value *args[] = {ldObj};
-  CallInst *Handle = HLM.EmitHLOperationCall(
-      Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, args, M);
+  Value *Handle = EmitHLOperationCall<BuilderTy>(
+      HLM, Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, args, M);
   return Handle;
 }
 
-CallInst *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
-                            DxilResourceProperties &RP, llvm::Type *ResTy,
-                            IRBuilder<> &Builder) {
+template <typename BuilderTy>
+Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
+                               DxilResourceProperties &RP, llvm::Type *ResTy,
+                               BuilderTy &Builder) {
   Constant *RPConstant = resource_helper::getAsConstant(
       RP, HLM.GetOP()->GetResourcePropertiesType(), *HLM.GetShaderModel());
-  return HLM.EmitHLOperationCall(
-      Builder, HLOpcodeGroup::HLAnnotateHandle,
+  return EmitHLOperationCall<BuilderTy>(
+      HLM, Builder, HLOpcodeGroup::HLAnnotateHandle,
       (unsigned)HLOpcodeGroup::HLAnnotateHandle, Handle->getType(),
       {Handle, RPConstant, UndefValue::get(ResTy)}, *HLM.GetModule());
+}
+
+template <typename BuilderTy>
+Value *CastHandleToRes(HLModule &HLM, Value *Handle, llvm::Type *ResTy,
+                       BuilderTy &Builder) {
+  Value *Res =
+      EmitHLOperationCall<BuilderTy>(HLM, Builder, HLOpcodeGroup::HLCast,
+                                     (unsigned)HLCastOpcode::HandleToResCast,
+                                     ResTy, {Handle}, *HLM.GetModule());
+  return Res;
 }
 
 // Lower CBV bitcast use to handle use.
@@ -961,6 +992,23 @@ Value *Atan2(CallInst *CI) {
 }
 } // namespace
 
+namespace CGHLSLMSHelper {
+void CopyAndAnnotateResourceArgument(llvm::Value *Src, llvm::Value *Dest,
+                                     DxilResourceProperties &RP,
+                                     hlsl::HLModule &HLM,
+                                     clang::CodeGen::CodeGenFunction &CGF) {
+  Type *ResTy = Src->getType()->getPointerElementType();
+  Type *HandleTy = HLM.GetOP()->GetHandleType();
+  // Ld resource -> annotateHandle -> turnback to resource.
+
+  Value *Handle = CreateHandleFromResPtr(Src, HLM, HandleTy, CGF.Builder);
+
+  Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, CGF.Builder);
+  Value *Res = CastHandleToRes(HLM, Handle, ResTy, CGF.Builder);
+  CGF.Builder.CreateStore(Res, Dest);
+}
+} // namespace CGHLSLMSHelper
+
 namespace {
 
 // Returns true a global value is being updated
@@ -1792,7 +1840,7 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
 namespace CGHLSLMSHelper {
 
 Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
-                        unsigned hlslVersion) {
+                        hlsl::LangStd hlslVersion) {
   switch (intriOp) {
   case IntrinsicOp::IOP_tan: {
     return EvalUnaryIntrinsic(CI, tanf, tan);
@@ -1907,7 +1955,7 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
     // For back compat, DXC still preserves the above behavior for language
     // versions 2016 or below. However, for newer language versions, DXC now
     // always use nearest even for round() intrinsic in all cases.
-    if (hlslVersion <= 2016) {
+    if (hlslVersion <= hlsl::LangStd::v2016) {
       return EvalUnaryIntrinsic(CI, roundf, round);
     } else {
       auto roundingMode = fegetround();
@@ -2475,7 +2523,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     }
     if (!cbSubscript->user_empty()) {
       // merge GEP use for cbSubscript.
-      HLModule::MergeGepUse(cbSubscript);
+      dxilutil::MergeGepUse(cbSubscript);
     }
   }
   return true;
@@ -2889,22 +2937,7 @@ void AddRegBindingsForResourceInConstantBuffer(
 
 // extension codegen.
 void ExtensionCodeGen(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM) {
-  // Add semantic defines for extensions if any are available.
-  HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
-      CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(
-          HLM.GetModule());
-
-  clang::DiagnosticsEngine &Diags = CGM.getDiags();
-  for (const HLSLExtensionsCodegenHelper::SemanticDefineError &error : errors) {
-    clang::DiagnosticsEngine::Level level = clang::DiagnosticsEngine::Error;
-    if (error.IsWarning())
-      level = clang::DiagnosticsEngine::Warning;
-    unsigned DiagID = Diags.getCustomDiagID(level, "%0");
-    Diags.Report(clang::SourceLocation::getFromRawEncoding(error.Location()),
-                 DiagID)
-        << error.Message();
-  }
-
+  auto &Diags = CGM.getDiags();
   // Add root signature from a #define. Overrides root signature in function
   // attribute.
   {
@@ -3197,7 +3230,7 @@ void FinishEntries(
     // const global to allow writing to it.
     // TODO: Verfiy the behavior of static globals in hull shader
     if (CGM.getLangOpts().EnableDX9CompatMode &&
-        CGM.getLangOpts().HLSLVersion <= 2016)
+        CGM.getLangOpts().HLSLVersion <= hlsl::LangStd::v2016)
       CreateWriteEnabledStaticGlobals(HLM.GetModule(), HLM.GetEntryFunction());
     if (HLM.GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry, HSEntryPatchConstantFuncAttr,
@@ -3727,6 +3760,13 @@ hlsl::DxilResourceProperties DxilObjectProperties::GetResource(llvm::Value *V) {
   if (it != resMap.end())
     return it->second;
   return DxilResourceProperties();
+}
+void DxilObjectProperties::updateGLC(llvm::Value *V) {
+  auto it = resMap.find(V);
+  if (it == resMap.end())
+    return;
+  
+  it->second.Basic.IsGloballyCoherent ^= 1;
 }
 
 } // namespace CGHLSLMSHelper

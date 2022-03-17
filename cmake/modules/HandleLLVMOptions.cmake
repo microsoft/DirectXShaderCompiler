@@ -57,12 +57,11 @@ endif()
 
 if( LLVM_ENABLE_ASSERTIONS )
   # MSVC doesn't like _DEBUG on release builds. See PR 4379.
+  # HLSL Note: the above comment referrs to llvm.org problem, not pull request: 
+  #            https://bugs.llvm.org/show_bug.cgi?id=4379
   if( NOT MSVC )
     add_definitions( -D_DEBUG )
   endif()
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDBG") # HLSL Change
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG") # HLSL Change
-  if (0) # HLSL Change Starts
   # On non-Debug builds cmake automatically defines NDEBUG, so we
   # explicitly undefine it:
   if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
@@ -79,7 +78,6 @@ if( LLVM_ENABLE_ASSERTIONS )
         "${flags_var_to_scrub}" "${${flags_var_to_scrub}}")
     endforeach()
   endif()
-  endif (0) # HLSL Change Ends
 endif()
 
 string(TOUPPER "${LLVM_ABI_BREAKING_CHECKS}" uppercase_LLVM_ABI_BREAKING_CHECKS)
@@ -374,6 +372,9 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
 
     # Disable unknown pragma warnings because the output is just too long with them.
     append("-Wno-unknown-pragmas" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+    add_flag_if_supported("-Wno-unused-but-set-variable" UNUSED_BUT_SET_VARIABLE)
+    add_flag_if_supported("-Wno-deprecated-copy" DEPRECATED_COPY)
 
     # Colorize GCC output even with ninja's stdout redirection.
     if (CMAKE_COMPILER_IS_GNUCXX)

@@ -172,6 +172,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.EmitLLVMUsed();
 
   M.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+  M.SetResMayAlias(H.GetHLOptions().bResMayAlias);
 
   M.SetAutoBindingSpace(H.GetAutoBindingSpace());
 
@@ -189,7 +190,7 @@ public:
   explicit DxilGenerationPass(bool NoOpt = false)
       : ModulePass(ID), m_pHLModule(nullptr), m_extensionsCodegenHelper(nullptr), NotOptimized(NoOpt) {}
 
-  const char *getPassName() const override { return "DXIL Generator"; }
+  StringRef getPassName() const override { return "DXIL Generator"; }
 
   void SetExtensionsHelper(HLSLExtensionsCodegenHelper *helper) {
     m_extensionsCodegenHelper = helper;

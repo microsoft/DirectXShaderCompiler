@@ -44,8 +44,6 @@
 
 // Remove this workaround once newer version of d3dcommon.h can be compiled against
 #define ADD_16_64_BIT_TYPES
-// Disable warning about value not being valid in enum
-#pragma warning( disable : 4063 )
 
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
@@ -90,6 +88,8 @@ class CShaderReflectionType;
 enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2 };
 
 #ifdef ADD_16_64_BIT_TYPES
+// Disable warning about value not being valid in enum
+#pragma warning( disable : 4063 )
 #define D3D_SVT_INT16   ((D3D_SHADER_VARIABLE_TYPE)58)
 #define D3D_SVT_UINT16  ((D3D_SHADER_VARIABLE_TYPE)59)
 #define D3D_SVT_FLOAT16 ((D3D_SHADER_VARIABLE_TYPE)60)
@@ -745,7 +745,7 @@ static bool ProcessUnhandledObjectType(
   D3D_SHADER_VARIABLE_TYPE    *outObjectType)
 {
   // Don't actually make this a hard error, but instead report the problem using a suitable debug message.
-#ifdef DBG
+#ifndef NDEBUG
   OutputDebugFormatA("DxilContainerReflection.cpp: error: unhandled object type '%s'.\n", structType->getName().str().c_str());
 #endif
   *outObjectType = D3D_SVT_VOID;
@@ -1034,7 +1034,7 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   default:
-#ifdef DBG
+#ifndef NDEBUG
     OutputDebugStringA("DxilContainerReflection.cpp: error: unknown component type\n");
 #endif
     break;
@@ -1051,7 +1051,7 @@ HRESULT CShaderReflectionType::Initialize(
     switch(matrixAnnotation.Orientation)
     {
     default:
-#ifdef DBG
+#ifndef NDEBUG
       OutputDebugStringA("DxilContainerReflection.cpp: error: unknown matrix orientation\n");
 #endif
     // Note: column-major layout is the default
@@ -1075,7 +1075,7 @@ HRESULT CShaderReflectionType::Initialize(
       std::swap(cbRows, cbCols);
     }
   }
-  else if( type->isVectorTy() )
+  else if(FixedVectorType *VT = dyn_cast<FixedVectorType>(type) )
   {
     // We assume that LLVM vectors either represent matrices (handled above)
     // or HLSL vectors.
@@ -1084,9 +1084,9 @@ HRESULT CShaderReflectionType::Initialize(
     // and N columns.
     m_Desc.Class = D3D_SVC_VECTOR;
     m_Desc.Rows = 1;
-    m_Desc.Columns = type->getVectorNumElements();
+    m_Desc.Columns = VT->getNumElements();
 
-    m_Name += std::to_string(type->getVectorNumElements());
+    m_Name += std::to_string(VT->getNumElements());
 
     cbRows = m_Desc.Rows;
     cbCols = m_Desc.Columns;
@@ -1193,7 +1193,7 @@ HRESULT CShaderReflectionType::Initialize(
   }
   else if( type->isPointerTy() )
   {
-#ifdef DBG
+#ifndef NDEBUG
       OutputDebugStringA("DxilContainerReflection.cpp: error: cannot reflect pointer type\n");
 #endif
   }
@@ -1339,9 +1339,8 @@ static unsigned CalcTypeSize(Type *Ty, unsigned &alignment) {
     result = (unsigned)RoundUpToAlignment(result, alignment);
     return result;
   }
-  else if (Ty->isVectorTy()) {
-    VectorType *VT = dyn_cast<VectorType>(Ty);
-    return VT->getVectorNumElements() * CalcTypeSize(VT->getVectorElementType(), alignment);
+  else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    return VT->getNumElements() * CalcTypeSize(VT->getElementType(), alignment);
   }
   else {
     return alignment = Ty->getPrimitiveSizeInBits() / 8;
@@ -2681,32 +2680,51 @@ HRESULT CFunctionReflection::GetResourceBindingDescByName(LPCSTR Name,
 // DxilLibraryReflection
 
 void DxilLibraryReflection::AddResourceDependencies() {
-  RDAT::FunctionTableReader *functionTable = m_RDAT.GetFunctionTableReader();
+  auto functionTable = m_RDAT.GetFunctionTable();
   m_FunctionVector.clear();
-  m_FunctionVector.reserve(functionTable->GetNumFunctions());
+  m_FunctionVector.reserve(functionTable.Count());
   std::map<StringRef, CFunctionReflection*> orderedMap;
 
-  RDAT::ResourceTableReader *resourceTable = m_RDAT.GetResourceTableReader();
-  unsigned SamplersStart = resourceTable->GetNumCBuffers();
-  unsigned SRVsStart = SamplersStart + resourceTable->GetNumSamplers();
-  unsigned UAVsStart = SRVsStart + resourceTable->GetNumSRVs();
-  IFTBOOL(resourceTable->GetNumResources() == m_Resources.size(),
+  auto resourceTable = m_RDAT.GetResourceTable();
+  unsigned SamplersStart = 0;
+  unsigned SRVsStart = 0;
+  unsigned UAVsStart = 0;
+  DXIL::ResourceClass prevClass = DXIL::ResourceClass::CBuffer;
+  for (unsigned i = 0; i < resourceTable.Count(); i++) {
+    auto resource = resourceTable[i];
+    if (prevClass != resource.getClass()) {
+      prevClass = resource.getClass();
+      switch (prevClass) {
+      case DXIL::ResourceClass::Sampler:
+        SamplersStart = i;
+        __fallthrough;
+      case DXIL::ResourceClass::SRV:
+        SRVsStart = i;
+        __fallthrough;
+      case DXIL::ResourceClass::UAV:
+        UAVsStart = i;
+        break;
+      }
+    }
+  }
+
+  IFTBOOL(resourceTable.Count() == m_Resources.size(),
           DXC_E_INCORRECT_DXIL_METADATA);
 
-  for (unsigned iFunc = 0; iFunc < functionTable->GetNumFunctions(); ++iFunc) {
-    RDAT::FunctionReader FR = functionTable->GetItem(iFunc);
-    auto &func = m_FunctionMap[FR.GetName()];
+  for (unsigned iFunc = 0; iFunc < functionTable.Count(); ++iFunc) {
+    auto FR = functionTable[iFunc];
+    auto &func = m_FunctionMap[FR.getName()];
     DXASSERT(!func.get(), "otherwise duplicate named functions");
-    Function *F = m_pModule->getFunction(FR.GetName());
+    Function *F = m_pModule->getFunction(FR.getName());
     func.reset(new CFunctionReflection());
     func->Initialize(this, F);
     m_FunctionsByPtr[F] = func.get();
-    orderedMap[FR.GetName()] = func.get();
+    orderedMap[FR.getName()] = func.get();
 
-    for (unsigned iRes = 0; iRes < FR.GetNumResources(); ++iRes) {
-      RDAT::ResourceReader RR = FR.GetResource(iRes);
-      unsigned id = RR.GetID();
-      switch (RR.GetResourceClass()) {
+    for (unsigned iRes = 0; iRes < FR.getResources().Count(); ++iRes) {
+      auto RR = FR.getResources()[iRes];
+      unsigned id = RR.getID();
+      switch (RR.getClass()) {
       case DXIL::ResourceClass::CBuffer:
         func->AddResourceReference(id);
         func->AddCBReference(id);
@@ -2716,20 +2734,20 @@ void DxilLibraryReflection::AddResourceDependencies() {
         break;
       case DXIL::ResourceClass::SRV:
         func->AddResourceReference(SRVsStart + id);
-        if (DXIL::IsStructuredBuffer(RR.GetResourceKind())) {
-          auto it = m_StructuredBufferCBsByName.find(RR.GetName());
+        if (DXIL::IsStructuredBuffer(RR.getKind())) {
+          auto it = m_StructuredBufferCBsByName.find(RR.getName());
           if (it != m_StructuredBufferCBsByName.end())
             func->AddCBReference(it->second);
-        } else if (RR.GetResourceKind() == DXIL::ResourceKind::TBuffer) {
-          auto it = m_CBsByName.find(RR.GetName());
+        } else if (RR.getKind() == DXIL::ResourceKind::TBuffer) {
+          auto it = m_CBsByName.find(RR.getName());
           if (it != m_CBsByName.end())
             func->AddCBReference(it->second);
         }
         break;
       case DXIL::ResourceClass::UAV:
         func->AddResourceReference(UAVsStart + id);
-        if (DXIL::IsStructuredBuffer(RR.GetResourceKind())) {
-          auto it = m_StructuredBufferCBsByName.find(RR.GetName());
+        if (DXIL::IsStructuredBuffer(RR.getKind())) {
+          auto it = m_StructuredBufferCBsByName.find(RR.getName());
           if (it != m_StructuredBufferCBsByName.end())
             func->AddCBReference(it->second);
         }

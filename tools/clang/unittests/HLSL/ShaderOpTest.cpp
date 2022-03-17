@@ -24,7 +24,7 @@
 
 #include "dxc/dxcapi.h"             // IDxcCompiler
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/Unicode.h"    // IsStarMatchUTF16
+#include "dxc/Support/Unicode.h"    // IsStarMatchWide
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
@@ -104,7 +104,7 @@ bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
 
   if (!AdapterName)
     return true;
-  return Unicode::IsStarMatchUTF16(AdapterName, wcslen(AdapterName),
+  return Unicode::IsStarMatchWide(AdapterName, wcslen(AdapterName),
                                    desc.Description, wcslen(desc.Description));
 }
 
@@ -301,27 +301,32 @@ void ShaderOpTest::CreateDescriptorHeaps() {
     const UINT descriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(H.Desc.Type);
     CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(pHeap->GetCPUDescriptorHandleForHeapStart());
     CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle = {};
-    if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
-        gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
+    if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
+        H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+      gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
     for (ShaderOpDescriptor &D : H.Descriptors) {
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
-      if (R == nullptr) {
-        LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
-        ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
-        CHECK_HR(E_INVALIDARG);
-      }
-
-      ShaderOpResourceData &Data = m_ResourceData[D.ResName];
       ShaderOpDescriptorData DData;
       DData.Descriptor = &D;
-      DData.ResData = &Data;
+      ID3D12Resource *pResource = nullptr;
+      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
+        ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
+        auto itResData = m_ResourceData.find(D.ResName);
+        if (R == nullptr || itResData == m_ResourceData.end()) {
+          LPCSTR DescName = D.Name ? D.Name : "[unnamed descriptor]";
+          ShaderOpLogFmt(L"Descriptor '%S' references missing resource '%S'", DescName, D.ResName);
+          CHECK_HR(E_INVALIDARG);
+        }
+        DData.ResData = &itResData->second;
+        pResource = DData.ResData->Resource;
+      }
+
       if (0 == _stricmp(D.Kind, "UAV")) {
         ID3D12Resource *pCounterResource = nullptr;
         if (D.CounterName && *D.CounterName) {
           ShaderOpResourceData &CounterData = m_ResourceData[D.CounterName];
           pCounterResource = CounterData.Resource;
         }
-        m_pDevice->CreateUnorderedAccessView(Data.Resource, pCounterResource,
+        m_pDevice->CreateUnorderedAccessView(pResource, pCounterResource,
                                              &D.UavDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "SRV")) {
@@ -329,25 +334,29 @@ void ShaderOpTest::CreateDescriptorHeaps() {
         if (D.SrvDescPresent) {
           pSrvDesc = &D.SrvDesc;
         }
-        m_pDevice->CreateShaderResourceView(Data.Resource, pSrvDesc, cpuHandle);
+        m_pDevice->CreateShaderResourceView(pResource, pSrvDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "RTV")) {
-        m_pDevice->CreateRenderTargetView(Data.Resource, nullptr, cpuHandle);
+        m_pDevice->CreateRenderTargetView(pResource, nullptr, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "CBV")) {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-        cbvDesc.BufferLocation = Data.Resource->GetGPUVirtualAddress();
-        cbvDesc.SizeInBytes = (UINT)Data.Resource->GetDesc().Width;
+        cbvDesc.BufferLocation = pResource->GetGPUVirtualAddress();
+        cbvDesc.SizeInBytes = (UINT)pResource->GetDesc().Width;
         m_pDevice->CreateConstantBufferView(&cbvDesc, cpuHandle);
+      }
+      else if (0 == _stricmp(D.Kind, "SAMPLER")) {
+        m_pDevice->CreateSampler(&D.SamplerDesc, cpuHandle);
       }
 
       DData.CPUHandle = cpuHandle;
-      m_DescriptorData[R->Name] = DData;
       cpuHandle = cpuHandle.Offset(descriptorSize);
-      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV) {
+      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV &&
+          H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
         DData.GPUHandle = gpuHandle;
         gpuHandle = gpuHandle.Offset(descriptorSize);
       }
+      m_DescriptorData[D.Name] = DData;
     }
   }
 
@@ -416,6 +425,11 @@ TValue map_get_or_null(const std::map<TKey, TValue> &amap, const TKey& key) {
 void ShaderOpTest::CreatePipelineState() {
   CreateRootSignature();
   CreateShaders();
+  // Root signature may come from XML, or from shader.
+  if (!m_pRootSignature) {
+    ShaderOpLogFmt(L"No root signature found\r\n");
+    CHECK_HR(E_FAIL);
+  }
   if (m_pShaderOp->IsCompute()) {
     CComPtr<ID3D10Blob> pCS;
     pCS = m_Shaders[m_pShaderOp->CS];
@@ -449,6 +463,9 @@ void ShaderOpTest::CreatePipelineState() {
     pAS = map_get_or_null(m_Shaders, m_pShaderOp->AS);
     pMS = map_get_or_null(m_Shaders, m_pShaderOp->MS);
     pPS = map_get_or_null(m_Shaders, m_pShaderOp->PS);
+    CHECK_HR((m_pShaderOp->AS && !pAS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->MS && !pMS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->PS && !pPS) ? E_FAIL : S_OK);
 
     ZeroMemory(&MDesc, sizeof(MDesc));
     MDesc.RootSignature = CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE(m_pRootSignature.p);
@@ -488,6 +505,12 @@ void ShaderOpTest::CreatePipelineState() {
     pGS = map_get_or_null(m_Shaders, m_pShaderOp->GS);
     pHS = map_get_or_null(m_Shaders, m_pShaderOp->HS);
     pDS = map_get_or_null(m_Shaders, m_pShaderOp->DS);
+    // Check for missing shaders with explicitly requested names
+    CHECK_HR((m_pShaderOp->PS && !pPS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->VS && !pVS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->GS && !pGS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->HS && !pHS) ? E_FAIL : S_OK);
+    CHECK_HR((m_pShaderOp->DS && !pDS) ? E_FAIL : S_OK);
     D3D12_GRAPHICS_PIPELINE_STATE_DESC GDesc;
     ZeroMemory(&GDesc, sizeof(GDesc));
     InitByteCode(&GDesc.VS, pVS);
@@ -690,14 +713,14 @@ void ShaderOpTest::CreateResources() {
 
 void ShaderOpTest::CreateRootSignature() {
   if (m_pShaderOp->RootSignature == nullptr) {
-    AtlThrow(E_INVALIDARG);
+    // Root signature may be provided as part of shader
+    m_pRootSignature.Release();
+    return;
   }
-  CComPtr<ID3DBlob> pCode;
-  CComPtr<ID3DBlob> pRootSignatureBlob;
-  CComPtr<ID3DBlob> pError;
+  CComPtr<IDxcBlob> pRootSignatureBlob;
   std::string sQuoted;
-  sQuoted.reserve(2 + strlen(m_pShaderOp->RootSignature) + 1);
-  sQuoted.append("\"");
+  sQuoted.reserve(15 + strlen(m_pShaderOp->RootSignature) + 1);
+  sQuoted.append("#define main \"");
   sQuoted.append(m_pShaderOp->RootSignature);
   sQuoted.append("\"");
   char *ch = (char *)sQuoted.data();
@@ -706,20 +729,30 @@ void ShaderOpTest::CreateRootSignature() {
     ++ch;
   }
 
-  D3D_SHADER_MACRO M[2] = {
-    { "RootSigVal", sQuoted.c_str() },
-    { nullptr, nullptr }
-  };
-  HRESULT hr = D3DCompile(nullptr, 0, "RootSigShader", M, nullptr, sQuoted.c_str(),
-                          "rootsig_1_0", 0, 0, &pCode, &pError);
-  if (FAILED(hr) && pError != nullptr) {
-    ShaderOpLogFmt(L"Failed to compile root signature:\r\n%*S",
-      (int)pError->GetBufferSize(),
-      (LPCSTR)pError->GetBufferPointer());
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcBlobEncoding> pTextBlob;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  CHECK_HR(pLibrary->CreateBlobWithEncodingFromPinned(
+      sQuoted.c_str(), (UINT32)sQuoted.size(), CP_UTF8, &pTextBlob));
+  CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  CHECK_HR(pCompiler->Compile(pTextBlob, L"RootSigShader", nullptr,
+                              L"rootsig_1_0",
+                              nullptr, 0, // args
+                              nullptr, 0, // defines
+                              nullptr, &pResult));
+  HRESULT resultCode;
+  CHECK_HR(pResult->GetStatus(&resultCode));
+  if (FAILED(resultCode)) {
+    CComPtr<IDxcBlobEncoding> errors;
+    CHECK_HR(pResult->GetErrorBuffer(&errors));
+    ShaderOpLogFmt(L"Failed to compile root signature: %*S\r\n",
+                   (int)errors->GetBufferSize(),
+                   (LPCSTR)errors->GetBufferPointer());
   }
-  CHECK_HR(hr);
-  CHECK_HR(D3DGetBlobPart(pCode->GetBufferPointer(), pCode->GetBufferSize(),
-                          D3D_BLOB_ROOT_SIGNATURE, 0, &pRootSignatureBlob));
+  CHECK_HR(resultCode);
+  CHECK_HR(pResult->GetResult(&pRootSignatureBlob));
   CHECK_HR(m_pDevice->CreateRootSignature(
       0, pRootSignatureBlob->GetBufferPointer(),
       pRootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_pRootSignature)));
@@ -798,9 +831,9 @@ void ShaderOpTest::CreateShaders() {
       CHECK_HR(pResult->GetResult(&pCode));
       CComPtr<IDxcBlobEncoding> pBlob;
       CHECK_HR(pCompiler->Disassemble((IDxcBlob *)pCode, (IDxcBlobEncoding **)&pBlob));
-      CComPtr<IDxcBlobEncoding> pUtf16Blob;
-      pLibrary->GetBlobAsUtf16(pBlob, &pUtf16Blob);
-      hlsl_test::LogCommentFmt(L"%*s", (int)pUtf16Blob->GetBufferSize() / 2, (LPCWSTR)pUtf16Blob->GetBufferPointer());
+      CComPtr<IDxcBlobEncoding> pWideBlob;
+      pLibrary->GetBlobAsWide(pBlob, &pWideBlob);
+      hlsl_test::LogCommentFmt(L"%*s", (int)pWideBlob->GetBufferSize() / 2, (LPCWSTR)pWideBlob->GetBufferPointer());
 #endif
     } else {
       CComPtr<ID3DBlob> pError;
@@ -813,6 +846,16 @@ void ShaderOpTest::CreateShaders() {
     }
     CHECK_HR(hr);
     m_Shaders[S.Name] = pCode;
+
+    if (!m_pRootSignature) {
+      // Try to create root signature from shader instead.
+      HRESULT hr = m_pDevice->CreateRootSignature(
+          0, pCode->GetBufferPointer(),
+          pCode->GetBufferSize(), IID_PPV_ARGS(&m_pRootSignature));
+      if (SUCCEEDED(hr)) {
+        ShaderOpLogFmt(L"Root signature created from shader %S\r\n", S.Name);
+      }
+    }
   }
 }
 
@@ -864,7 +907,7 @@ void ShaderOpTest::RunCommandList() {
       // Use the first render target to set up the viewport and scissors.
       ShaderOpRenderTarget& rt = m_pShaderOp->RenderTargets[0];
       ShaderOpResource *R = m_pShaderOp->GetResourceByName(rt.Name);
-      if (rt.Viewport.Width != 0 && rt.Viewport.Height != 0 ) {
+      if (rt.Viewport.Width > 0 && rt.Viewport.Height > 0 ) {
         memcpy(&viewport, &rt.Viewport, sizeof(rt.Viewport));
       }
       else {
@@ -1052,7 +1095,7 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
   m_CommandList.Queue = pCommandQueue;
   // Simplification - add the render target name if missing, set it up 'by hand' if not.
   if (pShaderOp->RenderTargets.empty()) {
-    ShaderOpRenderTarget RT;
+    ShaderOpRenderTarget RT = {};
     RT.Name = pShaderOp->Strings.insert("RTarget");
     pShaderOp->RenderTargets.push_back(RT);
     ShaderOpResource R;
@@ -1073,7 +1116,7 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
   // Create a render target heap to put this in.
   ShaderOpDescriptorHeap *pRtvHeap = pShaderOp->GetDescriptorHeapByName("RtvHeap");
   if (pRtvHeap == nullptr) {
-    ShaderOpDescriptorHeap H;
+    ShaderOpDescriptorHeap H = {};
     ZeroMemory(&H, sizeof(H));
     H.Name = pShaderOp->Strings.insert("RtvHeap");
     H.Desc.NumDescriptors = 1;
@@ -1082,7 +1125,7 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
     pRtvHeap = &pShaderOp->DescriptorHeaps.back();
   }
   if (pRtvHeap->Descriptors.empty()) {
-    ShaderOpDescriptor D;
+    ShaderOpDescriptor D = {};
     ZeroMemory(&D, sizeof(D));
     D.Name = pShaderOp->Strings.insert("RTarget");
     D.ResName = D.Name;
@@ -1179,7 +1222,10 @@ enum class ParserEnumKind {
   SRV_DIMENSION,
   UAV_DIMENSION,
   PRIMITIVE_TOPOLOGY,
-  PRIMITIVE_TOPOLOGY_TYPE
+  PRIMITIVE_TOPOLOGY_TYPE,
+  FILTER,
+  TEXTURE_ADDRESS_MODE,
+  COMPARISON_FUNC,
 };
 
 struct ParserEnumValue {
@@ -1489,6 +1535,65 @@ static const ParserEnumValue PRIMITIVE_TOPOLOGY_TYPE_TABLE[] = {
     { L"PATCH", D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH }
 };
 
+static const ParserEnumValue FILTER_TABLE[] = {
+  { L"MIN_MAG_MIP_POINT", D3D12_FILTER_MIN_MAG_MIP_POINT },
+  { L"MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR },
+  { L"MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR },
+  { L"MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT },
+  { L"MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT },
+  { L"MIN_MAG_MIP_LINEAR", D3D12_FILTER_MIN_MAG_MIP_LINEAR },
+  { L"ANISOTROPIC", D3D12_FILTER_ANISOTROPIC },
+  { L"COMPARISON_MIN_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT },
+  { L"COMPARISON_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR },
+  { L"COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"COMPARISON_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR },
+  { L"COMPARISON_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT },
+  { L"COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"COMPARISON_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT },
+  { L"COMPARISON_MIN_MAG_MIP_LINEAR", D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR },
+  { L"COMPARISON_ANISOTROPIC", D3D12_FILTER_COMPARISON_ANISOTROPIC },
+  { L"MINIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_POINT },
+  { L"MINIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_POINT_MIP_LINEAR },
+  { L"MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"MINIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_POINT_MAG_MIP_LINEAR },
+  { L"MINIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_MIP_POINT },
+  { L"MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"MINIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MINIMUM_MIN_MAG_LINEAR_MIP_POINT },
+  { L"MINIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MINIMUM_MIN_MAG_MIP_LINEAR },
+  { L"MINIMUM_ANISOTROPIC", D3D12_FILTER_MINIMUM_ANISOTROPIC },
+  { L"MAXIMUM_MIN_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_POINT },
+  { L"MAXIMUM_MIN_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_POINT_MIP_LINEAR },
+  { L"MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT },
+  { L"MAXIMUM_MIN_POINT_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_POINT_MAG_MIP_LINEAR },
+  { L"MAXIMUM_MIN_LINEAR_MAG_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_MIP_POINT },
+  { L"MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR },
+  { L"MAXIMUM_MIN_MAG_LINEAR_MIP_POINT", D3D12_FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT },
+  { L"MAXIMUM_MIN_MAG_MIP_LINEAR", D3D12_FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR },
+  { L"MAXIMUM_ANISOTROPIC", D3D12_FILTER_MAXIMUM_ANISOTROPIC },
+};
+
+static const ParserEnumValue TEXTURE_ADDRESS_MODE_TABLE[] = {
+  { L"WRAP", D3D12_TEXTURE_ADDRESS_MODE_WRAP },
+  { L"MIRROR", D3D12_TEXTURE_ADDRESS_MODE_MIRROR },
+  { L"CLAMP", D3D12_TEXTURE_ADDRESS_MODE_CLAMP },
+  { L"BORDER", D3D12_TEXTURE_ADDRESS_MODE_BORDER },
+  { L"MIRROR_ONCE", D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE },
+};
+
+static const ParserEnumValue COMPARISON_FUNC_TABLE[] = {
+  { L"NEVER", D3D12_COMPARISON_FUNC_NEVER },
+  { L"LESS", D3D12_COMPARISON_FUNC_LESS },
+  { L"EQUAL", D3D12_COMPARISON_FUNC_EQUAL },
+  { L"LESS_EQUAL", D3D12_COMPARISON_FUNC_LESS_EQUAL },
+  { L"GREATER", D3D12_COMPARISON_FUNC_GREATER },
+  { L"NOT_EQUAL", D3D12_COMPARISON_FUNC_NOT_EQUAL },
+  { L"GREATER_EQUAL", D3D12_COMPARISON_FUNC_GREATER_EQUAL },
+  { L"ALWAYS", D3D12_COMPARISON_FUNC_ALWAYS },
+};
+
+
 static const ParserEnumTable g_ParserEnumTables[] = {
   { _countof(INPUT_CLASSIFICATION_TABLE), INPUT_CLASSIFICATION_TABLE, ParserEnumKind::INPUT_CLASSIFICATION },
   { _countof(DXGI_FORMAT_TABLE), DXGI_FORMAT_TABLE, ParserEnumKind::DXGI_FORMAT },
@@ -1506,6 +1611,9 @@ static const ParserEnumTable g_ParserEnumTables[] = {
   { _countof(UAV_DIMENSION_TABLE), UAV_DIMENSION_TABLE, ParserEnumKind::UAV_DIMENSION },
   { _countof(PRIMITIVE_TOPOLOGY_TABLE), PRIMITIVE_TOPOLOGY_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY },
   { _countof(PRIMITIVE_TOPOLOGY_TYPE_TABLE), PRIMITIVE_TOPOLOGY_TYPE_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY_TYPE },
+  { _countof(FILTER_TABLE), FILTER_TABLE, ParserEnumKind::FILTER },
+  { _countof(TEXTURE_ADDRESS_MODE_TABLE), TEXTURE_ADDRESS_MODE_TABLE, ParserEnumKind::TEXTURE_ADDRESS_MODE },
+  { _countof(COMPARISON_FUNC_TABLE), COMPARISON_FUNC_TABLE, ParserEnumKind::COMPARISON_FUNC },
 };
 
 static HRESULT GetEnumValue(LPCWSTR name, ParserEnumKind K, UINT *pValue) {
@@ -1611,6 +1719,18 @@ static HRESULT ReadAttrPRIMITIVE_TOPOLOGY_TYPE(IXmlReader *pReader, LPCWSTR pAtt
   return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::PRIMITIVE_TOPOLOGY_TYPE, pValue, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
 }
 
+static HRESULT ReadAttrFILTER(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_FILTER *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::FILTER, pValue, D3D12_FILTER_ANISOTROPIC);
+}
+
+static HRESULT ReadAttrTEXTURE_ADDRESS_MODE(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_TEXTURE_ADDRESS_MODE *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::TEXTURE_ADDRESS_MODE, pValue, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+}
+
+static HRESULT ReadAttrCOMPARISON_FUNC(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_COMPARISON_FUNC *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::COMPARISON_FUNC, pValue, D3D12_COMPARISON_FUNC_LESS_EQUAL);
+}
+
 HRESULT ShaderOpParser::ReadAttrStr(IXmlReader *pReader, LPCWSTR pAttrName, LPCSTR *ppValue) {
   if (S_FALSE == CHECK_HR_RET(pReader->MoveToAttributeByName(pAttrName, nullptr))) {
     *ppValue = nullptr;
@@ -1647,7 +1767,7 @@ HRESULT ShaderOpParser::ReadAttrUINT64(IXmlReader *pReader, LPCWSTR pAttrName, U
   }
   LPCWSTR pText;
   CHECK_HR(pReader->GetValue(&pText, nullptr));
-  long long ll = _wtol(pText);
+  long long ll = _wtoll(pText);
   if (errno == ERANGE) CHECK_HR(E_INVALIDARG);
   *pValue = ll;
   CHECK_HR(pReader->MoveToElement());
@@ -1713,18 +1833,23 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
   CHECK_HR(ReadAttrStr(pReader, L"CounterName", &pDesc->CounterName));
   CHECK_HR(ReadAttrStr(pReader, L"Kind", &pDesc->Kind));
   bool isSRV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "SRV");
+  bool isUAV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "UAV");
+  bool isCBV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "CBV");
+  bool isSAMPLER = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "SAMPLER");
   pDesc->SrvDescPresent = false;
-  DXGI_FORMAT *pFormat;
+  DXGI_FORMAT *pFormat = nullptr;
   if (isSRV) {
     // D3D12_SHADER_RESOURCE_VIEW_DESC
     pFormat = &pDesc->SrvDesc.Format;
-  }
-  else {
+  } else if (isUAV) {
     // D3D12_UNORDERED_ACCESS_VIEW_DESC - default for parsing
     pFormat = &pDesc->UavDesc.Format;
   }
-  HRESULT hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", pFormat);
-  CHECK_HR(hrFormat);
+  HRESULT hrFormat = E_FAIL;
+  if (isSRV || isUAV) {
+    hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", pFormat);
+    CHECK_HR(hrFormat);
+  }
   if (isSRV) {
     pDesc->SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     pDesc->SrvDescPresent |= S_OK ==
@@ -1750,8 +1875,7 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
     default:
       CHECK_HR(E_NOTIMPL);
     }
-  }
-  else {
+  } else if (isUAV) {
     CHECK_HR(ReadAttrUAV_DIMENSION(pReader, L"Dimension", &pDesc->UavDesc.ViewDimension));
     switch (pDesc->UavDesc.ViewDimension) {
     case D3D12_UAV_DIMENSION_BUFFER:
@@ -1795,6 +1919,32 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
       CHECK_HR(ReadAttrUINT(pReader, L"WSize", &pDesc->UavDesc.Texture3D.WSize));
       break;
     }
+  } else if (isCBV) {
+  } else if (isSAMPLER) {
+    // Defaults:
+    //                [ Filter = FILTER_ANISOTROPIC,
+    //                  AddressU = TEXTURE_ADDRESS_WRAP,
+    //                  AddressV = TEXTURE_ADDRESS_WRAP,
+    //                  AddressW = TEXTURE_ADDRESS_WRAP,
+    //                  MipLODBias = 0,
+    //                  MaxAnisotropy = 16,
+    //                  ComparisonFunc = COMPARISON_LESS_EQUAL,
+    //                  BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE,
+    //                  MinLOD = 0.f,
+    //                  MaxLOD = 3.402823466e+38f ] )
+    CHECK_HR(ReadAttrFILTER(pReader, L"Filter", &pDesc->SamplerDesc.Filter));
+    CHECK_HR(ReadAttrTEXTURE_ADDRESS_MODE(pReader, L"AddressU", &pDesc->SamplerDesc.AddressU));
+    CHECK_HR(ReadAttrTEXTURE_ADDRESS_MODE(pReader, L"AddressV", &pDesc->SamplerDesc.AddressV));
+    CHECK_HR(ReadAttrTEXTURE_ADDRESS_MODE(pReader, L"AddressW", &pDesc->SamplerDesc.AddressW));
+    CHECK_HR(ReadAttrFloat(pReader, L"MipLODBias", &pDesc->SamplerDesc.MipLODBias, 0.0F));
+    CHECK_HR(ReadAttrUINT(pReader, L"MaxAnisotropy", &pDesc->SamplerDesc.MaxAnisotropy, 16));
+    CHECK_HR(ReadAttrCOMPARISON_FUNC(pReader, L"ComparisonFunc", &pDesc->SamplerDesc.ComparisonFunc));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorR", &pDesc->SamplerDesc.BorderColor[0], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorG", &pDesc->SamplerDesc.BorderColor[1], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorB", &pDesc->SamplerDesc.BorderColor[2], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"BorderColorA", &pDesc->SamplerDesc.BorderColor[3], 1.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"MinLOD", &pDesc->SamplerDesc.MinLOD, 0.0F));
+    CHECK_HR(ReadAttrFloat(pReader, L"MaxLOD", &pDesc->SamplerDesc.MaxLOD, 3.402823466e+38f));
   }
 
   // If either is missing, set one from the other.
@@ -1805,7 +1955,8 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
     ShaderOpLogFmt(L"Descriptor '%S' is missing Kind attribute.", pDesc->Name);
     CHECK_HR(E_INVALIDARG);
   } else if (0 != _stricmp(K, "UAV") && 0 != _stricmp(K, "SRV") &&
-             0 != _stricmp(K, "CBV") && 0 != _stricmp(K, "RTV")) {
+             0 != _stricmp(K, "CBV") && 0 != _stricmp(K, "RTV") &&
+             0 != _stricmp(K, "SAMPLER")) {
     ShaderOpLogFmt(L"Descriptor '%S' references unknown kind '%S'",
                    pDesc->Name, K);
     CHECK_HR(E_INVALIDARG);
@@ -2182,7 +2333,17 @@ void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType
   else if (compType == DXIL::ComponentType::I32) {
     int val = _wtoi(pText);
     pB = (BYTE *)&val;
-    V.insert(V.end(), pB, pB + sizeof(int));
+    V.insert(V.end(), pB, pB + sizeof(int32_t));
+  }
+  else if (compType == DXIL::ComponentType::U32) {
+    long long llval = _wtoll(pText);
+    if (errno == ERANGE) CHECK_HR(E_INVALIDARG);
+    unsigned int val = 0;
+    if (llval > UINT32_MAX)
+      CHECK_HR(E_INVALIDARG);
+    val = (unsigned int)llval;
+    pB = (BYTE *)&val;
+    V.insert(V.end(), pB, pB + sizeof(uint32_t));
   }
   else {
     DXASSERT_ARGS(false, "Unsupported stream component type : %u", compType);

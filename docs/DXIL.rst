@@ -2318,6 +2318,10 @@ ID  Name                                                  Description
 219 Unpack4x8                                             unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
 220 Pack4x8                                               packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
 221 IsHelperLane                                          returns true on helper lanes in pixel shaders
+222 QuadVote                                              compares boolean accross a quad
+223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
+224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
+225 TextureStoreSample                                    stores texel data at specified sample index
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3147,7 +3151,7 @@ SM.INSIDETESSFACTORSIZEMATCHDOMAIN        InsideTessFactor rows, columns (%0, %1
 SM.INVALIDRESOURCECOMPTYPE                Invalid resource return type.
 SM.INVALIDRESOURCEKIND                    Invalid resources kind.
 SM.INVALIDSAMPLERFEEDBACKTYPE             Invalid sampler feedback type.
-SM.INVALIDTEXTUREKINDONUAV                Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs.
+SM.INVALIDTEXTUREKINDONUAV                TextureCube[Array] resources are not supported with UAVs.
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
 SM.MAXMSSMSIZE                            Total Thread Group Shared Memory storage is %0, exceeded %1.
 SM.MAXTGSMSIZE                            Total Thread Group Shared Memory storage is %0, exceeded %1.

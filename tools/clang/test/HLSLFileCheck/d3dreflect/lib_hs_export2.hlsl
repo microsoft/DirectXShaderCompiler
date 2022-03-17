@@ -90,6 +90,78 @@ HSPerPatchData HSPerPatchFunc1()
   return d;
 }
 
+// CHECK: DxilRuntimeData (size = 436 bytes):
+// CHECK:   StringBuffer (size = 176 bytes)
+// CHECK:   IndexTable (size = 0 bytes)
+// CHECK:   RawBytes (size = 0 bytes)
+// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[5] = {
+// CHECK:     <0:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "\01?HSMain1@@YAXIV?$InputPatch@UPSSceneIn@@$02@@@Z"
+// CHECK:       UnmangledName: "HSMain1"
+// CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 32767
+// CHECK:       MinShaderTarget: 393312
+// CHECK:     }
+// CHECK:     <1:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "\01?HSMain3@@YAXIV?$InputPatch@UPSSceneIn@@$02@@@Z"
+// CHECK:       UnmangledName: "HSMain3"
+// CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 32767
+// CHECK:       MinShaderTarget: 393312
+// CHECK:     }
+// CHECK:     <2:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "HSMain1"
+// CHECK:       UnmangledName: "HSMain1"
+// CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Hull
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 8
+// CHECK:       MinShaderTarget: 196704
+// CHECK:     }
+// CHECK:     <3:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "HSMain3"
+// CHECK:       UnmangledName: "HSMain3"
+// CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Hull
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 8
+// CHECK:       MinShaderTarget: 196704
+// CHECK:     }
+// CHECK:     <4:RuntimeDataFunctionInfo> = {
+// CHECK:       Name: "\01?HSPerPatchFunc1@@YA?AUHSPerPatchData@@XZ"
+// CHECK:       UnmangledName: "HSPerPatchFunc1"
+// CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 8
+// CHECK:       MinShaderTarget: 393312
+// CHECK:     }
+// CHECK:   }
+
 // CHECK: ID3D12LibraryReflection:
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 5

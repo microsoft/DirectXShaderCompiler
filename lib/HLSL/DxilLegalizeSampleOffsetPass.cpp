@@ -55,7 +55,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLegalizeSampleOffsetPass() : FunctionPass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL legalize sample offset";
   }
 
@@ -84,6 +84,10 @@ public:
 
     // Run simple optimization to legalize offsets.
     LegalizeOffsets(ssaIllegalOffsets);
+
+    // If 6.7 or more, permit remaining "illegal" offsets
+    if (DM.GetShaderModel()->IsSM67Plus())
+      return true;
 
     FinalCheck(F, hlslOP);
 

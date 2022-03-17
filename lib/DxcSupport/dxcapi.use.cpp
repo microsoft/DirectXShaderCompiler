@@ -100,7 +100,7 @@ void WriteOperationResultToConsole(_In_ IDxcOperationResult *pRewriteResult,
   WriteBlobToConsole(pBlob, STD_OUTPUT_HANDLE);
 }
 
-static void WriteUtf16NullTermToConsole(_In_opt_count_(charCount) const wchar_t *pText,
+static void WriteWideNullTermToConsole(_In_opt_count_(charCount) const wchar_t *pText,
                                  DWORD streamType) {
   if (pText == nullptr) {
     return;
@@ -108,7 +108,7 @@ static void WriteUtf16NullTermToConsole(_In_opt_count_(charCount) const wchar_t 
 
   bool lossy; // Note: even if there was loss,  print anyway
   std::string consoleMessage;
-  Unicode::UTF16ToConsoleString(pText, &consoleMessage, &lossy);
+  Unicode::WideToConsoleString(pText, &consoleMessage, &lossy);
   if (streamType == STD_OUTPUT_HANDLE) {
     fprintf(stdout, "%s\n", consoleMessage.c_str());
   }
@@ -133,14 +133,14 @@ static HRESULT BlobToUtf8IfText(_In_opt_ IDxcBlob *pBlob, IDxcBlobUtf8 **ppBlobU
   return S_OK;
 }
 
-static HRESULT BlobToUtf16IfText(_In_opt_ IDxcBlob *pBlob, IDxcBlobUtf16 **ppBlobUtf16) {
+static HRESULT BlobToWideIfText(_In_opt_ IDxcBlob *pBlob, IDxcBlobWide **ppBlobWide) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   if (SUCCEEDED(pBlob->QueryInterface(&pBlobEncoding))) {
     BOOL known;
     UINT32 cp = 0;
     IFT(pBlobEncoding->GetEncoding(&known, &cp));
     if (known) {
-      return hlsl::DxcGetBlobAsUtf16(pBlob, nullptr, ppBlobUtf16);
+      return hlsl::DxcGetBlobAsWide(pBlob, nullptr, ppBlobWide);
     }
   }
   return S_OK;
@@ -158,10 +158,10 @@ void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob, DWORD streamType) {
   IFT(pBlob->QueryInterface(&pBlobEncoding));
   IFT(pBlobEncoding->GetEncoding(&known, &cp));
 
-  if (cp == DXC_CP_UTF16) {
-    CComPtr<IDxcBlobUtf16> pUtf16;
-    IFT(hlsl::DxcGetBlobAsUtf16(pBlob, nullptr, &pUtf16));
-    WriteUtf16NullTermToConsole(pUtf16->GetStringPointer(), streamType);
+  if (cp == DXC_CP_WIDE) {
+    CComPtr<IDxcBlobWide> pWide;
+    IFT(hlsl::DxcGetBlobAsWide(pBlob, nullptr, &pWide));
+    WriteWideNullTermToConsole(pWide->GetStringPointer(), streamType);
   } else if (cp == CP_UTF8) {
     CComPtr<IDxcBlobUtf8> pUtf8;
     IFT(hlsl::DxcGetBlobAsUtf8(pBlob, nullptr, &pUtf8));
@@ -193,7 +193,7 @@ void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile, _In_opt_ LPC
 
   std::string BOM;
   CComPtr<IDxcBlobUtf8> pBlobUtf8;
-  CComPtr<IDxcBlobUtf16> pBlobUtf16;
+  CComPtr<IDxcBlobWide> pBlobWide;
   if (textCodePage == DXC_CP_UTF8) {
     IFT_Data(BlobToUtf8IfText(pBlob, &pBlobUtf8), pFileName);
     if (pBlobUtf8) {
@@ -202,11 +202,11 @@ void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile, _In_opt_ LPC
       // TBD: Should we write UTF-8 BOM?
       //BOM = "\xef\xbb\xbf"; // UTF-8
     }
-  } else if (textCodePage == DXC_CP_UTF16) {
-    IFT_Data(BlobToUtf16IfText(pBlob, &pBlobUtf16), pFileName);
-    if (pBlobUtf16) {
-      pPtr = pBlobUtf16->GetStringPointer();
-      size = pBlobUtf16->GetStringLength() * sizeof(wchar_t);
+  } else if (textCodePage == DXC_CP_WIDE) {
+    IFT_Data(BlobToWideIfText(pBlob, &pBlobWide), pFileName);
+    if (pBlobWide) {
+      pPtr = pBlobWide->GetStringPointer();
+      size = pBlobWide->GetStringLength() * sizeof(wchar_t);
       BOM = "\xff\xfe"; // UTF-16 LE
     }
   }
@@ -233,14 +233,14 @@ void WriteUtf8ToConsole(_In_opt_count_(charCount) const char *pText,
   }
 
   std::string resultToPrint;
-  wchar_t *utf16Message = nullptr;
-  size_t utf16MessageLen;
-  Unicode::UTF8BufferToUTF16Buffer(pText, charCount, &utf16Message,
-                                   &utf16MessageLen);
+  wchar_t *wideMessage = nullptr;
+  size_t wideMessageLen;
+  Unicode::UTF8BufferToWideBuffer(pText, charCount, &wideMessage,
+                                   &wideMessageLen);
 
-  WriteUtf16NullTermToConsole(utf16Message, streamType);
+  WriteWideNullTermToConsole(wideMessage, streamType);
 
-  delete[] utf16Message;
+  delete[] wideMessage;
 }
 
 void WriteUtf8ToConsoleSizeT(_In_opt_count_(charCount) const char *pText,

@@ -61,6 +61,7 @@ namespace dxilutil {
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
   bool HasDynamicIndexing(llvm::Value *V);
+  void MergeGepUse(llvm::Value *V);
 
   // Find alloca insertion point, given instruction
   llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I); // Considers entire parent function
@@ -161,6 +162,10 @@ namespace dxilutil {
   /// This can enhance SROA and other transforms that want type-safe pointers,
   /// and enables merging with other getelementptr's.
   llvm::Value *TryReplaceBaseCastWithGep(llvm::Value *V);
+
+  llvm::Value::user_iterator mdv_users_end(llvm::Value *V);
+  llvm::Value::user_iterator mdv_users_begin(llvm::Value *V);
+
 }
 
 }

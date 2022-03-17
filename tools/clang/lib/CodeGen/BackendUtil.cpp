@@ -92,6 +92,7 @@ private:
     if (!PerModulePasses) {
       PerModulePasses = new legacy::PassManager();
       PerModulePasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
+      PerModulePasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerModulePasses->TrackPassOS = &PerModulePassesConfigOS;
       PerModulePasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
@@ -103,6 +104,7 @@ private:
     if (!PerFunctionPasses) {
       PerFunctionPasses = new legacy::FunctionPassManager(TheModule);
       PerFunctionPasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
+      PerFunctionPasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerFunctionPasses->TrackPassOS = &PerFunctionPassesConfigOS;
       PerFunctionPasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
@@ -344,7 +346,10 @@ void EmitAssemblyHelper::CreatePasses() {
                         !CodeGenOpts.HLSLOptimizationToggles.count("debug-nops") ||
                         CodeGenOpts.HLSLOptimizationToggles.find("debug-nops")->second;
 
-  PMBuilder.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLEnableLifetimeMarkers;
+  PMBuilder.HLSLEnableLifetimeMarkers =
+      CodeGenOpts.HLSLEnableLifetimeMarkers &&
+      (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
+       CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;

@@ -56,9 +56,9 @@ StructType *hlsl::GetLoweredUDT(StructType *structTy, DxilTypeSystem *pTypeSys) 
     Type *NewTy = EltTy;
 
     // Lower element if necessary
-    if (EltTy->isVectorTy()) {
-      NewTy = ArrayType::get(EltTy->getVectorElementType(),
-                             EltTy->getVectorNumElements());
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(EltTy)) {
+      NewTy = ArrayType::get(VT->getElementType(),
+                             VT->getNumElements());
     } else if (HLMatrixType Mat = HLMatrixType::dyn_cast(EltTy)) {
       NewTy = ArrayType::get(Mat.getElementType(/*MemRepr*/true),
                              Mat.getNumElements());
@@ -137,10 +137,10 @@ Constant *hlsl::TranslateInitForLoweredUDT(
           NewTy->getArrayElementType(),
           pTypeSys, matOrientation));
     return ConstantArray::get(cast<ArrayType>(NewTy), values);
-  } else if (Ty->isVectorTy()) {
-    values.reserve(Ty->getVectorNumElements());
+  } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    values.reserve(VT->getNumElements());
     ConstantVector *CV = cast<ConstantVector>(Init);
-    for (unsigned i = 0; i < Ty->getVectorNumElements(); ++i)
+    for (unsigned i = 0; i < VT->getNumElements(); ++i)
       values.emplace_back(CV->getAggregateElement(i));
     return ConstantArray::get(cast<ArrayType>(NewTy), values);
   } else if (HLMatrixType Mat = HLMatrixType::dyn_cast(Ty)) {
@@ -206,12 +206,13 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
 
     if (LoadInst *LI = dyn_cast<LoadInst>(user)) {
       // Load for non-matching type should only be vector
-      DXASSERT(Ty->isVectorTy() && NewTy->isArrayTy() &&
-        Ty->getVectorNumElements() == NewTy->getArrayNumElements(),
+      FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
+      DXASSERT(VT && NewTy->isArrayTy() &&
+        VT->getNumElements() == NewTy->getArrayNumElements(),
         "unexpected load of non-matching type");
       IRBuilder<> Builder(LI);
       Value *result = UndefValue::get(Ty);
-      for (unsigned i = 0; i < Ty->getVectorNumElements(); ++i) {
+      for (unsigned i = 0; i < VT->getNumElements(); ++i) {
         Value *GEP = Builder.CreateInBoundsGEP(NewV,
           {Builder.getInt32(0), Builder.getInt32(i)});
         Value *El = Builder.CreateLoad(GEP);
@@ -222,11 +223,12 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
 
     } else if (StoreInst *SI = dyn_cast<StoreInst>(user)) {
       // Store for non-matching type should only be vector
-      DXASSERT(Ty->isVectorTy() && NewTy->isArrayTy() &&
-        Ty->getVectorNumElements() == NewTy->getArrayNumElements(),
+      FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
+      DXASSERT(VT && NewTy->isArrayTy() &&
+        VT->getNumElements() == NewTy->getArrayNumElements(),
         "unexpected load of non-matching type");
       IRBuilder<> Builder(SI);
-      for (unsigned i = 0; i < Ty->getVectorNumElements(); ++i) {
+      for (unsigned i = 0; i < VT->getNumElements(); ++i) {
         Value *EE = Builder.CreateExtractElement(SI->getValueOperand(), i);
         Value *GEP = Builder.CreateInBoundsGEP(
           NewV, {Builder.getInt32(0), Builder.getInt32(i)});

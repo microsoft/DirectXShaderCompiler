@@ -51,7 +51,7 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
   else if (opts.targetEnv == "vulkan1.2")
     targetEnv = SPV_ENV_VULKAN_1_2;
   else if (opts.targetEnv == "vulkan1.3")
-    targetEnv = SPV_ENV_UNIVERSAL_1_6;
+    targetEnv = SPV_ENV_VULKAN_1_3;
   else if(opts.targetEnv == "universal1.5")
     targetEnv = SPV_ENV_UNIVERSAL_1_5;
   else {
@@ -159,6 +159,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_EXT_shader_image_int64", Extension::EXT_shader_image_int64)
       .Case("SPV_KHR_physical_storage_buffer",
             Extension::KHR_physical_storage_buffer)
+      .Case("SPV_KHR_vulkan_memory_model", Extension::KHR_vulkan_memory_model)
       .Default(Extension::Unknown);
 }
 
@@ -214,6 +215,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_EXT_shader_image_int64";
   case Extension::KHR_physical_storage_buffer:
     return "SPV_KHR_physical_storage_buffer";
+  case Extension::KHR_vulkan_memory_model:
+    return "SPV_KHR_vulkan_memory_model";
   default:
     break;
   }

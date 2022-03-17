@@ -613,6 +613,13 @@ private:
   /// Process ray query intrinsics
   SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                               hlsl::IntrinsicOp opcode);
+
+  /// Create SpirvIntrinsicInstruction for arbitrary SPIR-V instructions
+  /// specified by [[vk::ext_instruction(..)]] or [[vk::ext_type_def(..)]]
+  SpirvInstruction *createSpirvIntrInstExt(
+      llvm::ArrayRef<const Attr *> attrs, QualType retType,
+      const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr,
+      SourceLocation loc);
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
   
@@ -622,7 +629,8 @@ private:
   /// Custom intrinsic to support basic buffer_reference use case
   SpirvInstruction *processRawBufferLoad(const CallExpr *callExpr);
   /// Process vk::ext_execution_mode intrinsic
-  SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr);
+  SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
+                                                  bool useIdParams);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -662,6 +670,10 @@ private:
                                           SpirvInstruction *initId,
                                           SourceLocation,
                                           SourceRange range = {});
+
+  /// \brief Updates the AST result type of initInstr as type. If it is a load
+  /// instruction update its pointer as well.
+  void updateInstructionType(SpirvInstruction *initInstr, QualType type);
 
 private:
   /// Translates the given frontend APValue into its SPIR-V equivalent for the
@@ -705,7 +717,6 @@ private:
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
   static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
-  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.

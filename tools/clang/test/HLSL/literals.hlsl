@@ -197,12 +197,12 @@ float test() {
   VERIFY_TYPES(uint, 1U << i);
   // FXC behavior: pick uint if RHS is uint, otherwise, pick int
   // DXC: Warn for ambiguous literal LHS, then match FXC for type
-  VERIFY_TYPES(int, 1 << i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
-  VERIFY_TYPES(uint, 1 << u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
-  VERIFY_TYPES(int, 1 << m16i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
-  VERIFY_TYPES(int, 1 << m16u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
+  VERIFY_TYPES(int, 1 << i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
+  VERIFY_TYPES(uint, 1 << u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
+  VERIFY_TYPES(int, 1 << m16i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
+  VERIFY_TYPES(int, 1 << m16u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
 
   return 0.0f;
 }
 
-int half_btf(int w,int bit) { return (w + (1<<bit)) >> bit; } /* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
+int half_btf(int w,int bit) { return (w + (1<<bit)) >> bit; } /* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */

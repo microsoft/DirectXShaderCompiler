@@ -234,14 +234,16 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
                                  spv::Decoration decor,
-                                 llvm::StringRef strParam,
+                                 llvm::ArrayRef<llvm::StringRef> strParams,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateStringOpcode(idx.hasValue()),
                        /*type*/ {}, loc),
       target(targetInst), targetFunction(nullptr), decoration(decor),
       index(idx), params(), idParams() {
-  const auto &stringWords = string::encodeSPIRVString(strParam);
-  params.insert(params.end(), stringWords.begin(), stringWords.end());
+  for (llvm::StringRef str : strParams) {
+    const auto &stringWords = string::encodeSPIRVString(str);
+    params.insert(params.end(), stringWords.begin(), stringWords.end());
+  }
 }
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
@@ -530,6 +532,15 @@ SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
                     type),
       value(val) {
   assert(type->isIntegerType());
+}
+
+SpirvConstantInteger::SpirvConstantInteger(const SpirvType *type,
+                                           llvm::APInt val, bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
+      value(val) {
+  assert(isa<IntegerType>(type));
 }
 
 bool SpirvConstantInteger::operator==(const SpirvConstantInteger &that) const {

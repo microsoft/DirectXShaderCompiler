@@ -109,6 +109,7 @@ public:
   TEST_METHOD(DisassemblyWhenValidThenOK)
   TEST_METHOD(ValidateFromLL_Abs2)
   TEST_METHOD(DxilContainerUnitTest)
+  TEST_METHOD(ContainerBuilder_AddPrivateForceLast)
 
   TEST_METHOD(ReflectionMatchesDXBC_CheckIn)
   BEGIN_TEST_METHOD(ReflectionMatchesDXBC_Full)
@@ -122,7 +123,7 @@ public:
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-    IFT(library->CreateBlobWithEncodingFromPinned((LPBYTE)data, size, codePage,
+    IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
@@ -351,9 +352,7 @@ public:
       VERIFY_ARE_EQUAL(testZ, baseZ);
     }
   }
-#endif // _WIN32 - Reflection unsupported
 
-#ifdef _WIN32  // - Reflection unsupported
   HRESULT CompileFromFile(LPCWSTR path, bool useDXBC,
                           UINT fxcFlags, IDxcBlob **ppBlob) {
     std::vector<FileRunCommandPart> parts;
@@ -602,7 +601,7 @@ bool DxilContainerTest::InitSupport() {
   return true;
 }
 
-#ifdef _WIN32
+#ifdef _WIN32 // - No reflection support
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
@@ -659,7 +658,103 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   // Source hash and bin hash should be different
   VERIFY_IS_FALSE(0 == strcmp(binHash1Zss.c_str(), binHash1.c_str()));
 }
-#endif // _WIN32
+#endif // WIN32 - No reflection support
+
+TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+
+  CComPtr<IDxcUtils> pUtils;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pDebugPart;
+
+  CComPtr<IDxcBlobEncoding> pPrivateData;
+  std::string data("Here is some private data.");
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(data.data(), data.size(), DXC_CP_ACP, &pPrivateData));
+
+  const char *shader =
+      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
+      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
+      "float function1();"
+      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
+      "ThreeTextures[0].SampleLevel(Sampler, float2(0, 0), 0) + "
+      "ThreeTextures[2].SampleLevel(Sampler, float2(0, 0), 0) + function1(); }";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  std::vector<LPCWSTR> arguments;
+  arguments.emplace_back(L"-Zi");
+  arguments.emplace_back(L"-Qembed_debug");
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
+    L"lib_6_3", arguments.data(), arguments.size(), nullptr, 0,
+    nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  auto GetPart = [](IDxcBlob* pContainerBlob, uint32_t fourCC) -> hlsl::DxilPartIterator {
+    const hlsl::DxilContainerHeader *pHeader = (const hlsl::DxilContainerHeader *)pContainerBlob->GetBufferPointer();
+    hlsl::DxilPartIterator partIter = std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                            hlsl::DxilPartIsType(fourCC));
+    VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), partIter);
+    return partIter;
+  };
+
+  auto VerifyPrivateLast = [](IDxcBlob* pContainerBlob) {
+    const hlsl::DxilContainerHeader *pHeader = (const hlsl::DxilContainerHeader *)pContainerBlob->GetBufferPointer();
+    bool bFoundPrivate = false;
+    for (auto partIter = hlsl::begin(pHeader), end = hlsl::end(pHeader); partIter != end; partIter++) {
+      VERIFY_IS_FALSE(bFoundPrivate && "otherwise, private data is not last");
+      if ((*partIter)->PartFourCC == hlsl::DFCC_PrivateData) {
+        bFoundPrivate = true;
+      }
+    }
+    VERIFY_IS_TRUE(bFoundPrivate);
+  };
+
+  auto debugPart = *GetPart(pProgram, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(debugPart + 1, debugPart->PartSize,
+                                      DXC_CP_ACP, &pDebugPart));
+
+  // release for re-use
+  pResult.Release();
+
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+
+  // remove debug info, add private, add debug back, and build container.
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
+  CComPtr<IDxcBlob> pNewContainer;
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
+
+  // GetPart verifies we have debug info, but don't need result.
+  GetPart(pNewContainer, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VerifyPrivateLast(pNewContainer);
+
+  // release for re-use
+  pResult.Release();
+  pBuilder.Release();
+
+  // Now verify that we can remove and re-add private without error
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pNewContainer));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_PrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  pNewContainer.Release();
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
+
+  // verify private data found after debug info again
+  GetPart(pNewContainer, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VerifyPrivateLast(pNewContainer);
+}
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
   char program[] =
@@ -793,6 +888,7 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
 #endif
 }
 
+#ifdef _WIN32 // - Reflection unsupported
 TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
   const char asSource[] =
@@ -909,61 +1005,61 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       // Validate using DxilRuntimeData
       DxilRuntimeData context;
       context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
-      ResourceTableReader *resTableReader = context.GetResourceTableReader();
-      VERIFY_ARE_EQUAL(funcTableReader->GetNumFunctions(), 4);
+      auto funcTable = context.GetFunctionTable();
+      auto resTable = context.GetResourceTable();
+      VERIFY_ARE_EQUAL(funcTable.Count(), 4);
       std::string str("function");
-      for (uint32_t j = 0; j < funcTableReader->GetNumFunctions(); ++j) {
-        FunctionReader funcReader = funcTableReader->GetItem(j);
-        std::string funcName(funcReader.GetUnmangledName());
+      for (uint32_t j = 0; j < funcTable.Count(); ++j) {
+        auto funcReader = funcTable[j];
+        std::string funcName(funcReader.getUnmangledName());
         VERIFY_IS_TRUE(str.compare(funcName.substr(0,8)) == 0);
         std::string cur_str = str;
         cur_str.push_back('0' + j);
         if (cur_str.compare("function0") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 1);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 1);
           hlsl::ShaderFlags flag;
           flag.SetUAVLoadAdditionalFormats(true);
           flag.SetLowPrecisionPresent(true);
           uint64_t rawFlag = flag.GetFeatureInfo();
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
-          ResourceReader resReader = funcReader.GetResource(0);
-          VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
-          VERIFY_ARE_EQUAL(resReader.GetResourceKind(), hlsl::DXIL::ResourceKind::Texture1D);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags(), rawFlag);
+          auto resReader = funcReader.getResources()[0];
+          VERIFY_ARE_EQUAL(resReader.getClass(), hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(resReader.getKind(), hlsl::DXIL::ResourceKind::Texture1D);
         }
         else if (cur_str.compare("function1") == 0) {
           hlsl::ShaderFlags flag;
           flag.SetLowPrecisionPresent(true);
           uint64_t rawFlag = flag.GetFeatureInfo();
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 3);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags(), rawFlag);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 3);
         }
         else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 0);
-          std::string dependency = funcReader.GetDependency(0);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags() & 0xffffffffffffffff, 0);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 0);
+          std::string dependency = funcReader.getFunctionDependencies()[0];
           VERIFY_IS_TRUE(dependency.find("function_import") != std::string::npos);
         }
         else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), numResFlagCheck);
-          for (unsigned i = 0; i < funcReader.GetNumResources(); ++i) {
-            ResourceReader resReader = funcReader.GetResource(0);
-            VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags() & 0xffffffffffffffff, 0);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), numResFlagCheck);
+          for (unsigned i = 0; i < funcReader.getResources().Count(); ++i) {
+            auto resReader = funcReader.getResources()[0];
+            VERIFY_ARE_EQUAL(resReader.getClass(), hlsl::DXIL::ResourceClass::UAV);
             unsigned j = 0;
             for (; j < numResFlagCheck; ++j) {
-              if (resFlags[j].name.compare(resReader.GetName()) == 0)
+              if (resFlags[j].name.compare(resReader.getName()) == 0)
                 break;
             }
             VERIFY_IS_LESS_THAN(j, numResFlagCheck);
-            VERIFY_ARE_EQUAL(resReader.GetResourceKind(), resFlags[j].kind);
-            VERIFY_ARE_EQUAL(resReader.GetFlags(), static_cast<uint32_t>(resFlags[j].flag));
+            VERIFY_ARE_EQUAL(resReader.getKind(), resFlags[j].kind);
+            VERIFY_ARE_EQUAL(resReader.getFlags(), static_cast<uint32_t>(resFlags[j].flag));
           }
         }
         else {
           IFTBOOLMSG(false, E_FAIL, "unknown function name");
         }
       }
-      VERIFY_ARE_EQUAL(resTableReader->GetNumResources(), 8);
+      VERIFY_ARE_EQUAL(resTable.Count(), 8);
       // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
       unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
       VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(), pBlob->GetBufferSize()));
@@ -1088,19 +1184,19 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
       IFT(pReflection->GetPartContent(i, &pBlob));
       DxilRuntimeData context;
       context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
-      ResourceTableReader *resTableReader = context.GetResourceTableReader();
-      VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 1);
-      VERIFY_IS_TRUE(resTableReader->GetNumResources() == 3);
-      FunctionReader funcReader = funcTableReader->GetItem(0);
-      llvm::StringRef name(funcReader.GetUnmangledName());
+      auto funcTable = context.GetFunctionTable();
+      auto resTable = context.GetResourceTable();
+      VERIFY_IS_TRUE(funcTable.Count() == 1);
+      VERIFY_IS_TRUE(resTable.Count() == 3);
+      auto funcReader = funcTable[0];
+      llvm::StringRef name(funcReader.getUnmangledName());
       VERIFY_IS_TRUE(name.compare("RayGenMain") == 0);
-      VERIFY_IS_TRUE(funcReader.GetShaderKind() ==
+      VERIFY_IS_TRUE(funcReader.getShaderKind() ==
                      hlsl::DXIL::ShaderKind::RayGeneration);
-      VERIFY_IS_TRUE(funcReader.GetNumResources() == 3);
-      VERIFY_IS_TRUE(funcReader.GetNumDependencies() == 1);
+      VERIFY_IS_TRUE(funcReader.getResources().Count() == 3);
+      VERIFY_IS_TRUE(funcReader.getFunctionDependencies().Count() == 1);
       llvm::StringRef dependencyName =
-          hlsl::dxilutil::DemangleFunctionName(funcReader.GetDependency(0));
+          hlsl::dxilutil::DemangleFunctionName(funcReader.getFunctionDependencies()[0]);
       VERIFY_IS_TRUE(dependencyName.compare("function1") == 0);
     }
   }
@@ -1553,6 +1649,7 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
     }
   }
 }
+#endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -1753,13 +1850,17 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
   const char *pLineEnd = pText;
   while (pLineEnd < pEnd && *pLineEnd != '\n') pLineEnd++;
 
-  // Create a UTF-16-backing store.
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > w;
-  std::wstring line = w.from_bytes(pText, pLineEnd);
+  // Create a wide char backing store.
+  auto state = std::mbstate_t();
+  size_t size = std::mbsrtowcs(nullptr, &pText, 0, &state);
+  if (size == static_cast<size_t>(-1))
+    return E_INVALIDARG;
+
+  std::unique_ptr<wchar_t[]> pWText(new wchar_t[size + 1]);
+  std::mbsrtowcs(pWText.get(), &pText, size + 1, &state);
 
   // Find starting and ending '-*-' delimiters.
-  const wchar_t *pWText = line.c_str();
-  const wchar_t *pVarStart = wcsstr(pWText, L"-*-");
+  const wchar_t *pVarStart = wcsstr(pWText.get(), L"-*-");
   if (!pVarStart) return E_INVALIDARG;
   pVarStart += 3;
   const wchar_t *pVarEnd = wcsstr(pVarStart, L"-*-");

@@ -59,13 +59,12 @@ set(HLSL_IGNORE_SOURCES
   PixTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
-  DxilContainerTest.cpp
-  ValidationTest.cpp
-  CompilerTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
+  CompilerTest.cpp
+  DxilContainerTest.cpp
   DxilModuleTest.cpp
   DxilResourceTests.cpp
   DXIsenseTest.cpp
@@ -77,6 +76,7 @@ add_clang_unittest(clang-hlsl-tests
   OptionsTest.cpp
   SystemValueTest.cpp
   TestMain.cpp
+  ValidationTest.cpp
   VerifierTest.cpp
   )
 
@@ -88,6 +88,7 @@ if (WIN32)
 target_link_libraries(clang-hlsl-tests PRIVATE
   dxcompiler
   HLSLTestLib
+  LLVMDxilContainer
   LLVMDxilDia
   ${TAEF_LIBRARIES}
   ${DIASDK_LIBRARIES}

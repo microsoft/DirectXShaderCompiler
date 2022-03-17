@@ -184,6 +184,7 @@ enum ArBasicKind {
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -215,12 +216,18 @@ enum ArBasicKind {
   // Heap Resource
   AR_OBJECT_HEAP_RESOURCE,
   AR_OBJECT_HEAP_SAMPLER,
+
+  AR_OBJECT_RWTEXTURE2DMS,
+  AR_OBJECT_RWTEXTURE2DMS_ARRAY,
+
   AR_BASIC_MAXIMUM_COUNT
 };
 
 #define AR_BASIC_TEXTURE_MS_CASES \
     case AR_OBJECT_TEXTURE2DMS: \
-    case AR_OBJECT_TEXTURE2DMS_ARRAY
+    case AR_OBJECT_TEXTURE2DMS_ARRAY: \
+    case AR_OBJECT_RWTEXTURE2DMS: \
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY
 
 #define AR_BASIC_NON_TEXTURE_MS_CASES \
     case AR_OBJECT_TEXTURE1D: \
@@ -476,6 +483,7 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT_MS
   BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
+  BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -504,6 +512,10 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAY_QUERY,
   0,      //AR_OBJECT_HEAP_RESOURCE,
   0,      //AR_OBJECT_HEAP_SAMPLER,
+
+  BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS
+  BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -808,7 +820,7 @@ QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
 
   QualType matrixSpecializationType = GetOrCreateTemplateSpecialization(context, *sema, matrixTemplateDecl, ArrayRef<TemplateArgument>(templateArgs));
 
-#ifdef DBG
+#ifndef NDEBUG
   // Verify that we can read the field member from the template record.
   DXASSERT(matrixSpecializationType->getAsCXXRecordDecl(), 
            "type of non-dependent specialization is not a RecordType");
@@ -839,7 +851,7 @@ QualType GetOrCreateVectorSpecialization(ASTContext& context, Sema* sema,
 
   QualType vectorSpecializationType = GetOrCreateTemplateSpecialization(context, *sema, vectorTemplateDecl, ArrayRef<TemplateArgument>(templateArgs));
 
-#ifdef DBG
+#ifndef NDEBUG
   // Verify that we can read the field member from the template record.
   DXASSERT(vectorSpecializationType->getAsCXXRecordDecl(), 
            "type of non-dependent specialization is not a RecordType");
@@ -1400,6 +1412,7 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1424,6 +1437,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAY_QUERY,
   AR_OBJECT_HEAP_RESOURCE,
   AR_OBJECT_HEAP_SAMPLER,
+
+  AR_OBJECT_RWTEXTURE2DMS,        // RWTexture2DMS
+  AR_OBJECT_RWTEXTURE2DMS_ARRAY,  // RWTexture2DMSArray
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1493,6 +1509,7 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_VK_SUBPASS_INPUT
   1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
   1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1515,6 +1532,9 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_RAY_QUERY,
   0, // AR_OBJECT_HEAP_RESOURCE,
   0, // AR_OBJECT_HEAP_SAMPLER,
+
+  2, // AR_OBJECT_RWTEXTURE2DMS
+  2, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1594,6 +1614,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1616,6 +1637,9 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_RESOURCE,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_SAMPLER,
+
+  { 2, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS (RWTexture2DMS)
+  { 3, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS_ARRAY (RWTexture2DMSArray)
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1714,6 +1738,7 @@ const char* g_ArBasicTypeNames[] =
   "SubpassInput",
   "SubpassInputMS",
   "ext_type",
+  "ext_result_id",
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1740,6 +1765,9 @@ const char* g_ArBasicTypeNames[] =
   "RayQuery",
   "HEAP_Resource",
   "HEAP_Sampler",
+
+  "RWTexture2DMS",
+  "RWTexture2DMSArray",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -2373,6 +2401,14 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
   case AR_OBJECT_RAY_QUERY:
     *intrinsics = g_RayQueryMethods;
     *intrinsicCount = _countof(g_RayQueryMethods);
+    break;
+  case AR_OBJECT_RWTEXTURE2DMS:
+    *intrinsics = g_RWTexture2DMSMethods;
+    *intrinsicCount = _countof(g_RWTexture2DMSMethods);
+    break;
+  case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
+    *intrinsics = g_RWTexture2DMSArrayMethods;
+    *intrinsicCount = _countof(g_RWTexture2DMSArrayMethods);
     break;
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -3062,8 +3098,6 @@ private:
   // Map from object decl to the object index.
   using ObjectTypeDeclMapType = std::array<std::pair<CXXRecordDecl*,unsigned>, _countof(g_ArBasicKindsAsTypes)+_countof(g_DeprecatedEffectObjectNames)>;
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
-  // Mask for object which not has methods created.
-  uint64_t m_objectTypeLazyInitMask;
 
   UsedIntrinsicStore m_usedIntrinsics;
 
@@ -3380,8 +3414,8 @@ private:
              "of the position parameter");
 
     bool isReadWrite = GetBasicKindProps(kind) & BPROP_RWBUFFER;
-    DXASSERT(!isReadWrite || (op.HasMips == false && op.HasSample == false),
-             "read/write objects don't have .mips or .sample members");
+    DXASSERT(!isReadWrite || (op.HasMips == false),
+             "read/write objects don't have .mips members");
 
     // Return early if there is no work to be done.
     if (op.SubscriptCardinality == 0) {
@@ -3514,7 +3548,6 @@ private:
 
     QualType float4Type = LookupVectorType(HLSLScalarType_float, 4);
     TypeSourceInfo *float4TypeSourceInfo = m_context->getTrivialTypeSourceInfo(float4Type, NoLoc);
-    m_objectTypeLazyInitMask = 0;
     unsigned effectKindIndex = 0;
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
@@ -3602,6 +3635,13 @@ private:
             *m_context, m_vkNSDecl, typeName, "id");
         recordDecl->setImplicit(true);
       }
+      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID && m_vkNSDecl) {
+        recordDecl = DeclareTemplateTypeWithHandleInDeclContext(*m_context,
+                                                                m_vkNSDecl,
+                                                                typeName, 1,
+                                                                nullptr);
+        recordDecl->setImplicit(true);
+      }
 #endif
       else if (templateArgCount == 0) {
         recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName);
@@ -3613,7 +3653,6 @@ private:
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
-      m_objectTypeLazyInitMask |= ((uint64_t)1)<<i;
     }
 
     // Create an alias for SamplerState. 'sampler' is very commonly used.
@@ -3857,7 +3896,7 @@ public:
   }
 
   bool DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
-    if (getSema()->getLangOpts().HLSLVersion < 2018) {
+    if (getSema()->getLangOpts().HLSLVersion < hlsl::LangStd::v2018) {
       switch (type) {
       case HLSLScalarType_float16:
       case HLSLScalarType_float32:
@@ -4327,6 +4366,8 @@ public:
     case AR_OBJECT_ACCELERATION_STRUCT:
     case AR_OBJECT_RAY_DESC:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
+    case AR_OBJECT_RWTEXTURE2DMS:
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
     {
         const ArBasicKind* match = std::find(g_ArBasicKindsAsTypes, &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
         DXASSERT(match != &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], "otherwise can't find constant in basic kinds");
@@ -4444,7 +4485,7 @@ public:
   /// <summary>Validate object element on intrinsic to catch case like integer on Sample.</summary>
   /// <param name="pIntrinsic">Intrinsic function to validate.</param>
   /// <param name="objectElement">Type element on the class intrinsic belongs to; possibly null (eg, 'float' in 'Texture2D<float>').</param>
-  bool IsValidateObjectElement(
+  bool IsValidObjectElement(
     _In_ const HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement);
 
@@ -5072,24 +5113,26 @@ public:
   /// </remarks>
   ImplicitConversionSequence TrySubscriptIndexInitialization(_In_ clang::Expr* SrcExpr, clang::QualType DestType);
 
-  void AddHLSLObjectMethodsIfNotReady(QualType qt) {
-    static_assert((sizeof(uint64_t)*8) >= _countof(g_ArBasicKindsAsTypes), "Bitmask size is too small");
-    // Everything is ready.
-    if (m_objectTypeLazyInitMask == 0)
+  void CompleteType(TagDecl *Tag) override {
+    if (Tag->isCompleteDefinition() || !isa<CXXRecordDecl>(Tag))
       return;
-    CXXRecordDecl *recordDecl = const_cast<CXXRecordDecl *>(GetRecordDeclForBuiltInOrStruct(qt->getAsCXXRecordDecl()));
+
+    CXXRecordDecl *recordDecl = cast<CXXRecordDecl>(Tag);
+    if (auto TDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
+      recordDecl = TDecl->getSpecializedTemplate()->getTemplatedDecl();
+
+      if (recordDecl->isCompleteDefinition())
+        return;
+    }
+
     int idx = FindObjectBasicKindIndex(recordDecl);
     // Not object type.
     if (idx == -1)
       return;
-    uint64_t bit = ((uint64_t)1)<<idx;
-    // Already created.
-    if ((m_objectTypeLazyInitMask & bit) == 0)
-      return;
-    
+
     ArBasicKind kind = g_ArBasicKindsAsTypes[idx];
     uint8_t templateArgCount = g_ArBasicKindsTemplateCount[idx];
-    
+
     int startDepth = 0;
 
     if (templateArgCount > 0) {
@@ -5102,8 +5145,7 @@ public:
     }
 
     AddObjectMethods(kind, recordDecl, startDepth);
-    // Clear the object.
-    m_objectTypeLazyInitMask &= ~bit;
+    recordDecl->completeDefinition();
   }
 
   FunctionDecl* AddHLSLIntrinsicMethod(
@@ -5688,19 +5730,34 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
 }
 
 _Use_decl_annotations_ bool
-HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
-                                            QualType objectElement) {
+HLSLExternalSource::IsValidObjectElement(const HLSL_INTRINSIC *pIntrinsic,
+                                         QualType objectElement) {
   IntrinsicOp op = static_cast<IntrinsicOp>(pIntrinsic->Op);
   switch (op) {
   case IntrinsicOp::MOP_Sample:
   case IntrinsicOp::MOP_SampleBias:
   case IntrinsicOp::MOP_SampleCmp:
+  case IntrinsicOp::MOP_SampleCmpLevel:
   case IntrinsicOp::MOP_SampleCmpLevelZero:
   case IntrinsicOp::MOP_SampleGrad:
   case IntrinsicOp::MOP_SampleLevel: {
     ArBasicKind kind = GetTypeElementKind(objectElement);
     UINT uBits = GET_BPROP_BITS(kind);
-    return IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64;
+    if (IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64)
+      return true;
+    // 6.7 adds UINT sampler support
+    if (IS_BASIC_UINT(kind) || IS_BASIC_SINT(kind)) {
+      const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+      return SM->IsSM67Plus();
+    }
+    return false;
+
+  }
+  case IntrinsicOp::MOP_GatherRaw: {
+    ArBasicKind kind = GetTypeElementKind(objectElement);
+    UINT numEles = GetNumElements(objectElement);
+    return IS_BASIC_UINT(kind) && numEles == 1;
   } break;
   default:
     return true;
@@ -8023,12 +8080,12 @@ ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
   if (member->getLength() == 6 && 0 == strcmp(memberText, "Length")) {
     if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(BaseType)) {
       // check version support
-      unsigned hlslVer = getSema()->getLangOpts().HLSLVersion;
-      if (hlslVer > 2016) {
+      hlsl::LangStd hlslVer = getSema()->getLangOpts().HLSLVersion;
+      if (hlslVer > hlsl::LangStd::v2016) {
         m_sema->Diag(MemberLoc, diag::err_hlsl_unsupported_for_version_lower) << "Length" << "2016";
         return ExprError();
       }
-      if (hlslVer == 2016) {
+      if (hlslVer == hlsl::LangStd::v2016) {
         m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
       }
 
@@ -9182,7 +9239,24 @@ void HLSLExternalSource::CheckBinOpForHLSL(
         // Only allow scalar types for logical operators &&, ||
         if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
             rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
-          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar);
+          SmallVector<char, 256> Buff;
+          llvm::raw_svector_ostream OS(Buff);
+          PrintingPolicy PP(m_sema->getLangOpts());
+          if (Opc == BinaryOperatorKind::BO_LAnd) {
+            OS << "and(";
+          }
+          else if (Opc == BinaryOperatorKind::BO_LOr) {
+            OS << "or(";
+          }
+          LHS.get()->printPretty(OS, nullptr, PP);
+          OS << ", ";
+          RHS.get()->printPretty(OS, nullptr, PP);
+          OS << ")";
+          SourceRange FullRange =
+              SourceRange(LHS.get()->getLocStart(), RHS.get()->getLocEnd());
+          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar)
+              << (Opc == BinaryOperatorKind::BO_LOr)
+              << FixItHint::CreateReplacement(FullRange, OS.str());
           return;
         }
       }
@@ -9752,7 +9826,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     // Check Explicit template arguments
     UINT intrinsicOp = (*cursor)->Op;
     LPCSTR intrinsicName = (*cursor)->pArgs[0].pName;
-    bool Is2018 = getSema()->getLangOpts().HLSLVersion >= 2018;
+    bool Is2018 = getSema()->getLangOpts().HLSLVersion >= hlsl::LangStd::v2018;
     bool IsBAB =
         objectName == g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER] ||
         objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
@@ -9800,9 +9874,12 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
-    if (IsBuiltinTable(tableName) && !IsValidateObjectElement(*cursor, objectElement)) {
+    if (IsBuiltinTable(tableName) && !IsValidObjectElement(*cursor, objectElement)) {
+      UINT numEles = GetNumElements(objectElement);
+      std::string typeName(g_ArBasicTypeNames[GetTypeElementKind(objectElement)]);
+      if (numEles > 1) typeName += std::to_string(numEles);
       m_sema->Diag(Args[0]->getExprLoc(), diag::err_hlsl_invalid_resource_type_on_intrinsic) <<
-          nameIdentifier << g_ArBasicTypeNames[GetTypeElementKind(objectElement)];
+          nameIdentifier << typeName;
     }
     return Sema::TemplateDeductionResult::TDK_Success;
   }
@@ -11891,6 +11968,37 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLRayPayloadAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  // SPIRV Change Starts
+  case AttributeList::AT_VKDecorateIdExt: {
+    if (A.getNumArgs() == 0 || !A.getArg(0).is<clang::Expr *>()) {
+      Handled = false;
+      break;
+    }
+
+    unsigned decoration = 0;
+    if (IntegerLiteral *decorationAsLiteral =
+            dyn_cast<IntegerLiteral>(A.getArg(0).get<clang::Expr *>())) {
+      decoration = decorationAsLiteral->getValue().getZExtValue();
+    } else {
+      Handled = false;
+      break;
+    }
+
+    llvm::SmallVector<Expr *, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      if (!A.getArg(i).is<clang::Expr *>()) {
+        Handled = false;
+        break;
+      }
+      args.push_back(A.getArg(i).get<clang::Expr *>());
+    }
+    if (!Handled)
+      break;
+    declAttr = ::new (S.Context)
+        VKDecorateIdExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                            args.size(), A.getAttributeSpellingListIndex());
+  } break;
+  // SPIRV Change Ends
 
   default:
     Handled = false;
@@ -12002,6 +12110,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
+    declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -12110,27 +12221,33 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKDecorateExt: {
-    // Note that `llvm::SmallVector<unsigned, 3> args` will be destroyed at
-    // the end of this function. However, VKDecorateExtAttr() constructor
-    // allocate a new integer array internally for literal and passing
-    // `&args[1]` is used just once for the initialization. It does not
-    // create a dangling pointer.
-    llvm::SmallVector<unsigned, 3> args;
-    auto argNum = A.getNumArgs();
-    for (unsigned i = 0; i < argNum; ++i) {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<unsigned, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
       args.push_back(unsigned(ValidateAttributeIntArg(S, A, i)));
     }
-    unsigned *literal = (argNum > 1) ? &args[1] : nullptr;
+    // Note that `llvm::SmallVector<unsigned, 2> args` will be destroyed at
+    // the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
     declAttr = ::new (S.Context)
-        VKDecorateExtAttr(A.getRange(), S.Context, args[0], literal, argNum - 1,
-                          A.getAttributeSpellingListIndex());
+        VKDecorateExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                          args.size(), A.getAttributeSpellingListIndex());
   } break;
-  case AttributeList::AT_VKDecorateStringExt:
+  case AttributeList::AT_VKDecorateStringExt: {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<std::string, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      args.push_back(ValidateAttributeStringArg(S, A, nullptr, i));
+    }
+    // Note that `llvm::SmallVector<std::string, 2> args` will be destroyed
+    // at the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
     declAttr = ::new (S.Context) VKDecorateStringExtAttr(
-        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
-        ValidateAttributeStringArg(S, A, nullptr, 1),
+        A.getRange(), S.Context, decoration, args.data(), args.size(),
         A.getAttributeSpellingListIndex());
-    break;
+  } break;
   case AttributeList::AT_VKStorageClassExt:
     declAttr = ::new (S.Context) VKStorageClassExtAttr(
         A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
@@ -12172,6 +12289,24 @@ Attr *hlsl::ProcessStmtAttributeForHLSL(Sema &S, Stmt *St, const AttributeList &
 
   Attr * result = nullptr;
   Handled = true;
+
+  // SPIRV Change Starts
+  if (A.hasScope() && A.getScopeName()->getName().equals("vk")) {
+    switch (A.getKind()) {
+    case AttributeList::AT_VKCapabilityExt:
+      return ::new (S.Context) VKCapabilityExtAttr(
+          A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+          A.getAttributeSpellingListIndex());
+    case AttributeList::AT_VKExtensionExt:
+      return ::new (S.Context) VKExtensionExtAttr(
+          A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr),
+          A.getAttributeSpellingListIndex());
+    default:
+      Handled = false;
+      return nullptr;
+    }
+  }
+  // SPIRV Change Ends
 
   switch (A.getKind())
   {
@@ -12559,16 +12694,12 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       D.setInvalidType();
       return false;
     }
-    // Add methods if not ready.
-    hlslSource->AddHLSLObjectMethodsIfNotReady(qt);
   } else if (qt->isArrayType()) {
     QualType eltQt(qt->getArrayElementTypeNoTypeQual(), 0);
     while (eltQt->isArrayType())
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
 
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
-      // Add methods if not ready.
-      hlslSource->AddHLSLObjectMethodsIfNotReady(eltQt);
       bIsObject = true;
     }
   }
@@ -12924,7 +13055,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (!getLangOpts().SPIRV) {
     if (basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT ||
         basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS ||
-        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE) {
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID) {
       Diag(D.getLocStart(), diag::err_hlsl_vulkan_specific_feature)
           << g_ArBasicTypeNames[basicKind];
       result = false;

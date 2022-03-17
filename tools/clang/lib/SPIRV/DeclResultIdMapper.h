@@ -392,6 +392,14 @@ public:
   /// for it.
   SpirvInstruction *createOrUpdateStringVar(const VarDecl *);
 
+  /// \brief Returns an instruction that represents the given VarDecl.
+  /// VarDecl must be a variable of vk::ext_result_id<Type> type.
+  ///
+  /// This function inspects the VarDecl for an initialization expression. If
+  /// initialization expression is not found, it will emit an error because the
+  /// variable with result id requires an initialization.
+  SpirvInstruction *createResultId(const VarDecl *var);
+
   /// \brief Creates an Enum constant.
   void createEnumConstant(const EnumConstantDecl *decl);
 
@@ -617,9 +625,12 @@ public:
     return value;
   }
 
-  /// \brief Decorate variable with spirv intrinsic attributes
-  void decorateVariableWithIntrinsicAttrs(const NamedDecl *decl,
-                                          SpirvVariable *varInst);
+  /// Decorate with spirv intrinsic attributes with lamda function variable
+  /// check
+  void decorateWithIntrinsicAttrs(
+      const NamedDecl *decl, SpirvVariable *varInst,
+      llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr =
+          [](VKDecorateExtAttr *) {});
 
   /// \brief Creates instructions to load the value of output stage variable
   /// defined by outputPatchDecl and store it to ptr. Since the output stage
@@ -848,11 +859,12 @@ private:
   bool getImplicitRegisterType(const ResourceVar &var,
                                char *registerTypeOut) const;
 
-  /// Decorate with spirv intrinsic attributes with lamda function variable
-  /// check
-  template <typename Functor>
-  void decorateWithIntrinsicAttrs(const NamedDecl *decl, SpirvVariable *varInst,
-                                  Functor func);
+  /// \brief Decorates stage variable with spirv intrinsic attributes. If
+  /// it is BuiltIn or Location decoration, sets locOrBuiltinDecorateAttr
+  /// of stageVar as true.
+  void decorateStageVarWithIntrinsicAttrs(const NamedDecl *decl,
+                                          StageVar *stageVar,
+                                          SpirvVariable *varInst);
 
 private:
   SpirvBuilder &spvBuilder;

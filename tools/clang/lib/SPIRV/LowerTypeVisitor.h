@@ -71,6 +71,11 @@ private:
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
                                      SourceLocation);
 
+  /// Lowers the given type defined in vk namespace into its SPIR-V type.
+  const SpirvType *lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
+                                            SpirvLayoutRule rule,
+                                            SourceLocation srcLoc);
+
   /// For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType sampledType,

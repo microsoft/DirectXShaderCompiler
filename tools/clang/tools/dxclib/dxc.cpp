@@ -166,7 +166,7 @@ public:
 };
 
 static void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, llvm::StringRef FName, UINT32 defaultTextCodePage) {
-  ::dxc::WriteBlobToFile(pBlob, StringRefUtf16(FName), defaultTextCodePage);
+  ::dxc::WriteBlobToFile(pBlob, StringRefWide(FName), defaultTextCodePage);
 }
 
 static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
@@ -185,7 +185,7 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
 
   const char *pData = hlsl::GetDxilPartData(*it);
   DWORD dataLen = (*it)->PartSize;
-  StringRefUtf16 WideName(FName);
+  StringRefWide WideName(FName);
   CHandle file(CreateFileW(WideName, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
   if (file == INVALID_HANDLE_VALUE) {
@@ -200,14 +200,14 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
 static void WriteDxcOutputToFile(DXC_OUT_KIND kind, IDxcResult *pResult, UINT32 textCodePage) {
   if (pResult->HasOutput(kind)) {
     CComPtr<IDxcBlob> pData;
-    CComPtr<IDxcBlobUtf16> pName;
+    CComPtr<IDxcBlobWide> pName;
     IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pData), &pName));
     if (pName && pName->GetStringLength() > 0)
       WriteBlobToFile(pData, pName->GetStringPointer(), textCodePage);
   }
 }
 
-static bool StringBlobEqualUtf16(IDxcBlobUtf16 *pBlob, const WCHAR *pStr) {
+static bool StringBlobEqualWide(IDxcBlobWide *pBlob, const WCHAR *pStr) {
   size_t uSize = wcslen(pStr);
   if (pBlob && pBlob->GetStringLength() == uSize) {
     return 0 == memcmp(pBlob->GetBufferPointer(), pStr, pBlob->GetBufferSize());
@@ -222,13 +222,13 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
   }
 
   CComPtr<IDxcExtraOutputs> pOutputs;
-  CComPtr<IDxcBlobUtf16> pName;
+  CComPtr<IDxcBlobWide> pName;
   IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pOutputs), &pName));
 
   UINT32 uOutputCount = pOutputs->GetOutputCount();
   for (UINT32 i = 0; i < uOutputCount; i++) {
-    CComPtr<IDxcBlobUtf16> pFileName;
-    CComPtr<IDxcBlobUtf16> pType;
+    CComPtr<IDxcBlobWide> pFileName;
+    CComPtr<IDxcBlobWide> pType;
     CComPtr<IDxcBlob> pBlob;
     HRESULT hr = pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName);
 
@@ -248,12 +248,12 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
     }
 
     if (pFileName && pFileName->GetStringLength() > 0) {
-      if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDOUT)) {
+      if (StringBlobEqualWide(pFileName, DXC_EXTRA_OUTPUT_NAME_STDOUT)) {
         if (uCodePage != CP_ACP) {
           WriteBlobToConsole(pBlob, STD_OUTPUT_HANDLE);
         }
       }
-      else if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDERR)) {
+      else if (StringBlobEqualWide(pFileName, DXC_EXTRA_OUTPUT_NAME_STDERR)) {
         if (uCodePage != CP_ACP) {
           WriteBlobToConsole(pBlob, STD_ERROR_HANDLE);
         }
@@ -419,7 +419,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
                               ? llvm::Twine("g_", m_Opts.EntryPoint)
                               : m_Opts.VariableName;
     WriteHeader(pDisassembleResult, pBlob, varName,
-                StringRefUtf16(m_Opts.OutputHeader));
+                StringRefWide(m_Opts.OutputHeader));
     disassemblyWritten = true;
   }
 
@@ -463,7 +463,7 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
   if (!m_Opts.PrivateSource.empty()) {
     CComPtr<IDxcBlob> privateBlob;
     IFT(ReadFileIntoPartContent(hlsl::DxilFourCC::DFCC_PrivateData,
-                                StringRefUtf16(m_Opts.PrivateSource),
+                                StringRefWide(m_Opts.PrivateSource),
                                 &privateBlob));
 
     // setprivate option can replace existing private part. 
@@ -476,7 +476,7 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
     // We only want to add RTS0 part to the container builder. 
     CComPtr<IDxcBlob> RootSignatureBlob;
     IFT(ReadFileIntoPartContent(hlsl::DxilFourCC::DFCC_RootSignature,
-                                StringRefUtf16(m_Opts.RootSignatureSource),
+                                StringRefWide(m_Opts.RootSignatureSource),
                                 &RootSignatureBlob));
 
     // setrootsignature option can replace existing rootsignature part
@@ -505,9 +505,10 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
 }
 
 bool DxcContext::UpdatePartRequired() {
-  return m_Opts.StripDebug || m_Opts.StripPrivate ||
+  return (m_Opts.StripDebug || m_Opts.StripPrivate ||
     m_Opts.StripRootSignature || !m_Opts.PrivateSource.empty() ||
-    !m_Opts.RootSignatureSource.empty();
+    !m_Opts.RootSignatureSource.empty())
+      && (m_Opts.Link || m_Opts.DumpBin || !m_Opts.Preprocess.empty());
 }
 
 // This function reads the file from input file and constructs a blob with fourCC parts
@@ -588,7 +589,7 @@ void DxcContext::ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult) {
 int DxcContext::VerifyRootSignature() {
   // Get dxil container from file
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
   hlsl::DxilContainerHeader *pSourceHeader = (hlsl::DxilContainerHeader *)pSource->GetBufferPointer();
   IFTBOOLMSG(hlsl::IsValidDxilContainer(pSourceHeader, pSourceHeader->ContainerSizeInBytes), E_INVALIDARG, "invalid DXIL container to verify.");
 
@@ -597,7 +598,7 @@ int DxcContext::VerifyRootSignature() {
 
   IFTMSG(ReadFileIntoPartContent(
              hlsl::DxilFourCC::DFCC_RootSignature,
-             StringRefUtf16(m_Opts.VerifyRootSignatureSource), &pRootSignature),
+             StringRefWide(m_Opts.VerifyRootSignatureSource), &pRootSignature),
          "invalid root signature to verify.");
 
   // TODO : Right now we are just going to bild a new blob with updated root signature to verify root signature
@@ -665,10 +666,10 @@ public:
   ) override {
     try {
       // Convert pFilename into native form for indexing as is done when the MD is created
-      std::string FilenameStr8 = Unicode::UTF16ToUTF8StringOrThrow(pFilename);
+      std::string FilenameStr8 = Unicode::WideToUTF8StringOrThrow(pFilename);
       llvm::SmallString<128> NormalizedPath;
       llvm::sys::path::native(FilenameStr8, NormalizedPath);
-      std::wstring FilenameStr16 = Unicode::UTF8ToUTF16StringOrThrow(NormalizedPath.c_str());
+      std::wstring FilenameStr16 = Unicode::UTF8ToWideStringOrThrow(NormalizedPath.c_str());
       *ppIncludeSource = includeFiles.at(FilenameStr16);
       (*ppIncludeSource)->AddRef();
     }
@@ -753,7 +754,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
   if (!m_Opts.DebugFile.empty()) {
     CComPtr<IDxcCompiler2> pCompiler2;
     CComHeapPtr<WCHAR> pDebugName;
-    Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
+    Unicode::UTF8ToWideString(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
     IFT(pCompiler->QueryInterface(&pCompiler2));
     IFT(pCompiler2->CompileWithDebug(
         pCompileSource, pMainFileName, pEntryPoint,
@@ -799,7 +800,7 @@ int DxcContext::Compile() {
     CComPtr<IDxcLibrary> pLibrary;
     IFT(CreateInstance(CLSID_DxcLibrary, &pLibrary));
     IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+    ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
     IFTARG(pSource->GetBufferSize() >= 4);
 
     if (m_Opts.RecompileFromBinary) {
@@ -814,6 +815,9 @@ int DxcContext::Compile() {
       const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(m_Opts.TargetProfile.str().c_str());
       if (SM->IsValid() && SM->GetMajor() < 6) {
         TargetProfile = hlsl::ShaderModel::Get(SM->GetKind(), 6, 0)->GetName();
+        std::string versionWarningString =
+            "warning: Promoting older shader model profile to 6.0 version.";
+        fprintf(stderr, "%s\n", versionWarningString.data());
         if (!SM->IsSM51Plus()) {
           // Add flag for backcompat with SM 5.0 resource reservation
           args.push_back(L"-flegacy-resource-reservation");
@@ -823,11 +827,11 @@ int DxcContext::Compile() {
       if (!m_Opts.DebugFile.empty()) {
         CComPtr<IDxcCompiler2> pCompiler2;
         CComHeapPtr<WCHAR> pDebugName;
-        Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
+        Unicode::UTF8ToWideString(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
         IFT(pCompiler.QueryInterface(&pCompiler2));
         IFT(pCompiler2->CompileWithDebug(
-            pSource, StringRefUtf16(m_Opts.InputFile),
-            StringRefUtf16(m_Opts.EntryPoint), StringRefUtf16(TargetProfile),
+            pSource, StringRefWide(m_Opts.InputFile),
+            StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
             args.data(), args.size(), m_Opts.Defines.data(),
             m_Opts.Defines.size(), pIncludeHandler, &pCompileResult,
             &pDebugName, &pDebugBlob));
@@ -835,9 +839,9 @@ int DxcContext::Compile() {
           outputPDBPath += pDebugName.m_pData;
         }
       } else {
-        IFT(pCompiler->Compile(pSource, StringRefUtf16(m_Opts.InputFile),
-          StringRefUtf16(m_Opts.EntryPoint),
-          StringRefUtf16(TargetProfile), args.data(),
+        IFT(pCompiler->Compile(pSource, StringRefWide(m_Opts.InputFile),
+          StringRefWide(m_Opts.EntryPoint),
+          StringRefWide(TargetProfile), args.data(),
           args.size(), m_Opts.Defines.data(),
           m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
       }
@@ -896,7 +900,7 @@ int DxcContext::Link() {
   std::vector<LPCWSTR> wpInputFiles;
   wpInputFiles.reserve(InputFileList.size());
   for (auto &file : InputFileList) {
-    wInputFiles.emplace_back(StringRefUtf16(file.str()));
+    wInputFiles.emplace_back(StringRefWide(file.str()));
     wpInputFiles.emplace_back(wInputFiles.back().c_str());
     CComPtr<IDxcBlobEncoding> pLib;
     ReadFileIntoBlob(m_dxcSupport, wInputFiles.back().c_str(), &pLib);
@@ -913,8 +917,8 @@ int DxcContext::Link() {
   for (const std::wstring &a : argStrings)
     args.push_back(a.data());
 
-  IFT(pLinker->Link(StringRefUtf16(m_Opts.EntryPoint),
-                    StringRefUtf16(m_Opts.TargetProfile), wpInputFiles.data(),
+  IFT(pLinker->Link(StringRefWide(m_Opts.EntryPoint),
+                    StringRefWide(m_Opts.TargetProfile), wpInputFiles.data(),
                     wpInputFiles.size(), args.data(), args.size(),
                     &pLinkResult));
 
@@ -940,7 +944,7 @@ int DxcContext::Link() {
 
 int DxcContext::DumpBinary() {
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
   return ActOnBlob(pSource.p);
 }
 
@@ -949,28 +953,26 @@ void DxcContext::Preprocess() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pPreprocessResult;
   CComPtr<IDxcBlobEncoding> pSource;
+  
+  std::vector<std::wstring> argStrings;
+  CopyArgsToWStrings(m_Opts.Args, CoreOption, argStrings);
+
   std::vector<LPCWSTR> args;
+  args.reserve(argStrings.size());
+  for (const std::wstring &a : argStrings)
+    args.push_back(a.data());
 
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
   IFT(CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
 
-  // Carry forward the options that control preprocessor
-  if (m_Opts.LegacyMacroExpansion)
-    args.push_back(L"-flegacy-macro-expansion");
-
-  std::vector<std::wstring> includePath;
-  for (const llvm::opt::Arg *A : m_Opts.Args.filtered(hlsl::options::OPT_I))
-    includePath.emplace_back(Unicode::UTF8ToUTF16StringOrThrow(A->getValue()));
-  for (const std::wstring &directory : includePath) {
-    args.emplace_back(L"-I");
-    args.emplace_back(directory.c_str()); // The strings are kept alive in the includePath vector
-  }
-
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
   IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  IFT(pCompiler->Preprocess(pSource, StringRefUtf16(m_Opts.InputFile), args.data(), args.size(), m_Opts.Defines.data(), m_Opts.Defines.size(), pIncludeHandler, &pPreprocessResult));
+  IFT(pCompiler->Preprocess(pSource, StringRefWide(m_Opts.InputFile),
+                            args.data(), args.size(), m_Opts.Defines.data(),
+                            m_Opts.Defines.size(), pIncludeHandler,
+                            &pPreprocessResult));
   WriteOperationErrorsToConsole(pPreprocessResult, m_Opts.OutputWarnings);
 
   HRESULT status;

@@ -14,6 +14,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/ADT/STLExtras.h"
@@ -25,6 +26,7 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/Support/Global.h"
@@ -177,6 +179,7 @@ private:
   bool   m_isInput;
   bool   m_useMinPrecision;
   bool m_bCompat_1_4;
+  bool m_bUnaligned; // unaligned size for < 1.7
   size_t m_fixedSize;
   typedef std::pair<const char *, uint32_t> NameOffsetPair;
   typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap;
@@ -281,15 +284,20 @@ public:
   DxilProgramSignatureWriter(const DxilSignature &signature,
                              DXIL::TessellatorDomain domain,
                              bool isInput, bool UseMinPrecision,
-                             bool bCompat_1_4)
+                             bool bCompat_1_4,
+                             bool bUnaligned)
       : m_signature(signature), m_domain(domain),
         m_isInput(isInput), m_useMinPrecision(UseMinPrecision),
-        m_bCompat_1_4(bCompat_1_4) {
+        m_bCompat_1_4(bCompat_1_4),
+        m_bUnaligned(bUnaligned) {
     calcSizes();
   }
 
   uint32_t size() const override {
-    return m_lastOffset;
+    if (m_bUnaligned)
+      return m_lastOffset;
+    else
+      return PSVALIGN4(m_lastOffset);
   }
 
   void write(AbstractMemoryStream *pStream) override {
@@ -327,9 +335,16 @@ public:
       IFT(pStream->Write(pName, strlen(pName) + 1, &cbWritten));
     }
 
-    // Verify we wrote the bytes we though we would.
-    UINT64 endPos = pStream->GetPosition();
-    DXASSERT_LOCALVAR(endPos - startPos, endPos - startPos == size(), "else size is incorrect");
+    // Align, and verify we wrote the same number of bytes we though we would.
+    UINT64 bytesWritten = pStream->GetPosition() - startPos;
+    if (!m_bUnaligned && (bytesWritten % 4 != 0)) {
+      unsigned paddingToAdd = 4 - (bytesWritten % 4);
+      char padding[4] = {0};
+      ULONG cbWritten = 0;
+      IFT(pStream->Write(padding, paddingToAdd, &cbWritten));
+      bytesWritten += cbWritten;
+    }
+    DXASSERT(bytesWritten == size(), "else size is incorrect");
   }
 };
 
@@ -340,23 +355,24 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
   unsigned ValMajor, ValMinor;
   M.GetValidatorVersion(ValMajor, ValMinor);
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  bool bUnaligned = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
   switch (Kind) {
   case DXIL::SignatureKind::Input:
     return new DxilProgramSignatureWriter(
         M.GetInputSignature(), domain, true,
         M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
   case DXIL::SignatureKind::Output:
     return new DxilProgramSignatureWriter(
         M.GetOutputSignature(), domain, false,
         M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
   case DXIL::SignatureKind::PatchConstOrPrim:
     return new DxilProgramSignatureWriter(
         M.GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
         /*UseMinPrecision*/M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
   case DXIL::SignatureKind::Invalid:
     return nullptr;
   }
@@ -917,44 +933,67 @@ public:
 // Most RDAT parts are tables each containing a list of structures of same type.
 // Exceptions are string table and index table because each string or list of
 // indicies can be of different sizes.
-template <class T>
 class RDATTable : public RDATPart {
 protected:
-  std::vector<T> m_rows;
+  // m_map is map of records to their index.
+  // Used to alias identical records.
+  std::unordered_map<std::string, uint32_t> m_map;
+  std::vector<StringRef> m_rows;
+  size_t m_RecordStride = 0;
+  bool m_bDeduplicationEnabled = false;
+  RuntimeDataPartType m_Type = RuntimeDataPartType::Invalid;
 public:
-  virtual void Insert(T *data) {}
   virtual ~RDATTable() {}
 
-  void Insert(const T &data) {
-    m_rows.push_back(data);
+  void SetType(RuntimeDataPartType type) { m_Type = type; }
+  RuntimeDataPartType GetType() const { return m_Type; }
+  void SetRecordStride(size_t RecordStride) {
+    DXASSERT(m_rows.empty(), "record stride is fixed for the entire table");
+    m_RecordStride = RecordStride;
+  }
+  size_t GetRecordStride() const { return m_RecordStride; }
+  void SetDeduplication(bool bEnabled = true) { m_bDeduplicationEnabled = bEnabled; }
+
+  uint32_t Count() {
+    size_t count = m_rows.size();
+    return (count < UINT32_MAX) ? count : 0;
+  }
+
+  template<typename RecordType>
+  uint32_t Insert(const RecordType &data) {
+    IFTBOOL(m_RecordStride <= sizeof(RecordType), DXC_E_GENERAL_INTERNAL_ERROR);
+    size_t count = m_rows.size();
+    if (count < (UINT32_MAX - 1)) {
+      const char *pData = (const char*)(const void *)&data;
+      auto result = m_map.insert(std::make_pair(std::string(pData, pData + m_RecordStride), count));
+      if (!m_bDeduplicationEnabled || result.second) {
+        m_rows.emplace_back(result.first->first);
+        return count;
+      } else {
+        return result.first->second;
+      }
+    }
+    return RDAT_NULL_REF;
   }
 
   void Write(void *ptr) {
     char *pCur = (char*)ptr;
     RuntimeDataTableHeader &header = *reinterpret_cast<RuntimeDataTableHeader*>(pCur);
     header.RecordCount = m_rows.size();
-    header.RecordStride = sizeof(T);
+    header.RecordStride = m_RecordStride;
     pCur += sizeof(RuntimeDataTableHeader);
-    memcpy(pCur, m_rows.data(), header.RecordCount * header.RecordStride);
+    for (auto &record : m_rows) {
+      DXASSERT_NOMSG(record.size() == m_RecordStride);
+      memcpy(pCur, record.data(), m_RecordStride);
+      pCur += m_RecordStride;
+    }
   };
 
   uint32_t GetPartSize() const {
     if (m_rows.empty())
       return 0;
-    return sizeof(RuntimeDataTableHeader) + m_rows.size() * sizeof(T);
+    return sizeof(RuntimeDataTableHeader) + m_rows.size() * m_RecordStride;
   }
-};
-
-// Resource table will contain a list of RuntimeDataResourceInfo in order of
-// CBuffer, Sampler, SRV, and UAV resource classes.
-class ResourceTable : public RDATTable<RuntimeDataResourceInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::ResourceTable; }
-};
-
-class FunctionTable : public RDATTable<RuntimeDataFunctionInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::FunctionTable; }
 };
 
 class StringBufferPart : public RDATPart {
@@ -1063,11 +1102,6 @@ public:
   void Write(void *ptr) { memcpy(ptr, m_DataBuffer.data(), m_DataBuffer.size()); }
 };
 
-class SubobjectTable : public RDATTable<RuntimeDataSubobjectInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::SubobjectTable; }
-};
-
 using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
@@ -1094,7 +1128,7 @@ private:
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
 #define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
-    for (const auto &user : dxilFunc->users()) {
+    for (const llvm::User *user : dxilFunc->users()) {
       if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
         const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
@@ -1214,7 +1248,7 @@ private:
   }
 
   void UpdateFunctionDependency(llvm::Function *F) {
-    for (const auto &user : F->users()) {
+    for (const llvm::User *user : F->users()) {
       llvm::SmallVector<const llvm::Function*, 8> functions;
       FindUsingFunctions(user, functions);
       for (const llvm::Function *userFunction : functions) {
@@ -1230,14 +1264,16 @@ private:
   }
 
   void UpdateFunctionInfo(const DxilModule &DM) {
+    llvm::Module *M = DM.GetModule();
     // We must select the appropriate shader mask for the validator version,
     // so we don't set any bits the validator doesn't recognize.
     unsigned ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Amplification + 1)) - 1;
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
       ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Callable + 1)) - 1;
     }
-    for (auto &function : DM.GetModule()->getFunctionList()) {
-      if (function.isDeclaration() && !function.isIntrinsic()) {
+    for (auto &function : M->getFunctionList()) {
+      if (function.isDeclaration() && !function.isIntrinsic() &&
+          function.getLinkage() == llvm::GlobalValue::LinkageTypes::ExternalLinkage) {
         if (OP::IsDxilOpFunc(&function)) {
           // update min shader model and shader stage mask per function
           UpdateFunctionToShaderCompat(&function);
@@ -1247,15 +1283,17 @@ private:
         }
       }
     }
-    for (auto &function : DM.GetModule()->getFunctionList()) {
+
+
+    for (auto &function : M->getFunctionList()) {
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
         StringRef unmangled = hlsl::dxilutil::DemangleFunctionName(function.getName());
         uint32_t mangledIndex = m_pStringBufferPart->Insert(mangled);
         uint32_t unmangledIndex = m_pStringBufferPart->Insert(unmangled);
         // Update resource Index
-        uint32_t resourceIndex = UINT_MAX;
-        uint32_t functionDependencies = UINT_MAX;
+        uint32_t resourceIndex = RDAT_NULL_REF;
+        uint32_t functionDependencies = RDAT_NULL_REF;
         uint32_t payloadSizeInBytes = 0;
         uint32_t attrSizeInBytes = 0;
         uint32_t shaderKind = static_cast<uint32_t>(DXIL::ShaderKind::Library);
@@ -1268,8 +1306,10 @@ private:
           functionDependencies =
               m_pIndexArraysPart->AddIndex(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
+        RuntimeDataFunctionInfo info = {};
+        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
         if (DM.HasDxilFunctionProps(&function)) {
-          auto props = DM.GetDxilFunctionProps(&function);
+          const auto &props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
             payloadSizeInBytes = props.ShaderProps.Ray.payloadSizeInBytes;
             attrSizeInBytes = props.ShaderProps.Ray.attributeSizeInBytes;
@@ -1282,8 +1322,6 @@ private:
           }
           shaderKind = (uint32_t)props.shaderKind;
         }
-        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
-        RuntimeDataFunctionInfo info = {};
         info.Name = mangledIndex;
         info.UnmangledName = unmangledIndex;
         info.ShaderKind = shaderKind;
@@ -1291,9 +1329,7 @@ private:
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
         info.AttributeSizeInBytes = attrSizeInBytes;
-        uint64_t featureFlags = flags.GetFeatureInfo();
-        info.FeatureInfo1 = featureFlags & 0xffffffff;
-        info.FeatureInfo2 = (featureFlags >> 32) & 0xffffffff;
+        info.SetFeatureFlags(flags.GetFeatureInfo());
         // Init min target 6.0
         unsigned minMajor = 6, minMinor = 0;
         // Increase min target based on feature flags:
@@ -1344,9 +1380,9 @@ private:
         __fallthrough;
       case DXIL::SubobjectKind::GlobalRootSignature: {
         const void *Data;
-        obj.GetRootSignature(bLocalRS, Data, info.RootSignature.SizeInBytes);
-        info.RootSignature.RawBytesOffset =
-          m_pRawBytesPart->Insert(Data, info.RootSignature.SizeInBytes);
+        obj.GetRootSignature(bLocalRS, Data, info.RootSignature.Data.Size);
+        info.RootSignature.Data.Offset =
+          m_pRawBytesPart->Insert(Data, info.RootSignature.Data.Size);
         break;
       }
       case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
@@ -1399,24 +1435,41 @@ private:
   }
 
   void CreateParts() {
-#define ADD_PART(type) \
-    m_Parts.emplace_back(llvm::make_unique<type>()); \
-    m_p##type = reinterpret_cast<type*>(m_Parts.back().get());
+    bool bRecordDeduplicationEnabled = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 7) >= 0;
+    RuntimeDataPartType maxPartID = RDAT::MaxPartTypeForValVer(m_ValMajor, m_ValMinor);
+
+#define ADD_PART(type)                                                         \
+    m_Parts.emplace_back(llvm::make_unique<type>());                           \
+    m_p##type = reinterpret_cast<type *>(m_Parts.back().get());
+
+#define ADD_TABLE(type, table)                                                 \
+    if (RuntimeDataPartType::table <= maxPartID) {                             \
+      m_Parts.emplace_back(llvm::make_unique<RDATTable>());                    \
+      m_p##table = reinterpret_cast<RDATTable *>(m_Parts.back().get());        \
+      m_p##table->SetRecordStride(sizeof(type));                               \
+      m_p##table->SetType(RuntimeDataPartType::table);                         \
+      m_p##table->SetDeduplication(bRecordDeduplicationEnabled);               \
+    }
+
     ADD_PART(StringBufferPart);
-    ADD_PART(ResourceTable);
-    ADD_PART(FunctionTable);
+    ADD_TABLE(RuntimeDataResourceInfo, ResourceTable);
+    ADD_TABLE(RuntimeDataFunctionInfo, FunctionTable);
     ADD_PART(IndexArraysPart);
     ADD_PART(RawBytesPart);
-    ADD_PART(SubobjectTable);
+    ADD_TABLE(RuntimeDataSubobjectInfo, SubobjectTable);
+
 #undef ADD_PART
+#undef ADD_TABLE
   }
 
   StringBufferPart *m_pStringBufferPart;
   IndexArraysPart *m_pIndexArraysPart;
   RawBytesPart *m_pRawBytesPart;
-  FunctionTable *m_pFunctionTable;
-  ResourceTable *m_pResourceTable;
-  SubobjectTable *m_pSubobjectTable;
+
+// Once per table.
+#define RDAT_STRUCT_TABLE(type, table) RDATTable *m_p##table = nullptr;
+#define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
+#include "dxc/DxilContainer/RDAT_Macros.inl"
 
 public:
   DxilRDATWriter(const DxilModule &mod)
@@ -1427,7 +1480,8 @@ public:
     CreateParts();
     UpdateResourceInfo(mod);
     UpdateFunctionInfo(mod);
-    UpdateSubobjectInfo(mod);
+    if (m_pSubobjectTable)
+      UpdateSubobjectInfo(mod);
 
     // Delete any empty parts:
     std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();
@@ -1502,9 +1556,20 @@ private:
   };
 
   llvm::SmallVector<DxilPart, 8> m_Parts;
+  bool m_bUnaligned;
+  bool m_bHasPrivateData;
 
 public:
+  DxilContainerWriter_impl(bool bUnaligned) : m_bUnaligned(bUnaligned), m_bHasPrivateData(false) {}
+
   void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) override {
+    // Alignment required for all parts except private data, which must be last.
+    IFTBOOL(!m_bHasPrivateData && "private data must be last, and cannot be added twice.", DXC_E_CONTAINER_INVALID);
+    if (FourCC == DFCC_PrivateData) {
+      m_bHasPrivateData = true;
+    } else if (!m_bUnaligned) {
+      IFTBOOL((Size % sizeof(uint32_t)) == 0, DXC_E_CONTAINER_INVALID);
+    }
     m_Parts.emplace_back(FourCC, Size, Write);
   }
 
@@ -1538,8 +1603,8 @@ public:
   }
 };
 
-DxilContainerWriter *hlsl::NewDxilContainerWriter() {
-  return new DxilContainerWriter_impl();
+DxilContainerWriter *hlsl::NewDxilContainerWriter(bool bUnaligned) {
+  return new DxilContainerWriter_impl(bUnaligned);
 }
 
 static bool HasDebugInfoOrLineNumbers(const Module &M) {
@@ -1653,14 +1718,14 @@ void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pRefle
   *ppReflectionStreamOut = pReflectionBitcodeStream.Detach();
 }
 
-void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
-                                           AbstractMemoryStream *pModuleBitcode,
-                                           AbstractMemoryStream *pFinalStream,
-                                           llvm::StringRef DebugName,
-                                           SerializeDxilFlags Flags,
-                                           DxilShaderHash *pShaderHashOut,
-                                           AbstractMemoryStream *pReflectionStreamOut,
-                                           AbstractMemoryStream *pRootSigStreamOut) {
+void hlsl::SerializeDxilContainerForModule(
+    DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    AbstractMemoryStream *pFinalStream, llvm::StringRef DebugName,
+    SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut,
+    AbstractMemoryStream *pReflectionStreamOut,
+    AbstractMemoryStream *pRootSigStreamOut,
+    void *pPrivateData,
+    size_t PrivateDataSize) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -1674,10 +1739,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
   bool bSupportsShaderHash = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) >= 0;
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  bool bUnaligned = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  DxilContainerWriter_impl writer;
+  DxilContainerWriter_impl writer(bUnaligned);
 
   // Write the feature part.
   DxilFeatureInfoWriter featureInfoWriter(*pModule);
@@ -1696,12 +1762,12 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         pModule->GetInputSignature(), domain,
         /*IsInput*/ true,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     pOutputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
         pModule->GetOutputSignature(), domain,
         /*IsInput*/ false,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     // Write the input and output signature parts.
     writer.AddPart(DFCC_InputSignature, pInputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
@@ -1716,7 +1782,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         pModule->GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ pModule->GetShaderModel()->IsDS(),
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     if (pModule->GetPatchConstOrPrimSignature().GetElements().size()) {
       writer.AddPart(DFCC_PatchConstantSignature,
                      pPatchConstOrPrimSigWriter->size(),
@@ -1754,7 +1820,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     if (rootSigWriter.size()) {
       if (pRootSigStreamOut) {
         // Write root signature wrapped in container for separate output
-        DxilContainerWriter_impl rootSigContainerWriter;
+        // Root signature container should never be unaligned.
+        DxilContainerWriter_impl rootSigContainerWriter(false);
         rootSigContainerWriter.AddPart(
           DFCC_RootSignature, rootSigWriter.size(),
           [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
@@ -1922,6 +1989,16 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     WriteProgramPart(pModule->GetShaderModel(), pProgramStream, pStream);
   });
 
+  // Private data part should be added last when assembling the container becasue there is no garuntee of aligned size
+  if (pPrivateData) {
+    writer.AddPart(
+        hlsl::DFCC_PrivateData, PrivateDataSize,
+        [&](AbstractMemoryStream *pStream) {
+          ULONG cbWritten;
+          IFT(pStream->Write(pPrivateData, PrivateDataSize, &cbWritten));
+        });
+  }
+
   writer.write(pFinalStream);
 }
 
@@ -1929,7 +2006,8 @@ void hlsl::SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRo
                                      AbstractMemoryStream *pFinalStream) {
   DXASSERT_NOMSG(pRootSigHandle != nullptr);
   DXASSERT_NOMSG(pFinalStream != nullptr);
-  DxilContainerWriter_impl writer;
+  // Root signature container should never be unaligned.
+  DxilContainerWriter_impl writer(false);
   // Write the root signature (RTS0) part.
   DxilProgramRootSignatureWriter rootSigWriter(*pRootSigHandle);
   if (!pRootSigHandle->IsEmpty()) {

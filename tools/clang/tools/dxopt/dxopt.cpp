@@ -106,7 +106,7 @@ static void PrintOptOutput(LPCWSTR pFileName, IDxcBlob *pBlob, IDxcBlobEncoding 
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pOutputText16;
   IFT(g_DxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  IFT(pLibrary->GetBlobAsUtf16(pOutputText, &pOutputText16));
+  IFT(pLibrary->GetBlobAsWide(pOutputText, &pOutputText16));
   wprintf(L"%*s", (int)pOutputText16->GetBufferSize(),
           (wchar_t *)pOutputText16->GetBufferPointer());
   if (pBlob && pFileName && *pFileName) {
@@ -164,9 +164,9 @@ static void ReadFileOpts(LPCWSTR pPassFileName, IDxcBlobEncoding **ppPassOpts, s
   }
 
   CComPtr<IDxcBlob> pPassOptsBlob;
-  CComPtr<IDxcBlobUtf16> pPassOpts;
+  CComPtr<IDxcBlobWide> pPassOpts;
   BlobFromFile(pPassFileName, &pPassOptsBlob);
-  IFT(hlsl::DxcGetBlobAsUtf16(pPassOptsBlob, hlsl::GetGlobalHeapMalloc(), &pPassOpts));
+  IFT(hlsl::DxcGetBlobAsWide(pPassOptsBlob, hlsl::GetGlobalHeapMalloc(), &pPassOpts));
   LPWSTR pCursor = const_cast<LPWSTR>(pPassOpts->GetStringPointer());
   while (*pCursor) {
     passes.push_back(pCursor);

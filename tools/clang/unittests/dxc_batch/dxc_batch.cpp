@@ -172,7 +172,7 @@ static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
 }
 
 static void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, llvm::StringRef FName, UINT32 defaultTextCodePage) {
-  ::dxc::WriteBlobToFile(pBlob, StringRefUtf16(FName), defaultTextCodePage);
+  ::dxc::WriteBlobToFile(pBlob, StringRefWide(FName), defaultTextCodePage);
 }
 
 static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
@@ -191,7 +191,7 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
 
   const char *pData = hlsl::GetDxilPartData(*it);
   DWORD dataLen = (*it)->PartSize;
-  StringRefUtf16 WideName(FName);
+  StringRefWide WideName(FName);
   CHandle file(CreateFileW(WideName, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
   if (file == INVALID_HANDLE_VALUE) {
@@ -295,7 +295,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
                               ? llvm::Twine("g_", m_Opts.EntryPoint)
                               : m_Opts.VariableName;
     WriteHeader(pDisassembleResult, pBlob, varName,
-                StringRefUtf16(m_Opts.OutputHeader));
+                StringRefWide(m_Opts.OutputHeader));
   } else if (!m_Opts.AssemblyCode.empty()) {
     WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode, m_Opts.DefaultTextCodePage);
   } else {
@@ -336,7 +336,7 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
   if (!m_Opts.PrivateSource.empty()) {
     CComPtr<IDxcBlob> privateBlob;
     IFT(ReadFileIntoPartContent(hlsl::DxilFourCC::DFCC_PrivateData,
-                                StringRefUtf16(m_Opts.PrivateSource),
+                                StringRefWide(m_Opts.PrivateSource),
                                 &privateBlob));
 
     // setprivate option can replace existing private part.
@@ -350,7 +350,7 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
     // We only want to add RTS0 part to the container builder.
     CComPtr<IDxcBlob> RootSignatureBlob;
     IFT(ReadFileIntoPartContent(hlsl::DxilFourCC::DFCC_RootSignature,
-                                StringRefUtf16(m_Opts.RootSignatureSource),
+                                StringRefWide(m_Opts.RootSignatureSource),
                                 &RootSignatureBlob));
 
     // setrootsignature option can replace existing rootsignature part
@@ -477,7 +477,7 @@ void DxcContext::ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult) {
 int DxcContext::VerifyRootSignature() {
   // Get dxil container from file
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
   hlsl::DxilContainerHeader *pSourceHeader =
       (hlsl::DxilContainerHeader *)pSource->GetBufferPointer();
   IFTBOOLMSG(hlsl::IsValidDxilContainer(pSourceHeader,
@@ -489,7 +489,7 @@ int DxcContext::VerifyRootSignature() {
 
   IFTMSG(ReadFileIntoPartContent(
              hlsl::DxilFourCC::DFCC_RootSignature,
-             StringRefUtf16(m_Opts.VerifyRootSignatureSource), &pRootSignature),
+             StringRefWide(m_Opts.VerifyRootSignatureSource), &pRootSignature),
          "invalid root signature to verify.");
 
   // TODO : Right now we are just going to bild a new blob with updated root
@@ -585,7 +585,7 @@ int DxcContext::Compile(llvm::StringRef path, bool bLibLink) {
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     if (path.empty()) {
-      ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile),
+      ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile),
                        &pSource);
     } else {
       llvm::sys::fs::MSFileSystem *msfPtr;
@@ -596,13 +596,13 @@ int DxcContext::Compile(llvm::StringRef path, bool bLibLink) {
       IFTLLVM(pts.error_code());
 
       if (llvm::sys::fs::exists(m_Opts.InputFile)) {
-        ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile),
+        ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile),
                          &pSource);
       } else {
         SmallString<128> pathStr(path.begin(), path.end());
         llvm::sys::path::append(pathStr, m_Opts.InputFile.begin(),
                                 m_Opts.InputFile.end());
-        ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(pathStr.str().str()),
+        ReadFileIntoBlob(m_dxcSupport, StringRefWide(pathStr.str().str()),
                          &pSource);
       }
     }
@@ -628,8 +628,8 @@ int DxcContext::Compile(llvm::StringRef path, bool bLibLink) {
                           pIncludeHandler, &pCompileResult));
     } else {
       IFT(pCompiler->Compile(
-          pSource, StringRefUtf16(m_Opts.InputFile),
-          StringRefUtf16(m_Opts.EntryPoint), StringRefUtf16(TargetProfile),
+          pSource, StringRefWide(m_Opts.InputFile),
+          StringRefWide(m_Opts.EntryPoint), StringRefWide(TargetProfile),
           args.data(), args.size(), m_Opts.Defines.data(),
           m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
     }
@@ -659,7 +659,7 @@ int DxcContext::Compile(llvm::StringRef path, bool bLibLink) {
 
 int DxcContext::DumpBinary() {
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
   return ActOnBlob(pSource.p);
 }
 
@@ -676,9 +676,9 @@ void DxcContext::Preprocess() {
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
 
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  IFT(pCompiler->Preprocess(pSource, StringRefUtf16(m_Opts.InputFile),
+  IFT(pCompiler->Preprocess(pSource, StringRefWide(m_Opts.InputFile),
                             args.data(), args.size(), m_Opts.Defines.data(),
                             m_Opts.Defines.size(), pIncludeHandler,
                             &pPreprocessResult));
@@ -771,7 +771,7 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
   llvm::sys::path::remove_filename(path);
 
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
   llvm::StringRef source((char *)pSource->GetBufferPointer(),
                          pSource->GetBufferSize());
   llvm::SmallVector<llvm::StringRef, 4> commands;

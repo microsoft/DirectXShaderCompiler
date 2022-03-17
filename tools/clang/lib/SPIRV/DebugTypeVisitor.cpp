@@ -325,7 +325,17 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType, counts);
     break;
   }
-  // TODO: Handle TK_RuntimeArray. We need spec updates for the bindless array.
+  case SpirvType::TK_RuntimeArray: {
+    auto *arrType = dyn_cast<RuntimeArrayType>(spirvType);
+    SpirvDebugInstruction *elemDebugType =
+        lowerToDebugType(arrType->getElementType());
+
+    llvm::SmallVector<uint32_t, 4> counts;
+    counts.push_back(0u);
+
+    debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType, counts);
+    break;
+  }
   case SpirvType::TK_Vector: {
     auto *vecType = dyn_cast<VectorType>(spirvType);
     SpirvDebugInstruction *elemDebugType =

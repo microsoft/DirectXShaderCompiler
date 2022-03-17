@@ -129,6 +129,9 @@ endif()
 if (${ENABLE_SPIRV_CODEGEN})
   add_definitions(-DENABLE_SPIRV_CODEGEN)
 endif()
+
+# Building dxil2spv off by default while it's in early development.
+option(ENABLE_DXIL2SPV "Enables DXIL to SPIR-V translation." OFF)
 # SPIRV change ends
 
 include(VersionFromVCS)

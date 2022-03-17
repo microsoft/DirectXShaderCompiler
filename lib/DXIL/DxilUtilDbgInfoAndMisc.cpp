@@ -31,13 +31,122 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 
 using namespace llvm;
 using namespace hlsl;
 
+namespace {
+
+Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
+  IRBuilder<> Builder(GEP->getContext());
+  StringRef Name = "";
+  if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+    Builder.SetInsertPoint(I);
+    Name = GEP->getName();
+  }
+  SmallVector<Value *, 8> Indices;
+
+  // Find out whether the last index in the source GEP is a sequential idx.
+  bool EndsWithSequential = false;
+  for (gep_type_iterator I = gep_type_begin(*SrcGEP), E = gep_type_end(*SrcGEP);
+       I != E; ++I)
+    EndsWithSequential = !(*I)->isStructTy();
+  if (EndsWithSequential) {
+    Value *Sum;
+    Value *SO1 = SrcGEP->getOperand(SrcGEP->getNumOperands() - 1);
+    Value *GO1 = GEP->getOperand(1);
+    if (SO1 == Constant::getNullValue(SO1->getType())) {
+      Sum = GO1;
+    } else if (GO1 == Constant::getNullValue(GO1->getType())) {
+      Sum = SO1;
+    } else {
+      // If they aren't the same type, then the input hasn't been processed
+      // by the loop above yet (which canonicalizes sequential index types to
+      // intptr_t).  Just avoid transforming this until the input has been
+      // normalized.
+      if (SO1->getType() != GO1->getType())
+        return nullptr;
+      // Only do the combine when GO1 and SO1 are both constants. Only in
+      // this case, we are sure the cost after the merge is never more than
+      // that before the merge.
+      if (!isa<Constant>(GO1) || !isa<Constant>(SO1))
+        return nullptr;
+      Sum = Builder.CreateAdd(SO1, GO1);
+    }
+
+    // Update the GEP in place if possible.
+    if (SrcGEP->getNumOperands() == 2) {
+      GEP->setOperand(0, SrcGEP->getOperand(0));
+      GEP->setOperand(1, Sum);
+      return GEP;
+    }
+    Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end() - 1);
+    Indices.push_back(Sum);
+    Indices.append(GEP->op_begin() + 2, GEP->op_end());
+  } else if (isa<Constant>(*GEP->idx_begin()) &&
+             cast<Constant>(*GEP->idx_begin())->isNullValue() &&
+             SrcGEP->getNumOperands() != 1) {
+    // Otherwise we can do the fold if the first index of the GEP is a zero
+    Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end());
+    Indices.append(GEP->idx_begin() + 1, GEP->idx_end());
+  }
+
+  DXASSERT(!Indices.empty(), "must merge");
+  Value *newGEP =
+      Builder.CreateInBoundsGEP(nullptr, SrcGEP->getOperand(0), Indices, Name);
+  GEP->replaceAllUsesWith(newGEP);
+  if (Instruction *I = dyn_cast<Instruction>(GEP))
+    I->eraseFromParent();
+  return newGEP;
+}
+
+}
+
+
 namespace hlsl {
 
 namespace dxilutil {
+
+void MergeGepUse(Value *V) {
+  SmallVector<Value *, 16> worklist;
+  auto addUsersToWorklist = [&worklist](Value *V) {
+    if (!V->user_empty()) {
+      // Add users in reverse to the worklist, so they are processed in order
+      // This makes it equivalent to recursive traversal
+      size_t start = worklist.size();
+      worklist.append(V->user_begin(), V->user_end());
+      size_t end = worklist.size();
+      std::reverse(worklist.data() + start, worklist.data() + end);
+    }
+  };
+  addUsersToWorklist(V);
+  while (worklist.size()) {
+    V = worklist.pop_back_val();
+    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+      if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
+        worklist.push_back(NewV);
+      } else {
+        // merge any GEP users of the untranslated bitcast
+        addUsersToWorklist(V);
+      }
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+      if (GEPOperator *prevGEP =
+              dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
+        // merge the 2 GEPs, returns nullptr if couldn't merge
+        if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
+          worklist.push_back(newGEP);
+          // delete prevGEP if no more users
+          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP))
+            cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
+        }
+      } else {
+        // nothing to merge yet, add GEP users
+        addUsersToWorklist(V);
+      }
+    }
+  }
+}
 
 std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
                                                     llvm::LLVMContext &Ctx,
@@ -212,15 +321,22 @@ void EmitNoteOnContext(LLVMContext &Ctx, Twine Msg) {
   EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Note);
 }
 
-static DbgValueInst *FindDbgValueInst(Value *Val) {
-  if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
-    if (auto *ValMDAsVal =
-            MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
-      for (User *ValMDUser : ValMDAsVal->users()) {
-        if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(ValMDUser))
-          return DbgValInst;
-      }
+Value::user_iterator mdv_users_end(Value *V) {
+  return Value::user_iterator();
+}
+Value::user_iterator mdv_users_begin(Value *V) {
+  if (auto *L = LocalAsMetadata::getIfExists(V)) {
+    if (auto *MDV = MetadataAsValue::getIfExists(L->getContext(), L)) {
+      return MDV->user_begin();
     }
+  }
+  return mdv_users_end(V);
+}
+
+static DbgValueInst *FindDbgValueInst(Value *Val) {
+  for (auto it = mdv_users_begin(Val), end = mdv_users_end(Val); it != end; it++) {
+    if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(*it))
+      return DbgValInst;
   }
   return nullptr;
 }
@@ -303,7 +419,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLoadMetadata () : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL load DxilModule from metadata"; }
+  StringRef getPassName() const override { return "HLSL load DxilModule from metadata"; }
 
   bool runOnModule(Module &M) override {
     if (!M.HasDxilModule()) {

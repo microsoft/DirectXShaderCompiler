@@ -360,14 +360,18 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
 
     case 'S':
         bKW = KW(space) || KW(Sampler) || KW(StaticSampler) || KW(SRV) ||
-              KW(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED) || KW(SAMPLER_HEAP_DIRECTLY_INDEXED) ||
+              KW(SAMPLER_HEAP_DIRECTLY_INDEXED) ||
               KW(SHADER_VISIBILITY_ALL)      ||  KW(SHADER_VISIBILITY_VERTEX) || 
               KW(SHADER_VISIBILITY_HULL)     || KW(SHADER_VISIBILITY_DOMAIN)  ||
               KW(SHADER_VISIBILITY_GEOMETRY) || KW(SHADER_VISIBILITY_PIXEL) ||
               KW(SHADER_VISIBILITY_AMPLIFICATION) || KW(SHADER_VISIBILITY_MESH) ||
               KW(STATIC_BORDER_COLOR_TRANSPARENT_BLACK) ||
               KW(STATIC_BORDER_COLOR_OPAQUE_BLACK) ||
-              KW(STATIC_BORDER_COLOR_OPAQUE_WHITE) || KW(SAMPLER_HEAP_DIRECTLY_INDEXED);
+              KW(STATIC_BORDER_COLOR_OPAQUE_WHITE) ||
+              KW(STATIC_BORDER_COLOR_OPAQUE_BLACK_UINT) ||
+              KW(STATIC_BORDER_COLOR_OPAQUE_WHITE_UINT) ||
+              KW(SAMPLER_HEAP_DIRECTLY_INDEXED);
+
         break;
 
     case 'T':
@@ -1605,6 +1609,8 @@ HRESULT RootSignatureParser::ParseBorderColor(DxilStaticBorderColor & BorderColo
     case TokenType::STATIC_BORDER_COLOR_TRANSPARENT_BLACK:  BorderColor = DxilStaticBorderColor::TransparentBlack;  break;
     case TokenType::STATIC_BORDER_COLOR_OPAQUE_BLACK:       BorderColor = DxilStaticBorderColor::OpaqueBlack;       break;
     case TokenType::STATIC_BORDER_COLOR_OPAQUE_WHITE:       BorderColor = DxilStaticBorderColor::OpaqueWhite;       break;
+    case TokenType::STATIC_BORDER_COLOR_OPAQUE_BLACK_UINT:  BorderColor = DxilStaticBorderColor::OpaqueBlackUint;       break;
+    case TokenType::STATIC_BORDER_COLOR_OPAQUE_WHITE_UINT:  BorderColor = DxilStaticBorderColor::OpaqueWhiteUint;       break;
     default:
         IFC(Error(ERR_RS_UNEXPECTED_TOKEN, 
                  "Unexpected texture address mode value: '%s'.", Token.GetStr()));

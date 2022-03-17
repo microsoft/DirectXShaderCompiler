@@ -493,7 +493,7 @@ public:
     AU.addRequired<DxilValueCache>();
   }
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Lower createHandleForLib";
   }
 
@@ -580,7 +580,7 @@ public:
 
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
-    m_HasDbgInfo = hasDebugInfo(M);
+    m_HasDbgInfo = llvm::getDebugMetadataVersionFromModule(M) != 0;
 
     GenerateDxilResourceHandles();
 
@@ -607,6 +607,8 @@ private:
   void FailOnPoisonResources();
   bool RemovePhiOnResource();
   void UpdateResourceSymbols();
+  void ReplaceResourceUserWithHandle(DxilResource &res, LoadInst *load,
+                                     Instruction *handle);
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
   bool UpdateStructTypeForLegacyLayout();
@@ -1608,7 +1610,7 @@ public:
   explicit DxilLegalizeResources()
     : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Legalize Resource Use";
   }
 
@@ -1694,14 +1696,14 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
       return rowTy;
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     return UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
-  } else if (Ty->isVectorTy()) {
-    Type *EltTy = Ty->getVectorElementType();
+  } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    Type *EltTy = VT->getElementType();
     Type *UpdatedTy =
         UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
     else
-      return VectorType::get(UpdatedTy, Ty->getVectorNumElements());
+      return VectorType::get(UpdatedTy, VT->getNumElements());
   } else {
     Type *i32Ty = Type::getInt32Ty(Ty->getContext());
     // Basic types.
@@ -1808,9 +1810,9 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
         Res.GetKind() == DXIL::ResourceKind::StructuredBuffer);
   if (ST != UpdatedST) {
     // Support Array of ConstantBuffer/StructuredBuffer.
-    UpdatedST = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
+    Type *UpdatedTy = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
     GlobalVariable *NewGV = cast<GlobalVariable>(
-        M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
+        M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedTy));
     Res.SetGlobalSymbol(NewGV);
     Res.SetHLSLType(NewGV->getType());
     OP *hlslOP = DM.GetOP();
@@ -1819,26 +1821,57 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
       TypeSys.EraseStructAnnotation(ST);
       // If it's a library, we need to replace the GV which involves a few replacements
       Function *NF = hlslOP->GetOpFunc(hlsl::OP::OpCode::CreateHandleForLib, UpdatedST);
+      Value *opArg =
+          hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib);
+      auto replaceResLd = [&NF,&opArg](LoadInst *ldInst, Value *NewPtr) {
+        if (!ldInst->user_empty()) {
+          IRBuilder<> Builder = IRBuilder<>(ldInst);
+          LoadInst *newLoad = Builder.CreateLoad(NewPtr);
+          Value *args[] = {opArg, newLoad};
 
+          for (auto user = ldInst->user_begin(), E = ldInst->user_end();
+               user != E;) {
+            CallInst *CI = cast<CallInst>(*(user++));
+            CallInst *newCI = CallInst::Create(NF, args, "", CI);
+            CI->replaceAllUsesWith(newCI);
+            CI->eraseFromParent();
+          }
+        }
+        ldInst->eraseFromParent();
+      };
+      // Merge GEP to simplify replace old GV.
+      if (!arrayDims.empty())
+        dxilutil::MergeGepUse(Symbol);
       // Replace old GV.
-      for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
+      for (auto UserIt = Symbol->user_begin(), userEnd = Symbol->user_end(); UserIt != userEnd;) {
         Value *User = *(UserIt++);
 
         if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
-          if (!ldInst->user_empty()) {
-            IRBuilder<> Builder = IRBuilder<>(ldInst);
-            LoadInst *newLoad = Builder.CreateLoad(NewGV);
-            ArrayRef<Value *> args = {hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib), newLoad};
-
-            for (auto user = ldInst->user_begin(); user != ldInst->user_end();) {
-              CallInst *CI = cast<CallInst>(*(user++));
-
-              CallInst *newCI = CallInst::Create(NF, args, "", CI);
-              CI->replaceAllUsesWith(newCI);
-              CI->eraseFromParent();
+          replaceResLd(ldInst, NewGV);
+        } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(User)) {
+          IRBuilder<> Builder(GEP->getContext());
+          StringRef Name = "";
+          if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+            Builder.SetInsertPoint(I);
+            Name = GEP->getName();
+          }
+          SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+          Value *NewPtr = Builder.CreateGEP(NewGV, Indices);
+          for (auto GEPUserIt = GEP->user_begin(), GEPuserEnd = GEP->user_end();
+               GEPUserIt != GEPuserEnd;) {
+            Value *User = *(GEPUserIt++);
+            if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
+              replaceResLd(ldInst, NewPtr);
+            } else {
+              User->dump();
+              DXASSERT(0, "unsupported user when update resouce type");
             }
           }
-          ldInst->eraseFromParent();
+          if (Instruction *I = dyn_cast<Instruction>(GEP))
+            I->eraseFromParent();
+        } else {
+          User->dump();
+          DXASSERT(0,"unsupported user when update resouce type");
         }
       }
     } else {
@@ -1941,72 +1974,6 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
 // Lower createHandleForLib
 namespace {
 
-void ReplaceResourceUserWithHandle(
-    DxilResource &res,
-    LoadInst *load, Value *handle)
-{
-  for (auto resUser = load->user_begin(); resUser != load->user_end();) {
-    Value *V = *(resUser++);
-    CallInst *CI = dyn_cast<CallInst>(V);
-    DxilInst_CreateHandleForLib createHandle(CI);
-    DXASSERT(createHandle, "must be createHandle");
-    CI->replaceAllUsesWith(handle);
-    CI->eraseFromParent();
-  }
-
-  if (res.GetClass() == DXIL::ResourceClass::UAV) {
-    // Before this pass, the global resources might not have been mapped with all the uses.
-    // Now we're 100% sure who uses what resources (otherwise the compilation would have failed),
-    // so we do a round on marking UAV's as having counter.
-    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
-      Instruction *I = dyn_cast<Instruction>(V);
-      if (!I)
-        return false;
-      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
-    };
-
-    // Search all users for update counter
-    bool updateAnnotateHandle = false;
-    if (!res.HasCounter()) {
-      for (User *U : handle->users()) {
-        if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
-          res.SetHasCounter(true);
-          break;
-        }
-        else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
-          for (User *UU : U->users()) {
-            if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter)) {
-              res.SetHasCounter(true);
-              updateAnnotateHandle = true;
-              break;
-            }
-          }
-          if (updateAnnotateHandle)
-            break;
-        }
-      }
-      if (updateAnnotateHandle) {
-        // Update resource props with counter flag
-        DxilResourceProperties RP =
-          resource_helper::loadPropsFromResourceBase(&res);
-        // Require ShaderModule to reconstruct resource property constant
-        const ShaderModel *pSM = load->getParent()->getParent()->getParent()
-                                    ->GetDxilModule().GetShaderModel();
-        for (User *U : handle->users()) {
-          DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
-          if (annotateHandle) {
-            annotateHandle.set_props(
-              resource_helper::getAsConstant(
-                RP, annotateHandle.get_props()->getType(), *pSM));
-          }
-        }
-      }
-    }
-  }
-
-  load->eraseFromParent();
-}
-
 Value *flattenGepIdx(GEPOperator *GEP) {
   Value *idx = nullptr;
   if (GEP->getNumIndices() == 2) {
@@ -2038,6 +2005,89 @@ Value *flattenGepIdx(GEPOperator *GEP) {
 }
 
 } // namespace
+
+
+void DxilLowerCreateHandleForLib::ReplaceResourceUserWithHandle(
+    DxilResource &res, LoadInst *load, Instruction *handle) {
+  for (auto resUser = load->user_begin(), E = load->user_end(); resUser != E;) {
+    Value *V = *(resUser++);
+    CallInst *CI = dyn_cast<CallInst>(V);
+    DxilInst_CreateHandleForLib createHandle(CI);
+    DXASSERT(createHandle, "must be createHandle");
+    CI->replaceAllUsesWith(handle);
+    CI->eraseFromParent();
+  }
+
+  if (res.GetClass() == DXIL::ResourceClass::UAV) {
+    // Before this pass, the global resources might not have been mapped with
+    // all the uses. Now we're 100% sure who uses what resources (otherwise the
+    // compilation would have failed), so we do a round on marking UAV's as
+    // having counter.
+    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (!I)
+        return false;
+      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
+    };
+
+    // Search all users for update counter
+    bool updateAnnotateHandle = res.IsGloballyCoherent();
+    if (!res.HasCounter()) {
+      for (User *U : handle->users()) {
+        if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
+          res.SetHasCounter(true);
+          break;
+        } else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
+          for (User *UU : U->users()) {
+            if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter)) {
+              res.SetHasCounter(true);
+              updateAnnotateHandle = true;
+              break;
+            }
+          }
+          if (updateAnnotateHandle)
+            break;
+        }
+      }
+    }
+    if (updateAnnotateHandle) {
+      // Update resource props with counter flag
+      DxilResourceProperties RP =
+          resource_helper::loadPropsFromResourceBase(&res);
+      // Require ShaderModule to reconstruct resource property constant
+      const ShaderModel *pSM = m_DM->GetShaderModel();
+
+      SmallVector<Instruction *, 4> annotHandles;
+      for (User *U : handle->users()) {
+        DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
+        if (annotateHandle) {
+          annotHandles.emplace_back(cast<Instruction>(U));
+        }
+      }
+      if (!annotHandles.empty()) {
+        Instruction *firstAnnot = annotHandles.pop_back_val();
+        DxilInst_AnnotateHandle annotateHandle(firstAnnot);
+        // Update props.
+        Constant *propsConst = resource_helper::getAsConstant(
+            RP, annotateHandle.get_props()->getType(), *pSM);
+        annotateHandle.set_props(propsConst);
+        if (!annotHandles.empty()) {
+          // Move firstAnnot after handle.
+          firstAnnot->removeFromParent();
+          firstAnnot->insertAfter(handle);
+          // Remove redundant annotate handles.
+          for (auto *annotHdl : annotHandles) {
+            annotHdl->replaceAllUsesWith(firstAnnot);
+            annotHdl->eraseFromParent();
+          }
+        }
+      }
+    }
+  }
+
+  load->eraseFromParent();
+}
+
 void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     DxilResourceBase &res) {
   OP *hlslOP = m_DM->GetOP();
@@ -2133,7 +2183,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
       Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
-      Value *handle = handleMapOnFunction[userF];
+      Instruction *handle = handleMapOnFunction[userF];
       ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
       Value *idx = flattenGepIdx(GEP);
@@ -2143,7 +2193,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       Args[nonUniformOpIdx] =
           isUniformRes;
 
-      Value *handle = nullptr;
+      Instruction *handle = nullptr;
       if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
         IRBuilder<> Builder = IRBuilder<>(GEPInst);
         if (DxilMDHelper::IsMarkedNonUniform(GEPInst)) {
@@ -2166,7 +2216,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
         } else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
           Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
-          Value *localHandle =
+          Instruction *localHandle =
               Builder.CreateCall(createHandle, Args, handleName);
           ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, localHandle);
         }
@@ -2511,11 +2561,15 @@ static unsigned GetCBOffset(Value *V, OffsetForValueMap &visited) {
 
 typedef std::map<unsigned, DxilFieldAnnotation*> FieldAnnotationByOffsetMap;
 
-static void MarkCBUse(unsigned offset, FieldAnnotationByOffsetMap &fieldMap) {
+// Returns size in bits of the field if it's a basic type, otherwise 0.
+static unsigned MarkCBUse(unsigned offset, FieldAnnotationByOffsetMap &fieldMap) {
   auto it = fieldMap.upper_bound(offset);
   it--;
-  if (it != fieldMap.end())
+  if (it != fieldMap.end()) {
     it->second->SetCBVarUsed(true);
+    return it->second->GetCompType().GetSizeInBits();
+  }
+  return 0;
 }
 
 // Detect patterns of lshr v,16 or trunc to 16-bits and return low and high
@@ -2528,11 +2582,11 @@ static unsigned DetectLowAndHighWordUsage(ExtractValueInst *EV) {
   if (EV->getType()->getScalarSizeInBits() == 32) {
     for (auto U : EV->users()) {
       Instruction *I = cast<Instruction>(U);
-      if (I->getOpcode() == LLVMLShr) {
+      if (I->getOpcode() == Instruction::LShr) {
         ConstantInt *CShift = dyn_cast<ConstantInt>(I->getOperand(1));
         if (CShift && CShift->getLimitedValue() == 16)
           result |= kHighWordUsed;
-      } else if (I->getOpcode() == LLVMTrunc &&
+      } else if (I->getOpcode() == Instruction::Trunc &&
                I->getType()->getPrimitiveSizeInBits() == 16) {
         result |= kLowWordUsed;
       } else {
@@ -2567,9 +2621,17 @@ static void MarkCBUsesForExtractElement(
     ExtractValueInst *EV, bool bMinPrecision) {
   unsigned lowHighWordUsage = 0;
   unsigned evOffset = GetOffsetForCBExtractValue(EV, bMinPrecision, lowHighWordUsage);
+
+  // For tbuffer, where value extracted is always 32-bits:
+  // If lowHighWordUsage is 0, it means 32-bits used.
+  // If field marked is < 32 bits, we still need to mark the high 16-bits as
+  // used, in case there is another 16-bit field.
+  // Since MarkCBUse could return 0 on non-basic type field, look for 16
+  // when determining whether we still need to mark high word as used.
+  bool highUnmarked = EV->getType()->getScalarSizeInBits() == 32;
   if (!lowHighWordUsage || 0 != (lowHighWordUsage & kLowWordUsed))
-    MarkCBUse(offset + evOffset, fieldMap);
-  if (lowHighWordUsage & kHighWordUsed)
+    highUnmarked &= MarkCBUse(offset + evOffset, fieldMap) == 16;
+  if (highUnmarked && (!lowHighWordUsage || 0 != (lowHighWordUsage & kHighWordUsed)))
     MarkCBUse(offset + evOffset + 2, fieldMap);
 }
 
@@ -2753,7 +2815,7 @@ public:
   void applyOptions(PassOptions O) override {
     GetPassOptionUInt32(O, "auto-binding-space", &m_AutoBindingSpace, UINT_MAX);
   }
-  const char *getPassName() const override { return "DXIL Allocate Resources For Library"; }
+  StringRef getPassName() const override { return "DXIL Allocate Resources For Library"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
@@ -3176,7 +3238,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilCleanupDynamicResourceHandle() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "DXIL Cleanup dynamic resource handle calls"; }
+  StringRef getPassName() const override { return "DXIL Cleanup dynamic resource handle calls"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();

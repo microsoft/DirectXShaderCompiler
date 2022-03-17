@@ -479,7 +479,7 @@ public:
   {}
 
   // Write semantic defines as metadata in the module.
-  virtual std::vector<SemanticDefineError> WriteSemanticDefines(llvm::Module *M) override {
+  virtual void WriteSemanticDefines(llvm::Module *M) override {
     // Grab the semantic defines seen by the parser.
     ParsedSemanticDefineList defines =
       CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
@@ -487,14 +487,31 @@ public:
     // Nothing to do if we have no defines.
     SemanticDefineErrorList errors;
     if (!defines.size())
-      return errors;
+      return;
 
     ParsedSemanticDefineList validated;
     GetValidatedSemanticDefines(defines, validated, errors);
     WriteSemanticDefines(M, validated);
-    return errors;
-  }
 
+    auto &Diags = m_CI.getDiagnostics();
+    for (const auto &error : errors) {
+      clang::DiagnosticsEngine::Level level = clang::DiagnosticsEngine::Error;
+      if (error.IsWarning())
+        level = clang::DiagnosticsEngine::Warning;
+      unsigned DiagID = Diags.getCustomDiagID(level, "%0");
+      Diags.Report(clang::SourceLocation::getFromRawEncoding(error.Location()),
+                   DiagID)
+          << error.Message();
+    }
+
+  }
+  // Update CodeGenOption based on HLSLOptimizationToggles.
+  void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
+    auto &CodeGenOpts = m_CI.getCodeGenOpts();
+    CGO.HLSLEnableLifetimeMarkers &=
+        (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
+         CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
+  }
   virtual bool IsOptionEnabled(std::string option) override {
     return m_CI.getCodeGenOpts().HLSLOptimizationToggles.count(option) &&
       m_CI.getCodeGenOpts().HLSLOptimizationToggles.find(option)->second;
@@ -679,17 +696,17 @@ public:
 
       // Formerly API values.
       const char *pUtf8SourceName = opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
-      CA2W pUtf16SourceName(pUtf8SourceName, CP_UTF8);
+      CA2W pWideSourceName(pUtf8SourceName, CP_UTF8);
       const char *pUtf8EntryPoint = opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
       const char *pUtf8OutputName = isPreprocessing
                                     ? opts.Preprocess.data()
                                     : opts.OutputObject.empty()
                                       ? "" : opts.OutputObject.data();
-      CA2W pUtf16OutputName(isPreprocessing ?
+      CA2W pWideOutputName(isPreprocessing ?
                               opts.Preprocess.data() : pUtf8OutputName,
                             CP_UTF8);
       LPCWSTR pObjectName = (!isPreprocessing && opts.OutputObject.empty()) ?
-                            nullptr : pUtf16OutputName.m_psz;
+                            nullptr : pWideOutputName.m_psz;
       IFT(primaryOutput.SetName(pObjectName));
 
       // Wrap source in blob
@@ -728,7 +745,7 @@ public:
 
       CComPtr<IDxcBlob> pOutputBlob;
       dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(
-          utf8Source, pUtf16SourceName.m_psz, pIncludeHandler,
+          utf8Source, pWideSourceName.m_psz, pIncludeHandler,
           opts.DefaultTextCodePage);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
@@ -815,8 +832,6 @@ public:
       } else {
         compiler.getLangOpts().HLSLEntryFunction =
           compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint;
-        compiler.getLangOpts().HLSLProfile =
-          compiler.getCodeGenOpts().HLSLProfile = opts.TargetProfile;
 
         // Parse and apply 
         if (opts.BindingTableDefine.size()) {
@@ -854,7 +869,7 @@ public:
           compiler.getCodeGenOpts().BindingTableParser.reset(new BindingTableParserImpl(compiler, opts.BindingTableDefine));
         }
         else if (opts.ImportBindingTable.size()) {
-          hlsl::options::StringRefUtf16 wstrRef(opts.ImportBindingTable);
+          hlsl::options::StringRefWide wstrRef(opts.ImportBindingTable);
           CComPtr<IDxcBlob> pBlob;
           std::string error;
           llvm::raw_string_ostream os(error);
@@ -1033,6 +1048,8 @@ public:
         outStream.flush();
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+        CComPtr<IDxcBlob> pRootSignatureBlob = nullptr;
+        CComPtr<IDxcBlob> pPrivateBlob = nullptr;
         if (opts.EmbedPDBName()) {
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
@@ -1059,6 +1076,42 @@ public:
         if (opts.StripRootSignature) {
           SerializeFlags |= SerializeDxilFlags::StripRootSignature;
         }
+        if (!opts.RootSignatureSource.empty()) {
+          hlsl::options::StringRefWide wstrRef(opts.RootSignatureSource);
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Root Signature file '") + opts.RootSignatureSource +
+                      "' specified, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          } else if (SUCCEEDED(pIncludeHandler->LoadSource(
+                         wstrRef, &pRootSignatureBlob))) {
+          } else {
+            os << Twine("Could not load root signature file '") +
+                      opts.RootSignatureSource + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
+        if (!opts.PrivateSource.empty()) {
+          hlsl::options::StringRefWide wstrRef(opts.PrivateSource);
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Private file '") + opts.PrivateSource +
+                      "' specified, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          } else if (SUCCEEDED(pIncludeHandler->LoadSource(
+                         wstrRef, &pPrivateBlob))) {
+          } else {
+            os << Twine("Could not load root signature file '") +
+                      opts.PrivateSource + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
@@ -1076,10 +1129,10 @@ public:
           }
 
           dxcutil::AssembleInputs inputs(
-                std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream,
-                opts.GetPDBName(), &compiler.getDiagnostics(),
-                &ShaderHashContent, pReflectionStream, pRootSigStream);
+              std::move(serializeModule), pOutputBlob, m_pMalloc,
+              SerializeFlags, pOutputStream, opts.GetPDBName(),
+              &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
+              pRootSigStream, pRootSignatureBlob, pPrivateBlob);
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
@@ -1407,7 +1460,7 @@ public:
     }
     compiler.getLangOpts().RootSigMajor = 1;
     compiler.getLangOpts().RootSigMinor = rootSigMinor;
-    compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
+    compiler.getLangOpts().HLSLVersion = Opts.HLSLVersion;
     compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
     compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
     compiler.getLangOpts().EnableTemplates = Opts.EnableTemplates;
@@ -1420,6 +1473,8 @@ public:
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
     compiler.getLangOpts().EnableBitfields = Opts.EnableBitfields;
+    compiler.getLangOpts().HLSLProfile =
+          compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1474,6 +1529,7 @@ public:
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
+    compiler.getCodeGenOpts().HLSLPrintAfter = Opts.PrintAfter;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
     compiler.getCodeGenOpts().HLSLEnableLifetimeMarkers = Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
@@ -1568,7 +1624,7 @@ public:
     if (pFlags == nullptr)
       return E_INVALIDARG;
     *pFlags = DxcVersionInfoFlags_None;
-#ifdef _DEBUG
+#ifndef NDEBUG
     *pFlags |= DxcVersionInfoFlags_Debug;
 #endif
     return S_OK;
@@ -1795,7 +1851,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     CComHeapPtr<wchar_t> pDebugNameOnComHeap;
     CComPtr<IDxcBlob> pDebugBlob;
     if (SUCCEEDED(hr)) {
-      CComPtr<IDxcBlobUtf16> pDebugName;
+      CComPtr<IDxcBlobWide> pDebugName;
       hr = pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pDebugBlob), &pDebugName);
       if (SUCCEEDED(hr) && ppDebugBlobName && pDebugName) {
         if (!pDebugNameOnComHeap.AllocateBytes(pDebugName->GetBufferSize()))
