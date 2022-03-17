@@ -119,6 +119,13 @@ int Translator::Run() {
   // Contsruct the SPIR-V module.
   std::vector<uint32_t> m = spvBuilder.takeModuleForDxilToSpv();
 
+  // Validate the generated SPIR-V code.
+  std::string messages;
+  if (!spirvToolsValidate(&m, &messages)) {
+    emitError("Generated SPIR-V is invalid: %0") << messages;
+    // return DXC_E_GENERAL_INTERNAL_ERROR;
+  }
+
   // Disassemble SPIR-V for output.
   std::string assembly;
   spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
@@ -146,22 +153,28 @@ void Translator::createStageIOVariables(
   for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
        inputSignature) {
     clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
-        spvContext.getPointerType(toSpirvType(elem.get()),
-                                  spv::StorageClass::Input),
-        spv::StorageClass::Input, elem->GetSemanticName(), false, {});
+        toSpirvType(elem.get()), spv::StorageClass::Input,
+        elem->GetSemanticName(), false, {});
+    unsigned id = elem->GetID();
     interfaceVars.push_back(var);
-    inputSignatureElementMap[elem->GetID()] = var;
+    inputSignatureElementMap[id] = var;
+
+    // Use unique DXIL signature element ID as SPIR-V Location.
+    spvBuilder.decorateLocation(var, id);
   }
 
   // Translate DXIL input signature to SPIR-V stage ouput vars.
   for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
        outputSignature) {
     clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
-        spvContext.getPointerType(toSpirvType(elem.get()),
-                                  spv::StorageClass::Output),
-        spv::StorageClass::Output, elem->GetSemanticName(), false, {});
+        toSpirvType(elem.get()), spv::StorageClass::Output,
+        elem->GetSemanticName(), false, {});
+    unsigned id = elem->GetID();
     interfaceVars.push_back(var);
-    outputSignatureElementMap[elem->GetID()] = var;
+    outputSignatureElementMap[id] = var;
+
+    // Use unique DXIL signature element ID as SPIR-V Location.
+    spvBuilder.decorateLocation(var, id);
   }
 }
 
@@ -187,6 +200,18 @@ void Translator::createEntryFunction(llvm::Function *entryFunction) {
       spirv::SpirvUtils::getSpirvShaderStage(
           spvContext.getCurrentShaderModelKind()),
       spirvEntryFunction, spirvEntryFunction->getFunctionName(), interfaceVars);
+
+  // Set execution mode.
+  switch (spvContext.getCurrentShaderModelKind()) {
+  case hlsl::ShaderModel::Kind::Pixel: {
+    spvBuilder.addExecutionMode(spirvEntryFunction,
+                                spv::ExecutionMode::OriginUpperLeft, {}, {});
+  } break;
+  default: {
+    emitError("Support for this shader model kind not yet implemented");
+    return;
+  }
+  }
 }
 
 void Translator::createBasicBlock(llvm::BasicBlock &basicBlock) {
@@ -229,15 +254,13 @@ void Translator::createLoadInputInstruction(llvm::CallInst &instruction) {
                                   hlsl::DXIL::OperandIndex::kLoadInputIDOpIdx))
           ->getLimitedValue();
   spirv::SpirvVariable *inputVar = inputSignatureElementMap[inputID];
-  const spirv::SpirvType *pointeeType =
-      cast<spirv::SpirvPointerType>(inputVar->getResultType())
-          ->getPointeeType();
+  const spirv::SpirvType *inputVarType = inputVar->getResultType();
 
   // TODO: Handle other input signature types. Only vector for initial
   // passthrough shader support.
-  assert(isa<spirv::VectorType>(pointeeType));
+  assert(isa<spirv::VectorType>(inputVarType));
   const spirv::SpirvType *elemType =
-      cast<spirv::VectorType>(pointeeType)->getElementType();
+      cast<spirv::VectorType>(inputVarType)->getElementType();
 
   // Translate index into variable to SPIR-V constant.
   const llvm::APInt col = dyn_cast<llvm::Constant>(
@@ -261,15 +284,13 @@ void Translator::createStoreOutputInstruction(llvm::CallInst &instruction) {
                               hlsl::DXIL::OperandIndex::kStoreOutputIDOpIdx))
                           ->getLimitedValue();
   spirv::SpirvVariable *outputVar = outputSignatureElementMap[outputID];
-  const spirv::SpirvType *pointeeType =
-      cast<spirv::SpirvPointerType>(outputVar->getResultType())
-          ->getPointeeType();
+  const spirv::SpirvType *outputVarType = outputVar->getResultType();
 
   // TODO: Handle other output signature types. Only vector for initial
   // passthrough shader support.
-  assert(isa<spirv::VectorType>(pointeeType));
+  assert(isa<spirv::VectorType>(outputVarType));
   const spirv::SpirvType *elemType =
-      cast<spirv::VectorType>(pointeeType)->getElementType();
+      cast<spirv::VectorType>(outputVarType)->getElementType();
 
   // Translate index into variable to SPIR-V constant.
   const llvm::APInt col = dyn_cast<llvm::Constant>(
@@ -286,6 +307,19 @@ void Translator::createStoreOutputInstruction(llvm::CallInst &instruction) {
       instructionMap[instruction.getArgOperand(
           hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx)];
   spvBuilder.createStore(outputVarPtr, valueToStore, {});
+}
+
+bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
+                                    std::string *messages) {
+  spvtools::SpirvTools tools(featureManager.getTargetEnv());
+
+  tools.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  spvtools::ValidatorOptions options;
+  return tools.Validate(mod->data(), mod->size(), options);
 }
 
 const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {
