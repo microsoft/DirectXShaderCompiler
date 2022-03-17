@@ -29,10 +29,10 @@ Texture1DArray g_t1da;
 Texture2D g_t2d;
 Texture2DArray g_t2da;
 // fxc error X3000: syntax error: unexpected token 'g_t2dms_err'
-Texture2DMS g_t2dms_err; // expected-error {{too few template arguments for class template 'Texture2DMS'}} fxc-error {{X3000: syntax error: unexpected token 'g_t2dms_err'}}
+Texture2DMS g_t2dms_err; // expected-error {{use of class template 'Texture2DMS' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_t2dms_err'}}
 Texture2DMS<float4, 8> g_t2dms;
 // fxc error X3000: syntax error: unexpected token 'g_t2dmsa_err'
-Texture2DMSArray g_t2dmsa_err; // expected-error {{too few template arguments for class template 'Texture2DMSArray'}} fxc-error {{X3000: syntax error: unexpected token 'g_t2dmsa_err'}}
+Texture2DMSArray g_t2dmsa_err; // expected-error {{use of class template 'Texture2DMSArray' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_t2dmsa_err'}}
 Texture2DMSArray<float4, 8> g_t2dmsa;
 Texture3D g_t3d;
 TextureCube g_tc;
@@ -40,22 +40,22 @@ TextureCubeArray g_tca;
 
 RWStructuredBuffer<float4> g_rw_sb;
 // fxc error X3000: syntax error: unexpected token 'g_rw_b_err'
-RWBuffer g_rw_b_err; // expected-error {{too few template arguments for class template 'RWBuffer'}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_b_err'}}
+RWBuffer g_rw_b_err; // expected-error {{use of class template 'RWBuffer' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_b_err'}}
 RWBuffer<float4> g_rw_b;
 // fxc error X3000: syntax error: unexpected token 'g_rw_t1d_err'
-RWTexture1D g_rw_t1d_err; // expected-error {{too few template arguments for class template 'RWTexture1D'}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t1d_err'}}
+RWTexture1D g_rw_t1d_err; // expected-error {{use of class template 'RWTexture1D' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t1d_err'}}
 RWTexture1D<float4> g_rw_t1d;
 // fxc error X3000: syntax error: unexpected token 'g_rw_t1da_err'
-RWTexture1DArray g_rw_t1da_err; // expected-error {{too few template arguments for class template 'RWTexture1DArray'}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t1da_err'}}
+RWTexture1DArray g_rw_t1da_err; // expected-error {{use of class template 'RWTexture1DArray' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t1da_err'}}
 RWTexture1DArray<float4> g_rw_t1da;
 // fxc error X3000: syntax error: unexpected token 'g_rw_t2d_err'
-RWTexture2D g_rw_t2d_err; // expected-error {{too few template arguments for class template 'RWTexture2D'}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t2d_err'}}
+RWTexture2D g_rw_t2d_err; // expected-error {{use of class template 'RWTexture2D' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t2d_err'}}
 RWTexture2D<float4> g_rw_t2d;
 // fxc error X3000: syntax error: unexpected token 'g_rw_t2da_err'
-RWTexture2DArray g_rw_t2da_err; // expected-error {{too few template arguments for class template 'RWTexture2DArray'}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t2da_err'}}
+RWTexture2DArray g_rw_t2da_err; // expected-error {{use of class template 'RWTexture2DArray' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t2da_err'}}
 RWTexture2DArray<float4> g_rw_t2da;
 // fxc error X3000: syntax error: unexpected token 'g_rw_t3d_err'
-RWTexture3D g_rw_t3d_err; // expected-error {{too few template arguments for class template 'RWTexture3D'}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t3d_err'}}
+RWTexture3D g_rw_t3d_err; // expected-error {{use of class template 'RWTexture3D' requires template arguments}} fxc-error {{X3000: syntax error: unexpected token 'g_rw_t3d_err'}}
 RWTexture3D<float4> g_rw_t3d;
 
 // No such thing as these:

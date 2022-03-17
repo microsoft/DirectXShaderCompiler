@@ -606,7 +606,7 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
     return;
   }
 
-  if (getLangOpts().CPlusPlus && !getLangOpts().HLSL) {  // HLSL Change
+  if (getLangOpts().CPlusPlus) {
     // See if II is a class template that the user forgot to pass arguments to.
     UnqualifiedId Name;
     Name.setIdentifier(II, IILoc);
