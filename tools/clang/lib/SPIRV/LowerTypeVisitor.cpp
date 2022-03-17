@@ -14,6 +14,7 @@
 #include "clang/AST/HlslTypes.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvFunction.h"
+#include "clang/SPIRV/SpirvUtils.h"
 
 namespace {
 /// Returns the :packoffset() annotation on the given decl. Returns nullptr if
@@ -159,13 +160,8 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
 
   // Apply additional SPIR-V type transformations, including ensuring variables
   // and function parameters have a pointer type.
-  // NOTE: Ideally this pass should be run after LowerTypeVisitor is complete,
-  // in SpirvBuilder::takeModule(), but currently other functions in this class
-  // depend on visitInstruction being run here. If/when further refactoring is
-  // done to move more of this class's post-lowering logic to SpirvTypeVisitor,
-  // we should reconsider replacing this.
-  SpirvTypeVisitor spirvTypeVisitor(context, opts);
-  spirvTypeVisitor.visitInstruction(instr);
+  SpirvUtils utils(context);
+  utils.applyResultTypeTransformations(instr);
 
   // The instruction does not have a result-type, so nothing to do.
   return true;

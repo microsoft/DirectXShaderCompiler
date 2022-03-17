@@ -16,9 +16,7 @@
 namespace clang {
 namespace spirv {
 
-/// The class responsible for some legalization of SPIR-V types. It performs a
-/// subset of the operations needed by the SPIR-V backend's LowerTypeVisitor
-/// which are also relevant to DXIL to SPIR-V translation.
+/// The class responsible for some legalization of SPIR-V types.
 class SpirvTypeVisitor : public Visitor {
 public:
   SpirvTypeVisitor(SpirvContext &spvCtx, const SpirvCodeGenOptions &opts)
