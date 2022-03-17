@@ -281,6 +281,11 @@ rem End SPIRV change
 
 echo Running HLSL tests ...
 
+if "%BUILD_ARCH%"=="ARM64" (
+    rem ARM64 TAEF has an issue when running ARM64X tests with /parallel flag
+    set PARALLEL_OPTION=
+)
+
 if exist "%HCT_EXTRAS%\hcttest-before.cmd" (
   call "%HCT_EXTRAS%\hcttest-before.cmd" %TEST_DIR%
   if errorlevel 1 (
@@ -447,8 +452,8 @@ if "%HLSL_TAEF_DIR%"=="" (
 ) else (
   set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH%\te"
 )
-echo %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
-call %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+echo %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 
 if errorlevel 1 (
   call :showtesample %*

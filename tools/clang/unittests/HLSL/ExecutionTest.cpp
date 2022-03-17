@@ -6940,13 +6940,13 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
     return;
   }
 
-#ifdef _M_ARM64
+#if defined(_M_ARM64) || defined(_M_ARM64EC)
   if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
     WEX::Logging::Log::Comment(L"WARP has an issue with DenormBinaryFloatOpTest on ARM64.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
-#endif
+#endif // defined(_M_ARM64) || defined(_M_ARM64EC)
 
   // Read data from the table
   int tableSize = sizeof(DenormBinaryFPOpParameters) / sizeof(TableParameter);
