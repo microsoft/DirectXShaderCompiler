@@ -16,6 +16,7 @@ class LLVMContext;
 class Module;
 class Type;
 class StructType;
+class PointerType;
 class Function;
 class Constant;
 class Value;
@@ -59,6 +60,8 @@ public:
   llvm::Type *GetSplitDoubleType() const;
   llvm::Type *GetFourI32Type() const;
   llvm::Type *GetFourI16Type() const;
+  llvm::StructType *GetWaveMatrixPropertiesType() const;
+  llvm::PointerType *GetWaveMatPtrType() const;
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
@@ -134,6 +137,8 @@ private:
   llvm::Type *m_pSplitDoubleType;
   llvm::Type *m_pFourI32Type;
   llvm::Type *m_pFourI16Type;
+  llvm::StructType *m_pWaveMatInfoType;
+  llvm::PointerType *m_pWaveMatPtrType;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 

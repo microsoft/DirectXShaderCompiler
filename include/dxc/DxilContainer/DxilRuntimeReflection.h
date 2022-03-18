@@ -59,6 +59,11 @@ enum class RuntimeDataPartType : uint32_t {
   ASInfoTable,
   Last_1_7 = ASInfoTable, // PRERELEASE-TODO: change to last necessary 1.7 part before release.
   // Insert experimental here.
+  NodeIDTable,
+  NodeShaderIOAttribTable,
+  NodeShaderFuncAttribTable,
+  IONodeTable,
+  NodeShaderInfoTable,
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
 };
@@ -89,6 +94,11 @@ enum class RecordTableIndex : unsigned {
   CSInfoTable,
   MSInfoTable,
   ASInfoTable,
+  NodeIDTable,
+  NodeShaderIOAttribTable,
+  NodeShaderFuncAttribTable,
+  IONodeTable,
+  NodeShaderInfoTable,
   RecordTableCount
 };
 

@@ -298,7 +298,7 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
             self.name_idx[i].category = "Resources - gather"
-        for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
+        for i in "AtomicBinOp,AtomicCompareExchange,Barrier,BarrierByMemoryType,BarrierByMemoryHandle".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
             self.name_idx[i].category = "Derivatives"
@@ -307,8 +307,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
-            self.name_idx[i].category = "Compute/Mesh/Amplification shader"
-            self.name_idx[i].shader_stages = ("compute", "mesh", "amplification")
+            self.name_idx[i].category = "Compute/Mesh/Amplification/Node shader"
+            self.name_idx[i].shader_stages = ("compute", "mesh", "amplification", "node")
         for i in "EmitStream,CutStream,EmitThenCutStream,GSInstanceID".split(","):
             self.name_idx[i].category = "Geometry shader"
             self.name_idx[i].shader_stages = ("geometry",)
@@ -454,10 +454,28 @@ class db_dxil(object):
         for i in "IsHelperLane".split(","):
             self.name_idx[i].category = "Helper Lanes"
             self.name_idx[i].shader_model = 6,6
+        for i in ("WaveMatrix_Annotate,WaveMatrix_Depth,WaveMatrix_Fill,"+
+                  "WaveMatrix_LoadRawBuf,WaveMatrix_LoadGroupShared,WaveMatrix_StoreRawBuf,WaveMatrix_StoreGroupShared,"+
+                  "WaveMatrix_Multiply,WaveMatrix_MultiplyAccumulate,WaveMatrix_ScalarOp,"+
+                  "WaveMatrix_SumAccumulate,WaveMatrix_Add").split(','):
+            self.name_idx[i].category = "WaveMatrix"
+            self.name_idx[i].shader_model = 6,7
+            self.name_idx[i].shader_stages = ("library", "compute",)
         for i in "QuadVote,TextureGatherRaw,SampleCmpLevel,TextureStoreSample".split(","):
             self.name_idx[i].shader_model = 6,7
         for i in "QuadVote".split(","):
             self.name_idx[i].shader_model_translated = 6,0
+        for i in "IndexNodeHandle,CreateNodeInputHandle,CreateNodeOutputHandle".split(","):
+            self.name_idx[i].category = "Create Handle from Node Input and Output"
+            self.name_idx[i].shader_model = 6,8
+        for i in "CreateNodeInputRecordsHandle,ReadFromNodeRecord,WriteToNodeRecord".split(","):
+            self.name_idx[i].category = "Node Input and Output Record Handling"
+            self.name_idx[i].shader_model = 6,8
+        for i in ("AllocateNodeOutputRecords,IncrementOutputCount,OutputCompleteRecord,OutputCompleteNode,GetInputRecordCount,FinishedCrossGroupSharing").split(","):
+            self.name_idx[i].category = "Work Graph intrinsics"
+            self.name_idx[i].shader_model = 6,8
+        for i in "BarrierByMemoryType,BarrierByMemoryHandle".split(","): # included in Synchronization category
+            self.name_idx[i].shader_model = 6,8
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1932,6 +1950,174 @@ class db_dxil(object):
         self.set_op_count_for_version(1, 7, next_op_idx)
         assert next_op_idx == 226, "226 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
+
+        # WaveMatrix ops
+        self.add_dxil_op("WaveMatrix_Annotate", next_op_idx, "WaveMatrix_Annotate", "Annotate a wave matrix pointer with the type information", "v", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
+            db_dxil_param(3, "waveMatProps", "waveMatProps", "constant WaveMatrix type info", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_Depth", next_op_idx, "WaveMatrix_Depth", "Returns depth (K) value for matrix of specified type", "v", "rn", [
+            db_dxil_param(0, "i32", "", "depth (k) value"),
+            db_dxil_param(2, "waveMatProps", "waveMatProps", "constant WaveMatrix type info")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_Fill", next_op_idx, "WaveMatrix_Fill", "Fill wave matrix with scalar value", "hfi", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
+            db_dxil_param(3, "$o", "value", "scalar value to fill matrix with")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_LoadRawBuf", next_op_idx, "WaveMatrix_LoadRawBuf", "Load wave matrix from raw buffer", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
+            db_dxil_param(3, "res", "rawBuf", "handle of raw buffer"),
+            db_dxil_param(4, "i32", "offsetInBytes", "offset in bytes"),
+            db_dxil_param(5, "i32", "strideInBytes", "stride in bytes"),
+            db_dxil_param(6, "i8", "alignmentInBytes", "alignment in bytes", is_const=True),
+            db_dxil_param(7, "i1", "transpose", "transpose", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_LoadGroupShared", next_op_idx, "WaveMatrix_LoadGroupShared", "Load wave matrix from group shared array", "hfi", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
+            db_dxil_param(3, "$gsptr", "groupsharedPtr", "pointer to groupshared array"),
+            db_dxil_param(4, "i32", "startArrayIndex", "start array index"),
+            db_dxil_param(5, "i32", "strideInElements", "stride in elements"),
+            db_dxil_param(6, "i1", "transpose", "transpose", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_StoreRawBuf", next_op_idx, "WaveMatrix_StoreRawBuf", "Store wave matrix to raw buffer", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
+            db_dxil_param(3, "res", "rawBuf", "handle of raw buffer"),
+            db_dxil_param(4, "i32", "offsetInBytes", "offset in bytes"),
+            db_dxil_param(5, "i32", "strideInBytes", "stride in bytes"),
+            db_dxil_param(6, "i8", "alignmentInBytes", "alignment in bytes", is_const=True),
+            db_dxil_param(7, "i1", "transpose", "transpose", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_StoreGroupShared", next_op_idx, "WaveMatrix_StoreGroupShared", "Store wave matrix to group shared array", "hfi", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
+            db_dxil_param(3, "$gsptr", "groupsharedPtr", "pointer to groupshared array"),
+            db_dxil_param(4, "i32", "startArrayIndex", "start array index"),
+            db_dxil_param(5, "i32", "strideInElements", "stride in elements"),
+            db_dxil_param(6, "i1", "transpose", "transpose", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_Multiply", next_op_idx, "WaveMatrix_Multiply", "Mutiply left and right wave matrix and store in accumulator", "v", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixAccumulator", "pointer to WaveMatrixAccumulator"),
+            db_dxil_param(3, "waveMat", "waveMatrixLeft", "pointer to WaveMatrixLeft"),
+            db_dxil_param(4, "waveMat", "waveMatrixRight", "pointer to WaveMatrixRight")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_MultiplyAccumulate", next_op_idx, "WaveMatrix_Multiply", "Mutiply left and right wave matrix and accumulate into accumulator", "v", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixAccumulator", "pointer to WaveMatrixAccumulator"),
+            db_dxil_param(3, "waveMat", "waveMatrixLeft", "pointer to WaveMatrixLeft"),
+            db_dxil_param(4, "waveMat", "waveMatrixRight", "pointer to WaveMatrixRight")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_ScalarOp", next_op_idx, "WaveMatrix_ScalarOp", "Perform scalar operation on each element of wave matrix", "hfi", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
+            db_dxil_param(3, "i8", "op", "operation", enum_name="WaveMatrixScalarOpCode", is_const=True),
+            db_dxil_param(4, "$o", "value", "scalar value")])
+        next_op_idx += 1
+        self.add_enum_type("WaveMatrixScalarOpCode", "Operation for WaveMatrix_ScalarOp", [
+            (0, "Add", ""),
+            (1, "Subtract", ""),
+            (2, "Multiply", ""),
+            (3, "Divide", ""),
+            (4, "Invalid", "")])
+
+        self.add_dxil_op("WaveMatrix_SumAccumulate", next_op_idx, "WaveMatrix_Accumulate", "Sum rows or columns of an input matrix into an existing accumulator fragment matrix", "v", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixFragment", "pointer to WaveMatrixLeftCol or WaveMatrixRightRow"),
+            db_dxil_param(3, "waveMat", "waveMatrixInput", "pointer to WaveMatrixLeft or WaveMatrixRight")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMatrix_Add", next_op_idx, "WaveMatrix_Accumulate", "Element-wise accumulate, or broadcast add of fragment into accumulator", "v", "amo", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "waveMat", "waveMatrixAccumulator", "pointer to WaveMatrixAccumulator"),
+            db_dxil_param(3, "waveMat", "waveMatrixAccumulatorOrFragment", "pointer to Accumulator or WaveMatrixLeftCol or WaveMatrixRightRow")])
+        next_op_idx += 1
+
+        # Work Graph
+        self.add_dxil_op("AllocateNodeOutputRecords", next_op_idx, "AllocateNodeOutputRecords", "returns a handle for the output records", "v", "ro", [
+            db_dxil_param(0, "res", "", "handle of output record"),
+            db_dxil_param(2, "res", "output", "handle of node output"),
+            db_dxil_param(3, "i32", "numRecords", "number of records"),
+            db_dxil_param(4, "i1", "perThread", "perThread flag")])
+        next_op_idx += 1
+        self.add_dxil_op("ReadFromNodeRecord", next_op_idx, "ReadFromNodeRecord", "reads value at byteOffset from the input represented by input handle", "hfd1wil", "ro", [
+            db_dxil_param(0, "$o", "", "value read from node record"),
+            db_dxil_param(2, "res", "input", "handle of record"),
+            db_dxil_param(3, "i32", "arrayIndex", "array index"),
+            db_dxil_param(4, "i32", "byteOffset", "byte offset")])
+        next_op_idx += 1
+        self.add_dxil_op("WriteToNodeRecord", next_op_idx, "WriteToNodeRecord", "writes value to the record at output handle at byteOffset", "hfwi", "", [
+            retvoid_param,
+            db_dxil_param(2, "res", "output", "handle of record"),
+            db_dxil_param(3, "i32", "arrayIndex", "array index"),
+            db_dxil_param(4, "i32", "byteOffset", "byte offset"),
+            db_dxil_param(5, "$o", "value", "value")])
+        next_op_idx += 1
+        self.add_dxil_op("IncrementOutputCount", next_op_idx, "IncrementOutputCount", "Select the next logical output count for an EmptyNodeOutput", "v", "", [
+            retvoid_param,
+            db_dxil_param(2, "res", "output", "handle of record"),
+            db_dxil_param(3, "i32", "count", "value by which to increment the count")])
+        next_op_idx += 1
+        self.add_dxil_op("OutputCompleteRecord", next_op_idx, "OutputComplete", "indicates all outputs for a given records are complete", "v", "", [
+            retvoid_param,
+            db_dxil_param(2, "res", "output", "handle of record")])
+        next_op_idx += 1
+        self.add_dxil_op("OutputCompleteNode", next_op_idx, "OutputComplete", "indicates all output for an output node is complete", "v", "", [
+            retvoid_param,
+            db_dxil_param(2, "res", "output", "handle of node output")])
+        next_op_idx += 1
+        self.add_dxil_op("GetInputRecordCount", next_op_idx, "GetInputRecordCount", "returns the number of records that have been coalesced into the current thread group", "i", "ro", [
+            db_dxil_param(0, "i32", "", "number of records"),
+            db_dxil_param(2, "res", "input", "handle of input record")])
+        next_op_idx += 1
+        self.add_dxil_op("FinishedCrossGroupSharing", next_op_idx, "FinishedCrossGroupSharing", "returns true if the current thread group is the last to access the input", "1", "ro", [
+            db_dxil_param(0, "i1", "", "true if current thread group is last to access the input "),
+            db_dxil_param(2, "res", "input", "handle of input record")])
+        next_op_idx += 1
+        self.add_dxil_op("BarrierByMemoryType", next_op_idx, "BarrierByMemoryType", "Request a barrier for a set of memory types and/or thread group execution sync", "v", "nd", [
+            retvoid_param,
+            db_dxil_param(2, "i32", "MemoryTypeFlags", "memory type flags"),
+            db_dxil_param(3, "i32", "AccessFlags", "access flags"),
+            db_dxil_param(4, "i32", "SyncFlags", "synchonization flags")])
+        next_op_idx += 1
+        self.add_dxil_op("BarrierByMemoryHandle", next_op_idx, "BarrierByMemoryHandle", "Request a barrier for just the memory used by the specified object", "v", "nd", [
+            retvoid_param,
+            db_dxil_param(2, "res", "object", "handle of object"),
+            db_dxil_param(3, "i32", "AccessFlags", "access flags"),
+            db_dxil_param(4, "i32", "SyncFlags", "synchonization flags")])
+        next_op_idx += 1
+        self.add_dxil_op("CreateNodeInputHandle", next_op_idx, "CreateNodeHandle", "Creates a handle to a NodeInput", "v", "rn", [
+            db_dxil_param(0, "res", "output", "handle of object"),
+            db_dxil_param(2, "i32", "MetadataID", "metadata ID")])
+        next_op_idx += 1
+        self.add_dxil_op("CreateNodeOutputHandle", next_op_idx, "CreateNodeHandle", "Creates a handle to a NodeOutput", "v", "rn", [
+            db_dxil_param(0, "res", "output", "handle of object"),
+            db_dxil_param(2, "i32", "MetadataID", "metadata ID")])
+        next_op_idx += 1
+        self.add_dxil_op("IndexNodeHandle", next_op_idx, "IndexNodeHandle", "returns the handle for the location in the output node array at the indicated index", "v", "rn", [
+            db_dxil_param(0, "res", "output", "handle of index"),
+            db_dxil_param(2, "i32", "handle", "handle from createNodeHandle"),
+            db_dxil_param(3, "i32", "index", "array index")])
+        next_op_idx += 1
+        self.add_dxil_op("CreateNodeInputRecordsHandle", next_op_idx, "CreateNodeInputRecordsHandle", "create a handle for an InputRecord", "v", "rn", [
+            db_dxil_param(0, "res", "output", "output handle"),
+            db_dxil_param(2, "res", "handle", "NodeInput")])
+        next_op_idx += 1
+
+
         # Set interesting properties.
         self.build_indices()
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(","):
@@ -2941,6 +3127,23 @@ class db_hlsl(object):
             "p32u8" : "LICOMPTYPE_UINT8_4PACKED",
             "any_int16or32": "LICOMPTYPE_ANY_INT16_OR_32",
             "sint16or32_only": "LICOMPTYPE_SINT16_OR_32_ONLY",
+            "ByteAddressBuffer": "LICOMPTYPE_BYTEADDRESSBUFFER",
+            "RWByteAddressBuffer": "LICOMPTYPE_RWBYTEADDRESSBUFFER",
+            "WaveMatrixLeft": "LICOMPTYPE_WAVE_MATRIX_LEFT",
+            "WaveMatrixRight": "LICOMPTYPE_WAVE_MATRIX_RIGHT",
+            "WaveMatrixLeftCol": "LICOMPTYPE_WAVE_MATRIX_LEFT_COL",
+            "WaveMatrixRightRow": "LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW",
+            "WaveMatrixAccumulator": "LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR",
+            "NodeRecordOrUAV" : "LICOMPTYPE_NODE_RECORD_OR_UAV",
+            "NodeInputArray" : "LICOMPTYPE_NODE_INPUT_ARRAY",
+            "RWNodeInput" : "LICOMPTYPE_RW_NODE_INPUT",
+            "EmptyNodeOutput" : "LICOMPTYPE_EMPTY_NODE_OUTPUT",
+            "NodeOutput" : "LICOMPTYPE_NODE_OUTPUT",
+            "AnyNodeOutputRecord" : "LICOMPTYPE_ANY_NODE_OUTPUT_RECORD",
+            "NodeOutputRecord" : "LICOMPTYPE_NODE_OUTPUT_RECORD",
+            "NodeOutputRecordArray" : "LICOMPTYPE_NODE_OUTPUT_RECORD_ARRAY",
+            "GroupSharedNodeOutputRecord" : "LICOMPTYPE_GROUP_SHARED_NODE_OUTPUT_RECORD",
+            "GroupSharedNodeOutputRecordArray" : "LICOMPTYPE_GROUP_SHARED_NODE_OUTPUT_RECORD_ARRAY",
             }
         self.trans_rowcol = {
             "r": "IA_R",
@@ -2986,7 +3189,13 @@ class db_hlsl(object):
         type_vector_re = re.compile(r"(\S+)<(\S+)>$")
         type_any_re = re.compile(r"(\S+)<>$")
         type_array_re = re.compile(r"(\S+)\[\]$")
-        type_object_re = re.compile(r"(sampler\w*|string$|(?:RW)?(?:Texture\w*|ByteAddressBuffer)|WaveMatrix\w*|acceleration_struct$|ray_desc$)")
+        type_object_re = re.compile(r"""(
+            sampler\w* | string |
+            (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
+            WaveMatrix\w* | acceleration_struct | ray_desc |
+            Node\w* | RWNode\w* | EmptyNode\w* |
+            AnyNodeOutputRecord\w* | NodeOutputRecord\w* | GroupShared\w*
+            $)""", flags = re.VERBOSE)
         digits_re = re.compile(r"^\d+$")
         opt_param_match_re = re.compile(r"^\$match<(\S+)@(\S+)>$")
         ns_idx = 0
@@ -3124,6 +3333,8 @@ class db_hlsl(object):
                 template_id = "INTRIN_TEMPLATE_FROM_FUNCTION"
             if component_id == "-1":
                 component_id = "INTRIN_COMPTYPE_FROM_TYPE_ELT0"
+            if component_id == "-2":
+                component_id = "INTRIN_COMPTYPE_FROM_NODEOUTPUT"
             return db_hlsl_intrisic_param(param_name, param_qual, template_id, template_list, component_id, component_list, rows, cols, type_name, idx, template_id_idx, component_id_idx)
 
         def process_attr(attr):

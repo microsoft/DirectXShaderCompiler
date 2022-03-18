@@ -194,7 +194,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::Coverage,                "Coverage",                 OCC::Coverage,                 "coverage",                  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
   {  OC::InnerCoverage,           "InnerCoverage",            OCC::InnerCoverage,            "innerCoverage",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
 
-  // Compute/Mesh/Amplification shader                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  // Compute/Mesh/Amplification/Node shader                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::ThreadId,                "ThreadId",                 OCC::ThreadId,                 "threadId",                  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
   {  OC::GroupId,                 "GroupId",                  OCC::GroupId,                  "groupId",                   { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
   {  OC::ThreadIdInGroup,         "ThreadIdInGroup",          OCC::ThreadIdInGroup,          "threadIdInGroup",           { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
@@ -416,6 +416,46 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Resources                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::TextureStoreSample,      "TextureStoreSample",       OCC::TextureStoreSample,       "textureStoreSample",        { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+
+  // WaveMatrix                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WaveMatrix_Annotate,     "WaveMatrix_Annotate",      OCC::WaveMatrix_Annotate,      "waveMatrix_Annotate",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_Depth,        "WaveMatrix_Depth",         OCC::WaveMatrix_Depth,         "waveMatrix_Depth",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::WaveMatrix_Fill,         "WaveMatrix_Fill",          OCC::WaveMatrix_Fill,          "waveMatrix_Fill",           { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_LoadRawBuf,   "WaveMatrix_LoadRawBuf",    OCC::WaveMatrix_LoadRawBuf,    "waveMatrix_LoadRawBuf",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveMatrix_LoadGroupShared, "WaveMatrix_LoadGroupShared", OCC::WaveMatrix_LoadGroupShared, "waveMatrix_LoadGroupShared", { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_StoreRawBuf,  "WaveMatrix_StoreRawBuf",   OCC::WaveMatrix_StoreRawBuf,   "waveMatrix_StoreRawBuf",    {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveMatrix_StoreGroupShared, "WaveMatrix_StoreGroupShared", OCC::WaveMatrix_StoreGroupShared, "waveMatrix_StoreGroupShared", { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_Multiply,     "WaveMatrix_Multiply",      OCC::WaveMatrix_Multiply,      "waveMatrix_Multiply",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_MultiplyAccumulate, "WaveMatrix_MultiplyAccumulate", OCC::WaveMatrix_Multiply,      "waveMatrix_Multiply",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_ScalarOp,     "WaveMatrix_ScalarOp",      OCC::WaveMatrix_ScalarOp,      "waveMatrix_ScalarOp",       { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_SumAccumulate, "WaveMatrix_SumAccumulate", OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_Add,          "WaveMatrix_Add",           OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+
+  // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AllocateNodeOutputRecords, "AllocateNodeOutputRecords", OCC::AllocateNodeOutputRecords, "allocateNodeOutputRecords", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Node Input and Output Record Handling                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::ReadFromNodeRecord,      "ReadFromNodeRecord",       OCC::ReadFromNodeRecord,       "readFromNodeRecord",        { false,  true,  true,  true,  true, false,  true,  true,  true, false, false}, Attribute::ReadOnly, },
+  {  OC::WriteToNodeRecord,       "WriteToNodeRecord",        OCC::WriteToNodeRecord,        "writeToNodeRecord",         { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+
+  // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IncrementOutputCount,    "IncrementOutputCount",     OCC::IncrementOutputCount,     "incrementOutputCount",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::OutputCompleteRecord,    "OutputCompleteRecord",     OCC::OutputComplete,           "outputComplete",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::OutputCompleteNode,      "OutputCompleteNode",       OCC::OutputComplete,           "outputComplete",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::GetInputRecordCount,     "GetInputRecordCount",      OCC::GetInputRecordCount,      "getInputRecordCount",       { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::FinishedCrossGroupSharing, "FinishedCrossGroupSharing", OCC::FinishedCrossGroupSharing, "finishedCrossGroupSharing", { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Synchronization                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::BarrierByMemoryType,     "BarrierByMemoryType",      OCC::BarrierByMemoryType,      "barrierByMemoryType",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
+  {  OC::BarrierByMemoryHandle,   "BarrierByMemoryHandle",    OCC::BarrierByMemoryHandle,    "barrierByMemoryHandle",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
+
+  // Create Handle from Node Input and Output                                                                                void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateNodeInputHandle,   "CreateNodeInputHandle",    OCC::CreateNodeHandle,         "createNodeHandle",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::CreateNodeOutputHandle,  "CreateNodeOutputHandle",   OCC::CreateNodeHandle,         "createNodeHandle",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::IndexNodeHandle,         "IndexNodeHandle",          OCC::IndexNodeHandle,          "indexNodeHandle",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Node Input and Output Record Handling                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateNodeInputRecordsHandle, "CreateNodeInputRecordsHandle", OCC::CreateNodeInputRecordsHandle, "createNodeInputRecordsHandle", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -616,8 +656,13 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
   // WavePrefixBitCount=136, WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, QuadVote=222
-  return (110 <= op && op <= 123) || (135 <= op && op <= 136) || (165 <= op && op <= 167) || op == 222;
+  // WaveMultiPrefixBitCount=167, QuadVote=222, WaveMatrix_Annotate=226,
+  // WaveMatrix_Depth=227, WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
+  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
+  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
+  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
+  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
+  return (110 <= op && op <= 123) || (135 <= op && op <= 136) || (165 <= op && op <= 167) || op == 222 || (226 <= op && op <= 237);
   // OPCODE-WAVE:END
 }
 
@@ -655,7 +700,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
   if ((93 <= op && op <= 96)) {
-    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification);
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node);
     return;
   }
   // Instructions: DomainLocation=105
@@ -874,6 +919,17 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;  minor = 7;
     return;
   }
+  // Instructions: WaveMatrix_Annotate=226, WaveMatrix_Depth=227,
+  // WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
+  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
+  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
+  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
+  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
+  if ((226 <= op && op <= 237)) {
+    major = 6;  minor = 7;
+    mask = SFLAG(Library) | SFLAG(Compute);
+    return;
+  }
   // Instructions: QuadVote=222
   if (op == 222) {
     if (bWithTranslation) {
@@ -882,6 +938,17 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       major = 6;  minor = 7;
     }
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
+    return;
+  }
+  // Instructions: AllocateNodeOutputRecords=238, ReadFromNodeRecord=239,
+  // WriteToNodeRecord=240, IncrementOutputCount=241, OutputCompleteRecord=242,
+  // OutputCompleteNode=243, GetInputRecordCount=244,
+  // FinishedCrossGroupSharing=245, BarrierByMemoryType=246,
+  // BarrierByMemoryHandle=247, CreateNodeInputHandle=248,
+  // CreateNodeOutputHandle=249, IndexNodeHandle=250,
+  // CreateNodeInputRecordsHandle=251
+  if ((238 <= op && op <= 251)) {
+    major = 6;  minor = 8;
     return;
   }
   // OPCODE-SMMASK:END
@@ -1011,6 +1078,10 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   Type *FourI16Types[4] = { Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
   m_pFourI16Type = GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
 
+  Type *WaveMatInfoTypes[4] = { Type::getInt8Ty(m_Ctx), Type::getInt8Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) };
+  m_pWaveMatInfoType = cast<StructType>(GetOrCreateStructType(m_Ctx, WaveMatInfoTypes, "dx.types.waveMatProps", pModule));
+  m_pWaveMatPtrType = PointerType::get(GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx), "dx.types.waveMatrix", pModule), 0);
+
   // When loading a module into an existing context where types are merged,
   // type names may change.  When this happens, any intrinsics overloaded on
   // UDT types will no longer have matching overload names.
@@ -1101,6 +1172,10 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *obj = pOverloadType;
   Type *resProperty = GetResourcePropertiesType();
   Type *resBind = GetResourceBindingType();
+
+  Type *pWaveMatProps = GetWaveMatrixPropertiesType();
+  Type *pWaveMatPtr = GetWaveMatPtrType();
+  Type *pGSEltPtrTy = pETy->isVoidTy() ? nullptr : pETy->getPointerTo(DXIL::kTGSMAddrSpace);
 
   std::string funcName;
   ConstructOverloadName(pOverloadType, opCode, funcName);
@@ -1271,7 +1346,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::Coverage:               A(pI32);     A(pI32); break;
   case OpCode::InnerCoverage:          A(pI32);     A(pI32); break;
 
-    // Compute/Mesh/Amplification shader
+    // Compute/Mesh/Amplification/Node shader
   case OpCode::ThreadId:               A(pI32);     A(pI32); A(pI32); break;
   case OpCode::GroupId:                A(pI32);     A(pI32); A(pI32); break;
   case OpCode::ThreadIdInGroup:        A(pI32);     A(pI32); A(pI32); break;
@@ -1493,6 +1568,46 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Resources
   case OpCode::TextureStoreSample:     A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
+
+    // WaveMatrix
+  case OpCode::WaveMatrix_Annotate:    A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatProps);break;
+  case OpCode::WaveMatrix_Depth:       A(pI32);     A(pI32); A(pWaveMatProps);break;
+  case OpCode::WaveMatrix_Fill:        A(pV);       A(pI32); A(pWaveMatPtr);A(pETy); break;
+  case OpCode::WaveMatrix_LoadRawBuf:  A(pV);       A(pI32); A(pWaveMatPtr);A(pRes); A(pI32); A(pI32); A(pI8);  A(pI1);  break;
+  case OpCode::WaveMatrix_LoadGroupShared:A(pV);       A(pI32); A(pWaveMatPtr);A(pGSEltPtrTy);A(pI32); A(pI32); A(pI1);  break;
+  case OpCode::WaveMatrix_StoreRawBuf: A(pV);       A(pI32); A(pWaveMatPtr);A(pRes); A(pI32); A(pI32); A(pI8);  A(pI1);  break;
+  case OpCode::WaveMatrix_StoreGroupShared:A(pV);       A(pI32); A(pWaveMatPtr);A(pGSEltPtrTy);A(pI32); A(pI32); A(pI1);  break;
+  case OpCode::WaveMatrix_Multiply:    A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);A(pWaveMatPtr);break;
+  case OpCode::WaveMatrix_MultiplyAccumulate:A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);A(pWaveMatPtr);break;
+  case OpCode::WaveMatrix_ScalarOp:    A(pV);       A(pI32); A(pWaveMatPtr);A(pI8);  A(pETy); break;
+  case OpCode::WaveMatrix_SumAccumulate:A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
+  case OpCode::WaveMatrix_Add:         A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
+
+    // Work Graph intrinsics
+  case OpCode::AllocateNodeOutputRecords:A(pRes);     A(pI32); A(pRes); A(pI32); A(pI1);  break;
+
+    // Node Input and Output Record Handling
+  case OpCode::ReadFromNodeRecord:     A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); break;
+  case OpCode::WriteToNodeRecord:      A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); break;
+
+    // Work Graph intrinsics
+  case OpCode::IncrementOutputCount:   A(pV);       A(pI32); A(pRes); A(pI32); break;
+  case OpCode::OutputCompleteRecord:   A(pV);       A(pI32); A(pRes); break;
+  case OpCode::OutputCompleteNode:     A(pV);       A(pI32); A(pRes); break;
+  case OpCode::GetInputRecordCount:    A(pI32);     A(pI32); A(pRes); break;
+  case OpCode::FinishedCrossGroupSharing:A(pI1);      A(pI32); A(pRes); break;
+
+    // Synchronization
+  case OpCode::BarrierByMemoryType:    A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); break;
+  case OpCode::BarrierByMemoryHandle:  A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); break;
+
+    // Create Handle from Node Input and Output
+  case OpCode::CreateNodeInputHandle:  A(pRes);     A(pI32); A(pI32); break;
+  case OpCode::CreateNodeOutputHandle: A(pRes);     A(pI32); A(pI32); break;
+  case OpCode::IndexNodeHandle:        A(pRes);     A(pI32); A(pI32); A(pI32); break;
+
+    // Node Input and Output Record Handling
+  case OpCode::CreateNodeInputRecordsHandle:A(pRes);     A(pI32); A(pRes); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1593,6 +1708,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TempRegStore:
   case OpCode::CallShader:
   case OpCode::Pack4x8:
+  case OpCode::WaveMatrix_Fill:
     DXASSERT_NOMSG(FT->getNumParams() > 2);
     return FT->getParamType(2);
   case OpCode::MinPrecXRegStore:
@@ -1603,6 +1719,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StoreVertexOutput:
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
+  case OpCode::WriteToNodeRecord:
     DXASSERT_NOMSG(FT->getNumParams() > 4);
     return FT->getParamType(4);
   case OpCode::IsNaN:
@@ -1631,8 +1748,13 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     DXASSERT_NOMSG(FT->getNumParams() > 15);
     return FT->getParamType(15);
   case OpCode::ReportHit:
+  case OpCode::WaveMatrix_ScalarOp:
     DXASSERT_NOMSG(FT->getNumParams() > 3);
     return FT->getParamType(3);
+  case OpCode::WaveMatrix_LoadGroupShared:
+  case OpCode::WaveMatrix_StoreGroupShared:
+    DXASSERT_NOMSG(FT->getNumParams() > 2);
+    return FT->getParamType(2)->getPointerElementType();
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:
   case OpCode::GetDimensions:
@@ -1681,6 +1803,24 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateHandle:
   case OpCode::CreateHandleFromBinding:
   case OpCode::CreateHandleFromHeap:
+  case OpCode::WaveMatrix_Annotate:
+  case OpCode::WaveMatrix_Depth:
+  case OpCode::WaveMatrix_LoadRawBuf:
+  case OpCode::WaveMatrix_StoreRawBuf:
+  case OpCode::WaveMatrix_Multiply:
+  case OpCode::WaveMatrix_MultiplyAccumulate:
+  case OpCode::WaveMatrix_SumAccumulate:
+  case OpCode::WaveMatrix_Add:
+  case OpCode::AllocateNodeOutputRecords:
+  case OpCode::IncrementOutputCount:
+  case OpCode::OutputCompleteRecord:
+  case OpCode::OutputCompleteNode:
+  case OpCode::BarrierByMemoryType:
+  case OpCode::BarrierByMemoryHandle:
+  case OpCode::CreateNodeInputHandle:
+  case OpCode::CreateNodeOutputHandle:
+  case OpCode::IndexNodeHandle:
+  case OpCode::CreateNodeInputRecordsHandle:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
@@ -1717,6 +1857,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GeometryIndex:
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
+  case OpCode::GetInputRecordCount:
     return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
@@ -1753,6 +1894,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommittedTriangleFrontFace:
   case OpCode::IsHelperLane:
   case OpCode::QuadVote:
+  case OpCode::FinishedCrossGroupSharing:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
@@ -1819,6 +1961,14 @@ Type *OP::GetFourI32Type() const {
 Type *OP::GetFourI16Type() const {
   return m_pFourI16Type;
 }
+
+StructType *OP::GetWaveMatrixPropertiesType() const {
+  return m_pWaveMatInfoType;
+}
+PointerType *OP::GetWaveMatPtrType() const {
+  return m_pWaveMatPtrType;
+}
+
 
 bool OP::IsResRetType(llvm::Type *Ty) {
   for (Type *ResTy : m_pResRetType) {

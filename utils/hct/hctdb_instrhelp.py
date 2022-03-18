@@ -432,6 +432,8 @@ class db_oload_gen:
             "obj": "A(obj);",
             "resproperty": "A(resProperty);",
             "resbind": "A(resBind);",
+            "waveMat": "A(pWaveMatPtr);",
+            "waveMatProps": "A(pWaveMatProps);",
             "$gsptr": "A(pGSEltPtrTy);",
         }
         last_category = None
@@ -1041,6 +1043,7 @@ shader_stage_to_ShaderKind = {
     'callable': 'Callable',
     'mesh' : 'Mesh',
     'amplification' : 'Amplification',
+	'node' : 'Node'
 }
 
 def get_min_sm_and_mask_text():
@@ -1104,6 +1107,7 @@ check_pSM_for_shader_stage = {
     'callable': 'SK == DXIL::ShaderKind::Callable',
     'mesh': 'SK == DXIL::ShaderKind::Mesh',
     'amplification': 'SK == DXIL::ShaderKind::Amplification',
+	'node' : 'SK == DXIL::ShaderKind::Node'
 }
 
 def get_valopcode_sm_text():

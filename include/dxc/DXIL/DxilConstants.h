@@ -169,6 +169,7 @@ namespace DXIL {
     Callable,
     Mesh,
     Amplification,
+    Node,
     Invalid,
   };
 
@@ -437,11 +438,16 @@ namespace DXIL {
     BitcastI32toF32 = 126, // bitcast between different sizes
     BitcastI64toF64 = 128, // bitcast between different sizes
   
-    // Compute/Mesh/Amplification shader
+    // Compute/Mesh/Amplification/Node shader
     FlattenedThreadIdInGroup = 96, // provides a flattened index for a given thread within a given group (SV_GroupIndex)
     GroupId = 94, // reads the group ID (SV_GroupID)
     ThreadId = 93, // reads the thread ID
     ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
+  
+    // Create Handle from Node Input and Output
+    CreateNodeInputHandle = 248, // Creates a handle to a NodeInput
+    CreateNodeOutputHandle = 249, // Creates a handle to a NodeOutput
+    IndexNodeHandle = 250, // returns the handle for the location in the output node array at the indicated index
   
     // Derivatives
     CalculateLOD = 81, // calculates the level of detail
@@ -556,6 +562,11 @@ namespace DXIL {
     StorePrimitiveOutput = 172, // stores the value to mesh shader primitive output
     StoreVertexOutput = 171, // stores the value to mesh shader vertex output
   
+    // Node Input and Output Record Handling
+    CreateNodeInputRecordsHandle = 251, // create a handle for an InputRecord
+    ReadFromNodeRecord = 239, // reads value at byteOffset from the input represented by input handle
+    WriteToNodeRecord = 240, // writes value to the record at output handle at byteOffset
+  
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
   
@@ -656,6 +667,8 @@ namespace DXIL {
     AtomicBinOp = 78, // performs an atomic operation on two operands
     AtomicCompareExchange = 79, // atomic compare and exchange to memory
     Barrier = 80, // inserts a memory barrier in the shader
+    BarrierByMemoryHandle = 247, // Request a barrier for just the memory used by the specified object
+    BarrierByMemoryType = 246, // Request a barrier for a set of memory types and/or thread group execution sync
   
     // Temporary, indexable, input, output registers
     LoadInput = 4, // Loads the value from shader input
@@ -737,6 +750,28 @@ namespace DXIL {
     WaveReadLaneAt = 117, // returns the value from the specified lane
     WaveReadLaneFirst = 118, // returns the value from the first lane
   
+    // WaveMatrix
+    WaveMatrix_Add = 237, // Element-wise accumulate, or broadcast add of fragment into accumulator
+    WaveMatrix_Annotate = 226, // Annotate a wave matrix pointer with the type information
+    WaveMatrix_Depth = 227, // Returns depth (K) value for matrix of specified type
+    WaveMatrix_Fill = 228, // Fill wave matrix with scalar value
+    WaveMatrix_LoadGroupShared = 230, // Load wave matrix from group shared array
+    WaveMatrix_LoadRawBuf = 229, // Load wave matrix from raw buffer
+    WaveMatrix_Multiply = 233, // Mutiply left and right wave matrix and store in accumulator
+    WaveMatrix_MultiplyAccumulate = 234, // Mutiply left and right wave matrix and accumulate into accumulator
+    WaveMatrix_ScalarOp = 235, // Perform scalar operation on each element of wave matrix
+    WaveMatrix_StoreGroupShared = 232, // Store wave matrix to group shared array
+    WaveMatrix_StoreRawBuf = 231, // Store wave matrix to raw buffer
+    WaveMatrix_SumAccumulate = 236, // Sum rows or columns of an input matrix into an existing accumulator fragment matrix
+  
+    // Work Graph intrinsics
+    AllocateNodeOutputRecords = 238, // returns a handle for the output records
+    FinishedCrossGroupSharing = 245, // returns true if the current thread group is the last to access the input
+    GetInputRecordCount = 244, // returns the number of records that have been coalesced into the current thread group
+    IncrementOutputCount = 241, // Select the next logical output count for an EmptyNodeOutput
+    OutputCompleteNode = 243, // indicates all output for an output node is complete
+    OutputCompleteRecord = 242, // indicates all outputs for a given records are complete
+  
     NumOpCodes_Dxil_1_0 = 137,
     NumOpCodes_Dxil_1_1 = 139,
     NumOpCodes_Dxil_1_2 = 141,
@@ -746,7 +781,7 @@ namespace DXIL {
     NumOpCodes_Dxil_1_6 = 222,
     NumOpCodes_Dxil_1_7 = 226,
   
-    NumOpCodes = 226 // exclusive last value of enumeration
+    NumOpCodes = 252 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -778,11 +813,15 @@ namespace DXIL {
     BitcastI32toF32,
     BitcastI64toF64,
   
-    // Compute/Mesh/Amplification shader
+    // Compute/Mesh/Amplification/Node shader
     FlattenedThreadIdInGroup,
     GroupId,
     ThreadId,
     ThreadIdInGroup,
+  
+    // Create Handle from Node Input and Output
+    CreateNodeHandle,
+    IndexNodeHandle,
   
     // Derivatives
     CalculateLOD,
@@ -867,6 +906,11 @@ namespace DXIL {
     SetMeshOutputCounts,
     StorePrimitiveOutput,
     StoreVertexOutput,
+  
+    // Node Input and Output Record Handling
+    CreateNodeInputRecordsHandle,
+    ReadFromNodeRecord,
+    WriteToNodeRecord,
   
     // Other
     CycleCounterLegacy,
@@ -968,6 +1012,8 @@ namespace DXIL {
     AtomicBinOp,
     AtomicCompareExchange,
     Barrier,
+    BarrierByMemoryHandle,
+    BarrierByMemoryType,
   
     // Temporary, indexable, input, output registers
     LoadInput,
@@ -1007,6 +1053,25 @@ namespace DXIL {
     WaveReadLaneAt,
     WaveReadLaneFirst,
   
+    // WaveMatrix
+    WaveMatrix_Accumulate,
+    WaveMatrix_Annotate,
+    WaveMatrix_Depth,
+    WaveMatrix_Fill,
+    WaveMatrix_LoadGroupShared,
+    WaveMatrix_LoadRawBuf,
+    WaveMatrix_Multiply,
+    WaveMatrix_ScalarOp,
+    WaveMatrix_StoreGroupShared,
+    WaveMatrix_StoreRawBuf,
+  
+    // Work Graph intrinsics
+    AllocateNodeOutputRecords,
+    FinishedCrossGroupSharing,
+    GetInputRecordCount,
+    IncrementOutputCount,
+    OutputComplete,
+  
     NumOpClasses_Dxil_1_0 = 93,
     NumOpClasses_Dxil_1_1 = 95,
     NumOpClasses_Dxil_1_2 = 97,
@@ -1016,7 +1081,7 @@ namespace DXIL {
     NumOpClasses_Dxil_1_6 = 149,
     NumOpClasses_Dxil_1_7 = 153,
   
-    NumOpClasses = 153 // exclusive last value of enumeration
+    NumOpClasses = 175 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1308,6 +1373,35 @@ namespace DXIL {
     LastEntry,
   };
 
+  enum class NodeLaunchType {
+    Invalid = 0,
+    Broadcasting,
+    Coalescing,
+    Thread,
+
+    LastEntry
+  };
+
+  enum class NodeIOFlags : uint32_t {
+    Input = 0x1,
+    Output = 0x2,
+    ReadWrite = 0x4,
+    EmptyRecord = 0x8,
+    KindMask = 0xF,
+    TrackRWInputSharing = 0x10,
+    AllowSparseNodes = 0x20,
+    FlagsMask = 0x30,
+  };
+
+  enum class NodeIOKind : uint32_t {
+    Invalid = 0,
+    InputRecord = (uint32_t)NodeIOFlags::Input,
+    RWInputRecord = (uint32_t)NodeIOFlags::ReadWrite | (uint32_t)NodeIOFlags::Input,
+    RWOutputRecord = (uint32_t)NodeIOFlags::ReadWrite | (uint32_t)NodeIOFlags::Output,
+    EmptyInput = (uint32_t)NodeIOFlags::EmptyRecord | (uint32_t)NodeIOFlags::Input,
+    EmptyOutput = (uint32_t)NodeIOFlags::EmptyRecord | (uint32_t)NodeIOFlags::Output
+  };
+
   // Kind of quad-level operation
   enum class QuadOpKind {
     ReadAcrossX = 0, // returns the value from the other lane in the quad in the horizontal direction
@@ -1433,6 +1527,29 @@ namespace DXIL {
     MipRegionUsed = 1,
     LastEntry = 2
   };
+
+  enum class WaveMatrixKind : uint8_t {
+    Left = 0,
+    Right = 1,
+    LeftCol = 2,
+    RightRow = 3,
+    Accumulator = 4,
+    NumKinds = 5,
+    MaskSide = 1,
+    MaskClass = 6,  // 0 = Left/Right, 2 = Fragment, 4 = Accumulator
+  };
+
+  /* <py::lines('WAVEMATRIXSCALAROPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("WaveMatrixScalarOpCode")</py>*/
+  // WAVEMATRIXSCALAROPCODE-ENUM:BEGIN
+  // Operation for WaveMatrix_ScalarOp
+  enum class WaveMatrixScalarOpCode : unsigned {
+    Add = 0,
+    Divide = 3,
+    Invalid = 4,
+    Multiply = 2,
+    Subtract = 1,
+  };
+  // WAVEMATRIXSCALAROPCODE-ENUM:END
 
   // Constant for Container.
   const uint8_t DxilProgramSigMaskX = 1;

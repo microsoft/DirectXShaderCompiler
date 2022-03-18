@@ -26,6 +26,31 @@ RDAT_ENUM_START(DxilShaderFlags, uint32_t)
   RDAT_ENUM_VALUE(DepthOutput, 1 << 1)
   RDAT_ENUM_VALUE(SampleFrequency, 1 << 2)
   RDAT_ENUM_VALUE(UsesViewID, 1 << 3)
+  RDAT_ENUM_VALUE(NodeProgramEntry, 1 << 4)
+RDAT_ENUM_END()
+
+RDAT_ENUM_START(NodeFuncAttribKind, uint32_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(ID, 1)
+  RDAT_ENUM_VALUE(NumThreads, 2)
+  RDAT_ENUM_VALUE(ShareInputOf, 3)
+  RDAT_ENUM_VALUE(DispatchGrid, 4)
+  RDAT_ENUM_VALUE(MaxDispatchGrid, 5)
+  RDAT_ENUM_VALUE(MaxRecursionDepth, 6)
+  RDAT_ENUM_VALUE(LocalRootArgumentsTableIndex, 7)
+  RDAT_ENUM_VALUE_NODEF(LastValue)
+RDAT_ENUM_END()
+
+RDAT_ENUM_START(NodeAttribKind, uint32_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(OutputID, 1)
+  RDAT_ENUM_VALUE(MaxOutputRecords, 2)
+  RDAT_ENUM_VALUE(MaxOutputRecordsSharedWith, 3)
+  RDAT_ENUM_VALUE(RecordSizeInBytes, 4)
+  RDAT_ENUM_VALUE(RecordDispatchGrid, 5)
+  RDAT_ENUM_VALUE(OutputArraySize, 6) // needed ?
+  RDAT_ENUM_VALUE(InputMaxRecordArraySize, 7)
+  RDAT_ENUM_VALUE_NODEF(LastValue)
 RDAT_ENUM_END()
 
 #endif // DEF_RDAT_ENUMS
@@ -92,9 +117,10 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::ShaderKind, uint32_t)
   RDAT_ENUM_VALUE_NODEF(Callable)
   RDAT_ENUM_VALUE_NODEF(Mesh)
   RDAT_ENUM_VALUE_NODEF(Amplification)
+  RDAT_ENUM_VALUE_NODEF(Node)
   RDAT_ENUM_VALUE_NODEF(Invalid)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::ShaderKind::Invalid == 15, "otherwise, RDAT_DXIL_ENUM definition needs updating");
+  static_assert((unsigned)hlsl::DXIL::ShaderKind::Invalid == 16, "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()
 
@@ -174,6 +200,26 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::InterpolationMode, uint32_t)
   RDAT_ENUM_VALUE_NODEF(Invalid)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
   static_assert((unsigned)hlsl::DXIL::InterpolationMode::Invalid == 8, "otherwise, RDAT_DXIL_ENUM definition needs updating");
+#endif
+RDAT_ENUM_END()
+
+RDAT_DXIL_ENUM_START(hlsl::DXIL::NodeIOKind, uint32_t)
+  RDAT_ENUM_VALUE_NODEF(InputRecord)
+  RDAT_ENUM_VALUE_NODEF(RWInputRecord)
+  RDAT_ENUM_VALUE_NODEF(RWOutputRecord)
+  RDAT_ENUM_VALUE_NODEF(EmptyInput)
+  RDAT_ENUM_VALUE_NODEF(EmptyOutput)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+RDAT_ENUM_END()
+
+RDAT_DXIL_ENUM_START(hlsl::DXIL::NodeLaunchType, uint32_t)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+  RDAT_ENUM_VALUE_NODEF(Broadcasting)
+  RDAT_ENUM_VALUE_NODEF(Coalescing)
+  RDAT_ENUM_VALUE_NODEF(Thread)
+  RDAT_ENUM_VALUE_NODEF(LastEntry)
+#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
+  static_assert((unsigned)hlsl::DXIL::NodeLaunchType::LastEntry == 4, "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()
 
@@ -358,6 +404,103 @@ RDAT_STRUCT_TABLE(ASInfo, ASInfoTable)
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
+#define RECORD_TYPE RecordDispatchGrid
+RDAT_STRUCT(RecordDispatchGrid)
+  RDAT_VALUE(uint16_t, ByteOffset)
+  RDAT_VALUE(uint16_t, ComponentNumAndType) // 0:2 = NumComponents (0-3), 3:15 = hlsl::DXIL::ComponentType enum
+#if DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
+  uint8_t GetNumComponents() const { return (ComponentNumAndType & 0x3); }
+  hlsl::DXIL::ComponentType GetComponentType() const { return (hlsl::DXIL::ComponentType)(ComponentNumAndType >> 2); }
+  void SetNumComponents(uint8_t num) { ComponentNumAndType |= (num & 0x3); }
+  void SetComponentType(hlsl::DXIL::ComponentType type) { ComponentNumAndType |= (((uint16_t)type) << 2); }
+#endif
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE NodeID
+RDAT_STRUCT_TABLE(NodeID, NodeIDTable)
+  RDAT_STRING(Name)
+  RDAT_VALUE(uint32_t, Index)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+
+#define RECORD_TYPE NodeShaderFuncAttrib
+RDAT_STRUCT_TABLE(NodeShaderFuncAttrib, NodeShaderFuncAttribTable)
+  RDAT_ENUM(uint32_t, hlsl::RDAT::NodeFuncAttribKind, AttribKind)
+  RDAT_UNION()
+    RDAT_UNION_IF(ID, getAttribKind() == hlsl::RDAT::NodeFuncAttribKind::ID)
+      RDAT_RECORD_REF(NodeID, ID)
+    RDAT_UNION_ELIF(NumThreads, getAttribKind() == hlsl::RDAT::NodeFuncAttribKind::NumThreads)
+      RDAT_INDEX_ARRAY_REF(NumThreads)
+    RDAT_UNION_ELIF(SharedInput, getAttribKind() == hlsl::RDAT::NodeFuncAttribKind::ShareInputOf)
+      RDAT_RECORD_REF(NodeID, ShareInputOf)
+    RDAT_UNION_ELIF(DispatchGrid, getAttribKind() == hlsl::RDAT::NodeFuncAttribKind::DispatchGrid)
+      RDAT_INDEX_ARRAY_REF(DispatchGrid)
+    RDAT_UNION_ELIF(MaxDispatchGrid, getAttribKind() == hlsl::RDAT::NodeFuncAttribKind::MaxDispatchGrid)
+      RDAT_INDEX_ARRAY_REF(MaxDispatchGrid)
+    RDAT_UNION_ELIF(MaxRecursionDepth, getAttribKind() == hlsl::RDAT::NodeFuncAttribKind::MaxRecursionDepth)
+      RDAT_VALUE(uint32_t, MaxRecursionDepth)
+    RDAT_UNION_ELIF(LocalRootArgumentsTableIndex, getAttribKind() == hlsl::RDAT::NodeFuncAttribKind::LocalRootArgumentsTableIndex)
+      RDAT_VALUE(uint32_t, LocalRootArgumentsTableIndex)
+    RDAT_UNION_ENDIF()
+  RDAT_UNION_END()
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+
+#define RECORD_TYPE NodeShaderIOAttrib
+RDAT_STRUCT_TABLE(NodeShaderIOAttrib, NodeShaderIOAttribTable)
+  RDAT_ENUM(uint32_t, hlsl::RDAT::NodeAttribKind, AttribKind)
+  RDAT_UNION()
+    RDAT_UNION_IF(ID, getAttribKind() == hlsl::RDAT::NodeAttribKind::OutputID)
+      RDAT_RECORD_REF(NodeID, OutputID)
+    RDAT_UNION_ELIF(MaxOutputRecords, getAttribKind() == hlsl::RDAT::NodeAttribKind::MaxOutputRecords)
+      RDAT_VALUE(uint32_t, MaxOutputRecords)
+    RDAT_UNION_ELIF(MaxOutputRecordsSharedWith, getAttribKind() == hlsl::RDAT::NodeAttribKind::MaxOutputRecordsSharedWith)
+      RDAT_VALUE(uint32_t, MaxOutputRecordsSharedWith)
+    RDAT_UNION_ELIF(RecordSizeInBytes, getAttribKind() == hlsl::RDAT::NodeAttribKind::RecordSizeInBytes)
+      RDAT_VALUE(uint32_t, RecordSizeInBytes)
+    RDAT_UNION_ELIF(RecordDispatchGrid, getAttribKind() == hlsl::RDAT::NodeAttribKind::RecordDispatchGrid)
+      RDAT_RECORD_VALUE(RecordDispatchGrid, RecordDispatchGrid)
+    RDAT_UNION_ELIF(OutputArraySize, getAttribKind() == hlsl::RDAT::NodeAttribKind::OutputArraySize)
+      RDAT_VALUE(uint32_t, OutputArraySize)
+    RDAT_UNION_ELIF(InputMaxRecordArraySize, getAttribKind() == hlsl::RDAT::NodeAttribKind::InputMaxRecordArraySize)
+      RDAT_VALUE(uint32_t, InputMaxRecordArraySize)
+    RDAT_UNION_ENDIF()
+  RDAT_UNION_END()
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+
+
+#define RECORD_TYPE IONode
+RDAT_STRUCT_TABLE(IONode, IONodeTable)
+  // Required field
+  RDAT_VALUE(uint32_t, IOFlagsAndKind)
+  // Optional fields
+  RDAT_RECORD_ARRAY_REF(NodeShaderIOAttrib, Attribs)
+#if DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
+  uint32_t GetIOFlags() const { return IOFlagsAndKind & (uint32_t)DXIL::NodeIOFlags::FlagsMask; }
+  hlsl::DXIL::NodeIOKind GetIOKind() const { return (hlsl::DXIL::NodeIOKind)(IOFlagsAndKind & (uint32_t)DXIL::NodeIOFlags::KindMask); }
+  void SetIOFlags(uint32_t flags) { IOFlagsAndKind |= flags; }
+  void SetIOKind(hlsl::DXIL::NodeIOKind kind) { IOFlagsAndKind |= (uint32_t)kind; }
+#endif
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE NodeShaderInfo
+RDAT_STRUCT_TABLE(NodeShaderInfo, NodeShaderInfoTable)
+  // Function Attributes
+  RDAT_ENUM(uint32_t, hlsl::DXIL::NodeLaunchType, LaunchType)
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
+  RDAT_RECORD_ARRAY_REF(NodeShaderFuncAttrib, Attribs)
+  RDAT_RECORD_ARRAY_REF(IONode, Outputs)
+  RDAT_RECORD_ARRAY_REF(IONode, Inputs)
+
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
 #define RECORD_TYPE RuntimeDataFunctionInfo2
 RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo2, RuntimeDataFunctionInfo, FunctionTable)
 
@@ -387,6 +530,14 @@ RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo2, RuntimeDataFunctionInfo, Fun
       RDAT_VALUE(uint32_t, RawShaderRef)
     RDAT_UNION_ENDIF()
   RDAT_UNION_END()
+
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE RuntimeDataFunctionInfo3
+RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo3, RuntimeDataFunctionInfo2, FunctionTable)
+
+  RDAT_RECORD_REF(NodeShaderInfo, Node)
 
 RDAT_STRUCT_END()
 #undef RECORD_TYPE

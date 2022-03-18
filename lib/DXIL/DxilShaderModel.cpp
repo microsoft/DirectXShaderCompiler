@@ -374,8 +374,7 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
 static const char *ShaderModelKindNames[] = {
     "ps", "vs", "gs", "hs", "ds", "cs", "lib",
     "raygeneration", "intersection", "anyhit", "closesthit", "miss", "callable",
-    "ms", "as", "invalid",
-};
+    "ms", "as", "node", "invalid",};
 
 const char * ShaderModel::GetKindName() const {
   return GetKindName(m_Kind);

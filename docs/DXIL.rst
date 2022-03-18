@@ -2322,6 +2322,32 @@ ID  Name                                                  Description
 223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
 224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
 225 TextureStoreSample                                    stores texel data at specified sample index
+226 WaveMatrix_Annotate                                   Annotate a wave matrix pointer with the type information
+227 WaveMatrix_Depth                                      Returns depth (K) value for matrix of specified type
+228 WaveMatrix_Fill                                       Fill wave matrix with scalar value
+229 WaveMatrix_LoadRawBuf                                 Load wave matrix from raw buffer
+230 WaveMatrix_LoadGroupShared                            Load wave matrix from group shared array
+231 WaveMatrix_StoreRawBuf                                Store wave matrix to raw buffer
+232 WaveMatrix_StoreGroupShared                           Store wave matrix to group shared array
+233 WaveMatrix_Multiply                                   Mutiply left and right wave matrix and store in accumulator
+234 WaveMatrix_MultiplyAccumulate                         Mutiply left and right wave matrix and accumulate into accumulator
+235 WaveMatrix_ScalarOp                                   Perform scalar operation on each element of wave matrix
+236 WaveMatrix_SumAccumulate                              Sum rows or columns of an input matrix into an existing accumulator fragment matrix
+237 WaveMatrix_Add                                        Element-wise accumulate, or broadcast add of fragment into accumulator
+238 AllocateNodeOutputRecords                             returns a handle for the output records
+239 ReadFromNodeRecord                                    reads value at byteOffset from the input represented by input handle
+240 WriteToNodeRecord                                     writes value to the record at output handle at byteOffset
+241 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput
+242 OutputCompleteRecord                                  indicates all outputs for a given records are complete
+243 OutputCompleteNode                                    indicates all output for an output node is complete
+244 GetInputRecordCount                                   returns the number of records that have been coalesced into the current thread group
+245 FinishedCrossGroupSharing                             returns true if the current thread group is the last to access the input
+246 BarrierByMemoryType                                   Request a barrier for a set of memory types and/or thread group execution sync
+247 BarrierByMemoryHandle                                 Request a barrier for just the memory used by the specified object
+248 CreateNodeInputHandle                                 Creates a handle to a NodeInput
+249 CreateNodeOutputHandle                                Creates a handle to a NodeOutput
+250 IndexNodeHandle                                       returns the handle for the location in the output node array at the indicated index
+251 CreateNodeInputRecordsHandle                          create a handle for an InputRecord
 === ===================================================== =======================================================================================================================================================================================================================
 
 
