@@ -3514,7 +3514,7 @@ TEST_F(CompilerTest, CompileHlsl2022ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
-#if defined(_WIN32) && !defined(_M_ARM64) // this test has issues on ARM64; disable until we figure out what it going on
+#if defined(_WIN32) && !(defined(_M_ARM64) || defined(_M_ARM64EC)) // this test has issues on ARM64; disable until we figure out what it going on
 
 #pragma fenv_access(on)
 #pragma optimize("", off)
