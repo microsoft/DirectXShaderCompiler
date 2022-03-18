@@ -1,5 +1,5 @@
-// RUN: %fxc /Tps_5_0 %s /Fo %t.fxc
-// RUN: %dxbc2dxil %t.fxc /emit-llvm | %FileCheck %s -check-prefix=DXIL
+// RUN: %fxc /Tps_5_0 %s /Fo %t.dxbc
+// RUN: %dxbc2dxil %t.dxbc /emit-llvm | %FileCheck %s -check-prefix=DXIL
 
 // DXIL: !{i32 0, %dx.types.i8x36 addrspace(1)* undef, !"U0", i32 0, i32 5, i32 1, i32 12, i1 false, i1 true
 
