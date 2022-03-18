@@ -1,5 +1,5 @@
 @echo off
-setlocal ENABLEDELAYEDEXPANSION
+setlocal ENABLEDELAYEDEXPANSION ENABLEEXTENSIONS
 
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
@@ -26,7 +26,6 @@ set TEST_MANUAL_FILE_CHECK=0
 set SINGLE_FILE_CHECK_NAME=0
 set CUSTOM_BIN_SET=
 set USE_AGILITY_SDK=
-set BUILD_ARCH=x64
 
 rem Begin SPIRV change
 set TEST_SPIRV=0
@@ -146,7 +145,7 @@ if "%1"=="-clean" (
   set BUILD_CONFIG=Debug
 ) else if /i "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.
-  set BUILD_ARCH=x86
+  set BUILD_ARCH=Win32
 ) else if /i "%1"=="-x64" (
   set BUILD_ARCH=x64
 ) else if /i "%1"=="-arm" (
@@ -451,7 +450,7 @@ rem %4 - third argument to te
 if "%HLSL_TAEF_DIR%"=="" (
   set TE=te
 ) else (
-  set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH%\te"
+  set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\te"
 )
 echo %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 call %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
@@ -501,16 +500,16 @@ if "%HLSL_TAEF_DIR%"=="" (
   exit /b 1
 )
 set FULL_AGILITY_PATH=
-if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH%\D3D12Core.dll" (
-  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH%
-) else if exist "%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH%\D3D12Core.dll" (
-  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH%
+if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
+  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%
+) else if exist "%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
+  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH:Win32=x86%
 ) else if exist "%HLSL_AGILITYSDK_DIR%\D3D12Core.dll" (
   set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%
 ) else (
   echo HLSL_AGILITYSDK_DIR is set, but unable to resolve path to binaries
   exit /b 1
 )
-mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH%\D3D12" 1>nul 2>nul
-call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\%BUILD_ARCH%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
+mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" 1>nul 2>nul
+call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
 exit /b %ERRORLEVEL%
