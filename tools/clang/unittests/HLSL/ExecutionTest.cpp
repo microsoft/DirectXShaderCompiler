@@ -6940,14 +6940,6 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
     return;
   }
 
-#ifdef _M_ARM64
-  if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
-    WEX::Logging::Log::Comment(L"WARP has an issue with DenormBinaryFloatOpTest on ARM64.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
-#endif
-
   // Read data from the table
   int tableSize = sizeof(DenormBinaryFPOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(DenormBinaryFPOpParameters, tableSize);
@@ -6983,6 +6975,15 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
     DXASSERT(Validation_Expected2->size() == Validation_Expected1->size(),
              "must have same number of expected values");
   }
+
+  #if defined(_M_ARM64) || defined(_M_ARM64EC)
+    if ((GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) && mode == Float32DenormMode::Preserve) {
+      WEX::Logging::Log::Comment(L"WARP has an issue with DenormBinaryFloatOpTest with '-denorm preserve' on ARM64.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+  #endif // defined(_M_ARM64) || defined(_M_ARM64EC)
+
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "BinaryFPOp",
     // this callbacked is called when the test
@@ -7056,8 +7057,8 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
-  // Read data from the table
 
+  // Read data from the table
   int tableSize = sizeof(DenormTertiaryFPOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(DenormTertiaryFPOpParameters, tableSize);
 
@@ -7094,6 +7095,15 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
     DXASSERT(Validation_Expected2->size() == Validation_Expected1->size(),
       "must have same number of expected values");
   }
+
+#if defined(_M_ARM64) || defined(_M_ARM64EC)
+  if ((GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) && mode == Float32DenormMode::Preserve) {
+    WEX::Logging::Log::Comment(L"WARP has an issue with DenormTertiaryFloatOpTest with '-denorm preserve' on ARM64.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+#endif // defined(_M_ARM64) || defined(_M_ARM64EC)
+
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "TertiaryFPOp",
     // this callbacked is called when the test
