@@ -434,8 +434,6 @@ Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
 }
 
 Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
-  return BC.HlslOP->GetU8Const(1);
-  #if 0
   auto DispatchRaysIndexOpFunc =
       BC.HlslOP->GetOpFunc(DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(BC.Ctx));
   Constant *DispatchRaysIndexOpcode =
@@ -463,7 +461,6 @@ Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
   auto CompareAll =
       BC.Builder.CreateAnd(CompareXAndY, CompareToZ, "CompareAll");
   return CompareAll;
-  #endif
 }
 
 Value *
