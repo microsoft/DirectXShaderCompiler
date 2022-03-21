@@ -974,6 +974,8 @@ bool DxilDebugInstrumentation::RunOnFunction(
 {
   auto functionForProps = entryFunction;
   if (!DM.HasDxilFunctionProps(functionForProps)) {
+    // In the dxbc2dxil hull-shader case, the function prop map will have one
+    // entry with a key of nullptr.
     functionForProps = nullptr;
   }
   if (!DM.HasDxilFunctionProps(functionForProps)) {
