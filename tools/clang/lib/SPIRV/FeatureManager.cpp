@@ -19,6 +19,8 @@ namespace {
 const char *spvEnvironmentAsString(spv_target_env spvEnv) {
   if (spvEnv > SPV_ENV_VULKAN_1_2)
     return "Vulkan 1.3";
+  if (spvEnv == SPV_ENV_VULKAN_1_1_SPIRV_1_4)
+    return "Vulkan 1.1 with SPIR-V 1.4";
   if (spvEnv > SPV_ENV_VULKAN_1_1)
     return "Vulkan 1.2";
   if (spvEnv > SPV_ENV_VULKAN_1_0)
