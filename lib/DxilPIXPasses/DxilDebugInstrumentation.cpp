@@ -434,6 +434,8 @@ Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
 }
 
 Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
+  return BC.HlslOP->GetU8Const(1);
+  #if 0
   auto DispatchRaysIndexOpFunc =
       BC.HlslOP->GetOpFunc(DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(BC.Ctx));
   Constant *DispatchRaysIndexOpcode =
@@ -461,6 +463,7 @@ Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
   auto CompareAll =
       BC.Builder.CreateAnd(CompareXAndY, CompareToZ, "CompareAll");
   return CompareAll;
+  #endif
 }
 
 Value *
@@ -972,11 +975,16 @@ bool DxilDebugInstrumentation::RunOnFunction(
   DxilModule &DM,
   llvm::Function * entryFunction) 
 {
-  if (!DM.HasDxilFunctionProps(entryFunction)) {
+  auto functionForProps = entryFunction;
+  if (!DM.HasDxilFunctionProps(functionForProps)) {
+    functionForProps = nullptr;
+  }
+  if (!DM.HasDxilFunctionProps(functionForProps)) {
     return false;
   }
 
-  hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(entryFunction);
+  hlsl::DxilFunctionProps const &props =
+      DM.GetDxilFunctionProps(functionForProps);
   DXIL::ShaderKind shaderKind = props.shaderKind;
 
   switch (shaderKind) {
