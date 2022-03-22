@@ -164,6 +164,7 @@ public:
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
+  TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
   TEST_METHOD(CompileWhenIncludeHasPathThenOK)
   TEST_METHOD(CompileWhenIncludeEmptyThenOK)
@@ -2754,6 +2755,37 @@ TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
 #else
   VERIFY_ARE_EQUAL_WSTR(L"/server/share/helper.h;", pInclude->GetAllFileNames().c_str());
 #endif
+}
+
+TEST_F(CompilerTest, CompileThenCheckDisplayIncludeProcess) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("#include \"inc/helper.h\"\r\n"
+                     "float4 main() : SV_Target { return ZERO; }",
+                     &pSource);
+
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back("#define ZERO 0");
+
+  LPCWSTR args[] = {L"-I inc", L"-Vi"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pInclude, &pResult));
+  VerifyOperationSucceeded(pResult);
+
+  CComPtr<IDxcResult> pCompileResult;
+  CComPtr<IDxcBlob> pRemarkBlob;
+  pResult->QueryInterface(&pCompileResult);
+  VERIFY_SUCCEEDED(pCompileResult->GetOutput(DXC_OUT_REMARKS, IID_PPV_ARGS(&pRemarkBlob), nullptr));
+  std::string text(BlobToUtf8(pRemarkBlob));
+
+  VERIFY_ARE_NOT_EQUAL(
+      string::npos, text.find("Opening file [./inc/helper.h], stack top [0]"));
+
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {
