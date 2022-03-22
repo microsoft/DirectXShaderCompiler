@@ -1353,7 +1353,7 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
   {
     auto *invariantDecor = new (context) SpirvDecoration(
         loc, var, spv::Decoration::Invariant);
-    module->addDecoration(invariantDecor);
+    mod->addDecoration(invariantDecor);
   }
 
   // Add variable to cache.
