@@ -101,13 +101,6 @@ public:
     basicBlocks[0]->addFirstInstruction(inst);
   }
 
-  /// Adds an instruction to the last basic block before the termination
-  /// instruction.
-  void addInstructionBeforeTermination(SpirvInstruction *inst) {
-    assert(basicBlocks.size() != 0);
-    basicBlocks.back()->addInstructionBeforeTermination(inst);
-  }
-
   /// Legalization-specific code
   ///
   /// Note: the following methods are used for properly handling aliasing.

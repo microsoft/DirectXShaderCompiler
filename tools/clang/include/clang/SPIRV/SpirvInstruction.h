@@ -362,11 +362,6 @@ public:
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   llvm::StringRef getEntryPointName() const { return name; }
   llvm::ArrayRef<SpirvVariable *> getInterface() const { return interfaceVec; }
-  void setInterface(llvm::ArrayRef<SpirvVariable *> newInterface) {
-    interfaceVec.clear();
-    interfaceVec.insert(interfaceVec.end(), newInterface.begin(),
-                        newInterface.end());
-  }
 
 private:
   spv::ExecutionModel execModel;

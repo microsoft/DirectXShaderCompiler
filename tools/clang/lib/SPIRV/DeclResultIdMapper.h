@@ -329,8 +329,7 @@ public:
   inline DeclResultIdMapper(ASTContext &context, SpirvContext &spirvContext,
                             SpirvBuilder &spirvBuilder, SpirvEmitter &emitter,
                             FeatureManager &features,
-                            const SpirvCodeGenOptions &spirvOptions,
-                            uint32_t sigPackingStrategy);
+                            const SpirvCodeGenOptions &spirvOptions);
 
   /// \brief Returns the SPIR-V builtin variable.
   SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, QualType type,
@@ -738,32 +737,6 @@ private:
       llvm::function_ref<bool(const StageVar *)> assignLocAndComponent,
       bool forInput, bool forPCF);
 
-  /// \brief Assigns the location and component to the stage variable.
-  bool assignLocationAndComponentToStageVar(
-      const StageVar *stageVar,
-      llvm::function_ref<bool(const StageVar *)> assignLocAndComponent,
-      bool forInput);
-
-  /// \brief Replaces the stage variable with the flattened ones.
-  bool replaceStageVarWithFlattenedVars(
-      const StageVar *stageVar, llvm::SmallVector<StageVar, 4> flattenedVars,
-      llvm::function_ref<bool(const StageVar *)> assignLocAndComponent);
-
-  /// \brief Flattens a stage variable into vectors or scalars if it is an array
-  /// or matrix.
-  llvm::SmallVector<StageVar, 4> tryFlatteningArrayOrMatrixStageVar(
-      QualType type, const LocationAndComponent &locAndcomponentCount,
-      const StageVar *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
-      uint32_t extraArraySize);
-
-  /// \brief Creates a new stage variable that can be replaced with the
-  /// recursive 'indexes' component of 'var'.
-  StageVar
-  createFlattenedStageVar(QualType type,
-                          const LocationAndComponent &locAndcomponentCount,
-                          const StageVar *var, llvm::ArrayRef<uint32_t> indexes,
-                          bool forInput, uint32_t extraArraySize);
-
   /// \brief Decorates vars with locations assigned by nextLocs.
   /// stageVariableLocationInfo will be used to check the duplication of stage
   /// variable locations.
@@ -1075,10 +1048,12 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
                       /* SourceLocation */ {});
 }
 
-DeclResultIdMapper::DeclResultIdMapper(
-    ASTContext &context, SpirvContext &spirvContext, SpirvBuilder &spirvBuilder,
-    SpirvEmitter &emitter, FeatureManager &features,
-    const SpirvCodeGenOptions &options, uint32_t sigPackingStrategy)
+DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
+                                       SpirvContext &spirvContext,
+                                       SpirvBuilder &spirvBuilder,
+                                       SpirvEmitter &emitter,
+                                       FeatureManager &features,
+                                       const SpirvCodeGenOptions &options)
     : spvBuilder(spirvBuilder), theEmitter(emitter), featureManager(features),
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),

@@ -30,19 +30,17 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            FeatureManager &featureMgr)
     : astContext(&ac), context(ctx), featureManager(featureMgr),
       mod(llvm::make_unique<SpirvModule>()), function(nullptr),
-      moduleInit(nullptr), moduleInitInsertPoint(nullptr),
-      moduleFinish(nullptr), moduleFinishInsertPoint(nullptr),
-      spirvOptions(opt), builtinVars(), debugNone(nullptr),
-      nullDebugExpr(nullptr), stringLiterals() {}
+      moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
+      builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
+      stringLiterals() {}
 
 SpirvBuilder::SpirvBuilder(SpirvContext &ctx, const SpirvCodeGenOptions &opt,
                            FeatureManager &featureMg)
     : astContext(nullptr), context(ctx), featureManager(featureMg),
       mod(llvm::make_unique<SpirvModule>()), function(nullptr),
-      moduleInit(nullptr), moduleInitInsertPoint(nullptr),
-      moduleFinish(nullptr), moduleFinishInsertPoint(nullptr),
-      spirvOptions(opt), builtinVars(), debugNone(nullptr),
-      nullDebugExpr(nullptr), stringLiterals() {}
+      moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
+      builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
+      stringLiterals() {}
 
 SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
                                                  SourceLocation loc,
@@ -351,18 +349,6 @@ SpirvAccessChain *SpirvBuilder::createAccessChain(
 
   insertPoint->addInstruction(instruction);
   return instruction;
-}
-
-SpirvAccessChain *
-SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
-                                llvm::ArrayRef<uint32_t> indexes,
-                                SourceLocation loc, SourceRange range) {
-  llvm::SmallVector<SpirvInstruction *, 2> indexInsts;
-  for (uint32_t index : indexes) {
-    indexInsts.push_back(
-        getConstantInt(astContext->UnsignedIntTy, llvm::APInt(32, index)));
-  }
-  return createAccessChain(resultType, base, indexInsts, loc, range);
 }
 
 SpirvAccessChain *
@@ -1214,17 +1200,6 @@ void SpirvBuilder::switchInsertPointToModuleInit() {
   insertPoint = moduleInitInsertPoint;
 }
 
-void SpirvBuilder::switchInsertPointToModuleFinish() {
-  if (moduleFinishInsertPoint == nullptr) {
-    moduleFinish = createSpirvFunction(astContext->VoidTy, SourceLocation(),
-                                       "module.finish", false);
-    moduleFinishInsertPoint = new (context) SpirvBasicBlock("module.finish.bb");
-    moduleFinish->addBasicBlock(moduleFinishInsertPoint);
-  }
-  assert(moduleFinishInsertPoint && "null module finish insert point");
-  insertPoint = moduleFinishInsertPoint;
-}
-
 SpirvVariable *SpirvBuilder::createCloneVarForFxcCTBuffer(
     QualType astType, const SpirvType *spvType, SpirvInstruction *var) {
   SpirvVariable *clone = nullptr;
@@ -1248,75 +1223,6 @@ SpirvVariable *SpirvBuilder::createCloneVarForFxcCTBuffer(
   }
   clone->setLayoutRule(SpirvLayoutRule::Void);
   return clone;
-}
-
-void SpirvBuilder::copyFromFlattenedStageVar(QualType type, SpirvVariable *var,
-                                             SpirvVariable *flattenedVar,
-                                             llvm::ArrayRef<uint32_t> indices,
-                                             uint32_t extraArraySize) {
-  assert(var != nullptr && flattenedVar != nullptr &&
-         flattenedVar->getStorageClass() == spv::StorageClass::Input);
-
-  auto *oldInsertPoint = insertPoint;
-  switchInsertPointToModuleInit();
-
-  if (extraArraySize) {
-    llvm::SmallVector<uint32_t, 2> newIndices({0});
-    newIndices.insert(newIndices.end(), indices.begin(), indices.end());
-    for (uint32_t i = 0; i < extraArraySize; ++i) {
-      newIndices[0] = i;
-      SpirvInstruction *ptrToFlattenedVar =
-          createAccessChain(type, flattenedVar, {i}, /*SourceLocation=*/{});
-      auto *value = createLoad(type, ptrToFlattenedVar, /*SourceLocation=*/{});
-      auto *ptrToStageVar =
-          createAccessChain(type, var, newIndices, /*SourceLocation=*/{});
-      createStore(ptrToStageVar, value, /*SourceLocation=*/{});
-    }
-  } else {
-    auto *value = createLoad(type, flattenedVar, /*SourceLocation=*/{});
-    auto *ptrToStageVar =
-        createAccessChain(type, var, indices, /*SourceLocation=*/{});
-    createStore(ptrToStageVar, value, /*SourceLocation=*/{});
-  }
-
-  insertPoint = oldInsertPoint;
-}
-
-void SpirvBuilder::syncFlattenedStageVars(QualType type, SpirvVariable *var,
-                                          SpirvVariable *flattenedVar,
-                                          llvm::ArrayRef<uint32_t> indices,
-                                          uint32_t extraArraySize) {
-  if (extraArraySize) {
-    llvm::SmallVector<uint32_t, 2> newIndices({0});
-    newIndices.insert(newIndices.end(), indices.begin(), indices.end());
-    for (uint32_t i = 0; i < extraArraySize; ++i) {
-      newIndices[0] = i;
-      auto *ptrToStageVar =
-          createAccessChain(type, var, newIndices, /*SourceLocation=*/{});
-      auto *value = createLoad(type, ptrToStageVar, /*SourceLocation=*/{});
-      SpirvInstruction *ptrToFlattenedVar =
-          createAccessChain(type, flattenedVar, {i}, /*SourceLocation=*/{});
-      createStore(ptrToFlattenedVar, value, /*SourceLocation=*/{});
-    }
-  } else {
-    auto *ptrToStageVar =
-        createAccessChain(type, var, indices, /*SourceLocation=*/{});
-    auto *value = createLoad(type, ptrToStageVar, /*SourceLocation=*/{});
-    createStore(flattenedVar, value, /*SourceLocation=*/{});
-  }
-}
-
-void SpirvBuilder::copyToFlattenedStageVar(QualType type, SpirvVariable *var,
-                                           SpirvVariable *flattenedVar,
-                                           llvm::ArrayRef<uint32_t> indices,
-                                           uint32_t extraArraySize) {
-  assert(var != nullptr && flattenedVar != nullptr &&
-         flattenedVar->getStorageClass() == spv::StorageClass::Output);
-
-  auto *oldInsertPoint = insertPoint;
-  switchInsertPointToModuleFinish();
-  syncFlattenedStageVars(type, var, flattenedVar, indices, extraArraySize);
-  insertPoint = oldInsertPoint;
 }
 
 SpirvInstruction *
@@ -1765,21 +1671,6 @@ SpirvBuilder::getPhysicalStorageBufferType(const SpirvType *pointee) {
                                 spv::StorageClass::PhysicalStorageBuffer);
 }
 
-void SpirvBuilder::replaceEntryPointInterface(
-    SpirvVariable *target,
-    const llvm::SmallVectorImpl<SpirvVariable *> &newInterface) {
-  for (auto *entry : mod->getEntryPoints()) {
-    auto oldInterface = entry->getInterface();
-    llvm::SmallVector<SpirvVariable *, 8> updatedInterface(newInterface.begin(),
-                                                           newInterface.end());
-    for (auto *interface : oldInterface) {
-      if (interface != target)
-        updatedInterface.push_back(interface);
-    }
-    entry->setInterface(updatedInterface);
-  }
-}
-
 void SpirvBuilder::addModuleInitCallToEntryPoints() {
   if (moduleInit == nullptr)
     return;
@@ -1790,19 +1681,6 @@ void SpirvBuilder::addModuleInitCallToEntryPoints() {
                           moduleInit, /* params */ {});
     instruction->setRValue(true);
     entry->getEntryPoint()->addFirstInstruction(instruction);
-  }
-}
-
-void SpirvBuilder::addModuleFinishCallToEntryPoints() {
-  if (moduleFinish == nullptr)
-    return;
-
-  for (auto *entry : mod->getEntryPoints()) {
-    auto *instruction = new (context)
-        SpirvFunctionCall(astContext->VoidTy, /* SourceLocation */ {},
-                          moduleFinish, /* params */ {});
-    instruction->setRValue(true);
-    entry->getEntryPoint()->addInstructionBeforeTermination(instruction);
   }
 }
 
@@ -1820,30 +1698,13 @@ void SpirvBuilder::endModuleInitFunction() {
   mod->addFunctionToListOfSortedModuleFunctions(moduleInit);
 }
 
-void SpirvBuilder::endModuleFinishFunction() {
-  if (moduleFinishInsertPoint == nullptr ||
-      moduleFinishInsertPoint->hasTerminator()) {
-    return;
-  }
-
-  auto *oldInsertPoint = insertPoint;
-  switchInsertPointToModuleFinish();
-  createReturn(/* SourceLocation */ {});
-  insertPoint = oldInsertPoint;
-
-  mod->addFunctionToListOfSortedModuleFunctions(moduleFinish);
-}
-
 std::vector<uint32_t> SpirvBuilder::takeModule() {
   endModuleInitFunction();
   addModuleInitCallToEntryPoints();
 
-  endModuleFinishFunction();
-  addModuleFinishCallToEntryPoints();
-
   // Run necessary visitor passes first
-    LiteralTypeVisitor literalTypeVisitor(*astContext, context, spirvOptions);
-    mod->invokeVisitor(&literalTypeVisitor, true);
+  LiteralTypeVisitor literalTypeVisitor(*astContext, context, spirvOptions);
+  mod->invokeVisitor(&literalTypeVisitor, true);
 
   // Propagate NonUniform decorations
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
