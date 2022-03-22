@@ -677,11 +677,10 @@ public:
   /// variable has the extra arrayness for hull/domain shader. In that case, we
   /// handle the extra arrayness by assuming there is one more outmost array
   /// for both var and flattenedVar.
-  void copyToFlattenedStageVar(
-      QualType type, SpirvVariable *var, SpirvVariable *flattenedVar,
-      llvm::ArrayRef<uint32_t> indices, uint32_t extraArraySize,
-      const llvm::DenseMap<SpirvVariable *, InsertPointInfo>
-          &hsCPOutVarToStorePoint);
+  void copyToFlattenedStageVar(QualType type, SpirvVariable *var,
+                               SpirvVariable *flattenedVar,
+                               llvm::ArrayRef<uint32_t> indices,
+                               uint32_t extraArraySize);
 
   /// \brief Decorates the given target with the given location.
   void decorateLocation(SpirvInstruction *target, uint32_t location);

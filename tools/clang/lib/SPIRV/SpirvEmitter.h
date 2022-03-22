@@ -44,6 +44,13 @@ struct DescriptorSetAndBinding {
   uint32_t binding;
 };
 
+struct StageVariableLocationInfo {
+  uint32_t location;
+  uint32_t component;
+  uint32_t extra_array_length;
+  bool is_input_var;
+};
+
 } // namespace opt
 } // namespace spvtools
 
@@ -1101,6 +1108,10 @@ private:
   spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages,
                      const std::vector<spvtools::opt::DescriptorSetAndBinding>
                          *dsetbindingsToCombineImageSampler);
+
+  bool spirvToolsFlattenStageVars(
+      std::vector<uint32_t> *mod, std::string *messages,
+      const std::vector<PackedLocationInfo> &packedLocationInfo);
 
   /// \brief Helper function to run the SPIRV-Tools validator.
   /// Runs the SPIRV-Tools validator on the given SPIR-V module |mod|, and

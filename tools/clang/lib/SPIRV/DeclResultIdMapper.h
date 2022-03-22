@@ -53,6 +53,15 @@ struct LocationAndComponent {
   bool componentAlignment;
 };
 
+// A struct containing information about packed location, component, extra
+// arrayness, and input/output of a stage variable.
+struct PackedLocationInfo {
+  uint32_t location;
+  uint32_t component;
+  uint32_t extraArrayLength;
+  bool isInputVariable;
+};
+
 /// \brief The class containing HLSL and SPIR-V information about a Vulkan stage
 /// (builtin/input/output) variable.
 class StageVar {
@@ -60,13 +69,12 @@ public:
   inline StageVar(const hlsl::SigPoint *sig, SemanticInfo semaInfo,
                   const VKBuiltInAttr *builtin, QualType astType,
                   LocationAndComponent locAndComponentCount,
-                  bool extraArrayness = false)
+                  uint32_t extraArrayness = 0)
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
         locationAndComponentCount(locAndComponentCount), entryPoint(nullptr),
-        locOrBuiltinDecorateAttr(false),
-        typeWithExtraArrayness(extraArrayness) {
+        locOrBuiltinDecorateAttr(false), extraArrayLength(extraArrayness) {
     isBuiltin = builtinAttr != nullptr;
   }
 
@@ -100,7 +108,7 @@ public:
     return locationAndComponentCount;
   }
 
-  bool hasExtraArrayness() const { return typeWithExtraArrayness; }
+  uint32_t getExtraArrayLength() const { return extraArrayLength; }
 
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
@@ -133,8 +141,8 @@ private:
   /// specific for an entry point e.g., built-in, it must be nullptr.
   SpirvFunction *entryPoint;
   bool locOrBuiltinDecorateAttr;
-  /// True if the AST type kept by this struct is an array of the initial type.
-  bool typeWithExtraArrayness;
+  /// The length of extra array used for HS/DS/GS input/output patch.
+  uint32_t extraArrayLength;
 };
 
 /// \brief The struct containing information of stage variable's location and
@@ -501,6 +509,10 @@ public:
                                           ContextUsageKind kind);
   SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl,
                                           ContextUsageKind kind);
+
+  std::vector<PackedLocationInfo> getPackedLocationInfo() const {
+    return packedLocationInfo;
+  }
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -980,9 +992,9 @@ private:
   /// accessed using stage IO variables.
   llvm::DenseMap<uint32_t, SpirvVariable *> builtinToVarMap;
 
-  /// A mapping from SPIR-V variable for HSCPOut signature to the insert point
-  /// of its store instruction.
-  llvm::DenseMap<SpirvVariable *, InsertPointInfo> hsCPOutVarToStorePoint;
+  /// A vector that includes the information of packed locations, components,
+  /// extra arrayness, and input/output of stage variables.
+  std::vector<PackedLocationInfo> packedLocationInfo;
 
   /// Whether the translated SPIR-V binary needs legalization.
   ///

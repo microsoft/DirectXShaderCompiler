@@ -745,6 +745,21 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   auto dsetbindingsToCombineImageSampler =
       collectDSetBindingsToCombineSampledImage(resourceInfoForSampledImages);
 
+  auto packedLocationInfo = declIdMapper.getPackedLocationInfo();
+  if (!packedLocationInfo.empty()) {
+    std::string messages;
+    if (!spirvToolsFlattenStageVars(&m, &messages, packedLocationInfo)) {
+      emitFatalError("failed: %0", {}) << messages;
+      emitNote("please file a bug report on "
+               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+               "with source code if possible",
+               {});
+      return;
+    } else if (!messages.empty()) {
+      emitWarning("SPIR-V flatten stage variables: %0", {}) << messages;
+    }
+  }
+
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
   needsLegalization =
@@ -12948,6 +12963,31 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
     if (!optimizer.RegisterPassesFromFlags(stdFlags))
       return false;
   }
+
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
+bool SpirvEmitter::spirvToolsFlattenStageVars(
+    std::vector<uint32_t> *mod, std::string *messages,
+    const std::vector<PackedLocationInfo> &packedLocationInfo) {
+  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  std::vector<spvtools::opt::StageVariableLocationInfo>
+      stageVariableLocationInfo;
+  for (auto &info : packedLocationInfo) {
+    stageVariableLocationInfo.push_back({info.location, info.component,
+                                         info.extraArrayLength,
+                                         info.isInputVariable});
+  }
+
+  spvtools::OptimizerOptions options;
+  options.set_run_validator(false);
+  optimizer.RegisterPass(spvtools::CreateFlattenArrayMatrixStageVariablePass(
+      stageVariableLocationInfo));
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }

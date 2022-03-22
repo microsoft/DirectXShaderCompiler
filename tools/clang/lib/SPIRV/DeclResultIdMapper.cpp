@@ -1718,10 +1718,12 @@ private:
 /// uses of the same location and component.
 class PackedLocationAndComponentSet {
 public:
-  PackedLocationAndComponentSet(
-      SpirvBuilder &spirvBuilder,
-      llvm::function_ref<uint32_t(uint32_t)> nextLocs)
-      : spvBuilder(spirvBuilder), assignLocs(nextLocs) {}
+  PackedLocationAndComponentSet(SpirvBuilder &spirvBuilder,
+                                llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+                                std::vector<PackedLocationInfo> *packedLocInfo,
+                                bool forInput_)
+      : spvBuilder(spirvBuilder), assignLocs(nextLocs),
+        packedLocationInfo(packedLocInfo), forInput(forInput_) {}
 
   bool assignLocAndComponent(const StageVar *var) {
     // Only scalar or vector or array of them can be decorated with
@@ -1742,11 +1744,6 @@ private:
          startLoc++) {
       bool canAssign = true;
       for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
-        if (locForVarWithExtraArrayness[startLoc + i] !=
-            var->hasExtraArrayness()) {
-          canAssign = false;
-          break;
-        }
         if (startLoc + i >= nextUnusedComponent.size() ||
             nextUnusedComponent[startLoc + i] +
                     requiredLocsAndComponents.component >
@@ -1775,6 +1772,10 @@ private:
     auto requiredLocsAndComponents = var->getLocationAndComponentCount();
     spvBuilder.decorateLocation(var->getSpirvInstr(), assignedLocs[startLoc]);
     spvBuilder.decorateComponent(var->getSpirvInstr(), componentStart);
+
+    packedLocationInfo->push_back({assignedLocs[startLoc], componentStart,
+                                   var->getExtraArrayLength(), forInput});
+
     for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
       nextUnusedComponent[startLoc + i] =
           componentStart + requiredLocsAndComponents.component;
@@ -1787,11 +1788,13 @@ private:
     uint32_t loc = assignLocs(requiredLocsAndComponents.location);
     spvBuilder.decorateLocation(var->getSpirvInstr(), loc);
 
+    packedLocationInfo->push_back(
+        {loc, 0, var->getExtraArrayLength(), forInput});
+
     uint32_t componentCount = requiredLocsAndComponents.component;
     for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
       assignedLocs.push_back(loc + i);
       nextUnusedComponent.push_back(componentCount);
-      locForVarWithExtraArrayness.push_back(var->hasExtraArrayness());
     }
     return true;
   }
@@ -1807,8 +1810,9 @@ private:
   SpirvBuilder &spvBuilder; ///< SPIR-V builder
   llvm::function_ref<uint32_t(uint32_t)> assignLocs;
   llvm::SmallVector<uint32_t, 8> assignedLocs;
-  llvm::SmallVector<bool, 8> locForVarWithExtraArrayness;
   llvm::SmallVector<uint32_t, 8> nextUnusedComponent;
+  std::vector<PackedLocationInfo> *packedLocationInfo;
+  bool forInput;
 };
 
 /// A class for managing resource bindings to avoid duplicate uses of the same
@@ -1944,7 +1948,8 @@ bool DeclResultIdMapper::packSignature(
     const std::vector<const StageVar *> &vars,
     llvm::function_ref<uint32_t(uint32_t)> nextLocs,
     bool forInput) {
-  PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs);
+  PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs,
+                                             &packedLocationInfo, forInput);
   auto assignLocationAndComponent = [&packedLocSet](const StageVar *var) {
     return packedLocSet.assignLocAndComponent(var);
   };
@@ -1989,32 +1994,8 @@ bool DeclResultIdMapper::assignLocationAndComponentToStageVar(
     const StageVar *stageVar,
     llvm::function_ref<bool(const StageVar *)> assignLocAndComponent,
     bool forInput) {
-  // Get the information of the extra arrayness.
-  QualType type = stageVar->getAstType();
-  uint32_t elemCount = 0;
-  if (stageVar->hasExtraArrayness()) {
-    QualType elemType;
-    if (isArrayType(type, &elemType, &elemCount)) {
-      type = elemType;
-    } else {
-      return false;
-    }
-  }
-
-  // Assign the locations and the components.
-  auto locAndComponentCount = stageVar->getLocationAndComponentCount();
-  auto flattenedVars = tryFlatteningArrayOrMatrixStageVar(
-      type, locAndComponentCount, stageVar, {}, forInput, elemCount);
-
-  if (flattenedVars.empty())
-    return assignLocAndComponent(stageVar);
-
-  for (auto &flattenedVar : flattenedVars) {
-    if (!assignLocAndComponent(&flattenedVar))
-      return false;
-  }
-  return replaceStageVarWithFlattenedVars(stageVar, flattenedVars,
-                                          assignLocAndComponent);
+  (void)forInput;
+  return assignLocAndComponent(stageVar);
 }
 
 bool DeclResultIdMapper::replaceStageVarWithFlattenedVars(
@@ -2102,7 +2083,7 @@ StageVar DeclResultIdMapper::createFlattenedStageVar(
                                          extraArraySize);
   } else {
     spvBuilder.copyToFlattenedStageVar(type, var, flattenedVar, indexes,
-                                       extraArraySize, hsCPOutVarToStorePoint);
+                                       extraArraySize);
   }
 
   StageVar flattenedStageVar(
@@ -2816,7 +2797,7 @@ bool DeclResultIdMapper::createStageVars(
     StageVar stageVar(
         sigPoint, *semanticToUse, builtinAttr, evalType,
         // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-        getLocationAndComponentCount(astContext, type), arraySize != 0);
+        getLocationAndComponentCount(astContext, type), arraySize);
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     SpirvVariable *varInstr =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -3133,14 +3114,6 @@ bool DeclResultIdMapper::createStageVars(
       // For all normal cases
       else {
         spvBuilder.createStore(ptr, *value, thisSemantic.loc);
-      }
-
-      if (sigPointKind == hlsl::DXIL::SigPointKind::HSCPOut) {
-        SpirvBasicBlock *insertPointBlock = spvBuilder.getInsertPoint();
-        SpirvInstruction *lastInstr = insertPointBlock->getLastInstruction();
-        auto result = hsCPOutVarToStorePoint.insert(
-            {varInstr, {insertPointBlock, lastInstr}});
-        assert(result.second);
       }
     }
 

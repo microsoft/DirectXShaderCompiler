@@ -1306,34 +1306,16 @@ void SpirvBuilder::syncFlattenedStageVars(QualType type, SpirvVariable *var,
   }
 }
 
-void SpirvBuilder::copyToFlattenedStageVar(
-    QualType type, SpirvVariable *var, SpirvVariable *flattenedVar,
-    llvm::ArrayRef<uint32_t> indices, uint32_t extraArraySize,
-    const llvm::DenseMap<SpirvVariable *, InsertPointInfo>
-        &hsCPOutVarToStorePoint) {
+void SpirvBuilder::copyToFlattenedStageVar(QualType type, SpirvVariable *var,
+                                           SpirvVariable *flattenedVar,
+                                           llvm::ArrayRef<uint32_t> indices,
+                                           uint32_t extraArraySize) {
   assert(var != nullptr && flattenedVar != nullptr &&
          flattenedVar->getStorageClass() == spv::StorageClass::Output);
 
   auto *oldInsertPoint = insertPoint;
-
-  auto itr = hsCPOutVarToStorePoint.find(var);
-  if (itr != hsCPOutVarToStorePoint.end()) {
-    // Since we replace a stage variable for array/matrix HSCPOut with the
-    // flattened ones, the store instruction to only the original stage variable
-    // can cause the issue that the actual stage variables (flattened ones) are
-    // not updated correctly. It is problematic in the patch control function,
-    // because the values of stage variables are shared between threads.
-    // Therefore, we have to update the flattened variables as well.
-    auto storePointInfo = itr->second;
-    insertPoint = storePointInfo.block;
-    insertPoint->setInsertionPointAfter(storePointInfo.instruction);
-    syncFlattenedStageVars(type, var, flattenedVar, indices, extraArraySize);
-    insertPoint->setInsertionPointAfter(nullptr);
-  }
-
   switchInsertPointToModuleFinish();
   syncFlattenedStageVars(type, var, flattenedVar, indices, extraArraySize);
-
   insertPoint = oldInsertPoint;
 }
 
