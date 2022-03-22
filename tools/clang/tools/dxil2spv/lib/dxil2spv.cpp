@@ -201,16 +201,10 @@ void Translator::createEntryFunction(llvm::Function *entryFunction) {
           spvContext.getCurrentShaderModelKind()),
       spirvEntryFunction, spirvEntryFunction->getFunctionName(), interfaceVars);
 
-  // Set execution mode.
-  switch (spvContext.getCurrentShaderModelKind()) {
-  case hlsl::ShaderModel::Kind::Pixel: {
+  // Set execution mode if necessary.
+  if (spvContext.isPS()) {
     spvBuilder.addExecutionMode(spirvEntryFunction,
                                 spv::ExecutionMode::OriginUpperLeft, {}, {});
-  } break;
-  default: {
-    emitError("Support for this shader model kind not yet implemented");
-    return;
-  }
   }
 }
 
