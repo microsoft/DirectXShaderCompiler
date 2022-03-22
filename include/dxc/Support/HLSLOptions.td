@@ -339,6 +339,8 @@ def fvk_use_dx_position_w: Flag<["-"], "fvk-use-dx-position-w">, Group<spirv_Gro
   HelpText<"Reciprocate SV_Position.w after reading from stage input in PS to accommodate the difference between Vulkan and DirectX">;
 def fvk_support_nonzero_base_instance: Flag<["-"], "fvk-support-nonzero-base-instance">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Follow Vulkan spec to use gl_BaseInstance as the first vertex instance, which makes SV_InstanceID = gl_InstanceIndex - gl_BaseInstance (without this option, SV_InstanceID = gl_InstanceIndex)">;
+def fvk_invariant_position: Flag<["-"], "fvk-invariant-position">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Apply the invariant decorator to interpolators with the SV_Position semantic.">;
 def fvk_use_gl_layout: Flag<["-"], "fvk-use-gl-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Use strict OpenGL std140/std430 memory layout for Vulkan resources">;
 def fvk_use_dx_layout: Flag<["-"], "fvk-use-dx-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,

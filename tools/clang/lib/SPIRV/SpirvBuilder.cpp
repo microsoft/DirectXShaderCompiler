@@ -1348,6 +1348,14 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
       loc, var, spv::Decoration::BuiltIn, {static_cast<uint32_t>(builtin)});
   mod->addDecoration(decor);
 
+  // If the setting is enabled, Position is additionally decorated with Invariant.
+  if (spirvOptions.invariantPosition && builtin == spv::BuiltIn::Position)
+  {
+    auto *invariantDecor = new (context) SpirvDecoration(
+        loc, var, spv::Decoration::Invariant);
+    module->addDecoration(invariantDecor);
+  }
+
   // Add variable to cache.
   builtinVars.emplace_back(storageClass, builtin, var);
 
