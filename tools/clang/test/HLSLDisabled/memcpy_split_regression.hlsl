@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -Od %s | FileCheck %s
+// 38575954: ARM64-only compiler crash in memcpy_split_regression.hlsl and memcpy_split_regression-strictudt.hlsl
 
 //
 // CHECK: @main
