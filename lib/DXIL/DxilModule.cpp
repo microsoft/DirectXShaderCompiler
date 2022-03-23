@@ -231,12 +231,19 @@ const Function *DxilModule::GetEntryFunction() const {
   return m_pEntryFunc;
 }
 
-llvm::SmallVector<llvm::Function *, 64> DxilModule::GetExportedFunctions() const {
+llvm::SmallVector<llvm::Function *, 64> DxilModule::GetExportedFunctions() {
     llvm::SmallVector<llvm::Function *, 64> ret;
     for (auto const& fn : m_DxilEntryPropsMap) {
       if (fn.first != nullptr) {
         ret.push_back(const_cast<llvm::Function*>(fn.first));
       }
+    }
+    if (ret.empty()) {
+      auto *entryFunction = m_pEntryFunc;
+      if (entryFunction == nullptr) {
+        entryFunction = GetPatchConstantFunction();
+      }
+      ret.push_back(entryFunction);
     }
     return ret;
 }
