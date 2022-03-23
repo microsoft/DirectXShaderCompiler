@@ -972,12 +972,15 @@ bool DxilDebugInstrumentation::RunOnFunction(
   DxilModule &DM,
   llvm::Function * entryFunction) 
 {
+  DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
   if (!DM.HasDxilFunctionProps(entryFunction)) {
-    return false;
+    auto ShaderModel = DM.GetShaderModel();
+    shaderKind = ShaderModel->GetKind();
+  } else {
+    hlsl::DxilFunctionProps const &props =
+        DM.GetDxilFunctionProps(entryFunction);
+    shaderKind = props.shaderKind;
   }
-
-  hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(entryFunction);
-  DXIL::ShaderKind shaderKind = props.shaderKind;
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
