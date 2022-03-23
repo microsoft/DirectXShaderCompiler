@@ -443,6 +443,15 @@ if %Failed% neq 0 goto :failed
 call :run dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 
+set testname=Test display include process with /Vi
+mkdir inc       2>nul
+copy "%testfiles%\include-declarations.h" inc  >nul
+call :run dxc.exe -Tps_6_0 -Vi -I inc "%testfiles%\include-main.hlsl"
+if %Failed% neq 0 goto :failed
+call :check-file log find "; Opening file ["
+call :check-file log find "inc\include-declarations.h], stack top [0]"
+if %Failed% neq 0 goto :failed
+
 set testname=Test Version macro
 for %%v in (2016 2017 2018 2021) do (
   call :run dxc.exe -HV %%v -P %%v.hlsl.pp %testfiles%\VersionMacro.hlsl
