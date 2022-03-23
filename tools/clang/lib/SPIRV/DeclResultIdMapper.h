@@ -728,10 +728,9 @@ private:
   /// stage variables to the existing input stage variables before calling the
   /// entry function and copies the existing output stage variables to the
   /// unified stage variables after calling the entry function.
-  bool packSignature(
-      const std::vector<const StageVar *> &vars,
-      llvm::function_ref<uint32_t(uint32_t)> nextLocs,
-      bool forInput);
+  bool packSignature(const std::vector<const StageVar *> &vars,
+                     llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+                     bool forInput);
   bool packSignatureInternal(
       const std::vector<const StageVar *> &vars,
       llvm::function_ref<bool(const StageVar *)> assignLocAndComponent,

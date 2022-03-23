@@ -1946,8 +1946,7 @@ bool DeclResultIdMapper::isDuplicatedStageVarLocation(
 
 bool DeclResultIdMapper::packSignature(
     const std::vector<const StageVar *> &vars,
-    llvm::function_ref<uint32_t(uint32_t)> nextLocs,
-    bool forInput) {
+    llvm::function_ref<uint32_t(uint32_t)> nextLocs, bool forInput) {
   PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs,
                                              &packedLocationInfo, forInput);
   auto assignLocationAndComponent = [&packedLocSet](const StageVar *var) {

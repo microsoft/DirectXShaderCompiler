@@ -18,6 +18,7 @@
 #include "RawBufferMethods.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "spirv-opt/flatten_array_matrix_stage_var.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvUtils.h"
@@ -744,20 +745,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   auto dsetbindingsToCombineImageSampler =
       collectDSetBindingsToCombineSampledImage(resourceInfoForSampledImages);
 
-  auto packedLocationInfo = declIdMapper.getPackedLocationInfo();
-  if (!packedLocationInfo.empty()) {
-    std::string messages;
-    if (!spirvToolsFlattenStageVars(&m, &messages, packedLocationInfo)) {
-      emitFatalError("failed: %0", {}) << messages;
-      emitNote("please file a bug report on "
-               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
-               "with source code if possible",
-               {});
-      return;
-    } else if (!messages.empty()) {
-      emitWarning("SPIR-V flatten stage variables: %0", {}) << messages;
-    }
-  }
+  if (!runSpirvOptPassesInDXC(&m))
+    return;
 
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
@@ -12966,29 +12955,45 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
-bool SpirvEmitter::spirvToolsFlattenStageVars(
-    std::vector<uint32_t> *mod, std::string *messages,
-    const std::vector<PackedLocationInfo> &packedLocationInfo) {
+bool SpirvEmitter::runSpirvOptPassesInDXC(std::vector<uint32_t> *mod) {
+  std::string messages;
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
   optimizer.SetMessageConsumer(
-      [messages](spv_message_level_t /*level*/, const char * /*source*/,
-                 const spv_position_t & /*position*/,
-                 const char *message) { *messages += message; });
+      [&messages](spv_message_level_t /*level*/, const char * /*source*/,
+                  const spv_position_t & /*position*/,
+                  const char *message) { messages += message; });
+  bool has_passes_to_run = false;
 
-  std::vector<spvtools::opt::StageVariableLocationInfo>
-      stageVariableLocationInfo;
-  for (auto &info : packedLocationInfo) {
-    stageVariableLocationInfo.push_back({info.location, info.component,
-                                         info.extraArrayLength,
-                                         info.isInputVariable});
+  auto packedLocationInfo = declIdMapper.getPackedLocationInfo();
+  if (!packedLocationInfo.empty()) {
+    std::vector<spvtools::opt::StageVariableLocationInfo>
+        stageVariableLocationInfo;
+    for (auto &info : packedLocationInfo) {
+      stageVariableLocationInfo.push_back({info.location, info.component,
+                                           info.extraArrayLength,
+                                           info.isInputVariable});
+    }
+    optimizer.RegisterPass(spvtools::CreateFlattenArrayMatrixStageVariablePass(
+        stageVariableLocationInfo));
+    has_passes_to_run = true;
   }
 
-  spvtools::OptimizerOptions options;
-  options.set_run_validator(false);
-  optimizer.RegisterPass(spvtools::CreateFlattenArrayMatrixStageVariablePass(
-      stageVariableLocationInfo));
-
-  return optimizer.Run(mod->data(), mod->size(), mod, options);
+  if (has_passes_to_run) {
+    spvtools::OptimizerOptions options;
+    options.set_run_validator(false);
+    if (optimizer.Run(mod->data(), mod->size(), mod, options)) {
+      if (!messages.empty())
+        emitWarning("failed: %0", {}) << messages;
+      return true;
+    }
+    emitFatalError("failed: %0", {}) << messages;
+    emitNote("please file a bug report on "
+             "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+             "with source code if possible",
+             {});
+    return false;
+  }
+  return true;
 }
 
 bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,

@@ -33,6 +33,7 @@ add_clang_library(clangSPIRV
   SpirvType.cpp
   String.cpp
   SpirvUtils.cpp
+  spirv-opt/flatten_array_matrix_stage_var.cpp
 
   LINK_LIBS
   clangAST
@@ -44,4 +45,6 @@ add_clang_library(clangSPIRV
 
 target_include_directories(clangSPIRV PUBLIC ${SPIRV_HEADER_INCLUDE_DIR})
 target_include_directories(clangSPIRV PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
+target_include_directories(clangSPIRV PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR}/../)
+target_include_directories(clangSPIRV PRIVATE ${spirv-tools_BINARY_DIR})
 add_dependencies(clangSPIRV TablegenHLSLOptions)
