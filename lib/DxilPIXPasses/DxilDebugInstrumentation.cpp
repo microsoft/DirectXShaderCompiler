@@ -972,19 +972,15 @@ bool DxilDebugInstrumentation::RunOnFunction(
   DxilModule &DM,
   llvm::Function * entryFunction) 
 {
-  auto functionForProps = entryFunction;
-  if (!DM.HasDxilFunctionProps(functionForProps)) {
-    // In the dxbc2dxil hull-shader case, the function prop map will have one
-    // entry with a key of nullptr.
-    functionForProps = nullptr;
+  DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
+  if (!DM.HasDxilFunctionProps(entryFunction)) {
+    auto ShaderModel = DM.GetShaderModel();
+    shaderKind = ShaderModel->GetKind();
+  } else {
+    hlsl::DxilFunctionProps const &props =
+        DM.GetDxilFunctionProps(entryFunction);
+    shaderKind = props.shaderKind;
   }
-  if (!DM.HasDxilFunctionProps(functionForProps)) {
-    return false;
-  }
-
-  hlsl::DxilFunctionProps const &props =
-      DM.GetDxilFunctionProps(functionForProps);
-  DXIL::ShaderKind shaderKind = props.shaderKind;
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
