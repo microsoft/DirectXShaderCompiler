@@ -202,9 +202,6 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
 std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
     std::vector<llvm::BasicBlock*> ret;
     auto entryPoints = DM.GetExportedFunctions();
-    if (entryPoints.empty()) {
-      entryPoints.push_back(GetEntryFunction(DM));
-    }
     for (auto& fn : entryPoints) {
       auto& blocks = fn->getBasicBlockList();
       for (auto& block : blocks) {
