@@ -18,6 +18,7 @@
 #include "RelaxedPrecisionVisitor.h"
 #include "RemoveBufferBlockVisitor.h"
 #include "SortDebugInfoVisitor.h"
+#include "SpirvTypeVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/String.h"
 
@@ -52,6 +53,17 @@ SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
   return fn;
 }
 
+SpirvFunction *SpirvBuilder::createSpirvFunction(const SpirvType *returnType,
+                                                 SourceLocation loc,
+                                                 llvm::StringRef name,
+                                                 bool isPrecise,
+                                                 bool isNoInline) {
+  auto *fn =
+      new (context) SpirvFunction(returnType, loc, name, isPrecise, isNoInline);
+  mod->addFunction(fn);
+  return fn;
+}
+
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
                                            SourceLocation loc,
                                            llvm::StringRef funcName,
@@ -61,6 +73,27 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
   if (func) {
     function = func;
     function->setAstReturnType(returnType);
+    function->setSourceLocation(loc);
+    function->setFunctionName(funcName);
+    function->setPrecise(isPrecise);
+    function->setNoInline(isNoInline);
+  } else {
+    function =
+        createSpirvFunction(returnType, loc, funcName, isPrecise, isNoInline);
+  }
+
+  return function;
+}
+
+SpirvFunction *SpirvBuilder::beginFunction(const SpirvType *returnType,
+                                           SourceLocation loc,
+                                           llvm::StringRef funcName,
+                                           bool isPrecise, bool isNoInline,
+                                           SpirvFunction *func) {
+  assert(!function && "found nested function");
+  if (func) {
+    function = func;
+    function->setReturnType(returnType);
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
@@ -1557,6 +1590,14 @@ SpirvConstant *SpirvBuilder::getConstantInt(QualType type, llvm::APInt value,
   return intConst;
 }
 
+SpirvConstant *SpirvBuilder::getConstantInt(const SpirvType *type,
+                                            llvm::APInt value, bool specConst) {
+  // We do not reuse existing constant integers. Just create a new one.
+  auto *intConst = new (context) SpirvConstantInteger(type, value, specConst);
+  mod->addConstant(intConst);
+  return intConst;
+}
+
 SpirvConstant *SpirvBuilder::getConstantFloat(QualType type,
                                               llvm::APFloat value,
                                               bool specConst) {
@@ -1658,17 +1699,17 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   mod->invokeVisitor(&nonUniformVisitor);
 
   // Lower types
-    LowerTypeVisitor lowerTypeVisitor(*astContext, context, spirvOptions);
-    mod->invokeVisitor(&lowerTypeVisitor);
+  LowerTypeVisitor lowerTypeVisitor(*astContext, context, spirvOptions);
+  mod->invokeVisitor(&lowerTypeVisitor);
 
-    // Generate debug types (if needed)
-    if (spirvOptions.debugInfoRich) {
-      DebugTypeVisitor debugTypeVisitor(*astContext, context, spirvOptions,
-                                        *this, lowerTypeVisitor);
-      SortDebugInfoVisitor sortDebugInfoVisitor(context, spirvOptions);
-      mod->invokeVisitor(&debugTypeVisitor);
-      mod->invokeVisitor(&sortDebugInfoVisitor);
-    }
+  // Generate debug types (if needed)
+  if (spirvOptions.debugInfoRich) {
+    DebugTypeVisitor debugTypeVisitor(*astContext, context, spirvOptions, *this,
+                                      lowerTypeVisitor);
+    SortDebugInfoVisitor sortDebugInfoVisitor(context, spirvOptions);
+    mod->invokeVisitor(&debugTypeVisitor);
+    mod->invokeVisitor(&sortDebugInfoVisitor);
+  }
 
   // Add necessary capabilities and extensions
   CapabilityVisitor capabilityVisitor(*astContext, context, spirvOptions, *this,
@@ -1703,6 +1744,10 @@ std::vector<uint32_t> SpirvBuilder::takeModuleForDxilToSpv() {
   // Propagate NonUniform decorations
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
   mod->invokeVisitor(&nonUniformVisitor);
+
+  // Amend SPIR-V types.
+  SpirvTypeVisitor spirvTypeVisitor(context, spirvOptions);
+  mod->invokeVisitor(&spirvTypeVisitor);
 
   // Add necessary capabilities and extensions
   CapabilityVisitor capabilityVisitor(*astContext, context, spirvOptions, *this,

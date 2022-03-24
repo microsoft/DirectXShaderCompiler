@@ -175,7 +175,9 @@ enum class DxilShaderVisibility {
 enum class DxilStaticBorderColor {
   TransparentBlack = 0,
   OpaqueBlack = 1,
-  OpaqueWhite = 2
+  OpaqueWhite = 2,
+  OpaqueBlackUint = 3,
+  OpaqueWhiteUint = 4
 };
 enum class DxilTextureAddressMode {
   Wrap = 1,

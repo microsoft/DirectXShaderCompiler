@@ -14,6 +14,7 @@
 #include "Dxil2SpvTestOptions.h"
 #include "dxil2spv/lib/dxil2spv.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "gtest/gtest.h"
 
@@ -44,18 +45,20 @@ bool translateFileWithDxil2Spv(const llvm::StringRef inputFilePath,
                                std::string *errorMessages) {
   bool success = true;
 
-  hlsl::options::StringRefWide filename(inputFilePath);
-
   std::string stdoutStr;
   std::string stderrStr;
   llvm::raw_string_ostream OS(stdoutStr);
   llvm::raw_string_ostream ERR(stderrStr);
 
   try {
-    dxc::DxcDllSupport dxcSupport;
-    IFT(dxcSupport.Initialize());
-    CComPtr<IDxcBlobEncoding> blob;
-    ReadFileIntoBlob(dxcSupport, filename, &blob);
+    // Configure filesystem.
+    llvm::sys::fs::MSFileSystem *msfPtr;
+    HRESULT hr;
+    if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))
+      return DXC_E_GENERAL_INTERNAL_ERROR;
+    std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
 
     // Set up diagnostics.
     CompilerInstance instance;
@@ -63,9 +66,10 @@ bool translateFileWithDxil2Spv(const llvm::StringRef inputFilePath,
         new clang::TextDiagnosticPrinter(ERR, new clang::DiagnosticOptions());
     instance.createDiagnostics(diagnosticPrinter, false);
     instance.setOutStream(&OS);
+    instance.getCodeGenOpts().MainFileName = inputFilePath;
 
     Translator translator(instance);
-    translator.Run(blob);
+    translator.Run();
   } catch (...) {
     success = false;
   }

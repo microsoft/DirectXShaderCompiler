@@ -3107,8 +3107,6 @@ private:
   // Map from object decl to the object index.
   using ObjectTypeDeclMapType = std::array<std::pair<CXXRecordDecl*,unsigned>, _countof(g_ArBasicKindsAsTypes)+_countof(g_DeprecatedEffectObjectNames)>;
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
-  // Mask for object which not has methods created.
-  std::bitset<_countof(g_ArBasicKindsAsTypes)> m_objectTypeLazyInitMask;
 
   UsedIntrinsicStore m_usedIntrinsics;
 
@@ -3559,7 +3557,6 @@ private:
 
     QualType float4Type = LookupVectorType(HLSLScalarType_float, 4);
     TypeSourceInfo *float4TypeSourceInfo = m_context->getTrivialTypeSourceInfo(float4Type, NoLoc);
-    m_objectTypeLazyInitMask.reset();
     unsigned effectKindIndex = 0;
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
@@ -3665,7 +3662,6 @@ private:
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
-      m_objectTypeLazyInitMask.set(i);
     }
 
     // Create an alias for SamplerState. 'sampler' is very commonly used.
@@ -4498,7 +4494,7 @@ public:
   /// <summary>Validate object element on intrinsic to catch case like integer on Sample.</summary>
   /// <param name="pIntrinsic">Intrinsic function to validate.</param>
   /// <param name="objectElement">Type element on the class intrinsic belongs to; possibly null (eg, 'float' in 'Texture2D<float>').</param>
-  bool IsValidateObjectElement(
+  bool IsValidObjectElement(
     _In_ const HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement);
 
@@ -5126,22 +5122,26 @@ public:
   /// </remarks>
   ImplicitConversionSequence TrySubscriptIndexInitialization(_In_ clang::Expr* SrcExpr, clang::QualType DestType);
 
-  void AddHLSLObjectMethodsIfNotReady(QualType qt) {
-    // Everything is ready.
-    if (m_objectTypeLazyInitMask.none())
+  void CompleteType(TagDecl *Tag) override {
+    if (Tag->isCompleteDefinition() || !isa<CXXRecordDecl>(Tag))
       return;
-    CXXRecordDecl *recordDecl = const_cast<CXXRecordDecl *>(GetRecordDeclForBuiltInOrStruct(qt->getAsCXXRecordDecl()));
+
+    CXXRecordDecl *recordDecl = cast<CXXRecordDecl>(Tag);
+    if (auto TDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
+      recordDecl = TDecl->getSpecializedTemplate()->getTemplatedDecl();
+
+      if (recordDecl->isCompleteDefinition())
+        return;
+    }
+
     int idx = FindObjectBasicKindIndex(recordDecl);
     // Not object type.
     if (idx == -1)
       return;
-    // Already created.
-    if (!m_objectTypeLazyInitMask[idx])
-      return;
-    
+
     ArBasicKind kind = g_ArBasicKindsAsTypes[idx];
     uint8_t templateArgCount = g_ArBasicKindsTemplateCount[idx];
-    
+
     int startDepth = 0;
 
     if (templateArgCount > 0) {
@@ -5154,8 +5154,7 @@ public:
     }
 
     AddObjectMethods(kind, recordDecl, startDepth);
-    // Clear the object.
-    m_objectTypeLazyInitMask.reset(idx);
+    recordDecl->completeDefinition();
   }
 
   FunctionDecl* AddHLSLIntrinsicMethod(
@@ -5740,8 +5739,8 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
 }
 
 _Use_decl_annotations_ bool
-HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
-                                            QualType objectElement) {
+HLSLExternalSource::IsValidObjectElement(const HLSL_INTRINSIC *pIntrinsic,
+                                         QualType objectElement) {
   IntrinsicOp op = static_cast<IntrinsicOp>(pIntrinsic->Op);
   switch (op) {
   case IntrinsicOp::MOP_Sample:
@@ -5753,7 +5752,16 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
   case IntrinsicOp::MOP_SampleLevel: {
     ArBasicKind kind = GetTypeElementKind(objectElement);
     UINT uBits = GET_BPROP_BITS(kind);
-    return IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64;
+    if (IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64)
+      return true;
+    // 6.7 adds UINT sampler support
+    if (IS_BASIC_UINT(kind) || IS_BASIC_SINT(kind)) {
+      const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+      return SM->IsSM67Plus();
+    }
+    return false;
+
   }
   case IntrinsicOp::MOP_GatherRaw: {
     ArBasicKind kind = GetTypeElementKind(objectElement);
@@ -9919,7 +9927,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
-    if (IsBuiltinTable(tableName) && !IsValidateObjectElement(*cursor, objectElement)) {
+    if (IsBuiltinTable(tableName) && !IsValidObjectElement(*cursor, objectElement)) {
       UINT numEles = GetNumElements(objectElement);
       std::string typeName(g_ArBasicTypeNames[GetTypeElementKind(objectElement)]);
       if (numEles > 1) typeName += std::to_string(numEles);
@@ -12739,16 +12747,12 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       D.setInvalidType();
       return false;
     }
-    // Add methods if not ready.
-    hlslSource->AddHLSLObjectMethodsIfNotReady(qt);
   } else if (qt->isArrayType()) {
     QualType eltQt(qt->getArrayElementTypeNoTypeQual(), 0);
     while (eltQt->isArrayType())
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
 
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
-      // Add methods if not ready.
-      hlslSource->AddHLSLObjectMethodsIfNotReady(eltQt);
       bIsObject = true;
     }
   }

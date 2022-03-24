@@ -27,6 +27,9 @@ public:
   SpirvFunction(QualType astReturnType, SourceLocation,
                 llvm::StringRef name = "", bool precise = false,
                 bool noInline = false);
+  SpirvFunction(const SpirvType *spirvReturnType, SourceLocation,
+                llvm::StringRef name = "", bool precise = false,
+                bool noInline = false);
 
   ~SpirvFunction();
 

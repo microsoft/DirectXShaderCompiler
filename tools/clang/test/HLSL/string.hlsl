@@ -12,14 +12,15 @@ string s_global2 = "my global string 2";
 string s_global3 = s_global1;
 /*verify-ast
   VarDecl <col:1, col:20> col:8 s_global3 'string':'string' static cinit
-  `-DeclRefExpr <col:20> 'string':'string' lvalue Var 's_global1' 'string':'string'
+  `-ImplicitCastExpr <col:20> 'string':'string' <LValueToRValue>
+    `-DeclRefExpr <col:20> 'string':'string' lvalue Var 's_global1' 'string':'string'
   */
 
 string s_global_concat = "my string " "with "
 /*verify-ast
-  VarDecl <col:1, line:25:4> line:18:8 s_global_concat 'string':'string' static cinit
-  `-ImplicitCastExpr <col:26, line:25:4> 'const string' <ArrayToPointerDecay>
-    `-StringLiteral <col:26, line:25:4> 'literal string' lvalue "my string with broken up parts"
+  VarDecl <col:1, line:26:4> line:19:8 s_global_concat 'string':'string' static cinit
+  `-ImplicitCastExpr <col:26, line:26:4> 'const string' <ArrayToPointerDecay>
+    `-StringLiteral <col:26, line:26:4> 'literal string' lvalue "my string with broken up parts"
   */
    "broken up"
    " parts";

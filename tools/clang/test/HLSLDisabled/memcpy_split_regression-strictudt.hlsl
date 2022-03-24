@@ -1,3 +1,6 @@
+// This test is disabled because it crashes on ARM64. Bug filed:
+// 38575954: ARM64-only compiler crash in memcpy_split_regression-strictudt.hlsl
+
 // RUN: %dxc -E main -T ps_6_0 -Od -strict-udt-casting %s | FileCheck %s
 // RUN: %dxc -E main -T ps_6_0 -Od -HV 2021 %s | FileCheck %s
 
