@@ -117,7 +117,8 @@ void CreateLocationDecoration(analysis::DecorationManager *decoration_mgr,
                               uint32_t literal) {
   std::vector<Operand> operands({
       {spv_operand_type_t::SPV_OPERAND_TYPE_ID, {var_id}},
-      {spv_operand_type_t::SPV_OPERAND_TYPE_DECORATION, {decoration}},
+      {spv_operand_type_t::SPV_OPERAND_TYPE_DECORATION,
+       {static_cast<uint32_t>(decoration)}},
       {spv_operand_type_t::SPV_OPERAND_TYPE_LITERAL_INTEGER, {literal}},
   });
   decoration_mgr->AddDecoration(SpvOpDecorate, std::move(operands));
