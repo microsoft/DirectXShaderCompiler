@@ -66,14 +66,11 @@ public:
 class DxcCompilerArgs : public IDxcCompilerArgs {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
-  std::unordered_set<std::wstring> m_Strings;
+  std::list<std::wstring> m_Strings;
   std::vector<LPCWSTR> m_Arguments;
 
-  LPCWSTR AddArgument(LPCWSTR pArg) {
-    auto it = m_Strings.insert(pArg);
-    LPCWSTR pInternalVersion = (it.first)->c_str();
-    m_Arguments.push_back(pInternalVersion);
-    return pInternalVersion;
+  void AddArgument(LPCWSTR pArg) {
+    m_Strings.push_back(pArg);
   }
 
 public:
@@ -86,10 +83,16 @@ public:
 
   // Pass GetArguments() and GetCount() to Compile
   LPCWSTR* STDMETHODCALLTYPE GetArguments() override {
+    if (m_Arguments.size() != m_Strings.size()) {
+      m_Arguments.clear();
+      for (auto const &arg : m_Strings) {
+        m_Arguments.push_back(arg.c_str());
+      }
+    }
     return m_Arguments.data();
   }
   UINT32 STDMETHODCALLTYPE GetCount() override {
-    return static_cast<UINT32>(m_Arguments.size());
+    return static_cast<UINT32>(m_Strings.size());
   }
 
   // Add additional arguments or defines here, if desired.
