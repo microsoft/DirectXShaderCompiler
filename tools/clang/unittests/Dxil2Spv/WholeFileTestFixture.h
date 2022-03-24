@@ -53,6 +53,8 @@ private:
   std::string inputFilePath;     ///< Path to the input test file
   std::string expectedSpirvAsm;  ///< Expected SPIR-V parsed from input
   std::string generatedSpirvAsm; ///< Disassembled binary (SPIR-V code)
+  std::string expectedErrors;    ///< Expected errors parsed from input
+  std::string generatedErrors;   ///< Actual errors from running
 };
 
 } // end namespace dxil2spv
