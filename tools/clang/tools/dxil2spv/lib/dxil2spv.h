@@ -12,6 +12,7 @@
 #ifndef __DXIL2SPV_DXIL2SPV__
 #define __DXIL2SPV_DXIL2SPV__
 
+#include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include "dxc/dxcapi.h"
@@ -55,8 +56,12 @@ private:
       const std::vector<std::unique_ptr<hlsl::DxilSignatureElement>>
           &outputSignature);
 
+  // Create SPIR-V module variables from DXIL resources.
+  void createModuleVariables(
+      const std::vector<std::unique_ptr<hlsl::DxilResource>> &resources);
+
   // Create SPIR-V entry function from DXIL function.
-  void createEntryFunction(llvm::Function *function);
+  spirv::SpirvFunction *createEntryFunction(llvm::Function *function);
 
   // Create SPIR-V basic block from DXIL basic block.
   void createBasicBlock(llvm::BasicBlock &basicBlock);
@@ -73,6 +78,7 @@ private:
   const spirv::SpirvType *toSpirvType(hlsl::CompType compType);
   const spirv::SpirvType *toSpirvType(hlsl::DxilSignatureElement *elem);
   const spirv::SpirvType *toSpirvType(llvm::Type *llvmType);
+  const spirv::SpirvType *toSpirvType(llvm::StructType *structType);
 
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]);
 };

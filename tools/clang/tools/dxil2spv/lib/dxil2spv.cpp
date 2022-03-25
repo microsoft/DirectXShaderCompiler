@@ -24,6 +24,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 
+#include "dxc/DXIL/DxilOperations.h"
 #include "spirv-tools/libspirv.hpp"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CodeGenOptions.h"
@@ -114,7 +115,25 @@ int Translator::Run() {
                          program.GetOutputSignature().GetElements());
 
   // Create entry function.
-  createEntryFunction(program.GetEntryFunction());
+  spirv::SpirvFunction *entryFunction =
+      createEntryFunction(program.GetEntryFunction());
+
+  // Set execution mode if necessary.
+  if (spvContext.isPS()) {
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::OriginUpperLeft, {}, {});
+  }
+  if (spvContext.isCS()) {
+    spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                                {program.GetNumThreads(0),
+                                 program.GetNumThreads(1),
+                                 program.GetNumThreads(2)},
+                                {});
+  }
+
+  // Add HLSL resources.
+  createModuleVariables(program.GetSRVs());
+  createModuleVariables(program.GetUAVs());
 
   // Contsruct the SPIR-V module.
   std::vector<uint32_t> m = spvBuilder.takeModuleForDxilToSpv();
@@ -178,7 +197,20 @@ void Translator::createStageIOVariables(
   }
 }
 
-void Translator::createEntryFunction(llvm::Function *entryFunction) {
+void Translator::createModuleVariables(
+    const std::vector<std::unique_ptr<hlsl::DxilResource>> &resources) {
+  for (const std::unique_ptr<hlsl::DxilResource> &resource : resources) {
+    llvm::Type *hlslType = resource->GetHLSLType();
+    assert(hlslType->isPointerTy());
+    llvm::Type *pointeeType =
+        cast<llvm::PointerType>(hlslType)->getPointerElementType();
+    spvBuilder.addModuleVar(toSpirvType(pointeeType),
+                            spv::StorageClass::Uniform, false);
+  }
+}
+
+spirv::SpirvFunction *
+Translator::createEntryFunction(llvm::Function *entryFunction) {
   spirv::SpirvFunction *spirvEntryFunction =
       spvBuilder.beginFunction(toSpirvType(entryFunction->getReturnType()), {},
                                entryFunction->getName());
@@ -200,12 +232,7 @@ void Translator::createEntryFunction(llvm::Function *entryFunction) {
       spirv::SpirvUtils::getSpirvShaderStage(
           spvContext.getCurrentShaderModelKind()),
       spirvEntryFunction, spirvEntryFunction->getFunctionName(), interfaceVars);
-
-  // Set execution mode if necessary.
-  if (spvContext.isPS()) {
-    spvBuilder.addExecutionMode(spirvEntryFunction,
-                                spv::ExecutionMode::OriginUpperLeft, {}, {});
-  }
+  return spirvEntryFunction;
 }
 
 void Translator::createBasicBlock(llvm::BasicBlock &basicBlock) {
@@ -234,7 +261,8 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
       createStoreOutputInstruction(callInstruction);
     } break;
     default: {
-      emitError("Unhandled DXIL opcode");
+      emitError("Unhandled DXIL opcode: %0")
+          << hlsl::OP::GetOpCodeName(dxilOpcode);
     } break;
     }
   } else if (isa<llvm::ReturnInst>(instruction)) {
@@ -324,7 +352,8 @@ const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {
   else if (compType.IsUIntTy())
     return spvContext.getUIntType(compType.GetSizeInBits());
 
-  llvm_unreachable("Unhandled DXIL Component Type");
+  emitError("Unhandled DXIL Component Type: %0") << compType.GetName();
+  return nullptr;
 }
 
 const spirv::SpirvType *
@@ -348,7 +377,46 @@ Translator::toSpirvType(hlsl::DxilSignatureElement *elem) {
 const spirv::SpirvType *Translator::toSpirvType(llvm::Type *llvmType) {
   if (llvmType->isVoidTy())
     return new spirv::VoidType();
-  return toSpirvType(hlsl::CompType::GetCompType(llvmType));
+
+  if (llvmType->isIntegerTy() || llvmType->isFloatingPointTy())
+    return toSpirvType(hlsl::CompType::GetCompType(llvmType));
+
+  if (llvmType->isStructTy()) {
+    return toSpirvType(cast<llvm::StructType>(llvmType));
+  }
+
+  std::string typeStr;
+  llvm::raw_string_ostream os(typeStr);
+  llvmType->print(os);
+  emitError("Unhandled LLVM type: %0") << os.str();
+
+  return nullptr;
+}
+
+const spirv::SpirvType *Translator::toSpirvType(llvm::StructType *structType) {
+  // Remove prefix from struct name.
+  llvm::StringRef prefix = "struct.";
+  llvm::StringRef name = structType->getName();
+  if (name.startswith(prefix))
+    name = name.drop_front(prefix.size());
+
+  // ByteAddressBuffer types.
+  if (name == "ByteAddressBuffer") {
+    return spvContext.getByteAddressBufferType(/*isRW*/ false);
+  }
+
+  // RWByteAddressBuffer types.
+  if (name == "RWByteAddressBuffer") {
+    return spvContext.getByteAddressBufferType(/*isRW*/ true);
+  }
+
+  // Other struct types.
+  std::vector<spirv::StructType::FieldInfo> fields;
+  fields.reserve(structType->getNumElements());
+  for (llvm::Type *elemType : structType->elements()) {
+    fields.emplace_back(toSpirvType(elemType));
+  }
+  return spvContext.getStructType(fields, name);
 }
 
 template <unsigned N>
