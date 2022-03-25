@@ -67,6 +67,7 @@ bool translateFileWithDxil2Spv(const llvm::StringRef inputFilePath,
     instance.createDiagnostics(diagnosticPrinter, false);
     instance.setOutStream(&OS);
     instance.getCodeGenOpts().MainFileName = inputFilePath;
+    instance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
 
     Translator translator(instance);
     translator.Run();
