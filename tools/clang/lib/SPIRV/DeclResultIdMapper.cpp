@@ -1719,10 +1719,8 @@ private:
 class PackedLocationAndComponentSet {
 public:
   PackedLocationAndComponentSet(SpirvBuilder &spirvBuilder,
-                                llvm::function_ref<uint32_t(uint32_t)> nextLocs,
-                                bool forInput_)
-      : spvBuilder(spirvBuilder), assignLocs(nextLocs),
-        forInput(forInput_) {}
+                                llvm::function_ref<uint32_t(uint32_t)> nextLocs)
+      : spvBuilder(spirvBuilder), assignLocs(nextLocs) {}
 
   bool assignLocAndComponent(const StageVar *var) {
     if (tryReuseLocations(var)) {
@@ -1798,7 +1796,6 @@ private:
   llvm::SmallVector<uint32_t, 8>
       nextUnusedComponent; ///< A vector to keep the starting unused component
                            ///< number in each assigned location
-  bool forInput;
 };
 
 /// A class for managing resource bindings to avoid duplicate uses of the same
@@ -1933,7 +1930,7 @@ bool DeclResultIdMapper::isDuplicatedStageVarLocation(
 bool DeclResultIdMapper::packSignature(
     const std::vector<const StageVar *> &vars,
     llvm::function_ref<uint32_t(uint32_t)> nextLocs, bool forInput) {
-  PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs, forInput);
+  PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs);
   auto assignLocationAndComponent = [&packedLocSet](const StageVar *var) {
     return packedLocSet.assignLocAndComponent(var);
   };

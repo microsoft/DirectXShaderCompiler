@@ -3094,4 +3094,9 @@ TEST_F(FileTest, DefineSpirvMacro) {
   runFileTest("ifdef.spirv.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, SignaturePacking) { runFileTest("signature.packing.hlsl"); }
+TEST_F(FileTest, SignaturePackingHS) {
+  runFileTest("signature.packing.hs.hlsl");
+}
+
 } // namespace
