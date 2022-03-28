@@ -627,6 +627,10 @@ public:
                                     spv::StorageClass storageClass,
                                     spv::BuiltIn, bool isPrecise,
                                     SourceLocation loc);
+  SpirvVariable *addStageBuiltinVar(const SpirvType *type,
+                                    spv::StorageClass storageClass,
+                                    spv::BuiltIn, bool isPrecise,
+                                    SourceLocation loc);
 
   /// \brief Adds a module variable. This variable should not have the Function
   /// storage class.
