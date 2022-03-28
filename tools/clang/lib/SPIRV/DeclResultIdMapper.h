@@ -722,12 +722,8 @@ private:
           *stageVariableLocationInfo,
       const StageVar &var, uint32_t location, uint32_t index);
 
-  /// \brief Creates unified stage variables to pack the signature. The unified
-  /// stage variables will be clones of existing stage variables. Decorates
-  /// unified stage variables with locations using nextLocs. Copies the unified
-  /// stage variables to the existing input stage variables before calling the
-  /// entry function and copies the existing output stage variables to the
-  /// unified stage variables after calling the entry function.
+  /// \brief Packs signature by assigning locations and components to stage
+  /// variables.
   bool packSignature(const std::vector<const StageVar *> &vars,
                      llvm::function_ref<uint32_t(uint32_t)> nextLocs,
                      bool forInput);

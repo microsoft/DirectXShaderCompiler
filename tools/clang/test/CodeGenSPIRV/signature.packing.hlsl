@@ -6,30 +6,38 @@ struct VS_OUTPUT {
 // CHECK: OpDecorate %out_var_A Location 0
   float a : A;
 
-// CHECK: OpDecorate %out_var_B Location 0
-// CHECK: OpDecorate %out_var_B Component 2
+// CHECK-DAG: OpDecorate %out_var_B Location 0
+// CHECK-DAG: OpDecorate %out_var_B Component 2
   double b : B;
 
-// CHECK: OpDecorate %out_var_C_0 Location 1
-// CHECK: OpDecorate %out_var_C_1 Location 1
-// CHECK: OpDecorate %out_var_C_1 Component 2
-// CHECK: OpDecorate %out_var_C_2 Location 2
+// CHECK-DAG: OpDecorate %out_var_C Location 1
+// CHECK-DAG: OpDecorate %out_var_C Component 0
+// CHECK-DAG: OpDecorate %out_var_C_0 Location 2
+// CHECK-DAG: OpDecorate %out_var_C_0 Component 0
+// CHECK-DAG: OpDecorate %out_var_C_1 Location 3
+// CHECK-DAG: OpDecorate %out_var_C_1 Component 0
+// CHECK-DAG:   %out_var_C = OpVariable %_ptr_Output_v2float Output
+// CHECK-DAG: %out_var_C_0 = OpVariable %_ptr_Output_v2float Output
+// CHECK-DAG: %out_var_C_1 = OpVariable %_ptr_Output_v2float Output
   float2 c[3] : C;
 
-// CHECK: OpDecorate %out_var_D_0 Location 2
-// CHECK: OpDecorate %out_var_D_0 Component 2
-// CHECK: OpDecorate %out_var_D_1 Location 3
+// CHECK-DAG: OpDecorate %out_var_D Location 1
+// CHECK-DAG: OpDecorate %out_var_D Component 2
+// CHECK-DAG: OpDecorate %out_var_D_0 Location 2
+// CHECK-DAG: OpDecorate %out_var_D_0 Component 2
+// CHECK-DAG:   %out_var_D = OpVariable %_ptr_Output_v2float Output
+// CHECK-DAG: %out_var_D_0 = OpVariable %_ptr_Output_v2float Output
   float2x2 d : D;
 
-// CHECK: OpDecorate %out_var_E Location 3
-// CHECK: OpDecorate %out_var_E Component 2
+// CHECK-DAG: OpDecorate %out_var_E Location 3
+// CHECK-DAG: OpDecorate %out_var_E Component 2
   int e : E;
 
-// CHECK: OpDecorate %out_var_F Location 4
+// CHECK-DAG: OpDecorate %out_var_F Location 4
   float2 f : F;
 
-// CHECK: OpDecorate %out_var_G Location 3
-// CHECK: OpDecorate %out_var_G Component 3
+// CHECK-DAG: OpDecorate %out_var_G Location 3
+// CHECK-DAG: OpDecorate %out_var_G Component 3
   float g : G;
 };
 

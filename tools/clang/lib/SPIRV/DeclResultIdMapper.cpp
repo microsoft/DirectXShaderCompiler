@@ -1726,10 +1726,7 @@ public:
         packedLocationInfo(packedLocInfo), forInput(forInput_) {}
 
   bool assignLocAndComponent(const StageVar *var) {
-    // Only scalar or vector or array of them can be decorated with
-    // Component.
-    if (isScalarOrVecOrArrayOfScalarOrVec(var->getAstType()) &&
-        tryReuseLocations(var)) {
+    if (tryReuseLocations(var)) {
       return true;
     }
     return assignNewLocations(var);
@@ -1799,19 +1796,18 @@ private:
     return true;
   }
 
-  bool isScalarOrVecOrArrayOfScalarOrVec(QualType type) {
-    QualType elemType;
-    if (isArrayType(type, &elemType))
-      return isScalarOrVecOrArrayOfScalarOrVec(elemType);
-    return isScalarType(type) || isVectorType(type);
-  }
-
 private:
-  SpirvBuilder &spvBuilder; ///< SPIR-V builder
-  llvm::function_ref<uint32_t(uint32_t)> assignLocs;
-  llvm::SmallVector<uint32_t, 8> assignedLocs;
-  llvm::SmallVector<uint32_t, 8> nextUnusedComponent;
-  std::vector<PackedLocationInfo> *packedLocationInfo;
+  SpirvBuilder &spvBuilder;
+  llvm::function_ref<uint32_t(uint32_t)>
+      assignLocs; ///< A function to assign a new location number.
+  llvm::SmallVector<uint32_t, 8>
+      assignedLocs; ///< A vector of assigned locations
+  llvm::SmallVector<uint32_t, 8>
+      nextUnusedComponent; ///< A vector to keep the starting unused component
+                           ///< number in each assigned location
+  std::vector<PackedLocationInfo>
+      *packedLocationInfo; ///< A vector of the assigned location, component,
+                           ///< extra arrayness, and input/output information
   bool forInput;
 };
 
