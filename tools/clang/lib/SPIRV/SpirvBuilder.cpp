@@ -1392,6 +1392,18 @@ void SpirvBuilder::decorateLocation(SpirvInstruction *target,
   mod->addDecoration(decor);
 }
 
+void SpirvBuilder::decorateComponent(SpirvInstruction *target,
+                                     uint32_t component) {
+  // Based on the SPIR-V spec, 'Component' decoration must be a member of a
+  // struct or memory object declaration. Since we do not have a pointer type in
+  // HLSL, we always convert a variable with 'Component' decoration as a part of
+  // a struct.
+  auto *decor =
+      new (context) SpirvDecoration(target->getSourceLocation(), target,
+                                    spv::Decoration::Component, {component});
+  mod->addDecoration(decor);
+}
+
 void SpirvBuilder::decorateIndex(SpirvInstruction *target, uint32_t index,
                                  SourceLocation srcLoc) {
   auto *decor = new (context)
@@ -1691,8 +1703,8 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   addModuleInitCallToEntryPoints();
 
   // Run necessary visitor passes first
-    LiteralTypeVisitor literalTypeVisitor(*astContext, context, spirvOptions);
-    mod->invokeVisitor(&literalTypeVisitor, true);
+  LiteralTypeVisitor literalTypeVisitor(*astContext, context, spirvOptions);
+  mod->invokeVisitor(&literalTypeVisitor, true);
 
   // Propagate NonUniform decorations
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
