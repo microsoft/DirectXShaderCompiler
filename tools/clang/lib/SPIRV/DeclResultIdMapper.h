@@ -46,17 +46,24 @@ struct SemanticInfo {
   inline bool isTarget() const;
 };
 
+// A struct containing information about location and component decorations.
+struct LocationAndComponent {
+  uint32_t location;
+  uint32_t component;
+  bool componentAlignment;
+};
+
 /// \brief The class containing HLSL and SPIR-V information about a Vulkan stage
 /// (builtin/input/output) variable.
 class StageVar {
 public:
   inline StageVar(const hlsl::SigPoint *sig, SemanticInfo semaInfo,
                   const VKBuiltInAttr *builtin, QualType astType,
-                  uint32_t locCount)
+                  LocationAndComponent locAndComponentCount)
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
-        locationCount(locCount), entryPoint(nullptr),
+        locationAndComponentCount(locAndComponentCount), entryPoint(nullptr),
         locOrBuiltinDecorateAttr(false) {
     isBuiltin = builtinAttr != nullptr;
   }
@@ -84,7 +91,12 @@ public:
   const VKIndexAttr *getIndexAttr() const { return indexAttr; }
   void setIndexAttr(const VKIndexAttr *idx) { indexAttr = idx; }
 
-  uint32_t getLocationCount() const { return locationCount; }
+  uint32_t getLocationCount() const {
+    return locationAndComponentCount.location;
+  }
+  LocationAndComponent getLocationAndComponentCount() const {
+    return locationAndComponentCount;
+  }
 
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
@@ -111,8 +123,8 @@ private:
   const VKLocationAttr *location;
   /// Index assignment if PS output variable
   const VKIndexAttr *indexAttr;
-  /// How many locations this stage variable takes.
-  uint32_t locationCount;
+  /// How many locations and components this stage variable takes.
+  LocationAndComponent locationAndComponentCount;
   /// Entry point for this stage variable. If this stage variable is not
   /// specific for an entry point e.g., built-in, it must be nullptr.
   SpirvFunction *entryPoint;
@@ -691,6 +703,25 @@ private:
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo,
       const StageVar &var, uint32_t location, uint32_t index);
+
+  /// \brief Packs signature by assigning locations and components to stage
+  /// variables.
+  bool packSignature(const std::vector<const StageVar *> &vars,
+                     llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+                     bool forInput);
+  bool packSignatureInternal(
+      const std::vector<const StageVar *> &vars,
+      llvm::function_ref<bool(const StageVar *)> assignLocAndComponent,
+      bool forInput, bool forPCF);
+
+  /// \brief Decorates vars with locations assigned by nextLocs.
+  /// stageVariableLocationInfo will be used to check the duplication of stage
+  /// variable locations.
+  bool assignLocations(
+      const std::vector<const StageVar *> &vars,
+      llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+      llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+          *stageVariableLocationInfo);
 
   /// \brief Decorates all stage input (if forInput is true) or output (if
   /// forInput is false) variables with proper location and returns true on
