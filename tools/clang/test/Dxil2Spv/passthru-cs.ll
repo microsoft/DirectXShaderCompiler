@@ -86,15 +86,16 @@ attributes #2 = { nounwind }
 ; ; SPIR-V
 ; ; Version: 1.0
 ; ; Generator: Google spiregg; 0
-; ; Bound: 13
+; ; Bound: 20
 ; ; Schema: 0
 ;                OpCapability Shader
 ;                OpMemoryModel Logical GLSL450
-;                OpEntryPoint GLCompute %main "main"
+;                OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
 ;                OpExecutionMode %main LocalSize 1 1 1
 ;                OpName %type_ByteAddressBuffer "type.ByteAddressBuffer"
 ;                OpName %type_RWByteAddressBuffer "type.RWByteAddressBuffer"
 ;                OpName %main "main"
+;                OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
 ;                OpDecorate %_runtimearr_uint ArrayStride 4
 ;                OpMemberDecorate %type_ByteAddressBuffer 0 Offset 0
 ;                OpMemberDecorate %type_ByteAddressBuffer 0 NonWritable
@@ -102,22 +103,28 @@ attributes #2 = { nounwind }
 ;                OpMemberDecorate %type_RWByteAddressBuffer 0 Offset 0
 ;                OpDecorate %type_RWByteAddressBuffer BufferBlock
 ;        %uint = OpTypeInt 32 0
+;      %uint_0 = OpConstant %uint 0
+;      %v3uint = OpTypeVector %uint 3
+; %_ptr_Input_v3uint = OpTypePointer Input %v3uint
 ; %_runtimearr_uint = OpTypeRuntimeArray %uint
 ; %type_ByteAddressBuffer = OpTypeStruct %_runtimearr_uint
 ; %_ptr_Uniform_type_ByteAddressBuffer = OpTypePointer Uniform %type_ByteAddressBuffer
 ; %type_RWByteAddressBuffer = OpTypeStruct %_runtimearr_uint
 ; %_ptr_Uniform_type_RWByteAddressBuffer = OpTypePointer Uniform %type_RWByteAddressBuffer
 ;        %void = OpTypeVoid
-;          %11 = OpTypeFunction %void
-;           %6 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
-;           %9 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
-;        %main = OpFunction %void None %11
-;          %12 = OpLabel
+;          %15 = OpTypeFunction %void
+; %_ptr_Input_uint = OpTypePointer Input %uint
+; %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
+;          %10 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
+;          %13 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
+;        %main = OpFunction %void None %15
+;          %16 = OpLabel
+;          %18 = OpAccessChain %_ptr_Input_uint %gl_GlobalInvocationID %uint_0
+;          %19 = OpLoad %uint %18
 ;                OpReturn
 ;                OpFunctionEnd
 ; CHECK-ERRORS:
 ; error: Unhandled DXIL opcode: CreateHandle
 ; error: Unhandled DXIL opcode: CreateHandle
-; error: Unhandled DXIL opcode: ThreadId
 ; error: Unhandled DXIL opcode: BufferLoad
 ; error: Unhandled DXIL opcode: BufferStore

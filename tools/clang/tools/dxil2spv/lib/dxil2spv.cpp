@@ -260,6 +260,9 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
     case hlsl::DXIL::OpCode::StoreOutput: {
       createStoreOutputInstruction(callInstruction);
     } break;
+    case hlsl::DXIL::OpCode::ThreadId: {
+      createThreadIdInstruction(callInstruction);
+    } break;
     default: {
       emitError("Unhandled DXIL opcode: %0")
           << hlsl::OP::GetOpCodeName(dxilOpcode);
@@ -329,6 +332,33 @@ void Translator::createStoreOutputInstruction(llvm::CallInst &instruction) {
       instructionMap[instruction.getArgOperand(
           hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx)];
   spvBuilder.createStore(outputVarPtr, valueToStore, {});
+}
+
+void Translator::createThreadIdInstruction(llvm::CallInst &instruction) {
+  // DXIL ThreadId(component) corresponds to a single element of the SPIR-V
+  // BuiltIn GlobalInvocationId, which must be a uint3.
+  auto uint = spvContext.getUIntType(32);
+  auto uint3 = spvContext.getVectorType(uint, 3);
+
+  // Create SPIR-V BuiltIn and add it to interface variables.
+  spirv::SpirvVariable *globalInvocationId = spvBuilder.addStageBuiltinVar(
+      uint3, spv::StorageClass::Input, spv::BuiltIn::GlobalInvocationId, false,
+      {});
+  interfaceVars.emplace_back(globalInvocationId);
+
+  // Translate DXIL component to SPIR-V index.
+  const llvm::APInt component =
+      dyn_cast<llvm::Constant>(
+          instruction.getArgOperand(hlsl::DXIL::OperandIndex::kUnarySrc0OpIdx))
+          ->getUniqueInteger();
+  spirv::SpirvConstant *index = spvBuilder.getConstantInt(uint, component);
+
+  // Create access chain and load.
+  spirv::SpirvAccessChain *loadPtr =
+      spvBuilder.createAccessChain(uint, globalInvocationId, {index}, {});
+  spirv::SpirvLoad *loadInstr = spvBuilder.createLoad(uint, loadPtr, {});
+
+  instructionMap[&instruction] = loadInstr;
 }
 
 bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
