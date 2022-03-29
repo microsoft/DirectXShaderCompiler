@@ -650,6 +650,9 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   std::string text;
   if (spvOptions.debugInfoSource && inst->hasFile()) {
     text = ReadSourceCode(inst->getFile()->getString());
+    if (text.empty()) {
+      text = inst->getSource().str();
+    }
     if (!text.empty()) {
       chopString(text, &choppedSrcCode, kMaximumCharOpSource,
                  kMaximumCharOpSourceContinued);
