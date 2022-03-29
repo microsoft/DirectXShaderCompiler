@@ -62,10 +62,7 @@ class db_dxil_inst(object):
         self.name = name                # short, unique name
         self.llvm_id = 0                # ID of LLVM instruction
         self.llvm_name = ""             # name of LLVM instruction type
-        self.is_bb_terminator = False   # whether this is a basic block terminator
-        self.is_binary = False          # whether this is an arithmetic binary/logical operator
-        self.is_memory = False          # whether this is a memory manipulator operator
-        self.is_cast = False            # whether this is a casting operator
+
         self.is_dxil_op = False         # whether this is a call into a built-in DXIL function
         self.dxil_op = ""               # name of DXIL operation
         self.dxil_opid = 0              # ID of DXIL operation 
@@ -2973,10 +2970,6 @@ class db_dxil(object):
 
     def add_llvm_instr(self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props):
         i = db_dxil_inst(name, llvm_id=llvm_id, llvm_name=llvm_name, doc=doc, ops=op_params, oload_types=oload_types)
-        if kind == "TERM": i.is_bb_terminator=True
-        if kind == "BINARY": i.is_binary=True
-        if kind == "MEMORY": i.is_memory=True
-        if kind == "CAST": i.is_cast=True
         i.props = props
         self.instr.append(i)
 

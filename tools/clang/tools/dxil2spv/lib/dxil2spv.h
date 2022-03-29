@@ -70,6 +70,7 @@ private:
   void createInstruction(llvm::Instruction &instruction);
   void createLoadInputInstruction(llvm::CallInst &instruction);
   void createStoreOutputInstruction(llvm::CallInst &instruction);
+  void createThreadIdInstruction(llvm::CallInst &instruction);
 
   // SPIR-V Tools wrapper functions.
   bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
