@@ -3682,13 +3682,25 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   }
 }
 
+void EnableShaderBasedValidation()
+{
+    CComPtr<ID3D12Debug> spDebugController0;
+    CComPtr<ID3D12Debug1> spDebugController1;
+    VERIFY_SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&spDebugController0)));
+    VERIFY_SUCCEEDED(spDebugController0->QueryInterface(IID_PPV_ARGS(&spDebugController1)));
+    spDebugController1->SetEnableGPUBasedValidation(true);
+}
+
 TEST_F(ExecutionTest, ATOWriteMSAATest) {
+
+
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0))
       return;
 
+#if 0
   if (DoesDeviceSupportAdvancedTexOps(pDevice)) {
     WEX::Logging::Log::Comment(L"Device does not support Advanced Texture Operations.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -3698,6 +3710,8 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
     WEX::Logging::Log::Comment(L"Device does not support Writable MSAA.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
   }
+#endif
+
 
   static const char pWriteShader[] =
     "RWStructuredBuffer<float> g_out : register(u0);\n"
@@ -3740,6 +3754,8 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 
   CreateComputeCommandQueue(pDevice, L"WriteMSAA Queue", &pCommandQueue);
   InitFenceObj(pDevice, &FO);
+
+  //EnableShaderBasedValidation();
 
   // Create root signature.
   CComPtr<ID3D12RootSignature> pRootSignature;
