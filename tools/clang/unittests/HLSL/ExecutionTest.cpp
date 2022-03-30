@@ -3753,6 +3753,7 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 
   // Create command list and resources
   CComPtr<ID3D12GraphicsCommandList> pCommandList;
+  CComPtr<ID3D12GraphicsCommandList> pCopyCommandList;
   VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE,
                                               pCommandAllocator, nullptr, IID_PPV_ARGS(&pCommandList)));
 
@@ -3779,7 +3780,7 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 
   // Close the command list and execute it to perform the resource uploads
   pCommandList->Close();
-  ID3D12CommandList *ppCommandLists[] = { pCommandList };
+  ID3D12CommandList *ppCommandLists[] = { pCommandList, pCopyCommandList };
   pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
   WaitForSignal(pCommandQueue, FO);
 
@@ -3810,31 +3811,31 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
   pCommandList->SetComputeRootSignature(pRootSignature);
   pCommandList->SetComputeRootDescriptorTable(0, pUavHeap->GetGPUDescriptorHandleForHeapStart());
 
-  // Run the write shader
+  // dispatch and close write shader
   pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
-
   pCommandList->Close();
+
   pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
   WaitForSignal(pCommandQueue, FO);
 
-  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pCopyPSO));
-
-  // Set Rootsignature and descriptor tables
-  SetDescriptorHeap(pCommandList, pUavHeap);
-  pCommandList->SetComputeRootSignature(pRootSignature);
-
-  pCommandList->SetComputeRootDescriptorTable(0, pUavHeap->GetGPUDescriptorHandleForHeapStart());
-
+  // Create copy command list
+  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE,
+                                              pCommandAllocator, pCopyPSO, IID_PPV_ARGS(&pCopyCommandList)));
+  pCopyCommandList->SetDescriptorHeaps(1, pHeaps);
+  pCopyCommandList->SetComputeRootSignature(pRootSignature);
+  pCopyCommandList->SetComputeRootDescriptorTable(0, pUavHeap->GetGPUDescriptorHandleForHeapStart());
+  
   // Run Copy shader and copy the results back to readable memory
   CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(pOutputResource,
                                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
-  pCommandList->ResourceBarrier(1, &barrier);
-  pCommandList->CopyResource(pOutputReadBuffer, pOutputResource);
-  pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
+  pCopyCommandList->ResourceBarrier(1, &barrier);
+  pCopyCommandList->CopyResource(pOutputReadBuffer, pOutputResource);
+  pCopyCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
 
-  pCommandList->Close();
-  pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+  pCopyCommandList->Close();
 
+  ID3D12CommandList *ppCopyCommandLists[] = { pCopyCommandList };
+  pCommandQueue->ExecuteCommandLists(1, ppCopyCommandLists);
   WaitForSignal(pCommandQueue, FO);
 
   MappedData mappedData(pOutputReadBuffer, 16);
