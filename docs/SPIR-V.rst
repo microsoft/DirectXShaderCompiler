@@ -383,7 +383,7 @@ environment (hence SPIR-V version) and SPIR-V extension control:
 - ``-fspv-target-env=``: for specifying SPIR-V target environment
 - ``-fspv-extension=``: for specifying allowed SPIR-V extensions
 
-``-fspv-target-env=`` only accepts ``vulkan1.0`` and ``vulkan1.1`` right now.
+``-fspv-target-env=`` accepts a Vulkan target environment (see ``-help`` for options).
 If such an option is not given, the CodeGen defaults to ``vulkan1.0``. When
 targeting ``vulkan1.0``, trying to use features that are only available
 in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_, will

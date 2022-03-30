@@ -50,6 +50,8 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_VULKAN_1_0;
   else if (opts.targetEnv == "vulkan1.1")
     targetEnv = SPV_ENV_VULKAN_1_1;
+  else if (opts.targetEnv == "vulkan1.1spirv1.4")
+    targetEnv = SPV_ENV_VULKAN_1_1_SPIRV_1_4;
   else if (opts.targetEnv == "vulkan1.2")
     targetEnv = SPV_ENV_VULKAN_1_2;
   else if (opts.targetEnv == "vulkan1.3")
@@ -58,8 +60,8 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_UNIVERSAL_1_5;
   else {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
-    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n vulkan1.2\n "
-             "vulkan1.3\n universal1.5",
+    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n "
+             "vulkan1.1spirv1.4\n vulkan1.2\n vulkan1.3\n universal1.5",
              {});
   }
 }
