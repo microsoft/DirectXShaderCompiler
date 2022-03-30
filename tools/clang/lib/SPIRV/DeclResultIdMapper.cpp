@@ -1987,7 +1987,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // Pack signature if it is enabled. Vertext shader input and pixel
   // shader output are special. We have to preserve the given signature.
   auto sigPointKind = vars[0]->getSigPoint()->GetKind();
-  if (spvContext.isSignaturePackingEnabled() &&
+  if (spirvOptions.signaturePacking &&
       sigPointKind != hlsl::SigPoint::Kind::VSIn &&
       sigPointKind != hlsl::SigPoint::Kind::PSOut) {
     return packSignature(spvBuilder, vars, nextLocs, forInput);

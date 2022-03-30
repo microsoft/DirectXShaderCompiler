@@ -20,7 +20,7 @@ SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
       uintTypes({}), floatTypes({}), samplerType(nullptr),
       curShaderModelKind(ShaderModelKind::Invalid), majorVersion(0),
-      minorVersion(0), signaturePacking(false), currentLexicalScope(nullptr) {
+      minorVersion(0), currentLexicalScope(nullptr) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
