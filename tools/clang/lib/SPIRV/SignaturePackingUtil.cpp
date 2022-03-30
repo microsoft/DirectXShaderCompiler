@@ -139,10 +139,10 @@ bool packSignatureInternal(
   return true;
 }
 
-bool packSignature(
-    SpirvBuilder &spvBuilder,
-    const std::vector<const StageVar *> &vars,
-    llvm::function_ref<uint32_t(uint32_t)> nextLocs, bool forInput) {
+bool packSignature(SpirvBuilder &spvBuilder,
+                   const std::vector<const StageVar *> &vars,
+                   llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+                   bool forInput) {
   PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs);
   auto assignLocationAndComponent = [&packedLocSet](const StageVar *var) {
     return packedLocSet.assignLocAndComponent(var);

@@ -12,9 +12,9 @@
 
 #include <string>
 
-#include "clang/AST/Attr.h"
 #include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/DXIL/DxilSigPoint.h"
+#include "clang/AST/Attr.h"
 
 namespace clang {
 namespace spirv {
