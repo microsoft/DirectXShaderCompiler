@@ -1597,6 +1597,23 @@ requiring the ``ClipDistance`` capability in the generated SPIR-V.
 
 Variables decorated with ``SV_CullDistanceX`` are mapped similarly as above.
 
+Signature packing
+~~~~~~~~~~~~~~~~~
+
+In usual, Vulkan drivers have a limitation of the number of available locations.
+It varies depending on the device. To avoid the driver crash caused by the
+limitation, we added an experimental signature packing support using Component
+decoration (see the Vulkan spec "15.1.5. Component Assignment").
+``-pack-optimized`` is the command line option to enable it.
+
+In a high level, for a stage variable that needs ``M`` components in ``N``
+locations e.g., stage variable ``float3 foo[2]`` needs 3 components in 2
+locations, we find a minimum ``K`` where each of ``N`` continuous locations in
+``[K, K + N)`` has ``M`` continuous unused Component slots. We create a Location
+decoration instruction for the stage variable with ``K`` and a Component
+decoration instruction with the first unused component number of the
+``M`` continuous unused Component slots.
+
 HLSL register and Vulkan binding
 --------------------------------
 

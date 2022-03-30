@@ -9,10 +9,14 @@
 
 #include "SignaturePackingUtil.h"
 
+#include <algorithm>
+
 namespace clang {
 namespace spirv {
 
 namespace {
+
+const uint32_t kNumComponentsInFullyUsedLocation = 4;
 
 /// A class for managing stage input/output packed locations to avoid duplicate
 /// uses of the same location and component.
@@ -34,11 +38,26 @@ private:
   // whether used N continuous locations have M unused slots or not. If there
   // are N continuous locations that have M unused slots, uses the locations
   // and components to pack |var|.
+  //
+  // For example, a stage variable `float3 foo[2]` needs 3 components in 2
+  // locations. Assuming that we already assigned the following locations and
+  // components to other stage variables:
+  //
+  //              Used components   /   nextUnusedComponent
+  //  Location 0: 0 / 1                 2
+  //  Location 1: 0 / 1 / 2             3
+  //  Location 2: 0 / 1                 2
+  //  Location 3: 0                     1
+  //  Location 4: 0                     1
+  //  Location 5: 0 / 1 / 2 / 3         4 (full)
+  //
+  //  we can assign Location 3 and Component 1 to `float3 foo[2]` because
+  //  Location 3 and 4 have 3 unused Component slots (1, 2, 3).
   bool tryReuseLocations(const StageVar *var) {
     auto requiredLocsAndComponents = var->getLocationAndComponentCount();
     for (size_t startLoc = 0; startLoc < nextUnusedComponent.size();
          startLoc++) {
-      bool canAssign = true;
+      uint32_t firstUnusedComponent = 0;
       // Check whether |requiredLocsAndComponents.location| locations starting
       // from |startLoc| have |requiredLocsAndComponents.component| unused
       // components or not. Note that if the number of required slots and used
@@ -48,19 +67,21 @@ private:
         if (startLoc + i >= nextUnusedComponent.size() ||
             nextUnusedComponent[startLoc + i] +
                     requiredLocsAndComponents.component >
-                4) {
-          canAssign = false;
+                kNumComponentsInFullyUsedLocation) {
+          firstUnusedComponent = kNumComponentsInFullyUsedLocation;
           break;
         }
+        firstUnusedComponent = std::max(firstUnusedComponent,
+                                        nextUnusedComponent[startLoc + i]);
       }
-      if (canAssign) {
+      if (firstUnusedComponent != kNumComponentsInFullyUsedLocation) {
         // Based on Vulkan spec "15.1.5. Component Assignment", a scalar or
         // two-component 64-bit data type must not specify a Component
         // decoration of 1 or 3.
         if (requiredLocsAndComponents.componentAlignment) {
           reuseLocations(var, startLoc, 2);
         } else {
-          reuseLocations(var, startLoc, nextUnusedComponent[startLoc]);
+          reuseLocations(var, startLoc, firstUnusedComponent);
         }
         return true;
       }
