@@ -1545,6 +1545,10 @@ TEST_F(FileTest, WaveOpNoTargetEnvError) {
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
+TEST_F(FileTest, SpirvString) {
+  runFileTest("spirv.string.hlsl");
+}
+
 TEST_F(FileTest, SpirvControlFlowMissingReturn) {
   runFileTest("spirv.cf.ret-missing.hlsl");
 }
