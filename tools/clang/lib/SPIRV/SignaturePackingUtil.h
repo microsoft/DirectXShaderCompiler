@@ -21,7 +21,10 @@ namespace clang {
 namespace spirv {
 
 /// \brief Packs signature by assigning locations and components to stage
-/// variables.
+/// variables |vars|. |nextLocs| is a function that returns the next available
+/// location for the given number of required locations. |spvBuilder| is used to
+/// create OpDecorate instructions. |forInput| is true when |vars| are input
+/// stage variables.
 bool packSignature(SpirvBuilder &spvBuilder,
                    const std::vector<const StageVar *> &vars,
                    llvm::function_ref<uint32_t(uint32_t)> nextLocs,

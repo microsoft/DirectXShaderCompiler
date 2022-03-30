@@ -30,13 +30,20 @@ public:
   }
 
 private:
-  // Try to pack signature of |var| into unused component slots of already
-  // assigned locations. Returns whether it succeeds or not.
+  // When the stage variable |var| needs M components in N locations, checks
+  // whether used N continuous locations have M unused slots or not. If there
+  // are N continuous locations that have M unused slots, uses the locations
+  // and components to pack |var|.
   bool tryReuseLocations(const StageVar *var) {
     auto requiredLocsAndComponents = var->getLocationAndComponentCount();
     for (size_t startLoc = 0; startLoc < nextUnusedComponent.size();
          startLoc++) {
       bool canAssign = true;
+      // Check whether |requiredLocsAndComponents.location| locations starting
+      // from |startLoc| have |requiredLocsAndComponents.component| unused
+      // components or not. Note that if the number of required slots and used
+      // slots is greater than 4, we cannot use that location because the
+      // maximum number of available components for a location is 4.
       for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
         if (startLoc + i >= nextUnusedComponent.size() ||
             nextUnusedComponent[startLoc + i] +
@@ -61,6 +68,8 @@ private:
     return false;
   }
 
+  // Creates OpDecorate instructions for |var| with Location |startLoc| and
+  // Component |componentStart|. Marks used component slots.
   void reuseLocations(const StageVar *var, uint32_t startLoc,
                       uint32_t componentStart) {
     auto requiredLocsAndComponents = var->getLocationAndComponentCount();
@@ -89,13 +98,13 @@ private:
 
 private:
   SpirvBuilder &spvBuilder;
-  llvm::function_ref<uint32_t(uint32_t)>
-      assignLocs; ///< A function to assign a new location number.
-  llvm::SmallVector<uint32_t, 8>
-      assignedLocs; ///< A vector of assigned locations
-  llvm::SmallVector<uint32_t, 8>
-      nextUnusedComponent; ///< A vector to keep the starting unused component
-                           ///< number in each assigned location
+  ///< A function to assign a new location number.
+  llvm::function_ref<uint32_t(uint32_t)> assignLocs;
+  ///< A vector of assigned locations.
+  llvm::SmallVector<uint32_t, 8> assignedLocs;
+  ///< A vector to keep the starting unused component number in each assigned
+  ///< location.
+  llvm::SmallVector<uint32_t, 8> nextUnusedComponent;
 };
 
 } // anonymous namespace
