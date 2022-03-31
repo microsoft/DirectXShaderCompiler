@@ -3129,6 +3129,9 @@ TEST_F(FileTest, ShaderDebugInfoLineBranch) {
 TEST_F(FileTest, ShaderDebugInfoLineComposite) {
   runFileTest("shader.debug.line.composite.hlsl");
 }
+TEST_F(FileTest, ShaderDebugInfoFileComposite) {
+  runFileTest("shader.debug.file.composite.hlsl");
+}
 TEST_F(FileTest, ShaderDebugInfoLineInclude) {
   runFileTest("shader.debug.line.include.hlsl");
 }
