@@ -368,6 +368,28 @@ private:
   // TODO: Add a method for adding OpMemberName instructions for struct members
   // using the type information.
 
+  // Returns the SPIR-V result id of the OpString for the File operand of
+  // OpSource instruction.
+  uint32_t getSourceFileId(SpirvSource *inst) {
+    uint32_t fileId = debugMainFileId;
+    if (inst->hasFile()) {
+      fileId = getOrCreateOpStringId(inst->getFile()->getString());
+    }
+    return fileId;
+  }
+
+  // Returns true if we already emitted the OpSource instruction whose File
+  // operand is |fileId|.
+  bool isSourceWithFileEmitted(uint32_t fileId) {
+    return emittedSource[fileId] != 0;
+  }
+
+  // Inserts the file id of OpSource instruction to the id of its
+  // corresponding DebugSource instruction.
+  void setFileOfSourceToDebugSourceId(uint32_t fileId, uint32_t dbg_src_id) {
+    emittedSource[fileId] = dbg_src_id;
+  }
+
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>
