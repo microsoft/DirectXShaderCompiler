@@ -85,6 +85,8 @@ bool processRunCommandArgs(const llvm::StringRef runCommandLine,
         *targetEnv = SPV_ENV_VULKAN_1_0;
       else if (targetEnvStr == "vulkan1.1")
         *targetEnv = SPV_ENV_VULKAN_1_1;
+      else if (targetEnvStr == "vulkan1.1spirv1.4")
+        *targetEnv = SPV_ENV_VULKAN_1_1_SPIRV_1_4;
       else if (targetEnvStr == "vulkan1.2")
         *targetEnv = SPV_ENV_VULKAN_1_2;
       else if (targetEnvStr == "vulkan1.3")

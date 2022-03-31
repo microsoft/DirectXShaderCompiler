@@ -113,13 +113,19 @@ bool isDebugLineLegalForOp(spv::Op op) {
 }
 
 // Returns SPIR-V version that will be used in SPIR-V header section.
-uint32_t getHeaderVersion(llvm::StringRef env) {
-  if (env == "vulkan1.1")
-    return 0x00010300u;
-  if (env == "vulkan1.2" || env == "universal1.5")
-    return 0x00010500u;
-  if (env == "vulkan1.3")
+uint32_t getHeaderVersion(spv_target_env env) {
+  if (env >= SPV_ENV_UNIVERSAL_1_6)
     return 0x00010600u;
+  if (env >= SPV_ENV_UNIVERSAL_1_5)
+    return 0x00010500u;
+  if (env >= SPV_ENV_UNIVERSAL_1_4)
+    return 0x00010400u;
+  if (env >= SPV_ENV_UNIVERSAL_1_3)
+    return 0x00010300u;
+  if (env >= SPV_ENV_UNIVERSAL_1_2)
+    return 0x00010200u;
+  if (env >= SPV_ENV_UNIVERSAL_1_1)
+    return 0x00010100u;
   return 0x00010000u;
 }
 
@@ -464,7 +470,7 @@ void EmitVisitor::finalizeInstruction(std::vector<uint32_t> *section) {
 
 std::vector<uint32_t> EmitVisitor::takeBinary() {
   std::vector<uint32_t> result;
-  Header header(takeNextId(), getHeaderVersion(spvOptions.targetEnv));
+  Header header(takeNextId(), getHeaderVersion(featureManager.getTargetEnv()));
   auto headerBinary = header.takeBinary();
   result.insert(result.end(), headerBinary.begin(), headerBinary.end());
   result.insert(result.end(), preambleBinary.begin(), preambleBinary.end());
