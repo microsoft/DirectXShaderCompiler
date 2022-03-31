@@ -533,6 +533,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   spvContext.setCurrentShaderModelKind(shaderModel->GetKind());
   spvContext.setMajorVersion(shaderModel->GetMajor());
   spvContext.setMinorVersion(shaderModel->GetMinor());
+  spirvOptions.signaturePacking =
+      ci.getCodeGenOpts().HLSLSignaturePackingStrategy ==
+      (unsigned)hlsl::DXIL::PackingStrategy::Optimized;
 
   if (spirvOptions.useDxLayout) {
     spirvOptions.cBufferLayoutRule = SpirvLayoutRule::FxcCTBuffer;

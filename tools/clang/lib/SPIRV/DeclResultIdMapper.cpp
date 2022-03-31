@@ -22,6 +22,7 @@
 #include "llvm/Support/Casting.h"
 
 #include "AlignmentSizeCalculator.h"
+#include "SignaturePackingUtil.h"
 #include "SpirvEmitter.h"
 
 namespace clang {
@@ -106,12 +107,13 @@ QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                    "getUintTypeWithSourceComponents");
 }
 
-uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
+LocationAndComponent getLocationAndComponentCount(const ASTContext &astContext,
+                                                  QualType type) {
   // See Vulkan spec 14.1.4. Location Assignment for the complete set of rules.
 
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return getLocationCount(astContext, canonicalType);
+    return getLocationAndComponentCount(astContext, canonicalType);
 
   // Inputs and outputs of the following types consume a single interface
   // location:
@@ -123,8 +125,20 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
   // locations.
 
   // Primitive types
-  if (isScalarType(type))
-    return 1;
+  if (isScalarType(type)) {
+    const auto *builtinType = type->getAs<BuiltinType>();
+    if (builtinType != nullptr) {
+      switch (builtinType->getKind()) {
+      case BuiltinType::Double:
+      case BuiltinType::LongLong:
+      case BuiltinType::ULongLong:
+        return {1, 2, true};
+      default:
+        return {1, 1, false};
+      }
+    }
+    return {1, 1, false};
+  }
 
   // Vector types
   {
@@ -135,14 +149,16 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
       switch (builtinType->getKind()) {
       case BuiltinType::Double:
       case BuiltinType::LongLong:
-      case BuiltinType::ULongLong:
+      case BuiltinType::ULongLong: {
         if (elemCount >= 3)
-          return 2;
+          return {2, 4, true};
+        return {1, 2 * elemCount, true};
+      }
       default:
         // Filter switch only interested in types occupying 2 locations.
         break;
       }
-      return 1;
+      return {1, elemCount, false};
     }
   }
 
@@ -155,42 +171,50 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
   {
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
-      return getLocationCount(astContext,
-                              astContext.getExtVectorType(elemType, colCount)) *
-             rowCount;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      auto locComponentCount = getLocationAndComponentCount(
+          astContext, astContext.getExtVectorType(elemType, colCount));
+      return {locComponentCount.location * rowCount,
+              locComponentCount.component,
+              locComponentCount.componentAlignment};
+    }
   }
 
   // Typedefs
   if (const auto *typedefType = type->getAs<TypedefType>())
-    return getLocationCount(astContext, typedefType->desugar());
+    return getLocationAndComponentCount(astContext, typedefType->desugar());
 
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>())
-    return getLocationCount(astContext, refType->getPointeeType());
+    return getLocationAndComponentCount(astContext, refType->getPointeeType());
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>())
-    return getLocationCount(astContext, ptrType->getPointeeType());
+    return getLocationAndComponentCount(astContext, ptrType->getPointeeType());
 
   // If a declared input or output is an array of size n and each element takes
   // m locations, it will be assigned m * n consecutive locations starting with
   // the location specified.
 
   // Array types
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type))
-    return getLocationCount(astContext, arrayType->getElementType()) *
-           static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    auto locComponentCount =
+        getLocationAndComponentCount(astContext, arrayType->getElementType());
+    uint32_t arrayLength =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    return {locComponentCount.location * arrayLength,
+            locComponentCount.component, locComponentCount.componentAlignment};
+  }
 
   // Struct type
   if (type->getAs<RecordType>()) {
     assert(false && "all structs should already be flattened");
-    return 0;
+    return {0, 0, false};
   }
 
   llvm_unreachable(
       "calculating number of occupied locations for type unimplemented");
-  return 0;
+  return {0, 0, false};
 }
 
 bool shouldSkipInStructLayout(const Decl *decl) {
@@ -1820,6 +1844,24 @@ bool DeclResultIdMapper::isDuplicatedStageVarLocation(
   return true;
 }
 
+bool DeclResultIdMapper::assignLocations(
+    const std::vector<const StageVar *> &vars,
+    llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+    llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+        *stageVariableLocationInfo) {
+  for (const auto *var : vars) {
+    auto locCount = var->getLocationCount();
+    uint32_t location = nextLocs(locCount);
+    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
+
+    if (!isDuplicatedStageVarLocation(stageVariableLocationInfo, *var, location,
+                                      0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (!checkSemanticDuplication(forInput))
     return false;
@@ -1925,31 +1967,44 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     }
   }
 
+  if (vars.empty())
+    return true;
+
+  auto nextLocs = [&locSet](uint32_t locCount) {
+    return locSet.useNextLocs(locCount);
+  };
+
   // If alphabetical ordering was requested, sort by semantic string.
+  if (spirvOptions.stageIoOrder == "alpha") {
+    // Sort stage input/output variables alphabetically
+    std::sort(vars.begin(), vars.end(),
+              [](const StageVar *a, const StageVar *b) {
+                return a->getSemanticStr() < b->getSemanticStr();
+              });
+    return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
+  }
+
+  // Pack signature if it is enabled. Vertext shader input and pixel
+  // shader output are special. We have to preserve the given signature.
+  auto sigPointKind = vars[0]->getSigPoint()->GetKind();
+  if (spirvOptions.signaturePacking &&
+      sigPointKind != hlsl::SigPoint::Kind::VSIn &&
+      sigPointKind != hlsl::SigPoint::Kind::PSOut) {
+    return packSignature(spvBuilder, vars, nextLocs, forInput);
+  }
+
   // Since HS includes 2 sets of outputs (patch-constant output and
   // OutputPatch), running into location mismatches between HS and DS is very
   // likely. In order to avoid location mismatches between HS and DS, use
   // alphabetical ordering.
-  if (spirvOptions.stageIoOrder == "alpha" ||
-      (!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
+  if ((!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
     // Sort stage input/output variables alphabetically
     std::sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
                 return a->getSemanticStr() < b->getSemanticStr();
               });
   }
-
-  for (const auto *var : vars) {
-    uint32_t location = locSet.useNextLocs(var->getLocationCount());
-    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
-
-    if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, *var,
-                                      location, 0)) {
-      return false;
-    }
-  }
-
-  return true;
+  return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
 }
 
 namespace {
@@ -2493,7 +2548,7 @@ bool DeclResultIdMapper::createStageVars(
     StageVar stageVar(
         sigPoint, *semanticToUse, builtinAttr, evalType,
         // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-        getLocationCount(astContext, type));
+        getLocationAndComponentCount(astContext, type));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     SpirvVariable *varInstr =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -2554,7 +2609,7 @@ bool DeclResultIdMapper::createStageVars(
           type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
           decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
       StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
-                         getLocationCount(astContext, type));
+                         getLocationAndComponentCount(astContext, type));
       stageVar2.setSpirvInstr(baseInstanceVar);
       stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
       stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
@@ -2965,7 +3020,7 @@ bool DeclResultIdMapper::createPayloadStageVars(
   const auto loc = decl->getLocation();
   if (!type->isStructureType()) {
     StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                      getLocationCount(astContext, type));
+                      getLocationAndComponentCount(astContext, type));
     const auto name = namePrefix.str() + "." + decl->getNameAsString();
     SpirvVariable *varInstr =
         spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false, loc);
@@ -3256,7 +3311,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
           /*isPatchConstant=*/false));
 
   StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                    /*locCount=*/0);
+                    /*locAndComponentCount=*/{0, 0, false});
 
   stageVar.setIsSpirvBuiltin();
   stageVar.setSpirvInstr(var);

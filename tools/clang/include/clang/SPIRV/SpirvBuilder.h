@@ -651,6 +651,9 @@ public:
   /// \brief Decorates the given target with the given location.
   void decorateLocation(SpirvInstruction *target, uint32_t location);
 
+  /// \brief Decorates the given target with the given component.
+  void decorateComponent(SpirvInstruction *target, uint32_t component);
+
   /// \brief Decorates the given target with the given index.
   void decorateIndex(SpirvInstruction *target, uint32_t index, SourceLocation);
 

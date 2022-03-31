@@ -3094,6 +3094,10 @@ TEST_F(FileTest, DefineSpirvMacro) {
   runFileTest("ifdef.spirv.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, SignaturePacking) { runFileTest("signature.packing.hlsl"); }
+TEST_F(FileTest, SignaturePackingHS) {
+  runFileTest("signature.packing.hs.hlsl");
+}
 TEST_F(FileTest, SourceCodeWithoutFilePath) {
   const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain -Zi)");
   const std::string code = command + R"(
