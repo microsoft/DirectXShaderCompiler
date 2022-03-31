@@ -618,7 +618,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 std::vector<SpirvVariable *>
 SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   auto stageVars = declIdMapper.collectStageVars(entryPoint);
-  if (!featureManager.isTargetEnvVulkan1p2OrAbove())
+  if (!featureManager.isTargetEnvVulkan1p1Spirv1p4OrAbove())
     return stageVars;
 
   // In SPIR-V 1.4 or above, we must include global variables in the 'Interface'

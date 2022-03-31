@@ -200,7 +200,8 @@ public:
 public:
   EmitVisitor(ASTContext *astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts, FeatureManager &featureMgr)
-      : Visitor(opts, spvCtx), astContext(astCtx), id(0),
+      : Visitor(opts, spvCtx), astContext(astCtx), featureManager(featureMgr),
+        id(0),
         typeHandler(astCtx, spvCtx, opts, featureMgr, &debugVariableBinary,
                     &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
@@ -403,6 +404,8 @@ private:
 private:
   // Object that holds Clang AST nodes.
   ASTContext *astContext;
+  // Feature manager.
+  FeatureManager featureManager;
   // The last result-id that's been used so far.
   uint32_t id;
   // Handler for emitting types and their related instructions.

@@ -50,6 +50,8 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_VULKAN_1_0;
   else if (opts.targetEnv == "vulkan1.1")
     targetEnv = SPV_ENV_VULKAN_1_1;
+  else if (opts.targetEnv == "vulkan1.1spirv1.4")
+    targetEnv = SPV_ENV_VULKAN_1_1_SPIRV_1_4;
   else if (opts.targetEnv == "vulkan1.2")
     targetEnv = SPV_ENV_VULKAN_1_2;
   else if (opts.targetEnv == "vulkan1.3")
@@ -58,8 +60,8 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_UNIVERSAL_1_5;
   else {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
-    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n vulkan1.2\n "
-             "vulkan1.3\n universal1.5",
+    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n "
+             "vulkan1.1spirv1.4\n vulkan1.2\n vulkan1.3\n universal1.5",
              {});
   }
 }
@@ -297,21 +299,19 @@ bool FeatureManager::enabledByDefault(Extension ext) {
 }
 
 bool FeatureManager::isTargetEnvVulkan1p1OrAbove() {
-  const std::string vulkanStr = "vulkan";
-  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
-         targetEnvStr.compare("vulkan1.1") >= 0;
+  return targetEnv >= SPV_ENV_VULKAN_1_1;
 }
 
 bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
-  const std::string vulkanStr = "vulkan";
-  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
-         targetEnvStr.compare("vulkan1.2") >= 0;
+  return targetEnv >= SPV_ENV_VULKAN_1_2;
+}
+
+bool FeatureManager::isTargetEnvVulkan1p1Spirv1p4OrAbove() {
+  return targetEnv >= SPV_ENV_VULKAN_1_1_SPIRV_1_4;
 }
 
 bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
-  const std::string vulkanStr = "vulkan";
-  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
-         targetEnvStr.compare("vulkan1.3") >= 0;
+  return targetEnv >= SPV_ENV_VULKAN_1_3;
 }
 
 } // end namespace spirv
