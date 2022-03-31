@@ -1,4 +1,7 @@
 // RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.1spirv1.4
+
+// CHECK:      ; SPIR-V
+// CHECK-NEXT: ; Version: 1.4
 // CHECK:  OpCapability RayTracingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 // CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV

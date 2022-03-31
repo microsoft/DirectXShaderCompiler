@@ -299,21 +299,19 @@ bool FeatureManager::enabledByDefault(Extension ext) {
 }
 
 bool FeatureManager::isTargetEnvVulkan1p1OrAbove() {
-  const std::string vulkanStr = "vulkan";
-  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
-         targetEnvStr.compare("vulkan1.1") >= 0;
+  return targetEnv >= SPV_ENV_VULKAN_1_1;
 }
 
 bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
-  const std::string vulkanStr = "vulkan";
-  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
-         targetEnvStr.compare("vulkan1.2") >= 0;
+  return targetEnv >= SPV_ENV_VULKAN_1_2;
+}
+
+bool FeatureManager::isTargetEnvVulkan1p1Spirv1p4OrAbove() {
+  return targetEnv >= SPV_ENV_VULKAN_1_1_SPIRV_1_4;
 }
 
 bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
-  const std::string vulkanStr = "vulkan";
-  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
-         targetEnvStr.compare("vulkan1.3") >= 0;
+  return targetEnv >= SPV_ENV_VULKAN_1_3;
 }
 
 } // end namespace spirv
