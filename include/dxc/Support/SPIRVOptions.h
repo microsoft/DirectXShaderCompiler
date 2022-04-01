@@ -85,6 +85,8 @@ struct SpirvCodeGenOptions {
   std::vector<std::string> bindRegister;
   std::vector<std::string> bindGlobals;
 
+  bool signaturePacking; ///< Whether signature packing is enabled or not
+
   // String representation of all command line options.
   std::string clOptions;
 };

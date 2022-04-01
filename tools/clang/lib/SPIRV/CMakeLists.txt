@@ -31,6 +31,7 @@ add_clang_library(clangSPIRV
   SpirvInstruction.cpp
   SpirvModule.cpp
   SpirvType.cpp
+  SignaturePackingUtil.cpp
   String.cpp
   SpirvUtils.cpp
 
