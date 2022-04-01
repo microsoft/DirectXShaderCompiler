@@ -304,6 +304,8 @@ public:
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
+  TEST_METHOD(ATOProgOffset);
+  TEST_METHOD(ATOSampleCmpLevelTest);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
   TEST_METHOD(AtomicsRawHeap64Test);
@@ -1165,7 +1167,9 @@ public:
     factory->EnumAdapterByLuid(adapterID, IID_PPV_ARGS(&adapter));
     DXGI_ADAPTER_DESC1 AdapterDesc;
     VERIFY_SUCCEEDED(adapter->GetDesc1(&AdapterDesc));
-    return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE);
+    return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) ||
+           (AdapterDesc.VendorId == 0x1414 &&
+            (AdapterDesc.DeviceId == 0x8c || AdapterDesc.DeviceId == 0x8d));
   }
 
   bool DoesDeviceSupportInt64(ID3D12Device *pDevice) {
@@ -3639,6 +3643,248 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
     VerifySampleResults(pPixels, 84);
   }
 }
+
+// Used to determine how an out of bounds offset should be converted
+#define CLAMPOFFSET(offset) ((offset<<28)>>28)
+
+// Determine if the values in pPixels correspond to the expected locations encoded into a uint
+// based on the coordinates and offsets that were provided.
+void VerifyProgOffsetResults(unsigned *pPixels, bool bCheckDeriv) {
+  // Check that each element matches the expected value given the offset
+  unsigned ix = 0;
+  int coords[18] = {100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950};
+  int offsets[18] = {CLAMPOFFSET(-9), -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, CLAMPOFFSET(8)};
+  for (unsigned y = 0; y < _countof(coords); y++) {
+    for (unsigned x = 0; x < _countof(coords); x++) {
+      unsigned cmp = (coords[y] + offsets[y])*1000 + coords[x] + offsets[x];
+      if (bCheckDeriv) {
+        VERIFY_ARE_EQUAL(pPixels[2*4*ix+0], cmp); // Sample
+        VERIFY_ARE_EQUAL(pPixels[2*4*ix+1], 1U); // SampleCmp
+      }
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+2], 1U); // SampleCmpLevel
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+3], 1U); // SampleCmpLevelZero
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+4], cmp); // Load
+      if (bCheckDeriv) {
+        VERIFY_ARE_EQUAL(pPixels[2*4*ix+5], cmp); // SampleBias
+      }
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+6], cmp); // SampleGrad
+      VERIFY_ARE_EQUAL(pPixels[2*4*ix+7], cmp); // SampleLevel
+      ix++;
+    }
+  }
+}
+
+// Fills a 1000x1000 float texture with index values increasing in row-major order
+// The shader then uses non-immediate offsets extending from -9 to 8 to access these using
+// Load, Sample, SampleCmp and variants thereof.
+// The test verifies that the locations accessed correspond to where they should.
+TEST_F(ExecutionTest, ATOProgOffset) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ProgOffset");
+
+  auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+                        UNREFERENCED_PARAMETER(pShaderOp);
+                        D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName(Name)->Desc;
+                        UINT texWidth = (UINT)texDesc.Width;
+                        UINT texHeight = (UINT)texDesc.Height;
+                        size_t size = sizeof(float) * texWidth * texHeight;
+                        Data.resize(size);
+                        float *pPrimitives = (float *)Data.data();
+                        int ix = 0;
+                        for (size_t j = 0; j < texHeight; ++j) {
+                          for (size_t i = 0; i < texWidth; ++i) {
+                            pPrimitives[ix] = float(ix);
+                            ix++;
+                          }
+                        }
+                      };
+
+  bool bTestsSkipped = true;
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_5,
+                                         D3D_SHADER_MODEL_6_6,
+                                         D3D_SHADER_MODEL_6_7};
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, /*skipUnsupported*/false)) {
+      LogCommentFmt(L"Device does not support shader model 6.%1u",
+                    ((UINT)sm & 0x0f));
+      break;
+    }
+
+    bool bSupportMSASDeriv = DoesDeviceSupportMeshAmpDerivatives(pDevice);
+
+    bool bCheckDerivCS = sm >= D3D_SHADER_MODEL_6_6;
+    bool bCheckDerivMSAS = bCheckDerivCS && bSupportMSASDeriv;
+
+    if (bCheckDerivCS && !bSupportMSASDeriv) {
+      LogCommentFmt(L"Device does not support derivatives in Mesh and Amplification shaders");
+    }
+
+    switch (sm) {
+    case D3D_SHADER_MODEL_6_5:
+      pShaderOp->CS = pShaderOp->GetString("CS");
+      pShaderOp->PS = pShaderOp->GetString("PS");
+      pShaderOp->MS = pShaderOp->GetString("MS");
+      pShaderOp->AS = pShaderOp->GetString("AS");
+      break;
+    case D3D_SHADER_MODEL_6_6:
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      pShaderOp->PS = pShaderOp->GetString("PS");
+      if (bCheckDerivMSAS) {
+        pShaderOp->MS = pShaderOp->GetString("MS66D");
+        pShaderOp->AS = pShaderOp->GetString("AS66D");
+      } else {
+        pShaderOp->MS = pShaderOp->GetString("MS66");
+        pShaderOp->AS = pShaderOp->GetString("AS66");
+      }
+      break;
+    case D3D_SHADER_MODEL_6_7:
+      pShaderOp->CS = pShaderOp->GetString("CS67");
+      pShaderOp->PS = pShaderOp->GetString("PS67");
+      if (bCheckDerivMSAS) {
+        pShaderOp->MS = pShaderOp->GetString("MS67D");
+        pShaderOp->AS = pShaderOp->GetString("AS67D");
+      } else {
+        pShaderOp->MS = pShaderOp->GetString("MS67");
+        pShaderOp->AS = pShaderOp->GetString("AS67");
+      }
+      break;
+    }
+
+    // Test compute shader
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
+    MappedData data;
+
+    test->Test->GetReadBackData("U0", &data);
+    VerifyProgOffsetResults((UINT*)data.data(), bCheckDerivCS);
+
+    // Disable CS so graphics shaders go forward
+    pShaderOp->CS = nullptr;
+
+    if (DoesDeviceSupportMeshShaders(pDevice)) {
+      test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
+
+      // PS
+      test->Test->GetReadBackData("U0", &data);
+      VerifyProgOffsetResults((UINT*)data.data(), true);
+
+      // MS
+      test->Test->GetReadBackData("U1", &data);
+      VerifyProgOffsetResults((UINT*)data.data(), bCheckDerivMSAS);
+
+      // AS
+      test->Test->GetReadBackData("U2", &data);
+      VerifyProgOffsetResults((UINT*)data.data(), bCheckDerivMSAS);
+    }
+
+    // Disable MS so PS goes forward
+    pShaderOp->MS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "ProgOffset", SampleInitFn, ShaderOpSet);
+
+    test->Test->GetReadBackData("U0", &data);
+    VerifyProgOffsetResults((UINT*)data.data(), true);
+
+    bTestsSkipped = false;
+  }
+
+  if (bTestsSkipped) {
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
+
+}
+
+// A mipmapped texture containing the value of LOD at each location in each
+// level is used to sample at each level using SampleCmpLevel and confirm
+// that the correct level is used for the comparison.
+TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_7))
+      return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("SampleCmpLevel");
+
+  // Initialize texture with the LOD number in each corresponding mip level
+  auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+                        UNREFERENCED_PARAMETER(pShaderOp);
+                        D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName(Name)->Desc;
+                        UINT texWidth = (UINT)texDesc.Width;
+                        UINT texHeight = (UINT)texDesc.Height;
+                        size_t size = sizeof(float) * texWidth * texHeight * 2;
+                        Data.resize(size);
+                        float *pPrimitives = (float *)Data.data();
+                        float val = 0.5;
+                        int ix = 0;
+                        while (texHeight > 0 && texWidth > 0) {
+                          if(!texHeight) texHeight = 1;
+                          if(!texWidth) texWidth = 1;
+                          for (size_t j = 0; j < texHeight; ++j) {
+                            for (size_t i = 0; i < texWidth; ++i) {
+                              pPrimitives[ix++] = val;
+                            }
+                          }
+                          val += 1.0;
+                          texHeight >>= 1;
+                          texWidth >>= 1;
+                        }
+                      };
+
+  // Test compute shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "SampleCmpLevel", SampleInitFn, ShaderOpSet);
+  MappedData data;
+
+  test->Test->GetReadBackData("U0", &data);
+  const UINT *pPixels = (UINT *)data.data();
+
+  // Check that each LOD matches what's expected
+  unsigned count = 2*7;
+  // Since the results consist of a boolean, which should be true followed by the result of a sampcmplvl,
+  // the only result expected is 1.
+  for (unsigned i = 0; i < count; i++)
+    VERIFY_ARE_EQUAL(pPixels[i], 1U);
+
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    // Disable CS so mesh goes forward
+    pShaderOp->CS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "SampleCmpLevel", SampleInitFn, ShaderOpSet);
+
+    test->Test->GetReadBackData("U0", &data);
+    pPixels = (UINT *)data.data();
+
+    for (unsigned i = 0; i < count; i++)
+      VERIFY_ARE_EQUAL(pPixels[i], 1U);
+
+    test->Test->GetReadBackData("U1", &data);
+    pPixels = (UINT *)data.data();
+
+    for (unsigned i = 0; i < count; i++)
+      VERIFY_ARE_EQUAL(pPixels[i], 1U);
+
+    test->Test->GetReadBackData("U2", &data);
+    pPixels = (UINT *)data.data();
+
+    for (unsigned i = 0; i < count; i++)
+      VERIFY_ARE_EQUAL(pPixels[i], 1U);
+  }
+}
+
+
 
 // Executing a simple binop to verify shadel model 6.1 support; runs with
 // ShaderModel61.CoreRequirement
@@ -6693,6 +6939,7 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
+
   // Read data from the table
   int tableSize = sizeof(DenormBinaryFPOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(DenormBinaryFPOpParameters, tableSize);
@@ -6728,6 +6975,15 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
     DXASSERT(Validation_Expected2->size() == Validation_Expected1->size(),
              "must have same number of expected values");
   }
+
+  #if defined(_M_ARM64) || defined(_M_ARM64EC)
+    if ((GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) && mode == Float32DenormMode::Preserve) {
+      WEX::Logging::Log::Comment(L"WARP has an issue with DenormBinaryFloatOpTest with '-denorm preserve' on ARM64.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+  #endif // defined(_M_ARM64) || defined(_M_ARM64EC)
+
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "BinaryFPOp",
     // this callbacked is called when the test
@@ -6801,8 +7057,8 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
-  // Read data from the table
 
+  // Read data from the table
   int tableSize = sizeof(DenormTertiaryFPOpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(DenormTertiaryFPOpParameters, tableSize);
 
@@ -6839,6 +7095,15 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
     DXASSERT(Validation_Expected2->size() == Validation_Expected1->size(),
       "must have same number of expected values");
   }
+
+#if defined(_M_ARM64) || defined(_M_ARM64EC)
+  if ((GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) && mode == Float32DenormMode::Preserve) {
+    WEX::Logging::Log::Comment(L"WARP has an issue with DenormTertiaryFloatOpTest with '-denorm preserve' on ARM64.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+#endif // defined(_M_ARM64) || defined(_M_ARM64EC)
+
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "TertiaryFPOp",
     // this callbacked is called when the test
@@ -9127,7 +9392,6 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
   pShaderOp->CS = pShaderOp->GetString("CSSH64");
-  pShaderOp->PS = pShaderOp->GetString("PS64");
   pShaderOp->AS = pShaderOp->GetString("ASSH64");
   pShaderOp->MS = pShaderOp->GetString("MSSH64");
 

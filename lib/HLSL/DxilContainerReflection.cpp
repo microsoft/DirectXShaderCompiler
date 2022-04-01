@@ -745,7 +745,7 @@ static bool ProcessUnhandledObjectType(
   D3D_SHADER_VARIABLE_TYPE    *outObjectType)
 {
   // Don't actually make this a hard error, but instead report the problem using a suitable debug message.
-#ifdef DBG
+#ifndef NDEBUG
   OutputDebugFormatA("DxilContainerReflection.cpp: error: unhandled object type '%s'.\n", structType->getName().str().c_str());
 #endif
   *outObjectType = D3D_SVT_VOID;
@@ -1034,7 +1034,7 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   default:
-#ifdef DBG
+#ifndef NDEBUG
     OutputDebugStringA("DxilContainerReflection.cpp: error: unknown component type\n");
 #endif
     break;
@@ -1051,7 +1051,7 @@ HRESULT CShaderReflectionType::Initialize(
     switch(matrixAnnotation.Orientation)
     {
     default:
-#ifdef DBG
+#ifndef NDEBUG
       OutputDebugStringA("DxilContainerReflection.cpp: error: unknown matrix orientation\n");
 #endif
     // Note: column-major layout is the default
@@ -1075,7 +1075,7 @@ HRESULT CShaderReflectionType::Initialize(
       std::swap(cbRows, cbCols);
     }
   }
-  else if( type->isVectorTy() )
+  else if(FixedVectorType *VT = dyn_cast<FixedVectorType>(type) )
   {
     // We assume that LLVM vectors either represent matrices (handled above)
     // or HLSL vectors.
@@ -1084,9 +1084,9 @@ HRESULT CShaderReflectionType::Initialize(
     // and N columns.
     m_Desc.Class = D3D_SVC_VECTOR;
     m_Desc.Rows = 1;
-    m_Desc.Columns = type->getVectorNumElements();
+    m_Desc.Columns = VT->getNumElements();
 
-    m_Name += std::to_string(type->getVectorNumElements());
+    m_Name += std::to_string(VT->getNumElements());
 
     cbRows = m_Desc.Rows;
     cbCols = m_Desc.Columns;
@@ -1193,7 +1193,7 @@ HRESULT CShaderReflectionType::Initialize(
   }
   else if( type->isPointerTy() )
   {
-#ifdef DBG
+#ifndef NDEBUG
       OutputDebugStringA("DxilContainerReflection.cpp: error: cannot reflect pointer type\n");
 #endif
   }
@@ -1339,9 +1339,8 @@ static unsigned CalcTypeSize(Type *Ty, unsigned &alignment) {
     result = (unsigned)RoundUpToAlignment(result, alignment);
     return result;
   }
-  else if (Ty->isVectorTy()) {
-    VectorType *VT = dyn_cast<VectorType>(Ty);
-    return VT->getVectorNumElements() * CalcTypeSize(VT->getVectorElementType(), alignment);
+  else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    return VT->getNumElements() * CalcTypeSize(VT->getElementType(), alignment);
   }
   else {
     return alignment = Ty->getPrimitiveSizeInBits() / 8;

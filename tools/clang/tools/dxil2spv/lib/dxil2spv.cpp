@@ -24,9 +24,12 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 
+#include "dxc/DXIL/DxilOperations.h"
 #include "spirv-tools/libspirv.hpp"
+#include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/SPIRV/SpirvUtils.h"
 
 namespace clang {
 namespace dxil2spv {
@@ -37,48 +40,58 @@ Translator::Translator(CompilerInstance &instance)
       featureManager(diagnosticsEngine, spirvOptions),
       spvBuilder(spvContext, spirvOptions, featureManager) {}
 
-int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
-  const char *blobContext =
-      reinterpret_cast<const char *>(blob->GetBufferPointer());
-  unsigned blobSize = blob->GetBufferSize();
-
-  llvm::LLVMContext context;
-  llvm::SMDiagnostic err;
-  std::unique_ptr<llvm::MemoryBuffer> memoryBuffer;
-  std::unique_ptr<llvm::Module> module;
+int Translator::Run() {
+  // Read input file to memory buffer.
+  std::string filename = ci.getCodeGenOpts().MainFileName;
+  auto errorOrInputFile = llvm::MemoryBuffer::getFileOrSTDIN(filename);
+  if (!errorOrInputFile) {
+    emitError("Error reading %0: %1")
+        << filename << errorOrInputFile.getError().message();
+    return DXC_E_GENERAL_INTERNAL_ERROR;
+  }
+  std::unique_ptr<llvm::MemoryBuffer> memoryBuffer =
+      std::move(errorOrInputFile.get());
+  const char *blobContext = memoryBuffer->getBufferStart();
+  unsigned blobSize = memoryBuffer->getBufferSize();
 
   // Parse LLVM module from bitcode.
-  hlsl::DxilContainerHeader *pBlobHeader =
-      (hlsl::DxilContainerHeader *)blob->GetBufferPointer();
-  if (hlsl::IsValidDxilContainer(pBlobHeader,
-                                 pBlobHeader->ContainerSizeInBytes)) {
+  llvm::LLVMContext llvmContext;
+  std::unique_ptr<llvm::Module> module;
+  const hlsl::DxilContainerHeader *blobHeader =
+      reinterpret_cast<const hlsl::DxilContainerHeader *>(blobContext);
+  if (hlsl::IsValidDxilContainer(blobHeader,
+                                 blobHeader->ContainerSizeInBytes)) {
 
     // Get DXIL program from container.
-    const hlsl::DxilPartHeader *pPartHeader =
-        hlsl::GetDxilPartByType(pBlobHeader, hlsl::DxilFourCC::DFCC_DXIL);
-    IFTBOOL(pPartHeader != nullptr, DXC_E_MISSING_PART);
-    const hlsl::DxilProgramHeader *pProgramHeader =
+    const hlsl::DxilPartHeader *partHeader =
+        hlsl::GetDxilPartByType(blobHeader, hlsl::DxilFourCC::DFCC_DXIL);
+    IFTBOOL(partHeader != nullptr, DXC_E_MISSING_PART);
+    const hlsl::DxilProgramHeader *programHeader =
         reinterpret_cast<const hlsl::DxilProgramHeader *>(
-            GetDxilPartData(pPartHeader));
+            GetDxilPartData(partHeader));
 
     // Parse DXIL program to module.
-    if (IsValidDxilProgramHeader(pProgramHeader, pPartHeader->PartSize)) {
-      std::string DiagStr;
-      GetDxilProgramBitcode(pProgramHeader, &blobContext, &blobSize);
+    if (IsValidDxilProgramHeader(programHeader, partHeader->PartSize)) {
+      std::string diagStr; // Note: diagStr is not used by the callee.
+      GetDxilProgramBitcode(programHeader, &blobContext, &blobSize);
       module = hlsl::dxilutil::LoadModuleFromBitcode(
-          llvm::StringRef(blobContext, blobSize), context, DiagStr);
+          llvm::StringRef(blobContext, blobSize), llvmContext, diagStr);
+    }
+
+    if (module == nullptr) {
+      emitError("Could not parse DXIL module from bitcode");
+      return DXC_E_GENERAL_INTERNAL_ERROR;
     }
   }
   // Parse LLVM module from IR.
   else {
-    llvm::StringRef bufStrRef(blobContext, blobSize);
-    memoryBuffer = llvm::MemoryBuffer::getMemBufferCopy(bufStrRef);
-    module = parseIR(memoryBuffer->getMemBufferRef(), err, context);
-  }
+    llvm::SMDiagnostic err;
+    module = parseIR(memoryBuffer->getMemBufferRef(), err, llvmContext);
 
-  if (module == nullptr) {
-    emitError("Could not parse DXIL module");
-    return DXC_E_GENERAL_INTERNAL_ERROR;
+    if (module == nullptr) {
+      emitError("Could not parse DXIL module from IR: %0") << err.getMessage();
+      return DXC_E_GENERAL_INTERNAL_ERROR;
+    }
   }
 
   // Construct DXIL module.
@@ -98,21 +111,39 @@ int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
                             spv::MemoryModel::GLSL450);
 
   // Add stage variable interface.
-  for (auto &elem : program.GetInputSignature().GetElements()) {
-    spvBuilder.addStageIOVar(
-        spvContext.getPointerType(toSpirvType(elem.get()),
-                                  spv::StorageClass::Input),
-        spv::StorageClass::Input, elem->GetSemanticName(), false, {});
+  createStageIOVariables(program.GetInputSignature().GetElements(),
+                         program.GetOutputSignature().GetElements());
+
+  // Create entry function.
+  spirv::SpirvFunction *entryFunction =
+      createEntryFunction(program.GetEntryFunction());
+
+  // Set execution mode if necessary.
+  if (spvContext.isPS()) {
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::OriginUpperLeft, {}, {});
   }
-  for (auto &elem : program.GetOutputSignature().GetElements()) {
-    spvBuilder.addStageIOVar(
-        spvContext.getPointerType(toSpirvType(elem.get()),
-                                  spv::StorageClass::Output),
-        spv::StorageClass::Output, elem->GetSemanticName(), false, {});
+  if (spvContext.isCS()) {
+    spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                                {program.GetNumThreads(0),
+                                 program.GetNumThreads(1),
+                                 program.GetNumThreads(2)},
+                                {});
   }
+
+  // Add HLSL resources.
+  createModuleVariables(program.GetSRVs());
+  createModuleVariables(program.GetUAVs());
 
   // Contsruct the SPIR-V module.
   std::vector<uint32_t> m = spvBuilder.takeModuleForDxilToSpv();
+
+  // Validate the generated SPIR-V code.
+  std::string messages;
+  if (!spirvToolsValidate(&m, &messages)) {
+    emitError("Generated SPIR-V is invalid: %0") << messages;
+    // return DXC_E_GENERAL_INTERNAL_ERROR;
+  }
 
   // Disassemble SPIR-V for output.
   std::string assembly;
@@ -130,6 +161,219 @@ int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
   return 0;
 }
 
+void Translator::createStageIOVariables(
+    const std::vector<std::unique_ptr<hlsl::DxilSignatureElement>>
+        &inputSignature,
+    const std::vector<std::unique_ptr<hlsl::DxilSignatureElement>>
+        &outputSignature) {
+  interfaceVars.reserve(inputSignature.size() + outputSignature.size());
+
+  // Translate DXIL input signature to SPIR-V stage input vars.
+  for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
+       inputSignature) {
+    clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
+        toSpirvType(elem.get()), spv::StorageClass::Input,
+        elem->GetSemanticName(), false, {});
+    unsigned id = elem->GetID();
+    interfaceVars.push_back(var);
+    inputSignatureElementMap[id] = var;
+
+    // Use unique DXIL signature element ID as SPIR-V Location.
+    spvBuilder.decorateLocation(var, id);
+  }
+
+  // Translate DXIL input signature to SPIR-V stage ouput vars.
+  for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
+       outputSignature) {
+    clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
+        toSpirvType(elem.get()), spv::StorageClass::Output,
+        elem->GetSemanticName(), false, {});
+    unsigned id = elem->GetID();
+    interfaceVars.push_back(var);
+    outputSignatureElementMap[id] = var;
+
+    // Use unique DXIL signature element ID as SPIR-V Location.
+    spvBuilder.decorateLocation(var, id);
+  }
+}
+
+void Translator::createModuleVariables(
+    const std::vector<std::unique_ptr<hlsl::DxilResource>> &resources) {
+  for (const std::unique_ptr<hlsl::DxilResource> &resource : resources) {
+    llvm::Type *hlslType = resource->GetHLSLType();
+    assert(hlslType->isPointerTy());
+    llvm::Type *pointeeType =
+        cast<llvm::PointerType>(hlslType)->getPointerElementType();
+    spvBuilder.addModuleVar(toSpirvType(pointeeType),
+                            spv::StorageClass::Uniform, false);
+  }
+}
+
+spirv::SpirvFunction *
+Translator::createEntryFunction(llvm::Function *entryFunction) {
+  spirv::SpirvFunction *spirvEntryFunction =
+      spvBuilder.beginFunction(toSpirvType(entryFunction->getReturnType()), {},
+                               entryFunction->getName());
+
+  // Translate entry function parameters.
+  llvm::SmallVector<const spirv::SpirvType *, 4> spirvParamTypes;
+  for (llvm::Argument &argument : entryFunction->getArgumentList()) {
+    spirvParamTypes.push_back(toSpirvType(argument.getType()));
+  }
+  spirvEntryFunction->setFunctionType(spvContext.getFunctionType(
+      spirvEntryFunction->getReturnType(), spirvParamTypes));
+
+  // Create entry function basic blocks.
+  for (llvm::BasicBlock &basicBlock : *entryFunction) {
+    createBasicBlock(basicBlock);
+  }
+  spvBuilder.endFunction();
+  spvBuilder.addEntryPoint(
+      spirv::SpirvUtils::getSpirvShaderStage(
+          spvContext.getCurrentShaderModelKind()),
+      spirvEntryFunction, spirvEntryFunction->getFunctionName(), interfaceVars);
+  return spirvEntryFunction;
+}
+
+void Translator::createBasicBlock(llvm::BasicBlock &basicBlock) {
+  spvBuilder.setInsertPoint(spvBuilder.createBasicBlock());
+
+  // Translate each intruction in basic block.
+  for (llvm::Instruction &instruction : basicBlock) {
+    createInstruction(instruction);
+  }
+}
+
+void Translator::createInstruction(llvm::Instruction &instruction) {
+  // Handle Call instructions.
+  if (isa<llvm::CallInst>(instruction)) {
+    llvm::CallInst &callInstruction = cast<llvm::CallInst>(instruction);
+    // Many shader operations are represented by call instructions that call
+    // external functions, whose name is prefixed with dx.op. (i.e.
+    // dx.op.loadInput, dx.op.storeOutput).
+    hlsl::DXIL::OpCode dxilOpcode =
+        hlsl::OP::GetDxilOpFuncCallInst(&instruction);
+    switch (dxilOpcode) {
+    case hlsl::DXIL::OpCode::LoadInput: {
+      createLoadInputInstruction(callInstruction);
+    } break;
+    case hlsl::DXIL::OpCode::StoreOutput: {
+      createStoreOutputInstruction(callInstruction);
+    } break;
+    case hlsl::DXIL::OpCode::ThreadId: {
+      createThreadIdInstruction(callInstruction);
+    } break;
+    default: {
+      emitError("Unhandled DXIL opcode: %0")
+          << hlsl::OP::GetOpCodeName(dxilOpcode);
+    } break;
+    }
+  } else if (isa<llvm::ReturnInst>(instruction)) {
+    spvBuilder.createReturn({});
+  }
+}
+
+void Translator::createLoadInputInstruction(llvm::CallInst &instruction) {
+  unsigned inputID =
+      cast<llvm::ConstantInt>(instruction.getArgOperand(
+                                  hlsl::DXIL::OperandIndex::kLoadInputIDOpIdx))
+          ->getLimitedValue();
+  spirv::SpirvVariable *inputVar = inputSignatureElementMap[inputID];
+  const spirv::SpirvType *inputVarType = inputVar->getResultType();
+
+  // TODO: Handle other input signature types. Only vector for initial
+  // passthrough shader support.
+  assert(isa<spirv::VectorType>(inputVarType));
+  const spirv::SpirvType *elemType =
+      cast<spirv::VectorType>(inputVarType)->getElementType();
+
+  // Translate index into variable to SPIR-V constant.
+  const llvm::APInt col = dyn_cast<llvm::Constant>(
+                              instruction.getArgOperand(
+                                  hlsl::DXIL::OperandIndex::kLoadInputColOpIdx))
+                              ->getUniqueInteger();
+  spirv::SpirvConstant *index =
+      spvBuilder.getConstantInt(spvContext.getUIntType(32), col);
+
+  // Create access chain and load.
+  spirv::SpirvAccessChain *loadPtr =
+      spvBuilder.createAccessChain(elemType, inputVar, {index}, {});
+  spirv::SpirvLoad *loadInstr = spvBuilder.createLoad(elemType, loadPtr, {});
+
+  instructionMap[&instruction] = loadInstr;
+}
+
+void Translator::createStoreOutputInstruction(llvm::CallInst &instruction) {
+  unsigned outputID = cast<llvm::ConstantInt>(
+                          instruction.getArgOperand(
+                              hlsl::DXIL::OperandIndex::kStoreOutputIDOpIdx))
+                          ->getLimitedValue();
+  spirv::SpirvVariable *outputVar = outputSignatureElementMap[outputID];
+  const spirv::SpirvType *outputVarType = outputVar->getResultType();
+
+  // TODO: Handle other output signature types. Only vector for initial
+  // passthrough shader support.
+  assert(isa<spirv::VectorType>(outputVarType));
+  const spirv::SpirvType *elemType =
+      cast<spirv::VectorType>(outputVarType)->getElementType();
+
+  // Translate index into variable to SPIR-V constant.
+  const llvm::APInt col = dyn_cast<llvm::Constant>(
+                              instruction.getArgOperand(
+                                  hlsl::DXIL::OperandIndex::kLoadInputColOpIdx))
+                              ->getUniqueInteger();
+  spirv::SpirvConstant *index =
+      spvBuilder.getConstantInt(spvContext.getUIntType(32), col);
+
+  // Create access chain and store.
+  spirv::SpirvAccessChain *outputVarPtr =
+      spvBuilder.createAccessChain(elemType, outputVar, {index}, {});
+  spirv::SpirvInstruction *valueToStore =
+      instructionMap[instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx)];
+  spvBuilder.createStore(outputVarPtr, valueToStore, {});
+}
+
+void Translator::createThreadIdInstruction(llvm::CallInst &instruction) {
+  // DXIL ThreadId(component) corresponds to a single element of the SPIR-V
+  // BuiltIn GlobalInvocationId, which must be a uint3.
+  auto uint = spvContext.getUIntType(32);
+  auto uint3 = spvContext.getVectorType(uint, 3);
+
+  // Create SPIR-V BuiltIn and add it to interface variables.
+  spirv::SpirvVariable *globalInvocationId = spvBuilder.addStageBuiltinVar(
+      uint3, spv::StorageClass::Input, spv::BuiltIn::GlobalInvocationId, false,
+      {});
+  interfaceVars.emplace_back(globalInvocationId);
+
+  // Translate DXIL component to SPIR-V index.
+  const llvm::APInt component =
+      dyn_cast<llvm::Constant>(
+          instruction.getArgOperand(hlsl::DXIL::OperandIndex::kUnarySrc0OpIdx))
+          ->getUniqueInteger();
+  spirv::SpirvConstant *index = spvBuilder.getConstantInt(uint, component);
+
+  // Create access chain and load.
+  spirv::SpirvAccessChain *loadPtr =
+      spvBuilder.createAccessChain(uint, globalInvocationId, {index}, {});
+  spirv::SpirvLoad *loadInstr = spvBuilder.createLoad(uint, loadPtr, {});
+
+  instructionMap[&instruction] = loadInstr;
+}
+
+bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
+                                    std::string *messages) {
+  spvtools::SpirvTools tools(featureManager.getTargetEnv());
+
+  tools.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  spvtools::ValidatorOptions options;
+  return tools.Validate(mod->data(), mod->size(), options);
+}
+
 const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {
   if (compType.IsFloatTy() || compType.IsSNorm() || compType.IsUNorm())
     return spvContext.getFloatType(compType.GetSizeInBits());
@@ -138,7 +382,8 @@ const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {
   else if (compType.IsUIntTy())
     return spvContext.getUIntType(compType.GetSizeInBits());
 
-  llvm_unreachable("Unhandled DXIL Component Type");
+  emitError("Unhandled DXIL Component Type: %0") << compType.GetName();
+  return nullptr;
 }
 
 const spirv::SpirvType *
@@ -157,6 +402,51 @@ Translator::toSpirvType(hlsl::DxilSignatureElement *elem) {
     return vecType;
 
   return spvContext.getMatrixType(vecType, rowCount);
+}
+
+const spirv::SpirvType *Translator::toSpirvType(llvm::Type *llvmType) {
+  if (llvmType->isVoidTy())
+    return new spirv::VoidType();
+
+  if (llvmType->isIntegerTy() || llvmType->isFloatingPointTy())
+    return toSpirvType(hlsl::CompType::GetCompType(llvmType));
+
+  if (llvmType->isStructTy()) {
+    return toSpirvType(cast<llvm::StructType>(llvmType));
+  }
+
+  std::string typeStr;
+  llvm::raw_string_ostream os(typeStr);
+  llvmType->print(os);
+  emitError("Unhandled LLVM type: %0") << os.str();
+
+  return nullptr;
+}
+
+const spirv::SpirvType *Translator::toSpirvType(llvm::StructType *structType) {
+  // Remove prefix from struct name.
+  llvm::StringRef prefix = "struct.";
+  llvm::StringRef name = structType->getName();
+  if (name.startswith(prefix))
+    name = name.drop_front(prefix.size());
+
+  // ByteAddressBuffer types.
+  if (name == "ByteAddressBuffer") {
+    return spvContext.getByteAddressBufferType(/*isRW*/ false);
+  }
+
+  // RWByteAddressBuffer types.
+  if (name == "RWByteAddressBuffer") {
+    return spvContext.getByteAddressBufferType(/*isRW*/ true);
+  }
+
+  // Other struct types.
+  std::vector<spirv::StructType::FieldInfo> fields;
+  fields.reserve(structType->getNumElements());
+  for (llvm::Type *elemType : structType->elements()) {
+    fields.emplace_back(toSpirvType(elemType));
+  }
+  return spvContext.getStructType(fields, name);
 }
 
 template <unsigned N>

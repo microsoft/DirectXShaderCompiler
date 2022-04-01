@@ -178,7 +178,7 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 #endif // _MSC_VER
 
-#ifdef DBG
+#ifndef NDEBUG
 
 #ifdef _WIN32
 
@@ -226,7 +226,7 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 #endif // _WIN32
 
-#else // DBG
+#else // NDEBUG
 
 // DXASSERT_ARGS is disabled in free builds.
 #define DXASSERT_ARGS(exp, s, ...) _Analysis_assume_(exp)
@@ -244,4 +244,4 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
 #define DXVERIFY_NOMSG(exp) do { (void)(exp); _Analysis_assume_(exp); } while (0)
 
-#endif // DBG
+#endif // NDEBUG

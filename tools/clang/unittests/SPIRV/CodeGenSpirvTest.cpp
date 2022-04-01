@@ -2539,6 +2539,10 @@ TEST_F(FileTest, RayTracingKHRClosestHit) {
   runFileTest("raytracing.khr.closesthit.hlsl");
 }
 
+TEST_F(FileTest, RayTracingKHRClosestHitVulkan1p1Spirv1p4) {
+  runFileTest("raytracing.khr.closesthit.vulkan1.1spirv1.4.hlsl");
+}
+
 TEST_F(FileTest, RayTracingAccelerationStructure) {
   runFileTest("raytracing.acceleration-structure.hlsl");
 }
@@ -3092,6 +3096,19 @@ TEST_F(FileTest, VolatileInterfaceInRayGenVk1p3) {
 
 TEST_F(FileTest, DefineSpirvMacro) {
   runFileTest("ifdef.spirv.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, SignaturePacking) { runFileTest("signature.packing.hlsl"); }
+TEST_F(FileTest, SignaturePackingHS) {
+  runFileTest("signature.packing.hs.hlsl");
+}
+TEST_F(FileTest, SourceCodeWithoutFilePath) {
+  const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain -Zi)");
+  const std::string code = command + R"(
+float4 PSMain(float4 color : COLOR) : SV_TARGET { return color; }
+// CHECK: float4 PSMain(float4 color : COLOR) : SV_TARGET { return color; }
+)";
+  runCodeTest(code);
 }
 
 } // namespace

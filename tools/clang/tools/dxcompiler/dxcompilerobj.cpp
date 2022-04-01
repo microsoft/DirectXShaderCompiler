@@ -1184,14 +1184,19 @@ public:
         } // compileOK && !opts.CodeGenHighLevel
       }
 
-      // Add std err to warnings.
-      msfPtr->WriteStdErrToStream(w);
+      std::string remarks;
+      raw_string_ostream r(remarks);
+      msfPtr->WriteStdOutToStream(r);
       CComPtr<IStream> pErrorStream;
-      msfPtr->GetStdOutpuHandleStream(&pErrorStream);
+      msfPtr->GetStdErrorHandleStream(&pErrorStream);
       CComPtr<IDxcBlob> pErrorBlob;
       IFT(pErrorStream.QueryInterface(&pErrorBlob));
       if (IsBlobNullOrEmpty(pErrorBlob)) {
+        // Add std err to warnings.
         IFT(pResult->SetOutputString(DXC_OUT_ERRORS, warnings.c_str(), warnings.size()));
+        // Add std out to remarks.
+        IFT(pResult->SetOutputString(DXC_OUT_REMARKS, remarks.c_str(),
+                                     remarks.size()));
       } else {
         IFT(pResult->SetOutputObject(DXC_OUT_ERRORS, pErrorBlob));
       }
@@ -1619,7 +1624,7 @@ public:
     if (pFlags == nullptr)
       return E_INVALIDARG;
     *pFlags = DxcVersionInfoFlags_None;
-#ifdef _DEBUG
+#ifndef NDEBUG
     *pFlags |= DxcVersionInfoFlags_Debug;
 #endif
     return S_OK;

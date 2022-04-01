@@ -107,6 +107,14 @@ public:
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p1OrAbove();
 
+  /// Returns true if the target environment is SPIR-V 1.4 or above.
+  /// Returns false otherwise.
+  bool isTargetEnvSpirv1p4OrAbove();
+
+  /// Returns true if the target environment is Vulkan 1.1 with SPIR-V 1.4 or
+  /// above. Returns false otherwise.
+  bool isTargetEnvVulkan1p1Spirv1p4OrAbove();
+
   /// Returns true if the target environment is Vulkan 1.2 or above.
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p2OrAbove();

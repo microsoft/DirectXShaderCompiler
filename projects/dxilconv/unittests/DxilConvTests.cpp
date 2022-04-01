@@ -235,6 +235,9 @@ bool DxilConvTest::InitSupport() {
   if (!FindToolInBinDir("%opt-exe", "opt.exe")) {
     return false;
   }
+  if (!FindToolInBinDir("%dxa", "dxa.exe")) {
+    return false;
+  }
   return true;
 }
 

@@ -144,12 +144,12 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::CBufferLoadLegacy,       "CBufferLoadLegacy",        OCC::CBufferLoadLegacy,        "cbufferLoadLegacy",         { false,  true,  true,  true, false, false,  true,  true,  true, false, false}, Attribute::ReadOnly, },
 
   // Resources - sample                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::Sample,                  "Sample",                   OCC::Sample,                   "sample",                    { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
-  {  OC::SampleBias,              "SampleBias",               OCC::SampleBias,               "sampleBias",                { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
-  {  OC::SampleLevel,             "SampleLevel",              OCC::SampleLevel,              "sampleLevel",               { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
-  {  OC::SampleGrad,              "SampleGrad",               OCC::SampleGrad,               "sampleGrad",                { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
-  {  OC::SampleCmp,               "SampleCmp",                OCC::SampleCmp,                "sampleCmp",                 { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
-  {  OC::SampleCmpLevelZero,      "SampleCmpLevelZero",       OCC::SampleCmpLevelZero,       "sampleCmpLevelZero",        { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::Sample,                  "Sample",                   OCC::Sample,                   "sample",                    { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleBias,              "SampleBias",               OCC::SampleBias,               "sampleBias",                { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleLevel,             "SampleLevel",              OCC::SampleLevel,              "sampleLevel",               { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleGrad,              "SampleGrad",               OCC::SampleGrad,               "sampleGrad",                { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleCmp,               "SampleCmp",                OCC::SampleCmp,                "sampleCmp",                 { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleCmpLevelZero,      "SampleCmpLevelZero",       OCC::SampleCmpLevelZero,       "sampleCmpLevelZero",        { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
 
   // Resources                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::TextureLoad,             "TextureLoad",              OCC::TextureLoad,              "textureLoad",               { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },

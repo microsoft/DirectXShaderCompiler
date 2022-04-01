@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_3
 
-// CHECK: error: Vulkan 1.2 is required for Raytracing but not permitted to use
+// CHECK: error: Vulkan 1.1 with SPIR-V 1.4 is required for Raytracing but not permitted to use
 
 struct Payload {
   float4 color;

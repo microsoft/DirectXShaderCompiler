@@ -1,5 +1,5 @@
 @echo off
-setlocal ENABLEDELAYEDEXPANSION
+setlocal ENABLEDELAYEDEXPANSION ENABLEEXTENSIONS
 
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
@@ -143,13 +143,15 @@ if "%1"=="-clean" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Debug" (
   set BUILD_CONFIG=Debug
-) else if "%1"=="-x86" (
+) else if /i "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.
   set BUILD_ARCH=Win32
-) else if "%1"=="-x64" (
+) else if /i "%1"=="-x64" (
   set BUILD_ARCH=x64
-) else if "%1"=="-arm" (
+) else if /i "%1"=="-arm" (
   set BUILD_ARCH=ARM
+) else if /i "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
 ) else if "%1"=="-adapter" (
   set TEST_ADAPTER= /p:"Adapter=%~2"
   shift /1
@@ -278,6 +280,11 @@ rem End SPIRV change
 
 echo Running HLSL tests ...
 
+if "%BUILD_ARCH%"=="ARM64" (
+    rem ARM64 TAEF has an issue when running ARM64X tests with /parallel flag
+    set PARALLEL_OPTION=
+)
+
 if exist "%HCT_EXTRAS%\hcttest-before.cmd" (
   call "%HCT_EXTRAS%\hcttest-before.cmd" %TEST_DIR%
   if errorlevel 1 (
@@ -402,6 +409,7 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
+echo   -arm64 targets an ARM64 build
 echo.
 echo target(s):
 echo  clang         - run clang tests.
@@ -444,8 +452,8 @@ if "%HLSL_TAEF_DIR%"=="" (
 ) else (
   set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\te"
 )
-echo %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
-call %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+echo %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 
 if errorlevel 1 (
   call :showtesample %*

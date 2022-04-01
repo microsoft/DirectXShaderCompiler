@@ -124,7 +124,7 @@ DxilModule::DxilModule(Module *pModule)
   DXASSERT_NOMSG(m_pModule != nullptr);
   SetDxilHook(*m_pModule);
 
-#if defined(_DEBUG) || defined(DBG)
+#ifndef NDEBUG
   // Pin LLVM dump methods.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
   void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
@@ -233,12 +233,19 @@ const Function *DxilModule::GetEntryFunction() const {
   return m_pEntryFunc;
 }
 
-llvm::SmallVector<llvm::Function *, 64> DxilModule::GetExportedFunctions() const {
+llvm::SmallVector<llvm::Function *, 64> DxilModule::GetExportedFunctions() {
     llvm::SmallVector<llvm::Function *, 64> ret;
     for (auto const& fn : m_DxilEntryPropsMap) {
       if (fn.first != nullptr) {
         ret.push_back(const_cast<llvm::Function*>(fn.first));
       }
+    }
+    if (ret.empty()) {
+      auto *entryFunction = m_pEntryFunc;
+      if (entryFunction == nullptr) {
+        entryFunction = GetPatchConstantFunction();
+      }
+      ret.push_back(entryFunction);
     }
     return ret;
 }
@@ -1622,7 +1629,7 @@ void DxilModule::LoadDxilMetadata() {
     m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
-#ifdef DBG
+#ifndef NDEBUG
     throw;
 #endif
     m_pTypeSystem->GetStructAnnotationMap().clear();
@@ -1634,7 +1641,7 @@ void DxilModule::LoadDxilMetadata() {
     m_pMDHelper->LoadDxrPayloadAnnotations(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
-#ifdef DBG
+#ifndef NDEBUG
     throw;
 #endif
     m_pTypeSystem->GetPayloadAnnotationMap().clear();

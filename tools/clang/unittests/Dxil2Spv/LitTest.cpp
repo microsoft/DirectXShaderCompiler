@@ -16,4 +16,12 @@ TEST_F(WholeFileTest, PassThruPixelShader) {
   runWholeFileTest("passthru-ps.ll");
 }
 
+TEST_F(WholeFileTest, PassThruVertexShader) {
+  runWholeFileTest("passthru-vs.ll");
+}
+
+TEST_F(WholeFileTest, PassThruComputeShader) {
+  runWholeFileTest("passthru-cs.ll");
+}
+
 } // namespace

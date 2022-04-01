@@ -29,6 +29,7 @@
 # Test outputs
 *.dxbc
 *.ll.converted
+*.dxo.converted
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).

@@ -1231,12 +1231,6 @@ HLSLReservedKeyword:
   case tok::kw_long:
   case tok::kw___int64:
   case tok::kw___int128:
-  // HLSL Change Starts
-  case tok::kw_column_major:
-  case tok::kw_row_major:
-  case tok::kw_snorm:
-  case tok::kw_unorm:
-  // HLSL Change Ends
   case tok::kw_signed:
   case tok::kw_unsigned:
   case tok::kw_half:
@@ -1289,6 +1283,14 @@ HLSLReservedKeyword:
     Res = ParseCXXTypeConstructExpression(DS);
     break;
   }
+
+  // HLSL Change Starts
+  case tok::kw_column_major:
+  case tok::kw_row_major:
+  case tok::kw_snorm:
+  case tok::kw_unorm:
+    goto tok_default_case;
+  // HLSL Change Ends
 
   case tok::annot_cxxscope: { // [C++] id-expression: qualified-id
     // If TryAnnotateTypeOrScopeToken annotates the token, tail recurse.

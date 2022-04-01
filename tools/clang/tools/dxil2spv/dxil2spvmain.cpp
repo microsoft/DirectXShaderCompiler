@@ -65,13 +65,6 @@ int main(int argc, const char **argv_) {
     llvm::errs() << "Required input file argument is missing\n";
     return DXC_E_GENERAL_INTERNAL_ERROR;
   }
-  hlsl::options::StringRefWide filename(argv_[1]);
-
-  // Read input file.
-  dxc::DxcDllSupport dxcSupport;
-  IFT(dxcSupport.Initialize());
-  CComPtr<IDxcBlobEncoding> blob;
-  ReadFileIntoBlob(dxcSupport, filename, &blob);
 
   // Setup a compiler instance with diagnostics.
   clang::CompilerInstance instance;
@@ -83,7 +76,11 @@ int main(int argc, const char **argv_) {
   // TODO: Allow configuration of targetEnv via options.
   instance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
 
+  // Set input filename.
+  const llvm::StringRef inputFilename(argv_[1]);
+  instance.getCodeGenOpts().MainFileName = inputFilename;
+
   // Run translator.
   clang::dxil2spv::Translator translator(instance);
-  return translator.Run(blob);
+  return translator.Run();
 }

@@ -872,13 +872,13 @@ Value *HLMatrixLowerPass::translateScalarMatMul(Value *Lhs, Value *Rhs, IRBuilde
   Value *Scalar = isLhsScalar ? Lhs : Rhs;
   Value* LoweredMat = getLoweredByValOperand(Mat, Builder);
   Type *ScalarTy = Scalar->getType();
-
+  FixedVectorType *VT = dyn_cast<FixedVectorType>(LoweredMat->getType());
   // Perform the scalar-matrix multiplication!
-  Type *ElemTy = LoweredMat->getType()->getVectorElementType();
+  Type *ElemTy = VT->getElementType();
   bool isIntMulOp = ScalarTy->isIntegerTy() && ElemTy->isIntegerTy();
   bool isFloatMulOp = ScalarTy->isFloatingPointTy() && ElemTy->isFloatingPointTy();
   DXASSERT(ScalarTy == ElemTy, "Scalar type must match the matrix component type.");
-  Value *Result = Builder.CreateVectorSplat(LoweredMat->getType()->getVectorNumElements(), Scalar);
+  Value *Result = Builder.CreateVectorSplat(VT->getNumElements(), Scalar);
 
   if (isFloatMulOp) {
     // Preserve the order of operation for floats
@@ -927,12 +927,14 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
   else if (LhsMatTy) {
     LhsNumRows = LhsMatTy.getNumRows();
     LhsNumCols = LhsMatTy.getNumColumns();
-    RhsNumRows = LoweredRhs->getType()->getVectorNumElements();
+    FixedVectorType *VT = dyn_cast<FixedVectorType>(LoweredRhs->getType());
+    RhsNumRows = VT->getNumElements();
     RhsNumCols = 1;
   }
   else if (RhsMatTy) {
     LhsNumRows = 1;
-    LhsNumCols = LoweredLhs->getType()->getVectorNumElements();
+    FixedVectorType *VT = dyn_cast<FixedVectorType>(LoweredLhs->getType());
+    LhsNumCols = VT->getNumElements();
     RhsNumRows = RhsMatTy.getNumRows();
     RhsNumCols = RhsMatTy.getNumColumns();
   }
@@ -1123,8 +1125,8 @@ Value *HLMatrixLowerPass::lowerHLBinaryOperation(Value *Lhs, Value *Rhs, HLBinar
     "Expected lowered binary operation operands to be vectors");
   DXASSERT(LoweredLhs->getType() == LoweredRhs->getType(),
     "Expected lowered binary operation operands to have matching types.");
-
-  bool IsFloat = LoweredLhs->getType()->getVectorElementType()->isFloatingPointTy();
+  FixedVectorType *VT = dyn_cast<FixedVectorType>(LoweredLhs->getType());
+  bool IsFloat = VT->getElementType()->isFloatingPointTy();
 
   switch (Opcode) {
   case HLBinaryOpcode::Add:
@@ -1390,14 +1392,13 @@ Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, Value *Src, Type *DstTy,
     // Matrix to scalar
     Result = Builder.CreateExtractElement(LoweredSrc, static_cast<uint64_t>(0));
   }
-  else if (DstTy->isVectorTy()) {
+  else if (FixedVectorType *DstVecTy = dyn_cast<FixedVectorType>(DstTy)) {
     // Matrix to vector
-    VectorType *DstVecTy = cast<VectorType>(DstTy);
     DXASSERT(DstVecTy->getNumElements() <= LoweredSrcTy->getNumElements(),
       "Cannot cast matrix to a larger vector.");
 
     // We might have to truncate
-    if (DstTy->getVectorNumElements() < LoweredSrcTy->getNumElements()) {
+    if (DstVecTy->getNumElements() < LoweredSrcTy->getNumElements()) {
       SmallVector<int, 3> ShuffleIndices;
       for (unsigned Idx = 0; Idx < DstVecTy->getNumElements(); ++Idx)
         ShuffleIndices.emplace_back(static_cast<int>(Idx));
@@ -1427,8 +1428,10 @@ Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, Value *Src, Type *DstTy,
     }
 
     LoweredDstTy = MatDstTy.getLoweredVectorTypeForReg();
-    DXASSERT(Result->getType()->getVectorNumElements() == LoweredDstTy->getVectorNumElements(),
-      "Unexpected matrix src/dst lowered element count mismatch after truncation.");
+    DXASSERT(cast<FixedVectorType>(Result->getType())->getNumElements() ==
+                 cast<FixedVectorType>(LoweredDstTy)->getNumElements(),
+             "Unexpected matrix src/dst lowered element count mismatch after "
+             "truncation.");
   }
 
   // Apply element conversion
@@ -1546,7 +1549,7 @@ Value *HLMatrixLowerPass::lowerHLInit(CallInst *Call) {
               getType()->isVectorTy()) {
     Value *LoweredVec = Call->getArgOperand(HLOperandIndex::kInitFirstArgOpIdx);
     DXASSERT(LoweredTy->getNumElements() ==
-                LoweredVec->getType()->getVectorNumElements(),
+                cast<FixedVectorType>(LoweredVec->getType())->getNumElements(),
              "Invalid matrix init argument vector element count.");
     return LoweredVec;
   }
@@ -1596,7 +1599,7 @@ Value *HLMatrixLowerPass::lowerHLSelect(CallInst *Call) {
 
   bool IsScalarCond = !LoweredCond->getType()->isVectorTy();
 
-  unsigned NumElems = Result->getType()->getVectorNumElements();
+  unsigned NumElems = cast<FixedVectorType>(Result->getType())->getNumElements();
   for (uint64_t ElemIdx = 0; ElemIdx < NumElems; ++ElemIdx) {
     Value *ElemCond = IsScalarCond ? LoweredCond
       : Builder.CreateExtractElement(LoweredCond, ElemIdx);
