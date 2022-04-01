@@ -302,12 +302,16 @@ bool FeatureManager::isTargetEnvVulkan1p1OrAbove() {
   return targetEnv >= SPV_ENV_VULKAN_1_1;
 }
 
-bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
-  return targetEnv >= SPV_ENV_VULKAN_1_2;
+bool FeatureManager::isTargetEnvSpirv1p4OrAbove() {
+  return targetEnv >= SPV_ENV_UNIVERSAL_1_4;
 }
 
 bool FeatureManager::isTargetEnvVulkan1p1Spirv1p4OrAbove() {
   return targetEnv >= SPV_ENV_VULKAN_1_1_SPIRV_1_4;
+}
+
+bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
+  return targetEnv >= SPV_ENV_VULKAN_1_2;
 }
 
 bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
