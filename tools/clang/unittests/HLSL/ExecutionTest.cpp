@@ -8788,28 +8788,22 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
   st::ShaderOp *pShaderOp =
       ShaderOpSet->GetShaderOp("DynamicResourcesUniformIndexing");
 
-  LPCSTR args = "/Od";
+  bool Skipped = true;
 
-  if (args[0]) {
-    for (st::ShaderOpShader &S : pShaderOp->Shaders)
-      S.Arguments = args;
-  }
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
+  //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
 
-  bool testPassed = true;
-
-  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
     LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
                   L"model 6.%1u",
                   ((UINT)sm & 0x0f));
 
-    bool smPassed = true;
-
     CComPtr<ID3D12Device> pDevice;
     if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
       continue;
     }
+
     D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
     VERIFY_SUCCEEDED(
         pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
@@ -8821,106 +8815,72 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
       return;
     }
 
-    const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1,
-                   PS_INDEX_AFTER_DISCARD = 2;
-
     // Test Compute shader
     {
+      pShaderOp->CS = pShaderOp->GetString("CS66");
       std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
           pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
           ShaderOpSet);
 
-      //TestComputeShaderDynamicResourcesUniformIndexing(test->Test);
-      /*
-      MappedData T0;
-      MappedData T1;
-      MappedData T2;
-      */
-      MappedData U3;
-      MappedData U4;
-      MappedData U5;
-      MappedData U6;
-      MappedData SamplerDescriptorHeapData;
+      MappedData resultData;
+      test->Test->GetReadBackData("g_result", &resultData);
+      const float *resultFloats = (float *)resultData.data();
 
-      /*
-      Reading back from SRV's isn't useful, so we just read back
-      from the UAV's.
-      test->Test->GetReadBackData("T0", &T0);
-      const uint32_t *T0num = (uint32_t *)T0.data();
-      test->Test->GetReadBackData("T1", &T1);
-      const float *T1num = (float *)T1.data();
-      test->Test->GetReadBackData("T2", &T2);
-      const float *T2num = (float *)T2.data();
-      */
-
-      test->Test->GetReadBackData("U3", &U3);
-      const uint32_t *U3num = (uint32_t *)U3.data();
-      test->Test->GetReadBackData("U4", &U4);
-      const float *U4num = (float *)U4.data();
-      test->Test->GetReadBackData("U5", &U5);
-      const float *U5num = (float *)U5.data();
-      test->Test->GetReadBackData("U6", &U6);
-      const float *U6num = (float *)U6.data();
-
-      /*
-      VERIFY_ARE_EQUAL(T0num[0], 10u);
-      VERIFY_ARE_EQUAL(T1num[0], 11.0);
-      VERIFY_ARE_EQUAL(T2num[0], 12.0);
-      */
-      VERIFY_ARE_EQUAL(U3num[0], 23u);
-      VERIFY_ARE_EQUAL(U4num[0], 24.0);
-      VERIFY_ARE_EQUAL(U5num[0], 25.0);
-      VERIFY_ARE_EQUAL(U6num[0], 26.0);
-      
-
-      /*
-      VERIFY_ARE_EQUAL(RDHdata[1], 11u);
-      VERIFY_ARE_EQUAL(RDHdata[2], 12u);
-      VERIFY_ARE_EQUAL(RDHdata[3], 13u);
-      VERIFY_ARE_EQUAL(RDHdata[4], 14u);
-      VERIFY_ARE_EQUAL(RDHdata[5], 15u);
-      */
-      smPassed &= true;
+      VERIFY_ARE_EQUAL(resultFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultFloats[7], 31.0F);
     }
 
     // Test Vertex + Pixel shader
     {
       pShaderOp->CS = nullptr;
+      pShaderOp->VS = pShaderOp->GetString("VS66");
+      pShaderOp->PS = pShaderOp->GetString("PS66");
       std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
           pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
           ShaderOpSet);
 
-      
-      MappedData renderData;
-      test->Test->GetReadBackData("RTarget", &renderData);
-      const uint32_t *pPixels = (uint32_t *)renderData.data();
+      //MappedData renderData;
+      //test->Test->GetReadBackData("RTarget", &renderData);
+      //const uint32_t *pPixels = (uint32_t *)renderData.data();
 
-      MappedData U3;
-      MappedData U4;
-      MappedData U5;
-      MappedData U6;
-      MappedData SamplerDescriptorHeapData;
+      MappedData resultData;
+      MappedData resultPSData;
+      test->Test->GetReadBackData("g_result", &resultData);
+      test->Test->GetReadBackData("g_resultPS", &resultPSData);
+      const float *resultFloats = (float *)resultData.data();
+      const float *resultPSFloats = (float *)resultPSData.data();
 
-      test->Test->GetReadBackData("U3", &U3);
-      const uint32_t *U3num = (uint32_t *)U3.data();
-      test->Test->GetReadBackData("U4", &U4);
-      const float *U4num = (float *)U4.data();
-      test->Test->GetReadBackData("U5", &U5);
-      const float *U5num = (float *)U5.data();
-      test->Test->GetReadBackData("U6", &U6);
-      const float *U6num = (float *)U6.data();
+      // VS
+      VERIFY_ARE_EQUAL(resultFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultFloats[7], 31.0F);
 
-      VERIFY_ARE_EQUAL(U3num[0], 23u);
-      VERIFY_ARE_EQUAL(U4num[0], 24.0);
-      VERIFY_ARE_EQUAL(U5num[0], 25.0);
-      VERIFY_ARE_EQUAL(U6num[0], 26.0);
-
-      UNREFERENCED_PARAMETER(pPixels);
-      smPassed &= true;
+      // PS
+      VERIFY_ARE_EQUAL(resultPSFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[7], 31.0F);
     }
-    testPassed &= smPassed;
+    Skipped = false;
   }
-  VERIFY_ARE_EQUAL(testPassed, true);
+  if (Skipped) {
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
 }
 
 #define MAX_WAVESIZE 128
