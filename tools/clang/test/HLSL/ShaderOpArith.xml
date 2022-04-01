@@ -3527,10 +3527,10 @@ void MSMain(uint GID : SV_GroupIndex,
 
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="T0" Kind="SRV" Flags='RAW' NumElements="1" Format="R32_TYPELESS"/>
-      <Descriptor Name="T1" Kind="SRV" Flags='RAW' NumElements="1" Format="R32_TYPELESS"/>
+      <Descriptor Name="T1" Kind="SRV" NumElements="1" StructureByteStride="4"/>
       <Descriptor Name="T2" Kind="SRV" />
       <Descriptor Name="U3" Kind="UAV" Flags='RAW' NumElements="1" Format="R32_TYPELESS"/>
-      <Descriptor Name="U4" Kind="UAV" Flags='RAW' NumElements="1" Format="R32_TYPELESS"/>
+      <Descriptor Name="U4" Kind="UAV" NumElements="1" StructureByteStride="4"/>
       <Descriptor Name="U5" Kind="UAV" Dimension="TEXTURE1D" Format="R32_FLOAT"/>
       <Descriptor Name="ConstantBuffer" Kind="CBV"/>
       <Descriptor Name="g_result"   NumElements="8" Kind="UAV" Format="R32_FLOAT"/>
