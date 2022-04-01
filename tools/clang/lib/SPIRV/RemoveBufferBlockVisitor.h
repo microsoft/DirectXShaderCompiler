@@ -43,9 +43,9 @@ private:
   /// StorageBuffer.
   bool hasStorageBufferInterfaceType(const SpirvType *type);
 
-  /// Returns true if the BufferBlock decoration is deprecated (Vulkan 1.2 or
-  /// above).
-  bool isBufferBlockDecorationDeprecated();
+  /// Returns true if the BufferBlock decoration is available (SPIR-V 1.3
+  /// or below).
+  bool isBufferBlockDecorationAvailable();
 
   /// Transforms the given |type| if it is one of the following cases:
   ///

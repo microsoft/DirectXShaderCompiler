@@ -2438,9 +2438,9 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
     if (interfaceType == StructInterfaceType::StorageBuffer)
-      // BufferBlock decoration is deprecated in Vulkan 1.2 and later.
+      // The BufferBlock decoration requires SPIR-V version 1.3 or earlier.
       emitDecoration(id,
-                     featureManager.isTargetEnvVulkan1p2OrAbove()
+                     featureManager.isTargetEnvSpirv1p4OrAbove()
                          ? spv::Decoration::Block
                          : spv::Decoration::BufferBlock,
                      {});
