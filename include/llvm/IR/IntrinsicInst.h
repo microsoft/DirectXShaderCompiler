@@ -112,6 +112,7 @@ namespace llvm {
   ///
   class DbgValueInst : public DbgInfoIntrinsic {
   public:
+    bool MyValue = false;
     const Value *getValue() const;
     Value *getValue();
     uint64_t getOffset() const {

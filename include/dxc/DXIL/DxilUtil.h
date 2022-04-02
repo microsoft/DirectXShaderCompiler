@@ -165,6 +165,9 @@ namespace dxilutil {
 
   llvm::Value::user_iterator mdv_users_end(llvm::Value *V);
   llvm::Value::user_iterator mdv_users_begin(llvm::Value *V);
+  inline bool mdv_user_empty(llvm::Value *V) {
+    return mdv_users_begin(V) == mdv_users_end(V);
+  }
 
 }
 

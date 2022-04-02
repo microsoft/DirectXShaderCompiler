@@ -17,6 +17,7 @@
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/Support/Global.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constant.h"
@@ -53,6 +54,12 @@ uint32_t CountStructMembers(llvm::Type const *pType) {
     Count = 1;
   }
   return Count;
+}
+
+static bool IsInstrumentedAlloca(llvm::AllocaInst *Alloca) {
+  // If an alloca doesn't have any dbg declare, then it's not associated with debug info
+  // at this point.
+  return !hlsl::dxilutil::mdv_user_empty(Alloca);
 }
 
 namespace {
@@ -280,7 +287,6 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
       }
     }
 
-
     // Deref pointer type to get struct type:
     llvm::Type *pStructType = pGEP->getPointerOperandType();
     pStructType = pStructType->getContainedType(0);
@@ -299,7 +305,6 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     // From here on, the indices always come in groups: first, the type 
     // referenced in the current struct. If that type is an (n-dimensional)
     // array, then there follow n indices.
-
 
     auto offset = GetStructOffset(
       pGEP,
