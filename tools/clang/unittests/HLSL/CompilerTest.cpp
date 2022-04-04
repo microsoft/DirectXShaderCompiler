@@ -951,44 +951,6 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
 }
 
 TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
-
-  {
-    auto &dllSupport = m_dllSupport;
-
-    std::vector<char> PdbData;
-    {
-      FILE *f = 0;
-      fopen_s(&f, "F:/test/od_corr/test.pdb", "rb");
-      if (f) {
-        fseek(f, 0, SEEK_END);
-        size_t size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-
-        PdbData.resize(size);
-        fread(PdbData.data(), 1, size, f);
-        fclose(f);
-      }
-    }
-
-    CComPtr<IDxcLibrary> pLib;
-    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-
-    CComPtr<IDxcBlobEncoding> pBlob;
-    pLib->CreateBlobWithEncodingFromPinned(PdbData.data(), PdbData.size(), CP_ACP, &pBlob);
-
-    CComPtr<IDiaDataSource> pDataSource;
-    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDataSource));
-
-    CComPtr<IStream> pStream;
-    VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pBlob, &pStream));
-    if (SUCCEEDED(pDataSource->loadDataFromIStream(pStream))) {
-      CComPtr<IDiaSession> pSession;
-      if (SUCCEEDED(pDataSource->openSession(&pSession))) {
-      }
-    }
-  }
-
-
   // container builders prior to 1.3 did not support adding debug name parts
   if (m_ver.SkipDxilVersion(1, 3)) return;
   CComPtr<IDxcCompiler> pCompiler;

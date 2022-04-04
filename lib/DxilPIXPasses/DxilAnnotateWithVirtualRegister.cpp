@@ -56,12 +56,6 @@ uint32_t CountStructMembers(llvm::Type const *pType) {
   return Count;
 }
 
-static bool IsInstrumentedAlloca(llvm::AllocaInst *Alloca) {
-  // If an alloca doesn't have any dbg declare, then it's not associated with debug info
-  // at this point.
-  return !hlsl::dxilutil::mdv_user_empty(Alloca);
-}
-
 namespace {
 using namespace pix_dxil;
 

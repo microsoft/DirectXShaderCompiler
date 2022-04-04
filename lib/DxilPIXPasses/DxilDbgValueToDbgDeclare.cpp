@@ -636,6 +636,9 @@ static bool IsDITypePointer(DIType *DTy, const llvm::DITypeIdentifierMap &EmptyM
   case llvm::dwarf::DW_TAG_pointer_type:
     return true;
   case llvm::dwarf::DW_TAG_typedef:
+  case llvm::dwarf::DW_TAG_const_type:
+  case llvm::dwarf::DW_TAG_restrict_type:
+  case llvm::dwarf::DW_TAG_reference_type:
     return IsDITypePointer(DerivedTy->getBaseType().resolve(EmptyMap), EmptyMap);
   }
   return false;
