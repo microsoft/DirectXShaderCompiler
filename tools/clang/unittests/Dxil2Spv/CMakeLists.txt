@@ -18,9 +18,10 @@ add_clang_unittest(clang-dxil2spv-tests
   )
 
 target_link_libraries(clang-dxil2spv-tests
+  clangSPIRV
   dxcompiler
-  effcee
   dxil2spvlib
+  effcee
   )
 
 include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)
