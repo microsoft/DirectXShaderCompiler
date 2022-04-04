@@ -738,7 +738,7 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
     while (llvm::isa<llvm::PHINode>(insertPt)) {
       insertPt = insertPt->getNextNode();
     }
-    
+
     if (insertPt != nullptr) {
       llvm::IRBuilder<> B(insertPt);
       B.SetCurrentDebugLocation(llvm::DebugLoc());
@@ -750,19 +750,19 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
       // offset from the Variable's start), and Offset is the Scalar Value's
       // packed offset from DbgValue's value.
       for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
-      
+
         OffsetInBits AlignedOffset;
         if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
                                                       &AlignedOffset)) {
           continue;
         }
-      
+
         auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
         if (AllocaInst == nullptr) {
           assert(!"Failed to find alloca for var[offset]");
           continue;
         }
-      
+
         if (AllocaInst->getAllocatedType()->getArrayElementType() ==
             VO.m_V->getType()) {
           auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
