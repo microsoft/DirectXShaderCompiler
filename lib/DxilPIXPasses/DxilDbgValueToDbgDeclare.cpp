@@ -838,7 +838,8 @@ VariableRegisters::VariableRegisters(
       M, llvm::Intrinsic::dbg_declare))
 {
   PopulateAllocaMap(Ty);
-  assert(m_Offsets.GetCurrentPackedOffset() ==
+  m_Offsets.AlignTo(Ty); // For padding.
+  assert(m_Offsets.GetCurrentAlignedOffset() ==
          DITypePeelTypeAlias(Ty)->getSizeInBits());
 }
 

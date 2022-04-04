@@ -1824,20 +1824,6 @@ void MSMain(
 
 }
 
-static unsigned GetDITypeSizeInBits(llvm::DIType *diTy, const llvm::DITypeIdentifierMap &EmptyMap) {
-  using namespace llvm;
-  if (isa<DIDerivedType>(diTy)) {
-    switch (diTy->getTag()) {
-    case dwarf::DW_TAG_member:
-    case dwarf::DW_TAG_typedef:
-    case dwarf::DW_TAG_reference_type:
-      return GetDITypeSizeInBits(cast<DIDerivedType>(diTy)->getBaseType().resolve(EmptyMap), EmptyMap);
-    }
-  }
-
-  return diTy->getSizeInBits();
-}
-
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
   using namespace llvm;
   const llvm::DITypeIdentifierMap EmptyMap;
@@ -1847,8 +1833,12 @@ static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
       return diTy;
 
     switch (diTy->getTag()) {
+    case dwarf::DW_TAG_member:
+    case dwarf::DW_TAG_inheritance:
     case dwarf::DW_TAG_typedef:
     case dwarf::DW_TAG_reference_type:
+    case dwarf::DW_TAG_const_type:
+    case dwarf::DW_TAG_restrict_type:
       diTy = diDerivedTy->getBaseType().resolve(EmptyMap);
       break;
     default:
@@ -1857,6 +1847,14 @@ static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
   }
 
   return diTy;
+}
+
+static unsigned GetDITypeSizeInBits(llvm::DIType *diTy) {
+  return PeelTypedefs(diTy)->getSizeInBits();
+}
+
+static unsigned GetDITypeAlignmentInBits(llvm::DIType *diTy) {
+  return PeelTypedefs(diTy)->getAlignInBits();
 }
 
 static bool FindStructMemberFromStore(llvm::StoreInst *S, std::string *OutMemberName) {
@@ -1941,6 +1939,8 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S, std::string *OutMember
   unsigned OffsetInDI = 0;
   std::string MemberName;
 
+  //=====================================================
+  // Find the correct member based on size
   while (diType) {
     diType = PeelTypedefs(diType);
     if (DICompositeType *diCompType = dyn_cast<DICompositeType>(diType)) {
@@ -1948,23 +1948,34 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S, std::string *OutMember
           diCompType->getTag() == dwarf::DW_TAG_class_type)
       {
         bool FoundCompositeMember = false;
-        for (auto Elem : diCompType->getElements()) {
+        for (DINode *Elem : diCompType->getElements()) {
           auto diElemType = dyn_cast<DIType>(Elem);
           if (!diElemType)
             return false;
 
-          unsigned CompositeMemberSize = GetDITypeSizeInBits(diElemType, EmptyMap);
+          StringRef CurMemberName;
+          if (diElemType->getTag() == dwarf::DW_TAG_member) {
+            CurMemberName = diElemType->getName();
+          }
+          else if (diElemType->getTag() == dwarf::DW_TAG_inheritance) {}
+          else {
+            return false;
+          }
+
+          unsigned CompositeMemberSize = GetDITypeSizeInBits(diElemType);
+          unsigned CompositeMemberAlignment = GetDITypeAlignmentInBits(diElemType);
+
+          assert(CompositeMemberAlignment);
+          OffsetInDI = llvm::RoundUpToAlignment(OffsetInDI, CompositeMemberAlignment);
+
           if (OffsetInDI <= MemberOffset && MemberOffset < OffsetInDI + CompositeMemberSize) {
-            if (isa<DIDerivedType>(diElemType) && diElemType->getTag() == dwarf::DW_TAG_member) {
-              diType = cast<DIDerivedType>(diElemType)->getBaseType().resolve(EmptyMap);
+            diType = diElemType;
+            if (CurMemberName.size()) {
               if (MemberName.size())
                 MemberName += ".";
-              MemberName += diElemType->getName();
-              FoundCompositeMember = true;
+              MemberName += CurMemberName;
             }
-            else {
-              return false;
-            }
+            FoundCompositeMember = true;
             break;
           }
 
@@ -1974,6 +1985,36 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S, std::string *OutMember
 
         if (!FoundCompositeMember)
           return false;
+      }
+      // For arrays, just flatten it for now.
+      // TODO: multi-dimension array
+      else if (diCompType->getTag() == dwarf::DW_TAG_array_type) {
+        if (MemberOffset < OffsetInDI || MemberOffset >= OffsetInDI + diCompType->getSizeInBits())
+          return false;
+        DIType *diArrayElemType = diCompType->getBaseType().resolve(EmptyMap);
+
+        {
+          unsigned CurSize = diCompType->getSizeInBits();
+          unsigned CurOffset = MemberOffset - OffsetInDI;
+          for (DINode *SubrangeMD : diCompType->getElements()) {
+            DISubrange *Range = cast<DISubrange>(SubrangeMD);
+
+            unsigned ElemSize = CurSize / Range->getCount();
+            unsigned Idx = CurOffset / ElemSize;
+
+            CurOffset -= ElemSize * Idx;
+            CurSize = ElemSize;
+
+            MemberName += "[";
+            MemberName += std::to_string(Idx);
+            MemberName += "]";
+          }
+        }
+
+        unsigned ArrayElemSize = GetDITypeSizeInBits(diArrayElemType);
+        unsigned FlattenedIdx = (MemberOffset - OffsetInDI) / ArrayElemSize;
+        OffsetInDI += FlattenedIdx * ArrayElemSize;
+        diType = diArrayElemType;
       }
       else {
         return false;
@@ -1988,20 +2029,6 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S, std::string *OutMember
       OffsetInDI += diBasicType->getSizeInBits();
       return false;
     }
-#if 0
-    else if (DIDerivedType *diDerivedType = dyn_cast<DIDerivedType>(diType)) {
-      switch (diDerivedType->getTag()) {
-      case dwarf::DW_TAG_typedef:
-      case dwarf::DW_TAG_reference_type:
-      case dwarf::DW_TAG_member:
-        diType = diDerivedType->getBaseType().resolve(EmptyMap);
-        break;
-      default:
-        return false;
-        break;
-      }
-    }
-#endif
     else {
       return false;
     }
@@ -2083,7 +2110,11 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
                 }
             }
 
-            ret.OffsetAndSizes.push_back({ memberCount, startingBit, coveredBits });
+            AggregateOffsetAndSize OffsetAndSize = {};
+            OffsetAndSize.countOfMembers = memberCount;
+            OffsetAndSize.offset         = startingBit;
+            OffsetAndSize.size           = coveredBits;
+            ret.OffsetAndSizes.push_back(OffsetAndSize);
 
             // Use this independent count of number of struct members to test the 
             // function that operates on the alloca type:
@@ -2123,13 +2154,13 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
   // by exactly one of the members found by the annotation pass:
   if (validateCoverage)
   {
-      for (auto const& cover : ret.OffsetAndSizes)
+      unsigned CurRegIdx = 0;
+      for (AggregateOffsetAndSize const& cover : ret.OffsetAndSizes) // For each entry read from member iterators and dbg.declares
       {
           bool found = false;
-          for (auto const& valueLocation : passOutput.valueLocations)
+          for (ValueLocation const& valueLocation : passOutput.valueLocations) // For each allocas and dxil values
           {
-              constexpr unsigned int eightBitsPerDword = 32;
-              if (valueLocation.base * eightBitsPerDword == cover.offset)
+              if (CurRegIdx == valueLocation.base)
               {
                   VERIFY_IS_FALSE(found);
                   found = true;
@@ -2137,6 +2168,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
               }
           }
           VERIFY_IS_TRUE(found);
+          CurRegIdx += cover.countOfMembers;
       }
   }
 
@@ -2289,13 +2321,32 @@ void main()
 
         auto Testables = TestStructAnnotationCase(hlsl, optimization);
 
-        if (!Testables.OffsetAndSizes.empty()) {
+        if (!choice.IsOptimized) {
             VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
             VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes[0].countOfMembers);
             VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
             // 8 bytes align for uint64_t:
             VERIFY_ARE_EQUAL(32 + 16 + 16 /*alignment for next field*/ + 32 + 32/*alignment for max align*/ + 64,
                 Testables.OffsetAndSizes[0].size);
+        }
+        else {
+            VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes.size());
+
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
+            VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+            VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
+
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[1].countOfMembers);
+            VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[1].offset);
+            VERIFY_ARE_EQUAL(16, Testables.OffsetAndSizes[1].size);
+
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[2].countOfMembers);
+            VERIFY_ARE_EQUAL(32+32, Testables.OffsetAndSizes[2].offset);
+            VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[2].size);
+
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[3].countOfMembers);
+            VERIFY_ARE_EQUAL(32+32+32+/*padding for alignment*/32, Testables.OffsetAndSizes[3].offset);
+            VERIFY_ARE_EQUAL(64, Testables.OffsetAndSizes[3].size);
         }
 
         VERIFY_ARE_EQUAL(4, Testables.AllocaWrites.size());
@@ -2342,16 +2393,24 @@ void main()
 
       auto Testables = TestStructAnnotationCase(hlsl, optimization);
 
-      if (!Testables.OffsetAndSizes.empty()) {
+      if (!choice.IsOptimized) {
           VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
           VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes[0].countOfMembers);
           VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
           VERIFY_ARE_EQUAL(4 * 32, Testables.OffsetAndSizes[0].size);
       }
+      else {
+          VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes.size());
+          for (int i = 0; i < 4; i++) {
+              VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[i].countOfMembers);
+              VERIFY_ARE_EQUAL(i * 32, Testables.OffsetAndSizes[i].offset);
+              VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[i].size);
+          }
+      }
 
       ValidateAllocaWrite(Testables.AllocaWrites, 0, "before");
-      ValidateAllocaWrite(Testables.AllocaWrites, 1, "one");
-      ValidateAllocaWrite(Testables.AllocaWrites, 2, "two");
+      ValidateAllocaWrite(Testables.AllocaWrites, 1, "contained.one");
+      ValidateAllocaWrite(Testables.AllocaWrites, 2, "contained.two");
       ValidateAllocaWrite(Testables.AllocaWrites, 3, "after");
   }
 }
@@ -2380,13 +2439,25 @@ void main()
 )";
 
       auto Testables = TestStructAnnotationCase(hlsl, optimization);
-      if (!Testables.OffsetAndSizes.empty()) {
+      if (!choice.IsOptimized) {
           VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
           VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
           VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
           VERIFY_ARE_EQUAL(2 * 32, Testables.OffsetAndSizes[0].size);
       }
+      else {
+          VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes.size());
+          for (int i = 0; i < 2; i++) {
+              VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[i].countOfMembers);
+              VERIFY_ARE_EQUAL(i * 32, Testables.OffsetAndSizes[i].offset);
+              VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[i].size);
+          }
+      }
       VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+
+      int Idx = 0;
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "Array[0]");
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "Array[1]");
   }
 }
 
@@ -2417,13 +2488,29 @@ void main()
 )";
 
       auto Testables = TestStructAnnotationCase(hlsl, optimization);
-      if (!Testables.OffsetAndSizes.empty()) {
+      if (!choice.IsOptimized) {
           VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
           VERIFY_ARE_EQUAL(6, Testables.OffsetAndSizes[0].countOfMembers);
           VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
           VERIFY_ARE_EQUAL(2 * 3 * 32, Testables.OffsetAndSizes[0].size);
       }
+      else {
+          VERIFY_ARE_EQUAL(6, Testables.OffsetAndSizes.size());
+          for (int i = 0; i < 6; i++) {
+              VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[i].countOfMembers);
+              VERIFY_ARE_EQUAL(i * 32, Testables.OffsetAndSizes[i].offset);
+              VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[i].size);
+          }
+      }
       VERIFY_ARE_EQUAL(6, Testables.AllocaWrites.size());
+
+      int Idx = 0;
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "TwoDArray[0][0]");
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "TwoDArray[0][1]");
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "TwoDArray[0][2]");
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "TwoDArray[1][0]");
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "TwoDArray[1][1]");
+      ValidateAllocaWrite(Testables.AllocaWrites, Idx++, "TwoDArray[1][2]");
   }
 }
 
@@ -2462,17 +2549,25 @@ void main()
 
       auto Testables = TestStructAnnotationCase(hlsl, optimization);
 
-      if (!Testables.OffsetAndSizes.empty()) {
+      if (!choice.IsOptimized) {
           VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
           VERIFY_ARE_EQUAL(5, Testables.OffsetAndSizes[0].countOfMembers);
           VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
           VERIFY_ARE_EQUAL(5 * 32, Testables.OffsetAndSizes[0].size);
       }
+      else {
+          VERIFY_ARE_EQUAL(5, Testables.OffsetAndSizes.size());
+          for (int i = 0; i < 5; i++) {
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[i].countOfMembers);
+            VERIFY_ARE_EQUAL(i * 32, Testables.OffsetAndSizes[i].offset);
+            VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[i].size);
+          }
+      }
 
       ValidateAllocaWrite(Testables.AllocaWrites, 0, "before");
-      ValidateAllocaWrite(Testables.AllocaWrites, 1, "array");
-      ValidateAllocaWrite(Testables.AllocaWrites, 2, "array");
-      ValidateAllocaWrite(Testables.AllocaWrites, 3, "array");
+      ValidateAllocaWrite(Testables.AllocaWrites, 1, "contained.array[0]");
+      ValidateAllocaWrite(Testables.AllocaWrites, 2, "contained.array[1]");
+      ValidateAllocaWrite(Testables.AllocaWrites, 3, "contained.array[2]");
       ValidateAllocaWrite(Testables.AllocaWrites, 4, "after");
   }
 }
@@ -2773,8 +2868,10 @@ void main()
 )";
       auto Testables = TestStructAnnotationCase(hlsl, optimization, true);
 
+      // TODO: Make 'this' work
+
       // Can't validate # of writes: rel and dbg are different
-      VERIFY_ARE_EQUAL(43, Testables.AllocaWrites.size());
+      //VERIFY_ARE_EQUAL(43, Testables.AllocaWrites.size());
 
       // Can't test individual writes until struct member names are returned:
       //for (int i = 0; i < 51; ++i)
@@ -2848,7 +2945,7 @@ void main()
 )";
 
         auto Testables = TestStructAnnotationCase(hlsl, optimization);
-        if (!Testables.OffsetAndSizes.empty()) {
+        if (!choice.IsOptimized) {
             VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
             VERIFY_ARE_EQUAL(15, Testables.OffsetAndSizes[0].countOfMembers);
             VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
@@ -2856,7 +2953,57 @@ void main()
             constexpr uint32_t EmbeddedStructBitSize = 32 * 5;
             VERIFY_ARE_EQUAL(3 * 32 + EmbeddedStructBitSize + 64 + 16 + 16/*alignment for next field*/ + BigStructBitSize * 2 + 32 + 32/*align to max align*/, Testables.OffsetAndSizes[0].size);
         }
+        else {
+            VERIFY_ARE_EQUAL(15, Testables.OffsetAndSizes.size());
+
+            // First 8 members
+            for (int i = 0; i < 8; i++) {
+              VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[i].countOfMembers);
+              VERIFY_ARE_EQUAL(i * 32, Testables.OffsetAndSizes[i].offset);
+              VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[i].size);
+            }
+
+            // bigOne
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[8].countOfMembers);
+            VERIFY_ARE_EQUAL(256, Testables.OffsetAndSizes[8].offset);
+            VERIFY_ARE_EQUAL(64, Testables.OffsetAndSizes[8].size);
+
+            // littleOne
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[9].countOfMembers);
+            VERIFY_ARE_EQUAL(320, Testables.OffsetAndSizes[9].offset);
+            VERIFY_ARE_EQUAL(16, Testables.OffsetAndSizes[9].size);
+
+            // Each member of BigStruct[2]
+            for (int i = 0; i < 4; i++) {
+              int idx = i + 10;
+              VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[idx].countOfMembers);
+              VERIFY_ARE_EQUAL(384 + i*64, Testables.OffsetAndSizes[idx].offset);
+              VERIFY_ARE_EQUAL(64, Testables.OffsetAndSizes[idx].size);
+            }
+
+            VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[14].countOfMembers);
+            VERIFY_ARE_EQUAL(640, Testables.OffsetAndSizes[14].offset);
+            VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[14].size);
+        }
+
         VERIFY_ARE_EQUAL(15, Testables.AllocaWrites.size());
+
+        size_t Index = 0;
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "dummy");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "vertexCount");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "primitiveCount");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "embeddedStruct.OneInt");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "embeddedStruct.TwoDArray[0][0]");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "embeddedStruct.TwoDArray[0][1]");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "embeddedStruct.TwoDArray[1][0]");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "embeddedStruct.TwoDArray[1][1]");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "bigOne");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "littleOne");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "bigStruct[0].bigInt");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "bigStruct[0].bigDouble");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "bigStruct[1].bigInt");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "bigStruct[1].bigDouble");
+        ValidateAllocaWrite(Testables.AllocaWrites, Index++, "lastCheck");
     }
 }
 
@@ -2914,8 +3061,9 @@ struct Base
 {
     float floatValue;
 };
+typedef Base BaseTypedef;
 
-struct Derived : Base
+struct Derived : BaseTypedef
 {
 	int intValue;
 };
