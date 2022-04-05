@@ -14,7 +14,7 @@ add_clang_library(dxil2spvlib
   dxil2spv.cpp
   )
 
-target_link_libraries(dxil2spvlib
+target_link_libraries(dxil2spvlib PRIVATE
   clangBasic
   clangCodeGen
   clangSPIRV
