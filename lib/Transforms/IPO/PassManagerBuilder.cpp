@@ -504,7 +504,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   // HLSL Change Begins.
   // Use value numbering to figure out if regions are equivalent, and branch to only one.
-  //MPM.add(createDxilSimpleGVNEliminateRegionPass());
+  MPM.add(createDxilSimpleGVNEliminateRegionPass());
   // HLSL don't allow memcpy and memset.
   //MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
   // HLSL Change Ends.

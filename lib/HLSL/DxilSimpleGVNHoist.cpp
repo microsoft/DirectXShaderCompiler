@@ -23,8 +23,6 @@
 
 #include "llvm/Analysis/PostDominators.h"
 
-#pragma optimize( "", off )
-
 using namespace llvm;
 using namespace hlsl;
 
@@ -446,7 +444,6 @@ namespace {
 //    r = tex.Sample(ss, uv) + 3;
 // }
 class DxilSimpleGVNHoist : public FunctionPass {
-  bool bOnlyAllowCompleteHoist = false;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -483,10 +480,6 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
   for (Instruction &I : *Succ0) {
     uint32_t V = VT.lookupOrAdd(&I);
     VNtoInsts[V].emplace_back(&I);
-    // Also assign value numbers to the operands
-    for (Value *Operand : I.operands()) {
-      VT.lookupOrAdd(Operand);
-    }
   }
 
   std::vector<uint32_t> HoistCandidateVN;
@@ -535,14 +528,8 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
         assert(NumOps == I->getNumOperands());
         for (unsigned i = 0; i < NumOps; i++) {
           if (FirstI->getOperand(i) != I->getOperand(i)) {
-            Value *FirstOp = FirstI->getOperand(i);
-            Value *Op = I->getOperand(i);
-            uint32_t FirstOpN = VT.lookup(FirstOp);
-            uint32_t OpN = VT.lookup(Op);
-            if (FirstOpN != OpN) {
-              bHasDifferentOperand = true;
-              break;
-            }
+            bHasDifferentOperand = true;
+            break;
           }
         }
         if (bHasDifferentOperand)
@@ -568,24 +555,11 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
   return true;
 }
 
-static std::string ToString(Value *V) {
-  std::string ret;
-  llvm::raw_string_ostream os(ret);
-  V->print(os);
-  os.flush();
-  return ret;
-}
-
 bool DxilSimpleGVNHoist::runOnFunction(Function &F) {
   BasicBlock &Entry = F.getEntryBlock();
   bool bUpdated = false;
-  auto before = ToString(&F);
-  (void)before;
   for (auto it = po_begin(&Entry); it != po_end(&Entry); it++) {
     BasicBlock *BB = *it;
-    if (BB->getName().count("._crit_edge")) {
-      fprintf(stderr, "STOP\n");
-    }
     TerminatorInst *TI = BB->getTerminator();
     if (TI->getNumSuccessors() != 2)
       continue;
@@ -602,8 +576,6 @@ bool DxilSimpleGVNHoist::runOnFunction(Function &F) {
       continue;
     bUpdated |= tryToHoist(BB, Succ0, Succ1);
   }
-  auto after = ToString(&F);
-  (void)after;
   return bUpdated;
 }
 
@@ -660,10 +632,9 @@ struct ValueNumberComparator {
     if (TerminatorInst *TI = dyn_cast<TerminatorInst>(I)) {
       Value *Cond = nullptr;
       if (BranchInst *Br = dyn_cast<BranchInst>(TI)) {
-        Cond = Br->getCondition();
-        // Unconditional branch
-        if (!Cond)
+        if (!Br->isConditional())
           return true;
+        Cond = Br->getCondition();
       }
       else if (SwitchInst *Sw = dyn_cast<SwitchInst>(TI)) {
         Cond = Sw->getCondition();
@@ -685,7 +656,7 @@ struct ValueNumberComparator {
           return false;
 
         TerminatorRecord Record = TerminatorRecords[TerminatorIndex];
-        if (Record.Opcode != TI->getOpcode() || Record.ConditionVN != VT.lookup(Cond))
+        if (Record.Opcode != TI->getOpcode() || Record.ConditionVN != VT.lookup(Cond, false))
           return false;
 
         TerminatorIndex++;
@@ -707,35 +678,42 @@ struct ValueNumberComparator {
 
     return true;
   }
-};
 
-static bool BuildOrCompareVN(BasicBlock *Begin, BasicBlock *End, ValueTable &VT, bool Compare, ValueNumberComparator *Comparison) {
-  SmallVector<BasicBlock *, 10> Worklist;
-  DenseSet<BasicBlock *> Seen;
-  Worklist.push_back(Begin);
+  bool BuildOrCompare(BasicBlock *Begin, BasicBlock *End, ValueTable &VT, bool Compare) {
+    SmallVector<BasicBlock *, 10> Worklist;
+    DenseSet<BasicBlock *> Seen;
+    Worklist.push_back(Begin);
 
-  while (Worklist.size()) {
-    BasicBlock *BB = Worklist.pop_back_val();
-    if (BB == End)
-      continue;
-    Seen.insert(BB);
+    while (Worklist.size()) {
+      BasicBlock *BB = Worklist.pop_back_val();
+      if (BB == End)
+        continue;
+      Seen.insert(BB);
 
-    for (Instruction &I : *Begin) {
-      if (!Comparison->HandleInst(VT, &I, Compare))
-        return false;
+      for (Instruction &I : *Begin) {
+        if (!HandleInst(VT, &I, Compare))
+          return false;
+      }
+
+      for (BasicBlock *Succ : successors(BB)) {
+        // If the successor was encountered before, there might be a loop in here somewhere.
+        // Don't risk it.
+        if (Seen.count(Succ)) {
+          return false;
+        }
+        Worklist.push_back(Succ);
+      }
     }
 
-    for (BasicBlock *Succ : successors(BB)) {
-      // If the successor was encountered before, there might be a loop in here somewhere.
-      // Don't risk it.
-      if (Seen.count(Succ)) {
-        return false;
-      }
-      Worklist.push_back(Succ);
+    if (!Compare) {
+      return true;
+    }
+    else {
+      return InstValueNumbers.size() == InstIndex && TerminatorRecords.size() == TerminatorIndex;
     }
   }
-  return true;
-}
+
+};
 
 bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
   PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
@@ -763,9 +741,9 @@ bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
     BasicBlock *End = PDT->findNearestCommonDominator(Succ0, Succ1);
 
     ValueNumberComparator Comparison;
-    if (!BuildOrCompareVN(Succ0, End, VT, /*compare*/false, &Comparison))
+    if (!Comparison.BuildOrCompare(Succ0, End, VT, /*compare*/false))
       continue;
-    if (!BuildOrCompareVN(Succ1, End, VT, /*compare*/true,  &Comparison))
+    if (!Comparison.BuildOrCompare(Succ1, End, VT, /*compare*/true))
       continue;
 
     BranchInst *Br = BranchInst::Create(Succ0, &BB);
