@@ -6,7 +6,7 @@
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // A simple version of GVN hoist for DXIL.                                   //
-// Based on GVNHoist in LLVM 6.0.                                            //                                                                           //
+// Based on GVNHoist in LLVM 6.0.                                            //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
@@ -20,6 +20,10 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/CFG.h"
+
+#include "llvm/Analysis/PostDominators.h"
+
+#pragma optimize( "", off )
 
 using namespace llvm;
 using namespace hlsl;
@@ -442,6 +446,7 @@ namespace {
 //    r = tex.Sample(ss, uv) + 3;
 // }
 class DxilSimpleGVNHoist : public FunctionPass {
+  bool bOnlyAllowCompleteHoist = false;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -478,6 +483,10 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
   for (Instruction &I : *Succ0) {
     uint32_t V = VT.lookupOrAdd(&I);
     VNtoInsts[V].emplace_back(&I);
+    // Also assign value numbers to the operands
+    for (Value *Operand : I.operands()) {
+      VT.lookupOrAdd(Operand);
+    }
   }
 
   std::vector<uint32_t> HoistCandidateVN;
@@ -526,8 +535,14 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
         assert(NumOps == I->getNumOperands());
         for (unsigned i = 0; i < NumOps; i++) {
           if (FirstI->getOperand(i) != I->getOperand(i)) {
-            bHasDifferentOperand = true;
-            break;
+            Value *FirstOp = FirstI->getOperand(i);
+            Value *Op = I->getOperand(i);
+            uint32_t FirstOpN = VT.lookup(FirstOp);
+            uint32_t OpN = VT.lookup(Op);
+            if (FirstOpN != OpN) {
+              bHasDifferentOperand = true;
+              break;
+            }
           }
         }
         if (bHasDifferentOperand)
@@ -553,11 +568,24 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
   return true;
 }
 
+static std::string ToString(Value *V) {
+  std::string ret;
+  llvm::raw_string_ostream os(ret);
+  V->print(os);
+  os.flush();
+  return ret;
+}
+
 bool DxilSimpleGVNHoist::runOnFunction(Function &F) {
   BasicBlock &Entry = F.getEntryBlock();
   bool bUpdated = false;
+  auto before = ToString(&F);
+  (void)before;
   for (auto it = po_begin(&Entry); it != po_end(&Entry); it++) {
     BasicBlock *BB = *it;
+    if (BB->getName().count("._crit_edge")) {
+      fprintf(stderr, "STOP\n");
+    }
     TerminatorInst *TI = BB->getTerminator();
     if (TI->getNumSuccessors() != 2)
       continue;
@@ -574,6 +602,8 @@ bool DxilSimpleGVNHoist::runOnFunction(Function &F) {
       continue;
     bUpdated |= tryToHoist(BB, Succ0, Succ1);
   }
+  auto after = ToString(&F);
+  (void)after;
   return bUpdated;
 }
 
@@ -585,3 +615,174 @@ FunctionPass *llvm::createDxilSimpleGVNHoistPass() {
 
 INITIALIZE_PASS(DxilSimpleGVNHoist, "dxil-gvn-hoist",
                 "DXIL simple gvn hoist", false, false)
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Use value numbering to compare regions. If they are equivalent, branch
+// to only one side.
+//
+namespace {
+
+class DxilSimpleGVNEliminateRegion : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilSimpleGVNEliminateRegion() : FunctionPass(ID) {}
+
+  StringRef getPassName() const override {
+    return "DXIL simple GVN eliminate region";
+  }
+
+  bool runOnFunction(Function &F) override;
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<PostDominatorTree>();
+  }
+};
+
+char DxilSimpleGVNEliminateRegion::ID = 0;
+
+struct ValueNumberComparator {
+  // For comparison only
+  unsigned InstIndex = 0;
+  unsigned TerminatorIndex = 0;
+
+  struct TerminatorRecord {
+    uint32_t Opcode;
+    uint32_t ConditionVN;
+  };
+  std::vector<uint32_t> InstValueNumbers;
+  std::vector<TerminatorRecord> TerminatorRecords;
+
+  bool HandleInst(ValueTable &VT, Instruction *I, bool Cmp) {
+    if (isa<DbgInfoIntrinsic>(I))
+      return true;
+    if (TerminatorInst *TI = dyn_cast<TerminatorInst>(I)) {
+      Value *Cond = nullptr;
+      if (BranchInst *Br = dyn_cast<BranchInst>(TI)) {
+        Cond = Br->getCondition();
+        // Unconditional branch
+        if (!Cond)
+          return true;
+      }
+      else if (SwitchInst *Sw = dyn_cast<SwitchInst>(TI)) {
+        Cond = Sw->getCondition();
+      }
+      // Don't know how to handle this. Don't assume anything.
+      else {
+        return false;
+      }
+
+      // Either add a record or compare it to the record
+      if (!Cmp) {
+        TerminatorRecord NewRec = {};
+        NewRec.ConditionVN = VT.lookupOrAdd(Cond);
+        NewRec.Opcode = TI->getOpcode();
+        TerminatorRecords.push_back(NewRec);
+      }
+      else {
+        if (TerminatorIndex >= TerminatorRecords.size())
+          return false;
+
+        TerminatorRecord Record = TerminatorRecords[TerminatorIndex];
+        if (Record.Opcode != TI->getOpcode() || Record.ConditionVN != VT.lookup(Cond))
+          return false;
+
+        TerminatorIndex++;
+      }
+    }
+    else {
+      // Either add a record or compare it to the record
+      if (!Cmp) {
+        uint32_t VN = VT.lookupOrAdd(I);
+        InstValueNumbers.push_back(VN);
+      }
+      else {
+        uint32_t VN = VT.lookupOrAdd(I);
+        if (InstIndex >= InstValueNumbers.size() || InstValueNumbers[InstIndex] != VN)
+          return false;
+        InstIndex++;
+      }
+    }
+
+    return true;
+  }
+};
+
+static bool BuildOrCompareVN(BasicBlock *Begin, BasicBlock *End, ValueTable &VT, bool Compare, ValueNumberComparator *Comparison) {
+  SmallVector<BasicBlock *, 10> Worklist;
+  DenseSet<BasicBlock *> Seen;
+  Worklist.push_back(Begin);
+
+  while (Worklist.size()) {
+    BasicBlock *BB = Worklist.pop_back_val();
+    if (BB == End)
+      continue;
+    Seen.insert(BB);
+
+    for (Instruction &I : *Begin) {
+      if (!Comparison->HandleInst(VT, &I, Compare))
+        return false;
+    }
+
+    for (BasicBlock *Succ : successors(BB)) {
+      // If the successor was encountered before, there might be a loop in here somewhere.
+      // Don't risk it.
+      if (Seen.count(Succ)) {
+        return false;
+      }
+      Worklist.push_back(Succ);
+    }
+  }
+  return true;
+}
+
+bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
+  PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
+
+  ValueTable VT;
+
+  bool bChanged = false;
+  for (BasicBlock &BB : F) {
+    TerminatorInst *TI = BB.getTerminator();
+    if (TI->getNumSuccessors() != 2) {
+      continue;
+    }
+
+    BasicBlock *Succ0 = TI->getSuccessor(0);
+    BasicBlock *Succ1 = TI->getSuccessor(1);
+    if (&BB == Succ0)
+      continue;
+    if (&BB == Succ1)
+      continue;
+    if (!HasOnePred(Succ0))
+      continue;
+    if (!HasOnePred(Succ1))
+      continue;
+
+    BasicBlock *End = PDT->findNearestCommonDominator(Succ0, Succ1);
+
+    ValueNumberComparator Comparison;
+    if (!BuildOrCompareVN(Succ0, End, VT, /*compare*/false, &Comparison))
+      continue;
+    if (!BuildOrCompareVN(Succ1, End, VT, /*compare*/true,  &Comparison))
+      continue;
+
+    BranchInst *Br = BranchInst::Create(Succ0, &BB);
+    Br->setDebugLoc(TI->getDebugLoc());
+    TI->eraseFromParent();
+    bChanged = true;
+  }
+
+  return bChanged;
+}
+
+}
+
+FunctionPass *llvm::createDxilSimpleGVNEliminateRegionPass() {
+  return new DxilSimpleGVNEliminateRegion();
+}
+
+INITIALIZE_PASS(DxilSimpleGVNEliminateRegion, "dxil-gvn-eliminate-region",
+                "DXIL simple eliminate region", false, false)
+
