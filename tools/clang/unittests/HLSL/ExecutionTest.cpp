@@ -8776,7 +8776,17 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
 
 //void ExecutionTest::TestComputeShaderDynamicResourcesUniformIndexing()
 
+void EnableShaderBasedValidation() {
+  CComPtr<ID3D12Debug> spDebugController0;
+  CComPtr<ID3D12Debug1> spDebugController1;
+  VERIFY_SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&spDebugController0)));
+  VERIFY_SUCCEEDED(
+      spDebugController0->QueryInterface(IID_PPV_ARGS(&spDebugController1)));
+  spDebugController1->SetEnableGPUBasedValidation(true);
+}
+
 void ExecutionTest::DynamicResourcesUniformIndexingTest() {
+  EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -8790,8 +8800,8 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
 
   bool Skipped = true;
 
-  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
-  //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
+  //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
 
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
@@ -8849,22 +8859,22 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
       //test->Test->GetReadBackData("RTarget", &renderData);
       //const uint32_t *pPixels = (uint32_t *)renderData.data();
 
-      MappedData resultData;
+      MappedData resultVSData;
       MappedData resultPSData;
-      test->Test->GetReadBackData("g_result", &resultData);
+      test->Test->GetReadBackData("g_resultVS", &resultVSData);
       test->Test->GetReadBackData("g_resultPS", &resultPSData);
-      const float *resultFloats = (float *)resultData.data();
+      const float *resultVSFloats = (float *)resultVSData.data();
       const float *resultPSFloats = (float *)resultPSData.data();
 
       // VS
-      VERIFY_ARE_EQUAL(resultFloats[0], 10.0F);
-      VERIFY_ARE_EQUAL(resultFloats[1], 11.0F);
-      VERIFY_ARE_EQUAL(resultFloats[2], 12.0F);
-      VERIFY_ARE_EQUAL(resultFloats[3], 23.0F);
-      VERIFY_ARE_EQUAL(resultFloats[4], 24.0F);
-      VERIFY_ARE_EQUAL(resultFloats[5], 25.0F);
-      VERIFY_ARE_EQUAL(resultFloats[6], 30.0F);
-      VERIFY_ARE_EQUAL(resultFloats[7], 31.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[7], 31.0F);
 
       // PS
       VERIFY_ARE_EQUAL(resultPSFloats[0], 10.0F);
