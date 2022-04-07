@@ -26,14 +26,14 @@ cbuffer cb1 : register(b1) {
 
 float foo(float2 uv) {
   if (a < b)
-    return sin(a) + b + c;
+    return sin(a) + b;
   else
     return a - b + c;
 }
 
 float bar() {
   if (a < b)
-    return sin(a) + b + c;
+    return b + sin(a);
   else
     return a - b + c;
 }
@@ -47,3 +47,4 @@ float main(float2 uv : TEXCOORD) : SV_Target {
     return bar();
   }
 }
+

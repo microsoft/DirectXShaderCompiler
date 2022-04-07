@@ -22,6 +22,9 @@
 #include "llvm/IR/CFG.h"
 
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -118,7 +121,23 @@ public:
   void setDomTree(DominatorTree *D) { DT = D; }
   uint32_t getNextUnusedValueNumber() { return nextValueNumber; }
   void verifyRemoved(const Value *) const;
+
+  void dump(Function &F);
 };
+
+LLVM_DUMP_METHOD void ValueTable::dump(Function &F) {
+  struct AnnotationWriter : public llvm::AssemblyAnnotationWriter {
+    ValueTable *VT = nullptr;
+    AnnotationWriter(ValueTable *VT) : VT(VT) {}
+    void emitInstructionAnnot(const Instruction *I, formatted_raw_ostream &OS) override
+    {
+      uint32_t VN = VT->lookupOrAdd(const_cast<Instruction *>(I));
+      OS << "; " << VN;
+    }
+  };
+  AnnotationWriter AW(this);
+  F.print(llvm::dbgs(), &AW);
+}
 
 //===----------------------------------------------------------------------===//
 //                     ValueTable Internal Functions
@@ -260,6 +279,7 @@ uint32_t ValueTable::lookupOrAddCall(CallInst *C) {
         break;
         // TODO: make buffer/texture load on srv safe.
       case DXIL::OpCode::CreateHandleForLib:
+      case DXIL::OpCode::AnnotateHandle:
       case DXIL::OpCode::CBufferLoad:
       case DXIL::OpCode::CBufferLoadLegacy:
       case DXIL::OpCode::Sample:
@@ -270,6 +290,7 @@ uint32_t ValueTable::lookupOrAddCall(CallInst *C) {
       case DXIL::OpCode::SampleGrad:
       case DXIL::OpCode::CheckAccessFullyMapped:
       case DXIL::OpCode::GetDimensions:
+      case DXIL::OpCode::TextureLoad:
       case DXIL::OpCode::TextureGather:
       case DXIL::OpCode::TextureGatherCmp:
       case DXIL::OpCode::Texture2DMSGetSamplePosition:
@@ -614,90 +635,181 @@ public:
 
 char DxilSimpleGVNEliminateRegion::ID = 0;
 
-struct ValueNumberComparator {
-  // For comparison only
-  unsigned InstIndex = 0;
-  unsigned TerminatorIndex = 0;
+}
 
-  struct TerminatorRecord {
-    uint32_t Opcode;
-    uint32_t ConditionVN;
-  };
-  std::vector<uint32_t> InstValueNumbers;
-  std::vector<TerminatorRecord> TerminatorRecords;
+namespace {
+struct BasicBlockProfile {
+  BasicBlock *BB = nullptr;
+  std::vector<uint32_t> ValueNumbers;
+  uint32_t BranchOpcode = 0;
+  uint32_t BranchCondVN = 0;
+  llvm::hash_code Hash;
 
-  bool HandleInst(ValueTable &VT, Instruction *I, bool Cmp) {
-    if (isa<DbgInfoIntrinsic>(I))
-      return true;
-    if (TerminatorInst *TI = dyn_cast<TerminatorInst>(I)) {
-      Value *Cond = nullptr;
-      if (BranchInst *Br = dyn_cast<BranchInst>(TI)) {
-        if (!Br->isConditional())
-          return true;
-        Cond = Br->getCondition();
-      }
-      else if (SwitchInst *Sw = dyn_cast<SwitchInst>(TI)) {
-        Cond = Sw->getCondition();
-      }
-      // Don't know how to handle this. Don't assume anything.
-      else {
-        return false;
-      }
+  bool operator==(const BasicBlockProfile &other) const {
+    if (Hash != other.Hash) return false;
+    if (BranchCondVN != other.BranchCondVN) return false;
+    if (BranchOpcode != other.BranchOpcode) return false;
+    if (ValueNumbers.size() != other.ValueNumbers.size())
+      return false;
+    // Save the most expensive comparison to last.
+    return ValueNumbers.size() == 0 ||
+      0 == std::memcmp(ValueNumbers.data(), other.ValueNumbers.data(), ValueNumbers.size() * sizeof(decltype(ValueNumbers)::value_type));
+  }
+};
+}
 
-      // Either add a record or compare it to the record
-      if (!Cmp) {
-        TerminatorRecord NewRec = {};
-        NewRec.ConditionVN = VT.lookupOrAdd(Cond);
-        NewRec.Opcode = TI->getOpcode();
-        TerminatorRecords.push_back(NewRec);
-      }
-      else {
-        if (TerminatorIndex >= TerminatorRecords.size())
-          return false;
+namespace std {
+template <>
+struct hash<BasicBlockProfile>
+{
+  std::size_t operator()(const BasicBlockProfile &Profile) const {
+    return Profile.Hash;
+  }
+};
+}
 
-        TerminatorRecord Record = TerminatorRecords[TerminatorIndex];
-        if (Record.Opcode != TI->getOpcode() || Record.ConditionVN != VT.lookup(Cond, false))
-          return false;
+namespace {
 
-        TerminatorIndex++;
-      }
-    }
-    else {
-      // Either add a record or compare it to the record
-      if (!Cmp) {
-        uint32_t VN = VT.lookupOrAdd(I);
-        InstValueNumbers.push_back(VN);
-      }
-      else {
-        uint32_t VN = VT.lookupOrAdd(I);
-        if (InstIndex >= InstValueNumbers.size() || InstValueNumbers[InstIndex] != VN)
-          return false;
-        InstIndex++;
-      }
-    }
+//===========================================================================
+// Similar to ValueTable, which computes value numbers for Values,
+// BasicBlockTable builds "Block numbers" for basic blocks.
+//
+// Block numbers represent equivalency of basic blocks. If two basic blocks
+// have the same block number, they are interchangeable.
+//
+// Note however, the block number does not take into account the basic blocks'
+// successors.
+//
+struct BasicBlockTable {
+private:
+  std::unordered_map<BasicBlock *, uint32_t> BlockNumbers;
+  std::unordered_map<BasicBlockProfile, uint32_t> Profiles;
+  uint32_t NextNumber = 1;
+  ValueTable VT;
 
-    return true;
+public:
+
+  uint32_t GetOrCompute(BasicBlock &BB) {
+    auto it = BlockNumbers.find(&BB);
+    if (it != BlockNumbers.end())
+      return it->second;
+    return Recompute(BB);
   }
 
-  bool BuildOrCompare(BasicBlock *Begin, BasicBlock *End, ValueTable &VT, bool Compare) {
+  uint32_t Recompute(BasicBlock &BB) {
+    BasicBlockProfile Profile;
+
+    for (auto it = BB.begin(), end = BB.end(); std::next(it) != end; it++) {
+      Instruction *I = &*it;
+      if (isa<DbgInfoIntrinsic>(I))
+        continue;
+
+      // Explicitly give up when there's side effects in this block.
+      // If value table is ever modified in the future to allow treating side effects as safe
+      // we'll have to rewrite this part to handle that.
+      if (I->mayHaveSideEffects()) {
+        BlockNumbers[&BB] = 0;
+        return 0;
+      }
+
+      // We only care about the computations that actually leave this basic block.
+      bool UsedOutsideOfBB = false;
+      for (User *U : I->users()) {
+        Instruction *I = dyn_cast<Instruction>(U);
+        if (I && I->getParent() != &BB) {
+          UsedOutsideOfBB = true;
+          break;
+        }
+      }
+      if (UsedOutsideOfBB) {
+        Profile.ValueNumbers.push_back(VT.lookupOrAdd(I));
+      }
+    }
+
+    // Sort the value numbers we care about. We don't really care what order
+    // They're computed, we only care about the actual set of them.
+    std::sort(Profile.ValueNumbers.begin(), Profile.ValueNumbers.end());
+
+    // Have to specially record the branching. What type of branching as well as
+    // what condition was used for branching will determine this block's identity.
+    Value *Cond = nullptr;
+    TerminatorInst *TI = BB.getTerminator();
+    if (BranchInst *Br = dyn_cast<BranchInst>(TI)) {
+      if (Br->isConditional())
+        Cond = Br->getCondition();
+    }
+    // Don't know how to handle this. Don't assume anything.
+    else {
+      return 0;
+    }
+
+    if (Cond) {
+      Profile.BranchCondVN = VT.lookupOrAdd(Cond);
+    }
+    Profile.BranchOpcode = TI->getOpcode();
+
+    // Combine all the above into a hash that we can use to quickly
+    // compare in most cases.
+    Profile.Hash = llvm::hash_combine_range(Profile.ValueNumbers.begin(), Profile.ValueNumbers.end());
+    Profile.Hash = llvm::hash_combine(Profile.Hash, Profile.BranchOpcode, Profile.BranchCondVN);
+
+    uint32_t &VN = Profiles[Profile];
+    if (VN == 0)
+      VN = NextNumber++;
+
+    BlockNumbers[&BB] = VN;
+
+    return VN;
+  }
+};
+
+//============================================================================
+// Helper type for checking equivalency of regions using block numbers.
+//
+// Usage: Call Build, and then call Compare. If Build returns false, it means
+// there's things about which we we're unsure. If Compare returns false, then
+// the two regions are not equivalent.
+//
+struct BlockComparator {
+  bool Build(BasicBlockTable &BT, BasicBlock *Begin, BasicBlock *End) {
+    BlockNumbers.clear();
+    return BuildOrCompare(BT, Begin, End, /*Compare*/false);
+  }
+
+  bool Compare(BasicBlockTable &BT, BasicBlock *Begin, BasicBlock *End) {
+    return BuildOrCompare(BT, Begin, End, /*Compare*/true);
+  }
+private:
+  std::vector<uint32_t> BlockNumbers;
+
+  bool BuildOrCompare(BasicBlockTable &BT, BasicBlock *Begin, BasicBlock *End, bool Compare) {
     SmallVector<BasicBlock *, 10> Worklist;
     DenseSet<BasicBlock *> Seen;
     Worklist.push_back(Begin);
 
+    unsigned BlockIndex = 0;
     while (Worklist.size()) {
       BasicBlock *BB = Worklist.pop_back_val();
       if (BB == End)
         continue;
       Seen.insert(BB);
 
-      for (Instruction &I : *Begin) {
-        if (!HandleInst(VT, &I, Compare))
+      uint32_t BN = BT.GetOrCompute(*BB);
+      if (BN == 0)
+        return false;
+      if (Compare) {
+        if (BlockIndex >= BlockNumbers.size() || BlockNumbers[BlockIndex] != BN)
           return false;
       }
+      else {
+        BlockNumbers.push_back(BN);
+      }
+
+      BlockIndex++;
 
       for (BasicBlock *Succ : successors(BB)) {
         // If the successor was encountered before, there might be a loop in here somewhere.
-        // Don't risk it.
+        // Don't risk it for now.
         if (Seen.count(Succ)) {
           return false;
         }
@@ -709,18 +821,19 @@ struct ValueNumberComparator {
       return true;
     }
     else {
-      return InstValueNumbers.size() == InstIndex && TerminatorRecords.size() == TerminatorIndex;
+      return BlockNumbers.size() == BlockIndex;
     }
   }
-
 };
+
 
 bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
   PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
 
-  ValueTable VT;
-
   bool bChanged = false;
+  BasicBlockTable BT;
+  BlockComparator Comparison;
+
   for (BasicBlock &BB : F) {
     TerminatorInst *TI = BB.getTerminator();
     if (TI->getNumSuccessors() != 2) {
@@ -740,16 +853,17 @@ bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
 
     BasicBlock *End = PDT->findNearestCommonDominator(Succ0, Succ1);
 
-    ValueNumberComparator Comparison;
-    if (!Comparison.BuildOrCompare(Succ0, End, VT, /*compare*/false))
+    if (!Comparison.Build(BT, Succ0, End))
       continue;
-    if (!Comparison.BuildOrCompare(Succ1, End, VT, /*compare*/true))
+    if (!Comparison.Compare(BT, Succ1, End))
       continue;
 
     BranchInst *Br = BranchInst::Create(Succ0, &BB);
     Br->setDebugLoc(TI->getDebugLoc());
     TI->eraseFromParent();
     bChanged = true;
+
+    BT.Recompute(BB); // Have to recompute the block's number, since the terminator changed.
   }
 
   return bChanged;
