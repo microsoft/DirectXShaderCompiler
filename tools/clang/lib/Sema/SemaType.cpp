@@ -6736,8 +6736,8 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
     MaybeTemplate = Array->getElementType();
 
   // HLSL Change - Begin
-  // In HLSL we don't decay pointers to arrays, so we need to require
-  // complete types for array elements.
+  // In HLSL we don't decay arrays to pointers, so we need to require complete
+  // types for array elements.
   if (LangOpts.HLSL) {
     if (const TagType *Tag = MaybeTemplate->getAs<TagType>()) {
       if (auto *Source = Context.getExternalSource())
