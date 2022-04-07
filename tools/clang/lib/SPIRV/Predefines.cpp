@@ -15,28 +15,12 @@
 
 static const char *kSpirvDefinition = "#define __spirv__ 1\n";
 
-static const char *kRawBufferLoad = R"(
-namespace vk {
-
-template<typename T, uint alignment>
-T RawBufferLoad(uint64_t address) {
-  T output;
-  vk::RawBufferLoadInto(output, address, alignment);
-  return output;
-}
-
-}
-)";
-
 namespace clang {
 namespace spirv {
 
 void BuildPredefinesForSPIRV(llvm::raw_ostream &Output,
                              bool isHlsl2021OrAbove) {
   Output << kSpirvDefinition;
-  if (isHlsl2021OrAbove) {
-    Output << kRawBufferLoad;
-  }
 }
 
 } // end namespace spirv

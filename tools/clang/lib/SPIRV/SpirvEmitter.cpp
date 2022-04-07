@@ -7847,8 +7847,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_VkReadClock:
     retVal = processIntrinsicReadClock(callExpr);
     break;
-  case hlsl::IntrinsicOp::IOP_VkRawBufferLoadInto:
-    retVal = processRawBufferLoadInto(callExpr);
+  case hlsl::IntrinsicOp::IOP_VkRawBufferLoad:
+    retVal = processRawBufferLoad(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_Vkext_execution_mode:
     retVal = processIntrinsicExecutionMode(callExpr, false);
@@ -12829,40 +12829,41 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
                                 /*isInstr*/ true, expr->getExprLoc());
 }
 
-SpirvInstruction *
-SpirvEmitter::processRawBufferLoadInto(const CallExpr *callExpr) {
-  uint32_t alignment = 4;
-  if (callExpr->getNumArgs() == 3) {
-    const Expr *alignmentArgExpr = callExpr->getArg(2);
-    if (const auto *templateParmExpr =
-            dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
-      alignmentArgExpr = templateParmExpr->getReplacement();
-    }
-    const auto *intLiteral =
-        dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
-    if (intLiteral == nullptr) {
-      emitError("alignment argument of RawBufferLoadInto should be a constant "
-                "integer",
-                callExpr->getArg(2)->getExprLoc());
-      return nullptr;
-    }
-    alignment = static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
-  }
-  SpirvInstruction *load =
-      processRawBufferLoad(callExpr->getArg(1), callExpr->getArg(0)->getType(),
-                           alignment, callExpr->getExprLoc());
+uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
+  if (callExpr->getNumArgs() == 1)
+    return 4;
 
-  SpirvInstruction *output = doExpr(callExpr->getArg(0));
-  assert(!output->isRValue());
-  spvBuilder.createStore(output, load, callExpr->getExprLoc());
-  return load;
+  if (callExpr->getNumArgs() > 2) {
+    emitError("number of arguments for vk::RawBufferLoad() must be 1 or 2",
+              callExpr->getExprLoc());
+    return 0;
+  }
+
+  const Expr *alignmentArgExpr = callExpr->getArg(1);
+  if (const auto *templateParmExpr =
+          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
+    alignmentArgExpr = templateParmExpr->getReplacement();
+  }
+  const auto *intLiteral =
+      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
+  if (intLiteral == nullptr) {
+    emitError("alignment argument of vk::RawBufferLoad() must be a constant "
+              "integer",
+              callExpr->getArg(1)->getExprLoc());
+    return 0;
+  }
+  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
 }
 
-SpirvInstruction *SpirvEmitter::processRawBufferLoad(const Expr *addressExpr,
-                                                     QualType bufferType,
-                                                     uint32_t alignment,
-                                                     SourceLocation loc) {
-  SpirvInstruction *address = doExpr(addressExpr);
+SpirvInstruction *
+SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
+  uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
+  if (alignment == 0)
+    return nullptr;
+
+  SpirvInstruction *address = doExpr(callExpr->getArg(0));
+  QualType bufferType = callExpr->getCallReturnType(astContext);
+  SourceLocation loc = callExpr->getExprLoc();
 
   QualType boolType;
   bool isBooleanType = false;

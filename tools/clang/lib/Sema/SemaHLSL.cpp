@@ -1772,6 +1772,38 @@ const char* g_ArBasicTypeNames[] =
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
 
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+/*
+struct VK_INTRINSIC_WITH_TEMPLATE {
+  UINT original_op;         // Original intrinsic Op ID
+  HLSL_INTRINSIC intrinsic; // Information of the new intrinsic with template
+                            // to be replaced with the original one.
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_VkIntrinsics_Args0[] =
+{
+    {"RawBufferLoadInto", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"result", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY, IA_R, IA_C},
+    {"address", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT64, 1, 1},
+};
+
+static const VK_INTRINSIC_WITH_TEMPLATE g_VkIntrinsicsWithTemplate[] =
+{
+  {
+    (UINT)hlsl::IntrinsicOp::IOP_VkRawBufferLoad,
+    {
+      {
+        (UINT)hlsl::IntrinsicOp::IOP_VkRawBufferLoad,
+        false, false, false, -1, 3, g_VkIntrinsics_Args0
+      }
+    }
+  },
+};
+*/
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
+
 static bool IsValidBasicKind(ArBasicKind kind) {
   return kind != AR_BASIC_COUNT &&
     kind != AR_BASIC_NONE &&
@@ -3494,10 +3526,10 @@ private:
     for (UINT i = 0; i < uNumArgs; ++i) {
       if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
           pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
-        IdentifierInfo *id = &context.Idents.get(StringRef(pArgs[i].pName));
+        IdentifierInfo *id = &context.Idents.get("T");
         TemplateTypeParmDecl *templateTypeParmDecl =
-            TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 1,
-                                         1, id, TypenameTrue,
+            TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 0,
+                                         0, id, TypenameTrue,
                                          ParameterPackFalse);
         templateTypeParmDecls.push_back(templateTypeParmDecl);
         continue;
@@ -3590,10 +3622,8 @@ private:
   }
 
   void SetParmDeclsForVkIntrinsicFunction(
-      QualType fnType, FunctionDecl *functionDecl,
+      TypeSourceInfo *TInfo, FunctionDecl *functionDecl,
       const SmallVectorImpl<ParmVarDecl *> &paramDecls) {
-    TypeSourceInfo *TInfo =
-        m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
     FunctionProtoTypeLoc Proto =
         TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
 
@@ -3634,17 +3664,18 @@ private:
 
       // Create FunctionDecl.
       QualType fnType = VkIntrinsicFunctionType(paramTypes, paramMods);
+      TypeSourceInfo *TInfo =
+          m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          fnType, nullptr, StorageClass::SC_Extern, InlineSpecifiedFalse,
+          fnType, TInfo, StorageClass::SC_Extern, InlineSpecifiedFalse,
           HasWrittenPrototypeTrue);
-      m_vkNSDecl->addDecl(functionDecl);
 
       // Create and set ParmVarDecl.
       SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
           CreateParmDeclsForVkIntrinsicFunction(intrinsic, paramTypes,
                                                 paramMods);
-      SetParmDeclsForVkIntrinsicFunction(fnType, functionDecl, paramDecls);
+      SetParmDeclsForVkIntrinsicFunction(TInfo, functionDecl, paramDecls);
 
       if (!templateTypeParmDecls.empty()) {
         TemplateParameterList *templateParmList = TemplateParameterList::Create(
@@ -3652,10 +3683,20 @@ private:
             templateTypeParmDecls.size(), NoLoc);
         functionDecl->setTemplateParameterListsInfo(context, 1,
                                                     &templateParmList);
+        FunctionTemplateDecl *functionTemplate =
+            FunctionTemplateDecl::Create(context, m_vkNSDecl,
+                                         NoLoc,
+                                         functionName, templateParmList,
+                                         functionDecl);
+        functionDecl->setDescribedFunctionTemplate(functionTemplate);
+        m_vkNSDecl->addDecl(functionTemplate);
+        functionTemplate->setDeclContext(m_vkNSDecl);
+      } else {
+        m_vkNSDecl->addDecl(functionDecl);
+        functionDecl->setLexicalDeclContext(m_vkNSDecl);
+        functionDecl->setDeclContext(m_vkNSDecl);
       }
 
-      functionDecl->setLexicalDeclContext(m_vkNSDecl);
-      functionDecl->setDeclContext(m_vkNSDecl);
       functionDecl->setImplicit(true);
     }
   }
