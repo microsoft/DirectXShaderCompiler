@@ -8813,7 +8813,6 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
     if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
       continue;
     }
-
     D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
     VERIFY_SUCCEEDED(
         pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
