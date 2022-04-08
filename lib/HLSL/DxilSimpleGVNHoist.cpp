@@ -6,7 +6,7 @@
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // A simple version of GVN hoist for DXIL.                                   //
-// Based on GVNHoist in LLVM 6.0.                                            //                                                                           //
+// Based on GVNHoist in LLVM 6.0.                                            //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
@@ -20,6 +20,9 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/CFG.h"
+
+#include "llvm/Analysis/PostDominators.h"
+#include "dxc/HLSL/DxilNoops.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -248,34 +251,39 @@ void ValueTable::add(Value *V, uint32_t num) {
 uint32_t ValueTable::lookupOrAddCall(CallInst *C) {
   Function *F = C->getCalledFunction();
   bool bSafe = false;
-  if (F->hasFnAttribute(Attribute::ReadNone)) {
-    bSafe = true;
-  } else if (F->hasFnAttribute(Attribute::ReadOnly)) {
-    if (hlsl::OP::IsDxilOpFunc(F)) {
-      DXIL::OpCode Opcode = hlsl::OP::GetDxilOpFuncCallInst(C);
-      switch (Opcode) {
-      default:
-        break;
-        // TODO: make buffer/texture load on srv safe.
-      case DXIL::OpCode::CreateHandleForLib:
-      case DXIL::OpCode::CBufferLoad:
-      case DXIL::OpCode::CBufferLoadLegacy:
-      case DXIL::OpCode::Sample:
-      case DXIL::OpCode::SampleBias:
-      case DXIL::OpCode::SampleCmp:
-      case DXIL::OpCode::SampleCmpLevel:
-      case DXIL::OpCode::SampleCmpLevelZero:
-      case DXIL::OpCode::SampleGrad:
-      case DXIL::OpCode::CheckAccessFullyMapped:
-      case DXIL::OpCode::GetDimensions:
-      case DXIL::OpCode::TextureGather:
-      case DXIL::OpCode::TextureGatherCmp:
-      case DXIL::OpCode::Texture2DMSGetSamplePosition:
-      case DXIL::OpCode::RenderTargetGetSampleCount:
-      case DXIL::OpCode::RenderTargetGetSamplePosition:
-      case DXIL::OpCode::CalculateLOD:
-        bSafe = true;
-        break;
+  if (F) {
+    if (F->hasFnAttribute(Attribute::ReadNone)) {
+      bSafe = true;
+    }
+    else if (F->hasFnAttribute(Attribute::ReadOnly)) {
+      if (hlsl::OP::IsDxilOpFunc(F)) {
+        DXIL::OpCode Opcode = hlsl::OP::GetDxilOpFuncCallInst(C);
+        switch (Opcode) {
+        default:
+          break;
+          // TODO: make buffer/texture load on srv safe.
+        case DXIL::OpCode::CreateHandleForLib:
+        case DXIL::OpCode::AnnotateHandle:
+        case DXIL::OpCode::CBufferLoad:
+        case DXIL::OpCode::CBufferLoadLegacy:
+        case DXIL::OpCode::Sample:
+        case DXIL::OpCode::SampleBias:
+        case DXIL::OpCode::SampleCmp:
+        case DXIL::OpCode::SampleCmpLevel:
+        case DXIL::OpCode::SampleCmpLevelZero:
+        case DXIL::OpCode::SampleGrad:
+        case DXIL::OpCode::CheckAccessFullyMapped:
+        case DXIL::OpCode::GetDimensions:
+        case DXIL::OpCode::TextureLoad:
+        case DXIL::OpCode::TextureGather:
+        case DXIL::OpCode::TextureGatherCmp:
+        case DXIL::OpCode::Texture2DMSGetSamplePosition:
+        case DXIL::OpCode::RenderTargetGetSampleCount:
+        case DXIL::OpCode::RenderTargetGetSamplePosition:
+        case DXIL::OpCode::CalculateLOD:
+          bSafe = true;
+          break;
+        }
       }
     }
   }
@@ -585,3 +593,181 @@ FunctionPass *llvm::createDxilSimpleGVNHoistPass() {
 
 INITIALIZE_PASS(DxilSimpleGVNHoist, "dxil-gvn-hoist",
                 "DXIL simple gvn hoist", false, false)
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Use value numbering to compare regions. If they are equivalent, branch
+// to only one side.
+//
+namespace {
+
+class DxilSimpleGVNEliminateRegion : public FunctionPass {
+
+  bool CheckRegionForSideEffectsOrLoops(BasicBlock *Begin, BasicBlock *End /*Non inclusive*/);
+
+  std::unordered_map<BasicBlock *, bool> BlocksWithSideEffects;
+  bool MayHaveSideEffects(BasicBlock *BB) {
+    auto It = BlocksWithSideEffects.find(BB);
+    if (It != BlocksWithSideEffects.end())
+      return It->second;
+
+    for (Instruction &I : *BB) {
+      if (I.mayHaveSideEffects() && !hlsl::IsNop(&I)) {
+        BlocksWithSideEffects[BB] = true;
+        return true;
+      }
+    }
+
+    BlocksWithSideEffects[BB] = false;
+    return false;
+  }
+
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilSimpleGVNEliminateRegion() : FunctionPass(ID) {}
+
+  StringRef getPassName() const override {
+    return "DXIL simple GVN eliminate region";
+  }
+
+  bool runOnFunction(Function &F) override;
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<PostDominatorTree>();
+    AU.addRequired<DominatorTreeWrapperPass>();
+  }
+};
+
+char DxilSimpleGVNEliminateRegion::ID = 0;
+
+bool DxilSimpleGVNEliminateRegion::CheckRegionForSideEffectsOrLoops(BasicBlock *Begin, BasicBlock *End /*Non inclusive*/) {
+  SmallVector<BasicBlock *, 10> Worklist;
+  Worklist.push_back(Begin);
+  SmallPtrSet<BasicBlock *, 10> Seen;
+
+  while (Worklist.size()) {
+    BasicBlock *BB = Worklist.pop_back_val();
+    // Stop before reaching End
+    if (BB == End)
+      break;
+
+    if (MayHaveSideEffects(BB))
+      return false;
+
+    Seen.insert(BB);
+    for (BasicBlock *Succ : successors(BB)) {
+      // Goes back into the region. Give up.
+      if (Seen.count(Succ))
+        return false;
+      Worklist.push_back(Succ);
+    }
+  }
+  return true;
+}
+
+bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
+  PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+  bool bChanged = false;
+  ValueTable VT;
+
+  for (BasicBlock &BB : F) {
+    TerminatorInst *TI = BB.getTerminator();
+    if (TI->getNumSuccessors() != 2) {
+      continue;
+    }
+
+    BasicBlock *Succ0 = TI->getSuccessor(0);
+    BasicBlock *Succ1 = TI->getSuccessor(1);
+    if (&BB == Succ0)
+      continue;
+    if (&BB == Succ1)
+      continue;
+    if (!HasOnePred(Succ0))
+      continue;
+    if (!HasOnePred(Succ1))
+      continue;
+
+    BasicBlock *End = PDT->findNearestCommonDominator(Succ0, Succ1);
+
+    // Don't handle this situation for now.
+    if (!End || Succ0 == End || Succ1 == End)
+      continue;
+
+    // If there's no phi node at the beginning of End, then either there's
+    // side effects in the body or this is not the right pass to handle it.
+    if (!isa<PHINode>(End->front()))
+      continue;
+
+    BasicBlock *IncomingBlocksForSucc[2] = {};
+    PHINode *FirstPHI = cast<PHINode>(&End->front());
+
+    bool IncomingBlocksNotUniquelyAssociatedWithSuccessors = false;
+    for (unsigned i = 0; i < FirstPHI->getNumIncomingValues(); i++) {
+      BasicBlock *Incoming = FirstPHI->getIncomingBlock(i);
+      if (DT->dominates(Succ0, Incoming)) {
+        if (IncomingBlocksForSucc[0]) {
+          IncomingBlocksNotUniquelyAssociatedWithSuccessors = true;
+          break;
+        }
+        IncomingBlocksForSucc[0] = Incoming;
+      }
+
+      if (DT->dominates(Succ1, Incoming)) {
+        if (IncomingBlocksForSucc[1]) {
+          IncomingBlocksNotUniquelyAssociatedWithSuccessors = true;
+          break;
+        }
+        IncomingBlocksForSucc[1] = Incoming;
+      }
+    }
+
+    if (IncomingBlocksNotUniquelyAssociatedWithSuccessors)
+      continue;
+
+    if (!IncomingBlocksForSucc[0] || !IncomingBlocksForSucc[1] || IncomingBlocksForSucc[0] == IncomingBlocksForSucc[1])
+      continue;
+
+    bool IncomingValuesNotEquivalent = false;
+    for (Instruction &I : *End) {
+      PHINode *Phi = dyn_cast<PHINode>(&I);
+      if (!Phi)
+        break;
+
+      Value *Incoming0 = Phi->getIncomingValueForBlock(IncomingBlocksForSucc[0]);
+      Value *Incoming1 = Phi->getIncomingValueForBlock(IncomingBlocksForSucc[1]);
+
+      if (VT.lookupOrAdd(Incoming0) != VT.lookupOrAdd(Incoming1)) {
+        IncomingValuesNotEquivalent = true;
+        break;
+      }
+    }
+
+    if (IncomingValuesNotEquivalent)
+      continue;
+
+    if (!CheckRegionForSideEffectsOrLoops(Succ0, End))
+      continue;
+    if (!CheckRegionForSideEffectsOrLoops(Succ1, End))
+      continue;
+
+    BranchInst *Br = BranchInst::Create(Succ0, &BB);
+    Br->setDebugLoc(TI->getDebugLoc());
+    TI->eraseFromParent();
+    bChanged = true;
+  }
+
+  return bChanged;
+}
+
+}
+
+FunctionPass *llvm::createDxilSimpleGVNEliminateRegionPass() {
+  return new DxilSimpleGVNEliminateRegion();
+}
+
+INITIALIZE_PASS(DxilSimpleGVNEliminateRegion, "dxil-gvn-eliminate-region",
+                "DXIL simple eliminate region", false, false)
+
