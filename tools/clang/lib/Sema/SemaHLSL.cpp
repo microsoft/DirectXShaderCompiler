@@ -1772,38 +1772,6 @@ const char* g_ArBasicTypeNames[] =
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
 
-  // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
-/*
-struct VK_INTRINSIC_WITH_TEMPLATE {
-  UINT original_op;         // Original intrinsic Op ID
-  HLSL_INTRINSIC intrinsic; // Information of the new intrinsic with template
-                            // to be replaced with the original one.
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_VkIntrinsics_Args0[] =
-{
-    {"RawBufferLoadInto", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
-    {"result", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY, IA_R, IA_C},
-    {"address", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT64, 1, 1},
-};
-
-static const VK_INTRINSIC_WITH_TEMPLATE g_VkIntrinsicsWithTemplate[] =
-{
-  {
-    (UINT)hlsl::IntrinsicOp::IOP_VkRawBufferLoad,
-    {
-      {
-        (UINT)hlsl::IntrinsicOp::IOP_VkRawBufferLoad,
-        false, false, false, -1, 3, g_VkIntrinsics_Args0
-      }
-    }
-  },
-};
-*/
-#endif // ENABLE_SPIRV_CODEGEN
-  // SPIRV change ends
-
 static bool IsValidBasicKind(ArBasicKind kind) {
   return kind != AR_BASIC_COUNT &&
     kind != AR_BASIC_NONE &&
@@ -3553,9 +3521,11 @@ private:
         continue;
       }
       IdentifierInfo *id = &context.Idents.get(StringRef(pArgs[i].pName));
+      TypeSourceInfo *TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
+          paramTypes[i - numVariadicArgs], 0);
       ParmVarDecl *paramDecl = ParmVarDecl::Create(
           context, nullptr, NoLoc, NoLoc, id, paramTypes[i - numVariadicArgs],
-          nullptr, StorageClass::SC_None, nullptr,
+          TInfo, StorageClass::SC_None, nullptr,
           paramMods[i - 1 - numVariadicArgs]);
       paramDecls.push_back(paramDecl);
     }
@@ -3580,7 +3550,7 @@ private:
         DXASSERT(templateParmDecl != nullptr,
                  "TemplateTypeParmDecl is nullptr");
         paramTypes.push_back(context.getTemplateTypeParmType(
-            1, 0, ParameterPackFalse, templateParmDecl));
+            0, i, ParameterPackFalse, templateParmDecl));
         ++templateParmItr;
         continue;
       }
@@ -3630,6 +3600,7 @@ private:
     // Attach the parameters
     for (unsigned P = 0; P < paramDecls.size(); ++P) {
       paramDecls[P]->setOwningFunction(functionDecl);
+      paramDecls[P]->setScopeInfo(0, P);
       Proto.setParam(P, paramDecls[P]);
     }
     functionDecl->setParams(paramDecls);
@@ -3683,11 +3654,9 @@ private:
             templateTypeParmDecls.size(), NoLoc);
         functionDecl->setTemplateParameterListsInfo(context, 1,
                                                     &templateParmList);
-        FunctionTemplateDecl *functionTemplate =
-            FunctionTemplateDecl::Create(context, m_vkNSDecl,
-                                         NoLoc,
-                                         functionName, templateParmList,
-                                         functionDecl);
+        FunctionTemplateDecl *functionTemplate = FunctionTemplateDecl::Create(
+            context, m_vkNSDecl, NoLoc, functionName, templateParmList,
+            functionDecl);
         functionDecl->setDescribedFunctionTemplate(functionTemplate);
         m_vkNSDecl->addDecl(functionTemplate);
         functionTemplate->setDeclContext(m_vkNSDecl);
@@ -6378,6 +6347,8 @@ bool HLSLExternalSource::MatchArguments(
         if (i == 0) {
           // [RW]ByteAddressBuffer.Load, default to uint
           pNewType = m_context->UnsignedIntTy;
+          if (pIntrinsic->Op != (UINT)hlsl::IntrinsicOp::MOP_Load)
+            badArgIdx = std::min(badArgIdx, i);
         }
         else {
           // [RW]ByteAddressBuffer.Store, default to argument type

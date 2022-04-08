@@ -531,6 +531,17 @@ QualType getUintTypeForBool(ASTContext &astContext,
   return QualType();
 }
 
+bool isVkRawBufferLoadIntrinsic(const clang::FunctionDecl *FD) {
+  if (!FD->getName().equals("RawBufferLoad"))
+    return false;
+
+  if (auto *nsDecl = dyn_cast<NamespaceDecl>(FD->getDeclContext()))
+    if (!nsDecl->getName().equals("vk"))
+      return false;
+
+  return true;
+}
+
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
@@ -2440,6 +2451,11 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
     return processIntrinsicCallExpr(callExpr);
+  }
+
+  // Handle 'vk::RawBufferLoad()'
+  if (isVkRawBufferLoadIntrinsic(funcDecl)) {
+    return processRawBufferLoad(callExpr);
   }
 
   // Normal standalone functions
@@ -12855,8 +12871,7 @@ uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
   return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
 }
 
-SpirvInstruction *
-SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
+SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
   uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
   if (alignment == 0)
     return nullptr;
