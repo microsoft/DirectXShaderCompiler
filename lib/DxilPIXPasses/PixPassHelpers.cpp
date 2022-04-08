@@ -96,7 +96,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
     Value *bindingV = resource_helper::getAsConstant(
         binding, HlslOP->GetResourceBindingType(), *DM.GetShaderModel());
 
-    Value *registerIndex = HlslOP->GetU32Const(resourceMetaDataId);
+    Value *registerIndex = HlslOP->GetU32Const(0);
 
     Value *isUniformRes = HlslOP->GetI1Const(0);
 
@@ -146,7 +146,7 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
 
   SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
   llvm::StructType *UAVStructTy =
-      llvm::StructType::create(Elements, "class.RWStructuredBuffer");
+      llvm::StructType::create(Elements, "class.PIXRWStructuredBuffer");
 
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
 
