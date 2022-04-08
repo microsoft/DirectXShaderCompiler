@@ -2710,7 +2710,7 @@ VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
     // NRVO breaks on bool component type due to diff between
     // i32 memory and i1 register representation
     if (hlsl::IsHLSLVecMatType(ReturnType))
-      return false;
+      return nullptr;
     QualType ArrayEltTy = ReturnType;
     while (const clang::ArrayType *AT =
                Context.getAsArrayType(ArrayEltTy)) {
@@ -2718,15 +2718,15 @@ VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
     }
     // exclude resource for globallycoherent.
     if (hlsl::IsHLSLResourceType(ArrayEltTy))
-      return false;
+      return nullptr;
     // exclude precise.
     if (VD->hasAttr<HLSLPreciseAttr>()) {
-      return false;
+      return nullptr;
     }
     if (const FunctionDecl *FD = getCurFunctionDecl()) {
       if (FD->hasAttr<HLSLPreciseAttr>()) {
         VD->addAttr(FD->getAttr<HLSLPreciseAttr>());
-        return false;
+        return nullptr;
       }
     }
   }
