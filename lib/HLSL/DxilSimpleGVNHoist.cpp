@@ -594,11 +594,32 @@ FunctionPass *llvm::createDxilSimpleGVNHoistPass() {
 INITIALIZE_PASS(DxilSimpleGVNHoist, "dxil-gvn-hoist",
                 "DXIL simple gvn hoist", false, false)
 
-
-///////////////////////////////////////////////////////////////////////////////
+//================================================================================
 //
-// Use value numbering to compare regions. If they are equivalent, branch
-// to only one side.
+// This pass tries to turn conditional branches to unconditional branches by
+// proving two sides of branch are equivalent using ValueTable and dominator
+// trees.
+// 
+// The algorithm:
+//
+// - Find any conditional branch 'Br' with successors 'Succ0' and 'Succ1'
+// - Find the common destination 'End' of the branches.
+// - Look at predecessors of 'End'. Find two predecessors 'P0' and 'P1',
+//   where 'Succ0' dominates 'P0', and 'Succ1' dominates 'P1'
+//     + This means the condition of 'Br' determinates whether we end up taking
+//       'P0' or 'P1' to 'End'
+// - Using ValueTable, compare if every pair of incoming values from P0 and P1
+//   is identical for any PHIs in 'End'
+// - Make sure there is no side effect or loop between 'Br' and 'End'
+// - If all above checks succeed, replace 'Br' with with an unconditional branch
+//   to Succ0
+// 
+// The current state of the pass is pretty limited. If incoming values from P0
+// and P1 are dependent on any PHIs defined between Br and End, then the pass
+// will fail to simplify the branch. If there are any side effects within the
+// region, the pass will also fail. It's possible to handling these cases, but
+// require proving the two sides of the branch have equivalent control flow,
+// which is non-trivial, and will be left to a later date.
 //
 namespace {
 
