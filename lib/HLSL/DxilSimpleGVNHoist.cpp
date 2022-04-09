@@ -602,17 +602,20 @@ INITIALIZE_PASS(DxilSimpleGVNHoist, "dxil-gvn-hoist",
 // 
 // The algorithm:
 //
-// - Find any conditional branch 'Br' with successors 'Succ0' and 'Succ1'
+// - Find any conditional branch 'Br' with successors 'S0' and 'S1', where
+//   'Br' is their sole predecessor.
 // - Find the common destination 'End' of the branches.
-// - Look at predecessors of 'End'. Find two predecessors 'P0' and 'P1',
-//   where 'Succ0' dominates 'P0', and 'Succ1' dominates 'P1'
-//     + This means the condition of 'Br' determinates whether we end up taking
-//       'P0' or 'P1' to 'End'
+// - Find Find two predecessors 'P0' and 'P1' of 'End' such that 'S0' dominates
+//   'P0' and 'P0' post-dominates 'S0', and 'P0' only has a single successor
+//   (Same with 'S1' and 'P1').
+//   This means if 'Br'->'S0' is taken, then 'End' must be reached via 'P0'; if
+//   'End' is reached via 'P0', 'Br'->'S0' must have been taken (Same with 'S1'
+//   and 'P1').
 // - Using ValueTable, compare if every pair of incoming values from P0 and P1
 //   is identical for any PHIs in 'End'
 // - Make sure there is no side effect or loop between 'Br' and 'End'
 // - If all above checks succeed, replace 'Br' with with an unconditional branch
-//   to Succ0
+//   to S0
 // 
 // The current state of the pass is pretty limited. If incoming values from P0
 // and P1 are dependent on any PHIs defined between Br and End, then the pass
@@ -627,22 +630,23 @@ class DxilSimpleGVNEliminateRegion : public FunctionPass {
 
   bool CheckRegionForSideEffectsOrLoops(BasicBlock *Begin, BasicBlock *End /*Non inclusive*/);
 
-  std::unordered_map<BasicBlock *, bool> BlocksWithSideEffects;
+  std::unordered_map<BasicBlock *, bool> BlockHasSideEffects;
   bool MayHaveSideEffects(BasicBlock *BB) {
-    auto It = BlocksWithSideEffects.find(BB);
-    if (It != BlocksWithSideEffects.end())
+    auto It = BlockHasSideEffects.find(BB);
+    if (It != BlockHasSideEffects.end())
       return It->second;
 
     for (Instruction &I : *BB) {
       if (I.mayHaveSideEffects() && !hlsl::IsNop(&I)) {
-        BlocksWithSideEffects[BB] = true;
+        BlockHasSideEffects[BB] = true;
         return true;
       }
     }
 
-    BlocksWithSideEffects[BB] = false;
+    BlockHasSideEffects[BB] = false;
     return false;
   }
+  bool ProcessBB(BasicBlock &BB, ValueTable &VT, DominatorTree *DT, PostDominatorTree *PDT);
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -671,7 +675,7 @@ bool DxilSimpleGVNEliminateRegion::CheckRegionForSideEffectsOrLoops(BasicBlock *
     BasicBlock *BB = Worklist.pop_back_val();
     // Stop before reaching End
     if (BB == End)
-      break;
+      continue;
 
     if (MayHaveSideEffects(BB))
       return false;
@@ -687,6 +691,79 @@ bool DxilSimpleGVNEliminateRegion::CheckRegionForSideEffectsOrLoops(BasicBlock *
   return true;
 }
 
+bool DxilSimpleGVNEliminateRegion::ProcessBB(BasicBlock &BB, ValueTable &VT, DominatorTree *DT, PostDominatorTree *PDT) {
+  TerminatorInst *TI = BB.getTerminator();
+  if (TI->getNumSuccessors() != 2) {
+    return false;
+  }
+
+  BasicBlock *S0 = TI->getSuccessor(0);
+  BasicBlock *S1 = TI->getSuccessor(1);
+  if (&BB == S0)
+    return false;
+  if (&BB == S1)
+    return false;
+  if (!HasOnePred(S0))
+    return false;
+  if (!HasOnePred(S1))
+    return false;
+
+  BasicBlock *End = PDT->findNearestCommonDominator(S0, S1);
+
+  // Don't handle this situation for now.
+  if (!End || S0 == End || S1 == End)
+    return false;
+
+  // If there's no phi node at the beginning of End, then either there's
+  // side effects in the body or this is not the right pass to handle it.
+  if (!isa<PHINode>(End->front()))
+    return false;
+
+  BasicBlock *P0 = nullptr;
+  BasicBlock *P1 = nullptr;
+  PHINode *FirstPHI = cast<PHINode>(&End->front());
+
+  for (unsigned i = 0; i < FirstPHI->getNumIncomingValues(); i++) {
+    BasicBlock *Incoming = FirstPHI->getIncomingBlock(i);
+    if (!Incoming->getSingleSuccessor())
+      continue;
+
+    if (DT->dominates(S0, Incoming) && PDT->dominates(Incoming, S0)) {
+      P0 = Incoming;
+    }
+    if (DT->dominates(S1, Incoming) && PDT->dominates(Incoming, S1)) {
+      P1 = Incoming;
+    }
+  }
+
+  if (!P0 || !P1 || P0 == P1)
+    return false;
+
+  for (Instruction &I : *End) {
+    PHINode *Phi = dyn_cast<PHINode>(&I);
+    if (!Phi)
+      break;
+
+    Value *Incoming0 = Phi->getIncomingValueForBlock(P0);
+    Value *Incoming1 = Phi->getIncomingValueForBlock(P1);
+
+    if (VT.lookupOrAdd(Incoming0) != VT.lookupOrAdd(Incoming1)) {
+      return false;
+    }
+  }
+
+  if (!CheckRegionForSideEffectsOrLoops(S0, End))
+    return false;
+  if (!CheckRegionForSideEffectsOrLoops(S1, End))
+    return false;
+
+  BranchInst *Br = BranchInst::Create(S0, &BB);
+  Br->setDebugLoc(TI->getDebugLoc());
+  TI->eraseFromParent();
+
+  return true;
+}
+
 bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
   PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -695,89 +772,7 @@ bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
   ValueTable VT;
 
   for (BasicBlock &BB : F) {
-    TerminatorInst *TI = BB.getTerminator();
-    if (TI->getNumSuccessors() != 2) {
-      continue;
-    }
-
-    BasicBlock *Succ0 = TI->getSuccessor(0);
-    BasicBlock *Succ1 = TI->getSuccessor(1);
-    if (&BB == Succ0)
-      continue;
-    if (&BB == Succ1)
-      continue;
-    if (!HasOnePred(Succ0))
-      continue;
-    if (!HasOnePred(Succ1))
-      continue;
-
-    BasicBlock *End = PDT->findNearestCommonDominator(Succ0, Succ1);
-
-    // Don't handle this situation for now.
-    if (!End || Succ0 == End || Succ1 == End)
-      continue;
-
-    // If there's no phi node at the beginning of End, then either there's
-    // side effects in the body or this is not the right pass to handle it.
-    if (!isa<PHINode>(End->front()))
-      continue;
-
-    BasicBlock *IncomingBlocksForSucc[2] = {};
-    PHINode *FirstPHI = cast<PHINode>(&End->front());
-
-    bool IncomingBlocksNotUniquelyAssociatedWithSuccessors = false;
-    for (unsigned i = 0; i < FirstPHI->getNumIncomingValues(); i++) {
-      BasicBlock *Incoming = FirstPHI->getIncomingBlock(i);
-      if (DT->dominates(Succ0, Incoming)) {
-        if (IncomingBlocksForSucc[0]) {
-          IncomingBlocksNotUniquelyAssociatedWithSuccessors = true;
-          break;
-        }
-        IncomingBlocksForSucc[0] = Incoming;
-      }
-
-      if (DT->dominates(Succ1, Incoming)) {
-        if (IncomingBlocksForSucc[1]) {
-          IncomingBlocksNotUniquelyAssociatedWithSuccessors = true;
-          break;
-        }
-        IncomingBlocksForSucc[1] = Incoming;
-      }
-    }
-
-    if (IncomingBlocksNotUniquelyAssociatedWithSuccessors)
-      continue;
-
-    if (!IncomingBlocksForSucc[0] || !IncomingBlocksForSucc[1] || IncomingBlocksForSucc[0] == IncomingBlocksForSucc[1])
-      continue;
-
-    bool IncomingValuesNotEquivalent = false;
-    for (Instruction &I : *End) {
-      PHINode *Phi = dyn_cast<PHINode>(&I);
-      if (!Phi)
-        break;
-
-      Value *Incoming0 = Phi->getIncomingValueForBlock(IncomingBlocksForSucc[0]);
-      Value *Incoming1 = Phi->getIncomingValueForBlock(IncomingBlocksForSucc[1]);
-
-      if (VT.lookupOrAdd(Incoming0) != VT.lookupOrAdd(Incoming1)) {
-        IncomingValuesNotEquivalent = true;
-        break;
-      }
-    }
-
-    if (IncomingValuesNotEquivalent)
-      continue;
-
-    if (!CheckRegionForSideEffectsOrLoops(Succ0, End))
-      continue;
-    if (!CheckRegionForSideEffectsOrLoops(Succ1, End))
-      continue;
-
-    BranchInst *Br = BranchInst::Create(Succ0, &BB);
-    Br->setDebugLoc(TI->getDebugLoc());
-    TI->eraseFromParent();
-    bChanged = true;
+    bChanged |= ProcessBB(BB, VT, DT, PDT);
   }
 
   return bChanged;
