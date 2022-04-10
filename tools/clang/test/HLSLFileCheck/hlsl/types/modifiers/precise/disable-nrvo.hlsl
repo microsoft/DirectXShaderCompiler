@@ -1,5 +1,5 @@
 // RUN: %dxc -T cs_6_0 -Od %s | FileCheck %s
-
+// RUN: %dxc -T cs_6_0 -ast-dump %s | FileCheck %s -check-prefix=AST
 struct MyStruct {
   float x;
 };
@@ -15,6 +15,11 @@ precise MyStruct makeStruct2(float x) {
   ret.x = sin(x);
   return ret;
 }
+
+// Make sure precise propagated to MyStruct ret on line14.
+// AST:-DeclStmt 0x{{[^ ]+}} <line:14:3, col:15>
+// AST-NEXT:-VarDecl 0x{{[^ ]+}} <col:3, col:12> col:12 used ret 'MyStruct'
+// AST-NEXT:-HLSLPreciseAttr 0x{{[^ ]+}} <line:13:1>
 
 StructuredBuffer<MyStruct> DataIn;
 RWStructuredBuffer<MyStruct> DataOut;
