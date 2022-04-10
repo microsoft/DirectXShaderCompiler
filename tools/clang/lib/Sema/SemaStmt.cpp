@@ -2723,6 +2723,7 @@ VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
     if (VD->hasAttr<HLSLPreciseAttr>()) {
       return nullptr;
     }
+    // propagate precise the the VD.
     if (const FunctionDecl *FD = getCurFunctionDecl()) {
       if (FD->hasAttr<HLSLPreciseAttr>()) {
         VD->addAttr(FD->getAttr<HLSLPreciseAttr>());
