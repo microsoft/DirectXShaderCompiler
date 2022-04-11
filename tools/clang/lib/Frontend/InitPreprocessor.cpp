@@ -30,11 +30,6 @@
 #include "dxcversion.inc" // HLSL Change
 #include "dxc/DXIL/DxilConstants.h" // HLSL Change
 #include "dxc/DXIL/DxilShaderModel.h" // HLSL Change
-
-#ifdef ENABLE_SPIRV_CODEGEN
-#include "clang/SPIRV/Predefines.h" // SPIRV Change
-#endif // ENABLE_SPIRV_CODEGEN
-
 using namespace clang;
 
 static bool MacroBodyEndsInBackslash(StringRef MacroBody) {
@@ -398,6 +393,13 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // Add target versions
     Builder.defineMacro("__SHADER_TARGET_MAJOR", Twine(SM->GetMajor()));
     Builder.defineMacro("__SHADER_TARGET_MINOR", Twine(SM->GetMinor()));
+    // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (LangOpts.SPIRV) {
+      Builder.defineMacro("__spirv__");
+    }
+#endif // ENABLE_SPIRV_CODEGEN
+    // SPIRV Change Ends
   }
   return;
 #else
@@ -1037,14 +1039,7 @@ void clang::InitializePreprocessor(
   // Instruct the preprocessor to skip the preamble.
   PP.setSkipMainFilePreamble(InitOpts.PrecompiledPreambleBytes.first,
                              InitOpts.PrecompiledPreambleBytes.second);
-
-#ifdef ENABLE_SPIRV_CODEGEN
-  if (LangOpts.SPIRV) {
-    spirv::BuildPredefinesForSPIRV(Predefines, PP.getLangOpts().HLSLVersion >=
-                                                   hlsl::LangStd::v2021);
-  }
-#endif // ENABLE_SPIRV_CODEGEN
-
+                          
   // Copy PredefinedBuffer into the Preprocessor.
   PP.setPredefines(Predefines.str());
 }

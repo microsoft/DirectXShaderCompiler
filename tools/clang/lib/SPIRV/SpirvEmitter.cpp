@@ -12879,36 +12879,47 @@ SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
   SpirvInstruction *address = doExpr(callExpr->getArg(0));
   QualType bufferType = callExpr->getCallReturnType(astContext);
   SourceLocation loc = callExpr->getExprLoc();
-
-  QualType boolType;
-  bool isBooleanType = false;
-  if (isBoolOrVecMatOfBoolType(bufferType)) {
-    if (alignment % 4 != 0) {
-      emitWarning("Since boolean is a logical type, we use a unsigned integer "
-                  "type to read/write boolean from a buffer. Therefore "
-                  "alignment for the data with a boolean type must be aligned "
-                  "with 4 bytes",
-                  loc);
-    }
-
-    boolType = bufferType;
-    bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
-    isBooleanType = true;
+  if (!isBoolOrVecMatOfBoolType(bufferType)) {
+    return loadDataFromRawAddress(address, bufferType, alignment, loc);
   }
+
+  // If callExpr is `vk::RawBufferLoad<bool>(..)`, we have to load 'uint' and
+  // convert it to boolean data, because a physical pointer cannot have boolean
+  // type in Vulkan.
+  if (alignment % 4 != 0) {
+    emitWarning("Since boolean is a logical type, we use a unsigned integer "
+                "type to read/write boolean from a buffer. Therefore "
+                "alignment for the data with a boolean type must be aligned "
+                "with 4 bytes",
+                loc);
+  }
+  QualType boolType = bufferType;
+  bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
+  SpirvInstruction *load =
+      loadDataFromRawAddress(address, bufferType, alignment, loc);
+  auto *loadAsBool = castToBool(load, bufferType, boolType, loc);
+  loadAsBool->setRValue();
+  return loadAsBool;
+}
+
+SpirvInstruction *
+SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
+                                     QualType bufferType, uint32_t alignment,
+                                     SourceLocation loc) {
+  // Summary:
+  //   %address = OpBitcast %ptrTobufferType %addressInUInt64
+  //   %loadInst = OpLoad %bufferType %address
+
   const HybridPointerType *bufferPtrType =
       spvBuilder.getPhysicalStorageBufferType(bufferType);
 
-  SpirvUnaryOp *bufferReference =
-      spvBuilder.createUnaryOp(spv::Op::OpBitcast, bufferPtrType, address, loc);
-  bufferReference->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  SpirvUnaryOp *address = spvBuilder.createUnaryOp(
+      spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
+  address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  SpirvAccessChain *ac =
-      spvBuilder.createAccessChain(bufferType, bufferReference, {}, loc);
-  SpirvLoad *loadInst = spvBuilder.createLoad(bufferType, ac, loc);
+  SpirvLoad *loadInst = spvBuilder.createLoad(bufferType, address, loc);
   loadInst->setAlignment(alignment);
-
-  if (isBooleanType)
-    return castToBool(loadInst, bufferType, boolType, loc);
+  loadInst->setRValue();
   return loadInst;
 }
 
