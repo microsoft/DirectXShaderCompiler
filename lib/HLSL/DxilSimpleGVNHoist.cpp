@@ -643,7 +643,7 @@ class DxilSimpleGVNEliminateRegion : public FunctionPass {
       }
     }
     BlockHasSideEffects[BB] = HasSideEffects;
-    return false;
+    return HasSideEffects;
   }
   bool ProcessBB(BasicBlock &BB, ValueTable &VT, DominatorTree *DT, PostDominatorTree *PDT);
 
