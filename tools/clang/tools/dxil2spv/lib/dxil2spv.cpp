@@ -268,8 +268,23 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
           << hlsl::OP::GetOpCodeName(dxilOpcode);
     } break;
     }
-  } else if (isa<llvm::ReturnInst>(instruction)) {
+  }
+  // Handle binary operator instructions.
+  else if (isa<llvm::BinaryOperator>(instruction)) {
+    llvm::BinaryOperator &binaryInstruction =
+        cast<llvm::BinaryOperator>(instruction);
+    createBinaryOpInstruction(binaryInstruction);
+  }
+  // Handle return instructions.
+  else if (isa<llvm::ReturnInst>(instruction)) {
     spvBuilder.createReturn({});
+  }
+  // Unhandled instruction type.
+  else {
+    std::string instStr;
+    llvm::raw_string_ostream os(instStr);
+    instruction.print(os);
+    emitError("Unhandled LLVM instruction: %0") << os.str();
   }
 }
 
@@ -359,6 +374,34 @@ void Translator::createThreadIdInstruction(llvm::CallInst &instruction) {
   spirv::SpirvLoad *loadInstr = spvBuilder.createLoad(uint, loadPtr, {});
 
   instructionMap[&instruction] = loadInstr;
+}
+
+void Translator::createBinaryOpInstruction(llvm::BinaryOperator &instruction) {
+  llvm::Instruction::BinaryOps opcode = instruction.getOpcode();
+  spirv::SpirvBinaryOp *result;
+
+  switch (opcode) {
+  // Shift left instruction.
+  case llvm::Instruction::Shl: {
+    // Value to be shifted.
+    spirv::SpirvInstruction *val = instructionMap[instruction.getOperand(0)];
+
+    // Amount to shift by.
+    const spirv::IntegerType *uint32 = spvContext.getUIntType(32);
+    spirv::SpirvConstant *spvShift = spvBuilder.getConstantInt(
+        uint32, dyn_cast<llvm::Constant>(instruction.getOperand(1))
+                    ->getUniqueInteger());
+
+    result = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical, uint32, val,
+                                       spvShift, {});
+  } break;
+  default: {
+    emitError("Unhandled LLVM binary opcode: %0") << opcode;
+    return;
+  }
+  }
+
+  instructionMap[&instruction] = result;
 }
 
 bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
