@@ -2689,14 +2689,6 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
 VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
                                        Expr *E,
                                        bool AllowFunctionParameter) {
-  // HLSL Change Begins: NRVO unsafe for a variety of cases in HLSL
-  // - vectors/matrix with bool component types
-  // - attributes not captured to QualType, such as precise and globallycoherent
-  // NRVO is also unnecessary for HLSL correctness or performance.
-  if (getLangOpts().HLSL)
-    return nullptr;
-  // HLSL Change Ends
-
   if (!getLangOpts().CPlusPlus)
     return nullptr;
 
@@ -2708,6 +2700,37 @@ VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
   VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
   if (!VD)
     return nullptr;
+
+  // HLSL Change Begins: NRVO unsafe for a variety of cases in HLSL
+  // - vectors/matrix with bool component types
+  // - attributes not captured to QualType, such as precise and globallycoherent
+  if (getLangOpts().HLSL) {
+    // exclude vectors/matrix (not treated as record type)
+    // NRVO breaks on bool component type due to diff between
+    // i32 memory and i1 register representation
+    if (hlsl::IsHLSLVecMatType(ReturnType))
+      return nullptr;
+    QualType ArrayEltTy = ReturnType;
+    while (const clang::ArrayType *AT =
+               Context.getAsArrayType(ArrayEltTy)) {
+      ArrayEltTy = AT->getElementType();
+    }
+    // exclude resource for globallycoherent.
+    if (hlsl::IsHLSLResourceType(ArrayEltTy))
+      return nullptr;
+    // exclude precise.
+    if (VD->hasAttr<HLSLPreciseAttr>()) {
+      return nullptr;
+    }
+    // propagate precise the the VD.
+    if (const FunctionDecl *FD = getCurFunctionDecl()) {
+      if (FD->hasAttr<HLSLPreciseAttr>()) {
+        VD->addAttr(FD->getAttr<HLSLPreciseAttr>());
+        return nullptr;
+      }
+    }
+  }
+  // HLSL Change Ends
 
   if (isCopyElisionCandidate(ReturnType, VD, AllowFunctionParameter))
     return VD;
