@@ -3491,6 +3491,7 @@ private:
     auto &context = m_sema->getASTContext();
     const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
     UINT uNumArgs = intrinsic->uNumArgs;
+    TypeSourceInfo *TInfo = nullptr;
     for (UINT i = 0; i < uNumArgs; ++i) {
       if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
           pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
@@ -3499,6 +3500,11 @@ private:
             TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 0,
                                          0, id, TypenameTrue,
                                          ParameterPackFalse);
+        if (TInfo == nullptr) {
+          TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
+              m_context->UnsignedIntTy, 0);
+        }
+        templateTypeParmDecl->setDefaultArgument(TInfo);
         templateTypeParmDecls.push_back(templateTypeParmDecl);
         continue;
       }
