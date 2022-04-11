@@ -2704,7 +2704,6 @@ VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
   // HLSL Change Begins: NRVO unsafe for a variety of cases in HLSL
   // - vectors/matrix with bool component types
   // - attributes not captured to QualType, such as precise and globallycoherent
-  // NRVO is also unnecessary for HLSL correctness or performance.
   if (getLangOpts().HLSL) {
     // exclude vectors/matrix (not treated as record type)
     // NRVO breaks on bool component type due to diff between
