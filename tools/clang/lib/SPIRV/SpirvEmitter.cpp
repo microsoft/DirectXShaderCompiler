@@ -518,6 +518,7 @@ QualType getUintTypeForBool(ASTContext &astContext,
   } else {
     const bool isMat = isMxNMatrix(boolType, nullptr, &numRows, &numCols);
     assert(isMat);
+    (void)isMat;
 
     const clang::Type *type = boolType.getCanonicalType().getTypePtr();
     const RecordType *RT = cast<RecordType>(type);
