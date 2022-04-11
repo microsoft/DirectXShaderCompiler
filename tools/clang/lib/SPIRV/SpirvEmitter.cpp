@@ -500,6 +500,49 @@ std::vector<DescriptorSetAndBinding> collectDSetBindingsToCombineSampledImage(
   return dsetBindings;
 }
 
+// Returns a scalar unsigned integer type or a vector of them or a matrix of
+// them depending on the scalar/vector/matrix type of boolType. The element
+// type of boolType must be BuiltinType::Bool type.
+QualType getUintTypeForBool(ASTContext &astContext,
+                            CompilerInstance &theCompilerInstance,
+                            QualType boolType) {
+  assert(isBoolOrVecMatOfBoolType(boolType));
+
+  uint32_t vecSize = 1, numRows = 0, numCols = 0;
+  QualType uintType = astContext.UnsignedIntTy;
+  if (isScalarType(boolType) || isVectorType(boolType, nullptr, &vecSize)) {
+    if (vecSize == 1)
+      return uintType;
+    else
+      return astContext.getExtVectorType(uintType, vecSize);
+  } else {
+    const bool isMat = isMxNMatrix(boolType, nullptr, &numRows, &numCols);
+    assert(isMat);
+    (void)isMat;
+
+    const clang::Type *type = boolType.getCanonicalType().getTypePtr();
+    const RecordType *RT = cast<RecordType>(type);
+    const ClassTemplateSpecializationDecl *templateSpecDecl =
+        cast<ClassTemplateSpecializationDecl>(RT->getDecl());
+    ClassTemplateDecl *templateDecl =
+        templateSpecDecl->getSpecializedTemplate();
+    return getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
+                             templateDecl, uintType, numRows, numCols);
+  }
+  return QualType();
+}
+
+bool isVkRawBufferLoadIntrinsic(const clang::FunctionDecl *FD) {
+  if (!FD->getName().equals("RawBufferLoad"))
+    return false;
+
+  if (auto *nsDecl = dyn_cast<NamespaceDecl>(FD->getDeclContext()))
+    if (!nsDecl->getName().equals("vk"))
+      return false;
+
+  return true;
+}
+
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
@@ -2409,6 +2452,11 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
     return processIntrinsicCallExpr(callExpr);
+  }
+
+  // Handle 'vk::RawBufferLoad()'
+  if (isVkRawBufferLoadIntrinsic(funcDecl)) {
+    return processRawBufferLoad(callExpr);
   }
 
   // Normal standalone functions
@@ -12798,29 +12846,81 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
                                 /*isInstr*/ true, expr->getExprLoc());
 }
 
+uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
+  if (callExpr->getNumArgs() == 1)
+    return 4;
+
+  if (callExpr->getNumArgs() > 2) {
+    emitError("number of arguments for vk::RawBufferLoad() must be 1 or 2",
+              callExpr->getExprLoc());
+    return 0;
+  }
+
+  const Expr *alignmentArgExpr = callExpr->getArg(1);
+  if (const auto *templateParmExpr =
+          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
+    alignmentArgExpr = templateParmExpr->getReplacement();
+  }
+  const auto *intLiteral =
+      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
+  if (intLiteral == nullptr) {
+    emitError("alignment argument of vk::RawBufferLoad() must be a constant "
+              "integer",
+              callExpr->getArg(1)->getExprLoc());
+    return 0;
+  }
+  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+}
+
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
-  clang::SourceLocation loc = callExpr->getExprLoc();
-  const clang::Expr *addressExpr = callExpr->getArg(0);
-  SpirvInstruction *address = doExpr(addressExpr);
+  uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
+  if (alignment == 0)
+    return nullptr;
 
-  const SpirvPointerType *bufferType =
-      spvBuilder.getPhysicalStorageBufferType(spvContext.getUIntType(32));
+  SpirvInstruction *address = doExpr(callExpr->getArg(0));
+  QualType bufferType = callExpr->getCallReturnType(astContext);
+  SourceLocation loc = callExpr->getExprLoc();
+  if (!isBoolOrVecMatOfBoolType(bufferType)) {
+    return loadDataFromRawAddress(address, bufferType, alignment, loc);
+  }
 
-  SpirvUnaryOp *bufferReference =
-      spvBuilder.createUnaryOp(spv::Op::OpBitcast, bufferType, address, loc);
+  // If callExpr is `vk::RawBufferLoad<bool>(..)`, we have to load 'uint' and
+  // convert it to boolean data, because a physical pointer cannot have boolean
+  // type in Vulkan.
+  if (alignment % 4 != 0) {
+    emitWarning("Since boolean is a logical type, we use a unsigned integer "
+                "type to read/write boolean from a buffer. Therefore "
+                "alignment for the data with a boolean type must be aligned "
+                "with 4 bytes",
+                loc);
+  }
+  QualType boolType = bufferType;
+  bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
+  SpirvInstruction *load =
+      loadDataFromRawAddress(address, bufferType, alignment, loc);
+  auto *loadAsBool = castToBool(load, bufferType, boolType, loc);
+  loadAsBool->setRValue();
+  return loadAsBool;
+}
 
-  bufferReference->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+SpirvInstruction *
+SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
+                                     QualType bufferType, uint32_t alignment,
+                                     SourceLocation loc) {
+  // Summary:
+  //   %address = OpBitcast %ptrTobufferType %addressInUInt64
+  //   %loadInst = OpLoad %bufferType %address
 
-  SpirvAccessChain *ac = spvBuilder.createAccessChain(astContext.UnsignedIntTy,
-                                                      bufferReference, {}, loc);
+  const HybridPointerType *bufferPtrType =
+      spvBuilder.getPhysicalStorageBufferType(bufferType);
 
-  SpirvLoad *loadInst =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ac, loc);
+  SpirvUnaryOp *address = spvBuilder.createUnaryOp(
+      spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
+  address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  // Raw buffer loads have the same alignment requirement as
-  // ByteAddressBuffer in HLSL
-  loadInst->setAlignment(4);
-
+  SpirvLoad *loadInst = spvBuilder.createLoad(bufferType, address, loc);
+  loadInst->setAlignment(alignment);
+  loadInst->setRValue();
   return loadInst;
 }
 

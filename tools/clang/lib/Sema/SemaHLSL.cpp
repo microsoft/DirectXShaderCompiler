@@ -3485,6 +3485,133 @@ private:
 
 
 #ifdef ENABLE_SPIRV_CODEGEN
+  SmallVector<NamedDecl *, 1> CreateTemplateTypeParmDeclsForVkIntrinsicFunction(
+      const HLSL_INTRINSIC *intrinsic) {
+    SmallVector<NamedDecl *, 1> templateTypeParmDecls;
+    auto &context = m_sema->getASTContext();
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    TypeSourceInfo *TInfo = nullptr;
+    for (UINT i = 0; i < uNumArgs; ++i) {
+      if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
+          pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
+        IdentifierInfo *id = &context.Idents.get("T");
+        TemplateTypeParmDecl *templateTypeParmDecl =
+            TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 0,
+                                         0, id, TypenameTrue,
+                                         ParameterPackFalse);
+        if (TInfo == nullptr) {
+          TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
+              m_context->UnsignedIntTy, 0);
+        }
+        templateTypeParmDecl->setDefaultArgument(TInfo);
+        templateTypeParmDecls.push_back(templateTypeParmDecl);
+        continue;
+      }
+    }
+    return templateTypeParmDecls;
+  }
+
+  SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount>
+  CreateParmDeclsForVkIntrinsicFunction(
+      const HLSL_INTRINSIC *intrinsic,
+      const SmallVectorImpl<QualType> &paramTypes,
+      const SmallVectorImpl<ParameterModifier> &paramMods) {
+    auto &context = m_sema->getASTContext();
+    SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls;
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    for (UINT i = 1, numVariadicArgs = 0; i < uNumArgs; ++i) {
+      if (IsVariadicArgument(pArgs[i])) {
+        ++numVariadicArgs;
+        continue;
+      }
+      IdentifierInfo *id = &context.Idents.get(StringRef(pArgs[i].pName));
+      TypeSourceInfo *TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
+          paramTypes[i - numVariadicArgs], 0);
+      ParmVarDecl *paramDecl = ParmVarDecl::Create(
+          context, nullptr, NoLoc, NoLoc, id, paramTypes[i - numVariadicArgs],
+          TInfo, StorageClass::SC_None, nullptr,
+          paramMods[i - 1 - numVariadicArgs]);
+      paramDecls.push_back(paramDecl);
+    }
+    return paramDecls;
+  }
+
+  SmallVector<QualType, 2> VkIntrinsicFunctionParamTypes(
+      const HLSL_INTRINSIC *intrinsic,
+      const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
+    auto &context = m_sema->getASTContext();
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    SmallVector<QualType, 2> paramTypes;
+    auto templateParmItr = templateTypeParmDecls.begin();
+    for (UINT i = 0; i < uNumArgs; ++i) {
+      if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
+          pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
+        DXASSERT(templateParmItr != templateTypeParmDecls.end(),
+                 "Missing TemplateTypeParmDecl for a template type parameter");
+        TemplateTypeParmDecl *templateParmDecl =
+            dyn_cast<TemplateTypeParmDecl>(*templateParmItr);
+        DXASSERT(templateParmDecl != nullptr,
+                 "TemplateTypeParmDecl is nullptr");
+        paramTypes.push_back(context.getTemplateTypeParmType(
+            0, i, ParameterPackFalse, templateParmDecl));
+        ++templateParmItr;
+        continue;
+      }
+      if (IsVariadicArgument(pArgs[i])) {
+        continue;
+      }
+      switch (pArgs[i].uLegalComponentTypes) {
+      case LICOMPTYPE_UINT64:
+        paramTypes.push_back(context.UnsignedLongLongTy);
+        break;
+      case LICOMPTYPE_UINT:
+        paramTypes.push_back(context.UnsignedIntTy);
+        break;
+      case LICOMPTYPE_VOID:
+        paramTypes.push_back(context.VoidTy);
+        break;
+      default:
+        DXASSERT(false, "Argument type of vk:: intrinsic function is not "
+                        "supported");
+        break;
+      }
+    }
+    return paramTypes;
+  }
+
+  QualType
+  VkIntrinsicFunctionType(const SmallVectorImpl<QualType> &paramTypes,
+                          const SmallVectorImpl<ParameterModifier> &paramMods) {
+    DXASSERT(!paramTypes.empty(), "Given param type vector is empty");
+
+    ArrayRef<QualType> params({});
+    if (paramTypes.size() > 1) {
+      params = ArrayRef<QualType>(&paramTypes[1], paramTypes.size() - 1);
+    }
+
+    FunctionProtoType::ExtProtoInfo EmptyEPI;
+    return m_sema->getASTContext().getFunctionType(paramTypes[0], params,
+                                                   EmptyEPI, paramMods);
+  }
+
+  void SetParmDeclsForVkIntrinsicFunction(
+      TypeSourceInfo *TInfo, FunctionDecl *functionDecl,
+      const SmallVectorImpl<ParmVarDecl *> &paramDecls) {
+    FunctionProtoTypeLoc Proto =
+        TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
+
+    // Attach the parameters
+    for (unsigned P = 0; P < paramDecls.size(); ++P) {
+      paramDecls[P]->setOwningFunction(functionDecl);
+      paramDecls[P]->setScopeInfo(0, P);
+      Proto.setParam(P, paramDecls[P]);
+    }
+    functionDecl->setParams(paramDecls);
+  }
+
   // Adds intrinsic function declarations to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
   // Assumes the implicit "vk" namespace has already been created.
@@ -3501,13 +3628,50 @@ private:
       const IdentifierInfo &fnII = context.Idents.get(
           intrinsic->pArgs->pName, tok::TokenKind::identifier);
       DeclarationName functionName(&fnII);
+
+      // Create TemplateTypeParmDecl.
+      SmallVector<NamedDecl *, 1> templateTypeParmDecls =
+          CreateTemplateTypeParmDeclsForVkIntrinsicFunction(intrinsic);
+
+      // Get types for parameters.
+      SmallVector<QualType, 2> paramTypes =
+          VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
+      SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+      InitParamMods(intrinsic, paramMods);
+
+      // Create FunctionDecl.
+      QualType fnType = VkIntrinsicFunctionType(paramTypes, paramMods);
+      TypeSourceInfo *TInfo =
+          m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          /*functionType*/ {}, nullptr, StorageClass::SC_Extern,
-          InlineSpecifiedFalse, HasWrittenPrototypeTrue);
-      m_vkNSDecl->addDecl(functionDecl);
-      functionDecl->setLexicalDeclContext(m_vkNSDecl);
-      functionDecl->setDeclContext(m_vkNSDecl);
+          fnType, TInfo, StorageClass::SC_Extern, InlineSpecifiedFalse,
+          HasWrittenPrototypeTrue);
+
+      // Create and set ParmVarDecl.
+      SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
+          CreateParmDeclsForVkIntrinsicFunction(intrinsic, paramTypes,
+                                                paramMods);
+      SetParmDeclsForVkIntrinsicFunction(TInfo, functionDecl, paramDecls);
+
+      if (!templateTypeParmDecls.empty()) {
+        TemplateParameterList *templateParmList = TemplateParameterList::Create(
+            context, NoLoc, NoLoc, templateTypeParmDecls.data(),
+            templateTypeParmDecls.size(), NoLoc);
+        functionDecl->setTemplateParameterListsInfo(context, 1,
+                                                    &templateParmList);
+        FunctionTemplateDecl *functionTemplate = FunctionTemplateDecl::Create(
+            context, m_vkNSDecl, NoLoc, functionName, templateParmList,
+            functionDecl);
+        functionDecl->setDescribedFunctionTemplate(functionTemplate);
+        m_vkNSDecl->addDecl(functionTemplate);
+        functionTemplate->setDeclContext(m_vkNSDecl);
+      } else {
+        m_vkNSDecl->addDecl(functionDecl);
+        functionDecl->setLexicalDeclContext(m_vkNSDecl);
+        functionDecl->setDeclContext(m_vkNSDecl);
+      }
+
       functionDecl->setImplicit(true);
     }
   }
@@ -6189,6 +6353,8 @@ bool HLSLExternalSource::MatchArguments(
         if (i == 0) {
           // [RW]ByteAddressBuffer.Load, default to uint
           pNewType = m_context->UnsignedIntTy;
+          if (pIntrinsic->Op != (UINT)hlsl::IntrinsicOp::MOP_Load)
+            badArgIdx = std::min(badArgIdx, i);
         }
         else {
           // [RW]ByteAddressBuffer.Store, default to argument type
