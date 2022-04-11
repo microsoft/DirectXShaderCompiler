@@ -628,22 +628,21 @@ namespace {
 
 class DxilSimpleGVNEliminateRegion : public FunctionPass {
 
-  bool CheckRegionForSideEffectsOrLoops(BasicBlock *Begin, BasicBlock *End /*Non inclusive*/);
+  bool RegionHasSideEffectsorLoops(BasicBlock *Begin, BasicBlock *End /*Non inclusive*/);
 
   std::unordered_map<BasicBlock *, bool> BlockHasSideEffects;
   bool MayHaveSideEffects(BasicBlock *BB) {
     auto It = BlockHasSideEffects.find(BB);
     if (It != BlockHasSideEffects.end())
       return It->second;
-
+    bool HasSideEffects = false;
     for (Instruction &I : *BB) {
       if (I.mayHaveSideEffects() && !hlsl::IsNop(&I)) {
-        BlockHasSideEffects[BB] = true;
-        return true;
+        HasSideEffects = true;
+        break;
       }
     }
-
-    BlockHasSideEffects[BB] = false;
+    BlockHasSideEffects[BB] = HasSideEffects;
     return false;
   }
   bool ProcessBB(BasicBlock &BB, ValueTable &VT, DominatorTree *DT, PostDominatorTree *PDT);
@@ -666,7 +665,7 @@ public:
 
 char DxilSimpleGVNEliminateRegion::ID = 0;
 
-bool DxilSimpleGVNEliminateRegion::CheckRegionForSideEffectsOrLoops(BasicBlock *Begin, BasicBlock *End /*Non inclusive*/) {
+bool DxilSimpleGVNEliminateRegion::RegionHasSideEffectsorLoops(BasicBlock *Begin, BasicBlock *End /*Non inclusive*/) {
   SmallVector<BasicBlock *, 10> Worklist;
   Worklist.push_back(Begin);
   SmallPtrSet<BasicBlock *, 10> Seen;
@@ -752,9 +751,9 @@ bool DxilSimpleGVNEliminateRegion::ProcessBB(BasicBlock &BB, ValueTable &VT, Dom
     }
   }
 
-  if (!CheckRegionForSideEffectsOrLoops(S0, End))
+  if (!RegionHasSideEffectsorLoops(S0, End))
     return false;
-  if (!CheckRegionForSideEffectsOrLoops(S1, End))
+  if (!RegionHasSideEffectsorLoops(S1, End))
     return false;
 
   BranchInst *Br = BranchInst::Create(S0, &BB);
