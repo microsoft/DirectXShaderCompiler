@@ -235,6 +235,9 @@ public:
   SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
                                 SourceLocation loc, SourceRange range = {});
+  SpirvBinaryOp *createBinaryOp(spv::Op op, const SpirvType *resultType,
+                                SpirvInstruction *lhs, SpirvInstruction *rhs,
+                                SourceLocation loc, SourceRange range = {});
 
   SpirvSpecConstantBinaryOp *createSpecConstantBinaryOp(spv::Op op,
                                                         QualType resultType,
