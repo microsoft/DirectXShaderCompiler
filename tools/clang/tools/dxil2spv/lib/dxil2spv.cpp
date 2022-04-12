@@ -573,7 +573,7 @@ DiagnosticBuilder Translator::emitError(const char (&message)[N],
   std::string str;
   llvm::raw_string_ostream os(str);
   value.print(os);
-  emitError(message) << os.str();
+  return emitError(message) << os.str();
 }
 
 } // namespace dxil2spv
