@@ -47,8 +47,16 @@ private:
   llvm::DenseMap<unsigned, spirv::SpirvVariable *> inputSignatureElementMap;
   llvm::DenseMap<unsigned, spirv::SpirvVariable *> outputSignatureElementMap;
 
+  // Map from HLSL resource class and range ID to corresponding SPIR-V variable.
+  llvm::DenseMap<std::pair<unsigned, unsigned>, spirv::SpirvVariable *>
+      resourceMap;
+
   // Map from DXIL instructions (values) to SPIR-V instructions.
   llvm::DenseMap<llvm::Value *, spirv::SpirvInstruction *> instructionMap;
+
+  // Get corresponding SPIR-V instruction for a given DXIL instruction, with
+  // error checking.
+  spirv::SpirvInstruction *getSpirvInstruction(llvm::Value *instruction);
 
   // Create SPIR-V stage IO variable from DXIL input and output signatures.
   void createStageIOVariables(
@@ -73,6 +81,8 @@ private:
   void createStoreOutputInstruction(llvm::CallInst &instruction);
   void createThreadIdInstruction(llvm::CallInst &instruction);
   void createBinaryOpInstruction(llvm::BinaryOperator &instruction);
+  void createHandleInstruction(llvm::CallInst &instruction);
+  void createBufferLoadInstruction(llvm::CallInst &instruction);
 
   // SPIR-V Tools wrapper functions.
   bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
@@ -83,7 +93,18 @@ private:
   const spirv::SpirvType *toSpirvType(llvm::Type *llvmType);
   const spirv::SpirvType *toSpirvType(llvm::StructType *structType);
 
+  // TODO: These variables are used for a temporary hack to assign descriptor
+  // set and binding numbers that works only for the most simple cases (always
+  // use descriptor set 0, increment binding number for each resource). Further
+  // work is needed to translate non-trivial shaders.
+  unsigned nextDescriptorSet = 0;
+  unsigned nextBindingNo = 0;
+
+  // Helper diagnostic functions for emitting error messages.
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]);
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              llvm::Value &instruction);
 };
 
 } // namespace dxil2spv
