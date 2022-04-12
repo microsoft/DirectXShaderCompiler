@@ -385,6 +385,14 @@ void Translator::createBinaryOpInstruction(llvm::BinaryOperator &instruction) {
   case llvm::Instruction::Shl: {
     // Value to be shifted.
     spirv::SpirvInstruction *val = instructionMap[instruction.getOperand(0)];
+    if (!val) {
+      std::string instStr;
+      llvm::raw_string_ostream os(instStr);
+      instruction.print(os);
+      emitError("Could not find translation of instruction operand 0: %0")
+          << os.str();
+      return;
+    }
 
     // Amount to shift by.
     const spirv::IntegerType *uint32 = spvContext.getUIntType(32);
