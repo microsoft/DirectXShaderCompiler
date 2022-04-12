@@ -9781,7 +9781,7 @@ bool VerifyHelperLaneWaveResultsForVS(ExecutionTest::D3D_SHADER_MODEL sm,
                                            0, tr60.anyTrue);
     passed &= HelperLaneResultLogAndVerify(
         L"WaveActiveAllTrue(!IsHelperLane())", 1, tr60.allTrue);
-    bool ballotMatch = countBits < 1 || countBits > 3;
+    bool ballotMatch = 1 <= countBits && countBits <= 3;
 
     LogCommentFmt(L"%sWaveActiveBallot(true) expected 1~3 bits set, actual = %u",
         ballotMatch ? L" - " : L"FAILED: ", tr60.ballot);
