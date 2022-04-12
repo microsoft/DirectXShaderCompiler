@@ -4028,7 +4028,7 @@ public:
   }
 
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
-     Type = Type.getCanonicalType();
+     Type = Type->getCanonicalTypeUnqualified();
      if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
        Type = GetOriginalMatrixOrVectorElementType(Type);
      }
