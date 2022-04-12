@@ -120,6 +120,15 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
       storageClass(spv::StorageClass::Function), isRValue_(false),
       isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
 
+SpirvInstruction::SpirvInstruction(Kind k, spv::Op op,
+                                   const SpirvType *resultType,
+                                   SourceLocation loc, SourceRange range)
+    : kind(k), opcode(op), astResultType({}), resultId(0), srcLoc(loc),
+      srcRange(range), debugName(), resultType(resultType), resultTypeId(0),
+      layoutRule(SpirvLayoutRule::Void), containsAlias(false),
+      storageClass(spv::StorageClass::Function), isRValue_(false),
+      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
+
 bool SpirvInstruction::isArithmeticInstruction() const {
   switch (opcode) {
   case spv::Op::OpSNegate:
@@ -455,6 +464,12 @@ SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
                              SpirvInstruction *op2, SourceRange range)
     : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc, range),
 	  operand1(op1), operand2(op2) {}
+
+SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, const SpirvType *resultType,
+                             SourceLocation loc, SpirvInstruction *op1,
+                             SpirvInstruction *op2, SourceRange range)
+    : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc, range),
+      operand1(op1), operand2(op2) {}
 
 SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
                              SourceLocation loc, SpirvInstruction *baseInst,
