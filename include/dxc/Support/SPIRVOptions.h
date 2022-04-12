@@ -84,6 +84,7 @@ struct SpirvCodeGenOptions {
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
   std::vector<std::string> bindRegister;
   std::vector<std::string> bindGlobals;
+  llvm::StringRef entrypointName;
 
   bool signaturePacking; ///< Whether signature packing is enabled or not
 

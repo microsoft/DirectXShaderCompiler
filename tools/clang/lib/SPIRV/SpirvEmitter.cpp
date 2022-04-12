@@ -748,9 +748,18 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
+
+    llvm::StringRef entrypointName = entryInfo->funcDecl->getName();
+    // If this is the -E HLSL entrypoint and -fspv-entrypoint-name was set,
+    // rename the SPIR-V entrypoint.
+    if (entrypointName ==
+            theCompilerInstance.getCodeGenOpts().HLSLEntryFunction &&
+        !spirvOptions.entrypointName.empty()) {
+      entrypointName = spirvOptions.entrypointName;
+    }
     spvBuilder.addEntryPoint(
         SpirvUtils::getSpirvShaderStage(entryInfo->shaderModelKind),
-        entryInfo->entryFunction, entryInfo->funcDecl->getName(),
+        entryInfo->entryFunction, entrypointName,
         getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
 
