@@ -19,6 +19,7 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -71,6 +72,7 @@ private:
   void createLoadInputInstruction(llvm::CallInst &instruction);
   void createStoreOutputInstruction(llvm::CallInst &instruction);
   void createThreadIdInstruction(llvm::CallInst &instruction);
+  void createBinaryOpInstruction(llvm::BinaryOperator &instruction);
 
   // SPIR-V Tools wrapper functions.
   bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);

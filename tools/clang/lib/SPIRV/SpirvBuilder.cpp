@@ -405,6 +405,17 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
   return instruction;
 }
 
+SpirvBinaryOp *
+SpirvBuilder::createBinaryOp(spv::Op op, const SpirvType *resultType,
+                             SpirvInstruction *lhs, SpirvInstruction *rhs,
+                             SourceLocation loc, SourceRange range) {
+  assert(insertPoint && "null insert point");
+  auto *instruction =
+      new (context) SpirvBinaryOp(op, resultType, loc, lhs, rhs, range);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvSpecConstantBinaryOp *SpirvBuilder::createSpecConstantBinaryOp(
     spv::Op op, QualType resultType, SpirvInstruction *lhs,
     SpirvInstruction *rhs, SourceLocation loc) {

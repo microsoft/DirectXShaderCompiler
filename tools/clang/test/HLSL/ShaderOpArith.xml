@@ -3250,7 +3250,7 @@
         
         PSInput VSMain(float3 pos : POSITION) {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
-            if (WaveGetLaneIndex() == 2) { // last lane writes results
+            if ( WaveGetLaneIndex() == WaveActiveMax(WaveGetLaneIndex())) { // last lane writes results
                 g_TestResults[VS_INDEX].sm60_wave = tr60;
             }
             PSInput r;
@@ -3261,7 +3261,7 @@
         PSInput VSMain65(float3 pos : POSITION) {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
             HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
-            if (WaveGetLaneIndex() == 2) { // last lane writes results
+            if ( WaveGetLaneIndex() == WaveActiveMax(WaveGetLaneIndex())) { // last lane writes results
                 g_TestResults[VS_INDEX].sm60_wave = tr60;
                 g_TestResults[VS_INDEX].sm65_wave = tr65;
             }

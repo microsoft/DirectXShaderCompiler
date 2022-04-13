@@ -28,6 +28,7 @@
 #include <atlcoll.h>
 #include <locale>
 #include <algorithm>
+#include <bitset>
 
 #undef _read
 #include "WexTestClass.h"
@@ -9754,6 +9755,100 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
   }
   return passed;
 }
+// Contrary to compute or pixel shaders the layout of lanes in vertex shaders is
+// not specified. A conforming implementation could, in the extreme case, decide
+// to dispatch three waves that each process only a single vertex.
+// So instead of compare with fixed expected result, calculate the correct
+// result from ballot.
+bool VerifyHelperLaneWaveResultsForVS(ExecutionTest::D3D_SHADER_MODEL sm,
+                                      HelperLaneWaveTestResult &testResults) {
+  bool passed = true;
+  XMUINT4 mask = testResults.sm60.ballot;
+  unsigned countBits = 0;
+  std::bitset<32> x(mask.x);
+  std::bitset<32> y(mask.y);
+  std::bitset<32> z(mask.z);
+  std::bitset<32> w(mask.w);
+  countBits += (unsigned)x.count();
+  countBits += (unsigned)y.count();
+  countBits += (unsigned)z.count();
+  countBits += (unsigned)w.count();
+
+  {
+    // For VS, IsHelperLane always return false.
+    HelperLaneWaveTestResult60 &tr60 = testResults.sm60;
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAnyTrue(IsHelperLane())",
+                                           0, tr60.anyTrue);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveAllTrue(!IsHelperLane())", 1, tr60.allTrue);
+    bool ballotMatch = 1 <= countBits && countBits <= 3;
+
+    LogCommentFmt(L"%sWaveActiveBallot(true) expected 1~3 bits set, actual = %u",
+        ballotMatch ? L" - " : L"FAILED: ", tr60.ballot);
+
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"!WaveReadLaneFirst(IsHelperLane()) && WaveIsFirstLane() in a "
+        L"waterfall loop",
+        countBits, tr60.waterfallLoopCount);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveAllEqual(IsHelperLane())", 1, tr60.allEqual);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveCountBits(true)",
+                                           countBits, tr60.countBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveSum(4)", 4 * countBits,
+                                           tr60.sum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveProduct(4)", (unsigned)std::pow(4, countBits),
+                                           tr60.product);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitAnd(!IsHelperLane())",
+                                           1, tr60.bitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitOr(IsHelperLane())",
+                                           0, tr60.bitOr);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitXor(IsHelperLane())",
+                                           0, tr60.bitXor);
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveMin(IsHelperLane() ? 1 : 10)", 10, tr60.min);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveMax(IsHelperLane() ? 10 : 1)", 1, tr60.max);
+
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixCountBits(1)",
+                                           countBits-1,
+                                           tr60.prefixCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixProduct(4)",
+                                           (unsigned)std::pow(4, countBits - 1),
+                                           tr60.prefixProduct);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixSum(2)",
+                                           2 * (countBits-1), tr60.prefixSum);
+  }
+
+  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
+    HelperLaneWaveTestResult65 &tr65 = testResults.sm65;
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMatch(true) has exactly 3 bits set", mask, tr65.match);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixCountBits(1, no_masked_bits)", countBits-1,
+        tr65.mpCountBits);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixSum(2, no_masked_bits)", 2*(countBits-1), tr65.mpSum);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixProduct(4, no_masked_bits)",
+        (unsigned)std::pow(4, countBits - 1),
+        tr65.mpProduct);
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits)",
+        1, tr65.mpBitAnd);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits)",
+        0, tr65.mpBitOr);
+    passed &= HelperLaneResultLogAndVerify(
+        L"verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits)",
+        0, tr65.mpBitXor);
+  }
+  return passed;
+}
 
 void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
   UNREFERENCED_PARAMETER(pShaderOp);
@@ -9868,7 +9963,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
       HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
       LogCommentFmt(L"\r\nVertex shader");
-      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[VS_INDEX], HelperLane_VS_ExpectedResults, false);
+      smPassed &= VerifyHelperLaneWaveResultsForVS(sm, pTestResults[VS_INDEX]);
       LogCommentFmt(L"\r\nPixel shader");
       smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX], PS_ExpectedResults, true);
       LogCommentFmt(L"\r\nPixel shader with discarded pixel");
