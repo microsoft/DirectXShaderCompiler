@@ -3497,15 +3497,15 @@ void MSMain(uint GID : SV_GroupIndex,
       12.0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
     </Resource>
     
-    <Resource Name="U3"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS">
+    <Resource Name="U3"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
       23.0
     </Resource>
     
-    <Resource Name="U4"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS">
+    <Resource Name="U4"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
       24.0
     </Resource>
     
-    <Resource Name="U5"            Dimension="TEXTURE1D"  Width="4"             InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" Format="R32_FLOAT">
+    <Resource Name="U5"            Dimension="TEXTURE1D"  Width="4"             InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" Format="R32_FLOAT" TransitionTo="UNORDERED_ACCESS">
       25.0 0 0 0
     </Resource>
     
@@ -3558,10 +3558,12 @@ void MSMain(uint GID : SV_GroupIndex,
       </RenderTarget>
     </RenderTargets>
 
+    <!-- -->
     <Shader Name="PS66" Target="ps_6_6" EntryPoint="PSMain" Text="@MAIN"/> 
     <Shader Name="VS66" Target="vs_6_6" EntryPoint="VSMain" Text="@MAIN"/>
-    <Shader Name="CS66" Target="cs_6_6" EntryPoint="main" Text="@MAIN"/>
-
+    <Shader Name="CS66" Target="cs_6_6" EntryPoint="main" Text="@MAIN"/> 
+    <!-- -->
+ 
     <!-- FALLBACK BEGINS ->
     <RootValues>
       <RootValue HeapName="ResourceDescriptorHeap" />
@@ -3580,7 +3582,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
     #ifdef FALLBACK
 
-    #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( SRV(t0,numDescriptors=3), UAV(u3,numDescriptors=3), CBV(b6), UAV(u7,numDescriptors=2) ), StaticSampler(s0, addressU = TEXTURE_ADDRESS_BORDER, addressV = TEXTURE_ADDRESS_BORDER, borderColor=STATIC_BORDER_COLOR_OPAQUE_WHITE), StaticSampler(s1, addressU = TEXTURE_ADDRESS_BORDER, addressV = TEXTURE_ADDRESS_BORDER, borderColor=STATIC_BORDER_COLOR_OPAQUE_WHITE, comparisonFunc=COMPARISON_EQUAL)")]
+    #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( SRV(t0), SRV(t1), SRV(t2), UAV(u3), UAV(u4), UAV(u5), CBV(b6), UAV(u7,numDescriptors=3) ), StaticSampler(s0, addressU = TEXTURE_ADDRESS_BORDER, addressV = TEXTURE_ADDRESS_BORDER, borderColor=STATIC_BORDER_COLOR_OPAQUE_WHITE), StaticSampler(s1, addressU = TEXTURE_ADDRESS_BORDER, addressV = TEXTURE_ADDRESS_BORDER, borderColor=STATIC_BORDER_COLOR_OPAQUE_WHITE, comparisonFunc=COMPARISON_EQUAL)")]
 
     ConstantBuffer<Constants> CB : register(b6);
 
@@ -3592,16 +3594,16 @@ void MSMain(uint GID : SV_GroupIndex,
     RWTexture1D<float> g_rwTex : register(u5);
 
     // Result buffers
-    RWStructuredBuffer<float> g_result : register(u7);
-    RWStructuredBuffer<float> g_resultVS : register(u8);
-    RWStructuredBuffer<float> g_resultPS : register(u9);
+    RWBuffer<float> g_result : register(u7);
+    RWBuffer<float> g_resultVS : register(u8);
+    RWBuffer<float> g_resultPS : register(u9);
 
     SamplerState g_samp : register(s0);
     SamplerComparisonState g_sampCmp : register(s1);
 
-    #else // FALLBACK
+    #else // NO FALLBACK
 
-    #define ROOT_SIG [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)")]
+    #define ROOT_SIG [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(SRV(t0), SRV(t1), SRV(t2), UAV(u3), UAV(u4), UAV(u5), CBV(b6), UAV(u7, numDescriptors=3))")]
 
     static ConstantBuffer<Constants> CB = ResourceDescriptorHeap[6];
 
@@ -3613,10 +3615,15 @@ void MSMain(uint GID : SV_GroupIndex,
     static RWTexture1D<float> g_rwTex = ResourceDescriptorHeap[CB.idx5];
 
     // Result buffers
-    static RWBuffer<float> g_result = ResourceDescriptorHeap[7];
-    static RWBuffer<float> g_resultVS = ResourceDescriptorHeap[8];
-    static RWBuffer<float> g_resultPS = ResourceDescriptorHeap[9];
-
+    static RWStructuredBuffer<float> g_result = ResourceDescriptorHeap[7];
+    
+    //static RWStructuredBuffer<float> g_resultVS = ResourceDescriptorHeap[8];
+    //static RWStructuredBuffer<float> g_resultPS = ResourceDescriptorHeap[9];
+    
+    RWStructuredBuffer<float> g_resultVS : register(u8);
+    RWStructuredBuffer<float> g_resultPS : register(u9);
+    
+    
     static SamplerState g_samp = SamplerDescriptorHeap[CB.idx0]; //Sampler's have 30+ offset
     static SamplerComparisonState g_sampCmp = SamplerDescriptorHeap[CB.idx1];
 
@@ -3641,23 +3648,25 @@ void MSMain(uint GID : SV_GroupIndex,
 
     ROOT_SIG
     float4 PSMain(PSInput input) : SV_TARGET {
-        g_resultPS[0] = 3.0;
-        g_resultPS[1] = 4.0;
-        g_resultPS[2] = 5.0;
+        
+        g_resultPS[0] = g_rawBuf.Load<float>(0);
+        g_resultPS[1] = g_structBuf.Load(0);
+        g_resultPS[2] = g_tex.Load(0);
         g_resultPS[3] = g_rwRawBuf.Load<float>(0);
         g_resultPS[4] = g_rwStructBuf.Load(0);
         g_resultPS[5] = g_rwTex.Load(0);
         g_resultPS[6] = g_tex.SampleLevel(g_samp, -0.5, 0) == 1.0 ? 30.0 : 0.0;
         g_resultPS[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 1.0) ? 31.0 : 0.0;
+        
         // This output doesn't actually matter
         return input.position;
     }
     
     ROOT_SIG
     PSInput VSMain(float3 pos : POSITION) {
-        g_resultVS[0] = 3.0;
-        g_resultVS[1] = 3.0;
-        g_resultVS[2] = 3.0;
+        g_resultVS[0] = g_rawBuf.Load<float>(0);
+        g_resultVS[1] = g_structBuf.Load(0);
+        g_resultVS[2] = g_tex.Load(0);
         g_resultVS[3] = g_rwRawBuf.Load<float>(0);
         g_resultVS[4] = g_rwStructBuf.Load(0);
         g_resultVS[5] = g_rwTex.Load(0);

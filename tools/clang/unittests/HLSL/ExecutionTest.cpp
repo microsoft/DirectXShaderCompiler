@@ -8825,6 +8825,7 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
     }
 
     // Test Compute shader
+    
     {
       pShaderOp->CS = pShaderOp->GetString("CS66");
       std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
@@ -8864,6 +8865,9 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
       test->Test->GetReadBackData("g_resultPS", &resultPSData);
       const float *resultVSFloats = (float *)resultVSData.data();
       const float *resultPSFloats = (float *)resultPSData.data();
+      D3D12_QUERY_DATA_PIPELINE_STATISTICS Stats;
+      test->Test->GetPipelineStats(&Stats);
+
 
       // VS
       VERIFY_ARE_EQUAL(resultVSFloats[0], 10.0F);
