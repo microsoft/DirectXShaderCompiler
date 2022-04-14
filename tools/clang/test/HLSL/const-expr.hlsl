@@ -4,7 +4,7 @@ float overload1(float f) { return 1; }                        /* expected-note {
 double overload1(double f) { return 2; }                       /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 int overload1(int i) { return 3; }                             /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 uint overload1(uint i) { return 4; }                           /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
-min12int overload1(min12int i) { return 5; }                   /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-warning {{min12int is promoted to min16int}} expected-warning {{min12int is promoted to min16int}} fxc-pass {{}} */
+min12int overload1(min12int i) { return 5; }                   /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-warning {{'min12int' is promoted to 'min16int'}} expected-warning {{'min12int' is promoted to 'min16int'}} fxc-pass {{}} */
 
 
 static const float2 g_f2_arr[8] =

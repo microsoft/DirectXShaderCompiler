@@ -2336,9 +2336,19 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
       return BuildPossibleImplicitMemberExpr(SS, TemplateKWLoc,
                                              R, TemplateArgs);
   }
-
+  // HLSL Change Begin: Allow templates without empty argument list if default
+  // arguments are provided.
+  if (getLangOpts().HLSL && R.isSingleResult()) {
+    if (TemplateDecl *Template = dyn_cast<TemplateDecl>(R.getFoundDecl())) {
+      if (Template->getTemplateParameters()->getMinRequiredArguments() == 0) {
+        TemplateArgsBuffer.setLAngleLoc(NameLoc);
+        TemplateArgsBuffer.setRAngleLoc(NameLoc);
+        TemplateArgs = &TemplateArgsBuffer;
+      }
+    }
+  }
+  // HLSL Change End
   if (TemplateArgs || TemplateKWLoc.isValid()) {
-
     // In C++1y, if this is a variable template id, then check it
     // in BuildTemplateIdExpr().
     // The single lookup result must be a variable template declaration.
