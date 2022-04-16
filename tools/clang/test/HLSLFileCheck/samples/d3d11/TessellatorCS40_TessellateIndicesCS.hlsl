@@ -581,6 +581,7 @@ void main( uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint GI : S
                 else
                 {
                     int ring = GetRingFromIndexStitchRegular(true, DIAGONALS_MIRRORED, processedTessFactors.numPointsForOutsideInside.w, index_id - num.z);
+                    DebugOutput[DTid.x+1] = int4(ring,0,0,0); // HLSL Change: Use that output so the value defines it doens't get deleted.
 
                     int tn = TotalNumStitchRegular(true, DIAGONALS_MIRRORED, processedTessFactors.numPointsForOutsideInside.w, ring - 1) * 3;
                     int n = NumStitchRegular(true, DIAGONALS_MIRRORED, processedTessFactors.numPointsForOutsideInside.w - 2 * ring);
