@@ -65,6 +65,7 @@ private:
 
   Value *ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT);
   Value *ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT);
+  Value *ProcessAndSimplify_Switch(Instruction *I, DominatorTree *DT);
   Value *ProcessAndSimplify_Load(Instruction *LI, DominatorTree *DT);
   Value *SimplifyAndCacheResult(Instruction *I, DominatorTree *DT);
 
