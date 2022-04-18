@@ -8786,7 +8786,7 @@ void EnableShaderBasedValidation() {
 }
 
 void ExecutionTest::DynamicResourcesUniformIndexingTest() {
-  EnableShaderBasedValidation();
+  //EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;

@@ -326,6 +326,14 @@ void ShaderOpTest::CreateDescriptorHeaps() {
           ShaderOpResourceData &CounterData = m_ResourceData[D.CounterName];
           pCounterResource = CounterData.Resource;
         }
+        ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
+        // Ensure the TransitionTo state is set for UAV's that will be used as UAV's.
+        if (R && R->TransitionTo != D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+          ShaderOpLogFmt(L"Resource '%S' used in UAV descriptor, but "
+                         L"TransitionTo not set to 'UNORDERED_ACCESS'",
+                         D.ResName);
+          CHECK_HR(E_FAIL);
+        }
         m_pDevice->CreateUnorderedAccessView(pResource, pCounterResource,
                                              &D.UavDesc, cpuHandle);
       }

@@ -3518,9 +3518,9 @@ void MSMain(uint GID : SV_GroupIndex,
     { 1.0f, -1.0f, 0.0f },
     </Resource>
     
-    <Resource Name="g_result"      Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"/>
-    <Resource Name="g_resultPS"    Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"/>
-    <Resource Name="g_resultVS"    Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"/>
+    <Resource Name="g_result"      Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="g_resultPS"    Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="g_resultVS"    Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
     <Resource Name="ConstantBuffer" Dimension="BUFFER" Width="256" InitialResourceState="COPY_DEST" Init="FromBytes" ReadBack="true">
       { 0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u }
     </Resource>
@@ -3563,11 +3563,11 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="VS66" Target="vs_6_6" EntryPoint="VSMain" Text="@MAIN"/>
     <Shader Name="CS66" Target="cs_6_6" EntryPoint="main" Text="@MAIN"/> 
     <!-- -->
- 
-    <!-- FALLBACK BEGINS ->
     <RootValues>
       <RootValue HeapName="ResourceDescriptorHeap" />
     </RootValues>
+    
+    <!-- FALLBACK BEGINS ->
     <Shader Name="PS66" Target="ps_6_0" EntryPoint="PSMain" Text="@MAIN" Arguments="/DFALLBACK=1"/>
     <Shader Name="VS66" Target="vs_6_0" EntryPoint="VSMain" Text="@MAIN" Arguments="/DFALLBACK=1"/>
     <Shader Name="CS66" Target="cs_6_0" EntryPoint="main" Text="@MAIN" Arguments="/DFALLBACK=1"/>
@@ -3609,8 +3609,8 @@ void MSMain(uint GID : SV_GroupIndex,
 
     static ByteAddressBuffer g_rawBuf = ResourceDescriptorHeap[CB.idx0]; //SRV (10+ offset)
     static StructuredBuffer<float> g_structBuf = ResourceDescriptorHeap[CB.idx1];
-    static Texture2D<float> g_tex = ResourceDescriptorHeap[CB.idx2];
-    static RWByteAddressBuffer g_rwRawBuf = ResourceDescriptorHeap[CB.idx3]; //UAV (20+ offset)
+    static Texture2D<float> g_tex = ResourceDescriptorHeap[2];
+    static RWByteAddressBuffer g_rwRawBuf = ResourceDescriptorHeap[3]; //UAV (20+ offset)
     static RWStructuredBuffer<float> g_rwStructBuf = ResourceDescriptorHeap[CB.idx4];
     static RWTexture1D<float> g_rwTex = ResourceDescriptorHeap[CB.idx5];
 
@@ -3649,8 +3649,8 @@ void MSMain(uint GID : SV_GroupIndex,
     ROOT_SIG
     float4 PSMain(PSInput input) : SV_TARGET {
         
-        g_resultPS[0] = g_rawBuf.Load<float>(0);
-        g_resultPS[1] = g_structBuf.Load(0);
+        g_resultPS[0] = 3.0;
+        g_resultPS[1] = 4.0;
         g_resultPS[2] = g_tex.Load(0);
         g_resultPS[3] = g_rwRawBuf.Load<float>(0);
         g_resultPS[4] = g_rwStructBuf.Load(0);
@@ -3664,7 +3664,7 @@ void MSMain(uint GID : SV_GroupIndex,
     
     ROOT_SIG
     PSInput VSMain(float3 pos : POSITION) {
-        g_resultVS[0] = g_rawBuf.Load<float>(0);
+        g_resultVS[0] = 3.0;
         g_resultVS[1] = g_structBuf.Load(0);
         g_resultVS[2] = g_tex.Load(0);
         g_resultVS[3] = g_rwRawBuf.Load<float>(0);
