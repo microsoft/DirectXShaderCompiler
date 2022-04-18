@@ -86,7 +86,7 @@ attributes #2 = { nounwind }
 ; ; SPIR-V
 ; ; Version: 1.0
 ; ; Generator: Google spiregg; 0
-; ; Bound: 20
+; ; Bound: 22
 ; ; Schema: 0
 ;                OpCapability Shader
 ;                OpMemoryModel Logical GLSL450
@@ -104,6 +104,7 @@ attributes #2 = { nounwind }
 ;                OpDecorate %type_RWByteAddressBuffer BufferBlock
 ;        %uint = OpTypeInt 32 0
 ;      %uint_0 = OpConstant %uint 0
+;      %uint_2 = OpConstant %uint 2
 ;      %v3uint = OpTypeVector %uint 3
 ; %_ptr_Input_v3uint = OpTypePointer Input %v3uint
 ; %_runtimearr_uint = OpTypeRuntimeArray %uint
@@ -112,19 +113,21 @@ attributes #2 = { nounwind }
 ; %type_RWByteAddressBuffer = OpTypeStruct %_runtimearr_uint
 ; %_ptr_Uniform_type_RWByteAddressBuffer = OpTypePointer Uniform %type_RWByteAddressBuffer
 ;        %void = OpTypeVoid
-;          %15 = OpTypeFunction %void
+;          %16 = OpTypeFunction %void
 ; %_ptr_Input_uint = OpTypePointer Input %uint
 ; %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
-;          %10 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
-;          %13 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
-;        %main = OpFunction %void None %15
-;          %16 = OpLabel
-;          %18 = OpAccessChain %_ptr_Input_uint %gl_GlobalInvocationID %uint_0
-;          %19 = OpLoad %uint %18
+;          %11 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
+;          %14 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
+;        %main = OpFunction %void None %16
+;          %17 = OpLabel
+;          %19 = OpAccessChain %_ptr_Input_uint %gl_GlobalInvocationID %uint_0
+;          %20 = OpLoad %uint %19
+;          %21 = OpShiftLeftLogical %uint %20 %uint_2
 ;                OpReturn
 ;                OpFunctionEnd
 ; CHECK-ERRORS:
 ; error: Unhandled DXIL opcode: CreateHandle
 ; error: Unhandled DXIL opcode: CreateHandle
 ; error: Unhandled DXIL opcode: BufferLoad
+; error: Unhandled LLVM instruction:   %6 = extractvalue %dx.types.ResRet.i32 %5, 0
 ; error: Unhandled DXIL opcode: BufferStore

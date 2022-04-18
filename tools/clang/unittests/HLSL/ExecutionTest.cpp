@@ -28,6 +28,7 @@
 #include <atlcoll.h>
 #include <locale>
 #include <algorithm>
+#include <bitset>
 
 #undef _read
 #include "WexTestClass.h"
@@ -306,6 +307,7 @@ public:
   TEST_METHOD(ComputeSampleTest);
   TEST_METHOD(ATOProgOffset);
   TEST_METHOD(ATOSampleCmpLevelTest);
+  TEST_METHOD(ATOWriteMSAATest);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
   TEST_METHOD(AtomicsRawHeap64Test);
@@ -863,12 +865,14 @@ public:
                                      CD3DX12_DESCRIPTOR_RANGE *resRanges, UINT resCt,
                                      CD3DX12_DESCRIPTOR_RANGE *sampRanges = nullptr, UINT sampCt = 0,
                                      D3D12_ROOT_SIGNATURE_FLAGS flags = D3D12_ROOT_SIGNATURE_FLAG_NONE) {
+    UINT paramCt = 0;
     CD3DX12_ROOT_PARAMETER rootParameters[2];
-    rootParameters[0].InitAsDescriptorTable(resCt, resRanges, D3D12_SHADER_VISIBILITY_ALL);
-    rootParameters[1].InitAsDescriptorTable(sampCt, sampRanges, D3D12_SHADER_VISIBILITY_ALL);
+    rootParameters[paramCt++].InitAsDescriptorTable(resCt, resRanges, D3D12_SHADER_VISIBILITY_ALL);
+    if (sampCt)
+      rootParameters[paramCt++].InitAsDescriptorTable(sampCt, sampRanges, D3D12_SHADER_VISIBILITY_ALL);
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr, flags);
+    rootSignatureDesc.Init(paramCt, rootParameters, 0, nullptr, flags);
     CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, pRootSig);
   }
 
@@ -1061,6 +1065,14 @@ public:
       uavDesc.Texture2D.MipSlice = 0;
       uavDesc.Texture2D.PlaneSlice = 0;
       break;
+    case D3D12_UAV_DIMENSION_TEXTURE2DARRAY:
+      uavDesc.Texture2DArray.MipSlice = 0;
+      uavDesc.Texture2DArray.PlaneSlice = 0;
+      uavDesc.Texture2DArray.FirstArraySlice = 0;
+      uavDesc.Texture2DArray.ArraySize = numElements;
+      break;
+    default:
+      break;
     }
     pDevice->CreateUnorderedAccessView(pResource, nullptr, &uavDesc, baseHandle);
     baseHandle.Offset(descriptorSize);
@@ -1068,7 +1080,7 @@ public:
 
   void CreateRawUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
                     UINT numElements, const CComPtr<ID3D12Resource> pResource) {
-    CreateUAV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+    CreateUAV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_UAV_DIMENSION_BUFFER, numElements, 0/*stride*/, pResource);
   }
 
   void CreateStructUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
@@ -1078,17 +1090,27 @@ public:
 
   void CreateTypedUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
                       UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
-    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_BUFFER, numElements, 0/*stride*/, pResource);
   }
 
   void CreateTex1DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
-                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
-    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE1D, numElements, 0, pResource);
+                      DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE1D, 0/*numElements*/, 0/*stride*/, pResource);
   }
 
   void CreateTex2DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
-                 UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
-    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
+                      DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE2D, 0/*numElements*/, 0/*stride*/, pResource);
+  }
+
+  void CreateTex2DArrayUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                           UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE2DARRAY, numElements, 0/*stride*/, pResource);
+  }
+
+  void CreateTex2DMSUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                        DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, (D3D12_UAV_DIMENSION)6 /*D3D12_UAV_DIMENSION_TEXTURE2DMS*/, 0 /*numElements*/, 0/*stride*/, pResource);
   }
 
   // Create Samplers for <pDevice> given the filter and border color information provided
@@ -1277,6 +1299,30 @@ public:
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
     return O9.AtomicInt64OnGroupSharedSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportAdvancedTexOps(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
+    D3D12_FEATURE_DATA_D3D12_OPTIONS13 O13;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS13, &O13, sizeof(O13))))
+      return false;
+    return O13.AdvancedTextureOpsSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportWritableMSAA(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
+    D3D12_FEATURE_DATA_D3D12_OPTIONS13 O13;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS13, &O13, sizeof(O13))))
+      return false;
+    return O13.WriteableMSAATexturesSupported != FALSE;
 #else
     UNREFERENCED_PARAMETER(pDevice);
     return false;
@@ -3642,6 +3688,222 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
     VerifySampleResults(pPixels, 84);
   }
+}
+
+TEST_F(ExecutionTest, ATOWriteMSAATest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  //  #define WRITEMSAA_FALLBACK
+
+  CComPtr<ID3D12Device> pDevice;
+#ifdef WRITEMSAA_FALLBACK
+  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_6;
+#else
+  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_7;
+#endif
+  if (!CreateDevice(&pDevice, sm))
+      return;
+
+  if (DoesDeviceSupportAdvancedTexOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support Advanced Texture Operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
+
+  if (DoesDeviceSupportWritableMSAA(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support Writable MSAA.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
+
+  static const char pWriteShader[] =
+    "#define SAMPLES 4\n"
+    "RWStructuredBuffer<float> g_out : register(u0);\n"
+    "#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)\n"
+    "RWTexture2DMS<float, 4> g_texms : register(u1);\n"
+    "#else\n"
+    "RWTexture2DArray<float> g_texms : register(u1);\n"
+    "#endif\n"
+    "[NumThreads(32, 32, 1)]\n"
+    "void main(uint3 id : SV_GroupThreadID) {\n"
+    "  for(uint i = 0; i < SAMPLES; i++) {\n"
+    "#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)\n"
+    "    g_texms.sample[i][id.xy] = id.x*id.y*(i+1);\n"
+    "#else\n"
+    "    g_texms[uint3(id.xy, i)] = id.x*id.y*(i+1);\n"
+    "#endif\n"
+    "  }\n"
+    "}";
+
+  static const char pCopyShader[] =
+    "#define SAMPLES 4\n"
+    "RWStructuredBuffer<float> g_out : register(u0);\n"
+    "#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)\n"
+    "RWTexture2DMS<float, 4> g_texms : register(u1);\n"
+    "#else\n"
+    "RWTexture2DArray<float> g_texms : register(u1);\n"
+    "#endif\n"
+    "[NumThreads(32, 32, 1)]\n"
+    "  void main(uint3 id : SV_GroupThreadID) {\n"
+    "  for(uint i = 0; i < SAMPLES; i++) {\n"
+    "#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)\n"
+    "    g_out[i*32*32 + id.y*32 + id.x] = g_texms.sample[i][id.xy];\n"
+    "#else\n"
+    "    g_out[i*32*32 + id.y*32 + id.x] = g_texms[uint3(id.xy, i)];\n"
+    "#endif\n"
+    "  }"
+    "}";
+
+  static const int NumThreadsX = 32;
+  static const int NumThreadsY = 32;
+
+#ifdef WRITEMSAA_FALLBACK
+  static const int NumSamples = 4;
+  static const int ArraySize = 4;
+#else
+  static const int NumSamples = 4;
+  static const int ArraySize = 1;
+#endif
+  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY;
+  const size_t valueSize = NumSamples * ThreadsPerGroup;
+  const size_t valueSizeInBytes =  valueSize * sizeof(float);
+
+  static const int DispatchGroupX = 1;
+  static const int DispatchGroupY = 1;
+  static const int DispatchGroupZ = 1;
+
+  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
+  FenceObj FO;
+
+  CreateComputeCommandQueue(pDevice, L"WriteMSAA Queue", &pCommandQueue);
+  InitFenceObj(pDevice, &FO);
+
+  // Create root signature.
+  CComPtr<ID3D12RootSignature> pRootSignature;
+  CD3DX12_DESCRIPTOR_RANGE ranges[2];
+  ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+  ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 1, 0);
+
+  CreateRootSignatureFromRanges(pDevice, &pRootSignature, ranges, 2);
+
+  VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
+
+  // Create command list and resources
+  CComPtr<ID3D12GraphicsCommandList> pCommandList;
+  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE,
+                                              pCommandAllocator, nullptr, IID_PPV_ARGS(&pCommandList)));
+
+  // Set up Output Resource
+  CComPtr<ID3D12Resource> pOutputResource;
+  CComPtr<ID3D12Resource> pOutputReadBuffer;
+  CComPtr<ID3D12Resource> pOutputUploadResource;
+
+  float outVals[valueSize];
+  int ix = 0;
+  for (int i = 0; i < NumSamples; i++)
+    for (int j = 0; j < NumThreadsY; j++)
+      for (int k = 0; k < NumThreadsX; k++)
+        outVals[ix++] = (float)ix + 5;
+  CreateTestUavs(pDevice, pCommandList, outVals, sizeof(outVals), &pOutputResource,
+                 &pOutputUploadResource, &pOutputReadBuffer);
+
+  // Set up texture Resource.
+  CComPtr<ID3D12Resource> pUavResource;
+  CComPtr<ID3D12Resource> pUploadResource;
+  float values[valueSize];
+  memset(values, 0xc, valueSizeInBytes);
+
+
+#ifdef WRITEMSAA_FALLBACK
+  int numsamp = 1;
+#else
+  int numsamp = NumSamples;
+#endif
+
+  D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32_FLOAT,
+                                   NumThreadsX, NumThreadsY, ArraySize, 0, numsamp, 0,
+                                   D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+  CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex2dDesc,
+                      &pUavResource, &pUploadResource);
+
+  // Close the command list and execute it to perform the resource uploads
+  pCommandList->Close();
+  ID3D12CommandList *ppCommandLists[] = { pCommandList };
+  pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+  WaitForSignal(pCommandQueue, FO);
+
+  // Create shaders
+#ifdef WRITEMSAA_FALLBACK
+  const wchar_t *target = L"cs_6_6";
+#else
+  const wchar_t *target = L"cs_6_7";
+#endif
+
+  CComPtr<ID3D12PipelineState> pWritePSO;
+  CreateComputePSO(pDevice, pRootSignature, pWriteShader, target, &pWritePSO);
+  CComPtr<ID3D12PipelineState> pCopyPSO;
+  CreateComputePSO(pDevice, pRootSignature, pCopyShader, target, &pCopyPSO);
+
+  // Reset commandlist to write PSO
+  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pWritePSO));
+
+  // Describe and create a UAV descriptor heap.
+  CComPtr<ID3D12DescriptorHeap> pUavHeap;
+  D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+  heapDesc.NumDescriptors = 2;
+  heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+  heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+  VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
+
+  CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(pUavHeap->GetCPUDescriptorHandleForHeapStart());
+  CreateStructUAV(pDevice, cpuHandle, valueSize, sizeof(float), pOutputResource);
+#ifdef WRITEMSAA_FALLBACK
+  CreateTex2DArrayUAV(pDevice, cpuHandle, NumSamples, DXGI_FORMAT_R32_FLOAT, pUavResource);
+#else
+  CreateTex2DMSUAV(pDevice, cpuHandle, DXGI_FORMAT_R32_FLOAT, pUavResource);
+#endif
+
+  // Set Heaps, Rootsignature and table
+  ID3D12DescriptorHeap *const pHeaps[1] = { pUavHeap };
+  pCommandList->SetDescriptorHeaps(1, pHeaps);
+  pCommandList->SetComputeRootSignature(pRootSignature);
+  pCommandList->SetComputeRootDescriptorTable(0, pUavHeap->GetGPUDescriptorHandleForHeapStart());
+
+  // dispatch and close write shader
+  pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
+  pCommandList->Close();
+
+  pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+  WaitForSignal(pCommandQueue, FO);
+
+  // Create copy command list
+  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pCopyPSO));
+
+  // Set Rootsignature and descriptor tables
+  SetDescriptorHeap(pCommandList, pUavHeap);
+  pCommandList->SetComputeRootSignature(pRootSignature);
+
+  pCommandList->SetComputeRootDescriptorTable(0, pUavHeap->GetGPUDescriptorHandleForHeapStart());
+
+  // Run Copy shader and copy the results back to readable memory
+  pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
+
+  CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(pOutputResource,
+                                        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+  pCommandList->ResourceBarrier(1, &barrier);
+  pCommandList->CopyResource(pOutputReadBuffer, pOutputResource);
+
+  pCommandList->Close();
+
+  pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+  WaitForSignal(pCommandQueue, FO);
+
+  MappedData mappedData(pOutputReadBuffer, valueSize*sizeof(float));
+  float *pData = (float *)mappedData.data();
+  ix = 0;
+  for (int i = 0; i < NumSamples; i++)
+    for (int j = 0; j < NumThreadsY; j++)
+      for (int k = 0; k < NumThreadsX; k++)
+        VERIFY_ARE_EQUAL(pData[ix++], j*k*(i+1));
 }
 
 // Used to determine how an out of bounds offset should be converted
@@ -8672,7 +8934,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   CreateRawUAV(pDevice, baseHandle, valueSize, pUAVResources[0]);
   CreateStructUAV(pDevice, baseHandle, valueSize, sizeof(float), pUAVResources[1]);
   CreateTypedUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[2]);
-  CreateTex1DUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[3]);
+  CreateTex1DUAV(pDevice, baseHandle, DXGI_FORMAT_R32_FLOAT, pUAVResources[3]);
 
   D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
   float borderColors[] = {30.0, 31.0};
@@ -9754,6 +10016,100 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
   }
   return passed;
 }
+// Contrary to compute or pixel shaders the layout of lanes in vertex shaders is
+// not specified. A conforming implementation could, in the extreme case, decide
+// to dispatch three waves that each process only a single vertex.
+// So instead of compare with fixed expected result, calculate the correct
+// result from ballot.
+bool VerifyHelperLaneWaveResultsForVS(ExecutionTest::D3D_SHADER_MODEL sm,
+                                      HelperLaneWaveTestResult &testResults) {
+  bool passed = true;
+  XMUINT4 mask = testResults.sm60.ballot;
+  unsigned countBits = 0;
+  std::bitset<32> x(mask.x);
+  std::bitset<32> y(mask.y);
+  std::bitset<32> z(mask.z);
+  std::bitset<32> w(mask.w);
+  countBits += (unsigned)x.count();
+  countBits += (unsigned)y.count();
+  countBits += (unsigned)z.count();
+  countBits += (unsigned)w.count();
+
+  {
+    // For VS, IsHelperLane always return false.
+    HelperLaneWaveTestResult60 &tr60 = testResults.sm60;
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAnyTrue(IsHelperLane())",
+                                           0, tr60.anyTrue);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveAllTrue(!IsHelperLane())", 1, tr60.allTrue);
+    bool ballotMatch = 1 <= countBits && countBits <= 3;
+
+    LogCommentFmt(L"%sWaveActiveBallot(true) expected 1~3 bits set, actual = %u",
+        ballotMatch ? L" - " : L"FAILED: ", tr60.ballot);
+
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"!WaveReadLaneFirst(IsHelperLane()) && WaveIsFirstLane() in a "
+        L"waterfall loop",
+        countBits, tr60.waterfallLoopCount);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveAllEqual(IsHelperLane())", 1, tr60.allEqual);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveCountBits(true)",
+                                           countBits, tr60.countBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveSum(4)", 4 * countBits,
+                                           tr60.sum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveProduct(4)", (unsigned)std::pow(4, countBits),
+                                           tr60.product);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitAnd(!IsHelperLane())",
+                                           1, tr60.bitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitOr(IsHelperLane())",
+                                           0, tr60.bitOr);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitXor(IsHelperLane())",
+                                           0, tr60.bitXor);
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveMin(IsHelperLane() ? 1 : 10)", 10, tr60.min);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveActiveMax(IsHelperLane() ? 10 : 1)", 1, tr60.max);
+
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixCountBits(1)",
+                                           countBits-1,
+                                           tr60.prefixCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixProduct(4)",
+                                           (unsigned)std::pow(4, countBits - 1),
+                                           tr60.prefixProduct);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixSum(2)",
+                                           2 * (countBits-1), tr60.prefixSum);
+  }
+
+  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
+    HelperLaneWaveTestResult65 &tr65 = testResults.sm65;
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMatch(true) has exactly 3 bits set", mask, tr65.match);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixCountBits(1, no_masked_bits)", countBits-1,
+        tr65.mpCountBits);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixSum(2, no_masked_bits)", 2*(countBits-1), tr65.mpSum);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixProduct(4, no_masked_bits)",
+        (unsigned)std::pow(4, countBits - 1),
+        tr65.mpProduct);
+
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits)",
+        1, tr65.mpBitAnd);
+    passed &= HelperLaneResultLogAndVerify(
+        L"WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits)",
+        0, tr65.mpBitOr);
+    passed &= HelperLaneResultLogAndVerify(
+        L"verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits)",
+        0, tr65.mpBitXor);
+  }
+  return passed;
+}
 
 void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
   UNREFERENCED_PARAMETER(pShaderOp);
@@ -9868,7 +10224,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
       HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
       LogCommentFmt(L"\r\nVertex shader");
-      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[VS_INDEX], HelperLane_VS_ExpectedResults, false);
+      smPassed &= VerifyHelperLaneWaveResultsForVS(sm, pTestResults[VS_INDEX]);
       LogCommentFmt(L"\r\nPixel shader");
       smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX], PS_ExpectedResults, true);
       LogCommentFmt(L"\r\nPixel shader with discarded pixel");

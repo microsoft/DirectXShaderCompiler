@@ -31,6 +31,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
@@ -3485,6 +3486,133 @@ private:
 
 
 #ifdef ENABLE_SPIRV_CODEGEN
+  SmallVector<NamedDecl *, 1> CreateTemplateTypeParmDeclsForVkIntrinsicFunction(
+      const HLSL_INTRINSIC *intrinsic) {
+    SmallVector<NamedDecl *, 1> templateTypeParmDecls;
+    auto &context = m_sema->getASTContext();
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    TypeSourceInfo *TInfo = nullptr;
+    for (UINT i = 0; i < uNumArgs; ++i) {
+      if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
+          pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
+        IdentifierInfo *id = &context.Idents.get("T");
+        TemplateTypeParmDecl *templateTypeParmDecl =
+            TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 0,
+                                         0, id, TypenameTrue,
+                                         ParameterPackFalse);
+        if (TInfo == nullptr) {
+          TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
+              m_context->UnsignedIntTy, 0);
+        }
+        templateTypeParmDecl->setDefaultArgument(TInfo);
+        templateTypeParmDecls.push_back(templateTypeParmDecl);
+        continue;
+      }
+    }
+    return templateTypeParmDecls;
+  }
+
+  SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount>
+  CreateParmDeclsForVkIntrinsicFunction(
+      const HLSL_INTRINSIC *intrinsic,
+      const SmallVectorImpl<QualType> &paramTypes,
+      const SmallVectorImpl<ParameterModifier> &paramMods) {
+    auto &context = m_sema->getASTContext();
+    SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls;
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    for (UINT i = 1, numVariadicArgs = 0; i < uNumArgs; ++i) {
+      if (IsVariadicArgument(pArgs[i])) {
+        ++numVariadicArgs;
+        continue;
+      }
+      IdentifierInfo *id = &context.Idents.get(StringRef(pArgs[i].pName));
+      TypeSourceInfo *TInfo = m_sema->getASTContext().CreateTypeSourceInfo(
+          paramTypes[i - numVariadicArgs], 0);
+      ParmVarDecl *paramDecl = ParmVarDecl::Create(
+          context, nullptr, NoLoc, NoLoc, id, paramTypes[i - numVariadicArgs],
+          TInfo, StorageClass::SC_None, nullptr,
+          paramMods[i - 1 - numVariadicArgs]);
+      paramDecls.push_back(paramDecl);
+    }
+    return paramDecls;
+  }
+
+  SmallVector<QualType, 2> VkIntrinsicFunctionParamTypes(
+      const HLSL_INTRINSIC *intrinsic,
+      const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
+    auto &context = m_sema->getASTContext();
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    SmallVector<QualType, 2> paramTypes;
+    auto templateParmItr = templateTypeParmDecls.begin();
+    for (UINT i = 0; i < uNumArgs; ++i) {
+      if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
+          pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
+        DXASSERT(templateParmItr != templateTypeParmDecls.end(),
+                 "Missing TemplateTypeParmDecl for a template type parameter");
+        TemplateTypeParmDecl *templateParmDecl =
+            dyn_cast<TemplateTypeParmDecl>(*templateParmItr);
+        DXASSERT(templateParmDecl != nullptr,
+                 "TemplateTypeParmDecl is nullptr");
+        paramTypes.push_back(context.getTemplateTypeParmType(
+            0, i, ParameterPackFalse, templateParmDecl));
+        ++templateParmItr;
+        continue;
+      }
+      if (IsVariadicArgument(pArgs[i])) {
+        continue;
+      }
+      switch (pArgs[i].uLegalComponentTypes) {
+      case LICOMPTYPE_UINT64:
+        paramTypes.push_back(context.UnsignedLongLongTy);
+        break;
+      case LICOMPTYPE_UINT:
+        paramTypes.push_back(context.UnsignedIntTy);
+        break;
+      case LICOMPTYPE_VOID:
+        paramTypes.push_back(context.VoidTy);
+        break;
+      default:
+        DXASSERT(false, "Argument type of vk:: intrinsic function is not "
+                        "supported");
+        break;
+      }
+    }
+    return paramTypes;
+  }
+
+  QualType
+  VkIntrinsicFunctionType(const SmallVectorImpl<QualType> &paramTypes,
+                          const SmallVectorImpl<ParameterModifier> &paramMods) {
+    DXASSERT(!paramTypes.empty(), "Given param type vector is empty");
+
+    ArrayRef<QualType> params({});
+    if (paramTypes.size() > 1) {
+      params = ArrayRef<QualType>(&paramTypes[1], paramTypes.size() - 1);
+    }
+
+    FunctionProtoType::ExtProtoInfo EmptyEPI;
+    return m_sema->getASTContext().getFunctionType(paramTypes[0], params,
+                                                   EmptyEPI, paramMods);
+  }
+
+  void SetParmDeclsForVkIntrinsicFunction(
+      TypeSourceInfo *TInfo, FunctionDecl *functionDecl,
+      const SmallVectorImpl<ParmVarDecl *> &paramDecls) {
+    FunctionProtoTypeLoc Proto =
+        TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
+
+    // Attach the parameters
+    for (unsigned P = 0; P < paramDecls.size(); ++P) {
+      paramDecls[P]->setOwningFunction(functionDecl);
+      paramDecls[P]->setScopeInfo(0, P);
+      Proto.setParam(P, paramDecls[P]);
+    }
+    functionDecl->setParams(paramDecls);
+  }
+
   // Adds intrinsic function declarations to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
   // Assumes the implicit "vk" namespace has already been created.
@@ -3501,13 +3629,50 @@ private:
       const IdentifierInfo &fnII = context.Idents.get(
           intrinsic->pArgs->pName, tok::TokenKind::identifier);
       DeclarationName functionName(&fnII);
+
+      // Create TemplateTypeParmDecl.
+      SmallVector<NamedDecl *, 1> templateTypeParmDecls =
+          CreateTemplateTypeParmDeclsForVkIntrinsicFunction(intrinsic);
+
+      // Get types for parameters.
+      SmallVector<QualType, 2> paramTypes =
+          VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
+      SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+      InitParamMods(intrinsic, paramMods);
+
+      // Create FunctionDecl.
+      QualType fnType = VkIntrinsicFunctionType(paramTypes, paramMods);
+      TypeSourceInfo *TInfo =
+          m_sema->getASTContext().CreateTypeSourceInfo(fnType, 0);
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          /*functionType*/ {}, nullptr, StorageClass::SC_Extern,
-          InlineSpecifiedFalse, HasWrittenPrototypeTrue);
-      m_vkNSDecl->addDecl(functionDecl);
-      functionDecl->setLexicalDeclContext(m_vkNSDecl);
-      functionDecl->setDeclContext(m_vkNSDecl);
+          fnType, TInfo, StorageClass::SC_Extern, InlineSpecifiedFalse,
+          HasWrittenPrototypeTrue);
+
+      // Create and set ParmVarDecl.
+      SmallVector<ParmVarDecl *, g_MaxIntrinsicParamCount> paramDecls =
+          CreateParmDeclsForVkIntrinsicFunction(intrinsic, paramTypes,
+                                                paramMods);
+      SetParmDeclsForVkIntrinsicFunction(TInfo, functionDecl, paramDecls);
+
+      if (!templateTypeParmDecls.empty()) {
+        TemplateParameterList *templateParmList = TemplateParameterList::Create(
+            context, NoLoc, NoLoc, templateTypeParmDecls.data(),
+            templateTypeParmDecls.size(), NoLoc);
+        functionDecl->setTemplateParameterListsInfo(context, 1,
+                                                    &templateParmList);
+        FunctionTemplateDecl *functionTemplate = FunctionTemplateDecl::Create(
+            context, m_vkNSDecl, NoLoc, functionName, templateParmList,
+            functionDecl);
+        functionDecl->setDescribedFunctionTemplate(functionTemplate);
+        m_vkNSDecl->addDecl(functionTemplate);
+        functionTemplate->setDeclContext(m_vkNSDecl);
+      } else {
+        m_vkNSDecl->addDecl(functionDecl);
+        functionDecl->setLexicalDeclContext(m_vkNSDecl);
+        functionDecl->setDeclContext(m_vkNSDecl);
+      }
+
       functionDecl->setImplicit(true);
     }
   }
@@ -3862,35 +4027,39 @@ public:
     return IsRayQueryBasicKind(GetTypeElementKind(type));
   }
 
-  void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
+  void WarnMinPrecision(QualType Type, SourceLocation Loc) {
+     Type = Type->getCanonicalTypeUnqualified();
+     if (IsVectorType(m_sema, Type) || IsMatrixType(m_sema, Type)) {
+       Type = GetOriginalMatrixOrVectorElementType(Type);
+     }
     // TODO: enalbe this once we introduce precise master option
     bool UseMinPrecision = m_context->getLangOpts().UseMinPrecision;
-    if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType =
-          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_int_min16]
-                          : HLSLScalarTypeNames[HLSLScalarType_int16];
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-          << HLSLScalarTypeNames[type] << PromotedType;
-    } else if (type == HLSLScalarType_float_min10) {
-      const char *PromotedType =
-          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_float_min16]
-                          : HLSLScalarTypeNames[HLSLScalarType_float16];
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-          << HLSLScalarTypeNames[type] << PromotedType;
+    if (Type == m_context->Min12IntTy) {
+      QualType PromotedType =
+          UseMinPrecision ? m_context->Min16IntTy
+                          : m_context->ShortTy;
+      m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << Type << PromotedType;
+    } else if (Type == m_context->Min10FloatTy) {
+      QualType PromotedType =
+          UseMinPrecision ? m_context->Min16FloatTy
+                          : m_context->HalfTy;
+      m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << Type << PromotedType;
     }
     if (!UseMinPrecision) {
-      if (type == HLSLScalarType_float_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-            << HLSLScalarTypeNames[type]
-            << HLSLScalarTypeNames[HLSLScalarType_float16];
-      } else if (type == HLSLScalarType_int_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-            << HLSLScalarTypeNames[type]
-            << HLSLScalarTypeNames[HLSLScalarType_int16];
-      } else if (type == HLSLScalarType_uint_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
-            << HLSLScalarTypeNames[type]
-            << HLSLScalarTypeNames[HLSLScalarType_uint16];
+      if (Type == m_context->Min16FloatTy) {
+        m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << Type
+            << m_context->HalfTy;
+      } else if (Type == m_context->Min16IntTy) {
+        m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << Type
+            << m_context->ShortTy;
+      } else if (Type == m_context->Min16UIntTy) {
+        m_sema->Diag(Loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << Type
+            << m_context->UnsignedShortTy;
       }
     }
   }
@@ -3951,15 +4120,16 @@ public:
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
+        if (!DiagnoseHLSLScalarType(parsedType, R.getNameLoc()))
+          return false;
         TypedefDecl *typeDecl = LookupScalarTypeDef(parsedType);
-        if (!typeDecl) return false;
+        if (!typeDecl)
+          return false;
         R.addDecl(typeDecl);
-      }
-      else if (rowCount == 0) { // vector
+      } else if (rowCount == 0) { // vector
         TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
         R.addDecl(qts);
-      }
-      else { // matrix
+      } else { // matrix
         TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
         R.addDecl(qts);
       }
@@ -6189,6 +6359,8 @@ bool HLSLExternalSource::MatchArguments(
         if (i == 0) {
           // [RW]ByteAddressBuffer.Load, default to uint
           pNewType = m_context->UnsignedIntTy;
+          if (pIntrinsic->Op != (UINT)hlsl::IntrinsicOp::MOP_Load)
+            badArgIdx = std::min(badArgIdx, i);
         }
         else {
           // [RW]ByteAddressBuffer.Store, default to argument type
@@ -12616,6 +12788,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   const Type* pType = qt.getTypePtrOrNull();
   HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
 
+  if (!isFunction)
+    hlslSource->WarnMinPrecision(qt, D.getLocStart());
+
   // Early checks - these are not simple attribution errors, but constructs that
   // are fundamentally unsupported,
   // and so we avoid errors that might indicate they can be repaired.
@@ -12673,6 +12848,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     const FunctionProtoType *pFP = pType->getAs<FunctionProtoType>();
     if (pFP) {
       qt = pFP->getReturnType();
+      hlslSource->WarnMinPrecision(qt, D.getLocStart());
       pType = qt.getTypePtrOrNull();
 
       // prohibit string as a return type
@@ -13132,23 +13308,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   return result;
 }
 
-// Diagnose HLSL types on lookup
-bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
-  const DeclarationNameInfo declName = R.getLookupNameInfo();
-  IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
-  if (idInfo) {
-    StringRef nameIdentifier = idInfo->getName();
-    HLSLScalarType parsedType;
-    int rowCount, colCount;
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getLangOpts())) {
-      HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
-      hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
-      return hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
-    }
-  }
-  return true;
-}
-
 static QualType getUnderlyingType(QualType Type)
 {
   while (const TypedefType *TD = dyn_cast<TypedefType>(Type))
@@ -13256,30 +13415,26 @@ clang::QualType hlsl::GetOriginalMatrixOrVectorElementType(
 {
   // TODO: Determine if this is really the best way to get the matrix/vector specialization
   // without losing the AttributedType on the template parameter
-  if (const Type* pType = type.getTypePtrOrNull()) {
+  if (const Type* Ty = type.getTypePtrOrNull()) {
     // A non-dependent template specialization type is always "sugar",
     // typically for a RecordType.  For example, a class template
     // specialization type of @c vector<int> will refer to a tag type for
     // the instantiation @c std::vector<int, std::allocator<int>>.
-    if (const TemplateSpecializationType* pTemplate = pType->getAs<TemplateSpecializationType>()) {
+    if (const TemplateSpecializationType* pTemplate = Ty->getAs<TemplateSpecializationType>()) {
       // If we have enough arguments, pull them from the template directly, rather than doing
       // the extra lookups.
       if (pTemplate->getNumArgs() > 0)
         return pTemplate->getArg(0).getAsType();
 
       QualType templateRecord = pTemplate->desugar();
-      const Type *pTemplateRecordType = templateRecord.getTypePtr();
-      if (pTemplateRecordType) {
-        const TagType *pTemplateTagType = pTemplateRecordType->getAs<TagType>();
-        if (pTemplateTagType) {
-          const ClassTemplateSpecializationDecl *specializationDecl =
-              dyn_cast_or_null<ClassTemplateSpecializationDecl>(
-                  pTemplateTagType->getDecl());
-          if (specializationDecl) {
-            return specializationDecl->getTemplateArgs()[0].getAsType();
-          }
-        }
-      }
+      Ty = templateRecord.getTypePtr();
+    }
+    if (!Ty)
+      return QualType();
+    
+    if (const auto *TagTy = Ty->getAs<TagType>()) {
+      if (const auto *SpecDecl = dyn_cast_or_null<ClassTemplateSpecializationDecl>(TagTy->getDecl()))
+        return SpecDecl->getTemplateArgs()[0].getAsType();
     }
   }
   return QualType();
@@ -13801,4 +13956,31 @@ clang::QualType ApplyTypeSpecSignToParsedType(
 )
 {
     return HLSLExternalSource::FromSema(self)->ApplyTypeSpecSignToParsedType(type, TSS, Loc);
+}
+
+ClassTemplateSpecializationDecl *
+Sema::getHLSLDefaultSpecialization(ClassTemplateDecl *Decl) {
+  if (Decl->getTemplateParameters()->getMinRequiredArguments() == 0) {
+    void *InsertPos = nullptr;
+    TemplateArgumentListInfo EmptyArgs;
+    EmptyArgs.setLAngleLoc(Decl->getSourceRange().getEnd());
+    EmptyArgs.setRAngleLoc(Decl->getSourceRange().getEnd());
+    SmallVector<TemplateArgument, 2> Converted;
+    if (!CheckTemplateArgumentList(Decl, Decl->getSourceRange().getEnd(), EmptyArgs,
+                                   false, Converted)) {
+      ClassTemplateSpecializationDecl *DefaultSpec =
+          Decl->findSpecialization(Converted, InsertPos);
+      if (!DefaultSpec) {
+        DefaultSpec = ClassTemplateSpecializationDecl::Create(
+            getASTContext(), TagDecl::TagKind::TTK_Class,
+            getASTContext().getTranslationUnitDecl(), SourceLocation(),
+            SourceLocation(), Decl, Converted.data(), Converted.size(),
+            DefaultSpec);
+        Decl->AddSpecialization(DefaultSpec, InsertPos);
+        DefaultSpec->setImplicit(true);
+      }
+      return DefaultSpec;
+    }
+  }
+  return nullptr;
 }

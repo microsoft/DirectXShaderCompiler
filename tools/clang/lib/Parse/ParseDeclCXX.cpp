@@ -1023,7 +1023,7 @@ TypeResult Parser::ParseBaseTypeSpecifier(SourceLocation &BaseLoc,
   IdentifierInfo *Id = Tok.getIdentifierInfo();
   SourceLocation IdLoc = ConsumeToken();
 
-  if (Tok.is(tok::less) && !getLangOpts().HLSL) { // HLSL Change - do not fix for HLSL
+  if (Tok.is(tok::less)) {
     // It looks the user intended to write a template-id here, but the
     // template-name was wrong. Try to fix that.
     TemplateNameKind TNK = TNK_Type_template;
