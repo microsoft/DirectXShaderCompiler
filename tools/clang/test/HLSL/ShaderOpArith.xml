@@ -3649,8 +3649,8 @@ void MSMain(uint GID : SV_GroupIndex,
     ROOT_SIG
     float4 PSMain(PSInput input) : SV_TARGET {
         
-        g_resultPS[0] = 3.0;
-        g_resultPS[1] = 4.0;
+        g_resultPS[0] = g_rawBuf.Load<float>(0);
+        g_resultPS[1] = g_structBuf.Load(0);
         g_resultPS[2] = g_tex.Load(0);
         g_resultPS[3] = g_rwRawBuf.Load<float>(0);
         g_resultPS[4] = g_rwStructBuf.Load(0);
@@ -3664,7 +3664,7 @@ void MSMain(uint GID : SV_GroupIndex,
     
     ROOT_SIG
     PSInput VSMain(float3 pos : POSITION) {
-        g_resultVS[0] = 3.0;
+        g_resultVS[0] = g_rawBuf.Load<float>(0);
         g_resultVS[1] = g_structBuf.Load(0);
         g_resultVS[2] = g_tex.Load(0);
         g_resultVS[3] = g_rwRawBuf.Load<float>(0);
