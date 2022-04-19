@@ -4308,7 +4308,7 @@ struct RawFloatTexture : public ExecutionTest::RawGatherTexture {
     // provide some different values just to fill in b and a
     float b = (float)(x + y)*0.5f;
     float a = (float)(x + y)*0.1f;
-    RGBA[i].SetChannels(r, g, b, b);
+    RGBA[i].SetChannels(r, g, b, a);
   }
   virtual void *GetElements() { return (void*)RGBA; }
   virtual unsigned GetXDim() { return xdim; }
