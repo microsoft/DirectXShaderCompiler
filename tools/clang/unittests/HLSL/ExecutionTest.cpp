@@ -4380,7 +4380,7 @@ struct RawIntTexture : public ExecutionTest::RawGatherTexture {
   virtual DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
-#define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to vet raw gather tests
+//#define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to vet raw gather tests
 
 // Create a single resource of <resFormat> and alias it to a view of <viewFormat>
 // Then execute a shader that uses raw gather to copy the values into a UAV
