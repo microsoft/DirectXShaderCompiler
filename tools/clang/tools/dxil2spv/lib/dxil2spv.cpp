@@ -437,28 +437,62 @@ void Translator::createHandleInstruction(llvm::CallInst &instruction) {
 void Translator::createBufferLoadInstruction(llvm::CallInst &instruction) {
   // ByteAddressBuffers are represented as a struct with one member that is a
   // runtime array of unsigned integers. The SPIR-V OpAccessChain instruction is
-  // then used to access that offset, and OpLoad is used to load a 32-bit
-  // unsigned integer.
+  // then used to access that offset, and OpLoad is used to load integers
+  // into a corresponding struct.
   // TODO: Extend this function to work with all buffer types on which it is
   // used, not just ByteAddressBuffers.
-  llvm::Value *handle = instruction.getArgOperand(
-      hlsl::DXIL::OperandIndex::kBufferLoadHandleOpIdx);
-  spirv::SpirvInstruction *inputVar = getSpirvInstruction(handle);
+
+  // Get module input variable corresponding to given DXIL handle.
+  spirv::SpirvInstruction *inputVar =
+      getSpirvInstruction(instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kBufferLoadHandleOpIdx));
+
+  // Translate DXIL instruction return type (expected to be a struct of
+  // integers) to a SPIR-V type.
+  const spirv::SpirvType *returnType = toSpirvType(instruction.getType());
+  assert(isa<spirv::StructType>(returnType));
+  const spirv::StructType *structType = cast<spirv::StructType>(returnType);
+
+  // Create a return variable to initialize with values loaded from the buffer.
+  spirv::SpirvVariable *returnVar =
+      spvBuilder.addFnVar(structType, {}, "", false, nullptr);
 
   // Translate indices into resource buffer to SPIR-V instructions.
   auto uint32 = spvContext.getUIntType(32);
   spirv::SpirvConstant *indexIntoStruct =
       spvBuilder.getConstantInt(uint32, llvm::APInt(32, 0));
-  spirv::SpirvInstruction *indexIntoArray =
+  spirv::SpirvInstruction *baseArrayIndex =
       getSpirvInstruction(instruction.getArgOperand(
           hlsl::DXIL::OperandIndex::kBufferLoadCoord0OpIdx));
 
-  // Create access chain and load.
-  spirv::SpirvAccessChain *loadPtr = spvBuilder.createAccessChain(
-      uint32, inputVar, {indexIntoStruct, indexIntoArray}, {});
-  spirv::SpirvLoad *loadInstr = spvBuilder.createLoad(uint32, loadPtr, {});
+  // Initialize each field in the struct.
+  for (size_t i = 0; i < structType->getFields().size(); i++) {
+    // Add offset for current field.
+    spirv::SpirvConstant *fieldOffset =
+        spvBuilder.getConstantInt(uint32, llvm::APInt(32, i));
+    spirv::SpirvInstruction *indexIntoArray = spvBuilder.createBinaryOp(
+        spv::Op::OpIAdd, uint32, baseArrayIndex, fieldOffset, {});
 
-  instructionMap[&instruction] = loadInstr;
+    // Create access chain and load.
+    spirv::SpirvAccessChain *loadPtr = spvBuilder.createAccessChain(
+        uint32, inputVar, {indexIntoStruct, indexIntoArray}, {});
+    spirv::SpirvInstruction *loadInstr =
+        spvBuilder.createLoad(uint32, loadPtr, {});
+
+    // Create access chain and store.
+    const spirv::SpirvType *fieldType = structType->getFields()[i].type;
+    spirv::SpirvAccessChain *storePtr =
+        spvBuilder.createAccessChain(fieldType, returnVar, fieldOffset, {});
+    // LLVM types are signless, so type conversions are not 1-to-1. A bitcast on
+    // the unsigned integer may be necessary before storing.
+    spirv::SpirvInstruction *valToStore =
+        fieldType == uint32 ? loadInstr
+                            : spvBuilder.createUnaryOp(
+                                  spv::Op::OpBitcast, fieldType, loadInstr, {});
+    spvBuilder.createStore(storePtr, valToStore, {});
+  }
+
+  instructionMap[&instruction] = returnVar;
 }
 
 bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
