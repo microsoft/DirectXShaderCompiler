@@ -12,7 +12,7 @@
 //
 
 // CHECK: @main
-// CHECK-NOT: call %dx.types.CBufRet.f32 @dx.op.cbufferLoad.f32(
+// CHECK-NOT: call %dx.types.CBufRet.f32 @dx.op.cbufferLoad
 
 cbuffer cb : register(b0) {
   float foo;
