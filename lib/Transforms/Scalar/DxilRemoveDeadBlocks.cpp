@@ -330,6 +330,18 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
   return Changed;
 }
 
+static void EnsureDxilModule(Module *M) {
+  if (M->HasDxilModule())
+    return;
+  for (Function &F : *M) {
+    if (OP::IsDxilOpFunc(&F)) {
+      bool bSkipInit = true; // Metadata is not necessarily valid yet.
+      M->GetOrCreateDxilModule(bSkipInit);
+      break;
+    }
+  }
+}
+
 namespace {
 
 struct DxilRemoveDeadBlocks : public FunctionPass {
@@ -342,6 +354,7 @@ struct DxilRemoveDeadBlocks : public FunctionPass {
   }
   bool runOnFunction(Function &F) override {
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    EnsureDxilModule(F.getParent()); // Ensure dxil module is available for DVC
     bool Changed = false;
     Changed |= hlsl::dxilutil::DeleteDeadAllocas(F);
     Changed |= DeleteDeadBlocks(F, DVC);
