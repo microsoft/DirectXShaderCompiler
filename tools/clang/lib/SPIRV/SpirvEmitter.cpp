@@ -549,8 +549,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
       diags(ci.getDiagnostics()),
       spirvOptions(ci.getCodeGenOpts().SpirvOptions),
-      entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction), spvContext(),
-      featureManager(diags, spirvOptions),
+      hlslEntryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
+      spvContext(), featureManager(diags, spirvOptions),
       spvBuilder(astContext, spvContext, spirvOptions, featureManager),
       declIdMapper(astContext, spvContext, spvBuilder, *this, featureManager,
                    spirvOptions),
@@ -686,6 +686,17 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   return interfacesInVector;
 }
 
+llvm::StringRef SpirvEmitter::getEntryPointName(const FunctionInfo *entryInfo) {
+  llvm::StringRef entrypointName = entryInfo->funcDecl->getName();
+  // If this is the -E HLSL entrypoint and -fspv-entrypoint-name was set,
+  // rename the SPIR-V entrypoint.
+  if (entrypointName == hlslEntryFunctionName &&
+      !spirvOptions.entrypointName.empty()) {
+    return spirvOptions.entrypointName;
+  }
+  return entrypointName;
+}
+
 void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Stop translating if there are errors in previous compilation stages.
   if (context.getDiagnostics().hasErrorOccurred())
@@ -709,7 +720,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                  funcDecl, /*isEntryFunction*/ false);
         }
       } else {
-        if (funcDecl->getName() == entryFunctionName) {
+        if (funcDecl->getName() == hlslEntryFunctionName) {
           addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(),
                                  funcDecl, /*isEntryFunction*/ true);
           numEntryPoints++;
@@ -748,18 +759,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
-
-    llvm::StringRef entrypointName = entryInfo->funcDecl->getName();
-    // If this is the -E HLSL entrypoint and -fspv-entrypoint-name was set,
-    // rename the SPIR-V entrypoint.
-    if (entrypointName ==
-            theCompilerInstance.getCodeGenOpts().HLSLEntryFunction &&
-        !spirvOptions.entrypointName.empty()) {
-      entrypointName = spirvOptions.entrypointName;
-    }
     spvBuilder.addEntryPoint(
         SpirvUtils::getSpirvShaderStage(entryInfo->shaderModelKind),
-        entryInfo->entryFunction, entrypointName,
+        entryInfo->entryFunction, getEntryPointName(entryInfo),
         getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
 
