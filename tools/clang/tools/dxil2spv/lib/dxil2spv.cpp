@@ -435,12 +435,32 @@ void Translator::createHandleInstruction(llvm::CallInst &instruction) {
 }
 
 void Translator::createBufferLoadInstruction(llvm::CallInst &instruction) {
+  // TODO: Extend this function to work with all buffer types on which it is
+  // used, not just ByteAddressBuffers.
+
   // ByteAddressBuffers are represented as a struct with one member that is a
   // runtime array of unsigned integers. The SPIR-V OpAccessChain instruction is
   // then used to access that offset, and OpLoad is used to load integers
   // into a corresponding struct.
-  // TODO: Extend this function to work with all buffer types on which it is
-  // used, not just ByteAddressBuffers.
+
+  // clang-format off
+  // For example, the following DXIL instruction:
+  //   %dx.types.ResRet.i32 = type { i32, i32, i32, i32, i32 } 
+  //   %ret = call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %res, i32 %index, i32 undef)
+
+  // would translate to the following SPIR-V instructions:
+  //   %dx_types_ResRet_i32 = OpTypeStruct %int %int %int %int %int
+  //   %_ptr_Function_dx_types_ResRet_i32 = OpTypePointer Function %dx_types_ResRet_i32
+  //   %ret = OpVariable %_ptr_Function_dx_types_ResRet_i32 Function
+  //     %i = OpLoad %uint %index
+  // for %offset = {0, 1, 2, 3, 4}, repeat:
+  //    %v0 = OpIAdd %uint %i %offset
+  //    %v1 = OpAccessChain %_ptr_Uniform_uint %res %offset %v0
+  //    %v2 = OpLoad %uint %v1
+  //    %v3 = OpAccessChain %_ptr_Function_int %ret %offset
+  //    %v4 = OpBitcast %int %v2
+  //          OpStore %v3 %v4
+  // clang-format on
 
   // Get module input variable corresponding to given DXIL handle.
   spirv::SpirvInstruction *inputVar =
