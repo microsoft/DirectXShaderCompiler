@@ -211,7 +211,8 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
 
     BasicBlock *DefaultSucc = Sw->getDefaultDest();
     if (FoundCase) {
-      MarkUnreachable(DefaultSucc);
+      if (DefaultSucc->getSinglePredecessor())
+        MarkUnreachable(DefaultSucc);
     }
     else {
       if (IsAlwaysReachable_(BB))
