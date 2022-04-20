@@ -278,8 +278,11 @@ struct ValueDeleter {
         LLVMContext &Ctx = F.getContext();
         for (User *U : DbgValueF->users()) {
           DbgValueInst *DbgVal = cast<DbgValueInst>(U);
-          if (Constant *C = DVC->GetConstValue(DbgVal->getValue())) {
-            DbgVal->setArgOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(C)));
+          Value *Val = DbgVal->getValue();
+          if (Val) {
+            if (Constant *C = DVC->GetConstValue(DbgVal->getValue())) {
+              DbgVal->setArgOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(C)));
+            }
           }
         }
       }
