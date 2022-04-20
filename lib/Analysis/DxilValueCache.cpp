@@ -56,18 +56,8 @@ bool IsEntryBlock(const BasicBlock *BB) {
   return BB == &BB->getParent()->getEntryBlock();
 }
 
-void DxilValueCache::MarkAlwaysReachable(BasicBlock *BB) {
-  ValueMap.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 1));
-}
 void DxilValueCache::MarkUnreachable(BasicBlock *BB) {
   ValueMap.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 0));
-}
-
-bool DxilValueCache::IsAlwaysReachable_(BasicBlock *BB) {
-  if (Value *V = ValueMap.Get(BB))
-    if (IsConstantTrue(V))
-      return true;
-  return false;
 }
 
 bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
@@ -200,8 +190,6 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
       BasicBlock *Succ = Case.getCaseSuccessor();
       if (Case.getCaseValue() == Cond) {
         FoundCase = true;
-        if (IsAlwaysReachable_(BB))
-          MarkAlwaysReachable(Succ);
       }
       else {
         if (Succ->getSinglePredecessor())
@@ -210,13 +198,8 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
     }
 
     BasicBlock *DefaultSucc = Sw->getDefaultDest();
-    if (FoundCase) {
-      if (DefaultSucc->getSinglePredecessor())
-        MarkUnreachable(DefaultSucc);
-    }
-    else {
-      if (IsAlwaysReachable_(BB))
-        MarkAlwaysReachable(DefaultSucc);
+    if (FoundCase && DefaultSucc->getSinglePredecessor()) {
+      MarkUnreachable(DefaultSucc);
     }
   }
 
@@ -245,25 +228,17 @@ Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) 
         MarkUnreachable(TrueSucc);
     }
     else if (IsConstantTrue(Cond)) {
-      if (IsAlwaysReachable_(BB)) {
-        MarkAlwaysReachable(TrueSucc);
-      }
       if (FalseSucc->getSinglePredecessor())
         MarkUnreachable(FalseSucc);
     }
     else if (IsConstantFalse(Cond)) {
-      if (IsAlwaysReachable_(BB)) {
-        MarkAlwaysReachable(FalseSucc);
-      }
       if (TrueSucc->getSinglePredecessor())
         MarkUnreachable(TrueSucc);
     }
   }
   else {
     BasicBlock *Succ = Br->getSuccessor(0);
-    if (IsAlwaysReachable_(BB))
-      MarkAlwaysReachable(Succ);
-    else if (Succ->getSinglePredecessor() && IsUnreachable_(BB))
+    if (Succ->getSinglePredecessor() && IsUnreachable_(BB))
       MarkUnreachable(Succ);
   }
 
@@ -555,11 +530,6 @@ ConstantInt *DxilValueCache::GetConstInt(Value *V, DominatorTree *DT) {
   return nullptr;
 }
 
-bool DxilValueCache::IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT) {
-  ProcessValue(BB, DT);
-  return IsAlwaysReachable_(BB);
-}
-
 bool DxilValueCache::IsUnreachable(BasicBlock *BB, DominatorTree *DT) {
   ProcessValue(BB, DT);
   return IsUnreachable_(BB);
@@ -630,9 +600,6 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
         }
       }
       else if (BasicBlock *BB = dyn_cast<BasicBlock>(V)) {
-        if (IsEntryBlock(BB)) {
-          MarkAlwaysReachable(BB);
-        }
         for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; PI++) {
           BasicBlock *PredBB = *PI;
           TerminatorInst *Term = PredBB->getTerminator();
