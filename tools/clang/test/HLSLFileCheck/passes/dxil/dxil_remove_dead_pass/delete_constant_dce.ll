@@ -1,11 +1,11 @@
-; RUN: %opt %s -dxil-remove-dead-blocks -dxil-erase-dead-region -S | FileCheck %s
+; RUN: %opt %s -dxil-remove-dead-blocks -S | FileCheck %s
 
-; Run these two passes back to back to make sure there's no trace of branches and
-; cbuffer load.
+; Run the pass, to make sure that %val.0 is deleted since its only use is multiplied by 0.
+;  %val.0 = phi float [ 1.000000e+00, %if.then ], [ 0.000000e+00, %entry ]
+;  %mul = fmul fast float %val.0, 0.000000e+00, !dbg !28
 
 ; CHECK: @main
-; CHECK-NOT: call %dx.types.CBufRet.i32 @dx.op.cbufferLoad
-; CHECK-NOT: br i1
+; CHECK-NOT: phi float
 
 ; ModuleID = 'F:\dxc\tools\clang\test\HLSLFileCheck\passes\dxil\dxil_remove_dead_pass\delete_constant_dce.hlsl'
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
