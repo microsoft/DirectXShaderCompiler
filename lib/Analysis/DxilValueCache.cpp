@@ -21,6 +21,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Transforms/Scalar.h"
@@ -31,6 +32,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 
 #include <unordered_set>
+#include <unordered_map>
 
 #define DEBUG_TYPE "dxil-value-cache"
 
@@ -180,6 +182,46 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   return Simplified;
 }
 
+Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *DT) {
+  SwitchInst *Sw = cast<SwitchInst>(I);
+  BasicBlock *BB = Sw->getParent();
+
+  Value *Cond = TryGetCachedValue(Sw->getCondition());
+  if (IsUnreachable_(BB)) {
+    for (unsigned i = 0; i < Sw->getNumSuccessors(); i++) {
+      BasicBlock *Succ = Sw->getSuccessor(i);
+      if (Succ->getSinglePredecessor())
+        MarkUnreachable(Succ);
+    }
+  }
+  else if (isa<Constant>(Cond)) {
+    bool FoundCase = false;
+    for (auto Case : Sw->cases()) {
+      BasicBlock *Succ = Case.getCaseSuccessor();
+      if (Case.getCaseValue() == Cond) {
+        FoundCase = true;
+        if (IsAlwaysReachable_(BB))
+          MarkAlwaysReachable(Succ);
+      }
+      else {
+        if (Succ->getSinglePredecessor())
+          MarkUnreachable(Succ);
+      }
+    }
+
+    BasicBlock *DefaultSucc = Sw->getDefaultDest();
+    if (FoundCase) {
+      MarkUnreachable(DefaultSucc);
+    }
+    else {
+      if (IsAlwaysReachable_(BB))
+        MarkAlwaysReachable(DefaultSucc);
+    }
+  }
+
+  return nullptr;
+}
+
 Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) {
 
   // The *only* reason we're paying special attention to the
@@ -247,6 +289,9 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   Value *Simplified = nullptr;
   if (Instruction::Br == I->getOpcode()) {
     Simplified = ProcessAndSimplify_Br(I, DT);
+  }
+  if (Instruction::Switch == I->getOpcode()) {
+    Simplified = ProcessAndSimplify_Switch(I, DT);
   }
   else if (Instruction::PHI == I->getOpcode()) {
     Simplified = ProcessAndSimplify_PHI(I, DT);
@@ -404,22 +449,50 @@ void DxilValueCache::WeakValueMap::ResetAll() {
 void DxilValueCache::WeakValueMap::ResetUnknowns() {
   if (!Sentinel)
     return;
-  for (auto it = Map.begin(); it != Map.end(); it++) {
+
+  for (auto it = Map.begin(); it != Map.end();) {
+    auto nextIt = std::next(it);
     if (it->second.Value == Sentinel.get())
-      it->second.Value = nullptr;
+      Map.erase(it);
+    it = nextIt;
   }
 }
 
 LLVM_DUMP_METHOD
 void DxilValueCache::WeakValueMap::dump() const {
+  std::unordered_map<const Module *, std::unique_ptr<ModuleSlotTracker>> MSTs;
   for (auto It = Map.begin(), E = Map.end(); It != E; It++) {
     const Value *Key = It->first;
+
     if (It->second.IsStale())
       continue;
+
+    if (!Key)
+      continue;
+
+    ModuleSlotTracker *MST = nullptr;
+    {
+      const Module *M = nullptr;
+      if (auto I = dyn_cast<Instruction>(Key)) M = I->getModule();
+      else if (auto BB = dyn_cast<BasicBlock>(Key)) M = BB->getModule();
+      else {
+        errs() << *Key;
+        llvm_unreachable("How can a key be neither an instruction or BB?");
+      }
+      std::unique_ptr<ModuleSlotTracker> &optMst = MSTs[M];
+      if (!optMst) {
+        optMst = llvm::make_unique<ModuleSlotTracker>(M);
+      }
+      MST = optMst.get();
+    }
+
     const Value *V = It->second.Value;
     bool IsSentinel = Sentinel && V == Sentinel.get();
+
     if (const BasicBlock *BB = dyn_cast<BasicBlock>(Key)) {
-      dbgs() << "[BB]" << BB->getName() << " -> ";
+      dbgs() << "[BB]";
+      BB->printAsOperand(dbgs(), false, *MST);
+      dbgs() << " -> ";
       if (IsSentinel)
         dbgs() << "NO_VALUE";
       else {
@@ -430,7 +503,7 @@ void DxilValueCache::WeakValueMap::dump() const {
       }
     }
     else {
-      dbgs() << Key->getName() << " -> ";
+      dbgs() << *Key << " -> ";
       if (IsSentinel)
         dbgs() << "NO_VALUE";
       else
