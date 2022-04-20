@@ -1164,7 +1164,7 @@ private:
 
   /// \brief Entry function name, derived from the command line
   /// and should be const.
-  const llvm::StringRef entryFunctionName;
+  const llvm::StringRef hlslEntryFunctionName;
 
   /// \brief Structure to maintain record of all entry functions and any
   /// reachable functions.
@@ -1193,6 +1193,9 @@ private:
 
   /// A queue of FunctionInfo reachable from all the entry functions.
   std::vector<const FunctionInfo *> workQueue;
+
+  /// Get SPIR-V entrypoint name for the given FunctionInfo.
+  llvm::StringRef getEntryPointName(const FunctionInfo *entryInfo);
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
