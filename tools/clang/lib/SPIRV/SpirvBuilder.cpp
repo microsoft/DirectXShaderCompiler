@@ -147,6 +147,18 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
   return var;
 }
 
+SpirvVariable *SpirvBuilder::addFnVar(const spirv::SpirvType *valueType,
+                                      SourceLocation loc, llvm::StringRef name,
+                                      bool isPrecise, SpirvInstruction *init) {
+  assert(function && "found detached local variable");
+  // TODO: Handle potential bindless array of an opaque type.
+  SpirvVariable *var = new (context) SpirvVariable(
+      valueType, loc, spv::StorageClass::Function, isPrecise, init);
+  var->setDebugName(name);
+  function->addVariable(var);
+  return var;
+}
+
 void SpirvBuilder::endFunction() {
   assert(function && "no active function");
   mod->addFunctionToListOfSortedModuleFunctions(function);

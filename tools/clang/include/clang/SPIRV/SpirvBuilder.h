@@ -105,6 +105,9 @@ public:
   SpirvVariable *addFnVar(QualType valueType, SourceLocation,
                           llvm::StringRef name = "", bool isPrecise = false,
                           SpirvInstruction *init = nullptr);
+  SpirvVariable *addFnVar(const spirv::SpirvType *valueType, SourceLocation,
+                          llvm::StringRef name = "", bool isPrecise = false,
+                          SpirvInstruction *init = nullptr);
 
   /// \brief Ends building of the current function. All basic blocks constructed
   /// from the beginning or after ending the previous function will be collected
