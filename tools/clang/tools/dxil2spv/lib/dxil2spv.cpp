@@ -536,12 +536,22 @@ void Translator::createBufferLoadInstruction(llvm::CallInst &instruction) {
 }
 
 void Translator::createBufferStoreInstruction(llvm::CallInst &instruction) {
+  // TODO: Extend this function to work with all buffer types on which it is
+  // used, not just ByteAddressBuffers.
+
   // ByteAddressBuffers are represented as a struct with one member that is a
   // runtime array of unsigned integers. The SPIR-V OpAccessChain instruction is
   // then used to access that offset, and OpStore is used to store integers
   // into the array.
-  // TODO: Extend this function to work with all buffer types on which it is
-  // used, not just ByteAddressBuffers.
+
+  // clang-format off
+  // For example, the following DXIL instruction:
+  //   call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %res, i32 %c0, i32 undef, i32 %v0, i32 undef, i32 undef, i32 undef, i8 1)
+  // would translate to the following SPIR-V instructions:
+  //   %x = OpAccessChain %_ptr_Uniform_uint %res %uint_0 %c0
+  //   %y = OpBitcast %uint %v0
+  //         OpStore %x %y
+  // clang-format on
 
   // Get module output variable corresponding to given DXIL handle.
   spirv::SpirvInstruction *outputVar =
