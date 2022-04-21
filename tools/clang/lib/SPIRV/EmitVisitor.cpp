@@ -1437,10 +1437,11 @@ void EmitVisitor::generateDebugSourceContinued(uint32_t textId,
 void EmitVisitor::generateChoppedSource(uint32_t fileId, SpirvDebugSource *inst) {
   // Chop up the source into multiple segments if it is too long.
   llvm::SmallVector<std::string, 2> choppedSrcCode;
-  std::string text;
   uint32_t textId = 0;
   if (spvOptions.debugInfoSource) {
-    text = ReadSourceCode(inst->getFile());
+    std::string text = inst->getContent();
+    if (text.empty())
+      text = ReadSourceCode(inst->getFile());
     if (!text.empty()) {
       // Maximum characters for DebugSource and DebugSourceContinued
       // OpString literal minus terminating null.
