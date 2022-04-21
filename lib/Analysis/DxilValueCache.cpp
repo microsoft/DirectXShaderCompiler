@@ -180,7 +180,7 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
   if (IsUnreachable_(BB)) {
     for (unsigned i = 0; i < Sw->getNumSuccessors(); i++) {
       BasicBlock *Succ = Sw->getSuccessor(i);
-      if (Succ->getSinglePredecessor())
+      if (Succ->getUniquePredecessor())
         MarkUnreachable(Succ);
     }
   }
@@ -200,7 +200,7 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
     if (ConstDest) {
       for (unsigned i = 0; i < Sw->getNumSuccessors(); i++) {
         BasicBlock *Succ = Sw->getSuccessor(i);
-        if (Succ != ConstDest && Succ->getSinglePredecessor()) {
+        if (Succ != ConstDest && Succ->getUniquePredecessor()) {
           MarkUnreachable(Succ);
         }
       }
