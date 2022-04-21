@@ -185,21 +185,25 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
     }
   }
   else if (isa<Constant>(Cond)) {
-    bool FoundCase = false;
+    BasicBlock *ConstDest = nullptr;
     for (auto Case : Sw->cases()) {
       BasicBlock *Succ = Case.getCaseSuccessor();
       if (Case.getCaseValue() == Cond) {
-        FoundCase = true;
-      }
-      else {
-        if (Succ->getSinglePredecessor())
-          MarkUnreachable(Succ);
+        ConstDest = Succ;
+        break;
       }
     }
-
-    BasicBlock *DefaultSucc = Sw->getDefaultDest();
-    if (FoundCase && DefaultSucc->getSinglePredecessor()) {
-      MarkUnreachable(DefaultSucc);
+    if (!ConstDest) {
+      ConstDest = Sw->getDefaultDest();
+    }
+    DXASSERT_NOMSG(ConstDest);
+    if (ConstDest) {
+      for (unsigned i = 0; i < Sw->getNumSuccessors(); i++) {
+        BasicBlock *Succ = Sw->getSuccessor(i);
+        if (Succ != ConstDest && Succ->getSinglePredecessor()) {
+          MarkUnreachable(Succ);
+        }
+      }
     }
   }
 
