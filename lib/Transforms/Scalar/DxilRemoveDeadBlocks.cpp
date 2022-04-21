@@ -22,6 +22,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -247,9 +248,42 @@ struct ValueDeleter {
       WorkList.pop_back();
       Instruction *I = dyn_cast<Instruction>(V);
       if (I) {
-        for (Value * op : I->operands()) {
-          if (Instruction *OpI = dyn_cast<Instruction>(op))
-            Add(OpI);
+        for (unsigned i = 0; i < I->getNumOperands(); i++) {
+          Value *op = I->getOperand(i);
+          if (Instruction *OpI = dyn_cast<Instruction>(op)) {
+            // If this operand could be reduced to a constant, stop adding all
+            // its operands. Otherwise, we could unintentionally hold on to
+            // dead instructions like:
+            // 
+            //   %my_actually_dead_inst = ...
+            //   %my_const = fmul 0.0, %my_actually_dead_inst
+            // 
+            // %my_actually_dead_inst should be deleted with the rest of the
+            // non-contributing instructions.
+            if (Constant *C = DVC->GetConstValue(OpI))
+              I->setOperand(i, C);
+            else
+              Add(OpI);
+          }
+        }
+      }
+    }
+
+    // Go through all dbg.value and see if we can replace their value with constant.
+    // As we go and delete all non-contributing values, we want to preserve as much debug
+    // info as possible.
+    if (llvm::hasDebugInfo(*F.getParent())) {
+      Function *DbgValueF = F.getParent()->getFunction(Intrinsic::getName(Intrinsic::dbg_value));
+      if (DbgValueF) {
+        LLVMContext &Ctx = F.getContext();
+        for (User *U : DbgValueF->users()) {
+          DbgValueInst *DbgVal = cast<DbgValueInst>(U);
+          Value *Val = DbgVal->getValue();
+          if (Val) {
+            if (Constant *C = DVC->GetConstValue(DbgVal->getValue())) {
+              DbgVal->setArgOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(C)));
+            }
+          }
         }
       }
     }
@@ -264,11 +298,6 @@ struct ValueDeleter {
         if (!Seen.count(I)) {
           if (!I->user_empty())
             I->replaceAllUsesWith(UndefValue::get(I->getType()));
-          I->eraseFromParent();
-          Changed = true;
-        }
-        else if (Constant *C = DVC->GetConstValue(I)) {
-          I->replaceAllUsesWith(C);
           I->eraseFromParent();
           Changed = true;
         }
@@ -304,6 +333,18 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
   return Changed;
 }
 
+static void EnsureDxilModule(Module *M) {
+  if (M->HasDxilModule())
+    return;
+  for (Function &F : *M) {
+    if (OP::IsDxilOpFunc(&F)) {
+      bool bSkipInit = true; // Metadata is not necessarily valid yet.
+      M->GetOrCreateDxilModule(bSkipInit);
+      break;
+    }
+  }
+}
+
 namespace {
 
 struct DxilRemoveDeadBlocks : public FunctionPass {
@@ -316,6 +357,7 @@ struct DxilRemoveDeadBlocks : public FunctionPass {
   }
   bool runOnFunction(Function &F) override {
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    EnsureDxilModule(F.getParent()); // Ensure dxil module is available for DVC
     bool Changed = false;
     Changed |= hlsl::dxilutil::DeleteDeadAllocas(F);
     Changed |= DeleteDeadBlocks(F, DVC);
