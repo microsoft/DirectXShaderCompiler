@@ -86,7 +86,7 @@ attributes #2 = { nounwind }
 ; ; SPIR-V
 ; ; Version: 1.0
 ; ; Generator: Google spiregg; 0
-; ; Bound: 56
+; ; Bound: 59
 ; ; Schema: 0
 ;                OpCapability Shader
 ;                OpMemoryModel Logical GLSL450
@@ -167,8 +167,9 @@ attributes #2 = { nounwind }
 ;          %54 = OpAccessChain %_ptr_Function_int %24 %uint_4
 ;          %55 = OpBitcast %int %53
 ;                OpStore %54 %55
+;          %56 = OpAccessChain %_ptr_Function_int %24 %uint_0
+;          %57 = OpAccessChain %_ptr_Uniform_uint %4 %uint_0 %28
+;          %58 = OpBitcast %uint %56
+;                OpStore %57 %58
 ;                OpReturn
 ;                OpFunctionEnd
-; CHECK-ERRORS:
-; error: Unhandled LLVM instruction:   %6 = extractvalue %dx.types.ResRet.i32 %5, 0
-; error: Unhandled DXIL opcode: BufferStore
