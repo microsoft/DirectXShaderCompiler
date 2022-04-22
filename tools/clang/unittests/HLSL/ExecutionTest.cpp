@@ -4393,7 +4393,6 @@ struct RawIntTexture : public ExecutionTest::RawGatherTexture {
   unsigned m_maxVal;
   DXGI_FORMAT m_format;
   RGBAType RGBA[xdim*ydim];
-  // Increase maxdim by 2 to make some more interesting values for B and A
   RawIntTexture(bool isSigned, bool isNorm, int maxVal, DXGI_FORMAT format)
     : m_isSigned(isSigned), m_isNorm(isNorm), m_maxVal(maxVal + 2), m_format(format) {
     if (isSigned)
@@ -4439,7 +4438,6 @@ struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
   unsigned m_maxVal;
   DXGI_FORMAT m_format;
   IntRGBA10XRA2UNORM RGBA[xdim*ydim];
-  // Increase maxdim by 2 to make some more interesting values for B and A
   RawR10G10B10XRA2Texture(int maxVal, DXGI_FORMAT format)
     : m_maxVal((maxVal + 2)/2), m_format(format) {}
   // Set i'th element to values scaled and shifted for available range
