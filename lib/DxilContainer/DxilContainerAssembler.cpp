@@ -179,11 +179,14 @@ private:
   bool   m_isInput;
   bool   m_useMinPrecision;
   bool m_bCompat_1_4;
-  bool m_bUnaligned; // unaligned size for < 1.7
+  bool m_bCompat_1_6; // unaligned size, no dedup for < 1.7
   size_t m_fixedSize;
-  typedef std::pair<const char *, uint32_t> NameOffsetPair;
-  typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap;
+  typedef std::pair<const char *, uint32_t> NameOffsetPair_nodedup;
+  typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap_nodedup;
+  typedef std::pair<llvm::StringRef, uint32_t> NameOffsetPair;
+  typedef llvm::SmallMapVector<llvm::StringRef, uint32_t, 8> NameOffsetMap;
   uint32_t m_lastOffset;
+  NameOffsetMap_nodedup m_semanticNameOffsets_nodedup;
   NameOffsetMap m_semanticNameOffsets;
   unsigned m_paramCount;
 
@@ -193,14 +196,31 @@ private:
     return pElement->GetName();
   }
 
-  uint32_t GetSemanticOffset(const hlsl::DxilSignatureElement *pElement) {
+  uint32_t GetSemanticOffset_nodedup(const hlsl::DxilSignatureElement *pElement) {
     const char *pName = GetSemanticName(pElement);
-    NameOffsetMap::iterator nameOffset = m_semanticNameOffsets.find(pName);
+    NameOffsetMap_nodedup::iterator nameOffset = m_semanticNameOffsets_nodedup.find(pName);
+    uint32_t result;
+    if (nameOffset == m_semanticNameOffsets_nodedup.end()) {
+      result = m_lastOffset;
+      m_semanticNameOffsets_nodedup.insert(NameOffsetPair_nodedup(pName, result));
+      m_lastOffset += strlen(pName) + 1;
+    }
+    else {
+      result = nameOffset->second;
+    }
+    return result;
+  }
+  uint32_t GetSemanticOffset(const hlsl::DxilSignatureElement *pElement) {
+    if (m_bCompat_1_6)
+      return GetSemanticOffset_nodedup(pElement);
+
+    StringRef name = GetSemanticName(pElement);
+    NameOffsetMap::iterator nameOffset = m_semanticNameOffsets.find(name);
     uint32_t result;
     if (nameOffset == m_semanticNameOffsets.end()) {
       result = m_lastOffset;
-      m_semanticNameOffsets.insert(NameOffsetPair(pName, result));
-      m_lastOffset += strlen(pName) + 1;
+      m_semanticNameOffsets.insert(NameOffsetPair(name, result));
+      m_lastOffset += name.size() + 1;
     }
     else {
       result = nameOffset->second;
@@ -285,16 +305,16 @@ public:
                              DXIL::TessellatorDomain domain,
                              bool isInput, bool UseMinPrecision,
                              bool bCompat_1_4,
-                             bool bUnaligned)
+                             bool bCompat_1_6)
       : m_signature(signature), m_domain(domain),
         m_isInput(isInput), m_useMinPrecision(UseMinPrecision),
         m_bCompat_1_4(bCompat_1_4),
-        m_bUnaligned(bUnaligned) {
+        m_bCompat_1_6(bCompat_1_6) {
     calcSizes();
   }
 
   uint32_t size() const override {
-    if (m_bUnaligned)
+    if (m_bCompat_1_6)
       return m_lastOffset;
     else
       return PSVALIGN4(m_lastOffset);
@@ -325,19 +345,23 @@ public:
 
     // Write strings in the offset order.
     std::vector<NameOffsetPair> ordered;
-    ordered.assign(m_semanticNameOffsets.begin(), m_semanticNameOffsets.end());
+    if (m_bCompat_1_6) {
+      ordered.assign(m_semanticNameOffsets_nodedup.begin(), m_semanticNameOffsets_nodedup.end());
+    } else {
+      ordered.assign(m_semanticNameOffsets.begin(), m_semanticNameOffsets.end());
+    }
     std::sort(ordered.begin(), ordered.end(), sort_second<NameOffsetPair>());
     for (size_t i = 0; i < ordered.size(); ++i) {
-      const char *pName = ordered[i].first;
+      StringRef name = ordered[i].first;
       ULONG cbWritten;
       UINT64 offsetPos = pStream->GetPosition();
       DXASSERT_LOCALVAR(offsetPos, offsetPos - startPos == ordered[i].second, "else str offset is incorrect");
-      IFT(pStream->Write(pName, strlen(pName) + 1, &cbWritten));
+      IFT(pStream->Write(name.data(), name.size() + 1, &cbWritten));
     }
 
     // Align, and verify we wrote the same number of bytes we though we would.
     UINT64 bytesWritten = pStream->GetPosition() - startPos;
-    if (!m_bUnaligned && (bytesWritten % 4 != 0)) {
+    if (!m_bCompat_1_6 && (bytesWritten % 4 != 0)) {
       unsigned paddingToAdd = 4 - (bytesWritten % 4);
       char padding[4] = {0};
       ULONG cbWritten = 0;
@@ -355,24 +379,24 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
   unsigned ValMajor, ValMinor;
   M.GetValidatorVersion(ValMajor, ValMinor);
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
-  bool bUnaligned = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
+  bool bCompat_1_6 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
   switch (Kind) {
   case DXIL::SignatureKind::Input:
     return new DxilProgramSignatureWriter(
         M.GetInputSignature(), domain, true,
         M.GetUseMinPrecision(),
-        bCompat_1_4, bUnaligned);
+        bCompat_1_4, bCompat_1_6);
   case DXIL::SignatureKind::Output:
     return new DxilProgramSignatureWriter(
         M.GetOutputSignature(), domain, false,
         M.GetUseMinPrecision(),
-        bCompat_1_4, bUnaligned);
+        bCompat_1_4, bCompat_1_6);
   case DXIL::SignatureKind::PatchConstOrPrim:
     return new DxilProgramSignatureWriter(
         M.GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
         /*UseMinPrecision*/M.GetUseMinPrecision(),
-        bCompat_1_4, bUnaligned);
+        bCompat_1_4, bCompat_1_6);
   case DXIL::SignatureKind::Invalid:
     return nullptr;
   }
