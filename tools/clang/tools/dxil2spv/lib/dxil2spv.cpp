@@ -10,6 +10,7 @@
 
 #include "dxil2spv.h"
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DxilContainer/DxilContainer.h"
@@ -19,6 +20,8 @@
 
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
@@ -274,6 +277,9 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
     case hlsl::DXIL::OpCode::BufferLoad: {
       createBufferLoadInstruction(callInstruction);
     } break;
+    case hlsl::DXIL::OpCode::BufferStore: {
+      createBufferStoreInstruction(callInstruction);
+    } break;
     default: {
       emitError("Unhandled DXIL opcode: %0")
           << hlsl::OP::GetOpCodeName(dxilOpcode);
@@ -285,6 +291,12 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
     llvm::BinaryOperator &binaryInstruction =
         cast<llvm::BinaryOperator>(instruction);
     createBinaryOpInstruction(binaryInstruction);
+  }
+  // Handle extractvalue instructions.
+  else if (isa<llvm::ExtractValueInst>(instruction)) {
+    llvm::ExtractValueInst &extractValueInstruction =
+        cast<llvm::ExtractValueInst>(instruction);
+    createExtractValueInstruction(extractValueInstruction);
   }
   // Handle return instructions.
   else if (isa<llvm::ReturnInst>(instruction)) {
@@ -485,6 +497,14 @@ void Translator::createBufferLoadInstruction(llvm::CallInst &instruction) {
       getSpirvInstruction(instruction.getArgOperand(
           hlsl::DXIL::OperandIndex::kBufferLoadCoord0OpIdx));
 
+  // TODO: Handle coordinate c1 if defined.
+  if (!isa<llvm::UndefValue>(instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kBufferLoadCoord1OpIdx))) {
+    emitError("BufferLoad not yet implemented to handle given coordinates: %0",
+              instruction);
+    return;
+  }
+
   // Initialize each field in the struct.
   for (size_t i = 0; i < structType->getFields().size(); i++) {
     // Add offset for current field.
@@ -513,6 +533,94 @@ void Translator::createBufferLoadInstruction(llvm::CallInst &instruction) {
   }
 
   instructionMap[&instruction] = returnVar;
+}
+
+void Translator::createBufferStoreInstruction(llvm::CallInst &instruction) {
+  // TODO: Extend this function to work with all buffer types on which it is
+  // used, not just ByteAddressBuffers.
+
+  // ByteAddressBuffers are represented as a struct with one member that is a
+  // runtime array of unsigned integers. The SPIR-V OpAccessChain instruction is
+  // then used to access that offset, and OpStore is used to store integers
+  // into the array.
+
+  // clang-format off
+  // For example, the following DXIL instruction:
+  //   call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %res, i32 %c0, i32 undef, i32 %v0, i32 undef, i32 undef, i32 undef, i8 1)
+  // would translate to the following SPIR-V instructions:
+  //   %x = OpAccessChain %_ptr_Uniform_uint %res %uint_0 %c0
+  //   %y = OpBitcast %uint %v0
+  //         OpStore %x %y
+  // clang-format on
+
+  // Get module output variable corresponding to given DXIL handle.
+  spirv::SpirvInstruction *outputVar =
+      getSpirvInstruction(instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kBufferStoreHandleOpIdx));
+
+  // Translate indices into resource buffer to SPIR-V instructions.
+  auto uint32 = spvContext.getUIntType(32);
+  spirv::SpirvConstant *indexIntoStruct =
+      spvBuilder.getConstantInt(uint32, llvm::APInt(32, 0));
+  spirv::SpirvInstruction *index =
+      getSpirvInstruction(instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kBufferStoreCoord0OpIdx));
+
+  // TODO: Handle coordinate c1 if defined.
+  if (!isa<llvm::UndefValue>(instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kBufferStoreCoord1OpIdx))) {
+    emitError("BufferStore not yet implemented to handle given coordinates: %0",
+              instruction);
+    return;
+  }
+
+  // TODO: Handle other masks and values.
+  if (cast<llvm::ConstantInt>(
+          instruction.getArgOperand(
+              hlsl::DXIL::OperandIndex::kBufferStoreMaskOpIdx))
+          ->getLimitedValue() != 1) {
+    emitError(
+        "BufferStore not yet implemented to handle given mask and values: %0",
+        instruction);
+    return;
+  }
+
+  // Create access chain and store.
+  spirv::SpirvAccessChain *outputVarPtr = spvBuilder.createAccessChain(
+      uint32, outputVar, {indexIntoStruct, index}, {});
+  spirv::SpirvInstruction *valueToStore =
+      getSpirvInstruction(instruction.getArgOperand(
+          hlsl::DXIL::OperandIndex::kBufferStoreVal0OpIdx));
+  // LLVM types are signless, so type conversions are not 1-to-1. A bitcast on
+  // the value may be necessary before storing.
+  if (valueToStore->getResultType() != uint32)
+    valueToStore =
+        spvBuilder.createUnaryOp(spv::Op::OpBitcast, uint32, valueToStore, {});
+  spvBuilder.createStore(outputVarPtr, valueToStore, {});
+}
+
+void Translator::createExtractValueInstruction(
+    llvm::ExtractValueInst &instruction) {
+  // Get corresponding SPIR-V intstruction for given aggregate value.
+  spirv::SpirvInstruction *spvInstruction =
+      getSpirvInstruction(instruction.getAggregateOperand());
+
+  // Translate DXIL indices into aggregate to SPIR-V instructions.
+  auto uint32 = spvContext.getUIntType(32);
+  std::vector<spirv::SpirvInstruction *> indices;
+  indices.reserve(instruction.getNumIndices());
+  for (unsigned index : instruction.indices()) {
+    spirv::SpirvConstant *spvIndex =
+        spvBuilder.getConstantInt(uint32, llvm::APInt(32, index));
+    indices.push_back(spvIndex);
+  }
+
+  // Create access chain and save mapping.
+  const spirv::SpirvType *returnType = toSpirvType(instruction.getType());
+  spirv::SpirvAccessChain *accessChain =
+      spvBuilder.createAccessChain(returnType, spvInstruction, indices, {});
+
+  instructionMap[&instruction] = accessChain;
 }
 
 bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
