@@ -52,6 +52,7 @@ add_llvm_library(LLVMHLSL
   HLOperationLower.cpp
   HLOperationLowerExtension.cpp
   HLPreprocess.cpp
+  HLRemoveRedundantUAVCopy.cpp
   HLResource.cpp
   HLSignatureLower.cpp
   HLUtil.cpp

@@ -207,10 +207,11 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, bool EnableLifetimeMarkers, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(PassManagerBuilder &Builder,
+                          legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
-  if (HLSLHighLevel) {
+  if (Builder.HLSLHighLevel) {
     MPM.add(createHLEmitMetadataPass());
     return;
   }
@@ -218,7 +219,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   MPM.add(createDxilCleanupAddrSpaceCastPass());
 
   MPM.add(createHLPreprocessPass());
-  bool NoOpt = OptLevel == 0;
+  bool NoOpt = Builder.OptLevel == 0;
   if (!NoOpt) {
     MPM.add(createHLDeadFunctionEliminationPass());
   }
@@ -230,6 +231,9 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // Expand buffer store intrinsics before we SROA
   MPM.add(createHLExpandStoreIntrinsicsPass());
 
+  if (!NoOpt && Builder.EnableRemoveRedundantUAVLdSt)
+    MPM.add(createRemoveRedundantUAVLdStPass()); // try to remove redundant uav
+                                                 // ldst before inline.
   // Split struct and array of parameter.
   MPM.add(createSROA_Parameter_HLSL());
 
@@ -263,7 +267,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // Clean up inefficiencies that can cause unnecessary live values related to
   // lifetime marker cleanup blocks. This is the earliest possible location
   // without interfering with HLSL-specific lowering.
-  if (!NoOpt && EnableLifetimeMarkers) {
+  if (!NoOpt && Builder.HLSLEnableLifetimeMarkers) {
     MPM.add(createSROAPass());
     MPM.add(createJumpThreadingPass());
   }
@@ -287,7 +291,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // Verify no undef resource again after promotion
   MPM.add(createInvalidateUndefResourcesPass());
 
-  MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
+  MPM.add(createDxilGenerationPass(NoOpt, Builder.HLSLExtensionsCodeGen));
 
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
@@ -306,12 +310,14 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // struct members.
   // Needs to happen before resources are lowered and before HL
   // module is gone.
-  MPM.add(createDxilLoopUnrollPass(1024, OnlyWarnOnUnrollFail, StructurizeLoopExitsForUnroll));
+  MPM.add(createDxilLoopUnrollPass(1024, Builder.HLSLOnlyWarnOnUnrollFail,
+                                   Builder.StructurizeLoopExitsForUnroll));
 
   // Default unroll pass. This is purely for optimizing loops without
   // attributes.
-  if (OptLevel > 2) {
-    MPM.add(createLoopUnrollPass(-1, -1, -1, -1, StructurizeLoopExitsForUnroll));
+  if (Builder.OptLevel > 2) {
+    MPM.add(createLoopUnrollPass(-1, -1, -1, -1,
+                                 Builder.StructurizeLoopExitsForUnroll));
   }
 
   if (!NoOpt)
@@ -322,7 +328,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
 
   MPM.add(createDeadCodeEliminationPass());
 
-  if (OptLevel > 0) {
+  if (Builder.OptLevel > 0) {
     MPM.add(createDxilFixConstArrayInitializerPass());
   }
 }
@@ -365,12 +371,7 @@ void PassManagerBuilder::populateModulePassManager(
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
     // HLSL Change Begins.
-    addHLSLPasses(HLSLHighLevel, OptLevel,
-      this->HLSLOnlyWarnOnUnrollFail,
-      this->StructurizeLoopExitsForUnroll,
-      this->HLSLEnableLifetimeMarkers,
-      this->HLSLExtensionsCodeGen,
-      MPM);
+    addHLSLPasses(*this, MPM);
 
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
@@ -415,7 +416,7 @@ void PassManagerBuilder::populateModulePassManager(
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, this->HLSLEnableLifetimeMarkers, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(*this,MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.

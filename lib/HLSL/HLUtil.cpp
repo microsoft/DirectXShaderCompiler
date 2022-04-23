@@ -92,11 +92,9 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
       bool bStructElt = (GEPIt != GEPEnd) && GEPIt->isStructTy();
       analyzePointer(GEP, PS, typeSys, bStructElt, bLdStOnly);
     } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      Value *V = SI->getOperand(0);
-
       if (PS.storedType == PointerStatus::StoredType::NotStored) {
         PS.storedType = PointerStatus::StoredType::StoredOnce;
-        PS.StoredOnceValue = V;
+        PS.StoredOnceInst = SI;
       } else {
         PS.MarkAsStored();
       }
@@ -198,13 +196,13 @@ void PointerStatus::analyze(DxilTypeSystem &typeSys, bool bStructElt) {
 
 PointerStatus::PointerStatus(llvm::Value *ptr, unsigned size, bool bLdStOnly)
     : storedType(StoredType::NotStored), loadedType(LoadedType::NotLoaded),
-      StoredOnceValue(nullptr), StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
+      StoredOnceInst(nullptr), StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
       AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
       Size(size), Ptr(ptr), bLoadStoreOnly(bLdStOnly) {}
 
 void PointerStatus::MarkAsStored() {
   storedType = StoredType::Stored;
-  StoredOnceValue = nullptr;
+  StoredOnceInst = nullptr;
 }
 void PointerStatus::MarkAsLoaded() { loadedType = LoadedType::Loaded; }
 bool PointerStatus::HasStored() {

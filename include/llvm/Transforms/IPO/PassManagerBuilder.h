@@ -136,6 +136,7 @@ public:
   bool StructurizeLoopExitsForUnroll = false; // HLSL Change
   bool HLSLEnableLifetimeMarkers = false; // HLSL Change
   bool HLSLEnableDebugNops = false; // HLSL Change
+  bool EnableRemoveRedundantUAVLdSt = false;                  // HLSL Change
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

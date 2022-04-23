@@ -350,6 +350,11 @@ void EmitAssemblyHelper::CreatePasses() {
       CodeGenOpts.HLSLEnableLifetimeMarkers &&
       (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
        CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
+
+  // EnableRemoveRedundantUAVLdSt is off by default.
+  PMBuilder.EnableRemoveRedundantUAVLdSt =
+      CodeGenOpts.HLSLOptimizationToggles.count("hl-remove-redundant-uav-ldst") &&
+      CodeGenOpts.HLSLOptimizationToggles.find("hl-remove-redundant-uav-ldst")->second;
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;

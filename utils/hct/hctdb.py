@@ -2147,6 +2147,7 @@ class db_dxil(object):
         add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
         add_pass("hl-expand-store-intrinsics", "HLExpandStoreIntrinsics", "Expand HLSL store intrinsics", [])
         add_pass("hl-legalize-parameter", "HLLegalizeParameter", "Legalize parameter", [])
+        add_pass('hl-remove-redundant-uav-ldst', "RemoveRedundantUAVLdSt", "Remove Redundant UAV LdSt", [])
         add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
         add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
         add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])

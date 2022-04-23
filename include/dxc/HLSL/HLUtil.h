@@ -17,6 +17,7 @@ namespace llvm {
 class Function;
 class Value;
 class MemCpyInst;
+class StoreInst;
 } // namespace llvm
 
 namespace hlsl {
@@ -61,8 +62,8 @@ struct PointerStatus {
     Loaded
   } loadedType;
   /// If only one value (besides the initializer constant) is ever stored to
-  /// this global, keep track of what value it is.
-  llvm::Value *StoredOnceValue;
+  /// this global, save the store inst.
+  const llvm::StoreInst *StoredOnceInst;
   /// Memcpy which this ptr is used.
   llvm::SetVector<llvm::MemCpyInst *> memcpySet;
   /// Memcpy which use this ptr as dest.
