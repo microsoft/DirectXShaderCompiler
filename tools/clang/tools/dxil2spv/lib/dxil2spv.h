@@ -83,6 +83,8 @@ private:
   void createBinaryOpInstruction(llvm::BinaryOperator &instruction);
   void createHandleInstruction(llvm::CallInst &instruction);
   void createBufferLoadInstruction(llvm::CallInst &instruction);
+  void createBufferStoreInstruction(llvm::CallInst &instruction);
+  void createExtractValueInstruction(llvm::ExtractValueInst &instruction);
 
   // SPIR-V Tools wrapper functions.
   bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
