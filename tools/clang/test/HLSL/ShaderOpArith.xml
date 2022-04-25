@@ -3604,7 +3604,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
     #else // NO FALLBACK
 
-    #define ROOT_SIG [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), SRV(t0), SRV(t1), SRV(t2), UAV(u3), UAV(u4), UAV(u5), CBV(b6), UAV(u7),  UAV(u8),  UAV(u9)")]
+    #define ROOT_SIG [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)")]
 
     static ConstantBuffer<Constants> CB = ResourceDescriptorHeap[6];
 

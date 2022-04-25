@@ -8785,7 +8785,7 @@ void EnableShaderBasedValidation() {
   spDebugController1->SetEnableGPUBasedValidation(true);
 }
 
-void ExecutionTest::DynamicResourcesUniformIndexingTest() {
+TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
   //EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
