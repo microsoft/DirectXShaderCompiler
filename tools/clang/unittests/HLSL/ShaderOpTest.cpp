@@ -899,15 +899,15 @@ void ShaderOpTest::RunCommandList() {
   ID3D12GraphicsCommandList *pList = m_CommandList.List.p;
   if (m_pShaderOp->IsCompute()) {
     pList->SetPipelineState(m_pPSO);
-    pList->SetComputeRootSignature(m_pRootSignature);
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
+    pList->SetComputeRootSignature(m_pRootSignature);
     SetRootValues(pList, m_pShaderOp->IsCompute());
     pList->Dispatch(m_pShaderOp->DispatchX, m_pShaderOp->DispatchY,
                     m_pShaderOp->DispatchZ);
   } else {
     pList->SetPipelineState(m_pPSO);
-    pList->SetGraphicsRootSignature(m_pRootSignature);
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
+    pList->SetGraphicsRootSignature(m_pRootSignature);
     SetRootValues(pList, m_pShaderOp->IsCompute());
 
     D3D12_VIEWPORT viewport;
