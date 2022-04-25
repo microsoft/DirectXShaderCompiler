@@ -3564,11 +3564,11 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="VS66" Target="vs_6_6" EntryPoint="VSMain" Text="@MAIN"/>
     <Shader Name="CS66" Target="cs_6_6" EntryPoint="main" Text="@MAIN"/> 
     <!-- -->
+    
+    <!-- FALLBACK BEGINS ->
     <RootValues>
       <RootValue HeapName="ResourceDescriptorHeap" />
     </RootValues>
-    
-    <!-- FALLBACK BEGINS ->
     <Shader Name="PS66" Target="ps_6_0" EntryPoint="PSMain" Text="@MAIN" Arguments="/DFALLBACK=1"/>
     <Shader Name="VS66" Target="vs_6_0" EntryPoint="VSMain" Text="@MAIN" Arguments="/DFALLBACK=1"/>
     <Shader Name="CS66" Target="cs_6_0" EntryPoint="main" Text="@MAIN" Arguments="/DFALLBACK=1"/>
@@ -3578,7 +3578,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
     struct Constants
     {
-      uint idx0, idx1, idx2, idx3, idx4, idx5;
+      uint idx0, idx1, idx2, idx3, idx4, idx5, idx6, idx7;
     };
 
     #ifdef FALLBACK
@@ -3604,28 +3604,23 @@ void MSMain(uint GID : SV_GroupIndex,
 
     #else // NO FALLBACK
 
-    #define ROOT_SIG [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(SRV(t0), SRV(t1), SRV(t2), UAV(u3), UAV(u4), UAV(u5), CBV(b6), UAV(u7, numDescriptors=3))")]
+    #define ROOT_SIG [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), SRV(t0), SRV(t1), SRV(t2), UAV(u3), UAV(u4), UAV(u5), CBV(b6), UAV(u7),  UAV(u8),  UAV(u9)")]
 
     static ConstantBuffer<Constants> CB = ResourceDescriptorHeap[6];
 
-    static ByteAddressBuffer g_rawBuf = ResourceDescriptorHeap[CB.idx0]; //SRV (10+ offset)
+    static ByteAddressBuffer g_rawBuf = ResourceDescriptorHeap[CB.idx0];
     static StructuredBuffer<float> g_structBuf = ResourceDescriptorHeap[CB.idx1];
-    static Texture2D<float> g_tex = ResourceDescriptorHeap[2];
-    static RWByteAddressBuffer g_rwRawBuf = ResourceDescriptorHeap[3]; //UAV (20+ offset)
+    static Texture2D<float> g_tex = ResourceDescriptorHeap[CB.idx2];
+    static RWByteAddressBuffer g_rwRawBuf = ResourceDescriptorHeap[CB.idx3];
     static RWStructuredBuffer<float> g_rwStructBuf = ResourceDescriptorHeap[CB.idx4];
     static RWTexture1D<float> g_rwTex = ResourceDescriptorHeap[CB.idx5];
 
     // Result buffers
     static RWStructuredBuffer<float> g_result = ResourceDescriptorHeap[7];
+    static RWStructuredBuffer<float> g_resultVS = ResourceDescriptorHeap[8];
+    static RWStructuredBuffer<float> g_resultPS = ResourceDescriptorHeap[9];
     
-    //static RWStructuredBuffer<float> g_resultVS = ResourceDescriptorHeap[8];
-    //static RWStructuredBuffer<float> g_resultPS = ResourceDescriptorHeap[9];
-    
-    RWStructuredBuffer<float> g_resultVS : register(u8);
-    RWStructuredBuffer<float> g_resultPS : register(u9);
-    
-    
-    static SamplerState g_samp = SamplerDescriptorHeap[CB.idx0]; //Sampler's have 30+ offset
+    static SamplerState g_samp = SamplerDescriptorHeap[CB.idx0];
     static SamplerComparisonState g_sampCmp = SamplerDescriptorHeap[CB.idx1];
 
     #endif // FALLBACK

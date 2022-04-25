@@ -8825,7 +8825,6 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
     }
 
     // Test Compute shader
-    
     {
       pShaderOp->CS = pShaderOp->GetString("CS66");
       std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
@@ -8854,10 +8853,6 @@ void ExecutionTest::DynamicResourcesUniformIndexingTest() {
       std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
           pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
           ShaderOpSet);
-
-      //MappedData renderData;
-      //test->Test->GetReadBackData("RTarget", &renderData);
-      //const uint32_t *pPixels = (uint32_t *)renderData.data();
 
       MappedData resultVSData;
       MappedData resultPSData;
