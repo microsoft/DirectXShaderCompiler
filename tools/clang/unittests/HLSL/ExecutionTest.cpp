@@ -3726,6 +3726,7 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
   if (!CreateDevice(&pDevice, sm))
       return;
 
+#ifndef WRITEMSAA_FALLBACK
   if (!DoesDeviceSupportAdvancedTexOps(pDevice)) {
     WEX::Logging::Log::Comment(L"Device does not support Advanced Texture Operations.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
@@ -3737,6 +3738,7 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
+#endif
 
   static const char pWriteShader[] =
     "#define SAMPLES 4\n"
