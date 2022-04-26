@@ -10736,11 +10736,20 @@ HelperLaneWaveTestResult HelperLane_PSAfterDiscard_ExpectedResults = {
 
 HelperLaneWaveTestResult IncludesHelperLane_PS_ExpectedResults = {
   // HelperLaneWaveTestResult60
-  { 1, 0, { 0xF, 0, 0, 0 }, 4, 0, 4, 16, 256, 0, 1, 1, 1, 10, 3, 64, 8 },
+  { 1, 0, { 0xF, 0, 0, 0 }, 4, 0, 4, 16, 256, 0, 1, 1, 1, 10, 3, 64, 6 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0xF, 0, 0, 0}, 3, 6, 64, 0, 1, 1 }
+};
+
+HelperLaneWaveTestResult IncludesHelperLane_PSAfterDiscard_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 1, 0, { 0xF, 0, 0, 0 }, 4, 0, 4, 16, 256, 0, 1, 0, 1, 10, 3, 64, 6 },
   // HelperLaneQuadTestResult
   { 0, 1, 0, 1 },
   // HelperLaneWaveTestResult65
-  { {0xF, 0, 0, 0}, 3, 8, 64, 0, 1, 1 }
+  { {0xF, 0, 0, 0}, 3, 6, 64, 0, 1, 0 }
 };
 
 bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, uint32_t expectedValue, uint32_t actualValue) {
@@ -10980,11 +10989,10 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       pShaderOp->PS = pShaderOp->GetString("PS66");
     } else if (sm == D3D_SHADER_MODEL_6_7) {
       // Reassign shader stages to 6.7 versions
-      LPCSTR PS67 = nullptr;
-      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
-        if (!strcmp(S.Name, "PS67")) PS67 = S.Name;
-      }
-      pShaderOp->PS = PS67;
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      pShaderOp->VS = pShaderOp->GetString("VS66");
+      // Only PS has SM 6.7 version to test new [WaveOpsIncludeHelperLanes] attribute
+      pShaderOp->PS = pShaderOp->GetString("PS67");
     }
 
     const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1, PS_INDEX_AFTER_DISCARD = 2;
@@ -11006,7 +11014,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
                                      : HelperLane_PS_ExpectedResults;
     HelperLaneWaveTestResult &PSAfterDiscard_ExpectedResults =
         (sm >= D3D_SHADER_MODEL_6_7)
-            ? IncludesHelperLane_PS_ExpectedResults
+            ? IncludesHelperLane_PSAfterDiscard_ExpectedResults
             : HelperLane_PSAfterDiscard_ExpectedResults;
 
     // Test Vertex + Pixel shader
