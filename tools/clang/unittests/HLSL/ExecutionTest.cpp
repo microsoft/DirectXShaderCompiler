@@ -3729,11 +3729,13 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
   if (!DoesDeviceSupportAdvancedTexOps(pDevice)) {
     WEX::Logging::Log::Comment(L"Device does not support Advanced Texture Operations.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
   }
 
   if (!DoesDeviceSupportWritableMSAA(pDevice)) {
     WEX::Logging::Log::Comment(L"Device does not support Writable MSAA.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
   }
 
   static const char pWriteShader[] =
