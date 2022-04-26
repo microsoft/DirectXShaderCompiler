@@ -22,6 +22,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -42,94 +43,6 @@ static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
     else
       break;
   }
-}
-
-namespace {
-
-struct AllocaDeleter {
-  SmallVector<Value *, 10> WorkList;
-  std::unordered_set<Value *> Seen;
-
-  void Add(Value *V) {
-    if (!Seen.count(V)) {
-      Seen.insert(V);
-      WorkList.push_back(V);
-    }
-  }
-
-  bool TryDeleteUnusedAlloca(AllocaInst *AI) {
-    Seen.clear();
-    WorkList.clear();
-
-    Add(AI);
-    while (WorkList.size()) {
-      Value *V = WorkList.pop_back_val();
-      // Keep adding users if we encounter one of these.
-      // None of them imply the alloca is being read.
-      if (isa<GEPOperator>(V) ||
-          isa<BitCastOperator>(V) ||
-          isa<AllocaInst>(V) ||
-          isa<StoreInst>(V))
-      {
-        for (User *U : V->users())
-          Add(U);
-      }
-      // If it's anything else, we'll assume it's reading the
-      // alloca. Give up.
-      else {
-        return false;
-      }
-    }
-
-    if (!Seen.size())
-      return false;
-
-    // Delete all the instructions associated with the
-    // alloca.
-    for (Value *V : Seen) {
-      Instruction *I = dyn_cast<Instruction>(V);
-      if (I) {
-        I->dropAllReferences();
-      }
-    }
-    for (Value *V : Seen) {
-      Instruction *I = dyn_cast<Instruction>(V);
-      if (I) {
-        I->eraseFromParent();
-      }
-    }
-
-    return true;
-  }
-};
-
-}
-
-// Finds all allocas that only have stores and delete them.
-// These allocas hold on to values that do not contribute to the
-// shader's results.
-static bool DeleteDeadAllocas(Function &F) {
-  if (F.empty())
-    return false;
-
-  AllocaDeleter Deleter;
-  BasicBlock &Entry = *F.begin();
-  bool Changed = false;
-
-  while (1) {
-    bool LocalChanged = false;
-    for (auto it = Entry.begin(), end = Entry.end(); it != end;) {
-      AllocaInst *AI = dyn_cast<AllocaInst>(&*(it++));
-      if (!AI)
-        continue;
-      LocalChanged |= Deleter.TryDeleteUnusedAlloca(AI);
-    }
-    Changed |= LocalChanged;
-    if (!LocalChanged)
-      break;
-  }
-
-  return Changed;
 }
 
 struct DeadBlockDeleter {
@@ -335,9 +248,42 @@ struct ValueDeleter {
       WorkList.pop_back();
       Instruction *I = dyn_cast<Instruction>(V);
       if (I) {
-        for (Value * op : I->operands()) {
-          if (Instruction *OpI = dyn_cast<Instruction>(op))
-            Add(OpI);
+        for (unsigned i = 0; i < I->getNumOperands(); i++) {
+          Value *op = I->getOperand(i);
+          if (Instruction *OpI = dyn_cast<Instruction>(op)) {
+            // If this operand could be reduced to a constant, stop adding all
+            // its operands. Otherwise, we could unintentionally hold on to
+            // dead instructions like:
+            // 
+            //   %my_actually_dead_inst = ...
+            //   %my_const = fmul 0.0, %my_actually_dead_inst
+            // 
+            // %my_actually_dead_inst should be deleted with the rest of the
+            // non-contributing instructions.
+            if (Constant *C = DVC->GetConstValue(OpI))
+              I->setOperand(i, C);
+            else
+              Add(OpI);
+          }
+        }
+      }
+    }
+
+    // Go through all dbg.value and see if we can replace their value with constant.
+    // As we go and delete all non-contributing values, we want to preserve as much debug
+    // info as possible.
+    if (llvm::hasDebugInfo(*F.getParent())) {
+      Function *DbgValueF = F.getParent()->getFunction(Intrinsic::getName(Intrinsic::dbg_value));
+      if (DbgValueF) {
+        LLVMContext &Ctx = F.getContext();
+        for (User *U : DbgValueF->users()) {
+          DbgValueInst *DbgVal = cast<DbgValueInst>(U);
+          Value *Val = DbgVal->getValue();
+          if (Val) {
+            if (Constant *C = DVC->GetConstValue(DbgVal->getValue())) {
+              DbgVal->setArgOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(C)));
+            }
+          }
         }
       }
     }
@@ -352,11 +298,6 @@ struct ValueDeleter {
         if (!Seen.count(I)) {
           if (!I->user_empty())
             I->replaceAllUsesWith(UndefValue::get(I->getType()));
-          I->eraseFromParent();
-          Changed = true;
-        }
-        else if (Constant *C = DVC->GetConstValue(I)) {
-          I->replaceAllUsesWith(C);
           I->eraseFromParent();
           Changed = true;
         }
@@ -392,6 +333,18 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
   return Changed;
 }
 
+static void EnsureDxilModule(Module *M) {
+  if (M->HasDxilModule())
+    return;
+  for (Function &F : *M) {
+    if (OP::IsDxilOpFunc(&F)) {
+      bool bSkipInit = true; // Metadata is not necessarily valid yet.
+      M->GetOrCreateDxilModule(bSkipInit);
+      break;
+    }
+  }
+}
+
 namespace {
 
 struct DxilRemoveDeadBlocks : public FunctionPass {
@@ -404,8 +357,9 @@ struct DxilRemoveDeadBlocks : public FunctionPass {
   }
   bool runOnFunction(Function &F) override {
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    EnsureDxilModule(F.getParent()); // Ensure dxil module is available for DVC
     bool Changed = false;
-    Changed |= DeleteDeadAllocas(F);
+    Changed |= hlsl::dxilutil::DeleteDeadAllocas(F);
     Changed |= DeleteDeadBlocks(F, DVC);
     Changed |= DeleteNonContributingValues(F, DVC);
     return Changed;

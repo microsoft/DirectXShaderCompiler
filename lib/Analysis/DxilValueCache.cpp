@@ -21,6 +21,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Transforms/Scalar.h"
@@ -31,6 +32,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 
 #include <unordered_set>
+#include <unordered_map>
 
 #define DEBUG_TYPE "dxil-value-cache"
 
@@ -54,18 +56,8 @@ bool IsEntryBlock(const BasicBlock *BB) {
   return BB == &BB->getParent()->getEntryBlock();
 }
 
-void DxilValueCache::MarkAlwaysReachable(BasicBlock *BB) {
-  ValueMap.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 1));
-}
 void DxilValueCache::MarkUnreachable(BasicBlock *BB) {
   ValueMap.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 0));
-}
-
-bool DxilValueCache::IsAlwaysReachable_(BasicBlock *BB) {
-  if (Value *V = ValueMap.Get(BB))
-    if (IsConstantTrue(V))
-      return true;
-  return false;
 }
 
 bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
@@ -180,6 +172,44 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   return Simplified;
 }
 
+Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *DT) {
+  SwitchInst *Sw = cast<SwitchInst>(I);
+  BasicBlock *BB = Sw->getParent();
+
+  Value *Cond = TryGetCachedValue(Sw->getCondition());
+  if (IsUnreachable_(BB)) {
+    for (unsigned i = 0; i < Sw->getNumSuccessors(); i++) {
+      BasicBlock *Succ = Sw->getSuccessor(i);
+      if (Succ->getUniquePredecessor())
+        MarkUnreachable(Succ);
+    }
+  }
+  else if (isa<Constant>(Cond)) {
+    BasicBlock *ConstDest = nullptr;
+    for (auto Case : Sw->cases()) {
+      BasicBlock *Succ = Case.getCaseSuccessor();
+      if (Case.getCaseValue() == Cond) {
+        ConstDest = Succ;
+        break;
+      }
+    }
+    if (!ConstDest) {
+      ConstDest = Sw->getDefaultDest();
+    }
+    DXASSERT_NOMSG(ConstDest);
+    if (ConstDest) {
+      for (unsigned i = 0; i < Sw->getNumSuccessors(); i++) {
+        BasicBlock *Succ = Sw->getSuccessor(i);
+        if (Succ != ConstDest && Succ->getUniquePredecessor()) {
+          MarkUnreachable(Succ);
+        }
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) {
 
   // The *only* reason we're paying special attention to the
@@ -202,25 +232,17 @@ Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) 
         MarkUnreachable(TrueSucc);
     }
     else if (IsConstantTrue(Cond)) {
-      if (IsAlwaysReachable_(BB)) {
-        MarkAlwaysReachable(TrueSucc);
-      }
       if (FalseSucc->getSinglePredecessor())
         MarkUnreachable(FalseSucc);
     }
     else if (IsConstantFalse(Cond)) {
-      if (IsAlwaysReachable_(BB)) {
-        MarkAlwaysReachable(FalseSucc);
-      }
       if (TrueSucc->getSinglePredecessor())
         MarkUnreachable(TrueSucc);
     }
   }
   else {
     BasicBlock *Succ = Br->getSuccessor(0);
-    if (IsAlwaysReachable_(BB))
-      MarkAlwaysReachable(Succ);
-    else if (Succ->getSinglePredecessor() && IsUnreachable_(BB))
+    if (Succ->getSinglePredecessor() && IsUnreachable_(BB))
       MarkUnreachable(Succ);
   }
 
@@ -247,6 +269,9 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   Value *Simplified = nullptr;
   if (Instruction::Br == I->getOpcode()) {
     Simplified = ProcessAndSimplify_Br(I, DT);
+  }
+  if (Instruction::Switch == I->getOpcode()) {
+    Simplified = ProcessAndSimplify_Switch(I, DT);
   }
   else if (Instruction::PHI == I->getOpcode()) {
     Simplified = ProcessAndSimplify_PHI(I, DT);
@@ -404,22 +429,50 @@ void DxilValueCache::WeakValueMap::ResetAll() {
 void DxilValueCache::WeakValueMap::ResetUnknowns() {
   if (!Sentinel)
     return;
-  for (auto it = Map.begin(); it != Map.end(); it++) {
+
+  for (auto it = Map.begin(); it != Map.end();) {
+    auto nextIt = std::next(it);
     if (it->second.Value == Sentinel.get())
-      it->second.Value = nullptr;
+      Map.erase(it);
+    it = nextIt;
   }
 }
 
 LLVM_DUMP_METHOD
 void DxilValueCache::WeakValueMap::dump() const {
+  std::unordered_map<const Module *, std::unique_ptr<ModuleSlotTracker>> MSTs;
   for (auto It = Map.begin(), E = Map.end(); It != E; It++) {
     const Value *Key = It->first;
+
     if (It->second.IsStale())
       continue;
+
+    if (!Key)
+      continue;
+
+    ModuleSlotTracker *MST = nullptr;
+    {
+      const Module *M = nullptr;
+      if (auto I = dyn_cast<Instruction>(Key)) M = I->getModule();
+      else if (auto BB = dyn_cast<BasicBlock>(Key)) M = BB->getModule();
+      else {
+        errs() << *Key;
+        llvm_unreachable("How can a key be neither an instruction or BB?");
+      }
+      std::unique_ptr<ModuleSlotTracker> &optMst = MSTs[M];
+      if (!optMst) {
+        optMst = llvm::make_unique<ModuleSlotTracker>(M);
+      }
+      MST = optMst.get();
+    }
+
     const Value *V = It->second.Value;
     bool IsSentinel = Sentinel && V == Sentinel.get();
+
     if (const BasicBlock *BB = dyn_cast<BasicBlock>(Key)) {
-      dbgs() << "[BB]" << BB->getName() << " -> ";
+      dbgs() << "[BB]";
+      BB->printAsOperand(dbgs(), false, *MST);
+      dbgs() << " -> ";
       if (IsSentinel)
         dbgs() << "NO_VALUE";
       else {
@@ -430,7 +483,7 @@ void DxilValueCache::WeakValueMap::dump() const {
       }
     }
     else {
-      dbgs() << Key->getName() << " -> ";
+      dbgs() << *Key << " -> ";
       if (IsSentinel)
         dbgs() << "NO_VALUE";
       else
@@ -479,11 +532,6 @@ ConstantInt *DxilValueCache::GetConstInt(Value *V, DominatorTree *DT) {
   if (Value *NewV = GetValue(V))
     return dyn_cast<ConstantInt>(NewV);
   return nullptr;
-}
-
-bool DxilValueCache::IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT) {
-  ProcessValue(BB, DT);
-  return IsAlwaysReachable_(BB);
 }
 
 bool DxilValueCache::IsUnreachable(BasicBlock *BB, DominatorTree *DT) {
@@ -556,9 +604,6 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
         }
       }
       else if (BasicBlock *BB = dyn_cast<BasicBlock>(V)) {
-        if (IsEntryBlock(BB)) {
-          MarkAlwaysReachable(BB);
-        }
         for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; PI++) {
           BasicBlock *PredBB = *PI;
           TerminatorInst *Term = PredBB->getTerminator();

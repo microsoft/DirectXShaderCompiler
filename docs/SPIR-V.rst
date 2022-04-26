@@ -3974,6 +3974,8 @@ codegen for Vulkan:
   SPIR-V backend. Also note that this requires the optimizer to be able to
   resolve all array accesses with constant indeces. Therefore, all loops using
   the resource arrays must be marked with ``[unroll]``.
+- ``-fspv-entrypoint-name=<name>``: Specify the SPIR-V entry point name. Defaults
+  to the HLSL entry point name.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

@@ -308,6 +308,7 @@ public:
   TEST_METHOD(ATOProgOffset);
   TEST_METHOD(ATOSampleCmpLevelTest);
   TEST_METHOD(ATOWriteMSAATest);
+  TEST_METHOD(ATORawGather);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
   TEST_METHOD(AtomicsRawHeap64Test);
@@ -318,6 +319,8 @@ public:
   TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
+  TEST_METHOD(DynamicResourcesUniformIndexingTest)
+
   TEST_METHOD(QuadReadTest)
   TEST_METHOD(QuadAnyAll);
 
@@ -559,6 +562,20 @@ public:
     return GetTestParamBool(L"SaveImages");
   }
 
+  // Base class used by raw gather test for polymorphic assignments
+  struct RawGatherTexture {
+    // Set Element <i> to a format-appropriate value derived from 2D coords <x,y>
+    virtual void SetElement(int i, int x, int y) = 0;
+    // Retrieve pointer to the elements
+    virtual void *GetElements() = 0;
+    // Get dimensions/format
+    virtual unsigned GetXDim() = 0;
+    virtual unsigned GetYDim() = 0;
+    virtual DXGI_FORMAT GetFormat() = 0;
+  };
+
+  template<typename GatherType>
+  void DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *rawTex, DXGI_FORMAT viewFormat);
   void RunResourceTest(ID3D12Device *pDevice, const char *pShader, const wchar_t *sm, bool isDynamic);
 
   template <class T1, class T2>
@@ -893,7 +910,7 @@ public:
 
   void CreateTestResources(ID3D12Device *pDevice,
                            ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
-                           UINT32 valueSizeInBytes, D3D12_RESOURCE_DESC resDesc,
+                           UINT64 valueSizeInBytes, D3D12_RESOURCE_DESC resDesc,
                            ID3D12Resource **ppResource,
                            ID3D12Resource **ppUploadResource,
                            ID3D12Resource **ppReadBuffer = nullptr) {
@@ -932,8 +949,8 @@ public:
         D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pReadBuffer)));
 
     transferData.pData = values;
-    transferData.RowPitch = valueSizeInBytes/resDesc.Height;
-    transferData.SlicePitch = valueSizeInBytes;
+    transferData.RowPitch = (LONG_PTR)(valueSizeInBytes/resDesc.Height);
+    transferData.SlicePitch = (LONG_PTR)valueSizeInBytes;
 
     UpdateSubresources<1>(pCommandList, pResource.p, pUploadResource.p, 0, 0, 1, &transferData);
     if (resDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
@@ -949,7 +966,7 @@ public:
 
   void CreateTestUavs(ID3D12Device *pDevice,
                       ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
-                      UINT32 valueSizeInBytes, ID3D12Resource **ppUavResource,
+                      UINT64 valueSizeInBytes, ID3D12Resource **ppUavResource,
                       ID3D12Resource **ppUploadResource = nullptr,
                       ID3D12Resource **ppReadBuffer = nullptr) {
     D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -1037,8 +1054,8 @@ public:
   }
 
   void CreateTex2DSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
-                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
-    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
+                      DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE2D, 0/*numElements*/, 0/*stride*/, pResource);
   }
 
   void CreateUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
@@ -1116,15 +1133,14 @@ public:
   // Create Samplers for <pDevice> given the filter and border color information provided
   // using some reasonable defaults
   void CreateDefaultSamplers(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
-                             D3D12_FILTER filters[], float BorderColors[], int NumSamplers) {
+                             D3D12_FILTER filters[], float *perSamplerBorderColors, int NumSamplers) {
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE sampHandle(heapStart);
     UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     D3D12_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
-    sampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-    sampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-    sampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    D3D12_TEXTURE_ADDRESS_MODE addrMode = perSamplerBorderColors? D3D12_TEXTURE_ADDRESS_MODE_BORDER : D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    sampDesc.AddressU = sampDesc.AddressV = sampDesc.AddressW = addrMode;
     sampDesc.MipLODBias = 0;
     sampDesc.MaxAnisotropy = 1;
     sampDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_EQUAL;
@@ -1133,8 +1149,10 @@ public:
 
     for (int i = 0; i < NumSamplers; i++) {
       sampDesc.Filter = filters[i];
-      for (int j = 0; j < 4; j++)
-        sampDesc.BorderColor[j] = BorderColors[i];
+      if (perSamplerBorderColors) {
+        for (int j = 0; j < 4; j++)
+          sampDesc.BorderColor[j] = perSamplerBorderColors[i];
+      }
 
       pDevice->CreateSampler(&sampDesc, sampHandle);
       sampHandle = sampHandle.Offset(descriptorSize);
@@ -4146,7 +4164,667 @@ TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
   }
 }
 
+template <unsigned RSize>
+struct IntR {
+  unsigned R : RSize;
+  void SetChannels(unsigned R, unsigned G, unsigned B, unsigned A) {
+    this->R = R;
+    UNREFERENCED_PARAMETER(G);
+    UNREFERENCED_PARAMETER(B);
+    UNREFERENCED_PARAMETER(A);
+  }
+  static unsigned GetRSize() { return RSize; }
+  static unsigned GetGSize() { return 0; }
+  static unsigned GetBSize() { return 0; }
+  static unsigned GetASize() { return 0; }
+};
 
+template <unsigned RSize, unsigned GSize>
+struct IntRG {
+  unsigned R : RSize;
+  unsigned G : GSize;
+  void SetChannels(unsigned R, unsigned G, unsigned B, unsigned A) {
+    this->R = R;
+    this->G = G;
+    UNREFERENCED_PARAMETER(B);
+    UNREFERENCED_PARAMETER(A);
+  }
+  static unsigned GetRSize() { return RSize; }
+  static unsigned GetGSize() { return GSize; }
+  static unsigned GetBSize() { return 0; }
+  static unsigned GetASize() { return 0; }
+};
+
+template <unsigned RSize, unsigned GSize, unsigned BSize>
+struct IntRGB {
+  unsigned R : RSize;
+  unsigned G : GSize;
+  unsigned B : BSize;
+  void SetChannels(unsigned R, unsigned G, unsigned B, unsigned A) {
+    this->R = R;
+    this->G = G;
+    this->B = B;
+    UNREFERENCED_PARAMETER(A);
+  }
+  static unsigned GetRSize() { return RSize; }
+  static unsigned GetGSize() { return GSize; }
+  static unsigned GetBSize() { return BSize; }
+  static unsigned GetASize() { return 0; }
+};
+
+
+template <unsigned RSize, unsigned GSize, unsigned BSize, unsigned ASize>
+struct IntRGBA {
+  unsigned R : RSize;
+  unsigned G : GSize;
+  unsigned B : BSize;
+  unsigned A : ASize;
+
+  void SetChannels(unsigned R, unsigned G, unsigned B, unsigned A) {
+    this->R = R;
+    this->G = G;
+    this->B = B;
+    this->A = A;
+  }
+  static unsigned GetRSize() { return RSize; }
+  static unsigned GetGSize() { return GSize; }
+  static unsigned GetBSize() { return BSize; }
+  static unsigned GetASize() { return ASize; }
+};
+
+struct IntRGBA10XRA2UNORM {
+  uint32_t RGBA;
+  void SetChannels(float R, float G, float B, float A) {
+    uint32_t ur, ug, ub, ua;
+    // Conversion values taken from XR documentation
+    ur = GetMantissa(R*510+385);
+    ub = GetMantissa(B*510+385);
+    ug = GetMantissa(G*510+385);
+    ua = (uint32_t)A;
+
+    // Cast off all but the 10 MSB and shift for packing
+    ur = (ur&0x7fE000) >> 13;
+    ug = (ur&0x7fE000) >> 3;
+    ub = (ur&0x7fE000) << 7;
+    ua = (ua&0x3) << 30;
+
+    RGBA = ur | ug | ub | ua;
+  }
+};
+
+struct Float32R {
+  float R;
+  void SetChannels(float R, float G, float B, float A) {
+    this->R = R;
+    UNREFERENCED_PARAMETER(G);
+    UNREFERENCED_PARAMETER(B);
+    UNREFERENCED_PARAMETER(A);
+  }
+};
+
+struct Float32RG {
+  float R, G;
+  void SetChannels(float R, float G, float B, float A) {
+    this->R = R;
+    this->G = G;
+    UNREFERENCED_PARAMETER(B);
+    UNREFERENCED_PARAMETER(A);
+  }
+};
+
+struct Float16R {
+  uint16_t R;
+  void SetChannels(float R, float G, float B, float A) {
+    this->R = ConvertFloat32ToFloat16(R);
+    UNREFERENCED_PARAMETER(G);
+    UNREFERENCED_PARAMETER(B);
+    UNREFERENCED_PARAMETER(A);
+  }
+};
+
+struct Float16RG {
+  uint16_t R, G;
+  void SetChannels(float R, float G, float B, float A) {
+    this->R = ConvertFloat32ToFloat16(R);
+    this->G = ConvertFloat32ToFloat16(G);
+    UNREFERENCED_PARAMETER(B);
+    UNREFERENCED_PARAMETER(A);
+  }
+};
+
+// No Float16RGB needed
+
+struct Float16RGBA {
+  uint16_t R, G, B, A;
+  void SetChannels(float R, float G, float B, float A) {
+    this->R = ConvertFloat32ToFloat16(R);
+    this->G = ConvertFloat32ToFloat16(G);
+    this->B = ConvertFloat32ToFloat16(B);
+    this->A = ConvertFloat32ToFloat16(A);
+  }
+};
+
+struct FloatR11G11B10 {
+  uint32_t RGB;
+  void SetChannels(float R, float G, float B, float A) {
+    uint32_t ur, ug, ub;
+    // Shift and mask so as to place R: 0-10, G: 11-21, B: 22-31
+    // Sign and lesser-significant mantissa bits are truncated
+    ur = (ConvertFloat32ToFloat16(R) >> 4) & 0x000007FF;
+    ug = (ConvertFloat32ToFloat16(G) << 7) & 0x003FF800;
+    ub = (ConvertFloat32ToFloat16(B) << 17) & 0xFFC00000;
+    UNREFERENCED_PARAMETER(A);
+    RGB = ur | ug | ub;
+  }
+};
+
+struct FloatRGBE {
+  uint32_t RGBE;
+  // Conversion logic taken from miniengine PixelPacking header
+  void SetChannels(UINT R, UINT G, UINT B, UINT A) {
+    union { uint32_t i; float f; } ur, ug, ub, maxChannel, nextPow2;
+    ur.f = (float)R;
+    ug.f = (float)G;
+    ub.f = (float)B;
+    maxChannel.f = std::max(ur.f, std::max(ug.f, ub.f));
+    // nextPow2 has to have the biggest exponent plus 1 (and nothing in the mantissa)
+    nextPow2.i = (maxChannel.i + 0x800000) & 0x7F800000;
+
+    // By adding nextPow2, all channels have the same exponent, shifting their mantissa bits
+    // to the right to accomodate it.  This also shifts in the implicit '1' bit of all channels.
+    // The largest channel will always have the high bit set.
+    ur.f += nextPow2.f;
+    ug.f += nextPow2.f;
+    ub.f += nextPow2.f;
+    UNREFERENCED_PARAMETER(A);
+
+    ur.i = (ur.i << 9) >> 23;
+    ug.i = (ug.i << 9) >> 23;
+    ub.i = (ub.i << 9) >> 23;
+
+    uint32_t e = ConvertFloat32ToFloat16(nextPow2.f) << 17;
+    RGBE = ur.i | ug.i << 9 | ub.i << 18 | e;
+  }
+
+  static unsigned GetRSize() { return 9; }
+  static unsigned GetGSize() { return 9; }
+  static unsigned GetBSize() { return 9; }
+  static unsigned GetASize() { return 0; }
+};
+
+template <typename RGBAType, unsigned xdim, unsigned ydim>
+struct RawFloatTexture : public ExecutionTest::RawGatherTexture {
+  DXGI_FORMAT m_format;
+  RGBAType RGBA[xdim*ydim];
+  RawFloatTexture(DXGI_FORMAT format) : m_format(format) {}
+  // Set i'th element to floatified x,y and some derived values
+  virtual void SetElement(int i, int x, int y) override {
+    float r = (float)x;
+    float g = (float)y;
+    // provide some different values just to fill in b and a
+    float b = (float)(x + y)*0.5f;
+    float a = (float)(x + y)*0.1f;
+    RGBA[i].SetChannels(r, g, b, a);
+  }
+  virtual void *GetElements() { return (void*)RGBA; }
+  virtual unsigned GetXDim() { return xdim; }
+  virtual unsigned GetYDim() { return ydim; }
+  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+};
+
+template <unsigned xdim, unsigned ydim>
+struct RawFloatR11G11B10ATexture : public ExecutionTest::RawGatherTexture {
+  FloatR11G11B10 RGBA[xdim*ydim];
+  // Set i'th element to floatified x,y and some derived values
+  virtual void SetElement(int i, int x, int y) override {
+    float r = (float)x;
+    float g = (float)y;
+    float b = (float)(x + y)*0.5f;
+    RGBA[i].SetChannels(r, g, b, 0);
+  }
+  virtual void *GetElements() { return (void*)RGBA; }
+  virtual unsigned GetXDim() { return xdim; }
+  virtual unsigned GetYDim() { return ydim; }
+  virtual DXGI_FORMAT GetFormat() override { return DXGI_FORMAT_R11G11B10_FLOAT; };
+};
+
+template <typename RGBAType, unsigned xdim, unsigned ydim>
+struct RawIntTexture : public ExecutionTest::RawGatherTexture {
+  bool m_isSigned;
+  bool m_isNorm;
+  unsigned m_maxVal;
+  DXGI_FORMAT m_format;
+  RGBAType RGBA[xdim*ydim];
+  RawIntTexture(bool isSigned, bool isNorm, int maxVal, DXGI_FORMAT format)
+    : m_isSigned(isSigned), m_isNorm(isNorm), m_maxVal(maxVal + 2), m_format(format) {
+    if (isSigned)
+      m_maxVal /= 2;
+  }
+  // Set i'th element to values scaled per max dimentions for norms, shifted for signed
+  // but otherwise just the x and y values themselves
+  virtual void SetElement(int i, int x, int y) override {
+    double fr = x;
+    double fg = y;
+    // provide some different values just to fill in b and a
+    double fb = x + 2;
+    double fa = y + 2;
+    // If signed, get some unsigned values in there
+    if (m_isSigned) {
+      fr -= m_maxVal;
+      fg -= m_maxVal;
+      fb -= m_maxVal;
+      fa -= m_maxVal;
+    }
+    // If normalized, scale to given range
+    if (m_isNorm) {
+      fr /= m_maxVal;
+      fg /= m_maxVal;
+      fb /= m_maxVal;
+      fa /= m_maxVal;
+
+      fr *= (1 << (RGBAType::GetRSize() - m_isSigned - 1));
+      fg *= (1 << (RGBAType::GetGSize() - m_isSigned - 1));
+      fb *= (1 << (RGBAType::GetBSize() - m_isSigned - 1));
+      fa *= (1 << (RGBAType::GetASize() - 1));
+    }
+    RGBA[i].SetChannels((UINT)fr, (UINT)fg, (UINT)fb, (UINT)fa);
+  }
+  virtual void *GetElements() { return (void*)RGBA; }
+  virtual unsigned GetXDim() { return xdim; }
+  virtual unsigned GetYDim() { return ydim; }
+  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+};
+
+template <unsigned xdim, unsigned ydim>
+struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
+  unsigned m_maxVal;
+  DXGI_FORMAT m_format;
+  IntRGBA10XRA2UNORM RGBA[xdim*ydim];
+  RawR10G10B10XRA2Texture(int maxVal, DXGI_FORMAT format)
+    : m_maxVal((maxVal + 2)/2), m_format(format) {}
+  // Set i'th element to values scaled and shifted for available range
+  virtual void SetElement(int i, int x, int y) override {
+    double fr = x;
+    double fg = y;
+    // provide some different values just to fill in b and a
+    double fb = x + 2;
+    double fa = y + 2;
+
+    // Shift RGB to valid range which will be -0.75 - 1.25
+    fr -= m_maxVal*.75;
+    fg -= m_maxVal*.75;
+    fb -= m_maxVal*.75;
+
+    // normalize to something that will fit in the limited range
+    fr /= m_maxVal;
+    fg /= m_maxVal;
+    fb /= m_maxVal;
+    fa /= m_maxVal*2;
+
+    fa *= 3; // scale to max in range
+
+    RGBA[i].SetChannels((float)fr, (float)fg, (float)fb, (float)fa);
+  }
+  virtual void *GetElements() { return (void*)RGBA; }
+  virtual unsigned GetXDim() { return xdim; }
+  virtual unsigned GetYDim() { return ydim; }
+  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+};
+
+//#define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to vet raw gather tests
+
+// Create a single resource of <resFormat> and alias it to a view of <viewFormat>
+// Then execute a shader that uses raw gather to copy the values into a UAV
+// Verify that the UAV has the same values as passed in.
+template<typename GatherType>
+void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *rawTex, DXGI_FORMAT viewFormat) {
+
+  DXGI_FORMAT resFormat = rawTex->GetFormat();
+#ifdef RAWGATHER_FALLBACK
+  // There is no uint64 version of Gather, so 64-bit fallback needs to use Loads
+  const char shaderTemplate64[] =
+    "Texture2D<uint%d_t> g_tex : register(t0);\n"
+    "RWStructuredBuffer<uint%d_t> g_out : register(u0);\n"
+    "SamplerState g_samp : register(s0);\n"
+    "[NumThreads(32, 32, 1)]\n"
+    "void main(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {\n"
+    "  //uint%d_t4 res = g_tex.%s(g_samp, (id.xy+0.5)/31.0);\n"
+    "  g_out[4*ix+0] = g_tex.Load(uint3(id.x, id.y+1, 0));\n"
+    "  g_out[4*ix+1] = g_tex.Load(uint3(id.x+1, id.y+1, 0));\n"
+    "  g_out[4*ix+2] = g_tex.Load(uint3(id.x+1, id.y, 0));\n"
+    "  g_out[4*ix+3] = g_tex.Load(uint3(id.x, id.y, 0));\n"
+    "}";
+  // can't set up the resource with its real format without 6.7 support
+  resFormat = viewFormat;
+#endif
+  const char shaderTemplate[] =
+    "Texture2D<uint%d_t> g_tex : register(t0);\n"
+    "RWStructuredBuffer<uint%d_t> g_out : register(u0);\n"
+    "SamplerState g_samp : register(s0);\n"
+    "[NumThreads(32, 32, 1)]\n"
+    "void main(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {\n"
+    "  uint%d_t4 res = g_tex.%s(g_samp, (id.xy+0.5)/31.0);\n"
+    "  g_out[4*ix+0] = res.x;\n"
+    "  g_out[4*ix+1] = res.y;\n"
+    "  g_out[4*ix+2] = res.z;\n"
+    "  g_out[4*ix+3] = res.w;\n"
+    "}";
+
+  char pShader[sizeof(shaderTemplate) + 200]; // A little padding to account for variations
+  UINT uintSize = sizeof(GatherType)*8; // bytes to bits
+
+  const char *gatherFuncName = "GatherRaw";
+#ifdef RAWGATHER_FALLBACK
+  gatherFuncName = "Gather";
+  if (sizeof(GatherType) == 8)
+    VERIFY_IS_GREATER_THAN(sprintf(pShader, shaderTemplate64, uintSize, uintSize, uintSize, gatherFuncName), 0);
+  else
+#endif
+    VERIFY_IS_GREATER_THAN(sprintf(pShader, shaderTemplate, uintSize, uintSize, uintSize, gatherFuncName), 0);
+
+  const UINT xDim = rawTex->GetXDim();
+  const UINT yDim = rawTex->GetYDim();
+  const UINT valueSize = xDim * yDim;
+  const UINT valueSizeInBytes =  valueSize * sizeof(GatherType);
+
+  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
+  FenceObj FO;
+
+  CreateComputeCommandQueue(pDevice, L"RawGather Queue", &pCommandQueue);
+  InitFenceObj(pDevice, &FO);
+
+  // Create root signature.
+  CComPtr<ID3D12RootSignature> pRootSignature;
+  CD3DX12_DESCRIPTOR_RANGE ranges[2];
+  CD3DX12_DESCRIPTOR_RANGE srange[1];
+  ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
+  ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+  srange[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0, 0);
+
+  CreateRootSignatureFromRanges(pDevice, &pRootSignature, ranges, 2, srange, 1);
+
+  VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
+
+  // Create command list and resources
+  CComPtr<ID3D12GraphicsCommandList> pCommandList;
+  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE,
+                                              pCommandAllocator, nullptr, IID_PPV_ARGS(&pCommandList)));
+
+  // Set up texture to be raw gathered from
+  CComPtr<ID3D12Resource> pTexResource;
+  CComPtr<ID3D12Resource> pTexUploadResource;
+  int ix = 0;
+  for (UINT y = 0; y < yDim; y++)
+    for (UINT x = 0; x < xDim; x++)
+      rawTex->SetElement(ix++, x, y);
+  D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(resFormat, xDim, yDim);
+  CreateTestResources(pDevice, pCommandList, rawTex->GetElements(), valueSizeInBytes, tex2dDesc,
+                      &pTexResource, &pTexUploadResource);
+
+  // Set up Output Resource
+  CComPtr<ID3D12Resource> pOutputResource;
+  CComPtr<ID3D12Resource> pOutputReadBuffer;
+  CComPtr<ID3D12Resource> pOutputUploadResource;
+
+  // 4x because gather produces four result values
+  GatherType *outVals = new GatherType[valueSize*4];
+  memset(outVals, 0xd, valueSizeInBytes*4); // 0xd to give a sentinal value for failures
+  CreateTestUavs(pDevice, pCommandList, outVals, valueSizeInBytes*4, &pOutputResource,
+                 &pOutputUploadResource, &pOutputReadBuffer);
+  delete[] outVals;
+
+  // Close the command list and execute it to perform the resource uploads
+  pCommandList->Close();
+  ID3D12CommandList *ppCommandLists[] = { pCommandList };
+  pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+  WaitForSignal(pCommandQueue, FO);
+
+  // Create shaders
+#ifdef RAWGATHER_FALLBACK
+  const wchar_t *target = L"cs_6_2";
+#else
+  const wchar_t *target = L"cs_6_7";
+#endif
+
+  LPCWSTR opts[] = {L"-enable-16bit-types"};
+
+  CComPtr<ID3D12PipelineState> pPSO;
+  CreateComputePSO(pDevice, pRootSignature, pShader, target, &pPSO, opts, _countof(opts));
+
+  // Reset commandlist to shader PSO
+  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pPSO));
+
+  // Describe and create a resource descriptor heap.
+  CComPtr<ID3D12DescriptorHeap> pResHeap;
+  CComPtr<ID3D12DescriptorHeap> pSampHeap;
+  D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+  heapDesc.NumDescriptors = 2;
+  heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+  heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+  VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pResHeap)));
+
+  // Describe and create a sampler descriptor heap.
+  heapDesc.NumDescriptors = 1;
+  heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+  VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pSampHeap)));
+
+  CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(pResHeap->GetCPUDescriptorHandleForHeapStart());
+  CreateTex2DSRV(pDevice, cpuHandle, viewFormat, pTexResource);
+  CreateStructUAV(pDevice, cpuHandle, 4*valueSize, sizeof(GatherType), pOutputResource);
+
+  D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT,
+                            D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
+  CreateDefaultSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
+                        filters, nullptr /*perSampleBorderColors*/, 1);
+
+  // Set Heaps, Rootsignature and table
+  ID3D12DescriptorHeap *const pHeaps[2] = { pResHeap, pSampHeap };
+  pCommandList->SetDescriptorHeaps(2, pHeaps);
+  pCommandList->SetComputeRootSignature(pRootSignature);
+  pCommandList->SetComputeRootDescriptorTable(0, pResHeap->GetGPUDescriptorHandleForHeapStart());
+  pCommandList->SetComputeRootDescriptorTable(1, pSampHeap->GetGPUDescriptorHandleForHeapStart());
+
+  // dispatch and close shader
+  pCommandList->Dispatch(1, 1, 1);
+
+  // Copy the results back to readable memory
+  CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(pOutputResource,
+                                        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+  pCommandList->ResourceBarrier(1, &barrier);
+  pCommandList->CopyResource(pOutputReadBuffer, pOutputResource);
+
+  pCommandList->Close();
+
+  pCommandQueue->ExecuteCommandLists(1, ppCommandLists);
+  WaitForSignal(pCommandQueue, FO);
+
+  MappedData mappedData(pOutputReadBuffer, 4*valueSizeInBytes);
+  GatherType *pData = (GatherType*)mappedData.data();
+  GatherType *texVals = (GatherType*)rawTex->GetElements();
+  UINT yCt = yDim;
+  UINT xCt = xDim;
+#ifdef RAWGATHER_FALLBACK
+  // 64-bit fallback uses Load, which doesn't support clamp addressing. so don't test it
+  if (sizeof(GatherType) == 8) {
+    yCt--;
+    xCt--;
+  }
+#endif
+  for (UINT y = 0; y < yCt; y++) {
+    UINT yp1 = y+1>=yDim?y:y+1;
+    for (UINT x = 0; x < xCt; x++) {
+      UINT xp1 = x+1>=xDim?x:x+1;
+      // Because this order may be unexpected, I'll quote the spec:
+      // "The four samples that would contribute to filtering are placed into xyzw
+      //  in counter clockwise order starting with the sample to the lower left"
+      VERIFY_ARE_EQUAL(pData[4*(32*y + x)+0], texVals[yp1*xDim + x]);
+      VERIFY_ARE_EQUAL(pData[4*(32*y + x)+1], texVals[yp1*xDim + xp1]);
+      VERIFY_ARE_EQUAL(pData[4*(32*y + x)+2], texVals[y*xDim   + xp1]);
+      VERIFY_ARE_EQUAL(pData[4*(32*y + x)+3], texVals[y*xDim   + x]);
+    }
+  }
+}
+
+// Create textures of various types and alias them to the unsigned integer format
+// that has the same element size and initializes them with various values,
+// The shader code copies the results of raw gather to an unsigned integer UAV
+// The UAV contents are compared to the values assigned to the texture
+TEST_F(ExecutionTest, ATORawGather) {
+
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> pDevice;
+#ifdef RAWGATHER_FALLBACK
+  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_6;
+#else
+  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_7;
+#endif
+  if (!CreateDevice(&pDevice, sm))
+      return;
+
+#ifndef RAWGATHER_FALLBACK
+  if (!DoesDeviceSupportAdvancedTexOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support Advanced Texture Operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+#endif
+
+  static const int NumThreadsX = 32;
+  static const int NumThreadsY = 32;
+  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY;
+  const size_t valueSize = ThreadsPerGroup;
+
+  // Create an array of texture variants with the raw texture base class
+  // Then plug them into DoRawGather to perform the test and evaluate the results for each
+  RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R16G16B16A16_TYPELESS);
+  RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_UINT(false, false, NumThreadsX, DXGI_FORMAT_R16G16B16A16_UINT);
+  RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_SINT(true, false, NumThreadsX, DXGI_FORMAT_R16G16B16A16_SINT);
+  RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R16G16B16A16_UNORM);
+  RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_SNORM(true, true, NumThreadsX, DXGI_FORMAT_R16G16B16A16_SNORM);
+  RawIntTexture<IntRG<32, 32>, NumThreadsX, NumThreadsY> R32G32_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R32G32_TYPELESS);
+  RawIntTexture<IntRG<32, 32>, NumThreadsX, NumThreadsY> R32G32_SINT(true, false, NumThreadsX, DXGI_FORMAT_R32G32_SINT);
+
+  RawFloatTexture<Float16RGBA, NumThreadsX, NumThreadsY> R16G16B16A16_FLOAT(DXGI_FORMAT_R16G16B16A16_FLOAT);
+  RawFloatTexture<Float32RG, NumThreadsX, NumThreadsY> R32G32_FLOAT(DXGI_FORMAT_R32G32_FLOAT);
+
+  RawGatherTexture *Int64Textures[] = {&R16G16B16A16_TYPELESS,
+                              &R16G16B16A16_UINT,
+                              &R16G16B16A16_SINT,
+                              &R16G16B16A16_UNORM,
+                              &R16G16B16A16_SNORM,
+                              &R32G32_TYPELESS,
+                              &R32G32_SINT,
+                              &R16G16B16A16_FLOAT,
+                              &R32G32_FLOAT};
+
+  RawIntTexture<IntRGBA<10, 10, 10, 2>, NumThreadsX, NumThreadsY> R10G10B10A2_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R10G10B10A2_TYPELESS);
+  RawIntTexture<IntRGBA<10, 10, 10, 2>, NumThreadsX, NumThreadsY> R10G10B10A2_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R10G10B10A2_UNORM);
+  RawIntTexture<IntRGBA<10, 10, 10, 2>, NumThreadsX, NumThreadsY> R10G10B10A2_UINT(false, false, NumThreadsX, DXGI_FORMAT_R10G10B10A2_UINT);
+  RawR10G10B10XRA2Texture<NumThreadsX, NumThreadsY> R10G10B10A2_XR_BIAS_A2_UNORM(NumThreadsX, DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM);
+  RawIntTexture<FloatRGBE, NumThreadsX, NumThreadsY> R9G9B9E5_SHAREDEXP(false, false, NumThreadsX, DXGI_FORMAT_R9G9B9E5_SHAREDEXP);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R8G8B8A8_TYPELESS);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R8G8B8A8_UNORM);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_UNORM_SRGB(false, true, NumThreadsX, DXGI_FORMAT_R8G8B8A8_UNORM);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_UINT(false, false, NumThreadsX, DXGI_FORMAT_R8G8B8A8_UINT);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_SNORM(true, true, NumThreadsX, DXGI_FORMAT_R8G8B8A8_SNORM);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_SINT(true, false, NumThreadsX, DXGI_FORMAT_R8G8B8A8_SINT);
+  RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R16G16_TYPELESS);
+  RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R16G16_UNORM);
+  RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_UINT(false, false, NumThreadsX, DXGI_FORMAT_R16G16_UINT);
+  RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_SNORM(true, true, NumThreadsX, DXGI_FORMAT_R16G16_SNORM);
+  RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_SINT(true, false, NumThreadsX, DXGI_FORMAT_R16G16_SINT);
+  RawIntTexture<IntR<32>, NumThreadsX, NumThreadsY> R32_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R32_TYPELESS);
+  RawIntTexture<IntR<32>, NumThreadsX, NumThreadsY> R32_SINT(true, false, NumThreadsX, DXGI_FORMAT_R32_SINT);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8_B8G8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R8G8_B8G8_UNORM);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> G8R8_G8B8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_G8R8_G8B8_UNORM);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8A8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_B8G8R8A8_TYPELESS);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8A8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8A8_UNORM);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8A8_UNORM_SRGB(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB);
+
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8X8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_B8G8R8X8_TYPELESS);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8X8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8X8_UNORM);
+  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8X8_UNORM_SRGB(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8X8_UNORM_SRGB);
+
+  RawFloatR11G11B10ATexture<NumThreadsX, NumThreadsY> R11G11B10_FLOAT;
+  RawFloatTexture<Float16RG, NumThreadsX, NumThreadsY> R16G16_FLOAT(DXGI_FORMAT_R16G16_FLOAT);
+  RawFloatTexture<Float32R, NumThreadsX, NumThreadsY> R32_FLOAT(DXGI_FORMAT_R32_FLOAT);
+
+  RawGatherTexture *Int32Textures[] = {&R10G10B10A2_TYPELESS,
+                                &R10G10B10A2_UNORM,
+                                &R10G10B10A2_UINT,
+                                &R10G10B10A2_XR_BIAS_A2_UNORM,
+                                &R9G9B9E5_SHAREDEXP,
+                                &R8G8B8A8_TYPELESS,
+                                &R8G8B8A8_UNORM,
+                                &R8G8B8A8_UNORM_SRGB,
+                                &R8G8B8A8_UINT,
+                                &R8G8B8A8_SNORM,
+                                &R8G8B8A8_SINT,
+                                &R16G16_TYPELESS,
+                                &R16G16_UNORM,
+                                &R16G16_UINT,
+                                &R16G16_SNORM,
+                                &R16G16_SINT,
+                                &R32_TYPELESS,
+                                &R32_SINT,
+                                &R8G8_B8G8_UNORM,
+                                &G8R8_G8B8_UNORM,
+                                &B8G8R8A8_TYPELESS,
+                                &B8G8R8A8_UNORM,
+                                &B8G8R8A8_UNORM_SRGB,
+                                &B8G8R8X8_TYPELESS,
+                                &B8G8R8X8_UNORM,
+                                &B8G8R8X8_UNORM_SRGB,
+                                &R11G11B10_FLOAT,
+                                &R16G16_FLOAT,
+                                &R32_FLOAT};
+
+  RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R8G8_TYPELESS);
+  RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_UINT(false, false, NumThreadsX, DXGI_FORMAT_R8G8_UINT);
+  RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_SINT(true,  false, NumThreadsX, DXGI_FORMAT_R8G8_SINT);
+  RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_UNORM(false, true,  NumThreadsX, DXGI_FORMAT_R8G8_UNORM);
+  RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_SNORM(true,  true,  NumThreadsX, DXGI_FORMAT_R8G8_SNORM);
+
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R16_TYPELESS);
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_SINT(true,  false, NumThreadsX, DXGI_FORMAT_R16_SINT);
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_UNORM(false, true,  NumThreadsX, DXGI_FORMAT_R16_UNORM);
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_SNORM(true,  true,  NumThreadsX, DXGI_FORMAT_R16_SNORM);
+
+  RawIntTexture<IntRGB<5, 6, 5>, NumThreadsX, NumThreadsY> B5G6R5_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B5G6R5_UNORM);
+  RawIntTexture<IntRGBA<5, 5, 5, 1>, NumThreadsX, NumThreadsY> B5G5R5A1_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B5G5R5A1_UNORM);
+  RawIntTexture<IntRGBA<4, 4, 4, 4>, NumThreadsX, NumThreadsY> B4G4R4A4_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B4G4R4A4_UNORM);
+
+  RawFloatTexture<Float16R, NumThreadsX, NumThreadsY> R16_FLOAT(DXGI_FORMAT_R16_FLOAT);
+  RawGatherTexture *Int16Textures[] = {&R8G8_TYPELESS,
+                               &R8G8_UINT,
+                               &R8G8_SINT,
+                               &R8G8_UNORM,
+                               &R8G8_SNORM,
+                               &R16_TYPELESS,
+                               &R16_SINT,
+                               &R16_UNORM,
+                               &R16_SNORM,
+                               &B5G6R5_UNORM,
+                               &B5G5R5A1_UNORM,
+                               &B4G4R4A4_UNORM};
+
+  for (int i = 0; i < _countof(Int32Textures); i++) {
+    DoRawGatherTest<uint32_t>(pDevice, Int32Textures[i], DXGI_FORMAT_R32_UINT);
+  }
+
+  if (DoesDeviceSupportNative16bitOps(pDevice)) {
+    for (int i = 0; i < _countof(Int16Textures); i++) {
+      DoRawGatherTest<uint16_t>(pDevice, Int16Textures[i], DXGI_FORMAT_R16_UINT);
+    }
+  }
+  if (DoesDeviceSupportInt64(pDevice)) {
+    for (int i = 0; i < _countof(Int64Textures); i++) {
+      DoRawGatherTest<uint64_t>(pDevice, Int64Textures[i], DXGI_FORMAT_R32G32_UINT);
+    }
+  }
+}
 
 // Executing a simple binop to verify shadel model 6.1 support; runs with
 // ShaderModel61.CoreRequirement
@@ -8929,7 +9607,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   // Create SRVs
   CreateRawSRV(pDevice, baseHandle, valueSize, pSRVResources[0]);
   CreateStructSRV(pDevice, baseHandle, valueSize, sizeof(float), pSRVResources[1]);
-  CreateTex2DSRV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pSRVResources[2]);
+  CreateTex2DSRV(pDevice, baseHandle, DXGI_FORMAT_R32_FLOAT, pSRVResources[2]);
   // Create UAVs
   CreateRawUAV(pDevice, baseHandle, valueSize, pUAVResources[0]);
   CreateStructUAV(pDevice, baseHandle, valueSize, sizeof(float), pUAVResources[1]);
@@ -8937,9 +9615,9 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   CreateTex1DUAV(pDevice, baseHandle, DXGI_FORMAT_R32_FLOAT, pUAVResources[3]);
 
   D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
-  float borderColors[] = {30.0, 31.0};
+  float perSampleBorderColors[] = {30.0, 31.0};
   CreateDefaultSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
-                        filters, borderColors, NumSamplers);
+                        filters, perSampleBorderColors, NumSamplers);
 
   // Run the compute shader and copy the results back to readable memory.
   pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
@@ -9034,6 +9712,122 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
 }
 
+//void ExecutionTest::TestComputeShaderDynamicResourcesUniformIndexing()
+
+void EnableShaderBasedValidation() {
+  CComPtr<ID3D12Debug> spDebugController0;
+  CComPtr<ID3D12Debug1> spDebugController1;
+  VERIFY_SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&spDebugController0)));
+  VERIFY_SUCCEEDED(
+      spDebugController0->QueryInterface(IID_PPV_ARGS(&spDebugController1)));
+  spDebugController1->SetEnableGPUBasedValidation(true);
+}
+
+TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
+  //EnableShaderBasedValidation();
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  st::ShaderOp *pShaderOp =
+      ShaderOpSet->GetShaderOp("DynamicResourcesUniformIndexing");
+
+  bool Skipped = true;
+
+  //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
+
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
+                  L"model 6.%1u",
+                  ((UINT)sm & 0x0f));
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+      continue;
+    }
+    D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+    VERIFY_SUCCEEDED(
+        pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
+                                     &devOptions, sizeof(devOptions)));
+    if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+      WEX::Logging::Log::Comment(
+          L"Device does not support Resource Binding Tier 3");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+
+    // Test Compute shader
+    {
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
+          ShaderOpSet);
+
+      MappedData resultData;
+      test->Test->GetReadBackData("g_result", &resultData);
+      const float *resultFloats = (float *)resultData.data();
+
+      VERIFY_ARE_EQUAL(resultFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultFloats[7], 31.0F);
+    }
+
+    // Test Vertex + Pixel shader
+    {
+      pShaderOp->CS = nullptr;
+      pShaderOp->VS = pShaderOp->GetString("VS66");
+      pShaderOp->PS = pShaderOp->GetString("PS66");
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
+          ShaderOpSet);
+
+      MappedData resultVSData;
+      MappedData resultPSData;
+      test->Test->GetReadBackData("g_resultVS", &resultVSData);
+      test->Test->GetReadBackData("g_resultPS", &resultPSData);
+      const float *resultVSFloats = (float *)resultVSData.data();
+      const float *resultPSFloats = (float *)resultPSData.data();
+      D3D12_QUERY_DATA_PIPELINE_STATISTICS Stats;
+      test->Test->GetPipelineStats(&Stats);
+
+
+      // VS
+      VERIFY_ARE_EQUAL(resultVSFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[7], 31.0F);
+
+      // PS
+      VERIFY_ARE_EQUAL(resultPSFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[7], 31.0F);
+    }
+    Skipped = false;
+  }
+  if (Skipped) {
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
+}
 
 #define MAX_WAVESIZE 128
 

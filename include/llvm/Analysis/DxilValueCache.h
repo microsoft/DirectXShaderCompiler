@@ -55,9 +55,7 @@ private:
   WeakValueMap ValueMap;
   bool (*ShouldSkipCallback)(Value *V) = nullptr;
 
-  void MarkAlwaysReachable(BasicBlock *BB);
   void MarkUnreachable(BasicBlock *BB);
-  bool IsAlwaysReachable_(BasicBlock *BB);
   bool IsUnreachable_(BasicBlock *BB);
   bool MayBranchTo(BasicBlock *A, BasicBlock *B);
   Value *TryGetCachedValue(Value *V);
@@ -65,6 +63,7 @@ private:
 
   Value *ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT);
   Value *ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT);
+  Value *ProcessAndSimplify_Switch(Instruction *I, DominatorTree *DT);
   Value *ProcessAndSimplify_Load(Instruction *LI, DominatorTree *DT);
   Value *SimplifyAndCacheResult(Instruction *I, DominatorTree *DT);
 
@@ -80,7 +79,6 @@ public:
   ConstantInt *GetConstInt(Value *V, DominatorTree *DT = nullptr);
   void ResetUnknowns() { ValueMap.ResetUnknowns(); }
   void ResetAll() { ValueMap.ResetAll(); }
-  bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   void SetShouldSkipCallback(bool (*Callback)(Value *V)) { ShouldSkipCallback = Callback; };
 };
