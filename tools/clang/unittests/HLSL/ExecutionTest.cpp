@@ -319,6 +319,8 @@ public:
   TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
+  TEST_METHOD(DynamicResourcesUniformIndexingTest)
+
   TEST_METHOD(QuadReadTest)
   TEST_METHOD(QuadAnyAll);
 
@@ -9710,6 +9712,122 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
 }
 
+//void ExecutionTest::TestComputeShaderDynamicResourcesUniformIndexing()
+
+void EnableShaderBasedValidation() {
+  CComPtr<ID3D12Debug> spDebugController0;
+  CComPtr<ID3D12Debug1> spDebugController1;
+  VERIFY_SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&spDebugController0)));
+  VERIFY_SUCCEEDED(
+      spDebugController0->QueryInterface(IID_PPV_ARGS(&spDebugController1)));
+  spDebugController1->SetEnableGPUBasedValidation(true);
+}
+
+TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
+  //EnableShaderBasedValidation();
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  st::ShaderOp *pShaderOp =
+      ShaderOpSet->GetShaderOp("DynamicResourcesUniformIndexing");
+
+  bool Skipped = true;
+
+  //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
+
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
+                  L"model 6.%1u",
+                  ((UINT)sm & 0x0f));
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+      continue;
+    }
+    D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+    VERIFY_SUCCEEDED(
+        pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
+                                     &devOptions, sizeof(devOptions)));
+    if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+      WEX::Logging::Log::Comment(
+          L"Device does not support Resource Binding Tier 3");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+
+    // Test Compute shader
+    {
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
+          ShaderOpSet);
+
+      MappedData resultData;
+      test->Test->GetReadBackData("g_result", &resultData);
+      const float *resultFloats = (float *)resultData.data();
+
+      VERIFY_ARE_EQUAL(resultFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultFloats[7], 31.0F);
+    }
+
+    // Test Vertex + Pixel shader
+    {
+      pShaderOp->CS = nullptr;
+      pShaderOp->VS = pShaderOp->GetString("VS66");
+      pShaderOp->PS = pShaderOp->GetString("PS66");
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
+          ShaderOpSet);
+
+      MappedData resultVSData;
+      MappedData resultPSData;
+      test->Test->GetReadBackData("g_resultVS", &resultVSData);
+      test->Test->GetReadBackData("g_resultPS", &resultPSData);
+      const float *resultVSFloats = (float *)resultVSData.data();
+      const float *resultPSFloats = (float *)resultPSData.data();
+      D3D12_QUERY_DATA_PIPELINE_STATISTICS Stats;
+      test->Test->GetPipelineStats(&Stats);
+
+
+      // VS
+      VERIFY_ARE_EQUAL(resultVSFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultVSFloats[7], 31.0F);
+
+      // PS
+      VERIFY_ARE_EQUAL(resultPSFloats[0], 10.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[1], 11.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[2], 12.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[3], 23.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[4], 24.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[5], 25.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[6], 30.0F);
+      VERIFY_ARE_EQUAL(resultPSFloats[7], 31.0F);
+    }
+    Skipped = false;
+  }
+  if (Skipped) {
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  }
+}
 
 #define MAX_WAVESIZE 128
 
