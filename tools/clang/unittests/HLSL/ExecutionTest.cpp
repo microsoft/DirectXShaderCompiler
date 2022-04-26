@@ -4692,7 +4692,6 @@ TEST_F(ExecutionTest, ATORawGather) {
   static const int NumThreadsX = 32;
   static const int NumThreadsY = 32;
   static const int ThreadsPerGroup = NumThreadsX * NumThreadsY;
-  const size_t valueSize = ThreadsPerGroup;
 
   // Create an array of texture variants with the raw texture base class
   // Then plug them into DoRawGather to perform the test and evaluate the results for each
