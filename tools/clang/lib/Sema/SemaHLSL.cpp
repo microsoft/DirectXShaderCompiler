@@ -6155,14 +6155,23 @@ bool HLSLExternalSource::MatchArguments(
       }
     }
 
+    ASTContext &actx = m_sema->getASTContext();
     // Usage
     if (pIntrinsicArg->qwUsage & AR_QUAL_OUT) {
-      if (pCallArg->getType().isConstQualified()) {
+      if (pType.isConstant(actx)) {
         // Can't use a const type in an out or inout parameter.
         badArgIdx = std::min(badArgIdx, iArg);
       }
     }
 
+    // Catch invalid atomic dest parameters
+    if (iArg == kAtomicDstOperandIdx &&
+        IsAtomicOperation(static_cast<IntrinsicOp>(pIntrinsic->Op))) {
+      // bitfield error is confusing
+      if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
+        badArgIdx = std::min(badArgIdx, iArg);
+      }
+    }
     iArg++;
   }
 

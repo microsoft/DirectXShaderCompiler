@@ -2192,6 +2192,10 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     if ((pOverloadType->isIntegerTy(64)) && !pSM->IsSM66Plus())
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"64-bit atomic operations", "Shader Model 6.6+"});
+    Value *Handle = CI->getOperand(DXIL::OperandIndex::kAtomicBinOpHandleOpIdx);
+    if (!isa<CallInst>(Handle) ||
+        ValCtx.GetResourceFromVal(Handle).getResourceClass() != DXIL::ResourceClass::UAV)
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrAtomicIntrinNonUAV);
   } break;
   case DXIL::OpCode::CreateHandle:
     if (ValCtx.isLibProfile) {
@@ -3180,11 +3184,19 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       } break;
       case Instruction::AtomicCmpXchg:
       case Instruction::AtomicRMW: {
-        Type *T = cast<PointerType>(I.getOperand(AtomicRMWInst::getPointerOperandIndex())->getType())->getElementType();
+        Value *Ptr = I.getOperand(AtomicRMWInst::getPointerOperandIndex());
+        PointerType *ptrType = cast<PointerType>(Ptr->getType());
+        Type *elType = ptrType->getElementType();
         const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
-        if ((T->isIntegerTy(64)) && !pSM->IsSM66Plus())
+        if ((elType->isIntegerTy(64)) && !pSM->IsSM66Plus())
           ValCtx.EmitInstrFormatError(&I, ValidationRule::SmOpcodeInInvalidFunction,
                                       {"64-bit atomic operations", "Shader Model 6.6+"});
+        if (ptrType->getAddressSpace() != DXIL::kTGSMAddrSpace) {
+          ValCtx.EmitInstrError(&I, ValidationRule::InstrAtomicOpNonGroupshared);
+        } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+          if(GV->isConstant())
+            ValCtx.EmitInstrError(&I, ValidationRule::InstrAtomicConst);
+        }
       } break;
 
       }

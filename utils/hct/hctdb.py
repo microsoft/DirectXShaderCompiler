@@ -2623,6 +2623,9 @@ class db_dxil(object):
         self.add_valrule("Instr.MultipleGetMeshPayload", "GetMeshPayload cannot be called multiple times.")
         self.add_valrule("Instr.NotOnceDispatchMesh", "DispatchMesh must be called exactly once in an Amplification shader.")
         self.add_valrule("Instr.NonDominatingDispatchMesh", "Non-Dominating DispatchMesh call.")
+        self.add_valrule("Instr.AtomicOpNonGroupshared", "Non-groupshared destination to atomic operation.")
+        self.add_valrule("Instr.AtomicIntrinNonUAV", "Non-UAV destination to atomic intrinsic.")
+        self.add_valrule("Instr.AtomicConst", "Constant destination to atomic.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
