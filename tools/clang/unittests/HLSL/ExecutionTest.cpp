@@ -947,8 +947,8 @@ public:
         D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pReadBuffer)));
 
     transferData.pData = values;
-    transferData.RowPitch = valueSizeInBytes/resDesc.Height;
-    transferData.SlicePitch = valueSizeInBytes;
+    transferData.RowPitch = (LONG_PTR)(valueSizeInBytes/resDesc.Height);
+    transferData.SlicePitch = (LONG_PTR)valueSizeInBytes;
 
     UpdateSubresources<1>(pCommandList, pResource.p, pUploadResource.p, 0, 0, 1, &transferData);
     if (resDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
