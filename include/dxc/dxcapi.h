@@ -257,8 +257,8 @@ struct IDxcLibrary : public IUnknown {
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IStream **ppStream) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
+
+  // Renamed from GetBlobAsUtf16 to GetBlobAsWide
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
 };
@@ -413,8 +413,8 @@ struct IDxcUtils : public IUnknown {
   // Convert or return matching encoded text blobs
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) = 0;
+
+  // Renamed from GetBlobAsUtf16 to GetBlobAsWide
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) = 0;
 
