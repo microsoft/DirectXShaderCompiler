@@ -173,6 +173,7 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
       Type *Ty = Res.GetRetType();
       RP.Typed.CompCount = dxilutil::GetResourceComponentCount(Ty);
       RP.Typed.CompType = (uint8_t)Res.GetCompType().GetKind();
+      RP.Typed.SampleCount = (uint8_t)Res.GetSampleCount();
       break;
     }
   };

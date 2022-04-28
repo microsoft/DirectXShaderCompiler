@@ -935,31 +935,35 @@ public:
       nullptr,
       IID_PPV_ARGS(&pResource)));
 
-    VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
-      &uploadHeapProperties,
-      D3D12_HEAP_FLAG_NONE,
-      &uploadBufferDesc,
-      D3D12_RESOURCE_STATE_GENERIC_READ,
-      nullptr,
-      IID_PPV_ARGS(&pUploadResource)));
+    if (ppUploadResource)
+      VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
+        &uploadHeapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &uploadBufferDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(&pUploadResource)));
 
     if (ppReadBuffer)
       VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
         &readHeap, D3D12_HEAP_FLAG_NONE, &readDesc,
         D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pReadBuffer)));
 
-    transferData.pData = values;
-    transferData.RowPitch = (LONG_PTR)(valueSizeInBytes/resDesc.Height);
-    transferData.SlicePitch = (LONG_PTR)valueSizeInBytes;
+    if (ppUploadResource) {
+      transferData.pData = values;
+      transferData.RowPitch = (LONG_PTR)(valueSizeInBytes/resDesc.Height);
+      transferData.SlicePitch = (LONG_PTR)valueSizeInBytes;
 
-    UpdateSubresources<1>(pCommandList, pResource.p, pUploadResource.p, 0, 0, 1, &transferData);
-    if (resDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
-      RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    else
-      RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
+      UpdateSubresources<1>(pCommandList, pResource.p, pUploadResource.p, 0, 0, 1, &transferData);
+      if (resDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
+        RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+      else
+        RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
+    }
 
     *ppResource = pResource.Detach();
-    *ppUploadResource = pUploadResource.Detach();
+    if (ppUploadResource)
+      *ppUploadResource = pUploadResource.Detach();
     if (ppReadBuffer)
       *ppReadBuffer = pReadBuffer.Detach();
   }
@@ -3830,7 +3834,6 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 
   // Set up texture Resource.
   CComPtr<ID3D12Resource> pUavResource;
-  CComPtr<ID3D12Resource> pUploadResource;
   float values[valueSize];
   memset(values, 0xc, valueSizeInBytes);
 
@@ -3842,10 +3845,10 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 #endif
 
   D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32_FLOAT,
-                                   NumThreadsX, NumThreadsY, ArraySize, 0, numsamp, 0,
-                                   D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+                                   NumThreadsX, NumThreadsY, ArraySize, 1, numsamp, 0,
+                                   D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
   CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex2dDesc,
-                      &pUavResource, &pUploadResource);
+                      &pUavResource, nullptr);
 
   // Close the command list and execute it to perform the resource uploads
   pCommandList->Close();
@@ -4698,7 +4701,6 @@ TEST_F(ExecutionTest, ATORawGather) {
   static const int NumThreadsX = 32;
   static const int NumThreadsY = 32;
   static const int ThreadsPerGroup = NumThreadsX * NumThreadsY;
-  const size_t valueSize = ThreadsPerGroup;
 
   // Create an array of texture variants with the raw texture base class
   // Then plug them into DoRawGather to perform the test and evaluate the results for each
@@ -10740,11 +10742,20 @@ HelperLaneWaveTestResult HelperLane_PSAfterDiscard_ExpectedResults = {
 
 HelperLaneWaveTestResult IncludesHelperLane_PS_ExpectedResults = {
   // HelperLaneWaveTestResult60
-  { 1, 0, { 0xF, 0, 0, 0 }, 4, 0, 4, 16, 256, 0, 1, 1, 1, 10, 3, 64, 8 },
+  { 1, 0, { 0xF, 0, 0, 0 }, 4, 0, 4, 16, 256, 0, 1, 1, 1, 10, 3, 64, 6 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0xF, 0, 0, 0}, 3, 6, 64, 0, 1, 1 }
+};
+
+HelperLaneWaveTestResult IncludesHelperLane_PSAfterDiscard_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 1, 0, { 0xF, 0, 0, 0 }, 4, 0, 4, 16, 256, 0, 1, 0, 1, 10, 3, 64, 6 },
   // HelperLaneQuadTestResult
   { 0, 1, 0, 1 },
   // HelperLaneWaveTestResult65
-  { {0xF, 0, 0, 0}, 3, 8, 64, 0, 1, 1 }
+  { {0xF, 0, 0, 0}, 3, 6, 64, 0, 1, 0 }
 };
 
 bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, uint32_t expectedValue, uint32_t actualValue) {
@@ -10984,11 +10995,10 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       pShaderOp->PS = pShaderOp->GetString("PS66");
     } else if (sm == D3D_SHADER_MODEL_6_7) {
       // Reassign shader stages to 6.7 versions
-      LPCSTR PS67 = nullptr;
-      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
-        if (!strcmp(S.Name, "PS67")) PS67 = S.Name;
-      }
-      pShaderOp->PS = PS67;
+      pShaderOp->CS = pShaderOp->GetString("CS66");
+      pShaderOp->VS = pShaderOp->GetString("VS66");
+      // Only PS has SM 6.7 version to test new [WaveOpsIncludeHelperLanes] attribute
+      pShaderOp->PS = pShaderOp->GetString("PS67");
     }
 
     const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1, PS_INDEX_AFTER_DISCARD = 2;
@@ -11010,7 +11020,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
                                      : HelperLane_PS_ExpectedResults;
     HelperLaneWaveTestResult &PSAfterDiscard_ExpectedResults =
         (sm >= D3D_SHADER_MODEL_6_7)
-            ? IncludesHelperLane_PS_ExpectedResults
+            ? IncludesHelperLane_PSAfterDiscard_ExpectedResults
             : HelperLane_PSAfterDiscard_ExpectedResults;
 
     // Test Vertex + Pixel shader

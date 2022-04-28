@@ -112,13 +112,13 @@
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U1" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
     <RootValues>
       <RootValue HeapName="ResHeap" />
@@ -291,13 +291,13 @@
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U1" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
     <RootValues>
       <RootValue HeapName="ResHeap" />
@@ -404,13 +404,13 @@
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="84" Height="4" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U1" Dimension="BUFFER" Width="2048"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="2048"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
     <RootValues>
       <RootValue HeapName="ResHeap" />
@@ -601,13 +601,13 @@
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="18" Height="18" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
     <Resource Name="U0" Dimension="BUFFER" Width="11552"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U1" Dimension="BUFFER" Width="11552"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="11552"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
     <RootValues>
       <RootValue HeapName="ResHeap" />
@@ -877,13 +877,13 @@
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="84" Height="4" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
     <Resource Name="U0" Dimension="BUFFER" Width="8192"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U1" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
     <RootValues>
       <RootValue HeapName="ResHeap" />
@@ -1089,7 +1089,7 @@
     </Resource>
     <Resource Name="U0" Dimension="BUFFER" Width="1280"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R8G8B8A8_UNORM" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <DescriptorHeap Name='RtvHeap' NumDescriptors='1' Type='RTV'>
       <Descriptor Name="RTarget" Kind="RTV"/>
@@ -1849,7 +1849,7 @@
     <!-- Raw buffers -->
     <Resource Name="U0" Dimension="BUFFER" Width="576"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true" >
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       {
       0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0I, 0I, 99999999I, 99999999I, 0I, 0I, 99999999I, 99999999I, 0, 0, 0, 0,
@@ -1863,22 +1863,22 @@
     </Resource>
     <Resource Name="U1" Dimension="BUFFER" Width="9216"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true">
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U3" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <!-- groupshared output buffers -->
     <Resource Name="U4" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U5" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <RootValues>
       <!-- Raw buffers -->
       <RootValue Index="0" ResName="U0" />
@@ -2184,7 +2184,7 @@
     <!-- Raw buffers -->
     <Resource Name="U0" Dimension="BUFFER" Width="576"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true" >
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       {
       0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0I, 0I, 99999999I, 99999999I, 0I, 0I, 99999999I, 99999999I, 0, 0, 0, 0,
@@ -2198,76 +2198,76 @@
     </Resource>
     <Resource Name="U1" Dimension="BUFFER" Width="9216"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="256" Format="R32_TYPELESS"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true">
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U3" Dimension="BUFFER" Width="1024" Format="R32_TYPELESS"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <!-- groupshared output buffers -->
     <Resource Name="U4" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U5" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <!-- 32-bit typed resources -->
     <Resource Name="U6" Dimension="BUFFER" Width="256" Format="R32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true" >
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U7" Dimension="BUFFER" Width="256" Format="R32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true">
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U8" Dimension="BUFFER" Width="1024" Format="R32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U9" Dimension="TEXTURE1D" Width="16" Format="R32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true" >
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U10" Dimension="TEXTURE1D" Width="16" Format="R32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true">
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U11" Dimension="TEXTURE1D" Width="128" Format="R32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <!-- 64-bit typed resources -->
     <Resource Name="U12" Dimension="BUFFER" Width="256" Format="R32G32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true" >
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U13" Dimension="BUFFER" Width="256" Format="R32G32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true">
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U14" Dimension="BUFFER" Width="1024" Format="R32G32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U15" Dimension="TEXTURE1D" Width="16" Format="R32G32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true" >
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U16" Dimension="TEXTURE1D" Width="16" Format="R32G32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true">
+              Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
     <Resource Name="U17" Dimension="TEXTURE1D" Width="128" Format="R32G32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <RootValues>
       <RootValue HeapName="ResHeap" />
     </RootValues>
@@ -2746,19 +2746,19 @@
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
     <Resource Name="U0" Dimension="BUFFER" Width="2816"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U1" Dimension="BUFFER" Width="256" Format="R32_TYPELESS"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U2" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U3" Dimension="TEXTURE1D" Width="64" Format="R32_FLOAT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <Resource Name="U4" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <RootValues>
       <RootValue HeapName="ResHeap" />
     </RootValues>
@@ -3178,12 +3178,23 @@
             // waterfall loop
             int count = 0;
             int waveCount = WaveGetLaneCount();
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+            // Count active lanes - includes helper lanes
+            while (count < waveCount) {
+                count++;
+                if (WaveIsFirstLane()) {
+                    break;
+                }
+            }
+#else
+            // Count active lanes and ensure none are helper lanes
             while (count < waveCount) {
                 count++;
                 if (WaveReadLaneFirst(!CALL(IsHelperLane())) && WaveIsFirstLane()) {
                     break;
                 }
             }
+#endif
             tr.waterfallLoopCount = count;
             
             is_helper = CALL(IsHelperLane());
