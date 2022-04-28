@@ -175,29 +175,41 @@ void Translator::createStageIOVariables(
   // Translate DXIL input signature to SPIR-V stage input vars.
   for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
        inputSignature) {
-    clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
-        toSpirvType(elem.get()), spv::StorageClass::Input,
-        elem->GetSemanticName(), false, {});
-    unsigned id = elem->GetID();
-    interfaceVars.push_back(var);
-    inputSignatureElementMap[id] = var;
-
-    // Use unique DXIL signature element ID as SPIR-V Location.
-    spvBuilder.decorateLocation(var, id);
+    createStageIOVariable(elem.get());
   }
 
   // Translate DXIL input signature to SPIR-V stage ouput vars.
   for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
        outputSignature) {
-    clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
-        toSpirvType(elem.get()), spv::StorageClass::Output,
-        elem->GetSemanticName(), false, {});
-    unsigned id = elem->GetID();
-    interfaceVars.push_back(var);
-    outputSignatureElementMap[id] = var;
+    createStageIOVariable(elem.get());
+  }
+}
+
+void Translator::createStageIOVariable(hlsl::DxilSignatureElement *elem) {
+  const spirv::SpirvType *spirvType = toSpirvType(elem);
+  spv::StorageClass storageClass =
+      elem->IsInput() ? spv::StorageClass::Input : spv::StorageClass::Output;
+  unsigned id = elem->GetID();
+  spirv::SpirvVariable *var;
+  switch (elem->GetKind()) {
+  case hlsl::Semantic::Kind::Position: {
+    var = spvBuilder.addStageBuiltinVar(spirvType, storageClass,
+                                        spv::BuiltIn::Position, false, {});
+  } break;
+  default: {
+    var = spvBuilder.addStageIOVar(spirvType, storageClass,
+                                   elem->GetSemanticName(), false, {});
 
     // Use unique DXIL signature element ID as SPIR-V Location.
     spvBuilder.decorateLocation(var, id);
+  } break;
+  }
+  interfaceVars.push_back(var);
+
+  if (storageClass == spv::StorageClass::Input) {
+    inputSignatureElementMap[id] = var;
+  } else {
+    outputSignatureElementMap[id] = var;
   }
 }
 
