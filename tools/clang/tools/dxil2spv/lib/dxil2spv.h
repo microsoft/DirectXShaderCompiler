@@ -58,6 +58,10 @@ private:
   // error checking.
   spirv::SpirvInstruction *getSpirvInstruction(llvm::Value *instruction);
 
+  // Create corresponding SPIR-V constant for a given DXIL instruction, with
+  // error checking.
+  spirv::SpirvInstruction *createSpirvConstant(llvm::Constant *instruction);
+
   // Create SPIR-V stage IO variable from DXIL input and output signatures.
   void createStageIOVariables(
       const std::vector<std::unique_ptr<hlsl::DxilSignatureElement>>

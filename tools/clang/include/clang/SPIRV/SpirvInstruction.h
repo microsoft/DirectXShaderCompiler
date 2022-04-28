@@ -1181,6 +1181,8 @@ class SpirvConstantFloat : public SpirvConstant {
 public:
   SpirvConstantFloat(QualType type, llvm::APFloat value,
                      bool isSpecConst = false);
+  SpirvConstantFloat(const SpirvType *type, llvm::APFloat value,
+                     bool isSpecConst = false);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantFloat)
 

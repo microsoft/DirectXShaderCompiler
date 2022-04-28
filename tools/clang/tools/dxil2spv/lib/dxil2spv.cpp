@@ -25,6 +25,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 
@@ -713,13 +714,32 @@ const spirv::SpirvType *Translator::toSpirvType(llvm::StructType *structType) {
 
 spirv::SpirvInstruction *
 Translator::getSpirvInstruction(llvm::Value *instruction) {
-  spirv::SpirvInstruction *spirvInstruction = instructionMap[instruction];
-  if (!spirvInstruction) {
-    emitError("Expected SPIR-V instruction not found for DXIL instruction: %0",
-              *instruction);
+  if (!instruction) {
+    emitError("Unexpected null DXIL instruction");
     return nullptr;
   }
-  return spirvInstruction;
+
+  if (spirv::SpirvInstruction *spirvInstruction = instructionMap[instruction])
+    return spirvInstruction;
+
+  if (llvm::Constant *constant = llvm::dyn_cast<llvm::Constant>(instruction)) {
+    return createSpirvConstant(constant);
+  }
+
+  emitError("Expected SPIR-V instruction not found for DXIL instruction: %0",
+            *instruction);
+  return nullptr;
+}
+
+spirv::SpirvInstruction *
+Translator::createSpirvConstant(llvm::Constant *instruction) {
+  if (llvm::ConstantFP *fp = llvm::dyn_cast<llvm::ConstantFP>(instruction)) {
+    return spvBuilder.getConstantFloat(spvContext.getFloatType(32),
+                                       fp->getValueAPF());
+  }
+
+  emitError("Unhandled LLVM constant instruction: %0", *instruction);
+  return nullptr;
 }
 
 template <unsigned N>
