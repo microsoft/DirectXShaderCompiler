@@ -699,6 +699,9 @@ TEST_F(FileTest, InheritanceCallMethodOfBase) {
   runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success,
               /* runValidation */ false);
 }
+TEST_F(FileTest, InheritanceBaseWithByteAddressBuffer) {
+  runFileTest("oo.inheritance.base-with-byte-address-buffer.hlsl");
+}
 TEST_F(FileTest, InheritanceCallMethodWithSameBaseMethodName) {
   runFileTest("oo.call.method.with.same.base.method.name.hlsl");
 }
