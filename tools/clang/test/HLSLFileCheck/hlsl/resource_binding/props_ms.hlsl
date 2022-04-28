@@ -1,12 +1,12 @@
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DCC=1 -DSCALAR=1          | FileCheck %s -DELTY=F32   -DPROP1=265
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DCC=1 -DSCALAR=1 -DSC=,0  | FileCheck %s -DELTY=F32   -DPROP1=265
-// RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DCC=1 -DSCALAR=1 -DSC=,8  | FileCheck %s -DELTY=F32   -DPROP1=265
+// RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DCC=1 -DSCALAR=1 -DSC=,8  | FileCheck %s -DELTY=F32   -DPROP1=524553
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DCC=1                     | FileCheck %s -DELTY=F32   -DPROP1=265
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DCC=2                     | FileCheck %s -DELTY=2xF32 -DPROP1=521
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DCC=3                     | FileCheck %s -DELTY=3xF32 -DPROP1=777
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=float                            | FileCheck %s -DELTY=4xF32 -DPROP1=1033
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DSC=,0                    | FileCheck %s -DELTY=4xF32 -DPROP1=1033
-// RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DSC=,8                    | FileCheck %s -DELTY=4xF32 -DPROP1=1033
+// RUN: %dxc -E main -T ps_6_6 %s -DCT=float -DSC=,8                    | FileCheck %s -DELTY=4xF32 -DPROP1=525321
 
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=int                              | FileCheck %s -DELTY=4xI32 -DPROP1=1028
 // RUN: %dxc -E main -T ps_6_6 %s -DCT=uint                             | FileCheck %s -DELTY=4xU32 -DPROP1=1029
