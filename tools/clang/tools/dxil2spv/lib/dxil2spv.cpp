@@ -189,8 +189,8 @@ void Translator::createStageIOVariable(hlsl::DxilSignatureElement *elem) {
   const spirv::SpirvType *spirvType = toSpirvType(elem);
   spv::StorageClass storageClass =
       elem->IsInput() ? spv::StorageClass::Input : spv::StorageClass::Output;
-  unsigned id = elem->GetID();
-  spirv::SpirvVariable *var;
+  const unsigned id = elem->GetID();
+  spirv::SpirvVariable *var = nullptr;
   switch (elem->GetKind()) {
   case hlsl::Semantic::Kind::Position: {
     var = spvBuilder.addStageBuiltinVar(spirvType, storageClass,
