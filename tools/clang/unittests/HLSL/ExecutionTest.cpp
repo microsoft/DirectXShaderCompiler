@@ -908,12 +908,19 @@ public:
     }
   }
 
+  // Create resources for the given <resDesc> described main resource
+  // creating and returning the resource, the upload resource,
+  // and the readback resource if requested, populating with <values> of size
+  // <valueSizeInBytes> using <pCommandList> and <pDevice>
+  // A pointer to a single <castFormat> target may be specified
+  // where CreateCommittedResource3 is available
   void CreateTestResources(ID3D12Device *pDevice,
                            ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
                            UINT64 valueSizeInBytes, D3D12_RESOURCE_DESC resDesc,
                            ID3D12Resource **ppResource,
                            ID3D12Resource **ppUploadResource,
-                           ID3D12Resource **ppReadBuffer = nullptr) {
+                           ID3D12Resource **ppReadBuffer = nullptr,
+                           DXGI_FORMAT *castFormat = nullptr) {
     CComPtr<ID3D12Resource> pResource;
     CComPtr<ID3D12Resource> pReadBuffer;
     CComPtr<ID3D12Resource> pUploadResource;
@@ -927,13 +934,31 @@ public:
     pDevice->GetCopyableFootprints(&resDesc, 0, 1/*mipleveles*/, 0, nullptr, nullptr, nullptr, &uploadBufferDesc.Width);
     uploadBufferDesc.Height = 1;
 
-    VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
-      &defaultHeapProperties,
-      D3D12_HEAP_FLAG_NONE,
-      &resDesc,
-      D3D12_RESOURCE_STATE_COPY_DEST,
-      nullptr,
-      IID_PPV_ARGS(&pResource)));
+#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
+    if (castFormat) {
+      CComPtr<ID3D12Device10> pDevice10;
+      VERIFY_SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&pDevice10)));
+      VERIFY_SUCCEEDED(pDevice10->CreateCommittedResource3(
+        &defaultHeapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &resDesc,
+        D3D12_BARRIER_LAYOUT_COPY_DEST,
+        nullptr,
+        castFormat, 1,
+        IID_PPV_ARGS(&pResource)));
+    } else
+#else
+    UNREFERENCED_PARAMETER(castFormat);
+#endif
+    {
+      VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
+        &defaultHeapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &resDesc,
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&pResource)));
+    }
 
     if (ppUploadResource)
       VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
@@ -1329,10 +1354,10 @@ public:
 
   bool DoesDeviceSupportAdvancedTexOps(ID3D12Device *pDevice) {
 #if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
-    D3D12_FEATURE_DATA_D3D12_OPTIONS13 O13;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS13, &O13, sizeof(O13))))
+    D3D12_FEATURE_DATA_D3D12_OPTIONS14 O14;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS14, &O14, sizeof(O14))))
       return false;
-    return O13.AdvancedTextureOpsSupported != FALSE;
+    return O14.AdvancedTextureOpsSupported != FALSE;
 #else
     UNREFERENCED_PARAMETER(pDevice);
     return false;
@@ -1341,10 +1366,37 @@ public:
 
   bool DoesDeviceSupportWritableMSAA(ID3D12Device *pDevice) {
 #if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
-    D3D12_FEATURE_DATA_D3D12_OPTIONS13 O13;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS13, &O13, sizeof(O13))))
+    D3D12_FEATURE_DATA_D3D12_OPTIONS14 O14;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS14, &O14, sizeof(O14))))
       return false;
-    return O13.WriteableMSAATexturesSupported != FALSE;
+    return O14.WriteableMSAATexturesSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
+    D3D12_FEATURE_DATA_D3D12_OPTIONS12 O12;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS12, &O12, sizeof(O12))))
+      return false;
+    return O12.EnhancedBarriersSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
+    D3D12_FEATURE_DATA_D3D12_OPTIONS12 O12;
+    if (!DoesDeviceSupportEnhancedBarriers(pDevice))
+      return false;
+
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS12, &O12, sizeof(O12))))
+      return false;
+    return O12.RelaxedFormatCastingSupported != FALSE;
 #else
     UNREFERENCED_PARAMETER(pDevice);
     return false;
@@ -4501,8 +4553,6 @@ void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *raw
     "  g_out[4*ix+2] = g_tex.Load(uint3(id.x+1, id.y, 0));\n"
     "  g_out[4*ix+3] = g_tex.Load(uint3(id.x, id.y, 0));\n"
     "}";
-  // can't set up the resource with its real format without 6.7 support
-  resFormat = viewFormat;
 #endif
   const char shaderTemplate[] =
     "Texture2D<uint%d_t> g_tex : register(t0);\n"
@@ -4558,6 +4608,14 @@ void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *raw
   VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE,
                                               pCommandAllocator, nullptr, IID_PPV_ARGS(&pCommandList)));
 
+  // Set up castable format list (of one) if possible, or else just alias the
+  // formats with the expectation that unsupported cases won't be used by the caller
+  DXGI_FORMAT *castableFmt = nullptr;
+  if (DoesDeviceSupportEnhancedBarriers(pDevice))
+    castableFmt = &viewFormat;
+  else
+    resFormat = viewFormat;
+
   // Set up texture to be raw gathered from
   CComPtr<ID3D12Resource> pTexResource;
   CComPtr<ID3D12Resource> pTexUploadResource;
@@ -4566,8 +4624,10 @@ void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *raw
     for (UINT x = 0; x < xDim; x++)
       rawTex->SetElement(ix++, x, y);
   D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(resFormat, xDim, yDim);
+
   CreateTestResources(pDevice, pCommandList, rawTex->GetElements(), valueSizeInBytes, tex2dDesc,
-                      &pTexResource, &pTexUploadResource);
+                      &pTexResource, &pTexUploadResource,
+                      nullptr /*pReadBufer*/, castableFmt);
 
   // Set up Output Resource
   CComPtr<ID3D12Resource> pOutputResource;
@@ -4677,11 +4737,21 @@ void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *raw
 // that has the same element size and initializes them with various values,
 // The shader code copies the results of raw gather to an unsigned integer UAV
 // The UAV contents are compared to the values assigned to the texture
+// A few levels of support are available:
+// pre-6.7 fallback - fakey hand waving to make it look like it's doing the right thing
+// 6.7 support only - No casting ability of resources to views beyond native support, but GatherRaw is available
+// 6.7 + Enh. Barriers - Same formats can be cast as in native, but use new createcommittedresource3()
+// 6.7 + Enh. Barriers + Relaxed Cast - All format casting and raw gathering of all
 TEST_F(ExecutionTest, ATORawGather) {
 
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
+#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
+  CComPtr<ID3D12Device10> pDevice;
+#else
   CComPtr<ID3D12Device> pDevice;
+#endif
+
 #ifdef RAWGATHER_FALLBACK
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_6;
 #else
@@ -4704,45 +4774,53 @@ TEST_F(ExecutionTest, ATORawGather) {
 
   // Create an array of texture variants with the raw texture base class
   // Then plug them into DoRawGather to perform the test and evaluate the results for each
+  RawIntTexture<IntRG<32, 32>, NumThreadsX, NumThreadsY> R32G32_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R32G32_TYPELESS);
+  RawIntTexture<IntRG<32, 32>, NumThreadsX, NumThreadsY> R32G32_UINT(false, false, NumThreadsX, DXGI_FORMAT_R32G32_UINT);
+  RawIntTexture<IntRG<32, 32>, NumThreadsX, NumThreadsY> R32G32_SINT(true, false, NumThreadsX, DXGI_FORMAT_R32G32_SINT);
+
   RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R16G16B16A16_TYPELESS);
   RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_UINT(false, false, NumThreadsX, DXGI_FORMAT_R16G16B16A16_UINT);
   RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_SINT(true, false, NumThreadsX, DXGI_FORMAT_R16G16B16A16_SINT);
   RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R16G16B16A16_UNORM);
   RawIntTexture<IntRGBA<16, 16, 16, 16>, NumThreadsX, NumThreadsY> R16G16B16A16_SNORM(true, true, NumThreadsX, DXGI_FORMAT_R16G16B16A16_SNORM);
-  RawIntTexture<IntRG<32, 32>, NumThreadsX, NumThreadsY> R32G32_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R32G32_TYPELESS);
-  RawIntTexture<IntRG<32, 32>, NumThreadsX, NumThreadsY> R32G32_SINT(true, false, NumThreadsX, DXGI_FORMAT_R32G32_SINT);
-
   RawFloatTexture<Float16RGBA, NumThreadsX, NumThreadsY> R16G16B16A16_FLOAT(DXGI_FORMAT_R16G16B16A16_FLOAT);
   RawFloatTexture<Float32RG, NumThreadsX, NumThreadsY> R32G32_FLOAT(DXGI_FORMAT_R32G32_FLOAT);
 
-  RawGatherTexture *Int64Textures[] = {&R16G16B16A16_TYPELESS,
+  RawGatherTexture *Int64Textures[] = {
+                              &R32G32_TYPELESS,
+                              &R32G32_UINT,
+                              &R32G32_SINT,
+                              &R16G16B16A16_TYPELESS,
                               &R16G16B16A16_UINT,
                               &R16G16B16A16_SINT,
                               &R16G16B16A16_UNORM,
                               &R16G16B16A16_SNORM,
-                              &R32G32_TYPELESS,
-                              &R32G32_SINT,
                               &R16G16B16A16_FLOAT,
                               &R32G32_FLOAT};
+
+  RawIntTexture<IntR<32>, NumThreadsX, NumThreadsY> R32_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R32_TYPELESS);
+  RawIntTexture<IntR<32>, NumThreadsX, NumThreadsY> R32_SINT(true, false, NumThreadsX, DXGI_FORMAT_R32_SINT);
+  RawIntTexture<IntR<32>, NumThreadsX, NumThreadsY> R32_UINT(true, false, NumThreadsX, DXGI_FORMAT_R32_UINT);
 
   RawIntTexture<IntRGBA<10, 10, 10, 2>, NumThreadsX, NumThreadsY> R10G10B10A2_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R10G10B10A2_TYPELESS);
   RawIntTexture<IntRGBA<10, 10, 10, 2>, NumThreadsX, NumThreadsY> R10G10B10A2_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R10G10B10A2_UNORM);
   RawIntTexture<IntRGBA<10, 10, 10, 2>, NumThreadsX, NumThreadsY> R10G10B10A2_UINT(false, false, NumThreadsX, DXGI_FORMAT_R10G10B10A2_UINT);
   RawR10G10B10XRA2Texture<NumThreadsX, NumThreadsY> R10G10B10A2_XR_BIAS_A2_UNORM(NumThreadsX, DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM);
   RawIntTexture<FloatRGBE, NumThreadsX, NumThreadsY> R9G9B9E5_SHAREDEXP(false, false, NumThreadsX, DXGI_FORMAT_R9G9B9E5_SHAREDEXP);
+
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R8G8B8A8_TYPELESS);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R8G8B8A8_UNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_UNORM_SRGB(false, true, NumThreadsX, DXGI_FORMAT_R8G8B8A8_UNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_UINT(false, false, NumThreadsX, DXGI_FORMAT_R8G8B8A8_UINT);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_SNORM(true, true, NumThreadsX, DXGI_FORMAT_R8G8B8A8_SNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8B8A8_SINT(true, false, NumThreadsX, DXGI_FORMAT_R8G8B8A8_SINT);
+
   RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R16G16_TYPELESS);
   RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R16G16_UNORM);
   RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_UINT(false, false, NumThreadsX, DXGI_FORMAT_R16G16_UINT);
   RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_SNORM(true, true, NumThreadsX, DXGI_FORMAT_R16G16_SNORM);
   RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_SINT(true, false, NumThreadsX, DXGI_FORMAT_R16G16_SINT);
-  RawIntTexture<IntR<32>, NumThreadsX, NumThreadsY> R32_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R32_TYPELESS);
-  RawIntTexture<IntR<32>, NumThreadsX, NumThreadsY> R32_SINT(true, false, NumThreadsX, DXGI_FORMAT_R32_SINT);
+
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8_B8G8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R8G8_B8G8_UNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> G8R8_G8B8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_G8R8_G8B8_UNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8A8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_B8G8R8A8_TYPELESS);
@@ -4753,11 +4831,15 @@ TEST_F(ExecutionTest, ATORawGather) {
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8X8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8X8_UNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8X8_UNORM_SRGB(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8X8_UNORM_SRGB);
 
+  RawFloatTexture<Float32R, NumThreadsX, NumThreadsY> R32_FLOAT(DXGI_FORMAT_R32_FLOAT);
   RawFloatR11G11B10ATexture<NumThreadsX, NumThreadsY> R11G11B10_FLOAT;
   RawFloatTexture<Float16RG, NumThreadsX, NumThreadsY> R16G16_FLOAT(DXGI_FORMAT_R16G16_FLOAT);
-  RawFloatTexture<Float32R, NumThreadsX, NumThreadsY> R32_FLOAT(DXGI_FORMAT_R32_FLOAT);
 
-  RawGatherTexture *Int32Textures[] = {&R10G10B10A2_TYPELESS,
+  RawGatherTexture *Int32Textures[] = {
+                                &R32_TYPELESS,
+                                &R32_UINT,
+                                &R32_SINT,
+                                &R10G10B10A2_TYPELESS,
                                 &R10G10B10A2_UNORM,
                                 &R10G10B10A2_UINT,
                                 &R10G10B10A2_XR_BIAS_A2_UNORM,
@@ -4773,8 +4855,6 @@ TEST_F(ExecutionTest, ATORawGather) {
                                 &R16G16_UINT,
                                 &R16G16_SNORM,
                                 &R16G16_SINT,
-                                &R32_TYPELESS,
-                                &R32_SINT,
                                 &R8G8_B8G8_UNORM,
                                 &G8R8_G8B8_UNORM,
                                 &B8G8R8A8_TYPELESS,
@@ -4783,50 +4863,58 @@ TEST_F(ExecutionTest, ATORawGather) {
                                 &B8G8R8X8_TYPELESS,
                                 &B8G8R8X8_UNORM,
                                 &B8G8R8X8_UNORM_SRGB,
+                                &R32_FLOAT,
                                 &R11G11B10_FLOAT,
-                                &R16G16_FLOAT,
-                                &R32_FLOAT};
+                                &R16G16_FLOAT};
+
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R16_TYPELESS);
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_SINT(true,  false, NumThreadsX, DXGI_FORMAT_R16_SINT);
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_UINT(true,  false, NumThreadsX, DXGI_FORMAT_R16_UINT);
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_UNORM(false, true,  NumThreadsX, DXGI_FORMAT_R16_UNORM);
+  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_SNORM(true,  true,  NumThreadsX, DXGI_FORMAT_R16_SNORM);
+  RawFloatTexture<Float16R, NumThreadsX, NumThreadsY> R16_FLOAT(DXGI_FORMAT_R16_FLOAT);
 
   RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R8G8_TYPELESS);
   RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_UINT(false, false, NumThreadsX, DXGI_FORMAT_R8G8_UINT);
   RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_SINT(true,  false, NumThreadsX, DXGI_FORMAT_R8G8_SINT);
   RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_UNORM(false, true,  NumThreadsX, DXGI_FORMAT_R8G8_UNORM);
   RawIntTexture<IntRG<8, 8>, NumThreadsX, NumThreadsY> R8G8_SNORM(true,  true,  NumThreadsX, DXGI_FORMAT_R8G8_SNORM);
-
-  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_R16_TYPELESS);
-  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_SINT(true,  false, NumThreadsX, DXGI_FORMAT_R16_SINT);
-  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_UNORM(false, true,  NumThreadsX, DXGI_FORMAT_R16_UNORM);
-  RawIntTexture<IntR<16>, NumThreadsX, NumThreadsY> R16_SNORM(true,  true,  NumThreadsX, DXGI_FORMAT_R16_SNORM);
-
   RawIntTexture<IntRGB<5, 6, 5>, NumThreadsX, NumThreadsY> B5G6R5_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B5G6R5_UNORM);
   RawIntTexture<IntRGBA<5, 5, 5, 1>, NumThreadsX, NumThreadsY> B5G5R5A1_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B5G5R5A1_UNORM);
   RawIntTexture<IntRGBA<4, 4, 4, 4>, NumThreadsX, NumThreadsY> B4G4R4A4_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B4G4R4A4_UNORM);
 
-  RawFloatTexture<Float16R, NumThreadsX, NumThreadsY> R16_FLOAT(DXGI_FORMAT_R16_FLOAT);
-  RawGatherTexture *Int16Textures[] = {&R8G8_TYPELESS,
+  RawGatherTexture *Int16Textures[] = {
+                               &R16_TYPELESS,
+                               &R16_UINT,
+                               &R16_SINT,
+                               &R16_UNORM,
+                               &R16_SNORM,
+                               &R8G8_TYPELESS,
                                &R8G8_UINT,
                                &R8G8_SINT,
                                &R8G8_UNORM,
                                &R8G8_SNORM,
-                               &R16_TYPELESS,
-                               &R16_SINT,
-                               &R16_UNORM,
-                               &R16_SNORM,
                                &B5G6R5_UNORM,
                                &B5G5R5A1_UNORM,
-                               &B4G4R4A4_UNORM};
+                               &B4G4R4A4_UNORM,
+                               &R16_FLOAT};
 
-  for (int i = 0; i < _countof(Int32Textures); i++) {
+  bool canCast = DoesDeviceSupportRelaxedFormatCasting(pDevice);
+  int int32Ct = canCast? _countof(Int32Textures) : 3; // The first three are already castable to UINT32
+
+  for (int i = 0; i < int32Ct; i++) {
     DoRawGatherTest<uint32_t>(pDevice, Int32Textures[i], DXGI_FORMAT_R32_UINT);
   }
 
   if (DoesDeviceSupportNative16bitOps(pDevice)) {
-    for (int i = 0; i < _countof(Int16Textures); i++) {
+    int int16Ct = canCast? _countof(Int16Textures) : 5; // The first five are already castable to UINT16
+    for (int i = 0; i < int16Ct; i++) {
       DoRawGatherTest<uint16_t>(pDevice, Int16Textures[i], DXGI_FORMAT_R16_UINT);
     }
   }
   if (DoesDeviceSupportInt64(pDevice)) {
-    for (int i = 0; i < _countof(Int64Textures); i++) {
+    int int64Ct = canCast? _countof(Int64Textures) : 3; // The first three are already castable to UINT64
+    for (int i = 0; i < int64Ct; i++) {
       DoRawGatherTest<uint64_t>(pDevice, Int64Textures[i], DXGI_FORMAT_R32G32_UINT);
     }
   }
