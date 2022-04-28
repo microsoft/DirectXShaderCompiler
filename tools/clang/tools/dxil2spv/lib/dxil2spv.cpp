@@ -195,14 +195,16 @@ void Translator::createStageIOVariable(hlsl::DxilSignatureElement *elem) {
   case hlsl::Semantic::Kind::Position: {
     var = spvBuilder.addStageBuiltinVar(spirvType, storageClass,
                                         spv::BuiltIn::Position, false, {});
-  } break;
+    break;
+  }
   default: {
     var = spvBuilder.addStageIOVar(spirvType, storageClass,
                                    elem->GetSemanticName(), false, {});
 
     // Use unique DXIL signature element ID as SPIR-V Location.
     spvBuilder.decorateLocation(var, id);
-  } break;
+    break;
+  }
   }
   interfaceVars.push_back(var);
 
@@ -276,26 +278,33 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
     switch (dxilOpcode) {
     case hlsl::DXIL::OpCode::LoadInput: {
       createLoadInputInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::StoreOutput: {
       createStoreOutputInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::ThreadId: {
       createThreadIdInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::CreateHandle: {
       createHandleInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::BufferLoad: {
       createBufferLoadInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::BufferStore: {
       createBufferStoreInstruction(callInstruction);
-    } break;
+      break;
+    }
     default: {
       emitError("Unhandled DXIL opcode: %0")
           << hlsl::OP::GetOpCodeName(dxilOpcode);
-    } break;
+      break;
+    }
     }
   }
   // Handle binary operator instructions.
@@ -427,7 +436,8 @@ void Translator::createBinaryOpInstruction(llvm::BinaryOperator &instruction) {
 
     result = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical, uint32, val,
                                        spvShift, {});
-  } break;
+    break;
+  }
   default: {
     emitError("Unhandled LLVM binary opcode: %0") << opcode;
     return;
