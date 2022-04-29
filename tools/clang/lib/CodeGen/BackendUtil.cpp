@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/Support/Global.h"
 #include "clang/CodeGen/BackendUtil.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/LangOptions.h"
@@ -762,7 +763,18 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
                               raw_pwrite_stream *OS) {
   EmitAssemblyHelper AsmHelper(Diags, CGOpts, TOpts, LOpts, M);
 
-  AsmHelper.EmitAssembly(Action, OS);
+  // Catch any fatal errors during optimization passes here
+  // so that future passes can be skipped.
+  try {
+    AsmHelper.EmitAssembly(Action, OS);
+  } catch (const ::hlsl::Exception &hlslException) {
+    const char *msg = hlslException.what();
+    const std::string msgStr(msg);
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "'%0'\nFatal error during optimization, aborting.");
+    Diags.Report(DiagID) << msgStr;
+  }
 
   // If an optional clang TargetInfo description string was passed in, use it to
   // verify the LLVM TargetMachine's DataLayout.
