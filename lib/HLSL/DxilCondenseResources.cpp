@@ -567,7 +567,7 @@ public:
     bChanged |= RemovePhiOnResource();
 
     if (m_bLegalizationFailed)
-      return bChanged;
+      throw hlsl::Exception(DXC_E_OPTIMIZATION_FAILED, "Resource legalization failed");
 
     if (m_bIsLib) {
       if (DM.GetOP()->UseMinPrecision())

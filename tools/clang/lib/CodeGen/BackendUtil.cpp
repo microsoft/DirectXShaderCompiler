@@ -769,7 +769,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     // so that future passes can be skipped.
     AsmHelper.EmitAssembly(Action, OS);
   } catch (const ::hlsl::Exception &hlslException) {
-    Diags.Report(Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0"))
+    Diags.Report(Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0\nFatal error during optimization, aborting"))
         << StringRef(hlslException.what());
   } // HLSL Change Ends
 
