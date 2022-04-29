@@ -3178,12 +3178,23 @@
             // waterfall loop
             int count = 0;
             int waveCount = WaveGetLaneCount();
+#if  __SHADER_TARGET_MAJOR > 6 || (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 7)
+            // Count active lanes - includes helper lanes
+            while (count < waveCount) {
+                count++;
+                if (WaveIsFirstLane()) {
+                    break;
+                }
+            }
+#else
+            // Count active lanes and ensure none are helper lanes
             while (count < waveCount) {
                 count++;
                 if (WaveReadLaneFirst(!CALL(IsHelperLane())) && WaveIsFirstLane()) {
                     break;
                 }
             }
+#endif
             tr.waterfallLoopCount = count;
             
             is_helper = CALL(IsHelperLane());
