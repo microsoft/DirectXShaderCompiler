@@ -722,9 +722,8 @@ Translator::getSpirvInstruction(llvm::Value *instruction) {
   if (spirv::SpirvInstruction *spirvInstruction = instructionMap[instruction])
     return spirvInstruction;
 
-  if (llvm::Constant *constant = llvm::dyn_cast<llvm::Constant>(instruction)) {
+  if (auto *constant = llvm::dyn_cast<llvm::Constant>(instruction))
     return createSpirvConstant(constant);
-  }
 
   emitError("Expected SPIR-V instruction not found for DXIL instruction: %0",
             *instruction);
@@ -733,10 +732,9 @@ Translator::getSpirvInstruction(llvm::Value *instruction) {
 
 spirv::SpirvInstruction *
 Translator::createSpirvConstant(llvm::Constant *instruction) {
-  if (llvm::ConstantFP *fp = llvm::dyn_cast<llvm::ConstantFP>(instruction)) {
+  if (auto *fp = llvm::dyn_cast<llvm::ConstantFP>(instruction))
     return spvBuilder.getConstantFloat(spvContext.getFloatType(32),
                                        fp->getValueAPF());
-  }
 
   emitError("Unhandled LLVM constant instruction: %0", *instruction);
   return nullptr;
