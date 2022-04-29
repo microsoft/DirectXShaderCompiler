@@ -763,18 +763,15 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
                               raw_pwrite_stream *OS) {
   EmitAssemblyHelper AsmHelper(Diags, CGOpts, TOpts, LOpts, M);
 
-  // Catch any fatal errors during optimization passes here
-  // so that future passes can be skipped.
-  try {
+
+  try { // HLSL Change Starts
+    // Catch any fatal errors during optimization passes here
+    // so that future passes can be skipped.
     AsmHelper.EmitAssembly(Action, OS);
   } catch (const ::hlsl::Exception &hlslException) {
-    const char *msg = hlslException.what();
-    const std::string msgStr(msg);
-    unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "'%0'\nFatal error during optimization, aborting.");
-    Diags.Report(DiagID) << msgStr;
-  }
+    Diags.Report(Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0"))
+        << StringRef(hlslException.what());
+  } // HLSL Change Ends
 
   // If an optional clang TargetInfo description string was passed in, use it to
   // verify the LLVM TargetMachine's DataLayout.
