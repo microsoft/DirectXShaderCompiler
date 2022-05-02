@@ -319,7 +319,7 @@ public:
   TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
-  TEST_METHOD(DynamicResourcesUniformIndexingTest)
+  TEST_METHOD(DynamicResourcesUniformAndNonUniformIndexingTest)
 
   TEST_METHOD(QuadReadTest)
   TEST_METHOD(QuadAnyAll);
@@ -9729,7 +9729,7 @@ void EnableShaderBasedValidation() {
   spDebugController1->SetEnableGPUBasedValidation(true);
 }
 
-TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
+TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
   //EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -9740,12 +9740,23 @@ TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
       std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp =
-      ShaderOpSet->GetShaderOp("DynamicResourcesUniformIndexing");
+      ShaderOpSet->GetShaderOp("DynamicResourcesUniformAndNonUniformIndexing");
 
   bool Skipped = true;
 
   //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
   D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
+
+  const int expectedResultsSize = 16;
+  float expectedResults[expectedResultsSize] = {
+    10.0, 10.0, 
+    11.0, 11.0,
+    12.0, 12.0, 
+    23.0, 23.0, 
+    24.0, 24.0,
+    25.0, 25.0, 
+    30.0, 30.0, 
+    31.0, 31.0};
 
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
@@ -9772,21 +9783,17 @@ TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
     {
       pShaderOp->CS = pShaderOp->GetString("CS66");
       std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
+          pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
           ShaderOpSet);
 
       MappedData resultData;
       test->Test->GetReadBackData("g_result", &resultData);
       const float *resultFloats = (float *)resultData.data();
 
-      VERIFY_ARE_EQUAL(resultFloats[0], 10.0F);
-      VERIFY_ARE_EQUAL(resultFloats[1], 11.0F);
-      VERIFY_ARE_EQUAL(resultFloats[2], 12.0F);
-      VERIFY_ARE_EQUAL(resultFloats[3], 23.0F);
-      VERIFY_ARE_EQUAL(resultFloats[4], 24.0F);
-      VERIFY_ARE_EQUAL(resultFloats[5], 25.0F);
-      VERIFY_ARE_EQUAL(resultFloats[6], 30.0F);
-      VERIFY_ARE_EQUAL(resultFloats[7], 31.0F);
+      for (unsigned int i = 0; i < expectedResultsSize; i++)
+      {
+        VERIFY_ARE_EQUAL(resultFloats[i], expectedResults[i]);
+      }
     }
 
     // Test Vertex + Pixel shader
@@ -9795,7 +9802,7 @@ TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
       pShaderOp->VS = pShaderOp->GetString("VS66");
       pShaderOp->PS = pShaderOp->GetString("PS66");
       std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
+          pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
           ShaderOpSet);
 
       MappedData resultVSData;
@@ -9809,24 +9816,16 @@ TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
 
 
       // VS
-      VERIFY_ARE_EQUAL(resultVSFloats[0], 10.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[1], 11.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[2], 12.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[3], 23.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[4], 24.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[5], 25.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[6], 30.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[7], 31.0F);
+      for (unsigned int i = 0; i < expectedResultsSize; i++)
+      {
+        VERIFY_ARE_EQUAL(resultVSFloats[i], expectedResults[i]);
+      }
 
       // PS
-      VERIFY_ARE_EQUAL(resultPSFloats[0], 10.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[1], 11.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[2], 12.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[3], 23.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[4], 24.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[5], 25.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[6], 30.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[7], 31.0F);
+      for (unsigned int i = 0; i < expectedResultsSize; i++)
+      {
+        VERIFY_ARE_EQUAL(resultPSFloats[i], expectedResults[i]);
+      }
     }
     Skipped = false;
   }
