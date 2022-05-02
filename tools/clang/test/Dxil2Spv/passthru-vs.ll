@@ -123,15 +123,14 @@ attributes #1 = { nounwind }
 ; ; Schema: 0
 ;                OpCapability Shader
 ;                OpMemoryModel Logical GLSL450
-;                OpEntryPoint Vertex %VSMain "VSMain" %POSITION %COLOR %SV_Position %COLOR_0
+;                OpEntryPoint Vertex %VSMain "VSMain" %POSITION %COLOR %gl_Position %COLOR_0
 ;                OpName %POSITION "POSITION"
 ;                OpName %COLOR "COLOR"
-;                OpName %SV_Position "SV_Position"
 ;                OpName %COLOR_0 "COLOR"
 ;                OpName %VSMain "VSMain"
 ;                OpDecorate %POSITION Location 0
 ;                OpDecorate %COLOR Location 1
-;                OpDecorate %SV_Position Location 0
+;                OpDecorate %gl_Position BuiltIn Position
 ;                OpDecorate %COLOR_0 Location 1
 ;        %uint = OpTypeInt 32 0
 ;      %uint_0 = OpConstant %uint 0
@@ -148,7 +147,7 @@ attributes #1 = { nounwind }
 ; %_ptr_Output_float = OpTypePointer Output %float
 ;    %POSITION = OpVariable %_ptr_Input_v4float Input
 ;       %COLOR = OpVariable %_ptr_Input_v4float Input
-; %SV_Position = OpVariable %_ptr_Output_v4float Output
+; %gl_Position = OpVariable %_ptr_Output_v4float Output
 ;     %COLOR_0 = OpVariable %_ptr_Output_v4float Output
 ;      %VSMain = OpFunction %void None %16
 ;          %17 = OpLabel
@@ -168,13 +167,13 @@ attributes #1 = { nounwind }
 ;          %32 = OpLoad %float %31
 ;          %33 = OpAccessChain %_ptr_Input_float %POSITION %uint_3
 ;          %34 = OpLoad %float %33
-;          %36 = OpAccessChain %_ptr_Output_float %SV_Position %uint_0
+;          %36 = OpAccessChain %_ptr_Output_float %gl_Position %uint_0
 ;                OpStore %36 %28
-;          %37 = OpAccessChain %_ptr_Output_float %SV_Position %uint_1
+;          %37 = OpAccessChain %_ptr_Output_float %gl_Position %uint_1
 ;                OpStore %37 %30
-;          %38 = OpAccessChain %_ptr_Output_float %SV_Position %uint_2
+;          %38 = OpAccessChain %_ptr_Output_float %gl_Position %uint_2
 ;                OpStore %38 %32
-;          %39 = OpAccessChain %_ptr_Output_float %SV_Position %uint_3
+;          %39 = OpAccessChain %_ptr_Output_float %gl_Position %uint_3
 ;                OpStore %39 %34
 ;          %40 = OpAccessChain %_ptr_Output_float %COLOR_0 %uint_0
 ;                OpStore %40 %20
