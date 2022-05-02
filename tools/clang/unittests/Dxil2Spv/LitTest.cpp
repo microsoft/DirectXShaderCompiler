@@ -7,9 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "FileTestFixture.h"
 #include "WholeFileTestFixture.h"
 
 namespace {
+using clang::dxil2spv::FileTest;
 using clang::dxil2spv::WholeFileTest;
 
 TEST_F(WholeFileTest, PassThruPixelShader) {
@@ -23,5 +25,7 @@ TEST_F(WholeFileTest, PassThruVertexShader) {
 TEST_F(WholeFileTest, PassThruComputeShader) {
   runWholeFileTest("passthru-cs.ll");
 }
+
+TEST_F(FileTest, StaticVertexShader) { runFileTest("static-vertex.ll"); }
 
 } // namespace

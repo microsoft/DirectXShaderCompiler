@@ -1,20 +1,21 @@
 set(LLVM_LINK_COMPONENTS
-  Support
   dxcsupport
   dxil
   dxilrootsignature
   hlsl
+  Support
   )
 
 add_clang_unittest(clang-dxil2spv-tests
-  TestMain.cpp
-  LitTest.cpp
-  WholeFileTestFixture.cpp
-  WholeFileTestFixture.h
-  FileTestUtils.cpp
-  FileTestUtils.h
   Dxil2SpvTestOptions.cpp
   Dxil2SpvTestOptions.h
+  FileTestFixture.cpp
+  FileTestUtils.cpp
+  FileTestUtils.h
+  LitTest.cpp
+  TestMain.cpp
+  WholeFileTestFixture.cpp
+  WholeFileTestFixture.h
   )
 
 target_link_libraries(clang-dxil2spv-tests

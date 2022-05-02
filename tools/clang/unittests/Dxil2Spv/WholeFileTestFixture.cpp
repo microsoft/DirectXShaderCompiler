@@ -106,7 +106,7 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename) {
   // Parse the input file.
   ASSERT_TRUE(parseInputFile());
 
-  // Feed the HLSL source into the Compiler.
+  // Feed the DXIL source into the translator.
   ASSERT_TRUE(utils::translateFileWithDxil2Spv(
       inputFilePath, &generatedSpirvAsm, &generatedErrors));
 
