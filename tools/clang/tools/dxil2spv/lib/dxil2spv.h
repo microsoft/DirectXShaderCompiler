@@ -65,6 +65,10 @@ private:
       const std::vector<std::unique_ptr<hlsl::DxilSignatureElement>>
           &outputSignature);
 
+  // Create SPIR-V stage IO variable or Builtin variable from DXIL signature
+  // element.
+  void createStageIOVariable(hlsl::DxilSignatureElement *elem);
+
   // Create SPIR-V module variables from DXIL resources.
   void createModuleVariables(
       const std::vector<std::unique_ptr<hlsl::DxilResource>> &resources);
