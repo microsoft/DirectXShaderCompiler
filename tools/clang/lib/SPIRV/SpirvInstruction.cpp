@@ -572,6 +572,15 @@ SpirvConstantFloat::SpirvConstantFloat(QualType type, llvm::APFloat val,
   assert(type->isFloatingType());
 }
 
+SpirvConstantFloat::SpirvConstantFloat(const SpirvType *type, llvm::APFloat val,
+                                       bool isSpecConst)
+    : SpirvConstant(IK_ConstantFloat,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
+      value(val) {
+  assert(isa<FloatType>(type));
+}
+
 bool SpirvConstantFloat::operator==(const SpirvConstantFloat &that) const {
   return resultType == that.resultType && astResultType == that.astResultType &&
          value.bitwiseIsEqual(that.value) && opcode == that.opcode;
