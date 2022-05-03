@@ -745,6 +745,8 @@ public:
                                 bool specConst = false);
   SpirvConstant *getConstantFloat(QualType type, llvm::APFloat value,
                                   bool specConst = false);
+  SpirvConstant *getConstantFloat(const SpirvType *type, llvm::APFloat value,
+                                  bool specConst = false);
   SpirvConstant *getConstantBool(bool value, bool specConst = false);
   SpirvConstant *
   getConstantComposite(QualType compositeType,

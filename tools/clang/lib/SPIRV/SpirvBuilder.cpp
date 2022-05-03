@@ -1673,6 +1673,15 @@ SpirvConstant *SpirvBuilder::getConstantFloat(QualType type,
   return floatConst;
 }
 
+SpirvConstant *SpirvBuilder::getConstantFloat(const SpirvType *type,
+                                              llvm::APFloat value,
+                                              bool specConst) {
+  // We do not reuse existing constant floats. Just create a new one.
+  auto *floatConst = new (context) SpirvConstantFloat(type, value, specConst);
+  mod->addConstant(floatConst);
+  return floatConst;
+}
+
 SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
   // We do not care about making unique constants at this point.
   auto *boolConst =

@@ -25,6 +25,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 
@@ -175,29 +176,43 @@ void Translator::createStageIOVariables(
   // Translate DXIL input signature to SPIR-V stage input vars.
   for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
        inputSignature) {
-    clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
-        toSpirvType(elem.get()), spv::StorageClass::Input,
-        elem->GetSemanticName(), false, {});
-    unsigned id = elem->GetID();
-    interfaceVars.push_back(var);
-    inputSignatureElementMap[id] = var;
-
-    // Use unique DXIL signature element ID as SPIR-V Location.
-    spvBuilder.decorateLocation(var, id);
+    createStageIOVariable(elem.get());
   }
 
   // Translate DXIL input signature to SPIR-V stage ouput vars.
   for (const std::unique_ptr<hlsl::DxilSignatureElement> &elem :
        outputSignature) {
-    clang::spirv::SpirvVariable *var = spvBuilder.addStageIOVar(
-        toSpirvType(elem.get()), spv::StorageClass::Output,
-        elem->GetSemanticName(), false, {});
-    unsigned id = elem->GetID();
-    interfaceVars.push_back(var);
-    outputSignatureElementMap[id] = var;
+    createStageIOVariable(elem.get());
+  }
+}
+
+void Translator::createStageIOVariable(hlsl::DxilSignatureElement *elem) {
+  const spirv::SpirvType *spirvType = toSpirvType(elem);
+  spv::StorageClass storageClass =
+      elem->IsInput() ? spv::StorageClass::Input : spv::StorageClass::Output;
+  const unsigned id = elem->GetID();
+  spirv::SpirvVariable *var = nullptr;
+  switch (elem->GetKind()) {
+  case hlsl::Semantic::Kind::Position: {
+    var = spvBuilder.addStageBuiltinVar(spirvType, storageClass,
+                                        spv::BuiltIn::Position, false, {});
+    break;
+  }
+  default: {
+    var = spvBuilder.addStageIOVar(spirvType, storageClass,
+                                   elem->GetSemanticName(), false, {});
 
     // Use unique DXIL signature element ID as SPIR-V Location.
     spvBuilder.decorateLocation(var, id);
+    break;
+  }
+  }
+  interfaceVars.push_back(var);
+
+  if (storageClass == spv::StorageClass::Input) {
+    inputSignatureElementMap[id] = var;
+  } else {
+    outputSignatureElementMap[id] = var;
   }
 }
 
@@ -264,26 +279,33 @@ void Translator::createInstruction(llvm::Instruction &instruction) {
     switch (dxilOpcode) {
     case hlsl::DXIL::OpCode::LoadInput: {
       createLoadInputInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::StoreOutput: {
       createStoreOutputInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::ThreadId: {
       createThreadIdInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::CreateHandle: {
       createHandleInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::BufferLoad: {
       createBufferLoadInstruction(callInstruction);
-    } break;
+      break;
+    }
     case hlsl::DXIL::OpCode::BufferStore: {
       createBufferStoreInstruction(callInstruction);
-    } break;
+      break;
+    }
     default: {
       emitError("Unhandled DXIL opcode: %0")
           << hlsl::OP::GetOpCodeName(dxilOpcode);
-    } break;
+      break;
+    }
     }
   }
   // Handle binary operator instructions.
@@ -415,7 +437,8 @@ void Translator::createBinaryOpInstruction(llvm::BinaryOperator &instruction) {
 
     result = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical, uint32, val,
                                        spvShift, {});
-  } break;
+    break;
+  }
   default: {
     emitError("Unhandled LLVM binary opcode: %0") << opcode;
     return;
@@ -713,13 +736,30 @@ const spirv::SpirvType *Translator::toSpirvType(llvm::StructType *structType) {
 
 spirv::SpirvInstruction *
 Translator::getSpirvInstruction(llvm::Value *instruction) {
-  spirv::SpirvInstruction *spirvInstruction = instructionMap[instruction];
-  if (!spirvInstruction) {
-    emitError("Expected SPIR-V instruction not found for DXIL instruction: %0",
-              *instruction);
+  if (!instruction) {
+    emitError("Unexpected null DXIL instruction");
     return nullptr;
   }
-  return spirvInstruction;
+
+  if (spirv::SpirvInstruction *spirvInstruction = instructionMap[instruction])
+    return spirvInstruction;
+
+  if (auto *constant = llvm::dyn_cast<llvm::Constant>(instruction))
+    return createSpirvConstant(constant);
+
+  emitError("Expected SPIR-V instruction not found for DXIL instruction: %0",
+            *instruction);
+  return nullptr;
+}
+
+spirv::SpirvInstruction *
+Translator::createSpirvConstant(llvm::Constant *instruction) {
+  if (auto *fp = llvm::dyn_cast<llvm::ConstantFP>(instruction))
+    return spvBuilder.getConstantFloat(spvContext.getFloatType(32),
+                                       fp->getValueAPF());
+
+  emitError("Unhandled LLVM constant instruction: %0", *instruction);
+  return nullptr;
 }
 
 template <unsigned N>
