@@ -9745,7 +9745,7 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
   bool Skipped = true;
 
   //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
-  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_6};
 
   const int expectedResultsSize = 16;
   float expectedResults[expectedResultsSize] = {
@@ -9755,83 +9755,148 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
     23.0, 23.0, 
     24.0, 24.0,
     25.0, 25.0, 
-    30.0, 30.0, 
-    31.0, 31.0};
+    30.0, 31.0, 
+    32.0, 33.0};
+    
+  for (unsigned int non_uniform_bit = 0; non_uniform_bit < 2; non_uniform_bit++) {
+    for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+      D3D_SHADER_MODEL sm = TestShaderModels[i];
+      LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
+                    L"model 6.%1u",
+                    ((UINT)sm & 0x0f));
 
-  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
-    D3D_SHADER_MODEL sm = TestShaderModels[i];
-    LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
-                  L"model 6.%1u",
-                  ((UINT)sm & 0x0f));
+      CComPtr<ID3D12Device> pDevice;
+      if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+        continue;
+      }
+      D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+      VERIFY_SUCCEEDED(
+          pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
+                                       &devOptions, sizeof(devOptions)));
+      if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+        WEX::Logging::Log::Comment(
+            L"Device does not support Resource Binding Tier 3");
+        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+        return;
+      }
 
-    CComPtr<ID3D12Device> pDevice;
-    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
-      continue;
+      // Add compile options
+      char compilerOptions[256];
+      if (non_uniform_bit && sm==D3D_SHADER_MODEL_6_0) {
+        sprintf_s(compilerOptions, sizeof(compilerOptions),
+                                "-D FALLBACK=%d, -D NON_UNIFORM=%d", 1, 1);
+      }
+      else if (non_uniform_bit || sm==D3D_SHADER_MODEL_6_0){
+        if (non_uniform_bit){
+          sprintf_s(compilerOptions, sizeof(compilerOptions),
+                                "-D NON_UNIFORM=%d",1);
+        } 
+        else{
+          sprintf_s(compilerOptions, sizeof(compilerOptions),
+                                "-D FALLBACK=%d",1);
+        }
+      }
+
+      // by default a root value is added.
+      // remove the root value if this is the non-fallback path
+      if (sm==D3D_SHADER_MODEL_6_6 && non_uniform_bit)
+      {
+        pShaderOp->RootValues.clear();
+      }
+
+      // Update shader target in xml.
+      for (st::ShaderOpShader &S : pShaderOp->Shaders){
+        if (sm==D3D_SHADER_MODEL_6_0){
+          S.Arguments = compilerOptions;
+          vector<char> s;
+          for (unsigned int j = 0; j < sizeof(S.Target); j++){
+            s.push_back(S.Target[j]);
+          }
+          // change Target from ps_6_6 to ps_6_0, for example
+          s[sizeof(S.Target)-1] = '0';
+          strcpy_s(s.data(), sizeof(S.Target), S.Target);
+        }
+      }
+
+      // Test Compute shader
+      {
+        pShaderOp->CS = pShaderOp->GetString("CS66");
+        std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+            pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
+            ShaderOpSet);
+
+        MappedData resultData;
+        test->Test->GetReadBackData("g_result", &resultData);
+        const float *resultFloats = (float *)resultData.data();
+
+        for (unsigned int j = 0; j < expectedResultsSize; j++)
+        {
+          if (j == expectedResultsSize-4 && !non_uniform_bit)
+          {
+            VERIFY_ARE_EQUAL(resultFloats[j],   30.0);
+            VERIFY_ARE_EQUAL(resultFloats[j+1], 30.0);
+            VERIFY_ARE_EQUAL(resultFloats[j+2], 32.0);
+            VERIFY_ARE_EQUAL(resultFloats[j+3], 32.0);
+            break;
+          }
+          VERIFY_ARE_EQUAL(resultFloats[j], expectedResults[j]);
+        }
+      }
+
+      // Test Vertex + Pixel shader
+      {
+        pShaderOp->CS = nullptr;
+        pShaderOp->VS = pShaderOp->GetString("VS66");
+        pShaderOp->PS = pShaderOp->GetString("PS66");
+        std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+            pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
+            ShaderOpSet);
+
+        MappedData resultVSData;
+        MappedData resultPSData;
+        test->Test->GetReadBackData("g_resultVS", &resultVSData);
+        test->Test->GetReadBackData("g_resultPS", &resultPSData);
+        const float *resultVSFloats = (float *)resultVSData.data();
+        const float *resultPSFloats = (float *)resultPSData.data();
+        D3D12_QUERY_DATA_PIPELINE_STATISTICS Stats;
+        test->Test->GetPipelineStats(&Stats);
+
+
+        // VS
+        for (unsigned int j = 0; j < expectedResultsSize; j++)
+        {
+          if (j == expectedResultsSize-4 && !non_uniform_bit)
+          {
+            VERIFY_ARE_EQUAL(resultVSFloats[j],   30.0);
+            VERIFY_ARE_EQUAL(resultVSFloats[j+1], 30.0);
+            VERIFY_ARE_EQUAL(resultVSFloats[j+2], 32.0);
+            VERIFY_ARE_EQUAL(resultVSFloats[j+3], 32.0);
+            break;
+          }
+          VERIFY_ARE_EQUAL(resultVSFloats[j], expectedResults[j]);
+        }
+
+        // PS
+        for (unsigned int j = 0; j < expectedResultsSize; j++)
+        {
+          if (j == expectedResultsSize-4 && !non_uniform_bit)
+          {
+            VERIFY_ARE_EQUAL(resultPSFloats[j],   30.0);
+            VERIFY_ARE_EQUAL(resultPSFloats[j+1], 30.0);
+            VERIFY_ARE_EQUAL(resultPSFloats[j+2], 32.0);
+            VERIFY_ARE_EQUAL(resultPSFloats[j+3], 32.0);
+            break;
+          }
+          VERIFY_ARE_EQUAL(resultPSFloats[j], expectedResults[j]);
+        }
+      }
+      Skipped = false;
     }
-    D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
-    VERIFY_SUCCEEDED(
-        pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
-                                     &devOptions, sizeof(devOptions)));
-    if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
-      WEX::Logging::Log::Comment(
-          L"Device does not support Resource Binding Tier 3");
+    if (Skipped) {
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return;
     }
-
-    // Test Compute shader
-    {
-      pShaderOp->CS = pShaderOp->GetString("CS66");
-      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
-          ShaderOpSet);
-
-      MappedData resultData;
-      test->Test->GetReadBackData("g_result", &resultData);
-      const float *resultFloats = (float *)resultData.data();
-
-      for (unsigned int i = 0; i < expectedResultsSize; i++)
-      {
-        VERIFY_ARE_EQUAL(resultFloats[i], expectedResults[i]);
-      }
-    }
-
-    // Test Vertex + Pixel shader
-    {
-      pShaderOp->CS = nullptr;
-      pShaderOp->VS = pShaderOp->GetString("VS66");
-      pShaderOp->PS = pShaderOp->GetString("PS66");
-      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
-          ShaderOpSet);
-
-      MappedData resultVSData;
-      MappedData resultPSData;
-      test->Test->GetReadBackData("g_resultVS", &resultVSData);
-      test->Test->GetReadBackData("g_resultPS", &resultPSData);
-      const float *resultVSFloats = (float *)resultVSData.data();
-      const float *resultPSFloats = (float *)resultPSData.data();
-      D3D12_QUERY_DATA_PIPELINE_STATISTICS Stats;
-      test->Test->GetPipelineStats(&Stats);
-
-
-      // VS
-      for (unsigned int i = 0; i < expectedResultsSize; i++)
-      {
-        VERIFY_ARE_EQUAL(resultVSFloats[i], expectedResults[i]);
-      }
-
-      // PS
-      for (unsigned int i = 0; i < expectedResultsSize; i++)
-      {
-        VERIFY_ARE_EQUAL(resultPSFloats[i], expectedResults[i]);
-      }
-    }
-    Skipped = false;
   }
-  if (Skipped) {
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-  }
+  
 }
 
 #define MAX_WAVESIZE 128
