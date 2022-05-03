@@ -247,7 +247,7 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
 
   // Wrap LLVM module in a DXBC container.
   size_t DXILSize = DxilBuffer.size_in_bytes();
-  DxilContainerWriter *pContainerWriter = hlsl::NewDxilContainerWriter();
+  std::unique_ptr<DxilContainerWriter> pContainerWriter(hlsl::NewDxilContainerWriter());
   pContainerWriter->AddPart(DXBC_DXIL, DXILSize, [=](AbstractMemoryStream *pStream) {
     WritePart(pStream, DxilBuffer);
   });
