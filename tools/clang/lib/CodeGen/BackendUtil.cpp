@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dxc/Support/Global.h"
 #include "clang/CodeGen/BackendUtil.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/LangOptions.h"
@@ -44,6 +43,7 @@
 #include <memory>
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h"  // HLSL Change
+#include "dxc/Support/Global.h" // HLSL Change
 
 using namespace clang;
 using namespace llvm;
@@ -769,7 +769,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     // so that future passes can be skipped.
     AsmHelper.EmitAssembly(Action, OS);
   } catch (const ::hlsl::Exception &hlslException) {
-    Diags.Report(Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0\nFatal error during optimization, aborting"))
+    Diags.Report(Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0\n"))
         << StringRef(hlslException.what());
   } // HLSL Change Ends
 
