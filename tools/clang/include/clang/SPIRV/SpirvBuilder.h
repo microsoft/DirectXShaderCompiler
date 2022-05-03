@@ -754,6 +754,7 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
 
+  SpirvString *createString(llvm::StringRef str);
   SpirvString *getString(llvm::StringRef str);
 
   const HybridPointerType *getPhysicalStorageBufferType(QualType pointee);
@@ -855,8 +856,12 @@ private:
   SpirvDebugExpression *nullDebugExpr;
 
   // To avoid generating multiple OpStrings for the same string literal
-  // the SpirvBuilder will generate and reuse them.
+  // the SpirvBuilder will generate and reuse them. The empty string is
+  // kept track of separately. This is because the empty string is used
+  // as the EmptyKey and TombstoneKey for the map, prohibiting insertion
+  // of the empty string as a contained value.
   llvm::DenseMap<llvm::StringRef, SpirvString *, StringMapInfo> stringLiterals;
+  SpirvString *emptyString;
 
   /// Mapping of CTBuffers including matrix 1xN with FXC memory layout to their
   /// clone variables. We need it to avoid multiple clone variables for the same
