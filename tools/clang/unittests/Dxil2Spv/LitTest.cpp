@@ -8,11 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "FileTestUtils.h"
-#include "WholeFileTestFixture.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/WEXAdapter.h"
-
-using clang::dxil2spv::WholeFileTest;
 
 namespace {
 
@@ -52,17 +49,11 @@ bool FileTest::InitSupport() {
   return true;
 }
 
-TEST_F(WholeFileTest, PassThruPixelShader) {
-  runWholeFileTest("passthru-ps.ll");
-}
+TEST_F(FileTest, PassThruPixelShader) { runFileTest("passthru-ps.ll"); }
 
-TEST_F(WholeFileTest, PassThruVertexShader) {
-  runWholeFileTest("passthru-vs.ll");
-}
+TEST_F(FileTest, PassThruVertexShader) { runFileTest("passthru-vs.ll"); }
 
-TEST_F(WholeFileTest, PassThruComputeShader) {
-  runWholeFileTest("passthru-cs.ll");
-}
+TEST_F(FileTest, PassThruComputeShader) { runFileTest("passthru-cs.ll"); }
 
 TEST_F(FileTest, StaticVertex) { runFileTest("static-vertex.ll"); }
 

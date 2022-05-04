@@ -13,8 +13,6 @@ add_clang_unittest(clang-dxil2spv-tests
   FileTestUtils.h
   LitTest.cpp
   TestMain.cpp
-  WholeFileTestFixture.cpp
-  WholeFileTestFixture.h
   )
 
 target_link_libraries(clang-dxil2spv-tests
