@@ -32,7 +32,7 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
       mod(llvm::make_unique<SpirvModule>()), function(nullptr),
       moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
       builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
-      stringLiterals() {}
+      stringLiterals(), emptyString(nullptr) {}
 
 SpirvBuilder::SpirvBuilder(SpirvContext &ctx, const SpirvCodeGenOptions &opt,
                            FeatureManager &featureMg)
@@ -40,7 +40,7 @@ SpirvBuilder::SpirvBuilder(SpirvContext &ctx, const SpirvCodeGenOptions &opt,
       mod(llvm::make_unique<SpirvModule>()), function(nullptr),
       moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
       builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
-      stringLiterals() {}
+      stringLiterals(), emptyString(nullptr) {}
 
 SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
                                                  SourceLocation loc,
@@ -1708,18 +1708,29 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   return nullConst;
 }
 
-SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
-  // Reuse an existing instruction if possible.
-  auto iter = stringLiterals.find(str.str());
-  if (iter != stringLiterals.end())
-    return iter->second;
-
+SpirvString *SpirvBuilder::createString(llvm::StringRef str) {
   // Create a SpirvString instruction
   auto *instr = new (context) SpirvString(/* SourceLocation */ {}, str);
   instr->setRValue();
-  stringLiterals[str.str()] = instr;
+  if (str.empty())
+    emptyString = instr;
+  else
+    stringLiterals[str.str()] = instr;
   mod->addString(instr);
   return instr;
+}
+
+SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
+  // Reuse an existing instruction if possible.
+  if (str.empty()) {
+    if (emptyString)
+      return emptyString;
+  } else {
+    auto iter = stringLiterals.find(str.str());
+    if (iter != stringLiterals.end())
+      return iter->second;
+  }
+  return createString(str);
 }
 
 const HybridPointerType *
