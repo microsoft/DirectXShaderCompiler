@@ -9,7 +9,6 @@ set(LLVM_LINK_COMPONENTS
 add_clang_unittest(clang-dxil2spv-tests
   Dxil2SpvTestOptions.cpp
   Dxil2SpvTestOptions.h
-  FileTestFixture.cpp
   FileTestUtils.cpp
   FileTestUtils.h
   LitTest.cpp
@@ -22,7 +21,7 @@ target_link_libraries(clang-dxil2spv-tests
   clangSPIRV
   dxcompiler
   dxil2spvlib
-  effcee
+  HLSLTestLib
   )
 
 include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)

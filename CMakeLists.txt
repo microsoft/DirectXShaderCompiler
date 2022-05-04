@@ -132,6 +132,9 @@ endif()
 
 # Building dxil2spv off by default while it's in early development.
 option(ENABLE_DXIL2SPV "Enables DXIL to SPIR-V translation." OFF)
+if (${ENABLE_DXIL2SPV})
+  add_definitions(-DENABLE_DXIL2SPV)
+endif()
 # SPIRV change ends
 
 include(VersionFromVCS)

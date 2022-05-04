@@ -43,12 +43,13 @@ to be created as a modified version of an existing test).
     [...]
     ```
 
-4.  Add a `; RUN: %dxil2spv` command to the top of your DXIL test file.
+4.  Add a `; RUN: %dxil2spv %s | %FileCheck %s` command to the top of your DXIL
+    test file.
 
     `my-new-test.ll`:
 
     ```
-    ; RUN: %dxil2spv
+    ; RUN: %dxil2spv %s | %FileCheck %s
     ;
     ; Input signature:
     [...]
@@ -56,11 +57,9 @@ to be created as a modified version of an existing test).
 
 5.  Add `CHECK` lines to test the generated SPIR-V.
 
-    As needed for your test, add `CHECK` lines throughout the DXIL test file.
-    These tests are run with `effcee`, which supports pattern matching of
-    strings inspired by LLVM's FileCheck command. See the `effcee` documentation
-    for more information about the `CHECK` types supported and pattern matching
-    syntax.
+    As needed for your test, add `CHECK` lines throughout the DXIL test file. See
+    the LLVM FileCheck documentation for more information about the `CHECK` types
+    supported and pattern matching syntax.
 
 6.  Add the test to `tools/clang/unittests/Dxil2Spv/LitTest.cpp`.
 

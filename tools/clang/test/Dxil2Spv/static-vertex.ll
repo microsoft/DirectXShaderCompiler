@@ -1,4 +1,4 @@
-; RUN: %dxil2spv
+; RUN: %dxil2spv %s | %FileCheck %s
 ;
 ; Input signature:
 ;
@@ -73,7 +73,7 @@ define void @main() {
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %2)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %3)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 
-; CHECK:    [[v0:%\d+]] = OpAccessChain %_ptr_Output_float %SV_Target %uint_3
+; CHECK:    [[v0:%[0-9]+]] = OpAccessChain %_ptr_Output_float %SV_Target %uint_3
 ; CHECK:                  OpStore [[v0]] %float_1
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float 1.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   ret void
