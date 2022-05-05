@@ -1118,7 +1118,7 @@ FileRunCommandPart::RunDxil2Spv(dxc::DxcDllSupport &DllSupport,
 
   try {
     // Configure filesystem.
-    llvm::sys::fs::MSFileSystem *msf;
+    llvm::sys::fs::MSFileSystem *msf = nullptr;
     HRESULT hr;
     if (SUCCEEDED(hr = CreateMSFileSystemForDisk(&msf))) {
       llvm::sys::fs::AutoPerThreadSystem pts(msf);
@@ -1144,12 +1144,9 @@ FileRunCommandPart::RunDxil2Spv(dxc::DxcDllSupport &DllSupport,
     success = false;
   }
 
-  stdoutStream.flush();
-  stderrStream.flush();
-
   FileRunCommandResult result = {};
-  result.StdOut = stdoutString;
-  result.StdErr = stderrString;
+  result.StdOut = stdoutStream.str();
+  result.StdErr = stderrStream.str();
   result.ExitCode = success ? 0 : 1;
 
   return result;

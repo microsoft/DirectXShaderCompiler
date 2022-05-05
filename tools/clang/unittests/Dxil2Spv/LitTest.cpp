@@ -27,16 +27,16 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   dxc::DxcDllSupport m_dllSupport;
-  VersionSupportInfo m_ver;
+  VersionSupportInfo m_version;
 
   void runFileTest(std::string name) {
     std::string fullPath =
         clang::dxil2spv::utils::getAbsPathOfInputDataFile(name);
-    FileRunTestResult t =
+    FileRunTestResult result =
         FileRunTestResult::RunFromFileCommands(CA2W(fullPath.c_str()));
-    if (t.RunResult != 0) {
+    if (result.RunResult != 0) {
       WEX::Logging::Log::Error(L"FileTest failed");
-      WEX::Logging::Log::Error(CA2W(t.ErrorMessage.c_str(), CP_UTF8));
+      WEX::Logging::Log::Error(CA2W(result.ErrorMessage.c_str(), CP_UTF8));
     }
   }
 };
@@ -44,7 +44,7 @@ public:
 bool FileTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    m_ver.Initialize(m_dllSupport);
+    m_version.Initialize(m_dllSupport);
   }
   return true;
 }

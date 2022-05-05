@@ -28,7 +28,9 @@ include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
 include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock/include)
 
 if(ENABLE_DXIL2SPV)
-include_directories(
+target_compile_definitions(HLSLTestLib PRIVATE ENABLE_DXIL2SPV)
+
+target_include_directories(HLSLTestLib PRIVATE
   ${LLVM_SOURCE_DIR}/tools/clang/tools
   ${SPIRV_TOOLS_INCLUDE_DIR}
   ${SPIRV_HEADER_INCLUDE_DIR}
