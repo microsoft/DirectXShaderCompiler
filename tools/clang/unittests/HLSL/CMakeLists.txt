@@ -26,7 +26,6 @@ set( LLVM_LINK_COMPONENTS
 if(WIN32)
 set(HLSL_IGNORE_SOURCES
   TestMain.cpp
-  HLSLTestOptions.cpp
 )
 add_clang_library(clang-hlsl-tests SHARED
   AllocatorTest.cpp
@@ -70,7 +69,6 @@ add_clang_unittest(clang-hlsl-tests
   DXIsenseTest.cpp
   ExtensionTest.cpp
   FunctionTest.cpp
-  HLSLTestOptions.cpp
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp

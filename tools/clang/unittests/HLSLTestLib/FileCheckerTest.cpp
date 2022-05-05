@@ -29,18 +29,21 @@
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/dxcapi.use.h"
-#include "dxc/dxctools.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
-#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/dxctools.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MD5.h"
+#include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 #ifdef _WIN32 // Reflection unsupported
 #include "dxc/Test/D3DReflectionDumper.h"
@@ -50,6 +53,10 @@
 #include "d3d12shader.h"
 using namespace hlsl::dump;
 #endif // WIN32 - Reflection unsupported
+
+#ifdef ENABLE_DXIL2SPV
+#include "dxil2spv/lib/dxil2spv.h"
+#endif // ENABLE_DXIL2SPV
 
 using namespace std;
 using namespace hlsl_test;
@@ -137,6 +144,11 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
     return result;
 #endif // WIN32 - Linking unsupported
   }
+#ifdef ENABLE_DXIL2SPV
+  else if (0 == _stricmp(Command.c_str(), "%dxil2spv")) {
+    return RunDxil2Spv(DllSupport, Prior);
+  }
+#endif // ENABLE_DXIL2SPV
   else if (pPluginToolsPaths != nullptr) {
     auto it = pPluginToolsPaths->find(Command.c_str());
     if (it != pPluginToolsPaths->end()) {
@@ -1090,6 +1102,56 @@ FileRunCommandResult FileRunCommandPart::RunDxilVer(dxc::DxcDllSupport& DllSuppo
 
   return CheckDxilVer(DllSupport, RequiredDxilMajor, RequiredDxilMinor);
 }
+
+#ifdef ENABLE_DXIL2SPV
+FileRunCommandResult
+FileRunCommandPart::RunDxil2Spv(dxc::DxcDllSupport &DllSupport,
+                                const FileRunCommandResult *Prior) {
+  // Support piping stdin from prior if needed.
+  UNREFERENCED_PARAMETER(Prior);
+  bool success = true;
+
+  std::string stdoutString;
+  std::string stderrString;
+  llvm::raw_string_ostream stdoutStream(stdoutString);
+  llvm::raw_string_ostream stderrStream(stderrString);
+
+  try {
+    // Configure filesystem.
+    llvm::sys::fs::MSFileSystem *msf = nullptr;
+    HRESULT hr;
+    if (SUCCEEDED(hr = CreateMSFileSystemForDisk(&msf))) {
+      llvm::sys::fs::AutoPerThreadSystem pts(msf);
+      IFTLLVM(pts.error_code());
+
+      // Set up diagnostics.
+      clang::CompilerInstance instance;
+      auto *diagnosticPrinter = new clang::TextDiagnosticPrinter(
+          stderrStream, new clang::DiagnosticOptions());
+      instance.createDiagnostics(diagnosticPrinter, false);
+      instance.setOutStream(&stdoutStream);
+
+      // Set compiler options.
+      instance.getCodeGenOpts().MainFileName = CW2A(CommandFileName, CP_UTF8);
+      instance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
+
+      clang::dxil2spv::Translator translator(instance);
+      translator.Run();
+    } else {
+      success = false;
+    }
+  } catch (...) {
+    success = false;
+  }
+
+  FileRunCommandResult result = {};
+  result.StdOut = stdoutStream.str();
+  result.StdErr = stderrStream.str();
+  result.ExitCode = success ? 0 : 1;
+
+  return result;
+}
+#endif // ENABLE_DXIL2SPV
 
 #ifndef _WIN32
 FileRunCommandResult FileRunCommandPart::RunFromPath(const std::string &toolPath, const FileRunCommandResult *Prior) {
