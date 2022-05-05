@@ -12,7 +12,7 @@
 
 #include "llvm/Support/Signals.h"
 
-#include "HLSLTestOptions.h"
+#include "dxc/Test/HLSLTestOptions.h"
 #include "dxc/Test/WEXAdapter.h"
 
 #if defined(_WIN32)

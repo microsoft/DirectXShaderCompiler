@@ -1,27 +1,25 @@
 set(LLVM_LINK_COMPONENTS
-  Support
   dxcsupport
   dxil
   dxilrootsignature
   hlsl
+  Support
   )
 
 add_clang_unittest(clang-dxil2spv-tests
-  TestMain.cpp
-  LitTest.cpp
-  WholeFileTestFixture.cpp
-  WholeFileTestFixture.h
-  FileTestUtils.cpp
-  FileTestUtils.h
   Dxil2SpvTestOptions.cpp
   Dxil2SpvTestOptions.h
+  FileTestUtils.cpp
+  FileTestUtils.h
+  LitTest.cpp
+  TestMain.cpp
   )
 
 target_link_libraries(clang-dxil2spv-tests
   clangSPIRV
   dxcompiler
   dxil2spvlib
-  effcee
+  HLSLTestLib
   )
 
 include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)

@@ -1,4 +1,4 @@
-; RUN: %dxil2spv
+; RUN: %dxil2spv | %FileCheck %s
 ;
 ; Input signature:
 ;
@@ -101,55 +101,54 @@ attributes #1 = { nounwind }
 !12 = !{!13}
 !13 = !{i32 0, !"SV_Target", i8 9, i8 16, !9, i8 0, i32 1, i8 4, i32 0, i8 0, !11}
 
-; CHECK-WHOLE-SPIR-V:
-; ; SPIR-V
-; ; Version: 1.0
-; ; Generator: Google spiregg; 0
-; ; Bound: 31
-; ; Schema: 0
-;                OpCapability Shader
-;                OpMemoryModel Logical GLSL450
-;                OpEntryPoint Fragment %PSMain "PSMain" %gl_Position %COLOR %SV_Target
-;                OpExecutionMode %PSMain OriginUpperLeft
-;                OpName %COLOR "COLOR"
-;                OpName %SV_Target "SV_Target"
-;                OpName %PSMain "PSMain"
-;                OpDecorate %gl_Position BuiltIn Position
-;                OpDecorate %COLOR Location 1
-;                OpDecorate %SV_Target Location 0
-;        %uint = OpTypeInt 32 0
-;      %uint_0 = OpConstant %uint 0
-;      %uint_1 = OpConstant %uint 1
-;      %uint_2 = OpConstant %uint 2
-;      %uint_3 = OpConstant %uint 3
-;       %float = OpTypeFloat 32
-;     %v4float = OpTypeVector %float 4
-; %_ptr_Input_v4float = OpTypePointer Input %v4float
-; %_ptr_Output_v4float = OpTypePointer Output %v4float
-;        %void = OpTypeVoid
-;          %15 = OpTypeFunction %void
-; %_ptr_Input_float = OpTypePointer Input %float
-; %_ptr_Output_float = OpTypePointer Output %float
-; %gl_Position = OpVariable %_ptr_Input_v4float Input
-;       %COLOR = OpVariable %_ptr_Input_v4float Input
-;   %SV_Target = OpVariable %_ptr_Output_v4float Output
-;      %PSMain = OpFunction %void None %15
-;          %16 = OpLabel
-;          %18 = OpAccessChain %_ptr_Input_float %COLOR %uint_0
-;          %19 = OpLoad %float %18
-;          %20 = OpAccessChain %_ptr_Input_float %COLOR %uint_1
-;          %21 = OpLoad %float %20
-;          %22 = OpAccessChain %_ptr_Input_float %COLOR %uint_2
-;          %23 = OpLoad %float %22
-;          %24 = OpAccessChain %_ptr_Input_float %COLOR %uint_3
-;          %25 = OpLoad %float %24
-;          %27 = OpAccessChain %_ptr_Output_float %SV_Target %uint_0
-;                OpStore %27 %19
-;          %28 = OpAccessChain %_ptr_Output_float %SV_Target %uint_1
-;                OpStore %28 %21
-;          %29 = OpAccessChain %_ptr_Output_float %SV_Target %uint_2
-;                OpStore %29 %23
-;          %30 = OpAccessChain %_ptr_Output_float %SV_Target %uint_3
-;                OpStore %30 %25
-;                OpReturn
-;                OpFunctionEnd
+; CHECK:      ; SPIR-V
+; CHECK-NEXT: ; Version: 1.0
+; CHECK-NEXT: ; Generator: Google spiregg; 0
+; CHECK-NEXT: ; Bound: 31
+; CHECK-NEXT: ; Schema: 0
+; CHECK-NEXT:                OpCapability Shader
+; CHECK-NEXT:                OpMemoryModel Logical GLSL450
+; CHECK-NEXT:                OpEntryPoint Fragment %PSMain "PSMain" %gl_Position %COLOR %SV_Target
+; CHECK-NEXT:                OpExecutionMode %PSMain OriginUpperLeft
+; CHECK-NEXT:                OpName %COLOR "COLOR"
+; CHECK-NEXT:                OpName %SV_Target "SV_Target"
+; CHECK-NEXT:                OpName %PSMain "PSMain"
+; CHECK-NEXT:                OpDecorate %gl_Position BuiltIn Position
+; CHECK-NEXT:                OpDecorate %COLOR Location 1
+; CHECK-NEXT:                OpDecorate %SV_Target Location 0
+; CHECK-NEXT:        %uint = OpTypeInt 32 0
+; CHECK-NEXT:      %uint_0 = OpConstant %uint 0
+; CHECK-NEXT:      %uint_1 = OpConstant %uint 1
+; CHECK-NEXT:      %uint_2 = OpConstant %uint 2
+; CHECK-NEXT:      %uint_3 = OpConstant %uint 3
+; CHECK-NEXT:       %float = OpTypeFloat 32
+; CHECK-NEXT:     %v4float = OpTypeVector %float 4
+; CHECK-NEXT: %_ptr_Input_v4float = OpTypePointer Input %v4float
+; CHECK-NEXT: %_ptr_Output_v4float = OpTypePointer Output %v4float
+; CHECK-NEXT:        %void = OpTypeVoid
+; CHECK-NEXT:          %15 = OpTypeFunction %void
+; CHECK-NEXT: %_ptr_Input_float = OpTypePointer Input %float
+; CHECK-NEXT: %_ptr_Output_float = OpTypePointer Output %float
+; CHECK-NEXT: %gl_Position = OpVariable %_ptr_Input_v4float Input
+; CHECK-NEXT:       %COLOR = OpVariable %_ptr_Input_v4float Input
+; CHECK-NEXT:   %SV_Target = OpVariable %_ptr_Output_v4float Output
+; CHECK-NEXT:      %PSMain = OpFunction %void None %15
+; CHECK-NEXT:          %16 = OpLabel
+; CHECK-NEXT:          %18 = OpAccessChain %_ptr_Input_float %COLOR %uint_0
+; CHECK-NEXT:          %19 = OpLoad %float %18
+; CHECK-NEXT:          %20 = OpAccessChain %_ptr_Input_float %COLOR %uint_1
+; CHECK-NEXT:          %21 = OpLoad %float %20
+; CHECK-NEXT:          %22 = OpAccessChain %_ptr_Input_float %COLOR %uint_2
+; CHECK-NEXT:          %23 = OpLoad %float %22
+; CHECK-NEXT:          %24 = OpAccessChain %_ptr_Input_float %COLOR %uint_3
+; CHECK-NEXT:          %25 = OpLoad %float %24
+; CHECK-NEXT:          %27 = OpAccessChain %_ptr_Output_float %SV_Target %uint_0
+; CHECK-NEXT:                OpStore %27 %19
+; CHECK-NEXT:          %28 = OpAccessChain %_ptr_Output_float %SV_Target %uint_1
+; CHECK-NEXT:                OpStore %28 %21
+; CHECK-NEXT:          %29 = OpAccessChain %_ptr_Output_float %SV_Target %uint_2
+; CHECK-NEXT:                OpStore %29 %23
+; CHECK-NEXT:          %30 = OpAccessChain %_ptr_Output_float %SV_Target %uint_3
+; CHECK-NEXT:                OpStore %30 %25
+; CHECK-NEXT:                OpReturn
+; CHECK-NEXT:                OpFunctionEnd
