@@ -29,7 +29,7 @@ namespace dxil2spv {
 class Translator {
 public:
   Translator(CompilerInstance &instance);
-  int Run();
+  void Run();
 
 private:
   CompilerInstance &ci;
@@ -115,6 +115,8 @@ private:
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
                               llvm::Value &instruction);
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N], llvm::Type &type);
 };
 
 } // namespace dxil2spv
