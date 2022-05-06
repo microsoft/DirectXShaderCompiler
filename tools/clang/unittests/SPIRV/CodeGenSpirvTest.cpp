@@ -640,8 +640,8 @@ TEST_F(FileTest, FunctionInCTBuffer) {
   runFileTest("fn.ctbuffer.hlsl");
 }
 
-TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
-TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
+TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl", Expect::Success, true); }
+TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl", Expect::Success, true); }
 TEST_F(FileTest, FunctionForwardDecl) {
   runFileTest("fn.forward-declaration.hlsl");
 }
