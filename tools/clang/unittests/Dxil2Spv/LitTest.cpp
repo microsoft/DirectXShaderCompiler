@@ -7,21 +7,54 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "WholeFileTestFixture.h"
+#include "FileTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
+#include "dxc/Test/WEXAdapter.h"
 
 namespace {
-using clang::dxil2spv::WholeFileTest;
 
-TEST_F(WholeFileTest, PassThruPixelShader) {
-  runWholeFileTest("passthru-ps.ll");
+#ifdef _WIN32
+class FileTest {
+#else
+class FileTest : public ::testing::Test {
+#endif
+public:
+  BEGIN_TEST_CLASS(FileTest)
+  TEST_CLASS_PROPERTY(L"Parallel", L"true")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(InitSupport);
+
+  dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_version;
+
+  void runFileTest(std::string name) {
+    std::string fullPath =
+        clang::dxil2spv::utils::getAbsPathOfInputDataFile(name);
+    FileRunTestResult result =
+        FileRunTestResult::RunFromFileCommands(CA2W(fullPath.c_str()));
+    if (result.RunResult != 0) {
+      WEX::Logging::Log::Error(L"FileTest failed");
+      WEX::Logging::Log::Error(CA2W(result.ErrorMessage.c_str(), CP_UTF8));
+    }
+  }
+};
+
+bool FileTest::InitSupport() {
+  if (!m_dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_version.Initialize(m_dllSupport);
+  }
+  return true;
 }
 
-TEST_F(WholeFileTest, PassThruVertexShader) {
-  runWholeFileTest("passthru-vs.ll");
-}
+TEST_F(FileTest, PassThruPixelShader) { runFileTest("passthru-ps.ll"); }
 
-TEST_F(WholeFileTest, PassThruComputeShader) {
-  runWholeFileTest("passthru-cs.ll");
-}
+TEST_F(FileTest, PassThruVertexShader) { runFileTest("passthru-vs.ll"); }
+
+TEST_F(FileTest, PassThruComputeShader) { runFileTest("passthru-cs.ll"); }
+
+TEST_F(FileTest, StaticVertex) { runFileTest("static-vertex.ll"); }
 
 } // namespace
