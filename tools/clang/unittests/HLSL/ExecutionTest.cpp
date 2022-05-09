@@ -944,7 +944,8 @@ public:
         &resDesc,
         D3D12_BARRIER_LAYOUT_COPY_DEST,
         nullptr,
-        castFormat, 1,
+        nullptr,
+        1, castFormat,
         IID_PPV_ARGS(&pResource)));
     } else
 #else
@@ -4746,17 +4747,12 @@ TEST_F(ExecutionTest, ATORawGather) {
 
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
-  CComPtr<ID3D12Device10> pDevice;
-#else
-  CComPtr<ID3D12Device> pDevice;
-#endif
-
 #ifdef RAWGATHER_FALLBACK
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_6;
 #else
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_7;
 #endif
+  CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice, sm))
       return;
 
