@@ -3631,15 +3631,15 @@ void MSMain(uint GID : SV_GroupIndex,
     #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( SRV(t0, numDescriptors=6), UAV(u6, numDescriptors=6), CBV(b12), UAV(u13,numDescriptors=3) ), \
     DescriptorTable(Sampler(s0, numDescriptors=2), Sampler(s2, numDescriptors=2))")]
     
-    ByteAddressBuffer fallback_g_rawBuf[2]              : register(t0);
-    StructuredBuffer<float> fallback_g_structBuf[2]     : register(t2);
-    Texture2D<float> fallback_g_tex[2]                  : register(t4);
-    RWByteAddressBuffer fallback_g_rwRawBuf[2]          : register(u6);
-    RWStructuredBuffer<float> fallback_g_rwStructBuf[2] : register(u8);
-    RWTexture1D<float> fallback_g_rwTex[2]              : register(u10);
+    ByteAddressBuffer g_fallback_rawBuf[2]              : register(t0);
+    StructuredBuffer<float> g_fallback_structBuf[2]     : register(t2);
+    Texture2D<float> g_fallback_tex[2]                  : register(t4);
+    RWByteAddressBuffer g_fallback_rwRawBuf[2]          : register(u6);
+    RWStructuredBuffer<float> g_fallback_rwStructBuf[2] : register(u8);
+    RWTexture1D<float> g_fallback_rwTex[2]              : register(u10);
 
-    SamplerState fallback_g_samp[2]              : register(s0);
-    SamplerComparisonState fallback_g_sampCmp[2] : register(s2);
+    SamplerState g_fallback_samp[2]              : register(s0);
+    SamplerComparisonState g_fallback_sampCmp[2] : register(s2);
 
     ConstantBuffer<Constants> CB               : register(b12);
     // Result buffers
@@ -3663,51 +3663,38 @@ void MSMain(uint GID : SV_GroupIndex,
     
     #ifndef FALLBACK
     void TestResources(RWStructuredBuffer<float> result, uint ix) {
-        ByteAddressBuffer g_rawBuf = ResourceDescriptorHeap[INDEXER(CB.idx0,ix)];
-        StructuredBuffer<float> g_structBuf = ResourceDescriptorHeap[INDEXER(CB.idx2,ix)];
-        Texture2D<float> g_tex = ResourceDescriptorHeap[INDEXER(CB.idx4,ix)];
-        RWByteAddressBuffer g_rwRawBuf = ResourceDescriptorHeap[INDEXER(CB.idx6,ix)];
-        RWStructuredBuffer<float> g_rwStructBuf = ResourceDescriptorHeap[INDEXER(CB.idx8,ix)];
-        RWTexture1D<float> g_rwTex = ResourceDescriptorHeap[INDEXER(CB.idx10,ix)];
+        ByteAddressBuffer rawBuf = ResourceDescriptorHeap[INDEXER(CB.idx0,ix)];
+        StructuredBuffer<float> structBuf = ResourceDescriptorHeap[INDEXER(CB.idx2,ix)];
+        Texture2D<float> tex = ResourceDescriptorHeap[INDEXER(CB.idx4,ix)];
+        RWByteAddressBuffer rwRawBuf = ResourceDescriptorHeap[INDEXER(CB.idx6,ix)];
+        RWStructuredBuffer<float> rwStructBuf = ResourceDescriptorHeap[INDEXER(CB.idx8,ix)];
+        RWTexture1D<float> rwTex = ResourceDescriptorHeap[INDEXER(CB.idx10,ix)];
         
         static SamplerState g_samp = SamplerDescriptorHeap[INDEXER(CB.idx0, ix)];
         static SamplerComparisonState g_sampCmp  = SamplerDescriptorHeap[INDEXER(CB.idx2, ix)];
-        
-        result[0*2 + ix%2] = g_rawBuf.Load<float>(0);
-        result[1*2 + ix%2] = g_structBuf.Load(0);
-        result[2*2 + ix%2] = g_tex.Load(0);
-        result[3*2 + ix%2] = g_rwRawBuf.Load<float>(0);
-        result[4*2 + ix%2] = g_rwStructBuf.Load(0);
-        result[5*2 + ix%2] = g_rwTex.Load(0);
-        result[6*2 + ix%2] = g_tex.SampleLevel(g_samp, -0.5, 0);
-        result[7*2 + ix%2] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, (float)INDEXER(32, ix)) ? (float)INDEXER(32, ix) : 0.0;
-    }
     #endif
-    
     #ifdef FALLBACK
     void FallBackTestResources(RWBuffer<float> result, uint ix) {
+        ByteAddressBuffer rawBuf = g_fallback_rawBuf[INDEXER(CB.idx0,ix)];
+        StructuredBuffer<float> structBuf = g_fallback_structBuf[INDEXER(CB.idx0,ix)];
+        Texture2D<float> tex = g_fallback_tex[INDEXER(CB.idx0,ix)];
+        RWByteAddressBuffer rwRawBuf = g_fallback_rwRawBuf[INDEXER(CB.idx0,ix)];
+        RWStructuredBuffer<float> rwStructBuf = g_fallback_rwStructBuf[INDEXER(CB.idx0,ix)];
+        RWTexture1D<float> rwTex = g_fallback_rwTex[INDEXER(CB.idx0,ix)];
         
-        
-        ByteAddressBuffer g_rawBuf = fallback_g_rawBuf[INDEXER(CB.idx0,ix)];
-        StructuredBuffer<float> g_structBuf = fallback_g_structBuf[INDEXER(CB.idx0,ix)];
-        Texture2D<float> g_tex = fallback_g_tex[INDEXER(CB.idx0,ix)];
-        RWByteAddressBuffer g_rwRawBuf = fallback_g_rwRawBuf[INDEXER(CB.idx0,ix)];
-        RWStructuredBuffer<float> g_rwStructBuf = fallback_g_rwStructBuf[INDEXER(CB.idx0,ix)];
-        RWTexture1D<float> g_rwTex = fallback_g_rwTex[INDEXER(CB.idx0,ix)];
-        
-        static SamplerState g_samp = fallback_g_samp[INDEXER(CB.idx0, ix)];
-        static SamplerComparisonState g_sampCmp = fallback_g_sampCmp[INDEXER(CB.idx0, ix)];
+        static SamplerState g_samp = g_fallback_samp[INDEXER(CB.idx0, ix)];
+        static SamplerComparisonState g_sampCmp = g_fallback_sampCmp[INDEXER(CB.idx0, ix)];
+   #endif
 
-        result[0*2 + ix%2] = g_rawBuf.Load<float>(0);
-        result[1*2 + ix%2] = g_structBuf.Load(0);
-        result[2*2 + ix%2] = g_tex.Load(0);
-        result[3*2 + ix%2] = g_rwRawBuf.Load<float>(0);
-        result[4*2 + ix%2] = g_rwStructBuf.Load(0);
-        result[5*2 + ix%2] = g_rwTex.Load(0);
-        result[6*2 + ix%2] = g_tex.SampleLevel(g_samp, -0.5, 0);
-        result[7*2 + ix%2] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, (float)INDEXER(32, ix)) ? (float)INDEXER(32, ix) : 0.0;
+        result[0*2 + ix%2] = rawBuf.Load<float>(0);
+        result[1*2 + ix%2] = structBuf.Load(0);
+        result[2*2 + ix%2] = tex.Load(0);
+        result[3*2 + ix%2] = rwRawBuf.Load<float>(0);
+        result[4*2 + ix%2] = rwStructBuf.Load(0);
+        result[5*2 + ix%2] = rwTex.Load(0);
+        result[6*2 + ix%2] = tex.SampleLevel(g_samp, -0.5, 0);
+        result[7*2 + ix%2] = tex.SampleCmpLevelZero(g_sampCmp, -0.5, (float)INDEXER(32, ix)) ? (float)INDEXER(32, ix) : 0.0;
     }
-    #endif
 
     ROOT_SIG
     [NumThreads(2, 2, 1)]
