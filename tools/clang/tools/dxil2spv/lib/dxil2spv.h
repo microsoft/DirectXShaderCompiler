@@ -113,12 +113,27 @@ private:
   // Helper diagnostic functions for emitting error messages. message should be
   // a fixed diagnostic format string using the syntax expected by the
   // DiagnosticIDs interface.
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]);
+  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+    const auto diagId =
+        diagnosticsEngine.getCustomDiagID(DiagnosticsEngine::Error, message);
+    return diagnosticsEngine.Report({}, diagId);
+  }
+
   template <unsigned N>
-  DiagnosticBuilder emitError(const char (&message)[N],
-                              llvm::Value &instruction);
+  DiagnosticBuilder emitError(const char (&message)[N], llvm::Value &value) {
+    std::string str;
+    llvm::raw_string_ostream os(str);
+    value.print(os);
+    return emitError(message) << os.str();
+  }
+
   template <unsigned N>
-  DiagnosticBuilder emitError(const char (&message)[N], llvm::Type &type);
+  DiagnosticBuilder emitError(const char (&message)[N], llvm::Type &type) {
+    std::string str;
+    llvm::raw_string_ostream os(str);
+    type.print(os);
+    return emitError(message) << os.str();
+  }
 };
 
 } // namespace dxil2spv
