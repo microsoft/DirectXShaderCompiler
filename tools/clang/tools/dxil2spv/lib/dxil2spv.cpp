@@ -140,6 +140,12 @@ void Translator::Run() {
                                 {});
   }
 
+  // Don't attempt to emit SPIR-V module if errors were encountered in
+  // translation.
+  if (diagnosticsEngine.getClient()->getNumErrors() > 0) {
+    return;
+  }
+
   // Contsruct the SPIR-V module.
   std::vector<uint32_t> m = spvBuilder.takeModuleForDxilToSpv();
 
