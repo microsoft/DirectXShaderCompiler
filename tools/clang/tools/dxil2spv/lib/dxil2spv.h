@@ -110,7 +110,9 @@ private:
   unsigned nextDescriptorSet = 0;
   unsigned nextBindingNo = 0;
 
-  // Helper diagnostic functions for emitting error messages.
+  // Helper diagnostic functions for emitting error messages. message should be
+  // a fixed diagnostic format string using the syntax expected by the
+  // DiagnosticIDs interface.
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]);
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],

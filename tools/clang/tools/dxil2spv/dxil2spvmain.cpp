@@ -48,17 +48,14 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
 #else
 int main(int argc, const char **argv_) {
 #endif // _WIN32
-  // Use same error return code for all dxil2spv failures.
-  const int ERROR_RETURN = 1;
-
   // Configure filesystem for llvm stdout and stderr handling.
   if (llvm::sys::fs::SetupPerThreadFileSystem())
-    return ERROR_RETURN;
+    return EXIT_FAILURE;
   llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   llvm::sys::fs::MSFileSystem *msfPtr;
   HRESULT hr;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))
-    return ERROR_RETURN;
+    return EXIT_FAILURE;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
   llvm::STDStreamCloser stdStreamCloser;
@@ -66,7 +63,7 @@ int main(int argc, const char **argv_) {
   // Check input arguments.
   if (argc < 2) {
     llvm::errs() << "Required input file argument is missing\n";
-    return ERROR_RETURN;
+    return EXIT_FAILURE;
   }
 
   // Setup a compiler instance with diagnostics.
@@ -87,5 +84,6 @@ int main(int argc, const char **argv_) {
   clang::dxil2spv::Translator translator(instance);
   translator.Run();
 
-  return instance.getDiagnosticClient().getNumErrors() > 0 ? ERROR_RETURN : 0;
+  return instance.getDiagnosticClient().getNumErrors() > 0 ? EXIT_FAILURE
+                                                           : EXIT_SUCCESS;
 }
