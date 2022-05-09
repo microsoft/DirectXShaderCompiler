@@ -937,11 +937,12 @@ public:
 #if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
     if (castFormat) {
       CComPtr<ID3D12Device10> pDevice10;
+      D3D12_RESOURCE_DESC1 resDesc1(resDesc);
       VERIFY_SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&pDevice10)));
       VERIFY_SUCCEEDED(pDevice10->CreateCommittedResource3(
         &defaultHeapProperties,
         D3D12_HEAP_FLAG_NONE,
-        &resDesc,
+        &resDesc1,
         D3D12_BARRIER_LAYOUT_COPY_DEST,
         nullptr,
         nullptr,
