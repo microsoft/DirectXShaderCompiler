@@ -9729,6 +9729,22 @@ void EnableShaderBasedValidation() {
   spDebugController1->SetEnableGPUBasedValidation(true);
 }
 
+void TestReadbackDynamicResourcesUniformAndNonUniformIndexing(int non_uniform_bit, const float* resultFloats, float *expectedResults, int expectedResultsSize)
+{
+  for (int j = 0; j < expectedResultsSize; j++)
+  {
+    if (j == expectedResultsSize-4 && !non_uniform_bit)
+    {
+      VERIFY_ARE_EQUAL(resultFloats[j],   30.0);
+      VERIFY_ARE_EQUAL(resultFloats[j+1], 30.0);
+      VERIFY_ARE_EQUAL(resultFloats[j+2], 32.0);
+      VERIFY_ARE_EQUAL(resultFloats[j+3], 32.0);
+      break;
+    }
+    VERIFY_ARE_EQUAL(resultFloats[j], expectedResults[j]);
+  } 
+}
+
 TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
   //EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -9827,20 +9843,9 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
 
         MappedData resultData;
         test->Test->GetReadBackData("g_result", &resultData);
-        const float *resultFloats = (float *)resultData.data();
+        const float *resultCSFloats = (float *)resultData.data();
 
-        for (unsigned int j = 0; j < expectedResultsSize; j++)
-        {
-          if (j == expectedResultsSize-4 && !non_uniform_bit)
-          {
-            VERIFY_ARE_EQUAL(resultFloats[j],   30.0);
-            VERIFY_ARE_EQUAL(resultFloats[j+1], 30.0);
-            VERIFY_ARE_EQUAL(resultFloats[j+2], 32.0);
-            VERIFY_ARE_EQUAL(resultFloats[j+3], 32.0);
-            break;
-          }
-          VERIFY_ARE_EQUAL(resultFloats[j], expectedResults[j]);
-        }
+        TestReadbackDynamicResourcesUniformAndNonUniformIndexing(non_uniform_bit, resultCSFloats, expectedResults, expectedResultsSize);
       }
 
       // Test Vertex + Pixel shader
@@ -9863,32 +9868,10 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
 
 
         // VS
-        for (unsigned int j = 0; j < expectedResultsSize; j++)
-        {
-          if (j == expectedResultsSize-4 && !non_uniform_bit)
-          {
-            VERIFY_ARE_EQUAL(resultVSFloats[j],   30.0);
-            VERIFY_ARE_EQUAL(resultVSFloats[j+1], 30.0);
-            VERIFY_ARE_EQUAL(resultVSFloats[j+2], 32.0);
-            VERIFY_ARE_EQUAL(resultVSFloats[j+3], 32.0);
-            break;
-          }
-          VERIFY_ARE_EQUAL(resultVSFloats[j], expectedResults[j]);
-        }
+        TestReadbackDynamicResourcesUniformAndNonUniformIndexing(non_uniform_bit, resultVSFloats, expectedResults, expectedResultsSize);
 
         // PS
-        for (unsigned int j = 0; j < expectedResultsSize; j++)
-        {
-          if (j == expectedResultsSize-4 && !non_uniform_bit)
-          {
-            VERIFY_ARE_EQUAL(resultPSFloats[j],   30.0);
-            VERIFY_ARE_EQUAL(resultPSFloats[j+1], 30.0);
-            VERIFY_ARE_EQUAL(resultPSFloats[j+2], 32.0);
-            VERIFY_ARE_EQUAL(resultPSFloats[j+3], 32.0);
-            break;
-          }
-          VERIFY_ARE_EQUAL(resultPSFloats[j], expectedResults[j]);
-        }
+        TestReadbackDynamicResourcesUniformAndNonUniformIndexing(non_uniform_bit, resultPSFloats, expectedResults, expectedResultsSize);
       }
       Skipped = false;
     }

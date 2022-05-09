@@ -3675,15 +3675,15 @@ void MSMain(uint GID : SV_GroupIndex,
     #endif
     #ifdef FALLBACK
     void FallBackTestResources(RWBuffer<float> result, uint ix) {
-        ByteAddressBuffer rawBuf = g_fallback_rawBuf[INDEXER(CB.idx0,ix)];
-        StructuredBuffer<float> structBuf = g_fallback_structBuf[INDEXER(CB.idx0,ix)];
-        Texture2D<float> tex = g_fallback_tex[INDEXER(CB.idx0,ix)];
-        RWByteAddressBuffer rwRawBuf = g_fallback_rwRawBuf[INDEXER(CB.idx0,ix)];
-        RWStructuredBuffer<float> rwStructBuf = g_fallback_rwStructBuf[INDEXER(CB.idx0,ix)];
-        RWTexture1D<float> rwTex = g_fallback_rwTex[INDEXER(CB.idx0,ix)];
+        ByteAddressBuffer rawBuf = g_fallback_rawBuf[INDEXER(0,ix)];
+        StructuredBuffer<float> structBuf = g_fallback_structBuf[INDEXER(0,ix)];
+        Texture2D<float> tex = g_fallback_tex[INDEXER(0,ix)];
+        RWByteAddressBuffer rwRawBuf = g_fallback_rwRawBuf[INDEXER(0,ix)];
+        RWStructuredBuffer<float> rwStructBuf = g_fallback_rwStructBuf[INDEXER(0,ix)];
+        RWTexture1D<float> rwTex = g_fallback_rwTex[INDEXER(0,ix)];
         
-        static SamplerState g_samp = g_fallback_samp[INDEXER(CB.idx0, ix)];
-        static SamplerComparisonState g_sampCmp = g_fallback_sampCmp[INDEXER(CB.idx0, ix)];
+        static SamplerState g_samp = g_fallback_samp[INDEXER(0, ix)];
+        static SamplerComparisonState g_sampCmp = g_fallback_sampCmp[INDEXER(0, ix)];
    #endif
 
         result[0*2 + ix%2] = rawBuf.Load<float>(0);
