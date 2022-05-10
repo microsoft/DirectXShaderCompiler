@@ -9797,21 +9797,14 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
       }
 
       // Add compile options
-      char compilerOptions[256];
-      if (non_uniform_bit && sm==D3D_SHADER_MODEL_6_0) {
-        sprintf_s(compilerOptions, sizeof(compilerOptions),
-                                "-D FALLBACK=%d, -D NON_UNIFORM=%d", 1, 1);
-      }
-      else if (non_uniform_bit || sm==D3D_SHADER_MODEL_6_0){
-        if (non_uniform_bit){
-          sprintf_s(compilerOptions, sizeof(compilerOptions),
-                                "-D NON_UNIFORM=%d",1);
-        } 
-        else{
-          sprintf_s(compilerOptions, sizeof(compilerOptions),
-                                "-D FALLBACK=%d",1);
-        }
-      }
+
+      std::string compilerOptions = "";
+      if (sm==D3D_SHADER_MODEL_6_0)
+        compilerOptions += "-D FALLBACK=1";
+      if (non_uniform_bit && sm==D3D_SHADER_MODEL_6_0)
+        compilerOptions += ", -D NON_UNIFORM=1";
+      else if (non_uniform_bit)
+        compilerOptions += "-D NON_UNIFORM=1";
 
       // by default a root value is added.
       // remove the root value if this is the non-fallback path
@@ -9822,15 +9815,20 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
 
       // Update shader target in xml.
       for (st::ShaderOpShader &S : pShaderOp->Shaders){
+        if (compilerOptions != ""){
+          S.Arguments = pShaderOp->GetString(compilerOptions.c_str());
+        }        
+        // Set the target correctly. Setting here permanently overwrites
+        // the Target string even in future iterations.
         if (sm==D3D_SHADER_MODEL_6_0){
-          S.Arguments = compilerOptions;
-          vector<char> s;
-          for (unsigned int j = 0; j < sizeof(S.Target); j++){
-            s.push_back(S.Target[j]);
-          }
-          // change Target from ps_6_6 to ps_6_0, for example
-          s[sizeof(S.Target)-1] = '0';
-          strcpy_s(s.data(), sizeof(S.Target), S.Target);
+          std::string Target(S.Target);
+          Target[Target.length() - 1] = '0';
+          S.Target = pShaderOp->GetString(Target.c_str());
+        }
+        else if (sm==D3D_SHADER_MODEL_6_6){
+          std::string Target(S.Target);
+          Target[Target.length() - 1] = '6';
+          S.Target = pShaderOp->GetString(Target.c_str());
         }
       }
 
