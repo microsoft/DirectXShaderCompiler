@@ -3494,7 +3494,7 @@ void MSMain(uint GID : SV_GroupIndex,
     </Shader>
   </ShaderOp>
 
-  <ShaderOp Name="DynamicResourcesUniformAndNonUniformIndexing" CS="CS66" VS="VS66" PS="PS66">
+  <ShaderOp Name="DynamicResourcesDynamicIndexing" CS="CS66" VS="VS66" PS="PS66">
 
     <Resource Name="ConstantBuffer" Dimension="BUFFER" Width="256" InitialResourceState="COPY_DEST" Init="FromBytes" ReadBack="true">
       { 0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u, 9u, 10u, 11u}
@@ -3505,40 +3505,40 @@ void MSMain(uint GID : SV_GroupIndex,
     </Resource>
 
     <Resource Name="T1"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" >
-      10.0
+      11.0
     </Resource>
 
     <Resource Name="T2"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" >
-      11.0
+      12.0
     </Resource>
 
     <Resource Name="T3"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" >
-      11.0
+      13.0
     </Resource>
 
     <Resource Name="T4"            Dimension="Texture2D"  Width="4" Height="4"  InitialResourceState="COPY_DEST" Init="FromBytes" Format="R32_FLOAT">
-      12.0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+      14.0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
     </Resource>
     <Resource Name="T5"            Dimension="Texture2D"  Width="4" Height="4"  InitialResourceState="COPY_DEST" Init="FromBytes" Format="R32_FLOAT">
-      12.0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+      15.0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
     </Resource>
     
     <Resource Name="U0"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
-      23.0
+      20.0
     </Resource>
     <Resource Name="U1"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
-      23.0
+      21.0
     </Resource>
     
     <Resource Name="U2"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
-      24.0
+      22.0
     </Resource>
     <Resource Name="U3"            Dimension="BUFFER"     Width="32"            InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS">
-      24.0
+      23.0
     </Resource>
     
     <Resource Name="U4"            Dimension="TEXTURE1D"  Width="4"             InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" Format="R32_FLOAT" TransitionTo="UNORDERED_ACCESS">
-      25.0 0 0 0
+      24.0 0 0 0
     </Resource>
     <Resource Name="U5"            Dimension="TEXTURE1D"  Width="4"             InitialResourceState="COPY_DEST" Init="FromBytes" Flags="ALLOW_UNORDERED_ACCESS" Format="R32_FLOAT" TransitionTo="UNORDERED_ACCESS">
       25.0 0 0 0
@@ -3643,9 +3643,9 @@ void MSMain(uint GID : SV_GroupIndex,
 
     ConstantBuffer<Constants> CB               : register(b12);
     // Result buffers
-    RWBuffer<float> g_result   : register(u13);
-    RWBuffer<float> g_resultVS : register(u14);
-    RWBuffer<float> g_resultPS : register(u15);
+    RWStructuredBuffer <float> g_result   : register(u13);
+    RWStructuredBuffer <float> g_resultVS : register(u14);
+    RWStructuredBuffer <float> g_resultPS : register(u15);
     
     #else // NO FALLBACK
 
@@ -3661,8 +3661,10 @@ void MSMain(uint GID : SV_GroupIndex,
     
     #endif // FALLBACK
     
-    #ifndef FALLBACK
+    
     void TestResources(RWStructuredBuffer<float> result, uint ix) {
+        
+    #ifndef FALLBACK
         ByteAddressBuffer rawBuf = ResourceDescriptorHeap[INDEXER(CB.idx0,ix)];
         StructuredBuffer<float> structBuf = ResourceDescriptorHeap[INDEXER(CB.idx2,ix)];
         Texture2D<float> tex = ResourceDescriptorHeap[INDEXER(CB.idx4,ix)];
@@ -3673,8 +3675,8 @@ void MSMain(uint GID : SV_GroupIndex,
         static SamplerState g_samp = SamplerDescriptorHeap[INDEXER(CB.idx0, ix)];
         static SamplerComparisonState g_sampCmp  = SamplerDescriptorHeap[INDEXER(CB.idx2, ix)];
     #endif
+    
     #ifdef FALLBACK
-    void FallBackTestResources(RWBuffer<float> result, uint ix) {
         ByteAddressBuffer rawBuf = g_fallback_rawBuf[INDEXER(0,ix)];
         StructuredBuffer<float> structBuf = g_fallback_structBuf[INDEXER(0,ix)];
         Texture2D<float> tex = g_fallback_tex[INDEXER(0,ix)];
@@ -3699,11 +3701,7 @@ void MSMain(uint GID : SV_GroupIndex,
     ROOT_SIG
     [NumThreads(2, 2, 1)]
     void main(uint ix : SV_GroupIndex) {
-        #ifndef FALLBACK
         TestResources(g_result, ix);
-        #else
-        FallBackTestResources(g_result, ix);
-        #endif
     }
     
     struct PSInput {
@@ -3713,22 +3711,14 @@ void MSMain(uint GID : SV_GroupIndex,
     ROOT_SIG
     float4 PSMain(PSInput input) : SV_TARGET {
         int ix = WaveGetLaneIndex();
-        #ifndef FALLBACK
-        TestResources(g_resultPS, ix);
-        #else
-        FallBackTestResources(g_resultPS, ix);
-        #endif       
+        TestResources(g_resultPS, ix);      
         // This output doesn't actually matter
         return input.position;
     }
     
     ROOT_SIG
     PSInput VSMain(float3 pos : POSITION, uint ix : SV_VertexID) {
-        #ifndef FALLBACK
         TestResources(g_resultVS, ix);
-        #else
-        FallBackTestResources(g_resultVS, ix);
-        #endif
         PSInput r;
         r.position = float4(pos, 1); 
         return r;

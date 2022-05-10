@@ -319,7 +319,7 @@ public:
   TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
-  TEST_METHOD(DynamicResourcesUniformAndNonUniformIndexingTest)
+  TEST_METHOD(DynamicResourcesDynamicIndexingTest)
 
   TEST_METHOD(QuadReadTest)
   TEST_METHOD(QuadAnyAll);
@@ -9729,23 +9729,16 @@ void EnableShaderBasedValidation() {
   spDebugController1->SetEnableGPUBasedValidation(true);
 }
 
-void TestReadbackDynamicResourcesUniformAndNonUniformIndexing(int non_uniform_bit, const float* resultFloats, float *expectedResults, int expectedResultsSize)
+void TestReadbackDynamicResourcesDynamicIndexing(int non_uniform_bit, const float* resultFloats, float *expectedResultsArray[], int expectedResultsSize)
 {
+  float* expectedResults = expectedResultsArray[non_uniform_bit];
   for (int j = 0; j < expectedResultsSize; j++)
   {
-    if (j == expectedResultsSize-4 && !non_uniform_bit)
-    {
-      VERIFY_ARE_EQUAL(resultFloats[j],   30.0);
-      VERIFY_ARE_EQUAL(resultFloats[j+1], 30.0);
-      VERIFY_ARE_EQUAL(resultFloats[j+2], 32.0);
-      VERIFY_ARE_EQUAL(resultFloats[j+3], 32.0);
-      break;
-    }
     VERIFY_ARE_EQUAL(resultFloats[j], expectedResults[j]);
   } 
 }
 
-TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
+TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
   //EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -9756,7 +9749,7 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
       std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp =
-      ShaderOpSet->GetShaderOp("DynamicResourcesUniformAndNonUniformIndexing");
+      ShaderOpSet->GetShaderOp("DynamicResourcesDynamicIndexing");
 
   bool Skipped = true;
 
@@ -9764,15 +9757,28 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
   D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_6};
 
   const int expectedResultsSize = 16;
-  float expectedResults[expectedResultsSize] = {
+  float expectedResultsUniform[expectedResultsSize] = {
     10.0, 10.0, 
-    11.0, 11.0,
-    12.0, 12.0, 
-    23.0, 23.0, 
-    24.0, 24.0,
-    25.0, 25.0, 
+    12.0, 12.0,
+    14.0, 14.0, 
+    20.0, 20.0, 
+    22.0, 22.0,
+    24.0, 24.0, 
+    30.0, 30.0, 
+    32.0, 32.0};
+
+  float expectedResultsNonUniform[expectedResultsSize] = {
+    10.0, 11.0, 
+    12.0, 13.0,
+    14.0, 15.0, 
+    20.0, 21.0, 
+    22.0, 23.0,
+    24.0, 25.0, 
     30.0, 31.0, 
     32.0, 33.0};
+  float *expectedResultsArray[2];
+  expectedResultsArray[0] = expectedResultsUniform;
+  expectedResultsArray[1] = expectedResultsNonUniform;
     
   for (unsigned int non_uniform_bit = 0; non_uniform_bit < 2; non_uniform_bit++) {
     for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
@@ -9836,14 +9842,14 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
       {
         pShaderOp->CS = pShaderOp->GetString("CS66");
         std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-            pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
+            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
             ShaderOpSet);
 
         MappedData resultData;
         test->Test->GetReadBackData("g_result", &resultData);
         const float *resultCSFloats = (float *)resultData.data();
 
-        TestReadbackDynamicResourcesUniformAndNonUniformIndexing(non_uniform_bit, resultCSFloats, expectedResults, expectedResultsSize);
+        TestReadbackDynamicResourcesDynamicIndexing(non_uniform_bit, resultCSFloats, expectedResultsArray, expectedResultsSize);
       }
 
       // Test Vertex + Pixel shader
@@ -9852,7 +9858,7 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
         pShaderOp->VS = pShaderOp->GetString("VS66");
         pShaderOp->PS = pShaderOp->GetString("PS66");
         std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-            pDevice, m_support, "DynamicResourcesUniformAndNonUniformIndexing", nullptr,
+            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
             ShaderOpSet);
 
         MappedData resultVSData;
@@ -9866,10 +9872,10 @@ TEST_F(ExecutionTest, DynamicResourcesUniformAndNonUniformIndexingTest) {
 
 
         // VS
-        TestReadbackDynamicResourcesUniformAndNonUniformIndexing(non_uniform_bit, resultVSFloats, expectedResults, expectedResultsSize);
+        TestReadbackDynamicResourcesDynamicIndexing(non_uniform_bit, resultVSFloats, expectedResultsArray, expectedResultsSize);
 
         // PS
-        TestReadbackDynamicResourcesUniformAndNonUniformIndexing(non_uniform_bit, resultPSFloats, expectedResults, expectedResultsSize);
+        TestReadbackDynamicResourcesDynamicIndexing(non_uniform_bit, resultPSFloats, expectedResultsArray, expectedResultsSize);
       }
       Skipped = false;
     }
