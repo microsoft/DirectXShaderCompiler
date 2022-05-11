@@ -805,7 +805,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       needsLegalization || declIdMapper.requiresLegalization() ||
       spirvOptions.flattenResourceArrays || spirvOptions.reduceLoadSize ||
       declIdMapper.requiresFlatteningCompositeResources() ||
-      !dsetbindingsToCombineImageSampler.empty();
+      !dsetbindingsToCombineImageSampler.empty() ||
+      spirvOptions.signaturePacking;
 
   if (spirvOptions.codeGenHighLevel) {
     beforeHlslLegalization = needsLegalization;
@@ -13074,6 +13075,11 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
 
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
+  // Add interface variable SROA if the signature packing is enabled.
+  if (spirvOptions.signaturePacking) {
+    optimizer.RegisterPass(
+        spvtools::CreateInterfaceVariableScalarReplacementPass());
+  }
   optimizer.RegisterLegalizationPasses();
   // Add flattening of resources if needed.
   if (spirvOptions.flattenResourceArrays ||

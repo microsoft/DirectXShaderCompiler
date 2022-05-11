@@ -50,12 +50,12 @@ int main(int argc, const char **argv_) {
 #endif // _WIN32
   // Configure filesystem for llvm stdout and stderr handling.
   if (llvm::sys::fs::SetupPerThreadFileSystem())
-    return DXC_E_GENERAL_INTERNAL_ERROR;
+    return EXIT_FAILURE;
   llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   llvm::sys::fs::MSFileSystem *msfPtr;
   HRESULT hr;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))
-    return DXC_E_GENERAL_INTERNAL_ERROR;
+    return EXIT_FAILURE;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
   llvm::STDStreamCloser stdStreamCloser;
@@ -63,7 +63,7 @@ int main(int argc, const char **argv_) {
   // Check input arguments.
   if (argc < 2) {
     llvm::errs() << "Required input file argument is missing\n";
-    return DXC_E_GENERAL_INTERNAL_ERROR;
+    return EXIT_FAILURE;
   }
 
   // Setup a compiler instance with diagnostics.
@@ -82,5 +82,8 @@ int main(int argc, const char **argv_) {
 
   // Run translator.
   clang::dxil2spv::Translator translator(instance);
-  return translator.Run();
+  translator.Run();
+
+  return instance.getDiagnosticClient().getNumErrors() > 0 ? EXIT_FAILURE
+                                                           : EXIT_SUCCESS;
 }
