@@ -1351,6 +1351,13 @@ public:
 #endif
   }
 
+  bool IsFallbackPathEnabled(){
+    // Enable fallback paths with: /p:"EnableFallback=1"
+    UINT EnableFallbackValue = 0;
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"EnableFallback", EnableFallbackValue);
+    return EnableFallbackValue != 0;
+  }
+
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob) {
     CW2A pEntryPointA(pEntryPoint, CP_UTF8);
@@ -9729,9 +9736,8 @@ void EnableShaderBasedValidation() {
   spDebugController1->SetEnableGPUBasedValidation(true);
 }
 
-void TestReadbackDynamicResourcesDynamicIndexing(int non_uniform_bit, const float* resultFloats, float *expectedResultsArray[], int expectedResultsSize)
+void VerifyFloatArraysAreEqual(const float* resultFloats, float *expectedResults, int expectedResultsSize)
 {
-  float* expectedResults = expectedResultsArray[non_uniform_bit];
   for (int j = 0; j < expectedResultsSize; j++)
   {
     VERIFY_ARE_EQUAL(resultFloats[j], expectedResults[j]);
@@ -9750,11 +9756,12 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp =
       ShaderOpSet->GetShaderOp("DynamicResourcesDynamicIndexing");
+  vector<st::ShaderOpRootValue> oldRootValues = pShaderOp->RootValues;
 
   bool Skipped = true;
 
   //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
-  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_6};
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6, D3D_SHADER_MODEL_6_0};
 
   const int expectedResultsSize = 16;
   float expectedResultsUniform[expectedResultsSize] = {
@@ -9776,51 +9783,60 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
     24.0, 25.0, 
     30.0, 31.0, 
     32.0, 33.0};
-  float *expectedResultsArray[2];
-  expectedResultsArray[0] = expectedResultsUniform;
-  expectedResultsArray[1] = expectedResultsNonUniform;
     
-  for (unsigned int non_uniform_bit = 0; non_uniform_bit < 2; non_uniform_bit++) {
-    for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
-      D3D_SHADER_MODEL sm = TestShaderModels[i];
-      LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
-                    L"model 6.%1u",
-                    ((UINT)sm & 0x0f));
+  // TestShaderModels will be an array, where the first x models are "non-fallback", and the rest of the models
+  // are "fallback". If TestShaderModels has length y, and a test loops through all shader models, a convention
+  // to test based on whether fallback is enabled or not is to limit the loop like this:
+  // unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? y : x;
+  unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? 2 : 1;
+  for (unsigned i = 0; i < num_models_to_test; i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
+                  L"model 6.%1u",
+                  ((UINT)sm & 0x0f));
 
-      CComPtr<ID3D12Device> pDevice;
-      if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
-        continue;
-      }
-      D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
-      VERIFY_SUCCEEDED(
-          pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
-                                       &devOptions, sizeof(devOptions)));
-      if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
-        WEX::Logging::Log::Comment(
-            L"Device does not support Resource Binding Tier 3");
-        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-        return;
-      }
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+      continue;
+    }
+    D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+    VERIFY_SUCCEEDED(
+        pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
+                                      &devOptions, sizeof(devOptions)));
+    if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+      WEX::Logging::Log::Comment(
+          L"Device does not support Resource Binding Tier 3");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+
+    for (unsigned int non_uniform_bit = 0; non_uniform_bit < 2; non_uniform_bit++) {
+      float *expectedResults = non_uniform_bit ? expectedResultsNonUniform : expectedResultsUniform;
+
+      LogCommentFmt(L"\r\nnon uniform bit is %1u",
+                  non_uniform_bit);
 
       // Add compile options
-
       std::string compilerOptions = "";
       if (sm==D3D_SHADER_MODEL_6_0)
-        compilerOptions += "-D FALLBACK=1";
-      if (non_uniform_bit && sm==D3D_SHADER_MODEL_6_0)
-        compilerOptions += ", -D NON_UNIFORM=1";
-      else if (non_uniform_bit)
-        compilerOptions += "-D NON_UNIFORM=1";
+        compilerOptions += " -D FALLBACK=1";
+      if (non_uniform_bit)
+        compilerOptions += " -D NON_UNIFORM=1";
 
       // by default a root value is added.
       // remove the root value if this is the non-fallback path
-      if (sm==D3D_SHADER_MODEL_6_6 && non_uniform_bit)
+      if (sm==D3D_SHADER_MODEL_6_6)
       {
         pShaderOp->RootValues.clear();
+      }
+      else
+      {
+         pShaderOp->RootValues = oldRootValues;
       }
 
       // Update shader target in xml.
       for (st::ShaderOpShader &S : pShaderOp->Shaders){
+        S.Arguments = NULL;
         if (compilerOptions != ""){
           S.Arguments = pShaderOp->GetString(compilerOptions.c_str());
         }        
@@ -9849,7 +9865,7 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
         test->Test->GetReadBackData("g_result", &resultData);
         const float *resultCSFloats = (float *)resultData.data();
 
-        TestReadbackDynamicResourcesDynamicIndexing(non_uniform_bit, resultCSFloats, expectedResultsArray, expectedResultsSize);
+        VerifyFloatArraysAreEqual(resultCSFloats, expectedResults, expectedResultsSize);
       }
 
       // Test Vertex + Pixel shader
@@ -9872,16 +9888,17 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
 
 
         // VS
-        TestReadbackDynamicResourcesDynamicIndexing(non_uniform_bit, resultVSFloats, expectedResultsArray, expectedResultsSize);
+        VerifyFloatArraysAreEqual(resultVSFloats, expectedResults, expectedResultsSize);
 
         // PS
-        TestReadbackDynamicResourcesDynamicIndexing(non_uniform_bit, resultPSFloats, expectedResultsArray, expectedResultsSize);
+        VerifyFloatArraysAreEqual(resultPSFloats, expectedResults, expectedResultsSize);
       }
       Skipped = false;
     }
-    if (Skipped) {
-      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    }
+  }
+
+  if (Skipped) {
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
   }
   
 }
