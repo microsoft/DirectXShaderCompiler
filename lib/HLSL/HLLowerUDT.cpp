@@ -293,7 +293,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
               ConstantExpr::getBitCast(cast<Constant>(NewV), CE->getType()));
         }
       } else {
-        DXASSERT(0, "unhandled constant expr for lowered UTD");
+        DXASSERT(0, "unhandled constant expr for lowered UDT");
         // better than infinite loop on release
         CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
       }
