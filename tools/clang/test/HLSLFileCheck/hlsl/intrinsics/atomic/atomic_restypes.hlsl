@@ -1,9 +1,6 @@
-// RUN: %dxc -T cs_6_0 -DDEST=ro_structbuf -DIDX=    %s | %FileCheck %s
-// RUN: %dxc -T cs_6_0 -DDEST=ro_structbuf -DIDX=[0] %s | %FileCheck %s
-// RUN: %dxc -T cs_6_0 -DDEST=ro_buf -DIDX=    %s | %FileCheck %s
-// RUN: %dxc -T cs_6_0 -DDEST=ro_buf -DIDX=[0] %s | %FileCheck %s
-// RUN: %dxc -T cs_6_0 -DDEST=ro_tex -DIDX=    %s | %FileCheck %s
-// RUN: %dxc -T cs_6_0 -DDEST=ro_tex -DIDX=[0] %s | %FileCheck %s
+// RUN: %dxc -T cs_6_0 -DDEST=ro_structbuf -DIDX=[0] %s | %FileCheck %s -check-prefixes=CHKRES,CHECK
+// RUN: %dxc -T cs_6_0 -DDEST=ro_buf -DIDX=[0] %s | %FileCheck %s -check-prefixes=CHKRES,CHECK
+// RUN: %dxc -T cs_6_0 -DDEST=ro_tex -DIDX=[0] %s | %FileCheck %s -check-prefixes=CHKRES,CHECK
 // RUN: %dxc -T cs_6_0 -DDEST=gs_var -DIDX=    %s | %FileCheck %s
 // RUN: %dxc -T cs_6_0 -DDEST=gs_arr -DIDX=[0] %s | %FileCheck %s
 // RUN: %dxc -T cs_6_0 -DDEST=cb_var -DIDX=    %s | %FileCheck %s
@@ -51,9 +48,9 @@ void main(uint ix : SV_GroupIndex) {
 
   // add
   // CHECK: error: no matching function for call to 'InterlockedAdd'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedAdd'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedAdd(DEST IDX, val);
@@ -61,9 +58,9 @@ void main(uint ix : SV_GroupIndex) {
 
   // min
   // CHECK: error: no matching function for call to 'InterlockedMin'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedMin'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedMin(DEST IDX, val);
@@ -71,9 +68,9 @@ void main(uint ix : SV_GroupIndex) {
 
   // max
   // CHECK: error: no matching function for call to 'InterlockedMax'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedMax'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedMax(DEST IDX, val);
@@ -81,9 +78,9 @@ void main(uint ix : SV_GroupIndex) {
 
   // and
   // CHECK: error: no matching function for call to 'InterlockedAnd'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedAnd'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedAnd(DEST IDX, val);
@@ -91,9 +88,9 @@ void main(uint ix : SV_GroupIndex) {
 
   // or
   // CHECK: error: no matching function for call to 'InterlockedOr'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedOr'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedOr(DEST IDX, val);
@@ -101,9 +98,9 @@ void main(uint ix : SV_GroupIndex) {
 
   // xor
   // CHECK: error: no matching function for call to 'InterlockedXor'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedXor'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedXor(DEST IDX, val);
@@ -111,19 +108,19 @@ void main(uint ix : SV_GroupIndex) {
 
   // compareStore
   // CHECK: error: no matching function for call to 'InterlockedCompareStore'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedCompareStore(DEST IDX, comp, val);
 
   // exchange
   // CHECK: error: no matching function for call to 'InterlockedExchange'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedExchange(DEST IDX, val, orig);
 
   // compareExchange
   // CHECK: error: no matching function for call to 'InterlockedCompareExchange'
-  // CHECK: note: candidate function not viable: no known conversion from
+  // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHKLOC: error: Atomic operation targets must be groupshared or UAV
   InterlockedCompareExchange(DEST IDX, comp, val, orig);
 
