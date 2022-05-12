@@ -35,10 +35,12 @@
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.h"
+#include "lib/CommandFlags.h"
 #include "lib/dxil2spv.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendOptions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -61,9 +63,13 @@ int main(int argc, const char **argv_) {
   llvm::STDStreamCloser stdStreamCloser;
 
   // Check input arguments.
-  if (argc < 2) {
-    llvm::errs() << "Required input file argument is missing\n";
-    return EXIT_FAILURE;
+  const char *helpMessage =
+      "dxil2spv is a tool that translates DXIL code to SPIR-V.\n\n"
+      "WARNING: This tool is a prototype in early development.\n";
+  llvm::cl::ParseCommandLineOptions(argc, argv_, helpMessage);
+  if (InputFilename.empty() | Help) {
+    llvm::cl::PrintHelpMessage();
+    return EXIT_SUCCESS;
   }
 
   // Setup a compiler instance with diagnostics.
@@ -76,9 +82,9 @@ int main(int argc, const char **argv_) {
   // TODO: Allow configuration of targetEnv via options.
   instance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
 
-  // Set input filename.
-  const llvm::StringRef inputFilename(argv_[1]);
-  instance.getCodeGenOpts().MainFileName = inputFilename;
+  // Set input and ouptut filenames.
+  instance.getCodeGenOpts().MainFileName = InputFilename;
+  instance.getFrontendOpts().OutputFile = OutputFilename;
 
   // Run translator.
   clang::dxil2spv::Translator translator(instance);
