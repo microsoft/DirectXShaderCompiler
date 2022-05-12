@@ -201,8 +201,9 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
   while (!V->use_empty()) {
     Use &use = *V->use_begin();
     User *user = use.getUser();
-    // Clear use to prevent infinite loop on unhandled case.
-    use.set(UndefValue::get(V->getType()));
+    if (Instruction *I = dyn_cast<Instruction>(user)) {
+      use.set(UndefValue::get(I->getType()));
+    }
 
     if (LoadInst *LI = dyn_cast<LoadInst>(user)) {
       // Load for non-matching type should only be vector
@@ -250,7 +251,6 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
       Constant *NewGEP = ConstantExpr::getGetElementPtr(
         nullptr, cast<Constant>(NewV), idxList, true);
       ReplaceUsesForLoweredUDT(GEP, NewGEP);
-      GEP->dropAllReferences();
 
     } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
       // Address space cast
@@ -267,6 +267,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         // if alreday bitcast to new type, just replace the bitcast
         // with the new value (already translated user function)
         BC->replaceAllUsesWith(NewV);
+        BC->eraseFromParent();
       } else {
         // Could be i8 for memcpy?
         // Replace bitcast argument with new value
@@ -288,11 +289,13 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         } else {
           // Could be i8 for memcpy?
           // Replace bitcast argument with new value
-          use.set(NewV);
+          CE->replaceAllUsesWith(
+              ConstantExpr::getBitCast(cast<Constant>(NewV), CE->getType()));
         }
       } else {
         DXASSERT(0, "unhandled constant expr for lowered UTD");
-        CE->dropAllReferences();  // better than infinite loop on release
+        // better than infinite loop on release
+        CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
       }
 
     } else if (CallInst *CI = dyn_cast<CallInst>(user)) {
@@ -430,10 +433,17 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
 
       default:
         DXASSERT(0, "invalid opcode");
+        // Replace user with undef to prevent infinite loop on unhandled case.
+        user->replaceAllUsesWith(UndefValue::get(user->getType()));
       }
     } else {
       // What else?
       DXASSERT(false, "case not handled.");
+      // Replace user with undef to prevent infinite loop on unhandled case.
+      user->replaceAllUsesWith(UndefValue::get(user->getType()));
     }
+    // Clean up dead constant users to prevent infinite loop
+    if (Constant *CV = dyn_cast<Constant>(V))
+      CV->removeDeadConstantUsers();
   }
 }
