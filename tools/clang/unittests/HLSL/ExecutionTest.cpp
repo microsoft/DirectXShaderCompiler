@@ -319,7 +319,7 @@ public:
   TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
-  TEST_METHOD(DynamicResourcesUniformIndexingTest)
+  TEST_METHOD(DynamicResourcesDynamicIndexingTest)
 
   TEST_METHOD(QuadReadTest)
   TEST_METHOD(QuadAnyAll);
@@ -1405,6 +1405,13 @@ public:
     UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
+  }
+
+  bool IsFallbackPathEnabled(){
+    // Enable fallback paths with: /p:"EnableFallback=1"
+    UINT EnableFallbackValue = 0;
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"EnableFallback", EnableFallbackValue);
+    return EnableFallbackValue != 0;
   }
 
 #ifndef _HLK_CONF
@@ -9816,7 +9823,15 @@ void EnableShaderBasedValidation() {
   spDebugController1->SetEnableGPUBasedValidation(true);
 }
 
-TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
+void VerifyFloatArraysAreEqual(const float* resultFloats, float *expectedResults, int expectedResultsSize)
+{
+  for (int j = 0; j < expectedResultsSize; j++)
+  {
+    VERIFY_ARE_EQUAL(resultFloats[j], expectedResults[j]);
+  } 
+}
+
+TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
   //EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -9827,14 +9842,41 @@ TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
       std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp =
-      ShaderOpSet->GetShaderOp("DynamicResourcesUniformIndexing");
+      ShaderOpSet->GetShaderOp("DynamicResourcesDynamicIndexing");
+  vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
   bool Skipped = true;
 
   //D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0}; // FALLBACK
-  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6};
+  D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_6, D3D_SHADER_MODEL_6_0};
 
-  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+  const int expectedResultsSize = 16;
+  float expectedResultsUniform[expectedResultsSize] = {
+    10.0, 10.0, 
+    12.0, 12.0,
+    14.0, 14.0, 
+    20.0, 20.0, 
+    22.0, 22.0,
+    24.0, 24.0, 
+    30.0, 30.0, 
+    32.0, 32.0};
+
+  float expectedResultsNonUniform[expectedResultsSize] = {
+    10.0, 11.0, 
+    12.0, 13.0,
+    14.0, 15.0, 
+    20.0, 21.0, 
+    22.0, 23.0,
+    24.0, 25.0, 
+    30.0, 31.0, 
+    32.0, 33.0};
+    
+  // TestShaderModels will be an array, where the first x models are "non-fallback", and the rest of the models
+  // are "fallback". If TestShaderModels has length y, and a test loops through all shader models, a convention
+  // to test based on whether fallback is enabled or not is to limit the loop like this:
+  // unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? y : x;
+  unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? 2 : 1;
+  for (unsigned i = 0; i < num_models_to_test; i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
     LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
                   L"model 6.%1u",
@@ -9847,7 +9889,7 @@ TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
     D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
     VERIFY_SUCCEEDED(
         pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
-                                     &devOptions, sizeof(devOptions)));
+                                      &devOptions, sizeof(devOptions)));
     if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
       WEX::Logging::Log::Comment(
           L"Device does not support Resource Binding Tier 3");
@@ -9855,71 +9897,96 @@ TEST_F(ExecutionTest, DynamicResourcesUniformIndexingTest) {
       return;
     }
 
-    // Test Compute shader
-    {
-      pShaderOp->CS = pShaderOp->GetString("CS66");
-      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
-          ShaderOpSet);
+    for (unsigned int non_uniform_bit = 0; non_uniform_bit < 2; non_uniform_bit++) {
+      float *expectedResults = non_uniform_bit ? expectedResultsNonUniform : expectedResultsUniform;
 
-      MappedData resultData;
-      test->Test->GetReadBackData("g_result", &resultData);
-      const float *resultFloats = (float *)resultData.data();
+      LogCommentFmt(L"Testing %s Resource Indexing.", non_uniform_bit ? L"NonUniform" : L"Uniform");
 
-      VERIFY_ARE_EQUAL(resultFloats[0], 10.0F);
-      VERIFY_ARE_EQUAL(resultFloats[1], 11.0F);
-      VERIFY_ARE_EQUAL(resultFloats[2], 12.0F);
-      VERIFY_ARE_EQUAL(resultFloats[3], 23.0F);
-      VERIFY_ARE_EQUAL(resultFloats[4], 24.0F);
-      VERIFY_ARE_EQUAL(resultFloats[5], 25.0F);
-      VERIFY_ARE_EQUAL(resultFloats[6], 30.0F);
-      VERIFY_ARE_EQUAL(resultFloats[7], 31.0F);
+      // Add compile options
+      std::string compilerOptions = "";
+      if (sm==D3D_SHADER_MODEL_6_0)
+        compilerOptions += " -D FALLBACK=1";
+      if (non_uniform_bit)
+        compilerOptions += " -D NON_UNIFORM=1";
+
+      // by default a root value is added.
+      // remove the root value if this is the non-fallback path
+      if (sm==D3D_SHADER_MODEL_6_6)
+      {
+        pShaderOp->RootValues.clear();
+      }
+      else
+      {
+         pShaderOp->RootValues = fallbackRootValues;
+      }
+
+      // Update shader target in xml.
+      for (st::ShaderOpShader &S : pShaderOp->Shaders){
+        S.Arguments = NULL;
+        if (!compilerOptions.empty()){
+          S.Arguments = pShaderOp->GetString(compilerOptions.c_str());
+        }        
+        // Set the target correctly. Setting here permanently overwrites
+        // the Target string even in future iterations.
+        if (sm==D3D_SHADER_MODEL_6_0){
+          std::string Target(S.Target);
+          Target[Target.length() - 1] = '0';
+          S.Target = pShaderOp->GetString(Target.c_str());
+        }
+        else if (sm==D3D_SHADER_MODEL_6_6){
+          std::string Target(S.Target);
+          Target[Target.length() - 1] = '6';
+          S.Target = pShaderOp->GetString(Target.c_str());
+        }
+      }
+
+      // Test Compute shader
+      {
+        pShaderOp->CS = pShaderOp->GetString("CS66");
+        std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
+            ShaderOpSet);
+
+        MappedData resultData;
+        test->Test->GetReadBackData("g_result", &resultData);
+        const float *resultCSFloats = (float *)resultData.data();
+
+        VerifyFloatArraysAreEqual(resultCSFloats, expectedResults, expectedResultsSize);
+      }
+
+      // Test Vertex + Pixel shader
+      {
+        pShaderOp->CS = nullptr;
+        pShaderOp->VS = pShaderOp->GetString("VS66");
+        pShaderOp->PS = pShaderOp->GetString("PS66");
+        std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+            pDevice, m_support, "DynamicResourcesDynamicIndexing", nullptr,
+            ShaderOpSet);
+
+        MappedData resultVSData;
+        MappedData resultPSData;
+        test->Test->GetReadBackData("g_resultVS", &resultVSData);
+        test->Test->GetReadBackData("g_resultPS", &resultPSData);
+        const float *resultVSFloats = (float *)resultVSData.data();
+        const float *resultPSFloats = (float *)resultPSData.data();
+        D3D12_QUERY_DATA_PIPELINE_STATISTICS Stats;
+        test->Test->GetPipelineStats(&Stats);
+
+
+        // VS
+        VerifyFloatArraysAreEqual(resultVSFloats, expectedResults, expectedResultsSize);
+
+        // PS
+        VerifyFloatArraysAreEqual(resultPSFloats, expectedResults, expectedResultsSize);
+      }
+      Skipped = false;
     }
-
-    // Test Vertex + Pixel shader
-    {
-      pShaderOp->CS = nullptr;
-      pShaderOp->VS = pShaderOp->GetString("VS66");
-      pShaderOp->PS = pShaderOp->GetString("PS66");
-      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, "DynamicResourcesUniformIndexing", nullptr,
-          ShaderOpSet);
-
-      MappedData resultVSData;
-      MappedData resultPSData;
-      test->Test->GetReadBackData("g_resultVS", &resultVSData);
-      test->Test->GetReadBackData("g_resultPS", &resultPSData);
-      const float *resultVSFloats = (float *)resultVSData.data();
-      const float *resultPSFloats = (float *)resultPSData.data();
-      D3D12_QUERY_DATA_PIPELINE_STATISTICS Stats;
-      test->Test->GetPipelineStats(&Stats);
-
-
-      // VS
-      VERIFY_ARE_EQUAL(resultVSFloats[0], 10.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[1], 11.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[2], 12.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[3], 23.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[4], 24.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[5], 25.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[6], 30.0F);
-      VERIFY_ARE_EQUAL(resultVSFloats[7], 31.0F);
-
-      // PS
-      VERIFY_ARE_EQUAL(resultPSFloats[0], 10.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[1], 11.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[2], 12.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[3], 23.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[4], 24.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[5], 25.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[6], 30.0F);
-      VERIFY_ARE_EQUAL(resultPSFloats[7], 31.0F);
-    }
-    Skipped = false;
   }
+
   if (Skipped) {
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
   }
+  
 }
 
 #define MAX_WAVESIZE 128
