@@ -4823,6 +4823,10 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
 // If the block uses values that are wave-sensitive, it needs to stay in the loop to prevent optimizations
 // that might produce incorrect results by ignoring the volatile aspect of wave operation results.
 BranchInst *CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
+  // Skip if unreachable
+  if (!CGF.HaveInsertPoint())
+    return nullptr;
+
   // If not a wave-enabled stage, we can keep everything unconditional as before
   if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsCS() &&
       !m_pHLModule->GetShaderModel()->IsLib()) {
