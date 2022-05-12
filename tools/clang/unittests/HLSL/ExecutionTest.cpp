@@ -9756,7 +9756,7 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp =
       ShaderOpSet->GetShaderOp("DynamicResourcesDynamicIndexing");
-  vector<st::ShaderOpRootValue> oldRootValues = pShaderOp->RootValues;
+  vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
   bool Skipped = true;
 
@@ -9813,8 +9813,7 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
     for (unsigned int non_uniform_bit = 0; non_uniform_bit < 2; non_uniform_bit++) {
       float *expectedResults = non_uniform_bit ? expectedResultsNonUniform : expectedResultsUniform;
 
-      LogCommentFmt(L"\r\nnon uniform bit is %1u",
-                  non_uniform_bit);
+      LogCommentFmt(L"Testing %s Resource Indexing.", non_uniform_bit ? L"NonUniform" : L"Uniform");
 
       // Add compile options
       std::string compilerOptions = "";
@@ -9831,13 +9830,13 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
       }
       else
       {
-         pShaderOp->RootValues = oldRootValues;
+         pShaderOp->RootValues = fallbackRootValues;
       }
 
       // Update shader target in xml.
       for (st::ShaderOpShader &S : pShaderOp->Shaders){
         S.Arguments = NULL;
-        if (compilerOptions != ""){
+        if (!compilerOptions.empty()){
           S.Arguments = pShaderOp->GetString(compilerOptions.c_str());
         }        
         // Set the target correctly. Setting here permanently overwrites
