@@ -107,8 +107,10 @@ if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
 endif()
 
 # enable control flow guard
+if(WIN32)
 add_compile_options(/guard:cf)
 add_link_options(/guard:cf)
+endif(WIN32)
 
 # HLSL Change Ends
 
