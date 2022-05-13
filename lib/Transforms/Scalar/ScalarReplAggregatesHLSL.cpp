@@ -3856,8 +3856,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         // For GEP, the ptr could have other GEP read/write.
         // Only scan one GEP is not enough.
         // And resource ptr should not be replaced.
+        // Nor should (output) argument ptr be replaced.
         if (!isa<GEPOperator>(Dest) && !isa<CallInst>(Dest) &&
-            !isa<BitCastOperator>(Dest)) {
+            !isa<BitCastOperator>(Dest) && !isa<Argument>(Dest)) {
           // Need to make sure Dest not updated after current memcpy.
           // Check Dest only have 1 store now.
           hlutil::PointerStatus DestPS(Dest, size, /*bLdStOnly*/ false);
