@@ -13111,6 +13111,9 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
   optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
+  if (spirvOptions.fixFuncCallArguments) {
+    optimizer.RegisterPass(spvtools::CreateFixFuncCallArgumentsPass());
+  }
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
