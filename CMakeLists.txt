@@ -105,6 +105,11 @@ endif()
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
+
+# enable control flow guard
+add_compile_options(/guard:cf)
+add_link_options(/guard:cf)
+
 # HLSL Change Ends
 
 # HLSL Change Starts - set flag for Appveyor CI
