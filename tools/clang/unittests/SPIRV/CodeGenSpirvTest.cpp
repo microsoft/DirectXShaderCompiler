@@ -642,6 +642,12 @@ TEST_F(FileTest, FunctionInCTBuffer) {
 
 TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
 TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
+
+TEST_F(FileTest, FixFunctionCall) {
+  runFileTest("fn.fixfuncall-compute.hlsl");
+  runFileTest("fn.fixfuncall-linkage.hlsl");
+}
+
 TEST_F(FileTest, FunctionForwardDecl) {
   runFileTest("fn.forward-declaration.hlsl");
 }
