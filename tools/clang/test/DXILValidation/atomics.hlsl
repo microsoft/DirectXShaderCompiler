@@ -12,7 +12,7 @@ StructuredBuffer<uint> ro_structbuf;
 Buffer<uint> ro_buf;
 Texture1D<uint> ro_tex;
 
-const groupshared uint cgs_var;
+const groupshared uint cgs_var = 0;
 
 groupshared uint gs_var;
 

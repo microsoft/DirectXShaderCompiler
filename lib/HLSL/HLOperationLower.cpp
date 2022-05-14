@@ -7751,7 +7751,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         if (RC == DXIL::ResourceClass::SRV) {
           // Invalid operations.
           Translated = false;
-          dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on typed buffer.");
+          dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on SRV.");
           return;
         }
         switch (IOP) {

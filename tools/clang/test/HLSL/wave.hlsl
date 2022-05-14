@@ -14,7 +14,7 @@ float4 main() : SV_Target {
     // Divergent, single thread executing here.
   }
   uint a = WaveGetLaneIndex();
-  
+
   if (WaveGetLaneCount() == 0) {
     // Unlikely!
   }
@@ -44,9 +44,9 @@ float4 main() : SV_Target {
   // expected-note@? {{candidate function}}
   // expected-note@? {{candidate function}}
   // expected-note@? {{candidate function}}
-  WaveActiveBitAnd(f1); // expected-error {{no matching function for call to 'WaveActiveBitAnd'}}
-  WaveActiveBitOr(f1);  // expected-error {{no matching function for call to 'WaveActiveBitOr'}}
-  WaveActiveBitXor(f1); // expected-error {{no matching function for call to 'WaveActiveBitXor'}}
+  WaveActiveBitAnd(f1); // expected-error {{no matching function for call to 'WaveActiveBitAnd'}} expected-note {{candidate function not viable: no known conversion from 'float' to 'unsigned int' for 1st argument}}
+  WaveActiveBitOr(f1);  // expected-error {{no matching function for call to 'WaveActiveBitOr'}} expected-note {{candidate function not viable: no known conversion from 'float' to 'unsigned int' for 1st argument}}
+  WaveActiveBitXor(f1); // expected-error {{no matching function for call to 'WaveActiveBitXor'}} expected-note {{candidate function not viable: no known conversion from 'float' to 'unsigned int' for 1st argument}}
   u3 = WaveActiveBitAnd(u3);
   u3 = WaveActiveBitOr(u3);
   u3 = WaveActiveBitXor(u3);
