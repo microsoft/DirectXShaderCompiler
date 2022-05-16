@@ -79,7 +79,7 @@ Your pull request should:
     breadcrumbs for the next person debugging your code (who might be you).
   * Using the words `Fixes`, `Fixed`, `Closes`, `Closed`, or `Close` followed by
     `#<issuenumber>`, will auto close an issue after the PR is merged.
-* Be a child commit of a reasonably recent commit in the master branch
+* Be a child commit of a reasonably recent commit in the main branch
 * Pass all unit tests
 * Ensure that the title and description are fully up to date before merging
   * The title and description feed the final git commit message, and we want to
