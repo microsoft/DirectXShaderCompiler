@@ -3909,93 +3909,93 @@ TEST_F(ValidationTest, CreateHandleNotAllowedSM66) {
 // Check for validation errors for various const dests to atomics
 TEST_F(ValidationTest, AtomicsConsts) {
   if (m_ver.SkipDxilVersion(1, 7)) return;
-  std::vector<LPCWSTR> pArguments = { L"-HV", L"2021" };
+  std::vector<LPCWSTR> pArguments = { L"-HV", L"2021", L"-Zi"};
 
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_structbuf_UAV_structbuf"},
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %ro_structbuf_texture_structbuf"},
     "Non-UAV destination to atomic intrinsic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_structbuf_UAV_structbuf"},
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %ro_structbuf_texture_structbuf"},
     "Non-UAV destination to atomic intrinsic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_buf_UAV_buf"},
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %ro_buf_texture_buf"},
     "Non-UAV destination to atomic intrinsic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_buf_UAV_buf"},
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %ro_buf_texture_buf"},
     "Non-UAV destination to atomic intrinsic.",
     false);
 
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_tex_UAV_1d"},
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %ro_tex_texture_1d"},
     "Non-UAV destination to atomic intrinsic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_tex_UAV_1d"},
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %ro_tex_texture_1d"},
     "Non-UAV destination to atomic intrinsic.",
     false);
 
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_buf_UAV_buf"},
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %CB_cbuffer"},
     "Non-UAV destination to atomic intrinsic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_buf_UAV_buf"},
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %CB_cbuffer"},
     "Non-UAV destination to atomic intrinsic.",
     false);
 
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_buf_UAV_buf"},
     {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %\"$Globals_cbuffer\""},
     "Non-UAV destination to atomic intrinsic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_buf_UAV_buf"},
     {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %\"$Globals_cbuffer\""},
     "Non-UAV destination to atomic intrinsic.",
     false);
 
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
     {"atomicrmw add i32 addrspace(3)* @\"\\01?cgs_var@@3IB\""},
     "Constant destination to atomic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
     {"cmpxchg i32 addrspace(3)* @\"\\01?cgs_var@@3IB\""},
     "Constant destination to atomic.",
     false);
 
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
     {"atomicrmw add i32 addrspace(3)* %arrayidx"},
     "Constant destination to atomic.",
     false);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
-    pArguments.data(), 2, nullptr, 0,
+    pArguments.data(), 3, nullptr, 0,
     {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
     {"cmpxchg i32 addrspace(3)* %arrayidx"},
     "Constant destination to atomic.",

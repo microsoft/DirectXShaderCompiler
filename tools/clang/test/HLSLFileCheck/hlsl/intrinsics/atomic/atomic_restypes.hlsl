@@ -23,8 +23,8 @@ StructuredBuffer<uint> ro_structbuf;
 Buffer<uint> ro_buf;
 Texture1D<uint> ro_tex;
 
-const groupshared uint gs_var;
-const groupshared uint gs_arr[4];
+const groupshared uint gs_var = 0;
+const groupshared uint gs_arr[4] = {0, 0, 0, 0};
 
 RWStructuredBuffer<float4> output; // just something to keep the variables live
 
