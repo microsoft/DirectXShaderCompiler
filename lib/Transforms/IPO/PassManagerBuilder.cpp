@@ -260,19 +260,19 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
   MPM.add(createDxilDeleteRedundantDebugValuesPass());
 
-  // Clean up inefficiencies that can cause unnecessary live values related to
-  // lifetime marker cleanup blocks. This is the earliest possible location
-  // without interfering with HLSL-specific lowering.
-  if (!NoOpt && EnableLifetimeMarkers) {
-    MPM.add(createSROAPass());
-    MPM.add(createJumpThreadingPass());
-  }
-
   // Remove unneeded dxbreak conditionals
   MPM.add(createCleanupDxBreakPass());
 
   if (!NoOpt) {
     MPM.add(createDxilConvergentMarkPass());
+    // Clean up inefficiencies that can cause unnecessary live values related to
+    // lifetime marker cleanup blocks. This is the earliest possible location
+    // without interfering with HLSL-specific lowering.
+    if (EnableLifetimeMarkers) {
+      MPM.add(createSROAPass());
+      MPM.add(createInstructionCombiningPass());
+      MPM.add(createJumpThreadingPass());
+    }
   }
 
   if (!NoOpt)
