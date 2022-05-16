@@ -112,6 +112,8 @@ VerifierTests = {
     'RunVectorSyntaxExactPrecision':             'vector-syntax-exact-precision.hlsl',
     'RunVectorSyntaxMix':                        'vector-syntax-mix.hlsl',
     'RunWave':                                   'wave.hlsl',
+    'RunWriteConstArrays':                       'write-const-arrays.hlsl',
+    'RunAtomicsOnBitfields':                     'atomics-on-bitfields.hlsl',
 }
 
 # The following test(s) do not work in fxc mode:
@@ -138,6 +140,7 @@ fxcExcludedTests = [
     'RunTemplateLiteralSubstitutionFailure',
     'RunVectorSyntaxExactPrecision',
     'RunWave',
+    'RunAtomicsOnBitfields',
 ]
 
 # rxRUN = re.compile(r'[ RUN      ] VerifierTest.(\w+)')	# gtest syntax
