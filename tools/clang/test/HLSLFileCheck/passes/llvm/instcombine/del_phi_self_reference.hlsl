@@ -5,7 +5,7 @@
 // The end result is a really dumb shader because most of the code is dead
 
 // CHECK: define void @main()
-// CHECK-NEXT: call void @dx.op.storeOutput.f32(i32 5
+// CHECK: call void @dx.op.storeOutput.f32(i32 5
 // CHECK-NEXT: ret void
 
 float main (uint2 param : P) : SV_Target {
