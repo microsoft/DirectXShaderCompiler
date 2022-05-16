@@ -3992,7 +3992,7 @@ TEST_F(ValidationTest, AtomicsConsts) {
     pArguments.data(), 3, nullptr, 0,
     {"%([a-zA-Z0-9]+) = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"([^\n]*)"},
     {"%\\1 = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"\\2\n"
-     "%dummy = atomicrmw add i32 addrspace\\(3\\)\\* %arrayidx, i32 1 seq_cst, !dbg !104 ; line:51 col:3"
+     "%dummy = atomicrmw add i32 addrspace\\(3\\)\\* %\\1, i32 1 seq_cst, !dbg !104 ; line:51 col:3"
     },
     "Constant destination to atomic.",
     true);
