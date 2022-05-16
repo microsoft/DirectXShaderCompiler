@@ -20,6 +20,7 @@
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/TargetInfo.h"
@@ -3701,7 +3702,7 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
   }
   // HLSL Change Starts
   if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
-    // HLSL does not short circuit by default.
+    // HLSL does not short circuit by default before HLSL 2021
     if (hlsl::IsHLSLVecType(E->getType()) || E->getType()->isArithmeticType()) {
       llvm::Value *CondV = CGF.EmitScalarExpr(condExpr);
       llvm::Value *LHS = Visit(lhsExpr);
@@ -3728,6 +3729,13 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
       return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
           CGF, E, LHS->getType(), {Cond, LHS, RHS});
     }
+  }
+
+  llvm::Value *ResultAlloca = nullptr;
+  if (CGF.getLangOpts().HLSL && CGF.getLangOpts().EnableShortCircuit &&
+      hlsl::IsHLSLMatType(E->getType())) {
+    llvm::Type *MatTy = CGF.ConvertType(E->getType());
+    ResultAlloca = Builder.CreateAlloca(MatTy);
   }
   // HLSL Change Ends
 
@@ -3761,6 +3769,11 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
   CGF.incrementProfileCounter(E);
   eval.begin(CGF);
   Value *LHS = Visit(lhsExpr);
+  // HLSL Change Begin - Handle matrix ternary
+  if (ResultAlloca)
+    CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, LHS, ResultAlloca,
+                                                 E->getType());
+  // HLSL Change End
   eval.end(CGF);
 
   LHSBlock = Builder.GetInsertBlock();
@@ -3769,10 +3782,21 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
   CGF.EmitBlock(RHSBlock);
   eval.begin(CGF);
   Value *RHS = Visit(rhsExpr);
+  // HLSL Change Begin - Handle matrix ternary
+  if (ResultAlloca)
+    CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, RHS, ResultAlloca,
+                                                 E->getType());
+  // HLSL Change End
   eval.end(CGF);
 
   RHSBlock = Builder.GetInsertBlock();
   CGF.EmitBlock(ContBlock);
+
+  // HLSL Change Begin - Handle matrix ternary
+  if (ResultAlloca)
+    return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, ResultAlloca,
+                                                       E->getType());
+  // HLSL Change End
 
   // If the LHS or RHS is a throw expression, it will be legitimately null.
   if (!LHS)
