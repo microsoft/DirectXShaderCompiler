@@ -6167,7 +6167,7 @@ bool HLSLExternalSource::MatchArguments(
     // Catch invalid atomic dest parameters
     if (iArg == kAtomicDstOperandIdx &&
         IsAtomicOperation(static_cast<IntrinsicOp>(pIntrinsic->Op))) {
-      // bitfield error is confusing
+      // This produces an error for bitfields that is a bit confusing because it says uint can't cast to uint
       if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
         badArgIdx = std::min(badArgIdx, iArg);
       }

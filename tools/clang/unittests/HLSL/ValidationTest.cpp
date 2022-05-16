@@ -3988,6 +3988,19 @@ TEST_F(ValidationTest, AtomicsConsts) {
     "Constant destination to atomic.",
     false);
 
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 2, nullptr, 0,
+    {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
+    {"atomicrmw add i32 addrspace(3)* %arrayidx"},
+    "Constant destination to atomic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 2, nullptr, 0,
+    {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
+    {"cmpxchg i32 addrspace(3)* %arrayidx"},
+    "Constant destination to atomic.",
+    false);
+
 }
 
 // Check validation error for non-groupshared dest

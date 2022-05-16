@@ -3191,9 +3191,24 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         if ((elType->isIntegerTy(64)) && !pSM->IsSM66Plus())
           ValCtx.EmitInstrFormatError(&I, ValidationRule::SmOpcodeInInvalidFunction,
                                       {"64-bit atomic operations", "Shader Model 6.6+"});
-        if (ptrType->getAddressSpace() != DXIL::kTGSMAddrSpace) {
+
+        if (ptrType->getAddressSpace() != DXIL::kTGSMAddrSpace)
           ValCtx.EmitInstrError(&I, ValidationRule::InstrAtomicOpNonGroupshared);
-        } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+
+        // Drill through GEP and bitcasts
+        while (true) {
+          if (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr)) {
+            Ptr = GEP->getPointerOperand();
+            continue;
+          }
+          if (BitCastInst *BC = dyn_cast<BitCastInst>(Ptr)) {
+            Ptr = BC->getOperand(0);
+            continue;
+          }
+          break;
+        }
+
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
           if(GV->isConstant())
             ValCtx.EmitInstrError(&I, ValidationRule::InstrAtomicConst);
         }

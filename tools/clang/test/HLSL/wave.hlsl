@@ -41,9 +41,6 @@ float4 main() : SV_Target {
   f3 = WaveActiveSum(f3);
   f3 = WaveActiveProduct(f3);
   // WaveActiveBit* with an invalid signature suggests the use of WaveActiveBallot instead.
-  // expected-note@? {{candidate function}}
-  // expected-note@? {{candidate function}}
-  // expected-note@? {{candidate function}}
   WaveActiveBitAnd(f1); // expected-error {{no matching function for call to 'WaveActiveBitAnd'}} expected-note {{candidate function not viable: no known conversion from 'float' to 'unsigned int' for 1st argument}}
   WaveActiveBitOr(f1);  // expected-error {{no matching function for call to 'WaveActiveBitOr'}} expected-note {{candidate function not viable: no known conversion from 'float' to 'unsigned int' for 1st argument}}
   WaveActiveBitXor(f1); // expected-error {{no matching function for call to 'WaveActiveBitXor'}} expected-note {{candidate function not viable: no known conversion from 'float' to 'unsigned int' for 1st argument}}

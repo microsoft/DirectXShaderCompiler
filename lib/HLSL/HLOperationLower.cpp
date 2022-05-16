@@ -4424,29 +4424,33 @@ static Value* SkipAddrSpaceCast(Value* Ptr) {
 // For known non-groupshared, verify that the destination param is valid
 void ValidateAtomicDestination(CallInst *CI, HLObjectOperationLowerHelper *pObjHelper) {
   Value *dest = CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex);
-  GetElementPtrInst *gep = nullptr;
-
   // If we encounter a gep, we may provide a more specific error message
-  while (isa<GetElementPtrInst>(dest)) {
-    gep = cast<GetElementPtrInst>(dest);
-    dest = gep->getPointerOperand();
+  bool hasGep = isa<GetElementPtrInst>(dest);
+
+  // Confirm that dest is a properly-used UAV
+
+  // Drill through subscripts and geps, anything else indicates a misuse
+  while(true) {
+    if (GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(dest)) {
+      dest = gep->getPointerOperand();
+      continue;
+    }
+    if (CallInst *handle = dyn_cast<CallInst>(dest)) {
+      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(handle->getCalledFunction());
+      if (group != HLOpcodeGroup::HLSubscript)
+        break;
+      dest = handle->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
+      continue;
+    }
+    break;
   }
 
-  // Confirm that dest is a UAV
-  if (CallInst *destCall = dyn_cast<CallInst>(dest)) {
-    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(destCall->getCalledFunction());
-    while (group == HLOpcodeGroup::HLSubscript) {
-      dest = destCall->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
-      if (!isa<CallInst>(dest))
-        break;
-      destCall = cast<CallInst>(dest);
-      group = hlsl::GetHLOpcodeGroup(destCall->getCalledFunction());
-    }
-    DXIL::ResourceKind RK = pObjHelper->GetRK(destCall);
+  if(pObjHelper->GetRC(dest) == DXIL::ResourceClass::UAV) {
+    DXIL::ResourceKind RK = pObjHelper->GetRK(dest);
     if (DXIL::IsStructuredBuffer(RK))
       return; // no errors
     if (DXIL::IsTyped(RK)) {
-      if (gep)
+      if (hasGep)
         dxilutil::EmitErrorOnInstruction(CI, "Typed resources used in atomic operations must have a scalar element type.");
       return; // error emitted or else no errors
     }

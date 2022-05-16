@@ -13,10 +13,11 @@ Buffer<uint> ro_buf;
 Texture1D<uint> ro_tex;
 
 const groupshared uint cgs_var = 0;
+const groupshared uint cgs_arr[3] = {0, 0, 0};
 
 groupshared uint gs_var;
 
-RWStructuredBuffer<float4> output; // just something to keep the variables alive
+RWStructuredBuffer<uint> output; // just something to keep the variables alive
 
 cbuffer CB {
   uint cb_var;
@@ -35,6 +36,9 @@ void main(uint ix : SV_GroupIndex) {
   uint res;
   init(res);
 
+  // Token usages of the invalid resources and variables so they are available in the output
+  res += cb_var + cb_gvar + cgs_var + ro_structbuf[ix] + ro_buf[ix] + ro_tex[ix] + cgs_arr[ix];
+
   InterlockedAdd(rw_structbuf[ix], 1);
   InterlockedCompareStore(rw_structbuf[ix], 1, 2);
 
@@ -47,7 +51,5 @@ void main(uint ix : SV_GroupIndex) {
   InterlockedAdd(gs_var, 1);
   InterlockedCompareStore(gs_var, 1, 2);
 
-  // Token usages of the invalid resources and variables so they are available in the output
-  output[ix] = ix + cb_var + cb_gvar + cgs_var +
-    ro_structbuf[ix] + ro_buf[ix] + ro_tex[ix];
+  output[ix] = res;
 }
