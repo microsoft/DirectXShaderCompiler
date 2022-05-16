@@ -9,7 +9,7 @@ For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderC
 Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers.
 
 ## Downloads
-You can download the latest successful build's artifacts (built by Appveyor) for the nain branch:
+You can download the latest successful build's artifacts (built by Appveyor) for the main branch:
 | Downloads |        |
 |-----------|--------|
 | Windows   | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=main&pr=false&job=image%3A%20Visual%20Studio%202019) |
