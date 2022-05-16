@@ -3990,17 +3990,19 @@ TEST_F(ValidationTest, AtomicsConsts) {
 
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
     pArguments.data(), 3, nullptr, 0,
-    {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
-    {"atomicrmw add i32 addrspace(3)* %arrayidx"},
+    {"%([a-zA-Z0-9]+) = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"([^\n]*)"},
+    {"%\\1 = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"\\2\n"
+     "%dummy = atomicrmw add i32 addrspace\\(3\\)\\* %arrayidx, i32 1 seq_cst, !dbg !104 ; line:51 col:3"
+    },
     "Constant destination to atomic.",
-    false);
+    true);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
     pArguments.data(), 3, nullptr, 0,
-    {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
-    {"cmpxchg i32 addrspace(3)* %arrayidx"},
+    {"%([a-zA-Z0-9]+) = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"([^\n]*)"},
+    {"%\\1 = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"\\2\n"
+     "%dummy = cmpxchg i32 addrspace\\(3\\)\\* %\\1, i32 1, i32 2 seq_cst seq_cst, !dbg !105 ;"},
     "Constant destination to atomic.",
-    false);
-
+    true);
 }
 
 // Check validation error for non-groupshared dest
