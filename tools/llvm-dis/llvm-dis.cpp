@@ -180,6 +180,11 @@ int __cdecl main(int argc, char **argv) { // HLSL Change - __cdecl
         reinterpret_cast<const hlsl::DxilContainerHeader *>(Buf->getBufferStart());
     const hlsl::DxilProgramHeader *DXILHeader =
         hlsl::GetDxilProgramHeader(Header, hlsl::DFCC_DXIL);
+    if (!DXILHeader) {
+      errs() << argv[0] << ": DXBC file '" << InputFilename
+             << "': Does not contain DXIL part\n";
+      return 1;
+    }
     StringRef DXILData = StringRef(hlsl::GetDxilBitcodeData(DXILHeader),
                                    hlsl::GetDxilBitcodeSize(DXILHeader));
     BitcodeData = MemoryBufferRef(DXILData, "");
@@ -191,6 +196,7 @@ int __cdecl main(int argc, char **argv) { // HLSL Change - __cdecl
     errs() << argv[0] << ": "
            << "Could not load bitcode from file '" << InputFilename
            << "': " << EC.message() << '\n';
+    return 1;
   }
   M = std::move(*MOrErr);
   M->materializeAllPermanently();
