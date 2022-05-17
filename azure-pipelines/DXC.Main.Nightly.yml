@@ -1,8 +1,8 @@
 # -----------------------------------------------------------------------------
-# ShaderCompiler DXC Master Nightly Build Pipeline Entry Point
+# ShaderCompiler DXC Main Nightly Build Pipeline Entry Point
 # -----------------------------------------------------------------------------
 
-name: DXC.Master.Nightly.$(date:yyMMdd).$(rev:rr)
+name: DXC.Main.Nightly.$(date:yyMMdd).$(rev:rr)
 
 trigger: none
 
@@ -23,7 +23,7 @@ resources:
       ref: refs/heads/Xbox
 
 extends:
-  template: azure-pipelines\templates\DXC.Master.Nightly.template.yml@XboxDXC
+  template: azure-pipelines\templates\DXC.Main.Nightly.template.yml@XboxDXC
   parameters:
     BuildConfigurations: ${{parameters.BuildConfigurations}}
     BuildPlatforms: ${{parameters.BuildPlatforms}}

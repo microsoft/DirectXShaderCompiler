@@ -4285,7 +4285,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
       // We need to make sure to preserve qualifiers on array types, since these
       // are in effect references.
       if (LHSTy.hasQualifiers())
-        ResultType.setLocalFastQualifiers(LHSTy.getLocalFastQualifiers());
+        ResultType.setLocalFastQualifiers(LHSTy.getQualifiers().getFastQualifiers());
     } else {
     // HLSL Change Ends
       Diag(LHSExp->getLocStart(), diag::ext_subscript_non_lvalue) <<

@@ -3023,6 +3023,9 @@ FLOW.FUNCTIONCALL                         Function with parameter is not permitt
 FLOW.NORECUSION                           Recursion is not permitted.
 FLOW.REDUCIBLE                            Execution flow must be reducible.
 INSTR.ALLOWED                             Instructions must be of an allowed type.
+INSTR.ATOMICCONST                         Constant destination to atomic.
+INSTR.ATOMICINTRINNONUAV                  Non-UAV destination to atomic intrinsic.
+INSTR.ATOMICOPNONGROUPSHARED              Non-groupshared destination to atomic operation.
 INSTR.ATTRIBUTEATVERTEXNOINTERPOLATION    Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.
 INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
