@@ -1858,7 +1858,13 @@ static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
   }
 }
 
-static bool IsAtomicOperation(IntrinsicOp op) {
+static bool IsBuiltinTable(LPCSTR tableName) {
+  return tableName == kBuiltinIntrinsicTableName;
+}
+
+static bool IsAtomicOperation(LPCSTR tableName, IntrinsicOp op) {
+  if (!IsBuiltinTable(tableName))
+    return false;
   switch (op) {
   case IntrinsicOp::IOP_InterlockedAdd:
   case IntrinsicOp::IOP_InterlockedAnd:
@@ -1898,15 +1904,15 @@ static bool IsAtomicOperation(IntrinsicOp op) {
   }
 }
 
-static bool IsBuiltinTable(LPCSTR tableName) {
-  return tableName == kBuiltinIntrinsicTableName;
+static bool HasUnsignedOpcode(LPCSTR tableName, IntrinsicOp opcode) {
+  return IsBuiltinTable(tableName) && HasUnsignedIntrinsicOpcode(opcode);
 }
 
 static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
                               LPCSTR tableName, LPCSTR lowering,
                               const HLSL_INTRINSIC *pIntrinsic) {
-  unsigned opcode = (unsigned)pIntrinsic->Op;
-  if (HasUnsignedOpcode(opcode) && IsBuiltinTable(tableName)) {
+  unsigned opcode = pIntrinsic->Op;
+  if (HasUnsignedOpcode(tableName, static_cast<IntrinsicOp>(opcode))) {
     QualType Ty = FD->getReturnType();
     if (pIntrinsic->iOverloadParamIndex != -1) {
       const FunctionProtoType *FT =
@@ -1965,13 +1971,11 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   InitParamMods(pIntrinsic, paramMods);
 
   // Change dest address into reference type for atomic.
-  if (IsBuiltinTable(tableName)) {
-    if (IsAtomicOperation(static_cast<IntrinsicOp>(pIntrinsic->Op))) {
-      DXASSERT(functionArgTypeCount > kAtomicDstOperandIdx,
-               "else operation was misrecognized");
-      functionArgQualTypes[kAtomicDstOperandIdx] =
-          context.getLValueReferenceType(functionArgQualTypes[kAtomicDstOperandIdx]);
-    }
+  if (IsAtomicOperation(tableName, static_cast<IntrinsicOp>(pIntrinsic->Op))) {
+    DXASSERT(functionArgTypeCount > kAtomicDstOperandIdx,
+             "else operation was misrecognized");
+    functionArgQualTypes[kAtomicDstOperandIdx] =
+      context.getLValueReferenceType(functionArgQualTypes[kAtomicDstOperandIdx]);
   }
 
   for (size_t i = 1; i < functionArgTypeCount; i++) {
@@ -2583,13 +2587,13 @@ public:
     return _tableIndex != other._tableIndex; // More things could be compared but we only match end.
   }
 
-  const HLSL_INTRINSIC* operator*()
+  const HLSL_INTRINSIC* operator*() const
   {
     DXASSERT(_firstChecked, "otherwise deref without comparing to end");
     return _tableIntrinsic;
   }
 
-  LPCSTR GetTableName()
+  LPCSTR GetTableName() const
   {
     LPCSTR tableName = nullptr;
     if (FAILED(_tables[_tableIndex]->GetTableName(&tableName))) {
@@ -2598,7 +2602,7 @@ public:
     return tableName;
   }
 
-  LPCSTR GetLoweringStrategy()
+  LPCSTR GetLoweringStrategy() const
   {
     LPCSTR lowering = nullptr;
     if (FAILED(_tables[_tableIndex]->GetLoweringStrategy(_tableIntrinsic->Op, &lowering))) {
@@ -2643,17 +2647,17 @@ public:
     return _current != other._current || _tableIter.operator!=(other._tableIter);
   }
 
-  const HLSL_INTRINSIC* operator*()
+  const HLSL_INTRINSIC* operator*() const
   {
     return (_current != _end) ? _current : *_tableIter;
   }
 
-  LPCSTR GetTableName()
+  LPCSTR GetTableName() const
   {
     return (_current != _end) ? kBuiltinIntrinsicTableName : _tableIter.GetTableName();
   }
 
-  LPCSTR GetLoweringStrategy()
+  LPCSTR GetLoweringStrategy() const
   {
     return (_current != _end) ? "" : _tableIter.GetLoweringStrategy();
   }
@@ -4638,14 +4642,14 @@ public:
   }
 
   /// <summary>Attempts to match Args to the signature specification in pIntrinsic.</summary>
-  /// <param name="pIntrinsic">Intrinsic function to match.</param>
+  /// <param name="cursor">Intrinsic function iterator.</param>
   /// <param name="objectElement">Type element on the class intrinsic belongs to; possibly null (eg, 'float' in 'Texture2D<float>').</param>
   /// <param name="Args">Invocation arguments to match.</param>
   /// <param name="argTypes">After exectuion, type of arguments.</param>
   /// <param name="badArgIdx">The first argument to mismatch if any</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
-    const _In_ HLSL_INTRINSIC *pIntrinsic,
+    const IntrinsicDefIter &cursor,
     _In_ QualType objectElement,
     _In_ QualType functionTemplateTypeArg,
     _In_ ArrayRef<Expr *> Args, 
@@ -4653,10 +4657,12 @@ public:
     _Out_ size_t &badArgIdx);
 
   /// <summary>Validate object element on intrinsic to catch case like integer on Sample.</summary>
-  /// <param name="pIntrinsic">Intrinsic function to validate.</param>
+  /// <param name="tableName">Intrinsic function to validate.</param>
+  /// <param name="op">Intrinsic opcode to validate.</param>
   /// <param name="objectElement">Type element on the class intrinsic belongs to; possibly null (eg, 'float' in 'Texture2D<float>').</param>
   bool IsValidObjectElement(
-    _In_ const HLSL_INTRINSIC *pIntrinsic,
+    LPCSTR tableName,
+    _In_ IntrinsicOp op,
     _In_ QualType objectElement);
 
   // Returns the iterator with the first entry that matches the requirement
@@ -4768,7 +4774,7 @@ public:
 
       std::vector<QualType> functionArgTypes;
       size_t badArgIdx;
-      bool argsMatch = MatchArguments(pIntrinsic, QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
+      bool argsMatch = MatchArguments(cursor, QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
       if (!functionArgTypes.size())
         return false;
 
@@ -5900,9 +5906,11 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
 }
 
 _Use_decl_annotations_ bool
-HLSLExternalSource::IsValidObjectElement(const HLSL_INTRINSIC *pIntrinsic,
+HLSLExternalSource::IsValidObjectElement(LPCSTR tableName, const IntrinsicOp op,
                                          QualType objectElement) {
-  IntrinsicOp op = static_cast<IntrinsicOp>(pIntrinsic->Op);
+  // Only meant to exclude builtins, assume others are fine
+  if (!IsBuiltinTable(tableName))
+    return true;
   switch (op) {
   case IntrinsicOp::MOP_Sample:
   case IntrinsicOp::MOP_SampleBias:
@@ -5936,13 +5944,19 @@ HLSLExternalSource::IsValidObjectElement(const HLSL_INTRINSIC *pIntrinsic,
 
 _Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
-  const HLSL_INTRINSIC* pIntrinsic,
+  const IntrinsicDefIter &cursor,
   QualType objectElement,
   QualType functionTemplateTypeArg,
   ArrayRef<Expr *> Args,
   std::vector<QualType> *argTypesVector,
   size_t &badArgIdx)
 {
+  const HLSL_INTRINSIC* pIntrinsic = *cursor;
+  LPCSTR tableName = cursor.GetTableName();
+  IntrinsicOp builtinOp = IntrinsicOp::Num_Intrinsics;
+  if (IsBuiltinTable(tableName))
+    builtinOp = static_cast<IntrinsicOp>(pIntrinsic->Op);
+
   DXASSERT_NOMSG(pIntrinsic != nullptr);
   DXASSERT_NOMSG(argTypesVector != nullptr);
   std::vector<QualType> &argTypes = *argTypesVector;
@@ -6166,7 +6180,7 @@ bool HLSLExternalSource::MatchArguments(
 
     // Catch invalid atomic dest parameters
     if (iArg == kAtomicDstOperandIdx &&
-        IsAtomicOperation(static_cast<IntrinsicOp>(pIntrinsic->Op))) {
+        IsAtomicOperation(tableName, builtinOp)) {
       // This produces an error for bitfields that is a bit confusing because it says uint can't cast to uint
       if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
         badArgIdx = std::min(badArgIdx, iArg);
@@ -6368,7 +6382,7 @@ bool HLSLExternalSource::MatchArguments(
         if (i == 0) {
           // [RW]ByteAddressBuffer.Load, default to uint
           pNewType = m_context->UnsignedIntTy;
-          if (pIntrinsic->Op != (UINT)hlsl::IntrinsicOp::MOP_Load)
+          if (builtinOp != hlsl::IntrinsicOp::MOP_Load)
             badArgIdx = std::min(badArgIdx, i);
         }
         else {
@@ -9994,7 +10008,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   while (cursor != end)
   {
     size_t badArgIdx;
-    if (!MatchArguments(*cursor, objectElement, functionTemplateTypeArg, Args, &argTypes, badArgIdx))
+    if (!MatchArguments(cursor, objectElement, functionTemplateTypeArg, Args, &argTypes, badArgIdx))
     {
       ++cursor;
       continue;
@@ -10055,7 +10069,8 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
-    if (IsBuiltinTable(tableName) && !IsValidObjectElement(*cursor, objectElement)) {
+    const HLSL_INTRINSIC* pIntrinsic = *cursor;
+    if (!IsValidObjectElement(tableName, static_cast<IntrinsicOp>(pIntrinsic->Op), objectElement)) {
       UINT numEles = GetNumElements(objectElement);
       std::string typeName(g_ArBasicTypeNames[GetTypeElementKind(objectElement)]);
       if (numEles > 1) typeName += std::to_string(numEles);
