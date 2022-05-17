@@ -4421,6 +4421,44 @@ static Value* SkipAddrSpaceCast(Value* Ptr) {
   return Ptr;
 }
 
+// For known non-groupshared, verify that the destination param is valid
+void ValidateAtomicDestination(CallInst *CI, HLObjectOperationLowerHelper *pObjHelper) {
+  Value *dest = CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex);
+  // If we encounter a gep, we may provide a more specific error message
+  bool hasGep = isa<GetElementPtrInst>(dest);
+
+  // Confirm that dest is a properly-used UAV
+
+  // Drill through subscripts and geps, anything else indicates a misuse
+  while(true) {
+    if (GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(dest)) {
+      dest = gep->getPointerOperand();
+      continue;
+    }
+    if (CallInst *handle = dyn_cast<CallInst>(dest)) {
+      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(handle->getCalledFunction());
+      if (group != HLOpcodeGroup::HLSubscript)
+        break;
+      dest = handle->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
+      continue;
+    }
+    break;
+  }
+
+  if(pObjHelper->GetRC(dest) == DXIL::ResourceClass::UAV) {
+    DXIL::ResourceKind RK = pObjHelper->GetRK(dest);
+    if (DXIL::IsStructuredBuffer(RK))
+      return; // no errors
+    if (DXIL::IsTyped(RK)) {
+      if (hasGep)
+        dxilutil::EmitErrorOnInstruction(CI, "Typed resources used in atomic operations must have a scalar element type.");
+      return; // error emitted or else no errors
+    }
+  }
+
+  dxilutil::EmitErrorOnInstruction(CI, "Atomic operation targets must be groupshared or UAV.");
+}
+
 Value *TranslateIopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
                                          DXIL::OpCode opcode,
                                          HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
@@ -4431,11 +4469,13 @@ Value *TranslateIopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
   if (addressSpace == DXIL::kTGSMAddrSpace)
     TranslateSharedMemAtomicBinOp(CI, IOP, addr);
   else {
-    // buffer atomic translated in TranslateSubscript.
-    // Do nothing here.
-    // Mark not translated.
+    // If not groupshared, we either have an error case or will translate
+    // the atomic op in the process of translating users of the subscript operator
+    // Mark not translated and validate dest param
     Translated = false;
+    ValidateAtomicDestination(CI, pObjHelper);
   }
+
   return nullptr;
 }
 
@@ -4480,10 +4520,11 @@ Value *TranslateIopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
   if (addressSpace == DXIL::kTGSMAddrSpace)
     TranslateSharedMemAtomicCmpXChg(CI, addr);
   else {
-    // buffer atomic translated in TranslateSubscript.
-    // Do nothing here.
-    // Mark not translated.
+    // If not groupshared, we either have an error case or will translate
+    // the atomic op in the process of translating users of the subscript operator
+    // Mark not translated and validate dest param
     Translated = false;
+    ValidateAtomicDestination(CI, pObjHelper);
   }
 
   return nullptr;
@@ -7698,50 +7739,10 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           LI->eraseFromParent();
           continue;
         }
-        if (!isa<CallInst>(GEPUser)) {
-          // Invalid operations.
-          Translated = false;
-          dxilutil::EmitErrorOnInstruction(GEP, "Invalid operation on typed buffer.");
-          return;
-        }
-        CallInst *userCall = cast<CallInst>(GEPUser);
-        HLOpcodeGroup group =
-            hlsl::GetHLOpcodeGroupByName(userCall->getCalledFunction());
-        if (group != HLOpcodeGroup::HLIntrinsic) {
-          // Invalid operations.
-          Translated = false;
-          dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on typed buffer.");
-          return;
-        }
-        unsigned opcode = hlsl::GetHLOpcode(userCall);
-        IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
-        switch (IOP) {
-        case IntrinsicOp::IOP_InterlockedAdd:
-        case IntrinsicOp::IOP_InterlockedAnd:
-        case IntrinsicOp::IOP_InterlockedExchange:
-        case IntrinsicOp::IOP_InterlockedMax:
-        case IntrinsicOp::IOP_InterlockedMin:
-        case IntrinsicOp::IOP_InterlockedUMax:
-        case IntrinsicOp::IOP_InterlockedUMin:
-        case IntrinsicOp::IOP_InterlockedOr:
-        case IntrinsicOp::IOP_InterlockedXor:
-        case IntrinsicOp::IOP_InterlockedCompareStore:
-        case IntrinsicOp::IOP_InterlockedCompareExchange:
-        case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
-        case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise: {
-          // Invalid operations.
-          Translated = false;
-          dxilutil::EmitErrorOnInstruction(
-              userCall, "Typed resources used in atomic operations must have a scalar element type.");
-          return;
-        } break;
-        default:
-          // Invalid operations.
-          Translated = false;
-          dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on typed buffer.");
-          return;
-          break;
-        }
+        // Invalid operations.
+        Translated = false;
+        dxilutil::EmitErrorOnInstruction(GEP, "Invalid operation on typed buffer.");
+        return;
       }
       GEP->eraseFromParent();
     } else {
@@ -7754,29 +7755,8 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         if (RC == DXIL::ResourceClass::SRV) {
           // Invalid operations.
           Translated = false;
-          switch (IOP) {
-          case IntrinsicOp::IOP_InterlockedAdd:
-          case IntrinsicOp::IOP_InterlockedAnd:
-          case IntrinsicOp::IOP_InterlockedExchange:
-          case IntrinsicOp::IOP_InterlockedMax:
-          case IntrinsicOp::IOP_InterlockedMin:
-          case IntrinsicOp::IOP_InterlockedUMax:
-          case IntrinsicOp::IOP_InterlockedUMin:
-          case IntrinsicOp::IOP_InterlockedOr:
-          case IntrinsicOp::IOP_InterlockedXor:
-          case IntrinsicOp::IOP_InterlockedCompareStore:
-          case IntrinsicOp::IOP_InterlockedCompareExchange:
-          case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
-          case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise: {
-            dxilutil::EmitErrorOnInstruction(
-                userCall, "Atomic operation targets must be groupshared or UAV.");
-            return;
-          } break;
-          default:
-            dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on typed buffer.");
-            return;
-            break;
-          }
+          dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on SRV.");
+          return;
         }
         switch (IOP) {
         case IntrinsicOp::IOP_InterlockedAdd: {
