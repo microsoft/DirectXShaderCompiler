@@ -652,7 +652,6 @@ bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD) {
   return false;
 }
 
-
 bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::OverloadedOperatorKind opc,
                                       clang::QualType paramType) {
