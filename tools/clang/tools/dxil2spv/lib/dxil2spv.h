@@ -97,6 +97,9 @@ private:
   // SPIR-V Tools wrapper functions.
   bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
 
+  // Output SPIR-V module.
+  void outputSpirvModule(std::vector<uint32_t> spirvModule);
+
   // Translate HLSL/DXIL types to corresponding SPIR-V types.
   const spirv::SpirvType *toSpirvType(hlsl::CompType compType);
   const spirv::SpirvType *toSpirvType(hlsl::DxilSignatureElement *elem);

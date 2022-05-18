@@ -156,11 +156,16 @@ void Translator::Run() {
     emitError("Generated SPIR-V is invalid: %0") << messages;
   }
 
+  outputSpirvModule(spirvModule);
+}
+
+void Translator::outputSpirvModule(std::vector<uint32_t> spirvModule) {
+  std::string outputFileName = ci.getFrontendOpts().OutputFile;
+
   // If output file not specified, disassemble SPIR-V for stdout.
-  std::string outputFile = ci.getFrontendOpts().OutputFile;
-  if (outputFile.empty()) {
+  if (outputFileName.empty()) {
     std::string assembly;
-    spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
+    spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
     uint32_t spirvDisOpts = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
                              SPV_BINARY_TO_TEXT_OPTION_INDENT);
 
@@ -173,12 +178,13 @@ void Translator::Run() {
     return;
   }
 
+  // Output SPIR-V binary to file.
   std::error_code outputFileError;
-  llvm::raw_fd_ostream outputFileStream(outputFile, outputFileError,
+  llvm::raw_fd_ostream outputFileStream(outputFileName, outputFileError,
                                         llvm::sys::fs::F_RW);
   if (outputFileError) {
     emitError("Unable to open output file %0: %1")
-        << outputFile << outputFileError.message();
+        << outputFileName << outputFileError.message();
     return;
   }
 
