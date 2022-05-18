@@ -152,14 +152,14 @@ void Translator::Run() {
 
   // Validate the generated SPIR-V code.
   std::string messages;
-  if (!spirvToolsValidate(&spirvModule, &messages)) {
+  if (!spirvToolsValidate(spirvModule, &messages)) {
     emitError("Generated SPIR-V is invalid: %0") << messages;
   }
 
   outputSpirvModule(spirvModule);
 }
 
-void Translator::outputSpirvModule(std::vector<uint32_t> spirvModule) {
+void Translator::outputSpirvModule(llvm::ArrayRef<uint32_t> spirvModule) {
   std::string outputFileName = ci.getFrontendOpts().OutputFile;
 
   // If output file not specified, disassemble SPIR-V for stdout.
@@ -709,7 +709,7 @@ void Translator::createExtractValueInstruction(
   instructionMap[&instruction] = accessChain;
 }
 
-bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
+bool Translator::spirvToolsValidate(llvm::ArrayRef<uint32_t> spirvModule,
                                     std::string *messages) {
   spvtools::SpirvTools tools(featureManager.getTargetEnv());
 
@@ -719,7 +719,7 @@ bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
                  const char *message) { *messages += message; });
 
   spvtools::ValidatorOptions options;
-  return tools.Validate(mod->data(), mod->size(), options);
+  return tools.Validate(spirvModule.data(), spirvModule.size(), options);
 }
 
 const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {

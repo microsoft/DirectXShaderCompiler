@@ -95,10 +95,11 @@ private:
   void createExtractValueInstruction(llvm::ExtractValueInst &instruction);
 
   // SPIR-V Tools wrapper functions.
-  bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
+  bool spirvToolsValidate(llvm::ArrayRef<uint32_t> spirvModule,
+                          std::string *messages);
 
   // Output SPIR-V module.
-  void outputSpirvModule(std::vector<uint32_t> spirvModule);
+  void outputSpirvModule(llvm::ArrayRef<uint32_t> spirvModule);
 
   // Translate HLSL/DXIL types to corresponding SPIR-V types.
   const spirv::SpirvType *toSpirvType(hlsl::CompType compType);
