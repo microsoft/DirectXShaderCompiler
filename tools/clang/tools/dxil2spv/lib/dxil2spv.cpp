@@ -35,6 +35,7 @@
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/SPIRV/SpirvUtils.h"
+#include "llvm/Support/FileSystem.h"
 
 namespace clang {
 namespace dxil2spv {
@@ -147,26 +148,48 @@ void Translator::Run() {
   }
 
   // Contsruct the SPIR-V module.
-  std::vector<uint32_t> m = spvBuilder.takeModuleForDxilToSpv();
+  std::vector<uint32_t> spirvModule = spvBuilder.takeModuleForDxilToSpv();
 
   // Validate the generated SPIR-V code.
   std::string messages;
-  if (!spirvToolsValidate(&m, &messages)) {
+  if (!spirvToolsValidate(spirvModule, &messages)) {
     emitError("Generated SPIR-V is invalid: %0") << messages;
   }
 
-  // Disassemble SPIR-V for output.
-  std::string assembly;
-  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
-  uint32_t spirvDisOpts = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
-                           SPV_BINARY_TO_TEXT_OPTION_INDENT);
+  outputSpirvModule(spirvModule);
+}
 
-  if (!spirvTools.Disassemble(m, &assembly, spirvDisOpts)) {
-    emitError("SPIR-V disassembly failed");
+void Translator::outputSpirvModule(llvm::ArrayRef<uint32_t> spirvModule) {
+  std::string outputFileName = ci.getFrontendOpts().OutputFile;
+
+  // If output file not specified, disassemble SPIR-V for stdout.
+  if (outputFileName.empty()) {
+    std::string assembly;
+    spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
+    uint32_t spirvDisOpts = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
+                             SPV_BINARY_TO_TEXT_OPTION_INDENT);
+
+    if (!spirvTools.Disassemble(spirvModule, &assembly, spirvDisOpts)) {
+      emitError("SPIR-V disassembly failed");
+      return;
+    }
+
+    *ci.getOutStream() << assembly;
     return;
   }
 
-  *ci.getOutStream() << assembly;
+  // Output SPIR-V binary to file.
+  std::error_code outputFileError;
+  llvm::raw_fd_ostream outputFileStream(outputFileName, outputFileError,
+                                        llvm::sys::fs::F_RW);
+  if (outputFileError) {
+    emitError("Unable to open output file %0: %1")
+        << outputFileName << outputFileError.message();
+    return;
+  }
+
+  outputFileStream.write(reinterpret_cast<const char *>(spirvModule.data()),
+                         spirvModule.size() * 4);
 }
 
 void Translator::createStageIOVariables(
@@ -686,7 +709,7 @@ void Translator::createExtractValueInstruction(
   instructionMap[&instruction] = accessChain;
 }
 
-bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
+bool Translator::spirvToolsValidate(llvm::ArrayRef<uint32_t> spirvModule,
                                     std::string *messages) {
   spvtools::SpirvTools tools(featureManager.getTargetEnv());
 
@@ -696,7 +719,7 @@ bool Translator::spirvToolsValidate(std::vector<uint32_t> *mod,
                  const char *message) { *messages += message; });
 
   spvtools::ValidatorOptions options;
-  return tools.Validate(mod->data(), mod->size(), options);
+  return tools.Validate(spirvModule.data(), spirvModule.size(), options);
 }
 
 const spirv::SpirvType *Translator::toSpirvType(hlsl::CompType compType) {
