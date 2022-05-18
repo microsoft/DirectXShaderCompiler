@@ -2722,11 +2722,37 @@ VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
     if (VD->hasAttr<HLSLPreciseAttr>()) {
       return nullptr;
     }
-    // propagate precise the the VD.
     if (const FunctionDecl *FD = getCurFunctionDecl()) {
+      // propagate precise the the VD.
       if (FD->hasAttr<HLSLPreciseAttr>()) {
         VD->addAttr(FD->getAttr<HLSLPreciseAttr>());
         return nullptr;
+      }
+
+      // Don't do NRVO if this is an entry function or a patch contsant function.
+      // With NVRO, writing to the return variable directly writes to the output
+      // argument instead of to an alloca which gets copied to the output arg in one
+      // spot. This causes many extra dx.storeOutput's to be emitted.
+      //
+      // Check if this is an entry function the easy way if we're a library
+      if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
+        return nullptr;
+      }
+      // Check if it's an entry function the hard way
+      if (!FD->getDeclContext()->isNamespace() && FD->isGlobal()) {
+        // Check if this is an entry function by comparing name
+        if (FD->getName() == getLangOpts().HLSLEntryFunction) {
+          return nullptr;
+        }
+
+        // See if it's the patch constant function
+        if (getLangOpts().HLSLProfile.size() &&
+          (getLangOpts().HLSLProfile[0] == 'h' /*For 'hs'*/ ||
+           getLangOpts().HLSLProfile[0] == 'l' /*For 'lib'*/))
+        {
+          if (hlsl::IsPatchConstantFunctionDecl(FD))
+            return nullptr;
+        }
       }
     }
   }
