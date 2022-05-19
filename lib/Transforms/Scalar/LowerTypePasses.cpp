@@ -136,7 +136,6 @@ bool LowerTypePass::runOnModule(Module &M) {
     Finder.processModule(M);
   }
 
-  std::vector<AllocaInst*> multiDimAllocas;
   for (Function &F : M.functions()) {
     if (F.isDeclaration())
       continue;
@@ -535,7 +534,38 @@ protected:
   Type *lowerType(Type *Ty) override;
   Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
   StringRef getGlobalPrefix() override { return ".1dim"; }
+  bool isSafeToLowerArray(Value *V);
 };
+
+// Recurse users, looking for any direct users of array or sub-array type,
+// other than lifetime markers:
+bool MultiDimArrayToOneDimArray::isSafeToLowerArray(Value *V) {
+  Type *Ty = V->getType()->getPointerElementType();
+  if (!isa<ArrayType>(Ty))
+    return true;
+  for (auto it = V->user_begin(); it != V->user_end();) {
+    User *U = *it++;
+    if (isa<GEPOperator>(U)) {
+      if (!isSafeToLowerArray(U))
+        return false;
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      if (onlyUsedByLifetimeMarkers(U))
+        continue;
+    } else if (isa<AddrSpaceCastInst>(U)) {
+      if (!isSafeToLowerArray(U))
+        return false;
+    } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+      if (CE->getOpcode() == Instruction::BitCast && onlyUsedByLifetimeMarkers(U))
+        continue;
+      if (!isSafeToLowerArray(CE))
+        return false;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
 
 bool MultiDimArrayToOneDimArray::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
@@ -547,7 +577,7 @@ bool MultiDimArrayToOneDimArray::needToLower(Value *V) {
   } else {
     // Merge all GEP.
     dxilutil::MergeGepUse(V);
-    return true;
+    return isSafeToLowerArray(V);
   }
 }
 
