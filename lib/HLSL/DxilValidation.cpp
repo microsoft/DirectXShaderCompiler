@@ -2395,7 +2395,7 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx, bool bInner = fals
   }
   if (Ty->isArrayTy()) {
     Type *EltTy = Ty->getArrayElementType();
-    if (!bInner && !ValCtx.isLibProfile && isa<ArrayType>(EltTy)) {
+    if (!bInner && isa<ArrayType>(EltTy)) {
       // Outermost array should be converted to single-dim,
       // but arrays inside struct are allowed to be multi-dim
       ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoMultiDim);
