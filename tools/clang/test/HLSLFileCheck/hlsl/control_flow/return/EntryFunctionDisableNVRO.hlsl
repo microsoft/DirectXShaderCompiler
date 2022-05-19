@@ -121,7 +121,7 @@ MyReturn main() {
 
 
 struct MyPatchConstantReturn {
-    float member[3] : SV_TessFactor0 // <-- with 0;
+    float member[3] : SV_TessFactor0; // <-- with 0;
     float member2 : SV_InsideTessFactor;
 };
 MyPatchConstantReturn patch_const() {
