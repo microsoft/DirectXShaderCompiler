@@ -540,24 +540,16 @@ protected:
 // Recurse users, looking for any direct users of array or sub-array type,
 // other than lifetime markers:
 bool MultiDimArrayToOneDimArray::isSafeToLowerArray(Value *V) {
-  Type *Ty = V->getType()->getPointerElementType();
-  if (!isa<ArrayType>(Ty))
+  if (isa<BitCastOperator>(V))
+    if (!onlyUsedByLifetimeMarkers(V))
+      return false;
+  if (!V->getType()->isArrayTy())
     return true;
   for (auto it = V->user_begin(); it != V->user_end();) {
     User *U = *it++;
-    if (isa<GEPOperator>(U)) {
+    if (isa<GEPOperator>(U) || isa<BitCastOperator>(V) ||
+        isa<AddrSpaceCastInst>(U) || isa<ConstantExpr>(U)) {
       if (!isSafeToLowerArray(U))
-        return false;
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      if (onlyUsedByLifetimeMarkers(U))
-        continue;
-    } else if (isa<AddrSpaceCastInst>(U)) {
-      if (!isSafeToLowerArray(U))
-        return false;
-    } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
-      if (CE->getOpcode() == Instruction::BitCast && onlyUsedByLifetimeMarkers(U))
-        continue;
-      if (!isSafeToLowerArray(CE))
         return false;
     } else {
       return false;
