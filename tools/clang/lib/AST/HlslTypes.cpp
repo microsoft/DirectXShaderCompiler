@@ -605,7 +605,10 @@ static bool HasTessFactorSemantic(const ValueDecl *decl) {
   for (const UnusualAnnotation *it : decl->getUnusualAnnotations()) {
     if (it->getKind() == UnusualAnnotation::UA_SemanticDecl) {
       const SemanticDecl *sd = cast<SemanticDecl>(it);
-      const hlsl::Semantic *pSemantic = hlsl::Semantic::GetByName(sd->SemanticName);
+      StringRef semanticName;
+      unsigned int index = 0;
+      Semantic::DecomposeNameAndIndex(sd->SemanticName, &semanticName, &index);
+      const hlsl::Semantic *pSemantic = hlsl::Semantic::GetByName(semanticName);
       if (pSemantic && pSemantic->GetKind() == hlsl::Semantic::Kind::TessFactor)
         return true;
     }
