@@ -4651,7 +4651,7 @@ void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *raw
   for (UINT y = 0; y < yDim; y++)
     for (UINT x = 0; x < xDim; x++)
       rawTex->SetElement(ix++, x, y);
-  D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(resFormat, xDim, yDim);
+  D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(resFormat, xDim, yDim, 1/* sampCt */, 1/* mipCt */);
 
   CreateTestResources(pDevice, pCommandList, rawTex->GetElements(), valueSizeInBytes, tex2dDesc,
                       &pTexResource, &pTexUploadResource,
