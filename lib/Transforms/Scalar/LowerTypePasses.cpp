@@ -543,7 +543,7 @@ bool MultiDimArrayToOneDimArray::isSafeToLowerArray(Value *V) {
   if (isa<BitCastOperator>(V))
     if (!onlyUsedByLifetimeMarkers(V))
       return false;
-  if (!V->getType()->isArrayTy())
+  if (!V->getType()->getPointerElementType()->isArrayTy())
     return true;
   for (auto it = V->user_begin(); it != V->user_end();) {
     User *U = *it++;
