@@ -103,6 +103,8 @@ clang::OverloadingResult GetBestViableFunction(
   clang::OverloadCandidateSet& set,
   clang::OverloadCandidateSet::iterator& Best);
 
+bool ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType, clang::VarDecl *VD, clang::FunctionDecl *FD);
+
 /// <summary>Processes an attribute for a declaration.</summary>
 /// <param name="S">Sema with context.</param>
 /// <param name="D">Annotated declaration.</param>

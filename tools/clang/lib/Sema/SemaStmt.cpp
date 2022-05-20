@@ -2702,34 +2702,8 @@ VarDecl *Sema::getCopyElisionCandidate(QualType ReturnType,
     return nullptr;
 
   // HLSL Change Begins: NRVO unsafe for a variety of cases in HLSL
-  // - vectors/matrix with bool component types
-  // - attributes not captured to QualType, such as precise and globallycoherent
-  if (getLangOpts().HLSL) {
-    // exclude vectors/matrix (not treated as record type)
-    // NRVO breaks on bool component type due to diff between
-    // i32 memory and i1 register representation
-    if (hlsl::IsHLSLVecMatType(ReturnType))
-      return nullptr;
-    QualType ArrayEltTy = ReturnType;
-    while (const clang::ArrayType *AT =
-               Context.getAsArrayType(ArrayEltTy)) {
-      ArrayEltTy = AT->getElementType();
-    }
-    // exclude resource for globallycoherent.
-    if (hlsl::IsHLSLResourceType(ArrayEltTy))
-      return nullptr;
-    // exclude precise.
-    if (VD->hasAttr<HLSLPreciseAttr>()) {
-      return nullptr;
-    }
-    // propagate precise the the VD.
-    if (const FunctionDecl *FD = getCurFunctionDecl()) {
-      if (FD->hasAttr<HLSLPreciseAttr>()) {
-        VD->addAttr(FD->getAttr<HLSLPreciseAttr>());
-        return nullptr;
-      }
-    }
-  }
+  if (getLangOpts().HLSL && hlsl::ShouldSkipNRVO(*this, ReturnType, VD, getCurFunctionDecl()))
+    return nullptr;
   // HLSL Change Ends
 
   if (isCopyElisionCandidate(ReturnType, VD, AllowFunctionParameter))

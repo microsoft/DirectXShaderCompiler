@@ -574,7 +574,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
       }
 
       // Ignore uses that are only used by lifetime intrinsics.
-      if (onlyUsedByLifetimeMarkers(U))
+      if (isa<BitCastInst>(U) && onlyUsedByLifetimeMarkers(U))
         continue;
 
       // We've found something that prevents us from safely replacing this alloca.

@@ -11122,6 +11122,64 @@ unsigned hlsl::CaculateInitListArraySizeForHLSL(
   }
 }
 
+// NRVO unsafe for a variety of cases in HLSL
+// - vectors/matrix with bool component types
+// - attributes not captured to QualType, such as precise and globallycoherent
+bool hlsl::ShouldSkipNRVO(clang::Sema& sema, clang::QualType returnType, clang::VarDecl *VD, clang::FunctionDecl *FD) {
+  // exclude vectors/matrix (not treated as record type)
+  // NRVO breaks on bool component type due to diff between
+  // i32 memory and i1 register representation
+  if (hlsl::IsHLSLVecMatType(returnType))
+    return true;
+  QualType ArrayEltTy = returnType;
+  while (const clang::ArrayType *AT =
+             sema.getASTContext().getAsArrayType(ArrayEltTy)) {
+    ArrayEltTy = AT->getElementType();
+  }
+  // exclude resource for globallycoherent.
+  if (hlsl::IsHLSLResourceType(ArrayEltTy))
+    return true;
+  // exclude precise.
+  if (VD->hasAttr<HLSLPreciseAttr>()) {
+    return true;
+  }
+  if (FD) {
+    // propagate precise the the VD.
+    if (FD->hasAttr<HLSLPreciseAttr>()) {
+      VD->addAttr(FD->getAttr<HLSLPreciseAttr>());
+      return true;
+    }
+
+    // Don't do NRVO if this is an entry function or a patch contsant function.
+    // With NVRO, writing to the return variable directly writes to the output
+    // argument instead of to an alloca which gets copied to the output arg in one
+    // spot. This causes many extra dx.storeOutput's to be emitted.
+    //
+    // Check if this is an entry function the easy way if we're a library
+    if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
+      return true;
+    }
+    // Check if it's an entry function the hard way
+    if (!FD->getDeclContext()->isNamespace() && FD->isGlobal()) {
+      // Check if this is an entry function by comparing name
+      if (FD->getName() == sema.getLangOpts().HLSLEntryFunction) {
+        return true;
+      }
+
+      // See if it's the patch constant function
+      if (sema.getLangOpts().HLSLProfile.size() &&
+        (sema.getLangOpts().HLSLProfile[0] == 'h' /*For 'hs'*/ ||
+         sema.getLangOpts().HLSLProfile[0] == 'l' /*For 'lib'*/))
+      {
+        if (hlsl::IsPatchConstantFunctionDecl(FD))
+          return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 bool hlsl::IsConversionToLessOrEqualElements(
   _In_ clang::Sema* self,
   const clang::ExprResult& sourceExpr,
