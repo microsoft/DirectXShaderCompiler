@@ -962,7 +962,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
   if (!RetTy->isStructTy() || HLMatrixType::isa(RetTy)) {
     llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
     // For resource array, use element type.
-    if (Ty->isArrayTy())
+    while (Ty->isArrayTy())
       Ty = Ty->getArrayElementType();
     // Get the struct buffer type like this %class.StructuredBuffer = type {
     // %struct.mat }.

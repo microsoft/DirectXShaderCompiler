@@ -33,10 +33,12 @@ cbuffer MyCB : register(b11, space3)
 Texture2D<float> Tex1; // t0
 Texture2D Tex2[3][7] : register(t11);   // unused
 Texture2D<float> Tex3[] : register(t8); // unbounded, unused
+Texture2D<float> Tex4[][3] : register(t8, space1); // unbounded, unused
 
 RWTexture2D<float4> RWTex1[4];  // u0
 RWTexture2D<float4> RWTex2 : register(u7);
 RWTexture2D<float4> RWTex3[] : register(u5);  // unbounded
+RWTexture2D<float4> RWTex4[][3] : register(u6, space1);  // unbounded
 
 // Ensure unused explicitly bound does not reserve space:
 RWTexture2D<float4> RWUnused[6] : register(u17);
@@ -76,6 +78,7 @@ float4 main(int4 a : A, float4 coord : TEXCOORD) : SV_TARGET
     * RWTex1[2].Load(a.xy)    // u0 + 2 = u2
     // * RWTex2.Load(a.xy)       // u7
     * RWTex3[18].Load(a.xy)   // u5 + 18 = u23
+    * RWTex4[18][1].Load(a.xy)   // u6 + 3*18 + 1 = u61
     * tbuf1[1][1].i // t32 + (1 * 2) + 1 = t35
     // * tbuf2[1].f // t1 + 1 = t2
     * tbuf3[3].f // t36 + 3 = t39

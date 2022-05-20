@@ -114,6 +114,7 @@ VerifierTests = {
     'RunWave':                                   'wave.hlsl',
     'RunWriteConstArrays':                       'write-const-arrays.hlsl',
     'RunAtomicsOnBitfields':                     'atomics-on-bitfields.hlsl',
+    'RunUnboundedResourceArrays':                'invalid-unbounded-resource-arrays.hlsl',
 }
 
 # The following test(s) do not work in fxc mode:

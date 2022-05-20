@@ -99,7 +99,7 @@ public:
   TEST_METHOD(RunInputPatchConst)
   TEST_METHOD(RunWriteConstArrays)
   TEST_METHOD(RunAtomicsOnBitfields)
-
+  TEST_METHOD(RunUnboundedResourceArrays)
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
@@ -428,4 +428,8 @@ TEST_F(VerifierTest, RunWriteConstArrays) {
 
 TEST_F(VerifierTest, RunAtomicsOnBitfields) {
   CheckVerifiesHLSL(L"atomics-on-bitfields.hlsl");
+}
+
+TEST_F(VerifierTest, RunUnboundedResourceArrays) {
+  CheckVerifiesHLSL(L"invalid-unbounded-resource-arrays.hlsl");
 }
