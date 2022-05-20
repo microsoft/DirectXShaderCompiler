@@ -3445,30 +3445,30 @@ bool tryToReplaceCBVec4ArrayToScalarArray(Value *V, Type *TyV, Value *Src,
 
 } // namespace
 
-static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
+static bool ReplaceMemcpy(Value *Dest, Value *Src, MemCpyInst *MC,
                           DxilFieldAnnotation *annotation, DxilTypeSystem &typeSys,
                           const DataLayout &DL, DominatorTree *DT) {
   // If the only user of the src and dst is the memcpy,
   // this memcpy was probably produced by splitting another.
   // Regardless, the goal here is to replace, not remove the memcpy
   // we won't have enough information to determine if we can do that before mem2reg
-  if (V != Src && V->hasOneUse() && Src->hasOneUse())
+  if (Dest != Src && Dest->hasOneUse() && Src->hasOneUse())
     return false;
 
-  // If the source of the memcpy (Src) doesn't dominate all users of dest (V),
+  // If the source of the memcpy (Src) doesn't dominate all users of Dest,
   // full replacement isn't possible without complicated PHI insertion
   // This will likely replace with ld/st which will be replaced in mem2reg
   if (Instruction *SrcI = dyn_cast<Instruction>(Src))
-    if (!DominateAllUsers(SrcI, V, DT))
+    if (!DominateAllUsers(SrcI, Dest, DT))
       return false;
 
-  Type *TyV = V->getType()->getPointerElementType();
+  Type *TyDest = Dest->getType()->getPointerElementType();
   Type *TySrc = Src->getType()->getPointerElementType();
-  if (Constant *C = dyn_cast<Constant>(V)) {
-    updateLifetimeForReplacement(V, Src);
-    if (TyV == TySrc) {
+  if (Constant *C = dyn_cast<Constant>(Dest)) {
+    updateLifetimeForReplacement(Dest, Src);
+    if (TyDest == TySrc) {
       if (isa<Constant>(Src)) {
-        V->replaceAllUsesWith(Src);
+        Dest->replaceAllUsesWith(Src);
       } else {
         // Replace Constant with a non-Constant.
         IRBuilder<> Builder(MC);
@@ -3477,19 +3477,19 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     } else {
       // Try convert special pattern for cbuffer which copy array of float4 to
       // array of float.
-      if (!tryToReplaceCBVec4ArrayToScalarArray(V, TyV, Src, TySrc, MC, DL)) {
+      if (!tryToReplaceCBVec4ArrayToScalarArray(Dest, TyDest, Src, TySrc, MC, DL)) {
         IRBuilder<> Builder(MC);
-        Src = Builder.CreateBitCast(Src, V->getType());
+        Src = Builder.CreateBitCast(Src, Dest->getType());
         ReplaceConstantWithInst(C, Src, Builder);
       }
     }
   } else {
-    if (TyV == TySrc) {
-      if (V != Src) {
-        updateLifetimeForReplacement(V, Src);
-        V->replaceAllUsesWith(Src);
+    if (TyDest == TySrc) {
+      if (Dest != Src) {
+        updateLifetimeForReplacement(Dest, Src);
+        Dest->replaceAllUsesWith(Src);
       }
-    } else if (!IsUnboundedArrayMemcpy(TyV, TySrc)) {
+    } else if (!IsUnboundedArrayMemcpy(TyDest, TySrc)) {
       Value* DestVal = MC->getRawDest();
       Value* SrcVal = MC->getRawSource();
       if (!isa<BitCastInst>(SrcVal) || !isa<BitCastInst>(DestVal)) {
@@ -3529,7 +3529,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
             MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
             return true;
           } else {
-            updateLifetimeForReplacement(V, Src);
+            updateLifetimeForReplacement(Dest, Src);
             DstPtr->replaceAllUsesWith(SrcPtr);
           }
         } else {
@@ -3538,9 +3538,9 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         }
       }
     } else {
-      updateLifetimeForReplacement(V, Src);
-      DXASSERT(IsUnboundedArrayMemcpy(TyV, TySrc), "otherwise mismatched types in memcpy are not unbounded array");
-      ReplaceUnboundedArrayUses(V, Src);
+      updateLifetimeForReplacement(Dest, Src);
+      DXASSERT(IsUnboundedArrayMemcpy(TyDest, TySrc), "otherwise mismatched types in memcpy are not unbounded array");
+      ReplaceUnboundedArrayUses(Dest, Src);
     }
   }
 
@@ -3759,6 +3759,11 @@ static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
   return false;
 }
 
+// Analyze Pointer <V> and lower the memcpy that uses it.
+// If it is stored to once as the destination of memcpy, and the source can't be changed,
+// after the memcpy, replace the destination <V> with the memcpy source value
+// If it is loaded once as the source of memcpy and the destinaton is replaceable,
+// and only stored to once as the memcpy dest, then replace that dest with the source <V>
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3776,12 +3781,14 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
-      if (PS.storedType == hlutil::PointerStatus::StoredType::NotStored) {
-        PS.storedType = hlutil::PointerStatus::StoredType::InitializerStored;
+      if (storedType == StoredType::NotStored) {
+        // If a global var has no assignment and has an initializer,
+        // mark as only initialized instead of NotStored
+        storedType = StoredType::InitializerStored;
       } else if (PS.storedType ==
                  hlutil::PointerStatus::StoredType::MemcopyDestOnce) {
         // For single mem store, if the store does not dominate all users.
-        // Mark it as Stored.
+        // Mark it as having multiple stores.
         // In cases like:
         // struct A { float4 x[25]; };
         // A a;
@@ -3791,18 +3798,16 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         if (isa<ConstantAggregateZero>(GV->getInitializer())) {
           Instruction * Memcpy = PS.StoringMemcpy;
           if (!ReplaceUseOfZeroInitBeforeDef(Memcpy, GV)) {
-            PS.storedType = hlutil::PointerStatus::StoredType::Stored;
+            PS.storedType = hlutil::PointerStatus::StoredType::MultipleStores;
           }
         }
-      } else {
-        PS.storedType = hlutil::PointerStatus::StoredType::Stored;
       }
     }
   }
 
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
-    if (PS.storedType == hlutil::PointerStatus::StoredType::MemcopyDestOnce &&
-        // Skip argument for input argument has input value, it is not dest once anymore.
+    if (PS.storedType == hlutil::PointerStatus::StoredType::MemcopyStoredOnce &&
+        // If argument for input argument has input value, it is not stored once anymore.
         !isa<Argument>(V)) {
       // Replace with src of memcpy.
       MemCpyInst *MC = PS.StoringMemcpy;
@@ -3814,7 +3819,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
         if (GEPOperator *GEP = dyn_cast<GEPOperator>(Src)) {
           // For GEP, the ptr could have other GEP read/write.
-          // Only scan one GEP is not enough.
+          // Only scanning one GEP is not enough.
           Value *Ptr = GEP->getPointerOperand();
           while (GEPOperator *NestedGEP = dyn_cast<GEPOperator>(Ptr))
             Ptr = NestedGEP->getPointerOperand();
@@ -3835,7 +3840,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Check Src only have 1 store now.
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
-          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
+          if (SrcPS.storedType == hlutil::PointerStatus::StoredType::MemcopyStoredOnce) {
             if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
               if (V->user_empty())
                 return true;
@@ -3845,7 +3850,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         }
       }
     } else if (PS.loadedType ==
-               hlutil::PointerStatus::LoadedType::MemcopySrcOnce) {
+               hlutil::PointerStatus::LoadedType::MemcopyLoadedOnce) {
       // Replace dst of memcpy.
       MemCpyInst *MC = PS.LoadingMemcpy;
       if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
@@ -3863,7 +3868,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Check Dest only have 1 store now.
           hlutil::PointerStatus DestPS(Dest, size, /*bLdStOnly*/ false);
           DestPS.analyze(typeSys, bStructElt);
-          if (DestPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
+          if (DestPS.storedType != hlutil::PointerStatus::StoredType::MultipleStores) {
             if (ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL, DT)) {
               // V still needs to be flattened.
               // Lower memcpy come from Dest.

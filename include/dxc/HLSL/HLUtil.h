@@ -33,41 +33,32 @@ struct PointerStatus {
     /// This ptr is a global, and is stored to, but the only thing stored is the
     /// constant it
     /// was initialized with. This is only tracked for scalar globals.
-    InitializerStored,
-
-    /// This ptr is stored to, but only its initializer and one other value
-    /// is ever stored to it.  If this global isStoredOnce, we track the value
-    /// stored to it in StoredOnceValue below.  This is only tracked for scalar
-    /// globals.
-    StoredOnce,
+    InitializedOnly,
 
     /// This ptr is only assigned by a memcpy.
-    MemcopyDestOnce,
+    MemcopyStoredOnce,
 
     /// This ptr is stored to by multiple values or something else that we
     /// cannot track.
-    Stored
+    MultipleStores
   } storedType;
   /// Keep track of what loaded from the pointer look like.
   enum class LoadedType {
-    /// There is no load to this pointer.  It can thus be marked constant.
+    /// There is no load of this pointer.  It can thus be marked constant.
     NotLoaded,
 
     /// This ptr is only used by a memcpy.
-    MemcopySrcOnce,
+    MemcopyLoadedOnce,
 
-    /// This ptr is loaded to by multiple instructions or something else that we
+    /// This ptr is loaded by multiple instructions or something else that we
     /// cannot track.
-    Loaded
+    MultipleLoads
   } loadedType;
-  /// If only one value (besides the initializer constant) is ever stored to
-  /// this global, keep track of what value it is.
-  llvm::Value *StoredOnceValue;
   /// Memcpy which this ptr is used.
   llvm::SetVector<llvm::MemCpyInst *> memcpySet;
-  /// Memcpy which use this ptr as dest.
+  /// Memcpy which uses this ptr as dest.
   llvm::MemCpyInst *StoringMemcpy;
-  /// Memcpy which use this ptr as src.
+  /// Memcpy which uses this ptr as src.
   llvm::MemCpyInst *LoadingMemcpy;
   /// These start out null/false.  When the first accessing function is noticed,
   /// it is recorded. When a second different accessing function is noticed,
@@ -83,8 +74,8 @@ struct PointerStatus {
   void analyze(DxilTypeSystem &typeSys, bool bStructElt);
 
   PointerStatus(llvm::Value *ptr, unsigned size, bool bLdStOnly);
-  void MarkAsStored();
-  void MarkAsLoaded();
+  void MarkAsMultiStored();
+  void MarkAsMultiLoaded();
   bool HasStored();
   bool HasLoaded();
 };

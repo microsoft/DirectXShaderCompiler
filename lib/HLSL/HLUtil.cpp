@@ -59,28 +59,28 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
         if (MC->getRawDest() == V) {
           if (bFullCopy &&
               PS.storedType == PointerStatus::StoredType::NotStored) {
-            PS.storedType = PointerStatus::StoredType::MemcopyDestOnce;
+            PS.storedType = PointerStatus::StoredType::MemcopyStoredOnce;
             PS.StoringMemcpy = MI;
           } else {
-            PS.MarkAsStored();
+            PS.MarkAsMultiStored();
             PS.StoringMemcpy = nullptr;
           }
         } else if (MC->getRawSource() == V) {
           if (bFullCopy &&
               PS.loadedType == PointerStatus::LoadedType::NotLoaded) {
-            PS.loadedType = PointerStatus::LoadedType::MemcopySrcOnce;
+            PS.loadedType = PointerStatus::LoadedType::MemcopyLoadedOnce;
             PS.LoadingMemcpy = MI;
           } else {
-            PS.MarkAsLoaded();
+            PS.MarkAsMultiLoaded();
             PS.LoadingMemcpy = nullptr;
           }
         }
       } else {
         if (MC->getRawDest() == V) {
-          PS.MarkAsStored();
+          PS.MarkAsMultiStored();
         } else {
           DXASSERT(MC->getRawSource() == V, "must be source here");
-          PS.MarkAsLoaded();
+          PS.MarkAsMultiLoaded();
         }
       }
     } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
@@ -92,16 +92,9 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
       bool bStructElt = (GEPIt != GEPEnd) && GEPIt->isStructTy();
       analyzePointer(GEP, PS, typeSys, bStructElt, bLdStOnly);
     } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      Value *V = SI->getOperand(0);
-
-      if (PS.storedType == PointerStatus::StoredType::NotStored) {
-        PS.storedType = PointerStatus::StoredType::StoredOnce;
-        PS.StoredOnceValue = V;
-      } else {
-        PS.MarkAsStored();
-      }
+      PS.MarkAsMultiStored();
     } else if (dyn_cast<LoadInst>(U)) {
-      PS.MarkAsLoaded();
+      PS.MarkAsMultiLoaded();
     } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
       if (F->isIntrinsic()) {
@@ -119,16 +112,16 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
           switch (opcode) {
           case HLMatLoadStoreOpcode::ColMatLoad:
           case HLMatLoadStoreOpcode::RowMatLoad:
-            PS.MarkAsLoaded();
+            PS.MarkAsMultiLoaded();
             break;
           case HLMatLoadStoreOpcode::ColMatStore:
           case HLMatLoadStoreOpcode::RowMatStore:
-            PS.MarkAsStored();
+            PS.MarkAsMultiStored();
             break;
           default:
             DXASSERT(0, "invalid opcode");
-            PS.MarkAsStored();
-            PS.MarkAsLoaded();
+            PS.MarkAsMultiStored();
+            PS.MarkAsMultiLoaded();
           }
         } break;
         case HLOpcodeGroup::HLSubscript: {
@@ -145,14 +138,14 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
           default:
             // Rest are resource ptr like buf[i].
             // Only read of resource handle.
-            PS.MarkAsLoaded();
+            PS.MarkAsMultiLoaded();
             break;
           }
         } break;
         default: {
           // If not sure its out param or not. Take as out param.
-          PS.MarkAsStored();
-          PS.MarkAsLoaded();
+          PS.MarkAsMultiStored();
+          PS.MarkAsMultiLoaded();
         }
         }
         continue;
@@ -166,21 +159,21 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
             auto &paramAnnot = annotation->GetParameterAnnotation(i);
             switch (paramAnnot.GetParamInputQual()) {
             default:
-              PS.MarkAsStored();
-              PS.MarkAsLoaded();
+              PS.MarkAsMultiStored();
+              PS.MarkAsMultiLoaded();
               break;
             case DxilParamInputQual::Out:
-              PS.MarkAsStored();
+              PS.MarkAsMultiStored();
               break;
             case DxilParamInputQual::In:
-              PS.MarkAsLoaded();
+              PS.MarkAsMultiLoaded();
               break;
             }
           } else {
             // Do not replace struct arg.
             // Mark stored and loaded to disable replace.
-            PS.MarkAsStored();
-            PS.MarkAsLoaded();
+            PS.MarkAsMultiStored();
+            PS.MarkAsMultiLoaded();
           }
         }
       }
@@ -198,18 +191,15 @@ void PointerStatus::analyze(DxilTypeSystem &typeSys, bool bStructElt) {
 
 PointerStatus::PointerStatus(llvm::Value *ptr, unsigned size, bool bLdStOnly)
     : storedType(StoredType::NotStored), loadedType(LoadedType::NotLoaded),
-      StoredOnceValue(nullptr), StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
+      StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
       AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
       Size(size), Ptr(ptr), bLoadStoreOnly(bLdStOnly) {}
 
-void PointerStatus::MarkAsStored() {
-  storedType = StoredType::Stored;
-  StoredOnceValue = nullptr;
-}
-void PointerStatus::MarkAsLoaded() { loadedType = LoadedType::Loaded; }
+void PointerStatus::MarkAsMultiStored() { storedType = StoredType::MultipleStores; }
+void PointerStatus::MarkAsMultiLoaded() { loadedType = LoadedType::MultipleLoads; }
 bool PointerStatus::HasStored() {
   return storedType != StoredType::NotStored &&
-         storedType != StoredType::InitializerStored;
+         storedType != StoredType::InitializedOnly;
 }
 bool PointerStatus::HasLoaded() { return loadedType != LoadedType::NotLoaded; }
 
