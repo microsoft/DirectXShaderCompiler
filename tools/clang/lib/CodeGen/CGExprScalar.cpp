@@ -25,6 +25,7 @@
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CodeGenOptions.h"
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -3731,11 +3732,13 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
     }
   }
 
-  llvm::Value *ResultAlloca = nullptr;
+  llvm::Instruction *ResultAlloca = nullptr;
   if (CGF.getLangOpts().HLSL && CGF.getLangOpts().EnableShortCircuit &&
       hlsl::IsHLSLMatType(E->getType())) {
-    llvm::Type *MatTy = CGF.ConvertType(E->getType());
+    llvm::Type *MatTy = CGF.ConvertTypeForMem(E->getType());
     ResultAlloca = Builder.CreateAlloca(MatTy);
+    ResultAlloca->moveBefore(hlsl::dxilutil::FindAllocaInsertionPt(
+        Builder.GetInsertBlock()->getParent()));
   }
   // HLSL Change Ends
 
