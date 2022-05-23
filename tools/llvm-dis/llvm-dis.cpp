@@ -144,13 +144,14 @@ int __cdecl main(int argc, char **argv) { // HLSL Change - __cdecl
   // sys::PrintStackTraceOnErrorSignal(); // HLSL Change - disable this
   // PrettyStackTraceProgram X(argc, argv); // HLSL Change - disable this
   // HLSL Change Starts
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
   llvm::sys::fs::MSFileSystem* msfPtr;
   HRESULT hr;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))
     return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  llvm::STDStreamCloser stdStreamCloser;
   // HLSL Change Ends
 
   LLVMContext &Context = getGlobalContext();
