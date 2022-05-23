@@ -26,9 +26,9 @@ add_subdirectory(HLSL) # HLSL Change
 add_subdirectory(DXIL) # HLSL Change
 add_subdirectory(DxilContainer) # HLSL Change
 add_subdirectory(DxilPIXPasses) # HLSL Change
-if(WIN32) # HLSL Change
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC") # HLSL Change
   add_subdirectory(DxilDia) # HLSL Change
-endif(WIN32) # HLSL Change
+endif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC") # HLSL Change
 add_subdirectory(DxilRootSignature) # HLSL Change
 add_subdirectory(DxcBindingTable) # HLSL Change
 add_subdirectory(DxrFallback) # HLSL Change

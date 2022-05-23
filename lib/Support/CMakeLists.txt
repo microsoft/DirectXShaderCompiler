@@ -144,8 +144,8 @@ add_llvm_library(LLVMSupport
   )
 
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
-if(WIN32)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 set_property(TARGET LLVMSupport PROPERTY COMPILE_FLAGS /EHsc )
-endif(WIN32)
+endif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 
 target_link_libraries(LLVMSupport PUBLIC LLVMMSSupport) # HLSL Change

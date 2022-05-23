@@ -19,7 +19,7 @@ macro(add_dxilconv_project_test_library name)
 endmacro(add_dxilconv_project_test_library)
 
 
-if(WIN32)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
   add_subdirectory(lib)
   add_subdirectory(tools)
   if (HLSL_INCLUDE_TESTS)

@@ -21,10 +21,10 @@ add_llvm_tool_subdirectory(llvm-dis) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-mc) # HLSL Change
 
 # HLSL Change Begins
-if (WIN32)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 # This target can currently only be built on Windows.
 add_llvm_tool_subdirectory(dxexp)
-endif (WIN32)
+endif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 # HLSL Change ends
 
 # add_llvm_tool_subdirectory(llc) # HLSL Change

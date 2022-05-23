@@ -34,6 +34,7 @@ find_path(DXGI_INCLUDE_DIR    # Set variable DXGI_INCLUDE_DIR
           )
 set(D3D12_INCLUDE_DIRS ${D3D12_INCLUDE_DIR} ${DXGI_INCLUDE_DIR})
 
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 # Find D3D libraries
 set(D3D12_LIB_NAMES d3d12.lib dxgi.lib d3dcompiler.lib)
 
@@ -62,3 +63,4 @@ find_package_handle_standard_args(D3D12  DEFAULT_MSG
                                   D3D12_INCLUDE_DIRS D3D12_LIBRARIES)
 
 mark_as_advanced(D3D12_INCLUDE_DIRS D3D12_LIBRARIES)
+endif()

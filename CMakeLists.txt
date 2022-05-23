@@ -102,15 +102,17 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
 endif()
 
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
+endif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 
 # enable control flow guard
-if(WIN32)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 add_compile_options(/guard:cf)
 add_link_options(/guard:cf)
-endif(WIN32)
+endif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 
 # HLSL Change Ends
 
@@ -618,9 +620,9 @@ endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 # enable warnings as errors for debug build
-if (WIN32)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
   SET(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} /WX")
-endif (WIN32)
+endif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 
 include(AddLLVM)
 include(TableGen)

@@ -104,10 +104,12 @@ if (0 AND CLANG_ENABLE_ARCMT) # HLSL Change - remove ARC support
   list(APPEND LIBS clangARCMigrate)
 endif ()
 
+if(NOT WIN32)
 find_library(DL_LIBRARY_PATH dl)
 if (DL_LIBRARY_PATH)
   list(APPEND LIBS dl)
 endif()
+endif(NOT WIN32)
 
 option(LIBCLANG_BUILD_STATIC
   "Build libclang as a static library (in addition to a shared one)" OFF)
