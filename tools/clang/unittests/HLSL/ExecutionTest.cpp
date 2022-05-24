@@ -9878,7 +9878,7 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
   unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? 2 : 1;
   for (unsigned i = 0; i < num_models_to_test; i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
-    LogCommentFmt(L"\r\nVerifying Dynamic Resources Uniform Indexing in shader "
+    LogCommentFmt(L"\r\nVerifying Dynamic Resources Dynamic Indexing in shader "
                   L"model 6.%1u",
                   ((UINT)sm & 0x0f));
 
