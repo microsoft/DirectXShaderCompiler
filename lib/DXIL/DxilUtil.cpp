@@ -1061,8 +1061,9 @@ bool DeleteDeadAllocas(llvm::Function &F) {
 
   while (1) {
     bool LocalChanged = false;
-    for (auto it = Entry.begin(), end = Entry.end(); it != end;) {
-      AllocaInst *AI = dyn_cast<AllocaInst>(&*(it++));
+    for (Instruction *it = &Entry.back(); it;) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(it);
+      it = it->getPrevNode();
       if (!AI)
         continue;
       LocalChanged |= Deleter.TryDeleteUnusedAlloca(AI);
