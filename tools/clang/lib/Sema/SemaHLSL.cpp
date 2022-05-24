@@ -1871,7 +1871,10 @@ static bool IsBuiltinTable(LPCSTR tableName) {
   return tableName == kBuiltinIntrinsicTableName;
 }
 
-static bool IsAtomicOperation(LPCSTR tableName, IntrinsicOp op) {
+// Return true if the give <op> within the <tableName> namespace
+// maps to an atomic operation.
+// <acceptMethods> determines if atomic method operations will return true
+static bool IsAtomicOperation(LPCSTR tableName, IntrinsicOp op, bool acceptMethods=true) {
   if (!IsBuiltinTable(tableName))
     return false;
   switch (op) {
@@ -1886,6 +1889,7 @@ static bool IsAtomicOperation(LPCSTR tableName, IntrinsicOp op) {
   case IntrinsicOp::IOP_InterlockedMin:
   case IntrinsicOp::IOP_InterlockedOr:
   case IntrinsicOp::IOP_InterlockedXor:
+    return true;
   case IntrinsicOp::MOP_InterlockedAdd:
   case IntrinsicOp::MOP_InterlockedAnd:
   case IntrinsicOp::MOP_InterlockedCompareExchange:
@@ -1907,7 +1911,7 @@ static bool IsAtomicOperation(LPCSTR tableName, IntrinsicOp op) {
   case IntrinsicOp::MOP_InterlockedExchangeFloat:
   case IntrinsicOp::MOP_InterlockedCompareExchangeFloatBitwise:
   case IntrinsicOp::MOP_InterlockedCompareStoreFloatBitwise:
-    return true;
+    return acceptMethods;
   default:
     return false;
   }
@@ -6196,8 +6200,9 @@ bool HLSLExternalSource::MatchArguments(
 
     // Catch invalid atomic dest parameters
     if (iArg == kAtomicDstOperandIdx &&
-        IsAtomicOperation(tableName, builtinOp)) {
-      // This produces an error for bitfields that is a bit confusing because it says uint can't cast to uint
+        IsAtomicOperation(tableName, builtinOp, false /*acceptMethods*/)) {
+      // This produces an error for bitfields that is a bit confusing
+      // because it says uint can't cast to uint
       if (pType.isConstant(actx) || pCallArg->getObjectKind() == OK_BitField) {
         badArgIdx = std::min(badArgIdx, iArg);
       }
