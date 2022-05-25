@@ -1022,6 +1022,12 @@ struct AllocaDeleter {
         for (User *U : V->users())
           Add(U);
       }
+      else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
+        // If the memcopy's source is anything we've encountered in the
+        // seen set, then the alloca is being read.
+        if (Seen.count(MC->getSource()))
+          return false;
+      }
       // If it's anything else, we'll assume it's reading the
       // alloca. Give up.
       else {
