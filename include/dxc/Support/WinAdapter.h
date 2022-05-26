@@ -466,6 +466,9 @@
 #ifndef _Outptr_result_bytebuffer_
 #define _Outptr_result_bytebuffer_(size)
 #endif
+#ifndef _Pre_cap_
+#define _Pre_cap_(x)
+#endif
 
 #define __debugbreak()
 
