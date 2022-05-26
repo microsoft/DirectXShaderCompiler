@@ -4844,8 +4844,6 @@ TEST_F(ExecutionTest, ATORawGather) {
   RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_SNORM(true, true, NumThreadsX, DXGI_FORMAT_R16G16_SNORM);
   RawIntTexture<IntRG<16, 16>, NumThreadsX, NumThreadsY> R16G16_SINT(true, false, NumThreadsX, DXGI_FORMAT_R16G16_SINT);
 
-  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> R8G8_B8G8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_R8G8_B8G8_UNORM);
-  RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> G8R8_G8B8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_G8R8_G8B8_UNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8A8_TYPELESS(false, false, NumThreadsX, DXGI_FORMAT_B8G8R8A8_TYPELESS);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8A8_UNORM(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8A8_UNORM);
   RawIntTexture<IntRGBA<8, 8, 8, 8>, NumThreadsX, NumThreadsY> B8G8R8A8_UNORM_SRGB(false, true, NumThreadsX, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB);
