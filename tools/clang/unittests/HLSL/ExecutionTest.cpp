@@ -908,6 +908,23 @@ public:
     }
   }
 
+#if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
+  // Copy common fields from desc0 to desc1 and zero out the new one
+  void CopyDesc0ToDesc1(D3D12_RESOURCE_DESC1 &desc1, const D3D12_RESOURCE_DESC1 &desc0) {
+    desc1.Dimension = desc0.Dimension;
+    desc1.Alignment = desc0.Alignment;
+    desc1.Width = desc0.Width;
+    desc1.Height = desc0.Height;
+    desc1.DepthOrArraySize = desc0.DepthOrArraySize;
+    desc1.MipLevels = desc0.MipLevels;
+    desc1.Format = desc0.Format;
+    desc1.SampleDesc = desc0.SampleDesc;
+    desc1.Layout = desc0.Layout;
+    desc1.Flags = desc0.Flags;
+    desc1.SamplerFeedbackMipRegion = {};
+  }
+#endif
+
   // Create resources for the given <resDesc> described main resource
   // creating and returning the resource, the upload resource,
   // and the readback resource if requested, populating with <values> of size
@@ -939,7 +956,7 @@ public:
       CComPtr<ID3D12Device10> pDevice10;
       // Copy resDesc0 to resDesc1 zeroing anything new
       D3D12_RESOURCE_DESC1 resDesc1 = {0};
-      memcpy(&resDesc1, &resDesc, sizeof(resDesc));
+      CopyDesc0ToDesc1(resDesc1, resDesc) {
       VERIFY_SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&pDevice10)));
       VERIFY_SUCCEEDED(pDevice10->CreateCommittedResource3(
         &defaultHeapProperties,
@@ -4634,7 +4651,7 @@ void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice, RawGatherTexture *raw
   for (UINT y = 0; y < yDim; y++)
     for (UINT x = 0; x < xDim; x++)
       rawTex->SetElement(ix++, x, y);
-  D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(resFormat, xDim, yDim);
+  D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(resFormat, xDim, yDim, 1/* sampCt */, 1/* mipCt */);
 
   CreateTestResources(pDevice, pCommandList, rawTex->GetElements(), valueSizeInBytes, tex2dDesc,
                       &pTexResource, &pTexUploadResource,
