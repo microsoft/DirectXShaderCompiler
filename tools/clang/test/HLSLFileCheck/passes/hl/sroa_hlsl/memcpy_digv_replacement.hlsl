@@ -21,9 +21,9 @@
 // Ensure the replacement var gets its debug info
 // CHECK: DIGlobalVariable(name: "ReplacementVar",
 // CHECK: DIGlobalVariable(name: "ReplacementVar.0",
-// CHECK: DIGlobalVariable(name: "ReplacementVar.3",
-// CHECK: DIGlobalVariable(name: "ReplacementVar.2",
 // CHECK: DIGlobalVariable(name: "ReplacementVar.1",
+// CHECK: DIGlobalVariable(name: "ReplacementVar.2",
+// CHECK: DIGlobalVariable(name: "ReplacementVar.3",
 
 // Ensure there are no DI for flattened variables created for the replaced GV
 // CHECK-NOT: DIGlobalVariable(name: "UnusedVar.[0-3]",

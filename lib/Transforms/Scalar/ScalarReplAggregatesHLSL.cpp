@@ -1704,7 +1704,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
   // alloca. Big alloca will be split to smaller piece first, when process the
   // alloca, it will be alloca flattened from big alloca instead of a GEP of
   // big alloca.
-  auto size_cmp = [&DL](const Value *a0, const Value *a1) -> bool {
+  auto size_cmp = [&DL, bHasDbgInfo](const Value *a0, const Value *a1) -> bool {
     Type *a0ty = a0->getType()->getPointerElementType();
     Type *a1ty = a1->getType()->getPointerElementType();
     bool isUnitSzStruct0 =
@@ -1713,9 +1713,12 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         a1ty->isStructTy() && a1ty->getStructNumElements() == 1;
     auto sz0 = DL.getTypeAllocSize(a0ty);
     auto sz1 = DL.getTypeAllocSize(a1ty);
-    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1))
-      return getNestedLevelInStruct(a0ty) < getNestedLevelInStruct(a1ty);
-    return sz0 < sz1;
+    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1)) {
+      sz0 = getNestedLevelInStruct(a0ty);
+      sz1 = getNestedLevelInStruct(a1ty);
+    }
+    // If sizes are equal, tiebreak with alphabetically lesser at higher priority
+    return sz0 < sz1 || (bHasDbgInfo && sz0 == sz1 && a0->getName() > a1->getName());
   };
 
   std::priority_queue<Value *, std::vector<Value *>,
