@@ -37,7 +37,9 @@
 #include "dxc/dxcapi.h"
 
 #ifdef LLVM_ON_WIN32
-#include "directx/d3d12shader.h" // for compatibility
+#include <directx/d3d12shader.h> // for compatibility
+#include <dxguids/dxguids.h>
+
 #include "d3d11shader.h" // for compatibility
 
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"

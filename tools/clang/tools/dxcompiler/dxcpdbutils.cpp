@@ -923,7 +923,7 @@ public:
   {
     if (!m_pDebugProgramBlob)
       return E_FAIL;
-
+#ifndef __MINGW32__
     DxcThreadMalloc TM(m_pMalloc);
 
     CComPtr<IDiaDataSource> pDataSource;
@@ -941,6 +941,9 @@ public:
     IFR(pSession.QueryInterface(&pFactory));
 
     return pFactory->NewDxcPixDxilDebugInfo(ppDxilDebugInfo);
+#else
+    return E_FAIL;
+#endif
   }
 
   virtual STDMETHODIMP NewDxcPixCompilationInfo(

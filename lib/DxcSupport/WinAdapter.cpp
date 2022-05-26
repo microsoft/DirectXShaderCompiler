@@ -7,10 +7,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _WIN32
+#ifdef __MINGW32__
+#include <unknwn.h>
+#endif
 
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
+
+#ifndef __MSC_VER
+
+#ifndef __MINGW32__
 
 //===--------------------------- IUnknown ---------------------------------===//
 
@@ -36,14 +42,6 @@ HRESULT IMalloc::QueryInterface(REFIID riid, void **ppvObject) {
   assert(false && "QueryInterface not implemented for IMalloc.");
   return E_NOINTERFACE;
 }
-
-//===--------------------------- CAllocator -------------------------------===//
-
-void *CAllocator::Reallocate(void *p, size_t nBytes) throw() {
-  return realloc(p, nBytes);
-}
-void *CAllocator::Allocate(size_t nBytes) throw() { return malloc(nBytes); }
-void CAllocator::Free(void *p) throw() { free(p); }
 
 //===--------------------------- BSTR Allocation --------------------------===//
 
@@ -74,6 +72,16 @@ BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
 
   return strOut;
 }
+
+#endif
+
+//===--------------------------- CAllocator -------------------------------===//
+
+void *CAllocator::Reallocate(void *p, size_t nBytes) throw() {
+  return realloc(p, nBytes);
+}
+void *CAllocator::Allocate(size_t nBytes) throw() { return malloc(nBytes); }
+void CAllocator::Free(void *p) throw() { free(p); }
 
 //===---------------------- Char converstion ------------------------------===//
 
