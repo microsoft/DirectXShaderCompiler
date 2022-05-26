@@ -956,7 +956,7 @@ public:
       CComPtr<ID3D12Device10> pDevice10;
       // Copy resDesc0 to resDesc1 zeroing anything new
       D3D12_RESOURCE_DESC1 resDesc1 = {0};
-      CopyDesc0ToDesc1(resDesc1, resDesc) {
+      CopyDesc0ToDesc1(resDesc1, resDesc);
       VERIFY_SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&pDevice10)));
       VERIFY_SUCCEEDED(pDevice10->CreateCommittedResource3(
         &defaultHeapProperties,
