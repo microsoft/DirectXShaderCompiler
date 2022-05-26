@@ -10,7 +10,7 @@
 
 #pragma once
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 
 // mingw-w64 tends to define it as 0x0502 in its headers.
 #undef _WIN32_WINNT
@@ -40,7 +40,11 @@
 
 #include <windows.h>
 #include <unknwn.h>
+#ifdef __MINGW32__
+#include "WinAdapter.h"
+#else
 #include <atlbase.h> // atlbase.h needs to come before strsafe.h
+#endif
 #include <strsafe.h>
 #include <intsafe.h>
 #include <ObjIdl.h>
@@ -57,9 +61,9 @@ template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {
   b.m_pData = c;
 }
 
-#else // _MSC_VER
+#else // _WIN32
 
-#include "dxc/Support/WinAdapter.h"
+#include "WinAdapter.h"
 
 #ifdef __cplusplus
 // Define operator overloads to enable bit operations on enum values that are

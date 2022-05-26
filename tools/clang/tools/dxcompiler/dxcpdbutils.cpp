@@ -81,8 +81,7 @@ static HRESULT CopyWstringToBSTR(const std::wstring &str, BSTR *pResult) {
   if (str.empty())
     return S_OK;
 
-  CComBSTR buf(str.data());
-  *pResult = buf.Detach();
+  *pResult = _wcsdup(str.data());
   return S_OK;
 }
 

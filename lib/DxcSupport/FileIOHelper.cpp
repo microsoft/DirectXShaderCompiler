@@ -22,6 +22,11 @@
 
 #ifdef _WIN32
 #include <intsafe.h>
+#if defined(__MINGW32__)
+#define UInt32Add UIntAdd
+#define Int32ToUInt32 IntToUInt
+#define UInt32Mult UIntMult
+#endif
 #endif
 
 // CP_UTF8 is defined in WinNls.h, but others we use are not defined there.

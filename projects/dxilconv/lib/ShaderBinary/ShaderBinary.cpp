@@ -11,6 +11,7 @@
 
 // HLSL change start
 #include "ShaderBinaryIncludes.h"
+#include <algorithm>
 // HLSL change end
 
 /*==========================================================================;

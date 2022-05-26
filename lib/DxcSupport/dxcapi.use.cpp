@@ -33,7 +33,7 @@ static std::string GetWin32ErrorMessage(DWORD err) {
   DWORD formattedMsgLen =
       FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                     nullptr, err, 0, formattedMsg, _countof(formattedMsg), 0);
-  if (formattedMsg > 0 && formattedMsgLen < _countof(formattedMsg)) {
+  if (formattedMsgLen > 0 && formattedMsgLen < _countof(formattedMsg)) {
     TrimEOL(formattedMsg);
     return std::string(formattedMsg);
   }

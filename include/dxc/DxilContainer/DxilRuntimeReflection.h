@@ -217,22 +217,12 @@ template<typename _T>
 class RecordTraits {
 public:
   static constexpr const char *TypeName() {
-#ifdef _WIN32
-    static_assert(false, "");
-#else
-    assert(false);
-#endif
     return nullptr;
   }
   // If the following static assert is hit, it means a structure defined with
   // RDAT_STRUCT is being used in ref type, which requires the struct to have
   // a table and be defined with RDAT_STRUCT_TABLE instead.
   static constexpr RecordTableIndex TableIndex() {
-#ifdef _WIN32
-    static_assert(false, "");
-#else
-    assert(false);
-#endif
     return (RecordTableIndex)-1;
   }
   // RecordSize() is defined in order to allow for use of forward decl type in RecordRef
