@@ -4876,8 +4876,6 @@ TEST_F(ExecutionTest, ATORawGather) {
                                 &R16G16_UINT,
                                 &R16G16_SNORM,
                                 &R16G16_SINT,
-                                &R8G8_B8G8_UNORM,
-                                &G8R8_G8B8_UNORM,
                                 &B8G8R8A8_TYPELESS,
                                 &B8G8R8A8_UNORM,
                                 &B8G8R8A8_UNORM_SRGB,
