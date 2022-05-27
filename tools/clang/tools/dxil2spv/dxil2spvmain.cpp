@@ -34,6 +34,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/Support/exception.h"
 #include "dxc/dxcapi.h"
 #include "lib/dxil2spv.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -43,6 +44,8 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cstdlib>
+#include <exception>
 #include <string>
 
 // Command line options for dxil2spv. The general approach is to mirror the
@@ -82,24 +85,37 @@ int main(int argc, const char **argv_) {
     return EXIT_SUCCESS;
   }
 
-  // Setup a compiler instance with diagnostics.
-  clang::CompilerInstance instance;
-  auto *diagnosticPrinter = new clang::TextDiagnosticPrinter(
-      llvm::errs(), new clang::DiagnosticOptions());
-  instance.createDiagnostics(diagnosticPrinter, false);
-  instance.setOutStream(&llvm::outs());
+  try {
+    // Setup a compiler instance with diagnostics.
+    clang::CompilerInstance instance;
+    auto *diagnosticPrinter = new clang::TextDiagnosticPrinter(
+        llvm::errs(), new clang::DiagnosticOptions());
+    instance.createDiagnostics(diagnosticPrinter, false);
+    instance.setOutStream(&llvm::outs());
 
-  // TODO: Allow configuration of targetEnv via options.
-  instance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
+    // TODO: Allow configuration of targetEnv via options.
+    instance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
 
-  // Set input and ouptut filenames.
-  instance.getCodeGenOpts().MainFileName = optInputFilename;
-  instance.getFrontendOpts().OutputFile = optOutputFilename;
+    // Set input and ouptut filenames.
+    instance.getCodeGenOpts().MainFileName = optInputFilename;
+    instance.getFrontendOpts().OutputFile = optOutputFilename;
 
-  // Run translator.
-  clang::dxil2spv::Translator translator(instance);
-  translator.Run();
+    // Run translator.
+    clang::dxil2spv::Translator translator(instance);
+    translator.Run();
 
-  return instance.getDiagnosticClient().getNumErrors() > 0 ? EXIT_FAILURE
-                                                           : EXIT_SUCCESS;
+    if (instance.getDiagnosticClient().getNumErrors() > 0)
+      return EXIT_FAILURE;
+  } catch (const hlsl::Exception& ex) {
+    llvm::errs() << "Exception: " << ex.msg << "(HRESULT: " << ex.hr << ")\n";
+    return EXIT_FAILURE;
+  } catch (const std::exception &ex) {
+    llvm::errs() << "Exception: " << ex.what() << "\n";
+    return EXIT_FAILURE;
+  } catch (...) {
+    llvm::errs() << "Unknown exception\n";
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
 }
