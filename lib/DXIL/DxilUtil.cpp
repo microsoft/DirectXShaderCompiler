@@ -1022,6 +1022,12 @@ struct AllocaDeleter {
         for (User *U : V->users())
           Add(U);
       }
+      else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
+        // If the memcopy's source is anything we've encountered in the
+        // seen set, then the alloca is being read.
+        if (Seen.count(MC->getSource()))
+          return false;
+      }
       // If it's anything else, we'll assume it's reading the
       // alloca. Give up.
       else {
@@ -1061,8 +1067,9 @@ bool DeleteDeadAllocas(llvm::Function &F) {
 
   while (1) {
     bool LocalChanged = false;
-    for (auto it = Entry.begin(), end = Entry.end(); it != end;) {
-      AllocaInst *AI = dyn_cast<AllocaInst>(&*(it++));
+    for (Instruction *it = &Entry.back(); it;) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(it);
+      it = it->getPrevNode();
       if (!AI)
         continue;
       LocalChanged |= Deleter.TryDeleteUnusedAlloca(AI);
