@@ -3781,7 +3781,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
-      if (storedType == StoredType::NotStored) {
+      if (PS.storedType == StoredType::NotStored) {
         // If a global var has no assignment and has an initializer,
         // mark as only initialized instead of NotStored
         storedType = StoredType::InitializerStored;
