@@ -327,7 +327,7 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
   CComPtr<AbstractMemoryStream> pOutputStream;
   IFT(CreateFixedSizeMemoryStream((LPBYTE)pOutput.m_pData, OutputSize, &pOutputStream));
   pContainerWriter->write(pOutputStream);
-  pOutputStream.Detach();
+  // pOutputStream does not own the buffer; allow CComPtr to clean up the stream object.
 
   *ppDxil = pOutput.Detach();
   *pDxilSize = OutputSize;
