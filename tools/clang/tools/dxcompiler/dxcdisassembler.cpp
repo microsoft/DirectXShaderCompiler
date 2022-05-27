@@ -1294,6 +1294,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
 
   const unsigned offset = sizeof(unsigned);
   const PSVRuntimeInfo0 *pInfo = (const PSVRuntimeInfo0 *)(pBuffer + offset);
+  const PSVRuntimeInfo2 *pInfo2 = (const PSVRuntimeInfo2 *)(pBuffer + offset);
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Hull: {
@@ -1508,6 +1509,14 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
        << "\n";
     break;
   case DXIL::ShaderKind::Compute:
+    OS << comment << " Compute Shader\n";
+    OS << comment << " Numthreads: (" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+  case DXIL::ShaderKind::Amplification:
+    OS << comment << " Amplification Shader\n"; 
+    OS << comment << " Numthreads: (" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+  case DXIL::ShaderKind::Mesh:
+    OS << comment << " Mesh Shader\n"; 
+    OS << comment << " Numthreads: (" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
     // Nothing to print for these shader kinds.
