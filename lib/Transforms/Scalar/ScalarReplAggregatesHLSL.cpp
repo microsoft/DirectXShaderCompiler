@@ -1704,7 +1704,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
   // alloca. Big alloca will be split to smaller piece first, when process the
   // alloca, it will be alloca flattened from big alloca instead of a GEP of
   // big alloca.
-  auto size_cmp = [&DL, bHasDbgInfo](const Value *a0, const Value *a1) -> bool {
+  auto size_cmp = [&DL](const Value *a0, const Value *a1) -> bool {
     Type *a0ty = a0->getType()->getPointerElementType();
     Type *a1ty = a1->getType()->getPointerElementType();
     bool isUnitSzStruct0 =
