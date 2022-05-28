@@ -1718,8 +1718,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       sz1 = getNestedLevelInStruct(a1ty);
     }
     // If sizes are equal, tiebreak with alphabetically lesser at higher priority
-    return sz0 < sz1 || (bHasDbgInfo && sz0 == sz1 &&
-                         isa<GlobalVariable>(a0) && isa<GlobalVariable>(a1) &&
+    return sz0 < sz1 || (sz0 == sz1 && isa<GlobalVariable>(a0) &&
+                         isa<GlobalVariable>(a1) &&
                          a0->getName() > a1->getName());
   };
 
