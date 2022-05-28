@@ -1713,9 +1713,14 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         a1ty->isStructTy() && a1ty->getStructNumElements() == 1;
     auto sz0 = DL.getTypeAllocSize(a0ty);
     auto sz1 = DL.getTypeAllocSize(a1ty);
-    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1))
-      return getNestedLevelInStruct(a0ty) < getNestedLevelInStruct(a1ty);
-    return sz0 < sz1;
+    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1)) {
+      sz0 = getNestedLevelInStruct(a0ty);
+      sz1 = getNestedLevelInStruct(a1ty);
+    }
+    // If sizes are equal, tiebreak with alphabetically lesser at higher priority
+    return sz0 < sz1 || (sz0 == sz1 && isa<GlobalVariable>(a0) &&
+                         isa<GlobalVariable>(a1) &&
+                         a0->getName() > a1->getName());
   };
 
   std::priority_queue<Value *, std::vector<Value *>,
@@ -1888,6 +1893,14 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       }
     } else {
       GlobalVariable *GV = cast<GlobalVariable>(V);
+      // Handle dead GVs trivially. These can be formed by RAUWing one GV
+      // with another, leaving the original in the worklist
+      if (GV->use_empty()) {
+        GV->eraseFromParent();
+        Changed = true;
+        continue;
+      }
+
       if (staticGVs.count(GV)) {
         Type *Ty = GV->getType()->getPointerElementType();
         // Skip basic types.
