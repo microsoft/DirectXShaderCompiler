@@ -777,7 +777,7 @@ struct IDxcResult : public IDxcOperationResult {
   virtual HRESULT STDMETHODCALLTYPE
   GetOutput(_In_ DXC_OUT_KIND dxcOutKind, _In_ REFIID iid,
             _COM_Outptr_opt_result_maybenull_ void **ppvObject,
-            _COM_Outptr_ IDxcBlobWide **ppOutputName) = 0;
+            _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppOutputName) = 0;
 
   /// \brief Retrieves the number of outputs available in this result.
   virtual UINT32 GetNumOutputs() = 0;
