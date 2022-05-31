@@ -72,6 +72,7 @@ public:
   TEST_METHOD(TypedUAVStoreFullMask0)
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(UAVStoreMaskMatch)
+  TEST_METHOD(UAVStoreMaskGap)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
   TEST_METHOD(Recursive3)
@@ -1195,6 +1196,14 @@ TEST_F(ValidationTest, UAVStoreMaskMatch) {
       "i32 2, i8 15)",
       "i32 2, i8 7)",
       "uav store write mask must match store value mask, write mask is 7 and store value mask is 15.");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskGap) {
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+      "i32 2, i32 2, i32 2, i32 2, i8 15)",
+      "i32 undef, i32 2, i32 undef, i32 2, i8 10)",
+      "uav write mask must be continuous and not contain gaps.");
 }
 
 TEST_F(ValidationTest, Recursive) {
