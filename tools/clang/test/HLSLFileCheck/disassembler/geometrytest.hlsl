@@ -2,9 +2,6 @@
 
 // Make sure load input has precise.
 // CHECK: OutputTopology=point
-// CHECK:loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 {{.*}}), !dx.precise
-// Make sure fadd not have fast.
-// CHECK:fadd float %3, 1.000000e+00
 
 struct MyStruct
 {
