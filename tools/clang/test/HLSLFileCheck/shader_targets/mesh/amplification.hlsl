@@ -1,6 +1,8 @@
 // RUN: %dxc -E main -T as_6_5 %s | FileCheck %s
 // RUN: %dxc -E main -T as_6_5 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
+// CHECK: Amplification Shader
+// CHECK: Numthreads: (32,1,1)
 // CHECK: dx.op.dispatchMesh.struct.Payload
 
 #define NUM_THREADS 32

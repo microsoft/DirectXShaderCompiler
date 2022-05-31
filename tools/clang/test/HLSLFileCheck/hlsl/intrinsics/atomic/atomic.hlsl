@@ -3,6 +3,8 @@
 // RUN: %dxc -E main -DTYPE=uint64_t -T cs_6_6 %s | FileCheck %s
 // RUN: %dxc -E main -DTYPE=int64_t -T cs_6_6 %s | FileCheck %s
 
+// CHECK: Compute Shader
+// CHECK: Numthreads: (8,8,1)
 // CHECK: atomicrmw add
 // CHECK: atomicrmw add
 // CHECK: cmpxchg
