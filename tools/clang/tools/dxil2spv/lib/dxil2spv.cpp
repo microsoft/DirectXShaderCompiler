@@ -71,7 +71,11 @@ void Translator::Run() {
     // Get DXIL program from container.
     const hlsl::DxilPartHeader *partHeader =
         hlsl::GetDxilPartByType(blobHeader, hlsl::DxilFourCC::DFCC_DXIL);
-    IFTBOOL(partHeader != nullptr, DXC_E_MISSING_PART);
+    if (partHeader == nullptr) {
+      emitError("Could not process input. Missing DXContainer part header.");
+      return;
+    }
+
     const hlsl::DxilProgramHeader *programHeader =
         reinterpret_cast<const hlsl::DxilProgramHeader *>(
             GetDxilPartData(partHeader));
