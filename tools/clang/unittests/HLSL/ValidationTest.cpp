@@ -1199,11 +1199,13 @@ TEST_F(ValidationTest, UAVStoreMaskMatch) {
 }
 
 TEST_F(ValidationTest, UAVStoreMaskGap) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
       "i32 2, i32 2, i32 2, i32 2, i8 15)",
       "i32 undef, i32 2, i32 undef, i32 2, i8 10)",
-      "uav write mask must be continuous and not contain gaps.");
+      "UAV write mask must be contiguous and without gaps: .x, .xy, .xyz, or .xyzw.");
 }
 
 TEST_F(ValidationTest, Recursive) {

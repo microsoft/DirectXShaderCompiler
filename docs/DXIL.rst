@@ -3079,7 +3079,7 @@ INSTR.TGSMRACECOND                        Race condition writing to shared memor
 INSTR.UNDEFINEDVALUEFORUAVSTORE           Assignment of undefined values to UAV.
 INSTR.UNDEFRESULTFORGETDIMENSION          GetDimensions used undef dimension %0 on %1.
 INSTR.WRITEMASKFORTYPEDUAVSTORE           store on typed uav must write to all four components of the UAV.
-INSTR.WRITEMASKGAPFORUAV                  uav write mask must be continuous and not contain gaps.
+INSTR.WRITEMASKGAPFORUAV                  UAV write mask must be contiguous and without gaps: .x, .xy, .xyz, or .xyzw.
 INSTR.WRITEMASKMATCHVALUEFORUAVSTORE      uav store write mask must match store value mask, write mask is %0 and store value mask is %1.
 META.BARYCENTRICSFLOAT3                   only 'float3' type is allowed for SV_Barycentrics.
 META.BARYCENTRICSINTERPOLATION            SV_Barycentrics cannot be used with 'nointerpolation' type.
