@@ -1,5 +1,7 @@
-// RUN: %dxbc2dxil %s.dxbc /emit-llvm | %FileCheck %s
-// RUN: %dxbc2dxil %s.DX12.dxbc /emit-llvm | %FileCheck %s
+// FXC command line: fxc /Ths_5_0 %s /Fo %t.dxbc
+// FXC command line: fxc /Ths_5_1 /DDX12 %s /Fo %t.DX12.dxbc
+// RUN: %dxbc2dxil %t.dxbc /emit-llvm | %FileCheck %s
+// RUN: %dxbc2dxil %t.DX12.dxbc /emit-llvm | %FileCheck %s
 
 // CHECK: hullloop0:
 // CHECK: %[[InstanceID:.*]] = phi i32
