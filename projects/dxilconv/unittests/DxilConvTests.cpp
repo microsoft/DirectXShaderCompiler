@@ -144,63 +144,6 @@ private:
     return true;
   }
 
-  // Find fxc.exe in current bin dir or via WIN10_SDK_PATH environment variable or in the currently installed Windows SDK.
-  // Add it to m_TestToolPaths so it can be invoked from RUN: lines by the ref name %fxc
-  bool FindFxc() {
-    // Find fxc.exe
-    // 1. in current bin dir
-    std::string binDir;
-    if (!GetCurrentBinDir(binDir)) {
-      return false;
-    }
-    std::string fxcLoc = binDir + "fxc.exe";
-    if (::PathFileExistsA(fxcLoc.c_str())) {
-      m_TestToolPaths.emplace("%fxc", fxcLoc);
-    }
-    else {
-      std::string sdkPath;
-      // 2. based on WIN10_SDK_PATH environment variable
-      char win10SdkPath[MAX_PATH];
-      size_t win10SdkPathLen = ::GetEnvironmentVariableA("WIN10_SDK_PATH", win10SdkPath, MAX_PATH);
-      if (win10SdkPathLen > 0) {
-        sdkPath = std::string(win10SdkPath, win10SdkPathLen);
-      }
-      else {
-        // 3. get current SDK version from registry
-        LPCSTR szRegSdkVerLoc = "SOFTWARE\\WOW6432Node\\Microsoft\\Microsoft SDKs\\Windows\\v10.0";
-        std::string szInstallFolder, szVersion;
-        char buffer[512];
-        DWORD size = sizeof(buffer);
-        if (SUCCEEDED(::RegGetValueA(HKEY_LOCAL_MACHINE, szRegSdkVerLoc, "InstallationFolder", RRF_RT_REG_SZ, nullptr, (PVOID)buffer, &size))) {
-          szInstallFolder = std::string(buffer, size - 1); // skip trailing 0
-          if (SUCCEEDED(::RegGetValueA(HKEY_LOCAL_MACHINE, szRegSdkVerLoc, "ProductVersion", RRF_RT_REG_SZ, nullptr, (PVOID)buffer, &size))) {
-            szVersion = std::string(buffer, size - 1); // skip trailing 0
-            sdkPath = szInstallFolder + "bin\\" + szVersion;
-            // ProductVersion will be something like 10.0.18362 or 10.0.18362.0; we need the one that matches the directory name
-            std::string sdkPathDot0 = sdkPath + ".0";
-            if (::PathFileExistsA(sdkPathDot0.c_str())) {
-              sdkPath = sdkPathDot0;
-            }
-          }
-        }
-      }
-
-      if (sdkPath.size() > 0) {
-        fxcLoc = sdkPath + std::string("\\x64\\fxc.exe");
-      }
-
-      if (::PathFileExistsA(fxcLoc.c_str())) {
-        m_TestToolPaths.emplace("%fxc", fxcLoc);
-      }
-      else {
-        CA2W fxcLocW(fxcLoc.c_str(), CP_UTF8);
-        hlsl_test::LogErrorFmt(L"Cannot find %s.", fxcLocW.m_psz);
-        return false;
-      }
-    }
-    return true;
-  }
-
   // Find the binary in current bin dir and add it to m_TestToolPaths
   // so that it can be invoked from RUN: lines by the refName
   bool FindToolInBinDir(std::string refName, std::string binaryName) {
@@ -226,9 +169,6 @@ bool DxilConvTest::InitSupport() {
     VERIFY_SUCCEEDED(m_dllSupport.InitializeForDll(L"dxilconv.dll", "DxcCreateInstance"));
   }
 
-  if (!FindFxc()) {
-    return false;
-  }
   if (!FindToolInBinDir("%dxbc2dxil", "dxbc2dxil.exe")) {
     return false;
   }
