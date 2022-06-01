@@ -177,7 +177,7 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
   auto args = strtok(Arguments);
   for (const std::string& arg : args) {
     if (arg == "%s") hasInputFilename = true;
-    else if (arg == "-input-file=stderr") { //add an edit here that would concatinate standard err and standard in, follow up with chris, also add multiple run lines
+    else if (arg == "-input-file=stderr") {
       t.InputForStdin = Prior->StdErr;
       t.AllowEmptyInput = true;
     } else if (strstartswith(arg, checkPrefixStr))
