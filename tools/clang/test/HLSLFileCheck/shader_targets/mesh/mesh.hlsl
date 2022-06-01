@@ -2,7 +2,8 @@
 // RUN: %dxc -E main -T ms_6_5 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
 // CHECK: Mesh Shader
-// CHECK: Numthreads: (32,1,1)
+// CHECK: MeshOutputTopology=triangle
+// CHECK: NumThreads=(32,1,1)
 // CHECK: dx.op.getMeshPayload.struct.MeshPayload(i32 170)
 // CHECK: dx.op.setMeshOutputCounts(i32 168, i32 32, i32 16)
 // CHECK: dx.op.emitIndices(i32 169,

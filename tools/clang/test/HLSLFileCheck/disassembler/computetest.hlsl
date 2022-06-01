@@ -1,6 +1,6 @@
 // RUN: %dxc /T cs_6_0 /E main %s | FileCheck %s
 // CHECK: Compute Shader
-// CHECK: Numthreads: (2,2,1)
+// CHECK: NumThreads=(2,2,1)
 
 [NumThreads(2,2,1)]
 void  main() {

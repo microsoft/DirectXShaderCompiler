@@ -1,6 +1,6 @@
 // RUN: %dxc /T as_6_6 /E ASMain %s | FileCheck %s
 // CHECK: Amplification Shader
-// CHECK: Numthreads: (2,4,1)
+// CHECK: NumThreads=(2,4,1)
  
 
 struct payloadStruct
