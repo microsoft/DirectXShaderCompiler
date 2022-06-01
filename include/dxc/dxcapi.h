@@ -261,6 +261,14 @@ struct IDxcLibrary : public IUnknown {
   // Renamed from GetBlobAsUtf16 to GetBlobAsWide
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
+
+#ifdef _WIN32
+  // Alias to GetBlobAsWide on Win32
+  inline HRESULT GetBlobAsUtf16(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+    return this->GetBlobAsWide(pBlob, pBlobEncoding);
+  }
+#endif
 };
 
 // NOTE: IDxcResult replaces IDxcOperationResult
@@ -417,6 +425,14 @@ struct IDxcUtils : public IUnknown {
   // Renamed from GetBlobAsUtf16 to GetBlobAsWide
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) = 0;
+
+#ifdef _WIN32
+  // Alias to GetBlobAsWide on Win32
+  inline HRESULT GetBlobAsUtf16(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) {
+    return this->GetBlobAsWide(pBlob, pBlobEncoding);
+  }
+#endif
 
   virtual HRESULT STDMETHODCALLTYPE GetDxilContainerPart(
     _In_ const DxcBuffer *pShader,
