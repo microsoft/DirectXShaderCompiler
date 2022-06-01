@@ -149,8 +149,7 @@ if "%HLSL_TAEF_MINTE%"=="" (
 echo Found TAEF at %HLSL_TAEF_MINTE%
 set HLSL_TAEF_DIR=%HLSL_BLD_DIR%\TAEF
 echo Copying to %HLSL_TAEF_DIR% for use with AgilitySDK
-
-mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%" 1>nul 2>nul
+mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%"" 1>nul 2>nul
 robocopy /NP /NJH /NJS /S "%HLSL_TAEF_MINTE%" "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%" *
 set path=%path%;%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%
 goto:eof
@@ -206,7 +205,7 @@ for /F "tokens=1,2*" %%A in ('%REG_QUERY% /v InstallationFolder') do (
   )
 )
 if ""=="%kit_root%" (
-    set "kit_root=%WIN10_SDK_PATH%"
+    set kit_root=%WIN10_SDK_PATH%
 )
 if ""=="%kit_root%" (
   echo Did not find a Windows 10 SDK installation.
@@ -244,9 +243,6 @@ if NOT %min_sdk_ver% LEQ %sdk_ver% (
 )
 
 if ""=="%d3d12_sdk_ver%" (
-  if exist "%kit_root%\include\10.0.%WIN10_SDK_VERSION%.0\um\d3d12.h" (
-    set d3d12_sdk_ver=%WIN10_SDK_VERSION%
-  )
   echo Windows 10 SDK version 10.0.%sdk_ver%.0 installed, but did not find d3d12.h.
   exit /b 1
 ) else (
