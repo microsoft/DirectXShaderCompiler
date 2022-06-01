@@ -27,7 +27,6 @@
 # Visual Studio 2017
 .vs/
 # Test outputs
-*.dxbc
 *.ll.converted
 *.dxo.converted
 
