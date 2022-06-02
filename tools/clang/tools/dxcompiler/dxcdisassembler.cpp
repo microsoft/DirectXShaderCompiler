@@ -1284,7 +1284,7 @@ public:
   }
 };
 
-void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
+void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, const uint32_t uBufferSize,
                                                     DXIL::ShaderKind shaderKind,
                                                     raw_string_ostream &OS,
                                                     StringRef comment) {
@@ -1292,22 +1292,24 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
      << comment << " Pipeline Runtime Information: \n"
      << comment << "\n";
 
-  const unsigned offset = sizeof(unsigned);
-  const PSVRuntimeInfo0 *pInfo = (const PSVRuntimeInfo0 *)(pBuffer + offset);
-  const PSVRuntimeInfo2 *pInfo2 = (const PSVRuntimeInfo2 *)(pBuffer + offset);
+  DxilPipelineStateValidation PSV;
+  PSV.InitFromPSV0(pBuffer, uBufferSize);
+  const PSVRuntimeInfo0 *pInfo0 = PSV.GetPSVRuntimeInfo0();
+  const PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
+  const PSVRuntimeInfo2 *pInfo2 = PSV.GetPSVRuntimeInfo2();
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Hull: {
     OS << comment << " Hull Shader\n";
     OS << comment
-       << " InputControlPointCount=" << pInfo->HS.InputControlPointCount
+       << " InputControlPointCount=" << pInfo0->HS.InputControlPointCount
        << "\n";
     OS << comment
-       << " OutputControlPointCount=" << pInfo->HS.OutputControlPointCount
+       << " OutputControlPointCount=" << pInfo0->HS.OutputControlPointCount
        << "\n";
     OS << comment << " Domain=";
     DXIL::TessellatorDomain domain =
-        static_cast<DXIL::TessellatorDomain>(pInfo->HS.TessellatorDomain);
+        static_cast<DXIL::TessellatorDomain>(pInfo0->HS.TessellatorDomain);
     switch (domain) {
     case DXIL::TessellatorDomain::IsoLine:
       OS << "isoline\n";
@@ -1325,7 +1327,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
     OS << comment << " OutputPrimitive=";
     DXIL::TessellatorOutputPrimitive primitive =
         static_cast<DXIL::TessellatorOutputPrimitive>(
-            pInfo->HS.TessellatorOutputPrimitive);
+            pInfo0->HS.TessellatorOutputPrimitive);
     switch (primitive) {
     case DXIL::TessellatorOutputPrimitive::Point:
       OS << "point\n";
@@ -1347,17 +1349,17 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
   case DXIL::ShaderKind::Domain:
     OS << comment << " Domain Shader\n";
     OS << comment
-       << " InputControlPointCount=" << pInfo->DS.InputControlPointCount
+       << " InputControlPointCount=" << pInfo0->DS.InputControlPointCount
        << "\n";
     OS << comment
-       << " OutputPositionPresent=" << (bool)pInfo->DS.OutputPositionPresent
+       << " OutputPositionPresent=" << (bool)pInfo0->DS.OutputPositionPresent
        << "\n";
     break;
   case DXIL::ShaderKind::Geometry: {
     OS << comment << " Geometry Shader\n";
     OS << comment << " InputPrimitive=";
     DXIL::InputPrimitive primitive =
-        static_cast<DXIL::InputPrimitive>(pInfo->GS.InputPrimitive);
+        static_cast<DXIL::InputPrimitive>(pInfo0->GS.InputPrimitive);
     switch (primitive) {
     case DXIL::InputPrimitive::Point:
       OS << "point\n";
@@ -1476,7 +1478,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
     }
     OS << comment << " OutputTopology=";
     DXIL::PrimitiveTopology topology =
-        static_cast<DXIL::PrimitiveTopology>(pInfo->GS.OutputTopology);
+        static_cast<DXIL::PrimitiveTopology>(pInfo0->GS.OutputTopology);
     switch (topology) {
     case DXIL::PrimitiveTopology::PointList:
       OS << "point\n";
@@ -1491,34 +1493,58 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
       OS << "invalid\n";
       break;
     }
-    OS << comment << " OutputStreamMask=" << pInfo->GS.OutputStreamMask << "\n";
+    OS << comment << " OutputStreamMask=" << pInfo0->GS.OutputStreamMask << "\n";
     OS << comment
-       << " OutputPositionPresent=" << (bool)pInfo->GS.OutputPositionPresent
+       << " OutputPositionPresent=" << (bool)pInfo0->GS.OutputPositionPresent
        << "\n";
   } break;
   case DXIL::ShaderKind::Vertex:
     OS << comment << " Vertex Shader\n";
     OS << comment
-       << " OutputPositionPresent=" << (bool)pInfo->VS.OutputPositionPresent
+       << " OutputPositionPresent=" << (bool)pInfo0->VS.OutputPositionPresent
        << "\n";
     break;
   case DXIL::ShaderKind::Pixel:
     OS << comment << " Pixel Shader\n";
-    OS << comment << " DepthOutput=" << (bool)pInfo->PS.DepthOutput << "\n";
-    OS << comment << " SampleFrequency=" << (bool)pInfo->PS.SampleFrequency
+    OS << comment << " DepthOutput=" << (bool)pInfo0->PS.DepthOutput << "\n";
+    OS << comment << " SampleFrequency=" << (bool)pInfo0->PS.SampleFrequency
        << "\n";
     break;
   case DXIL::ShaderKind::Compute:
     OS << comment << " Compute Shader\n";
-    OS << comment << " Numthreads: (" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    if (pInfo2) {
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
     break;
   case DXIL::ShaderKind::Amplification:
     OS << comment << " Amplification Shader\n"; 
-    OS << comment << " Numthreads: (" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    if (pInfo2) {
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
     break;
   case DXIL::ShaderKind::Mesh:
     OS << comment << " Mesh Shader\n"; 
-    OS << comment << " Numthreads: (" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    if (pInfo1) {
+      OS << comment << " MeshOutputTopology=";
+      DXIL::MeshOutputTopology topology = static_cast<DXIL::MeshOutputTopology>(pInfo1->MS1.MeshOutputTopology);
+      switch (topology) {
+      case DXIL::MeshOutputTopology::Undefined:
+        OS << "undefined\n";
+        break;
+      case DXIL::MeshOutputTopology::Line:
+        OS << "line\n";
+        break;
+      case DXIL::MeshOutputTopology::Triangle:
+        OS << "triangle\n";
+        break;
+      default:
+        OS << "invalid\n";
+        break;
+      }
+    }
+    if (pInfo2) {
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
     break;
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
@@ -1526,8 +1552,8 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
     break;
   }
 
-  if (pInfo->MinimumExpectedWaveLaneCount == pInfo->MaximumExpectedWaveLaneCount) {
-    OS << comment << " WaveSize=" << pInfo->MinimumExpectedWaveLaneCount << "\n";
+  if (pInfo0->MinimumExpectedWaveLaneCount == pInfo0->MaximumExpectedWaveLaneCount) {
+    OS << comment << " WaveSize=" << pInfo0->MinimumExpectedWaveLaneCount << "\n";
   }
 
   OS << comment << "\n";
@@ -1639,7 +1665,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
                       DxilPartIsType(DFCC_PipelineStateValidation));
     if (it != end(pContainer)) {
       PrintPipelineStateValidationRuntimeInfo(
-          GetDxilPartData(*it),
+          GetDxilPartData(*it), (*it)->PartSize,
           GetVersionShaderType(pProgramHeader->ProgramVersion), Stream,
           /*comment*/ ";");
     }
