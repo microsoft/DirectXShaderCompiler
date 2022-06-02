@@ -73,6 +73,8 @@ public:
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(UAVStoreMaskMatch)
   TEST_METHOD(UAVStoreMaskGap)
+  TEST_METHOD(UAVStoreMaskGap2)
+  TEST_METHOD(UAVStoreMaskGap3)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
   TEST_METHOD(Recursive3)
@@ -1205,7 +1207,27 @@ TEST_F(ValidationTest, UAVStoreMaskGap) {
       L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
       "i32 2, i32 2, i32 2, i32 2, i8 15)",
       "i32 undef, i32 2, i32 undef, i32 2, i8 10)",
-      "UAV write mask must be contiguous and without gaps: .x, .xy, .xyz, or .xyzw.");
+      "UAV write mask must be contiguous, starting at x: .x, .xy, .xyz, or .xyzw.");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskGap2) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+                          "i32 2, i32 2, i32 2, i32 2, i8 15)",
+                          "i32 undef, i32 2, i32 2, i32 2, i8 14)",
+                          "UAV write mask must be contiguous, starting at x: "
+                          ".x, .xy, .xyz, or .xyzw.");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskGap3) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+                          "i32 2, i32 2, i32 2, i32 2, i8 15)",
+                          "i32 undef, i32 undef, i32 undef, i32 2, i8 8)",
+                          "UAV write mask must be contiguous, starting at x: "
+                          ".x, .xy, .xyz, or .xyzw.");
 }
 
 TEST_F(ValidationTest, Recursive) {
