@@ -1466,6 +1466,11 @@ static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode opcode, ConstantIn
     ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskForTypedUAVStore);
   }
 
+  // write mask must be contiguous (.x .xy .xyz or .xyzw)
+  if (!((uMask == 0xf) || (uMask == 0x7) || (uMask == 0x3) || (uMask == 0x1))) {
+    ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskGapForUAV);
+  }
+
   // If a bit is set in the uMask (expected values) that isn't set in stValMask (user provided values)
   // then the user failed to define some of the output values.
   if (uMask & ~stValMask)
