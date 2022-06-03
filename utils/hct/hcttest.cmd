@@ -371,16 +371,18 @@ call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
 call :check_result "dxilconv tests" %RES_DXILCONV%
 
+set EXIT_CODE=%TESTS_FAILED%
 if not "%TESTS_PASSED%"=="0" (
   echo %TESTS_PASSED% succeeded.
 ) else if "%TESTS_FAILED%"=="0" (
   echo No Unit tests run.
+  set EXIT_CODE=1
 )
 if not "%TESTS_FAILED%"=="0" (
   echo %TESTS_FAILED% failed.
 )
 echo ==================================
-exit /b %TESTS_FAILED%
+exit /b %EXIT_CODE%
 
 :showhelp
 
