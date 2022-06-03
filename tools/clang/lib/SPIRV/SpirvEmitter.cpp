@@ -13032,11 +13032,15 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
 bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
                                       std::string *messages) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
-
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
+
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
 
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
@@ -13072,6 +13076,11 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
+
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
 
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
