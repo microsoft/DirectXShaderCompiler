@@ -89,6 +89,8 @@ struct SpirvCodeGenOptions {
 
   bool signaturePacking; ///< Whether signature packing is enabled or not
 
+  bool printAll; // Dump SPIR-V module before each pass and after the last one.
+
   // String representation of all command line options.
   std::string clOptions;
 };
