@@ -461,6 +461,7 @@ public:
 
   TEST_METHOD(GraphicsRawBufferLdStI16);
   TEST_METHOD(GraphicsRawBufferLdStHalf);
+  TEST_METHOD(IsNormalTest);
 
   BEGIN_TEST_METHOD(PackUnpackTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
@@ -11330,6 +11331,74 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 }
 
+TEST_F(ExecutionTest, IsNormalTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  st::ShaderOp *pShaderOp =
+      ShaderOpSet->GetShaderOp("IsNormal");
+  vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
+
+  const int expectedResultsSize = 12;
+  // false represents 0, true represents a non-zero value
+  int expectedResults[expectedResultsSize] = {0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0};
+    
+  // TestShaderModels will be an array, where the first x models are "non-fallback", and the rest of the models
+  // are "fallback". If TestShaderModels has length y, and a test loops through all shader models, a convention
+  // to test based on whether fallback is enabled or not is to limit the loop like this:
+  // unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? y : x;
+  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_6;
+  LogCommentFmt(L"\r\nVerifying isNormal in shader "
+                L"model 6.%1u",
+                ((UINT)sm & 0x0f));
+
+  CComPtr<ID3D12Device> pDevice;
+  CreateDevice(&pDevice, sm, false /* skipUnsupported */);
+  D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+  VERIFY_SUCCEEDED(
+      pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
+                                    &devOptions, sizeof(devOptions)));
+  if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+    WEX::Logging::Log::Comment(
+        L"Device does not support Resource Binding Tier 3");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+
+  // Test Compute shader
+  {
+    pShaderOp->CS = pShaderOp->GetString("CS66");
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+        pDevice, m_support, "IsNormal", nullptr,
+        ShaderOpSet);
+
+    MappedData resultDataFloats;
+    test->Test->GetReadBackData("g_result_floats", &resultDataFloats);
+    const int *resultCSFloats = (int *)resultDataFloats.data();
+
+    for (unsigned int i = 0; i < expectedResultsSize; i++)
+    {
+      VERIFY_ARE_EQUAL(resultCSFloats[i], expectedResults[i]);
+    }
+
+    MappedData resultDataDoubles;
+    test->Test->GetReadBackData("g_result_doubles", &resultDataDoubles);
+    const int *resultCSDoubles = (int *)resultDataDoubles.data();
+
+    for (unsigned int i = 0; i < expectedResultsSize; i++)
+    {
+      VERIFY_ARE_EQUAL(resultCSDoubles[i], expectedResults[i]);
+    }
+  }
+
+}
+
 #ifndef _HLK_CONF
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
                               char **pReadBackDump) {
@@ -11535,6 +11604,7 @@ extern "C" {
     return hr;
   }
 }
+
 #endif
 // MARKER: ExecutionTest/DxilConf Shared Implementation End
 // Do not remove the line above - it is used by TranslateExecutionTest.py
