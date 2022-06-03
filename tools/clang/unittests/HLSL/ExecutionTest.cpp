@@ -11352,7 +11352,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
   // are "fallback". If TestShaderModels has length y, and a test loops through all shader models, a convention
   // to test based on whether fallback is enabled or not is to limit the loop like this:
   // unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? y : x;
-  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_6;
+  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
   LogCommentFmt(L"\r\nVerifying isNormal in shader "
                 L"model 6.%1u",
                 ((UINT)sm & 0x0f));
@@ -11373,7 +11373,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
 
   // Test Compute shader
   {
-    pShaderOp->CS = pShaderOp->GetString("CS66");
+    pShaderOp->CS = pShaderOp->GetString("CS60");
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
         pDevice, m_support, "IsNormal", nullptr,
         ShaderOpSet);

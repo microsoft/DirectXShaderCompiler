@@ -3727,35 +3727,26 @@ void MSMain(uint GID : SV_GroupIndex,
     </Shader>
   </ShaderOp>
 
-  <ShaderOp Name="IsNormal" CS="CS66">
+  <ShaderOp Name="IsNormal" CS="CS60">
     <Resource Name="g_result_floats"      Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
     <Resource Name="g_result_doubles"     Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="g_result_floats"   NumElements="12" Kind="UAV"  StructureByteStride="4"/>
       <Descriptor Name="g_result_doubles"  NumElements="12" Kind="UAV"  StructureByteStride="4"/>
     </DescriptorHeap>
+    <RootValues>
+      <RootValue HeapName="ResourceDescriptorHeap" Index="0" />
+    </RootValues>
     
-    <Shader Name="CS66" Target="cs_6_6" EntryPoint="main" Text="@MAIN"/> 
-    <Shader Name="MAIN" Target="cs_6_6" EntryPoint="main">
+    <Shader Name="CS60" Target="cs_6_0" EntryPoint="main" Text="@MAIN"/> 
+    <Shader Name="MAIN" Target="cs_6_0" EntryPoint="main">
       <![CDATA[
         
-      #ifdef FALLBACK
-
       #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=2))")]
     
       // Result buffers
       RWStructuredBuffer <int> g_result_floats    : register(u0);
       RWStructuredBuffer <int> g_result_doubles   : register(u1);
-
-    
-      #else // NO FALLBACK
-      #define ROOT_SIG [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)")]
-
-      // Result buffers
-      static RWStructuredBuffer<int> g_result_floats    = ResourceDescriptorHeap[0];
-      static RWStructuredBuffer<int> g_result_doubles   = ResourceDescriptorHeap[1];
-    
-      #endif // FALLBACK
    
       void TestFloatNumbers(RWStructuredBuffer<int> result, float NonNormalNumbers[8], uint NonNormalNumbersSize, float NormalNumbers[4], uint NormalNumbersSize) {
         for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
