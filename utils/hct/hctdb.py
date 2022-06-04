@@ -2768,6 +2768,7 @@ class db_dxil(object):
         self.add_valrule("Instr.BarrierModeNoMemory", "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.")
         self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).")
         self.add_valrule("Instr.WriteMaskForTypedUAVStore", "store on typed uav must write to all four components of the UAV.")
+        self.add_valrule("Instr.WriteMaskGapForUAV", "UAV write mask must be contiguous, starting at x: .x, .xy, .xyz, or .xyzw.")
         self.add_valrule("Instr.ResourceKindForCalcLOD","lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray.")
         self.add_valrule("Instr.ResourceKindForSample", "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray.")
         self.add_valrule("Instr.ResourceKindForSampleC", "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.")

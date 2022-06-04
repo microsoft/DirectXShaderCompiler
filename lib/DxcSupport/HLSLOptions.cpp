@@ -986,6 +986,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.SpirvOptions.allowedExtensions.push_back(A->getValue());
   }
 
+  opts.SpirvOptions.printAll = Args.hasFlag(OPT_fspv_print_all, OPT_INVALID, false);
+
   opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
   opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
   opts.SpirvOptions.debugInfoRich = false;
@@ -1081,6 +1083,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_print_all, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||

@@ -3126,4 +3126,6 @@ float4 PSMain(float4 color : COLOR) : SV_TARGET { return color; }
 
 TEST_F(FileTest, RenameEntrypoint) { runFileTest("fspv-entrypoint-name.hlsl"); }
 
+TEST_F(FileTest, PrintAll) { runFileTest("fspv-print-all.hlsl"); }
+
 } // namespace
