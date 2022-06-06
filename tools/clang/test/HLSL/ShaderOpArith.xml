@@ -3728,8 +3728,8 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="IsNormal" CS="CS60">
-    <Resource Name="g_result_floats"      Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
-    <Resource Name="g_result_doubles"     Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="g_result_floats"      Dimension="BUFFER"     Width="48"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="g_result_doubles"     Dimension="BUFFER"     Width="48"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="g_result_floats"   NumElements="12" Kind="UAV"  StructureByteStride="4"/>
       <Descriptor Name="g_result_doubles"  NumElements="12" Kind="UAV"  StructureByteStride="4"/>
@@ -3747,6 +3747,11 @@ void MSMain(uint GID : SV_GroupIndex,
       // Result buffers
       RWStructuredBuffer <int> g_result_floats    : register(u0);
       RWStructuredBuffer <int> g_result_doubles   : register(u1);
+      
+      int FLOAT_SIGN_MASK  = -2147483648;
+      int FLOAT_EXP_MASK   = 2139095040;
+      int DOUBLE_SIGN_MASK = -2147483648;
+      int DOUBLE_EXP_MASK  = 2146435072;
    
       void TestFloatNumbers(RWStructuredBuffer<int> result, float NonNormalNumbers[8], uint NonNormalNumbersSize, float NormalNumbers[4], uint NormalNumbersSize) {
         for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
@@ -3784,6 +3789,18 @@ void MSMain(uint GID : SV_GroupIndex,
           float FPositiveInf      = asfloat(2139095040);  //  01111111100000000000000000000000  (all ones exp, zero mantissa)
           float FNegativeNaN      = asfloat(-8388607);    //  11111111100000000000000000000001  (all ones exp, non-zero mantissa)
           float FPositiveNaN      = asfloat(2139095041);  //  01111111100000000000000000000001  (all ones exp, non-zero mantissa)
+          
+          /*
+          //fails compilation?
+          float FNegativeZero     = asfloat(FLOAT_SIGN_MASK);                         //  10000000000000000000000000000000
+          float FPositiveZero     = asfloat(0);                                       //  00000000000000000000000000000000
+          float FNegativeDenormal = asfloat(FLOAT_SIGN_MASK | 1);                     //  10000000000000000000000000000001  (zero exp, non-zero mantissa)
+          float FPositiveDenormal = asfloat(1);                                       //  00000000000000000000000000000001  (zero exp, non-zero mantissa)
+          float FNegativeInf      = asfloat(FLOAT_SIGN_MASK | FLOAT_EXP_MASK);        //  11111111100000000000000000000000  (all ones exp, zero mantissa)
+          float FPositiveInf      = asfloat(FLOAT_EXP_MASK);                          //  01111111100000000000000000000000  (all ones exp, zero mantissa)
+          float FNegativeNaN      = asfloat(FLOAT_SIGN_MASK | FLOAT_EXP_MASK | 1);    //  11111111100000000000000000000001  (all ones exp, non-zero mantissa)
+          float FPositiveNaN      = asfloat(FLOAT_EXP_MASK | 1);                      //  01111111100000000000000000000001  (all ones exp, non-zero mantissa)
+          */
           
           float FNonNormalNumbers[8] = {FNegativeZero, FPositiveZero, FNegativeDenormal, FPositiveDenormal, FNegativeInf, FPositiveInf, FNegativeNaN, FPositiveNaN};
           float FNormalNumbers[4] = {530.99, -530.99, 122.101, -.122101};
