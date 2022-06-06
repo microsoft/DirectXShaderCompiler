@@ -3748,10 +3748,10 @@ void MSMain(uint GID : SV_GroupIndex,
       RWStructuredBuffer <int> g_result_floats    : register(u0);
       RWStructuredBuffer <int> g_result_doubles   : register(u1);
       
-      int FLOAT_SIGN_MASK  = -2147483648;
-      int FLOAT_EXP_MASK   = 2139095040;
-      int DOUBLE_SIGN_MASK = -2147483648;
-      int DOUBLE_EXP_MASK  = 2146435072;
+      static int FLOAT_SIGN_MASK  = -2147483648;
+      static int FLOAT_EXP_MASK   = 2139095040;
+	    static int DOUBLE_SIGN_MASK = -2147483648;
+      static int DOUBLE_EXP_MASK  = 2146435072;
    
       void TestFloatNumbers(RWStructuredBuffer<int> result, float NonNormalNumbers[8], uint NonNormalNumbersSize, float NormalNumbers[4], uint NormalNumbersSize) {
         for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
@@ -3778,20 +3778,11 @@ void MSMain(uint GID : SV_GroupIndex,
       ROOT_SIG
       [NumThreads(1, 1, 1)]
       void main(uint ix : SV_GroupIndex) { //decimal numbers are expressed in signed 2's complement form
-                                                   //        sign exp        mantissa
-                                                   //         | ___|__  ________|____________
-                                                   //         ||      ||                     |
-          float FNegativeZero     = asfloat(-2147483648); //  10000000000000000000000000000000
-          float FPositiveZero     = asfloat(0);           //  00000000000000000000000000000000
-          float FNegativeDenormal = asfloat(-2147483647); //  10000000000000000000000000000001  (zero exp, non-zero mantissa)
-          float FPositiveDenormal = asfloat(1);           //  00000000000000000000000000000001  (zero exp, non-zero mantissa)
-          float FNegativeInf      = asfloat(-8388608);    //  11111111100000000000000000000000  (all ones exp, zero mantissa)
-          float FPositiveInf      = asfloat(2139095040);  //  01111111100000000000000000000000  (all ones exp, zero mantissa)
-          float FNegativeNaN      = asfloat(-8388607);    //  11111111100000000000000000000001  (all ones exp, non-zero mantissa)
-          float FPositiveNaN      = asfloat(2139095041);  //  01111111100000000000000000000001  (all ones exp, non-zero mantissa)
+      
           
-          /*
-          //fails compilation?
+                                                                                      // sign exp        mantissa
+                                                                                      //  | ___|__  ________|____________
+                                                                                      //  ||      ||                     | 
           float FNegativeZero     = asfloat(FLOAT_SIGN_MASK);                         //  10000000000000000000000000000000
           float FPositiveZero     = asfloat(0);                                       //  00000000000000000000000000000000
           float FNegativeDenormal = asfloat(FLOAT_SIGN_MASK | 1);                     //  10000000000000000000000000000001  (zero exp, non-zero mantissa)
@@ -3800,7 +3791,7 @@ void MSMain(uint GID : SV_GroupIndex,
           float FPositiveInf      = asfloat(FLOAT_EXP_MASK);                          //  01111111100000000000000000000000  (all ones exp, zero mantissa)
           float FNegativeNaN      = asfloat(FLOAT_SIGN_MASK | FLOAT_EXP_MASK | 1);    //  11111111100000000000000000000001  (all ones exp, non-zero mantissa)
           float FPositiveNaN      = asfloat(FLOAT_EXP_MASK | 1);                      //  01111111100000000000000000000001  (all ones exp, non-zero mantissa)
-          */
+          
           
           float FNonNormalNumbers[8] = {FNegativeZero, FPositiveZero, FNegativeDenormal, FPositiveDenormal, FNegativeInf, FPositiveInf, FNegativeNaN, FPositiveNaN};
           float FNormalNumbers[4] = {530.99, -530.99, 122.101, -.122101};
@@ -3808,17 +3799,17 @@ void MSMain(uint GID : SV_GroupIndex,
           
           //Test Doubles now
           
-                                                                 // sign   exp                   mantissa
-                                                                 //  | _____|___  ___________________|______________________________
-                                                                 //  ||         ||                                                  |
-          double DNegativeZero     = asdouble(0, -2147483648);   //  1000000000000000000000000000000000000000000000000000000000000000
-          double DPositiveZero     = asdouble(0, 0);             //  0000000000000000000000000000000000000000000000000000000000000000
-          double DNegativeDenormal = asdouble(1, -2147483648);   //  1000000000000000000000000000000000000000000000000000000000000001  (zero exp, non-zero mantissa)
-          double DPositiveDenormal = asdouble(1, 0);             //  0000000000000000000000000000000000000000000000000000000000000001  (zero exp, non-zero mantissa)          
-          double DNegativeInf      = asdouble(0, -1048576);      //  1111111111110000000000000000000000000000000000000000000000000000  (all ones exp, zero mantissa)
-          double DPositiveInf      = asdouble(0, 2146435072);    //  0111111111110000000000000000000000000000000000000000000000000000  (all ones exp, zero mantissa)
-          double DNegativeNaN      = asdouble(1, -1048576);      //  1111111111110000000000000000000000000000000000000000000000000001  (all ones exp, non-zero mantissa)
-          double DPositiveNaN      = asdouble(1, 2146435072);    //  0111111111110000000000000000000000000000000000000000000000000001  (all ones exp, non-zero mantissa)
+                                                                                               // sign   exp                   mantissa
+                                                                                               //  | _____|___  ___________________|______________________________
+                                                                                               //  ||         ||                                                  |
+          double DNegativeZero     = asdouble(0, DOUBLE_SIGN_MASK);                            //  1000000000000000000000000000000000000000000000000000000000000000
+          double DPositiveZero     = asdouble(0, 0);                                           //  0000000000000000000000000000000000000000000000000000000000000000
+          double DNegativeDenormal = asdouble(1, DOUBLE_SIGN_MASK);                            //  1000000000000000000000000000000000000000000000000000000000000001  (zero exp, non-zero mantissa)
+          double DPositiveDenormal = asdouble(1, 0);                                           //  0000000000000000000000000000000000000000000000000000000000000001  (zero exp, non-zero mantissa)          
+          double DNegativeInf      = asdouble(0, DOUBLE_SIGN_MASK | DOUBLE_EXP_MASK);          //  1111111111110000000000000000000000000000000000000000000000000000  (all ones exp, zero mantissa)
+          double DPositiveInf      = asdouble(0, DOUBLE_EXP_MASK);                             //  0111111111110000000000000000000000000000000000000000000000000000  (all ones exp, zero mantissa)
+          double DNegativeNaN      = asdouble(1, DOUBLE_SIGN_MASK | DOUBLE_EXP_MASK | 1);      //  1111111111110000000000000000000000000000000000000000000000000001  (all ones exp, non-zero mantissa)
+          double DPositiveNaN      = asdouble(1, DOUBLE_EXP_MASK | 1);                         //  0111111111110000000000000000000000000000000000000000000000000001  (all ones exp, non-zero mantissa)
           
           double DNonNormalNumbers[8] = {DNegativeZero, DPositiveZero, DNegativeDenormal, DPositiveDenormal, DNegativeInf, DPositiveInf, DNegativeNaN, DPositiveNaN};
           double DNormalNumbers[4] = {530.99, -530.99, 122.101, -.122101};
