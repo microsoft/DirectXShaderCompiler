@@ -11383,7 +11383,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
   }
 
   auto ShaderInitFn = [&](LPCSTR Name, LPCSTR pText, ID3DBlob **ppShaderBlob, st::ShaderOp *pShaderOp) {
-    CComPtr<IDxcBlob> rewrittenDisassembly;
+    CComPtr<IDxcBlob> rewrittenDisassembly = nullptr;
     IDxcOperationResult * pOpResult = CompileAndRewriteAssemblyToText(m_support, pText, L"cs_6_0", L"", &rewrittenDisassembly, 
       {
           "IsNaN",
@@ -11393,64 +11393,50 @@ TEST_F(ExecutionTest, IsNormalTest) {
       },
       false
     );
+    VERIFY_IS_NOT_NULL(pOpResult);
+    HRESULT status;
+    VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
+    VERIFY_SUCCEEDED(status);
 
     CComPtr<IDxcResult> pResult;
     CComPtr<IDxcBlob> pProgram;
     pOpResult->QueryInterface(&pResult);
-    pOpResult->GetResult(&pProgram);
+    VERIFY_SUCCEEDED(pOpResult->GetResult(&pProgram));
+    VERIFY_IS_NOT_NULL(pProgram);
 
     // assemble, get the ID3DBlob, assign it to ppAssembledShaderBlob
     CComPtr<IDxcBlob> assembledShader;
     AssembleToContainer(m_support, rewrittenDisassembly, &assembledShader);
 
-    ID3DBlob * pAssembledShaderBlob = (ID3DBlob *)assembledShader.Detach();
-    ID3DBlob ** ppAssembledShaderBlob = &pAssembledShaderBlob;
-    
+    // now we need to extract the root signature from pProgram
+    // and add it back into the assembly blob the compiler outputted.
 
-    // Insert the root signature
-
-    hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike((*ppAssembledShaderBlob)->GetBufferPointer(), (*ppAssembledShaderBlob)->GetBufferSize());
-    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, (*ppAssembledShaderBlob)->GetBufferSize()));
+    hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pProgram->GetBufferSize()));
     hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
         pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
     VERIFY_IS_NOT_NULL(pPartHeader);
+    pResult.Release();
 
-    CComPtr<IDxcBlob> pPdbBlob;
-    pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr);
-
-    CComPtr<IDxcContainerReflection> pContainerReflection;
-    m_support.CreateInstance(CLSID_DxcContainerReflection, &pContainerReflection);
-
-    pContainerReflection->Load(pPdbBlob);
-    UINT32 index = 0;
-    pContainerReflection->FindFirstPartKind(hlsl::DFCC_RootSignature , &index);
 
     CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
-
-
-
-
     CComPtr<IDxcLibrary> pLibrary;
-    IDxcBlob **ppProgramRootSigAdded = nullptr;
+    CComPtr<IDxcContainerBuilder> pBuilder;
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
       hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
-
-    CComPtr<IDxcContainerBuilder> pBuilder;
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
-    VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
-
-
+    VERIFY_SUCCEEDED(pBuilder->Load(assembledShader.Detach()));
     pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
     pBuilder->SerializeContainer(&pOpResult);
-    VERIFY_SUCCEEDED(pResult->GetResult(ppProgramRootSigAdded));
-    pContainerHeader = hlsl::IsDxilContainerLike((*ppProgramRootSigAdded)->GetBufferPointer(), (*ppProgramRootSigAdded)->GetBufferSize());
-    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, (*ppProgramRootSigAdded)->GetBufferSize()));
+    VERIFY_SUCCEEDED(pOpResult->GetResult((IDxcBlob **)ppShaderBlob));
+    pContainerHeader = hlsl::IsDxilContainerLike((*ppShaderBlob)->GetBufferPointer(), (*ppShaderBlob)->GetBufferSize());
+    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, (*ppShaderBlob)->GetBufferSize()));
     pPartHeader = hlsl::GetDxilPartByType(pContainerHeader,
                                           hlsl::DxilFourCC::DFCC_RootSignature);
     VERIFY_IS_NOT_NULL(pPartHeader);
+    std::string newDisassembly = DisassembleProgram(m_support, *((IDxcBlob **)ppShaderBlob));
 
-    ppShaderBlob = (ID3DBlob **)ppProgramRootSigAdded;
     UNREFERENCED_PARAMETER(pShaderOp);
     UNREFERENCED_PARAMETER(Name);
   };

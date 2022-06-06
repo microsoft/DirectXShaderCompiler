@@ -209,10 +209,8 @@ IDxcOperationResult * CompileAndRewriteAssemblyToText(dxc::DxcDllSupport &dllSup
   VERIFY_SUCCEEDED(pOpResult->GetResult(&pFirstCompiledBlob));
   std::string disassembly = DisassembleProgram(dllSupport, pFirstCompiledBlob);
 
-  ppResult = nullptr;
-  IDxcBlob *tempResult = nullptr;
-  ReplaceDisassemblyText(pLookFors, pReplacements, &tempResult, bRegex, disassembly, dllSupport);
-  *ppResult = tempResult;
+  *ppResult = nullptr;
+  ReplaceDisassemblyText(pLookFors, pReplacements, ppResult, bRegex, disassembly, dllSupport);
   return pOpResult;
 }
 
@@ -220,7 +218,7 @@ void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
                 llvm::ArrayRef<LPCSTR> pReplacements,
                 _Outptr_ IDxcBlob **pBlob, bool bRegex,
                 std::string& disassembly, dxc::DxcDllSupport &dllSupport){
-  assert(pBlob == nullptr);
+  assert(*pBlob == nullptr);
   for (unsigned i = 0; i < pLookFors.size(); ++i) {
     LPCSTR pLookFor = pLookFors[i];
     bool bOptional = false;
