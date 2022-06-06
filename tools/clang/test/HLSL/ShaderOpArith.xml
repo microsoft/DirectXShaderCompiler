@@ -3754,20 +3754,24 @@ void MSMain(uint GID : SV_GroupIndex,
       static int DOUBLE_EXP_MASK  = 2146435072;
    
       void TestFloatNumbers(RWStructuredBuffer<int> result, float NonNormalNumbers[8], uint NonNormalNumbersSize, float NormalNumbers[4], uint NormalNumbersSize) {
+        [loop]
         for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
         {
            result[i] = isnan(NonNormalNumbers[i]) ? 1 : 0;
         }
+        [loop]
         for (unsigned int j = 0; j < NormalNumbersSize; j++)
         {
            result[NonNormalNumbersSize + j] = isnan(NormalNumbers[j]) ? 1 : 0;
         }
       }
       void TestDoubleNumbers(RWStructuredBuffer<int> result, double NonNormalNumbers[8], uint NonNormalNumbersSize, double NormalNumbers[4], uint NormalNumbersSize) {
+        [loop]
         for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
         {
            result[i] = isnan(NonNormalNumbers[i]) ? 1 : 0;
         }
+        [loop]
         for (unsigned int j = 0; j < NormalNumbersSize; j++)
         {
            result[NonNormalNumbersSize + j] = isnan(NormalNumbers[j]) ? 1 : 0;
