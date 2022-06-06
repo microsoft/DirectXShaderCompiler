@@ -195,6 +195,92 @@ void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
   CheckOperationSucceeded(pResult, pContainer);
 }
 
+IDxcOperationResult * CompileAndRewriteAssemblyToText(dxc::DxcDllSupport &dllSupport, LPCSTR pText, 
+                            LPWSTR pTargetProfile, LPCWSTR pArgs,  _Outptr_ IDxcBlob **ppResult,
+                            llvm::ArrayRef<LPCSTR> pLookFors,
+                            llvm::ArrayRef<LPCSTR> pReplacements,
+                            bool bRegex) {
+
+  IDxcBlob * pFirstCompiledBlob;
+  IDxcOperationResult * pOpResult = VerifyCompileOK(dllSupport, pText,
+                    pTargetProfile, pArgs,
+                    &pFirstCompiledBlob);
+
+  VERIFY_SUCCEEDED(pOpResult->GetResult(&pFirstCompiledBlob));
+  std::string disassembly = DisassembleProgram(dllSupport, pFirstCompiledBlob);
+
+  ppResult = nullptr;
+  IDxcBlob *tempResult = nullptr;
+  ReplaceDisassemblyText(pLookFors, pReplacements, &tempResult, bRegex, disassembly, dllSupport);
+  *ppResult = tempResult;
+  return pOpResult;
+}
+
+void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
+                llvm::ArrayRef<LPCSTR> pReplacements,
+                _Outptr_ IDxcBlob **pBlob, bool bRegex,
+                std::string& disassembly, dxc::DxcDllSupport &dllSupport){
+  assert(pBlob == nullptr);
+  for (unsigned i = 0; i < pLookFors.size(); ++i) {
+    LPCSTR pLookFor = pLookFors[i];
+    bool bOptional = false;
+    if (pLookFor[0] == '?') {
+      bOptional = true;
+      pLookFor++;
+    }
+    LPCSTR pReplacement = pReplacements[i];
+    if (pLookFor && *pLookFor) {
+      if (bRegex) {
+        llvm::Regex RE(pLookFor);
+        std::string reErrors;
+        if (!RE.isValid(reErrors)) {
+          WEX::Logging::Log::Comment(WEX::Common::String().Format(
+              L"Regex errors:\r\n%.*S\r\nWhile compiling expression '%S'",
+              (unsigned)reErrors.size(), reErrors.data(),
+              pLookFor));
+        }
+        VERIFY_IS_TRUE(RE.isValid(reErrors));
+        std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
+        if (!bOptional) {
+          if (!reErrors.empty()) {
+            WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                L"Regex errors:\r\n%.*S\r\nWhile searching for '%S' in text:\r\n%.*S",
+                (unsigned)reErrors.size(), reErrors.data(),
+                pLookFor,
+                (unsigned)disassembly.size(), disassembly.data()));
+          }
+          VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
+          VERIFY_IS_TRUE(reErrors.empty());
+        }
+        disassembly = std::move(replaced);
+      } else {
+        bool found = false;
+        size_t pos = 0;
+        size_t lookForLen = strlen(pLookFor);
+        size_t replaceLen = strlen(pReplacement);
+        for (;;) {
+          pos = disassembly.find(pLookFor, pos);
+          if (pos == std::string::npos)
+            break;
+          found = true; // at least once
+          disassembly.replace(pos, lookForLen, pReplacement);
+          pos += replaceLen;
+        }
+        if (!bOptional) {
+          if (!found) {
+            WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                L"String not found: '%S' in text:\r\n%.*S",
+                pLookFor,
+                (unsigned)disassembly.size(), disassembly.data()));
+          }
+          VERIFY_IS_TRUE(found);
+        }
+      }
+    }
+  }
+  Utf8ToBlob(dllSupport, disassembly.c_str(), pBlob);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Helper functions to deal with passes.
 
@@ -343,7 +429,7 @@ void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
   WideToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
-void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, LPCWSTR pArgs,
                      _Outptr_ IDxcBlob **ppResult) {
   std::vector<std::wstring> argsW;
@@ -355,10 +441,10 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
     transform(argsW.begin(), argsW.end(), back_inserter(args),
               [](const wstring &w) { return w.data(); });
   }
-  VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
+  return VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
 }
 
-void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      _Outptr_ IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -373,7 +459,8 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                                       nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
   VERIFY_SUCCEEDED(hrCompile);
-  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
+  return (IDxcOperationResult *)pResult.Detach();
+  //VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
 }
 
 HRESULT GetVersion(dxc::DxcDllSupport& DllSupport, REFCLSID clsid, unsigned &Major, unsigned &Minor) {

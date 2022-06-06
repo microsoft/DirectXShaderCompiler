@@ -24,6 +24,7 @@
 #include <iomanip>
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HLSLTestData.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -3163,10 +3164,12 @@ struct SPrimitives {
   float f_float2_o;
 };
 
+
 std::shared_ptr<ShaderOpTestResult>
 RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
                           LPCSTR pName,
                           st::ShaderOpTest::TInitCallbackFn pInitCallback,
+                          st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
   st::ShaderOp *pShaderOp;
   if (pName == nullptr) {
@@ -3198,6 +3201,7 @@ RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
   std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
   test->SetDxcSupport(&support);
   test->SetInitCallback(pInitCallback);
+  test->SetShaderCallback(pShaderCallback);
   test->SetDevice(pDevice);
   test->RunShaderOp(pShaderOp);
 
@@ -3207,6 +3211,14 @@ RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
   result->Test = test;
   result->ShaderOp = pShaderOp;
   return result;
+}
+
+std::shared_ptr<ShaderOpTestResult>
+RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+                          LPCSTR pName,
+                          st::ShaderOpTest::TInitCallbackFn pInitCallback,
+                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
+return RunShaderOpTestAfterParse(pDevice, support, pName, pInitCallback, nullptr, ShaderOpSet);
 }
 
 std::shared_ptr<ShaderOpTestResult>
@@ -11370,12 +11382,84 @@ TEST_F(ExecutionTest, IsNormalTest) {
     return;
   }
 
+  auto ShaderInitFn = [&](LPCSTR Name, LPCSTR pText, ID3DBlob **ppShaderBlob, st::ShaderOp *pShaderOp) {
+    CComPtr<IDxcBlob> rewrittenDisassembly;
+    IDxcOperationResult * pOpResult = CompileAndRewriteAssemblyToText(m_support, pText, L"cs_6_0", L"", &rewrittenDisassembly, 
+      {
+          "IsNaN",
+      },
+      {
+          "IsSpecialFloat",
+      },
+      false
+    );
+
+    CComPtr<IDxcResult> pResult;
+    CComPtr<IDxcBlob> pProgram;
+    pOpResult->QueryInterface(&pResult);
+    pOpResult->GetResult(&pProgram);
+
+    // assemble, get the ID3DBlob, assign it to ppAssembledShaderBlob
+    CComPtr<IDxcBlob> assembledShader;
+    AssembleToContainer(m_support, rewrittenDisassembly, &assembledShader);
+
+    ID3DBlob * pAssembledShaderBlob = (ID3DBlob *)assembledShader.Detach();
+    ID3DBlob ** ppAssembledShaderBlob = &pAssembledShaderBlob;
+    
+
+    // Insert the root signature
+
+    hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike((*ppAssembledShaderBlob)->GetBufferPointer(), (*ppAssembledShaderBlob)->GetBufferSize());
+    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, (*ppAssembledShaderBlob)->GetBufferSize()));
+    hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+        pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
+    VERIFY_IS_NOT_NULL(pPartHeader);
+
+    CComPtr<IDxcBlob> pPdbBlob;
+    pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr);
+
+    CComPtr<IDxcContainerReflection> pContainerReflection;
+    m_support.CreateInstance(CLSID_DxcContainerReflection, &pContainerReflection);
+
+    pContainerReflection->Load(pPdbBlob);
+    UINT32 index = 0;
+    pContainerReflection->FindFirstPartKind(hlsl::DFCC_RootSignature , &index);
+
+    CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
+
+
+
+
+    CComPtr<IDxcLibrary> pLibrary;
+    IDxcBlob **ppProgramRootSigAdded = nullptr;
+    VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+      hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
+
+    CComPtr<IDxcContainerBuilder> pBuilder;
+    VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+    VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+
+
+    pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
+    pBuilder->SerializeContainer(&pOpResult);
+    VERIFY_SUCCEEDED(pResult->GetResult(ppProgramRootSigAdded));
+    pContainerHeader = hlsl::IsDxilContainerLike((*ppProgramRootSigAdded)->GetBufferPointer(), (*ppProgramRootSigAdded)->GetBufferSize());
+    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, (*ppProgramRootSigAdded)->GetBufferSize()));
+    pPartHeader = hlsl::GetDxilPartByType(pContainerHeader,
+                                          hlsl::DxilFourCC::DFCC_RootSignature);
+    VERIFY_IS_NOT_NULL(pPartHeader);
+
+    ppShaderBlob = (ID3DBlob **)ppProgramRootSigAdded;
+    UNREFERENCED_PARAMETER(pShaderOp);
+    UNREFERENCED_PARAMETER(Name);
+  };
 
   // Test Compute shader
   {
     pShaderOp->CS = pShaderOp->GetString("CS60");
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "IsNormal", nullptr,
+        pDevice, m_support, "IsNormal", nullptr, ShaderInitFn,
         ShaderOpSet);
 
     MappedData resultDataFloats;

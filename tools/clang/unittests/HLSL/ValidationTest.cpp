@@ -405,7 +405,7 @@ public:
     llvm::ArrayRef<LPCSTR> pErrorMsgs,
     bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
-    if (!RewriteAssemblyToText(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, pLookFors, pReplacements, &pText, bRegex))
+    if (!CompileAndRewriteAssemblyToText(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, pLookFors, pReplacements, &pText, bRegex))
       return false;
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
@@ -469,7 +469,7 @@ public:
       pLookFors, pReplacements, pErrorMsgs, bRegex);
   }
 
-  bool RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+  bool CompileAndRewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
                              LPCWSTR *pArguments, UINT32 argCount,
                              const DxcDefine *pDefines, UINT32 defineCount,
                              llvm::ArrayRef<LPCSTR> pLookFors,
@@ -480,64 +480,8 @@ public:
     if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram))
       return false;
     DisassembleProgram(pProgram, &disassembly);
-    for (unsigned i = 0; i < pLookFors.size(); ++i) {
-      LPCSTR pLookFor = pLookFors[i];
-      bool bOptional = false;
-      if (pLookFor[0] == '?') {
-        bOptional = true;
-        pLookFor++;
-      }
-      LPCSTR pReplacement = pReplacements[i];
-      if (pLookFor && *pLookFor) {
-        if (bRegex) {
-          llvm::Regex RE(pLookFor);
-          std::string reErrors;
-          if (!RE.isValid(reErrors)) {
-            WEX::Logging::Log::Comment(WEX::Common::String().Format(
-                L"Regex errors:\r\n%.*S\r\nWhile compiling expression '%S'",
-                (unsigned)reErrors.size(), reErrors.data(),
-                pLookFor));
-          }
-          VERIFY_IS_TRUE(RE.isValid(reErrors));
-          std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
-          if (!bOptional) {
-            if (!reErrors.empty()) {
-              WEX::Logging::Log::Comment(WEX::Common::String().Format(
-                  L"Regex errors:\r\n%.*S\r\nWhile searching for '%S' in text:\r\n%.*S",
-                  (unsigned)reErrors.size(), reErrors.data(),
-                  pLookFor,
-                  (unsigned)disassembly.size(), disassembly.data()));
-            }
-            VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
-            VERIFY_IS_TRUE(reErrors.empty());
-          }
-          disassembly = std::move(replaced);
-        } else {
-          bool found = false;
-          size_t pos = 0;
-          size_t lookForLen = strlen(pLookFor);
-          size_t replaceLen = strlen(pReplacement);
-          for (;;) {
-            pos = disassembly.find(pLookFor, pos);
-            if (pos == std::string::npos)
-              break;
-            found = true; // at least once
-            disassembly.replace(pos, lookForLen, pReplacement);
-            pos += replaceLen;
-          }
-          if (!bOptional) {
-            if (!found) {
-              WEX::Logging::Log::Comment(WEX::Common::String().Format(
-                  L"String not found: '%S' in text:\r\n%.*S",
-                  pLookFor,
-                  (unsigned)disassembly.size(), disassembly.data()));
-            }
-            VERIFY_IS_TRUE(found);
-          }
-        }
-      }
-    }
-    Utf8ToBlob(m_dllSupport, disassembly.c_str(), pBlob);
+
+    ReplaceDisassemblyText(pLookFors, pReplacements, pBlob, bRegex, disassembly, m_dllSupport);
     return true;
   }
 

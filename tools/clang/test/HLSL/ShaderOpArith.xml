@@ -3738,7 +3738,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <RootValue HeapName="ResourceDescriptorHeap" Index="0" />
     </RootValues>
     
-    <Shader Name="CS60" Target="cs_6_0" EntryPoint="main" Text="@MAIN"/> 
+    <Shader Name="CS60" Target="cs_6_0" EntryPoint="main" Text="@MAIN" Callback="True"/> 
     <Shader Name="MAIN" Target="cs_6_0" EntryPoint="main">
       <![CDATA[
         

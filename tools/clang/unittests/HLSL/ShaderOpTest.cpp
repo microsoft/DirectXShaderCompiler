@@ -788,7 +788,14 @@ void ShaderOpTest::CreateShaders() {
     CComPtr<ID3DBlob> pCode;
     HRESULT hr = S_OK;
     LPCSTR pText = m_pShaderOp->GetShaderText(&S);
-    if (S.Compiled) {
+    if (S.Callback) {
+       if (!m_ShaderCallbackFn) {
+         ShaderOpLogFmt(L"Callback required for shader, but not provided: %S\r\n", S.Name);
+         CHECK_HR(E_FAIL);
+       }
+       m_ShaderCallbackFn(S.Name, pText, &pCode, m_pShaderOp);
+ 
+    } else if (S.Compiled) {
       int textLen = (int)strlen(pText);
       int decodedLen = Base64DecodeGetRequiredLength(textLen);
       // Length is an approximation, so we can't creat the final blob yet.
@@ -1094,6 +1101,9 @@ void ShaderOpTest::SetDxcSupport(dxc::DxcDllSupport *pDxcSupport) {
 
 void ShaderOpTest::SetInitCallback(TInitCallbackFn InitCallbackFn) {
   m_InitCallbackFn = InitCallbackFn;
+}
+void ShaderOpTest::SetShaderCallback(TShaderCallbackFn ShaderCallbackFn) {
+  m_ShaderCallbackFn = ShaderCallbackFn;
 }
 
 void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
@@ -2448,7 +2458,8 @@ void ShaderOpParser::ParseShader(IXmlReader *pReader, ShaderOpShader *pShader) {
   CHECK_HR(ReadAttrStr(pReader, L"EntryPoint", &pShader->EntryPoint));
   CHECK_HR(ReadAttrStr(pReader, L"Target", &pShader->Target));
   CHECK_HR(ReadAttrStr(pReader, L"Arguments", &pShader->Arguments));
-  CHECK_HR(ReadAttrBOOL(pReader, L"Compiled", &pShader->Compiled))
+  CHECK_HR(ReadAttrBOOL(pReader, L"Compiled", &pShader->Compiled));
+  CHECK_HR(ReadAttrBOOL(pReader, L"Callback", &pShader->Callback));
 
   ReadElementContentStr(pReader, &pShader->Text);
   bool hasText = pShader->Text && *pShader->Text;
