@@ -602,11 +602,71 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
 }
 
 bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
-  if (execMode->getExecutionMode() == spv::ExecutionMode::PostDepthCoverage) {
+  spv::ExecutionMode executionMode = execMode->getExecutionMode();
+  SourceLocation execModeSourceLocation = execMode->getSourceLocation();
+  SourceLocation entryPointSourceLocation =
+      execMode->getEntryPoint()->getSourceLocation();
+  switch (executionMode) {
+  case spv::ExecutionMode::PostDepthCoverage:
     addCapability(spv::Capability::SampleMaskPostDepthCoverage,
-                  execMode->getEntryPoint()->getSourceLocation());
+                  entryPointSourceLocation);
     addExtension(Extension::KHR_post_depth_coverage,
-                 "[[vk::post_depth_coverage]]", execMode->getSourceLocation());
+                 "[[vk::post_depth_coverage]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::EarlyAndLateFragmentTestsAMD:
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::early_and_late_tests]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefUnchangedFrontAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_unchanged_front]]", execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_unchanged_front]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefGreaterFrontAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_greater_equal_front]]",
+                 execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_greater_equal_front]]",
+                 execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefLessFrontAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_less_equal_front]]",
+                 execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_less_equal_front]]",
+                 execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefUnchangedBackAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_unchanged_back]]", execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_unchanged_back]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefGreaterBackAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_greater_equal_back]]",
+                 execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_greater_equal_back]]",
+                 execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefLessBackAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_less_equal_back]]", execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_less_equal_back]]", execModeSourceLocation);
+    break;
+  default:
+    break;
   }
   return true;
 }

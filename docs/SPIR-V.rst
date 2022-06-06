@@ -288,13 +288,14 @@ Supported extensions
 
 * SPV_KHR_16bit_storage
 * SPV_KHR_device_group
+* SPV_KHR_fragment_shading_rate
 * SPV_KHR_multivew
 * SPV_KHR_post_depth_coverage
 * SPV_KHR_shader_draw_parameters
 * SPV_EXT_descriptor_indexing
 * SPV_EXT_fragment_fully_covered
-* SPV_KHR_fragment_shading_rate
 * SPV_EXT_shader_stencil_support
+* SPV_AMD_shader_early_and_late_fragment_tests
 * SPV_AMD_shader_explicit_vertex_parameter
 * SPV_GOOGLE_hlsl_functionality1
 * SPV_GOOGLE_user_type
@@ -340,6 +341,40 @@ The namespace ``vk`` will be used for all Vulkan attributes:
   sampler (or sampled image) type with the same descriptor set and binding numbers (see
   `wiki page <https://github.com/microsoft/DirectXShaderCompiler/wiki/Vulkan-combined-image-sampler-type>`_
   for more detail).
+- ``early_and_late_tests``: Marks an entry point as enabling early and late depth
+  tests. If depth is written via ``SV_Depth``, ``depth_unchanged`` must also be specified
+  (``SV_DepthLess`` and ``SV_DepthGreater`` can be written freely). If a stencil reference
+  value is written via ``SV_StencilRef``, one of ``stencil_ref_unchanged_front``,
+  ``stencil_ref_greater_equal_front``, or ``stencil_ref_less_equal_front`` and
+  one of ``stencil_ref_unchanged_back``, ``stencil_ref_greater_equal_back``, or
+  ``stencil_ref_less_equal_back`` must be specified.
+- ``depth_unchanged``: Specifies that any depth written to ``SV_Depth`` will not
+  invalidate the result of early depth tests. Sets the ``DepthUnchanged`` execution
+  mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_unchanged_front``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will not invalidate the result of early stencil tests when
+  the fragment is front facing. Sets the ``StencilRefUnchangedFrontAMD`` execution
+  mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_greater_equal_front``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be greater than or equal to the stencil reference value
+  set by the API when the fragment is front facing. Sets the ``StencilRefGreaterFrontAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_less_equal_front``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be less than or equal to the stencil reference value
+  set by the API when the fragment is front facing. Sets the ``StencilRefLessFrontAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_unchanged_back``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will not invalidate the result of early stencil tests when
+  the fragment is back facing. Sets the ``StencilRefUnchangedBackAMD`` execution
+  mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_greater_equal_back``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be greater than or equal to the stencil reference value
+  set by the API when the fragment is back facing. Sets the ``StencilRefGreaterBackAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_less_equal_back``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be less than or equal to the stencil reference value
+  set by the API when the fragment is back facing. Sets the ``StencilRefLessBackAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will

@@ -2654,6 +2654,39 @@ TEST_F(FileTest, VulkanShadingRateVs) {
 TEST_F(FileTest, VulkanShadingRatePs) {
   runFileTest("vk.shading-rate.ps.hlsl");
 }
+// Tests for [[vk::early_and_late_tests]]
+TEST_F(FileTest, VulkanEarlyAndLateTests) {
+  runFileTest("vk.early-and-lates-tests.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsDepthUnchanged) {
+  runFileTest("vk.early-and-lates-tests.depth-unchanged.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefUnchangedFront) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-unchanged-front.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefGreaterEqualFront) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-greater-equal-front.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefLessEqualFront) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-less-equal-front.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefUnchangedBack) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-unchanged-back.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefGreaterEqualBack) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-greater-equal-back.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefLessEqualBack) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-less-equal-back.hlsl");
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefErrorFront) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-error-front.hlsl",
+              Expect::Failure);
+}
+TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefErrorBack) {
+  runFileTest("vk.early-and-lates-tests.stencil-ref-error-back.hlsl",
+              Expect::Failure);
+}
 
 // === MeshShading NV examples ===
 TEST_F(FileTest, MeshShadingNVMeshTriangle) {
