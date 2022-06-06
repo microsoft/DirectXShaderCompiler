@@ -11344,6 +11344,7 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 }
 
 TEST_F(ExecutionTest, IsNormalTest) {
+  //EnableShaderBasedValidation();
     WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11358,7 +11359,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
 
   const int expectedResultsSize = 12;
   // false represents 0, true represents a non-zero value
-  int expectedResults[expectedResultsSize] = {0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0};
+  int expectedResults[expectedResultsSize] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
     
   // TestShaderModels will be an array, where the first x models are "non-fallback", and the rest of the models
   // are "fallback". If TestShaderModels has length y, and a test loops through all shader models, a convention
@@ -11386,10 +11387,12 @@ TEST_F(ExecutionTest, IsNormalTest) {
     CComPtr<IDxcBlob> rewrittenDisassembly = nullptr;
     IDxcOperationResult * pOpResult = CompileAndRewriteAssemblyToText(m_support, pText, L"cs_6_0", L"", &rewrittenDisassembly, 
       {
-          "IsNaN",
+          "@dx.op.isSpecialFloat.f32(i32 8,",
+          //"IsNaN",
       },
       {
-          "IsSpecialFloat",
+          "@dx.op.isSpecialFloat.f32(i32 11,",
+          //"IsNaN",
       },
       false
     );
