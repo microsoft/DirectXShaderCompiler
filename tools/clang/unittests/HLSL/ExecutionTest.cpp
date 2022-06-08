@@ -11393,9 +11393,12 @@ TEST_F(ExecutionTest, IsNormalTest) {
     VerifyCompileOK(m_support, pText, L"cs_6_0", args, &compiledShader);
     std::string disassembly = DisassembleProgram(m_support, compiledShader);
     // Replace op
-    ReplaceText(
-      { "@dx.op.isSpecialFloat.f32(i32 8," },
-      { "@dx.op.isSpecialFloat.f32(i32 11," },
+    ReplaceDisassemblyText(
+      { "@dx.op.isSpecialFloat.f32(i32 8,"},
+      { "@dx.op.isSpecialFloat.f32(i32 11,"},
+      // Replace the above with what's below when IsSpecialFloat supports doubles
+      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f32(i32 9," },
+      //{ "@dx.op.isSpecialFloat.f32(i32 11,", "@dx.op.isSpecialFloat.f64(i32 11," },
       /*bRegex*/false,
       disassembly
     );
@@ -11448,6 +11451,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
       VERIFY_ARE_EQUAL(resultCSFloats[i], expectedResults[i]);
     }
 
+    /* This block needs to be uncommented whenever IsSpecialFloat supports doubles
     MappedData resultDataDoubles;
     test->Test->GetReadBackData("g_result_doubles", &resultDataDoubles);
     const int *resultCSDoubles = (int *)resultDataDoubles.data();
@@ -11456,6 +11460,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
     {
       VERIFY_ARE_EQUAL(resultCSDoubles[i], expectedResults[i]);
     }
+    */
   }
 
 }

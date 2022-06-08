@@ -3769,12 +3769,12 @@ void MSMain(uint GID : SV_GroupIndex,
         [loop]
         for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
         {
-           result[i] = isnan(NonNormalNumbers[i]) ? 1 : 0;
+           result[i] = isinf(NonNormalNumbers[i]) ? 1 : 0;
         }
         [loop]
         for (unsigned int j = 0; j < NormalNumbersSize; j++)
         {
-           result[NonNormalNumbersSize + j] = isnan(NormalNumbers[j]) ? 1 : 0;
+           result[NonNormalNumbersSize + j] = isinf(NormalNumbers[j]) ? 1 : 0;
         }
       }
       
@@ -3802,6 +3802,7 @@ void MSMain(uint GID : SV_GroupIndex,
           TestFloatNumbers(g_result_floats, FNonNormalNumbers, 8u, FNormalNumbers, 4u);
           
           //Test Doubles now
+          /* This block needs to be uncommented whenever IsSpecialFloat supports doubles
           
                                                                                                // sign   exp                   mantissa
                                                                                                //  | _____|___  ___________________|______________________________
@@ -3818,6 +3819,7 @@ void MSMain(uint GID : SV_GroupIndex,
           double DNonNormalNumbers[8] = {DNegativeZero, DPositiveZero, DNegativeDenormal, DPositiveDenormal, DNegativeInf, DPositiveInf, DNegativeNaN, DPositiveNaN};
           double DNormalNumbers[4] = {530.99, -530.99, 122.101, -.122101};
           TestDoubleNumbers(g_result_doubles, DNonNormalNumbers, 8u, DNormalNumbers, 4u);
+          */
       }
     
     ]]>

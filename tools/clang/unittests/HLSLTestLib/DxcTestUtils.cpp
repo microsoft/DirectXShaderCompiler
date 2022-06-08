@@ -195,7 +195,7 @@ void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
   CheckOperationSucceeded(pResult, pContainer);
 }
 
-void ReplaceText(llvm::ArrayRef<LPCSTR> pLookFors,
+void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
                 llvm::ArrayRef<LPCSTR> pReplacements,
                 bool bRegex, std::string& disassembly) {
   for (unsigned i = 0; i < pLookFors.size(); ++i) {
@@ -255,14 +255,6 @@ void ReplaceText(llvm::ArrayRef<LPCSTR> pLookFors,
       }
     }
   }
-}
-
-void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
-                llvm::ArrayRef<LPCSTR> pReplacements,
-                _Outptr_ IDxcBlob **pBlob, bool bRegex,
-                std::string& disassembly, dxc::DxcDllSupport &dllSupport){
-  ReplaceText(pLookFors, pReplacements, bRegex, disassembly);
-  Utf8ToBlob(dllSupport, disassembly.c_str(), pBlob);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

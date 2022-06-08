@@ -405,7 +405,18 @@ public:
     llvm::ArrayRef<LPCSTR> pErrorMsgs,
     bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
-    if (!CompileAndRewriteAssemblyToText(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, pLookFors, pReplacements, &pText, bRegex))
+    bool CompilationAndRewriteSucc = true;
+
+    CComPtr<IDxcBlob> pProgram;
+    std::string disassembly;
+    if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram))
+      CompilationAndRewriteSucc = false;
+    DisassembleProgram(pProgram, &disassembly);
+
+    ReplaceDisassemblyText(pLookFors, pReplacements, bRegex, disassembly);
+    Utf8ToBlob(m_dllSupport, disassembly.c_str(), &pText);
+
+    if (CompilationAndRewriteSucc)
       return false;
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
@@ -468,23 +479,6 @@ public:
     RewriteAssemblyCheckMsg(name, pShaderModel, nullptr, 0, nullptr, 0,
       pLookFors, pReplacements, pErrorMsgs, bRegex);
   }
-
-  bool CompileAndRewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
-                             LPCWSTR *pArguments, UINT32 argCount,
-                             const DxcDefine *pDefines, UINT32 defineCount,
-                             llvm::ArrayRef<LPCSTR> pLookFors,
-                             llvm::ArrayRef<LPCSTR> pReplacements,
-                             IDxcBlob **pBlob, bool bRegex = false) {
-    CComPtr<IDxcBlob> pProgram;
-    std::string disassembly;
-    if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram))
-      return false;
-    DisassembleProgram(pProgram, &disassembly);
-
-    ReplaceDisassemblyText(pLookFors, pReplacements, pBlob, bRegex, disassembly, m_dllSupport);
-    return true;
-  }
-
 
   // compile one or two sources, validate module from 1 with container parts from 2, check messages
   bool ReplaceContainerPartsCheckMsgs(LPCSTR pSource1, LPCSTR pSource2, LPCSTR pShaderModel,

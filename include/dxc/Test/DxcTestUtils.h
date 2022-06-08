@@ -179,7 +179,7 @@ std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgra
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
 void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlob **ppBlob);
 void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlobEncoding **ppBlob);
-void ReplaceText(llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
+void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
                             bool bRegex, std::string& disassembly);
 void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
                            _Outptr_ IDxcBlob **pBlob, bool bRegex, std::string& disassembly, dxc::DxcDllSupport &dllSupport);
