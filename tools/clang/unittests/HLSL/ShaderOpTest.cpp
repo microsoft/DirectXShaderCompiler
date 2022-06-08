@@ -793,11 +793,9 @@ void ShaderOpTest::CreateShaders() {
          ShaderOpLogFmt(L"Callback required for shader, but not provided: %S\r\n", S.Name);
          CHECK_HR(E_FAIL);
        }
-       CComPtr<IDxcBlob> pCode2;
-       m_ShaderCallbackFn(S.Name, pText, &pCode2, m_pShaderOp);
-       pCode = (ID3DBlob *) pCode2.Detach();
- 
-    } else if (S.Compiled) {
+       m_ShaderCallbackFn(S.Name, pText, (IDxcBlob **) &pCode, m_pShaderOp); 
+    }
+    else if (S.Compiled) {
       int textLen = (int)strlen(pText);
       int decodedLen = Base64DecodeGetRequiredLength(textLen);
       // Length is an approximation, so we can't creat the final blob yet.

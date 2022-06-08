@@ -188,10 +188,10 @@ void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
-IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, LPCWSTR pArgs,
                      _Outptr_ IDxcBlob **ppResult);
-IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      _Outptr_ IDxcBlob **ppResult);
 

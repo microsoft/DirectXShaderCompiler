@@ -414,7 +414,7 @@ void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
   WideToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
-IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, LPCWSTR pArgs,
                      _Outptr_ IDxcBlob **ppResult) {
   std::vector<std::wstring> argsW;
@@ -426,10 +426,10 @@ IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pTe
     transform(argsW.begin(), argsW.end(), back_inserter(args),
               [](const wstring &w) { return w.data(); });
   }
-  return VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
+  VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
 }
 
-IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      _Outptr_ IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -444,8 +444,7 @@ IDxcOperationResult * VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pTe
                                       nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
   VERIFY_SUCCEEDED(hrCompile);
-  return (IDxcOperationResult *)pResult.Detach();
-  //VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
 }
 
 HRESULT GetVersion(dxc::DxcDllSupport& DllSupport, REFCLSID clsid, unsigned &Major, unsigned &Minor) {

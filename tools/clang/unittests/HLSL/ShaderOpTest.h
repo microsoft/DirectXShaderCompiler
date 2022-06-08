@@ -35,6 +35,7 @@ class DxcDllSupport;
 }
 struct IStream;
 struct IXmlReader;
+struct IDxcBlob;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Useful helper functions.
@@ -248,6 +249,8 @@ struct CommandListRefs {
 
   void CreateForDevice(ID3D12Device *pDevice, bool compute);
 };
+
+
 
 // Use this class to run the operation described in a ShaderOp object.
 class ShaderOpTest {

@@ -24,6 +24,7 @@
 #include <iomanip>
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HLSLTestData.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -11404,13 +11405,13 @@ TEST_F(ExecutionTest, IsNormalTest) {
     // c_str() guarantees null termination; passing size + 1 to include it will create an IDxcBlobUtf8 without copying.
     CComPtr<IDxcBlobEncoding> rewrittenDisassembly;
     VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
-      disassembly.c_str(), disassembly.size() + 1, DXC_CP_UTF8, &rewrittenDisassembly));
+      disassembly.c_str(), (UINT32) disassembly.size() + 1, DXC_CP_UTF8, &rewrittenDisassembly));
     // Assemble to container
     CComPtr<IDxcBlob> assembledShader;
     AssembleToContainer(m_support, rewrittenDisassembly, &assembledShader);
     // Find root signature part in container
-    hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(assembledShader->GetBufferPointer(), assembledShader->GetBufferSize());
-    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, assembledShader->GetBufferSize()));
+    hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(compiledShader->GetBufferPointer(), compiledShader->GetBufferSize());
+    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, compiledShader->GetBufferSize()));
     hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
         pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
     VERIFY_IS_NOT_NULL(pPartHeader);
