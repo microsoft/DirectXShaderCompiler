@@ -195,30 +195,9 @@ void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
   CheckOperationSucceeded(pResult, pContainer);
 }
 
-IDxcOperationResult * CompileAndRewriteAssemblyToText(dxc::DxcDllSupport &dllSupport, LPCSTR pText, 
-                            LPWSTR pTargetProfile, LPCWSTR pArgs,  _Outptr_ IDxcBlob **ppResult,
-                            llvm::ArrayRef<LPCSTR> pLookFors,
-                            llvm::ArrayRef<LPCSTR> pReplacements,
-                            bool bRegex) {
-
-  IDxcBlob * pFirstCompiledBlob;
-  IDxcOperationResult * pOpResult = VerifyCompileOK(dllSupport, pText,
-                    pTargetProfile, pArgs,
-                    &pFirstCompiledBlob);
-
-  VERIFY_SUCCEEDED(pOpResult->GetResult(&pFirstCompiledBlob));
-  std::string disassembly = DisassembleProgram(dllSupport, pFirstCompiledBlob);
-
-  *ppResult = nullptr;
-  ReplaceDisassemblyText(pLookFors, pReplacements, ppResult, bRegex, disassembly, dllSupport);
-  return pOpResult;
-}
-
-void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
+void ReplaceText(llvm::ArrayRef<LPCSTR> pLookFors,
                 llvm::ArrayRef<LPCSTR> pReplacements,
-                _Outptr_ IDxcBlob **pBlob, bool bRegex,
-                std::string& disassembly, dxc::DxcDllSupport &dllSupport){
-  assert(*pBlob == nullptr);
+                bool bRegex, std::string& disassembly) {
   for (unsigned i = 0; i < pLookFors.size(); ++i) {
     LPCSTR pLookFor = pLookFors[i];
     bool bOptional = false;
@@ -276,6 +255,14 @@ void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
       }
     }
   }
+}
+
+void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
+                llvm::ArrayRef<LPCSTR> pReplacements,
+                _Outptr_ IDxcBlob **pBlob, bool bRegex,
+                std::string& disassembly, dxc::DxcDllSupport &dllSupport){
+  assert(pBlob == nullptr);
+  ReplaceText(pLookFors, pReplacements, bRegex, disassembly);
   Utf8ToBlob(dllSupport, disassembly.c_str(), pBlob);
 }
 

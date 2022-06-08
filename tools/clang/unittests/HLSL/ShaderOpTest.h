@@ -253,7 +253,7 @@ struct CommandListRefs {
 class ShaderOpTest {
 public:
   typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data, ShaderOp *pShaderOp)> TInitCallbackFn;
-  typedef std::function<void(LPCSTR Name, LPCSTR pText, ID3DBlob **ppShaderBlob, ShaderOp *pShaderOp)> TShaderCallbackFn;
+  typedef std::function<void(LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, ShaderOp *pShaderOp)> TShaderCallbackFn;
   void GetPipelineStats(D3D12_QUERY_DATA_PIPELINE_STATISTICS *pStats);
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
   void RunShaderOp(ShaderOp *pShaderOp);
