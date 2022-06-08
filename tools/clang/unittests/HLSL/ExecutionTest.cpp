@@ -11344,7 +11344,6 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 }
 
 TEST_F(ExecutionTest, IsNormalTest) {
-  EnableShaderBasedValidation();
     WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;

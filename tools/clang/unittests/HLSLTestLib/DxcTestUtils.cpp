@@ -261,7 +261,6 @@ void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
                 llvm::ArrayRef<LPCSTR> pReplacements,
                 _Outptr_ IDxcBlob **pBlob, bool bRegex,
                 std::string& disassembly, dxc::DxcDllSupport &dllSupport){
-  assert(pBlob == nullptr);
   ReplaceText(pLookFors, pReplacements, bRegex, disassembly);
   Utf8ToBlob(dllSupport, disassembly.c_str(), pBlob);
 }
