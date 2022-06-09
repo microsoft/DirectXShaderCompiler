@@ -11343,6 +11343,110 @@ TEST_F(ExecutionTest, QuadAnyAll) {
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 }
 
+// Copies input strings to local storage, so it doesn't rely on lifetime of input string pointers.
+st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
+    llvm::ArrayRef<LPCWSTR> dxcArgs,
+    llvm::ArrayRef<LPCSTR> LookFors,
+    llvm::ArrayRef<LPCSTR> Replacements,
+    dxc::DxcDllSupport &dllSupport,
+    bool bRootSigInXML) {
+  // place ArrayRef arguments in std::vector locals, and copy them by value into the callback function lambda
+  std::vector<std::wstring> ArgsStorage(dxcArgs.size());
+    for (unsigned i = 0; i < dxcArgs.size(); ++i)
+      ArgsStorage[i] = dxcArgs[i];
+  std::vector<std::string> LookForsStorage(LookFors.size());
+    for (unsigned i = 0; i < LookFors.size(); ++i)
+      LookForsStorage[i] = LookFors[i];
+  std::vector<std::string> ReplacementsStorage(Replacements.size());
+    for (unsigned i = 0; i < Replacements.size(); ++i)
+      ReplacementsStorage[i] = Replacements[i];
+  auto ShaderInitFn = 
+      [ArgsStorage, LookForsStorage, ReplacementsStorage, &dllSupport, bRootSigInXML]
+      (LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, st::ShaderOp *pShaderOp) {
+    
+    UNREFERENCED_PARAMETER(pShaderOp);
+    UNREFERENCED_PARAMETER(Name);
+    // Create pointer vectors from local storage to supply API needs
+    std::vector<LPCWSTR> Args(ArgsStorage.size());
+    for (unsigned i = 0; i < ArgsStorage.size(); ++i)
+      Args[i] = ArgsStorage[i].c_str();
+    std::vector<LPCSTR> LookFors(LookForsStorage.size());
+    for (unsigned i = 0; i < LookForsStorage.size(); ++i)
+      LookFors[i] = LookForsStorage[i].c_str();
+    std::vector<LPCSTR> Replacements(ReplacementsStorage.size());
+    for (unsigned i = 0; i < ReplacementsStorage.size(); ++i)
+      Replacements[i] = ReplacementsStorage[i].c_str();
+
+    CComPtr<IDxcUtils> pUtils;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+    // Compile original HLSL with op to replace, and disassemble.
+    CComPtr<IDxcBlob> compiledShader;
+    VerifyCompileOK(dllSupport, pText, L"cs_6_0", Args, &compiledShader);
+    std::string disassembly = DisassembleProgram(dllSupport, compiledShader);
+    // Replace op
+    ReplaceDisassemblyText(
+      LookFors,
+      Replacements,
+      // Replace the above with what's below when IsSpecialFloat supports doubles
+      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f32(i32 9," },
+      //{ "@dx.op.isSpecialFloat.f32(i32 11,", "@dx.op.isSpecialFloat.f64(i32 11," },
+      /*bRegex*/false,
+      disassembly
+    );
+    // Wrap text in UTF8 blob
+    // No need to copy, disassembly won't be changed again and will live as long as rewrittenDisassembly.
+    // c_str() guarantees null termination; passing size + 1 to include it will create an IDxcBlobUtf8 without copying.
+    CComPtr<IDxcBlobEncoding> rewrittenDisassembly;
+    VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
+      disassembly.c_str(), (UINT32) disassembly.size() + 1, DXC_CP_UTF8, &rewrittenDisassembly));
+    // Assemble to container
+    CComPtr<IDxcBlob> assembledShader;
+    AssembleToContainer(dllSupport, rewrittenDisassembly, &assembledShader);
+
+    CComPtr<IDxcContainerBuilder> pBuilder;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+    VERIFY_SUCCEEDED(pBuilder->Load(assembledShader));
+
+    // If the Root Signautre is defined as a node in the XML, then 
+    // the Root Signature will be retained by ShaderOpTest, and won't be 
+    // permanently lost when assembling the container
+    // Otherwise, it's necessary to add the root signature back into the assembled dxil container
+    if (bRootSigInXML)
+    {
+      CComPtr<IDxcOperationResult> pOpResult;
+      VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
+      HRESULT status;
+      VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
+      VERIFY_SUCCEEDED(status);
+      VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
+    } 
+    else
+    {
+      // Find root signature part in container
+      hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(compiledShader->GetBufferPointer(), compiledShader->GetBufferSize());
+      VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, compiledShader->GetBufferSize()));
+      hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+          pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
+      VERIFY_IS_NOT_NULL(pPartHeader);
+      // Wrap root signature in blob
+      CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
+      VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
+        hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
+      // Add root signature to container
+      pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
+      // Serialize new container
+      CComPtr<IDxcOperationResult> pOpResult;
+      VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
+      HRESULT status;
+      VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
+      VERIFY_SUCCEEDED(status);
+      VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
+    }
+
+  };
+  return ShaderInitFn;
+}
+
 TEST_F(ExecutionTest, IsNormalTest) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -11382,58 +11486,13 @@ TEST_F(ExecutionTest, IsNormalTest) {
     return;
   }
 
-  auto ShaderInitFn = [&](LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, st::ShaderOp *pShaderOp) {
-    UNREFERENCED_PARAMETER(pShaderOp);
-    UNREFERENCED_PARAMETER(Name);
-    CComPtr<IDxcUtils> pUtils;
-    VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcUtils, &pUtils));
-    // Compile original HLSL with op to replace, and disassemble.
-    CComPtr<IDxcBlob> compiledShader;
-    std::vector<LPCWSTR> args; // Add args here
-    VerifyCompileOK(m_support, pText, L"cs_6_0", args, &compiledShader);
-    std::string disassembly = DisassembleProgram(m_support, compiledShader);
-    // Replace op
-    ReplaceDisassemblyText(
+  auto ShaderInitFn = MakeShaderReplacementCallback(
+      {},
       { "@dx.op.isSpecialFloat.f32(i32 8,"},
-      { "@dx.op.isSpecialFloat.f32(i32 11,"},
-      // Replace the above with what's below when IsSpecialFloat supports doubles
-      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f32(i32 9," },
-      //{ "@dx.op.isSpecialFloat.f32(i32 11,", "@dx.op.isSpecialFloat.f64(i32 11," },
-      /*bRegex*/false,
-      disassembly
+      { "@dx.op.isSpecialFloat.f32(i32 11,"}, 
+      m_support, 
+      false
     );
-    // Wrap text in UTF8 blob
-    // No need to copy, disassembly won't be changed again and will live as long as rewrittenDisassembly.
-    // c_str() guarantees null termination; passing size + 1 to include it will create an IDxcBlobUtf8 without copying.
-    CComPtr<IDxcBlobEncoding> rewrittenDisassembly;
-    VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
-      disassembly.c_str(), (UINT32) disassembly.size() + 1, DXC_CP_UTF8, &rewrittenDisassembly));
-    // Assemble to container
-    CComPtr<IDxcBlob> assembledShader;
-    AssembleToContainer(m_support, rewrittenDisassembly, &assembledShader);
-    // Find root signature part in container
-    hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(compiledShader->GetBufferPointer(), compiledShader->GetBufferSize());
-    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, compiledShader->GetBufferSize()));
-    hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
-        pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
-    VERIFY_IS_NOT_NULL(pPartHeader);
-    // Wrap root signature in blob
-    CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
-    VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
-      hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
-    // Add root signature to container
-    CComPtr<IDxcContainerBuilder> pBuilder;
-    VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
-    VERIFY_SUCCEEDED(pBuilder->Load(assembledShader));
-    pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
-    // Serialize new container
-    CComPtr<IDxcOperationResult> pOpResult;
-    VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
-    HRESULT status;
-    VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
-    VERIFY_SUCCEEDED(status);
-    VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
-  };
 
   // Test Compute shader
   {
