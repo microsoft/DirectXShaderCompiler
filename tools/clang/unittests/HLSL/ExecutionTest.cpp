@@ -11461,7 +11461,11 @@ TEST_F(ExecutionTest, IsNormalTest) {
   vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
   const int expectedResultsSize = 12;
-  // false represents 0, true represents a non-zero value
+  
+  // Checks result of IsNormal for a set of 8 floats that should NOT be Normal:
+  // FNegativeZero FPositiveZero FNegativeDenormal FPositiveDenormal FNegativeInf FPositiveInf FNegativeNaN FPositiveNaN
+  // And then a set of 4 floats that should be Normal:
+  // 530.99, -530.99, 122.101, -.122101
   int expectedResults[expectedResultsSize] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
     
   // TestShaderModels will be an array, where the first x models are "non-fallback", and the rest of the models
