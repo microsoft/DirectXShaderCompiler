@@ -405,19 +405,17 @@ public:
     llvm::ArrayRef<LPCSTR> pErrorMsgs,
     bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
-    bool CompilationAndRewriteSucc = true;
 
     CComPtr<IDxcBlob> pProgram;
     std::string disassembly;
     if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram))
-      CompilationAndRewriteSucc = false;
+      return false;
+
     DisassembleProgram(pProgram, &disassembly);
 
     ReplaceDisassemblyText(pLookFors, pReplacements, bRegex, disassembly);
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), &pText);
-
-    if (CompilationAndRewriteSucc)
-      return false;
+    
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
     VERIFY_SUCCEEDED(
