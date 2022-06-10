@@ -3730,9 +3730,12 @@ void MSMain(uint GID : SV_GroupIndex,
   <ShaderOp Name="IsNormal" CS="CS60">
     <Resource Name="g_result_floats"      Dimension="BUFFER"     Width="48"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
     <Resource Name="g_result_doubles"     Dimension="BUFFER"     Width="48"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
+    <Resource Name="g_SUnaryFPOp"         Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ByName"    Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS" />
+
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="g_result_floats"   NumElements="12" Kind="UAV"  StructureByteStride="4"/>
       <Descriptor Name="g_result_doubles"  NumElements="12" Kind="UAV"  StructureByteStride="4"/>
+      <Descriptor Name="g_SUnaryFPOp"      NumElements="12" Kind="UAV"  StructureByteStride="8"/>
     </DescriptorHeap>
     <RootValues>
       <RootValue HeapName="ResourceDescriptorHeap" Index="0" />
@@ -3742,29 +3745,31 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="MAIN" Target="cs_6_0" EntryPoint="main">
       <![CDATA[
         
-      #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=2))")]
+      #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=3))")]
+    
+      struct InOut{
+        float input;
+        float output;
+      };
     
       // Result buffers
       RWStructuredBuffer <int> g_result_floats    : register(u0);
       RWStructuredBuffer <int> g_result_doubles   : register(u1);
+      RWStructuredBuffer <InOut> g_SUnaryFPOp     : register(u2);
+      static int g_InputSize = 12;
       
       static int FLOAT_SIGN_MASK  = -2147483648;
       static int FLOAT_EXP_MASK   = 2139095040;
 	    static int DOUBLE_SIGN_MASK = -2147483648;
       static int DOUBLE_EXP_MASK  = 2146435072;
    
-      void TestFloatNumbers(RWStructuredBuffer<int> result, float NonNormalNumbers[8], uint NonNormalNumbersSize, float NormalNumbers[4], uint NormalNumbersSize) {
-        [loop]
-        for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
+      void TestFloatNumbers(RWStructuredBuffer<InOut> TestData, unsigned int InputSize) {
+        for (unsigned int i = 0; i < InputSize; i++)
         {
-           result[i] = isnan(NonNormalNumbers[i]) ? 1 : 0;
-        }
-        [loop]
-        for (unsigned int j = 0; j < NormalNumbersSize; j++)
-        {
-           result[NonNormalNumbersSize + j] = isnan(NormalNumbers[j]) ? 1 : 0;
+           TestData[i].output = isnan(TestData[i].input) ? 1.0 : 0.0;
         }
       }
+      
       void TestDoubleNumbers(RWStructuredBuffer<int> result, double NonNormalNumbers[8], uint NonNormalNumbersSize, double NormalNumbers[4], uint NormalNumbersSize) {
         [loop]
         for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
@@ -3799,7 +3804,7 @@ void MSMain(uint GID : SV_GroupIndex,
           
           float FNonNormalNumbers[8] = {FNegativeZero, FPositiveZero, FNegativeDenormal, FPositiveDenormal, FNegativeInf, FPositiveInf, FNegativeNaN, FPositiveNaN};
           float FNormalNumbers[4] = {530.99, -530.99, 122.101, -.122101};
-          TestFloatNumbers(g_result_floats, FNonNormalNumbers, 8u, FNormalNumbers, 4u);
+          TestFloatNumbers(g_SUnaryFPOp, g_InputSize);
           
           //Test Doubles now
           /* This block needs to be uncommented whenever IsSpecialFloat supports doubles

@@ -5811,6 +5811,16 @@ static TableParameter PackUnpackOpParameters[] = {
     { L"Validation.Input", TableParameter::UINT32_TABLE, true },
 };
 
+static TableParameter IsNormalParameters[] = {
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Expected1", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+    { L"Warp.Version", TableParameter::UINT, false }
+};
+
 static bool IsHexString(PCWSTR str, uint16_t *value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
@@ -11387,9 +11397,6 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     ReplaceDisassemblyText(
       LookFors,
       Replacements,
-      // Replace the above with what's below when IsSpecialFloat supports doubles
-      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f32(i32 9," },
-      //{ "@dx.op.isSpecialFloat.f32(i32 11,", "@dx.op.isSpecialFloat.f64(i32 11," },
       /*bRegex*/false,
       disassembly
     );
@@ -11411,16 +11418,8 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     // the Root Signature will be retained by ShaderOpTest, and won't be 
     // permanently lost when assembling the container
     // Otherwise, it's necessary to add the root signature back into the assembled dxil container
-    if (bRootSigInXML)
-    {
-      CComPtr<IDxcOperationResult> pOpResult;
-      VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
-      HRESULT status;
-      VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
-      VERIFY_SUCCEEDED(status);
-      VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
-    } 
-    else
+   
+    if (!bRootSigInXML) 
     {
       // Find root signature part in container
       hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(compiledShader->GetBufferPointer(), compiledShader->GetBufferSize());
@@ -11434,20 +11433,36 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
         hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
       // Add root signature to container
       pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
-      // Serialize new container
-      CComPtr<IDxcOperationResult> pOpResult;
-      VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
-      HRESULT status;
-      VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
-      VERIFY_SUCCEEDED(status);
-      VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
     }
 
+    // Serialize new container
+    CComPtr<IDxcOperationResult> pOpResult;
+    VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
+    HRESULT status;
+    VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
+    VERIFY_SUCCEEDED(status);
+    VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
+
   };
+
   return ShaderInitFn;
 }
 
+struct TestData
+  {
+    float input;
+    float output;
+  };
+
 TEST_F(ExecutionTest, IsNormalTest) {
+  EnableShaderBasedValidation();
+    // In order, the input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 Normal float numbers.
+    std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
+    std::vector<float> *Validation_Input = &Validation_Input_Vec;
+
+    std::vector<float> Validation_Expected_Vec = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    std::vector<float> *Validation_Expected = &Validation_Expected_Vec;
+
     WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11466,12 +11481,8 @@ TEST_F(ExecutionTest, IsNormalTest) {
   // FNegativeZero FPositiveZero FNegativeDenormal FPositiveDenormal FNegativeInf FPositiveInf FNegativeNaN FPositiveNaN
   // And then a set of 4 floats that should be Normal:
   // 530.99, -530.99, 122.101, -.122101
-  int expectedResults[expectedResultsSize] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
-    
-  // TestShaderModels will be an array, where the first x models are "non-fallback", and the rest of the models
-  // are "fallback". If TestShaderModels has length y, and a test loops through all shader models, a convention
-  // to test based on whether fallback is enabled or not is to limit the loop like this:
-  // unsigned num_models_to_test = ExecutionTest::IsFallbackPathEnabled() ? y : x;
+  // int expectedResults[expectedResultsSize] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
+
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
   LogCommentFmt(L"\r\nVerifying isNormal in shader "
                 L"model 6.%1u",
@@ -11490,21 +11501,61 @@ TEST_F(ExecutionTest, IsNormalTest) {
     return;
   }
 
+  //LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
+  //double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
+
+  size_t count = Validation_Input->size();
+
   auto ShaderInitFn = MakeShaderReplacementCallback(
       {},
+      // Replace the above with what's below when IsSpecialFloat supports doubles
+      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f32(i32 9," },
+      //{ "@dx.op.isSpecialFloat.f32(i32 11,", "@dx.op.isSpecialFloat.f64(i32 11," },
       { "@dx.op.isSpecialFloat.f32(i32 8,"},
       { "@dx.op.isSpecialFloat.f32(i32 11,"}, 
       m_support, 
       false
     );
 
+
+  auto ResourceInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+          UNREFERENCED_PARAMETER(pShaderOp);
+          VERIFY_IS_TRUE(0 == _stricmp(Name, "g_SUnaryFPOp"));
+          size_t size = sizeof(TestData) * count;
+          Data.resize(size);
+          TestData *pPrimitives = (TestData *)Data.data();
+          for (size_t i = 0; i < count; ++i) {
+            TestData *p = &pPrimitives[i];
+            float inputFloat = (*Validation_Input)[i % Validation_Input->size()];
+            p->input = inputFloat;
+          }
+
+        };
+
+  
   // Test Compute shader
   {
     pShaderOp->CS = pShaderOp->GetString("CS60");
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-        pDevice, m_support, "IsNormal", nullptr, ShaderInitFn,
+        pDevice, m_support, "IsNormal", ResourceInitFn, ShaderInitFn,
         ShaderOpSet);
 
+    MappedData data;
+    test->Test->GetReadBackData("g_SUnaryFPOp", &data);
+
+    TestData *pPrimitives = (TestData*)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+    for (unsigned i = 0; i < count; ++i) {
+        TestData *p = &pPrimitives[i];
+        float val = (*Validation_Expected)[i % Validation_Expected->size()];
+        LogCommentFmt(
+            L"element #%u, input = %6.8f, output = %6.8f, expected = %6.8f", i,
+            p->input, p->output, val);
+        VERIFY_ARE_EQUAL(p->output, val);
+        
+    }
+
+    /*
     MappedData resultDataFloats;
     test->Test->GetReadBackData("g_result_floats", &resultDataFloats);
     const int *resultCSFloats = (int *)resultDataFloats.data();
@@ -11513,6 +11564,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
     {
       VERIFY_ARE_EQUAL(resultCSFloats[i], expectedResults[i]);
     }
+    */
 
     /* This block needs to be uncommented whenever IsSpecialFloat supports doubles
     MappedData resultDataDoubles;
