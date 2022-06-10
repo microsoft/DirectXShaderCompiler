@@ -18,6 +18,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
@@ -592,6 +593,25 @@ private:
   /// This method will write the location assignment into the module under
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
+
+  /// Creates a variable of struct type with explicit layout decorations.
+  /// The sub-Decls in the given DeclContext will be treated as the struct
+  /// fields. The struct type will be named as typeName, and the variable
+  /// will be named as varName.
+  ///
+  /// This method should only be used for cbuffers/ContantBuffers, tbuffers/
+  /// TextureBuffers, and PushConstants. usageKind must be set properly
+  /// depending on the usage kind.
+  ///
+  /// If arraySize is 0, the variable will be created as a struct ; if arraySize
+  /// is > 0, the variable will be created as an array; if arraySize is -1, the
+  /// variable will be created as a runtime array.
+  ///
+  /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
+  SpirvVariable *createStructOrStructArrayVarOfExplicitLayout(
+      const DeclContext *decl, llvm::ArrayRef<int> arraySize,
+      ContextUsageKind usageKind, llvm::StringRef typeName,
+      llvm::StringRef varName);
 
   /// Creates a variable of struct type with explicit layout decorations.
   /// The sub-Decls in the given DeclContext will be treated as the struct
