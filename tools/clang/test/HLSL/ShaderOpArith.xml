@@ -3728,13 +3728,9 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="IsNormal" CS="CS60">
-    <Resource Name="g_result_floats"      Dimension="BUFFER"     Width="48"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
-    <Resource Name="g_result_doubles"     Dimension="BUFFER"     Width="48"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
     <Resource Name="g_SUnaryFPOp"         Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ByName"    Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS" />
 
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
-      <Descriptor Name="g_result_floats"   NumElements="12" Kind="UAV"  StructureByteStride="4"/>
-      <Descriptor Name="g_result_doubles"  NumElements="12" Kind="UAV"  StructureByteStride="4"/>
       <Descriptor Name="g_SUnaryFPOp"      NumElements="12" Kind="UAV"  StructureByteStride="8"/>
     </DescriptorHeap>
     <RootValues>
@@ -3745,7 +3741,7 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="MAIN" Target="cs_6_0" EntryPoint="main">
       <![CDATA[
         
-      #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=3))")]
+      #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=1))")]
     
       struct InOut{
         float input;
@@ -3753,15 +3749,8 @@ void MSMain(uint GID : SV_GroupIndex,
       };
     
       // Result buffers
-      RWStructuredBuffer <int> g_result_floats    : register(u0);
-      RWStructuredBuffer <int> g_result_doubles   : register(u1);
-      RWStructuredBuffer <InOut> g_SUnaryFPOp     : register(u2);
+      RWStructuredBuffer <InOut> g_SUnaryFPOp     : register(u0);
       static int g_InputSize = 12;
-      
-      static int FLOAT_SIGN_MASK  = -2147483648;
-      static int FLOAT_EXP_MASK   = 2139095040;
-	    static int DOUBLE_SIGN_MASK = -2147483648;
-      static int DOUBLE_EXP_MASK  = 2146435072;
    
       void TestFloatNumbers(RWStructuredBuffer<InOut> TestData, unsigned int InputSize) {
         for (unsigned int i = 0; i < InputSize; i++)
@@ -3769,62 +3758,12 @@ void MSMain(uint GID : SV_GroupIndex,
            TestData[i].output = isnan(TestData[i].input) ? 1u : 0u;
         }
       }
-      
-      void TestDoubleNumbers(RWStructuredBuffer<int> result, double NonNormalNumbers[8], uint NonNormalNumbersSize, double NormalNumbers[4], uint NormalNumbersSize) {
-        [loop]
-        for (unsigned int i = 0; i < NonNormalNumbersSize; i++)
-        {
-           result[i] = isinf(NonNormalNumbers[i]) ? 1 : 0;
-        }
-        [loop]
-        for (unsigned int j = 0; j < NormalNumbersSize; j++)
-        {
-           result[NonNormalNumbersSize + j] = isinf(NormalNumbers[j]) ? 1 : 0;
-        }
-      }
-      
    
       ROOT_SIG
       [NumThreads(1, 1, 1)]
-      void main(uint ix : SV_GroupIndex) { //decimal numbers are expressed in signed 2's complement form
-      
-          
-                                                                                      // sign exp        mantissa
-                                                                                      //  | ___|__  ________|____________
-                                                                                      //  ||      ||                     | 
-          float FNegativeZero     = asfloat(FLOAT_SIGN_MASK);                         //  10000000000000000000000000000000
-          float FPositiveZero     = asfloat(0);                                       //  00000000000000000000000000000000
-          float FNegativeDenormal = asfloat(FLOAT_SIGN_MASK | 1);                     //  10000000000000000000000000000001  (zero exp, non-zero mantissa)
-          float FPositiveDenormal = asfloat(1);                                       //  00000000000000000000000000000001  (zero exp, non-zero mantissa)
-          float FNegativeInf      = asfloat(FLOAT_SIGN_MASK | FLOAT_EXP_MASK);        //  11111111100000000000000000000000  (all ones exp, zero mantissa)
-          float FPositiveInf      = asfloat(FLOAT_EXP_MASK);                          //  01111111100000000000000000000000  (all ones exp, zero mantissa)
-          float FNegativeNaN      = asfloat(FLOAT_SIGN_MASK | FLOAT_EXP_MASK | 1);    //  11111111100000000000000000000001  (all ones exp, non-zero mantissa)
-          float FPositiveNaN      = asfloat(FLOAT_EXP_MASK | 1);                      //  01111111100000000000000000000001  (all ones exp, non-zero mantissa)
-          
-          
-          float FNonNormalNumbers[8] = {FNegativeZero, FPositiveZero, FNegativeDenormal, FPositiveDenormal, FNegativeInf, FPositiveInf, FNegativeNaN, FPositiveNaN};
-          float FNormalNumbers[4] = {530.99, -530.99, 122.101, -.122101};
+      void main(uint ix : SV_GroupIndex) 
+      {
           TestFloatNumbers(g_SUnaryFPOp, g_InputSize);
-          
-          //Test Doubles now
-          /* This block needs to be uncommented whenever IsSpecialFloat supports doubles
-          
-                                                                                               // sign   exp                   mantissa
-                                                                                               //  | _____|___  ___________________|______________________________
-                                                                                               //  ||         ||                                                  |
-          double DNegativeZero     = asdouble(0, DOUBLE_SIGN_MASK);                            //  1000000000000000000000000000000000000000000000000000000000000000
-          double DPositiveZero     = asdouble(0, 0);                                           //  0000000000000000000000000000000000000000000000000000000000000000
-          double DNegativeDenormal = asdouble(1, DOUBLE_SIGN_MASK);                            //  1000000000000000000000000000000000000000000000000000000000000001  (zero exp, non-zero mantissa)
-          double DPositiveDenormal = asdouble(1, 0);                                           //  0000000000000000000000000000000000000000000000000000000000000001  (zero exp, non-zero mantissa)          
-          double DNegativeInf      = asdouble(0, DOUBLE_SIGN_MASK | DOUBLE_EXP_MASK);          //  1111111111110000000000000000000000000000000000000000000000000000  (all ones exp, zero mantissa)
-          double DPositiveInf      = asdouble(0, DOUBLE_EXP_MASK);                             //  0111111111110000000000000000000000000000000000000000000000000000  (all ones exp, zero mantissa)
-          double DNegativeNaN      = asdouble(1, DOUBLE_SIGN_MASK | DOUBLE_EXP_MASK | 1);      //  1111111111110000000000000000000000000000000000000000000000000001  (all ones exp, non-zero mantissa)
-          double DPositiveNaN      = asdouble(1, DOUBLE_EXP_MASK | 1);                         //  0111111111110000000000000000000000000000000000000000000000000001  (all ones exp, non-zero mantissa)
-          
-          double DNonNormalNumbers[8] = {DNegativeZero, DPositiveZero, DNegativeDenormal, DPositiveDenormal, DNegativeInf, DPositiveInf, DNegativeNaN, DPositiveNaN};
-          double DNormalNumbers[4] = {530.99, -530.99, 122.101, -.122101};
-          TestDoubleNumbers(g_result_doubles, DNonNormalNumbers, 8u, DNormalNumbers, 4u);
-          */
       }
     
     ]]>

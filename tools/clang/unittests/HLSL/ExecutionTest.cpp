@@ -11418,7 +11418,6 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     // the Root Signature will be retained by ShaderOpTest, and won't be 
     // permanently lost when assembling the container
     // Otherwise, it's necessary to add the root signature back into the assembled dxil container
-   
     if (!bRootSigInXML) 
     {
       // Find root signature part in container
@@ -11455,12 +11454,12 @@ struct TestData
   };
 
 TEST_F(ExecutionTest, IsNormalTest) {
-  EnableShaderBasedValidation();
+    // EnableShaderBasedValidation();
     // In order, the input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 Normal float numbers.
+    // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
     std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
     std::vector<float> *Validation_Input = &Validation_Input_Vec;
 
-    //std::vector<float> Validation_Expected_Vec = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};
     std::vector<unsigned int> *Validation_Expected = &Validation_Expected_Vec;
 
@@ -11478,12 +11477,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
 
   const int expectedResultsSize = 12;
   
-  // Checks result of IsNormal for a set of 8 floats that should NOT be Normal:
-  // FNegativeZero FPositiveZero FNegativeDenormal FPositiveDenormal FNegativeInf FPositiveInf FNegativeNaN FPositiveNaN
-  // And then a set of 4 floats that should be Normal:
-  // 530.99, -530.99, 122.101, -.122101
-  // int expectedResults[expectedResultsSize] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
-
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
   LogCommentFmt(L"\r\nVerifying isNormal in shader "
                 L"model 6.%1u",
@@ -11501,9 +11494,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
-
-  //LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
-  //double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
 
   size_t count = Validation_Input->size();
 
@@ -11555,28 +11545,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
         VERIFY_ARE_EQUAL(p->output, val);
         
     }
-
-    /*
-    MappedData resultDataFloats;
-    test->Test->GetReadBackData("g_result_floats", &resultDataFloats);
-    const int *resultCSFloats = (int *)resultDataFloats.data();
-
-    for (unsigned int i = 0; i < expectedResultsSize; i++)
-    {
-      VERIFY_ARE_EQUAL(resultCSFloats[i], expectedResults[i]);
-    }
-    */
-
-    /* This block needs to be uncommented whenever IsSpecialFloat supports doubles
-    MappedData resultDataDoubles;
-    test->Test->GetReadBackData("g_result_doubles", &resultDataDoubles);
-    const int *resultCSDoubles = (int *)resultDataDoubles.data();
-
-    for (unsigned int i = 0; i < expectedResultsSize; i++)
-    {
-      VERIFY_ARE_EQUAL(resultCSDoubles[i], expectedResults[i]);
-    }
-    */
   }
 
 }
