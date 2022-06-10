@@ -11451,7 +11451,7 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
 struct TestData
   {
     float input;
-    float output;
+    unsigned int output;
   };
 
 TEST_F(ExecutionTest, IsNormalTest) {
@@ -11460,8 +11460,9 @@ TEST_F(ExecutionTest, IsNormalTest) {
     std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
     std::vector<float> *Validation_Input = &Validation_Input_Vec;
 
-    std::vector<float> Validation_Expected_Vec = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-    std::vector<float> *Validation_Expected = &Validation_Expected_Vec;
+    //std::vector<float> Validation_Expected_Vec = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};
+    std::vector<unsigned int> *Validation_Expected = &Validation_Expected_Vec;
 
     WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -11547,9 +11548,9 @@ TEST_F(ExecutionTest, IsNormalTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         TestData *p = &pPrimitives[i];
-        float val = (*Validation_Expected)[i % Validation_Expected->size()];
+        unsigned int val = (*Validation_Expected)[i % Validation_Expected->size()];
         LogCommentFmt(
-            L"element #%u, input = %6.8f, output = %6.8f, expected = %6.8f", i,
+            L"element #%u, input = %6.8f, output = %6.8f, expected = %d", i,
             p->input, p->output, val);
         VERIFY_ARE_EQUAL(p->output, val);
         

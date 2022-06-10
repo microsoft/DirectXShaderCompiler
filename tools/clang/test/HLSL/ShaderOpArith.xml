@@ -3749,7 +3749,7 @@ void MSMain(uint GID : SV_GroupIndex,
     
       struct InOut{
         float input;
-        float output;
+        unsigned int output;
       };
     
       // Result buffers
@@ -3766,7 +3766,7 @@ void MSMain(uint GID : SV_GroupIndex,
       void TestFloatNumbers(RWStructuredBuffer<InOut> TestData, unsigned int InputSize) {
         for (unsigned int i = 0; i < InputSize; i++)
         {
-           TestData[i].output = isnan(TestData[i].input) ? 1.0 : 0.0;
+           TestData[i].output = isnan(TestData[i].input) ? 1u : 0u;
         }
       }
       
