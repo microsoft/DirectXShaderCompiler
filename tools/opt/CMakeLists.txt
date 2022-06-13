@@ -40,10 +40,6 @@ add_llvm_tool(opt
 
 if(WIN32 AND HLSL_BUILD_DXILCONV)
   add_compile_definitions(HAS_DXILCONV)
-  
-#  set_source_files_properties(opt.cpp PROPERTIES
-#                                      COMPILE_DEFINITIONS "HAS_DXILCONV")
-
   target_link_libraries(opt DxilConvPasses)
   add_dependencies(opt DxilConvPasses)
 endif(WIN32 AND HLSL_BUILD_DXILCONV)
