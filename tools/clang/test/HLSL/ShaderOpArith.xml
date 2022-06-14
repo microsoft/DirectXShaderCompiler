@@ -3745,7 +3745,7 @@ void MSMain(uint GID : SV_GroupIndex,
     
       struct InOut{
         float input;
-        unsigned int output;
+        uint output;
       };
     
       // Result buffers
