@@ -3750,20 +3750,12 @@ void MSMain(uint GID : SV_GroupIndex,
     
       // Result buffers
       RWStructuredBuffer <InOut> g_SUnaryFPOp     : register(u0);
-      static int g_InputSize = 12;
-   
-      void TestFloatNumbers(RWStructuredBuffer<InOut> TestData, unsigned int InputSize) {
-        for (unsigned int i = 0; i < InputSize; i++)
-        {
-           TestData[i].output = isnan(TestData[i].input) ? 1u : 0u;
-        }
-      }
    
       ROOT_SIG
-      [NumThreads(1, 1, 1)]
-      void main(uint ix : SV_GroupIndex) 
+      [NumThreads(12, 1, 1)]
+      void main(uint ix : SV_GroupIndex)
       {
-          TestFloatNumbers(g_SUnaryFPOp, g_InputSize);
+        g_SUnaryFPOp[ix].output = isnan(g_SUnaryFPOp[ix].input);
       }
     
     ]]>
