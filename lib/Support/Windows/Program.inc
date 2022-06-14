@@ -470,20 +470,16 @@ ProcessInfo sys::Wait(const ProcessInfo &PI, unsigned SecondsToWait,
 #endif // HLSL Change - MSFT_SUPPORTS_CHILD_PROCESSES
 
 std::error_code sys::ChangeStdinToBinary() {
-#ifdef MSFT_SUPPORTS_TEXTMODE_STREAMS  // HLSL Change
   int result = _setmode(_fileno(stdin), _O_BINARY);
   if (result == -1)
     return std::error_code(errno, std::generic_category());
-#endif  // HLSL Change
   return std::error_code();
 }
 
 std::error_code sys::ChangeStdoutToBinary() {
-#ifdef MSFT_SUPPORTS_TEXTMODE_STREAMS  // HLSL Change
   int result = _setmode(_fileno(stdout), _O_BINARY);
   if (result == -1)
     return std::error_code(errno, std::generic_category());
-#endif  // HLSL Change
   return std::error_code();
 }
 
