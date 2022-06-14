@@ -149,7 +149,7 @@ if "%HLSL_TAEF_MINTE%"=="" (
 echo Found TAEF at %HLSL_TAEF_MINTE%
 set HLSL_TAEF_DIR=%HLSL_BLD_DIR%\TAEF
 echo Copying to %HLSL_TAEF_DIR% for use with AgilitySDK
-mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%"" 1>nul 2>nul
+mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%" 1>nul 2>nul
 robocopy /NP /NJH /NJS /S "%HLSL_TAEF_MINTE%" "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%" *
 set path=%path%;%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%
 goto:eof
@@ -205,7 +205,7 @@ for /F "tokens=1,2*" %%A in ('%REG_QUERY% /v InstallationFolder') do (
   )
 )
 if ""=="%kit_root%" (
-    set kit_root=%WIN10_SDK_PATH%
+    set "kit_root=%WIN10_SDK_PATH%"
 )
 if ""=="%kit_root%" (
   echo Did not find a Windows 10 SDK installation.
