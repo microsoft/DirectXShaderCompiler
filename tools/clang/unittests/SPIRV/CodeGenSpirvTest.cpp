@@ -98,6 +98,9 @@ TEST_F(FileTest, TypeCBufferIncludingResource) {
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, ConstantBufferTypeMultiDimensionalArray) {
+  runFileTest("type.constant-buffer.multiple-dimensions.hlsl");
+}
 TEST_F(FileTest, BindlessConstantBufferArrayType) {
   runFileTest("type.constant-buffer.bindless.array.hlsl", Expect::Success,
               /*legalization*/ false);

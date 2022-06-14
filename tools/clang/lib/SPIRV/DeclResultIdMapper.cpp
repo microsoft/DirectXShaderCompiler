@@ -600,6 +600,52 @@ bool containOnlyVecWithFourFloats(QualType type, bool use16Bit) {
   return false;
 }
 
+// Evaluates whether a given QualType is in fact an array and unroll
+// accordingly. Returns the appropriate RecordType for the provided QualType.
+// Will be the actual type of the array element, if it is indeed an array. If
+// the returned QualType is not null and startType was in fact an array, the out
+// parameter arraySizes contains the dimensions of each cascaded array, from
+// right to left order as defined in source. e.g.: float a[2][3] -> arraySizes
+// [3, 2].
+QualType unrollMultiDimensionalArray(const ASTContext &astContext,
+                                     const QualType &startType,
+                                     llvm::SmallVectorImpl<int> *arraySizes) {
+
+  QualType innerQualType = startType;
+
+  // Unroll a multidimensional array.
+  const auto *arrayType = startType->getAsArrayTypeUnsafe();
+
+  while (arrayType) {
+    // If we are here the top level is an array let's grab it's size.
+    if (const auto *caType = astContext.getAsConstantArrayType(innerQualType)) {
+      auto arrayExtend = static_cast<int>(caType->getSize().getZExtValue());
+      arraySizes->push_back(arrayExtend);
+    } else {
+      // It's certainly an array, but we can't make it out it's dimension. So
+      // mark it as runtime array.
+      arraySizes->push_back(-1);
+    }
+
+    // Grab the sub element and see if it's an element or another array.
+    innerQualType = arrayType->getElementType();
+    if (innerQualType->isArrayType()) {
+      arrayType = innerQualType->getAsArrayTypeUnsafe();
+    } else if (innerQualType->isRecordType()) {
+      // If we reached the inner type, bail.
+      break;
+    } else {
+      // In case we encountered anything else than the expected types, bail
+      // and report the error.
+      return QualType{};
+    }
+  }
+
+  std::reverse(arraySizes->begin(), arraySizes->end());
+
+  return innerQualType;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -1132,8 +1178,9 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
 }
 
 SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
-    const DeclContext *decl, int arraySize, const ContextUsageKind usageKind,
-    llvm::StringRef typeName, llvm::StringRef varName) {
+    const DeclContext *decl, llvm::ArrayRef<int> arraySize,
+    const ContextUsageKind usageKind, llvm::StringRef typeName,
+    llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
   // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
   // Push constants are translated into OpTypeStruct with Block decoration.
@@ -1188,13 +1235,14 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
       forTBuffer ? StructInterfaceType::StorageBuffer
                  : StructInterfaceType::UniformBuffer);
 
-  // Make an array if requested.
-  if (arraySize > 0) {
-    resultType = spvContext.getArrayType(resultType, arraySize,
-                                         /*ArrayStride*/ llvm::None);
-  } else if (arraySize == -1) {
-    resultType =
-        spvContext.getRuntimeArrayType(resultType, /*ArrayStride*/ llvm::None);
+  for (int size : arraySize) {
+    if (size != -1) {
+      resultType = spvContext.getArrayType(resultType, size,
+                                           /*ArrayStride*/ llvm::None);
+    } else {
+      resultType = spvContext.getRuntimeArrayType(resultType,
+                                                  /*ArrayStride*/ llvm::None);
+    }
   }
 
   // Register the <type-id> for this decl
@@ -1221,6 +1269,17 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   var->setHlslUserType(forCBuffer ? "cbuffer" : forTBuffer ? "tbuffer" : "");
   var->setLayoutRule(layoutRule);
   return var;
+}
+
+SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
+    const DeclContext *decl, int arraySize, const ContextUsageKind usageKind,
+    llvm::StringRef typeName, llvm::StringRef varName) {
+  llvm::SmallVector<int, 1> arraySizes;
+  if (arraySize > 0)
+    arraySizes.push_back(arraySize);
+
+  return createStructOrStructArrayVarOfExplicitLayout(
+      decl, arraySizes, usageKind, typeName, varName);
 }
 
 void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
@@ -1291,23 +1350,22 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   assert(isConstantTextureBuffer(type));
   const RecordType *recordType = nullptr;
   const RecordType *templatedType = nullptr;
-  int arraySize = 0;
 
-  // In case we have an array of ConstantBuffer/TextureBuffer:
-  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
-    const QualType elemType = arrayType->getElementType();
-    recordType = elemType->getAs<RecordType>();
-    templatedType =
-        hlsl::GetHLSLResourceResultType(elemType)->getAs<RecordType>();
-    if (const auto *caType = astContext.getAsConstantArrayType(type)) {
-      arraySize = static_cast<uint32_t>(caType->getSize().getZExtValue());
-    } else {
-      arraySize = -1;
-    }
-  } else {
-    recordType = type->getAs<RecordType>();
-    templatedType = hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
+  llvm::SmallVector<int, 2> arraySizes;
+  QualType actualType =
+      unrollMultiDimensionalArray(astContext, type, &arraySizes);
+  if (actualType.isNull()) {
+    emitError("encountered unsupported type while decomposing "
+              "multi-dimensional array",
+              decl->getLocStart())
+        << type;
+    return nullptr;
   }
+
+  recordType = actualType->getAs<RecordType>();
+  templatedType =
+      hlsl::GetHLSLResourceResultType(actualType)->getAs<RecordType>();
+
   if (!recordType) {
     emitError("constant/texture buffer type %0 unimplemented",
               decl->getLocStart())
@@ -1331,7 +1389,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
                                  templatedType->getDecl()->getName().str();
 
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      templatedType->getDecl(), arraySize, usageKind, structName,
+      templatedType->getDecl(), arraySizes, usageKind, structName,
       decl->getName());
 
   // We register the VarDecl here.
