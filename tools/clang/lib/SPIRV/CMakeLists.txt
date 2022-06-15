@@ -16,7 +16,6 @@ add_clang_library(clangSPIRV
   InitListHandler.cpp
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
-  SpirvTypeVisitor.cpp
   SortDebugInfoVisitor.cpp
   NonUniformVisitor.cpp
   PreciseVisitor.cpp
@@ -33,7 +32,6 @@ add_clang_library(clangSPIRV
   SpirvType.cpp
   SignaturePackingUtil.cpp
   String.cpp
-  SpirvUtils.cpp
 
   LINK_LIBS
   clangAST
