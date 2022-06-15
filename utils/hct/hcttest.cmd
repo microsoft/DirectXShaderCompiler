@@ -201,6 +201,10 @@ rem Win32 to x86, ARM64EC to ARM64, no changes for other platforms
 set BUILD_ARCH_DIR=%BUILD_ARCH:Win32=x86%
 set BUILD_ARCH_DIR=%BUILD_ARCH_DIR:ARM64EC=ARM64%
 
+rem Map build arch to test arch (for TAEF)
+rem Win32 to x86, no changes for other platforms
+set TEST_ARCH=%BUILD_ARCH:Win32=x86%
+
 rem By default, run all clang tests and execution tests and dxilconv tests
 if "%TEST_ALL%"=="1" (
   set TEST_CLANG=1
@@ -309,9 +313,9 @@ if exist "%HCT_EXTRAS%\hcttest-before.cmd" (
 if "%TEST_CLANG%"=="1" (
   echo Running Clang unit tests ...
   if "%TEST_CLANG_FILTER%"=="" (
-    set SELECT_FILTER= /select:"@Priority<1 AND @Architecture='%BUILD_ARCH%'"
+    set SELECT_FILTER= /select:"@Priority<1 AND @Architecture='%TEST_ARCH%'"
   ) else (
-    set SELECT_FILTER= /select:"@Name='%TEST_CLANG_FILTER%' AND @Architecture='%BUILD_ARCH%'"
+    set SELECT_FILTER= /select:"@Name='%TEST_CLANG_FILTER%' AND @Architecture='%TEST_ARCH%'"
   )
 
   call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" !SELECT_FILTER! %ADDITIONAL_OPTS%
@@ -331,7 +335,7 @@ if "%TEST_EXEC%"=="1" (
 set EXEC_COMMON_ARGS= /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
-  call :runte clang-hlsl-tests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%BUILD_ARCH%'" %EXEC_COMMON_ARGS% 
+  call :runte clang-hlsl-tests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS% 
   set RES_EXEC=!ERRORLEVEL!
   if errorlevel 1 (
     if not "%TEST_EXEC_REQUIRED%"=="1" (
@@ -346,9 +350,9 @@ if "%TEST_EXEC%"=="1" (
 
 if "%TEST_EXEC%"=="1" (
   if "%TEST_EXEC_FUTURE%"=="1" (
-    set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority=2 AND @Architecture='%BUILD_ARCH%'"
+    set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority=2 AND @Architecture='%TEST_ARCH%'"
   ) else (
-    set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2 AND @Architecture='%BUILD_ARCH%'"
+    set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2 AND @Architecture='%TEST_ARCH%'"
   )
   call :runte clang-hlsl-tests.dll !SELECT_FILTER! %EXEC_COMMON_ARGS% %ADDITIONAL_OPTS%
   set RES_EXEC=!ERRORLEVEL!
@@ -364,9 +368,9 @@ if exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
 
 if "%TEST_DXILCONV%"=="1" (
   if "%TEST_DXILCONV_FILTER%"=="" (
-    set SELECT_FILTER= /select:"@Architecture='%BUILD_ARCH%'"
+    set SELECT_FILTER= /select:"@Architecture='%TEST_ARCH%'"
   ) else (
-    set SELECT_FILTER= /select:"@Name='%TEST_DXILCONV_FILTER%' AND @Architecture='%BUILD_ARCH%'"
+    set SELECT_FILTER= /select:"@Name='%TEST_DXILCONV_FILTER%' AND @Architecture='%TEST_ARCH%'"
   )
   call :runte dxilconv-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" !SELECT_FILTER!
   set RES_DXILCONV=!ERRORLEVEL!
