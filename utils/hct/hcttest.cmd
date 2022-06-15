@@ -1,8 +1,14 @@
 @echo off
 setlocal ENABLEDELAYEDEXPANSION ENABLEEXTENSIONS
 
+rem Default build config is Debug
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
+)
+
+rem Default build arch is x64
+if "%BUILD_ARCH%"=="" (
+  set BUILD_ARCH=x64
 )
 
 rem Whether we built the project using ninja as the generator.
