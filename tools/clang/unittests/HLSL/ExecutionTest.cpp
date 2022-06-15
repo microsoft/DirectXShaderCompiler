@@ -5811,16 +5811,6 @@ static TableParameter PackUnpackOpParameters[] = {
     { L"Validation.Input", TableParameter::UINT32_TABLE, true },
 };
 
-static TableParameter IsNormalParameters[] = {
-    { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input1", TableParameter::FLOAT_TABLE, true },
-    { L"Validation.Expected1", TableParameter::FLOAT_TABLE, true },
-    { L"Validation.Type", TableParameter::STRING, true },
-    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Warp.Version", TableParameter::UINT, false }
-};
-
 static bool IsHexString(PCWSTR str, uint16_t *value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
@@ -11425,7 +11415,11 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
       VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, compiledShader->GetBufferSize()));
       hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
           pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
-      VERIFY_IS_NOT_NULL(pPartHeader);
+      if (!pPartHeader) {
+        // No root signature to copy, use the assembledShader.
+        *ppShaderBlob = assembledShader.Detach();
+        return;
+      }
       // Wrap root signature in blob
       CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
       VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
@@ -11447,11 +11441,11 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
   return ShaderInitFn;
 }
 
-struct TestData
-  {
-    float input;
-    unsigned int output;
-  };
+struct FloatInputUintOutput
+{
+  float input;
+  unsigned int output;
+};
 
 TEST_F(ExecutionTest, IsNormalTest) {
     // EnableShaderBasedValidation();
@@ -11483,24 +11477,14 @@ TEST_F(ExecutionTest, IsNormalTest) {
                 ((UINT)sm & 0x0f));
 
   CComPtr<ID3D12Device> pDevice;
-  CreateDevice(&pDevice, sm, false /* skipUnsupported */);
-  D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
-  VERIFY_SUCCEEDED(
-      pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS,
-                                    &devOptions, sizeof(devOptions)));
-  if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
-    WEX::Logging::Log::Comment(
-        L"Device does not support Resource Binding Tier 3");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
-
+  VERIFY_IS_TRUE(CreateDevice(&pDevice, sm, false /* skipUnsupported */));
+ 
   size_t count = Validation_Input->size();
 
   auto ShaderInitFn = MakeShaderReplacementCallback(
       {},
       // Replace the above with what's below when IsSpecialFloat supports doubles
-      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f32(i32 9," },
+      //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f64(i32 8," },
       //{ "@dx.op.isSpecialFloat.f32(i32 11,", "@dx.op.isSpecialFloat.f64(i32 11," },
       { "@dx.op.isSpecialFloat.f32(i32 8,"},
       { "@dx.op.isSpecialFloat.f32(i32 11,"}, 
@@ -11511,12 +11495,12 @@ TEST_F(ExecutionTest, IsNormalTest) {
 
   auto ResourceInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
           UNREFERENCED_PARAMETER(pShaderOp);
-          VERIFY_IS_TRUE(0 == _stricmp(Name, "g_SUnaryFPOp"));
-          size_t size = sizeof(TestData) * count;
+          VERIFY_IS_TRUE(0 == _stricmp(Name, "g_TestData"));
+          size_t size = sizeof(FloatInputUintOutput) * count;
           Data.resize(size);
-          TestData *pPrimitives = (TestData *)Data.data();
+          FloatInputUintOutput *pPrimitives = (FloatInputUintOutput *)Data.data();
           for (size_t i = 0; i < count; ++i) {
-            TestData *p = &pPrimitives[i];
+            FloatInputUintOutput *p = &pPrimitives[i];
             float inputFloat = (*Validation_Input)[i % Validation_Input->size()];
             p->input = inputFloat;
           }
@@ -11532,12 +11516,12 @@ TEST_F(ExecutionTest, IsNormalTest) {
         ShaderOpSet);
 
     MappedData data;
-    test->Test->GetReadBackData("g_SUnaryFPOp", &data);
+    test->Test->GetReadBackData("g_TestData", &data);
 
-    TestData *pPrimitives = (TestData*)data.data();
+    FloatInputUintOutput *pPrimitives = (FloatInputUintOutput*)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
-        TestData *p = &pPrimitives[i];
+        FloatInputUintOutput *p = &pPrimitives[i];
         unsigned int val = (*Validation_Expected)[i % Validation_Expected->size()];
         LogCommentFmt(
             L"element #%u, input = %6.8f, output = %6.8f, expected = %d", i,

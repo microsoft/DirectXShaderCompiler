@@ -3728,10 +3728,10 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="IsNormal" CS="CS60">
-    <Resource Name="g_SUnaryFPOp"         Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ByName"    Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS" />
+    <Resource Name="g_TestData"         Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ByName"    Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS" />
 
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
-      <Descriptor Name="g_SUnaryFPOp"      NumElements="12" Kind="UAV"  StructureByteStride="8"/>
+      <Descriptor Name="g_TestData"      NumElements="12" Kind="UAV"  StructureByteStride="8"/>
     </DescriptorHeap>
     <RootValues>
       <RootValue HeapName="ResourceDescriptorHeap" Index="0" />
@@ -3743,19 +3743,19 @@ void MSMain(uint GID : SV_GroupIndex,
         
       #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=1))")]
     
-      struct InOut{
+      struct TestPoint{
         float input;
         uint output;
       };
     
       // Result buffers
-      RWStructuredBuffer <InOut> g_SUnaryFPOp     : register(u0);
+      RWStructuredBuffer <TestPoint> g_TestData     : register(u0);
    
       ROOT_SIG
       [NumThreads(12, 1, 1)]
       void main(uint ix : SV_GroupIndex)
       {
-        g_SUnaryFPOp[ix].output = isnan(g_SUnaryFPOp[ix].input);
+        g_TestData[ix].output = isnan(g_TestData[ix].input);
       }
     
     ]]>
