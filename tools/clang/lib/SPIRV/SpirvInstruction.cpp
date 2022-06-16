@@ -120,15 +120,6 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
       storageClass(spv::StorageClass::Function), isRValue_(false),
       isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
 
-SpirvInstruction::SpirvInstruction(Kind k, spv::Op op,
-                                   const SpirvType *resultType,
-                                   SourceLocation loc, SourceRange range)
-    : kind(k), opcode(op), astResultType({}), resultId(0), srcLoc(loc),
-      srcRange(range), debugName(), resultType(resultType), resultTypeId(0),
-      layoutRule(SpirvLayoutRule::Void), containsAlias(false),
-      storageClass(spv::StorageClass::Function), isRValue_(false),
-      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
-
 bool SpirvInstruction::isArithmeticInstruction() const {
   switch (opcode) {
   case spv::Op::OpSNegate:
@@ -465,12 +456,6 @@ SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
     : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc, range),
 	  operand1(op1), operand2(op2) {}
 
-SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, const SpirvType *resultType,
-                             SourceLocation loc, SpirvInstruction *op1,
-                             SpirvInstruction *op2, SourceRange range)
-    : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc, range),
-      operand1(op1), operand2(op2) {}
-
 SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
                              SourceLocation loc, SpirvInstruction *baseInst,
                              SpirvInstruction *offsetInst,
@@ -549,15 +534,6 @@ SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
   assert(type->isIntegerType());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(const SpirvType *type,
-                                           llvm::APInt val, bool isSpecConst)
-    : SpirvConstant(IK_ConstantInteger,
-                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
-                    type),
-      value(val) {
-  assert(isa<IntegerType>(type));
-}
-
 bool SpirvConstantInteger::operator==(const SpirvConstantInteger &that) const {
   return resultType == that.resultType && astResultType == that.astResultType &&
          value == that.value && opcode == that.opcode;
@@ -570,15 +546,6 @@ SpirvConstantFloat::SpirvConstantFloat(QualType type, llvm::APFloat val,
                     type),
       value(val) {
   assert(type->isFloatingType());
-}
-
-SpirvConstantFloat::SpirvConstantFloat(const SpirvType *type, llvm::APFloat val,
-                                       bool isSpecConst)
-    : SpirvConstant(IK_ConstantFloat,
-                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
-                    type),
-      value(val) {
-  assert(isa<FloatType>(type));
 }
 
 bool SpirvConstantFloat::operator==(const SpirvConstantFloat &that) const {

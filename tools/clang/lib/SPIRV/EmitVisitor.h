@@ -46,7 +46,7 @@ public:
   };
 
 public:
-  EmitTypeHandler(ASTContext *astCtx, SpirvContext &spvContext,
+  EmitTypeHandler(ASTContext &astCtx, SpirvContext &spvContext,
                   const SpirvCodeGenOptions &opts, FeatureManager &featureMgr,
                   std::vector<uint32_t> *debugVec,
                   std::vector<uint32_t> *decVec,
@@ -145,13 +145,13 @@ private:
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
                               SourceLocation loc = {}) {
-    const auto diagId = astContext->getDiagnostics().getCustomDiagID(
+    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
         clang::DiagnosticsEngine::Error, message);
-    return astContext->getDiagnostics().Report(loc, diagId);
+    return astContext.getDiagnostics().Report(loc, diagId);
   }
 
 private:
-  ASTContext *astContext;
+  ASTContext &astContext;
   SpirvContext &context;
   FeatureManager featureManager;
   std::vector<uint32_t> curTypeInst;
@@ -198,10 +198,9 @@ public:
   };
 
 public:
-  EmitVisitor(ASTContext *astCtx, SpirvContext &spvCtx,
+  EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts, FeatureManager &featureMgr)
-      : Visitor(opts, spvCtx), astContext(astCtx), featureManager(featureMgr),
-        id(0),
+      : Visitor(opts, spvCtx), astContext(astCtx), featureManager(featureMgr), id(0),
         typeHandler(astCtx, spvCtx, opts, featureMgr, &debugVariableBinary,
                     &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
@@ -396,14 +395,14 @@ private:
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
                               SourceLocation loc = {}) {
-    const auto diagId = astContext->getDiagnostics().getCustomDiagID(
+    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
         clang::DiagnosticsEngine::Error, message);
-    return astContext->getDiagnostics().Report(loc, diagId);
+    return astContext.getDiagnostics().Report(loc, diagId);
   }
 
 private:
   // Object that holds Clang AST nodes.
-  ASTContext *astContext;
+  ASTContext &astContext;
   // Feature manager.
   FeatureManager featureManager;
   // The last result-id that's been used so far.
