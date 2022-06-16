@@ -2364,7 +2364,7 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``pow``                 ``Pow``
 ``reflect``             ``Reflect``
 ``refract``             ``Refract``
-``round``               ``Round``
+``round``               ``RoundEven``
 ``rsqrt``               ``InverseSqrt``
 ``saturate``            ``FClamp``
 ``sign``                ``SSign``/``FSign``
