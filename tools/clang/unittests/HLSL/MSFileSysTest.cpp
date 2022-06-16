@@ -133,7 +133,7 @@ private:
 
 public:
   unsigned findCount;
-  MockDxcSystemAccess() : findCount(1), m_dwRef(0) {}
+  MockDxcSystemAccess() : m_dwRef(0), findCount(1) {}
 
   static HRESULT Create(MockDxcSystemAccess **pResult) {
     *pResult = new (std::nothrow) MockDxcSystemAccess();

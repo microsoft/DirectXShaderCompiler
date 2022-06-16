@@ -42,7 +42,7 @@ public:
   }
 
   EnumTables(IMalloc *pMalloc, Session *pSession)
-      : m_pMalloc(pMalloc), m_pSession(pSession), m_dwRef(0), m_next(0) {
+      : m_dwRef(0), m_pMalloc(pMalloc), m_pSession(pSession), m_next(0) {
     m_tables.fill(nullptr);
   }
 
