@@ -52,8 +52,6 @@ class SpirvBuilder {
 public:
   SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &,
                FeatureManager &featureMgr);
-  SpirvBuilder(SpirvContext &c, const SpirvCodeGenOptions &,
-               FeatureManager &featureMgr);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -74,9 +72,6 @@ public:
   SpirvFunction *createSpirvFunction(QualType returnType, SourceLocation,
                                      llvm::StringRef name, bool isPrecise,
                                      bool isNoInline = false);
-  SpirvFunction *createSpirvFunction(const SpirvType *returnType,
-                                     SourceLocation, llvm::StringRef name,
-                                     bool isPrecise, bool isNoInline = false);
 
   /// \brief Begins building a SPIR-V function by allocating a SpirvFunction
   /// object. Returns the pointer for the function on success. Returns nullptr
@@ -84,10 +79,6 @@ public:
   ///
   /// At any time, there can only exist at most one function under building.
   SpirvFunction *beginFunction(QualType returnType, SourceLocation,
-                               llvm::StringRef name = "",
-                               bool isPrecise = false, bool isNoInline = false,
-                               SpirvFunction *func = nullptr);
-  SpirvFunction *beginFunction(const SpirvType *returnType, SourceLocation,
                                llvm::StringRef name = "",
                                bool isPrecise = false, bool isNoInline = false,
                                SpirvFunction *func = nullptr);
@@ -103,9 +94,6 @@ public:
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
   SpirvVariable *addFnVar(QualType valueType, SourceLocation,
-                          llvm::StringRef name = "", bool isPrecise = false,
-                          SpirvInstruction *init = nullptr);
-  SpirvVariable *addFnVar(const spirv::SpirvType *valueType, SourceLocation,
                           llvm::StringRef name = "", bool isPrecise = false,
                           SpirvInstruction *init = nullptr);
 
@@ -236,9 +224,6 @@ public:
   /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
   SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
-                                SpirvInstruction *lhs, SpirvInstruction *rhs,
-                                SourceLocation loc, SourceRange range = {});
-  SpirvBinaryOp *createBinaryOp(spv::Op op, const SpirvType *resultType,
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
                                 SourceLocation loc, SourceRange range = {});
 
@@ -620,20 +605,12 @@ public:
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
                                llvm::StringRef name, bool isPrecise,
                                SourceLocation loc);
-  SpirvVariable *addStageIOVar(const SpirvType *type,
-                               spv::StorageClass storageClass,
-                               llvm::StringRef name, bool isPrecise,
-                               SourceLocation loc);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///
   /// Note: The corresponding pointer type of the given type will not be
   /// constructed in this method.
   SpirvVariable *addStageBuiltinVar(QualType type,
-                                    spv::StorageClass storageClass,
-                                    spv::BuiltIn, bool isPrecise,
-                                    SourceLocation loc);
-  SpirvVariable *addStageBuiltinVar(const SpirvType *type,
                                     spv::StorageClass storageClass,
                                     spv::BuiltIn, bool isPrecise,
                                     SourceLocation loc);
@@ -741,11 +718,7 @@ public:
   /// and add the context to the list of constants in the module.
   SpirvConstant *getConstantInt(QualType type, llvm::APInt value,
                                 bool specConst = false);
-  SpirvConstant *getConstantInt(const SpirvType *type, llvm::APInt value,
-                                bool specConst = false);
   SpirvConstant *getConstantFloat(QualType type, llvm::APFloat value,
-                                  bool specConst = false);
-  SpirvConstant *getConstantFloat(const SpirvType *type, llvm::APFloat value,
                                   bool specConst = false);
   SpirvConstant *getConstantBool(bool value, bool specConst = false);
   SpirvConstant *
@@ -763,7 +736,6 @@ public:
 
 public:
   std::vector<uint32_t> takeModule();
-  std::vector<uint32_t> takeModuleForDxilToSpv();
 
 protected:
   /// Only friend classes are allowed to add capability/extension to the module
@@ -824,7 +796,7 @@ private:
                                               SpirvInstruction *var);
 
 private:
-  ASTContext *astContext;
+  ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
   FeatureManager &featureManager;
 

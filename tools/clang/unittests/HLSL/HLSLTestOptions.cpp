@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dxc/Test/HLSLTestOptions.h"
-#include "dxc/Support/WinAdapter.h"
+#include "HLSLTestOptions.h"
 #include "dxc/Test/WEXAdapter.h"
+#include "dxc/Support/WinAdapter.h"
 
 namespace clang {
 namespace hlsl {
