@@ -182,5 +182,5 @@ void main() {
 // CHECK-NEXT: OpExtInst %float {{%\d+}} Cos
       cos(v4f.x));
 // CHECK:      OpLine [[file]] 180 3
-// CHECK-NEXT: OpExtInst %float {{%\d+}} FMax
+// CHECK-NEXT: OpExtInst %float {{%\d+}} NMax
 }
