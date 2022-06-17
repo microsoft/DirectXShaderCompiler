@@ -3131,4 +3131,12 @@ TEST_F(FileTest, RenameEntrypoint) { runFileTest("fspv-entrypoint-name.hlsl"); }
 
 TEST_F(FileTest, PrintAll) { runFileTest("fspv-print-all.hlsl"); }
 
+TEST_F(FileTest, SpirvOptFd) {
+  runFileTest("spirv.opt.fd.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, SpirvOptFre) {
+  runFileTest("spirv.opt.fre.hlsl", Expect::Failure);
+}
+
 } // namespace

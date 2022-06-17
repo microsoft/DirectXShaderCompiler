@@ -1071,6 +1071,21 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.entrypointName =
       Args.getLastArgValue(OPT_fspv_entrypoint_name_EQ);
 
+  // Options not currently implemented in the SPIR-V backend.
+  // The options checked here are non-exhaustive. A thorough audit of available
+  // options and their current compatibility is needed to generate a complete
+  // list.
+  if (Args.hasFlag(OPT_spirv, OPT_INVALID, false)) {
+    if (!Args.getLastArgValue(OPT_Fd).empty()) {
+      errors << "-Fd is not currently supported with -spirv";
+      return 1;
+    }
+    if (!Args.getLastArgValue(OPT_Fre).empty()) {
+      errors << "-Fre is not currently supported with -spirv";
+      return 1;
+    }
+  }
+
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
