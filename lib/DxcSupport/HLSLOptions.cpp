@@ -322,15 +322,23 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
   return true;
 }
 
-// Check if the given unsupported option is used with SPIR-V.
-static bool checkUnsupportedSpirvOption(const InputArgList &args,
-                                        OptSpecifier id, const char *name,
-                                        llvm::raw_ostream &errors) {
-  if (args.hasFlag(OPT_spirv, OPT_INVALID, false) &&
-      !args.getLastArgValue(id).empty()) {
-    errors << "-" << name << " is not supported with -spirv";
-    return true;
+// Check if any options that are unsupported with SPIR-V are used.
+static bool hasUnsupportedSpirvOption(const InputArgList &args,
+                                      llvm::raw_ostream &errors) {
+  // Note: The options checked here are non-exhaustive. A thorough audit of
+  // available options and their current compatibility is needed to generate a
+  // complete list.
+  std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre,
+                                               OPT_Qstrip_reflect};
+
+  for (const auto &id : unsupportedOpts) {
+    if (Arg *arg = args.getLastArg(id)) {
+      errors << "-" << arg->getOption().getName()
+             << " is not supported with -spirv";
+      return true;
+    }
   }
+
   return false;
 }
 
@@ -1084,11 +1092,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.getLastArgValue(OPT_fspv_entrypoint_name_EQ);
 
   // Check for use of options not implemented in the SPIR-V backend.
-  // Note: The options checked here are non-exhaustive. A thorough audit of
-  // available options and their current compatibility is needed to generate a
-  // complete list.
-  if (checkUnsupportedSpirvOption(Args, OPT_Fd, "Fd", errors) ||
-      checkUnsupportedSpirvOption(Args, OPT_Fre, "Fre", errors))
+  if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) &&
+      hasUnsupportedSpirvOption(Args, errors))
     return 1;
 
 #else

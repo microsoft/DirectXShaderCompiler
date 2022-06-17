@@ -3134,9 +3134,11 @@ TEST_F(FileTest, PrintAll) { runFileTest("fspv-print-all.hlsl"); }
 TEST_F(FileTest, SpirvOptFd) {
   runFileTest("spirv.opt.fd.hlsl", Expect::Failure);
 }
-
 TEST_F(FileTest, SpirvOptFre) {
   runFileTest("spirv.opt.fre.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptQStripReflect) {
+  runFileTest("spirv.opt.qstripreflect.hlsl", Expect::Failure);
 }
 
 } // namespace
