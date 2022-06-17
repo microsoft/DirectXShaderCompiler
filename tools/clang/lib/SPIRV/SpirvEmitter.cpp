@@ -14,17 +14,16 @@
 #include "SpirvEmitter.h"
 
 #include "AlignmentSizeCalculator.h"
-#include "InitListHandler.h"
 #include "RawBufferMethods.h"
-#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
-#include "clang/SPIRV/SpirvUtils.h"
 #include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "InitListHandler.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "clang/Basic/Version.h"
@@ -760,7 +759,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
     spvBuilder.addEntryPoint(
-        SpirvUtils::getSpirvShaderStage(entryInfo->shaderModelKind),
+        getSpirvShaderStage(entryInfo->shaderModelKind),
         entryInfo->entryFunction, getEntryPointName(entryInfo),
         getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
@@ -8110,7 +8109,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
     INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
-    INTRINSIC_OP_CASE(round, Round, true);
+    INTRINSIC_OP_CASE(round, RoundEven, true);
     INTRINSIC_OP_CASE(uabs, SAbs, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
     INTRINSIC_OP_CASE(acos, Acos, true);
@@ -11325,6 +11324,43 @@ hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
     llvm_unreachable("unknown stage name");
   }
   return smk;
+}
+
+spv::ExecutionModel
+SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk) {
+  switch (smk) {
+  case hlsl::ShaderModel::Kind::Vertex:
+    return spv::ExecutionModel::Vertex;
+  case hlsl::ShaderModel::Kind::Hull:
+    return spv::ExecutionModel::TessellationControl;
+  case hlsl::ShaderModel::Kind::Domain:
+    return spv::ExecutionModel::TessellationEvaluation;
+  case hlsl::ShaderModel::Kind::Geometry:
+    return spv::ExecutionModel::Geometry;
+  case hlsl::ShaderModel::Kind::Pixel:
+    return spv::ExecutionModel::Fragment;
+  case hlsl::ShaderModel::Kind::Compute:
+    return spv::ExecutionModel::GLCompute;
+  case hlsl::ShaderModel::Kind::RayGeneration:
+    return spv::ExecutionModel::RayGenerationNV;
+  case hlsl::ShaderModel::Kind::Intersection:
+    return spv::ExecutionModel::IntersectionNV;
+  case hlsl::ShaderModel::Kind::AnyHit:
+    return spv::ExecutionModel::AnyHitNV;
+  case hlsl::ShaderModel::Kind::ClosestHit:
+    return spv::ExecutionModel::ClosestHitNV;
+  case hlsl::ShaderModel::Kind::Miss:
+    return spv::ExecutionModel::MissNV;
+  case hlsl::ShaderModel::Kind::Callable:
+    return spv::ExecutionModel::CallableNV;
+  case hlsl::ShaderModel::Kind::Mesh:
+    return spv::ExecutionModel::MeshNV;
+  case hlsl::ShaderModel::Kind::Amplification:
+    return spv::ExecutionModel::TaskNV;
+  default:
+    llvm_unreachable("invalid shader model kind");
+    break;
+  }
 }
 
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
