@@ -2357,8 +2357,8 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``log10``               ``Log2`` (scaled by ``1/log2(10)``)
 ``log2``                ``Log2``
 ``mad``                 ``Fma``
-``max``                 ``SMax``/``UMax``/``FMax``
-``min``                 ``SMin``/``UMin``/``FMin``
+``max``                 ``SMax``/``UMax``/``NMax``
+``min``                 ``SMin``/``UMin``/``NMin``
 ``modf``                ``ModfStruct``
 ``normalize``           ``Normalize``
 ``pow``                 ``Pow``
