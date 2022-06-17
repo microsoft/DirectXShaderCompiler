@@ -322,6 +322,18 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
   return true;
 }
 
+// Check if the given unsupported option is used with SPIR-V.
+static bool checkUnsupportedSpirvOption(const InputArgList &args,
+                                        OptSpecifier id, const char *name,
+                                        llvm::raw_ostream &errors) {
+  if (args.hasFlag(OPT_spirv, OPT_INVALID, false) &&
+      !args.getLastArgValue(id).empty()) {
+    errors << "-" << name << " is not supported with -spirv";
+    return true;
+  }
+  return false;
+}
+
 namespace {
 
 /// Maximum size of OpString instruction minus two operands
@@ -329,7 +341,7 @@ static const uint32_t kDefaultMaximumSourceLength = 0xFFFDu;
 static const uint32_t kTestingMaximumSourceLength = 13u;
 
 }
-#endif
+#endif // ENABLE_SPIRV_CODEGEN
 // SPIRV Change Ends
 
 namespace hlsl {
@@ -1071,20 +1083,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.entrypointName =
       Args.getLastArgValue(OPT_fspv_entrypoint_name_EQ);
 
-  // Options not currently implemented in the SPIR-V backend.
-  // The options checked here are non-exhaustive. A thorough audit of available
-  // options and their current compatibility is needed to generate a complete
-  // list.
-  if (Args.hasFlag(OPT_spirv, OPT_INVALID, false)) {
-    if (!Args.getLastArgValue(OPT_Fd).empty()) {
-      errors << "-Fd is not currently supported with -spirv";
-      return 1;
-    }
-    if (!Args.getLastArgValue(OPT_Fre).empty()) {
-      errors << "-Fre is not currently supported with -spirv";
-      return 1;
-    }
-  }
+  // Check for use of options not implemented in the SPIR-V backend.
+  // Note: The options checked here are non-exhaustive. A thorough audit of
+  // available options and their current compatibility is needed to generate a
+  // complete list.
+  if (checkUnsupportedSpirvOption(Args, OPT_Fd, "Fd", errors) ||
+      checkUnsupportedSpirvOption(Args, OPT_Fre, "Fre", errors))
+    return 1;
 
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||

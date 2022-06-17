@@ -2,4 +2,4 @@
 
 void main() {}
 
-// CHECK: -Fre is not currently supported with -spirv
+// CHECK: -Fre is not supported with -spirv

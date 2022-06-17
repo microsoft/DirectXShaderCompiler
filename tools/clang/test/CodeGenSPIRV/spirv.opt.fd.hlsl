@@ -2,4 +2,4 @@
 
 void main() {}
 
-// CHECK: -Fd is not currently supported with -spirv
+// CHECK: -Fd is not supported with -spirv
