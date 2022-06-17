@@ -5477,7 +5477,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
     return;
   }
 
-  char *pShaderModelStr;
+  const char *pShaderModelStr;
   if (shaderModel == D3D_SHADER_MODEL_6_1) {
     pShaderModelStr = "cs_6_1";
   } else if (shaderModel == D3D_SHADER_MODEL_6_3) {
@@ -5499,7 +5499,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
   char shader[sizeof(shaderTemplate) + 50];
 
   // Run simple shader with float data types
-  char *sTy = "float";
+  const char *sTy = "float";
   float inputFloatPairs[] = {1.5f, -2.8f, 3.23e-5f, 6.0f, 181.621f, 14.978f};
   VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
   WEX::Logging::Log::Comment(L"BasicShaderModel float");
