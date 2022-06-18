@@ -1,5 +1,9 @@
 // RUN: %dxc -T vs_6_0 -E main
 
+// According to HLSL reference on denormals for 'min', if one of the
+// values is NaN, the other will be given as the result. If both values
+// are NaN, the result will be NaN.
+
 // CHECK:      [[glsl:%\d+]] = OpExtInstImport "GLSL.std.450"
 
 void main() {
@@ -19,27 +23,27 @@ void main() {
   uint3 j1,j2;
   uresult3 = min(j1,j2);
 
-// CHECK: {{%\d+}} = OpExtInst %float [[glsl]] FMin {{%\d+}} {{%\d+}}
+// CHECK: {{%\d+}} = OpExtInst %float [[glsl]] NMin {{%\d+}} {{%\d+}}
   float a1,a2;
   result = min(a1,a2);
 
-// CHECK: {{%\d+}} = OpExtInst %float [[glsl]] FMin {{%\d+}} {{%\d+}}
+// CHECK: {{%\d+}} = OpExtInst %float [[glsl]] NMin {{%\d+}} {{%\d+}}
   float1 b1,b2;
   result = min(b1,b2);
 
-// CHECK: {{%\d+}} = OpExtInst %v3float [[glsl]] FMin {{%\d+}} {{%\d+}}
+// CHECK: {{%\d+}} = OpExtInst %v3float [[glsl]] NMin {{%\d+}} {{%\d+}}
   float3 c1,c2;
   result3 = min(c1,c2);
 
-// CHECK: {{%\d+}} = OpExtInst %float [[glsl]] FMin {{%\d+}} {{%\d+}}
+// CHECK: {{%\d+}} = OpExtInst %float [[glsl]] NMin {{%\d+}} {{%\d+}}
   float1x1 d1,d2;
   result = min(d1,d2);
 
-// CHECK: {{%\d+}} = OpExtInst %v2float [[glsl]] FMin {{%\d+}} {{%\d+}}
+// CHECK: {{%\d+}} = OpExtInst %v2float [[glsl]] NMin {{%\d+}} {{%\d+}}
   float1x2 e1,e2;
   result2 = min(e1,e2);
 
-// CHECK: {{%\d+}} = OpExtInst %v4float [[glsl]] FMin {{%\d+}} {{%\d+}}
+// CHECK: {{%\d+}} = OpExtInst %v4float [[glsl]] NMin {{%\d+}} {{%\d+}}
   float4x1 f1,f2;
   result4 = min(f1,f2);
 
@@ -47,10 +51,10 @@ void main() {
 // CHECK-NEXT: [[g2:%\d+]] = OpLoad %mat2v3float %g2
 // CHECK-NEXT: [[g1_row0:%\d+]] = OpCompositeExtract %v3float [[g1]] 0
 // CHECK-NEXT: [[g2_row0:%\d+]] = OpCompositeExtract %v3float [[g2]] 0
-// CHECK-NEXT: [[result_row0:%\d+]] = OpExtInst %v3float [[glsl]] FMin [[g1_row0]] [[g2_row0]]
+// CHECK-NEXT: [[result_row0:%\d+]] = OpExtInst %v3float [[glsl]] NMin [[g1_row0]] [[g2_row0]]
 // CHECK-NEXT: [[g1_row1:%\d+]] = OpCompositeExtract %v3float [[g1]] 1
 // CHECK-NEXT: [[g2_row1:%\d+]] = OpCompositeExtract %v3float [[g2]] 1
-// CHECK-NEXT: [[result_row1:%\d+]] = OpExtInst %v3float [[glsl]] FMin [[g1_row1]] [[g2_row1]]
+// CHECK-NEXT: [[result_row1:%\d+]] = OpExtInst %v3float [[glsl]] NMin [[g1_row1]] [[g2_row1]]
 // CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %mat2v3float [[result_row0]] [[result_row1]]
   float2x3 g1,g2;
   result2x3 = min(g1,g2);
