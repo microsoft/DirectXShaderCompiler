@@ -98,6 +98,9 @@ TEST_F(FileTest, TypeCBufferIncludingResource) {
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, ConstantBufferTypeMultiDimensionalArray) {
+  runFileTest("type.constant-buffer.multiple-dimensions.hlsl");
+}
 TEST_F(FileTest, BindlessConstantBufferArrayType) {
   runFileTest("type.constant-buffer.bindless.array.hlsl", Expect::Success,
               /*legalization*/ false);
@@ -642,6 +645,12 @@ TEST_F(FileTest, FunctionInCTBuffer) {
 
 TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
 TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
+
+TEST_F(FileTest, FixFunctionCall) {
+  runFileTest("fn.fixfuncall-compute.hlsl");
+  runFileTest("fn.fixfuncall-linkage.hlsl");
+}
+
 TEST_F(FileTest, FunctionForwardDecl) {
   runFileTest("fn.forward-declaration.hlsl");
 }
@@ -698,6 +707,9 @@ TEST_F(FileTest, InheritanceLayoutEmptyStruct) {
 TEST_F(FileTest, InheritanceCallMethodOfBase) {
   runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success,
               /* runValidation */ false);
+}
+TEST_F(FileTest, InheritanceBaseWithByteAddressBuffer) {
+  runFileTest("oo.inheritance.base-with-byte-address-buffer.hlsl");
 }
 TEST_F(FileTest, InheritanceCallMethodWithSameBaseMethodName) {
   runFileTest("oo.call.method.with.same.base.method.name.hlsl");
@@ -1545,6 +1557,10 @@ TEST_F(FileTest, WaveOpNoTargetEnvError) {
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
+TEST_F(FileTest, SpirvString) {
+  runFileTest("spirv.string.hlsl");
+}
+
 TEST_F(FileTest, SpirvControlFlowMissingReturn) {
   runFileTest("spirv.cf.ret-missing.hlsl");
 }
@@ -1998,6 +2014,10 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidBindNo) {
 }
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingAttr) {
   runFileTest("vk.binding.cl.register.missing-attr.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingBindGlobals) {
+  runFileTest("vk.binding.cl.register.missing-bind-globals.hlsl",
+              Expect::Failure);
 }
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
   runFileTest("vk.binding.cl.register.missing-cl.hlsl", Expect::Failure);
@@ -2537,6 +2557,10 @@ TEST_F(FileTest, RayTracingNVLibrary) {
 // === Raytracing KHR examples ===
 TEST_F(FileTest, RayTracingKHRClosestHit) {
   runFileTest("raytracing.khr.closesthit.hlsl");
+}
+
+TEST_F(FileTest, RayTracingKHRClosestHitVulkan1p1Spirv1p4) {
+  runFileTest("raytracing.khr.closesthit.vulkan1.1spirv1.4.hlsl");
 }
 
 TEST_F(FileTest, RayTracingAccelerationStructure) {
@@ -3092,6 +3116,33 @@ TEST_F(FileTest, VolatileInterfaceInRayGenVk1p3) {
 
 TEST_F(FileTest, DefineSpirvMacro) {
   runFileTest("ifdef.spirv.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, SignaturePacking) { runFileTest("signature.packing.hlsl"); }
+TEST_F(FileTest, SignaturePackingHS) {
+  runFileTest("signature.packing.hs.hlsl");
+}
+TEST_F(FileTest, SourceCodeWithoutFilePath) {
+  const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain -Zi)");
+  const std::string code = command + R"(
+float4 PSMain(float4 color : COLOR) : SV_TARGET { return color; }
+// CHECK: float4 PSMain(float4 color : COLOR) : SV_TARGET { return color; }
+)";
+  runCodeTest(code);
+}
+
+TEST_F(FileTest, RenameEntrypoint) { runFileTest("fspv-entrypoint-name.hlsl"); }
+
+TEST_F(FileTest, PrintAll) { runFileTest("fspv-print-all.hlsl"); }
+
+TEST_F(FileTest, SpirvOptFd) {
+  runFileTest("spirv.opt.fd.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptFre) {
+  runFileTest("spirv.opt.fre.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptQStripReflect) {
+  runFileTest("spirv.opt.qstripreflect.hlsl", Expect::Failure);
 }
 
 } // namespace

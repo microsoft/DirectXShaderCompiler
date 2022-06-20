@@ -257,10 +257,18 @@ struct IDxcLibrary : public IUnknown {
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IStream **ppStream) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
+
+  // Renamed from GetBlobAsUtf16 to GetBlobAsWide
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
+
+#ifdef _WIN32
+  // Alias to GetBlobAsWide on Win32
+  inline HRESULT GetBlobAsUtf16(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+    return this->GetBlobAsWide(pBlob, pBlobEncoding);
+  }
+#endif
 };
 
 // NOTE: IDxcResult replaces IDxcOperationResult
@@ -413,10 +421,18 @@ struct IDxcUtils : public IUnknown {
   // Convert or return matching encoded text blobs
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) = 0;
+
+  // Renamed from GetBlobAsUtf16 to GetBlobAsWide
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) = 0;
+
+#ifdef _WIN32
+  // Alias to GetBlobAsWide on Win32
+  inline HRESULT GetBlobAsUtf16(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) {
+    return this->GetBlobAsWide(pBlob, pBlobEncoding);
+  }
+#endif
 
   virtual HRESULT STDMETHODCALLTYPE GetDxilContainerPart(
     _In_ const DxcBuffer *pShader,
@@ -460,6 +476,7 @@ typedef enum DXC_OUT_KIND {
   DXC_OUT_REFLECTION = 8,     // IDxcBlob - RDAT part with reflection data
   DXC_OUT_ROOT_SIGNATURE = 9, // IDxcBlob - Serialized root signature output
   DXC_OUT_EXTRA_OUTPUTS  = 10,// IDxcExtraResults - Extra outputs
+  DXC_OUT_REMARKS = 11,       // IDxcBlobUtf8 or IDxcBlobUtf16 - text directed at stdout
 
   DXC_OUT_FORCE_DWORD = 0xFFFFFFFF
 } DXC_OUT_KIND;

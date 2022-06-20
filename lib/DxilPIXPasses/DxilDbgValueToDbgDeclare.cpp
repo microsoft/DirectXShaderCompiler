@@ -334,10 +334,10 @@ static OffsetInBits SplitValue(
     for (unsigned i = 0; i < ArrTy->getNumElements(); ++i)
     {
       CurrentOffset = SplitValue(
-          B.CreateExtractValue(V, {i}),
-          CurrentOffset,
-          Values,
-          B);
+        B.CreateExtractValue(V, {i}),
+        CurrentOffset,
+        Values,
+        B);
     }
   }
   else if (auto *StTy = llvm::dyn_cast<llvm::StructType>(VTy))
@@ -421,6 +421,7 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       DbgValue->eraseFromParent();
     }
   }
+
   return Changed;
 }
 
@@ -628,6 +629,21 @@ static llvm::DIType* FindStructMemberTypeAtOffset(llvm::DICompositeType* Ty,
     return nullptr;
 }
 
+static bool IsDITypePointer(DIType *DTy, const llvm::DITypeIdentifierMap &EmptyMap) {
+  DIDerivedType *DerivedTy = dyn_cast<DIDerivedType>(DTy);
+  if (!DerivedTy) return false;
+  switch (DerivedTy->getTag()) {
+  case llvm::dwarf::DW_TAG_pointer_type:
+    return true;
+  case llvm::dwarf::DW_TAG_typedef:
+  case llvm::dwarf::DW_TAG_const_type:
+  case llvm::dwarf::DW_TAG_restrict_type:
+  case llvm::dwarf::DW_TAG_reference_type:
+    return IsDITypePointer(DerivedTy->getBaseType().resolve(EmptyMap), EmptyMap);
+  }
+  return false;
+}
+
 void DxilDbgValueToDbgDeclare::handleDbgValue(
     llvm::Module& M,
     llvm::DbgValueInst* DbgValue)
@@ -649,16 +665,27 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
     VALUE_TO_DECLARE_LOG("...Null value!");
     return;
   }
-
-  if (auto *PtrTy = llvm::dyn_cast<llvm::PointerType>(V->getType())) {
-    VALUE_TO_DECLARE_LOG("... variable had null pointer type");
-    return;
-  }
   
   const llvm::DITypeIdentifierMap EmptyMap;
   llvm::DIType *Ty = Variable->getType().resolve(EmptyMap);
   if (Ty == nullptr) {
     return;
+  }
+
+  if (llvm::isa<llvm::PointerType>(V->getType())) {
+    // Safeguard: If the type is not a pointer type, then this is
+    // dbg.value directly pointing to a memory location instead of
+    // a value.
+    if (!IsDITypePointer(Ty, EmptyMap)) {
+      // We only know how to handle AllocaInsts for now
+      if (!isa<AllocaInst>(V)) {
+        VALUE_TO_DECLARE_LOG("... variable had pointer type, but is not an alloca.");
+        return;
+      }
+
+      IRBuilder<> B(DbgValue->getNextNode());
+      V = B.CreateLoad(V);
+    }
   }
 
   // Members' "base type" is actually the containing aggregate's type.
@@ -703,48 +730,43 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   }
 
   const OffsetInBits InitialOffset = PackedOffsetFromVar;
-  llvm::IRBuilder<> B(DbgValue->getCalledFunction()->getContext());
-  auto* instruction = llvm::dyn_cast<llvm::Instruction>(V);
-  if (instruction != nullptr) {
-    instruction = instruction->getNextNode();
-    if (instruction != nullptr && !llvm::isa<TerminatorInst>(instruction)) {
-      // Drivers may crash if phi nodes aren't always at the top of a block,
-      // so we must skip over them before inserting instructions.
-      do {
-        instruction = instruction->getNextNode();
-      } while (instruction != nullptr && 
-          llvm::isa<llvm::PHINode>(instruction) &&
-          !llvm::isa<TerminatorInst>(instruction));
+  auto* insertPt = llvm::dyn_cast<llvm::Instruction>(V);
+  if (insertPt != nullptr && !llvm::isa<TerminatorInst>(insertPt)) {
+    insertPt = insertPt->getNextNode();
+    // Drivers may crash if phi nodes aren't always at the top of a block,
+    // so we must skip over them before inserting instructions.
+    while (llvm::isa<llvm::PHINode>(insertPt)) {
+      insertPt = insertPt->getNextNode();
+    }
+
+    if (insertPt != nullptr) {
+      llvm::IRBuilder<> B(insertPt);
+      B.SetCurrentDebugLocation(llvm::DebugLoc());
+
+      auto *Zero = B.getInt32(0);
       
-      if(instruction != nullptr && !llvm::isa<TerminatorInst>(instruction)) {
-        B.SetInsertPoint(instruction);
-        
-        B.SetCurrentDebugLocation(llvm::DebugLoc());
-        auto *Zero = B.getInt32(0);
-        
-        // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-        // InitialOffset is the offset from DbgValue's expression (i.e., the
-        // offset from the Variable's start), and Offset is the Scalar Value's
-        // packed offset from DbgValue's value.
-        for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
-        
-          OffsetInBits AlignedOffset;
-          if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
-                                                        &AlignedOffset)) {
-            continue;
-          }
-        
-          auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
-          if (AllocaInst == nullptr) {
-            assert(!"Failed to find alloca for var[offset]");
-            continue;
-          }
-        
-          if (AllocaInst->getAllocatedType()->getArrayElementType() ==
-              VO.m_V->getType()) {
-            auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
-            B.CreateStore(VO.m_V, GEP);
-          }
+      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
+      // InitialOffset is the offset from DbgValue's expression (i.e., the
+      // offset from the Variable's start), and Offset is the Scalar Value's
+      // packed offset from DbgValue's value.
+      for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
+
+        OffsetInBits AlignedOffset;
+        if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
+                                                      &AlignedOffset)) {
+          continue;
+        }
+
+        auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
+        if (AllocaInst == nullptr) {
+          assert(!"Failed to find alloca for var[offset]");
+          continue;
+        }
+
+        if (AllocaInst->getAllocatedType()->getArrayElementType() ==
+            VO.m_V->getType()) {
+          auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+          B.CreateStore(VO.m_V, GEP);
         }
       }
     }
@@ -819,7 +841,8 @@ VariableRegisters::VariableRegisters(
       M, llvm::Intrinsic::dbg_declare))
 {
   PopulateAllocaMap(Ty);
-  assert(m_Offsets.GetCurrentPackedOffset() ==
+  m_Offsets.AlignTo(Ty); // For padding.
+  assert(m_Offsets.GetCurrentAlignedOffset() ==
          DITypePeelTypeAlias(Ty)->getSizeInBits());
 }
 

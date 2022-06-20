@@ -16,8 +16,8 @@ cbuffer b : register(b0) {
 [instance(24)]
 void main(InputPatch<GSOut, 2>points, inout PointStream<GSOut> stream) {
 
-  points[0].norm[0] = 1; // expected-error {{read-only variable is not assignable}}
-  points[0].norm[1] = 2; // expected-error {{read-only variable is not assignable}}
+  points[0].norm[0] = 1; // expected-error {{read-only variable is not assignable}} fxc-error {{X3025: l-value specifies const object}}
+  points[0].norm[1] = 2; // expected-error {{read-only variable is not assignable}} fxc-error {{X3025: l-value specifies const object}}
   stream.Append(points[0]);
 
   stream.RestartStrip();

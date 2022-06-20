@@ -2997,6 +2997,9 @@ FLOW.FUNCTIONCALL                         Function with parameter is not permitt
 FLOW.NORECUSION                           Recursion is not permitted.
 FLOW.REDUCIBLE                            Execution flow must be reducible.
 INSTR.ALLOWED                             Instructions must be of an allowed type.
+INSTR.ATOMICCONST                         Constant destination to atomic.
+INSTR.ATOMICINTRINNONUAV                  Non-UAV destination to atomic intrinsic.
+INSTR.ATOMICOPNONGROUPSHARED              Non-groupshared destination to atomic operation.
 INSTR.ATTRIBUTEATVERTEXNOINTERPOLATION    Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.
 INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
@@ -3076,6 +3079,7 @@ INSTR.TGSMRACECOND                        Race condition writing to shared memor
 INSTR.UNDEFINEDVALUEFORUAVSTORE           Assignment of undefined values to UAV.
 INSTR.UNDEFRESULTFORGETDIMENSION          GetDimensions used undef dimension %0 on %1.
 INSTR.WRITEMASKFORTYPEDUAVSTORE           store on typed uav must write to all four components of the UAV.
+INSTR.WRITEMASKGAPFORUAV                  UAV write mask must be contiguous, starting at x: .x, .xy, .xyz, or .xyzw.
 INSTR.WRITEMASKMATCHVALUEFORUAVSTORE      uav store write mask must match store value mask, write mask is %0 and store value mask is %1.
 META.BARYCENTRICSFLOAT3                   only 'float3' type is allowed for SV_Barycentrics.
 META.BARYCENTRICSINTERPOLATION            SV_Barycentrics cannot be used with 'nointerpolation' type.

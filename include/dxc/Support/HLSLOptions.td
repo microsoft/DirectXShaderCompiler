@@ -352,17 +352,23 @@ def fspv_debug_EQ : Joined<["-"], "fspv-debug=">, Group<spirv_Group>, Flags<[Cor
 def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Specify the target environment: vulkan1.0 (default), vulkan1.1, vulkan1.2, or vulkan1.3">;
+  HelpText<"Specify the target environment: vulkan1.0 (default), vulkan1.1, vulkan1.1spirv1.4, vulkan1.2, vulkan1.3, or universal1.5">;
 def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Flatten arrays of resources so each array element takes one binding number">;
 def fspv_reduce_load_size: Flag<["-"], "fspv-reduce-load-size">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Replaces loads of composite objects to reduce memory pressure for the loads">;
+def fspv_fix_func_call_arguments: Flag<["-"], "fspv-fix-func-call-arguments">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Fix function call arguments which are not memory objects">;
+def fspv_entrypoint_name_EQ : Joined<["-"], "fspv-entrypoint-name=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify the SPIR-V entry point name. Defaults to the HLSL entry point name.">;
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
 def Wno_vk_emulated_features : Joined<["-"], "Wno-vk-emulated-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for emulated features resulting from no direct mapping">;
+def fspv_print_all: Flag<["-"], "fspv-print-all">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Print the SPIR-V module before each pass and after the last one. Useful for debugging SPIR-V legalization and optimization passes.">;
 def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOption]>,
   HelpText<"Specify a comma-separated list of SPIRV-Tools passes to customize optimization configuration (see http://khr.io/hlsl2spirv#optimization)">;
 // SPIRV Change Ends

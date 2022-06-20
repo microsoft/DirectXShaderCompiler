@@ -72,6 +72,9 @@ public:
   TEST_METHOD(TypedUAVStoreFullMask0)
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(UAVStoreMaskMatch)
+  TEST_METHOD(UAVStoreMaskGap)
+  TEST_METHOD(UAVStoreMaskGap2)
+  TEST_METHOD(UAVStoreMaskGap3)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
   TEST_METHOD(Recursive3)
@@ -299,6 +302,9 @@ public:
 
   TEST_METHOD(ValidateVersionNotAllowed)
   TEST_METHOD(CreateHandleNotAllowedSM66)
+
+  TEST_METHOD(AtomicsConsts)
+  TEST_METHOD(AtomicsInvalidDests)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -1192,6 +1198,36 @@ TEST_F(ValidationTest, UAVStoreMaskMatch) {
       "i32 2, i8 15)",
       "i32 2, i8 7)",
       "uav store write mask must match store value mask, write mask is 7 and store value mask is 15.");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskGap) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+      "i32 2, i32 2, i32 2, i32 2, i8 15)",
+      "i32 undef, i32 2, i32 undef, i32 2, i8 10)",
+      "UAV write mask must be contiguous, starting at x: .x, .xy, .xyz, or .xyzw.");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskGap2) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+                          "i32 2, i32 2, i32 2, i32 2, i8 15)",
+                          "i32 undef, i32 2, i32 2, i32 2, i8 14)",
+                          "UAV write mask must be contiguous, starting at x: "
+                          ".x, .xy, .xyz, or .xyzw.");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskGap3) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+                          "i32 2, i32 2, i32 2, i32 2, i8 15)",
+                          "i32 undef, i32 undef, i32 undef, i32 2, i8 8)",
+                          "UAV write mask must be contiguous, starting at x: "
+                          ".x, .xy, .xyz, or .xyzw.");
 }
 
 TEST_F(ValidationTest, Recursive) {
@@ -3901,4 +3937,122 @@ TEST_F(ValidationTest, CreateHandleNotAllowedSM66) {
      "declare %dx.types.Handle @dx.op.createHandle(i32, i8, i32, i32, i1) #1"},
     "opcode 'CreateHandle' should only be used in 'non-library targets'",
     true);
+}
+
+// Check for validation errors for various const dests to atomics
+TEST_F(ValidationTest, AtomicsConsts) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+  std::vector<LPCWSTR> pArguments = { L"-HV", L"2021", L"-Zi"};
+
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_structbuf_UAV_structbuf"},
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %ro_structbuf_texture_structbuf"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_structbuf_UAV_structbuf"},
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %ro_structbuf_texture_structbuf"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_buf_UAV_buf"},
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %ro_buf_texture_buf"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_buf_UAV_buf"},
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %ro_buf_texture_buf"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_tex_UAV_1d"},
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %ro_tex_texture_1d"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_tex_UAV_1d"},
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %ro_tex_texture_1d"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_buf_UAV_buf"},
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %CB_cbuffer"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_buf_UAV_buf"},
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %CB_cbuffer"},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %rw_buf_UAV_buf"},
+    {"call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %\"$Globals_cbuffer\""},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %rw_buf_UAV_buf"},
+    {"call i32 @dx.op.atomicCompareExchange.i32(i32 79, %dx.types.Handle %\"$Globals_cbuffer\""},
+    "Non-UAV destination to atomic intrinsic.",
+    false);
+
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
+    {"atomicrmw add i32 addrspace(3)* @\"\\01?cgs_var@@3IB\""},
+    "Constant destination to atomic.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
+    {"cmpxchg i32 addrspace(3)* @\"\\01?cgs_var@@3IB\""},
+    "Constant destination to atomic.",
+    false);
+
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"%([a-zA-Z0-9]+) = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"([^\n]*)"},
+    {"%\\1 = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"\\2\n"
+     "%dummy = atomicrmw add i32 addrspace\\(3\\)\\* %\\1, i32 1 seq_cst, !dbg !104 ; line:51 col:3"
+    },
+    "Constant destination to atomic.",
+    true);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "cs_6_0",
+    pArguments.data(), 3, nullptr, 0,
+    {"%([a-zA-Z0-9]+) = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"([^\n]*)"},
+    {"%\\1 = getelementptr \\[3 x i32\\], \\[3 x i32\\] addrspace\\(3\\)\\* @\"\\\\01\\?cgs_arr@@3QBIB\"\\2\n"
+     "%dummy = cmpxchg i32 addrspace\\(3\\)\\* %\\1, i32 1, i32 2 seq_cst seq_cst, !dbg !105 ;"},
+    "Constant destination to atomic.",
+    true);
+}
+
+// Check validation error for non-groupshared dest
+TEST_F(ValidationTest, AtomicsInvalidDests) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+  std::vector<LPCWSTR> pArguments = { L"-HV", L"2021", L"-Zi" };
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "lib_6_3",
+    pArguments.data(), 2, nullptr, 0,
+    {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
+    {"atomicrmw add i32* %res"},
+    "Non-groupshared destination to atomic operation.",
+    false);
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "lib_6_3",
+    pArguments.data(), 2, nullptr, 0,
+    {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
+    {"cmpxchg i32* %res"},
+    "Non-groupshared destination to atomic operation.",
+    false);
+
 }

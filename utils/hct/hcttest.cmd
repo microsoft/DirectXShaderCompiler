@@ -1,8 +1,14 @@
 @echo off
-setlocal ENABLEDELAYEDEXPANSION
+setlocal ENABLEDELAYEDEXPANSION ENABLEEXTENSIONS
 
+rem Default build config is Debug
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
+)
+
+rem Default build arch is x64
+if "%BUILD_ARCH%"=="" (
+  set BUILD_ARCH=x64
 )
 
 rem Whether we built the project using ninja as the generator.
@@ -17,7 +23,7 @@ set TEST_DXILCONV_FILTER=
 set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
-set TEST_CLANG_FILTER= /select: "@Priority<1"
+set TEST_CLANG_FILTER=
 set TEST_EXEC_FILTER=ExecutionTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
 set TEST_COMPAT_SUITE=0
@@ -81,7 +87,7 @@ if "%1"=="-clean" (
 ) else if "%1"=="clang-filter" (
   set TEST_ALL=0
   set TEST_CLANG=1
-  set TEST_CLANG_FILTER= /name:%2
+  set TEST_CLANG_FILTER=%2
   shift /1
 ) else if "%1"=="file-check" (
   set TEST_ALL=0
@@ -91,7 +97,7 @@ if "%1"=="-clean" (
 ) else if "%1"=="v" (
   set TEST_ALL=0
   set TEST_CLANG=1
-  set TEST_CLANG_FILTER= /name:VerifierTest::*
+  set TEST_CLANG_FILTER=VerifierTest::*
 ) else if "%1"=="cmd" (
   set TEST_ALL=0
   set TEST_CMD=1
@@ -101,7 +107,7 @@ if "%1"=="-clean" (
 ) else if "%1" == "dxilconv-filter" (
   set TEST_ALL=0
   set TEST_DXILCONV=1
-  set TEST_DXILCONV_FILTER= /name:%2
+  set TEST_DXILCONV_FILTER=%2
   shift /1
 ) else if "%1"=="noexec" (
   set TEST_ALL=0
@@ -143,13 +149,17 @@ if "%1"=="-clean" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Debug" (
   set BUILD_CONFIG=Debug
-) else if "%1"=="-x86" (
+) else if /i "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.
   set BUILD_ARCH=Win32
-) else if "%1"=="-x64" (
+) else if /i "%1"=="-x64" (
   set BUILD_ARCH=x64
-) else if "%1"=="-arm" (
+) else if /i "%1"=="-arm" (
   set BUILD_ARCH=ARM
+) else if /i "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
+) else if /i "%1"=="-arm64ec" (
+  set BUILD_ARCH=ARM64EC
 ) else if "%1"=="-adapter" (
   set TEST_ADAPTER= /p:"Adapter=%~2"
   shift /1
@@ -185,6 +195,15 @@ set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% %1
 shift /1
 goto :collect_args
 :done_args
+
+rem Map build arch to bin directory name (for TAEF and Agility SDK)
+rem Win32 to x86, ARM64EC to ARM64, no changes for other platforms
+set BUILD_ARCH_DIR=%BUILD_ARCH:Win32=x86%
+set BUILD_ARCH_DIR=%BUILD_ARCH_DIR:ARM64EC=ARM64%
+
+rem Map build arch to test arch (for TAEF)
+rem Win32 to x86, no changes for other platforms
+set TEST_ARCH=%BUILD_ARCH:Win32=x86%
 
 rem By default, run all clang tests and execution tests and dxilconv tests
 if "%TEST_ALL%"=="1" (
@@ -276,7 +295,12 @@ if "%TEST_SPIRV%"=="1" (
 )
 rem End SPIRV change
 
-echo Running HLSL tests ...
+echo Running HLSL tests for %BUILD_ARCH%...
+
+if "%BUILD_ARCH_DIR%"=="ARM64" (
+    rem ARM64 TAEF has an issue when running ARM64X tests with /parallel flag
+    set PARALLEL_OPTION=
+)
 
 if exist "%HCT_EXTRAS%\hcttest-before.cmd" (
   call "%HCT_EXTRAS%\hcttest-before.cmd" %TEST_DIR%
@@ -288,7 +312,13 @@ if exist "%HCT_EXTRAS%\hcttest-before.cmd" (
 
 if "%TEST_CLANG%"=="1" (
   echo Running Clang unit tests ...
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"%TEST_CLANG_FILTER%%ADDITIONAL_OPTS%
+  if "%TEST_CLANG_FILTER%"=="" (
+    set SELECT_FILTER= /select:"@Priority<1 AND @Architecture='%TEST_ARCH%'"
+  ) else (
+    set SELECT_FILTER= /select:"@Name='%TEST_CLANG_FILTER%' AND @Architecture='%TEST_ARCH%'"
+  )
+
+  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" !SELECT_FILTER! %ADDITIONAL_OPTS%
   set RES_CLANG=!ERRORLEVEL!
 )
 
@@ -302,9 +332,10 @@ if "%TEST_EXEC%"=="1" (
   call :copyagility
 )
 
+set EXEC_COMMON_ARGS= /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:ExecutionTest::BasicTriangleTest /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
+  call :runte clang-hlsl-tests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS% 
   set RES_EXEC=!ERRORLEVEL!
   if errorlevel 1 (
     if not "%TEST_EXEC_REQUIRED%"=="1" (
@@ -319,10 +350,11 @@ if "%TEST_EXEC%"=="1" (
 
 if "%TEST_EXEC%"=="1" (
   if "%TEST_EXEC_FUTURE%"=="1" (
-    call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority=2" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK% %ADDITIONAL_OPTS%
+    set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority=2 AND @Architecture='%TEST_ARCH%'"
   ) else (
-    call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK% %ADDITIONAL_OPTS%
+    set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2 AND @Architecture='%TEST_ARCH%'"
   )
+  call :runte clang-hlsl-tests.dll !SELECT_FILTER! %EXEC_COMMON_ARGS% %ADDITIONAL_OPTS%
   set RES_EXEC=!ERRORLEVEL!
 )
 
@@ -335,7 +367,12 @@ if exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
 )
 
 if "%TEST_DXILCONV%"=="1" (
-  call :runte dxilconv-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" %TEST_DXILCONV_FILTER%
+  if "%TEST_DXILCONV_FILTER%"=="" (
+    set SELECT_FILTER= /select:"@Architecture='%TEST_ARCH%'"
+  ) else (
+    set SELECT_FILTER= /select:"@Name='%TEST_DXILCONV_FILTER%' AND @Architecture='%TEST_ARCH%'"
+  )
+  call :runte dxilconv-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" !SELECT_FILTER!
   set RES_DXILCONV=!ERRORLEVEL!
 )
 
@@ -364,16 +401,18 @@ call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
 call :check_result "dxilconv tests" %RES_DXILCONV%
 
+set EXIT_CODE=%TESTS_FAILED%
 if not "%TESTS_PASSED%"=="0" (
   echo %TESTS_PASSED% succeeded.
 ) else if "%TESTS_FAILED%"=="0" (
   echo No Unit tests run.
+  set EXIT_CODE=1
 )
 if not "%TESTS_FAILED%"=="0" (
   echo %TESTS_FAILED% failed.
 )
 echo ==================================
-exit /b %TESTS_FAILED%
+exit /b %EXIT_CODE%
 
 :showhelp
 
@@ -402,6 +441,8 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
+echo   -arm64 targets an ARM64 build
+echo   -arm64ec targets an ARM64EC build
 echo.
 echo target(s):
 echo  clang         - run clang tests.
@@ -442,10 +483,10 @@ rem %4 - third argument to te
 if "%HLSL_TAEF_DIR%"=="" (
   set TE=te
 ) else (
-  set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\te"
+  set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH_DIR%\te"
 )
-echo %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
-call %TE% /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+echo %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call %TE% /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 
 if errorlevel 1 (
   call :showtesample %*
@@ -492,16 +533,16 @@ if "%HLSL_TAEF_DIR%"=="" (
   exit /b 1
 )
 set FULL_AGILITY_PATH=
-if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
-  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH:Win32=x86%
-) else if exist "%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH:Win32=x86%\D3D12Core.dll" (
-  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH:Win32=x86%
+if exist "%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH_DIR%\D3D12Core.dll" (
+  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\build\native\bin\%BUILD_ARCH_DIR%
+) else if exist "%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH_DIR%\D3D12Core.dll" (
+  set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%\%BUILD_ARCH_DIR%
 ) else if exist "%HLSL_AGILITYSDK_DIR%\D3D12Core.dll" (
   set FULL_AGILITY_PATH=%HLSL_AGILITYSDK_DIR%
 ) else (
   echo HLSL_AGILITYSDK_DIR is set, but unable to resolve path to binaries
   exit /b 1
 )
-mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" 1>nul 2>nul
-call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
+mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH_DIR%\D3D12" 1>nul 2>nul
+call %HCT_DIR%\hctcopy.cmd "%FULL_AGILITY_PATH%" "%HLSL_TAEF_DIR%\%BUILD_ARCH_DIR%\D3D12" D3D12Core.dll d3d12SDKLayers.dll
 exit /b %ERRORLEVEL%

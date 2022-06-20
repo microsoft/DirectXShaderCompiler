@@ -164,6 +164,7 @@ public:
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
+  TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
   TEST_METHOD(CompileWhenIncludeHasPathThenOK)
   TEST_METHOD(CompileWhenIncludeEmptyThenOK)
@@ -209,7 +210,6 @@ public:
   TEST_METHOD(CompileHlsl2022ThenFail)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
-  TEST_METHOD(CodeGenInclude)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -2757,6 +2757,37 @@ TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
 #endif
 }
 
+TEST_F(CompilerTest, CompileThenCheckDisplayIncludeProcess) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("#include \"inc/helper.h\"\r\n"
+                     "float4 main() : SV_Target { return ZERO; }",
+                     &pSource);
+
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back("#define ZERO 0");
+
+  LPCWSTR args[] = {L"-I inc", L"-Vi"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pInclude, &pResult));
+  VerifyOperationSucceeded(pResult);
+
+  CComPtr<IDxcResult> pCompileResult;
+  CComPtr<IDxcBlob> pRemarkBlob;
+  pResult->QueryInterface(&pCompileResult);
+  VERIFY_SUCCEEDED(pCompileResult->GetOutput(DXC_OUT_REMARKS, IID_PPV_ARGS(&pRemarkBlob), nullptr));
+  std::string text(BlobToUtf8(pRemarkBlob));
+
+  VERIFY_ARE_NOT_EQUAL(
+      string::npos, text.find("Opening file [./inc/helper.h], stack top [0]"));
+
+}
+
 TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -3514,7 +3545,7 @@ TEST_F(CompilerTest, CompileHlsl2022ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
-#if defined(_WIN32) && !defined(_M_ARM64) // this test has issues on ARM64; disable until we figure out what it going on
+#if defined(_WIN32) && !(defined(_M_ARM64) || defined(_M_ARM64EC)) // this test has issues on ARM64; disable until we figure out what it going on
 
 #pragma fenv_access(on)
 #pragma optimize("", off)
@@ -3598,10 +3629,6 @@ TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
 }
 
 #endif  //  defined(_WIN32) && !defined(_M_ARM64)
-
-TEST_F(CompilerTest, CodeGenInclude) {
-  CodeGenTestCheck(L"Include.hlsl");
-}
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {
   CodeGenTestCheck(L"lib_cs_entry.hlsl");

@@ -326,6 +326,14 @@ void ShaderOpTest::CreateDescriptorHeaps() {
           ShaderOpResourceData &CounterData = m_ResourceData[D.CounterName];
           pCounterResource = CounterData.Resource;
         }
+        ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
+        // Ensure the TransitionTo state is set for UAV's that will be used as UAV's.
+        if (R && R->TransitionTo != D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+          ShaderOpLogFmt(L"Resource '%S' used in UAV descriptor, but "
+                         L"TransitionTo not set to 'UNORDERED_ACCESS'",
+                         D.ResName);
+          CHECK_HR(E_FAIL);
+        }
         m_pDevice->CreateUnorderedAccessView(pResource, pCounterResource,
                                              &D.UavDesc, cpuHandle);
       }
@@ -891,15 +899,15 @@ void ShaderOpTest::RunCommandList() {
   ID3D12GraphicsCommandList *pList = m_CommandList.List.p;
   if (m_pShaderOp->IsCompute()) {
     pList->SetPipelineState(m_pPSO);
-    pList->SetComputeRootSignature(m_pRootSignature);
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
+    pList->SetComputeRootSignature(m_pRootSignature);
     SetRootValues(pList, m_pShaderOp->IsCompute());
     pList->Dispatch(m_pShaderOp->DispatchX, m_pShaderOp->DispatchY,
                     m_pShaderOp->DispatchZ);
   } else {
     pList->SetPipelineState(m_pPSO);
-    pList->SetGraphicsRootSignature(m_pRootSignature);
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
+    pList->SetGraphicsRootSignature(m_pRootSignature);
     SetRootValues(pList, m_pShaderOp->IsCompute());
 
     D3D12_VIEWPORT viewport;

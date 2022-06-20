@@ -132,7 +132,6 @@ void SetHLWaveSensitive(llvm::Function *F);
 bool IsHLWaveSensitive(llvm::Function *F);
 
 // For intrinsic opcode.
-bool HasUnsignedOpcode(unsigned opcode);
 unsigned GetUnsignedOpcode(unsigned opcode);
 // For HLBinaryOpcode.
 bool HasUnsignedOpcode(HLBinaryOpcode opcode);

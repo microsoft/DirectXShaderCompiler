@@ -1109,6 +1109,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   }
 
   PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
+  p.HLSLOmitDefaultTemplateParams = 1;
   p.Indentation = 1;
 
   if (entryFnDecl) {

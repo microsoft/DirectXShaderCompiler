@@ -34,6 +34,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/HLSL/DxilNoops.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -358,6 +359,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
     while (1) {
       bool LocalChanged = false;
 
+      LocalChanged |= hlsl::dxilutil::DeleteDeadAllocas(F);
       LocalChanged |= this->TryRemoveSimpleDeadLoops(LI);
 
       for (Function::iterator It = F.begin(), E = F.end(); It != E; It++) {

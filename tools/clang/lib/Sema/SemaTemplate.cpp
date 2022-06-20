@@ -140,8 +140,7 @@ TemplateNameKind Sema::isTemplateName(Scope *S,
                                       ParsedType ObjectTypePtr,
                                       bool EnteringContext,
                                       TemplateTy &TemplateResult,
-                                      bool &MemberOfUnknownSpecialization,
-                                      bool NextIsLess) { // HLSL CHange
+                                      bool &MemberOfUnknownSpecialization) {
   assert(getLangOpts().CPlusPlus && "No template names in C!");
 
   DeclarationName TName;
@@ -169,8 +168,7 @@ TemplateNameKind Sema::isTemplateName(Scope *S,
 
   LookupResult R(*this, TName, Name.getLocStart(), LookupOrdinaryName);
   LookupTemplateName(R, S, SS, ObjectType, EnteringContext,
-                     MemberOfUnknownSpecialization,
-                     NextIsLess); // HLSL Change
+                     MemberOfUnknownSpecialization);
   if (R.empty()) return TNK_Non_template;
   if (R.isAmbiguous()) {
     // Suppress diagnostics;  we'll redo this lookup later.
@@ -250,8 +248,7 @@ void Sema::LookupTemplateName(LookupResult &Found,
                               Scope *S, CXXScopeSpec &SS,
                               QualType ObjectType,
                               bool EnteringContext,
-                              bool &MemberOfUnknownSpecialization,
-                              bool NextIsLess) { // HLSL Change
+                              bool &MemberOfUnknownSpecialization) {
   // Determine where to perform name lookup
   MemberOfUnknownSpecialization = false;
   DeclContext *LookupCtx = nullptr;
@@ -312,18 +309,11 @@ void Sema::LookupTemplateName(LookupResult &Found,
   } else {
     // Perform unqualified name lookup in the current scope.
     LookupName(Found, S);
-    // HLSL Change: Diagnose on lookup level. Currently this is used to throw warnings for minprecision promotion
-    if (getLangOpts().HLSL)
-      DiagnoseHLSLLookup(Found);
-    // HLSL Change End
     if (!ObjectType.isNull())
       AllowFunctionTemplatesInLookup = false;
   }
 
-  // HLSL Change: do not try to save template name lookups with auto-correct,
-  // otherwise identifiers like variable-names might match and fail;
-  // however we still do this if 'NextIsLess' is known to be true.
-  if (Found.empty() && !isDependent && (!getLangOpts().HLSL || NextIsLess)) {
+  if (Found.empty() && !isDependent) {
     // If we did not find any names, attempt to correct any typos.
     DeclarationName Name = Found.getLookupName();
     Found.clear();
@@ -3058,22 +3048,41 @@ bool Sema::CheckTemplateTypeArgument(TemplateTypeParmDecl *Param,
   case TemplateArgument::Template: {
     // We have a template type parameter but the template argument
     // is a template without any arguments.
-    // HLSL Change Starts
-    // We suppress some errors when templates are enabled in order to preserve
-    // backwards compatibility.
     SourceRange SR = AL.getSourceRange();
     TemplateName Name = Arg.getAsTemplate();
-    TemplateDecl *Decl = Name.getAsTemplateDecl();
-    if (Decl && !Decl->getLocation().isValid() && getLangOpts().EnableTemplates)
-      break;
-    Diag(SR.getBegin(), diag::err_template_missing_args)
-      << Name << SR;
-    if (Decl && Decl->getLocation().isValid()) { // HLSL Change - ellide location notes for built-ins
-      Diag(Decl->getLocation(), diag::note_template_decl_here);
-    }
-    // HLSL Change Ends
 
-    return true;
+    // HLSL Change Starts
+    // HLSL allows omiting empty template argument lists
+    TemplateDecl *Decl = Name.getAsTemplateDecl();
+    if (getLangOpts().HLSL && Decl) {
+      if (ClassTemplateDecl *TD = dyn_cast<ClassTemplateDecl>(Decl)) {
+        if (TypeDecl *DefaultSpec = getHLSLDefaultSpecialization(TD)) {
+          SourceRange SR = Decl->getSourceRange();
+          TemplateArgumentListInfo TemplateArgs(SR.getEnd(), SR.getEnd());
+          ArgType = CheckTemplateIdType(TemplateName(Decl), SR.getBegin(),
+                                        TemplateArgs);
+          CXXScopeSpec SS;
+          TypeLocBuilder TLB;
+          TemplateSpecializationTypeLoc TL =
+              TLB.push<TemplateSpecializationTypeLoc>(ArgType);
+          TL.setTemplateKeywordLoc(SourceLocation());
+          TL.setTemplateNameLoc(SR.getBegin());
+          TL.setLAngleLoc(SR.getEnd());
+          TL.setRAngleLoc(SR.getEnd());
+          TSI = TLB.getTypeSourceInfo(Context, ArgType);
+        }
+      }
+    }
+    if (ArgType.isNull()) {
+      Diag(SR.getBegin(), diag::err_template_missing_args) << Name << SR;
+      // HLSL Change - ellide location notes for built-ins
+      if (Decl && Decl->getLocation().isValid()) {
+        Diag(Decl->getLocation(), diag::note_template_decl_here);
+      }
+      return true;
+    }
+    break;
+    // HLSL Change Ends
   }
   case TemplateArgument::Expression: {
     // We have a template type parameter but the template argument is an

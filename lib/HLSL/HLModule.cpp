@@ -1214,7 +1214,10 @@ void HLModule::CreateElementGlobalVariableDebugInfo(
     unsigned sizeInBits, unsigned alignInBits, unsigned offsetInBits,
     StringRef eltName) {
   DIGlobalVariable *DIGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
-  DXASSERT_NOMSG(DIGV);
+  if (!DIGV) {
+    DXASSERT(DIGV, "DIGV Parameter must be non-null");
+    return;
+  }
   DIBuilder Builder(*GV->getParent());
   DITypeIdentifierMap EmptyMap;
 
@@ -1242,7 +1245,10 @@ void HLModule::UpdateGlobalVariableDebugInfo(
     llvm::GlobalVariable *GV, llvm::DebugInfoFinder &DbgInfoFinder,
     llvm::GlobalVariable *NewGV) {
   DIGlobalVariable *DIGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
-  DXASSERT_NOMSG(DIGV);
+  if (!DIGV) {
+    DXASSERT(DIGV, "DIGV Parameter must be non-null");
+    return;
+  }
   DIBuilder Builder(*GV->getParent());
   DITypeIdentifierMap EmptyMap;
   DIType *DITy = DIGV->getType().resolve(EmptyMap);

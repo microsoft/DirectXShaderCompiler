@@ -34,6 +34,7 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include "dxc/DxilContainer/DxilContainer.h" // HLSL Change
 #include <system_error>
 using namespace llvm;
 
@@ -143,13 +144,14 @@ int __cdecl main(int argc, char **argv) { // HLSL Change - __cdecl
   // sys::PrintStackTraceOnErrorSignal(); // HLSL Change - disable this
   // PrettyStackTraceProgram X(argc, argv); // HLSL Change - disable this
   // HLSL Change Starts
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
   llvm::sys::fs::MSFileSystem* msfPtr;
   HRESULT hr;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))
     return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  llvm::STDStreamCloser stdStreamCloser;
   // HLSL Change Ends
 
   LLVMContext &Context = getGlobalContext();
@@ -162,23 +164,43 @@ int __cdecl main(int argc, char **argv) { // HLSL Change - __cdecl
   std::string ErrorMessage;
   std::unique_ptr<Module> M;
 
-  // Use the bitcode streaming interface
-  std::unique_ptr<DataStreamer> Streamer =
-      getDataFileStreamer(InputFilename, &ErrorMessage);
-  if (Streamer) {
-    std::string DisplayFilename;
-    if (InputFilename == "-")
-      DisplayFilename = "<stdin>";
-    else
-      DisplayFilename = InputFilename;
-    ErrorOr<std::unique_ptr<Module>> MOrErr =
-        getStreamedBitcodeModule(DisplayFilename, std::move(Streamer), Context);
-    M = std::move(*MOrErr);
-    M->materializeAllPermanently();
-  } else {
-    errs() << argv[0] << ": " << ErrorMessage << '\n';
+  ErrorOr<std::unique_ptr<MemoryBuffer>> FileOrErr =
+      MemoryBuffer::getFileOrSTDIN(InputFilename);
+  if (std::error_code EC = FileOrErr.getError()) {
+    errs() << argv[0] << ": "
+           << "Could not open file '" << InputFilename << "': " << EC.message()
+           << '\n';
     return 1;
   }
+
+  std::unique_ptr<MemoryBuffer> &Buf = FileOrErr.get();
+  MemoryBufferRef BitcodeData = Buf->getMemBufferRef();
+  if (Buf->getBuffer().startswith("DXBC")) {
+    // move along until I get to the bitcode
+    const hlsl::DxilContainerHeader *Header =
+        reinterpret_cast<const hlsl::DxilContainerHeader *>(Buf->getBufferStart());
+    const hlsl::DxilProgramHeader *DXILHeader =
+        hlsl::GetDxilProgramHeader(Header, hlsl::DFCC_DXIL);
+    if (!DXILHeader) {
+      errs() << argv[0] << ": DXBC file '" << InputFilename
+             << "': Does not contain DXIL part\n";
+      return 1;
+    }
+    StringRef DXILData = StringRef(hlsl::GetDxilBitcodeData(DXILHeader),
+                                   hlsl::GetDxilBitcodeSize(DXILHeader));
+    BitcodeData = MemoryBufferRef(DXILData, "");
+  }
+
+  ErrorOr<std::unique_ptr<Module>> MOrErr =
+      parseBitcodeFile(BitcodeData, Context);
+  if (std::error_code EC = MOrErr.getError()) {
+    errs() << argv[0] << ": "
+           << "Could not load bitcode from file '" << InputFilename
+           << "': " << EC.message() << '\n';
+    return 1;
+  }
+  M = std::move(*MOrErr);
+  M->materializeAllPermanently();
 
   // Just use stdout.  We won't actually print anything on it.
   if (DontPrint)

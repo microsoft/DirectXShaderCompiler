@@ -182,5 +182,5 @@ void main() {
 // CHECK-NEXT: OpExtInst %float {{%\d+}} Cos
       cos(v4f.x));
 // CHECK:      DebugLine [[src]] %uint_180 %uint_183 %uint_3 %uint_17
-// CHECK-NEXT: OpExtInst %float {{%\d+}} FMax
+// CHECK-NEXT: OpExtInst %float {{%\d+}} NMax
 }

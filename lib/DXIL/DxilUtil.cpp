@@ -994,5 +994,93 @@ Value *TryReplaceBaseCastWithGep(Value *V) {
   return nullptr;
 }
 
+struct AllocaDeleter {
+  SmallVector<Value *, 10> WorkList;
+  std::unordered_set<Value *> Seen;
+
+  void Add(Value *V) {
+    if (!Seen.count(V)) {
+      Seen.insert(V);
+      WorkList.push_back(V);
+    }
+  }
+
+  bool TryDeleteUnusedAlloca(AllocaInst *AI) {
+    Seen.clear();
+    WorkList.clear();
+
+    Add(AI);
+    while (WorkList.size()) {
+      Value *V = WorkList.pop_back_val();
+      // Keep adding users if we encounter one of these.
+      // None of them imply the alloca is being read.
+      if (isa<GEPOperator>(V) ||
+          isa<BitCastOperator>(V) ||
+          isa<AllocaInst>(V) ||
+          isa<StoreInst>(V))
+      {
+        for (User *U : V->users())
+          Add(U);
+      }
+      else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
+        // If the memcopy's source is anything we've encountered in the
+        // seen set, then the alloca is being read.
+        if (Seen.count(MC->getSource()))
+          return false;
+      }
+      // If it's anything else, we'll assume it's reading the
+      // alloca. Give up.
+      else {
+        return false;
+      }
+    }
+
+    if (!Seen.size())
+      return false;
+
+    // Delete all the instructions associated with the
+    // alloca.
+    for (Value *V : Seen) {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (I) {
+        I->dropAllReferences();
+      }
+    }
+    for (Value *V : Seen) {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (I) {
+        I->eraseFromParent();
+      }
+    }
+
+    return true;
+  }
+};
+
+bool DeleteDeadAllocas(llvm::Function &F) {
+  if (F.empty())
+    return false;
+
+  AllocaDeleter Deleter;
+  BasicBlock &Entry = *F.begin();
+  bool Changed = false;
+
+  while (1) {
+    bool LocalChanged = false;
+    for (Instruction *it = &Entry.back(); it;) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(it);
+      it = it->getPrevNode();
+      if (!AI)
+        continue;
+      LocalChanged |= Deleter.TryDeleteUnusedAlloca(AI);
+    }
+    Changed |= LocalChanged;
+    if (!LocalChanged)
+      break;
+  }
+
+  return Changed;
+}
+
 }
 }

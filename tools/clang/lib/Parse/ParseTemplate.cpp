@@ -1214,7 +1214,6 @@ ParsedTemplateArgument Parser::ParseTemplateArgument() {
   }
   
   // Try to parse a template template argument.
-  if (!getLangOpts().HLSL) // HLSL Change - HLSL does not support template template arguments
   {
     TentativeParsingAction TPA(*this);
 

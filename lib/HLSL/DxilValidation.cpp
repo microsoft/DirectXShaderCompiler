@@ -961,6 +961,13 @@ static void ValidateSampleInst(CallInst *CI, Value *srvHandle, Value *samplerHan
   isSampleCompTy |= compTy == DXIL::ComponentType::F16;
   isSampleCompTy |= compTy == DXIL::ComponentType::SNormF16;
   isSampleCompTy |= compTy == DXIL::ComponentType::UNormF16;
+  const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+  if (pSM->IsSM67Plus()) {
+    isSampleCompTy |= compTy == DXIL::ComponentType::I16;
+    isSampleCompTy |= compTy == DXIL::ComponentType::U16;
+    isSampleCompTy |= compTy == DXIL::ComponentType::I32;
+    isSampleCompTy |= compTy == DXIL::ComponentType::U32;
+  }
   if (!isSampleCompTy) {
     ValCtx.EmitInstrError(CI, ValidationRule::InstrSampleCompType);
   }
@@ -1457,6 +1464,11 @@ static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode opcode, ConstantIn
   unsigned uMask = mask->getLimitedValue();
   if (isTyped && uMask != 0xf) {
     ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskForTypedUAVStore);
+  }
+
+  // write mask must be contiguous (.x .xy .xyz or .xyzw)
+  if (!((uMask == 0xf) || (uMask == 0x7) || (uMask == 0x3) || (uMask == 0x1))) {
+    ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskGapForUAV);
   }
 
   // If a bit is set in the uMask (expected values) that isn't set in stValMask (user provided values)
@@ -2185,6 +2197,10 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     if ((pOverloadType->isIntegerTy(64)) && !pSM->IsSM66Plus())
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"64-bit atomic operations", "Shader Model 6.6+"});
+    Value *Handle = CI->getOperand(DXIL::OperandIndex::kAtomicBinOpHandleOpIdx);
+    if (!isa<CallInst>(Handle) ||
+        ValCtx.GetResourceFromVal(Handle).getResourceClass() != DXIL::ResourceClass::UAV)
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrAtomicIntrinNonUAV);
   } break;
   case DXIL::OpCode::CreateHandle:
     if (ValCtx.isLibProfile) {
@@ -3173,11 +3189,34 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       } break;
       case Instruction::AtomicCmpXchg:
       case Instruction::AtomicRMW: {
-        Type *T = cast<PointerType>(I.getOperand(AtomicRMWInst::getPointerOperandIndex())->getType())->getElementType();
+        Value *Ptr = I.getOperand(AtomicRMWInst::getPointerOperandIndex());
+        PointerType *ptrType = cast<PointerType>(Ptr->getType());
+        Type *elType = ptrType->getElementType();
         const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
-        if ((T->isIntegerTy(64)) && !pSM->IsSM66Plus())
+        if ((elType->isIntegerTy(64)) && !pSM->IsSM66Plus())
           ValCtx.EmitInstrFormatError(&I, ValidationRule::SmOpcodeInInvalidFunction,
                                       {"64-bit atomic operations", "Shader Model 6.6+"});
+
+        if (ptrType->getAddressSpace() != DXIL::kTGSMAddrSpace)
+          ValCtx.EmitInstrError(&I, ValidationRule::InstrAtomicOpNonGroupshared);
+
+        // Drill through GEP and bitcasts
+        while (true) {
+          if (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr)) {
+            Ptr = GEP->getPointerOperand();
+            continue;
+          }
+          if (BitCastInst *BC = dyn_cast<BitCastInst>(Ptr)) {
+            Ptr = BC->getOperand(0);
+            continue;
+          }
+          break;
+        }
+
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+          if(GV->isConstant())
+            ValCtx.EmitInstrError(&I, ValidationRule::InstrAtomicConst);
+        }
       } break;
 
       }

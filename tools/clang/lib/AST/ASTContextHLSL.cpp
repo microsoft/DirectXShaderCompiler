@@ -1205,53 +1205,6 @@ UnusualAnnotation* hlsl::UnusualAnnotation::CopyToASTContext(ASTContext& Context
   return (UnusualAnnotation*)result;
 }
 
-static bool HasTessFactorSemantic(const ValueDecl *decl) {
-  for (const UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    if (it->getKind() == UnusualAnnotation::UA_SemanticDecl) {
-      const SemanticDecl *sd = cast<SemanticDecl>(it);
-      const Semantic *pSemantic = Semantic::GetByName(sd->SemanticName);
-      if (pSemantic && pSemantic->GetKind() == Semantic::Kind::TessFactor)
-        return true;
-    }
-  }
-  return false;
-}
-
-static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
-  if (Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty))
-    return false;
-
-  if (const RecordType *RT = Ty->getAsStructureType()) {
-    RecordDecl *RD = RT->getDecl();
-    for (FieldDecl *fieldDecl : RD->fields()) {
-      if (HasTessFactorSemanticRecurse(fieldDecl, fieldDecl->getType()))
-        return true;
-    }
-    return false;
-  }
-
-  if (Ty->getAsArrayTypeUnsafe())
-    return HasTessFactorSemantic(decl);
-
-  return false;
-}
-
 bool ASTContext::IsPatchConstantFunctionDecl(const FunctionDecl *FD) const {
-  // This checks whether the function is structurally capable of being a patch
-  // constant function, not whether it is in fact the patch constant function
-  // for the entry point of a compiled hull shader (which may not have been
-  // seen yet). So the answer is conservative.
-  if (!FD->getReturnType()->isVoidType()) {
-    // Try to find TessFactor in return type.
-    if (HasTessFactorSemanticRecurse(FD, FD->getReturnType()))
-      return true;
-  }
-  // Try to find TessFactor in out param.
-  for (const ParmVarDecl *param : FD->params()) {
-    if (param->hasAttr<HLSLOutAttr>()) {
-      if (HasTessFactorSemanticRecurse(param, param->getType()))
-        return true;
-    }
-  }
-  return false;
+  return hlsl::IsPatchConstantFunctionDecl(FD);
 }

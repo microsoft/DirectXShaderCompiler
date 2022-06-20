@@ -260,19 +260,19 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
   MPM.add(createDxilDeleteRedundantDebugValuesPass());
 
-  // Clean up inefficiencies that can cause unnecessary live values related to
-  // lifetime marker cleanup blocks. This is the earliest possible location
-  // without interfering with HLSL-specific lowering.
-  if (!NoOpt && EnableLifetimeMarkers) {
-    MPM.add(createSROAPass());
-    MPM.add(createJumpThreadingPass());
-  }
-
   // Remove unneeded dxbreak conditionals
   MPM.add(createCleanupDxBreakPass());
 
   if (!NoOpt) {
     MPM.add(createDxilConvergentMarkPass());
+    // Clean up inefficiencies that can cause unnecessary live values related to
+    // lifetime marker cleanup blocks. This is the earliest possible location
+    // without interfering with HLSL-specific lowering.
+    if (EnableLifetimeMarkers) {
+      MPM.add(createSROAPass());
+      MPM.add(createInstructionCombiningPass());
+      MPM.add(createJumpThreadingPass());
+    }
   }
 
   if (!NoOpt)
@@ -374,9 +374,10 @@ void PassManagerBuilder::populateModulePassManager(
 
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
-      MPM.add(createDxilEraseDeadRegionPass());
+      MPM.add(createDxilSimpleGVNEliminateRegionPass());
       MPM.add(createDeadCodeEliminationPass());
       MPM.add(createDxilRemoveDeadBlocksPass());
+      MPM.add(createDxilEraseDeadRegionPass());
       MPM.add(createDxilNoOptSimplifyInstructionsPass());
       MPM.add(createGlobalOptimizerPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
@@ -501,7 +502,10 @@ void PassManagerBuilder::populateModulePassManager(
     }
     // HLSL Change Ends
   }
+
   // HLSL Change Begins.
+  // Use value numbering to figure out if regions are equivalent, and branch to only one.
+  MPM.add(createDxilSimpleGVNEliminateRegionPass());
   // HLSL don't allow memcpy and memset.
   //MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
   // HLSL Change Ends.

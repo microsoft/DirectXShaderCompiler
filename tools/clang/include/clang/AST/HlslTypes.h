@@ -446,6 +446,7 @@ bool IsUserDefinedRecordType(clang::QualType type);
 bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::OverloadedOperatorKind opc,
                                       clang::QualType paramType);
+bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
 
 /// <summary>Adds a function declaration to the specified class record.</summary>
 /// <param name="context">ASTContext that owns declarations.</param>

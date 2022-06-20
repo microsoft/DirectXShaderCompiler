@@ -7,9 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gmock/gmock.h"
 #include "clang/SPIRV/String.h"
+#include "llvm/Support/raw_ostream.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include <ostream>
 
 namespace {
 
@@ -79,7 +81,34 @@ TEST(String, EncodeAndDecodeString) {
 
   EXPECT_EQ(str, result);
 }
-
 // TODO: Add more ModuleBuilder tests
+
+TEST(String, RawOstreamBuf) {
+  // Set up the following output stream structure:
+  //  os -> buf -> rawOS -> underlyingBuffer
+  //
+  // Check that the contents written to `os` appear in `underlyingBuffer`.
+  std::string underlingBuffer;
+  llvm::raw_string_ostream rawOS(underlingBuffer);
+  string::RawOstreamBuf buf(rawOS);
+  std::ostream os(&buf);
+
+  // Flushes both buffers.
+  auto flush = [&rawOS, &os] {
+    os.flush();
+    rawOS.flush();
+  };
+
+  EXPECT_EQ(underlingBuffer, "");
+  os << "test";
+  flush();
+  EXPECT_EQ(underlingBuffer, "test");
+  os << 13 << 37 << "\n";
+  flush();
+  EXPECT_EQ(underlingBuffer, "test1337\n");
+  os << ' ';
+  flush();
+  EXPECT_EQ(underlingBuffer, "test1337\n ");
+}
 
 } // anonymous namespace

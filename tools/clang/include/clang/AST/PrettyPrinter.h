@@ -46,7 +46,7 @@ struct PrintingPolicy {
       IncludeNewlines(true),
       // HLSL Change Begin - hlsl print policy.
       HLSLSuppressUniformParameters(false), HLSLOnlyDecl(false),
-      HLSLNoinlineMethod(false)
+      HLSLNoinlineMethod(false), HLSLOmitDefaultTemplateParams(false)
       // HLSL Change End.
       {}
 
@@ -177,6 +177,8 @@ struct PrintingPolicy {
   unsigned HLSLOnlyDecl : 1;
   /// \brief When true, print inline method define as outside struct scope define.
   unsigned HLSLNoinlineMethod : 1;
+  /// \brief When true, omit default template parameter lists
+  unsigned HLSLOmitDefaultTemplateParams : 1;
   // HLSL Change Ends
 };
 

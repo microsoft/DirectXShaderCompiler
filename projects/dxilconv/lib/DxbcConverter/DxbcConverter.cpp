@@ -247,7 +247,7 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
 
   // Wrap LLVM module in a DXBC container.
   size_t DXILSize = DxilBuffer.size_in_bytes();
-  DxilContainerWriter *pContainerWriter = hlsl::NewDxilContainerWriter();
+  std::unique_ptr<DxilContainerWriter> pContainerWriter(hlsl::NewDxilContainerWriter());
   pContainerWriter->AddPart(DXBC_DXIL, DXILSize, [=](AbstractMemoryStream *pStream) {
     WritePart(pStream, DxilBuffer);
   });
@@ -289,8 +289,13 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
       IFT(dxbcReader.FindFirstPartKind(IOSigFourCCArray[i], &uBlob));
       if(uBlob != DXIL_CONTAINER_BLOB_NOT_FOUND) {
         IFT(dxbcReader.GetPartContent(uBlob, &pBlobData, &uElemSize));
-        pContainerWriter->AddPart(IOSigFourCCArray[i], uElemSize, [=](AbstractMemoryStream *pStream) {
+        pContainerWriter->AddPart(IOSigFourCCArray[i], PSVALIGN4(uElemSize), [=](AbstractMemoryStream *pStream) {
           WritePart(pStream, pBlobData, uElemSize);
+          unsigned padding = PSVALIGN4(uElemSize) - uElemSize;
+          if (padding) {
+            const char padZeros[4] = {0,0,0,0};
+            WritePart(pStream, padZeros, padding);
+          }
         });
       }
     }
@@ -327,7 +332,7 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
   CComPtr<AbstractMemoryStream> pOutputStream;
   IFT(CreateFixedSizeMemoryStream((LPBYTE)pOutput.m_pData, OutputSize, &pOutputStream));
   pContainerWriter->write(pOutputStream);
-  pOutputStream.Detach();
+  // pOutputStream does not own the buffer; allow CComPtr to clean up the stream object.
 
   *ppDxil = pOutput.Detach();
   *pDxilSize = OutputSize;

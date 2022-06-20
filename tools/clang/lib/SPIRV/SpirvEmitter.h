@@ -626,8 +626,17 @@ private:
   /// Process spirv intrinsic type definition
   SpirvInstruction *processSpvIntrinsicTypeDef(const CallExpr *expr);
 
-  /// Custom intrinsic to support basic buffer_reference use case
+  /// Process `T vk::RawBufferLoad<T>(in uint64_t address
+  /// [, in uint alignment])` that loads data from a given device address.
   SpirvInstruction *processRawBufferLoad(const CallExpr *callExpr);
+  SpirvInstruction *loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
+                                           QualType bufferType,
+                                           uint32_t alignment,
+                                           SourceLocation loc);
+
+  /// Returns the alignment of `vk::RawBufferLoad()`.
+  uint32_t getAlignmentForRawBufferLoad(const CallExpr *callExpr);
+
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
                                                   bool useIdParams);
@@ -717,6 +726,7 @@ private:
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
   static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
+  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
@@ -1155,7 +1165,7 @@ private:
 
   /// \brief Entry function name, derived from the command line
   /// and should be const.
-  const llvm::StringRef entryFunctionName;
+  const llvm::StringRef hlslEntryFunctionName;
 
   /// \brief Structure to maintain record of all entry functions and any
   /// reachable functions.
@@ -1184,6 +1194,9 @@ private:
 
   /// A queue of FunctionInfo reachable from all the entry functions.
   std::vector<const FunctionInfo *> workQueue;
+
+  /// Get SPIR-V entrypoint name for the given FunctionInfo.
+  llvm::StringRef getEntryPointName(const FunctionInfo *entryInfo);
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.

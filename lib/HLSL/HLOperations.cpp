@@ -374,10 +374,6 @@ unsigned  GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode) {
   }
 }
 
-bool HasUnsignedOpcode(unsigned opcode) {
-  return HasUnsignedIntrinsicOpcode(static_cast<IntrinsicOp>(opcode));
-}
-
 unsigned GetUnsignedOpcode(unsigned opcode) {
   return GetUnsignedIntrinsicOpcode(static_cast<IntrinsicOp>(opcode));
 }

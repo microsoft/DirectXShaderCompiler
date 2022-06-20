@@ -97,6 +97,8 @@ public:
   TEST_METHOD(RunVectorOr)
   TEST_METHOD(RunArrayConstAssign)
   TEST_METHOD(RunInputPatchConst)
+  TEST_METHOD(RunWriteConstArrays)
+  TEST_METHOD(RunAtomicsOnBitfields)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -418,4 +420,12 @@ TEST_F(VerifierTest, RunArrayConstAssign) {
 
 TEST_F(VerifierTest, RunInputPatchConst) {
   CheckVerifiesHLSL(L"InputPatch-const.hlsl");
+}
+
+TEST_F(VerifierTest, RunWriteConstArrays) {
+  CheckVerifiesHLSL(L"write-const-arrays.hlsl");
+}
+
+TEST_F(VerifierTest, RunAtomicsOnBitfields) {
+  CheckVerifiesHLSL(L"atomics-on-bitfields.hlsl");
 }

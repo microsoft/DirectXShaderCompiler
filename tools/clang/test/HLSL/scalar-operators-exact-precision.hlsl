@@ -23,11 +23,11 @@ float4 plain(float4 param4 : FOO) : FOO {
     half        halfs       = 0;
     float       floats      = 0;
     double      doubles     = 0;
-    min16float  min16floats = 0; /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-    min10float  min10floats = 0; // expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}}
-    min16int    min16ints   = 0; /* expected-warning {{min16int is promoted to int16_t}} fxc-pass {{}} */
-    min12int    min12ints   = 0; // expected-warning {{min12int is promoted to int16_t}} fxc-pass {{}}
-    min16uint   min16uints  = 0; /* expected-warning {{min16uint is promoted to uint16_t}} fxc-pass {{}} */
+    min16float  min16floats = 0; /* expected-warning {{'min16float' is promoted to 'half'}} fxc-pass {{}} */
+    min10float  min10floats = 0; // expected-warning {{'min10float' is promoted to 'half'}} fxc-pass {{}}
+    min16int    min16ints   = 0; /* expected-warning {{'min16int' is promoted to 'int16_t'}} fxc-pass {{}} */
+    min12int    min12ints   = 0; // expected-warning {{'min12int' is promoted to 'int16_t'}} fxc-pass {{}}
+    min16uint   min16uints  = 0; /* expected-warning {{'min16uint' is promoted to 'uint16_t'}} fxc-pass {{}} */
     int16_t     int16_ts    = 0; /* fxc-error {{X3000: unrecognized identifier 'int16_t'}} fxc-error {{X3000: unrecognized identifier 'int16_ts'}} */
     int32_t     int32_ts    = 0; /* fxc-error {{X3000: unrecognized identifier 'int32_t'}} fxc-error {{X3000: unrecognized identifier 'int32_ts'}} */
     int64_t     int64_ts    = 0; /* fxc-error {{X3000: unrecognized identifier 'int64_t'}} fxc-error {{X3000: unrecognized identifier 'int64_ts'}} */
@@ -172,11 +172,11 @@ _Static_assert(std::is_same<uint, __decltype(bools + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(bools + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(bools + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(bools + min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(bools + min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(bools + min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(bools + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(bools + min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(bools + min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(bools + min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(bools + min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(bools + int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(bools + int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(bools + int64_ts)>::value, "");
@@ -192,8 +192,8 @@ _Static_assert(std::is_same<uint, __decltype(ints + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints + halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(ints + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(ints + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(ints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(ints + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(ints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int, __decltype(ints + min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints + min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(ints + min16uints)>::value, "");
@@ -212,8 +212,8 @@ _Static_assert(std::is_same<uint, __decltype(uints + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints + halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uints + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uints + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uints + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint, __decltype(uints + min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints + min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints + min16uints)>::value, "");
@@ -286,57 +286,57 @@ _Static_assert(std::is_same<double, __decltype(doubles + uint64_ts)>::value, "")
 _Static_assert(std::is_same<double, __decltype(doubles + float16_ts)>::value, "");
 _Static_assert(std::is_same<double, __decltype(doubles + float32_ts)>::value, "");
 _Static_assert(std::is_same<double, __decltype(doubles + float64_ts)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16floats + bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min16floats + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16floats + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + min10floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats + uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats + float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats + float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats + float64_ts)>::value, "");
-_Static_assert(std::is_same<min10float, __decltype(min10floats + bools)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + bools)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min10floats + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min10floats + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min10floats + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min10floats + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats + uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min10floats + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats + uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min10floats + float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min10floats + float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min10floats + float64_ts)>::value, "");
-_Static_assert(std::is_same<min16int, __decltype(min16ints + bools)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints + bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min16ints + ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16ints + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16ints + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16ints + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16ints + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16ints + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16ints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints + min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints + min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16ints + min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16ints + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16ints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints + min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints + min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16ints + min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min16ints + int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min16ints + int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min16ints + int64_ts)>::value, "");
@@ -346,17 +346,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min16ints + uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min16ints + float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16ints + float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16ints + float64_ts)>::value, "");
-_Static_assert(std::is_same<min12int, __decltype(min12ints + bools)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints + bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min12ints + ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min12ints + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min12ints + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min12ints + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min12ints + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min12ints + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min12ints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min12ints + min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints + min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min12ints + min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min12ints + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min12ints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min12ints + min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints + min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min12ints + min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min12ints + int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min12ints + int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min12ints + int64_ts)>::value, "");
@@ -366,17 +366,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min12ints + uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min12ints + float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min12ints + float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min12ints + float64_ts)>::value, "");
-_Static_assert(std::is_same<min16uint, __decltype(min16uints + bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints + bools)>::value, "");    /* */
 _Static_assert(std::is_same<uint, __decltype(min16uints + ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16uints + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16uints + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16uints + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16uints + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16uints + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16uints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints + min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints + min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints + min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16uints + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16uints + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints + min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints + min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints + min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<uint16_t, __decltype(min16uints + int16_ts)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(min16uints + int32_ts)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(min16uints + int64_ts)>::value, "");
@@ -392,8 +392,8 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int16_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int16_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(int16_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts + min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(int16_ts + min16uints)>::value, "");
@@ -412,8 +412,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(int32_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts + halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int32_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int32_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int32_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int32_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts + min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(int32_ts + min16uints)>::value, "");
@@ -432,8 +432,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts + halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int64_ts + floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(int64_ts + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int64_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int64_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int64_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts + min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(int64_ts + min16uints)>::value, "");
@@ -452,8 +452,8 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint16_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint16_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts + min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(uint16_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts + min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts + min16uints)>::value, "");
@@ -472,8 +472,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts + uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint32_ts + halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint32_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint32_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint32_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint32_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts + min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts + min16uints)>::value, "");
@@ -492,8 +492,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts + uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts + halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint64_ts + floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(uint64_ts + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint64_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint64_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts + min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint64_ts + min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts + min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts + min16uints)>::value, "");
@@ -572,11 +572,11 @@ _Static_assert(std::is_same<uint, __decltype(bools - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(bools - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(bools - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(bools - min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(bools - min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(bools - min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(bools - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(bools - min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(bools - min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(bools - min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(bools - min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(bools - int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(bools - int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(bools - int64_ts)>::value, "");
@@ -592,8 +592,8 @@ _Static_assert(std::is_same<uint, __decltype(ints - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints - halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(ints - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(ints - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(ints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(ints - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(ints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int, __decltype(ints - min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints - min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(ints - min16uints)>::value, "");
@@ -612,8 +612,8 @@ _Static_assert(std::is_same<uint, __decltype(uints - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints - halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uints - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uints - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uints - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint, __decltype(uints - min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints - min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints - min16uints)>::value, "");
@@ -686,57 +686,57 @@ _Static_assert(std::is_same<double, __decltype(doubles - uint64_ts)>::value, "")
 _Static_assert(std::is_same<double, __decltype(doubles - float16_ts)>::value, "");
 _Static_assert(std::is_same<double, __decltype(doubles - float32_ts)>::value, "");
 _Static_assert(std::is_same<double, __decltype(doubles - float64_ts)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16floats - bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min16floats - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16floats - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - min10floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats - uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats - float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats - float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats - float64_ts)>::value, "");
-_Static_assert(std::is_same<min10float, __decltype(min10floats - bools)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - bools)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min10floats - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min10floats - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min10floats - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min10floats - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats - uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min10floats - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats - uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min10floats - float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min10floats - float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min10floats - float64_ts)>::value, "");
-_Static_assert(std::is_same<min16int, __decltype(min16ints - bools)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints - bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min16ints - ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16ints - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16ints - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16ints - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16ints - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16ints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16ints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints - min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints - min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16ints - min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16ints - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16ints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints - min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints - min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16ints - min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min16ints - int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min16ints - int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min16ints - int64_ts)>::value, "");
@@ -746,17 +746,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min16ints - uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min16ints - float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16ints - float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16ints - float64_ts)>::value, "");
-_Static_assert(std::is_same<min12int, __decltype(min12ints - bools)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints - bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min12ints - ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min12ints - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min12ints - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min12ints - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min12ints - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min12ints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min12ints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min12ints - min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints - min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min12ints - min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min12ints - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min12ints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min12ints - min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints - min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min12ints - min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min12ints - int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min12ints - int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min12ints - int64_ts)>::value, "");
@@ -766,17 +766,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min12ints - uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min12ints - float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min12ints - float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min12ints - float64_ts)>::value, "");
-_Static_assert(std::is_same<min16uint, __decltype(min16uints - bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints - bools)>::value, "");    /* */
 _Static_assert(std::is_same<uint, __decltype(min16uints - ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16uints - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16uints - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16uints - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16uints - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16uints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16uints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints - min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints - min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints - min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16uints - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16uints - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints - min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints - min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints - min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<uint16_t, __decltype(min16uints - int16_ts)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(min16uints - int32_ts)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(min16uints - int64_ts)>::value, "");
@@ -792,8 +792,8 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int16_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int16_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(int16_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts - min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(int16_ts - min16uints)>::value, "");
@@ -812,8 +812,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(int32_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts - halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int32_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int32_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int32_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int32_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts - min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(int32_ts - min16uints)>::value, "");
@@ -832,8 +832,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts - halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int64_ts - floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(int64_ts - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int64_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int64_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int64_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts - min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(int64_ts - min16uints)>::value, "");
@@ -852,8 +852,8 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint16_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint16_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts - min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(uint16_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts - min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts - min16uints)>::value, "");
@@ -872,8 +872,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts - uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint32_ts - halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint32_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint32_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint32_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint32_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts - min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts - min16uints)>::value, "");
@@ -892,8 +892,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts - uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts - halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint64_ts - floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(uint64_ts - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint64_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint64_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts - min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint64_ts - min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts - min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts - min16uints)>::value, "");
@@ -972,11 +972,11 @@ _Static_assert(std::is_same<uint, __decltype(bools / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(bools / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(bools / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(bools / min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(bools / min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(bools / min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(bools / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(bools / min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(bools / min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min12int, __decltype(bools / min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16uint, __decltype(bools / min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(bools / int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(bools / int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(bools / int64_ts)>::value, "");
@@ -992,8 +992,8 @@ _Static_assert(std::is_same<uint, __decltype(ints / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints / halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(ints / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(ints / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(ints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(ints / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(ints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int, __decltype(ints / min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints / min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(ints / min16uints)>::value, "");
@@ -1012,8 +1012,8 @@ _Static_assert(std::is_same<uint, __decltype(uints / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints / halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uints / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uints / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uints / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint, __decltype(uints / min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints / min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints / min16uints)>::value, "");
@@ -1086,57 +1086,57 @@ _Static_assert(std::is_same<double, __decltype(doubles / uint64_ts)>::value, "")
 _Static_assert(std::is_same<double, __decltype(doubles / float16_ts)>::value, "");
 _Static_assert(std::is_same<double, __decltype(doubles / float32_ts)>::value, "");
 _Static_assert(std::is_same<double, __decltype(doubles / float64_ts)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16floats / bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min16floats / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16floats / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / min10floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats / uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats / float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats / float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats / float64_ts)>::value, "");
-_Static_assert(std::is_same<min10float, __decltype(min10floats / bools)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / bools)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min10floats / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min10floats / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min10floats / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min10floats / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats / uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min10floats / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats / uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min10floats / float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min10floats / float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min10floats / float64_ts)>::value, "");
-_Static_assert(std::is_same<min16int, __decltype(min16ints / bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints / bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
 _Static_assert(std::is_same<int, __decltype(min16ints / ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16ints / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16ints / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16ints / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16ints / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16ints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16ints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints / min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints / min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16ints / min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16ints / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16ints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints / min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints / min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16ints / min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min16ints / int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min16ints / int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min16ints / int64_ts)>::value, "");
@@ -1146,17 +1146,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min16ints / uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min16ints / float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16ints / float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16ints / float64_ts)>::value, "");
-_Static_assert(std::is_same<min12int, __decltype(min12ints / bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints / bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
 _Static_assert(std::is_same<int, __decltype(min12ints / ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min12ints / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min12ints / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min12ints / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min12ints / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min12ints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min12ints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min12ints / min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints / min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min12ints / min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min12ints / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min12ints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min12ints / min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints / min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16uint, __decltype(min12ints / min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min12ints / int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min12ints / int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min12ints / int64_ts)>::value, "");
@@ -1166,17 +1166,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min12ints / uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min12ints / float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min12ints / float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min12ints / float64_ts)>::value, "");
-_Static_assert(std::is_same<min16uint, __decltype(min16uints / bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints / bools)>::value, "");    /* */
 _Static_assert(std::is_same<uint, __decltype(min16uints / ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16uints / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16uints / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16uints / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16uints / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(min16uints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16uints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints / min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints / min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints / min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16uints / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16uints / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints / min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints / min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints / min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<uint16_t, __decltype(min16uints / int16_ts)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(min16uints / int32_ts)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(min16uints / int64_ts)>::value, "");
@@ -1192,8 +1192,8 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int16_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int16_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(int16_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts / min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(int16_ts / min16uints)>::value, "");
@@ -1212,8 +1212,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(int32_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts / halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int32_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int32_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int32_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int32_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts / min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(int32_ts / min16uints)>::value, "");
@@ -1232,8 +1232,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts / halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int64_ts / floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(int64_ts / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(int64_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int64_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int64_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts / min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(int64_ts / min16uints)>::value, "");
@@ -1252,8 +1252,8 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint16_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint16_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts / min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(uint16_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts / min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts / min16uints)>::value, "");
@@ -1272,8 +1272,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts / uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint32_ts / halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint32_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint32_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint32_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint32_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts / min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts / min16uints)>::value, "");
@@ -1292,8 +1292,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts / uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts / halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint64_ts / floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(uint64_ts / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(uint64_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint64_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts / min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint64_ts / min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts / min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts / min16uints)>::value, "");
@@ -1372,11 +1372,11 @@ _Static_assert(std::is_same<uint, __decltype(bools % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(bools % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(bools % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(bools % min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(bools % min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(bools % min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(bools % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(bools % min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(bools % min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min12int, __decltype(bools % min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16uint, __decltype(bools % min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(bools % int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(bools % int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(bools % int64_ts)>::value, "");
@@ -1392,8 +1392,8 @@ _Static_assert(std::is_same<uint, __decltype(ints % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints % halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(ints % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(ints % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(ints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(ints % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(ints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int, __decltype(ints % min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints % min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(ints % min16uints)>::value, "");
@@ -1412,8 +1412,8 @@ _Static_assert(std::is_same<uint, __decltype(uints % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints % halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uints % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(uints % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uints % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint, __decltype(uints % min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints % min12ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints % min16uints)>::value, "");
@@ -1486,57 +1486,57 @@ _Static_assert(std::is_same<double, __decltype(doubles % uint64_ts)>::value, "")
 _Static_assert(std::is_same<double, __decltype(doubles % float16_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
 _Static_assert(std::is_same<double, __decltype(doubles % float32_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
 _Static_assert(std::is_same<double, __decltype(doubles % float64_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min16floats % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % min10floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16float, __decltype(min16floats % uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats % float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats % float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats % float64_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % bools)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % bools)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % ints)>::value, "");    /* expected-warning {{conversion from larger type 'int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % uints)>::value, "");    /* expected-warning {{conversion from larger type 'uint' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<half, __decltype(min10floats % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min10floats % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min10floats % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(min10floats % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min10floats % uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min10floats % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % min10floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % min16ints)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % min12ints)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % min16uints)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % int16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % int32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % int64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % uint16_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % uint32_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(min10floats % uint64_ts)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<float16_t, __decltype(min10floats % float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min10floats % float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min10floats % float64_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints % bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints % bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
 _Static_assert(std::is_same<int, __decltype(min16ints % ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16ints % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16ints % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16ints % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16ints % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(min16ints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16ints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints % min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints % min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16ints % min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16ints % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16ints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints % min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints % min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16ints % min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min16ints % int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min16ints % int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min16ints % int64_ts)>::value, "");
@@ -1546,17 +1546,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min16ints % uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min16ints % float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16ints % float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16ints % float64_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints % bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints % bools)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
 _Static_assert(std::is_same<int, __decltype(min12ints % ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min12ints % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min12ints % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min12ints % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min12ints % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(min12ints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min12ints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min12ints % min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints % min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min12ints % min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min12ints % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min12ints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min12int' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16int, __decltype(min12ints % min16ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints % min12ints)>::value, "");    /* expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} */
+_Static_assert(std::is_same<min16uint, __decltype(min12ints % min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min12ints % int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min12ints % int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min12ints % int64_ts)>::value, "");
@@ -1566,17 +1566,17 @@ _Static_assert(std::is_same<uint64_t, __decltype(min12ints % uint64_ts)>::value,
 _Static_assert(std::is_same<float16_t, __decltype(min12ints % float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min12ints % float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min12ints % float64_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints % bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints % bools)>::value, "");    /* */
 _Static_assert(std::is_same<uint, __decltype(min16uints % ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16uints % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(min16uints % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16uints % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16uints % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(min16uints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(min16uints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints % min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints % min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints % min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(min16uints % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(min16uints % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'min16uint' to smaller type 'min10float', possible loss of data}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints % min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints % min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints % min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<uint16_t, __decltype(min16uints % int16_ts)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(min16uints % int32_ts)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(min16uints % int64_ts)>::value, "");
@@ -1592,8 +1592,8 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(int16_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int16_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(int16_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts % min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(int16_ts % min16uints)>::value, "");
@@ -1612,8 +1612,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(int32_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts % halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int32_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(int32_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int32_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int32_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts % min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(int32_ts % min16uints)>::value, "");
@@ -1632,8 +1632,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts % halfs)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(int64_ts % floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(int64_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(int64_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(int64_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(int64_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'int64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts % min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(int64_ts % min16uints)>::value, "");
@@ -1652,8 +1652,8 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(uint16_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint16_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts % min16floats)>::value, "");    /* */
+_Static_assert(std::is_same<min10float, __decltype(uint16_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint16_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts % min12ints)>::value, "");
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts % min16uints)>::value, "");
@@ -1672,8 +1672,8 @@ _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts % uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint32_ts % halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint32_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(uint32_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint32_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint32_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint32_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts % min12ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts % min16uints)>::value, "");
@@ -1692,8 +1692,8 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts % uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts % halfs)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'half', possible loss of data}} */
 _Static_assert(std::is_same<float, __decltype(uint64_ts % floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'float', possible loss of data}} */
 _Static_assert(std::is_same<double, __decltype(uint64_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} */
-_Static_assert(std::is_same<min16float, __decltype(uint64_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} expected-warning {{min16float is promoted to float16_t}} */
-_Static_assert(std::is_same<min10float, __decltype(uint64_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} expected-warning {{min10float is promoted to float16_t}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts % min16floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min16float', possible loss of data}} */
+_Static_assert(std::is_same<min10float, __decltype(uint64_ts % min10floats)>::value, "");    /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'min10float', possible loss of data}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts % min12ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts % min16uints)>::value, "");
@@ -4326,63 +4326,63 @@ min10floats = (min10floats << uint64_ts);                   /* expected-error {{
 min10floats = (min10floats << float16_ts);                  /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats << float32_ts);                  /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats << float64_ts);                  /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << bools)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << uints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << uints)>::value, "");    /* */
 min16ints = (min16ints << halfs);                           /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints << floats);                          /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints << doubles);                         /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints << min16floats);                     /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints << min10floats);                     /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << min16uints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << int16_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << int32_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << int64_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << uint16_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << uint32_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints << uint64_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << int32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << int64_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << uint32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints << uint64_ts)>::value, "");    /* */
 min16ints = (min16ints << float16_ts);                      /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints << float32_ts);                      /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints << float64_ts);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << bools)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << uints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << bools)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << uints)>::value, "");    /* */
 min12ints = (min12ints << halfs);                           /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints << floats);                          /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints << doubles);                         /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints << min16floats);                     /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints << min10floats);                     /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << min16ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << min16uints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << int16_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << int32_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << int64_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << uint16_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << uint32_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints << uint64_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << int32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << int64_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << uint32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints << uint64_ts)>::value, "");    /* */
 min12ints = (min12ints << float16_ts);                      /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints << float32_ts);                      /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints << float64_ts);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << uints)>::value, "");    /* */
 min16uints = (min16uints << halfs);                         /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints << floats);                        /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints << doubles);                       /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints << min16floats);                   /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints << min10floats);                   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << int16_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << int32_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << int64_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << uint16_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << uint32_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints << uint64_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << int32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << int64_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << uint32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints << uint64_ts)>::value, "");    /* */
 min16uints = (min16uints << float16_ts);                    /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints << float32_ts);                    /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints << float64_ts);                    /* expected-error {{int or unsigned int type required}} */
@@ -4726,63 +4726,63 @@ min10floats = (min10floats >> uint64_ts);                   /* expected-error {{
 min10floats = (min10floats >> float16_ts);                  /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats >> float32_ts);                  /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats >> float64_ts);                  /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> bools)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> uints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> uints)>::value, "");    /* */
 min16ints = (min16ints >> halfs);                           /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints >> floats);                          /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints >> doubles);                         /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints >> min16floats);                     /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints >> min10floats);                     /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> min16uints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> int16_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> int32_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> int64_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> uint16_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> uint32_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints >> uint64_ts)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> int32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> int64_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> uint32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints >> uint64_ts)>::value, "");    /* */
 min16ints = (min16ints >> float16_ts);                      /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints >> float32_ts);                      /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints >> float64_ts);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> bools)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> uints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> bools)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> uints)>::value, "");    /* */
 min12ints = (min12ints >> halfs);                           /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints >> floats);                          /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints >> doubles);                         /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints >> min16floats);                     /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints >> min10floats);                     /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> min16ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> min16uints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> int16_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> int32_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> int64_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> uint16_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> uint32_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints >> uint64_ts)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> int32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> int64_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> uint32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints >> uint64_ts)>::value, "");    /* */
 min12ints = (min12ints >> float16_ts);                      /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints >> float32_ts);                      /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints >> float64_ts);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> bools)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uints)>::value, "");    /* */
 min16uints = (min16uints >> halfs);                         /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints >> floats);                        /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints >> doubles);                       /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints >> min16floats);                   /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints >> min10floats);                   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> int16_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> int32_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> int64_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uint16_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uint32_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uint64_ts)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16uints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> int16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> int32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> int64_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uint16_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uint32_ts)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints >> uint64_ts)>::value, "");    /* */
 min16uints = (min16uints >> float16_ts);                    /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints >> float32_ts);                    /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints >> float64_ts);                    /* expected-error {{int or unsigned int type required}} */
@@ -4974,9 +4974,9 @@ bools = (bools & floats);        /* expected-error {{int or unsigned int type re
 bools = (bools & doubles);       /* expected-error {{int or unsigned int type required}} */
 bools = (bools & min16floats);   /* expected-error {{int or unsigned int type required}} */
 bools = (bools & min10floats);   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(bools & min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(bools & min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(bools & min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(bools & min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(bools & min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(bools & min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(bools & int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(bools & int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(bools & int64_ts)>::value, "");
@@ -5126,7 +5126,7 @@ min10floats = (min10floats & uint64_ts);                    /* expected-error {{
 min10floats = (min10floats & float16_ts);                   /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats & float32_ts);                   /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats & float64_ts);                   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints & bools)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints & bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min16ints & ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16ints & uints)>::value, "");
 min16ints = (min16ints & halfs); /* expected-error {{int or unsigned int type required}} */
@@ -5134,9 +5134,9 @@ min16ints = (min16ints & floats);                           /* expected-error {{
 min16ints = (min16ints & doubles);                          /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints & min16floats);                      /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints & min10floats);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints & min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints & min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16ints & min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints & min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints & min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16ints & min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min16ints & int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min16ints & int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min16ints & int64_ts)>::value, "");
@@ -5146,7 +5146,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(min16ints & uint64_ts)>::value,
 min16ints = (min16ints & float16_ts);                       /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints & float32_ts);                       /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints & float64_ts);                       /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints & bools)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints & bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min12ints & ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min12ints & uints)>::value, "");
 min12ints = (min12ints & halfs); /* expected-error {{int or unsigned int type required}} */
@@ -5154,9 +5154,9 @@ min12ints = (min12ints & floats);                           /* expected-error {{
 min12ints = (min12ints & doubles);                          /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints & min16floats);                      /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints & min10floats);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min12ints & min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints & min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min12ints & min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min12ints & min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints & min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min12ints & min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min12ints & int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min12ints & int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min12ints & int64_ts)>::value, "");
@@ -5166,7 +5166,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(min12ints & uint64_ts)>::value,
 min12ints = (min12ints & float16_ts);                       /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints & float32_ts);                       /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints & float64_ts);                       /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints & bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints & bools)>::value, "");    /* */
 _Static_assert(std::is_same<uint, __decltype(min16uints & ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16uints & uints)>::value, "");
 min16uints = (min16uints & halfs);                          /* expected-error {{int or unsigned int type required}} */
@@ -5174,9 +5174,9 @@ min16uints = (min16uints & floats);                         /* expected-error {{
 min16uints = (min16uints & doubles);                        /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints & min16floats);                    /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints & min10floats);                    /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints & min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints & min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints & min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints & min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints & min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints & min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<uint16_t, __decltype(min16uints & int16_ts)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(min16uints & int32_ts)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(min16uints & int64_ts)>::value, "");
@@ -5374,9 +5374,9 @@ bools = (bools | floats);        /* expected-error {{int or unsigned int type re
 bools = (bools | doubles);       /* expected-error {{int or unsigned int type required}} */
 bools = (bools | min16floats);   /* expected-error {{int or unsigned int type required}} */
 bools = (bools | min10floats);   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(bools | min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(bools | min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(bools | min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(bools | min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(bools | min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(bools | min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(bools | int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(bools | int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(bools | int64_ts)>::value, "");
@@ -5526,7 +5526,7 @@ min10floats = (min10floats | uint64_ts);                    /* expected-error {{
 min10floats = (min10floats | float16_ts);                   /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats | float32_ts);                   /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats | float64_ts);                   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints | bools)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints | bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min16ints | ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16ints | uints)>::value, "");
 min16ints = (min16ints | halfs); /* expected-error {{int or unsigned int type required}} */
@@ -5534,9 +5534,9 @@ min16ints = (min16ints | floats);                           /* expected-error {{
 min16ints = (min16ints | doubles);                          /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints | min16floats);                      /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints | min10floats);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints | min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints | min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16ints | min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints | min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints | min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16ints | min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min16ints | int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min16ints | int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min16ints | int64_ts)>::value, "");
@@ -5546,7 +5546,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(min16ints | uint64_ts)>::value,
 min16ints = (min16ints | float16_ts);                       /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints | float32_ts);                       /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints | float64_ts);                       /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints | bools)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints | bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min12ints | ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min12ints | uints)>::value, "");
 min12ints = (min12ints | halfs); /* expected-error {{int or unsigned int type required}} */
@@ -5554,9 +5554,9 @@ min12ints = (min12ints | floats);                           /* expected-error {{
 min12ints = (min12ints | doubles);                          /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints | min16floats);                      /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints | min10floats);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min12ints | min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints | min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min12ints | min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min12ints | min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints | min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min12ints | min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min12ints | int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min12ints | int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min12ints | int64_ts)>::value, "");
@@ -5566,7 +5566,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(min12ints | uint64_ts)>::value,
 min12ints = (min12ints | float16_ts);                       /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints | float32_ts);                       /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints | float64_ts);                       /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints | bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints | bools)>::value, "");    /* */
 _Static_assert(std::is_same<uint, __decltype(min16uints | ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16uints | uints)>::value, "");
 min16uints = (min16uints | halfs);                          /* expected-error {{int or unsigned int type required}} */
@@ -5574,9 +5574,9 @@ min16uints = (min16uints | floats);                         /* expected-error {{
 min16uints = (min16uints | doubles);                        /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints | min16floats);                    /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints | min10floats);                    /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints | min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints | min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints | min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints | min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints | min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints | min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<uint16_t, __decltype(min16uints | int16_ts)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(min16uints | int32_ts)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(min16uints | int64_ts)>::value, "");
@@ -5774,9 +5774,9 @@ bools = (bools ^ floats);        /* expected-error {{int or unsigned int type re
 bools = (bools ^ doubles);       /* expected-error {{int or unsigned int type required}} */
 bools = (bools ^ min16floats);   /* expected-error {{int or unsigned int type required}} */
 bools = (bools ^ min10floats);   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(bools ^ min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(bools ^ min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(bools ^ min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(bools ^ min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(bools ^ min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(bools ^ min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(bools ^ int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(bools ^ int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(bools ^ int64_ts)>::value, "");
@@ -5926,7 +5926,7 @@ min10floats = (min10floats ^ uint64_ts);                    /* expected-error {{
 min10floats = (min10floats ^ float16_ts);                   /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats ^ float32_ts);                   /* expected-error {{int or unsigned int type required}} */
 min10floats = (min10floats ^ float64_ts);                   /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints ^ bools)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints ^ bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min16ints ^ ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16ints ^ uints)>::value, "");
 min16ints = (min16ints ^ halfs); /* expected-error {{int or unsigned int type required}} */
@@ -5934,9 +5934,9 @@ min16ints = (min16ints ^ floats);                           /* expected-error {{
 min16ints = (min16ints ^ doubles);                          /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints ^ min16floats);                      /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints ^ min10floats);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints ^ min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16int, __decltype(min16ints ^ min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16ints ^ min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min16ints ^ min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16int, __decltype(min16ints ^ min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16ints ^ min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min16ints ^ int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min16ints ^ int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min16ints ^ int64_ts)>::value, "");
@@ -5946,7 +5946,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(min16ints ^ uint64_ts)>::value,
 min16ints = (min16ints ^ float16_ts);                       /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints ^ float32_ts);                       /* expected-error {{int or unsigned int type required}} */
 min16ints = (min16ints ^ float64_ts);                       /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints ^ bools)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
+_Static_assert(std::is_same<min12int, __decltype(min12ints ^ bools)>::value, "");    /* */
 _Static_assert(std::is_same<int, __decltype(min12ints ^ ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min12ints ^ uints)>::value, "");
 min12ints = (min12ints ^ halfs); /* expected-error {{int or unsigned int type required}} */
@@ -5954,9 +5954,9 @@ min12ints = (min12ints ^ floats);                           /* expected-error {{
 min12ints = (min12ints ^ doubles);                          /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints ^ min16floats);                      /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints ^ min10floats);                      /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16int, __decltype(min12ints ^ min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int16_t}} */
-_Static_assert(std::is_same<min12int, __decltype(min12ints ^ min12ints)>::value, "");    /* expected-warning {{min12int is promoted to int16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min12ints ^ min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16int, __decltype(min12ints ^ min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min12int, __decltype(min12ints ^ min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min12ints ^ min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<int16_t, __decltype(min12ints ^ int16_ts)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(min12ints ^ int32_ts)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(min12ints ^ int64_ts)>::value, "");
@@ -5966,7 +5966,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(min12ints ^ uint64_ts)>::value,
 min12ints = (min12ints ^ float16_ts);                       /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints ^ float32_ts);                       /* expected-error {{int or unsigned int type required}} */
 min12ints = (min12ints ^ float64_ts);                       /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ bools)>::value, "");    /* */
 _Static_assert(std::is_same<uint, __decltype(min16uints ^ ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(min16uints ^ uints)>::value, "");
 min16uints = (min16uints ^ halfs);                          /* expected-error {{int or unsigned int type required}} */
@@ -5974,9 +5974,9 @@ min16uints = (min16uints ^ floats);                         /* expected-error {{
 min16uints = (min16uints ^ doubles);                        /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints ^ min16floats);                    /* expected-error {{int or unsigned int type required}} */
 min16uints = (min16uints ^ min10floats);                    /* expected-error {{int or unsigned int type required}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
-_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint16_t}} */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min12ints)>::value, "");    /* */
+_Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16uints)>::value, "");    /* */
 _Static_assert(std::is_same<uint16_t, __decltype(min16uints ^ int16_ts)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(min16uints ^ int32_ts)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(min16uints ^ int64_ts)>::value, "");

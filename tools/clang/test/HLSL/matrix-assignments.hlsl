@@ -60,7 +60,7 @@ float4 main() : SV_Target {
     DeclStmt <col:3, col:57>
     `-VarDecl <col:3, col:56> col:12 used f22_target 'float2x2':'matrix<float, 2, 2>' cinit
       `-CXXFunctionalCastExpr <col:25, col:56> 'float2x2':'matrix<float, 2, 2>' functional cast to float2x2 <NoOp>
-        `-InitListExpr <col:34, col:52> 'float2x2':'matrix<float, 2, 2>'
+        `-InitListExpr <col:33, col:56> 'float2x2':'matrix<float, 2, 2>'
           |-FloatingLiteral <col:34> 'float' 1.000000e-01
           |-FloatingLiteral <col:40> 'float' 2.000000e-01
           |-FloatingLiteral <col:46> 'float' 3.000000e-01
@@ -71,7 +71,7 @@ float4 main() : SV_Target {
     DeclStmt <col:3, col:51>
     `-VarDecl <col:3, col:50> col:12 f22_target_clone 'float2x2':'matrix<float, 2, 2>' cinit
       `-CXXFunctionalCastExpr <col:31, col:50> 'float2x2':'matrix<float, 2, 2>' functional cast to float2x2 <NoOp>
-        `-InitListExpr <col:40> 'float2x2':'matrix<float, 2, 2>'
+        `-InitListExpr <col:31, col:40> 'float2x2':'matrix<float, 2, 2>'
           `-ImplicitCastExpr <col:40> 'float2x2':'matrix<float, 2, 2>' <LValueToRValue>
             `-DeclRefExpr <col:40> 'float2x2':'matrix<float, 2, 2>' lvalue Var 'f22_target' 'float2x2':'matrix<float, 2, 2>'
   */

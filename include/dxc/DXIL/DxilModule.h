@@ -82,7 +82,7 @@ public:
   const llvm::Function *GetPatchConstantFunction() const;
   void SetPatchConstantFunction(llvm::Function *pFunc);
   bool IsEntryOrPatchConstantFunction(const llvm::Function* pFunc) const;
-  llvm::SmallVector<llvm::Function *, 64> GetExportedFunctions() const;
+  llvm::SmallVector<llvm::Function *, 64> GetExportedFunctions();
 
   // Flags.
   unsigned GetGlobalFlags() const;

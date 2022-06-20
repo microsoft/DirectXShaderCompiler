@@ -6734,6 +6734,17 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
   while (const ConstantArrayType *Array
            = Context.getAsConstantArrayType(MaybeTemplate))
     MaybeTemplate = Array->getElementType();
+
+  // HLSL Change - Begin
+  // In HLSL we don't decay arrays to pointers, so we need to require complete
+  // types for array elements.
+  if (LangOpts.HLSL) {
+    if (const TagType *Tag = MaybeTemplate->getAs<TagType>()) {
+      if (auto *Source = Context.getExternalSource())
+        Source->CompleteType(Tag->getDecl());
+    }
+  }
+  // HLSL Change - End
   if (const RecordType *Record = MaybeTemplate->getAs<RecordType>()) {
     if (ClassTemplateSpecializationDecl *ClassTemplateSpec
           = dyn_cast<ClassTemplateSpecializationDecl>(Record->getDecl())) {

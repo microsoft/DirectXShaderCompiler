@@ -2336,9 +2336,19 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
       return BuildPossibleImplicitMemberExpr(SS, TemplateKWLoc,
                                              R, TemplateArgs);
   }
-
+  // HLSL Change Begin: Allow templates without empty argument list if default
+  // arguments are provided.
+  if (getLangOpts().HLSL && R.isSingleResult()) {
+    if (TemplateDecl *Template = dyn_cast<TemplateDecl>(R.getFoundDecl())) {
+      if (Template->getTemplateParameters()->getMinRequiredArguments() == 0) {
+        TemplateArgsBuffer.setLAngleLoc(NameLoc);
+        TemplateArgsBuffer.setRAngleLoc(NameLoc);
+        TemplateArgs = &TemplateArgsBuffer;
+      }
+    }
+  }
+  // HLSL Change End
   if (TemplateArgs || TemplateKWLoc.isValid()) {
-
     // In C++1y, if this is a variable template id, then check it
     // in BuildTemplateIdExpr().
     // The single lookup result must be a variable template declaration.
@@ -4275,7 +4285,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
       // We need to make sure to preserve qualifiers on array types, since these
       // are in effect references.
       if (LHSTy.hasQualifiers())
-        ResultType.setLocalFastQualifiers(LHSTy.getLocalFastQualifiers());
+        ResultType.setLocalFastQualifiers(LHSTy.getQualifiers().getFastQualifiers());
     } else {
     // HLSL Change Ends
       Diag(LHSExp->getLocStart(), diag::ext_subscript_non_lvalue) <<

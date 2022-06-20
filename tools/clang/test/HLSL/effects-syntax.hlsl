@@ -89,7 +89,7 @@ float4 main() : SV_Target
       |-ImplicitCastExpr <col:21> 'SamplerState' <LValueToRValue>
       | `-DeclRefExpr <col:21> 'SamplerState' lvalue Var 'samLinear' 'SamplerState'
       `-CXXFunctionalCastExpr <col:32, col:46> 'float2':'vector<float, 2>' functional cast to float2 <NoOp>
-        `-InitListExpr <col:39, col:43> 'float2':'vector<float, 2>'
+        `-InitListExpr <col:38, col:46> 'float2':'vector<float, 2>'
           |-ImplicitCastExpr <col:39> 'float' <FloatingCast>
           | `-FloatingLiteral <col:39> 'literal float' 1.000000e-01
           `-ImplicitCastExpr <col:43> 'float' <FloatingCast>

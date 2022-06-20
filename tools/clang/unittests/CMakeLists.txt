@@ -53,9 +53,6 @@ endif (HLSL_INCLUDE_TESTS)
 
 if (SPIRV_BUILD_TESTS)
   add_subdirectory(SPIRV)
-if (ENABLE_DXIL2SPV)
-  add_subdirectory(Dxil2Spv)
-endif (ENABLE_DXIL2SPV)
 endif (SPIRV_BUILD_TESTS)
 
 # SPIRV Change Ends

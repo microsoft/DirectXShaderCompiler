@@ -383,11 +383,11 @@ environment (hence SPIR-V version) and SPIR-V extension control:
 - ``-fspv-target-env=``: for specifying SPIR-V target environment
 - ``-fspv-extension=``: for specifying allowed SPIR-V extensions
 
-``-fspv-target-env=`` only accepts ``vulkan1.0`` and ``vulkan1.1`` right now.
-If such an option is not given, the CodeGen defaults to ``vulkan1.0``. When
-targeting ``vulkan1.0``, trying to use features that are only available
-in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_, will
-trigger a compiler error.
+``-fspv-target-env=`` accepts a Vulkan target environment (see ``-help`` for
+supported values). If such an option is not given, the CodeGen defaults to
+``vulkan1.0``. When targeting ``vulkan1.0``, trying to use features that are only
+available in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_,
+will trigger a compiler error.
 
 If ``-fspv-extension=`` is not specified, the CodeGen will select suitable
 SPIR-V extensions to translate the source code. Otherwise, only extensions
@@ -1597,6 +1597,23 @@ requiring the ``ClipDistance`` capability in the generated SPIR-V.
 
 Variables decorated with ``SV_CullDistanceX`` are mapped similarly as above.
 
+Signature packing
+~~~~~~~~~~~~~~~~~
+
+In usual, Vulkan drivers have a limitation of the number of available locations.
+It varies depending on the device. To avoid the driver crash caused by the
+limitation, we added an experimental signature packing support using Component
+decoration (see the Vulkan spec "15.1.5. Component Assignment").
+``-pack-optimized`` is the command line option to enable it.
+
+In a high level, for a stage variable that needs ``M`` components in ``N``
+locations e.g., stage variable ``float3 foo[2]`` needs 3 components in 2
+locations, we find a minimum ``K`` where each of ``N`` continuous locations in
+``[K, K + N)`` has ``M`` continuous unused Component slots. We create a Location
+decoration instruction for the stage variable with ``K`` and a Component
+decoration instruction with the first unused component number of the
+``M`` continuous unused Component slots.
+
 HLSL register and Vulkan binding
 --------------------------------
 
@@ -2340,14 +2357,14 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``log10``               ``Log2`` (scaled by ``1/log2(10)``)
 ``log2``                ``Log2``
 ``mad``                 ``Fma``
-``max``                 ``SMax``/``UMax``/``FMax``
-``min``                 ``SMin``/``UMin``/``FMin``
+``max``                 ``SMax``/``UMax``/``NMax``
+``min``                 ``SMin``/``UMin``/``NMin``
 ``modf``                ``ModfStruct``
 ``normalize``           ``Normalize``
 ``pow``                 ``Pow``
 ``reflect``             ``Reflect``
 ``refract``             ``Refract``
-``round``               ``Round``
+``round``               ``RoundEven``
 ``rsqrt``               ``InverseSqrt``
 ``saturate``            ``FClamp``
 ``sign``                ``SSign``/``FSign``
@@ -3765,7 +3782,8 @@ implicit ``vk`` namepsace.
     const uint QueueFamilyScope = 5;
   
     uint64_t ReadClock(in uint scope);
-    uint     RawBufferLoad(in uint64_t deviceAddress);
+    T        RawBufferLoad<T = uint>(in uint64_t deviceAddress,
+                                     in uint alignment = 4);
   } // end namespace
 
 
@@ -3805,32 +3823,48 @@ For example:
 
 RawBufferLoad
 ~~~~~~~~~~~~~
-This intrinsic funcion has the following signature:
+Vulkan extension `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+supports getting the 64-bit address of a buffer and passing it to SPIR-V as a
+Uniform buffer. SPIR-V can use the address to load the data without descriptor.
+We add the following intrinsic funcion to expose a subset of the
+`VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_
+functionality to HLSL:
 
 .. code:: hlsl
 
-  uint RawBufferLoad(in uint64_t deviceAddress);
+  // It uses 'uint' for the default template argument. The default alignment
+  // is 4. Note that 'alignment' must be a constant integer.
+  T RawBufferLoad<T = uint>(in uint64_t deviceAddress, in uint alignment = 4);
 
-This exposes a subset of the `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
-and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_ 
-functionality to HLSL. 
 
-It allows the shader program to load a single 32 bit value from a GPU
+It allows the shader program to load a single value with type T from a GPU
 accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
-Like ``ByteAddressBuffer``, this intrinsic requires a 4 byte aligned address.
+The intrinsic allows us to set the alignment. It uses 'uint' when the template
+argument is missing and it uses 4 for the default alignment. The alignment
+argument must be a constant integer if it is given.
 
-Using this intrinsic adds ``PhysicalStorageBufferAddresses`` capability and 
-``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing 
+Note that we support the aligned data load, but we do not support setting
+memory layout for the data. Since it is supposed to load "arbitrary" data
+from a random device address, we assume that it loads some "bytes of data"
+but its format or layout is unknown. Therefore, keep it in mind that it
+loads ``sizeof(T)`` bytes of data, but loading data with a complicated struct
+type ``T`` is a undefined behavior because of the missing memory layout support.
+Loading data with a memory layout is a future work.
+
+Using the intrinsic adds ``PhysicalStorageBufferAddresses`` capability and
+``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing
 the addressing model to ``PhysicalStorageBuffer64``.
 
 Example:
 
 .. code:: hlsl
 
-  uint64_t Address;
+  uint64_t address;
   float4 main() : SV_Target0 {
-    uint Value = vk::RawBufferLoad(Address);
-    return asfloat(Value);
+    double foo = vk::RawBufferLoad<double>(address, 8);
+    uint bar = vk::RawBufferLoad(address + 8);
+    ...
   }
 
 Inline SPIR-V (HLSL version of GL_EXT_spirv_intrinsics)
@@ -3903,7 +3937,8 @@ codegen for Vulkan:
   option cannot be used together with other binding assignment options.
   It requires all source code resources have ``:register()`` attribute and
   all registers have corresponding Vulkan descriptors specified using this
-  option.
+  option. If the ``$Globals`` cbuffer resource is used, it must also be bound
+  with ``-fvk-bind-globals``.
 - ``-fvk-bind-globals N M``: Places the ``$Globals`` cbuffer at
   descriptor set #M and binding #N. See `HLSL global variables and Vulkan binding`_
   for explanation and examples.
@@ -3940,6 +3975,8 @@ codegen for Vulkan:
   SPIR-V backend. Also note that this requires the optimizer to be able to
   resolve all array accesses with constant indeces. Therefore, all loops using
   the resource arrays must be marked with ``[unroll]``.
+- ``-fspv-entrypoint-name=<name>``: Specify the SPIR-V entry point name. Defaults
+  to the HLSL entry point name.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

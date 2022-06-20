@@ -64,8 +64,13 @@ void increment(inout T X) {
 #ifdef EPARTIAL
 // EPARTIAL: error: function template partial specialization is not allowed
 template<typename VComp, uint VSize>
-void increment(inout vector<VComp, VSize> X) {
-  X.x += 1;
+void decrement(inout vector<VComp, VSize> X) {
+  X.x -= 1;
+}
+
+template<typename VComp>
+void decrement<VComp, 4>(inout vector<VComp, 4> X) {
+  X.x -= 1;
 }
 #endif
 

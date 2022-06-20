@@ -1414,9 +1414,7 @@ Parser::TryAnnotateName(bool IsAddressOfOperand,
     if (TryAnnotateTypeOrScopeTokenAfterScopeSpec(EnteringContext, false, SS,
                                                   !WasScopeAnnotation))
       return ANK_Error;
-    // HLSL Change Starts - allow implicitly annotated templates
-    return (Tok.isNot(tok::annot_typename) || SS.isInvalid()) ? ANK_Unresolved : ANK_Success;
-    // HLSL Change End
+    return ANK_Unresolved;
   }
 
   IdentifierInfo *Name = Tok.getIdentifierInfo();
@@ -1748,8 +1746,7 @@ bool Parser::TryAnnotateTypeOrScopeTokenAfterScopeSpec(bool EnteringContext,
                                    /*hasTemplateKeyword=*/false, TemplateName,
                                    /*ObjectType=*/ ParsedType(),
                                    EnteringContext,
-                                   Template, MemberOfUnknownSpecialization,
-                                   /*NextIsLess*/ true)) {  // HLSL Change - additional flag
+                                   Template, MemberOfUnknownSpecialization)) {
         // Consume the identifier.
         ConsumeToken();
         if (AnnotateTemplateIdToken(Template, TNK, SS, SourceLocation(),

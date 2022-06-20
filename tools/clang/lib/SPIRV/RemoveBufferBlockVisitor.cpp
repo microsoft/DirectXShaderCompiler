@@ -14,16 +14,16 @@
 namespace clang {
 namespace spirv {
 
-bool RemoveBufferBlockVisitor::isBufferBlockDecorationDeprecated() {
-  return featureManager.isTargetEnvVulkan1p2OrAbove();
+bool RemoveBufferBlockVisitor::isBufferBlockDecorationAvailable() {
+  return !featureManager.isTargetEnvSpirv1p4OrAbove();
 }
 
 bool RemoveBufferBlockVisitor::visit(SpirvModule *mod, Phase phase) {
-  // If the target environment is Vulkan 1.2 or later, BufferBlock decoration is
-  // deprecated and should be removed from the module.
+  // The BufferBlock decoration requires SPIR-V version 1.3 or earlier. It should be
+  // removed from the module on newer versions.
   // Otherwise, no action is needed by this IMR visitor.
   if (phase == Visitor::Phase::Init)
-    if (!isBufferBlockDecorationDeprecated())
+    if (isBufferBlockDecorationAvailable())
       return false;
 
   return true;

@@ -214,8 +214,6 @@ public:
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IStream **ppStream) override;
   HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override;
-  HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override;
   HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override;
 };
@@ -312,10 +310,6 @@ public:
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcGetBlobAsUtf8(pBlob, m_pMalloc, pBlobEncoding);
-  }
-  virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) override {
-    return GetBlobAsWide(pBlob, pBlobEncoding);
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
@@ -574,15 +568,10 @@ HRESULT STDMETHODCALLTYPE DxcLibrary::GetBlobAsUtf8(
   return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE DxcLibrary::GetBlobAsUtf16(
-  _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
-  return GetBlobAsWide(pBlob, pBlobEncoding);
-}
-
 HRESULT STDMETHODCALLTYPE DxcLibrary::GetBlobAsWide(
   _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
   CComPtr<IDxcBlobWide> pBlobUtf16;
-  IFR(self.GetBlobAsUtf16(pBlob, &pBlobUtf16));
+  IFR(self.GetBlobAsWide(pBlob, &pBlobUtf16));
   IFR(pBlobUtf16->QueryInterface(pBlobEncoding));
   return S_OK;
 }

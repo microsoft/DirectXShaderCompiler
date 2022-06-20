@@ -322,6 +322,26 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
   return true;
 }
 
+// Check if any options that are unsupported with SPIR-V are used.
+static bool hasUnsupportedSpirvOption(const InputArgList &args,
+                                      llvm::raw_ostream &errors) {
+  // Note: The options checked here are non-exhaustive. A thorough audit of
+  // available options and their current compatibility is needed to generate a
+  // complete list.
+  std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre,
+                                               OPT_Qstrip_reflect};
+
+  for (const auto &id : unsupportedOpts) {
+    if (Arg *arg = args.getLastArg(id)) {
+      errors << "-" << arg->getOption().getName()
+             << " is not supported with -spirv";
+      return true;
+    }
+  }
+
+  return false;
+}
+
 namespace {
 
 /// Maximum size of OpString instruction minus two operands
@@ -329,7 +349,7 @@ static const uint32_t kDefaultMaximumSourceLength = 0xFFFDu;
 static const uint32_t kTestingMaximumSourceLength = 13u;
 
 }
-#endif
+#endif // ENABLE_SPIRV_CODEGEN
 // SPIRV Change Ends
 
 namespace hlsl {
@@ -963,6 +983,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false);
   opts.SpirvOptions.reduceLoadSize =
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false);
+  opts.SpirvOptions.fixFuncCallArguments =
+      Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false);
   opts.SpirvOptions.autoShiftBindings = Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
@@ -983,6 +1005,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
     opts.SpirvOptions.allowedExtensions.push_back(A->getValue());
   }
+
+  opts.SpirvOptions.printAll = Args.hasFlag(OPT_fspv_print_all, OPT_INVALID, false);
 
   opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
   opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
@@ -1064,6 +1088,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
+  opts.SpirvOptions.entrypointName =
+      Args.getLastArgValue(OPT_fspv_entrypoint_name_EQ);
+
+  // Check for use of options not implemented in the SPIR-V backend.
+  if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) &&
+      hasUnsupportedSpirvOption(Args, errors))
+    return 1;
+
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
@@ -1075,6 +1107,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_print_all, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||

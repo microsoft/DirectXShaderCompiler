@@ -14,17 +14,16 @@
 #include "SpirvEmitter.h"
 
 #include "AlignmentSizeCalculator.h"
-#include "InitListHandler.h"
 #include "RawBufferMethods.h"
-#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
-#include "clang/SPIRV/SpirvUtils.h"
 #include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "InitListHandler.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "clang/Basic/Version.h"
@@ -500,14 +499,57 @@ std::vector<DescriptorSetAndBinding> collectDSetBindingsToCombineSampledImage(
   return dsetBindings;
 }
 
+// Returns a scalar unsigned integer type or a vector of them or a matrix of
+// them depending on the scalar/vector/matrix type of boolType. The element
+// type of boolType must be BuiltinType::Bool type.
+QualType getUintTypeForBool(ASTContext &astContext,
+                            CompilerInstance &theCompilerInstance,
+                            QualType boolType) {
+  assert(isBoolOrVecMatOfBoolType(boolType));
+
+  uint32_t vecSize = 1, numRows = 0, numCols = 0;
+  QualType uintType = astContext.UnsignedIntTy;
+  if (isScalarType(boolType) || isVectorType(boolType, nullptr, &vecSize)) {
+    if (vecSize == 1)
+      return uintType;
+    else
+      return astContext.getExtVectorType(uintType, vecSize);
+  } else {
+    const bool isMat = isMxNMatrix(boolType, nullptr, &numRows, &numCols);
+    assert(isMat);
+    (void)isMat;
+
+    const clang::Type *type = boolType.getCanonicalType().getTypePtr();
+    const RecordType *RT = cast<RecordType>(type);
+    const ClassTemplateSpecializationDecl *templateSpecDecl =
+        cast<ClassTemplateSpecializationDecl>(RT->getDecl());
+    ClassTemplateDecl *templateDecl =
+        templateSpecDecl->getSpecializedTemplate();
+    return getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
+                             templateDecl, uintType, numRows, numCols);
+  }
+  return QualType();
+}
+
+bool isVkRawBufferLoadIntrinsic(const clang::FunctionDecl *FD) {
+  if (!FD->getName().equals("RawBufferLoad"))
+    return false;
+
+  if (auto *nsDecl = dyn_cast<NamespaceDecl>(FD->getDeclContext()))
+    if (!nsDecl->getName().equals("vk"))
+      return false;
+
+  return true;
+}
+
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
       diags(ci.getDiagnostics()),
       spirvOptions(ci.getCodeGenOpts().SpirvOptions),
-      entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction), spvContext(),
-      featureManager(diags, spirvOptions),
+      hlslEntryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
+      spvContext(), featureManager(diags, spirvOptions),
       spvBuilder(astContext, spvContext, spirvOptions, featureManager),
       declIdMapper(astContext, spvContext, spvBuilder, *this, featureManager,
                    spirvOptions),
@@ -533,6 +575,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   spvContext.setCurrentShaderModelKind(shaderModel->GetKind());
   spvContext.setMajorVersion(shaderModel->GetMajor());
   spvContext.setMinorVersion(shaderModel->GetMinor());
+  spirvOptions.signaturePacking =
+      ci.getCodeGenOpts().HLSLSignaturePackingStrategy ==
+      (unsigned)hlsl::DXIL::PackingStrategy::Optimized;
 
   if (spirvOptions.useDxLayout) {
     spirvOptions.cBufferLayoutRule = SpirvLayoutRule::FxcCTBuffer;
@@ -615,7 +660,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 std::vector<SpirvVariable *>
 SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   auto stageVars = declIdMapper.collectStageVars(entryPoint);
-  if (!featureManager.isTargetEnvVulkan1p2OrAbove())
+  if (!featureManager.isTargetEnvVulkan1p1Spirv1p4OrAbove())
     return stageVars;
 
   // In SPIR-V 1.4 or above, we must include global variables in the 'Interface'
@@ -638,6 +683,17 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
     interfacesInVector.push_back(interface);
   }
   return interfacesInVector;
+}
+
+llvm::StringRef SpirvEmitter::getEntryPointName(const FunctionInfo *entryInfo) {
+  llvm::StringRef entrypointName = entryInfo->funcDecl->getName();
+  // If this is the -E HLSL entrypoint and -fspv-entrypoint-name was set,
+  // rename the SPIR-V entrypoint.
+  if (entrypointName == hlslEntryFunctionName &&
+      !spirvOptions.entrypointName.empty()) {
+    return spirvOptions.entrypointName;
+  }
+  return entrypointName;
 }
 
 void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
@@ -663,7 +719,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                  funcDecl, /*isEntryFunction*/ false);
         }
       } else {
-        if (funcDecl->getName() == entryFunctionName) {
+        if (funcDecl->getName() == hlslEntryFunctionName) {
           addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(),
                                  funcDecl, /*isEntryFunction*/ true);
           numEntryPoints++;
@@ -703,8 +759,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
     spvBuilder.addEntryPoint(
-        SpirvUtils::getSpirvShaderStage(entryInfo->shaderModelKind),
-        entryInfo->entryFunction, entryInfo->funcDecl->getName(),
+        getSpirvShaderStage(entryInfo->shaderModelKind),
+        entryInfo->entryFunction, getEntryPointName(entryInfo),
         getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
 
@@ -748,7 +804,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       needsLegalization || declIdMapper.requiresLegalization() ||
       spirvOptions.flattenResourceArrays || spirvOptions.reduceLoadSize ||
       declIdMapper.requiresFlatteningCompositeResources() ||
-      !dsetbindingsToCombineImageSampler.empty();
+      !dsetbindingsToCombineImageSampler.empty() ||
+      spirvOptions.signaturePacking;
 
   if (spirvOptions.codeGenHighLevel) {
     beforeHlslLegalization = needsLegalization;
@@ -2406,6 +2463,11 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
     return processIntrinsicCallExpr(callExpr);
+  }
+
+  // Handle 'vk::RawBufferLoad()'
+  if (isVkRawBufferLoadIntrinsic(funcDecl)) {
+    return processRawBufferLoad(callExpr);
   }
 
   // Normal standalone functions
@@ -8047,7 +8109,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
     INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
-    INTRINSIC_OP_CASE(round, Round, true);
+    INTRINSIC_OP_CASE(round, RoundEven, true);
     INTRINSIC_OP_CASE(uabs, SAbs, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
     INTRINSIC_OP_CASE(acos, Acos, true);
@@ -8074,9 +8136,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(lerp, FMix, true);
     INTRINSIC_OP_CASE(log, Log, true);
     INTRINSIC_OP_CASE(log2, Log2, true);
-    INTRINSIC_OP_CASE_SINT_UINT_FLOAT(max, SMax, UMax, FMax, true);
+    INTRINSIC_OP_CASE_SINT_UINT_FLOAT(max, SMax, UMax, NMax, true);
     INTRINSIC_OP_CASE(umax, UMax, true);
-    INTRINSIC_OP_CASE_SINT_UINT_FLOAT(min, SMin, UMin, FMin, true);
+    INTRINSIC_OP_CASE_SINT_UINT_FLOAT(min, SMin, UMin, NMin, true);
     INTRINSIC_OP_CASE(umin, UMin, true);
     INTRINSIC_OP_CASE(normalize, Normalize, false);
     INTRINSIC_OP_CASE(pow, Pow, true);
@@ -11264,6 +11326,43 @@ hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
   return smk;
 }
 
+spv::ExecutionModel
+SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk) {
+  switch (smk) {
+  case hlsl::ShaderModel::Kind::Vertex:
+    return spv::ExecutionModel::Vertex;
+  case hlsl::ShaderModel::Kind::Hull:
+    return spv::ExecutionModel::TessellationControl;
+  case hlsl::ShaderModel::Kind::Domain:
+    return spv::ExecutionModel::TessellationEvaluation;
+  case hlsl::ShaderModel::Kind::Geometry:
+    return spv::ExecutionModel::Geometry;
+  case hlsl::ShaderModel::Kind::Pixel:
+    return spv::ExecutionModel::Fragment;
+  case hlsl::ShaderModel::Kind::Compute:
+    return spv::ExecutionModel::GLCompute;
+  case hlsl::ShaderModel::Kind::RayGeneration:
+    return spv::ExecutionModel::RayGenerationNV;
+  case hlsl::ShaderModel::Kind::Intersection:
+    return spv::ExecutionModel::IntersectionNV;
+  case hlsl::ShaderModel::Kind::AnyHit:
+    return spv::ExecutionModel::AnyHitNV;
+  case hlsl::ShaderModel::Kind::ClosestHit:
+    return spv::ExecutionModel::ClosestHitNV;
+  case hlsl::ShaderModel::Kind::Miss:
+    return spv::ExecutionModel::MissNV;
+  case hlsl::ShaderModel::Kind::Callable:
+    return spv::ExecutionModel::CallableNV;
+  case hlsl::ShaderModel::Kind::Mesh:
+    return spv::ExecutionModel::MeshNV;
+  case hlsl::ShaderModel::Kind::Amplification:
+    return spv::ExecutionModel::TaskNV;
+  default:
+    llvm_unreachable("invalid shader model kind");
+    break;
+  }
+}
+
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
@@ -12795,29 +12894,81 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
                                 /*isInstr*/ true, expr->getExprLoc());
 }
 
+uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
+  if (callExpr->getNumArgs() == 1)
+    return 4;
+
+  if (callExpr->getNumArgs() > 2) {
+    emitError("number of arguments for vk::RawBufferLoad() must be 1 or 2",
+              callExpr->getExprLoc());
+    return 0;
+  }
+
+  const Expr *alignmentArgExpr = callExpr->getArg(1);
+  if (const auto *templateParmExpr =
+          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
+    alignmentArgExpr = templateParmExpr->getReplacement();
+  }
+  const auto *intLiteral =
+      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
+  if (intLiteral == nullptr) {
+    emitError("alignment argument of vk::RawBufferLoad() must be a constant "
+              "integer",
+              callExpr->getArg(1)->getExprLoc());
+    return 0;
+  }
+  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+}
+
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
-  clang::SourceLocation loc = callExpr->getExprLoc();
-  const clang::Expr *addressExpr = callExpr->getArg(0);
-  SpirvInstruction *address = doExpr(addressExpr);
+  uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
+  if (alignment == 0)
+    return nullptr;
 
-  const SpirvPointerType *bufferType =
-      spvBuilder.getPhysicalStorageBufferType(spvContext.getUIntType(32));
+  SpirvInstruction *address = doExpr(callExpr->getArg(0));
+  QualType bufferType = callExpr->getCallReturnType(astContext);
+  SourceLocation loc = callExpr->getExprLoc();
+  if (!isBoolOrVecMatOfBoolType(bufferType)) {
+    return loadDataFromRawAddress(address, bufferType, alignment, loc);
+  }
 
-  SpirvUnaryOp *bufferReference =
-      spvBuilder.createUnaryOp(spv::Op::OpBitcast, bufferType, address, loc);
+  // If callExpr is `vk::RawBufferLoad<bool>(..)`, we have to load 'uint' and
+  // convert it to boolean data, because a physical pointer cannot have boolean
+  // type in Vulkan.
+  if (alignment % 4 != 0) {
+    emitWarning("Since boolean is a logical type, we use a unsigned integer "
+                "type to read/write boolean from a buffer. Therefore "
+                "alignment for the data with a boolean type must be aligned "
+                "with 4 bytes",
+                loc);
+  }
+  QualType boolType = bufferType;
+  bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
+  SpirvInstruction *load =
+      loadDataFromRawAddress(address, bufferType, alignment, loc);
+  auto *loadAsBool = castToBool(load, bufferType, boolType, loc);
+  loadAsBool->setRValue();
+  return loadAsBool;
+}
 
-  bufferReference->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+SpirvInstruction *
+SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
+                                     QualType bufferType, uint32_t alignment,
+                                     SourceLocation loc) {
+  // Summary:
+  //   %address = OpBitcast %ptrTobufferType %addressInUInt64
+  //   %loadInst = OpLoad %bufferType %address
 
-  SpirvAccessChain *ac = spvBuilder.createAccessChain(astContext.UnsignedIntTy,
-                                                      bufferReference, {}, loc);
+  const HybridPointerType *bufferPtrType =
+      spvBuilder.getPhysicalStorageBufferType(bufferType);
 
-  SpirvLoad *loadInst =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ac, loc);
+  SpirvUnaryOp *address = spvBuilder.createUnaryOp(
+      spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
+  address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  // Raw buffer loads have the same alignment requirement as
-  // ByteAddressBuffer in HLSL
-  loadInst->setAlignment(4);
-
+  SpirvLoad *loadInst = spvBuilder.createLoad(bufferType, address, loc);
+  loadInst->setAlignment(alignment);
+  loadInst->setRValue();
   return loadInst;
 }
 
@@ -12917,11 +13068,15 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
 bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
                                       std::string *messages) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
-
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
+
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
 
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
@@ -12958,8 +13113,18 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
 
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
+
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
+  // Add interface variable SROA if the signature packing is enabled.
+  if (spirvOptions.signaturePacking) {
+    optimizer.RegisterPass(
+        spvtools::CreateInterfaceVariableScalarReplacementPass());
+  }
   optimizer.RegisterLegalizationPasses();
   // Add flattening of resources if needed.
   if (spirvOptions.flattenResourceArrays ||
@@ -12991,6 +13156,9 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
   optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
+  if (spirvOptions.fixFuncCallArguments) {
+    optimizer.RegisterPass(spvtools::CreateFixFuncCallArgumentsPass());
+  }
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }

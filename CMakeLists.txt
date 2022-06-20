@@ -105,6 +105,13 @@ endif()
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
+
+# enable control flow guard
+if(WIN32)
+add_compile_options(/guard:cf)
+add_link_options(/guard:cf)
+endif(WIN32)
+
 # HLSL Change Ends
 
 # HLSL Change Starts - set flag for Appveyor CI
@@ -129,9 +136,6 @@ endif()
 if (${ENABLE_SPIRV_CODEGEN})
   add_definitions(-DENABLE_SPIRV_CODEGEN)
 endif()
-
-# Building dxil2spv off by default while it's in early development.
-option(ENABLE_DXIL2SPV "Enables DXIL to SPIR-V translation." OFF)
 # SPIRV change ends
 
 include(VersionFromVCS)
