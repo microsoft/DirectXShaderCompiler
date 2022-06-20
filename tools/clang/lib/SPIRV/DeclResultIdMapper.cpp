@@ -2222,7 +2222,14 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           }
           spvBuilder.decorateDSetBinding(var.getSpirvInstr(), setNo, bindNo);
         }
-      } else if (bindGlobals && var.isGlobalsBuffer()) {
+      } else if (var.isGlobalsBuffer()) {
+        if (!bindGlobals) {
+          emitError("-fvk-bind-register requires Globals buffer to be bound "
+                    "with -fvk-bind-globals",
+                    var.getSourceLocation());
+          return false;
+        }
+
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
                                        globalsBindNo);
       } else {
