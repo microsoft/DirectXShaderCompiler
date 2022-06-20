@@ -662,6 +662,12 @@ struct IDxcCodeCompleteResults;
 struct IDxcCompletionResult;
 struct IDxcCompletionString;
 
+// TODO for nullonfailure:
+// https://learn.microsoft.com/en-us/cpp/code-quality/annotating-function-parameters-and-return-values
+// > Certain interface conventions presume that output parameters are nullified
+// on failure. Except for explicitly COM code, the forms in the following table
+// are preferred. For COM code, use the corresponding COM forms that are listed
+// in the previous section.
 CROSS_PLATFORM_UUIDOF(IDxcCursor, "1467b985-288d-4d2a-80c1-ef89c42c40bc")
 struct IDxcCursor : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
@@ -725,7 +731,7 @@ struct IDxcCursor : public IUnknown {
   /// cursor.</summary>
   virtual HRESULT STDMETHODCALLTYPE
   GetSnappedChild(_In_ IDxcSourceLocation *location,
-                  _Outptr_result_maybenull_ IDxcCursor **pResult) = 0;
+                  _COM_Outptr_result_maybenull_ IDxcCursor **pResult) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcDiagnostic, "4f76b234-3659-4d33-99b0-3b0db994b564")
@@ -736,6 +742,7 @@ struct IDxcDiagnostic : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   GetSeverity(_Out_ DxcDiagnosticSeverity *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
+  // COM_Outptr_?
   GetLocation(_Outptr_result_nullonfailure_ IDxcSourceLocation **pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetSpelling(_Outptr_result_maybenull_ LPSTR *pResult) = 0;
@@ -744,10 +751,12 @@ struct IDxcDiagnostic : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetNumRanges(_Out_ unsigned *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetRangeAt(unsigned index,
+             // COM_Outptr_?
              _Outptr_result_nullonfailure_ IDxcSourceRange **pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetNumFixIts(_Out_ unsigned *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetFixItAt(unsigned index,
+             // COM_Outptr_?
              _Outptr_result_nullonfailure_ IDxcSourceRange **pReplacementRange,
              _Outptr_result_maybenull_ LPSTR *pText) = 0;
 };
@@ -766,10 +775,12 @@ struct IDxcFile : public IUnknown {
 CROSS_PLATFORM_UUIDOF(IDxcInclusion, "0c364d65-df44-4412-888e-4e552fc5e3d6")
 struct IDxcInclusion : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
+  // COM_Outptr_?
   GetIncludedFile(_Outptr_result_nullonfailure_ IDxcFile **pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetStackLength(_Out_ unsigned *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetStackItem(unsigned index,
+               // COM_Outptr_?
                _Outptr_result_nullonfailure_ IDxcSourceLocation **pResult) = 0;
 };
 
@@ -790,6 +801,7 @@ struct IDxcIntelliSense : public IUnknown {
   GetDefaultEditingTUOptions(_Out_ DxcTranslationUnitFlags *pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE CreateUnsavedFile(
       _In_ LPCSTR fileName, _In_ LPCSTR contents, unsigned contentLength,
+      // COM_Outptr_?
       _Outptr_result_nullonfailure_ IDxcUnsavedFile **pResult) = 0;
 };
 
@@ -805,7 +817,7 @@ struct IDxcIndex : public IUnknown {
       int num_command_line_args,
       _In_count_(num_unsaved_files) IDxcUnsavedFile **unsaved_files,
       unsigned num_unsaved_files, DxcTranslationUnitFlags options,
-      _Out_ IDxcTranslationUnit **pTranslationUnit) = 0;
+      _COM_Outptr_ IDxcTranslationUnit **pTranslationUnit) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcSourceLocation,
@@ -814,7 +826,7 @@ struct IDxcSourceLocation : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE IsEqualTo(_In_ IDxcSourceLocation *other,
                                               _Out_ BOOL *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetSpellingLocation(
-      _Outptr_opt_ IDxcFile **pFile, _Out_opt_ unsigned *pLine,
+      _COM_Outptr_opt_ IDxcFile **pFile, _Out_opt_ unsigned *pLine,
       _Out_opt_ unsigned *pCol, _Out_opt_ unsigned *pOffset) = 0;
   virtual HRESULT STDMETHODCALLTYPE IsNull(_Out_ BOOL *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
@@ -826,9 +838,9 @@ CROSS_PLATFORM_UUIDOF(IDxcSourceRange, "f1359b36-a53f-4e81-b514-b6b84122a13f")
 struct IDxcSourceRange : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE IsNull(_Out_ BOOL *pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
-  GetStart(_Out_ IDxcSourceLocation **pValue) = 0;
+  GetStart(_COM_Outptr IDxcSourceLocation **pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
-  GetEnd(_Out_ IDxcSourceLocation **pValue) = 0;
+  GetEnd(_COM_Outptr IDxcSourceLocation **pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetOffsets(_Out_ unsigned *startOffset,
                                                _Out_ unsigned *endOffset) = 0;
 };
@@ -837,30 +849,34 @@ CROSS_PLATFORM_UUIDOF(IDxcToken, "7f90b9ff-a275-4932-97d8-3cfd234482a2")
 struct IDxcToken : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetKind(_Out_ DxcTokenKind *pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
-  GetLocation(_Out_ IDxcSourceLocation **pValue) = 0;
+  GetLocation(_COM_Outptr_ IDxcSourceLocation **pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
-  GetExtent(_Out_ IDxcSourceRange **pValue) = 0;
+  GetExtent(_COM_Outptr_ IDxcSourceRange **pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetSpelling(_Out_ LPSTR *pValue) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcTranslationUnit,
                       "9677dee0-c0e5-46a1-8b40-3db3168be63d")
 struct IDxcTranslationUnit : public IUnknown {
-  virtual HRESULT STDMETHODCALLTYPE GetCursor(_Out_ IDxcCursor **pCursor) = 0;
+  virtual HRESULT STDMETHODCALLTYPE
+  GetCursor(_COM_Outptr_ IDxcCursor **pCursor) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   Tokenize(_In_ IDxcSourceRange *range,
            _Outptr_result_buffer_maybenull_(*pTokenCount) IDxcToken ***pTokens,
            _Out_ unsigned *pTokenCount) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetLocation(_In_ IDxcFile *file, unsigned line, unsigned column,
+              // COM_Outptr_?
               _Outptr_result_nullonfailure_ IDxcSourceLocation **pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetNumDiagnostics(_Out_ unsigned *pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetDiagnostic(unsigned index,
+                // COM_Outptr_?
                 _Outptr_result_nullonfailure_ IDxcDiagnostic **pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetFile(_In_ const char *name,
+          // COM_Outptr_?
           _Outptr_result_nullonfailure_ IDxcFile **pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   GetFileName(_Outptr_result_maybenull_ LPSTR *pResult) = 0;
