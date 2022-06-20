@@ -11400,10 +11400,6 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     CComPtr<IDxcBlob> assembledShader;
     AssembleToContainer(dllSupport, rewrittenDisassembly, &assembledShader);
 
-    CComPtr<IDxcContainerBuilder> pBuilder;
-    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
-    VERIFY_SUCCEEDED(pBuilder->Load(assembledShader));
-
     // If the Root Signautre is defined as a node in the XML, then 
     // the Root Signature will be retained by ShaderOpTest, and won't be 
     // permanently lost when assembling the container
@@ -11420,22 +11416,28 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
         *ppShaderBlob = assembledShader.Detach();
         return;
       }
+
+      CComPtr<IDxcContainerBuilder> pBuilder;
+      VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+      VERIFY_SUCCEEDED(pBuilder->Load(assembledShader));
       // Wrap root signature in blob
       CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
       VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
         hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
       // Add root signature to container
       pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
+
+      CComPtr<IDxcOperationResult> pOpResult;
+      VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
+      HRESULT status;
+      VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
+      VERIFY_SUCCEEDED(status);
+      VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
+
+      return;
     }
 
-    // Serialize new container
-    CComPtr<IDxcOperationResult> pOpResult;
-    VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
-    HRESULT status;
-    VERIFY_SUCCEEDED(pOpResult->GetStatus(&status));
-    VERIFY_SUCCEEDED(status);
-    VERIFY_SUCCEEDED(pOpResult->GetResult(ppShaderBlob));
-
+    *ppShaderBlob = assembledShader.Detach();
   };
 
   return ShaderInitFn;
