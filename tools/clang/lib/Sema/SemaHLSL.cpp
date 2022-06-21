@@ -12449,6 +12449,36 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_VKPostDepthCoverage:
     declAttr = ::new (S.Context) VKPostDepthCoverageAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKEarlyAndLateTests:
+    declAttr = ::new (S.Context) VKEarlyAndLateTestsAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKDepthUnchanged:
+    declAttr = ::new (S.Context) VKDepthUnchangedAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKStencilRefUnchangedFront:
+    declAttr = ::new (S.Context) VKStencilRefUnchangedFrontAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKStencilRefGreaterEqualFront:
+    declAttr = ::new (S.Context) VKStencilRefGreaterEqualFrontAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKStencilRefLessEqualFront:
+    declAttr = ::new (S.Context) VKStencilRefLessEqualFrontAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKStencilRefUnchangedBack:
+    declAttr = ::new (S.Context) VKStencilRefUnchangedBackAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKStencilRefGreaterEqualBack:
+    declAttr = ::new (S.Context) VKStencilRefGreaterEqualBackAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKStencilRefLessEqualBack:
+    declAttr = ::new (S.Context) VKStencilRefLessEqualBackAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKShaderRecordNV:
     declAttr = ::new (S.Context) VKShaderRecordNVAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;

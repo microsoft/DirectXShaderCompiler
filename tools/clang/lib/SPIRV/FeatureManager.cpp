@@ -148,6 +148,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::EXT_shader_viewport_index_layer)
       .Case("SPV_AMD_gpu_shader_half_float",
             Extension::AMD_gpu_shader_half_float)
+      .Case("SPV_AMD_shader_early_and_late_fragment_tests",
+            Extension::AMD_shader_early_and_late_fragment_tests)
       .Case("SPV_AMD_shader_explicit_vertex_parameter",
             Extension::AMD_shader_explicit_vertex_parameter)
       .Case("SPV_GOOGLE_hlsl_functionality1",
@@ -201,6 +203,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_EXT_shader_viewport_index_layer";
   case Extension::AMD_gpu_shader_half_float:
     return "SPV_AMD_gpu_shader_half_float";
+  case Extension::AMD_shader_early_and_late_fragment_tests:
+    return "SPV_AMD_shader_early_and_late_fragment_tests";
   case Extension::AMD_shader_explicit_vertex_parameter:
     return "SPV_AMD_shader_explicit_vertex_parameter";
   case Extension::GOOGLE_hlsl_functionality1:
