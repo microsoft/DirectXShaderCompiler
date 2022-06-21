@@ -1201,6 +1201,62 @@ def VKShaderRecordEXT : InheritableAttr {
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
+
+def VKEarlyAndLateTests : InheritableAttr {
+  let Spellings = [CXX11<"vk", "early_and_late_tests">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKDepthUnchanged : InheritableAttr {
+  let Spellings = [CXX11<"vk", "depth_unchanged">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKStencilRefUnchangedFront : InheritableAttr {
+  let Spellings = [CXX11<"vk", "stencil_ref_unchanged_front">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKStencilRefGreaterEqualFront : InheritableAttr {
+  let Spellings = [CXX11<"vk", "stencil_ref_greater_equal_front">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKStencilRefLessEqualFront : InheritableAttr {
+  let Spellings = [CXX11<"vk", "stencil_ref_less_equal_front">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKStencilRefUnchangedBack : InheritableAttr {
+  let Spellings = [CXX11<"vk", "stencil_ref_unchanged_back">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKStencilRefGreaterEqualBack : InheritableAttr {
+  let Spellings = [CXX11<"vk", "stencil_ref_greater_equal_back">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKStencilRefLessEqualBack : InheritableAttr {
+  let Spellings = [CXX11<"vk", "stencil_ref_less_equal_back">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
 // SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {
