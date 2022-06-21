@@ -2015,6 +2015,10 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidBindNo) {
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingAttr) {
   runFileTest("vk.binding.cl.register.missing-attr.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingBindGlobals) {
+  runFileTest("vk.binding.cl.register.missing-bind-globals.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
   runFileTest("vk.binding.cl.register.missing-cl.hlsl", Expect::Failure);
 }
@@ -3130,5 +3134,15 @@ float4 PSMain(float4 color : COLOR) : SV_TARGET { return color; }
 TEST_F(FileTest, RenameEntrypoint) { runFileTest("fspv-entrypoint-name.hlsl"); }
 
 TEST_F(FileTest, PrintAll) { runFileTest("fspv-print-all.hlsl"); }
+
+TEST_F(FileTest, SpirvOptFd) {
+  runFileTest("spirv.opt.fd.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptFre) {
+  runFileTest("spirv.opt.fre.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptQStripReflect) {
+  runFileTest("spirv.opt.qstripreflect.hlsl", Expect::Failure);
+}
 
 } // namespace
