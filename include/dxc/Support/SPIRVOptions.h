@@ -56,6 +56,7 @@ struct SpirvCodeGenOptions {
   bool noWarnIgnoredFeatures;
   bool useDxLayout;
   bool useGlLayout;
+  bool useLegacyBufferMatrixOrder;
   bool useScalarLayout;
   bool flattenResourceArrays;
   bool reduceLoadSize;

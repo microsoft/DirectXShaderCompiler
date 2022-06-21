@@ -3977,6 +3977,8 @@ codegen for Vulkan:
   the resource arrays must be marked with ``[unroll]``.
 - ``-fspv-entrypoint-name=<name>``: Specify the SPIR-V entry point name. Defaults
   to the HLSL entry point name.
+- ``-fspv-use-legacy-buffer-matrix-order``: Assumes the legacy matrix order (row
+  major) when accessing raw buffers (e.g., ByteAdddressBuffer).
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 
