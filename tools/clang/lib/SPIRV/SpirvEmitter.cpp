@@ -11472,6 +11472,70 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
                                 spv::ExecutionMode::PostDepthCoverage, {},
                                 decl->getLocation());
   }
+  if (decl->getAttr<VKEarlyAndLateTestsAttr>()) {
+    spvBuilder.addExecutionMode(
+        entryFunction, spv::ExecutionMode::EarlyAndLateFragmentTestsAMD, {},
+        decl->getLocation());
+  }
+  if (decl->getAttr<VKDepthUnchangedAttr>()) {
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::DepthUnchanged, {},
+                                decl->getLocation());
+  }
+
+  // Shaders must not specify more than one of stencil_ref_unchanged_front,
+  // stencil_ref_greater_equal_front, and stencil_ref_less_equal_front.
+  // Shaders must not specify more than one of stencil_ref_unchanged_back,
+  // stencil_ref_greater_equal_back,and stencil_ref_less_equal_back.
+  uint32_t stencilFrontAttrCount = 0, stencilBackAttrCount = 0;
+  if (decl->getAttr<VKStencilRefUnchangedFrontAttr>()) {
+    ++stencilFrontAttrCount;
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::StencilRefUnchangedFrontAMD,
+                                {}, decl->getLocation());
+  }
+  if (decl->getAttr<VKStencilRefGreaterEqualFrontAttr>()) {
+    ++stencilFrontAttrCount;
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::StencilRefGreaterFrontAMD,
+                                {}, decl->getLocation());
+  }
+  if (decl->getAttr<VKStencilRefLessEqualFrontAttr>()) {
+    ++stencilFrontAttrCount;
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::StencilRefLessFrontAMD, {},
+                                decl->getLocation());
+  }
+  if (decl->getAttr<VKStencilRefUnchangedBackAttr>()) {
+    ++stencilBackAttrCount;
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::StencilRefUnchangedBackAMD,
+                                {}, decl->getLocation());
+  }
+  if (decl->getAttr<VKStencilRefGreaterEqualBackAttr>()) {
+    ++stencilBackAttrCount;
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::StencilRefGreaterBackAMD,
+                                {}, decl->getLocation());
+  }
+  if (decl->getAttr<VKStencilRefLessEqualBackAttr>()) {
+    ++stencilBackAttrCount;
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::StencilRefLessBackAMD, {},
+                                decl->getLocation());
+  }
+  if (stencilFrontAttrCount > 1) {
+    emitError("Shaders must not specify more than one of "
+              "stencil_ref_unchanged_front, stencil_ref_greater_equal_front, "
+              "and stencil_ref_less_equal_front.",
+              {});
+  }
+  if (stencilBackAttrCount > 1) {
+    emitError(
+        "Shaders must not specify more than one of stencil_ref_unchanged_back, "
+        "stencil_ref_greater_equal_back, and stencil_ref_less_equal_back.",
+        {});
+  }
 }
 
 void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
