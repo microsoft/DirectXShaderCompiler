@@ -8977,7 +8977,7 @@ TEST_F(ExecutionTest, BarycentricsTest) {
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
       return;
     }
-
+    
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Barycentrics", nullptr);
     MappedData data;
     D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;

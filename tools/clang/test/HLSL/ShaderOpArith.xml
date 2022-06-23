@@ -1491,7 +1491,7 @@
     </Shader>
   </ShaderOp>
 
-  <ShaderOp Name="Barycentrics" PS="PS" VS="VS">
+  <ShaderOp Name="Barycentrics" PS="PS61" VS="VS61">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
     <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes" ReadBack="true">
         { {   0.0f,  1.0f , 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
@@ -1509,32 +1509,54 @@
     <RenderTargets>
       <RenderTarget Name="RTarget" />
     </RenderTargets>
-    <Shader Name="VS" Target="vs_6_1">
+
+
+    <Shader Name="PS61" Target="ps_6_1" EntryPoint="PSMain" Text="@MAIN"/>
+    <Shader Name="VS61" Target="vs_6_1" EntryPoint="VSMain" Text="@MAIN"/>
+
+
+    <Shader Name="MAIN" Target="vs_6_1" EntryPoint="VSMain">
       <![CDATA[
       struct PSInput {
         float4 position : SV_POSITION;
         nointerpolation float4 color : COLOR;
       };
-      PSInput main(float4 position : POSITION, float4 color : COLOR) {
+      
+      PSInput VSMain(float4 position : POSITION, float4 color : COLOR, uint vid : SV_VertexID) {
         PSInput result;
         result.position = position;
         result.color = color;
+        int x = vid;
         return result;
       }
-      ]]>
-    </Shader>
-    <Shader Name="PS" Target="ps_6_1">
-      <![CDATA[
-      struct PSInput {
-        float4 position : SV_POSITION;
-        nointerpolation float4 color : COLOR;
-      };
-      float4 main(PSInput input, float3 bary : SV_Barycentrics) : SV_Target {
+    
+      float4 PSMain(PSInput input, float3 bary : SV_Barycentrics) : SV_Target {
+        float4 pos = input.position;
+        // check to make sure that the pixel shader will see the barycentric weight associated
+        // with the first vertex in the x component of the SV_Barycentric vector, and likewise for subsequent vertices
+        if (pos.x == 0.0f && pos.y == 1.0f && pos.z == 0.0f)
+        {
+          if (abs(bary.x - 1.0f) > .001 || abs(bary.y - 0.0f) > .001 || abs(bary.z - 0.0f) > .001)
+            return 0.5f;
+        }
+        if (pos.x == 1.0f && pos.y == -1.0f && pos.z == 0.0f)
+        {
+          if (abs(bary.x - 0.0f) > .001 || abs(bary.y - 1.0f) > .001 || abs(bary.z - 0.0f) > .001)
+            return 0.5f;
+        }
+        if (pos.x == -1.0f && pos.y == -1.0f && pos.z == 0.0f)
+        {
+          if (abs(bary.x - 0.0f) > .001 || abs(bary.y - 0.0f) > .001 || abs(bary.z - 1.0f) > .001)
+            return 0.5f;
+        }
+        
         float4 vColor0 = GetAttributeAtVertex(input.color, 0);
         float4 vColor1 = GetAttributeAtVertex(input.color, 1);
         float4 vColor2 = GetAttributeAtVertex(input.color, 2);
+        
         return bary.x * vColor0 + bary.y * vColor1 + bary.z * vColor2;
       }
+      
       ]]>
     </Shader>
   </ShaderOp>
