@@ -1543,7 +1543,7 @@
         return result;
       }
     
-      float4 PSMain(PSInput input, float3 bary : SV_Barycentrics, uint vid : VertexID) : SV_Target {
+      float4 PSMain(PSInput input, float3 bary : SV_Barycentrics) : SV_Target {
         float4 pos = input.position;
         // check to make sure that the pixel shader will see the barycentric weight associated
         // with the first vertex in the x component of the SV_Barycentric vector, and likewise for subsequent vertices
