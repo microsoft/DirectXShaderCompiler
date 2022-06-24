@@ -8977,7 +8977,7 @@ TEST_F(ExecutionTest, BarycentricsTest) {
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
       return;
     }
-    
+ 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Barycentrics", nullptr);
     MappedData data;
     D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
@@ -8992,6 +8992,16 @@ TEST_F(ExecutionTest, BarycentricsTest) {
     MappedData triangleData;
     test->Test->GetReadBackData("VBuffer", &triangleData);
     const float *pTriangleData = (float*)triangleData.data();
+
+    // Get the vertex of barycentric coordinate using VBuffer
+    MappedData vIDData;
+    test->Test->GetReadBackData("g_result", &vIDData);
+    const unsigned int *pvIDData = (unsigned int*)vIDData.data();
+    // make sure the barycentric ordering constraint gets tested.
+    VERIFY_IS_TRUE(pvIDData[0] == 0);
+    VERIFY_IS_TRUE(pvIDData[1] == 1);
+    VERIFY_IS_TRUE(pvIDData[2] == 2);
+
     // get the size of the input data
     unsigned triangleVertexSizeInFloat = 0;
     for (auto element : test->ShaderOp->InputElements)
