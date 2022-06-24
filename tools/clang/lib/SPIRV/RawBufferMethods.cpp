@@ -11,9 +11,11 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/RecordLayout.h"
+#include "clang/AST/Type.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvInstruction.h"
+#include <cstdint>
 
 namespace {
 /// Rounds the given value up to the given power of 2.
@@ -290,22 +292,43 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
   // Matrix types
   {
     QualType elemType = {};
-    uint32_t numRows = 0, numCols = 0;
+    uint32_t numRows = 0;
+    uint32_t numCols = 0;
     if (isMxNMatrix(targetType, &elemType, &numRows, &numCols)) {
-      llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
+      // In DX, the default matrix orientation in ByteAddressBuffer is column
+      // major. If HLSL/DXIL support the `column_major` and `row_major`
+      // attributes in the future, we will have to check for them here and
+      // override the behavior.
+      //
+      // The assume buffer matrix order is controlled by the
+      // `-fspv-use-legacy-buffer-matrix-order` flag:
+      //   (a) false --> assume the matrix is stored column major
+      //   (b) true  --> assume the matrix is stored row major
+      //
+      // We provide (b) for compatibility with legacy shaders that depend on
+      // the previous, incorrect, raw buffer matrix order assumed by the SPIR-V
+      // codegen.
+      const bool isBufferColumnMajor =
+          !theEmitter.getSpirvOptions().useLegacyBufferMatrixOrder;
+      const uint32_t numElements = numRows * numCols;
+      llvm::SmallVector<SpirvInstruction *, 16> loadedElems(numElements);
+      for (uint32_t i = 0; i != numElements; ++i)
+        loadedElems[i] = processTemplatedLoadFromBuffer(buffer, index, elemType,
+                                                        bitOffset, range);
+
       llvm::SmallVector<SpirvInstruction *, 4> loadedRows;
       for (uint32_t i = 0; i < numRows; ++i) {
+        llvm::SmallVector<SpirvInstruction *, 4> loadedColumn;
         for (uint32_t j = 0; j < numCols; ++j) {
-          // TODO: This is currently doing a row_major matrix load. We must
-          // investigate whether we also need to implement it for column_major.
-          loadedElems.push_back(processTemplatedLoadFromBuffer(
-              buffer, index, elemType, bitOffset, range));
+          const uint32_t elementIndex =
+              isBufferColumnMajor ? (j * numRows + i) : (i * numCols + j);
+          loadedColumn.push_back(loadedElems[elementIndex]);
         }
         const auto rowType = astContext.getExtVectorType(elemType, numCols);
         loadedRows.push_back(spvBuilder.createCompositeConstruct(
-            rowType, loadedElems, loc, range));
-        loadedElems.clear();
+            rowType, loadedColumn, loc, range));
       }
+
       result = spvBuilder.createCompositeConstruct(targetType, loadedRows, loc,
                                                    range);
       result->setRValue();
@@ -593,14 +616,28 @@ QualType RawBufferHandler::serializeToScalarsOrStruct(
     QualType elemType = {};
     uint32_t numRows = 0, numCols = 0;
     if (isMxNMatrix(valueType, &elemType, &numRows, &numCols)) {
+      // Check if the destination buffer expects matrices in column major or row
+      // major order. In the future, we may also need to consider the
+      // `row_major` and `column_major` attribures. This is not handled by
+      // HLSL/DXIL at the moment, so we ignore them too.
+      const bool isBufferColumnMajor =
+          !theEmitter.getSpirvOptions().useLegacyBufferMatrixOrder;
       for (uint32_t i = 0; i < size; ++i) {
-        for (uint32_t j = 0; j < numRows; ++j) {
-          for (uint32_t k = 0; k < numCols; ++k) {
-            // TODO: This is currently doing a row_major matrix store. We must
-            // investigate whether we also need to implement it for
-            // column_major.
-            values->push_back(spvBuilder.createCompositeExtract(
-                elemType, values->front(), {j, k}, loc, range));
+        if (isBufferColumnMajor) {
+          // Access the matrix in the column major order.
+          for (uint32_t j = 0; j != numCols; ++j) {
+            for (uint32_t k = 0; k != numRows; ++k) {
+              values->push_back(spvBuilder.createCompositeExtract(
+                  elemType, values->front(), {k, j}, loc, range));
+            }
+          }
+        } else {
+          // Access the matrix in the row major order.
+          for (uint32_t j = 0; j != numRows; ++j) {
+            for (uint32_t k = 0; k != numCols; ++k) {
+              values->push_back(spvBuilder.createCompositeExtract(
+                  elemType, values->front(), {j, k}, loc, range));
+            }
           }
         }
         values->pop_front();

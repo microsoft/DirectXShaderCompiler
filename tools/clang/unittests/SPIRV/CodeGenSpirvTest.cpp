@@ -1088,11 +1088,19 @@ TEST_F(FileTest, ByteAddressBufferTemplatedStoreStruct) {
 TEST_F(FileTest, ByteAddressBufferTemplatedStoreStruct2) {
   runFileTest("method.byte-address-buffer.templated-store.struct.hlsl");
 }
+TEST_F(FileTest, ByteAddressBufferTemplatedStoreMatrix) {
+  runFileTest("method.byte-address-buffer.templated-store.matrix.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferGetDimensions) {
   runFileTest("method.byte-address-buffer.get-dimensions.hlsl");
 }
 TEST_F(FileTest, RWByteAddressBufferAtomicMethods) {
   runFileTest("method.rw-byte-address-buffer.atomic.hlsl");
+}
+
+// For `-fspv-use-legacy-matrix-buffer-order`
+TEST_F(FileTest, SpvUseLegacyMatrixBufferOrder) {
+  runFileTest("spv.use-legacy-buffer-matrix-order.hlsl");
 }
 
 TEST_F(FileTest, InitializeListRWByteAddressBuffer) {

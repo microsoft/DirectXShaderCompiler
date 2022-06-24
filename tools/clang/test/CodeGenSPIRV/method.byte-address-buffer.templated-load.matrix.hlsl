@@ -20,7 +20,6 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:         [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:          [[val2:%\d+]] = OpUConvert %ushort [[word1]]
-// CHECK:          [[row0:%\d+]] = OpCompositeConstruct %v3ushort [[val0]] [[val1]] [[val2]]
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:         [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[shifted_word1:%\d+]] = OpShiftRightLogical %uint [[word1]] %uint_16
@@ -33,7 +32,8 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:         [[word2:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[shifted_word2:%\d+]] = OpShiftRightLogical %uint [[word2]] %uint_16
 // CHECK:          [[val5:%\d+]] = OpUConvert %ushort [[shifted_word2:%\d+]]
-// CHECK:          [[row1:%\d+]] = OpCompositeConstruct %v3ushort [[val3]] [[val4]] [[val5]]
+// CHECK:          [[row0:%\d+]] = OpCompositeConstruct %v3ushort [[val0]] [[val2]] [[val4]]
+// CHECK:          [[row1:%\d+]] = OpCompositeConstruct %v3ushort [[val1]] [[val3]] [[val5]]
 // CHECK:        [[matrix:%\d+]] = OpCompositeConstruct %_arr_v3ushort_uint_2 [[row0]] [[row1]]
 // CHECK:                          OpStore %u16 [[matrix]]
   uint16_t2x3 u16 = buf.Load<uint16_t2x3>(tid.x);
@@ -48,7 +48,6 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:  [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:   [[val1:%\d+]] = OpBitcast %int [[word1:%\d+]]
 // CHECK:[[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
-// CHECK:   [[row0:%\d+]] = OpCompositeConstruct %v2int [[val0]] [[val1]]
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:  [[word2:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:   [[val2:%\d+]] = OpBitcast %int [[word2]]
@@ -56,10 +55,20 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
 // CHECK:  [[word3:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:   [[val3:%\d+]] = OpBitcast %int [[word3]]
-// CHECK:   [[row1:%\d+]] = OpCompositeConstruct %v2int [[val2]] [[val3]]
-// CHECK: [[matrix:%\d+]] = OpCompositeConstruct %_arr_v2int_uint_2 [[row0]] [[row1]]
-// CHECK:                   OpStore %i [[matrix]]
-  int2x2 i = buf.Load<int2x2>(tid.x);
+// CHECK:[[index_4:%\d+]] = OpIAdd %uint [[index_3]] %uint_1
+// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
+// CHECK:  [[word4:%\d+]] = OpLoad %uint [[ptr]]
+// CHECK:   [[val4:%\d+]] = OpBitcast %int [[word4]]
+// CHECK:[[index_5:%\d+]] = OpIAdd %uint [[index_4]] %uint_1
+// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_5]]
+// CHECK:  [[word5:%\d+]] = OpLoad %uint [[ptr]]
+// CHECK:   [[val5:%\d+]] = OpBitcast %int [[word5]]
+// CHECK:   [[row0:%\d+]] = OpCompositeConstruct %v2int [[val0]] [[val3]]
+// CHECK:   [[row1:%\d+]] = OpCompositeConstruct %v2int [[val1]] [[val4]]
+// CHECK:   [[row2:%\d+]] = OpCompositeConstruct %v2int [[val2]] [[val5]]
+// CHECK: [[matrix:%\d+]] = OpCompositeConstruct %_arr_v2int_uint_3 [[row0]] [[row1]] [[row2]]
+// CHECK:                   OpStore %j [[matrix]]
+  int3x2 j = buf.Load<int3x2>(tid.x);
 
 // ********* 64-bit matrix ********************
 
@@ -85,7 +94,6 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:          [[val1_ulong:%\d+]] = OpBitwiseOr %ulong [[word2_ulong]] [[word3_ulong_shifted]]
 // CHECK:                [[val1:%\d+]] = OpBitcast %double [[val1_ulong]]
 // CHECK:             [[index_4:%\d+]] = OpIAdd %uint [[index_3]] %uint_1
-// CHECK:                [[row0:%\d+]] = OpCompositeConstruct %v2double [[val0]] [[val1]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
 // CHECK:               [[word4:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:             [[index_5:%\d+]] = OpIAdd %uint [[index_4]] %uint_1
@@ -107,7 +115,8 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK: [[word7_ulong_shifted:%\d+]] = OpShiftLeftLogical %ulong [[word7_ulong]] %uint_32
 // CHECK:          [[val3_ulong:%\d+]] = OpBitwiseOr %ulong [[word6_ulong]] [[word7_ulong_shifted]]
 // CHECK:                [[val3:%\d+]] = OpBitcast %double [[val3_ulong]]
-// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v2double [[val2]] [[val3]]
+// CHECK:                [[row0:%\d+]] = OpCompositeConstruct %v2double [[val0]] [[val2]]
+// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v2double [[val1]] [[val3]]
 // CHECK:              [[matrix:%\d+]] = OpCompositeConstruct %mat2v2double [[row0]] [[row1]]
 // CHECK:                                OpStore %f64 [[matrix]]
   float64_t2x2 f64 = buf.Load<float64_t2x2>(tid.x);
@@ -118,35 +127,35 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:             [[index_1:%\d+]] = OpIAdd %uint [[index_0]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
-// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:             [[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:             [[index_3:%\d+]] = OpIAdd %uint [[index_2]] %uint_1
+// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                [[row2:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:            [[matrix_1:%\d+]] = OpCompositeConstruct %mat2v3half [[row1]] [[row2]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
 // CHECK:             [[index_4:%\d+]] = OpIAdd %uint [[index_3]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
-// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
 // CHECK:             [[index_5:%\d+]] = OpIAdd %uint [[index_4]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_5]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_5]]
 // CHECK:             [[index_6:%\d+]] = OpIAdd %uint [[index_5]] %uint_1
+// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                [[row2:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:            [[matrix_2:%\d+]] = OpCompositeConstruct %mat2v3half [[row1]] [[row2]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_6]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_6]]
 // CHECK:             [[index_7:%\d+]] = OpIAdd %uint [[index_6]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_7]]
-// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_7]]
 // CHECK:             [[index_8:%\d+]] = OpIAdd %uint [[index_7]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_8]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_8]]
+// CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                [[row2:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:            [[matrix_3:%\d+]] = OpCompositeConstruct %mat2v3half [[row1]] [[row2]]
 // CHECK:        [[matrix_array:%\d+]] = OpCompositeConstruct %_arr_mat2v3half_uint_3 [[matrix_1]] [[matrix_2]] [[matrix_3]]
