@@ -329,7 +329,7 @@ static bool hasUnsupportedSpirvOption(const InputArgList &args,
   // available options and their current compatibility is needed to generate a
   // complete list.
   std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre,
-                                               OPT_Qstrip_reflect};
+                                               OPT_Qstrip_reflect, OPT_Gis};
 
   for (const auto &id : unsupportedOpts) {
     if (Arg *arg = args.getLastArg(id)) {
