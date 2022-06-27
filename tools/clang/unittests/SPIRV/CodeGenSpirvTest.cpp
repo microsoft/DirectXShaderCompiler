@@ -1086,7 +1086,7 @@ TEST_F(FileTest, ByteAddressBufferTemplatedStoreStruct) {
   runFileTest("method.byte-address-buffer.templated-store.struct.hlsl");
 }
 TEST_F(FileTest, ByteAddressBufferTemplatedStoreStruct2) {
-  runFileTest("method.byte-address-buffer.templated-store.struct.hlsl");
+  runFileTest("method.byte-address-buffer.templated-store.struct2.hlsl");
 }
 TEST_F(FileTest, ByteAddressBufferTemplatedStoreMatrix) {
   runFileTest("method.byte-address-buffer.templated-store.matrix.hlsl");
