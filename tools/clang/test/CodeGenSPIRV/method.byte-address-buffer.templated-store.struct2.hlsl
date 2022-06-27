@@ -41,7 +41,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK:     [[sArr:%\d+]] = OpLoad %_arr_S_uint_2 %sArr
 // CHECK:    [[sArr0:%\d+]] = OpCompositeExtract %S [[sArr]] 0
 // CHECK:    [[sArr1:%\d+]] = OpCompositeExtract %S [[sArr]] 1
-// CHECK:     [[s0_a:%\d+]] = OpCompositeExtract %half [[sArr]] 0
+// CHECK:     [[s0_a:%\d+]] = OpCompositeExtract %half [[sArr0]] 0
 // CHECK:     [[ptr0:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[address0]]
 // CHECK: OpBitcast %ushort
 // CHECK: OpUConvert %uint
@@ -72,7 +72,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK: OpBitcast %ushort [[s0_e1_x0]]
 // CHECK: OpUConvert %uint
 // CHECK: OpShiftLeftLogical %uint {{%\d+}} %uint_16
-// CHECK: [[oldWord1:%\d+]] = OpLoad %uint [[address1]]
+// CHECK: [[oldWord1:%\d+]] = OpLoad %uint [[ptr1]]
 // CHECK: [[newWord1:%\d+]] = OpBitwiseOr %uint [[oldWord1]] {{%\d+}}
 // CHECK:                     OpStore [[ptr1]] [[newWord1]]
 
