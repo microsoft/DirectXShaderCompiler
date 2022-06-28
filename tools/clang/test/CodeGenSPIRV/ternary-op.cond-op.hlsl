@@ -16,6 +16,7 @@ void main() {
   // CHECK: %temp_var_ternary = OpVariable %_ptr_Function_mat2v3float Function
   // CHECK: %temp_var_ternary_0 = OpVariable %_ptr_Function_mat2v3float Function
   // CHECK: %temp_var_ternary_1 = OpVariable %_ptr_Function_type_sampler Function
+  // CHECK: %temp_var_ternary_2 = OpVariable %_ptr_Function_type_sampler Function
 
   bool b0;
   int m, n, o;
@@ -191,6 +192,30 @@ void main() {
   bool2x3 cond2x3;
   float2x3 true2x3, false2x3;
   float2x3 result2x3 = cond2x3 ? true2x3 : false2x3;
+
+  // Note that AST does not have a ImplicitCastExpr around intCond for this case:
+  // | `-VarDecl 0x2a90094e0d0 <col:3, col:37> col:16 s 'SamplerState' cinit
+  // |   `-ConditionalOperator 0x2a90094e1b8 <col:20, col:37> 'SamplerState'
+  // |     |-DeclRefExpr 0x2a90094e140 <col:20> 'int' lvalue Var 0x2a90051e1c0 'intCond' 'int'
+  // |     |-DeclRefExpr 0x2a90094e168 <col:30> 'SamplerState' lvalue Var 0x2a9004c6f40 'gSS1' 'SamplerState'
+  // |     `-DeclRefExpr 0x2a90094e190 <col:37> 'SamplerState' lvalue Var 0x2a9004c7000 'gSS2' 'SamplerState'
+
+  // CHECK:       [[intCond:%\d+]] = OpLoad %int %intCond
+  // CHECK-NEXT:     [[gSS1:%\d+]] = OpLoad %type_sampler %gSS1
+  // CHECK-NEXT:     [[gSS2:%\d+]] = OpLoad %type_sampler %gSS2
+  // CHECK-NEXT: [[boolCond:%\d+]] = OpINotEqual %bool [[intCond]] %int_0
+  // CHECK-NEXT:                     OpSelectionMerge %if_merge_2 None
+  // CHECK-NEXT:                     OpBranchConditional [[boolCond]] %if_true_2 %if_false_2
+  // CHECK-NEXT:        %if_true_2 = OpLabel
+  // CHECK-NEXT:                     OpStore %temp_var_ternary_2 [[gSS1]]
+  // CHECK-NEXT:                     OpBranch %if_merge_2
+  // CHECK-NEXT:       %if_false_2 = OpLabel
+  // CHECK-NEXT:                     OpStore %temp_var_ternary_2 [[gSS2]]
+  // CHECK-NEXT:                     OpBranch %if_merge_2
+  // CHECK-NEXT:       %if_merge_2 = OpLabel
+  // CHECK-NEXT:  [[tempVar:%\d+]] = OpLoad %type_sampler %temp_var_ternary_2
+  // CHECK-NEXT:                     OpStore %s [[tempVar]]
+  SamplerState s = intCond ? gSS1 : gSS2;
 }
 
 //

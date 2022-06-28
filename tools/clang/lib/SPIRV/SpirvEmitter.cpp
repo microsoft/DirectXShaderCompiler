@@ -3381,6 +3381,15 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
     return value;
   }
 
+  // Usually integer conditional types in HLSL will be wrapped in an
+  // ImplicitCastExpr<IntegralToBoolean> in the Clang AST. However, some
+  // combinations of result types can result in a bare integer (literal or
+  // reference) as a condition, which still needs to be cast to bool.
+  if (cond->getType()->isIntegerType()) {
+    condition =
+        castToBool(condition, cond->getType(), astContext.BoolTy, loc, range);
+  }
+
   // If we can't use OpSelect, we need to create if-else control flow.
   auto *tempVar = spvBuilder.addFnVar(type, loc, "temp.var.ternary");
   auto *thenBB = spvBuilder.createBasicBlock("if.true");
