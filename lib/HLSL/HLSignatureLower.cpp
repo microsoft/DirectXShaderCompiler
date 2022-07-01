@@ -1151,6 +1151,21 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
       raw_string_ostream OSS(O);
       if (Ty)
         Ty->print(OSS);
+      else {
+        auto Ty_iterator = HLM.GetEntryFunction()->getArgumentList().begin();
+        int argCount = 0;
+        llvm::Type *generic_Ty = nullptr;
+        while (Ty_iterator != HLM.GetEntryFunction()->getArgumentList().end()) {
+          if (argCount == i) {
+            generic_Ty = (*Ty_iterator).getType();
+            break;
+          }
+          Ty_iterator++;
+          argCount += 1;
+        }
+        generic_Ty->print(OSS);
+      }
+
       OSS << "(type for " << SE->GetName() << ")";
       OSS << " cannot be used as shader inputs or outputs.";
       OSS.flush();
