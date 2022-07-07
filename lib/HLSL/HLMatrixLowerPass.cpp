@@ -658,7 +658,8 @@ AllocaInst *HLMatrixLowerPass::lowerAlloca(AllocaInst *MatAlloca) {
     Value *DbgDeclareExpr = MetadataAsValue::get(Context, DbgDeclare->getRawExpression());
     Value *ValueMetadata = MetadataAsValue::get(Context, ValueAsMetadata::get(LoweredAlloca));
     IRBuilder<> DebugBuilder(DbgDeclare);
-    DebugBuilder.CreateCall(DbgDeclare->getCalledFunction(), { ValueMetadata, DbgDeclareVar, DbgDeclareExpr });
+    CallInst *CI = DebugBuilder.CreateCall(DbgDeclare->getCalledFunction(), { ValueMetadata, DbgDeclareVar, DbgDeclareExpr });
+    CI->setDebugLoc(DbgDeclare->getDebugLoc());
   }
 
   if (HLModule::HasPreciseAttributeWithMetadata(MatAlloca))
