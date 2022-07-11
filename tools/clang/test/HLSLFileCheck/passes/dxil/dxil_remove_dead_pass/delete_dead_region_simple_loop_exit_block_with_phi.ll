@@ -10,6 +10,27 @@
 
 ; Check 1) compiler didn't crash or assert. 2) Loop was actually deleted by the pass. 3) phi's incoming block was correctly replaced.
 
+;;// Original HLSL source, stopped right before dxil-erase-dead-region.
+;; 
+;; StructuredBuffer<float3> buf : register(t0);
+;; 
+;; float4 main(float4 input : INPUT, int bound : BOUND) : SV_Target {
+;;   float4 loopInput = input;
+;; 
+;;   float4 loopOutput = loopInput;
+;;   for (int i = 0; i < bound; i++) {
+;;     float4 loopVal;
+;;     loopVal.rgb = loopInput.rgb += buf[i];
+;;     loopVal.a = loopInput.a;
+;;     loopOutput = loopVal;
+;;   }
+;; 
+;;   float4 ret = loopOutput;
+;;   ret.rgb *= loopOutput.a;
+;;   ret.rgb *= 0;
+;;   return ret;
+;; }
+
 ; CHECK: @main
 ; CHECK-NOT: for.body:
 ; CHECK-NOT: for.inc
