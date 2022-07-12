@@ -1,7 +1,11 @@
 ; RUN: %opt %s -dxil-cond-mem2reg -S | FileCheck %s
 
 ; CHECK: @main
-; CHECK-NOT: alloca [2 x float]
+
+; CHECK-NOT: alloca
+; CHECK-NOT: getelementptr
+; CHECK-NOT: store
+; CHECK-NOT: load
 
 ; CHECK-DAG: !DIExpression(DW_OP_bit_piece, 0, 32)
 ; CHECK-DAG: !DIExpression(DW_OP_bit_piece, 32, 32)
