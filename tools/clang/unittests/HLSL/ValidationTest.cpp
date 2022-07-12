@@ -1201,7 +1201,7 @@ TEST_F(ValidationTest, UAVStoreMaskMatch) {
 }
 
 TEST_F(ValidationTest, UAVStoreMaskGap) {
-  if (m_ver.SkipDxilVersion(1, 6))
+  if (m_ver.SkipDxilVersion(1, 7))
     return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
@@ -1211,7 +1211,7 @@ TEST_F(ValidationTest, UAVStoreMaskGap) {
 }
 
 TEST_F(ValidationTest, UAVStoreMaskGap2) {
-  if (m_ver.SkipDxilVersion(1, 6))
+  if (m_ver.SkipDxilVersion(1, 7))
     return;
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
                           "i32 2, i32 2, i32 2, i32 2, i8 15)",
@@ -1221,7 +1221,7 @@ TEST_F(ValidationTest, UAVStoreMaskGap2) {
 }
 
 TEST_F(ValidationTest, UAVStoreMaskGap3) {
-  if (m_ver.SkipDxilVersion(1, 6))
+  if (m_ver.SkipDxilVersion(1, 7))
     return;
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
                           "i32 2, i32 2, i32 2, i32 2, i8 15)",
