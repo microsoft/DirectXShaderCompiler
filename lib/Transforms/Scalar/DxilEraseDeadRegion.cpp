@@ -331,7 +331,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
       if (LoopSafeToDelete) {
         // Modify any phi nodes in the exit block to be incoming from
-        // the preheader instead of the existing BB.
+        // the preheader instead of the exiting BB.
         BasicBlock *ExitingBlock = L->getExitingBlock();
         for (Instruction &I : *ExitBB) {
           PHINode *Phi = dyn_cast<PHINode>(&I);
