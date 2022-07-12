@@ -4461,8 +4461,11 @@ void SROA_Parameter_HLSL::allocateSemanticIndex(
 
     // If semantic is undefined, an error will be emitted elsewhere.  For now,
     // we should avoid asserting.
-    if (semantic.empty())
-      continue;
+    Type *semanticTy = semanticTypeMap[semantic];
+    if (semantic.empty() || dxilutil::IsHLSLObjectType(semanticTy->getPointerElementType()) ) {
+      DXASSERT(!dxilutil::IsHLSLObjectStreamType(semanticTy->getPointerElementType()), "HLSL Stream object types like TriangleStream should already be flattened at this point.");
+      continue;  
+    }
 
     StringRef baseSemName; // The 'FOO' in 'FOO1'.
     uint32_t semIndex;     // The '1' in 'FOO1'
@@ -4477,7 +4480,6 @@ void SROA_Parameter_HLSL::allocateSemanticIndex(
     }
 
     DXASSERT(semanticTypeMap.count(semantic) > 0, "Must has semantic type");
-    Type *semanticTy = semanticTypeMap[semantic];
 
     AllocateSemanticIndex(semanticTy, semIndex, /*argIdx*/ i,
                           /*endArgIdx*/ semGroupEnd, FlatAnnotationList);

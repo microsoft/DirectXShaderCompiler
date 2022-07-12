@@ -1575,6 +1575,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
+
   // Geometry shader.
   if (const HLSLMaxVertexCountAttr *Attr =
           FD->getAttr<HLSLMaxVertexCountAttr>()) {
@@ -2342,6 +2343,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
     if (isEntry) {
+      if (const HLSLUniformAttr *Attr = parmDecl->getAttr<HLSLUniformAttr>()) {
+        unsigned DiagID =
+            Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                  "attribute uniform only valid for non-entry-point functions.");
+        Diags.Report(Attr->getLocation(), DiagID);
+        return;
+      }
       if (CGM.getLangOpts().EnableDX9CompatMode && paramAnnotation.HasSemanticString()) {
         RemapObsoleteSemantic(paramAnnotation, /*isPatchConstantFunction*/ false);
       }
