@@ -110,6 +110,134 @@ public:
     AU.setPreservesCFG();
   }
 
+  // Replace simple array allocas with individual scalar allocas.
+  // Only handle if:
+  // - All the alloca's users are geps
+  // - The geps all have only constant indices
+  // - The geps are indexing to just the scalar elements
+  //
+  bool SplitSimpleAllocas(llvm::Function &F) {
+    llvm::SmallVector<AllocaInst *, 10> ScalarAllocas;
+
+    if (F.empty()) return false;
+    BasicBlock *Entry = &F.getEntryBlock();
+
+    bool Changed = false;
+
+    LLVMContext &Ctx = F.getContext();
+    Module *M = F.getParent();
+    IRBuilder<> Builder(Ctx);
+    DIBuilder DIB(*M);
+    const DataLayout &DL = F.getParent()->getDataLayout();
+
+    for (Instruction *it = &Entry->back(); it != nullptr;) {
+      Instruction *I = it;
+      it = (it == &Entry->front()) ? nullptr : it->getPrevNode();
+
+      AllocaInst *AI = dyn_cast<AllocaInst>(I);
+      if (!AI) continue;
+      Type *AllocType = AI->getAllocatedType();
+      if (!AllocType->isArrayTy())
+        continue;
+      Type *ArrayElemType = AllocType->getArrayElementType();
+      if (!ArrayElemType->isSingleValueType())
+        continue;
+
+      unsigned MaxSize = 0;
+      bool Giveup = false;
+      for (User *U : AI->users()) {
+        GEPOperator *Gep = dyn_cast<GEPOperator>(U);
+        if (!Gep) {
+          Giveup = true;
+          break;
+        }
+        if (!Gep->hasAllConstantIndices()) {
+          Giveup = true;
+          break;
+        }
+        if (Gep->getNumIndices() != 2 || cast<ConstantInt>(Gep->getOperand(1))->getLimitedValue() != 0) {
+          Giveup = true;
+          break;
+        }
+        unsigned RequiredSize = 1 + cast<ConstantInt>(Gep->getOperand(2))->getLimitedValue();
+        if (RequiredSize > MaxSize)
+          MaxSize = RequiredSize;
+      }
+
+      if (Giveup)
+        continue;
+
+      // Generate a scalar allocas for the corresponding GEPs.
+      ScalarAllocas.clear();
+      ScalarAllocas.resize(MaxSize);
+      for (auto it = AI->user_begin(); it != AI->user_end();) {
+        User *U = *(it++);
+        GetElementPtrInst *Gep = cast<GetElementPtrInst>(U);
+        unsigned Index = cast<ConstantInt>(Gep->getOperand(2))->getLimitedValue();
+
+        AllocaInst *ScalarAlloca = ScalarAllocas[Index];
+        if (!ScalarAlloca) {
+          Builder.SetInsertPoint(AI);
+          ScalarAlloca = Builder.CreateAlloca(ArrayElemType);
+          ScalarAlloca->setDebugLoc(AI->getDebugLoc());
+          hlsl::DxilMDHelper::CopyMetadata(*ScalarAlloca, *AI); // Propagate precise attributes, if any
+          ScalarAllocas[Index] = ScalarAlloca;
+        }
+
+        Gep->replaceAllUsesWith(ScalarAlloca);
+        Gep->eraseFromParent();
+      }
+
+      // Rewrite any debug info insts.
+      for (auto mdit = dxilutil::mdv_users_begin(AI); mdit != dxilutil::mdv_users_end(AI);) {
+        User *U = *(mdit++);
+        DbgDeclareInst *DI = dyn_cast<DbgDeclareInst>(U);
+        if (!DI)
+          continue;
+
+        DIExpression *Expr = DI->getExpression();
+
+        unsigned ArrayLayoutOffsetInBits = 0;
+        std::vector<DxilDIArrayDim> ArrayDims;
+        const bool HasStrides = DxilMDHelper::GetVariableDebugLayout(DI, ArrayLayoutOffsetInBits, ArrayDims);
+
+        const bool IsBitpiece = Expr->isBitPiece();
+        const uint64_t BaseBitpieceOffSet = IsBitpiece ? Expr->getBitPieceOffset() : 0;
+
+        for (unsigned i = 0; i < ScalarAllocas.size(); i++) {
+          AllocaInst *ScalarAlloca = ScalarAllocas[i];
+          if (!ScalarAlloca) {
+            continue;
+          }
+
+          uint64_t BitpieceOffsetInBits = 0;
+          const uint64_t BitpieceSizeInBits = DL.getTypeStoreSizeInBits(ArrayElemType);
+          if (HasStrides) {
+            BitpieceOffsetInBits = ArrayLayoutOffsetInBits;
+            unsigned FragmentIndex = i;
+            for (DxilDIArrayDim &ArrayDim : ArrayDims) {
+              unsigned IndexIntoArray = FragmentIndex % ArrayDim.NumElements;
+              BitpieceOffsetInBits += IndexIntoArray * ArrayDim.StrideInBits;
+              FragmentIndex /= ArrayDim.NumElements;
+            }
+          }
+          else {
+            BitpieceOffsetInBits = BaseBitpieceOffSet + i * BitpieceSizeInBits;
+          }
+
+          uint64_t Operands[3] = {dwarf::DW_OP_bit_piece, BitpieceOffsetInBits, BitpieceSizeInBits};
+          DIB.insertDeclare(ScalarAlloca, DI->getVariable(), DIExpression::get(Ctx, Operands), DI->getDebugLoc(), DI);
+        } // For each scalar alloca
+        DI->eraseFromParent();
+      } // For each metadat user
+
+      AI->eraseFromParent();
+      Changed = true;
+    } // For each inst in the entry block
+
+    return Changed;
+  }
+
   //
   // Turns all allocas of vector types that are marked with 'dx.precise'
   // and turn them into scalars. For example:
@@ -356,6 +484,7 @@ public:
 
     Changed |= RewriteOutputArgsDebugInfo(F);
     Changed |= dxilutil::DeleteDeadAllocas(F);
+    Changed |= SplitSimpleAllocas(F);
     Changed |= ScalarizePreciseVectorAlloca(F);
     Changed |= Mem2Reg(F, *DT, *AC);
 

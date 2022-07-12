@@ -3,6 +3,10 @@
 typedef float4 MyCoolFloat4; 
 static float4 myStaticGlobalVar = float4(1.0, 1.0, 1.0, 1.0);
 
+cbuffer cb : register(b0) {
+  uint indices[4];
+}
+
 // Local var with same name as outer scope
 float4 localScopeVar_func(float4 val)
 {
@@ -25,7 +29,7 @@ float4 array_func(float4 val)
     result[1] = val.y;
     result[2] = val.z;
     result[3] = val.w;
-    return float4(result[0], result[1], result[2], result[3]);
+    return float4(result[indices[0]], result[indices[1]], result[indices[2]], result[indices[3]]);
 }
 
 // Typedef
@@ -60,7 +64,7 @@ float4 depth2(float4 val)
     return val;
 }
 
-[RootSignature("")]
+[RootSignature("CBV(b0)")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
     // xHECK: %[[p_load:[0-9]+]] = load i32, i32*
