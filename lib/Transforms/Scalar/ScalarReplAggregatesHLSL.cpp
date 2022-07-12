@@ -4462,7 +4462,7 @@ void SROA_Parameter_HLSL::allocateSemanticIndex(
     // If semantic is undefined, an error will be emitted elsewhere.  For now,
     // we should avoid asserting.
     Type *semanticTy = semanticTypeMap[semantic];
-    if (semantic.empty() || dxilutil::IsHLSLObjectType(semanticTy->getPointerElementType()) ) {
+    if (semantic.empty() || (semanticTy->isPointerTy() && dxilutil::IsHLSLObjectType(semanticTy->getPointerElementType()) ) ) {
       DXASSERT(!dxilutil::IsHLSLObjectStreamType(semanticTy->getPointerElementType()), "HLSL Stream object types like TriangleStream should already be flattened at this point.");
       continue;  
     }
