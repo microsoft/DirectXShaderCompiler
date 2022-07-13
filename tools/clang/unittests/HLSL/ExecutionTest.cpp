@@ -4086,6 +4086,10 @@ TEST_F(ExecutionTest, ATOProgOffset) {
                     ((UINT)sm & 0x0f));
       break;
     }
+    if (sm >= D3D_SHADER_MODEL_6_7 && !DoesDeviceSupportAdvancedTexOps(pDevice)) {
+      LogCommentFmt(L"Device does not support Advanced Texture Ops");
+      break;
+    }
 
     bool bSupportMSASDeriv = DoesDeviceSupportMeshAmpDerivatives(pDevice);
 
@@ -4180,6 +4184,12 @@ TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_7))
       return;
+
+  if (!DoesDeviceSupportAdvancedTexOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support Advanced Texture Operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
 
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
     std::make_shared<st::ShaderOpSet>();
