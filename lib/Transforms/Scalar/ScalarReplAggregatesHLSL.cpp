@@ -4399,6 +4399,14 @@ static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAn
 static unsigned AllocateSemanticIndex(
     Type *Ty, unsigned &semIndex, unsigned argIdx, unsigned endArgIdx,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList) {
+  DXASSERT(argIdx < endArgIdx, "arg index out of bound");
+  DxilParameterAnnotation &paramAnnotation = FlatAnnotationList[argIdx];
+
+  // Skip resource arg.
+  if (paramAnnotation.HasResourceAttribute()) {
+    return argIdx + 1;
+  }
+
   if (Ty->isPointerTy()) {
     return AllocateSemanticIndex(Ty->getPointerElementType(), semIndex, argIdx,
                                  endArgIdx, FlatAnnotationList);
@@ -4417,15 +4425,9 @@ static unsigned AllocateSemanticIndex(
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
-      if (!(EltTy->isStructTy() && !HLMatrixType::isa(EltTy))) {
-        // Update argIdx only when it is a leaf node.
-        argIdx++;
-      }
     }
     return argIdx;
   } else {
-    DXASSERT(argIdx < endArgIdx, "arg index out of bound");
-    DxilParameterAnnotation &paramAnnotation = FlatAnnotationList[argIdx];
     // Get element size.
     unsigned rows = 1;
     if (paramAnnotation.HasMatrixAnnotation()) {
@@ -4444,7 +4446,7 @@ static unsigned AllocateSemanticIndex(
     // Update semIndex.
     semIndex += rows;
 
-    return argIdx;
+    return argIdx + 1;
   }
 }
 

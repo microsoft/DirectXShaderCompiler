@@ -197,7 +197,7 @@ static Function *StripFunctionParameter(Function *F, DxilModule &DM,
   FunctionType *FT = FunctionType::get(VoidTy, false);
   for (auto &arg : F->args()) {
     if (!arg.user_empty())
-      return nullptr;
+      return nullptr; // If this would return here, we really should produce an error somewhere.
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&arg);
     if (DDI) {
       DDI->eraseFromParent();

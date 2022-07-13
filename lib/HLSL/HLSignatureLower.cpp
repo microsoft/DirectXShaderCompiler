@@ -451,6 +451,9 @@ void HLSignatureLower::CreateDxilSignatures() {
     if (qual == hlsl::DxilParamInputQual::OutIndices ||
         qual == hlsl::DxilParamInputQual::InPayload)
       continue;
+    // Skip resource argument.
+    if (paramAnnotation.HasResourceAttribute())
+      continue;
 
     ProcessArgument(Entry, EntryAnnotation, arg, props, pSM,
                     isPatchConstantFunctionFalse, bForOutFasle, bHasClipPlane);
