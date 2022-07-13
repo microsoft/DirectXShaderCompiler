@@ -134,6 +134,7 @@ namespace dxilutil {
   std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty);
   bool IsHLSLResourceType(llvm::Type *Ty);
   bool IsHLSLObjectType(llvm::Type *Ty);
+  bool IsHLSLObjectStreamType(llvm::Type *Ty);
   bool IsHLSLRayQueryType(llvm::Type *Ty);
   bool IsHLSLResourceDescType(llvm::Type *Ty);
   bool IsResourceSingleComponent(llvm::Type *Ty);

@@ -2341,7 +2341,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
+    // Entry-point-specific parameter validation
     if (isEntry) {
+      
+      if (const HLSLUniformAttr *Attr = parmDecl->getAttr<HLSLUniformAttr>()) {
+        unsigned DiagID =
+            Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                  "attribute uniform only valid for non-entry-point functions.");
+        Diags.Report(Attr->getLocation(), DiagID);
+        return;
+      }
+
+      if (IsHLSLResourceType(parmDecl->getType())){
+        unsigned DiagID =
+            Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                  "Resource types only valid for non-entry-point functions.");
+        Diags.Report(parmDecl->getLocation(), DiagID);
+        return;
+      }
       if (CGM.getLangOpts().EnableDX9CompatMode && paramAnnotation.HasSemanticString()) {
         RemapObsoleteSemantic(paramAnnotation, /*isPatchConstantFunction*/ false);
       }
