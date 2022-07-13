@@ -499,6 +499,9 @@ bool IsHLSLObjectStreamType(llvm::Type *Ty) {
 
     StringRef name = ST->getName();
     
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
     if (name.startswith("TriangleStream<"))
       return true;
     if (name.startswith("PointStream<"))
@@ -528,9 +531,6 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
     if (IsHLSLResourceType(Ty))
       return true;
-
-    ConsumePrefix(name, "class.");
-    ConsumePrefix(name, "struct.");
 
     return IsHLSLObjectStreamType(Ty);
   }
