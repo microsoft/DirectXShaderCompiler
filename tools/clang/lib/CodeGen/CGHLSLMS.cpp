@@ -288,6 +288,8 @@ public:
                                    clang::QualType SrcTy,
                                    llvm::Value *DestPtr,
                                    clang::QualType DestTy) override;
+  void ValidateSingleFunctionparameter(const ParmVarDecl *parmDecl);
+  void FunctionParameterValidation(bool isEntry, Function *F, const FunctionDecl *FD);
   void AddHLSLFunctionInfo(llvm::Function *, const FunctionDecl *FD) override;
   void EmitHLSLFunctionProlog(llvm::Function *, const FunctionDecl *FD) override;
 
@@ -1381,6 +1383,43 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   return DxilResource::Kind::Invalid;
 }
 
+void CGMSHLSLRuntime::ValidateSingleFunctionparameter(const ParmVarDecl *parmDecl){
+  DiagnosticsEngine &Diags = CGM.getDiags();
+  if (const HLSLUniformAttr *Attr = parmDecl->getAttr<HLSLUniformAttr>()) {
+    unsigned DiagID =
+        Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                              "'uniform' parameter is not allowed on entry function." );
+    Diags.Report(Attr->getLocation(), DiagID);
+    return;
+  }
+
+  if (IsHLSLResourceOrAggregateOfHLSLResourceType(parmDecl->getType())){
+    unsigned DiagID =
+        Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                              "Resource or sampler parameter is not allowed on entry function.");
+    Diags.Report(parmDecl->getLocation(), DiagID);
+    return;
+  }
+}
+
+// For each argument in the function, validate that HLSL rules are followed
+// For now, this validates argument attributes and argument types for entry point functions.
+void  CGMSHLSLRuntime::FunctionParameterValidation(bool isEntry, Function *F, const FunctionDecl *FD) {
+  unsigned ArgNo = 0;
+  unsigned ParmIdx = 0;
+  DxilFunctionAnnotation *FuncAnnotation =
+      m_pHLModule->AddFunctionAnnotation(F);
+  if (isEntry) {
+    for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
+      DxilParameterAnnotation &paramAnnotation =
+          FuncAnnotation->GetParameterAnnotation(ArgNo);
+
+      const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
+      ValidateSingleFunctionparameter(parmDecl);
+    }
+  } 
+}
+
 void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // Add hlsl intrinsic attr
   unsigned intrinsicOpcode;
@@ -1830,6 +1869,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
                "attribute profile not match entry function profile");
       break;
     case ShaderModel::Kind::Library:
+      FunctionParameterValidation(isEntry, F, FD);
     case ShaderModel::Kind::Invalid:
       // Non-shader stage shadermodels don't have entry points.
       break;
@@ -1912,6 +1952,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool hasOutPrimitives = false;
   bool hasInPayload = false;
   bool rayShaderHaveErrors = false;
+
   for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx, ++ArgIt) {
     DxilParameterAnnotation &paramAnnotation =
         FuncAnnotation->GetParameterAnnotation(ArgNo);
@@ -2343,22 +2384,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     paramAnnotation.SetParamInputQual(dxilInputQ);
     // Entry-point-specific parameter validation
     if (isEntry) {
-      
-      if (const HLSLUniformAttr *Attr = parmDecl->getAttr<HLSLUniformAttr>()) {
-        unsigned DiagID =
-            Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                  "'uniform' parameter is not allowed on entry function." );
-        Diags.Report(Attr->getLocation(), DiagID);
-        return;
-      }
-
-      if (IsHLSLResourceType(parmDecl->getType())){
-        unsigned DiagID =
-            Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                  "Resource or sampler parameter is not allowed on entry function.");
-        Diags.Report(parmDecl->getLocation(), DiagID);
-        return;
-      }
+      // The body of the inner loop of FunctionParameterValidation should go here.
+      // This code can't be placed above the for loop because these types of errors have lower priority
+      // and will fail other tests
+      ValidateSingleFunctionparameter(parmDecl);
+      // end FunctionParameterValidation body
       if (CGM.getLangOpts().EnableDX9CompatMode && paramAnnotation.HasSemanticString()) {
         RemapObsoleteSemantic(paramAnnotation, /*isPatchConstantFunction*/ false);
       }

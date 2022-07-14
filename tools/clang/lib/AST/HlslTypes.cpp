@@ -107,6 +107,26 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   return BuiltinTy != nullptr && BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
 }
 
+
+bool IsHLSLResourceOrAggregateOfHLSLResourceType(clang::QualType type) {
+  if (IsHLSLResourceType(type)){
+    return true;
+  }
+  bool children_has_HLSL_Resource_type = false;
+  if (type->isStructureType()) {
+    clang::RecordDecl::field_iterator field_iterator = type->getAsStructureType()->getDecl()->field_begin();
+    clang::RecordDecl::field_iterator field_iterator_end = type->getAsStructureType()->getDecl()->field_end();
+    for (; field_iterator != field_iterator_end; field_iterator++) {
+      QualType childType = (*field_iterator)->getType();
+      
+      children_has_HLSL_Resource_type |= IsHLSLResourceOrAggregateOfHLSLResourceType(childType);
+    }
+  }
+
+  return children_has_HLSL_Resource_type;
+}
+
+
 bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
