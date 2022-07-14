@@ -402,26 +402,48 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
 )
 {
-  auto *DbgValueFn =
-      llvm::Intrinsic::getDeclaration(&M, llvm::Intrinsic::dbg_value);
+  hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
 
   bool Changed = false;
-  for (auto it = DbgValueFn->user_begin(); it != DbgValueFn->user_end();)
-  {
-    llvm::User *User = *it++;
 
-    if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(User))
-    {
-      llvm::Value *V = DbgValue->getValue();
-      if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
-          continue;
+  auto entryPoints = DM.GetExportedFunctions();
+  for (auto &fn : entryPoints) {
+    // #DSLTodo: We probably need to merge the list of variables for each export
+    // into one set so that WinPIX shader debugging can follow a thread through
+    // any function within a given module. (Unless PIX chooses to launch a new
+    // debugging session whenever control passes from one function to another.)
+    // For now, it's sufficient to treat each exported function as having
+    // completely separate variables by clearing this member:
+    m_Registers.clear();
+    // Note: they key problem here is variables in common functions called by
+    // multiple exported functions. The DILocalVariables in the common function
+    // will be exactly the same objects no matter which export called the common
+    // function, so the instrumentation here gets a bit confused that the same
+    // variable is present in two functions and ends up pointing one function
+    // to allocas in another function. (This is easy to repro: comment out the
+    // above clear(), and run PixTest::PixStructAnnotation_Lib_DualRaygen.)
+    // Not sure what the right path forward is: might be that we have to tag
+    // m_Registers with the exported function, and maybe write out a function
+    // identifier during debug instrumentation...
+    auto &blocks = fn->getBasicBlockList();
+    for (auto &block : blocks) {
+      std::vector<Instruction *> instructions;
+      for (auto &instruction : block) {
+        instructions.push_back(&instruction);
       }
-      Changed = true;
-      handleDbgValue(M, DbgValue);
-      DbgValue->eraseFromParent();
+      for (auto & instruction : instructions) {
+        if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
+          llvm::Value *V = DbgValue->getValue();
+          if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
+            continue;
+          }
+          Changed = true;
+          handleDbgValue(M, DbgValue);
+          DbgValue->eraseFromParent();
+        }
+      }
     }
   }
-
   return Changed;
 }
 
