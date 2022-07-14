@@ -1,15 +1,15 @@
 // RUN: %dxc -D PARAMTYPE=Tex2D /E main_fragment -T ps_6_0 %s | FileCheck %s -check-prefix=CHECK1
 // CHECK1: warning: effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs. [-Weffects-syntax]
-// CHECK1: attribute uniform only valid for non-entry-point functions.
+// CHECK1: 'uniform' parameter is not allowed on entry function.
 
 // RUN: %dxc -D PARAMTYPE=RW /E main_fragment -T ps_6_0 %s | FileCheck %s -check-prefix=CHECK2
 // CHECK2: warning: effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs. [-Weffects-syntax]
-// CHECK2: attribute uniform only valid for non-entry-point functions.
+// CHECK2: 'uniform' parameter is not allowed on entry function.
 
 
 // RUN: %dxc -D PARAMTYPE=SamplerState /E main_fragment -T ps_6_0 %s | FileCheck %s -check-prefix=CHECK3
 // CHECK3: warning: effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs. [-Weffects-syntax]
-// CHECK3: attribute uniform only valid for non-entry-point functions.
+// CHECK3: 'uniform' parameter is not allowed on entry function.
 
 
 

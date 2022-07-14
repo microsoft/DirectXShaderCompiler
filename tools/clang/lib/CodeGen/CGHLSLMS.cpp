@@ -2347,7 +2347,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       if (const HLSLUniformAttr *Attr = parmDecl->getAttr<HLSLUniformAttr>()) {
         unsigned DiagID =
             Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                  "attribute uniform only valid for non-entry-point functions.");
+                                  "'uniform' parameter is not allowed on entry function." );
         Diags.Report(Attr->getLocation(), DiagID);
         return;
       }
@@ -2355,7 +2355,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       if (IsHLSLResourceType(parmDecl->getType())){
         unsigned DiagID =
             Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                  "Resource types only valid for non-entry-point functions.");
+                                  "Resource or sampler parameter is not allowed on entry function.");
         Diags.Report(parmDecl->getLocation(), DiagID);
         return;
       }

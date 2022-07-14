@@ -491,26 +491,6 @@ std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty
   return FalseRet;
 }
 
-bool IsHLSLObjectStreamType(llvm::Type *Ty) {
-  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
-    if (!ST->hasName()) {
-      return false;
-    }
-
-    StringRef name = ST->getName();
-
-    ConsumePrefix(name, "class.");
-    ConsumePrefix(name, "struct.");
-
-    if (name.startswith("TriangleStream<"))
-      return true;
-    if (name.startswith("PointStream<"))
-      return true;
-    if (name.startswith("LineStream<"))
-      return true;
-  }
-  return false;
-}
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
@@ -532,7 +512,15 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     if (IsHLSLResourceType(Ty))
       return true;
 
-    return IsHLSLObjectStreamType(Ty);
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    if (name.startswith("TriangleStream<"))
+      return true;
+    if (name.startswith("PointStream<"))
+      return true;
+    if (name.startswith("LineStream<"))
+      return true;
   }
   return false;
 }
