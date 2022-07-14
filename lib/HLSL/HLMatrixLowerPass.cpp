@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
@@ -653,12 +654,10 @@ AllocaInst *HLMatrixLowerPass::lowerAlloca(AllocaInst *MatAlloca) {
 
   // Update debug info.
   if (DbgDeclareInst *DbgDeclare = llvm::FindAllocaDbgDeclare(MatAlloca)) {
-    LLVMContext &Context = MatAlloca->getContext();
-    Value *DbgDeclareVar = MetadataAsValue::get(Context, DbgDeclare->getRawVariable());
-    Value *DbgDeclareExpr = MetadataAsValue::get(Context, DbgDeclare->getRawExpression());
-    Value *ValueMetadata = MetadataAsValue::get(Context, ValueAsMetadata::get(LoweredAlloca));
-    IRBuilder<> DebugBuilder(DbgDeclare);
-    DebugBuilder.CreateCall(DbgDeclare->getCalledFunction(), { ValueMetadata, DbgDeclareVar, DbgDeclareExpr });
+    DILocalVariable *DbgDeclareVar  = DbgDeclare->getVariable();
+    DIExpression    *DbgDeclareExpr = DbgDeclare->getExpression();
+    DIBuilder DIB(*MatAlloca->getModule());
+    DIB.insertDeclare(LoweredAlloca, DbgDeclareVar, DbgDeclareExpr, DbgDeclare->getDebugLoc(), DbgDeclare);
   }
 
   if (HLModule::HasPreciseAttributeWithMetadata(MatAlloca))

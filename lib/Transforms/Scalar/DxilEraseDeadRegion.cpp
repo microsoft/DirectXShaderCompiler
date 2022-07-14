@@ -304,40 +304,49 @@ struct DxilEraseDeadRegion : public FunctionPass {
       if (L->block_begin() == L->block_end())
         continue;
 
-      // If there's not a single exit block, give up. Those cases can probably
-      // be handled by normal region deletion heuristic anyways.
+      bool LoopSafeToDelete = true;
+
+      BasicBlock *Preheader = L->getLoopPreheader();
       BasicBlock *ExitBB = L->getExitBlock();
-      if (!ExitBB) {
-        for (Loop *ChildLoop : *L)
-          LoopWorklist.push_back(ChildLoop);
-        continue;
+
+      // If there's not a single preheader and exit block, give up. Those cases can probably
+      // be handled by normal region deletion heuristic anyways.
+      if (!Preheader || !ExitBB || !ExitBB->getSinglePredecessor()) {
+        LoopSafeToDelete = false;
       }
 
-      LoopRegion.clear();
-      for (BasicBlock *BB : L->getBlocks())
-        LoopRegion.insert(BB);
+      // Check if any values of the loop are used outside the loop.
+      if (LoopSafeToDelete) {
+        LoopRegion.clear();
+        for (BasicBlock *BB : L->getBlocks())
+          LoopRegion.insert(BB);
 
-      bool LoopSafeToDelete = true;
-      for (BasicBlock *BB : L->getBlocks()) {
-        if (!this->SafeToDeleteBlock(BB, LoopRegion)) {
-          LoopSafeToDelete = false;
-          break;
+        for (BasicBlock *BB : L->getBlocks()) {
+          if (!this->SafeToDeleteBlock(BB, LoopRegion)) {
+            LoopSafeToDelete = false;
+            break;
+          }
         }
       }
 
       if (LoopSafeToDelete) {
-        // Re-branch anything that went to the loop's header to the loop's sole exit.
-        assert(!isa<PHINode>(ExitBB->front()) && "There must be no values escaping from the loop");
-        BasicBlock *HeaderBB = L->getHeader();
-        for (auto PredIt = llvm::pred_begin(HeaderBB), PredEnd = llvm::pred_end(HeaderBB);
-          PredIt != PredEnd;)
-        {
-          BasicBlock *PredBB = *PredIt;
-          PredIt++;
-
-          TerminatorInst *TI = PredBB->getTerminator();
-          TI->replaceUsesOfWith(HeaderBB, ExitBB);
+        // Modify any phi nodes in the exit block to be incoming from
+        // the preheader instead of the exiting BB.
+        BasicBlock *ExitingBlock = L->getExitingBlock();
+        for (Instruction &I : *ExitBB) {
+          PHINode *Phi = dyn_cast<PHINode>(&I);
+          if (!Phi) break;
+          assert(Phi->getNumIncomingValues() == 1);
+          for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
+            if (Phi->getIncomingBlock(i) == ExitingBlock) {
+              Phi->setIncomingBlock(i, Preheader);
+            }
+          }
         }
+
+        // Re-branch anything that went to the loop's header to the loop's sole exit.
+        TerminatorInst *TI = Preheader->getTerminator();
+        TI->replaceUsesOfWith(L->getHeader(), ExitBB);
 
         DeleteRegion(LoopRegion, LI);
         Changed = true;

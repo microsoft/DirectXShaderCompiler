@@ -29,6 +29,6 @@ float2 main(int index : INDEX) : SV_Target {
   // CHECK: load
   // CHECK: load
 
-  return values[3];
+  return values[index];
 }
 
