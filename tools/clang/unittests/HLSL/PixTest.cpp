@@ -201,6 +201,8 @@ public:
 
   TEST_METHOD(AddToASPayload)
 
+  TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
+
   TEST_METHOD(PixStructAnnotation_Simple)
   TEST_METHOD(PixStructAnnotation_CopiedStruct)
   TEST_METHOD(PixStructAnnotation_MixedSizes)
@@ -990,7 +992,10 @@ public:
     std::vector<AllocaWrite> AllocaWrites;
   };
 
-  TestableResults TestStructAnnotationCase(const char* hlsl, const wchar_t* optimizationLevel, bool validateCoverage = true);
+  TestableResults TestStructAnnotationCase(const char *hlsl,
+                                           const wchar_t *optimizationLevel,
+                                           bool validateCoverage = true,
+                                           const wchar_t *profile = L"as_6_5");
   void ValidateAllocaWrite(std::vector<AllocaWrite> const& allocaWrites, size_t index, const char* name);
   std::string RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob);
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob* blob);
@@ -2044,9 +2049,9 @@ uint32_t CountStructMembers(llvm::Type const* pType);
 PixTest::TestableResults PixTest::TestStructAnnotationCase(
     const char* hlsl, 
     const wchar_t * optimizationLevel,
-    bool validateCoverage)
-{
-  CComPtr<IDxcBlob> pBlob = Compile(hlsl, L"as_6_5", {optimizationLevel});
+    bool validateCoverage,
+    const wchar_t *profile) {
+  CComPtr<IDxcBlob> pBlob = Compile(hlsl, profile, {optimizationLevel});
 
   CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
 
@@ -2067,134 +2072,125 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
 #endif
 
   ModuleAndHangersOn moduleEtc(pAnnotatedContainer);
-  
-  llvm::Function *entryFunction = moduleEtc.GetDxilModule().GetEntryFunction();
-
-  PixTest::TestableResults ret;
+    PixTest::TestableResults ret;
 
   // For every dbg.declare, run the member iterator and record what it finds:
-  for (auto& block : entryFunction->getBasicBlockList())
-  {
-    for (auto& instruction : block.getInstList())
-    {
-      if (auto* dbgDeclare = llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction))
-      {
-        llvm::Value* Address = dbgDeclare->getAddress();
-        auto* AddressAsAlloca = llvm::dyn_cast<llvm::AllocaInst>(Address);
-        if (AddressAsAlloca != nullptr)
-        {
-            auto* Expression = dbgDeclare->getExpression();
+  auto entryPoints = moduleEtc.GetDxilModule().GetExportedFunctions();
+    for (auto &entryFunction : entryPoints) {
+      for (auto &block : entryFunction->getBasicBlockList()) {
+        for (auto &instruction : block.getInstList()) {
+          if (auto *dbgDeclare =
+                  llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction)) {
+            llvm::Value *Address = dbgDeclare->getAddress();
+            auto *AddressAsAlloca = llvm::dyn_cast<llvm::AllocaInst>(Address);
+            if (AddressAsAlloca != nullptr) {
+              auto *Expression = dbgDeclare->getExpression();
 
-            std::unique_ptr<dxil_debug_info::MemberIterator> iterator = dxil_debug_info::CreateMemberIterator(
-                dbgDeclare,
-                moduleEtc.GetDxilModule().GetModule()->getDataLayout(),
-                AddressAsAlloca,
-                Expression);
+              std::unique_ptr<dxil_debug_info::MemberIterator> iterator =
+                  dxil_debug_info::CreateMemberIterator(
+                      dbgDeclare,
+                      moduleEtc.GetDxilModule().GetModule()->getDataLayout(),
+                      AddressAsAlloca, Expression);
 
-
-            unsigned int startingBit = 0;
-            unsigned int coveredBits = 0;
-            unsigned int memberIndex = 0;
-            unsigned int memberCount = 0;
-            while (iterator->Next(&memberIndex))
-            {
+              unsigned int startingBit = 0;
+              unsigned int coveredBits = 0;
+              unsigned int memberIndex = 0;
+              unsigned int memberCount = 0;
+              while (iterator->Next(&memberIndex)) {
                 memberCount++;
-                if (memberIndex == 0)
-                {
-                    startingBit = iterator->OffsetInBits(memberIndex);
-                    coveredBits = iterator->SizeInBits(memberIndex);
+                if (memberIndex == 0) {
+                  startingBit = iterator->OffsetInBits(memberIndex);
+                  coveredBits = iterator->SizeInBits(memberIndex);
+                } else {
+                  coveredBits = std::max<unsigned int>(
+                      coveredBits, iterator->OffsetInBits(memberIndex) +
+                                       iterator->SizeInBits(memberIndex));
                 }
-                else
-                {
-                    coveredBits = std::max<unsigned int>(coveredBits, iterator->OffsetInBits(memberIndex) + iterator->SizeInBits(memberIndex));
-                }
-            }
+              }
 
-            AggregateOffsetAndSize OffsetAndSize = {};
-            OffsetAndSize.countOfMembers = memberCount;
-            OffsetAndSize.offset         = startingBit;
-            OffsetAndSize.size           = coveredBits;
-            ret.OffsetAndSizes.push_back(OffsetAndSize);
+              AggregateOffsetAndSize OffsetAndSize = {};
+              OffsetAndSize.countOfMembers = memberCount;
+              OffsetAndSize.offset = startingBit;
+              OffsetAndSize.size = coveredBits;
+              ret.OffsetAndSizes.push_back(OffsetAndSize);
 
-            // Use this independent count of number of struct members to test the 
-            // function that operates on the alloca type:
-            llvm::Type* pAllocaTy = AddressAsAlloca->getType()->getElementType();
-            if (auto* AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy))
-            {
-                // This is the case where a struct is passed to a function, and in 
-                // these tests there should be only one struct behind the pointer.
+              // Use this independent count of number of struct members to test
+              // the function that operates on the alloca type:
+              llvm::Type *pAllocaTy =
+                  AddressAsAlloca->getType()->getElementType();
+              if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy)) {
+                // This is the case where a struct is passed to a function, and
+                // in these tests there should be only one struct behind the
+                // pointer.
                 VERIFY_ARE_EQUAL(AT->getNumElements(), 1);
                 pAllocaTy = AT->getArrayElementType();
-            }
+              }
 
-            if (auto* ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy))
-            {
+              if (auto *ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy)) {
                 uint32_t countOfMembers = CountStructMembers(ST);
-                // memberIndex might be greater, because the fragment iterator also includes contained derived types as
-                // fragments, in addition to the members of that contained derived types. CountStructMembers only counts
-                // the leaf-node types.
+                // memberIndex might be greater, because the fragment iterator
+                // also includes contained derived types as fragments, in
+                // addition to the members of that contained derived types.
+                // CountStructMembers only counts the leaf-node types.
                 VERIFY_ARE_EQUAL(countOfMembers, memberCount);
-            }
-            else if (pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy())
-            {
-                // If there's only one member in the struct in the pass-to-function (by pointer)
-                // case, then the underlying type will have been reduced to the contained type.
+              } else if (pAllocaTy->isFloatingPointTy() ||
+                         pAllocaTy->isIntegerTy()) {
+                // If there's only one member in the struct in the
+                // pass-to-function (by pointer) case, then the underlying type
+                // will have been reduced to the contained type.
                 VERIFY_ARE_EQUAL(1, memberCount);
-            }
-            else
-            {
+              } else {
                 VERIFY_IS_TRUE(false);
+              }
             }
+          }
         }
       }
-    }
-  }
 
-  // The member iterator should find a solid run of bits that is exactly covered
-  // by exactly one of the members found by the annotation pass:
-  if (validateCoverage)
-  {
-      unsigned CurRegIdx = 0;
-      for (AggregateOffsetAndSize const& cover : ret.OffsetAndSizes) // For each entry read from member iterators and dbg.declares
-      {
+      // The member iterator should find a solid run of bits that is exactly
+      // covered by exactly one of the members found by the annotation pass:
+      if (validateCoverage) {
+        unsigned CurRegIdx = 0;
+        for (AggregateOffsetAndSize const &cover :
+             ret.OffsetAndSizes) // For each entry read from member iterators
+                                 // and dbg.declares
+        {
           bool found = false;
-          for (ValueLocation const& valueLocation : passOutput.valueLocations) // For each allocas and dxil values
+          for (ValueLocation const &valueLocation :
+               passOutput.valueLocations) // For each allocas and dxil values
           {
-              if (CurRegIdx == valueLocation.base)
-              {
-                  VERIFY_IS_FALSE(found);
-                  found = true;
-                  VERIFY_ARE_EQUAL(valueLocation.count, cover.countOfMembers);
-              }
+            if (CurRegIdx == valueLocation.base) {
+              VERIFY_IS_FALSE(found);
+              found = true;
+              VERIFY_ARE_EQUAL(valueLocation.count, cover.countOfMembers);
+            }
           }
           VERIFY_IS_TRUE(found);
           CurRegIdx += cover.countOfMembers;
+        }
       }
-  }
 
-  // For every store operation to the struct alloca, check that the annotation pass correctly determined which alloca
-  for (auto& block : entryFunction->getBasicBlockList()) {
-    for (auto& instruction : block.getInstList()) {
-      if (auto* store =
-        llvm::dyn_cast<llvm::StoreInst>(&instruction)) {
+      // For every store operation to the struct alloca, check that the
+      // annotation pass correctly determined which alloca
+      for (auto &block : entryFunction->getBasicBlockList()) {
+        for (auto &instruction : block.getInstList()) {
+          if (auto *store = llvm::dyn_cast<llvm::StoreInst>(&instruction)) {
 
-        AllocaWrite NewAllocaWrite = {};
-        if (FindStructMemberFromStore(store, &NewAllocaWrite.memberName)) {
-          llvm::Value *index;
-          if (pix_dxil::PixAllocaRegWrite::FromInst(
-            store,
-            &NewAllocaWrite.regBase,
-            &NewAllocaWrite.regSize,
-            &index)) {
-            auto *asInt = llvm::dyn_cast<llvm::ConstantInt>(index);
-            NewAllocaWrite.index = asInt->getLimitedValue();
-            ret.AllocaWrites.push_back(NewAllocaWrite);
+            AllocaWrite NewAllocaWrite = {};
+            if (FindStructMemberFromStore(store, &NewAllocaWrite.memberName)) {
+              llvm::Value *index;
+              if (pix_dxil::PixAllocaRegWrite::FromInst(
+                      store, &NewAllocaWrite.regBase, &NewAllocaWrite.regSize,
+                      &index)) {
+                auto *asInt = llvm::dyn_cast<llvm::ConstantInt>(index);
+                NewAllocaWrite.index = asInt->getLimitedValue();
+                ret.AllocaWrites.push_back(NewAllocaWrite);
+              }
+            }
           }
         }
       }
     }
-  }
-
   return ret;
 }
 
@@ -2216,12 +2212,100 @@ static const OptimizationChoice OptimizationChoices[] = {
   { L"-O1", true },
 };
 
-TEST_F(PixTest, PixStructAnnotation_Simple) {
+TEST_F(PixTest, PixStructAnnotation_Lib_DualRaygen) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
 
   for (auto choice : OptimizationChoices) {
       auto optimization = choice.Flag;
       const char* hlsl = R"(
+
+RaytracingAccelerationStructure Scene : register(t0, space0);
+RWTexture2D<float4> RenderTarget : register(u0);
+
+struct SceneConstantBuffer
+{
+    float4x4 projectionToWorld;
+    float4 cameraPosition;
+    float4 lightPosition;
+    float4 lightAmbientColor;
+    float4 lightDiffuseColor;
+};
+
+ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
+
+struct RayPayload
+{
+    float4 color;
+};
+
+inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
+{
+    float2 xy = index + 0.5f; // center in the middle of the pixel.
+    float2 screenPos = xy;// / DispatchRaysDimensions().xy * 2.0 - 1.0;
+
+    // Invert Y for DirectX-style coordinates.
+    screenPos.y = -screenPos.y;
+
+    // Unproject the pixel coordinate into a ray.
+    float4 world = /*mul(*/float4(screenPos, 0, 1)/*, g_sceneCB.projectionToWorld)*/;
+
+    //world.xyz /= world.w;
+    origin = world.xyz; //g_sceneCB.cameraPosition.xyz;
+    direction = float3(1,0,0);//normalize(world.xyz - origin);
+}
+
+void RaygenCommon()
+{
+    float3 rayDir;
+    float3 origin;
+    
+    // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
+    GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
+
+    // Trace the ray.
+    // Set the ray's extents.
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = rayDir;
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    RayPayload payload = { float4(0, 0, 0, 0) };
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+
+    // Write the raytraced color to the output texture.
+   // RenderTarget[DispatchRaysIndex().xy] = payload.color;
+}
+
+[shader("raygeneration")]
+void Raygen0()
+{
+    RaygenCommon();
+}
+
+[shader("raygeneration")]
+void Raygen1()
+{
+    RaygenCommon();
+}
+)";
+
+      // This is just a crash test until we decide what the right way forward
+      // for #DSLTodo is...
+      CComPtr<IDxcBlob> pBlob = Compile(hlsl, L"lib_6_6", {optimization});
+      CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
+      RunAnnotationPasses(pDxil);
+  }
+}
+
+TEST_F(PixTest, PixStructAnnotation_Simple) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  for (auto choice : OptimizationChoices) {
+    auto optimization = choice.Flag;
+    const char *hlsl = R"(
 struct smallPayload
 {
     uint dummy;
@@ -2237,18 +2321,17 @@ void main()
 }
 )";
 
-      auto Testables = TestStructAnnotationCase(hlsl, optimization);
+    auto Testables = TestStructAnnotationCase(hlsl, optimization);
 
-      if (!Testables.OffsetAndSizes.empty())
-      {
-          VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
-          VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
-          VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
-          VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
-      }
+    if (!Testables.OffsetAndSizes.empty()) {
+      VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+      VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
+      VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+      VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
+    }
 
-      VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
-      ValidateAllocaWrite(Testables.AllocaWrites, 0, "dummy");
+    VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
+    ValidateAllocaWrite(Testables.AllocaWrites, 0, "dummy");
   }
 }
 

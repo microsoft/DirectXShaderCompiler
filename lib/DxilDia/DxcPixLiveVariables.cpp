@@ -40,7 +40,13 @@ void ValidateDbgDeclare(
     unsigned FragmentOffsetInBits
 )
 {
-#ifndef NDEBUG
+  // #DSLTodo: When operating on libraries, each exported 
+  // function is instrumented separately, resulting in 
+  // overlapping variables. This is not a problem for, e.g.
+  // raytracing debugging because WinPIX only ever (so far)
+  // invokes debugging on one export at a time.
+  // With the advent of DSL, this will have to change...
+#if 0 //ndef NDEBUG
   for (unsigned i = 0; i < FragmentSizeInBits; ++i)
   {
     const unsigned BitNum = FragmentOffsetInBits + i;
