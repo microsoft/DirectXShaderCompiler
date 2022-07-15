@@ -1406,12 +1406,10 @@ void CGMSHLSLRuntime::ValidateSingleFunctionparameter(const ParmVarDecl *parmDec
 // For now, this validates argument attributes and argument types for entry point functions.
 void  CGMSHLSLRuntime::FunctionParameterValidation(bool isEntry, Function *F, const FunctionDecl *FD) {
   unsigned ArgNo = 0;
-  unsigned ParmIdx = 0;
-  DxilFunctionAnnotation *FuncAnnotation =
-      m_pHLModule->AddFunctionAnnotation(F);
+
   if (isEntry) {
-    for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
-      const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
+    for (; ArgNo < F->arg_size(); ++ArgNo) {
+      const ParmVarDecl *parmDecl = FD->getParamDecl(ArgNo);
       ValidateSingleFunctionparameter(parmDecl);
     }
   } 
