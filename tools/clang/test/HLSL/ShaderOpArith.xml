@@ -3259,9 +3259,9 @@
             float4 pos : SV_POSITION;
         };
         
-        PSInput VSMain(float3 pos : POSITION) {
+        PSInput VSMain(float3 pos : POSITION, uint vid:SV_VertexID) {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
-            if ( WaveGetLaneIndex() == WaveActiveMax(WaveGetLaneIndex())) { // last lane writes results
+            if ( vid == 2 ) { // last lane writes results, assume only 3 vertices.
                 g_TestResults[VS_INDEX].sm60_wave = tr60;
             }
             PSInput r;
@@ -3269,10 +3269,10 @@
             return r;
         }
         
-        PSInput VSMain65(float3 pos : POSITION) {
+        PSInput VSMain65(float3 pos : POSITION, uint vid:SV_VertexID) {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
             HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
-            if ( WaveGetLaneIndex() == WaveActiveMax(WaveGetLaneIndex())) { // last lane writes results
+            if ( vid == 2 ) { // last lane writes results, assume only 3 vertices.
                 g_TestResults[VS_INDEX].sm60_wave = tr60;
                 g_TestResults[VS_INDEX].sm65_wave = tr65;
             }
