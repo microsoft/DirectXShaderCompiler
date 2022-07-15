@@ -1493,11 +1493,12 @@
 
   <ShaderOp Name="Barycentrics" PS="PS61" VS="VS61">
     <RootSignature>RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(UAV(u0,numDescriptors=1))</RootSignature>
-    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes" ReadBack="true">
-        { {   0.0f,  1.0f , 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-        { {   1.0f, -1.0f , 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-        { {  -1.0f, -1.0f , 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
-      </Resource>
+    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true">
+      <!--
+      { {   0.0f,  1.0f , 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } }
+      { {   1.0f, -1.0f , 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } }
+      { {  -1.0f, -1.0f , 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } } !-->
+    </Resource>
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="1280" Height="2400" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <Resource Name="g_result"      Dimension="BUFFER"     Width="64"            InitialResourceState="COPY_DEST" Init="ZERO"      Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS"/>
 
