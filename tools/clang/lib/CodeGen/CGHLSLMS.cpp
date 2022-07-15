@@ -1411,9 +1411,6 @@ void  CGMSHLSLRuntime::FunctionParameterValidation(bool isEntry, Function *F, co
       m_pHLModule->AddFunctionAnnotation(F);
   if (isEntry) {
     for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
-      DxilParameterAnnotation &paramAnnotation =
-          FuncAnnotation->GetParameterAnnotation(ArgNo);
-
       const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
       ValidateSingleFunctionparameter(parmDecl);
     }
