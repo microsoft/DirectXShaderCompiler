@@ -270,9 +270,12 @@ void HLSignatureLower::ProcessArgument(Function *func,
 
   llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
   if (semanticStr.empty()) {
-    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func,
-        "Semantic must be defined for all parameters of an entry function or "
-        "patch constant function");
+    
+    std::string msg = "Semantic must be defined for all ";
+    msg += (qual == DxilParamInputQual::Out) ? "outputs " : "parameters ";
+    msg += "of an entry function or patch constant function";
+    
+    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func, msg);
     return;
   }
   UpdateSemanticAndInterpMode(semanticStr, interpMode, sigPoint->GetKind(),
