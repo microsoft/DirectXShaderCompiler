@@ -1,5 +1,3 @@
-// dxc /Tps_6_0 coverage.hlsl
-
 // RUN: %dxc /Tps_6_0 %s | FileCheck %s 
 // CHECK: error: Semantic must be defined for all outputs of an entry function or patch constant function
 
