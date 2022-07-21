@@ -337,7 +337,7 @@ class db_dxil(object):
                 i.shader_stages = (
                     "library", "compute", "amplification", "mesh",
                     "pixel", "vertex", "hull", "domain", "geometry",
-                    "raygeneration", "intersection", "anyhit", "closesthit", "miss", "callable")
+                    "raygeneration", "intersection", "anyhit", "closesthit", "miss", "callable", "node")
             elif i.name.startswith("Quad"):
                 i.category = "Quad Wave Ops"
                 i.is_wave = True
@@ -462,15 +462,22 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,7
         for i in "QuadVote".split(","):
             self.name_idx[i].shader_model_translated = 6,0
-        for i in "IndexNodeHandle,CreateNodeInputHandle,CreateNodeOutputHandle".split(","):
-            self.name_idx[i].category = "Create Handle from Node Input and Output"
+        for i in "IndexNodeHandle,CreateNodeOutputHandle".split(","):
+            self.name_idx[i].category = "Create Node Handles"
             self.name_idx[i].shader_model = 6,8
-        for i in "CreateNodeInputRecordsHandle,ReadFromNodeRecord,WriteToNodeRecord".split(","):
-            self.name_idx[i].category = "Node Input and Output Record Handling"
+            self.name_idx[i].shader_stages = ("node",)
+        for i in "CreateNodeInputRecordHandle,AllocateNodeOutputRecords".split(","):
+            self.name_idx[i].category = "Create Node Record Handles"
             self.name_idx[i].shader_model = 6,8
-        for i in ("AllocateNodeOutputRecords,IncrementOutputCount,OutputCompleteRecord,OutputCompleteNode,GetInputRecordCount,FinishedCrossGroupSharing").split(","):
+            self.name_idx[i].shader_stages = ("node",)
+        for i in "GetNodeRecordPtr".split(","):
+            self.name_idx[i].category = "Get Pointer to Node Record in Address Space 4"
+            self.name_idx[i].shader_model = 6,8
+            self.name_idx[i].shader_stages = ("node",)
+        for i in ("IncrementOutputCount,OutputComplete,GetInputRecordCount,FinishedCrossGroupSharing,NodeOutputIsValid,GetRemainingRecursionLevels").split(","):
             self.name_idx[i].category = "Work Graph intrinsics"
             self.name_idx[i].shader_model = 6,8
+            self.name_idx[i].shader_stages = ("node",)
         for i in "BarrierByMemoryType,BarrierByMemoryHandle".split(","): # included in Synchronization category
             self.name_idx[i].shader_model = 6,8
 
@@ -2050,37 +2057,26 @@ class db_dxil(object):
             db_dxil_param(3, "i32", "numRecords", "number of records"),
             db_dxil_param(4, "i1", "perThread", "perThread flag")])
         next_op_idx += 1
-        self.add_dxil_op("ReadFromNodeRecord", next_op_idx, "ReadFromNodeRecord", "reads value at byteOffset from the input represented by input handle", "hfd1wil", "ro", [
-            db_dxil_param(0, "$o", "", "value read from node record"),
-            db_dxil_param(2, "res", "input", "handle of record"),
-            db_dxil_param(3, "i32", "arrayIndex", "array index"),
-            db_dxil_param(4, "i32", "byteOffset", "byte offset")])
-        next_op_idx += 1
-        self.add_dxil_op("WriteToNodeRecord", next_op_idx, "WriteToNodeRecord", "writes value to the record at output handle at byteOffset", "hfwi", "", [
-            retvoid_param,
-            db_dxil_param(2, "res", "output", "handle of record"),
-            db_dxil_param(3, "i32", "arrayIndex", "array index"),
-            db_dxil_param(4, "i32", "byteOffset", "byte offset"),
-            db_dxil_param(5, "$o", "value", "value")])
+
+        self.add_dxil_op("GetNodeRecordPtr", next_op_idx, "GetNodeRecordPtr", "retrieve node input/output record pointer in address space 6", "u", "rn", [
+            db_dxil_param(0, "$o", "", "record pointer"),
+            db_dxil_param(2, "res", "recordhandle", "handle of record"),
+            db_dxil_param(3, "i32", "arrayIndex", "array index")])
         next_op_idx += 1
         self.add_dxil_op("IncrementOutputCount", next_op_idx, "IncrementOutputCount", "Select the next logical output count for an EmptyNodeOutput", "v", "", [
             retvoid_param,
             db_dxil_param(2, "res", "output", "handle of record"),
             db_dxil_param(3, "i32", "count", "value by which to increment the count")])
         next_op_idx += 1
-        self.add_dxil_op("OutputCompleteRecord", next_op_idx, "OutputComplete", "indicates all outputs for a given records are complete", "v", "", [
+        self.add_dxil_op("OutputComplete", next_op_idx, "OutputComplete", "indicates all outputs for a given records are complete", "v", "", [
             retvoid_param,
             db_dxil_param(2, "res", "output", "handle of record")])
         next_op_idx += 1
-        self.add_dxil_op("OutputCompleteNode", next_op_idx, "OutputComplete", "indicates all output for an output node is complete", "v", "", [
-            retvoid_param,
-            db_dxil_param(2, "res", "output", "handle of node output")])
-        next_op_idx += 1
-        self.add_dxil_op("GetInputRecordCount", next_op_idx, "GetInputRecordCount", "returns the number of records that have been coalesced into the current thread group", "i", "ro", [
+        self.add_dxil_op("GetInputRecordCount", next_op_idx, "GetInputRecordCount", "returns the number of records that have been coalesced into the current thread group", "v", "ro", [
             db_dxil_param(0, "i32", "", "number of records"),
             db_dxil_param(2, "res", "input", "handle of input record")])
         next_op_idx += 1
-        self.add_dxil_op("FinishedCrossGroupSharing", next_op_idx, "FinishedCrossGroupSharing", "returns true if the current thread group is the last to access the input", "1", "ro", [
+        self.add_dxil_op("FinishedCrossGroupSharing", next_op_idx, "FinishedCrossGroupSharing", "returns true if the current thread group is the last to access the input", "v", "", [
             db_dxil_param(0, "i1", "", "true if current thread group is last to access the input "),
             db_dxil_param(2, "res", "input", "handle of input record")])
         next_op_idx += 1
@@ -2096,22 +2092,25 @@ class db_dxil(object):
             db_dxil_param(3, "i32", "AccessFlags", "access flags"),
             db_dxil_param(4, "i32", "SyncFlags", "synchonization flags")])
         next_op_idx += 1
-        self.add_dxil_op("CreateNodeInputHandle", next_op_idx, "CreateNodeHandle", "Creates a handle to a NodeInput", "v", "rn", [
+        self.add_dxil_op("CreateNodeOutputHandle", next_op_idx, "createNodeOutputHandle", "Creates a handle to a NodeOutput", "v", "rn", [
             db_dxil_param(0, "res", "output", "handle of object"),
-            db_dxil_param(2, "i32", "MetadataID", "metadata ID")])
-        next_op_idx += 1
-        self.add_dxil_op("CreateNodeOutputHandle", next_op_idx, "CreateNodeHandle", "Creates a handle to a NodeOutput", "v", "rn", [
-            db_dxil_param(0, "res", "output", "handle of object"),
-            db_dxil_param(2, "i32", "MetadataID", "metadata ID")])
+            db_dxil_param(2, "i32", "MetadataIdx", "metadata index")])
         next_op_idx += 1
         self.add_dxil_op("IndexNodeHandle", next_op_idx, "IndexNodeHandle", "returns the handle for the location in the output node array at the indicated index", "v", "rn", [
             db_dxil_param(0, "res", "output", "handle of index"),
-            db_dxil_param(2, "i32", "handle", "handle from createNodeHandle"),
-            db_dxil_param(3, "i32", "index", "array index")])
+            db_dxil_param(2, "res", "NodeOutputHandle", "Handle from CreateNodeOutputHandle"),
+            db_dxil_param(3, "i32", "ArrayIndex", "array index")])
         next_op_idx += 1
-        self.add_dxil_op("CreateNodeInputRecordsHandle", next_op_idx, "CreateNodeInputRecordsHandle", "create a handle for an InputRecord", "v", "rn", [
+        self.add_dxil_op("CreateNodeInputRecordHandle", next_op_idx, "CreateNodeInputRecordHandle", "create a handle for an InputRecord", "v", "rn", [
             db_dxil_param(0, "res", "output", "output handle"),
-            db_dxil_param(2, "res", "handle", "NodeInput")])
+            db_dxil_param(2, "i32", "MetadataIdx", "metadata index")])
+        next_op_idx += 1
+        self.add_dxil_op("NodeOutputIsValid", next_op_idx, "NodeOutputIsValid", "returns true if the specified output node is present in the work graph", "v", "ro", [
+            db_dxil_param(0, "i1", "", "true if output node present"),
+            db_dxil_param(2, "res", "output", "handle of ioutput node")])
+        next_op_idx += 1
+        self.add_dxil_op("GetRemainingRecursionLevels", next_op_idx, "GetRemainingRecursionLevels", "returns how many levels of recursion remain", "v", "ro", [
+            db_dxil_param(0, "i32", "", "number of levels of recursion remaining")])
         next_op_idx += 1
 
 
@@ -3142,6 +3141,7 @@ class db_hlsl(object):
             "NodeOutputRecordArray" : "LICOMPTYPE_NODE_OUTPUT_RECORD_ARRAY",
             "GroupSharedNodeOutputRecord" : "LICOMPTYPE_GROUP_SHARED_NODE_OUTPUT_RECORD",
             "GroupSharedNodeOutputRecordArray" : "LICOMPTYPE_GROUP_SHARED_NODE_OUTPUT_RECORD_ARRAY",
+            "AnyNodeOutput" : "LICOMPTYPE_ANY_NODE_OUTPUT",
             }
         self.trans_rowcol = {
             "r": "IA_R",
@@ -3192,7 +3192,7 @@ class db_hlsl(object):
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
             WaveMatrix\w* | acceleration_struct | ray_desc |
             Node\w* | RWNode\w* | EmptyNode\w* |
-            AnyNodeOutputRecord\w* | NodeOutputRecord\w* | GroupShared\w*
+            AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
             $)""", flags = re.VERBOSE)
         digits_re = re.compile(r"^\d+$")
         opt_param_match_re = re.compile(r"^\$match<(\S+)@(\S+)>$")

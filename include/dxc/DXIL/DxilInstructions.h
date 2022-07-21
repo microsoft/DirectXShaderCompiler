@@ -7779,69 +7779,32 @@ struct DxilInst_AllocateNodeOutputRecords {
   void set_perThread(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
-/// This instruction reads value at byteOffset from the input represented by input handle
-struct DxilInst_ReadFromNodeRecord {
+/// This instruction retrieve node input/output record pointer in address space 6
+struct DxilInst_GetNodeRecordPtr {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_ReadFromNodeRecord(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_GetNodeRecordPtr(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::ReadFromNodeRecord);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::GetNodeRecordPtr);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
   // Metadata
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_input = 1,
+    arg_recordhandle = 1,
     arg_arrayIndex = 2,
-    arg_byteOffset = 3,
   };
   // Accessors
-  llvm::Value *get_input() const { return Instr->getOperand(1); }
-  void set_input(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_recordhandle() const { return Instr->getOperand(1); }
+  void set_recordhandle(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_arrayIndex() const { return Instr->getOperand(2); }
   void set_arrayIndex(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_byteOffset() const { return Instr->getOperand(3); }
-  void set_byteOffset(llvm::Value *val) { Instr->setOperand(3, val); }
-};
-
-/// This instruction writes value to the record at output handle at byteOffset
-struct DxilInst_WriteToNodeRecord {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WriteToNodeRecord(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WriteToNodeRecord);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_output = 1,
-    arg_arrayIndex = 2,
-    arg_byteOffset = 3,
-    arg_value = 4,
-  };
-  // Accessors
-  llvm::Value *get_output() const { return Instr->getOperand(1); }
-  void set_output(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_arrayIndex() const { return Instr->getOperand(2); }
-  void set_arrayIndex(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_byteOffset() const { return Instr->getOperand(3); }
-  void set_byteOffset(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_value() const { return Instr->getOperand(4); }
-  void set_value(llvm::Value *val) { Instr->setOperand(4, val); }
 };
 
 /// This instruction Select the next logical output count for an EmptyNodeOutput
@@ -7873,37 +7836,12 @@ struct DxilInst_IncrementOutputCount {
 };
 
 /// This instruction indicates all outputs for a given records are complete
-struct DxilInst_OutputCompleteRecord {
+struct DxilInst_OutputComplete {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_OutputCompleteRecord(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_OutputComplete(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::OutputCompleteRecord);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_output = 1,
-  };
-  // Accessors
-  llvm::Value *get_output() const { return Instr->getOperand(1); }
-  void set_output(llvm::Value *val) { Instr->setOperand(1, val); }
-};
-
-/// This instruction indicates all output for an output node is complete
-struct DxilInst_OutputCompleteNode {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_OutputCompleteNode(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::OutputCompleteNode);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::OutputComplete);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -8034,31 +7972,6 @@ struct DxilInst_BarrierByMemoryHandle {
   void set_SyncFlags(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
-/// This instruction Creates a handle to a NodeInput
-struct DxilInst_CreateNodeInputHandle {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_CreateNodeInputHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateNodeInputHandle);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_MetadataID = 1,
-  };
-  // Accessors
-  llvm::Value *get_MetadataID() const { return Instr->getOperand(1); }
-  void set_MetadataID(llvm::Value *val) { Instr->setOperand(1, val); }
-};
-
 /// This instruction Creates a handle to a NodeOutput
 struct DxilInst_CreateNodeOutputHandle {
   llvm::Instruction *Instr;
@@ -8077,11 +7990,11 @@ struct DxilInst_CreateNodeOutputHandle {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_MetadataID = 1,
+    arg_MetadataIdx = 1,
   };
   // Accessors
-  llvm::Value *get_MetadataID() const { return Instr->getOperand(1); }
-  void set_MetadataID(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_MetadataIdx() const { return Instr->getOperand(1); }
+  void set_MetadataIdx(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
 /// This instruction returns the handle for the location in the output node array at the indicated index
@@ -8102,23 +8015,23 @@ struct DxilInst_IndexNodeHandle {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_handle = 1,
-    arg_index = 2,
+    arg_NodeOutputHandle = 1,
+    arg_ArrayIndex = 2,
   };
   // Accessors
-  llvm::Value *get_handle() const { return Instr->getOperand(1); }
-  void set_handle(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_index() const { return Instr->getOperand(2); }
-  void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_NodeOutputHandle() const { return Instr->getOperand(1); }
+  void set_NodeOutputHandle(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_ArrayIndex() const { return Instr->getOperand(2); }
+  void set_ArrayIndex(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
 /// This instruction create a handle for an InputRecord
-struct DxilInst_CreateNodeInputRecordsHandle {
+struct DxilInst_CreateNodeInputRecordHandle {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_CreateNodeInputRecordsHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_CreateNodeInputRecordHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateNodeInputRecordsHandle);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateNodeInputRecordHandle);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -8130,11 +8043,54 @@ struct DxilInst_CreateNodeInputRecordsHandle {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_handle = 1,
+    arg_MetadataIdx = 1,
   };
   // Accessors
-  llvm::Value *get_handle() const { return Instr->getOperand(1); }
-  void set_handle(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_MetadataIdx() const { return Instr->getOperand(1); }
+  void set_MetadataIdx(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction returns true if the specified output node is present in the work graph
+struct DxilInst_NodeOutputIsValid {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_NodeOutputIsValid(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::NodeOutputIsValid);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_output = 1,
+  };
+  // Accessors
+  llvm::Value *get_output() const { return Instr->getOperand(1); }
+  void set_output(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction returns how many levels of recursion remain
+struct DxilInst_GetRemainingRecursionLevels {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_GetRemainingRecursionLevels(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::GetRemainingRecursionLevels);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 // INSTR-HELPER:END
 } // namespace hlsl

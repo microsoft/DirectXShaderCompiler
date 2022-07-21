@@ -444,10 +444,13 @@ namespace DXIL {
     ThreadId = 93, // reads the thread ID
     ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
   
-    // Create Handle from Node Input and Output
-    CreateNodeInputHandle = 248, // Creates a handle to a NodeInput
-    CreateNodeOutputHandle = 249, // Creates a handle to a NodeOutput
-    IndexNodeHandle = 250, // returns the handle for the location in the output node array at the indicated index
+    // Create Node Handles
+    CreateNodeOutputHandle = 246, // Creates a handle to a NodeOutput
+    IndexNodeHandle = 247, // returns the handle for the location in the output node array at the indicated index
+  
+    // Create Node Record Handles
+    AllocateNodeOutputRecords = 238, // returns a handle for the output records
+    CreateNodeInputRecordHandle = 248, // create a handle for an InputRecord
   
     // Derivatives
     CalculateLOD = 81, // calculates the level of detail
@@ -485,6 +488,9 @@ namespace DXIL {
     EmitStream = 97, // emits a vertex to a given stream
     EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
     GSInstanceID = 100, // GSInstanceID
+  
+    // Get Pointer to Node Record in Address Space 4
+    GetNodeRecordPtr = 239, // retrieve node input/output record pointer in address space 6
   
     // Get handle from heap
     AnnotateHandle = 216, // annotate handle with resource properties
@@ -561,11 +567,6 @@ namespace DXIL {
     SetMeshOutputCounts = 168, // Mesh shader intrinsic SetMeshOutputCounts
     StorePrimitiveOutput = 172, // stores the value to mesh shader primitive output
     StoreVertexOutput = 171, // stores the value to mesh shader vertex output
-  
-    // Node Input and Output Record Handling
-    CreateNodeInputRecordsHandle = 251, // create a handle for an InputRecord
-    ReadFromNodeRecord = 239, // reads value at byteOffset from the input represented by input handle
-    WriteToNodeRecord = 240, // writes value to the record at output handle at byteOffset
   
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
@@ -667,8 +668,8 @@ namespace DXIL {
     AtomicBinOp = 78, // performs an atomic operation on two operands
     AtomicCompareExchange = 79, // atomic compare and exchange to memory
     Barrier = 80, // inserts a memory barrier in the shader
-    BarrierByMemoryHandle = 247, // Request a barrier for just the memory used by the specified object
-    BarrierByMemoryType = 246, // Request a barrier for a set of memory types and/or thread group execution sync
+    BarrierByMemoryHandle = 245, // Request a barrier for just the memory used by the specified object
+    BarrierByMemoryType = 244, // Request a barrier for a set of memory types and/or thread group execution sync
   
     // Temporary, indexable, input, output registers
     LoadInput = 4, // Loads the value from shader input
@@ -765,12 +766,12 @@ namespace DXIL {
     WaveMatrix_SumAccumulate = 236, // Sum rows or columns of an input matrix into an existing accumulator fragment matrix
   
     // Work Graph intrinsics
-    AllocateNodeOutputRecords = 238, // returns a handle for the output records
-    FinishedCrossGroupSharing = 245, // returns true if the current thread group is the last to access the input
-    GetInputRecordCount = 244, // returns the number of records that have been coalesced into the current thread group
-    IncrementOutputCount = 241, // Select the next logical output count for an EmptyNodeOutput
-    OutputCompleteNode = 243, // indicates all output for an output node is complete
-    OutputCompleteRecord = 242, // indicates all outputs for a given records are complete
+    FinishedCrossGroupSharing = 243, // returns true if the current thread group is the last to access the input
+    GetInputRecordCount = 242, // returns the number of records that have been coalesced into the current thread group
+    GetRemainingRecursionLevels = 250, // returns how many levels of recursion remain
+    IncrementOutputCount = 240, // Select the next logical output count for an EmptyNodeOutput
+    NodeOutputIsValid = 249, // returns true if the specified output node is present in the work graph
+    OutputComplete = 241, // indicates all outputs for a given records are complete
   
     NumOpCodes_Dxil_1_0 = 137,
     NumOpCodes_Dxil_1_1 = 139,
@@ -781,7 +782,7 @@ namespace DXIL {
     NumOpCodes_Dxil_1_6 = 222,
     NumOpCodes_Dxil_1_7 = 226,
   
-    NumOpCodes = 252 // exclusive last value of enumeration
+    NumOpCodes = 251 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -819,9 +820,13 @@ namespace DXIL {
     ThreadId,
     ThreadIdInGroup,
   
-    // Create Handle from Node Input and Output
-    CreateNodeHandle,
+    // Create Node Handles
     IndexNodeHandle,
+    createNodeOutputHandle,
+  
+    // Create Node Record Handles
+    AllocateNodeOutputRecords,
+    CreateNodeInputRecordHandle,
   
     // Derivatives
     CalculateLOD,
@@ -855,6 +860,9 @@ namespace DXIL {
     EmitStream,
     EmitThenCutStream,
     GSInstanceID,
+  
+    // Get Pointer to Node Record in Address Space 4
+    GetNodeRecordPtr,
   
     // Get handle from heap
     AnnotateHandle,
@@ -906,11 +914,6 @@ namespace DXIL {
     SetMeshOutputCounts,
     StorePrimitiveOutput,
     StoreVertexOutput,
-  
-    // Node Input and Output Record Handling
-    CreateNodeInputRecordsHandle,
-    ReadFromNodeRecord,
-    WriteToNodeRecord,
   
     // Other
     CycleCounterLegacy,
@@ -1066,10 +1069,11 @@ namespace DXIL {
     WaveMatrix_StoreRawBuf,
   
     // Work Graph intrinsics
-    AllocateNodeOutputRecords,
     FinishedCrossGroupSharing,
     GetInputRecordCount,
+    GetRemainingRecursionLevels,
     IncrementOutputCount,
+    NodeOutputIsValid,
     OutputComplete,
   
     NumOpClasses_Dxil_1_0 = 93,
@@ -1081,7 +1085,7 @@ namespace DXIL {
     NumOpClasses_Dxil_1_6 = 149,
     NumOpClasses_Dxil_1_7 = 153,
   
-    NumOpClasses = 175 // exclusive last value of enumeration
+    NumOpClasses = 176 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1271,6 +1275,7 @@ namespace DXIL {
   const unsigned kTGSMAddrSpace = 3;
   const unsigned kGenericPointerAddrSpace = 4;
   const unsigned kImmediateCBufferAddrSpace = 5;
+  const unsigned kNodeRecordAddrSpace = 6;
 
   // Input primitive, must match D3D_PRIMITIVE
   enum class InputPrimitive : unsigned {
@@ -1391,13 +1396,17 @@ namespace DXIL {
     TrackRWInputSharing = 0x10,
     AllowSparseNodes = 0x20,
     FlagsMask = 0x30,
+
+    // Record Properties
+    GroupSharedRecord = 0x40,
+    RecordFlagsMask = 0x40
   };
 
   enum class NodeIOKind : uint32_t {
     Invalid = 0,
     InputRecord = (uint32_t)NodeIOFlags::Input,
     RWInputRecord = (uint32_t)NodeIOFlags::ReadWrite | (uint32_t)NodeIOFlags::Input,
-    RWOutputRecord = (uint32_t)NodeIOFlags::ReadWrite | (uint32_t)NodeIOFlags::Output,
+    NodeOutput = (uint32_t)NodeIOFlags::ReadWrite | (uint32_t)NodeIOFlags::Output,
     EmptyInput = (uint32_t)NodeIOFlags::EmptyRecord | (uint32_t)NodeIOFlags::Input,
     EmptyOutput = (uint32_t)NodeIOFlags::EmptyRecord | (uint32_t)NodeIOFlags::Output
   };
@@ -1550,6 +1559,25 @@ namespace DXIL {
     Subtract = 1,
   };
   // WAVEMATRIXSCALAROPCODE-ENUM:END
+
+  // Corresponds to MEMORY_TYPE_FLAG enums in HLSL
+  enum class MemoryTypeFlag : uint32_t {
+    UavMemory              = 0x00000001,
+    GroupSharedMemory      = 0x00000002,
+    NodeInputMemory        = 0x00000004,
+    NodeOutputMemory       = 0x00000008,
+  };
+
+  // Corresponds to ACCESS_FLAG enums in HLSL
+  enum class AccessFlag : uint32_t {
+    DeviceVisible          = 0x00000001, // implies group visible (smaller scope)
+    GroupVisible           = 0x00000002,
+  };
+
+  // Corresponds to SYNC_FLAG enum in HLSL
+  enum class SyncFlag : uint32_t {
+    GroupSync              = 0x00000001,
+  };
 
   // Constant for Container.
   const uint8_t DxilProgramSigMaskX = 1;

@@ -431,31 +431,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveMatrix_SumAccumulate, "WaveMatrix_SumAccumulate", OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
   {  OC::WaveMatrix_Add,          "WaveMatrix_Add",           OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
 
-  // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  // Create Node Record Handles                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::AllocateNodeOutputRecords, "AllocateNodeOutputRecords", OCC::AllocateNodeOutputRecords, "allocateNodeOutputRecords", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
 
-  // Node Input and Output Record Handling                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::ReadFromNodeRecord,      "ReadFromNodeRecord",       OCC::ReadFromNodeRecord,       "readFromNodeRecord",        { false,  true,  true,  true,  true, false,  true,  true,  true, false, false}, Attribute::ReadOnly, },
-  {  OC::WriteToNodeRecord,       "WriteToNodeRecord",        OCC::WriteToNodeRecord,        "writeToNodeRecord",         { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+  // Get Pointer to Node Record in Address Space 4                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::GetNodeRecordPtr,        "GetNodeRecordPtr",         OCC::GetNodeRecordPtr,         "getNodeRecordPtr",          { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::ReadNone, },
 
   // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::IncrementOutputCount,    "IncrementOutputCount",     OCC::IncrementOutputCount,     "incrementOutputCount",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
-  {  OC::OutputCompleteRecord,    "OutputCompleteRecord",     OCC::OutputComplete,           "outputComplete",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
-  {  OC::OutputCompleteNode,      "OutputCompleteNode",       OCC::OutputComplete,           "outputComplete",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
-  {  OC::GetInputRecordCount,     "GetInputRecordCount",      OCC::GetInputRecordCount,      "getInputRecordCount",       { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
-  {  OC::FinishedCrossGroupSharing, "FinishedCrossGroupSharing", OCC::FinishedCrossGroupSharing, "finishedCrossGroupSharing", { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::OutputComplete,          "OutputComplete",           OCC::OutputComplete,           "outputComplete",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::GetInputRecordCount,     "GetInputRecordCount",      OCC::GetInputRecordCount,      "getInputRecordCount",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::FinishedCrossGroupSharing, "FinishedCrossGroupSharing", OCC::FinishedCrossGroupSharing, "finishedCrossGroupSharing", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
 
   // Synchronization                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::BarrierByMemoryType,     "BarrierByMemoryType",      OCC::BarrierByMemoryType,      "barrierByMemoryType",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
   {  OC::BarrierByMemoryHandle,   "BarrierByMemoryHandle",    OCC::BarrierByMemoryHandle,    "barrierByMemoryHandle",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
 
-  // Create Handle from Node Input and Output                                                                                void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::CreateNodeInputHandle,   "CreateNodeInputHandle",    OCC::CreateNodeHandle,         "createNodeHandle",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
-  {  OC::CreateNodeOutputHandle,  "CreateNodeOutputHandle",   OCC::CreateNodeHandle,         "createNodeHandle",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  // Create Node Handles                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateNodeOutputHandle,  "CreateNodeOutputHandle",   OCC::createNodeOutputHandle,   "createNodeOutputHandle",    {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::IndexNodeHandle,         "IndexNodeHandle",          OCC::IndexNodeHandle,          "indexNodeHandle",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
 
-  // Node Input and Output Record Handling                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::CreateNodeInputRecordsHandle, "CreateNodeInputRecordsHandle", OCC::CreateNodeInputRecordsHandle, "createNodeInputRecordsHandle", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  // Create Node Record Handles                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateNodeInputRecordHandle, "CreateNodeInputRecordHandle", OCC::CreateNodeInputRecordHandle, "createNodeInputRecordHandle", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::NodeOutputIsValid,       "NodeOutputIsValid",        OCC::NodeOutputIsValid,        "nodeOutputIsValid",         {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::GetRemainingRecursionLevels, "GetRemainingRecursionLevels", OCC::GetRemainingRecursionLevels, "getRemainingRecursionLevels", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 
@@ -740,7 +741,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, WaveAllBitCount=135, WavePrefixBitCount=136
   if ((110 <= op && op <= 121) || (135 <= op && op <= 136)) {
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
@@ -876,7 +877,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveMultiPrefixBitCount=167
   if ((165 <= op && op <= 167)) {
     major = 6;  minor = 5;
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
   // Instructions: GeometryIndex=213
@@ -940,15 +941,19 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
     return;
   }
-  // Instructions: AllocateNodeOutputRecords=238, ReadFromNodeRecord=239,
-  // WriteToNodeRecord=240, IncrementOutputCount=241, OutputCompleteRecord=242,
-  // OutputCompleteNode=243, GetInputRecordCount=244,
-  // FinishedCrossGroupSharing=245, BarrierByMemoryType=246,
-  // BarrierByMemoryHandle=247, CreateNodeInputHandle=248,
-  // CreateNodeOutputHandle=249, IndexNodeHandle=250,
-  // CreateNodeInputRecordsHandle=251
-  if ((238 <= op && op <= 251)) {
+  // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245
+  if ((244 <= op && op <= 245)) {
     major = 6;  minor = 8;
+    return;
+  }
+  // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
+  // IncrementOutputCount=240, OutputComplete=241, GetInputRecordCount=242,
+  // FinishedCrossGroupSharing=243, CreateNodeOutputHandle=246,
+  // IndexNodeHandle=247, CreateNodeInputRecordHandle=248, NodeOutputIsValid=249,
+  // GetRemainingRecursionLevels=250
+  if ((238 <= op && op <= 243) || (246 <= op && op <= 250)) {
+    major = 6;  minor = 8;
+    mask = SFLAG(Node);
     return;
   }
   // OPCODE-SMMASK:END
@@ -1583,17 +1588,15 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::WaveMatrix_SumAccumulate:A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
   case OpCode::WaveMatrix_Add:         A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
 
-    // Work Graph intrinsics
+    // Create Node Record Handles
   case OpCode::AllocateNodeOutputRecords:A(pRes);     A(pI32); A(pRes); A(pI32); A(pI1);  break;
 
-    // Node Input and Output Record Handling
-  case OpCode::ReadFromNodeRecord:     A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); break;
-  case OpCode::WriteToNodeRecord:      A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); break;
+    // Get Pointer to Node Record in Address Space 4
+  case OpCode::GetNodeRecordPtr:       A(pETy);     A(pI32); A(pRes); A(pI32); break;
 
     // Work Graph intrinsics
   case OpCode::IncrementOutputCount:   A(pV);       A(pI32); A(pRes); A(pI32); break;
-  case OpCode::OutputCompleteRecord:   A(pV);       A(pI32); A(pRes); break;
-  case OpCode::OutputCompleteNode:     A(pV);       A(pI32); A(pRes); break;
+  case OpCode::OutputComplete:         A(pV);       A(pI32); A(pRes); break;
   case OpCode::GetInputRecordCount:    A(pI32);     A(pI32); A(pRes); break;
   case OpCode::FinishedCrossGroupSharing:A(pI1);      A(pI32); A(pRes); break;
 
@@ -1601,13 +1604,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::BarrierByMemoryType:    A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); break;
   case OpCode::BarrierByMemoryHandle:  A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); break;
 
-    // Create Handle from Node Input and Output
-  case OpCode::CreateNodeInputHandle:  A(pRes);     A(pI32); A(pI32); break;
+    // Create Node Handles
   case OpCode::CreateNodeOutputHandle: A(pRes);     A(pI32); A(pI32); break;
-  case OpCode::IndexNodeHandle:        A(pRes);     A(pI32); A(pI32); A(pI32); break;
+  case OpCode::IndexNodeHandle:        A(pRes);     A(pI32); A(pRes); A(pI32); break;
 
-    // Node Input and Output Record Handling
-  case OpCode::CreateNodeInputRecordsHandle:A(pRes);     A(pI32); A(pRes); break;
+    // Create Node Record Handles
+  case OpCode::CreateNodeInputRecordHandle:A(pRes);     A(pI32); A(pI32); break;
+
+    // Work Graph intrinsics
+  case OpCode::NodeOutputIsValid:      A(pI1);      A(pI32); A(pRes); break;
+  case OpCode::GetRemainingRecursionLevels:A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1719,7 +1725,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StoreVertexOutput:
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
-  case OpCode::WriteToNodeRecord:
     DXASSERT_NOMSG(FT->getNumParams() > 4);
     return FT->getParamType(4);
   case OpCode::IsNaN:
@@ -1813,14 +1818,16 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WaveMatrix_Add:
   case OpCode::AllocateNodeOutputRecords:
   case OpCode::IncrementOutputCount:
-  case OpCode::OutputCompleteRecord:
-  case OpCode::OutputCompleteNode:
+  case OpCode::OutputComplete:
+  case OpCode::GetInputRecordCount:
+  case OpCode::FinishedCrossGroupSharing:
   case OpCode::BarrierByMemoryType:
   case OpCode::BarrierByMemoryHandle:
-  case OpCode::CreateNodeInputHandle:
   case OpCode::CreateNodeOutputHandle:
   case OpCode::IndexNodeHandle:
-  case OpCode::CreateNodeInputRecordsHandle:
+  case OpCode::CreateNodeInputRecordHandle:
+  case OpCode::NodeOutputIsValid:
+  case OpCode::GetRemainingRecursionLevels:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
@@ -1857,7 +1864,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GeometryIndex:
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-  case OpCode::GetInputRecordCount:
     return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
@@ -1894,7 +1900,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommittedTriangleFrontFace:
   case OpCode::IsHelperLane:
   case OpCode::QuadVote:
-  case OpCode::FinishedCrossGroupSharing:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:

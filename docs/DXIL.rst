@@ -2335,19 +2335,18 @@ ID  Name                                                  Description
 236 WaveMatrix_SumAccumulate                              Sum rows or columns of an input matrix into an existing accumulator fragment matrix
 237 WaveMatrix_Add                                        Element-wise accumulate, or broadcast add of fragment into accumulator
 238 AllocateNodeOutputRecords                             returns a handle for the output records
-239 ReadFromNodeRecord                                    reads value at byteOffset from the input represented by input handle
-240 WriteToNodeRecord                                     writes value to the record at output handle at byteOffset
-241 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput
-242 OutputCompleteRecord                                  indicates all outputs for a given records are complete
-243 OutputCompleteNode                                    indicates all output for an output node is complete
-244 GetInputRecordCount                                   returns the number of records that have been coalesced into the current thread group
-245 FinishedCrossGroupSharing                             returns true if the current thread group is the last to access the input
-246 BarrierByMemoryType                                   Request a barrier for a set of memory types and/or thread group execution sync
-247 BarrierByMemoryHandle                                 Request a barrier for just the memory used by the specified object
-248 CreateNodeInputHandle                                 Creates a handle to a NodeInput
-249 CreateNodeOutputHandle                                Creates a handle to a NodeOutput
-250 IndexNodeHandle                                       returns the handle for the location in the output node array at the indicated index
-251 CreateNodeInputRecordsHandle                          create a handle for an InputRecord
+239 GetNodeRecordPtr                                      retrieve node input/output record pointer in address space 6
+240 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput
+241 OutputComplete                                        indicates all outputs for a given records are complete
+242 GetInputRecordCount                                   returns the number of records that have been coalesced into the current thread group
+243 FinishedCrossGroupSharing                             returns true if the current thread group is the last to access the input
+244 BarrierByMemoryType                                   Request a barrier for a set of memory types and/or thread group execution sync
+245 BarrierByMemoryHandle                                 Request a barrier for just the memory used by the specified object
+246 CreateNodeOutputHandle                                Creates a handle to a NodeOutput
+247 IndexNodeHandle                                       returns the handle for the location in the output node array at the indicated index
+248 CreateNodeInputRecordHandle                           create a handle for an InputRecord
+249 NodeOutputIsValid                                     returns true if the specified output node is present in the work graph
+250 GetRemainingRecursionLevels                           returns how many levels of recursion remain
 === ===================================================== =======================================================================================================================================================================================================================
 
 
