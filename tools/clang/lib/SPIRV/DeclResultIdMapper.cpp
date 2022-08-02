@@ -1037,7 +1037,8 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto type = var->getType();
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
-  const bool isACRWSBuffer = isRWAppendConsumeSBuffer(type);
+  const bool isACSBuffer = isAppendConsumeSBuffer(type);
+  const bool isRWSBuffer = isRWStructuredBuffer(type);
   const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
   const auto loc = var->getLocation();
@@ -1134,10 +1135,12 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     spvBuilder.decorateInputAttachmentIndex(varInstr,
                                             inputAttachment->getIndex(), loc);
 
-  if (isACRWSBuffer) {
-    // For {Append|Consume|RW}StructuredBuffer, we need to always create another
+  if (isACSBuffer) {
+    // For {Append|Consume}StructuredBuffer, we need to always create another
     // variable for its associated counter.
     createCounterVar(var, varInstr, /*isAlias=*/false);
+  } else if (isRWSBuffer) {
+    declInstrs[var] = varInstr;
   }
 
   return varInstr;
@@ -1589,8 +1592,17 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
     if (counter != fieldCounterVars.end())
       return counter->second.get(*indices);
   } else {
-    // No indices. Check the stand-alone entities.
-    const auto counter = counterVars.find(decl);
+    // No indices. Check the stand-alone entities. If not found,
+	// likely a deferred RWStructuredBuffer counter, so try
+	// creating it now.
+    auto counter = counterVars.find(decl);
+    if (counter == counterVars.end()) {
+      auto declInstr = declInstrs[decl];
+      if (declInstr) {
+        createCounterVar(decl, declInstr, /*isAlias*/ false);
+        counter = counterVars.find(decl);
+	  }
+    }
     if (counter != counterVars.end())
       return &counter->second;
   }

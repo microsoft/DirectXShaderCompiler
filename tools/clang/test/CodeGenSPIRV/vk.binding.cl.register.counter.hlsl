@@ -4,6 +4,7 @@ struct S { float4 val; };
 RWStructuredBuffer<S>  MyBuffer : register(u10, space2);
 
 float4 main() : SV_Target {
+  MyBuffer.IncrementCounter();
   return MyBuffer[0].val;
 }
 

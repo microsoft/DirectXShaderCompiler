@@ -213,6 +213,13 @@ bool isAppendStructuredBuffer(QualType type);
 /// \brief Returns true if the given type is a ConsumeStructuredBuffer type.
 bool isConsumeStructuredBuffer(QualType type);
 
+/// \brief Returns true if the given type is a RWStructuredBuffer type.
+bool isRWStructuredBuffer(QualType type);
+
+/// \brief Returns true if the given type is a Append/Consume
+/// StructuredBuffer type.
+bool isAppendConsumeSBuffer(QualType type);
+
 /// \brief Returns true if the given type is a RW/Append/Consume
 /// StructuredBuffer type.
 bool isRWAppendConsumeSBuffer(QualType type);

@@ -812,6 +812,11 @@ private:
   llvm::DenseMap<const DeclaratorDecl *, CounterIdAliasPair> counterVars;
   llvm::DenseMap<const DeclaratorDecl *, CounterVarFields> fieldCounterVars;
 
+  /// Mapping from clang declarator to SPIR-V declaration instruction.
+  /// This is used to defer creation of counter for RWStructuredBuffer
+  /// until a Increment/DecrementCounter method is called on it.
+  llvm::DenseMap<const DeclaratorDecl *, SpirvInstruction *> declInstrs;
+
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the SPIR-V type.
   llvm::DenseMap<const DeclContext *, const SpirvType *> ctBufferPCTypes;
