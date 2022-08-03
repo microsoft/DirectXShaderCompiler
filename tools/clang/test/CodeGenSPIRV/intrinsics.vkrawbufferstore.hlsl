@@ -11,5 +11,7 @@ float4 main() : SV_Target0 {
   // CHECK-NEXT: [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_uint [[addr]]
   // CHECK-NEXT: [[ac:%\d+]] = OpAccessChain %_ptr_PhysicalStorageBuffer_uint [[buf]]
   // CHECK-NEXT: OpLoad %uint [[ac]] Aligned 4
-  vk::RawBufferStore(Address, 42);
+
+  uint32_t test = 42;
+  vk::RawBufferStore<uint32_t>(Address, test);
 }
