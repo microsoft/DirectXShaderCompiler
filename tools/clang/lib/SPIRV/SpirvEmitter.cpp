@@ -7887,6 +7887,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_VkRawBufferLoad:
     retVal = processRawBufferLoad(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_VkRawBufferStore:
+    retVal = processRawBufferStore(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_Vkext_execution_mode:
     retVal = processIntrinsicExecutionMode(callExpr, false);
     break;
@@ -12993,6 +12996,32 @@ uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
   return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
 }
 
+uint32_t SpirvEmitter::getAlignmentForRawBufferStore(const CallExpr *callExpr) {
+  if (callExpr->getNumArgs() == 2)
+    return 4;
+
+  if (callExpr->getNumArgs() != 2 && callExpr->getNumArgs() != 3) {
+    emitError("number of arguments for vk::RawBufferStore() must be 2 or 3",
+              callExpr->getExprLoc());
+    return 0;
+  }
+
+  const Expr *alignmentArgExpr = callExpr->getArg(2);
+  if (const auto *templateParmExpr =
+          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
+    alignmentArgExpr = templateParmExpr->getReplacement();
+  }
+  const auto *intLiteral =
+      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
+  if (intLiteral == nullptr) {
+    emitError("alignment argument of vk::RawBufferStore() must be a constant "
+              "integer",
+              callExpr->getArg(2)->getExprLoc());
+    return 0;
+  }
+  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+}
+
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
   uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
   if (alignment == 0)
@@ -13043,6 +13072,79 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   loadInst->setAlignment(alignment);
   loadInst->setRValue();
   return loadInst;
+}
+
+SpirvInstruction *
+SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
+                      SpirvInstruction *value,
+                      QualType bufferType, uint32_t alignment,
+                      SourceLocation loc) {
+
+// Summary:
+  //   %address = OpBitcast %ptrTobufferType %addressInUInt64
+  //   %storeInst = OpStore %address %value
+
+  const HybridPointerType *bufferPtrType =
+      spvBuilder.getPhysicalStorageBufferType(bufferType);
+
+  SpirvUnaryOp *address = spvBuilder.createUnaryOp(
+      spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
+  address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+
+  SpirvStore *storeInst = spvBuilder.createStore(address, value, loc);
+  storeInst->setAlignment(alignment);
+  // loadInst->setAlignment(alignment);
+  // loadInst->setRValue();
+  return nullptr; //storeInst;//loadInst;
+
+}
+
+SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
+  uint32_t alignment = getAlignmentForRawBufferStore(callExpr);
+  if (alignment == 0)
+    return nullptr;
+
+  SpirvInstruction *address = doExpr(callExpr->getArg(0));
+  SpirvInstruction *value = doExpr(callExpr->getArg(1));
+  QualType bufferType = value->getAstResultType(); 
+  clang::SourceLocation loc = callExpr->getExprLoc();
+  if (!isBoolOrVecMatOfBoolType(bufferType)) {
+    return storeDataToRawAddress(address, value, bufferType, alignment, loc);
+  }
+
+  else {
+    emitError("value type is boolean, which is currently unsupported",
+              callExpr->getArg(1)->getExprLoc());
+    return nullptr;
+  }
+
+  // const SpirvPointerType *bufferType =
+  //     spvBuilder.getPhysicalStorageBufferType(spvContext.getUIntType(32));
+
+  // SpirvUnaryOp *bufferReference =
+  //     spvBuilder.createUnaryOp(spv::Op::OpBitcast, bufferType, address, loc);
+
+  // bufferReference->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+
+  // SpirvAccessChain *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy,// why unsigned int?
+  //                                                     bufferReference, {}, loc);
+
+  // // SpirvStore *storeInst =
+  // // this appears to not return an instruction, so I'm not sure what to return...
+  
+  // // I think this might be needed looking at prior code using createStore
+  // ptr->setStorageClass(spv::StorageClass::Output);
+  // spvBuilder.createStore(ptr, value, loc);
+  
+  // // SpirvLoad *loadInst =
+  //     // spvBuilder.createLoad( astContext.UnsignedIntTy, ac, loc);
+
+  // // Raw buffer loads have the same alignment requirement as
+  // // ByteAddressBuffer in HLSL
+  // // loadInst->setAlignment(4);
+
+  // // other functions with store return nullptr 
+  // return nullptr;
 }
 
 SpirvInstruction *

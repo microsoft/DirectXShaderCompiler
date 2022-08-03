@@ -257,12 +257,13 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   return instruction;
 }
 
-void SpirvBuilder::createStore(SpirvInstruction *address,
+SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
                                SpirvInstruction *value, SourceLocation loc,
                                SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvStore(loc, address, value, llvm::None, range);
   insertPoint->addInstruction(instruction);
+  return instruction;
 }
 
 SpirvFunctionCall *

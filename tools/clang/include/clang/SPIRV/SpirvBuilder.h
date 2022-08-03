@@ -187,8 +187,8 @@ public:
                                     SpirvInstruction *pointer, SourceLocation);
 
   /// \brief Creates a store instruction storing the given value into the given
-  /// address.
-  void createStore(SpirvInstruction *address, SpirvInstruction *value,
+  /// address. Returns the instruction pointer for the store instruction.
+  SpirvStore *createStore(SpirvInstruction *address, SpirvInstruction *value,
                    SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates a function call instruction and returns the instruction
