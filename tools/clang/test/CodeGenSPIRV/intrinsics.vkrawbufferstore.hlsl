@@ -7,8 +7,7 @@
 uint64_t Address;
 [numthreads(1, 1, 1)]
 void main(uint3 tid : SV_DispatchThreadID) {
-  // CHECK:      [[addr:%\d+]] = OpLoad %ulong
-  // CHECK-NEXT: [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_float [[addr]]
+  // CHECK-NEXT: [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_float
   // CHECK-NEXT: OpStore [[buf]] %float_42 Aligned 4
   float x = 42.f;
   vk::RawBufferStore<float>(Address, x);
