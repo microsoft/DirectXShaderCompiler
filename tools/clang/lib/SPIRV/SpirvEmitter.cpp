@@ -13059,7 +13059,7 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
                                      SourceLocation loc) {
   // Summary:
   //   %address = OpBitcast %ptrTobufferType %addressInUInt64
-  //   %loadInst = OpLoad %bufferType %address
+  //   %loadInst = OpLoad %bufferType %address alignment %alignment
 
   const HybridPointerType *bufferPtrType =
       spvBuilder.getPhysicalStorageBufferType(bufferType);
@@ -13082,7 +13082,7 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
 
 // Summary:
   //   %address = OpBitcast %ptrTobufferType %addressInUInt64
-  //   %storeInst = OpStore %address %value
+  //   %storeInst = OpStore %address %value alignment %alignment
 
   const HybridPointerType *bufferPtrType =
       spvBuilder.getPhysicalStorageBufferType(bufferType);
@@ -13093,10 +13093,7 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
 
   SpirvStore *storeInst = spvBuilder.createStore(address, value, loc);
   storeInst->setAlignment(alignment);
-  // loadInst->setAlignment(alignment);
-  // loadInst->setRValue();
-  return nullptr; //storeInst;//loadInst;
-
+  return nullptr; 
 }
 
 SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
@@ -13112,39 +13109,20 @@ SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) 
     return storeDataToRawAddress(address, value, bufferType, alignment, loc);
   }
 
-  else {
-    emitError("value type is boolean, which is currently unsupported",
-              callExpr->getArg(1)->getExprLoc());
-    return nullptr;
+  // If callExpr is `vk::RawBufferLoad<bool>(..)`, we have to load 'uint' and
+  // convert it to boolean data, because a physical pointer cannot have boolean
+  // type in Vulkan.
+  if (alignment % 4 != 0) {
+    emitWarning("Since boolean is a logical type, we use a unsigned integer "
+                "type to read/write boolean from a buffer. Therefore "
+                "alignment for the data with a boolean type must be aligned "
+                "with 4 bytes",
+                loc);
   }
-
-  // const SpirvPointerType *bufferType =
-  //     spvBuilder.getPhysicalStorageBufferType(spvContext.getUIntType(32));
-
-  // SpirvUnaryOp *bufferReference =
-  //     spvBuilder.createUnaryOp(spv::Op::OpBitcast, bufferType, address, loc);
-
-  // bufferReference->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
-
-  // SpirvAccessChain *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy,// why unsigned int?
-  //                                                     bufferReference, {}, loc);
-
-  // // SpirvStore *storeInst =
-  // // this appears to not return an instruction, so I'm not sure what to return...
-  
-  // // I think this might be needed looking at prior code using createStore
-  // ptr->setStorageClass(spv::StorageClass::Output);
-  // spvBuilder.createStore(ptr, value, loc);
-  
-  // // SpirvLoad *loadInst =
-  //     // spvBuilder.createLoad( astContext.UnsignedIntTy, ac, loc);
-
-  // // Raw buffer loads have the same alignment requirement as
-  // // ByteAddressBuffer in HLSL
-  // // loadInst->setAlignment(4);
-
-  // // other functions with store return nullptr 
-  // return nullptr;
+  QualType boolType = bufferType;
+  bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
+  auto *storeAsInt = castToInt(value, boolType, bufferType, loc);
+  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment,loc);
 }
 
 SpirvInstruction *
