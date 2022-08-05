@@ -1208,6 +1208,28 @@ ASTContext::getInstantiatedFromUsingDecl(UsingDecl *UUD) {
   return Pos->second;
 }
 
+// HLSL change start
+bool
+ASTContext::validateBaryCoordInputLoc(SourceLocation srcLoc) {
+  for (int i = 0; i < GetAttribAtVertCallInputLoc.size(); i++) {
+    if (GetAttribAtVertCallInputLoc[i] == srcLoc) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void
+ASTContext::recordBaryCoordInputLoc(SourceLocation srcLoc) {
+  for (int i = 0; i < GetAttribAtVertCallInputLoc.size(); i++) {
+    if (GetAttribAtVertCallInputLoc[i] == srcLoc) {
+      return;
+    }
+  }
+  GetAttribAtVertCallInputLoc.push_back(srcLoc);
+}
+// HLSL change end
+
 void
 ASTContext::setInstantiatedFromUsingDecl(UsingDecl *Inst, NamedDecl *Pattern) {
   assert((isa<UsingDecl>(Pattern) ||

@@ -2428,6 +2428,18 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   return true;
 }
 
+bool DeclResultIdMapper::decoratePerVertexKHR(const NamedDecl *ArgInst, int index)
+{
+  for (const auto &var : stageVars) {
+    auto b = var.getSpirvInstr()->getSourceLocation();
+    if (b == ArgInst->getUnusualAnnotations()[0]->Loc) {
+      auto argInVar = var.getSpirvInstr();
+      spvBuilder.decoratePerVertexKHR(var.getSpirvInstr(), b);
+    }
+  }
+  return true;
+}
+
 bool DeclResultIdMapper::decorateResourceCoherent() {
   for (const auto &var : resourceVars) {
     if (const auto *decl = var.getDeclaration()) {
@@ -2583,7 +2595,9 @@ bool DeclResultIdMapper::createStageVars(
       evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
+      if (!featureManager.isExtensionEnabled(
+          Extension::KHR_fragment_shader_barycentric))
+        evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
       break;
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
@@ -2716,12 +2730,19 @@ bool DeclResultIdMapper::createStageVars(
     // or vertex shader output variables.
     if (((spvContext.isPS() && sigPoint->IsInput()) ||
          (spvContext.isVS() && sigPoint->IsOutput())) &&
-        // BaryCoord*AMD buitins already encode the interpolation mode.
+        // BaryCoord*AMD and BaryCoord*KHR buitins already encode the interpolation mode.
         semanticKind != hlsl::Semantic::Kind::Barycentrics)
       decorateInterpolationMode(decl, type, varInstr);
 
     if (asInput) {
-      *value = spvBuilder.createLoad(evalType, varInstr, loc);
+      if (astContext.validateBaryCoordInputLoc(loc)) {
+        if (!evalType->isArrayType()) {
+          QualType qtype = astContext.getConstantArrayType(evalType, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
+          *value = spvBuilder.createLoad(qtype, varInstr, loc);
+        } else
+         *value = spvBuilder.createLoad(evalType, varInstr, loc);
+    } else
+       *value = spvBuilder.createLoad(evalType, varInstr, loc);
 
       // Fix ups for corner cases
 
@@ -2800,20 +2821,23 @@ bool DeclResultIdMapper::createStageVars(
       // underlying stage input variable is a float2 (only provides the first
       // two components). Calculate the third element.
       else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
-        const auto x = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {0}, thisSemantic.loc);
-        const auto y = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {1}, thisSemantic.loc);
-        const auto xy = spvBuilder.createBinaryOp(
-            spv::Op::OpFAdd, astContext.FloatTy, x, y, thisSemantic.loc);
-        const auto z = spvBuilder.createBinaryOp(
-            spv::Op::OpFSub, astContext.FloatTy,
-            spvBuilder.getConstantFloat(astContext.FloatTy,
-                                        llvm::APFloat(1.0f)),
-            xy, thisSemantic.loc);
-        *value = spvBuilder.createCompositeConstruct(
-            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
-            thisSemantic.loc);
+        if (!featureManager.isExtensionEnabled(
+                Extension::KHR_fragment_shader_barycentric)) {
+          const auto x = spvBuilder.createCompositeExtract(
+              astContext.FloatTy, *value, {0}, thisSemantic.loc);
+          const auto y = spvBuilder.createCompositeExtract(
+              astContext.FloatTy, *value, {1}, thisSemantic.loc);
+          const auto xy = spvBuilder.createBinaryOp(
+              spv::Op::OpFAdd, astContext.FloatTy, x, y, thisSemantic.loc);
+          const auto z = spvBuilder.createBinaryOp(
+              spv::Op::OpFSub, astContext.FloatTy,
+              spvBuilder.getConstantFloat(astContext.FloatTy,
+                                          llvm::APFloat(1.0f)),
+              xy, thisSemantic.loc);
+          *value = spvBuilder.createCompositeConstruct(
+              astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
+              thisSemantic.loc);
+        }
       }
       // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
       // be a uint or uint2, but the underlying stage input variable is a uint3.
@@ -3397,6 +3421,9 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   const auto sigPointKind = sigPoint->GetKind();
   const auto type = stageVar->getAstType();
   const auto isPrecise = decl->hasAttr<HLSLPreciseAttr>();
+  // Record fund decl of stage IO according to param loc in local call
+  if (astContext.validateBaryCoordInputLoc(decl->getLocation()))
+    astContext.recordBaryCoordInputLoc(srcLoc);
 
   spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
   if (sc == spv::StorageClass::Max)
@@ -3670,21 +3697,30 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
 
     // Selecting the correct builtin according to interpolation mode
     auto bi = BuiltIn::Max;
-    if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
-      } else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspSampleAMD;
+    if (featureManager.isExtensionEnabled(
+            Extension::KHR_fragment_shader_barycentric)) {
+      if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
+        bi = BuiltIn::BaryCoordNoPerspKHR;
       } else {
-        bi = BuiltIn::BaryCoordNoPerspAMD;
+        bi = BuiltIn::BaryCoordKHR;
       }
     } else {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothCentroidAMD;
-      } else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothSampleAMD;
+      if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
+        if (decl->hasAttr<HLSLCentroidAttr>()) {
+          bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
+        } else if (decl->hasAttr<HLSLSampleAttr>()) {
+          bi = BuiltIn::BaryCoordNoPerspSampleAMD;
+        } else {
+          bi = BuiltIn::BaryCoordNoPerspAMD;
+        }
       } else {
-        bi = BuiltIn::BaryCoordSmoothAMD;
+        if (decl->hasAttr<HLSLCentroidAttr>()) {
+          bi = BuiltIn::BaryCoordSmoothCentroidAMD;
+        } else if (decl->hasAttr<HLSLSampleAttr>()) {
+          bi = BuiltIn::BaryCoordSmoothSampleAMD;
+        } else {
+          bi = BuiltIn::BaryCoordSmoothAMD;
+        }
       }
     }
 

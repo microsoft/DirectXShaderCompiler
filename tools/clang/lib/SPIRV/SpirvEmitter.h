@@ -607,6 +607,9 @@ private:
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
 
+  /// Process GetAttributeAtVertex for barycentrics.
+  SpirvInstruction* processGetAttributeAtVertex(const CallExpr *expr);
+
   /// Process ray query traceinline intrinsics.
   SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);
 

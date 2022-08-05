@@ -4074,7 +4074,8 @@ public:
   void ActOnStartHLSLBufferView();
   bool IsOnHLSLBufferView();
   Decl *ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                        DeclGroupPtrTy &dcl, bool iscbuf);
+                            DeclGroupPtrTy &dcl, bool iscbuf);
+  void ActOnBaryCentricsInputUsage(ExprResult LHS, Token firstParamTok);
   // HLSL Change Ends
 
   //===---------------------------- C++ Features --------------------------===//

@@ -12781,6 +12781,33 @@ void Sema::ActOnStartHLSLBufferView() {
   HLSLBuffers.emplace_back(nullptr);
 }
 
+void Sema::ActOnBaryCentricsInputUsage(ExprResult LHS, Token firstParamTok) {
+  if (LHS.isInvalid() || !isa<CallExpr>(LHS.get()))
+    return;
+  const CallExpr *callFuncExpr = dyn_cast<CallExpr>(LHS.get());
+  const FunctionDecl *callee = callFuncExpr->getDirectCallee();
+  llvm::StringRef group;
+  uint32_t opcode = static_cast<uint32_t>(hlsl::IntrinsicOp::Num_Intrinsics);
+  hlsl::GetIntrinsicOp(callee, opcode, group);
+  
+  if (static_cast<hlsl::IntrinsicOp>(opcode) == hlsl::IntrinsicOp::IOP_GetAttributeAtVertex) {
+    UnqualifiedId Name;
+    CXXScopeSpec ScopeSpec;
+    Name.setIdentifier(firstParamTok.getIdentifierInfo(), firstParamTok.getLocation());
+    DeclarationNameInfo NameInfo = GetNameFromUnqualifiedId(Name);
+
+    clang::LookupResult R1(*this, NameInfo, Sema::LookupNameKind::LookupOrdinaryName);
+    bool IvarLookupFollowUp = (NameInfo.getName().getAsIdentifierInfo() && !ScopeSpec.isSet() && getCurMethodDecl());
+    LookupParsedName(R1, getCurScope(), &ScopeSpec, !IvarLookupFollowUp);
+
+    if (R1.getResultKind() == LookupResult::Found) {
+      NamedDecl *firstParamFoundDecl = R1.getFoundDecl();
+      getASTContext().recordBaryCoordInputLoc(firstParamFoundDecl->getLocation());
+    }
+
+  }
+}
+
 HLSLBufferDecl::HLSLBufferDecl(
     DeclContext *DC, bool cbuffer, bool cbufferView, SourceLocation KwLoc,
     IdentifierInfo *Id, SourceLocation IdLoc,

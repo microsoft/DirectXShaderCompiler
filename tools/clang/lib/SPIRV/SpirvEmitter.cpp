@@ -8106,6 +8106,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     processMeshOutputCounts(callExpr);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex: {
+    retVal = processGetAttributeAtVertex(callExpr);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
     INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
@@ -11014,6 +11018,37 @@ void SpirvEmitter::processMeshOutputCounts(const CallExpr *callExpr) {
   auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::PrimitiveCountNV,
                                          astContext.UnsignedIntTy, loc);
   spvBuilder.createStore(var, doExpr(args[1]), loc, range);
+}
+
+SpirvInstruction*
+SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
+  const auto exprLoc = expr->getExprLoc();
+  const auto exprRange = expr->getSourceRange();
+
+  // arg0
+  const auto *arg0 = expr->getArg(0)->IgnoreParenLValueCasts();
+  const auto *arg0ValDecl = (dyn_cast<DeclRefExpr>(arg0))->getDecl();
+  const auto *arg0NamedDecl = dyn_cast<NamedDecl>(arg0ValDecl);
+
+  // arg1
+  const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
+  const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
+  const auto *vectexId = arg1ConstExpr->getValue().getRawData();
+
+  // Decorate input arg0
+  declIdMapper.decoratePerVertexKHR(arg0NamedDecl, *vectexId);
+
+  // Change to access chain instr
+  const auto arg0Type = (dyn_cast<VarDecl>(arg0ValDecl))->getType();
+  auto *arg0BaseExpr = doExpr(arg0);
+  auto *accessChainPtr = spvBuilder.createAccessChain(
+      arg0Type, arg0BaseExpr,
+      {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                 llvm::APInt(32, *vectexId))},
+      exprLoc, exprRange);
+
+  auto *loadPtr = spvBuilder.createLoad(arg0Type, accessChainPtr, exprLoc, exprRange);
+  return loadPtr;
 }
 
 SpirvConstant *SpirvEmitter::getValueZero(QualType type) {

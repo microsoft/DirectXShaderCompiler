@@ -1,25 +1,36 @@
 // RUN: %dxc -T ps_6_1 -E main
 
-struct PSInput {
-  float4 position : SV_POSITION;
-  nointerpolation float3 color : COLOR;
+// CHECK: OpCapability FragmentBarycentricKHR
+// CHECK: OpExtension "SPV_KHR_fragment_shader_barycentric"
+enum VertexID { 
+    FIRST = 0,
+    SECOND = 1,
+    THIRD = 2
 };
 
-cbuffer constants : register(b0) {
-  float4 g_constants;
-}
+float3 main( float3 vBaryWeights : SV_Barycentrics,
+	 nointerpolation float3 Color : COLOR ) : SV_Target
+{
+    // CHECK: OpDecorate [[bc:%\d+]] BuiltIn BaryCoordKHR
+    // CHECK-NEXT: OpDecorate %in_var_COLOR Flat
+    // CHECK-NEXT: OpDecorate %in_var_COLOR PerVertexKHR
+    float3 vColor;
 
-float4 main(PSInput input) : SV_TARGET {
-  uint cmp = (uint)(g_constants[0]);
+    // CHECK: %in_var_COLOR = OpVariable %_ptr_Input__arr_v3float_uint_3 Input
+    // CHECK: %param_var_Color = OpVariable %_ptr_Function__arr_v3float_uint_3 Function
+    // CHECK: [[bcl:%\d+]] = OpLoad %v3float [[bc]]
+    // CHECK: OpStore %param_var_vBaryWeights [[bcl]]
+    // CHECK: [[ivC:%\d+]] = OpLoad %_arr_v3float_uint_3 %in_var_COLOR
+    // CHECK: OpStore %param_var_Color [[ivC]]
+    float3 vColor0 = GetAttributeAtVertex( Color, VertexID::FIRST );
+    float3 vColor1 = GetAttributeAtVertex( Color, VertexID::SECOND );
+    float3 vColor2 = GetAttributeAtVertex( Color, VertexID::THIRD );
 
-  // CHECK: 16:21: error: GetAttributeAtVertex intrinsic function unimplemented
-  float colorAtV0 = GetAttributeAtVertex(input.color, 0)[cmp];
+    // CHECK: %Color = OpFunctionParameter %_ptr_Function_v3float
+    // CHECK: [[C0:%\d+]] = OpAccessChain %_ptr_Function_v3float %Color %uint_0
+    // CHECK: [[C0L:%\d+]] = OpLoad %v3float [[C0]]
+    // CHECK: OpStore %vColor0 [[C0L]]
+    vColor = vBaryWeights.x*vColor0 + vBaryWeights.y*vColor1 + vBaryWeights.z*vColor2;
 
-  // CHECK: 19:21: error: GetAttributeAtVertex intrinsic function unimplemented
-  float colorAtV1 = GetAttributeAtVertex(input.color, 1)[cmp];
-
-  // CHECK: 22:21: error: GetAttributeAtVertex intrinsic function unimplemented
-  float colorAtV2 = GetAttributeAtVertex(input.color, 2)[cmp];
-
-  return float4(colorAtV0, colorAtV1, colorAtV2, 0);
+    return vColor;
 }
