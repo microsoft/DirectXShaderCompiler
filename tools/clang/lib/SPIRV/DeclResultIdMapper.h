@@ -495,6 +495,7 @@ public:
   /// \brief Decorates resource variables with Coherent decoration if they
   /// are declared as globallycoherent.
   bool decorateResourceCoherent();
+  bool decoratePerVertexKHR(const NamedDecl *ArgInst, int index);
 
   /// \brief Returns whether the SPIR-V module requires SPIR-V legalization
   /// passes run to make it legal.

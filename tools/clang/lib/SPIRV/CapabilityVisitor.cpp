@@ -360,15 +360,18 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       addCapability(spv::Capability::CullDistance);
       break;
     }
-    case spv::BuiltIn::BaryCoordNoPerspAMD:
     case spv::BuiltIn::BaryCoordNoPerspCentroidAMD:
     case spv::BuiltIn::BaryCoordNoPerspSampleAMD:
-    case spv::BuiltIn::BaryCoordSmoothAMD:
     case spv::BuiltIn::BaryCoordSmoothCentroidAMD:
-    case spv::BuiltIn::BaryCoordSmoothSampleAMD:
-    case spv::BuiltIn::BaryCoordPullModelAMD: {
+    case spv::BuiltIn::BaryCoordSmoothSampleAMD: {
       addExtension(Extension::AMD_shader_explicit_vertex_parameter,
                    "SV_Barycentrics", loc);
+    }
+    case spv::BuiltIn::BaryCoordKHR:
+    case spv::BuiltIn::BaryCoordNoPerspKHR: {
+      addExtension(Extension::KHR_fragment_shader_barycentric,
+                   "SV_Barycentrics", loc);
+      addCapability(spv::Capability::FragmentBarycentricKHR);
       break;
     }
     case spv::BuiltIn::ShadingRateKHR:

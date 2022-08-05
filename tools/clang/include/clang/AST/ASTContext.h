@@ -365,6 +365,8 @@ private:
 
   llvm::DenseMap<FieldDecl *, FieldDecl *> InstantiatedFromUnnamedFieldDecl;
 
+  llvm::SmallVector<SourceLocation, 8> GetAttribAtVertCallInputLoc; // HLSL change
+
   /// \brief Mapping that stores the methods overridden by a given C++
   /// member function.
   ///
@@ -909,6 +911,10 @@ public:
   // HLSL Change Starts
   /// \brief Retrieve the declaration for HLSL string type.
   TypedefDecl *getHLSLStringTypedef() const;
+  /// \brief Record usage of input in GetAttributeAtVertex for lately
+  /// modification to spv variable decl.
+  bool validateBaryCoordInputLoc(SourceLocation srcLoc);
+  void recordBaryCoordInputLoc(SourceLocation srcLoc);
   // HSLS CHange Ends
 
   //===--------------------------------------------------------------------===//

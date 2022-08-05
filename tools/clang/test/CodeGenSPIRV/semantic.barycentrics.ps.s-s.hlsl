@@ -1,6 +1,6 @@
 // RUN: %dxc -T ps_6_1 -E main
 
-// CHECK:      OpExtension "SPV_AMD_shader_explicit_vertex_parameter"
+// CHECK:      OpExtension "SPV_KHR_fragment_shader_barycentric"
 
 // CHECK:      OpEntryPoint Fragment
 // CHECK-SAME: [[bary:%\d+]]

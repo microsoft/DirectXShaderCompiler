@@ -1390,7 +1390,7 @@ TEST_F(FileTest, IntrinsicsMultiPrefix) {
   runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsGetAttributeAtVertex) {
-  runFileTest("intrinsics.get-attribute-at-vertex.hlsl", Expect::Failure);
+  runFileTest("intrinsics.get-attribute-at-vertex.hlsl");
 }
 TEST_F(FileTest, IntrinsicsDot4Add) {
   runFileTest("intrinsics.dot4add.hlsl", Expect::Failure);
