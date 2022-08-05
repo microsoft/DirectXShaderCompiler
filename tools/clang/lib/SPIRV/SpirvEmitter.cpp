@@ -2273,7 +2273,9 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
 }
 
 void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
-  if (const auto *retVal = stmt->getRetValue()) {
+  const auto *retVal = stmt->getRetValue();
+  bool returnsVoid = curFunction->getReturnType().getTypePtr()->isVoidType();
+  if (!returnsVoid && retVal) {
     // Update counter variable associated with function returns
     tryToAssignCounterVar(curFunction, retVal);
 
