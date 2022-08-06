@@ -98,10 +98,10 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
         context.getPointerType(valueType, spv::StorageClass::UniformConstant),
         loc, spv::StorageClass::Function, isPrecise, init);
   } else {
-    if (astContext->validateBaryCoordInputLoc(loc)) {
+    if (astContext.validateBaryCoordInputLoc(loc)) {
       if (!valueType->isArrayType())
       {
-        QualType qtype = astContext->getConstantArrayType(
+        QualType qtype = astContext.getConstantArrayType(
             valueType, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
         var = new (context) SpirvVariable(
               qtype, loc, spv::StorageClass::Function, isPrecise, init);
@@ -1265,10 +1265,10 @@ SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
                                            SourceLocation loc) {
   // Note: We store the underlying type in the variable, *not* the pointer type.
   SpirvVariable *var;
-  if (astContext->validateBaryCoordInputLoc(loc)) {
+  if (astContext.validateBaryCoordInputLoc(loc)) {
     if (!type->isArrayType())
     {
-      QualType qtype = astContext->getConstantArrayType(
+      QualType qtype = astContext.getConstantArrayType(
           type, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
     spv::StorageClass sc = spv::StorageClass::Input;
     var = new (context) SpirvVariable(qtype, loc, sc, isPrecise);
