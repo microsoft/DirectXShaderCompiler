@@ -199,6 +199,26 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
     return DM.GetPatchConstantFunction();
 }
 
+std::vector<llvm::Function *> GetSortedEntryFunctions(llvm::Module &M) {
+  DxilModule &DM = M.GetOrCreateDxilModule();
+  auto ShaderModel = DM.GetShaderModel();
+  auto shaderKind = ShaderModel->GetKind();
+
+  
+  if (shaderKind == DXIL::ShaderKind::Library) {
+    std::vector<llvm::Function *> ret;
+    for (llvm::Function *F : DM.GetExportedFunctions()) {
+      ret.push_back(F);
+    }
+    std::sort(ret.begin(), ret.end(), [](llvm::Function *l, llvm::Function *r) {
+      return l->getName() < r->getName();
+    });
+    return ret;
+  } else {
+    return {PIXPassHelpers::GetEntryFunction(DM)};
+  }
+}
+
 std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
     std::vector<llvm::BasicBlock*> ret;
     auto entryPoints = DM.GetExportedFunctions();

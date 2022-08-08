@@ -72,6 +72,7 @@ public:
   bool runOnModule(llvm::Module &M) override;
 
 private:
+  bool RunOnFunction(llvm::Module &M, llvm::Function *f);
   void AnnotateValues(llvm::Instruction *pI);
   void AnnotateStore(llvm::Instruction *pI);
   bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI,
@@ -110,11 +111,20 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   if (Major < 6 || (Major == 6 && Minor <= 4)) {
     m_DM->SetValidatorVersion(1, 4);
   }
+  auto functions = PIXPassHelpers::GetSortedEntryFunctions(M);
+  bool modified = false;
+  for (auto f : functions) {
+    modified = modified | RunOnFunction(M, f);
+  }
+  m_DM = nullptr;
+  return modified;
+}
 
+bool DxilAnnotateWithVirtualRegister::RunOnFunction(llvm::Module &M, llvm::Function * f) {
   std::uint32_t InstNum = 0;
-  auto blocks = PIXPassHelpers::GetAllBlocks(*m_DM);
-  for(auto * block : blocks) {
-    for (llvm::Instruction& I : block->getInstList()) {
+  auto & blocks = f->getBasicBlockList();
+  for(auto & block : blocks) {
+    for (llvm::Instruction& I : block.getInstList()) {
       if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
         pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
       }
@@ -133,14 +143,14 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
-  for (auto* block : blocks) {
-    for (llvm::Instruction& I : block->getInstList()) {
+  for (auto& block : blocks) {
+    for (llvm::Instruction& I : block.getInstList()) {
       AnnotateValues(&I);
     }
   }
 
-  for (auto* block : blocks) {
-    for (llvm::Instruction& I : block->getInstList()) {
+  for (auto& block : blocks) {
+    for (llvm::Instruction& I : block.getInstList()) {
       AnnotateStore(&I);
     }
   }
@@ -149,7 +159,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     *OSOverride << "\nEnd - dxil values to virtual register mapping\n";
   }
 
-  m_DM = nullptr;
   return m_uVReg > 0;
 }
 
