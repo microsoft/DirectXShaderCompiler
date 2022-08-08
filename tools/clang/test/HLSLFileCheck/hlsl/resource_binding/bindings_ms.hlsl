@@ -18,7 +18,10 @@
 // CHECK: ; TexArr4                           texture     f32  2darrayMS8      T9      t0,space3     1
 // CHECK: ; TexArr5                           texture     f32  2darrayMS8     T10      t1,space3     4
 // CHECK: ; TexArr6                           texture     f32  2darrayMS8     T11      t5,space3unbounded
-
+// CHECK: ; Tex7                              texture     f32        2dMS     T12      t0,space4unbounded
+// CHECK: ; Tex8                              texture     f32       2dMS8     T13      t0,space5unbounded
+// CHECK: ; TexArr7                           texture     f32   2darrayMS     T14      t0,space6unbounded
+// CHECK: ; TexArr8                           texture     f32  2darrayMS8     T15      t0,space7unbounded
 
 Texture2DMS<float4> Tex1 : register(t0);
 Texture2DMS<float4> Tex2[4] : register(t1);
@@ -33,6 +36,12 @@ Texture2DMSArray<float4> TexArr3[] : register(t5, space2);  // unbounded
 Texture2DMSArray<float4,8> TexArr4 : register(t0, space3);
 Texture2DMSArray<float4,8> TexArr5[4] : register(t1, space3);
 Texture2DMSArray<float4,8> TexArr6[] : register(t5, space3);  // unbounded
+
+Texture2DMS<float4> Tex7[][3] : register(t0, space4);  // unbounded
+Texture2DMS<float4,8> Tex8[][3] : register(t0, space5);  // unbounded
+Texture2DMSArray<float4> TexArr7[][4] : register(t0, space6);  // unbounded
+Texture2DMSArray<float4,8> TexArr8[][5] : register(t0, space7);  // unbounded
+
 
 float4 main(int4 a : A, float4 coord : TEXCOORD) : SV_TARGET
 {
@@ -49,5 +58,9 @@ float4 main(int4 a : A, float4 coord : TEXCOORD) : SV_TARGET
     * TexArr4.Load(a.xyz, a.w)
     * TexArr5[a.w].sample[a.w][a.xyz]
     * TexArr6[18].Load(a.xyz, 0)
+    * Tex7[19][1].Load(a.xy, 0)
+    * Tex8[19][1].Load(a.xy, 0)
+    * TexArr7[19][1].Load(a.xyz, 0)
+    * TexArr8[19][1].Load(a.xyz, 0)
     ;
 }
