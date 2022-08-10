@@ -649,9 +649,10 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
     // Emit OpModuleProcessed to indicate the command line options that were
     // used to generate this module.
-    if (!spirvOptions.clOptions.empty()) {
+    if (!spirvOptions.inputFile.empty() || !spirvOptions.clOptions.empty()) {
       // Using this format: "dxc-cl-option: XXXXXX"
-      std::string clOptionStr = "dxc-cl-option:" + spirvOptions.clOptions;
+      std::string clOptionStr =
+          "dxc-cl-option: " + spirvOptions.inputFile + spirvOptions.clOptions;
       spvBuilder.addModuleProcessed(clOptionStr);
     }
   }
@@ -1306,14 +1307,11 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         return;
       // Generate DebugEntryPoint if function definition
       if (spirvOptions.debugInfoVulkan && debugFunction) {
-        std::string commitHash = clang::getGitCommitHash();
-        std::string clOptionStr;
-        if (!spirvOptions.clOptions.empty())
-          clOptionStr = spirvOptions.clOptions;
         auto *cu = dyn_cast<SpirvDebugCompilationUnit>(outer_scope);
         assert(cu && "expected DebugCompilationUnit");
-        spvBuilder.createDebugEntryPoint(debugFunction, cu, commitHash,
-                                         clOptionStr);
+        spvBuilder.createDebugEntryPoint(debugFunction, cu,
+                                         clang::getGitCommitHash(),
+                                         spirvOptions.clOptions);
       }
     }
   }
