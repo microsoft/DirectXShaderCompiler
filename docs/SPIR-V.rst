@@ -3885,7 +3885,7 @@ support setting the memory layout for the data. Since these intrinsics are suppo
 "arbitrary" data to or from a random device address, we assume that the program loads/stores some "bytes of data",
 but that its format or layout is unknown. Therefore, keep in mind that these intrinsics
 load or store ``sizeof(T)`` bytes of data, and that loading/storing data with a struct
-with a custom memory alignment may yeild undefined behavior due to the missing custom memory layout support.
+with a custom memory alignment may yield undefined behavior due to the missing custom memory layout support.
 Loading data with customized memory layouts is future work.
 
 Using either of these intrinsics adds ``PhysicalStorageBufferAddresses`` capability and
