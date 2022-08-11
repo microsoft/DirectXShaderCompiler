@@ -115,8 +115,14 @@ echo.
 goto :eof
 
 :findcmake 
-for %%v in (2019 2017) do (
-  for %%e in (Community Professional Enterprise) do (
+for %%e in (Community Professional Enterprise) do (
+  rem check 2022 in programfiles first
+  if exist "%programfiles%\Microsoft Visual Studio\2022\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin" (
+    set "PATH=%PATH%;%programfiles%\Microsoft Visual Studio\2022\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+    echo Path adjusted to include cmake from Visual Studio 2022 %%e.
+    exit /b 0
+  )
+  for %%v in (2019 2017) do (
     if exist "%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin" (
       set "PATH=%PATH%;%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
       echo Path adjusted to include cmake from Visual Studio %%v %%e.
