@@ -15,10 +15,11 @@ namespace spirv {
 
 void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
                                      SourceLocation loc) {
-  featureManager.requestExtension(ext, target, loc);
   // Do not emit OpExtension if the given extension is natively supported in
   // the target environment.
-  if (featureManager.isExtensionRequiredForTargetEnv(ext))
+  if (!featureManager.isExtensionRequiredForTargetEnv(ext))
+    return;
+  if (featureManager.requestExtension(ext, target, loc))
     spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
 }
 
