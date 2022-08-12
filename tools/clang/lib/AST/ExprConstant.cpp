@@ -9318,7 +9318,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
         return NoDiag();
       }
     }
-    const CastExpr *CE = (CastExpr*)(E);
+    const CastExpr *CE = (const CastExpr*)(E);
     switch (CE->getCastKind()) {
     case CK_LValueToRValue:
     case CK_AtomicToNonAtomic:
