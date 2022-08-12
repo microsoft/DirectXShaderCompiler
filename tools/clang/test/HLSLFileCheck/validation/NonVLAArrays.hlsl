@@ -1,6 +1,7 @@
-// RUN: %dxc -T ps_6_0 -E PSMain %s | FileCheck %s
+// RUN: %dxc -E PSMain -T ps_6_0 %s | FileCheck %s
 
-// CHECK: ; Input signature:
+// CHECK: error: variable length arrays are not supported in HLSL
+// CHECK-NEXT: float4 BrokenTestArray0[int(.3)*12];
 
 float4 BrokenTestArray0[int(.3)*12];
 float4 BrokenTestArray1[min(2, 3)];
