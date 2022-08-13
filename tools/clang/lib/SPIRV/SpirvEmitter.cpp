@@ -7890,6 +7890,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_VkRawBufferLoad:
     retVal = processRawBufferLoad(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_VkRawBufferStore:
+    retVal = processRawBufferStore(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_Vkext_execution_mode:
     retVal = processIntrinsicExecutionMode(callExpr, false);
     break;
@@ -12996,6 +12999,32 @@ uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
   return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
 }
 
+uint32_t SpirvEmitter::getAlignmentForRawBufferStore(const CallExpr *callExpr) {
+  if (callExpr->getNumArgs() == 2)
+    return 4;
+
+  if (callExpr->getNumArgs() != 2 && callExpr->getNumArgs() != 3) {
+    emitError("number of arguments for vk::RawBufferStore() must be 2 or 3",
+              callExpr->getExprLoc());
+    return 0;
+  }
+
+  const Expr *alignmentArgExpr = callExpr->getArg(2);
+  if (const auto *templateParmExpr =
+          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
+    alignmentArgExpr = templateParmExpr->getReplacement();
+  }
+  const auto *intLiteral =
+      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
+  if (intLiteral == nullptr) {
+    emitError("alignment argument of vk::RawBufferStore() must be a constant "
+              "integer",
+              callExpr->getArg(2)->getExprLoc());
+    return 0;
+  }
+  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+}
+
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
   uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
   if (alignment == 0)
@@ -13033,7 +13062,7 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
                                      SourceLocation loc) {
   // Summary:
   //   %address = OpBitcast %ptrTobufferType %addressInUInt64
-  //   %loadInst = OpLoad %bufferType %address
+  //   %loadInst = OpLoad %bufferType %address alignment %alignment
 
   const HybridPointerType *bufferPtrType =
       spvBuilder.getPhysicalStorageBufferType(bufferType);
@@ -13046,6 +13075,57 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   loadInst->setAlignment(alignment);
   loadInst->setRValue();
   return loadInst;
+}
+
+SpirvInstruction *
+SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
+                      SpirvInstruction *value,
+                      QualType bufferType, uint32_t alignment,
+                      SourceLocation loc) {
+
+// Summary:
+  //   %address = OpBitcast %ptrTobufferType %addressInUInt64
+  //   %storeInst = OpStore %address %value alignment %alignment
+
+  const HybridPointerType *bufferPtrType =
+      spvBuilder.getPhysicalStorageBufferType(bufferType);
+
+  SpirvUnaryOp *address = spvBuilder.createUnaryOp(
+      spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
+  address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+
+  SpirvStore *storeInst = spvBuilder.createStore(address, value, loc);
+  storeInst->setAlignment(alignment);
+  return nullptr; 
+}
+
+SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
+  uint32_t alignment = getAlignmentForRawBufferStore(callExpr);
+  if (alignment == 0)
+    return nullptr;
+
+  SpirvInstruction *address = doExpr(callExpr->getArg(0));
+  SpirvInstruction *value = doExpr(callExpr->getArg(1));
+  QualType bufferType = value->getAstResultType(); 
+  clang::SourceLocation loc = callExpr->getExprLoc();
+  if (!isBoolOrVecMatOfBoolType(bufferType)) {
+    return storeDataToRawAddress(address, value, bufferType, alignment, loc);
+  }
+
+  // If callExpr is `vk::RawBufferLoad<bool>(..)`, we have to load 'uint' and
+  // convert it to boolean data, because a physical pointer cannot have boolean
+  // type in Vulkan.
+  if (alignment % 4 != 0) {
+    emitWarning("Since boolean is a logical type, we use a unsigned integer "
+                "type to read/write boolean from a buffer. Therefore "
+                "alignment for the data with a boolean type must be aligned "
+                "with 4 bytes",
+                loc);
+  }
+  QualType boolType = bufferType;
+  bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
+  auto *storeAsInt = castToInt(value, boolType, bufferType, loc);
+  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment,loc);
 }
 
 SpirvInstruction *
