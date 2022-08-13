@@ -530,6 +530,9 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "FeedbackTexture2D" || name == "FeedbackTexture2DArray")
       return true;
 
+    if (name == "RasterizerOrderedTexture2D")
+      return true;
+
     if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer")
       return true;
 
@@ -778,10 +781,14 @@ bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type) {
   if (type->isIncompleteArrayType()) {
     const IncompleteArrayType *IAT = context.getAsIncompleteArrayType(type);
-    QualType EltTy = IAT->getElementType();
-    if (IsHLSLResourceType(EltTy))
-      return true;
+    type = IAT->getElementType();
   }
+
+  while (type->isArrayType())
+    type = cast<ArrayType>(type)->getElementType();
+
+  if (IsHLSLResourceType(type))
+    return true;
   return false;
 }
 

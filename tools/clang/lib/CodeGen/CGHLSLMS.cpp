@@ -3655,19 +3655,21 @@ uint32_t CGMSHLSLRuntime::AddConstantBufferView(VarDecl *D) {
   CB->SetRangeSize(1);
 
   if (Ty->isArrayType()) {
-    if (!Ty->isIncompleteArrayType()) {
-      unsigned arraySize = 1;
-      while (Ty->isArrayType()) {
-        Ty = Ty->getCanonicalTypeUnqualified();
-        const ConstantArrayType *AT = cast<ConstantArrayType>(Ty);
-        arraySize *= AT->getSize().getLimitedValue();
-        Ty = AT->getElementType();
-      }
-      CB->SetRangeSize(arraySize);
-    } else {
+    unsigned incompleteSize = 0;
+    // The initial array may be unbound
+    if (Ty->isIncompleteArrayType()) {
       Ty = QualType(Ty->getArrayElementTypeNoTypeQual(),0);
-      CB->SetRangeSize(UINT_MAX);
+      incompleteSize = UINT_MAX;
     }
+    DXASSERT(!Ty->isIncompleteArrayType(), "Unbound array found after first axis");
+    unsigned arraySize = 1;
+    while (Ty->isArrayType()) {
+      Ty = Ty->getCanonicalTypeUnqualified();
+      const ConstantArrayType *AT = cast<ConstantArrayType>(Ty);
+      arraySize *= AT->getSize().getLimitedValue();
+      Ty = AT->getElementType();
+    }
+    CB->SetRangeSize(std::max(arraySize, incompleteSize));
     CB->SetIsArray();
   }
 

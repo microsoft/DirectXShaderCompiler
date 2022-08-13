@@ -78,7 +78,7 @@ private:
     IRBuilder<> &Builder;
   };
 
-  SmallVector<Value*, 2> insertInstructionsToCreateDisambiguationValue(OP* HlslOP, LLVMContext& Ctx, StructType * originalPayloadStructType, Instruction * firstGetPayload);
+  SmallVector<Value*, 2> insertInstructionsToCreateDisambiguationValue(IRBuilder<> & Builder, OP* HlslOP, LLVMContext& Ctx, StructType * originalPayloadStructType, Instruction * firstGetPayload);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
@@ -197,7 +197,9 @@ Value* GetValueFromExpandedPayload(IRBuilder<> &Builder, StructType* originalPay
 }
 
 SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCreateDisambiguationValue(OP* HlslOP, LLVMContext& Ctx, StructType* originalPayloadStructType, Instruction* firstGetPayload) {
+    insertInstructionsToCreateDisambiguationValue(
+        IRBuilder<> &Builder, OP *HlslOP, LLVMContext &Ctx,
+        StructType *originalPayloadStructType, Instruction *firstGetPayload) {
 
     // When a mesh shader is called from an amplification shader, all of the
     // thread id values are relative to the DispatchMesh call made by
@@ -205,13 +207,23 @@ SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
     // by the CPU to *CommandList::DispatchMesh are not available, but we
     // will have added that value to the AS->MS payload...
 
-    IRBuilder<> Builder(firstGetPayload->getNextNode());
-
-    auto * ASThreadId = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements(), "ASThreadId");
-    auto * ASDispatchMeshYCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 1, "ASDispatchMeshYCount");
-    auto * ASDispatchMeshZCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 2, "ASDispatchMeshZCount");
-
+    SmallVector<Value *, 2> ret;
     Constant *Zero32Arg = HlslOP->GetU32Const(0);
+
+    bool AmplificationShaderIsActive = originalPayloadStructType != nullptr;
+
+    llvm::Value *ASDispatchMeshYCount = nullptr;
+    llvm::Value *ASDispatchMeshZCount = nullptr;
+    if (AmplificationShaderIsActive) {
+
+      auto *ASThreadId = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements(), "ASThreadId");
+      ret.push_back(ASThreadId);
+      ASDispatchMeshYCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 1, "ASDispatchMeshYCount");
+      ASDispatchMeshZCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 2, "ASDispatchMeshZCount");
+    } else {
+      ret.push_back(Zero32Arg);
+    }
+
     Constant *One32Arg = HlslOP->GetU32Const(1);
     Constant *Two32Arg = HlslOP->GetU32Const(2);
 
@@ -225,14 +237,13 @@ SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
     auto * GroupIdZ =
         Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
 
-    auto *XxY =
-      Builder.CreateMul(GroupIdX, ASDispatchMeshYCount);
+    auto *XxY = AmplificationShaderIsActive ? 
+      Builder.CreateMul(GroupIdX, ASDispatchMeshYCount) : GroupIdX;
     auto *XplusY = Builder.CreateAdd(GroupIdY, XxY);
-    auto *XYxZ = Builder.CreateMul(XplusY, ASDispatchMeshZCount);
+    auto *XYxZ = AmplificationShaderIsActive
+        ? Builder.CreateMul(XplusY, ASDispatchMeshZCount) : XplusY;
     auto *XYZ = Builder.CreateAdd(GroupIdZ, XYxZ);
 
-    SmallVector<Value *, 2> ret;
-    ret.push_back(ASThreadId);
     ret.push_back(XYZ);
 
     return ret;
@@ -303,11 +314,17 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   m_OutputUAV = CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
 
   if (FirstNewStructGetMeshPayload == nullptr) {
-    m_threadUniquifier.push_back(BC.HlslOP->GetU32Const(0));
-    m_threadUniquifier.push_back(BC.HlslOP->GetU32Const(0));
+    Instruction *firstInsertionPt = dxilutil::FirstNonAllocaInsertionPt(
+        PIXPassHelpers::GetEntryFunction(DM));
+    IRBuilder<> Builder(firstInsertionPt);
+    m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(
+        Builder, HlslOP, Ctx, nullptr, nullptr);
   }
   else {
-    m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(HlslOP, Ctx, cast<StructType>(OriginalPayloadStructType), FirstNewStructGetMeshPayload);
+    IRBuilder<> Builder(FirstNewStructGetMeshPayload->getNextNode());
+    m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(
+        Builder, HlslOP, Ctx, cast<StructType>(OriginalPayloadStructType),
+        FirstNewStructGetMeshPayload);
   }
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
