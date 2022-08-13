@@ -1317,8 +1317,15 @@ bool EmitVisitor::visit(SpirvStore *inst) {
   initInstruction(inst);
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPointer()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getObject()));
-  if (inst->hasMemoryAccessSemantics())
-    curInst.push_back(static_cast<uint32_t>(inst->getMemoryAccess()));
+  if (inst->hasMemoryAccessSemantics()) {
+    spv::MemoryAccessMask memoryAccess = inst->getMemoryAccess();
+    curInst.push_back(static_cast<uint32_t>(memoryAccess));
+    if (inst->hasAlignment()) {
+      assert(static_cast<uint32_t>(memoryAccess) &
+             static_cast<uint32_t>(spv::MemoryAccessMask::Aligned));
+      curInst.push_back(inst->getAlignment());
+    }
+  }
   finalizeInstruction(&mainBinary);
   return true;
 }

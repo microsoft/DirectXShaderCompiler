@@ -382,6 +382,8 @@ namespace VkIntrinsics {
 u64 [[]] ReadClock(in uint scope);
 $funcT [[ro]] RawBufferLoad(in u64 addr);
 $funcT [[ro]] RawBufferLoad(in u64 addr, in uint alignment);
+void [[]] RawBufferStore(in u64 addr, in $funcT value);
+void [[]] RawBufferStore(in u64 addr, in $funcT value, in uint alignment);
 void [[]] ext_execution_mode(in uint mode, ...);
 void [[]] ext_execution_mode_id(in uint mode, ...);
 

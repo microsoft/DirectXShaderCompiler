@@ -1842,10 +1842,15 @@ public:
     return memoryAccess.getValue();
   }
 
+  void setAlignment(uint32_t alignment);
+  bool hasAlignment() const { return memoryAlignment.hasValue(); }
+  uint32_t getAlignment() const { return memoryAlignment.getValue(); }
+
 private:
   SpirvInstruction *pointer;
   SpirvInstruction *object;
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
+  llvm::Optional<uint32_t> memoryAlignment;
 };
 
 /// \brief Represents SPIR-V unary operation instructions.

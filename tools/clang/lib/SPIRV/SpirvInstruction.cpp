@@ -833,6 +833,18 @@ SpirvStore::SpirvStore(SourceLocation loc, SpirvInstruction *pointerInst,
     : SpirvInstruction(IK_Store, spv::Op::OpStore, QualType(), loc, range),
       pointer(pointerInst), object(objectInst), memoryAccess(mask) {}
 
+void SpirvStore::setAlignment(uint32_t alignment) {
+  assert(alignment != 0);
+  assert(llvm::isPowerOf2_32(alignment));
+  if (!memoryAccess.hasValue()) {
+    memoryAccess = spv::MemoryAccessMask::Aligned;
+  } else {
+    memoryAccess.getValue() =
+        memoryAccess.getValue() | spv::MemoryAccessMask::Aligned;
+  }
+  memoryAlignment = alignment;
+}
+
 SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, QualType resultType,
                            SourceLocation loc, SpirvInstruction *op,
                            SourceRange range)

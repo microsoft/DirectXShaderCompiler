@@ -1382,6 +1382,9 @@ TEST_F(FileTest, IntrinsicsVkReadClock) {
 TEST_F(FileTest, IntrinsicsVkRawBufferLoad) {
   runFileTest("intrinsics.vkrawbufferload.hlsl");
 }
+TEST_F(FileTest, IntrinsicsVkRawBufferStore) {
+  runFileTest("intrinsics.vkrawbufferstore.hlsl");
+}
 // Intrinsics added in SM 6.6
 TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
   runFileTest("intrinsics.sm6_6.pack_s8u8.hlsl");

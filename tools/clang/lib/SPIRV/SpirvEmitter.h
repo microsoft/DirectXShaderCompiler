@@ -634,8 +634,20 @@ private:
                                            uint32_t alignment,
                                            SourceLocation loc);
 
+  /// Process `void vk::RawBufferStore<T>(in uint64_t address, in T value
+  /// [, in uint alignment])` that stores data to a given device address.
+  SpirvInstruction *processRawBufferStore(const CallExpr *callExpr);
+  SpirvInstruction *storeDataToRawAddress(SpirvInstruction *addressInUInt64,
+                                          SpirvInstruction *value,
+                                           QualType bufferType,
+                                           uint32_t alignment,
+                                           SourceLocation loc);
+
   /// Returns the alignment of `vk::RawBufferLoad()`.
   uint32_t getAlignmentForRawBufferLoad(const CallExpr *callExpr);
+
+  /// Returns the alignment of `vk::RawBufferStore()`.
+  uint32_t getAlignmentForRawBufferStore(const CallExpr *callExpr);
 
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
