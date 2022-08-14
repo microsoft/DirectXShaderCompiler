@@ -3856,38 +3856,39 @@ For example:
 
   uint64_t clock = vk::ReadClock(vk::SubgroupScope);
 
-RawBufferLoad
-~~~~~~~~~~~~~
-Vulkan extension `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+RawBufferLoad and RawBufferStore
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The Vulkan extension `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
 supports getting the 64-bit address of a buffer and passing it to SPIR-V as a
-Uniform buffer. SPIR-V can use the address to load the data without descriptor.
-We add the following intrinsic funcion to expose a subset of the
+Uniform buffer. SPIR-V can use the address to load and store data without a descriptor.
+We add the following intrinsic functions to expose a subset of the
 `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
 and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_
 functionality to HLSL:
 
 .. code:: hlsl
 
-  // It uses 'uint' for the default template argument. The default alignment
-  // is 4. Note that 'alignment' must be a constant integer.
+  // RawBufferLoad and RawBufferStore use 'uint' for the default template argument. 
+  // The default alignment is 4. Note that 'alignment' must be a constant integer.
   T RawBufferLoad<T = uint>(in uint64_t deviceAddress, in uint alignment = 4);
+  void RawBufferStore<T = uint>(in uint64_t deviceAddress, in T value, in uint alignment = 4);
 
 
-It allows the shader program to load a single value with type T from a GPU
-accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
-The intrinsic allows us to set the alignment. It uses 'uint' when the template
-argument is missing and it uses 4 for the default alignment. The alignment
-argument must be a constant integer if it is given.
+These intrinsics allow the shader program to load and store a single value with type T (int, float2, struct, etc...) 
+from GPU accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
+Additionally, these intrinsics allow users to set the memory alignment for the underlying data. 
+We assume a 'uint' type when the template argument is missing, and we use a value of '4' for the default alignment. 
+Note that the alignment argument must be a constant integer if it is given.
 
-Note that we support the aligned data load, but we do not support setting
-memory layout for the data. Since it is supposed to load "arbitrary" data
-from a random device address, we assume that it loads some "bytes of data"
-but its format or layout is unknown. Therefore, keep it in mind that it
-loads ``sizeof(T)`` bytes of data, but loading data with a complicated struct
-type ``T`` is a undefined behavior because of the missing memory layout support.
-Loading data with a memory layout is a future work.
+Though we do support setting the `alignment` of the data load and store, we do not currently 
+support setting the memory layout for the data. Since these intrinsics are supposed to load 
+"arbitrary" data to or from a random device address, we assume that the program loads/stores some "bytes of data",
+but that its format or layout is unknown. Therefore, keep in mind that these intrinsics
+load or store ``sizeof(T)`` bytes of data, and that loading/storing data with a struct
+with a custom memory alignment may yield undefined behavior due to the missing custom memory layout support.
+Loading data with customized memory layouts is future work.
 
-Using the intrinsic adds ``PhysicalStorageBufferAddresses`` capability and
+Using either of these intrinsics adds ``PhysicalStorageBufferAddresses`` capability and
 ``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing
 the addressing model to ``PhysicalStorageBuffer64``.
 
@@ -3896,10 +3897,12 @@ Example:
 .. code:: hlsl
 
   uint64_t address;
-  float4 main() : SV_Target0 {
+  [numthreads(32, 1, 1)]
+  void main(uint3 tid : SV_DispatchThreadID) {
     double foo = vk::RawBufferLoad<double>(address, 8);
     uint bar = vk::RawBufferLoad(address + 8);
     ...
+    vk::RawBufferStore<uint>(address + tid.x, bar + tid.x);
   }
 
 Inline SPIR-V (HLSL version of GL_EXT_spirv_intrinsics)

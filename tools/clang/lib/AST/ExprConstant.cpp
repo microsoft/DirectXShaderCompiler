@@ -3811,6 +3811,23 @@ static bool HandleIntrinsicCall(SourceLocation CallLoc, unsigned opcode,
       return false;
     }
     return true;
+  case hlsl::IntrinsicOp::IOP_min:
+    assert(Args.size() == 2 && "else call should be invalid");
+    assert(ArgValues[0].getKind() == ArgValues[1].getKind() && "else call is invalid");
+    if (ArgValues[0].isInt()) {
+      Result = ArgValues[0].getInt() < ArgValues[1].getInt() ? ArgValues[0] : ArgValues[1];
+    }
+    else if (ArgValues[0].isFloat()) {
+      // TODO: handle NaNs properly
+      APFloat::cmpResult r = ArgValues[0].getFloat().compare(ArgValues[1].getFloat());
+      Result = (r == APFloat::cmpLessThan) ? ArgValues[0] : ArgValues[1];
+    }
+    else {
+      // TODO: consider a better error message here
+      Info.Diag(CallLoc, diag::note_invalid_subexpr_in_const_expr);
+      return false;
+    }
+    return true;
   default:
     Info.Diag(CallLoc, diag::note_invalid_subexpr_in_const_expr);
     return false;
@@ -9301,7 +9318,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
         return NoDiag();
       }
     }
-    switch (cast<CastExpr>(E)->getCastKind()) {
+    const CastExpr *CE = (const CastExpr*)(E);
+    switch (CE->getCastKind()) {
     case CK_LValueToRValue:
     case CK_AtomicToNonAtomic:
     case CK_NonAtomicToAtomic:

@@ -227,6 +227,9 @@ enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
   IOP_VkRawBufferLoad,
 #endif // ENABLE_SPIRV_CODEGEN
 #ifdef ENABLE_SPIRV_CODEGEN
+  IOP_VkRawBufferStore,
+#endif // ENABLE_SPIRV_CODEGEN
+#ifdef ENABLE_SPIRV_CODEGEN
   IOP_VkReadClock,
 #endif // ENABLE_SPIRV_CODEGEN
 #ifdef ENABLE_SPIRV_CODEGEN
