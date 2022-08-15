@@ -1037,7 +1037,8 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto type = var->getType();
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
-  const bool isACSBuffer = isAppendConsumeSBuffer(type);
+  const bool isACSBuffer =
+      isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type);
   const bool isRWSBuffer = isRWStructuredBuffer(type);
   const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
@@ -1140,7 +1141,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     // variable for its associated counter.
     createCounterVar(var, varInstr, /*isAlias=*/false);
   } else if (isRWSBuffer) {
-    declInstrs[var] = varInstr;
+    declRWSBuffers[var] = varInstr;
   }
 
   return varInstr;
@@ -1593,11 +1594,11 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
       return counter->second.get(*indices);
   } else {
     // No indices. Check the stand-alone entities. If not found,
-	// likely a deferred RWStructuredBuffer counter, so try
-	// creating it now.
+    // likely a deferred RWStructuredBuffer counter, so try
+    // creating it now.
     auto counter = counterVars.find(decl);
     if (counter == counterVars.end()) {
-      auto declInstr = declInstrs[decl];
+      auto declInstr = declRWSBuffers[decl];
       if (declInstr) {
         createCounterVar(decl, declInstr, /*isAlias*/ false);
         counter = counterVars.find(decl);
@@ -1607,6 +1608,24 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
       return &counter->second;
   }
 
+  return nullptr;
+}
+
+const CounterIdAliasPair *DeclResultIdMapper::createOrGetCounterIdAliasPair(
+    const DeclaratorDecl *decl) {
+  auto counterPair = getCounterIdAliasPair(decl);
+  if (counterPair)
+    return counterPair;
+  if (!decl)
+    return nullptr;
+  // If deferred RWStructuredBuffer, try creating the counter now
+  auto declInstr = declRWSBuffers[decl];
+  if (declInstr) {
+    createCounterVar(decl, declInstr, /*isAlias*/ false);
+    auto counter = counterVars.find(decl);
+    assert(counter != counterVars.end() && "counter not found");
+    return &counter->second;
+  }
   return nullptr;
 }
 
