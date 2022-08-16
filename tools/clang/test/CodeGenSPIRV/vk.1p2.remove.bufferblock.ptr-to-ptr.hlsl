@@ -14,7 +14,6 @@
 
 // CHECK: OpDecorate %type_StructuredBuffer_float Block
 // CHECK: OpDecorate %type_RWStructuredBuffer_float Block
-// CHECK: OpDecorate %type_ACSBuffer_counter Block
 
 // CHECK: [[fn-type:%\d+]] = OpTypeFunction %_ptr_StorageBuffer_type_StructuredBuffer_float %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_float
 

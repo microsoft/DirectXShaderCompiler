@@ -426,6 +426,12 @@ public:
       const DeclaratorDecl *decl,
       const llvm::SmallVector<uint32_t, 4> *indices = nullptr);
 
+  /// \brief Returns the associated counter's (instr-ptr, is-alias-or-not)
+  /// pair for the given {RW|Append|Consume}StructuredBuffer variable. Creates
+  /// counter for RW buffer if not already created.
+  const CounterIdAliasPair *createOrGetCounterIdAliasPair(
+      const DeclaratorDecl *decl);
+
   /// \brief Returns all the associated counters for the given decl. The decl is
   /// expected to be a struct containing alias RW/Append/Consume structured
   /// buffers. Returns nullptr if it does not.
@@ -811,6 +817,11 @@ private:
   /// entities of the rest.
   llvm::DenseMap<const DeclaratorDecl *, CounterIdAliasPair> counterVars;
   llvm::DenseMap<const DeclaratorDecl *, CounterVarFields> fieldCounterVars;
+
+  /// Mapping from clang declarator to SPIR-V declaration instruction.
+  /// This is used to defer creation of counter for RWStructuredBuffer
+  /// until a Increment/DecrementCounter method is called on it.
+  llvm::DenseMap<const DeclaratorDecl *, SpirvInstruction *> declRWSBuffers;
 
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the SPIR-V type.
