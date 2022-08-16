@@ -61,7 +61,7 @@ unsigned UpdateSemanticAndInterpMode(StringRef &semName,
     case InterpolationMode::Kind::Constant:
     case InterpolationMode::Kind::Undefined:
     case InterpolationMode::Kind::Invalid: {
-      Context.emitError("invalid interpolation mode for SV_Position");
+      llvm_unreachable("invalid interpolation mode for SV_Position");
     } break;
     case InterpolationMode::Kind::LinearNoperspective:
     case InterpolationMode::Kind::LinearNoperspectiveCentroid:
@@ -470,8 +470,7 @@ void HLSignatureLower::CreateDxilSignatures() {
   if (props.shaderKind == DXIL::ShaderKind::Hull) {
     Function *patchConstantFunc = props.ShaderProps.HS.patchConstantFunc;
     if (patchConstantFunc == nullptr) {
-      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-          "Patch constant function is not specified.");
+      llvm_unreachable("Patch constant function is not specified.");
     }
 
     DxilFunctionAnnotation *patchFuncAnnotation =
@@ -499,15 +498,13 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
 
   hlsl::PackDxilSignature(EntrySig.InputSignature, packing);
   if (!EntrySig.InputSignature.IsFullyAllocated()) {
-    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-        "Failed to allocate all input signature elements in available space.");
+    llvm_unreachable("Failed to allocate all input signature elements in available space.");
   }
 
   if (props.shaderKind != DXIL::ShaderKind::Amplification) {
     hlsl::PackDxilSignature(EntrySig.OutputSignature, packing);
     if (!EntrySig.OutputSignature.IsFullyAllocated()) {
-      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-          "Failed to allocate all output signature elements in available space.");
+      llvm_unreachable("Failed to allocate all output signature elements in available space.");
     }
   }
 
@@ -516,8 +513,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
       props.shaderKind == DXIL::ShaderKind::Mesh) {
     hlsl::PackDxilSignature(EntrySig.PatchConstOrPrimSignature, packing);
     if (!EntrySig.PatchConstOrPrimSignature.IsFullyAllocated()) {
-      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-                             "Failed to allocate all patch constant signature "
+      llvm_unreachable("Failed to allocate all patch constant signature "
                              "elements in available space.");
     }
   }

@@ -209,7 +209,8 @@ private:
         return HandleMetaMap[Handle];
       }
     }
-    Handle->getContext().emitError("cannot map resource to handle");
+    dxilutil::EmitErrorOnContext(Handle->getContext(),
+                                 "cannot map resource to handle.");
 
     return HandleMetaMap[Handle];
   }
@@ -636,7 +637,7 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
       std::vector<int> mask { 2, 1, 0, 3 };
       val = Builder.CreateShuffleVector(val, val, mask);
     } else {
-      dxilutil::EmitErrorOnInstruction(CI, "Unsupported input type for intrinsic D3DColorToUByte4.");
+      llvm_unreachable("Unsupported input type for intrinsic D3DColorToUByte4.");
       return UndefValue::get(CI->getType());
     }
   }
@@ -2387,7 +2388,7 @@ Value *TranslatePrintf(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
                        HLObjectOperationLowerHelper *pObjHelper,
                        bool &Translated) {
   Translated = false;
-  CI->getContext().emitError(CI, "use of undeclared identifier 'printf'");
+  dxilutil::EmitErrorOnInstruction(CI, "use of undeclared identifier 'printf'");
   return nullptr;
 }
 
