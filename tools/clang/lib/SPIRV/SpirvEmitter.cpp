@@ -4197,7 +4197,8 @@ bool SpirvEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
     declIdMapper.createFnParamCounterVar(thisObject);
 
   // Handle AssocCounter#1 (see CounterVarFields comment)
-  if (const auto *dstPair = declIdMapper.getCounterIdAliasPair(dstDecl)) {
+  if (const auto *dstPair =
+          declIdMapper.createOrGetCounterIdAliasPair(dstDecl)) {
     const auto *srcPair = getFinalACSBufferCounter(srcExpr);
     if (!srcPair) {
       emitFatalError("cannot find the associated counter variable",
@@ -4268,7 +4269,7 @@ const CounterIdAliasPair *
 SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
   // AssocCounter#1: referencing some stand-alone variable
   if (const auto *decl = getReferencedDef(expr))
-    return declIdMapper.getCounterIdAliasPair(decl);
+    return declIdMapper.createOrGetCounterIdAliasPair(decl);
 
   // AssocCounter#2: referencing some non-struct field
   llvm::SmallVector<uint32_t, 4> rawIndices;
