@@ -219,18 +219,6 @@ std::vector<llvm::Function *> GetSortedEntryFunctions(llvm::Module &M) {
   }
 }
 
-std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
-    std::vector<llvm::BasicBlock*> ret;
-    auto entryPoints = DM.GetExportedFunctions();
-    for (auto& fn : entryPoints) {
-      auto& blocks = fn->getBasicBlockList();
-      for (auto& block : blocks) {
-        ret.push_back(&block);
-      }
-    }
-    return ret;
-}
-
 ExpandedStruct ExpandStructType(LLVMContext &Ctx,
                                 Type *OriginalPayloadStructType) {
   SmallVector<Type *, 16> Elements;
