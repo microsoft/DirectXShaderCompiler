@@ -1,4 +1,9 @@
-// RUN: %dxc -Od -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -Od -E main -T lib_6_x %s | FileCheck %s
+
+// Regression test for when there are multiple functions with loops that can't
+// be unrolled at the point of doing [unroll], the unroll pass crashes because
+// it didn't clean up memory between runs.
+
 // CHECK: pass_reuse_regression.hlsl:{{[0-9]+}}:{{[0-9]+}}: error: Could not unroll loop
 // CHECK: pass_reuse_regression.hlsl:{{[0-9]+}}:{{[0-9]+}}: error: Could not unroll loop
 
