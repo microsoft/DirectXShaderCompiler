@@ -208,6 +208,38 @@ std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
         ret.push_back(&block);
       }
     }
+
+    // The challenge for PIX is that all instructions must be 
+    // enumerated in the same order for subsequent runs, or
+    // e.g., shader disassembly and shader debugging will
+    // become unsynchronized. The following attempts a 
+    // good-enough sort of all basic blocks in the module.
+    std::sort(ret.begin(), ret.end(),
+            [](llvm::BasicBlock const *l, llvm::BasicBlock const *r) {
+        auto const & leftInstructions = l->getInstList();
+        auto const & rightInstructions = r->getInstList();
+        // Sorting by size first should be efficient
+        if (leftInstructions.size() < rightInstructions.size()) {
+            return true;
+        }
+        if (leftInstructions.front().getOpcode() <
+            rightInstructions.front().getOpcode()) {
+          return true;
+        }
+        // Lastly, the sum is "good enough", even if many blocks
+        // have the same sum.
+        // (particularly blocks that are only a terminator, since
+        //  PIX doesn't need to instrument terminators.)
+        size_t leftOpcodeSum = 0;
+        for (auto const &i : leftInstructions) {
+          leftOpcodeSum += i.getOpcode();
+        }
+        size_t rightOpcodeSum = 0;
+        for (auto const &i : rightInstructions) {
+          rightOpcodeSum += i.getOpcode();
+        }
+        return leftOpcodeSum < rightOpcodeSum;
+    });
     return ret;
 }
 
