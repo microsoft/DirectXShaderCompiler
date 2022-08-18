@@ -108,7 +108,6 @@ public:
   static char ID;
 
   std::set<Loop *> LoopsThatFailed;
-  std::unordered_set<Function *> CleanedUpAlloca;
   unsigned MaxIterationAttempt = 0;
   bool OnlyWarnOnFail = false;
   bool StructurizeLoopExits = false;
@@ -1212,7 +1211,11 @@ bool DxilLoopUnroll::doFinalization() {
           Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
       }
     }
+
+    // This pass instance can be reused. Clear this so it doesn't blow up on the subsequent runs.
+    LoopsThatFailed.clear();
   }
+
   return false;
 }
 
