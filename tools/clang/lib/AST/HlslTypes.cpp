@@ -530,7 +530,9 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "FeedbackTexture2D" || name == "FeedbackTexture2DArray")
       return true;
 
-    if (name == "RasterizerOrderedTexture2D")
+    if (name == "RasterizerOrderedTexture1D" || name == "RasterizerOrderedTexture2D" || name == "RasterizerOrderedTexture3D" ||
+        name == "RasterizerOrderedTexture1DArray" || name == "RasterizerOrderedTexture2DArray" ||
+        name == "RasterizerOrderedBuffer" || name == "RasterizerOrderedByteAddressBuffer" || name == "RasterizerOrderedStructuredBuffer")
       return true;
 
     if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer")
