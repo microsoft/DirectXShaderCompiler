@@ -2388,7 +2388,7 @@ Value *TranslatePrintf(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
                        HLObjectOperationLowerHelper *pObjHelper,
                        bool &Translated) {
   Translated = false;
-  dxilutil::EmitErrorOnInstruction(CI, "use of undeclared identifier 'printf'");
+  dxilutil::EmitErrorOnInstruction(CI, "use of unsupported identifier 'printf'");
   return nullptr;
 }
 
