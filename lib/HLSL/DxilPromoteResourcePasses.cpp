@@ -124,7 +124,10 @@ bool DxilPromoteLocalResources::PromoteLocalResource(Function &F) {
     // No update.
     // Report error and break.
     if (allocaSize == Allocas.size()) {
-      llvm_unreachable(
+      //  TODO: Add test for this instance of the error: "local resource not
+      //  guaranteed to map to unique global resource." No test currently exists.
+      dxilutil::EmitErrorOnContext(
+          F.getContext(),
           "local resource not guaranteed to map to unique global resource.");
       break;
     }
@@ -220,7 +223,11 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
       Insts.clear();
     }
     if (!bUpdated) {
-      llvm_unreachable(
+      //  TODO: Add test for this instance of the error: "local resource not
+      //  guaranteed to map to unique global resource." No test currently
+      //  exists.
+      dxilutil::EmitErrorOnContext(
+          M.getContext(),
           "local resource not guaranteed to map to unique global resource.");
       break;
     }
