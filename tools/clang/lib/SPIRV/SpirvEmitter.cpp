@@ -603,7 +603,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // Set shader module version, source file name, and source file content (if
   // needed).
-  llvm::StringRef source;
+  llvm::StringRef source = "";
   std::vector<llvm::StringRef> fileNames;
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   // File name
@@ -625,7 +625,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // Rich DebugInfo DebugSource
   if (spirvOptions.debugInfoRich) {
-    auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
+    auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString(), source);
     // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
     // pair and returns {{string key, RichDebugInfo}, true /*Success*/}.
     // spvContext.getDebugInfo().insert().first->second is a RichDebugInfo.
