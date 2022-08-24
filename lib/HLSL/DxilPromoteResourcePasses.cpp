@@ -128,7 +128,7 @@ bool DxilPromoteLocalResources::PromoteLocalResource(Function &F) {
       //  guaranteed to map to unique global resource." No test currently exists.
       dxilutil::EmitErrorOnContext(
           F.getContext(),
-          "local resource not guaranteed to map to unique global resource.");
+          dxilutil::kResourceMapErrorMsg);
       break;
     }
     allocaSize = Allocas.size();
@@ -228,7 +228,7 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
       //  exists.
       dxilutil::EmitErrorOnContext(
           M.getContext(),
-          "local resource not guaranteed to map to unique global resource.");
+          dxilutil::kResourceMapErrorMsg);
       break;
     }
     bModified = true;
