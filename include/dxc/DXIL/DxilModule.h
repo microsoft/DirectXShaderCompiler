@@ -344,8 +344,8 @@ private:
   llvm::Module *m_pModule = nullptr;
   llvm::Function *m_pEntryFunc = nullptr;
   std::string m_EntryName = "";
-  std::unique_ptr<DxilMDHelper> m_pMDHelper = nullptr;
-  std::unique_ptr<llvm::DebugInfoFinder> m_pDebugInfoFinder = nullptr;
+  std::unique_ptr<DxilMDHelper> m_pMDHelper;
+  std::unique_ptr<llvm::DebugInfoFinder> m_pDebugInfoFinder;
   const ShaderModel *m_pSM = nullptr;
   unsigned m_DxilMajor = DXIL::kDxilMajor;
   unsigned m_DxilMinor = DXIL::kDxilMinor;
@@ -381,7 +381,7 @@ private:
   uint32_t m_IntermediateFlags = 0;
   uint32_t m_AutoBindingSpace = UINT_MAX;
 
-  std::unique_ptr<DxilSubobjects> m_pSubobjects = nullptr;
+  std::unique_ptr<DxilSubobjects> m_pSubobjects;
 
   // m_bMetadataErrors is true if non-fatal metadata errors were encountered.
   // Validator will fail in this case, but should not block module load.
