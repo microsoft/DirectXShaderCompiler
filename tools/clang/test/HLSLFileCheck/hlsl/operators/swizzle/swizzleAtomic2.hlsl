@@ -7,6 +7,9 @@
 RWBuffer<uint4> bufA;
 RWTexture1D<uint4> texA;
 
+ // CHECK: error: Invalid operation on typed buffer.
+// CHECK: error: Invalid operation on typed buffer.
+
 [numthreads(8,8,1)]
 void main( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex )
 {

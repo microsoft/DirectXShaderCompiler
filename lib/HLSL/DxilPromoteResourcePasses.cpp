@@ -124,7 +124,11 @@ bool DxilPromoteLocalResources::PromoteLocalResource(Function &F) {
     // No update.
     // Report error and break.
     if (allocaSize == Allocas.size()) {
-      F.getContext().emitError(dxilutil::kResourceMapErrorMsg);
+      //  TODO: Add test for this instance of the error: "local resource not
+      //  guaranteed to map to unique global resource." No test currently exists.
+      dxilutil::EmitErrorOnContext(
+          F.getContext(),
+          dxilutil::kResourceMapErrorMsg);
       break;
     }
     allocaSize = Allocas.size();
@@ -219,7 +223,12 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
       Insts.clear();
     }
     if (!bUpdated) {
-      M.getContext().emitError(dxilutil::kResourceMapErrorMsg);
+      //  TODO: Add test for this instance of the error: "local resource not
+      //  guaranteed to map to unique global resource." No test currently
+      //  exists.
+      dxilutil::EmitErrorOnContext(
+          M.getContext(),
+          dxilutil::kResourceMapErrorMsg);
       break;
     }
     bModified = true;

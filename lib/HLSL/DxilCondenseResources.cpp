@@ -659,11 +659,6 @@ public:
     // we encountered an unexpted value type
     UnexpectedValuesFromStorePointer,
 
-    // When remapping values to be replaced, we add them to RemappedValues
-    // so we don't use dead values stored in other sets/maps.  Circular
-    // remaps that should not happen are aadded to RemappingCyclesDetected.
-    RemappingCyclesDetected,
-
     // Without SUPPORT_SELECT_ON_ALLOCA, phi/select on alloca based
     // pointer is disallowed, since this scenario is still untested.
     // This error also covers any other unknown alloca pointer uses.
@@ -690,7 +685,6 @@ public:
     "static global resource use is disallowed for library functions.",
     "exported library functions cannot have resource parameters or return value.",
     "internal error: unexpected instruction type when looking for alloca from store.",
-    "internal error: cycles detected in value remapping.",
     "phi/select disallowed on pointers to local resources.",
     "mismatch handle annotation",
     "possible mixing dynamic resource and binding resource",
@@ -906,8 +900,11 @@ public:
     while (it != RemappedValues.end()) {
       // Cycles should not happen, but are bad if they do.
       if (visited.count(it->second)) {
+        // When remapping values to be replaced, we add them to RemappedValues
+        // so we don't use dead values stored in other sets/maps. Circular
+        // remaps that should not happen
         DXASSERT(false, "otherwise, circular remapping");
-        m_Errors.ReportError(ResourceUseErrors::RemappingCyclesDetected, V);
+        llvm_unreachable("cycles detected in value remapping");
         break;
       }
       V = it->second;
