@@ -99,10 +99,8 @@ DxilModule::DxilModule(Module *pModule)
 : m_Ctx(pModule->getContext())
 , m_pModule(pModule)
 , m_pMDHelper(make_unique<DxilMDHelper>(pModule, make_unique<DxilExtraPropertyHelper>(pModule)))
-, m_pDebugInfoFinder(nullptr)
 , m_pOP(make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(make_unique<DxilTypeSystem>(pModule))
-, m_pSubobjects(nullptr)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);
