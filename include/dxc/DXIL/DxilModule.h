@@ -371,10 +371,6 @@ private:
   // Serialized ViewId state.
   std::vector<unsigned> m_SerializedState;
 
-  // DXIL metadata serialization/deserialization.
-  llvm::MDTuple *EmitDxilResources();
-  void LoadDxilResources(const llvm::MDOperand &MDO);
-
   // properties from HLModule preserved as ShaderFlags
   bool m_bDisableOptimizations = false;
   bool m_bUseMinPrecision = true; // use min precision by default;
@@ -390,6 +386,10 @@ private:
   // m_bMetadataErrors is true if non-fatal metadata errors were encountered.
   // Validator will fail in this case, but should not block module load.
   bool m_bMetadataErrors = false;
+
+  // DXIL metadata serialization/deserialization.
+  llvm::MDTuple *EmitDxilResources();
+  void LoadDxilResources(const llvm::MDOperand &MDO);
 
   // Helpers.
   template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
