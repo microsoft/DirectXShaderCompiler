@@ -65,6 +65,7 @@ public:
   TEST_METHOD(RunLinkToLibWithNoExports);
   TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
   TEST_METHOD(RunLinkWithValidatorVersion);
+  TEST_METHOD(RunLinkWithInvalidValidatorVersion);
   TEST_METHOD(RunLinkWithTempReg);
   TEST_METHOD(RunLinkToLibWithGlobalCtor);
   TEST_METHOD(LinkSm63ToSm66);
@@ -767,6 +768,29 @@ TEST_F(LinkerTest, RunLinkWithValidatorVersion) {
   Link(L"", L"lib_6_3", pLinker, {libName, libName2},
        {"!dx.valver = !{(![0-9]+)}.*\n\\1 = !{i32 1, i32 3}"},
        {}, {L"-validator-version", L"1.3"}, /*regex*/ true);
+}
+
+TEST_F(LinkerTest, RunLinkWithInvalidValidatorVersion) {
+  if (m_ver.SkipDxilVersion(1, 4))
+    return;
+
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib, {});
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl", &pLib, {});
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  LinkCheckMsg(L"", L"lib_6_3", pLinker, {libName, libName2},
+               {"Validator version does not support target profile lib_6_3"},
+               {L"-validator-version", L"1.2"});
 }
 
 TEST_F(LinkerTest, RunLinkWithTempReg) {

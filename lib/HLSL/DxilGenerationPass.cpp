@@ -210,7 +210,7 @@ public:
     if (!SM->IsLib()) {
       Function *EntryFn = m_pHLModule->GetEntryFunction();
       if (!m_pHLModule->HasDxilFunctionProps(EntryFn)) {
-        dxilutil::EmitErrorOnFunction(M.getContext(), EntryFn, "Entry function don't have property.");
+        llvm_unreachable("Entry function doesn't have any properties.");
         return false;
       }
       DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(EntryFn);
@@ -264,7 +264,7 @@ public:
           if (F.user_empty()) {
             F.eraseFromParent();
           } else {
-            dxilutil::EmitErrorOnFunction(M.getContext(), &F, "Fail to lower createHandle.");
+            llvm_unreachable("Fail to lower createHandle.");
           }
         }
       }

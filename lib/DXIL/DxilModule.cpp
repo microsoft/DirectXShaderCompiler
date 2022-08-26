@@ -96,29 +96,11 @@ void ClearDxilHook(Module &M);
 //  DxilModule methods.
 //
 DxilModule::DxilModule(Module *pModule)
-: m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
-, m_ActiveStreamMask(0)
-, m_Ctx(pModule->getContext())
+: m_Ctx(pModule->getContext())
 , m_pModule(pModule)
-, m_pEntryFunc(nullptr)
-, m_EntryName("")
 , m_pMDHelper(make_unique<DxilMDHelper>(pModule, make_unique<DxilExtraPropertyHelper>(pModule)))
-, m_pDebugInfoFinder(nullptr)
-, m_pSM(nullptr)
-, m_DxilMajor(DXIL::kDxilMajor)
-, m_DxilMinor(DXIL::kDxilMinor)
-, m_ValMajor(1)
-, m_ValMinor(0)
-, m_ForceZeroStoreLifetimes(false)
 , m_pOP(make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(make_unique<DxilTypeSystem>(pModule))
-, m_bDisableOptimizations(false)
-, m_bUseMinPrecision(true) // use min precision by default
-, m_bAllResourcesBound(false)
-, m_IntermediateFlags(0)
-, m_AutoBindingSpace(UINT_MAX)
-, m_pSubobjects(nullptr)
-, m_bMetadataErrors(false)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);

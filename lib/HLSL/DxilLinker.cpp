@@ -401,8 +401,6 @@ namespace {
 const char kUndefFunction[] = "Cannot find definition of function ";
 const char kRedefineFunction[] = "Definition already exists for function ";
 const char kRedefineGlobal[] = "Definition already exists for global variable ";
-const char kInvalidProfile[] = " is invalid profile to link";
-const char kExportOnlyForLib[] = "export map is only for library";
 const char kShaderKindMismatch[] =
     "Profile mismatch between entry function and target profile:";
 const char kNoEntryProps[] =
@@ -882,7 +880,7 @@ void DxilLinkJob::EmitCtorListForLib(Module *pM) {
 std::unique_ptr<Module>
 DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   if (m_functionDefs.empty()) {
-    m_ctx.emitError(Twine(kNoFunctionsToExport));
+    dxilutil::EmitErrorOnContext(m_ctx, Twine(kNoFunctionsToExport));
     return nullptr;
   }
   DxilLib *pLib = m_functionDefs.begin()->second;
@@ -969,13 +967,15 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
         std::string escaped;
         llvm::raw_string_ostream os(escaped);
         dxilutil::PrintEscapedString(name, os);
-        m_ctx.emitError(Twine(kExportNameCollision) + os.str());
+        dxilutil::EmitErrorOnContext(m_ctx,
+                                     Twine(kExportNameCollision) + os.str());
       }
       for (auto &name : m_exportMap.GetUnusedExports()) {
         std::string escaped;
         llvm::raw_string_ostream os(escaped);
         dxilutil::PrintEscapedString(name, os);
-        m_ctx.emitError(Twine(kExportFunctionMissing) + os.str());
+        dxilutil::EmitErrorOnContext(m_ctx,
+                                     Twine(kExportFunctionMissing) + os.str());
       }
       return nullptr;
     }
@@ -1404,7 +1404,7 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
       continue;
     if (!m_functionNameMap.count(name)) {
       // Cannot find function, report error.
-      m_ctx.emitError(Twine(kUndefFunction) + name);
+      dxilutil::EmitErrorOnContext(m_ctx, Twine(kUndefFunction) + name);
       return false;
     }
 
@@ -1445,13 +1445,13 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
   if (kind == DXIL::ShaderKind::Invalid ||
       (kind >= DXIL::ShaderKind::RayGeneration &&
        kind <= DXIL::ShaderKind::Callable)) {
-    m_ctx.emitError(profile + Twine(kInvalidProfile));
-    // Invalid profile.
+    // Invalid profile, user error emitted earlier with option check
+    llvm_unreachable("invalid profile kind to link");
     return nullptr;
   }
 
   if (!exportMap.empty() && kind != DXIL::ShaderKind::Library) {
-    m_ctx.emitError(Twine(kExportOnlyForLib));
+    llvm_unreachable("export map is only for library");
     return nullptr;
   }
 
@@ -1460,7 +1460,8 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
   pSM->GetMinValidatorVersion(minValMajor, minValMinor);
   if (minValMajor > m_valMajor ||
       (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
-    m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
+    dxilutil::EmitErrorOnContext(m_ctx,
+                                 Twine(kInvalidValidatorVersion) + profile);
     return nullptr;
   }
 
