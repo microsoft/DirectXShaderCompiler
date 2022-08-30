@@ -56,7 +56,8 @@ bool LiteralTypeVisitor::canDeduceTypeFromLitType(QualType litType,
   if (litType->isFloatingType() && newType->isFloatingType())
     return true;
   if ((litType->isIntegerType() && !litType->isBooleanType()) &&
-      (newType->isIntegerType() && !newType->isBooleanType()))
+      (newType->isIntegerType() && !newType->isBooleanType()) &&
+      litType->isSignedIntegerType() == newType->isSignedIntegerType())
     return true;
 
   {
