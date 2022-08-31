@@ -597,23 +597,28 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     // Hack to support fxc style /P preprocess_filename.
     // When there're more than 1 Input file, use the input which is after /P as
     // preprocess.
-    std::vector<std::string> Inputs = Args.getAllArgValues(OPT_INPUT);
-    if (Inputs.size() > 1) {
-      llvm::opt::Arg *PArg = Args.getLastArg(OPT_P);
-      std::string LastInput = Inputs.back();
-      llvm::opt::Arg *PrevInputArg = nullptr;
-      for (llvm::opt::Arg *InputArg : Args.filtered(OPT_INPUT)) {
-        // Find Input after /P.
-        if ((PArg->getIndex() + 1) == InputArg->getIndex()) {
-          opts.Preprocess = InputArg->getValue();
-          if (LastInput == opts.Preprocess && PrevInputArg) {
-            // When InputArg is last Input, update it to other Input so
-            // Args.getLastArgValue(OPT_INPUT) get expect Input.
-            InputArg->getValues()[0] = PrevInputArg->getValues()[0];
+    if (!Args.hasArg(OPT_Fi)) {
+      std::vector<std::string> Inputs = Args.getAllArgValues(OPT_INPUT);
+      if (Inputs.size() > 1) {
+        llvm::opt::Arg *PArg = Args.getLastArg(OPT_P);
+        std::string LastInput = Inputs.back();
+        llvm::opt::Arg *PrevInputArg = nullptr;
+        for (llvm::opt::Arg *InputArg : Args.filtered(OPT_INPUT)) {
+          // Find Input after /P.
+          if ((PArg->getIndex() + 1) == InputArg->getIndex()) {
+            opts.Preprocess = InputArg->getValue();
+            if (LastInput == opts.Preprocess && PrevInputArg) {
+              // When InputArg is last Input, update it to other Input so
+              // Args.getLastArgValue(OPT_INPUT) get expect Input.
+              InputArg->getValues()[0] = PrevInputArg->getValues()[0];
+            }
+            errors << "Warning: -P " << opts.Preprocess
+                   << " is deprecated, please use -P -Fi " << opts.Preprocess
+                   << " instead.\n";
+            break;
           }
-          break;
+          PrevInputArg = InputArg;
         }
-        PrevInputArg = InputArg;
       }
     }
   }
