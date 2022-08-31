@@ -484,6 +484,10 @@ public:
 
   SpirvDebugCompilationUnit *createDebugCompilationUnit(SpirvDebugSource *);
 
+  void createDebugEntryPoint(SpirvDebugFunction *ep,
+                             SpirvDebugCompilationUnit *cu,
+                             llvm::StringRef signature, llvm::StringRef args);
+
   SpirvDebugLexicalBlock *
   createDebugLexicalBlock(SpirvDebugSource *, uint32_t line, uint32_t column,
                           SpirvDebugInstruction *parent);

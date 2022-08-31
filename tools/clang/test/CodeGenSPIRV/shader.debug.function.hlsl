@@ -16,11 +16,12 @@
 
 // Check DebugFunction instructions
 //
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] %uint_33 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_34
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] %uint_34 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_35
 
 // CHECK: [[float4:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[float]] %uint_4
 // CHECK: [[mainFnType:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction %uint_3 [[float4]] [[float4]]
-// CHECK: [[mainDbgFn:%\d+]] = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] %uint_38 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_39 
+// CHECK: [[mainDbgFn:%\d+]] = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] %uint_39 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_40 
+// CHECK: [[mainDbgEp:%\d+]] = OpExtInst %void [[set]] DebugEntryPoint [[mainDbgFn]] [[compilationUnit]] {{%\d+}} {{%\d+}}
 
 // Check DebugFunctionDefintion is in main
 //
