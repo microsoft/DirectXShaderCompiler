@@ -613,7 +613,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
               InputArg->getValues()[0] = PrevInputArg->getValues()[0];
             }
             errors << "Warning: -P " << opts.Preprocess
-                   << " is deprecated, please use -P -Fi " << opts.Preprocess
+                   << " is deprecated, please use -P -Fi" << opts.Preprocess
                    << " instead.\n";
             break;
           }

@@ -728,8 +728,7 @@ public:
         PreprocessArgs.reserve(argCount + 1);
         PreprocessArgs.assign(pArguments, pArguments + argCount);
         PreprocessArgs.push_back(L"-P");
-        PreprocessArgs.push_back(L"-Fi");
-        PreprocessArgs.push_back(L"preprocessed.hlsl");
+        PreprocessArgs.push_back(L"-Fipreprocessed.hlsl");
         IFT(Compile(pSource, PreprocessArgs.data(), PreprocessArgs.size(), pIncludeHandler, IID_PPV_ARGS(&pSrcCodeResult)));
         HRESULT status;
         IFT(pSrcCodeResult->GetStatus(&status));
@@ -1760,7 +1759,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
       pSourceName, pEntryPoint, pTargetProfile,
       pArguments, argCount, pDefines, defineCount, &pArgs));
 
-    LPCWSTR PreprocessArgs[] = {L"-P", L"-Fi", L"preprocessed.hlsl"};
+    LPCWSTR PreprocessArgs[] = {L"-P", L"-Fipreprocessed.hlsl"};
     if (bPreprocess) {
       IFT(pArgs->AddArguments(PreprocessArgs, _countof(PreprocessArgs)));
     }

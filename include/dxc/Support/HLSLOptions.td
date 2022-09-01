@@ -431,7 +431,7 @@ def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">,
 def Fre : Separate<["-", "/"], "Fre">, MetaVarName<"<file>">, HelpText<"Output reflection to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Frs : Separate<["-", "/"], "Frs">, MetaVarName<"<file>">, HelpText<"Output root signature to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Fsh : Separate<["-", "/"], "Fsh">, MetaVarName<"<file>">, HelpText<"Output shader hash to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
-def Fi : JoinedOrSeparate<["-", "/"], "Fi">, MetaVarName<"<file>">,
+def Fi : Joined<["-", "/"], "Fi">, MetaVarName<"<file>">,
   HelpText<"Set preprocess output file name (with /P)">,
   Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 

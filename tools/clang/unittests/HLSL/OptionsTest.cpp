@@ -373,10 +373,10 @@ static void VerifyPreprocessOption(llvm::StringRef command,
 
 TEST_F(OptionsTest, TestPreprocessOption) {
   VerifyPreprocessOption("/T ps_6_0 -P input.hlsl", "input.i", "");
-  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
-  VerifyPreprocessOption("/T ps_6_0 -P -Fi out.pp input.hlsl", "out.pp", "");
+  VerifyPreprocessOption("/T ps_6_0 -Fiout.pp -P input.hlsl", "out.pp", "");
+  VerifyPreprocessOption("/T ps_6_0 -P -Fiout.pp input.hlsl", "out.pp", "");
   const char *Warning =
-      "Warning: -P out.pp is deprecated, please use -P -Fi out.pp instead.\n";
+      "Warning: -P out.pp is deprecated, please use -P -Fiout.pp instead.\n";
   VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "out.pp", Warning);
   VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp ", "out.pp", Warning);
 }
