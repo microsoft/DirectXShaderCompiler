@@ -1359,7 +1359,10 @@ int dxc::main(int argc, const char **argv_) {
           ReadDxcOpts(optionTable, DxcFlags, argStrings, dxcOpts, errorStream);
       errorStream.flush();
       if (errorString.size()) {
-        fprintf(stderr, "dxc failed : %s\n", errorString.data());
+        if (optResult)
+          fprintf(stderr, "dxc failed : %s\n", errorString.data());
+        else
+          fprintf(stderr, "dxc warning : %s\n", errorString.data());
       }
       if (optResult != 0) {
         return optResult;

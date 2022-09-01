@@ -80,6 +80,8 @@ public:
 
   TEST_METHOD(ReadOptionsJoinedWithSpacesThenOK)
 
+  TEST_METHOD(TestPreprocessOption)
+
   std::unique_ptr<DxcOpts> ReadOptsTest(const MainArgs &mainArgs,
                                         unsigned flagsToInclude,
                                         bool shouldFail = false,
@@ -348,4 +350,33 @@ TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
     VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
     VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
   }
+}
+
+static void VerifyPreprocessOption(llvm::StringRef command,
+                                   const char *ExpectOutput,
+                                   const char *ErrMsg) {
+  std::string errorString;
+  const llvm::opt::OptTable *optionTable = getHlslOptTable();
+  llvm::SmallVector<llvm::StringRef, 4> args;
+  command.split(args, " ", /*MaxSplit*/ -1, /*KeepEmpty*/ false);
+  MainArgs argStrings(args);
+  DxcOpts dxcOpts;
+  llvm::raw_string_ostream errorStream(errorString);
+
+  int retVal =
+      ReadDxcOpts(optionTable, DxcFlags, argStrings, dxcOpts, errorStream);
+  EXPECT_EQ(retVal, 0);
+  EXPECT_STREQ(dxcOpts.Preprocess.c_str(), ExpectOutput);
+  errorStream.flush();
+  EXPECT_STREQ(errorString.c_str(), ErrMsg);
+}
+
+TEST_F(OptionsTest, TestPreprocessOption) {
+  VerifyPreprocessOption("/T ps_6_0 -P input.hlsl", "input.i", "");
+  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
+  VerifyPreprocessOption("/T ps_6_0 -P -Fi out.pp input.hlsl", "out.pp", "");
+  const char *Warning =
+      "Warning: -P out.pp is deprecated, please use -P -Fi out.pp instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "out.pp", Warning);
+  VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp ", "out.pp", Warning);
 }

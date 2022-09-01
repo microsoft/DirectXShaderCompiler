@@ -123,7 +123,7 @@ public:
   llvm::StringRef OutputRootSigFile; // OPT_Frs
   llvm::StringRef OutputShaderHashFile; // OPT_Fsh
   llvm::StringRef OutputFileForDependencies; // OPT_write_dependencies_to
-  llvm::StringRef Preprocess; // OPT_P
+  std::string Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
   llvm::StringRef PrivateSource; // OPT_setprivate
