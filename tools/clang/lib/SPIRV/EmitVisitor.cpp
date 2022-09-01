@@ -1624,6 +1624,25 @@ bool EmitVisitor::visit(SpirvDebugFunctionDefinition *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugEntryPoint *inst) {
+  uint32_t sigId = getOrCreateOpStringId(inst->getSignature());
+  uint32_t argId = getOrCreateOpStringId(inst->getArgs());
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getEntryPoint()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getCompilationUnit()));
+  curInst.push_back(sigId);
+  curInst.push_back(argId);
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugTypeBasic *inst) {
   uint32_t typeNameId = getOrCreateOpStringId(inst->getDebugName());
   initInstruction(inst);

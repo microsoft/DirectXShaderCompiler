@@ -138,6 +138,7 @@ public:
     IK_DebugFunctionDecl,
     IK_DebugFunction,
     IK_DebugFunctionDef,
+    IK_DebugEntryPoint,
     IK_DebugLocalVariable,
     IK_DebugGlobalVariable,
     IK_DebugOperation,
@@ -2305,6 +2306,27 @@ private:
   // SpirvDebugFunction. Similar to fnType of SpirvFunction, we want to
   // keep the function type info in this fnType.
   clang::spirv::FunctionType *fnType;
+};
+
+class SpirvDebugEntryPoint : public SpirvDebugInstruction {
+public:
+  SpirvDebugEntryPoint(SpirvDebugFunction *ep, SpirvDebugCompilationUnit *cu,
+                       llvm::StringRef signature, llvm::StringRef args);
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugEntryPoint)
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugEntryPoint;
+  }
+  bool invokeVisitor(Visitor *v) override;
+  SpirvDebugFunction *getEntryPoint() const { return ep; }
+  SpirvDebugCompilationUnit *getCompilationUnit() const { return cu; }
+  llvm::StringRef getSignature() const { return signature; }
+  llvm::StringRef getArgs() const { return args; }
+
+private:
+  SpirvDebugFunction *ep;
+  SpirvDebugCompilationUnit *cu;
+  std::string signature;
+  std::string args;
 };
 
 class SpirvDebugFunctionDefinition : public SpirvDebugInstruction {
