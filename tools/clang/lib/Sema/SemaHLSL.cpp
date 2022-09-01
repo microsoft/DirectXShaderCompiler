@@ -708,6 +708,7 @@ BITWISE_ENUM_OPS(TYPE_CONVERSION_REMARKS)
 struct ArTypeInfo {
   ArTypeObjectKind ShapeKind;      // The shape of the type (basic, matrix, etc.)
   ArBasicKind EltKind;             // The primitive type of elements in this type.
+  const clang::Type *EltTy;        // Canonical element type ptr
   ArBasicKind ObjKind;             // The object type for this type (textures, buffers, etc.)
   UINT uRows;
   UINT uCols;
@@ -6779,6 +6780,7 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
   //       Try to inline that here, making it cheaper to use this function
   //       when retrieving multiple properties.
   pTypeInfo->ObjKind = GetTypeElementKind(type);
+  pTypeInfo->EltTy = GetStructuralForm(type).getTypePtr();
   pTypeInfo->EltKind = pTypeInfo->ObjKind;
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
   GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
@@ -8898,6 +8900,18 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
         else
           ComponentConversion = ICK_Floating_Integral;
       }
+    }
+  } else if (TargetInfo.EltTy != SourceInfo.EltTy) {
+    // Types are identical in HLSL, but not identical in clang,
+    // such as unsigned long vs. unsigned int.
+    // Add conversion based on the type.
+    if (IS_BASIC_AINT(TargetInfo.EltKind))
+      ComponentConversion = ICK_Integral_Conversion;
+    else if (IS_BASIC_FLOAT(TargetInfo.EltKind))
+      ComponentConversion = ICK_Floating_Conversion;
+    else {
+      DXASSERT(false, "unhandled case for conversion that's identical in HLSL, but not in clang");
+      return false;
     }
   }
 
