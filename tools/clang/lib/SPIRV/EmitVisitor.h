@@ -285,6 +285,7 @@ public:
   bool visit(SpirvDebugFunctionDeclaration *) override;
   bool visit(SpirvDebugFunction *) override;
   bool visit(SpirvDebugFunctionDefinition *) override;
+  bool visit(SpirvDebugEntryPoint *) override;
   bool visit(SpirvDebugLocalVariable *) override;
   bool visit(SpirvDebugDeclare *) override;
   bool visit(SpirvDebugGlobalVariable *) override;

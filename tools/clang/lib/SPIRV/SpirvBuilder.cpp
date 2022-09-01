@@ -903,6 +903,14 @@ SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   return inst;
 }
 
+void SpirvBuilder::createDebugEntryPoint(SpirvDebugFunction *ep,
+                                         SpirvDebugCompilationUnit *cu,
+                                         llvm::StringRef signature,
+                                         llvm::StringRef args) {
+  auto *inst = new (context) SpirvDebugEntryPoint(ep, cu, signature, args);
+  mod->addDebugInfo(inst);
+}
+
 SpirvDebugLexicalBlock *
 SpirvBuilder::createDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
                                       uint32_t column,

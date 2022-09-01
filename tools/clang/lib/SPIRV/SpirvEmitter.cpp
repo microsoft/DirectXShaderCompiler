@@ -1270,6 +1270,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   auto range = decl->getSourceRange();
   RichDebugInfo *info = nullptr;
   SpirvDebugFunction *debugFunction = nullptr;
+  SpirvDebugInstruction *outer_scope = spvContext.getCurrentLexicalScope();
   const auto &sm = astContext.getSourceManager();
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
     const uint32_t line = sm.getPresumedLineNumber(loc);
@@ -1303,6 +1304,17 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       // Create wrapper for the entry function
       if (!emitEntryFunctionWrapper(decl, func, debugFunction))
         return;
+      // Generate DebugEntryPoint if function definition
+      if (spirvOptions.debugInfoVulkan && debugFunction) {
+        std::string commitHash = clang::getGitCommitHash();
+        std::string clOptionStr;
+        if (!spirvOptions.clOptions.empty())
+          clOptionStr = spirvOptions.clOptions;
+        auto *cu = dyn_cast<SpirvDebugCompilationUnit>(outer_scope);
+        assert(cu && "expected DebugCompilationUnit");
+        spvBuilder.createDebugEntryPoint(debugFunction, cu, commitHash,
+                                         clOptionStr);
+      }
     }
   }
 
