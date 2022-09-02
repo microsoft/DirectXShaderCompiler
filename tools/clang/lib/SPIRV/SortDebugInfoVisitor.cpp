@@ -55,6 +55,14 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
     if (!visitor(inst->getDebugFunction()))
       break;
   } break;
+  case SpirvInstruction::IK_DebugEntryPoint: {
+    SpirvDebugEntryPoint *inst = dyn_cast<SpirvDebugEntryPoint>(di);
+    assert(inst != nullptr);
+    if (!visitor(inst->getEntryPoint()))
+      break;
+    if (!visitor(inst->getCompilationUnit()))
+      break;
+  } break;
   case SpirvInstruction::IK_DebugLocalVariable: {
     SpirvDebugLocalVariable *inst = dyn_cast<SpirvDebugLocalVariable>(di);
     assert(inst != nullptr);
