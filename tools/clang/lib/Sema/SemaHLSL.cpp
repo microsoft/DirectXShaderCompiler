@@ -4309,6 +4309,22 @@ public:
     return QualType(type->getCanonicalTypeUnqualified()->getTypePtr(), 0);
   }
 
+  /// <summary>Given a Clang type, return the QualType for its element, drilling through any array/vector/matrix.</summary>
+  QualType GetTypeElementType(QualType type)
+  {
+    type = GetStructuralForm(type);
+    ArTypeObjectKind kind = GetTypeObjectKind(type);
+    if (kind == AR_TOBJ_MATRIX || kind == AR_TOBJ_VECTOR) {
+      type = GetMatrixOrVectorElementType(type);
+    } else if (kind == AR_TOBJ_STRING) {
+      type = type;
+    } else if (type->isArrayType()) {
+      const ArrayType* arrayType = type->getAsArrayTypeUnsafe();
+      type = GetTypeElementType(arrayType->getElementType());
+    }
+    return type;
+  }
+
   /// <summary>Given a Clang type, return the ArBasicKind classification for its contents.</summary>
   ArBasicKind GetTypeElementKind(QualType type)
   {
@@ -6780,7 +6796,7 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
   //       Try to inline that here, making it cheaper to use this function
   //       when retrieving multiple properties.
   pTypeInfo->ObjKind = GetTypeElementKind(type);
-  pTypeInfo->EltTy = GetStructuralForm(type).getTypePtr();
+  pTypeInfo->EltTy = GetTypeElementType(type)->getCanonicalTypeUnqualified()->getTypePtr();
   pTypeInfo->EltKind = pTypeInfo->ObjKind;
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
   GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
