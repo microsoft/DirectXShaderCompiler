@@ -35,6 +35,7 @@ class DxcDllSupport;
 }
 struct IStream;
 struct IXmlReader;
+struct IDxcBlob;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Useful helper functions.
@@ -161,6 +162,7 @@ public:
   LPCSTR  Arguments;  // Command line Arguments.
   LPCSTR  Defines;    // HLSL Defines.
   BOOL    Compiled;   // Whether text is a base64-encoded value.
+  BOOL    Callback;    // Whether a function exists to modify the shader's disassembly.
 };
 
 // Use this class to represent a value in the root signature.
@@ -252,6 +254,7 @@ struct CommandListRefs {
 class ShaderOpTest {
 public:
   typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data, ShaderOp *pShaderOp)> TInitCallbackFn;
+  typedef std::function<void(LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, ShaderOp *pShaderOp)> TShaderCallbackFn;
   void GetPipelineStats(D3D12_QUERY_DATA_PIPELINE_STATISTICS *pStats);
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
   void RunShaderOp(ShaderOp *pShaderOp);
@@ -259,6 +262,7 @@ public:
   void SetDevice(ID3D12Device* pDevice);
   void SetDxcSupport(dxc::DxcDllSupport *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
+  void SetShaderCallback(TShaderCallbackFn ShaderCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
                          ID3D12CommandQueue *pCommandQueue,
                          ID3D12Resource *pRenderTarget);
@@ -296,6 +300,7 @@ private:
   std::vector<ID3D12DescriptorHeap *> m_DescriptorHeaps;
   std::shared_ptr<ShaderOp> m_OrigShaderOp;
   TInitCallbackFn m_InitCallbackFn = nullptr;
+  TShaderCallbackFn m_ShaderCallbackFn = nullptr;
   void CopyBackResources();
   void CreateCommandList();
   void CreateDescriptorHeaps();
