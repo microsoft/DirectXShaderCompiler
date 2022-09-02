@@ -250,8 +250,6 @@ struct CommandListRefs {
   void CreateForDevice(ID3D12Device *pDevice, bool compute);
 };
 
-
-
 // Use this class to run the operation described in a ShaderOp object.
 class ShaderOpTest {
 public:

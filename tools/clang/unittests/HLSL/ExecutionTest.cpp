@@ -11729,7 +11729,6 @@ extern "C" {
     return hr;
   }
 }
-
 #endif
 // MARKER: ExecutionTest/DxilConf Shared Implementation End
 // Do not remove the line above - it is used by TranslateExecutionTest.py
