@@ -9001,53 +9001,135 @@ TEST_F(ExecutionTest, BarycentricsTest) {
       return;
     }
 
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Barycentrics", nullptr);
-    MappedData data;
-    D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
-    UINT width = (UINT)D.Width;
-    UINT height = D.Height;
-    UINT pixelSize = GetByteSizeForFormat(D.Format);
+    DXASSERT_NOMSG(pStream != nullptr);
+    std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+          std::make_shared<st::ShaderOpSet>();
+    st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-    test->Test->GetReadBackData("RTarget", &data);
-    //const uint8_t *pPixels = (uint8_t *)data.data();
-    const float *pPixels = (float *)data.data();
-    // Get the vertex of barycentric coordinate using VBuffer
-    MappedData triangleData;
-    test->Test->GetReadBackData("VBuffer", &triangleData);
-    const float *pTriangleData = (float*)triangleData.data();
-    // get the size of the input data
-    unsigned triangleVertexSizeInFloat = 0;
-    for (auto element : test->ShaderOp->InputElements)
-        triangleVertexSizeInFloat += GetByteSizeForFormat(element.Format) / 4;
+    {
+        std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Barycentrics", nullptr, ShaderOpSet);
+        MappedData data;
+        D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
+        UINT width = (UINT)D.Width;
+        UINT height = D.Height;
+        UINT pixelSize = GetByteSizeForFormat(D.Format);
 
-    XMFLOAT2 p0(pTriangleData[0], pTriangleData[1]);
-    XMFLOAT2 p1(pTriangleData[triangleVertexSizeInFloat], pTriangleData[triangleVertexSizeInFloat + 1]);
-    XMFLOAT2 p2(pTriangleData[triangleVertexSizeInFloat * 2], pTriangleData[triangleVertexSizeInFloat * 2 + 1]);
+        test->Test->GetReadBackData("RTarget", &data);
+        //const uint8_t *pPixels = (uint8_t *)data.data();
+        const float *pPixels = (float *)data.data();
+        // Get the vertex of barycentric coordinate using VBuffer
+        MappedData triangleData;
+        test->Test->GetReadBackData("VBuffer", &triangleData);
+        const float *pTriangleData = (float*)triangleData.data();
+        // get the size of the input data
+        unsigned triangleVertexSizeInFloat = 0;
+        for (auto element : test->ShaderOp->InputElements)
+            triangleVertexSizeInFloat += GetByteSizeForFormat(element.Format) / 4;
 
-    XMFLOAT3 barycentricWeights[4] = {
-        XMFLOAT3(0.3333f, 0.3333f, 0.3333f),
-        XMFLOAT3(0.5f, 0.25f, 0.25f),
-        XMFLOAT3(0.25f, 0.5f, 0.25f),
-        XMFLOAT3(0.25f, 0.25f, 0.50f)
-    };
+        XMFLOAT2 p0(pTriangleData[0], pTriangleData[1]);
+        XMFLOAT2 p1(pTriangleData[triangleVertexSizeInFloat], pTriangleData[triangleVertexSizeInFloat + 1]);
+        XMFLOAT2 p2(pTriangleData[triangleVertexSizeInFloat * 2], pTriangleData[triangleVertexSizeInFloat * 2 + 1]);
 
-    float tolerance = 0.001f;
-    for (unsigned i = 0; i < sizeof(barycentricWeights) / sizeof(XMFLOAT3); ++i) {
-        float w0 = barycentricWeights[i].x;
-        float w1 = barycentricWeights[i].y;
-        float w2 = barycentricWeights[i].z;
-        float x1 = w0 * p0.x + w1 * p1.x + w2 * p2.x;
-        float y1 = w0 * p0.y + w1 * p1.y + w2 * p2.y;
-        // map from x1 y1 to rtv pixels
-        int pixelX = (int)((x1 + 1) * (width - 1) / 2);
-        int pixelY = (int)((1 - y1) * (height - 1) / 2);
-        int offset = pixelSize * (pixelX + pixelY * width) / sizeof(pPixels[0]);
-        LogCommentFmt(L"location  %u %u, value %f, %f, %f", pixelX, pixelY, pPixels[offset], pPixels[offset + 1], pPixels[offset + 2]);
-        VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset], w0, tolerance));
-        VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 1], w1, tolerance));
-        VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 2], w2, tolerance));
+        XMFLOAT3 barycentricWeights[4] = {
+            XMFLOAT3(0.3333f, 0.3333f, 0.3333f),
+            XMFLOAT3(0.5f, 0.25f, 0.25f),
+            XMFLOAT3(0.25f, 0.5f, 0.25f),
+            XMFLOAT3(0.25f, 0.25f, 0.50f)
+        };
+
+        float tolerance = 0.001f;
+        for (unsigned i = 0; i < sizeof(barycentricWeights) / sizeof(XMFLOAT3); ++i) {
+            float w0 = barycentricWeights[i].x;
+            float w1 = barycentricWeights[i].y;
+            float w2 = barycentricWeights[i].z;
+            float x1 = w0 * p0.x + w1 * p1.x + w2 * p2.x;
+            float y1 = w0 * p0.y + w1 * p1.y + w2 * p2.y;
+            // map from x1 y1 to rtv pixels
+            int pixelX = (int)((x1 + 1) * (width - 1) / 2);
+            int pixelY = (int)((1 - y1) * (height - 1) / 2);
+            int offset = pixelSize * (pixelX + pixelY * width) / sizeof(pPixels[0]);
+            LogCommentFmt(L"location  %u %u, value %f, %f, %f", pixelX, pixelY, pPixels[offset], pPixels[offset + 1], pPixels[offset + 2]);
+            VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset], w0, tolerance));
+            VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 1], w1, tolerance));
+            VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 2], w2, tolerance));
+        }
     }
+
+    // Now test that barycentric ordering is consistent
+    LogCommentFmt(L"Now testing that the barycentric ordering constraint is upheld for each pixel...");
+    for(int test_iteration = 0; test_iteration < 3; test_iteration++)
+    {
+        auto ResourceCallbackFn = 
+            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+              std::vector<float> bary = {0.0f,  1.0f , 0.0f,   1.0f, 0.0f, 0.0f, 1.0f, 
+                                          1.0f, -1.0f , 0.0f,   0.0f, 1.0f, 0.0f, 1.0f,
+                                        -1.0f, -1.0f , 0.0f,   0.0f, 0.0f, 1.0f, 1.0f}; 
+              const int barysize = 21;
+
+              UNREFERENCED_PARAMETER(pShaderOp);
+              VERIFY_IS_TRUE(0 == _stricmp(Name, "VBuffer"));
+              size_t size = sizeof(float)*barysize;
+              Data.resize(size);
+              float *vb = (float *)Data.data();
+              for (size_t i = 0; i < barysize; ++i) {
+                float *p = &vb[i];
+                float tempfloat = bary[(i+(7*test_iteration))%barysize];
+                *p = tempfloat;
+              }
+            };
+
+        std::shared_ptr<ShaderOpTestResult> test2 = RunShaderOpTestAfterParse(pDevice, m_support, "BarycentricsCheckOrder", ResourceCallbackFn, ShaderOpSet);
+        MappedData data;
+        D3D12_RESOURCE_DESC &D = test2->ShaderOp->GetResourceByName("RTarget")->Desc;
+        UINT width = (UINT)D.Width;
+        UINT height = D.Height;
+        UINT pixelSize = GetByteSizeForFormat(D.Format);
+        test2->Test->GetReadBackData("RTarget", &data);
+        //const uint8_t *pPixels = (uint8_t *)data.data();
+        const float *pPixels = (float *)data.data();
+        // Get the vertex of barycentric coordinate using VBuffer
+        MappedData triangleData;
+        test2->Test->GetReadBackData("VBuffer", &triangleData);
+        const float *pTriangleData = (float*)triangleData.data();
+
+        // get the size of the input data
+        unsigned triangleVertexSizeInFloat = 0;
+        for (auto element : test2->ShaderOp->InputElements)
+            triangleVertexSizeInFloat += GetByteSizeForFormat(element.Format) / 4;
+        XMFLOAT2 p0(pTriangleData[0], pTriangleData[1]);
+        XMFLOAT2 p1(pTriangleData[triangleVertexSizeInFloat], pTriangleData[triangleVertexSizeInFloat + 1]);
+        XMFLOAT2 p2(pTriangleData[triangleVertexSizeInFloat * 2], pTriangleData[triangleVertexSizeInFloat * 2 + 1]);
+        XMFLOAT3 barycentricWeights[4] = {
+            XMFLOAT3(0.3333f, 0.3333f, 0.3333f),
+            XMFLOAT3(0.5f, 0.25f, 0.25f),
+            XMFLOAT3(0.25f, 0.5f, 0.25f),
+            XMFLOAT3(0.25f, 0.25f, 0.50f)
+        };
+        float tolerance = 0.001f;
+        for (unsigned i = 0; i < sizeof(barycentricWeights) / sizeof(XMFLOAT3); ++i) {
+            float w0 = barycentricWeights[i].x;
+            float w1 = barycentricWeights[i].y;
+            float w2 = barycentricWeights[i].z;
+            float x1 = w0 * p0.x + w1 * p1.x + w2 * p2.x;
+            float y1 = w0 * p0.y + w1 * p1.y + w2 * p2.y;
+            // map from x1 y1 to rtv pixels
+            int pixelX = (int)((x1 + 1) * (width - 1) / 2);
+            int pixelY = (int)((1 - y1) * (height - 1) / 2);
+            int offset = pixelSize * (pixelX + pixelY * width) / sizeof(pPixels[0]);
+            LogCommentFmt(L"location  %u %u, value %f, %f, %f, %f", pixelX, pixelY, pPixels[offset], pPixels[offset + 1], pPixels[offset + 2], pPixels[offset + 3]);
+          
+            // If the ordering constraint is met, then this pixel's RGBA should be all 1.0's
+            // since the shader only returns float4<1.0,1.0,1.0,1.0> when this condition is met.
+            VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset]    , 1.0, tolerance));
+            VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 1], 1.0, tolerance));
+            VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 2], 1.0, tolerance));
+            VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 3], 1.0, tolerance));
+        }
+
+    }
+
     //SavePixelsToFile(pPixels, DXGI_FORMAT_R32G32B32A32_FLOAT, width, height, L"barycentric.bmp");
+    
 }
 
 static const char RawBufferTestShaderDeclarations[] =
