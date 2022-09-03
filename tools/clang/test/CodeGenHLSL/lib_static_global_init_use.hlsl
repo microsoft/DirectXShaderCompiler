@@ -1,6 +1,7 @@
 
 float update();
 
-float main() : SV_Target {
+[shader("pixel")]
+float test() : SV_Target {
   return update();
 }
