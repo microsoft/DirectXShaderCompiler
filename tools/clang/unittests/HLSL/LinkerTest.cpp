@@ -45,6 +45,7 @@ public:
   TEST_METHOD(RunLinkFailNoDefine);
   TEST_METHOD(RunLinkFailReDefine);
   TEST_METHOD(RunLinkGlobalInit);
+  TEST_METHOD(RunLinkGlobalInitAndUse);
   TEST_METHOD(RunLinkNoAlloca);
   TEST_METHOD(RunLinkMatArrayParam);
   TEST_METHOD(RunLinkMatParam);
@@ -314,6 +315,26 @@ TEST_F(LinkerTest, RunLinkGlobalInit) {
   Link(L"test", L"ps_6_0", pLinker, {libName},
        // Make sure cbuffer load is generated.
        {"dx.op.cbufferLoad"},{});
+}
+
+TEST_F(LinkerTest, RunLinkGlobalInitAndUse) {
+  CComPtr<IDxcBlob> pGlobalDefLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_static_global_init_def.hlsl",
+             &pGlobalDefLib,
+             {}, L"lib_6_3");
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_static_global_init_use.hlsl", &pEntryLib, {}, L"lib_6_3");
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"entry";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+  LPCWSTR libName1 = L"def";
+  RegisterDxcModule(libName1, pGlobalDefLib, pLinker);
+
+  Link(L"test", L"ps_6_3", pLinker, {libName, libName1},
+       // Make sure cbuffer load is generated.
+       {"dx.op.cbufferLoad"}, {});
 }
 
 TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
