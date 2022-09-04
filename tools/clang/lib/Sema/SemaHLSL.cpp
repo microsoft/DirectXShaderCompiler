@@ -4317,7 +4317,7 @@ public:
     if (kind == AR_TOBJ_MATRIX || kind == AR_TOBJ_VECTOR) {
       type = GetMatrixOrVectorElementType(type);
     } else if (kind == AR_TOBJ_STRING) {
-      type = type;
+      // return original type even if it's an array (string literal)
     } else if (type->isArrayType()) {
       const ArrayType* arrayType = type->getAsArrayTypeUnsafe();
       type = GetTypeElementType(arrayType->getElementType());
