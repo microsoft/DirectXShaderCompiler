@@ -11446,17 +11446,32 @@ struct FloatInputUintOutput
 };
 
 TEST_F(ExecutionTest, IsNormalTest) {
-    // EnableShaderBasedValidation();
-    // In order, the input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 Normal float numbers.
-    // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
-    std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
-    std::vector<float> *Validation_Input = &Validation_Input_Vec;
+  // EnableShaderBasedValidation();
+  // In order, the input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 Normal float numbers.
+  // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
+    
+  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
+  LogCommentFmt(L"\r\nVerifying isNormal in shader "
+                L"model 6.%1u",
+                ((UINT)sm & 0x0f));
+  
+  CComPtr<ID3D12Device> pDevice;
+  VERIFY_IS_TRUE(CreateDevice(&pDevice, sm, false /* skipUnsupported */));
 
-    std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};
-    std::vector<unsigned int> *Validation_Expected = &Validation_Expected_Vec;
+  if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
+      WEX::Logging::Log::Comment(L"WARP has a known issue with IsNormalTest.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+  }
 
-    WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
+  std::vector<float> *Validation_Input = &Validation_Input_Vec;
+
+  std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};
+  std::vector<unsigned int> *Validation_Expected = &Validation_Expected_Vec;
+
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
@@ -11468,14 +11483,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
   vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
   const int expectedResultsSize = 12;
-  
-  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
-  LogCommentFmt(L"\r\nVerifying isNormal in shader "
-                L"model 6.%1u",
-                ((UINT)sm & 0x0f));
-
-  CComPtr<ID3D12Device> pDevice;
-  VERIFY_IS_TRUE(CreateDevice(&pDevice, sm, false /* skipUnsupported */));
  
   size_t count = Validation_Input->size();
 
