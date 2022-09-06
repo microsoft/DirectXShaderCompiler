@@ -11449,7 +11449,9 @@ TEST_F(ExecutionTest, IsNormalTest) {
   // EnableShaderBasedValidation();
   // In order, the input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 Normal float numbers.
   // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
-    
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);  
+
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
   LogCommentFmt(L"\r\nVerifying isNormal in shader "
                 L"model 6.%1u",
@@ -11470,8 +11472,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
   std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};
   std::vector<unsigned int> *Validation_Expected = &Validation_Expected_Vec;
 
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
