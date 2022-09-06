@@ -11481,8 +11481,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
   st::ShaderOp *pShaderOp =
       ShaderOpSet->GetShaderOp("IsNormal");
   vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
-
-  const int expectedResultsSize = 12;
  
   size_t count = Validation_Input->size();
 
