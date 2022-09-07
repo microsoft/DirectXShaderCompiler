@@ -11453,9 +11453,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
     WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);  
 
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
-  LogCommentFmt(L"\r\nVerifying isNormal in shader "
-                L"model 6.%1u",
-                ((UINT)sm & 0x0f));
   
   CComPtr<ID3D12Device> pDevice;
   VERIFY_IS_TRUE(CreateDevice(&pDevice, sm, false /* skipUnsupported */));
