@@ -1205,6 +1205,11 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationCBUsedTag));
     MDVals.emplace_back(BoolToConstMD(true));
   }
+  if (FA.GetVectorSize() &&
+      DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationVectorSizeTag));
+    MDVals.emplace_back(Uint32ToConstMD(FA.GetVectorSize()));
+  }
 
   return MDNode::get(m_Ctx, MDVals);
 }
@@ -1252,6 +1257,9 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       break;
     case kDxilFieldAnnotationCBUsedTag:
       FA.SetCBVarUsed(ConstMDToBool(MDO));
+      break;
+    case kDxilFieldAnnotationVectorSizeTag:
+      FA.SetVectorSize(ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");

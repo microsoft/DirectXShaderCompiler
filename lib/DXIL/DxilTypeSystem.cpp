@@ -36,7 +36,6 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 , Orientation(MatrixOrientation::Undefined) {
 }
 
-
 //------------------------------------------------------------------------------
 //
 // DxilFieldAnnotation class methods.
@@ -46,6 +45,7 @@ DxilFieldAnnotation::DxilFieldAnnotation()
 , m_ResourceAttribute(nullptr)
 , m_CBufferOffset(UINT_MAX)
 , m_bCBufferVarUsed(false)
+, m_VectorSize(0)
 {}
 
 bool DxilFieldAnnotation::IsPrecise() const { return m_bPrecise; }
@@ -53,6 +53,8 @@ void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
 bool DxilFieldAnnotation::HasMatrixAnnotation() const { return m_Matrix.Cols != 0; }
 const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { return m_Matrix; }
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
+unsigned DxilFieldAnnotation::GetVectorSize() const { return m_VectorSize; }
+void DxilFieldAnnotation::SetVectorSize(unsigned size) { m_VectorSize = size; }
 bool DxilFieldAnnotation::HasResourceAttribute() const {
   return m_ResourceAttribute;
 }

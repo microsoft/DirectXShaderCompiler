@@ -54,6 +54,9 @@ public:
   const DxilMatrixAnnotation &GetMatrixAnnotation() const;
   void SetMatrixAnnotation(const DxilMatrixAnnotation &MA);
 
+  unsigned GetVectorSize() const;
+  void SetVectorSize(unsigned size);
+
   bool HasResourceAttribute() const;
   llvm::MDNode *GetResourceAttribute() const;
   void SetResourceAttribute(llvm::MDNode *MD);
@@ -92,6 +95,7 @@ private:
   InterpolationMode m_InterpMode;
   std::string m_FieldName;
   bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
+  unsigned m_VectorSize;
 };
 
 class DxilTemplateArgAnnotation {

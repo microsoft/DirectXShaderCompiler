@@ -226,6 +226,7 @@ public:
   static const unsigned kDxilFieldAnnotationCompTypeTag           = 7;
   static const unsigned kDxilFieldAnnotationPreciseTag            = 8;
   static const unsigned kDxilFieldAnnotationCBUsedTag             = 9;
+  static const unsigned kDxilFieldAnnotationVectorSizeTag         = 10;
 
   // DXR Payload Annotations
   static const unsigned kDxilPayloadAnnotationStructTag           = 0;

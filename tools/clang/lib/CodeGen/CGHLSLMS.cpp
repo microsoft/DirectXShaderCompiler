@@ -835,8 +835,12 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     EltTy = hlsl::GetHLSLMatElementType(Ty);
   }
 
-  if (hlsl::IsHLSLVecType(Ty))
+  if (hlsl::IsHLSLVecType(Ty)) {
+    unsigned rows, cols;
+    hlsl::GetRowsAndColsForAny(Ty, rows, cols);
+    fieldAnnotation.SetVectorSize(cols);
     EltTy = hlsl::GetHLSLVecElementType(Ty);
+  }
 
   if (IsHLSLResourceType(Ty)) {
     // Always create for llvm::Type could be same for different QualType.
