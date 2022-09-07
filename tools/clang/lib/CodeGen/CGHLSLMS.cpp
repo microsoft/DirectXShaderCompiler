@@ -1393,7 +1393,7 @@ void CGMSHLSLRuntime::ValidateSingleFunctionparameter(const ParmVarDecl *parmDec
     return;
   }
 
-  if (IsHLSLResourceOrAggregateOfHLSLResourceType(parmDecl->getType())){
+  if (IsOrContainsHLSLResourceType(parmDecl->getType())){
     unsigned DiagID =
         Diags.getCustomDiagID(DiagnosticsEngine::Error,
                               "Resource or sampler parameter is not allowed on entry function.");

@@ -108,18 +108,43 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
 }
 
 
-bool IsHLSLResourceOrAggregateOfHLSLResourceType(clang::QualType type) {
+bool IsOrContainsHLSLResourceType(clang::QualType type) {
   if (IsHLSLResourceType(type)){
     return true;
   }
+
   bool children_has_HLSL_Resource_type = false;
   if (type->isStructureType()) {
     clang::RecordDecl::field_iterator field_iterator = type->getAsStructureType()->getDecl()->field_begin();
     clang::RecordDecl::field_iterator field_iterator_end = type->getAsStructureType()->getDecl()->field_end();
+    // recurse on fields
     for (; field_iterator != field_iterator_end; field_iterator++) {
       QualType childType = (*field_iterator)->getType();
       
-      children_has_HLSL_Resource_type |= IsHLSLResourceOrAggregateOfHLSLResourceType(childType);
+      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(childType);
+    }
+    // recurse on base structs
+    if (!type.isCanonical()){
+      QualType CType = type.getCanonicalType();
+      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(CType);
+    }
+
+  }
+
+  if (type->isClassType()) {
+    const RecordType *RT = type->getAs<RecordType>();
+    clang::RecordDecl::field_iterator field_iterator = RT->getDecl()->field_begin();
+    clang::RecordDecl::field_iterator field_iterator_end = RT->getDecl()->field_end();
+    // recurse on fields
+    for (; field_iterator != field_iterator_end; field_iterator++) {
+      QualType childType = (*field_iterator)->getType();
+
+      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(childType);
+    }
+    // recurse on parent classes
+    const clang::QualType ParentTy = type.getCanonicalType();
+    if (!type.isCanonical()){
+      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(ParentTy);
     }
   }
 
