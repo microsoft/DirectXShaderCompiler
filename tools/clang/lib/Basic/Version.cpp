@@ -22,6 +22,8 @@
 #  include "SVNVersion.inc"
 #endif
 
+#include "dxcversion.inc" // HLSL Change
+
 namespace clang {
 
 std::string getClangRepositoryPath() {
@@ -136,22 +138,26 @@ std::string getClangFullRepositoryVersion() {
 }
 
 std::string getClangFullVersion() {
+#ifdef HLSL_TOOL_NAME
+  return getClangToolFullVersion(HLSL_TOOL_NAME);
+#else
   return getClangToolFullVersion("clang");
+#endif
 }
 
 std::string getClangToolFullVersion(StringRef ToolName) {
-#ifdef HLSL_FIXED_VER // HLSL Change Starts
-  // We fix a specific version for builds that are released;
-  // this allows tools to pick a known version for a given !llvm.ident value.
-  return std::string(HLSL_FIXED_VER);
-#else
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #ifdef CLANG_VENDOR
   OS << CLANG_VENDOR;
 #endif
+
+#ifdef RC_PRODUCT_VERSION // HLSL Change Starts
+  OS << ToolName << " " << RC_PRODUCT_VERSION;
+#else
   OS << ToolName << " version " CLANG_VERSION_STRING " "
      << getClangFullRepositoryVersion();
+#endif  // HLSL Change Ends
 
   // If vendor supplied, include the base LLVM version as well.
 #ifdef CLANG_VENDOR
@@ -159,15 +165,9 @@ std::string getClangToolFullVersion(StringRef ToolName) {
 #endif
 
   return OS.str();
-#endif // HLSL Change Ends
 }
 
 std::string getClangFullCPPVersion() {
-#ifdef HLSL_FIXED_VER // HLSL Change Starts
-  // We fix a specific version for builds that are released;
-  // this allows tools to pick a known version for a given !llvm.ident value.
-  return std::string(HLSL_FIXED_VER);
-#else
   // The version string we report in __VERSION__ is just a compacted version of
   // the one we report on the command line.
   std::string buf;
@@ -175,9 +175,20 @@ std::string getClangFullCPPVersion() {
 #ifdef CLANG_VENDOR
   OS << CLANG_VENDOR;
 #endif
+
+// HLSL Change Starts
+#ifdef HLSL_TOOL_NAME
+  OS << HLSL_TOOL_NAME;
+#endif
+#ifdef RC_FILE_VERSION
+  OS << " " << RC_VERSION_FIELD_1 << "." << RC_VERSION_FIELD_2 << "."
+     << RC_VERSION_FIELD_3 << "." << RC_VERSION_FIELD_4;
+#else
   OS << "unofficial";
+#endif
+// HLSL Change Ends
+
   return OS.str();
-#endif // HLSL Change Ends
 }
 
 // HLSL Change Starts

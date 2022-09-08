@@ -65,6 +65,9 @@ class VersionGen():
         self.current_branch = get_current_branch()
         self.rc_version_field_4_cache = None
 
+    def tool_name(self):
+        return self.latest_release_info.get("toolname", "dxcoob")
+
     def rc_version_field_1(self):
         return self.latest_release_info["version"]["major"]
 
@@ -117,6 +120,7 @@ class VersionGen():
     def print_version(self):
         print('#pragma once')
         print()
+        self.print_define('HLSL_TOOL_NAME',       '"{}"'.format(self.tool_name()))
         self.print_define('RC_COMPANY_NAME',      '"Microsoft(r) Corporation"')
         self.print_define('RC_VERSION_FIELD_1',   self.rc_version_field_1())
         self.print_define('RC_VERSION_FIELD_2',   self.rc_version_field_2())
