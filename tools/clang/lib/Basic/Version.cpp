@@ -178,10 +178,10 @@ std::string getClangFullCPPVersion() {
 
 // HLSL Change Starts
 #ifdef HLSL_TOOL_NAME
-  OS << HLSL_TOOL_NAME;
+  OS << HLSL_TOOL_NAME << " ";
 #endif
 #ifdef RC_FILE_VERSION
-  OS << " " << RC_VERSION_FIELD_1 << "." << RC_VERSION_FIELD_2 << "."
+  OS << RC_VERSION_FIELD_1 << "." << RC_VERSION_FIELD_2 << "."
      << RC_VERSION_FIELD_3 << "." << RC_VERSION_FIELD_4;
 #else
   OS << "unofficial";
