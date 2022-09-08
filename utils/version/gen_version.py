@@ -66,7 +66,8 @@ class VersionGen():
         self.rc_version_field_4_cache = None
 
     def tool_name(self):
-        return self.latest_release_info.get("toolname", "dxcoob")
+        return self.latest_release_info.get("toolname",
+            "dxcoob" if self.options.official else "dxc(private)")
 
     def rc_version_field_1(self):
         return self.latest_release_info["version"]["major"]
