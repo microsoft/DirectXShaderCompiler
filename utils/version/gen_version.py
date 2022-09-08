@@ -120,7 +120,6 @@ class VersionGen():
     def print_version(self):
         print('#pragma once')
         print()
-        self.print_define('HLSL_TOOL_NAME',       '"{}"'.format(self.tool_name()))
         self.print_define('RC_COMPANY_NAME',      '"Microsoft(r) Corporation"')
         self.print_define('RC_VERSION_FIELD_1',   self.rc_version_field_1())
         self.print_define('RC_VERSION_FIELD_2',   self.rc_version_field_2())
@@ -131,6 +130,9 @@ class VersionGen():
         self.print_define('RC_COPYRIGHT',        '"(c) Microsoft Corporation. All rights reserved."')
         self.print_define('RC_PRODUCT_NAME',     '"Microsoft(r) DirectX for Windows(r) - Out Of Band"')
         self.print_define('RC_PRODUCT_VERSION',   self.product_version_str())
+        self.print_define('HLSL_TOOL_NAME',       '"{}"'.format(self.tool_name()))
+        self.print_define('HLSL_VERSION_MACRO',   'HLSL_TOOL_NAME " " RC_FILE_VERSION')
+        self.print_define('HLSL_LLVM_IDENT',      'HLSL_TOOL_NAME " " RC_PRODUCT_VERSION')
 
 
 def main():
