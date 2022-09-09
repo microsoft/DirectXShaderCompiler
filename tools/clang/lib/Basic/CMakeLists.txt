@@ -33,7 +33,9 @@ set(get_svn_script "${LLVM_MAIN_SRC_DIR}/cmake/modules/GetSVN.cmake")
 
 # HLSL Change Starts
 if (HLSL_ENABLE_FIXED_VER)
-  add_definitions(/DHLSL_FIXED_VER="dxcoob 2019.05.00")
+  # Actual version string is no longer specified here, but instead derived from
+  # the defines in the generated or copied dxcversion.inc
+  add_definitions(/DHLSL_FIXED_VER)
 endif (HLSL_ENABLE_FIXED_VER)
 # HLSL Change Ends
 
@@ -89,6 +91,9 @@ add_clang_library(clangBasic
   VirtualFileSystem.cpp
   Warnings.cpp
   ${version_inc}
+
+  DEPENDS
+  hlsl_dxcversion_autogen # HLSL Change
   )
 
 # HLSL Change Starts
@@ -112,4 +117,6 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/Version.cpp
     PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
 endif()
+
+target_include_directories(clangBasic PUBLIC ${HLSL_VERSION_LOCATION}) # HLSL Change
 # HLSL Change Ends

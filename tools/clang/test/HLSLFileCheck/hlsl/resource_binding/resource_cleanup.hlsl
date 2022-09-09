@@ -3,6 +3,7 @@
 // Make sure only one cbuffer is emitted for the final
 // dxil.
 
+// CHECK-LABEL: ; Buffer Definitions:
 // CHECK-NOT: cb1 
 
 cbuffer BAR {
