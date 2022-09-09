@@ -295,7 +295,7 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
             self.name_idx[i].category = "Resources - gather"
-        for i in "AtomicBinOp,AtomicCompareExchange,Barrier,BarrierByMemoryType,BarrierByMemoryHandle".split(","):
+        for i in "AtomicBinOp,AtomicCompareExchange,Barrier,BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
             self.name_idx[i].category = "Derivatives"
@@ -462,23 +462,31 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,7
         for i in "QuadVote".split(","):
             self.name_idx[i].shader_model_translated = 6,0
-        for i in "IndexNodeHandle,CreateNodeOutputHandle".split(","):
-            self.name_idx[i].category = "Create Node Handles"
+        for i in "CreateNodeOutputHandle".split(","):
+            self.name_idx[i].category = "Create/Annotate Node Handles"
             self.name_idx[i].shader_model = 6,8
             self.name_idx[i].shader_stages = ("node",)
         for i in "CreateNodeInputRecordHandle,AllocateNodeOutputRecords".split(","):
-            self.name_idx[i].category = "Create Node Record Handles"
+            self.name_idx[i].category = "Create/Annotate Node Handles"
             self.name_idx[i].shader_model = 6,8
             self.name_idx[i].shader_stages = ("node",)
+        for i in "IndexNodeHandle,IndexNodeRecordHandle".split(","):
+            self.name_idx[i].category = "Create/Annotate Node Handles"
+            self.name_idx[i].shader_model = 6,8
+            self.name_idx[i].shader_stages = ("node",) # TBD: add "library"
+        for i in "AnnotateNodeHandle,AnnotateNodeRecordHandle".split(","):
+            self.name_idx[i].category = "Create/Annotate Node Handles"
+            self.name_idx[i].shader_model = 6,8
+            self.name_idx[i].shader_stages = ("node",) # TBD: add "library"
         for i in "GetNodeRecordPtr".split(","):
-            self.name_idx[i].category = "Get Pointer to Node Record in Address Space 4"
+            self.name_idx[i].category = "Get Pointer to Node Record in Address Space 6"
             self.name_idx[i].shader_model = 6,8
-            self.name_idx[i].shader_stages = ("node",)
+            self.name_idx[i].shader_stages = ("node",) # TBD: add "library"
         for i in ("IncrementOutputCount,OutputComplete,GetInputRecordCount,FinishedCrossGroupSharing,NodeOutputIsValid,GetRemainingRecursionLevels").split(","):
             self.name_idx[i].category = "Work Graph intrinsics"
             self.name_idx[i].shader_model = 6,8
             self.name_idx[i].shader_stages = ("node",)
-        for i in "BarrierByMemoryType,BarrierByMemoryHandle".split(","): # included in Synchronization category
+        for i in "BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(","): # included in Synchronization category
             self.name_idx[i].shader_model = 6,8
 
     def populate_llvm_instructions(self):
@@ -1857,7 +1865,7 @@ class db_dxil(object):
         self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "annotate handle with resource properties", "v", "rn", [
             db_dxil_param(0, "res", "", "annotated handle"),
             db_dxil_param(2, "res", "res", "input handle"),
-            db_dxil_param(3, "resproperty", "props", "details like component type, strutrure stride...", is_const=True)])
+            db_dxil_param(3, "resproperty", "props", "details like component type, structure stride...", is_const=True)])
         next_op_idx += 1
 
         self.add_dxil_op("CreateHandleFromBinding", next_op_idx, "CreateHandleFromBinding", "create resource handle from binding", "v", "rn", [
@@ -1980,7 +1988,7 @@ class db_dxil(object):
             db_dxil_param(4, "i32", "offsetInBytes", "offset in bytes"),
             db_dxil_param(5, "i32", "strideInBytes", "stride in bytes"),
             db_dxil_param(6, "i8", "alignmentInBytes", "alignment in bytes", is_const=True),
-            db_dxil_param(7, "i1", "transpose", "transpose", is_const=True)])
+            db_dxil_param(7, "i1", "colMajor", "memory is col-major", is_const=True)])
         next_op_idx += 1
 
         self.add_dxil_op("WaveMatrix_LoadGroupShared", next_op_idx, "WaveMatrix_LoadGroupShared", "Load wave matrix from group shared array", "hfi", "amo", [
@@ -1989,7 +1997,7 @@ class db_dxil(object):
             db_dxil_param(3, "$gsptr", "groupsharedPtr", "pointer to groupshared array"),
             db_dxil_param(4, "i32", "startArrayIndex", "start array index"),
             db_dxil_param(5, "i32", "strideInElements", "stride in elements"),
-            db_dxil_param(6, "i1", "transpose", "transpose", is_const=True)])
+            db_dxil_param(6, "i1", "colMajor", "memory is col-major", is_const=True)])
         next_op_idx += 1
 
         self.add_dxil_op("WaveMatrix_StoreRawBuf", next_op_idx, "WaveMatrix_StoreRawBuf", "Store wave matrix to raw buffer", "v", "", [
@@ -1999,7 +2007,7 @@ class db_dxil(object):
             db_dxil_param(4, "i32", "offsetInBytes", "offset in bytes"),
             db_dxil_param(5, "i32", "strideInBytes", "stride in bytes"),
             db_dxil_param(6, "i8", "alignmentInBytes", "alignment in bytes", is_const=True),
-            db_dxil_param(7, "i1", "transpose", "transpose", is_const=True)])
+            db_dxil_param(7, "i1", "colMajor", "memory is col-major", is_const=True)])
         next_op_idx += 1
 
         self.add_dxil_op("WaveMatrix_StoreGroupShared", next_op_idx, "WaveMatrix_StoreGroupShared", "Store wave matrix to group shared array", "hfi", "amo", [
@@ -2008,7 +2016,7 @@ class db_dxil(object):
             db_dxil_param(3, "$gsptr", "groupsharedPtr", "pointer to groupshared array"),
             db_dxil_param(4, "i32", "startArrayIndex", "start array index"),
             db_dxil_param(5, "i32", "strideInElements", "stride in elements"),
-            db_dxil_param(6, "i1", "transpose", "transpose", is_const=True)])
+            db_dxil_param(6, "i1", "colMajor", "memory is col-major", is_const=True)])
         next_op_idx += 1
 
         self.add_dxil_op("WaveMatrix_Multiply", next_op_idx, "WaveMatrix_Multiply", "Mutiply left and right wave matrix and store in accumulator", "v", "amo", [
@@ -2040,45 +2048,44 @@ class db_dxil(object):
 
         self.add_dxil_op("WaveMatrix_SumAccumulate", next_op_idx, "WaveMatrix_Accumulate", "Sum rows or columns of an input matrix into an existing accumulator fragment matrix", "v", "amo", [
             db_dxil_param(0, "v", "", ""),
-            db_dxil_param(2, "waveMat", "waveMatrixFragment", "pointer to WaveMatrixLeftCol or WaveMatrixRightRow"),
+            db_dxil_param(2, "waveMat", "waveMatrixFragment", "pointer to WaveMatrixLeftColAcc or WaveMatrixRightRowAcc"),
             db_dxil_param(3, "waveMat", "waveMatrixInput", "pointer to WaveMatrixLeft or WaveMatrixRight")])
         next_op_idx += 1
 
         self.add_dxil_op("WaveMatrix_Add", next_op_idx, "WaveMatrix_Accumulate", "Element-wise accumulate, or broadcast add of fragment into accumulator", "v", "amo", [
             db_dxil_param(0, "v", "", ""),
             db_dxil_param(2, "waveMat", "waveMatrixAccumulator", "pointer to WaveMatrixAccumulator"),
-            db_dxil_param(3, "waveMat", "waveMatrixAccumulatorOrFragment", "pointer to Accumulator or WaveMatrixLeftCol or WaveMatrixRightRow")])
+            db_dxil_param(3, "waveMat", "waveMatrixAccumulatorOrFragment", "pointer to Accumulator or WaveMatrixLeftColAcc or WaveMatrixRightRowAcc")])
         next_op_idx += 1
 
         # Work Graph
-        self.add_dxil_op("AllocateNodeOutputRecords", next_op_idx, "AllocateNodeOutputRecords", "returns a handle for the output records", "v", "ro", [
-            db_dxil_param(0, "res", "", "handle of output record"),
-            db_dxil_param(2, "res", "output", "handle of node output"),
+        self.add_dxil_op("AllocateNodeOutputRecords", next_op_idx, "AllocateNodeOutputRecords", "returns a handle for the output records", "v", "", [
+            db_dxil_param(0, "noderecordhandle", "", "handle of output record"),
+            db_dxil_param(2, "nodehandle", "output", "handle of node output"),
             db_dxil_param(3, "i32", "numRecords", "number of records"),
             db_dxil_param(4, "i1", "perThread", "perThread flag")])
         next_op_idx += 1
 
         self.add_dxil_op("GetNodeRecordPtr", next_op_idx, "GetNodeRecordPtr", "retrieve node input/output record pointer in address space 6", "u", "rn", [
             db_dxil_param(0, "$o", "", "record pointer"),
-            db_dxil_param(2, "res", "recordhandle", "handle of record"),
-            db_dxil_param(3, "i32", "arrayIndex", "array index")])
+            db_dxil_param(2, "noderecordhandle", "recordhandle", "handle of record")])
         next_op_idx += 1
         self.add_dxil_op("IncrementOutputCount", next_op_idx, "IncrementOutputCount", "Select the next logical output count for an EmptyNodeOutput", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "res", "output", "handle of record"),
+            db_dxil_param(2, "nodehandle", "output", "handle of node output"),
             db_dxil_param(3, "i32", "count", "value by which to increment the count")])
         next_op_idx += 1
         self.add_dxil_op("OutputComplete", next_op_idx, "OutputComplete", "indicates all outputs for a given records are complete", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "res", "output", "handle of record")])
+            db_dxil_param(2, "noderecordhandle", "output", "handle of record")])
         next_op_idx += 1
         self.add_dxil_op("GetInputRecordCount", next_op_idx, "GetInputRecordCount", "returns the number of records that have been coalesced into the current thread group", "v", "ro", [
             db_dxil_param(0, "i32", "", "number of records"),
-            db_dxil_param(2, "res", "input", "handle of input record")])
+            db_dxil_param(2, "noderecordhandle", "input", "handle of input record")])
         next_op_idx += 1
         self.add_dxil_op("FinishedCrossGroupSharing", next_op_idx, "FinishedCrossGroupSharing", "returns true if the current thread group is the last to access the input", "v", "", [
             db_dxil_param(0, "i1", "", "true if current thread group is last to access the input "),
-            db_dxil_param(2, "res", "input", "handle of input record")])
+            db_dxil_param(2, "noderecordhandle", "input", "handle of input record")])
         next_op_idx += 1
         self.add_dxil_op("BarrierByMemoryType", next_op_idx, "BarrierByMemoryType", "Request a barrier for a set of memory types and/or thread group execution sync", "v", "nd", [
             retvoid_param,
@@ -2092,22 +2099,43 @@ class db_dxil(object):
             db_dxil_param(3, "i32", "AccessFlags", "access flags"),
             db_dxil_param(4, "i32", "SyncFlags", "synchonization flags")])
         next_op_idx += 1
+        self.add_dxil_op("BarrierByNodeRecordHandle", next_op_idx, "BarrierByNodeRecordHandle", "Request a barrier for just the memory used by the node record", "v", "nd", [
+            retvoid_param,
+            db_dxil_param(2, "noderecordhandle", "object", "handle of object"),
+            db_dxil_param(3, "i32", "AccessFlags", "access flags"),
+            db_dxil_param(4, "i32", "SyncFlags", "synchonization flags")])
+        next_op_idx += 1
         self.add_dxil_op("CreateNodeOutputHandle", next_op_idx, "createNodeOutputHandle", "Creates a handle to a NodeOutput", "v", "rn", [
-            db_dxil_param(0, "res", "output", "handle of object"),
+            db_dxil_param(0, "nodehandle", "output", "handle of object"),
             db_dxil_param(2, "i32", "MetadataIdx", "metadata index")])
         next_op_idx += 1
         self.add_dxil_op("IndexNodeHandle", next_op_idx, "IndexNodeHandle", "returns the handle for the location in the output node array at the indicated index", "v", "rn", [
-            db_dxil_param(0, "res", "output", "handle of index"),
-            db_dxil_param(2, "res", "NodeOutputHandle", "Handle from CreateNodeOutputHandle"),
+            db_dxil_param(0, "nodehandle", "output", "handle of index"),
+            db_dxil_param(2, "nodehandle", "NodeOutputHandle", "Handle from CreateNodeOutputHandle"),
             db_dxil_param(3, "i32", "ArrayIndex", "array index")])
         next_op_idx += 1
+        self.add_dxil_op("AnnotateNodeHandle", next_op_idx, "AnnotateNodeHandle", "annotate handle with node properties", "v", "rn", [
+            db_dxil_param(0, "nodehandle", "", "annotated node handle"),
+            db_dxil_param(2, "nodehandle", "node", "input node handle"),
+            db_dxil_param(3, "nodeproperty", "props", "details like NodeIOFlags, RecordSize ...", is_const=True)])
+        next_op_idx += 1
         self.add_dxil_op("CreateNodeInputRecordHandle", next_op_idx, "CreateNodeInputRecordHandle", "create a handle for an InputRecord", "v", "rn", [
-            db_dxil_param(0, "res", "output", "output handle"),
+            db_dxil_param(0, "noderecordhandle", "output", "output handle"),
             db_dxil_param(2, "i32", "MetadataIdx", "metadata index")])
+        next_op_idx += 1
+        self.add_dxil_op("IndexNodeRecordHandle", next_op_idx, "IndexNodeRecordHandle", "returns the handle for the location in the node record array at the indicated index", "v", "rn", [
+            db_dxil_param(0, "noderecordhandle", "output", "handle of index"),
+            db_dxil_param(2, "noderecordhandle", "NodeRecordHandle", "Handle for node record array"),
+            db_dxil_param(3, "i32", "ArrayIndex", "array index")])
+        next_op_idx += 1
+        self.add_dxil_op("AnnotateNodeRecordHandle", next_op_idx, "AnnotateNodeRecordHandle", "annotate handle with node record properties", "v", "rn", [
+            db_dxil_param(0, "noderecordhandle", "", "annotated node record handle"),
+            db_dxil_param(2, "noderecordhandle", "noderecord", "input node record handle"),
+            db_dxil_param(3, "noderecordproperty", "props", "details like NodeIOFlags, MaxArraySize ...", is_const=True)])
         next_op_idx += 1
         self.add_dxil_op("NodeOutputIsValid", next_op_idx, "NodeOutputIsValid", "returns true if the specified output node is present in the work graph", "v", "ro", [
             db_dxil_param(0, "i1", "", "true if output node present"),
-            db_dxil_param(2, "res", "output", "handle of ioutput node")])
+            db_dxil_param(2, "nodehandle", "output", "handle of output node")])
         next_op_idx += 1
         self.add_dxil_op("GetRemainingRecursionLevels", next_op_idx, "GetRemainingRecursionLevels", "returns how many levels of recursion remain", "v", "ro", [
             db_dxil_param(0, "i32", "", "number of levels of recursion remaining")])
@@ -2765,7 +2793,7 @@ class db_dxil(object):
         self.add_valrule("Instr.SampleCompType", "sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.")
         self.add_valrule("Instr.BarrierModeUselessUGroup", "sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.")
         self.add_valrule("Instr.BarrierModeNoMemory", "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.")
-        self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).")
+        self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute/Amplification/Mesh/Node Shader must only sync UAV (sync_uglobal).")
         self.add_valrule("Instr.WriteMaskForTypedUAVStore", "store on typed uav must write to all four components of the UAV.")
         self.add_valrule("Instr.WriteMaskGapForUAV", "UAV write mask must be contiguous, starting at x: .x, .xy, .xyz, or .xyzw.")
         self.add_valrule("Instr.ResourceKindForCalcLOD","lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray.")
@@ -2923,6 +2951,7 @@ class db_dxil(object):
         self.add_valrule_msg("Decl.FnFlattenParam", "Function parameters must not use struct types", "Type '%0' is a struct type but is used as a parameter in function '%1'.")
         self.add_valrule_msg("Decl.FnAttribute", "Functions should only contain known function attributes", "Function '%0' contains invalid attribute '%1' with value '%2'.")
         self.add_valrule_msg("Decl.ResourceInFnSig", "Resources not allowed in function signatures", "Function '%0' uses resource in function signature.")
+        self.add_valrule_msg("Decl.RayQyeryInFnSig", "Rayquery objects not allowed in function signatures", "Function '%0' uses rayquery object in function signature.")
         self.add_valrule_msg("Decl.PayloadStruct", "Payload parameter must be struct type", "Argument '%0' must be a struct type for payload in shader function '%1'.")
         self.add_valrule_msg("Decl.AttrStruct", "Attributes parameter must be struct type", "Argument '%0' must be a struct type for attributes in shader function '%1'.")
         self.add_valrule_msg("Decl.ParamStruct", "Callable function parameter must be struct type", "Argument '%0' must be a struct type for callable shader function '%1'.")
@@ -3128,8 +3157,8 @@ class db_hlsl(object):
             "RWByteAddressBuffer": "LICOMPTYPE_RWBYTEADDRESSBUFFER",
             "WaveMatrixLeft": "LICOMPTYPE_WAVE_MATRIX_LEFT",
             "WaveMatrixRight": "LICOMPTYPE_WAVE_MATRIX_RIGHT",
-            "WaveMatrixLeftCol": "LICOMPTYPE_WAVE_MATRIX_LEFT_COL",
-            "WaveMatrixRightRow": "LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW",
+            "WaveMatrixLeftColAcc": "LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC",
+            "WaveMatrixRightRowAcc": "LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC",
             "WaveMatrixAccumulator": "LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR",
             "NodeRecordOrUAV" : "LICOMPTYPE_NODE_RECORD_OR_UAV",
             "NodeInputArray" : "LICOMPTYPE_NODE_INPUT_ARRAY",

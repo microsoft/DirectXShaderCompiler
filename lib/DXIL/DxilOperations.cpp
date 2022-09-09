@@ -431,10 +431,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveMatrix_SumAccumulate, "WaveMatrix_SumAccumulate", OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
   {  OC::WaveMatrix_Add,          "WaveMatrix_Add",           OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
 
-  // Create Node Record Handles                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::AllocateNodeOutputRecords, "AllocateNodeOutputRecords", OCC::AllocateNodeOutputRecords, "allocateNodeOutputRecords", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  // Create/Annotate Node Handles                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AllocateNodeOutputRecords, "AllocateNodeOutputRecords", OCC::AllocateNodeOutputRecords, "allocateNodeOutputRecords", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
 
-  // Get Pointer to Node Record in Address Space 4                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  // Get Pointer to Node Record in Address Space 6                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::GetNodeRecordPtr,        "GetNodeRecordPtr",         OCC::GetNodeRecordPtr,         "getNodeRecordPtr",          { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::ReadNone, },
 
   // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
@@ -446,13 +446,15 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Synchronization                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::BarrierByMemoryType,     "BarrierByMemoryType",      OCC::BarrierByMemoryType,      "barrierByMemoryType",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
   {  OC::BarrierByMemoryHandle,   "BarrierByMemoryHandle",    OCC::BarrierByMemoryHandle,    "barrierByMemoryHandle",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
+  {  OC::BarrierByNodeRecordHandle, "BarrierByNodeRecordHandle", OCC::BarrierByNodeRecordHandle, "barrierByNodeRecordHandle", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
 
-  // Create Node Handles                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  // Create/Annotate Node Handles                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::CreateNodeOutputHandle,  "CreateNodeOutputHandle",   OCC::createNodeOutputHandle,   "createNodeOutputHandle",    {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::IndexNodeHandle,         "IndexNodeHandle",          OCC::IndexNodeHandle,          "indexNodeHandle",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
-
-  // Create Node Record Handles                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AnnotateNodeHandle,      "AnnotateNodeHandle",       OCC::AnnotateNodeHandle,       "annotateNodeHandle",        {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::CreateNodeInputRecordHandle, "CreateNodeInputRecordHandle", OCC::CreateNodeInputRecordHandle, "createNodeInputRecordHandle", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::IndexNodeRecordHandle,   "IndexNodeRecordHandle",    OCC::IndexNodeRecordHandle,    "indexNodeRecordHandle",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::AnnotateNodeRecordHandle, "AnnotateNodeRecordHandle", OCC::AnnotateNodeRecordHandle, "annotateNodeRecordHandle",  {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
 
   // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::NodeOutputIsValid,       "NodeOutputIsValid",        OCC::NodeOutputIsValid,        "nodeOutputIsValid",         {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
@@ -461,7 +463,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 // OPCODE-OLOADS:END
 
 const char *OP::m_OverloadTypeName[kNumTypeOverloads] = {
-  "void", "f16", "f32", "f64", "i1", "i8", "i16", "i32", "i64", "udt",
+  "void", "f16", "f32", "f64", "i1", "i8", "i16", "i32", "i64",
+  "udt", "obj", // These should not be used
 };
 
 const char *OP::m_NamePrefix = "dx.op.";
@@ -500,8 +503,14 @@ unsigned OP::GetTypeSlot(Type *pType) {
     case 64:              return 8;
     }
   }
-  case Type::PointerTyID: return 9;
-  case Type::StructTyID:  return 10;
+  case Type::PointerTyID: {
+    pType = cast<PointerType>(pType)->getElementType();
+    if (pType->isStructTy())
+      return kUserDefineTypeSlot;
+    DXASSERT(!pType->isPointerTy(), "pointer-to-pointer type unsupported");
+    return GetTypeSlot(pType);
+  }
+  case Type::StructTyID:  return kObjectTypeSlot;
   default:
     break;
   }
@@ -941,17 +950,20 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
     return;
   }
-  // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245
-  if ((244 <= op && op <= 245)) {
+  // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
+  // BarrierByNodeRecordHandle=246
+  if ((244 <= op && op <= 246)) {
     major = 6;  minor = 8;
     return;
   }
   // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
   // IncrementOutputCount=240, OutputComplete=241, GetInputRecordCount=242,
-  // FinishedCrossGroupSharing=243, CreateNodeOutputHandle=246,
-  // IndexNodeHandle=247, CreateNodeInputRecordHandle=248, NodeOutputIsValid=249,
-  // GetRemainingRecursionLevels=250
-  if ((238 <= op && op <= 243) || (246 <= op && op <= 250)) {
+  // FinishedCrossGroupSharing=243, CreateNodeOutputHandle=247,
+  // IndexNodeHandle=248, AnnotateNodeHandle=249,
+  // CreateNodeInputRecordHandle=250, IndexNodeRecordHandle=251,
+  // AnnotateNodeRecordHandle=252, NodeOutputIsValid=253,
+  // GetRemainingRecursionLevels=254
+  if ((238 <= op && op <= 243) || (247 <= op && op <= 254)) {
     major = 6;  minor = 8;
     mask = SFLAG(Node);
     return;
@@ -1050,11 +1062,21 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   memset(m_OpCodeClassCache, 0, sizeof(m_OpCodeClassCache));
   static_assert(_countof(OP::m_OpCodeProps) == (size_t)OP::OpCode::NumOpCodes, "forgot to update OP::m_OpCodeProps");
 
-  m_pHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+  m_pHandleType               = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                         "dx.types.Handle", pModule);
-  m_pResourcePropertiesType = GetOrCreateStructType(
+  m_pNodeHandleType           = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+                                        "dx.types.NodeHandle", pModule);
+  m_pNodeRecordHandleType     = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+                                        "dx.types.NodeRecordHandle", pModule);
+  m_pResourcePropertiesType   = GetOrCreateStructType(
       m_Ctx, {Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx)},
       "dx.types.ResourceProperties", pModule);
+  m_pNodePropertiesType       = GetOrCreateStructType(
+    m_Ctx, { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) },
+    "dx.types.NodeInfo", pModule);
+  m_pNodeRecordPropertiesType = GetOrCreateStructType(
+    m_Ctx, { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) },
+    "dx.types.NodeRecordInfo", pModule);
 
   m_pResourceBindingType =
       GetOrCreateStructType(m_Ctx,
@@ -1155,6 +1177,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   vector<Type*> ArgTypes;      // RetType is ArgTypes[0]
   Type *pETy = pOverloadType;
   Type *pRes = GetHandleType();
+  Type* pNodeHandle = GetNodeHandleType();
+  Type* pNodeRecordHandle = GetNodeRecordHandleType();
   Type *pDim = GetDimensionsType();
   Type *pPos = GetSamplePosType();
   Type *pV = Type::getVoidTy(m_Ctx);
@@ -1177,6 +1201,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *obj = pOverloadType;
   Type *resProperty = GetResourcePropertiesType();
   Type *resBind = GetResourceBindingType();
+  Type* nodeProperty = GetNodePropertiesType();
+  Type* nodeRecordProperty = GetNodeRecordPropertiesType();
 
   Type *pWaveMatProps = GetWaveMatrixPropertiesType();
   Type *pWaveMatPtr = GetWaveMatPtrType();
@@ -1588,31 +1614,33 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::WaveMatrix_SumAccumulate:A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
   case OpCode::WaveMatrix_Add:         A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
 
-    // Create Node Record Handles
-  case OpCode::AllocateNodeOutputRecords:A(pRes);     A(pI32); A(pRes); A(pI32); A(pI1);  break;
+    // Create/Annotate Node Handles
+  case OpCode::AllocateNodeOutputRecords:A(pNodeRecordHandle);A(pI32); A(pNodeHandle);A(pI32); A(pI1);  break;
 
-    // Get Pointer to Node Record in Address Space 4
-  case OpCode::GetNodeRecordPtr:       A(pETy);     A(pI32); A(pRes); A(pI32); break;
+    // Get Pointer to Node Record in Address Space 6
+  case OpCode::GetNodeRecordPtr:       A(pETy);     A(pI32); A(pNodeRecordHandle);break;
 
     // Work Graph intrinsics
-  case OpCode::IncrementOutputCount:   A(pV);       A(pI32); A(pRes); A(pI32); break;
-  case OpCode::OutputComplete:         A(pV);       A(pI32); A(pRes); break;
-  case OpCode::GetInputRecordCount:    A(pI32);     A(pI32); A(pRes); break;
-  case OpCode::FinishedCrossGroupSharing:A(pI1);      A(pI32); A(pRes); break;
+  case OpCode::IncrementOutputCount:   A(pV);       A(pI32); A(pNodeHandle);A(pI32); break;
+  case OpCode::OutputComplete:         A(pV);       A(pI32); A(pNodeRecordHandle);break;
+  case OpCode::GetInputRecordCount:    A(pI32);     A(pI32); A(pNodeRecordHandle);break;
+  case OpCode::FinishedCrossGroupSharing:A(pI1);      A(pI32); A(pNodeRecordHandle);break;
 
     // Synchronization
   case OpCode::BarrierByMemoryType:    A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); break;
   case OpCode::BarrierByMemoryHandle:  A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); break;
+  case OpCode::BarrierByNodeRecordHandle:A(pV);       A(pI32); A(pNodeRecordHandle);A(pI32); A(pI32); break;
 
-    // Create Node Handles
-  case OpCode::CreateNodeOutputHandle: A(pRes);     A(pI32); A(pI32); break;
-  case OpCode::IndexNodeHandle:        A(pRes);     A(pI32); A(pRes); A(pI32); break;
-
-    // Create Node Record Handles
-  case OpCode::CreateNodeInputRecordHandle:A(pRes);     A(pI32); A(pI32); break;
+    // Create/Annotate Node Handles
+  case OpCode::CreateNodeOutputHandle: A(pNodeHandle);A(pI32); A(pI32); break;
+  case OpCode::IndexNodeHandle:        A(pNodeHandle);A(pI32); A(pNodeHandle);A(pI32); break;
+  case OpCode::AnnotateNodeHandle:     A(pNodeHandle);A(pI32); A(pNodeHandle);A(nodeProperty);break;
+  case OpCode::CreateNodeInputRecordHandle:A(pNodeRecordHandle);A(pI32); A(pI32); break;
+  case OpCode::IndexNodeRecordHandle:  A(pNodeRecordHandle);A(pI32); A(pNodeRecordHandle);A(pI32); break;
+  case OpCode::AnnotateNodeRecordHandle:A(pNodeRecordHandle);A(pI32); A(pNodeRecordHandle);A(nodeRecordProperty);break;
 
     // Work Graph intrinsics
-  case OpCode::NodeOutputIsValid:      A(pI1);      A(pI32); A(pRes); break;
+  case OpCode::NodeOutputIsValid:      A(pI1);      A(pI32); A(pNodeHandle);break;
   case OpCode::GetRemainingRecursionLevels:A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
@@ -1823,9 +1851,13 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::FinishedCrossGroupSharing:
   case OpCode::BarrierByMemoryType:
   case OpCode::BarrierByMemoryHandle:
+  case OpCode::BarrierByNodeRecordHandle:
   case OpCode::CreateNodeOutputHandle:
   case OpCode::IndexNodeHandle:
+  case OpCode::AnnotateNodeHandle:
   case OpCode::CreateNodeInputRecordHandle:
+  case OpCode::IndexNodeRecordHandle:
+  case OpCode::AnnotateNodeRecordHandle:
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
     return Type::getVoidTy(Ctx);
@@ -1929,8 +1961,24 @@ Type *OP::GetHandleType() const {
   return m_pHandleType;
 }
 
+Type* OP::GetNodeHandleType() const {
+  return m_pNodeHandleType;
+}
+
+Type* OP::GetNodeRecordHandleType() const {
+  return m_pNodeRecordHandleType;
+}
+
 Type *OP::GetResourcePropertiesType() const {
   return m_pResourcePropertiesType;
+}
+
+Type* OP::GetNodePropertiesType() const {
+  return m_pNodePropertiesType;
+}
+
+Type* OP::GetNodeRecordPropertiesType() const {
+  return m_pNodeRecordPropertiesType;
 }
 
 Type *OP::GetResourceBindingType() const {

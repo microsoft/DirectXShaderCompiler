@@ -435,6 +435,10 @@ class db_oload_gen:
             "waveMat": "A(pWaveMatPtr);",
             "waveMatProps": "A(pWaveMatProps);",
             "$gsptr": "A(pGSEltPtrTy);",
+            "nodehandle": "A(pNodeHandle);",
+            "noderecordhandle": "A(pNodeRecordHandle);",
+            "nodeproperty": "A(nodeProperty);",
+            "noderecordproperty": "A(nodeRecordProperty);"
         }
         last_category = None
         for i in self.instrs:

@@ -2342,11 +2342,15 @@ ID  Name                                                  Description
 243 FinishedCrossGroupSharing                             returns true if the current thread group is the last to access the input
 244 BarrierByMemoryType                                   Request a barrier for a set of memory types and/or thread group execution sync
 245 BarrierByMemoryHandle                                 Request a barrier for just the memory used by the specified object
-246 CreateNodeOutputHandle                                Creates a handle to a NodeOutput
-247 IndexNodeHandle                                       returns the handle for the location in the output node array at the indicated index
-248 CreateNodeInputRecordHandle                           create a handle for an InputRecord
-249 NodeOutputIsValid                                     returns true if the specified output node is present in the work graph
-250 GetRemainingRecursionLevels                           returns how many levels of recursion remain
+246 BarrierByNodeRecordHandle                             Request a barrier for just the memory used by the node record
+247 CreateNodeOutputHandle                                Creates a handle to a NodeOutput
+248 IndexNodeHandle                                       returns the handle for the location in the output node array at the indicated index
+249 AnnotateNodeHandle                                    annotate handle with node properties
+250 CreateNodeInputRecordHandle                           create a handle for an InputRecord
+251 IndexNodeRecordHandle                                 returns the handle for the location in the node record array at the indicated index
+252 AnnotateNodeRecordHandle                              annotate handle with node record properties
+253 NodeOutputIsValid                                     returns true if the specified output node is present in the work graph
+254 GetRemainingRecursionLevels                           returns how many levels of recursion remain
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3012,6 +3016,7 @@ DECL.FNISCALLED                           Functions can only be used by call ins
 DECL.NOTUSEDEXTERNAL                      External declaration should not be used
 DECL.PARAMSTRUCT                          Callable function parameter must be struct type
 DECL.PAYLOADSTRUCT                        Payload parameter must be struct type
+DECL.RAYQYERYINFNSIG                      Rayquery objects not allowed in function signatures
 DECL.RESOURCEINFNSIG                      Resources not allowed in function signatures
 DECL.SHADERMISSINGARG                     payload/params/attributes parameter is required for certain shader types
 DECL.SHADERRETURNVOID                     Shader functions must return void
@@ -3026,7 +3031,7 @@ INSTR.ATOMICCONST                         Constant destination to atomic.
 INSTR.ATOMICINTRINNONUAV                  Non-UAV destination to atomic intrinsic.
 INSTR.ATOMICOPNONGROUPSHARED              Non-groupshared destination to atomic operation.
 INSTR.ATTRIBUTEATVERTEXNOINTERPOLATION    Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.
-INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).
+INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Mesh/Node Shader must only sync UAV (sync_uglobal).
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
 INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
 INSTR.BUFFERUPDATECOUNTERONRESHASCOUNTER  BufferUpdateCounter valid only when HasCounter is true.

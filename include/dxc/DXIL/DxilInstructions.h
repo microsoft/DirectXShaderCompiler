@@ -7454,7 +7454,7 @@ struct DxilInst_WaveMatrix_LoadRawBuf {
     arg_offsetInBytes = 3,
     arg_strideInBytes = 4,
     arg_alignmentInBytes = 5,
-    arg_transpose = 6,
+    arg_colMajor = 6,
   };
   // Accessors
   llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
@@ -7469,10 +7469,10 @@ struct DxilInst_WaveMatrix_LoadRawBuf {
   void set_alignmentInBytes(llvm::Value *val) { Instr->setOperand(5, val); }
   int8_t get_alignmentInBytes_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
   void set_alignmentInBytes_val(int8_t val) { Instr->setOperand(5, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_transpose() const { return Instr->getOperand(6); }
-  void set_transpose(llvm::Value *val) { Instr->setOperand(6, val); }
-  bool get_transpose_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))->getZExtValue()); }
-  void set_transpose_val(bool val) { Instr->setOperand(6, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+  llvm::Value *get_colMajor() const { return Instr->getOperand(6); }
+  void set_colMajor(llvm::Value *val) { Instr->setOperand(6, val); }
+  bool get_colMajor_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))->getZExtValue()); }
+  void set_colMajor_val(bool val) { Instr->setOperand(6, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
 };
 
 /// This instruction Load wave matrix from group shared array
@@ -7497,7 +7497,7 @@ struct DxilInst_WaveMatrix_LoadGroupShared {
     arg_groupsharedPtr = 2,
     arg_startArrayIndex = 3,
     arg_strideInElements = 4,
-    arg_transpose = 5,
+    arg_colMajor = 5,
   };
   // Accessors
   llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
@@ -7508,10 +7508,10 @@ struct DxilInst_WaveMatrix_LoadGroupShared {
   void set_startArrayIndex(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_strideInElements() const { return Instr->getOperand(4); }
   void set_strideInElements(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_transpose() const { return Instr->getOperand(5); }
-  void set_transpose(llvm::Value *val) { Instr->setOperand(5, val); }
-  bool get_transpose_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
-  void set_transpose_val(bool val) { Instr->setOperand(5, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+  llvm::Value *get_colMajor() const { return Instr->getOperand(5); }
+  void set_colMajor(llvm::Value *val) { Instr->setOperand(5, val); }
+  bool get_colMajor_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
+  void set_colMajor_val(bool val) { Instr->setOperand(5, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
 };
 
 /// This instruction Store wave matrix to raw buffer
@@ -7537,7 +7537,7 @@ struct DxilInst_WaveMatrix_StoreRawBuf {
     arg_offsetInBytes = 3,
     arg_strideInBytes = 4,
     arg_alignmentInBytes = 5,
-    arg_transpose = 6,
+    arg_colMajor = 6,
   };
   // Accessors
   llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
@@ -7552,10 +7552,10 @@ struct DxilInst_WaveMatrix_StoreRawBuf {
   void set_alignmentInBytes(llvm::Value *val) { Instr->setOperand(5, val); }
   int8_t get_alignmentInBytes_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
   void set_alignmentInBytes_val(int8_t val) { Instr->setOperand(5, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_transpose() const { return Instr->getOperand(6); }
-  void set_transpose(llvm::Value *val) { Instr->setOperand(6, val); }
-  bool get_transpose_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))->getZExtValue()); }
-  void set_transpose_val(bool val) { Instr->setOperand(6, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+  llvm::Value *get_colMajor() const { return Instr->getOperand(6); }
+  void set_colMajor(llvm::Value *val) { Instr->setOperand(6, val); }
+  bool get_colMajor_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))->getZExtValue()); }
+  void set_colMajor_val(bool val) { Instr->setOperand(6, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
 };
 
 /// This instruction Store wave matrix to group shared array
@@ -7580,7 +7580,7 @@ struct DxilInst_WaveMatrix_StoreGroupShared {
     arg_groupsharedPtr = 2,
     arg_startArrayIndex = 3,
     arg_strideInElements = 4,
-    arg_transpose = 5,
+    arg_colMajor = 5,
   };
   // Accessors
   llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
@@ -7591,10 +7591,10 @@ struct DxilInst_WaveMatrix_StoreGroupShared {
   void set_startArrayIndex(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_strideInElements() const { return Instr->getOperand(4); }
   void set_strideInElements(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_transpose() const { return Instr->getOperand(5); }
-  void set_transpose(llvm::Value *val) { Instr->setOperand(5, val); }
-  bool get_transpose_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
-  void set_transpose_val(bool val) { Instr->setOperand(5, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+  llvm::Value *get_colMajor() const { return Instr->getOperand(5); }
+  void set_colMajor(llvm::Value *val) { Instr->setOperand(5, val); }
+  bool get_colMajor_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
+  void set_colMajor_val(bool val) { Instr->setOperand(5, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
 };
 
 /// This instruction Mutiply left and right wave matrix and store in accumulator
@@ -7790,7 +7790,7 @@ struct DxilInst_GetNodeRecordPtr {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
   // Metadata
@@ -7798,13 +7798,10 @@ struct DxilInst_GetNodeRecordPtr {
   // Operand indexes
   enum OperandIdx {
     arg_recordhandle = 1,
-    arg_arrayIndex = 2,
   };
   // Accessors
   llvm::Value *get_recordhandle() const { return Instr->getOperand(1); }
   void set_recordhandle(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_arrayIndex() const { return Instr->getOperand(2); }
-  void set_arrayIndex(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
 /// This instruction Select the next logical output count for an EmptyNodeOutput
@@ -7972,6 +7969,37 @@ struct DxilInst_BarrierByMemoryHandle {
   void set_SyncFlags(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
+/// This instruction Request a barrier for just the memory used by the node record
+struct DxilInst_BarrierByNodeRecordHandle {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_BarrierByNodeRecordHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::BarrierByNodeRecordHandle);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_object = 1,
+    arg_AccessFlags = 2,
+    arg_SyncFlags = 3,
+  };
+  // Accessors
+  llvm::Value *get_object() const { return Instr->getOperand(1); }
+  void set_object(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_AccessFlags() const { return Instr->getOperand(2); }
+  void set_AccessFlags(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_SyncFlags() const { return Instr->getOperand(3); }
+  void set_SyncFlags(llvm::Value *val) { Instr->setOperand(3, val); }
+};
+
 /// This instruction Creates a handle to a NodeOutput
 struct DxilInst_CreateNodeOutputHandle {
   llvm::Instruction *Instr;
@@ -8025,6 +8053,34 @@ struct DxilInst_IndexNodeHandle {
   void set_ArrayIndex(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
+/// This instruction annotate handle with node properties
+struct DxilInst_AnnotateNodeHandle {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_AnnotateNodeHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AnnotateNodeHandle);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_node = 1,
+    arg_props = 2,
+  };
+  // Accessors
+  llvm::Value *get_node() const { return Instr->getOperand(1); }
+  void set_node(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_props() const { return Instr->getOperand(2); }
+  void set_props(llvm::Value *val) { Instr->setOperand(2, val); }
+};
+
 /// This instruction create a handle for an InputRecord
 struct DxilInst_CreateNodeInputRecordHandle {
   llvm::Instruction *Instr;
@@ -8048,6 +8104,62 @@ struct DxilInst_CreateNodeInputRecordHandle {
   // Accessors
   llvm::Value *get_MetadataIdx() const { return Instr->getOperand(1); }
   void set_MetadataIdx(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction returns the handle for the location in the node record array at the indicated index
+struct DxilInst_IndexNodeRecordHandle {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_IndexNodeRecordHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IndexNodeRecordHandle);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_NodeRecordHandle = 1,
+    arg_ArrayIndex = 2,
+  };
+  // Accessors
+  llvm::Value *get_NodeRecordHandle() const { return Instr->getOperand(1); }
+  void set_NodeRecordHandle(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_ArrayIndex() const { return Instr->getOperand(2); }
+  void set_ArrayIndex(llvm::Value *val) { Instr->setOperand(2, val); }
+};
+
+/// This instruction annotate handle with node record properties
+struct DxilInst_AnnotateNodeRecordHandle {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_AnnotateNodeRecordHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AnnotateNodeRecordHandle);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_noderecord = 1,
+    arg_props = 2,
+  };
+  // Accessors
+  llvm::Value *get_noderecord() const { return Instr->getOperand(1); }
+  void set_noderecord(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_props() const { return Instr->getOperand(2); }
+  void set_props(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
 /// This instruction returns true if the specified output node is present in the work graph

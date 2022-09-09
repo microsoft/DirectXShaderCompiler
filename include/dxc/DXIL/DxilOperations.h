@@ -51,7 +51,11 @@ public:
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
-  llvm::Type *GetResourcePropertiesType() const;
+  llvm::Type* GetNodeHandleType() const;
+  llvm::Type* GetNodeRecordHandleType() const;
+  llvm::Type* GetResourcePropertiesType() const;
+  llvm::Type* GetNodePropertiesType() const;
+  llvm::Type* GetNodeRecordPropertiesType() const;
   llvm::Type *GetResourceBindingType() const;
   llvm::Type *GetDimensionsType() const;
   llvm::Type *GetSamplePosType() const;
@@ -128,7 +132,11 @@ private:
   llvm::Module *m_pModule;
 
   llvm::Type *m_pHandleType;
+  llvm::Type* m_pNodeHandleType;
+  llvm::Type* m_pNodeRecordHandleType;
   llvm::Type *m_pResourcePropertiesType;
+  llvm::Type* m_pNodePropertiesType;
+  llvm::Type* m_pNodeRecordPropertiesType;
   llvm::Type *m_pResourceBindingType;
   llvm::Type *m_pDimensionsType;
   llvm::Type *m_pSamplePosType;

@@ -444,13 +444,14 @@ namespace DXIL {
     ThreadId = 93, // reads the thread ID
     ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
   
-    // Create Node Handles
-    CreateNodeOutputHandle = 246, // Creates a handle to a NodeOutput
-    IndexNodeHandle = 247, // returns the handle for the location in the output node array at the indicated index
-  
-    // Create Node Record Handles
+    // Create/Annotate Node Handles
     AllocateNodeOutputRecords = 238, // returns a handle for the output records
-    CreateNodeInputRecordHandle = 248, // create a handle for an InputRecord
+    AnnotateNodeHandle = 249, // annotate handle with node properties
+    AnnotateNodeRecordHandle = 252, // annotate handle with node record properties
+    CreateNodeInputRecordHandle = 250, // create a handle for an InputRecord
+    CreateNodeOutputHandle = 247, // Creates a handle to a NodeOutput
+    IndexNodeHandle = 248, // returns the handle for the location in the output node array at the indicated index
+    IndexNodeRecordHandle = 251, // returns the handle for the location in the node record array at the indicated index
   
     // Derivatives
     CalculateLOD = 81, // calculates the level of detail
@@ -489,7 +490,7 @@ namespace DXIL {
     EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
     GSInstanceID = 100, // GSInstanceID
   
-    // Get Pointer to Node Record in Address Space 4
+    // Get Pointer to Node Record in Address Space 6
     GetNodeRecordPtr = 239, // retrieve node input/output record pointer in address space 6
   
     // Get handle from heap
@@ -670,6 +671,7 @@ namespace DXIL {
     Barrier = 80, // inserts a memory barrier in the shader
     BarrierByMemoryHandle = 245, // Request a barrier for just the memory used by the specified object
     BarrierByMemoryType = 244, // Request a barrier for a set of memory types and/or thread group execution sync
+    BarrierByNodeRecordHandle = 246, // Request a barrier for just the memory used by the node record
   
     // Temporary, indexable, input, output registers
     LoadInput = 4, // Loads the value from shader input
@@ -768,9 +770,9 @@ namespace DXIL {
     // Work Graph intrinsics
     FinishedCrossGroupSharing = 243, // returns true if the current thread group is the last to access the input
     GetInputRecordCount = 242, // returns the number of records that have been coalesced into the current thread group
-    GetRemainingRecursionLevels = 250, // returns how many levels of recursion remain
+    GetRemainingRecursionLevels = 254, // returns how many levels of recursion remain
     IncrementOutputCount = 240, // Select the next logical output count for an EmptyNodeOutput
-    NodeOutputIsValid = 249, // returns true if the specified output node is present in the work graph
+    NodeOutputIsValid = 253, // returns true if the specified output node is present in the work graph
     OutputComplete = 241, // indicates all outputs for a given records are complete
   
     NumOpCodes_Dxil_1_0 = 137,
@@ -782,7 +784,7 @@ namespace DXIL {
     NumOpCodes_Dxil_1_6 = 222,
     NumOpCodes_Dxil_1_7 = 226,
   
-    NumOpCodes = 251 // exclusive last value of enumeration
+    NumOpCodes = 255 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -820,13 +822,14 @@ namespace DXIL {
     ThreadId,
     ThreadIdInGroup,
   
-    // Create Node Handles
-    IndexNodeHandle,
-    createNodeOutputHandle,
-  
-    // Create Node Record Handles
+    // Create/Annotate Node Handles
     AllocateNodeOutputRecords,
+    AnnotateNodeHandle,
+    AnnotateNodeRecordHandle,
     CreateNodeInputRecordHandle,
+    IndexNodeHandle,
+    IndexNodeRecordHandle,
+    createNodeOutputHandle,
   
     // Derivatives
     CalculateLOD,
@@ -861,7 +864,7 @@ namespace DXIL {
     EmitThenCutStream,
     GSInstanceID,
   
-    // Get Pointer to Node Record in Address Space 4
+    // Get Pointer to Node Record in Address Space 6
     GetNodeRecordPtr,
   
     // Get handle from heap
@@ -1017,6 +1020,7 @@ namespace DXIL {
     Barrier,
     BarrierByMemoryHandle,
     BarrierByMemoryType,
+    BarrierByNodeRecordHandle,
   
     // Temporary, indexable, input, output registers
     LoadInput,
@@ -1085,7 +1089,7 @@ namespace DXIL {
     NumOpClasses_Dxil_1_6 = 149,
     NumOpClasses_Dxil_1_7 = 153,
   
-    NumOpClasses = 176 // exclusive last value of enumeration
+    NumOpClasses = 180 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1540,8 +1544,8 @@ namespace DXIL {
   enum class WaveMatrixKind : uint8_t {
     Left = 0,
     Right = 1,
-    LeftCol = 2,
-    RightRow = 3,
+    LeftColAcc = 2,
+    RightRowAcc = 3,
     Accumulator = 4,
     NumKinds = 5,
     MaskSide = 1,
