@@ -22,7 +22,28 @@
 #  include "SVNVersion.inc"
 #endif
 
-#include "dxcversion.inc" // HLSL Change
+// HLSL Change Starts
+#include "dxcversion.inc"
+
+// Here are some defaults, but these should be defined in dxcversion.inc
+#ifndef HLSL_TOOL_NAME
+  #define HLSL_TOOL_NAME "dxc(private)"
+#endif
+#ifndef HLSL_LLVM_IDENT
+  #ifdef RC_FILE_VERSION
+    #define HLSL_LLVM_IDENT HLSL_TOOL_NAME " " RC_FILE_VERSION
+  #else
+    #define HLSL_LLVM_IDENT HLSL_TOOL_NAME " version unknown"
+  #endif
+#endif
+#ifndef HLSL_VERSION_MACRO
+  #ifdef RC_PRODUCT_VERSION
+    #define HLSL_VERSION_MACRO HLSL_TOOL_NAME " " RC_PRODUCT_VERSION
+  #else
+    #define HLSL_VERSION_MACRO HLSL_TOOL_NAME " version unknown"
+  #endif
+#endif
+// HLSL Change Ends
 
 namespace clang {
 
@@ -138,15 +159,11 @@ std::string getClangFullRepositoryVersion() {
 }
 
 std::string getClangFullVersion() {
-#ifdef HLSL_TOOL_NAME
-  return getClangToolFullVersion(HLSL_TOOL_NAME);
-#else
-  return getClangToolFullVersion("clang");
-#endif
+  return getClangToolFullVersion(HLSL_TOOL_NAME); // HLSL Change
 }
 
 std::string getClangToolFullVersion(StringRef ToolName) {
-#if 1 // HLSL Change Starts
+#ifdef HLSL_LLVM_IDENT // HLSL Change Starts
   return std::string(HLSL_LLVM_IDENT);
 #else // HLSL Change Ends
   std::string buf;
@@ -167,7 +184,7 @@ std::string getClangToolFullVersion(StringRef ToolName) {
 }
 
 std::string getClangFullCPPVersion() {
-#if 1 // HLSL Change Starts
+#ifdef HLSL_VERSION_MACRO // HLSL Change Starts
   return std::string(HLSL_VERSION_MACRO);
 #else // HLSL Change Ends
   // The version string we report in __VERSION__ is just a compacted version of
