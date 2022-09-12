@@ -593,6 +593,21 @@ if(LLVM_ENABLE_EH AND NOT LLVM_ENABLE_RTTI)
   message(FATAL_ERROR "Exception handling requires RTTI. You must set LLVM_ENABLE_RTTI to ON")
 endif()
 
+option(LLVM_ENABLE_LTO "Enable building with LTO" OFF)
+if (LLVM_ENABLE_LTO)
+  if(MSVC)
+    if (CMAKE_CONFIGURATION_TYPES)
+      set(_PREFIX "$<$<CONFIG:Release>:")
+      set(_SUFFIX ">")
+    endif()
+    append("$_PREFIX/GL$_SUFFIX" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append("$_PREFIX/LTCG$_SUFFIX" CMAKE_MODULE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_EXE_LINKER_FLAGS)
+  else()
+    append("-flto" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append("-flto" CMAKE_MODULE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_EXE_LINKER_FLAGS)
+  endif()
+endif()
+
 # Plugin support
 # FIXME: Make this configurable.
 if(WIN32 OR CYGWIN)
