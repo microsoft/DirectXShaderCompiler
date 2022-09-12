@@ -593,19 +593,20 @@ if(LLVM_ENABLE_EH AND NOT LLVM_ENABLE_RTTI)
   message(FATAL_ERROR "Exception handling requires RTTI. You must set LLVM_ENABLE_RTTI to ON")
 endif()
 
-option(LLVM_ENABLE_LTO "Enable building with LTO" OFF)
+# HLSL Change Begin
+option(LLVM_ENABLE_LTO "Enable building with LTO" ${HLSL_OFFICIAL_BUILD})
 if (LLVM_ENABLE_LTO)
   if(MSVC)
     if (CMAKE_CONFIGURATION_TYPES)
-      set(_PREFIX "$<$<CONFIG:Release>:")
-      set(_SUFFIX ">")
+      set(_SUFFIX _RELEASE)
     endif()
-    append("$_PREFIX/GL$_SUFFIX" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-    append("$_PREFIX/LTCG$_SUFFIX" CMAKE_MODULE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_EXE_LINKER_FLAGS)
+    append("/GL" CMAKE_C_FLAGS${_SUFFIX} CMAKE_CXX_FLAGS${_SUFFIX})
+    append("/LTCG" CMAKE_MODULE_LINKER_FLAGS${_SUFFIX} CMAKE_MODULE_LINKER_FLAGS${_SUFFIX} CMAKE_EXE_LINKER_FLAGS${_SUFFIX})
   else()
-    append("-flto" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-    append("-flto" CMAKE_MODULE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_EXE_LINKER_FLAGS)
+    add_flag_if_supported("-flto" SUPPORST_FLTO)
   endif()
+endif()
+# HLSL Change End
 endif()
 
 # Plugin support
