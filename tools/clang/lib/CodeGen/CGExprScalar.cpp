@@ -3732,14 +3732,6 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
     }
   }
 
-  llvm::Instruction *ResultAlloca = nullptr;
-  if (CGF.getLangOpts().HLSL && CGF.getLangOpts().EnableShortCircuit &&
-      hlsl::IsHLSLMatType(E->getType())) {
-    llvm::Type *MatTy = CGF.ConvertTypeForMem(E->getType());
-    ResultAlloca = Builder.CreateAlloca(MatTy);
-    ResultAlloca->moveBefore(hlsl::dxilutil::FindAllocaInsertionPt(
-        Builder.GetInsertBlock()->getParent()));
-  }
   // HLSL Change Ends
 
   // If this is a really simple expression (like x ? 4 : 5), emit this as a
@@ -3759,6 +3751,17 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
     }
     return Builder.CreateSelect(CondV, LHS, RHS, "cond");
   }
+
+  // HLSL Change Begins
+  llvm::Instruction *ResultAlloca = nullptr;
+  if (CGF.getLangOpts().HLSL && CGF.getLangOpts().EnableShortCircuit &&
+      hlsl::IsHLSLMatType(E->getType())) {
+    llvm::Type *MatTy = CGF.ConvertTypeForMem(E->getType());
+    ResultAlloca = CGF.CreateTempAlloca(MatTy);
+    ResultAlloca->moveBefore(hlsl::dxilutil::FindAllocaInsertionPt(
+        Builder.GetInsertBlock()->getParent()));
+  }
+  // HLSL Change Ends
 
   llvm::BasicBlock *LHSBlock = CGF.createBasicBlock("cond.true");
   llvm::BasicBlock *RHSBlock = CGF.createBasicBlock("cond.false");
