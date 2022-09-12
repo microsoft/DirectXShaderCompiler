@@ -11467,8 +11467,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
       ShaderOpSet->GetShaderOp("IsNormal");
   vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
-  const int expectedResultsSize = 12;
-  
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
   LogCommentFmt(L"\r\nVerifying isNormal in shader "
                 L"model 6.%1u",
