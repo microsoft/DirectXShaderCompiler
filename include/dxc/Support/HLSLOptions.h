@@ -205,6 +205,7 @@ public:
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
   bool ForceZeroStoreLifetimes = false; // OPT_force_zero_store_lifetimes
   bool EnableLifetimeMarkers = false; // OPT_enable_lifetime_markers
+  bool ForceDisableDebugInfo = false; // OPT_fdisable_debug_info
   bool EnableTemplates = false; // OPT_enable_templates
   bool EnableOperatorOverloading = false; // OPT_enable_operator_overloading
   bool StrictUDTCasting = false; // OPT_strict_udt_casting

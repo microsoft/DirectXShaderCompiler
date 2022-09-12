@@ -1417,7 +1417,7 @@ public:
       // TODO: consider
       // DebugPass, DebugCompilationDir, DwarfDebugFlags, SplitDwarfFile
     }
-    else {
+    else if (!Opts.ForceDisableDebugInfo) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       CGOpts.setDebugInfo(CodeGenOptions::LocTrackingOnly);
       CGOpts.DebugColumnInfo = 1;

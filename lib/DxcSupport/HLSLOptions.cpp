@@ -828,6 +828,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 6) >= 0) &&
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
+  opts.ForceDisableDebugInfo =
+      Args.hasFlag(OPT_fdisable_debug_info, OPT_INVALID, false);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
 

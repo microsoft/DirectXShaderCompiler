@@ -168,6 +168,10 @@ def opt_enable : Separate<["-", "/"], "opt-enable">, Group<hlsloptz_Group>, Flag
 def opt_select : MultiArg<["-", "/"], "opt-select", 2>, MetaVarName<"<opt> <variant>">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Select this optimization variant.">;
 
+def fdisable_debug_info : Flag<["-"], "fdisable-debug-info">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Force disabling all debug info. This will break diagnostic generation for late validation.">;
+
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
  Flags<[CoreOption]>;
