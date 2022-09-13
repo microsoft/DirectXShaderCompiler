@@ -217,6 +217,10 @@ if "%1"=="-update-generated-sources" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_COPY_GENERATED_SOURCES=1
   shift /1 & goto :parse_args
 )
+if "%1"=="-lto" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_ENABLE_LTO=On
+  shift /1 & goto :parse_args
+)
 if "%1" NEQ "" ( 
     echo Unrecognized argument: %1
     exit /b 1
