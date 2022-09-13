@@ -607,7 +607,6 @@ if (LLVM_ENABLE_LTO)
   endif()
 endif()
 # HLSL Change End
-endif()
 
 # Plugin support
 # FIXME: Make this configurable.
