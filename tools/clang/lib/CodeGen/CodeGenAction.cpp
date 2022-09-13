@@ -567,7 +567,7 @@ BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
         Diags.getCustomDiagID(DiagnosticsEngine::Note,
                               "Debug information is disabled which may impact "
                               "diagnostic location accuracy. Re-run without "
-                              "-fdisable-debug-info to improve accuracy.\n"));
+                              "-fdisable-loc-tracking to improve accuracy.\n"));
   }
   Diags.Report(Loc, DiagID).AddString(Message);
 

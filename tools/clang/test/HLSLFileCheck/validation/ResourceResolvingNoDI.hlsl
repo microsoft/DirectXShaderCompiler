@@ -1,6 +1,6 @@
-// RUN: %dxc -T cs_6_0 -fdisable-debug-info %s 2>&1 | FileCheck %s
+// RUN: %dxc -T cs_6_0 -fdisable-loc-tracking %s 2>&1 | FileCheck %s
 
-// CHECK: Function: main: note: Debug information is disabled which may impact diagnostic location accuracy. Re-run without -fdisable-debug-info to improve accuracy.
+// CHECK: Function: main: note: Debug information is disabled which may impact diagnostic location accuracy. Re-run without -fdisable-loc-tracking to improve accuracy.
 // CHECK-NOT: note: Debug information is disabled
 
 RWBuffer<int> Buf[2];
