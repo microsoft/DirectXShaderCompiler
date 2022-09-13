@@ -2,7 +2,7 @@
 # ShaderCompiler DXC Release Pipeline Entry Point
 # -----------------------------------------------------------------------------
 
-name: DXC.Release.$(date:yyMMdd).$(rev:rr)
+name: DXC.Release.$(date:yyMMdd).$(rev:rr).$(Build.SourceBranchName)
 
 trigger: none
 
