@@ -10,10 +10,11 @@
 #ifndef LLVM_UTILS_TABLEGEN_X86DISASSEMBLERSHARED_H
 #define LLVM_UTILS_TABLEGEN_X86DISASSEMBLERSHARED_H
 
+#include "llvm/Support/X86DisassemblerDecoderCommon.h"
+#include "../../lib/Target/X86/Disassembler/X86DisassemblerDecoderCommon.h"
+
 #include <cstring>
 #include <string>
-
-#include "../../lib/Target/X86/Disassembler/X86DisassemblerDecoderCommon.h"
 
 struct InstructionSpecifier {
   llvm::X86Disassembler::OperandSpecifier

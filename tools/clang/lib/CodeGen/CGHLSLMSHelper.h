@@ -3,11 +3,12 @@
 #pragma once
 
 #include "clang/Basic/SourceLocation.h"
-
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/MapVector.h"
-
 #include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/Support/HLSLVersion.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
 
 #include <memory>
 #include <vector>
