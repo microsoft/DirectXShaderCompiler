@@ -495,11 +495,6 @@ private:
           AddArgPair(std::move(newPair));
         }
 
-        // Entry point might have been omitted. Set it to main by default.
-        if (m_EntryPoint.empty()) {
-          m_EntryPoint = L"main";
-        }
-
         // Sources
         for (unsigned i = 0; i < reader.GetSourcesCount(); i++) {
           hlsl::SourceInfoReader::Source source_data = reader.GetSource(i);
@@ -546,6 +541,12 @@ private:
       } break; // hlsl::DFCC_ShaderDebugInfoDXIL
       } // switch (four_cc)
     } // For each part
+    
+    // Entry point might have been omitted. Set it to main by default.
+    // TODO: Check to see that this DxilContainer is not a library before setting the entry point.
+    if (m_EntryPoint.empty()) {
+      m_EntryPoint = L"main";
+    }
 
     return S_OK;
   }
