@@ -542,11 +542,7 @@ private:
       } // switch (four_cc)
     } // For each part
     
-    // Entry point might have been omitted. Set it to main by default.
-    // TODO: Check to see that this DxilContainer is not a library before setting the entry point.
-    if (m_EntryPoint.empty()) {
-      m_EntryPoint = L"main";
-    }
+    SetEntryPointToDefaultIfEmpty();
 
     return S_OK;
   }
@@ -753,6 +749,14 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
+  virtual void STDMETHODCALLTYPE SetEntryPointToDefaultIfEmpty() {
+    // Entry point might have been omitted. Set it to main by default.
+    // TODO: Check to see that this DxilContainer is not a library before setting the entry point.
+    if (m_EntryPoint.empty()) {
+      m_EntryPoint = L"main";
+    }
+  }
+
   virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
     try {
       DxcThreadMalloc TM(m_pMalloc);
@@ -770,6 +774,8 @@ public:
       m_pCachedRecompileResult = nullptr;
     }
     CATCH_CPP_RETURN_HRESULT()
+
+    SetEntryPointToDefaultIfEmpty();
 
     return S_OK;
   }
