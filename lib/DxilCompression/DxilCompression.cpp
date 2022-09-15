@@ -17,6 +17,7 @@
 
 #include "miniz.h"
 typedef size_t ZlibSize_t;
+typedef const Bytef ZlibInputBytesf;
 
 namespace {
 //
@@ -128,7 +129,7 @@ hlsl::ZlibResult hlsl::ZlibDecompress(IMalloc *pMalloc, const void *pCompressedB
     return zlib.GetInitializationResult();
 
   pStream->avail_in = BufferSizeInBytes;
-  pStream->next_in = (Bytef *)pCompressedBuffer;
+  pStream->next_in = (ZlibInputBytesf *)pCompressedBuffer;
   pStream->next_out = (Byte*)pUncompressedBuffer;
   pStream->avail_out = UncompressedBufferSize;
 
@@ -157,7 +158,7 @@ hlsl::ZlibResult hlsl::ZlibCompress(IMalloc *pMalloc,
   if (!pDestBuffer)
     return ZlibResult::OutOfMemory;
 
-  pStream->next_in = (Bytef *)pData;
+  pStream->next_in = (ZlibInputBytesf *)pData;
   pStream->avail_in = pDataSize;
   pStream->next_out = (Byte *)pDestBuffer;
   pStream->avail_out = UpperBound;

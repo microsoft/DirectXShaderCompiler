@@ -12,7 +12,7 @@
 //
 
 #pragma once
-
+#include <cstddef>
 struct IMalloc;
 namespace hlsl {
   enum class ZlibResult {
