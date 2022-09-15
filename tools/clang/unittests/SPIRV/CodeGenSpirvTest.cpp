@@ -863,6 +863,9 @@ TEST_F(FileTest, SemanticRenderTargetArrayIndexGS) {
 TEST_F(FileTest, SemanticRenderTargetArrayIndexPS) {
   runFileTest("semantic.render-target-array-index.ps.hlsl");
 }
+TEST_F(FileTest, SemanticRenderTargetArrayIndexCoreVS) {
+  runFileTest("semantic.render-target-array-index-core.vs.hlsl");
+}
 TEST_F(FileTest, SemanticViewportArrayIndexVS) {
   runFileTest("semantic.viewport-array-index.vs.hlsl");
 }
@@ -877,6 +880,9 @@ TEST_F(FileTest, SemanticViewportArrayIndexGS) {
 }
 TEST_F(FileTest, SemanticViewportArrayIndexPS) {
   runFileTest("semantic.viewport-array-index.ps.hlsl");
+}
+TEST_F(FileTest, SemanticViewportArrayIndexCoreVS) {
+  runFileTest("semantic.viewport-array-index-core.vs.hlsl");
 }
 TEST_F(FileTest, SemanticBarycentricsSmoothPS) {
   runFileTest("semantic.barycentrics.ps.s.hlsl");

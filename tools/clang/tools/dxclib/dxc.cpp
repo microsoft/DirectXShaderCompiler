@@ -76,10 +76,11 @@
 // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
 #include "spirv-tools/libspirv.hpp"
+#include "clang/SPIRV/FeatureManager.h"
 
 static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
                              IDxcBlobEncoding **assemblyBlob, bool withColor,
-                             bool withByteOffset) {
+                             bool withByteOffset, spv_target_env target_env) {
   if (!binaryBlob)
     return true;
 
@@ -93,7 +94,7 @@ static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
   memcpy(words.data(), binaryStr.data(), binaryStr.size());
 
   std::string assembly;
-  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
+  spvtools::SpirvTools spirvTools(target_env);
   uint32_t options = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
                       SPV_BINARY_TO_TEXT_OPTION_INDENT);
   if (withColor)
@@ -386,10 +387,14 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
   if (m_Opts.GenSPIRV) {
     CComPtr<IDxcLibrary> pLibrary;
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    llvm::Optional<spv_target_env> target_env =
+        clang::spirv::FeatureManager::stringToSpvEnvironment(
+            m_Opts.SpirvOptions.targetEnv);
+    IFTBOOLMSG(target_env, E_INVALIDARG, "Cannot parse SPIR-V target env.");
 
     if (!DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult,
                           m_Opts.ColorCodeAssembly,
-                          m_Opts.DisassembleByteOffset))
+                          m_Opts.DisassembleByteOffset, *target_env))
       return 1;
   } else {
 #endif // ENABLE_SPIRV_CODEGEN
