@@ -3114,6 +3114,9 @@ TEST_F(FileTest, PositionInVSWithInvalidMin10Float4Type) {
 TEST_F(FileTest, ShaderDebugInfoFunction) {
   runFileTest("shader.debug.function.hlsl");
 }
+TEST_F(FileTest, ShaderDebugInfoExtensions) {
+  runFileTest("shader.debug.extensions.hlsl");
+}
 TEST_F(FileTest, ShaderDebugInfoDebugLexicalBlock) {
   runFileTest("shader.debug.debuglexicalblock.hlsl");
 }

@@ -277,7 +277,18 @@ std::string FeatureManager::getKnownExtensions(const char *delimiter,
 
 bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   bool required = true;
-  if (targetEnv >= SPV_ENV_VULKAN_1_1) {
+  if (targetEnv >= SPV_ENV_VULKAN_1_3) {
+    // The following extensions are incorporated into Vulkan 1.3 or above, and
+    // are therefore not required to be emitted for that target environment.
+    switch (ext) {
+    case Extension::KHR_non_semantic_info:
+      required = false;
+      break;
+    default:
+      break;
+    }
+  }
+  if (required && targetEnv >= SPV_ENV_VULKAN_1_1) {
     // The following extensions are incorporated into Vulkan 1.1 or above, and
     // are therefore not required to be emitted for that target environment.
     // TODO: Also add the following extensions  if we start to support them.
@@ -292,7 +303,7 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
       break;
     default:
       // Only 1.1 or above extensions can be suppressed.
-      required = true;
+      break;
     }
   }
 
