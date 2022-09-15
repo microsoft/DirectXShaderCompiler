@@ -31,7 +31,6 @@ public:
     Zlib(Operation Op, IMalloc *pAllocator)
         : m_Stream{}
         , m_Op(Op)
-        , m_pAllocator(pAllocator)
         , m_Initalized(false)
     {
         m_Stream = {};
@@ -101,7 +100,6 @@ public:
 private:
     z_stream m_Stream;
     Operation m_Op;
-    IMalloc *m_pAllocator;
     bool m_Initalized;
     hlsl::ZlibResult m_InitializationResult = hlsl::ZlibResult::Success;
 
