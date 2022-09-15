@@ -102,7 +102,7 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
 
   // Disassemble the generated SPIR-V binary.
   ASSERT_TRUE(utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
-                                            generateHeader));
+                                            generateHeader, targetEnv));
 
   // Compare the expected and the generted SPIR-V code.
   EXPECT_EQ(expectedSpirvAsm, generatedSpirvAsm);

@@ -314,9 +314,14 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        addExtension(Extension::EXT_shader_viewport_index_layer,
-                     "SV_RenderTargetArrayIndex", loc);
-        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+
+        if (featureManager.isTargetEnvVulkan1p2OrAbove()) {
+          addCapability(spv::Capability::ShaderLayer);
+        } else {
+          addExtension(Extension::EXT_shader_viewport_index_layer,
+                       "SV_RenderTargetArrayIndex", loc);
+          addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::MeshNV) {
         // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
@@ -328,9 +333,13 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        addExtension(Extension::EXT_shader_viewport_index_layer,
-                     "SV_ViewPortArrayIndex", loc);
-        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        if (featureManager.isTargetEnvVulkan1p2OrAbove()) {
+          addCapability(spv::Capability::ShaderViewportIndex);
+        } else {
+          addExtension(Extension::EXT_shader_viewport_index_layer,
+                       "SV_ViewPortArrayIndex", loc);
+          addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry ||
                  shaderModel == spv::ExecutionModel::MeshNV) {
