@@ -11,14 +11,16 @@
 
 #pragma once
 
-#include "llvm/ADT/StringRef.h"
-#include "dxc/DXIL/DxilSemantic.h"
-#include "dxc/DXIL/DxilInterpolationMode.h"
 #include "dxc/DXIL/DxilCompType.h"
+#include "dxc/DXIL/DxilInterpolationMode.h"
+#include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/DXIL/DxilSignatureElement.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
+#include "llvm/ADT/StringRef.h"
+
+#include <limits.h>
 #include <string>
 #include <vector>
-#include <limits.h>
 
 namespace hlsl {
 

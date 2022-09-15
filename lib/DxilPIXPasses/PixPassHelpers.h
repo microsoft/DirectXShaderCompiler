@@ -9,8 +9,12 @@
 
 #pragma once
 
-//#define PIX_DEBUG_DUMP_HELPER
+#include "dxc/DXIL/DxilModule.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 
+//#define PIX_DEBUG_DUMP_HELPER
 #ifdef PIX_DEBUG_DUMP_HELPER
 #include "dxc/Support/Global.h"
 #endif
