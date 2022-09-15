@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "llvm/Pass.h"
+
 namespace llvm {
     ModulePass *createDxilUpdateMetadataPass();
     ModulePass *createDxilPatchShaderRecordBindingsPass();

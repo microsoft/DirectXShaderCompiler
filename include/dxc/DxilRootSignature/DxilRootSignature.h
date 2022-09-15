@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 #include "dxc/Support/WinAdapter.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 struct IDxcBlob;
 struct IDxcBlobEncoding;

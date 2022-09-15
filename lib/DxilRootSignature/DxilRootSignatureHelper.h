@@ -11,7 +11,9 @@
 
 #pragma once
 
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
 
 namespace hlsl {
 

@@ -11,9 +11,11 @@
 
 #pragma once
 
-#include "dxc/Support/Unicode.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Unicode.h"
 #include "dxc/dxcapi.internal.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include <vector>
 
 namespace llvm {
