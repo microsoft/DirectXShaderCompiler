@@ -24,7 +24,7 @@ namespace hlsl {
   template<typename Buffer>
   ZlibResult ZlibCompressAppend(IMalloc *pMalloc, const void *pData, size_t dataSize, Buffer &outBuffer)
   {
-    static_assert(sizeof(Buffer::value_type) == sizeof(uint8_t), "Cannot append to a non-byte-sized buffer.");
+    static_assert(sizeof(typename Buffer::value_type) == sizeof(uint8_t), "Cannot append to a non-byte-sized buffer.");
 
     // This helper resets the buffer to its original size in case of failure or exception
     class RAIIResizer {
