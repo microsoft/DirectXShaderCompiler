@@ -20,8 +20,8 @@ typedef size_t ZlibSize_t;
 
 namespace {
 //
-// A resource managment class for a zlib stream.
-// Class the appropriate init and end routines on the stream.
+// A resource managment class for a zlib stream that calls the appropriate init
+// and end routines.
 //
 class Zlib
 {
@@ -144,7 +144,7 @@ hlsl::ZlibResult hlsl::ZlibDecompress(IMalloc *pMalloc, const void *pCompressedB
 hlsl::ZlibResult hlsl::ZlibCompress(IMalloc *pMalloc,
   const void *pData, size_t pDataSize,
   void *pUserData,
-  ZlibAllocateBufferFn *AllocateBufferFn,
+  ZlibCallbackFn *Callback,
   size_t *pOutCompressedSize)
 {
   Zlib zlib(Zlib::DEFLATE, pMalloc);
@@ -153,7 +153,7 @@ hlsl::ZlibResult hlsl::ZlibCompress(IMalloc *pMalloc,
     return zlib.GetInitializationResult();
 
   const size_t UpperBound = deflateBound(pStream, pDataSize);
-  void *pDestBuffer = AllocateBufferFn(pUserData, UpperBound);
+  void *pDestBuffer = Callback(pUserData, UpperBound);
   if (!pDestBuffer)
     return ZlibResult::OutOfMemory;
 

@@ -28,10 +28,22 @@ namespace hlsl {
     void *pUncompressedBuffer,
     size_t UncompressedBufferSize);
 
-  typedef void *ZlibAllocateBufferFn(void *pUserData, size_t RequiredSize);
-  ZlibResult ZlibCompress(IMalloc *pMalloc,
+  //
+  // This is a user-provided callback function. The compression routine does
+  // not need to know how the destination data is being managed. For example:
+  // appending to an std::vector.
+  // 
+  // During compression, the routine will call this callback to request the
+  // amount of memory required for the next segment, and then write to it.
+  //
+  // See DxilCompressionHelpers for example of usage.
+  //
+  typedef void *ZlibCallbackFn(void *pUserData, size_t RequiredSize);
+
+  ZlibResult ZlibCompress(
+    IMalloc *pMalloc,
     const void *pData, size_t pDataSize,
     void *pUserData,
-    ZlibAllocateBufferFn *AllocateBufferFn,
+    ZlibCallbackFn *Callback,
     size_t *pOutCompressedSize);
 }
