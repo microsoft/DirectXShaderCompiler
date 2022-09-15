@@ -5774,7 +5774,7 @@ spv::Op SpirvEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
     if (isFloatType)
       return spv::Op::OpFOrdNotEqual;
   } break;
-  // According to HLSL doc, all sides of the && and || expression are always
+  // Up until HLSL 2021, all sides of the && and || expression are always
   // evaluated.
   case BO_LAnd:
     return spv::Op::OpLogicalAnd;
@@ -6144,6 +6144,69 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
   if (opcode == BO_Comma) {
     (void)doExpr(lhs);
     return doExpr(rhs);
+  }
+
+  // Beginning with HLSL 2021, logical operators are short-circuited,
+  // and can only be used with scalar types.
+  if ((opcode == BO_LAnd || opcode == BO_LOr) &&
+      getCompilerInstance().getLangOpts().EnableShortCircuit) {
+
+    // We translate short-circuited operators as follows:
+    // A && B =>
+    //   result = false;
+    //   if (A)
+    //     result = B;
+    //
+    // A || B =>
+    //   result = true;
+    //   if (!A)
+    //     result = B;
+    SpirvInstruction *lhsVal = loadIfGLValue(lhs);
+    if (lhsVal == nullptr) {
+      return nullptr;
+    }
+    SpirvInstruction *cond = castToBool(lhsVal, lhs->getType(),
+                                        astContext.BoolTy, lhs->getExprLoc());
+
+    auto *tempVar =
+        spvBuilder.addFnVar(astContext.BoolTy, loc, "temp.var.logical");
+    auto *thenBB = spvBuilder.createBasicBlock("logical.lhs.cond");
+    auto *mergeBB = spvBuilder.createBasicBlock("logical.merge");
+
+    if (opcode == BO_LAnd) {
+      spvBuilder.createStore(tempVar, spvBuilder.getConstantBool(false), loc,
+                             sourceRange);
+    } else {
+      spvBuilder.createStore(tempVar, spvBuilder.getConstantBool(true), loc,
+                             sourceRange);
+      cond = spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, astContext.BoolTy,
+                                      cond, lhs->getExprLoc());
+    }
+
+    // Create the branch instruction. This will end the current basic block.
+    spvBuilder.createConditionalBranch(cond, thenBB, mergeBB, lhs->getExprLoc(),
+                                       mergeBB);
+    spvBuilder.addSuccessor(thenBB);
+    spvBuilder.setMergeTarget(mergeBB);
+    // Handle the then branch.
+    spvBuilder.setInsertPoint(thenBB);
+    SpirvInstruction *rhsVal = loadIfGLValue(rhs);
+    if (rhsVal == nullptr) {
+      return nullptr;
+    }
+    SpirvInstruction *rhsBool = castToBool(
+        rhsVal, rhs->getType(), astContext.BoolTy, rhs->getExprLoc());
+    spvBuilder.createStore(tempVar, rhsBool, rhs->getExprLoc());
+    spvBuilder.createBranch(mergeBB, rhs->getExprLoc());
+    spvBuilder.addSuccessor(mergeBB);
+    // From now on, emit instructions into the merge block.
+    spvBuilder.setInsertPoint(mergeBB);
+
+    SpirvInstruction *result =
+        castToType(tempVar, astContext.BoolTy, resultType, loc, sourceRange);
+    result = spvBuilder.createLoad(resultType, tempVar, loc, sourceRange);
+    result->setRValue();
+    return result;
   }
 
   SpirvInstruction *rhsVal = nullptr, *lhsPtr = nullptr, *lhsVal = nullptr;
