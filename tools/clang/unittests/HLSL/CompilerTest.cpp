@@ -279,7 +279,7 @@ public:
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
   }
  
-  void TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip);
+  void TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip, bool bTestEntryPoint);
 
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
     return m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, ppResult);
@@ -1039,6 +1039,7 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     bool IsFullPDB,
     bool HasHashAndPdbName,
     bool TestReflection,
+    bool TestEntryPoint,
     const std::string &MainSource,
     const std::string &IncludedFile)
 {
@@ -1121,7 +1122,12 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
   {
     CComBSTR str;
     VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&str));
-    VERIFY_ARE_EQUAL(str, L"PSMain");
+    if (TestEntryPoint) {
+      VERIFY_ARE_EQUAL(str, L"main");
+    }
+    else{
+      VERIFY_ARE_EQUAL(str, L"PSMain");
+    } 
   }
 
   // PDB file path
@@ -1418,8 +1424,10 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       pMainFileName,
       NewExpectedArgs, NewExpectedFlags, ExpectedDefines,
       pCompiler, HasVersion, /*IsFullPDB*/true,
-      /*TestReflection*/true,
-      HasHashAndPdbName, MainSource, IncludedFile);
+      /*TestReflection*/true,      
+      HasHashAndPdbName, 
+      /*TestEntryPoint*/false,
+      MainSource, IncludedFile);
   }
 
   // Now, test that dia interface doesn't crash (even if it fails).
@@ -1525,11 +1533,14 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
   }
 }
 
-void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStrip) {
+void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStrip, bool bTestEntryPoint) {
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcOperationResult> pOperationResult;
+
+  std::string entryPointName = bTestEntryPoint ? "main" : "PSMain";
+  std::wstring entryPointNameWide = bTestEntryPoint ? L"" : L"PSMain";
 
   std::string main_source = R"x(
       #include "helper.h"
@@ -1538,7 +1549,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       }
 
       [RootSignature("CBV(b1)")]
-      float4 PSMain() : SV_Target {
+      float4 )x" + entryPointName + R"x(() : SV_Target {
         return ZERO + my_cbuf_foo;
       }
   )x";
@@ -1594,7 +1605,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
   expectedDefines.push_back(L"THIS_IS_ANOTHER_DEFINE=1");
   expectedDefines.push_back(L"THIS_IS_A_DEFINE=HELLO");
 
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"PSMain",
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", entryPointNameWide.data(),
     L"ps_6_0", args.data(), args.size(), pDefines, _countof(pDefines), pInclude, &pOperationResult));
 
   HRESULT CompileStatus = S_OK;
@@ -1631,6 +1642,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       /*IsFullPDB*/  true,
       /*HasHashAndPdbName*/false,
       /*TestReflection*/false, // Reflection creation interface doesn't support just the DxilProgramHeader.
+      /*TestEntryPoint*/bTestEntryPoint,
       main_source, included_File);
   }
 
@@ -1643,6 +1655,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     /*IsFullPDB*/ !bSlim,
     /*HasHashAndPdbName*/true,
     /*TestReflection*/true,
+    /*TestEntryPoint*/bTestEntryPoint,
     main_source, included_File);
 
   if (!bStrip) {
@@ -1655,6 +1668,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       /*IsFullPDB*/ true,
       /*HasHashAndPdbName*/true,
       /*TestReflection*/true,
+      /*TestEntryPoint*/bTestEntryPoint,
       main_source, included_File);
   }
 }
@@ -1721,13 +1735,14 @@ TEST_F(CompilerTest, CompileThenTestReflectionWithProgramHeader) {
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
-  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
+  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true, /*bTestEntryPoint*/ false);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
 
-  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false);  // Old PDB format, where source info is embedded in the module
-  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/false);  // Full PDB, where source info is stored in its own part, and a debug module which is present
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false, /*bTestEntryPoint*/ false);  // Old PDB format, where source info is embedded in the module
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/false, /*bTestEntryPoint*/ false);  // Full PDB, where source info is stored in its own part, and a debug module which is present
 
-  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
-  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true, /*bTestEntryPoint*/ false);  // Legacy PDB, where source info is embedded in the module
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true, /*bTestEntryPoint*/ true);  // Same as above, except this time we test the default entry point.
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true, /*bTestEntryPoint*/ false);  // Full PDB, where source info is stored in its own part, and debug module is present
 }
 
 
