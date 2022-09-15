@@ -15,7 +15,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/Support/Path.h"
-#include "miniz/miniz.h"
+#include "dxc/DxilCompression/DxilCompressionHelpers.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
@@ -23,10 +23,6 @@
 
 using namespace hlsl;
 using Buffer = SourceInfoWriter::Buffer;
-
-static bool ZlibDecompress(const void *pBuffer, size_t BufferSizeInBytes, Buffer *output);
-static bool ZlibCompress(const void *src, size_t srcSize, Buffer *outCompressedData);
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // Reader
@@ -149,11 +145,14 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
 
       const hlsl::DxilSourceInfo_SourceContentsEntry *firstEntry = nullptr;
       if (header->CompressType == hlsl::DxilSourceInfo_SourceContentsCompressType::Zlib) {
-        m_UncompressedSources.reserve(header->UncompressedEntriesSizeInBytes);
-        bool bDecompressSucc = ZlibDecompress(header+1, header->EntriesSizeInBytes, &m_UncompressedSources);
-        assert(bDecompressSucc);
-        if (!bDecompressSucc)
-          return false;
+        m_UncompressedSources.resize(header->UncompressedEntriesSizeInBytes);
+        {
+          bool bDecompressSucc =
+            hlsl::ZlibResult::Success == ZlibDecompress(DxcGetThreadMallocNoRef(), header + 1, header->EntriesSizeInBytes, m_UncompressedSources.data(), m_UncompressedSources.size());
+          assert(bDecompressSucc);
+          if (!bDecompressSucc)
+            return false;
+        }
         if (m_UncompressedSources.size() != header->UncompressedEntriesSizeInBytes)
           return false;
         firstEntry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)m_UncompressedSources.data();
@@ -378,21 +377,14 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     header.Count = sourceFileList.size();
     Append(&m_Buffer, &header, sizeof(header));
 
-    const size_t contentOffset = m_Buffer.size();
-
-    bool bCompress = true;
-    bool bCompressed = false;
-    if (bCompress) {
-      bCompressed = ZlibCompress(uncompressedBuffer.data(), uncompressedBuffer.size(), &m_Buffer);
-      if (!bCompressed)
-        m_Buffer.resize(contentOffset); // Reset the size back
-    }
+    const size_t sizeBeforeCompress = m_Buffer.size();
+    bool bCompressed = hlsl::ZlibResult::Success ==
+        ZlibCompressAppend(DxcGetThreadMallocNoRef(), uncompressedBuffer.data(), uncompressedBuffer.size(), m_Buffer);
 
     // If we compressed the content, go back to rewrite the header to write the
     // correct size in bytes.
     if (bCompressed) {
-      size_t compressedSize = m_Buffer.size() - contentOffset;
-      header.EntriesSizeInBytes = compressedSize;
+      header.EntriesSizeInBytes = m_Buffer.size() - sizeBeforeCompress;
       header.CompressType = hlsl::DxilSourceInfo_SourceContentsCompressType::Zlib;
       memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
     }
@@ -493,148 +485,3 @@ const hlsl::DxilSourceInfo *hlsl::SourceInfoWriter::GetPart() const {
   return ret;
 }
 
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Compression helpers
-///////////////////////////////////////////////////////////////////////////////
-
-static void *ZlibMalloc(void *opaque, size_t items, size_t size) {
-  void *ret = nullptr;
-  try {
-    ret = new uint8_t[items * size];
-  }
-  catch (std::bad_alloc e) {
-    return NULL;
-  }
-  return ret;
-}
-
-static void ZlibFree(void *opaque, void *address) {
-  delete[] (uint8_t *)address;
-}
-
-static bool ZlibDecompress(const void *pBuffer, size_t BufferSizeInBytes, Buffer *output) {
-
-  struct Zlib_Stream {
-    z_stream stream = {};
-    ~Zlib_Stream() {
-      inflateEnd(&stream);
-    }
-  };
-
-  Zlib_Stream streamStorage;
-  z_stream *stream = &streamStorage.stream;
-
-  stream->zalloc = ZlibMalloc;
-  stream->zfree = ZlibFree;
-  inflateInit(stream);
-
-  constexpr size_t CHUNK_SIZE = 1024 * 16;
-
-  Buffer &readBuffer = *output;
-
-  stream->avail_in = BufferSizeInBytes;
-  stream->next_in = (const Byte *)pBuffer;
-
-  int status = Z_OK;
-
-  try {
-    while (true) {
-      size_t readOffset = readBuffer.size();
-      readBuffer.resize(readOffset + CHUNK_SIZE);
-
-      stream->avail_out = CHUNK_SIZE;
-      stream->next_out = (unsigned char *)readBuffer.data() + readOffset;
-
-      status = inflate(stream, Z_NO_FLUSH);
-      switch (status) {
-        case Z_NEED_DICT:
-        case Z_DATA_ERROR:
-        case Z_MEM_ERROR:
-          // Failed to zlib decompress buffer
-          return false;
-      }
-
-      if (stream->avail_out != 0)
-        readBuffer.resize(readBuffer.size() - stream->avail_out);
-
-      if (stream->avail_out != 0 || status == Z_STREAM_END) {
-        break;
-      }
-    }
-  }
-  catch (std::bad_alloc) {
-    return false;
-  }
-
-  if (status != Z_STREAM_END) {
-    // Failed to zlib decompress buffer (likely due to incomplete data)
-    return false;
-  }
-
-  return true;
-}
-
-static bool ZlibCompress(const void *src, size_t srcSize, Buffer *outCompressedData) {
-  Buffer &compressedData = *outCompressedData;
-
-  struct Stream_Storage {
-    z_stream stream = {};
-    ~Stream_Storage() {
-      deflateEnd(&stream);
-    }
-  };
-
-  Stream_Storage storage;
-  z_stream *stream = &storage.stream;
-
-  constexpr size_t CHUNK_SIZE = 16 * 1024;
-  constexpr int level = Z_DEFAULT_COMPRESSION;
-  int status = Z_OK;
-
-  stream->zalloc = ZlibMalloc;
-  stream->zfree = ZlibFree;
-  status = deflateInit(stream, level);
-  if (Z_OK != status)
-    return false;
-
-  stream->next_in = (const unsigned char *)src;
-  stream->avail_in = (uInt)srcSize;
-
-  // The following block of code is the only part that can throw.
-  try {
-    for (;;) {
-      const size_t oldSize = compressedData.size();
-      compressedData.resize(compressedData.size() + CHUNK_SIZE);
-
-      stream->next_out = (unsigned char *)(compressedData.data() + oldSize);
-      stream->avail_out = CHUNK_SIZE;
-
-      status = deflate(stream, stream->avail_in != 0 ? Z_NO_FLUSH : Z_FINISH);
-
-      if (status != Z_OK && status != Z_STREAM_END)
-        return false;
-
-      // Have to shrink the buffer every time we have some left over, because even
-      // if the stream wasn't written completely, it doesn't mean the compression
-      // is over. Might have to do a MZ_FINISH, which could write more data.
-      if (stream->avail_out) {
-        compressedData.resize(compressedData.size() - stream->avail_out);
-      }
-
-      if (Z_STREAM_END == status)
-        break;
-    }
-  }
-  catch (std::bad_alloc) {
-    return false;
-  }
-
-  if (Z_STREAM_END != status)
-    return false;
-
-  return true;
-}
