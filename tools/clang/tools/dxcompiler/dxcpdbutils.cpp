@@ -542,8 +542,6 @@ private:
       } // switch (four_cc)
     } // For each part
     
-    SetEntryPointToDefaultIfEmpty();
-
     return S_OK;
   }
 
@@ -668,6 +666,8 @@ public:
         IFR(pProgramHeaderBlob.QueryInterface(&m_pDebugProgramBlob));
         IFR(PopulateSourcesFromProgramHeaderOrBitcode(m_pDebugProgramBlob));
       }
+
+      SetEntryPointToDefaultIfEmpty();
     }
     catch (std::bad_alloc) {
       Reset();
@@ -751,8 +751,9 @@ public:
 
   virtual void STDMETHODCALLTYPE SetEntryPointToDefaultIfEmpty() {
     // Entry point might have been omitted. Set it to main by default.
+    // Don't set entry point if this instance is non-debug DXIL and has no arguments at all.
     // TODO: Check to see that this DxilContainer is not a library before setting the entry point.
-    if (m_EntryPoint.empty()) {
+    if (m_EntryPoint.empty() && !m_ArgPairs.empty()) {
       m_EntryPoint = L"main";
     }
   }
@@ -810,6 +811,8 @@ public:
 
       // Clear the cached compile result
       m_pCachedRecompileResult = nullptr;
+
+      SetEntryPointToDefaultIfEmpty();
     }
     CATCH_CPP_RETURN_HRESULT()
 
