@@ -495,11 +495,6 @@ private:
           AddArgPair(std::move(newPair));
         }
 
-        // Entry point might have been omitted. Set it to main by default.
-        if (m_EntryPoint.empty()) {
-          m_EntryPoint = L"main";
-        }
-
         // Sources
         for (unsigned i = 0; i < reader.GetSourcesCount(); i++) {
           hlsl::SourceInfoReader::Source source_data = reader.GetSource(i);
@@ -546,7 +541,7 @@ private:
       } break; // hlsl::DFCC_ShaderDebugInfoDXIL
       } // switch (four_cc)
     } // For each part
-
+    
     return S_OK;
   }
 
@@ -671,6 +666,8 @@ public:
         IFR(pProgramHeaderBlob.QueryInterface(&m_pDebugProgramBlob));
         IFR(PopulateSourcesFromProgramHeaderOrBitcode(m_pDebugProgramBlob));
       }
+
+      SetEntryPointToDefaultIfEmpty();
     }
     catch (std::bad_alloc) {
       Reset();
@@ -752,6 +749,15 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
+  virtual void STDMETHODCALLTYPE SetEntryPointToDefaultIfEmpty() {
+    // Entry point might have been omitted. Set it to main by default.
+    // Don't set entry point if this instance is non-debug DXIL and has no arguments at all.
+    // TODO: Check to see that this DxilContainer is not a library before setting the entry point.
+    if (m_EntryPoint.empty() && !m_ArgPairs.empty()) {
+      m_EntryPoint = L"main";
+    }
+  }
+
   virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
     try {
       DxcThreadMalloc TM(m_pMalloc);
@@ -769,6 +775,8 @@ public:
       m_pCachedRecompileResult = nullptr;
     }
     CATCH_CPP_RETURN_HRESULT()
+
+    SetEntryPointToDefaultIfEmpty();
 
     return S_OK;
   }
@@ -803,6 +811,8 @@ public:
 
       // Clear the cached compile result
       m_pCachedRecompileResult = nullptr;
+
+      SetEntryPointToDefaultIfEmpty();
     }
     CATCH_CPP_RETURN_HRESULT()
 

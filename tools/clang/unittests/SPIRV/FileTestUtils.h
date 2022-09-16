@@ -28,7 +28,8 @@ namespace utils {
 /// Returns true on success, and false on failure.
 bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
                             std::string *generatedSpirvAsm,
-                            bool generateHeader = false);
+                            bool generateHeader = false,
+                            spv_target_env = SPV_ENV_VULKAN_1_1);
 
 /// \brief Runs the SPIR-V Tools validation on the given SPIR-V binary.
 /// Returns true if validation is successful; false otherwise.

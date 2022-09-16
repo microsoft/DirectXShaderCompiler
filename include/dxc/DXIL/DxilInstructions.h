@@ -12,11 +12,11 @@
 
 #pragma once
 
+#include "dxc/DXIL/DxilOperations.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 
-// TODO: add correct include directives
 // TODO: add accessors with values
 // TODO: add validation support code, including calling into right fn
 // TODO: add type hierarchy

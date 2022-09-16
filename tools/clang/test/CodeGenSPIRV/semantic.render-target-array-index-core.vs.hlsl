@@ -1,7 +1,7 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -E main -T vs_6_0 -spirv -fspv-target-env=vulkan1.2
 
-// CHECK:      OpCapability ShaderViewportIndexLayerEXT
-// CHECK:      OpExtension "SPV_EXT_shader_viewport_index_layer"
+// CHECK:      OpCapability ShaderLayer
+// CHECK-NOT:  OpExtension "SPV_EXT_shader_viewport_index_layer"
 
 // CHECK:      OpEntryPoint Vertex %main "main"
 // CHECK-SAME: %in_var_SV_RenderTargetArrayIndex

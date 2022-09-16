@@ -86,6 +86,11 @@ public:
     init(InputData.begin(), InputData.end(), RequiresNullTerminator);
   }
 
+  // Disable sized deallocation for MemoryByfferMem, because it has
+  // tail-allocated data.
+  // (See llvm commit 21c303e9eadfbd2d685665176159f5f4738169b1)
+  void operator delete(void *p) { ::operator delete(p); }
+
   const char *getBufferIdentifier() const override {
      // The name is stored after the class itself.
     return reinterpret_cast<const char*>(this + 1);
@@ -211,6 +216,11 @@ public:
       init(Start, Start + Len, RequiresNullTerminator);
     }
   }
+
+  // Disable sized deallocation for MemoryByfferMem, because it has
+  // tail-allocated data.
+  // (See llvm commit 21c303e9eadfbd2d685665176159f5f4738169b1)
+  void operator delete(void *p) { ::operator delete(p); }
 
   const char *getBufferIdentifier() const override {
     // The name is stored after the class itself.
