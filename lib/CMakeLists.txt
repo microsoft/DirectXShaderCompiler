@@ -32,4 +32,4 @@ endif(WIN32) # HLSL Change
 add_subdirectory(DxilRootSignature) # HLSL Change
 add_subdirectory(DxcBindingTable) # HLSL Change
 add_subdirectory(DxrFallback) # HLSL Change
-add_subdirectory(Miniz) # HLSL Change
+add_subdirectory(DxilCompression) # HLSL Change
