@@ -1019,10 +1019,16 @@ public:
         opts.SpirvOptions.codeGenHighLevel = opts.CodeGenHighLevel;
         opts.SpirvOptions.defaultRowMajor = opts.DefaultRowMajor;
         opts.SpirvOptions.disableValidation = opts.DisableValidation;
-        // Store a string representation of command line options.
-        if (opts.DebugInfo)
-          for (auto opt : mainArgs.getArrayRef())
-            opts.SpirvOptions.clOptions += " " + std::string(opt);
+        // Save a string representation of command line options and
+        // input file name.
+        if (opts.DebugInfo) {
+          opts.SpirvOptions.inputFile = opts.InputFile;
+          for (auto opt : mainArgs.getArrayRef()) {
+            if (opts.InputFile.compare(opt) != 0) {
+              opts.SpirvOptions.clOptions += " " + std::string(opt);
+            }
+          }
+        }
 
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
         clang::EmitSpirvAction action;
