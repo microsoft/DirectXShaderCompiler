@@ -92,8 +92,9 @@ struct SpirvCodeGenOptions {
 
   bool printAll; // Dump SPIR-V module before each pass and after the last one.
 
-  // String representation of all command line options.
+  // String representation of all command line options and input file.
   std::string clOptions;
+  std::string inputFile;
 };
 
 } // namespace spirv
