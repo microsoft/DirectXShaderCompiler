@@ -216,11 +216,11 @@
   #define RDAT_STRUCT_TABLE(type, table) \
     RDAT_STRUCT(type) \
     template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; } \
-    template<> constexpr RuntimeDataPartType RecordTraits<type>::TableType() { return RuntimeDataPartType::table; }
+    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType() { return RuntimeDataPartType::table; }
   #define RDAT_STRUCT_TABLE_DERIVED(type, base, table) \
     RDAT_STRUCT_DERIVED(type, base) \
     template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; } \
-    template<> constexpr RuntimeDataPartType RecordTraits<type>::TableType() { return RuntimeDataPartType::table; }
+    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType() { return RuntimeDataPartType::table; }
 #endif // DEF_RDAT_TYPES cases
 
 // Define any undefined macros to defaults

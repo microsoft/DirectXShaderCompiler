@@ -48,7 +48,7 @@ public:
       m_Parts.emplace_back(llvm::make_unique<RDATTable>());
       *tablePtr = reinterpret_cast<RDATTable *>(m_Parts.back().get());
       (*tablePtr)->SetRecordStride(sizeof(T));
-      (*tablePtr)->SetType(RDAT::RecordTraits<T>::TableType());
+      (*tablePtr)->SetType(RDAT::RecordTraits<T>::PartType());
       (*tablePtr)->SetDeduplication(m_bRecordDeduplicationEnabled);
     }
     return *tablePtr;

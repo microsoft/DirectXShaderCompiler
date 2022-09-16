@@ -34,18 +34,20 @@ public:
 
 class StringBufferPart : public RDATPart {
 private:
-  llvm::StringMap<uint32_t> m_StringMap;
-  llvm::SmallVector<char, 256> m_StringBuffer;
+  std::unordered_map<std::string, uint32_t> m_Map;
+  std::vector<llvm::StringRef> m_List;
+  size_t m_Size = 0;
+
 public:
-  StringBufferPart() : m_StringMap(), m_StringBuffer() {
+  StringBufferPart() {
     // Always start string table with null so empty/null strings have offset of zero
-    m_StringBuffer.push_back('\0');
+    Insert("");
   }
   // returns the offset of the name inserted
-  uint32_t Insert(llvm::StringRef name);
+  uint32_t Insert(llvm::StringRef str);
   RDAT::RuntimeDataPartType GetType() const { return RDAT::RuntimeDataPartType::StringBuffer; }
-  uint32_t GetPartSize() const { return m_StringBuffer.size(); }
-  void Write(void *ptr) { memcpy(ptr, m_StringBuffer.data(), m_StringBuffer.size()); }
+  uint32_t GetPartSize() const { return m_Size; }
+  void Write(void *ptr);
 };
 
 

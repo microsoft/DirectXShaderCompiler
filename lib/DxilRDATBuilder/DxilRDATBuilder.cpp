@@ -174,21 +174,23 @@ public:
 }
 
 // returns the offset of the name inserted
-uint32_t StringBufferPart::Insert(llvm::StringRef name) {
-  if (name.empty())
-    return 0;
+uint32_t StringBufferPart::Insert(llvm::StringRef str) {
+  auto result = m_Map.insert(std::make_pair(std::string(str.data(), str.data() + str.size()), m_Size));
 
-  // Don't add duplicate strings
-  auto found = m_StringMap.find(name);
-  if (found != m_StringMap.end())
-    return found->second;
+  auto iterator = result.first;
+  if (result.second) {
+    const std::string &key = iterator->first;
+    m_List.push_back(llvm::StringRef(key.data(), key.size()));
+    m_Size += key.size() + 1 /*null terminator*/;
+  }
+  return iterator->second;
+}
 
-  uint32_t prevIndex = (uint32_t)m_StringBuffer.size();
-  m_StringMap[name] = prevIndex;
-  m_StringBuffer.reserve(m_StringBuffer.size() + name.size() + 1);
-  m_StringBuffer.append(name.begin(), name.end());
-  m_StringBuffer.push_back('\0');
-  return prevIndex;
+void StringBufferPart::Write(void *ptr) {
+  for (llvm::StringRef &entry : m_List) {
+    memcpy(ptr, entry.data(), entry.size()+1/*null terminator*/);
+    ptr = (char *)ptr + entry.size()+1;
+  }
 }
 
 StringRef DxilRDATBuilder::FinalizeAndGetData() {

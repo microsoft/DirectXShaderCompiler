@@ -1220,12 +1220,12 @@ public:
   m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
   Builder.GetIndexArraysPart();
   Builder.GetRawBytesPart();
-  if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::TableType() <= maxAllowedType)
+  if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::PartType() <= maxAllowedType)
     m_pSubobjectTable = Builder.GetOrAddTable<RuntimeDataSubobjectInfo>();
 
 // Once per table.
 #define RDAT_STRUCT_TABLE(type, table) \
-  if (RDAT::RecordTraits<type>::TableType() <= maxAllowedType) \
+  if (RDAT::RecordTraits<type>::PartType() <= maxAllowedType) \
     (void)Builder.GetOrAddTable<type>();
 
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS

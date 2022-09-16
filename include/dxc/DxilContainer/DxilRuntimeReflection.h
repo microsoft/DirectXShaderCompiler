@@ -227,7 +227,7 @@ public:
     return nullptr;
   }
 
-  static constexpr RuntimeDataPartType TableType() {
+  static constexpr RuntimeDataPartType PartType() {
 #ifdef _WIN32
     static_assert(false, "");
 #else
