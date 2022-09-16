@@ -39,15 +39,6 @@ enum RuntimeDataVersion {
   RDAT_Version_10 = 0x10,
 };
 
-enum class RuntimeDataGroup : uint32_t {
-  Core    = 0,
-  PdbInfo = 1,
-};
-
-constexpr uint32_t RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup group, uint32_t id) {
-  return (((uint32_t)(group) << 16) | ((id) & 0xFFFF));
-}
-
 enum class RuntimeDataPartType : uint32_t {
   Invalid             = 0,
   StringBuffer        = 1,
@@ -58,20 +49,9 @@ enum class RuntimeDataPartType : uint32_t {
   RawBytes            = 5,
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
-
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
-
-  DxilPdbInfoTable     = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 2),
-  DxilSubPdbInfoTable  = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
-  DxilPdbInfoXdxrShaderInfoEntryTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 4),
 };
-
-constexpr uint32_t RdatFourCC(uint32_t ch0, uint32_t ch1, uint32_t ch2, uint32_t ch3) {
-  return
-    (uint32_t)(uint8_t)(ch0)        | (uint32_t)(uint8_t)(ch1) << 8  |
-    (uint32_t)(uint8_t)(ch2) << 16  | (uint32_t)(uint8_t)(ch3) << 24;
-}
 
 inline
 RuntimeDataPartType MaxPartTypeForValVer(unsigned Major, unsigned Minor) {
@@ -88,11 +68,6 @@ enum class RecordTableIndex : unsigned {
   ResourceTable,
   FunctionTable,
   SubobjectTable,
-
-  DxilPdbInfoTable,
-  DxilSubPdbInfoTable,
-  DxilPdbInfoXdxrShaderInfoEntryTable,
-
   RecordTableCount
 };
 
@@ -749,4 +724,3 @@ DxilRuntimeReflection *CreateDxilRuntimeReflection();
 
 } // namespace RDAT
 } // namespace hlsl
-
