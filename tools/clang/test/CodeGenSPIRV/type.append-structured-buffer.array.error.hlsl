@@ -9,4 +9,4 @@ AppendStructuredBuffer<T> myAppendStructuredBuffer[];
 
 void main() {}
 
-// CHECK: :8:27: error: arrays of RW/append/consume structured buffers unsupported
+// CHECK: :8:27: error: arrays of append or consume structured buffers unsupported

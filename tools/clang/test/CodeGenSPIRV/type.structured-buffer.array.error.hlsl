@@ -5,8 +5,8 @@ struct T {
   float3 b;
 };
 
-RWStructuredBuffer<T> myRWStructuredBuffer[4];
+AppendStructuredBuffer<T> myAppendStructuredBuffer[4];
 
 void main() {}
 
-// CHECK: :8:23: error: arrays of RW/append/consume structured buffers unsupported
+// CHECK: :8:27: error: arrays of append or consume structured buffers unsupported
