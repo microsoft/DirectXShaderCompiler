@@ -109,7 +109,7 @@ public:
   RawBytesPart() {}
   uint32_t Insert(const void *pData, size_t dataSize);
   RDAT::BytesRef InsertBytesRef(const void *pData, size_t dataSize) {
-    RDAT::BytesRef ret = {0};
+    RDAT::BytesRef ret = {};
     ret.Offset = Insert(pData, dataSize);
     ret.Size = dataSize;
     return ret;
