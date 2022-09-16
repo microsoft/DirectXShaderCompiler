@@ -85,7 +85,7 @@ DxilRDATBuilder::SizeInfo DxilRDATBuilder::ComputeSize() const {
     numNonEmptyParts * sizeof(uint32_t) + // Offset array
     totalSizeOfNonEmptyParts;             // Parts contents
 
-  SizeInfo ret = {0};
+  SizeInfo ret = {};
   ret.numParts = numNonEmptyParts;
   ret.sizeInBytes = total;
   return ret;
