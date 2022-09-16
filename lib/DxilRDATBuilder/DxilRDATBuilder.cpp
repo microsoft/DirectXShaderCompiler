@@ -48,7 +48,7 @@ uint32_t RDATTable::GetPartSize() const {
 }
 
 uint32_t RawBytesPart::Insert(const void *pData, size_t dataSize) {
-  auto result = m_Map.insert(std::make_pair(std::string((const char *)pData, (const char *)pData + dataSize), (uint32_t)m_List.size()));
+  auto result = m_Map.insert(std::make_pair(std::string((const char *)pData, (const char *)pData + dataSize), m_Size));
   auto iterator = result.first;
   if (result.second) {
     const std::string &key = iterator->first;
