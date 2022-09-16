@@ -39,6 +39,15 @@ enum RuntimeDataVersion {
   RDAT_Version_10 = 0x10,
 };
 
+enum class RuntimeDataGroup : uint32_t {
+  Core    = 0,
+  PdbInfo = 1,
+};
+
+constexpr uint32_t RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup group, uint32_t id) {
+  return (((uint32_t)(group) << 16) | ((id) & 0xFFFF));
+}
+
 enum class RuntimeDataPartType : uint32_t {
   Invalid             = 0,
   StringBuffer        = 1,
@@ -49,8 +58,12 @@ enum class RuntimeDataPartType : uint32_t {
   RawBytes            = 5,
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
+
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
+
+  DxilPdbInfoTable     = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 2),
+  DxilSubPdbInfoTable  = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
 };
 
 inline
@@ -68,6 +81,10 @@ enum class RecordTableIndex : unsigned {
   ResourceTable,
   FunctionTable,
   SubobjectTable,
+
+  DxilPdbInfoTable,
+  DxilSubPdbInfoTable,
+
   RecordTableCount
 };
 

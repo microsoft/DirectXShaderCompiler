@@ -1328,106 +1328,9 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
   // Make the pix debug info
   if (IsFullPDB) {
     VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
-    CComPtr<IDxcBlob> pPDBBlob;
-    VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pPDBBlob));
-
-    CComPtr<IDxcPixDxilDebugInfoFactory> pFactory;
-    VERIFY_SUCCEEDED(pPdbUtils->QueryInterface(&pFactory));
-    CComPtr<IDxcPixCompilationInfo> pCompInfo;
-    VERIFY_ARE_EQUAL(E_NOTIMPL, pFactory->NewDxcPixCompilationInfo(&pCompInfo));
-    CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
-    VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
-    VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
-
-    // Recompile when it's a full PDB anyway.
-    {
-      CComPtr<IDxcResult> pResult;
-      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
-
-      HRESULT compileStatus = S_OK;
-      VERIFY_SUCCEEDED(pResult->GetStatus(&compileStatus));
-      VERIFY_SUCCEEDED(compileStatus);
-
-      CComPtr<IDxcBlob> pRecompiledPdbBlob;
-      VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pRecompiledPdbBlob), nullptr));
-    }
-
   }
   else {
     VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
-    CComPtr<IDxcBlob> pFullPdb;
-    VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
-
-    // Save a copy of the arg pairs
-    std::vector<std::pair< std::wstring, std::wstring> > pairsStorage;
-    UINT32 uNumArgsPairs = 0;
-    VERIFY_SUCCEEDED(pPdbUtils->GetArgPairCount(&uNumArgsPairs));
-    for (UINT32 i = 0; i < uNumArgsPairs; i++) {
-      CComBSTR pName, pValue;
-      VERIFY_SUCCEEDED(pPdbUtils->GetArgPair(i, &pName, &pValue));
-      std::pair< std::wstring, std::wstring> pairStorage;
-      pairStorage.first  = pName  ? pName  : L"";
-      pairStorage.second = pValue ? pValue : L"";
-      pairsStorage.push_back(pairStorage);
-    }
-
-    // Set an obviously wrong RS and verify compilation fails
-    {
-      VERIFY_SUCCEEDED(pPdbUtils->OverrideRootSignature(L""));
-      CComPtr<IDxcResult> pResult;
-      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
-
-      HRESULT result = S_OK;
-      VERIFY_SUCCEEDED(pResult->GetStatus(&result));
-      VERIFY_FAILED(result);
-
-      CComPtr<IDxcBlobEncoding> pErr;
-      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErr));
-    }
-
-    // Set an obviously wrong set of args and verify compilation fails
-    {
-
-      std::vector<DxcArgPair> pairs;
-      for (auto &p : pairsStorage) {
-        DxcArgPair pair = {};
-        pair.pName = p.first.c_str();
-        pair.pValue = p.second.c_str();
-        pairs.push_back(pair);
-      }
-
-      VERIFY_SUCCEEDED(pPdbUtils->OverrideArgs(pairs.data(), pairs.size()));
-
-      CComPtr<IDxcResult> pResult;
-      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
-
-      HRESULT result = S_OK;
-      VERIFY_SUCCEEDED(pResult->GetStatus(&result));
-      VERIFY_SUCCEEDED(result);
-    }
-
-    auto ReplaceDebugFlagPair = [](const std::vector<std::pair<const WCHAR *, const WCHAR *> > &List) -> std::vector<std::pair<const WCHAR *, const WCHAR *> > {
-      std::vector<std::pair<const WCHAR *, const WCHAR *> > ret;
-      for (unsigned i = 0; i < List.size(); i++) {
-        if (!wcscmp(List[i].first, L"/Zs") || !wcscmp(List[i].first, L"-Zs"))
-          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Zi", nullptr));
-        else
-          ret.push_back(List[i]);
-      }
-      return ret;
-    };
-
-    auto NewExpectedFlags = ReplaceDebugFlagPair(ExpectedFlags);
-    auto NewExpectedArgs  = ReplaceDebugFlagPair(ExpectedArgs);
-
-    VerifyPdbUtil(dllSupport, pFullPdb, pPdbUtils,
-      pMainFileName,
-      NewExpectedArgs, NewExpectedFlags, ExpectedDefines,
-      pCompiler, HasVersion, /*IsFullPDB*/true,
-      /*TestReflection*/true,      
-      HasHashAndPdbName, 
-      /*TestEntryPoint*/false,
-      MainSource, IncludedFile);
   }
 
   // Now, test that dia interface doesn't crash (even if it fails).
@@ -1845,11 +1748,6 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
 
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
   TestPdb(pPdbUtils);
-
-  CComPtr<IDxcBlob> pFullPdb;
-  VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
-  VERIFY_SUCCEEDED(pPdbUtils->Load(pFullPdb));
-  TestPdb(pPdbUtils);
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbInPrivate) {
@@ -1946,12 +1844,6 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
 
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
-
-  CComPtr<IDxcBlob> pFullPdb;
-  VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
-
-  VERIFY_SUCCEEDED(pPdbUtils->Load(pFullPdb));
-  VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
 }
 
 
