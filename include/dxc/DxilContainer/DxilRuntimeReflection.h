@@ -226,6 +226,16 @@ public:
 #endif
     return nullptr;
   }
+
+  static constexpr RuntimeDataPartType PartType() {
+#ifdef _WIN32
+    static_assert(false, "");
+#else
+    assert(false);
+#endif
+    return RuntimeDataPartType::Invalid;
+  }
+
   // If the following static assert is hit, it means a structure defined with
   // RDAT_STRUCT is being used in ref type, which requires the struct to have
   // a table and be defined with RDAT_STRUCT_TABLE instead.

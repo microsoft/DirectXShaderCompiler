@@ -41,6 +41,7 @@ subdirectories =
  HLSL
  DXIL
  DxilContainer
+ DxilRDATBuilder
  DxilDia
  DxrFallback
  DxilRootSignature
