@@ -935,7 +935,7 @@ public:
 
 // Implement the legacy IDxcPdbUtils interface with an instance of
 // the new impelmentation.
-struct DxcPdbUtilsAdapter : public IDxcPdbUtils, public IDxcPixDxilDebugInfoFactory
+struct DxcPdbUtilsAdapter : public IDxcPdbUtils
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -959,9 +959,9 @@ public:
   DxcPdbUtilsAdapter(IMalloc *pMalloc, DxcPdbUtils *pImpl) : m_dwRef(0), m_pMalloc(pMalloc), m_pImpl(pImpl) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    if (iid == __uuidof(IDxcPdbUtils2))
+    if (iid != __uuidof(IDxcPdbUtils))
       return m_pImpl->QueryInterface(iid, ppvObject);
-    return DoBasicQueryInterface<IDxcPdbUtils, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPdbUtils>(this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
@@ -1058,18 +1058,6 @@ public:
     CComPtr<IDxcBlobWide> pBlob;
     IFR(m_pImpl->GetName(&pBlob));
     return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-
-  virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
-      _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) override
-  {
-    return m_pImpl->NewDxcPixDxilDebugInfo(ppDxilDebugInfo);
-  }
-
-  virtual STDMETHODIMP NewDxcPixCompilationInfo(
-      _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo) override
-  {
-    return E_NOTIMPL;
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) {
