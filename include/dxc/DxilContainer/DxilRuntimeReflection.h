@@ -62,8 +62,9 @@ enum class RuntimeDataPartType : uint32_t {
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
 
-  DxilPdbInfoTable     = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 2),
-  DxilSubPdbInfoTable  = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
+  DxilPdbInfoTable        = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
+  DxilPdbInfoSourceTable  = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 2),
+  DxilPdbInfoLibraryTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
 };
 
 inline
@@ -83,7 +84,8 @@ enum class RecordTableIndex : unsigned {
   SubobjectTable,
 
   DxilPdbInfoTable,
-  DxilSubPdbInfoTable,
+  DxilPdbInfoSourceTable,
+  DxilPdbInfoLibraryTable,
 
   RecordTableCount
 };

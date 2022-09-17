@@ -300,8 +300,14 @@ private:
   std::vector<CComPtr<IDxcBlobWide> > m_Defines;
   std::vector<CComPtr<IDxcBlobWide> > m_Args;
   std::vector<CComPtr<IDxcBlobWide> > m_Flags;
-  std::vector<CComPtr<DxcPdbUtils> > m_LibraryPdbs;
-  std::vector<CComPtr<IDxcBlobWide> > m_LibraryNames;
+
+  struct LibraryEntry {
+    std::vector<char> PdbInfo;
+    CComPtr<IDxcBlobWide> pName;
+  };
+
+  std::vector<LibraryEntry> m_LibraryPdbs;
+  //std::vector<CComPtr<IDxcBlobWide> > m_LibraryNames;
   UINT32 m_uCustomToolchainID = 0;
   CComPtr<IDxcBlob> m_customToolchainData;
 
@@ -330,7 +336,6 @@ private:
     m_VersionString.clear();
     m_pCachedRecompileResult = nullptr;
     m_LibraryPdbs.clear();
-    m_LibraryNames.clear();
     m_customToolchainData = nullptr;
     ResetAllArgs();
   }
@@ -444,13 +449,10 @@ private:
   }
 
   HRESULT LoadFromPdbInfoReader(hlsl::RDAT::DxilPdbInfo_Reader &reader) {
-    auto sourceContents = reader.getSourceContents();
-    auto sourceNames = reader.getSourceNames();
-    assert(sourceNames.Count() == sourceContents.Count());
-    size_t sourceCount = std::min(sourceNames.Count(), sourceContents.Count());
-    for (size_t i = 0; i < sourceCount; i++) {
-      const char *name = sourceNames[i];
-      const char *content = sourceContents[i];
+    auto sources = reader.getSources();
+    for (size_t i = 0; i < sources.Count(); i++) {
+      const char *name = sources[i].getName();
+      const char *content = sources[i].getContent();
       IFR(AddSource(name, content));
     }
 
@@ -468,25 +470,18 @@ private:
     unsigned libCount = libraries.Count();
     for (size_t i = 0; i < libCount; i++) {
       auto libReader = reader.getLibraries()[i];
-      CComPtr<DxcPdbUtils> subPdb = DxcPdbUtils::Alloc(m_pMalloc);
-
       if (libReader.sizeData() == 0)
         return E_FAIL;
 
-      hlsl::RDAT::DxilRuntimeData newReader;
-      newReader.InitFromRDAT(libReader.getData(), libReader.sizeData());
-      auto subReader = newReader.GetDxilPdbInfoTable()[0];
+      CComPtr<IDxcBlob> pLibraryPdb;
+      CComPtr<IDxcBlobWide> pLibraryName;
+      IFR(hlsl::DxcCreateBlobOnHeapCopy(libReader.getData(), libReader.sizeData(), &pLibraryPdb));
+      IFR(Utf8ToBlobWide(libReader.getName(), &pLibraryName));
 
-      IFR(subPdb->LoadFromPdbInfoReader(subReader));
-      m_LibraryPdbs.push_back(subPdb);
-    }
-
-    auto libraryNames = reader.getLibraryNames();
-    for (size_t i = 0; i < libraryNames.Count(); i++) {
-      const char *name = libraryNames[i];
-      CComPtr<IDxcBlobWide> pNameBlob;
-      IFR(Utf8ToBlobWide(name, &pNameBlob));
-      m_LibraryNames.push_back(std::move(pNameBlob));
+      LibraryEntry Entry;
+      Entry.PdbInfo.assign((const char *)libReader.getData(), (const char *)libReader.getData() + libReader.sizeData());
+      Entry.pName = pLibraryName;
+      m_LibraryPdbs.push_back(std::move(Entry));
     }
 
     auto argPairs = reader.getArgPairs();
@@ -513,9 +508,6 @@ private:
       IFR(Utf8ToBlobWide(reader.getPdbName(), &m_Name));
     }
 
-    if (!m_EntryPoint && reader.getEntry()) {
-      IFR(Utf8ToBlobWide(reader.getEntry(), &m_EntryPoint));
-    }
     // Entry point might have been omitted. Set it to main by default.
     if (!m_EntryPoint) {
       IFR(Utf8ToBlobWide("main", &m_EntryPoint));
@@ -1047,17 +1039,31 @@ public:
     *pCount = (UINT32)m_LibraryPdbs.size();
     return S_OK;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetLibraryPDB(_In_ UINT32 uIndex, _COM_Outptr_ IDxcPdbUtils2 **ppOutPdbUtil, _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppLibraryName) override {
-    if (!ppOutPdbUtil) return E_POINTER;
+  virtual HRESULT STDMETHODCALLTYPE GetLibraryPDB(_In_ UINT32 uIndex, _COM_Outptr_ IDxcPdbUtils2 **ppOutPdbUtils, _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppLibraryName) override {
+    if (!ppOutPdbUtils) return E_POINTER;
     if (uIndex >= m_LibraryPdbs.size()) return E_INVALIDARG;
+
+    LibraryEntry &Entry = m_LibraryPdbs[uIndex];
+    hlsl::RDAT::DxilRuntimeData rdat;
+    if (!rdat.InitFromRDAT(Entry.PdbInfo.data(), Entry.PdbInfo.size()))
+      return E_FAIL;
+    if (rdat.GetDxilPdbInfoTable().Count() != 1)
+      return E_FAIL;
+
+    auto reader = rdat.GetDxilPdbInfoTable()[0];
+
+    CComPtr<DxcPdbUtils> pNewPdbUtils = DxcPdbUtils::Alloc(m_pMalloc);
+    IFR(pNewPdbUtils->LoadFromPdbInfoReader(reader));
+    pNewPdbUtils.QueryInterface(ppOutPdbUtils);
+
     if (ppLibraryName) {
-      *ppOutPdbUtil = nullptr;
-      if (uIndex < m_LibraryNames.size()) {
-        IFR(m_LibraryNames[uIndex].QueryInterface(ppLibraryName));
+      *ppLibraryName = nullptr;
+      if (Entry.pName) {
+        IFR(Entry.pName.QueryInterface(ppLibraryName));
       }
     }
-    
-    return m_LibraryPdbs[uIndex].QueryInterface(ppOutPdbUtil);
+
+    return S_OK;
   }
   virtual HRESULT STDMETHODCALLTYPE GetCustomToolchainID(_Out_ UINT32 *pID) override {
     if (!pID) return E_POINTER;

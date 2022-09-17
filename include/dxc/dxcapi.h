@@ -678,7 +678,7 @@ struct IDxcPdbUtils2 : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobWide **ppResult) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetLibraryPDBCount(UINT32 *pCount) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetLibraryPDB(_In_ UINT32 uIndex, _COM_Outptr_ IDxcPdbUtils2 **ppOutPdbUtil, _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppLibraryName) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetLibraryPDB(_In_ UINT32 uIndex, _COM_Outptr_ IDxcPdbUtils2 **ppOutPdbUtils, _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppLibraryName) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetFlagCount(_Out_ UINT32 *pCount) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobWide **ppResult) = 0;
