@@ -1574,6 +1574,33 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       /*TestEntryPoint*/bTestEntryPoint,
       main_source, included_File);
   }
+
+  {
+    CComPtr<IDxcPdbUtils2> pPdbUtils2;
+    VERIFY_SUCCEEDED(pPdbUtils.QueryInterface(&pPdbUtils2));
+    {
+      CComPtr<IDxcPdbUtils> pPdbUtils_Again;
+      VERIFY_SUCCEEDED(pPdbUtils2.QueryInterface(&pPdbUtils_Again));
+      {
+        CComPtr<IDxcPdbUtils2> pPdbUtils2_Again;
+        VERIFY_SUCCEEDED(pPdbUtils_Again.QueryInterface(&pPdbUtils2_Again));
+        VERIFY_ARE_EQUAL(pPdbUtils2_Again, pPdbUtils2);
+
+        VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 5);
+        VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 4);
+      }
+      VERIFY_ARE_EQUAL(pPdbUtils_Again, pPdbUtils);
+
+      VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 4);
+      VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 3);
+    }
+
+    VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 3);
+    VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 2);
+  }
+
+  VERIFY_ARE_EQUAL(pPdbUtils.p->AddRef(), 2);
+  VERIFY_ARE_EQUAL(pPdbUtils.p->Release(), 1);
 }
 
 TEST_F(CompilerTest, CompileThenTestReflectionWithProgramHeader) {

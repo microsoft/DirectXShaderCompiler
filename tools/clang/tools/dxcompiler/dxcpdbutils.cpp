@@ -124,9 +124,146 @@ static bool XboxShouldSkipSourceFile(StringRef FileName) {
 }
 // Xbox change - end
 
+// Implement the legacy IDxcPdbUtils interface with an instance of
+// the new impelmentation.
+struct DxcPdbUtilsAdapter : public IDxcPdbUtils
+{
+private:
+  IDxcPdbUtils2 *m_pImpl;
+
+  HRESULT CopyBlobWideToBSTR(IDxcBlobWide *pBlob, _Outptr_result_z_ BSTR *pResult) {
+    if (!pResult) return E_POINTER;
+    *pResult = nullptr;
+    if (pBlob) {
+      CComBSTR pBstr(pBlob->GetStringLength(), pBlob->GetStringPointer());
+      *pResult = pBstr.Detach();
+    }
+    return S_OK;
+  }
+
+public:
+  DxcPdbUtilsAdapter(IDxcPdbUtils2 *pImpl) : m_pImpl(pImpl) {}
+  ULONG STDMETHODCALLTYPE AddRef() override {
+    return m_pImpl->AddRef();
+  }
+  ULONG STDMETHODCALLTYPE Release() override {
+    return m_pImpl->Release();
+  }
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+     return m_pImpl->QueryInterface(iid, ppvObject);
+  }
+
+  HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
+    return m_pImpl->Load(pPdbOrDxil);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetSourceCount(_Out_ UINT32 *pCount) override {
+    return m_pImpl->GetSourceCount(pCount);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetSource(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobEncoding **ppResult) override {
+    return m_pImpl->GetSource(uIndex, ppResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetSourceName(uIndex, &pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetFlagCount(_Out_ UINT32 *pCount) override { return m_pImpl->GetFlagCount(pCount); }
+  virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetFlag(uIndex, &pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+  virtual HRESULT STDMETHODCALLTYPE GetArgCount(_Out_ UINT32 *pCount) override { return m_pImpl->GetArgCount(pCount); }
+  virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetArg(uIndex, &pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+  virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) override { return m_pImpl->GetDefineCount(pCount); }
+  virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetDefine(uIndex, &pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetArgPairCount(_Out_ UINT32 *pCount) override {
+    return m_pImpl->GetArgPairCount(pCount);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetArgPair(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pName, _Outptr_result_z_ BSTR *pValue) override {
+    CComPtr<IDxcBlobWide> pNameBlob;
+    CComPtr<IDxcBlobWide> pValueBlob;
+    IFR(m_pImpl->GetArgPair(uIndex, &pNameBlob, &pValueBlob));
+    IFR(CopyBlobWideToBSTR(pNameBlob, pName));
+    IFR(CopyBlobWideToBSTR(pValueBlob, pValue));
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Outptr_result_z_ BSTR *pResult) override {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetTargetProfile(&pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+  virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_Outptr_result_z_ BSTR *pResult) override {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetEntryPoint(&pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_Outptr_result_z_ BSTR *pResult) {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetMainFileName(&pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+
+  virtual BOOL STDMETHODCALLTYPE IsFullPDB() override {
+    return m_pImpl->IsFullPDB();
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
+    return E_NOTIMPL;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE OverrideRootSignature(_In_ const WCHAR *pRootSignature) override {
+    return E_NOTIMPL;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
+    return E_NOTIMPL;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
+    return E_NOTIMPL;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetHash(_COM_Outptr_ IDxcBlob **ppResult) override {
+    return m_pImpl->GetHash(ppResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetName(_Outptr_result_z_ BSTR *pResult) override {
+    CComPtr<IDxcBlobWide> pBlob;
+    IFR(m_pImpl->GetName(&pBlob));
+    return CopyBlobWideToBSTR(pBlob, pResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) {
+    return m_pImpl->GetVersionInfo(ppVersionInfo);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) override {
+    return E_NOTIMPL;
+  }
+};
+
 struct DxcPdbUtils : public IDxcPdbUtils2, public IDxcPixDxilDebugInfoFactory
 {
 private:
+  // Making the adapter and this interface the same object and share reference counting.
+  DxcPdbUtilsAdapter m_Adapter;
+
   DXC_MICROCOM_TM_REF_FIELDS()
 
   struct Source_File {
@@ -673,10 +810,14 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPdbUtils)
 
-  DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
+  DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc), m_Adapter(this) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    HRESULT hr = DoBasicQueryInterface<IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    if (FAILED(hr)) {
+      return DoBasicQueryInterface<IDxcPdbUtils>(&m_Adapter, iid, ppvObject);
+    }
+    return hr;
   }
 
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
@@ -933,142 +1074,6 @@ public:
   }
 };
 
-// Implement the legacy IDxcPdbUtils interface with an instance of
-// the new impelmentation.
-struct DxcPdbUtilsAdapter : public IDxcPdbUtils
-{
-private:
-  DXC_MICROCOM_TM_REF_FIELDS()
-
-  CComPtr<DxcPdbUtils> m_pImpl;
-
-  HRESULT CopyBlobWideToBSTR(IDxcBlobWide *pBlob, _Outptr_result_z_ BSTR *pResult) {
-    if (!pResult) return E_POINTER;
-    *pResult = nullptr;
-    if (pBlob) {
-      CComBSTR pBstr(pBlob->GetStringLength(), pBlob->GetStringPointer());
-      *pResult = pBstr.Detach();
-    }
-    return S_OK;
-  }
-
-public:
-  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  DXC_MICROCOM_TM_ALLOC(DxcPdbUtilsAdapter)
-
-  DxcPdbUtilsAdapter(IMalloc *pMalloc, DxcPdbUtils *pImpl) : m_dwRef(0), m_pMalloc(pMalloc), m_pImpl(pImpl) {}
-
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    if (iid != __uuidof(IDxcPdbUtils))
-      return m_pImpl->QueryInterface(iid, ppvObject);
-    return DoBasicQueryInterface<IDxcPdbUtils>(this, iid, ppvObject);
-  }
-
-  HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
-    return m_pImpl->Load(pPdbOrDxil);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetSourceCount(_Out_ UINT32 *pCount) override {
-    return m_pImpl->GetSourceCount(pCount);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetSource(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobEncoding **ppResult) override {
-    return m_pImpl->GetSource(uIndex, ppResult);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetSourceName(uIndex, &pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetFlagCount(_Out_ UINT32 *pCount) override { return m_pImpl->GetFlagCount(pCount); }
-  virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetFlag(uIndex, &pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-  virtual HRESULT STDMETHODCALLTYPE GetArgCount(_Out_ UINT32 *pCount) override { return m_pImpl->GetArgCount(pCount); }
-  virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetArg(uIndex, &pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-  virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) override { return m_pImpl->GetDefineCount(pCount); }
-  virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetDefine(uIndex, &pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetArgPairCount(_Out_ UINT32 *pCount) override {
-    return m_pImpl->GetArgPairCount(pCount);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetArgPair(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pName, _Outptr_result_z_ BSTR *pValue) override {
-    CComPtr<IDxcBlobWide> pNameBlob;
-    CComPtr<IDxcBlobWide> pValueBlob;
-    IFR(m_pImpl->GetArgPair(uIndex, &pNameBlob, &pValueBlob));
-    IFR(CopyBlobWideToBSTR(pNameBlob, pName));
-    IFR(CopyBlobWideToBSTR(pValueBlob, pValue));
-    return S_OK;
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Outptr_result_z_ BSTR *pResult) override {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetTargetProfile(&pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-  virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_Outptr_result_z_ BSTR *pResult) override {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetEntryPoint(&pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_Outptr_result_z_ BSTR *pResult) {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetMainFileName(&pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-
-  virtual BOOL STDMETHODCALLTYPE IsFullPDB() override {
-    return m_pImpl->IsFullPDB();
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
-    return E_NOTIMPL;
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE OverrideRootSignature(_In_ const WCHAR *pRootSignature) override {
-    return E_NOTIMPL;
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
-    return E_NOTIMPL;
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
-    return E_NOTIMPL;
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetHash(_COM_Outptr_ IDxcBlob **ppResult) override {
-    return m_pImpl->GetHash(ppResult);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetName(_Outptr_result_z_ BSTR *pResult) override {
-    CComPtr<IDxcBlobWide> pBlob;
-    IFR(m_pImpl->GetName(&pBlob));
-    return CopyBlobWideToBSTR(pBlob, pResult);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) {
-    return m_pImpl->GetVersionInfo(ppVersionInfo);
-  }
-
-  virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) override {
-    return E_NOTIMPL;
-  }
-};
-
 HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   if (!ppv) return E_POINTER;
   *ppv = nullptr;
@@ -1076,10 +1081,7 @@ HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
     CComPtr<DxcPdbUtils> pdbUtils2 = CreateOnMalloc<DxcPdbUtils>(DxcGetThreadMallocNoRef());
     if (!pdbUtils2)
       return E_OUTOFMEMORY;
-    CComPtr<DxcPdbUtilsAdapter> result = CreateOnMalloc<DxcPdbUtilsAdapter>(DxcGetThreadMallocNoRef(), pdbUtils2);
-    if (result == nullptr)
-      return E_OUTOFMEMORY;
-    return result.p->QueryInterface(riid, ppv);
+    return pdbUtils2.p->QueryInterface(riid, ppv);
   }
   else {
     CComPtr<DxcPdbUtils> result = CreateOnMalloc<DxcPdbUtils>(DxcGetThreadMallocNoRef());
