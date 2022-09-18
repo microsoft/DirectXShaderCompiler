@@ -118,12 +118,6 @@ public:
   }
 };
 
-// Xbox change - begin
-static bool XboxShouldSkipSourceFile(StringRef FileName) {
-  return FileName.startswith("__XBOX_DWARF_") || FileName.startswith("__XBOX_GPUMAP_");
-}
-// Xbox change - end
-
 // Implement the legacy IDxcPdbUtils interface with an instance of
 // the new impelmentation.
 struct DxcPdbUtilsAdapter : public IDxcPdbUtils
@@ -573,8 +567,6 @@ private:
           llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
           MDString *md_name = cast<MDString>(tup->getOperand(0));
           MDString *md_content = cast<MDString>(tup->getOperand(1));
-
-          if (XboxShouldSkipSourceFile(md_name->getString())) continue; // Xbox change
 
           // File name
           Source_File file;
