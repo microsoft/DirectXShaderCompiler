@@ -1,5 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
-// RUN: %dxc -T lib_6_7 %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKNORP
+// RUN: %dxc -T lib_6_7 -validator-version 1.7 %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKNORP
 // RUN: %dxc -T lib_6_8 %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKRP
 // RUN: %dxc -T lib_6_x %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKRP
 
