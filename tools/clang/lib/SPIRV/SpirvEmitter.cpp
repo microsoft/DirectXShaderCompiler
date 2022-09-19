@@ -1054,7 +1054,12 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
   } else if (const auto *subscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     result = doArraySubscriptExpr(subscriptExpr, range);
   } else if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
-    result = doConditionalOperator(condExpr);
+    // Beginning with HLSL 2021, the ternary operator is short-circuited.
+    if (getCompilerInstance().getLangOpts().EnableShortCircuit) {
+      result = doShortCircuitedConditionalOperator(condExpr);
+    } else {
+      result = doConditionalOperator(condExpr);
+    }
   } else if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
     result = doExpr(defaultArgExpr->getParam()->getDefaultArg());
   } else if (isa<CXXThisExpr>(expr)) {
@@ -3317,6 +3322,58 @@ SpirvEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
   return processAssignment(lhs, result, true, lhsPtr, expr->getSourceRange());
 }
 
+SpirvInstruction *SpirvEmitter::doShortCircuitedConditionalOperator(
+    const ConditionalOperator *expr) {
+  const auto type = expr->getType();
+  const SourceLocation loc = expr->getExprLoc();
+  const SourceRange range = expr->getSourceRange();
+  const Expr *cond = expr->getCond();
+  const Expr *falseExpr = expr->getFalseExpr();
+  const Expr *trueExpr = expr->getTrueExpr();
+
+  // Short-circuited operators can only be used with scalar conditions. This
+  // is checked earlier.
+  assert(cond->getType()->isScalarType());
+
+  auto *tempVar = spvBuilder.addFnVar(type, loc, "temp.var.ternary");
+  auto *thenBB = spvBuilder.createBasicBlock("ternary.lhs");
+  auto *elseBB = spvBuilder.createBasicBlock("ternary.rhs");
+  auto *mergeBB = spvBuilder.createBasicBlock("ternary.merge");
+
+  // Create the branch instruction. This will end the current basic block.
+  SpirvInstruction *condition = loadIfGLValue(cond);
+  condition = castToBool(condition, cond->getType(), astContext.BoolTy,
+                         cond->getLocEnd());
+  spvBuilder.createConditionalBranch(condition, thenBB, elseBB, loc, mergeBB);
+  spvBuilder.addSuccessor(thenBB);
+  spvBuilder.addSuccessor(elseBB);
+  spvBuilder.setMergeTarget(mergeBB);
+
+  // Handle the true case.
+  spvBuilder.setInsertPoint(thenBB);
+  SpirvInstruction *trueVal = loadIfGLValue(trueExpr);
+  trueVal = castToType(trueVal, trueExpr->getType(), type,
+                       trueExpr->getExprLoc(), range);
+  spvBuilder.createStore(tempVar, trueVal, trueExpr->getLocStart(), range);
+  spvBuilder.createBranch(mergeBB, trueExpr->getLocEnd());
+  spvBuilder.addSuccessor(mergeBB);
+
+  // Handle the false case.
+  spvBuilder.setInsertPoint(elseBB);
+  SpirvInstruction *falseVal = loadIfGLValue(falseExpr);
+  falseVal = castToType(falseVal, falseExpr->getType(), type,
+                        falseExpr->getExprLoc(), range);
+  spvBuilder.createStore(tempVar, falseVal, falseExpr->getLocStart(), range);
+  spvBuilder.createBranch(mergeBB, falseExpr->getLocEnd());
+  spvBuilder.addSuccessor(mergeBB);
+
+  // From now on, emit instructions into the merge block.
+  spvBuilder.setInsertPoint(mergeBB);
+  SpirvInstruction *result = spvBuilder.createLoad(type, tempVar, loc, range);
+  result->setRValue();
+  return result;
+}
+
 SpirvInstruction *
 SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const auto type = expr->getType();
@@ -3325,8 +3382,6 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const Expr *cond = expr->getCond();
   const Expr *falseExpr = expr->getFalseExpr();
   const Expr *trueExpr = expr->getTrueExpr();
-
-  // According to HLSL doc, all sides of the ?: expression are always evaluated.
 
   // Corner-case: In HLSL, the condition of the ternary operator can be a
   // matrix of booleans which results in selecting between components of two

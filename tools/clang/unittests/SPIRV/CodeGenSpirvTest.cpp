@@ -395,6 +395,11 @@ TEST_F(FileTest, TernaryOpConditionalOp) {
   runFileTest("ternary-op.cond-op.hlsl");
 }
 
+// For short-circuited ternary operators (HLSL 2021)
+TEST_F(FileTest, TernaryOpShortCircuitedConditionalOp) {
+  runFileTest("ternary-op.short-circuited-cond-op.hlsl");
+}
+
 // For vector accessing/swizzling operators
 TEST_F(FileTest, OpVectorSwizzle) { runFileTest("op.vector.swizzle.hlsl"); }
 TEST_F(FileTest, OpVectorSwizzle1) {
