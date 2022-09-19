@@ -653,6 +653,7 @@ TEST_F(FileTest, FunctionInCTBuffer) {
 }
 
 TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
+TEST_F(FileTest, FunctionDefaultParam) { runFileTest("fn.param.default.hlsl"); }
 TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
 
 TEST_F(FileTest, FixFunctionCall) {

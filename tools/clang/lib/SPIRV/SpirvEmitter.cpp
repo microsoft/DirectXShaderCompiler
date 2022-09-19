@@ -1056,7 +1056,13 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
   } else if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
     result = doConditionalOperator(condExpr);
   } else if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
-    result = doExpr(defaultArgExpr->getParam()->getDefaultArg());
+    if (defaultArgExpr->getParam()->hasUninstantiatedDefaultArg()) {
+      auto defaultArg = defaultArgExpr->getParam()->getUninstantiatedDefaultArg();
+      result = castToType(doExpr(defaultArg), defaultArg->getType(), defaultArgExpr->getType(), defaultArg->getLocStart(), defaultArg->getSourceRange());
+      result->setRValue();
+    } else {
+      result = doExpr(defaultArgExpr->getParam()->getDefaultArg());
+    }
   } else if (isa<CXXThisExpr>(expr)) {
     assert(curThis);
     result = curThis;
@@ -13190,7 +13196,7 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
 
   SpirvStore *storeInst = spvBuilder.createStore(address, value, loc);
   storeInst->setAlignment(alignment);
-  return nullptr; 
+  return nullptr;
 }
 
 SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
@@ -13200,7 +13206,7 @@ SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) 
 
   SpirvInstruction *address = doExpr(callExpr->getArg(0));
   SpirvInstruction *value = doExpr(callExpr->getArg(1));
-  QualType bufferType = value->getAstResultType(); 
+  QualType bufferType = value->getAstResultType();
   clang::SourceLocation loc = callExpr->getExprLoc();
   if (!isBoolOrVecMatOfBoolType(bufferType)) {
     return storeDataToRawAddress(address, value, bufferType, alignment, loc);
