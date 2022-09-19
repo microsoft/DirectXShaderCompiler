@@ -54,8 +54,21 @@ SpirvDebugTypeComposite *DebugTypeVisitor::createDebugTypeComposite(
 
   RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
   const char *file = sm.getPresumedLoc(loc).getFilename();
-  if (file)
-    debugInfo = &spvContext.getDebugInfo()[file];
+  if (file) {
+    auto &debugInfoMap = spvContext.getDebugInfo();
+    auto it = debugInfoMap.find(file);
+    if (it != debugInfoMap.end()) {
+      debugInfo = &it->second;
+    } else {
+      auto *dbgSrc = spvBuilder.createDebugSource(file);
+      setDefaultDebugInfo(dbgSrc);
+      auto dbgCompUnit = spvBuilder.createDebugCompilationUnit(dbgSrc);
+      setDefaultDebugInfo(dbgCompUnit);
+      debugInfo =
+          &debugInfoMap.insert({file, RichDebugInfo(dbgSrc, dbgCompUnit)})
+               .first->second;
+    }
+  }
   return spvContext.getDebugTypeComposite(
       type, name, debugInfo->source, line, column,
       /* parent */ debugInfo->compilationUnit, linkageName, 3u, tag);
