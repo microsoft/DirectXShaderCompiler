@@ -41,11 +41,12 @@ subdirectories =
  HLSL
  DXIL
  DxilContainer
+ DxilRDATBuilder
  DxilDia
  DxrFallback
  DxilRootSignature
  DxcBindingTable
- Miniz
+ DxilCompression
 
 ; HLSL Change: remove LibDriver, LineEditor, add HLSL, DxrtFallback, DXIL, DxilContainer, DxilDia, DxilPIXPasses, DxilRootSignature, DxcBindingTable, LTO
 
