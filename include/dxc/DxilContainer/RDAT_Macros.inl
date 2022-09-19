@@ -357,6 +357,7 @@
 
 #include "RDAT_SubobjectTypes.inl"
 #include "RDAT_LibraryTypes.inl"
+#include "RDAT_PdbInfoTypes.inl"
 
 #undef DEF_RDAT_TYPES
 #undef DEF_RDAT_ENUMS
