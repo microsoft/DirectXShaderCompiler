@@ -11,6 +11,5 @@
 
 [component_0]
 type = Library
-name = DxilContainer
+name = DxilCompression
 parent = Libraries
-required_libraries = BitReader BitWriter Core DxcSupport IPA Support DXIL DxilRDATBuilder

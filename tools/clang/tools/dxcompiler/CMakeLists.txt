@@ -42,7 +42,7 @@ set(LLVM_LINK_COMPONENTS
   target
   transformutils
   vectorize
-  miniz
+  dxilcompression
   )
 
 if (WIN32)

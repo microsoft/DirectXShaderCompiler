@@ -382,6 +382,14 @@ TEST_F(FileTest, BinaryOpLogicalOr) {
   runFileTest("binary-op.logical-or.hlsl");
 }
 
+// For short-circuited logical binary operators (HLSL 2021)
+TEST_F(FileTest, BinaryOpShortCircuitedLogicalAnd) {
+  runFileTest("binary-op.short-circuited-logical-and.hlsl");
+}
+TEST_F(FileTest, BinaryOpShortCircuitedLogicalOr) {
+  runFileTest("binary-op.short-circuited-logical-or.hlsl");
+}
+
 // For ternary operators
 TEST_F(FileTest, TernaryOpConditionalOp) {
   runFileTest("ternary-op.cond-op.hlsl");
@@ -3137,6 +3145,9 @@ TEST_F(FileTest, ShaderDebugInfoLineBranch) {
 }
 TEST_F(FileTest, ShaderDebugInfoLineComposite) {
   runFileTest("shader.debug.line.composite.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoFileComposite) {
+  runFileTest("shader.debug.file.composite.hlsl");
 }
 TEST_F(FileTest, ShaderDebugInfoLineInclude) {
   runFileTest("shader.debug.line.include.hlsl");
