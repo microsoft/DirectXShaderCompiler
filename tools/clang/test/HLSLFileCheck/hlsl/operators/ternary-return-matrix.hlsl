@@ -12,11 +12,11 @@ float2x2 crashingFunction(bool b) {
 }
 
 // CHECK: define internal %class.matrix.float.2.2 @"\01?crashingFunction@@YA?AV?$matrix@M$01$01@@_N@Z"
-// CHECK: [[ALLOCA:%[0-9]+]] = alloca %class.matrix.float.2.2
+// CHECK: [[ALLOCA:%[0-9a-z]+]] = alloca %class.matrix.float.2.2
 // CHECK: preds = {{%[0-9a-z]+}}
 // CHECK: call %class.matrix.float.2.2 @"dx.hl.matldst.colStore.%class.matrix.float.2.2 (i32, %class.matrix.float.2.2*, %class.matrix.float.2.2)"(i32 1, %class.matrix.float.2.2* [[ALLOCA]], %class.matrix.float.2.2 %{{[0-9]+}})
 // CHECK: preds = {{%[0-9a-z]+}}
 // CHECK: call %class.matrix.float.2.2 @"dx.hl.matldst.colStore.%class.matrix.float.2.2 (i32, %class.matrix.float.2.2*, %class.matrix.float.2.2)"(i32 1, %class.matrix.float.2.2* [[ALLOCA]], %class.matrix.float.2.2 %{{[0-9]+}})
 // CHECK: preds = {{%[0-9a-z.]+}}, {{%[0-9a-z.]+}}
-// call %class.matrix.float.2.2 @"dx.hl.matldst.colLoad.%class.matrix.float.2.2 (i32, %class.matrix.float.2.2*)"(i32 0, %class.matrix.float.2.2* [[ALLOCA]])
+// CHECK: call %class.matrix.float.2.2 @"dx.hl.matldst.colLoad.%class.matrix.float.2.2 (i32, %class.matrix.float.2.2*)"(i32 0, %class.matrix.float.2.2* [[ALLOCA]])
 
