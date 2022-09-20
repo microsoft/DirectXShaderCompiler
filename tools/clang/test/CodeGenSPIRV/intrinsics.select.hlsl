@@ -2,8 +2,6 @@
 
 // CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
 
-Texture2D gTex;
-
 uint foo() { return 1; }
 float bar() { return 3.0; }
 uint zoo();
