@@ -1058,7 +1058,10 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     if (getCompilerInstance().getLangOpts().EnableShortCircuit) {
       result = doShortCircuitedConditionalOperator(condExpr);
     } else {
-      result = doConditionalOperator(condExpr);
+      const Expr *cond = condExpr->getCond();
+      const Expr *falseExpr = condExpr->getFalseExpr();
+      const Expr *trueExpr = condExpr->getTrueExpr();
+      result = doConditional(condExpr, cond, falseExpr, trueExpr);
     }
   } else if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
     if (defaultArgExpr->getParam()->hasUninstantiatedDefaultArg()) {
@@ -3378,14 +3381,6 @@ SpirvInstruction *SpirvEmitter::doShortCircuitedConditionalOperator(
   SpirvInstruction *result = spvBuilder.createLoad(type, tempVar, loc, range);
   result->setRValue();
   return result;
-}
-
-SpirvInstruction *
-SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
-  const Expr *cond = expr->getCond();
-  const Expr *falseExpr = expr->getFalseExpr();
-  const Expr *trueExpr = expr->getTrueExpr();
-  return doConditional(expr, cond, falseExpr, trueExpr);
 }
 
 SpirvInstruction
