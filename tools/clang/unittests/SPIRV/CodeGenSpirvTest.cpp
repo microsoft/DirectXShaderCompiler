@@ -1231,6 +1231,7 @@ TEST_F(FileTest, IntrinsicsAllMemoryBarrier) {
 TEST_F(FileTest, IntrinsicsAllMemoryBarrierWithGroupSync) {
   runFileTest("intrinsics.allmemorybarrierwithgroupsync.hlsl");
 }
+TEST_F(FileTest, IntrinsicsAnd) { runFileTest("intrinsics.and.hlsl"); }
 TEST_F(FileTest, IntrinsicsDeviceMemoryBarrierWithGroupSync) {
   runFileTest("intrinsics.devicememorybarrierwithgroupsync.hlsl");
 }
@@ -1291,6 +1292,7 @@ TEST_F(FileTest, IntrinsicsMsad4) { runFileTest("intrinsics.msad4.hlsl"); }
 TEST_F(FileTest, IntrinsicsNormalize) {
   runFileTest("intrinsics.normalize.hlsl");
 }
+TEST_F(FileTest, IntrinsicsOr) { runFileTest("intrinsics.or.hlsl"); }
 TEST_F(FileTest, IntrinsicsPow) { runFileTest("intrinsics.pow.hlsl"); }
 TEST_F(FileTest, IntrinsicsRsqrt) { runFileTest("intrinsics.rsqrt.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloatSign) {
@@ -1311,6 +1313,7 @@ TEST_F(FileTest, IntrinsicsSmoothStep) {
 }
 TEST_F(FileTest, IntrinsicsStep) { runFileTest("intrinsics.step.hlsl"); }
 TEST_F(FileTest, IntrinsicsSqrt) { runFileTest("intrinsics.sqrt.hlsl"); }
+TEST_F(FileTest, IntrinsicsSelect) { runFileTest("intrinsics.select.hlsl"); }
 TEST_F(FileTest, IntrinsicsTranspose) {
   runFileTest("intrinsics.transpose.hlsl");
 }

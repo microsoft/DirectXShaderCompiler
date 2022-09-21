@@ -1058,7 +1058,10 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     if (getCompilerInstance().getLangOpts().EnableShortCircuit) {
       result = doShortCircuitedConditionalOperator(condExpr);
     } else {
-      result = doConditionalOperator(condExpr);
+      const Expr *cond = condExpr->getCond();
+      const Expr *falseExpr = condExpr->getFalseExpr();
+      const Expr *trueExpr = condExpr->getTrueExpr();
+      result = doConditional(condExpr, cond, falseExpr, trueExpr);
     }
   } else if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
     if (defaultArgExpr->getParam()->hasUninstantiatedDefaultArg()) {
@@ -3380,14 +3383,14 @@ SpirvInstruction *SpirvEmitter::doShortCircuitedConditionalOperator(
   return result;
 }
 
-SpirvInstruction *
-SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
+SpirvInstruction
+*SpirvEmitter::doConditional(const Expr *expr,
+                             const Expr *cond,
+                             const Expr *falseExpr,
+                             const Expr *trueExpr) {
   const auto type = expr->getType();
   const SourceLocation loc = expr->getExprLoc();
   const SourceRange range = expr->getSourceRange();
-  const Expr *cond = expr->getCond();
-  const Expr *falseExpr = expr->getFalseExpr();
-  const Expr *trueExpr = expr->getTrueExpr();
 
   // Corner-case: In HLSL, the condition of the ternary operator can be a
   // matrix of booleans which results in selecting between components of two
@@ -3444,12 +3447,12 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
     // selection must be a vector of booleans (one per output component).
     uint32_t count = 0;
     if (isVectorType(expr->getType(), nullptr, &count) &&
-        !isVectorType(expr->getCond()->getType())) {
+        !isVectorType(cond->getType())) {
       const llvm::SmallVector<SpirvInstruction *, 4> components(size_t(count),
                                                                 condition);
       condition = spvBuilder.createCompositeConstruct(
           astContext.getExtVectorType(astContext.BoolTy, count), components,
-          expr->getCond()->getLocEnd());
+          cond->getLocEnd());
     }
 
     auto *value = spvBuilder.createSelect(type, condition, trueBranch,
@@ -3475,21 +3478,21 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
 
   // Create the branch instruction. This will end the current basic block.
   spvBuilder.createConditionalBranch(condition, thenBB, elseBB,
-                                     expr->getCond()->getLocEnd(), mergeBB);
+                                     cond->getLocEnd(), mergeBB);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(elseBB);
   spvBuilder.setMergeTarget(mergeBB);
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
   spvBuilder.createStore(tempVar, trueBranch,
-                         expr->getTrueExpr()->getLocStart(), range);
-  spvBuilder.createBranch(mergeBB, expr->getTrueExpr()->getLocEnd());
+                         trueExpr->getLocStart(), range);
+  spvBuilder.createBranch(mergeBB, trueExpr->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // Handle the else branch
   spvBuilder.setInsertPoint(elseBB);
   spvBuilder.createStore(tempVar, falseBranch,
-                         expr->getFalseExpr()->getLocStart(), range);
-  spvBuilder.createBranch(mergeBB, expr->getFalseExpr()->getLocEnd());
+                         falseExpr->getLocStart(), range);
+  spvBuilder.createBranch(mergeBB, falseExpr->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // From now on, emit instructions into the merge block.
   spvBuilder.setInsertPoint(mergeBB);
@@ -8250,6 +8253,13 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     processMeshOutputCounts(callExpr);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_select: {
+    const Expr *cond = callExpr->getArg(0);
+    const Expr *trueExpr = callExpr->getArg(1);
+    const Expr *falseExpr = callExpr->getArg(2);
+    retVal = doConditional(callExpr, cond, falseExpr, trueExpr);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
     INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
@@ -8262,6 +8272,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
     INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
+    INTRINSIC_SPIRV_OP_CASE(and, LogicalAnd, false);
+    INTRINSIC_SPIRV_OP_CASE(or, LogicalOr, false);
     INTRINSIC_OP_CASE(round, RoundEven, true);
     INTRINSIC_OP_CASE(uabs, SAbs, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
