@@ -403,7 +403,7 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
-bool IsOrContainsHLSLResourceType(clang::QualType type);
+bool ContainsHLSLResourceType(clang::QualType type, clang::SourceLocation *locOut);
 bool IsHLSLBufferViewType(clang::QualType type);
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);

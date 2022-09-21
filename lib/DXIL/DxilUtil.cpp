@@ -491,7 +491,6 @@ std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty
   return FalseRet;
 }
 
-
 bool IsHLSLObjectType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName()) {

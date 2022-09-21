@@ -1385,20 +1385,20 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
 
 void CGMSHLSLRuntime::ValidateSingleFunctionparameter(const ParmVarDecl *parmDecl){
   DiagnosticsEngine &Diags = CGM.getDiags();
+  
   if (const HLSLUniformAttr *Attr = parmDecl->getAttr<HLSLUniformAttr>()) {
     unsigned DiagID =
         Diags.getCustomDiagID(DiagnosticsEngine::Error,
                               "'uniform' parameter is not allowed on entry function." );
     Diags.Report(Attr->getLocation(), DiagID);
-    return;
   }
 
-  if (IsOrContainsHLSLResourceType(parmDecl->getType())){
+  SourceLocation *locOut = nullptr;
+  if (ContainsHLSLResourceType(parmDecl->getType(), locOut)){
     unsigned DiagID =
         Diags.getCustomDiagID(DiagnosticsEngine::Error,
                               "Resource or sampler parameter is not allowed on entry function.");
     Diags.Report(parmDecl->getLocation(), DiagID);
-    return;
   }
 }
 

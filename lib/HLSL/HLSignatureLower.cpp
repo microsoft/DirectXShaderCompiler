@@ -241,6 +241,11 @@ void HLSignatureLower::ProcessArgument(Function *func,
   unsigned rows, cols;
   HLModule::GetParameterRowsAndCols(Ty, rows, cols, paramAnnotation);
   CompType EltTy = paramAnnotation.GetCompType();
+  if (EltTy.IsInvalid()){
+    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func,
+        "Invalid kind for signature element");
+    return;
+  }
   DXIL::InterpolationMode interpMode =
       paramAnnotation.GetInterpolationMode().GetKind();
 

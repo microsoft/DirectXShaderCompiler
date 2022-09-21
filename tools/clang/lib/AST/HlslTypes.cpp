@@ -107,50 +107,52 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   return BuiltinTy != nullptr && BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
 }
 
+static bool IsMatchInType(QualType type, std::function<bool(QualType)> matchFn,
+                          SourceLocation *locOut = nullptr) {
+  while (true) {
+    type = QualType(type->getUnqualifiedDesugaredType(), 0);
+    if (type->isReferenceType() || type->isPointerType())
+      type = type->getPointeeType();
+    else if (const ArrayType *AT = dyn_cast<ArrayType>(type))
+      type = AT->getElementType();
+    else
+      break;
+  }
 
-bool IsOrContainsHLSLResourceType(clang::QualType type) {
-  if (IsHLSLResourceType(type)){
+  if (matchFn(type))
     return true;
-  }
 
-  bool children_has_HLSL_Resource_type = false;
-  if (type->isStructureType()) {
-    clang::RecordDecl::field_iterator field_iterator = type->getAsStructureType()->getDecl()->field_begin();
-    clang::RecordDecl::field_iterator field_iterator_end = type->getAsStructureType()->getDecl()->field_end();
-    // recurse on fields
-    for (; field_iterator != field_iterator_end; field_iterator++) {
-      QualType childType = (*field_iterator)->getType();
-      
-      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(childType);
+  if (const CXXRecordDecl *RD = type->getAsCXXRecordDecl()) {
+    // struct or class
+    for (const FieldDecl *FD : RD->fields()) {
+      if (IsMatchInType(FD->getType(), matchFn, locOut)) {
+        if (locOut && !locOut->isValid())
+          *locOut = FD->getLocation();
+        return true;
+      }
     }
-    // recurse on base structs
-    if (!type.isCanonical()){
-      QualType CType = type.getCanonicalType();
-      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(CType);
+    for (const CXXBaseSpecifier &BS : RD->bases()) {
+      if (IsMatchInType(BS.getType(), matchFn, locOut))
+        return true;
     }
-
-  }
-
-  if (type->isClassType()) {
-    const RecordType *RT = type->getAs<RecordType>();
-    clang::RecordDecl::field_iterator field_iterator = RT->getDecl()->field_begin();
-    clang::RecordDecl::field_iterator field_iterator_end = RT->getDecl()->field_end();
-    // recurse on fields
-    for (; field_iterator != field_iterator_end; field_iterator++) {
-      QualType childType = (*field_iterator)->getType();
-
-      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(childType);
-    }
-    // recurse on parent classes
-    const clang::QualType ParentTy = type.getCanonicalType();
-    if (!type.isCanonical()){
-      children_has_HLSL_Resource_type |= IsOrContainsHLSLResourceType(ParentTy);
+  } else if (const RecordType *RT = type->getAsUnionType()) {
+    // union
+    RecordDecl *RD = RT->getDecl();
+    for (const FieldDecl *FD : RD->fields()) {
+      if (IsMatchInType(FD->getType(), matchFn, locOut)) {
+        if (locOut && !locOut->isValid())
+          *locOut = FD->getLocation();
+        return true;
+      }
     }
   }
 
-  return children_has_HLSL_Resource_type;
+  return false;
 }
 
+bool ContainsHLSLResourceType(QualType type, SourceLocation *locOut) {
+  return IsMatchInType(type, IsHLSLResourceType, locOut);
+}
 
 bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
