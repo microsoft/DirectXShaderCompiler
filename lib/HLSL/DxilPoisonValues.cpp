@@ -1,3 +1,15 @@
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// DxilPoisonValues.cpp                                                      //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+// Allows insertion of poisoned values with error messages that get          //
+// cleaned up late in the compiler.                                          //
+//                                                                           //
+/////////////////////////////////////////////////////////////////////////////// 
+
 #include "dxc/HLSL/DxilPoisonValues.h"
 
 #include "llvm/Support/raw_ostream.h"
