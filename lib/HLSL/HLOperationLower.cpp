@@ -26,6 +26,7 @@
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/HLSL/DxilPoisonValues.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -6822,24 +6823,35 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         unsigned tempOffset = size * immIdx;
         if (size == 2) { // 16-bit types
           unsigned channelInc = tempOffset >> 1;
-          DXASSERT((channel + channelInc) <= 8, "vector should not cross cb register (8x16bit)");
-          channel += channelInc;
-          if (channel == 8) {
-            // Get to another row.
-            // Update index and channel.
+          if ((channel + channelInc) < 8) {
+            channel += channelInc;
+            if (channel == 8) {
+              // Get to another row.
+              // Update index and channel.
+              channel = 0;
+              legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+            }
+          }
+          else {
             channel = 0;
-            legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+            legacyIndex = hlsl::CreatePoisonValue(legacyIndex->getType(), "CBuffer access out of bound", GEP->getDebugLoc(), GEP);
           }
         }
         else {
           unsigned channelInc = tempOffset >> 2;
-          DXASSERT((channel + channelInc) <= 4, "vector should not cross cb register (8x32bit)");
-          channel += channelInc;
-          if (channel == 4) {
-            // Get to another row.
-            // Update index and channel.
+          if ((channel + channelInc) < 4) {
+            DXASSERT((channel + channelInc) < 4, "vector should not cross cb register (8x32bit)");
+            channel += channelInc;
+            if (channel == 4) {
+              // Get to another row.
+              // Update index and channel.
+              channel = 0;
+              legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+            }
+          }
+          else {
             channel = 0;
-            legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+            legacyIndex = hlsl::CreatePoisonValue(legacyIndex->getType(), "CBuffer access out of bound", GEP->getDebugLoc(), GEP);
           }
         }
       } else {
