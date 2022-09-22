@@ -136,6 +136,34 @@ public:
     MarkHasCounterOnCreateHandle(counterHandle, resSet);
   }
 
+  DxilResourceBase *FindCBufferResourceFromHandle(Value *handle) {
+    if (CallInst *CI = dyn_cast<CallInst>(handle)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLAnnotateHandle) {
+        handle = CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
+      }
+    }
+
+    Constant *symbol = nullptr;
+    if (CallInst *CI = dyn_cast<CallInst>(handle)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLCreateHandle) {
+        symbol = dyn_cast<Constant>(CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
+      }
+    }
+
+    if (!symbol)
+      return nullptr;
+
+    for (const std::unique_ptr<DxilCBuffer> &res : HLM.GetCBuffers()) {
+      if (res->GetGlobalSymbol() == symbol)
+        return res.get();
+    }
+    return nullptr;
+  }
+
   Value *GetOrCreateResourceForCbPtr(GetElementPtrInst *CbPtr,
                                      GlobalVariable *CbGV,
                                      DxilResourceProperties &RP) {
@@ -6817,42 +6845,33 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
       // Array always start from x channel.
       channel = 0;
     } else if (GEPIt->isVectorTy()) {
-      unsigned size = DL.getTypeAllocSize(GEPIt->getVectorElementType());
       // Indexing on vector.
       if (bImmIdx) {
-        unsigned tempOffset = size * immIdx;
-        if (size == 2) { // 16-bit types
-          unsigned channelInc = tempOffset >> 1;
-          if ((channel + channelInc) < 8) {
-            channel += channelInc;
-            if (channel == 8) {
-              // Get to another row.
-              // Update index and channel.
-              channel = 0;
-              legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
-            }
-          }
-          else {
+        if (immIdx < GEPIt->getVectorNumElements()) {
+          const unsigned vectorElmSize     = DL.getTypeAllocSize(GEPIt->getVectorElementType());
+          const bool     bIs16bitType      = vectorElmSize == 2;
+          const unsigned tempOffset        = vectorElmSize * immIdx;
+          const unsigned numChannelsPerRow = bIs16bitType ? 8 : 4;
+          const unsigned channelInc        = bIs16bitType ? tempOffset >> 1 : tempOffset >> 2;
+
+          DXASSERT((channel + channelInc) < numChannelsPerRow, "vector should not cross cb register");
+          channel += channelInc;
+          if (channel == numChannelsPerRow) {
+            // Get to another row.
+            // Update index and channel.
             channel = 0;
-            legacyIndex = hlsl::CreatePoisonValue(legacyIndex->getType(), "CBuffer access out of bound", GEP->getDebugLoc(), GEP);
+            legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
           }
         }
         else {
-          unsigned channelInc = tempOffset >> 2;
-          if ((channel + channelInc) < 4) {
-            DXASSERT((channel + channelInc) < 4, "vector should not cross cb register (8x32bit)");
-            channel += channelInc;
-            if (channel == 4) {
-              // Get to another row.
-              // Update index and channel.
-              channel = 0;
-              legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
-            }
+          StringRef resName = "(unknown)";
+          if (DxilResourceBase *Res = pObjHelper->FindCBufferResourceFromHandle(handle)) {
+            resName = Res->GetGlobalName();
           }
-          else {
-            channel = 0;
-            legacyIndex = hlsl::CreatePoisonValue(legacyIndex->getType(), "CBuffer access out of bound", GEP->getDebugLoc(), GEP);
-          }
+          legacyIndex = hlsl::CreatePoisonValue(legacyIndex->getType(),
+            Twine("Out of bounds index (") + Twine(immIdx) + Twine(") in CBuffer '") + Twine(resName) + ("'"),
+            GEP->getDebugLoc(), GEP);
+          channel = 0;
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();

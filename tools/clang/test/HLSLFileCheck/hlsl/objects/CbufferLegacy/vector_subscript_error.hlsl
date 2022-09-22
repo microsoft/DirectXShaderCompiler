@@ -2,13 +2,13 @@
 
 cbuffer constants : register(b0)
 {
-    float4 foo;
+    float2 foo;
 }
 
 float main() : SV_TARGET
 {
     float ret = 0;
-    uint index = 5;
+    uint index = 2;
     if (index < 10) {
         ret += foo[index];
     }
@@ -20,6 +20,6 @@ float main() : SV_TARGET
 // 2) when lowering the cbuffer load, the index is resolved to be a constant
 // 3) lowering code crashed because it assumed OOB access isn't possible when the index is constant.
 
-// CHECK: 13:{{[0-9]+}}: error: CBuffer access out of bound
+// CHECK: 13:{{[0-9]+}}: error: Out of bounds index (2) in CBuffer 'constants'
 
 
