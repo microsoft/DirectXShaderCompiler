@@ -58,6 +58,7 @@ enum class RuntimeDataPartType : uint32_t {
   RawBytes            = 5,
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
+
   // PRERELEASE-TODO: assign values explicitly to all enums before release
   SignatureElementTable,
   VSInfoTable,
@@ -68,13 +69,15 @@ enum class RuntimeDataPartType : uint32_t {
   CSInfoTable,
   MSInfoTable,
   ASInfoTable,
-  Last_1_7 = ASInfoTable, // PRERELEASE-TODO: change to last necessary 1.7 part before release.
-  // Insert experimental here.
+
   NodeIDTable,
   NodeShaderIOAttribTable,
   NodeShaderFuncAttribTable,
   IONodeTable,
   NodeShaderInfoTable,
+
+  Last_1_8 = NodeShaderInfoTable, // PRERELEASE-TODO: change to last necessary 1.8 part before release.
+  // Insert experimental here.
 
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
@@ -90,10 +93,10 @@ RuntimeDataPartType MaxPartTypeForValVer(unsigned Major, unsigned Minor) {
              ? RuntimeDataPartType::Invalid // No RDAT before 1.3
          : DXIL::CompareVersions(Major, Minor, 1, 4) < 0
              ? RuntimeDataPartType::Last_1_3
-         : DXIL::CompareVersions(Major, Minor, 1, 7) < 0
+         : DXIL::CompareVersions(Major, Minor, 1, 8) < 0
              ? RuntimeDataPartType::Last_1_4
-         : DXIL::CompareVersions(Major, Minor, 1, 7) == 0
-             ? RuntimeDataPartType::Last_1_7
+         : DXIL::CompareVersions(Major, Minor, 1, 8) == 0
+             ? RuntimeDataPartType::Last_1_8
              : RuntimeDataPartType::LastExperimental;
 }
 
