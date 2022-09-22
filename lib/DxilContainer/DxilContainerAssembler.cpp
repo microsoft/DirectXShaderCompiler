@@ -1046,7 +1046,7 @@ private:
       e.SetOutputStream(E->GetOutputStream());
       e.SetUsageMask(E->GetUsageMask());
       e.SetDynamicIndexMask(E->GetDynIdxCompMask());
-      rdatElements.push_back(Builder.GetOrAddTable<RDAT::SignatureElement>()->Insert(e));
+      rdatElements.push_back(Builder.InsertRecord(e));
 
       if (E->GetKind() == DXIL::SemanticKind::Position)
         shaderFlags |= (uint32_t)DxilShaderFlags::OutputPositionPresent;
@@ -1084,7 +1084,7 @@ private:
       funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::SampleFrequency);
       info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
       funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::DepthOutput);
-      return Builder.GetOrAddTable<RDAT::PSInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     case ShaderKind::Vertex: {
       RDAT::VSInfo info = {};
@@ -1092,7 +1092,7 @@ private:
       info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
       funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
       // TODO: Fill in ViewID related masks
-      return Builder.GetOrAddTable<RDAT::VSInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     case ShaderKind::Geometry: {
       RDAT::GSInfo info = {};
@@ -1104,7 +1104,7 @@ private:
       info.InputPrimitive = (uint8_t)props.ShaderProps.GS.inputPrimitive;
       info.OutputTopology = (uint8_t)props.ShaderProps.GS.streamPrimitiveTopologies[0];
       info.MaxVertexCount = (uint8_t)props.ShaderProps.GS.maxVertexCount;
-      return Builder.GetOrAddTable<RDAT::GSInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     case ShaderKind::Hull: {
       RDAT::HSInfo info = {};
@@ -1116,7 +1116,7 @@ private:
       info.OutputControlPointCount = (uint8_t)props.ShaderProps.HS.outputControlPoints;
       info.TessellatorDomain = (uint8_t)props.ShaderProps.HS.domain;
       info.TessellatorOutputPrimitive = (uint8_t)props.ShaderProps.HS.outputPrimitive;
-      return Builder.GetOrAddTable<RDAT::HSInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     case ShaderKind::Domain: {
       RDAT::DSInfo info = {};
@@ -1127,7 +1127,7 @@ private:
       // TODO: Fill in ViewID related masks
       info.InputControlPointCount = (uint8_t)props.ShaderProps.DS.inputControlPoints;
       info.TessellatorDomain = (uint8_t)props.ShaderProps.DS.domain;
-      return Builder.GetOrAddTable<RDAT::DSInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     case ShaderKind::Compute: {
       RDAT::CSInfo info = {};
@@ -1135,7 +1135,7 @@ private:
           Builder.InsertArray(&props.ShaderProps.CS.numThreads[0],
                               &props.ShaderProps.CS.numThreads[0] + 3);
       info.GroupSharedBytesUsed = tgsmSizeInBytes;
-      return Builder.GetOrAddTable<RDAT::CSInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     case ShaderKind::Mesh: {
       RDAT::MSInfo info = {};
@@ -1152,7 +1152,7 @@ private:
       info.MaxOutputVertices = (uint16_t)props.ShaderProps.MS.maxVertexCount;
       info.MaxOutputPrimitives = (uint16_t)props.ShaderProps.MS.maxPrimitiveCount;
       info.MeshOutputTopology = (uint8_t)props.ShaderProps.MS.outputTopology;
-      return Builder.GetOrAddTable<RDAT::MSInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     case ShaderKind::Amplification: {
       RDAT::ASInfo info = {};
@@ -1161,7 +1161,7 @@ private:
                               &props.ShaderProps.AS.numThreads[0] + 3);
       info.GroupSharedBytesUsed = tgsmSizeInBytes;
       info.PayloadSizeInBytes = (uint32_t)props.ShaderProps.AS.payloadSizeInBytes;
-      return Builder.GetOrAddTable<RDAT::ASInfo>()->Insert(info);
+      return Builder.InsertRecord(info);
     } break;
     }
     return RDAT_NULL_REF;
