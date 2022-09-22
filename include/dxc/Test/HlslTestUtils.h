@@ -216,22 +216,15 @@ inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
 
   std::vector<std::string> runlines;
   std::string line;
-  constexpr size_t runlinesize = 300;
   while (std::getline(infile, line)) {
     if (!HasRunLine(line))
       continue;
-    char runline[runlinesize];
-    memset(runline, 0, runlinesize);
-    memcpy(runline, line.c_str(), min(runlinesize, line.size()));
-    runlines.emplace_back(runline);
+    runlines.emplace_back(line);
   }
   return runlines;
 }
 
 inline std::string GetFirstLine(LPCWSTR name) {
-  char firstLine[300];
-  memset(firstLine, 0, sizeof(firstLine));
-
   const std::wstring path = PathLooksAbsolute(name)
                                 ? std::wstring(name)
                                 : hlsl_test::GetPathToHlslDataFile(name);
@@ -247,8 +240,9 @@ inline std::string GetFirstLine(LPCWSTR name) {
     VERIFY_FAIL();
   }
 
-  infile.getline(firstLine, _countof(firstLine));
-  return firstLine;
+  std::string line;
+  std::getline(infile, line);
+  return line;
 }
 
 inline HANDLE CreateFileForReading(LPCWSTR path) {
