@@ -220,7 +220,8 @@
   #define RDAT_STRUCT_TABLE_DERIVED(type, base, table) \
     RDAT_STRUCT_DERIVED(type, base) \
     template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; } \
-    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType() { return RuntimeDataPartType::table; }
+    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType() { return RuntimeDataPartType::table; } \
+    template<> constexpr size_t RecordTraits<base>::DerivedRecordSize() { return RecordTraits<type>::MaxRecordSize(); }
 #endif // DEF_RDAT_TYPES cases
 
 // Define any undefined macros to defaults

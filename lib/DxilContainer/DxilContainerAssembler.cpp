@@ -1187,9 +1187,6 @@ private:
         }
       }
     }
-    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 7) >= 0) {
-      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
-    }
 
     // Collect total groupshared memory potentially used by every function
     const DataLayout &DL = M->getDataLayout();
@@ -1408,6 +1405,11 @@ public:
   Builder.GetStringBufferPart();
   m_pResourceTable = Builder.GetOrAddTable<RuntimeDataResourceInfo>();
   m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+    m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
+  } else {
+    m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo));
+  }
   Builder.GetIndexArraysPart();
   Builder.GetRawBytesPart();
   if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::PartType() <= maxAllowedType)
