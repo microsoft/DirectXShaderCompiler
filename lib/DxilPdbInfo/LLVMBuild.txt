@@ -11,5 +11,7 @@
 
 [component_0]
 type = Library
-name = Miniz
+name = DxilPdbInfo
 parent = Libraries
+required_libraries = DxilRDATBuilder Core Support
+
