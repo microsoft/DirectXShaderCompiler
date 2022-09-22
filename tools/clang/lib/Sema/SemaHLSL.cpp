@@ -10172,6 +10172,8 @@ void GetUnsignedLimit(ArBasicKind basicKind, uint64_t* maxValue)
   case AR_BASIC_UINT16: *maxValue = UINT16_MAX; return;
   case AR_BASIC_UINT32: *maxValue = UINT32_MAX; return;
   case AR_BASIC_UINT64: *maxValue = UINT64_MAX; return;
+  case AR_BASIC_UINT8_4PACKED:
+  case AR_BASIC_INT8_4PACKED: *maxValue = UINT32_MAX; return;
   default:
     // No other unsigned int types.
     break;
