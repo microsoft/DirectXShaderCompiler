@@ -45,7 +45,6 @@ static HRESULT AtlCheck(HRESULT hr) {
 
 // Not defined in Creators Update version of d3d12.h:
 #if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS2
-#define D3D_SHADER_MODEL_6_1 ((D3D_SHADER_MODEL)0x61)
 #define D3D12_FEATURE_D3D12_OPTIONS3 ((D3D12_FEATURE)21)
 typedef
 enum D3D12_COMMAND_LIST_SUPPORT_FLAGS
@@ -83,7 +82,6 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3
 #endif
 
 #if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS3
-#define D3D_SHADER_MODEL_6_2 ((D3D_SHADER_MODEL)0x62)
 #define D3D12_FEATURE_D3D12_OPTIONS4 ((D3D12_FEATURE)23)
 typedef enum D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER
 {
@@ -104,7 +102,6 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS4
 #endif
 
 #if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS4
-#define D3D_SHADER_MODEL_6_3 ((D3D_SHADER_MODEL)0x63)
 #define D3D12_FEATURE_D3D12_OPTIONS5 ((D3D12_FEATURE)27)
 typedef enum D3D12_RENDER_PASS_TIER
 {
@@ -128,21 +125,27 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS5
 }   D3D12_FEATURE_DATA_D3D12_OPTIONS5;
 #endif
 
-#ifndef NTDDI_WIN10_RS5
-#define NTDDI_WIN10_RS5 0x0A000006
+#ifndef NTDDI_WIN10_NI
+#define NTDDI_WIN10_NI 0x0A00000C
 #endif
 
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS5
-#define D3D_SHADER_MODEL_6_4 ((D3D_SHADER_MODEL)0x64)
-#endif
-
-// TODO: Place under new version once available
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS5
-#define D3D_SHADER_MODEL_6_5 ((D3D_SHADER_MODEL)0x65)
+#if WDK_NTDDI_VERSION <= NTDDI_WIN10_NI
+#define D3D12_FEATURE_D3D12_OPTIONS14 ((D3D12_FEATURE)43)
+typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS14
+{
+  _Out_  BOOL AdvancedTextureOpsSupported;
+  _Out_  BOOL WriteableMSAATexturesSupported;
+  _Out_  BOOL IndependentFrontAndBackStencilRefMaskSupported;
+} 	D3D12_FEATURE_DATA_D3D12_OPTIONS14;
 #endif
 
 #pragma warning( disable : 4063 )
 #define D3D12_RAYTRACING_TIER_1_1 ((D3D12_RAYTRACING_TIER)11)
+#define D3D_SHADER_MODEL_6_1 ((D3D_SHADER_MODEL)0x61)
+#define D3D_SHADER_MODEL_6_2 ((D3D_SHADER_MODEL)0x62)
+#define D3D_SHADER_MODEL_6_3 ((D3D_SHADER_MODEL)0x63)
+#define D3D_SHADER_MODEL_6_4 ((D3D_SHADER_MODEL)0x64)
+#define D3D_SHADER_MODEL_6_5 ((D3D_SHADER_MODEL)0x65)
 #define D3D_SHADER_MODEL_6_6 ((D3D_SHADER_MODEL)0x66)
 #define D3D_SHADER_MODEL_6_7 ((D3D_SHADER_MODEL)0x67)
 #define D3D_SHADER_MODEL_6_8 ((D3D_SHADER_MODEL)0x68)
@@ -229,10 +232,13 @@ static HRESULT PrintAdapters() {
       D3D12_FEATURE_DATA_D3D12_OPTIONS3 DeviceOptions3;
       D3D12_FEATURE_DATA_D3D12_OPTIONS4 DeviceOptions4;
       D3D12_FEATURE_DATA_D3D12_OPTIONS5 DeviceOptions5;
+      D3D12_FEATURE_DATA_D3D12_OPTIONS14 DeviceOptions14;
+
       memset(&DeviceOptions, 0, sizeof(DeviceOptions));
       memset(&DeviceOptions3, 0, sizeof(DeviceOptions3));
       memset(&DeviceOptions4, 0, sizeof(DeviceOptions4));
       memset(&DeviceOptions5, 0, sizeof(DeviceOptions5));
+      memset(&DeviceOptions14, 0, sizeof(DeviceOptions14));
       D3D12_FEATURE_DATA_SHADER_MODEL DeviceSM;
       AtlCheck(pAdapter->GetDesc1(&AdapterDesc));
       AtlCheck(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
@@ -240,10 +246,12 @@ static HRESULT PrintAdapters() {
       pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS3, &DeviceOptions3, sizeof(DeviceOptions3));
       pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS4, &DeviceOptions4, sizeof(DeviceOptions4));
       pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &DeviceOptions5, sizeof(DeviceOptions5));
+      pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS14, &DeviceOptions14, sizeof(DeviceOptions14));
+
       AtlCheck(GetHighestShaderModel(pDevice, DeviceSM));
       const char *Format = IsOutputJson ?
-        "%c { \"name\": \"%S\", \"sm\": \"%s\", \"wave\": %s, \"i64\": %s, \"bary\": %s, \"view-inst\": \"%s\", \"16bit\": %s, \"raytracing\": \"%s\" }\n" :
-        "%c %S - Highest SM [%s] Wave [%s] I64 [%s] Barycentrics [%s] View Instancing [%s] 16bit Support [%s] Raytracing [%s]\n";
+        "%c { \"name\": \"%S\", \"sm\": \"%s\", \"wave\": %s, \"i64\": %s, \"bary\": %s, \"view-inst\": \"%s\", \"16bit\": %s, \"raytracing\": \"%s\", \"ato\":\"%s\" }\n" :
+        "%c %S - Highest SM [%s] Wave [%s] I64 [%s] Barycentrics [%s] View Instancing [%s] 16bit Support [%s] Raytracing [%s] Advanced Texture Ops [%s]\n";
       printf(Format,
              comma,
              AdapterDesc.Description,
@@ -253,7 +261,8 @@ static HRESULT PrintAdapters() {
              BoolToStr(DeviceOptions3.BarycentricsSupported),
              ViewInstancingTierToStr(DeviceOptions3.ViewInstancingTier),
              BoolToStr(DeviceOptions4.Native16BitShaderOpsSupported),
-             RaytracingTierToStr(DeviceOptions5.RaytracingTier)
+             RaytracingTierToStr(DeviceOptions5.RaytracingTier),
+             BoolToStr(DeviceOptions14.AdvancedTextureOpsSupported)
             );
       AdapterIndex++;
       comma = IsOutputJson ? ',' : ' ';
