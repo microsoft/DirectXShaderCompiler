@@ -1421,7 +1421,7 @@ def get_shader_model_get():
     result += "unsigned hash = (unsigned)Kind << 16 | Major << 8 | Minor;\n"
     result += "auto pred = [](const std::pair<unsigned, unsigned>& elem, unsigned val){ return elem.first < val;};\n"
     result += "auto it = std::lower_bound(std::begin(hashToIdxMap), std::end(hashToIdxMap), hash, pred);\n"
-    result += "if (it == std::end(hashToIdxMap))\n"
+    result += "if (it == std::end(hashToIdxMap) || it->first != hash)\n"
     result += "  return GetInvalid();\n"
     result += "return &ms_ShaderModels[it->second];"
     return result
