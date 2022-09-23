@@ -11375,12 +11375,12 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     std::vector<LPCWSTR> Args(ArgsStorage.size());
     for (unsigned i = 0; i < ArgsStorage.size(); ++i)
       Args[i] = ArgsStorage[i].c_str();
-    std::vector<LPCSTR> LookFors(LookForsStorage.size());
+    std::vector<std::string> LookFors(LookForsStorage.size());
     for (unsigned i = 0; i < LookForsStorage.size(); ++i)
-      LookFors[i] = LookForsStorage[i].c_str();
-    std::vector<LPCSTR> Replacements(ReplacementsStorage.size());
+      LookFors[i] = LookForsStorage[i];
+    std::vector<std::string> Replacements(ReplacementsStorage.size());
     for (unsigned i = 0; i < ReplacementsStorage.size(); ++i)
-      Replacements[i] = ReplacementsStorage[i].c_str();
+      Replacements[i] = ReplacementsStorage[i];
 
     CComPtr<IDxcUtils> pUtils;
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));

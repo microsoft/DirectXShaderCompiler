@@ -12,6 +12,7 @@
 #include <sstream>
 #include <fstream>
 #include <atomic>
+#include <regex>
 #include <cmath>
 #include <vector>
 #include <algorithm>
@@ -515,6 +516,63 @@ inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float
   float src_f32 = ConvertFloat16ToFloat32(fsrc);
   float ref_f32 = ConvertFloat16ToFloat32(fref);
   return std::abs(src_f32-ref_f32) < epsilon;
+}
+
+
+inline void ReplaceDisassemblyText(std::vector<std::string> pLookFors,
+                            std::vector<std::string> pReplacements, bool bRegex,
+                            std::string &disassembly) {
+  for (unsigned i = 0; i < pLookFors.size(); ++i) {
+    LPCSTR pLookFor = pLookFors[i].data();
+    bool bOptional = false;
+    if (pLookFor[0] == '?') {
+      bOptional = true;
+      pLookFor++;
+    }
+    LPCSTR pReplacement = pReplacements[i].data();
+    if (pLookFor && *pLookFor) {
+      if (bRegex) {
+        try {
+          std::regex RE(pLookFor);
+          std::smatch regex_match;
+          std::string replaced = std::regex_replace(disassembly, RE, pReplacement);
+          //std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
+          if (!bOptional) {            
+            VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
+          }
+          disassembly = std::move(replaced);
+        } 
+        catch (std::regex_error &e) {
+
+          WEX::Logging::Log::Comment(WEX::Common::String().Format(
+              L"Regex errors: while compiling expression '%S'. \r\n Error code: %d",
+              pLookFor, e.code()));
+        }
+        
+      } else {
+        bool found = false;
+        size_t pos = 0;
+        size_t lookForLen = strlen(pLookFor);
+        size_t replaceLen = strlen(pReplacement);
+        for (;;) {
+          pos = disassembly.find(pLookFor, pos);
+          if (pos == std::string::npos)
+            break;
+          found = true; // at least once
+          disassembly.replace(pos, lookForLen, pReplacement);
+          pos += replaceLen;
+        }
+        if (!bOptional) {
+          if (!found) {
+            WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                L"String not found: '%S' in text:\r\n%.*S", pLookFor,
+                (unsigned)disassembly.size(), disassembly.data()));
+          }
+          VERIFY_IS_TRUE(found);
+        }
+      }
+    }
+  }
 }
 
 inline bool CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref, int nRelativeExp) {

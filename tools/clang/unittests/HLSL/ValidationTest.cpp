@@ -400,6 +400,16 @@ public:
     *text = ::DisassembleProgram(m_dllSupport, pProgram);
   }
 
+  std::vector<std::string> ConvertLLVMStringArrayToStringVector(llvm::ArrayRef<LPCSTR> a) {
+    std::vector<std::string> ret;
+    for (int i = 0; i < a.size(); i++) {
+      const char *pStr = a[i];
+      std::string s(pStr);
+      ret.push_back(s);
+    }
+    return ret;
+  }
+
   bool RewriteAssemblyCheckMsg(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
     LPCWSTR *pArguments, UINT32 argCount,
     const DxcDefine *pDefines, UINT32 defineCount,
@@ -415,8 +425,13 @@ public:
       return false;
 
     DisassembleProgram(pProgram, &disassembly);
+    std::vector<std::string> pLookForStrs =
+        ConvertLLVMStringArrayToStringVector(pLookFors);
+    std::vector<std::string> pReplacementsStrs =
+        ConvertLLVMStringArrayToStringVector(pReplacements);    
 
-    ReplaceDisassemblyText(pLookFors, pReplacements, bRegex, disassembly);
+    ReplaceDisassemblyText(pLookForStrs, pReplacementsStrs,
+                           bRegex, disassembly);
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), &pText);
     
     CComPtr<IDxcAssembler> pAssembler;
