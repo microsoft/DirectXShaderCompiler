@@ -415,6 +415,7 @@ public:
       return false;
 
     DisassembleProgram(pProgram, &disassembly);  
+
     ReplaceDisassemblyText(pLookFors, pReplacements,
                            bRegex, disassembly);
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), &pText);
