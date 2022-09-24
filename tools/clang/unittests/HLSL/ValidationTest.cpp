@@ -400,16 +400,6 @@ public:
     *text = ::DisassembleProgram(m_dllSupport, pProgram);
   }
 
-  std::vector<std::string> ConvertLLVMStringArrayToStringVector(llvm::ArrayRef<LPCSTR> a) {
-    std::vector<std::string> ret;
-    for (int i = 0; i < a.size(); i++) {
-      const char *pStr = a[i];
-      std::string s(pStr);
-      ret.push_back(s);
-    }
-    return ret;
-  }
-
   bool RewriteAssemblyCheckMsg(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
     LPCWSTR *pArguments, UINT32 argCount,
     const DxcDefine *pDefines, UINT32 defineCount,
@@ -424,13 +414,9 @@ public:
     if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram))
       return false;
 
-    DisassembleProgram(pProgram, &disassembly);
-    std::vector<std::string> pLookForStrs =
-        ConvertLLVMStringArrayToStringVector(pLookFors);
-    std::vector<std::string> pReplacementsStrs =
-        ConvertLLVMStringArrayToStringVector(pReplacements);    
+    DisassembleProgram(pProgram, &disassembly);  
 
-    ReplaceDisassemblyText(pLookForStrs, pReplacementsStrs,
+    ReplaceDisassemblyText(pLookFors, pReplacements,
                            bRegex, disassembly);
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), &pText);
     
@@ -1107,8 +1093,8 @@ TEST_F(ValidationTest, SignatureDataWidth) {
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\signature_packing_by_width.hlsl", "ps_6_2",
       pArguments.data(), 3, nullptr, 0,
-      {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null\\}"},
-      {"i8 9, i8 0, $1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
+      {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
+      {"i8 9, i8 0, \\1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
       "signature element F at location \\(0, 2\\) size \\(1, 2\\) has data "
       "width that differs from another element packed into the same row.",
       true);

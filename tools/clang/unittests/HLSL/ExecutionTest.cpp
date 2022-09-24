@@ -11351,9 +11351,8 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 
 // Copies input strings to local storage, so it doesn't rely on lifetime of input string pointers.
 st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
-    llvm::ArrayRef<LPCWSTR> dxcArgs,
-    llvm::ArrayRef<LPCSTR> LookFors,
-    llvm::ArrayRef<LPCSTR> Replacements,
+    std::vector<std::wstring> dxcArgs, std::vector<std::string> LookFors,
+    std::vector<std::string> Replacements,
     dxc::DxcDllSupport &dllSupport) {
   // place ArrayRef arguments in std::vector locals, and copy them by value into the callback function lambda
   std::vector<std::wstring> ArgsStorage(dxcArgs.size());
@@ -11389,10 +11388,9 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     VerifyCompileOK(dllSupport, pText, L"cs_6_0", Args, &compiledShader);
     std::string disassembly = DisassembleProgram(dllSupport, compiledShader);
     // Replace op
-    ReplaceDisassemblyText(
+    ReplaceDisassemblyTextWithoutRegex(
       LookFors,
-      Replacements,
-      /*bRegex*/false,
+      Replacements,      
       disassembly
     );
     // Wrap text in UTF8 blob

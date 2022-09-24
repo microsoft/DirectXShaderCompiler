@@ -519,8 +519,8 @@ inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float
 }
 
 
-inline void ReplaceDisassemblyText(std::vector<std::string> pLookFors,
-                            std::vector<std::string> pReplacements, bool bRegex,
+inline void ReplaceDisassemblyTextWithoutRegex(std::vector<std::string> pLookFors,
+                            std::vector<std::string> pReplacements,
                             std::string &disassembly) {
   for (unsigned i = 0; i < pLookFors.size(); ++i) {
     LPCSTR pLookFor = pLookFors[i].data();
@@ -531,45 +531,26 @@ inline void ReplaceDisassemblyText(std::vector<std::string> pLookFors,
     }
     LPCSTR pReplacement = pReplacements[i].data();
     if (pLookFor && *pLookFor) {
-      if (bRegex) {
-        try {
-          std::regex RE(pLookFor);
-          std::smatch regex_match;
-          std::string replaced = std::regex_replace(disassembly, RE, pReplacement);
-          //std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
-          if (!bOptional) {            
-            VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
-          }
-          disassembly = std::move(replaced);
-        } 
-        catch (std::regex_error &e) {
-
+      
+      bool found = false;
+      size_t pos = 0;
+      size_t lookForLen = strlen(pLookFor);
+      size_t replaceLen = strlen(pReplacement);
+      for (;;) {
+        pos = disassembly.find(pLookFor, pos);
+        if (pos == std::string::npos)
+          break;
+        found = true; // at least once
+        disassembly.replace(pos, lookForLen, pReplacement);
+        pos += replaceLen;
+      }
+      if (!bOptional) {
+        if (!found) {
           WEX::Logging::Log::Comment(WEX::Common::String().Format(
-              L"Regex errors: while compiling expression '%S'. \r\n Error code: %d",
-              pLookFor, e.code()));
+              L"String not found: '%S' in text:\r\n%.*S", pLookFor,
+              (unsigned)disassembly.size(), disassembly.data()));
         }
-        
-      } else {
-        bool found = false;
-        size_t pos = 0;
-        size_t lookForLen = strlen(pLookFor);
-        size_t replaceLen = strlen(pReplacement);
-        for (;;) {
-          pos = disassembly.find(pLookFor, pos);
-          if (pos == std::string::npos)
-            break;
-          found = true; // at least once
-          disassembly.replace(pos, lookForLen, pReplacement);
-          pos += replaceLen;
-        }
-        if (!bOptional) {
-          if (!found) {
-            WEX::Logging::Log::Comment(WEX::Common::String().Format(
-                L"String not found: '%S' in text:\r\n%.*S", pLookFor,
-                (unsigned)disassembly.size(), disassembly.data()));
-          }
-          VERIFY_IS_TRUE(found);
-        }
+        VERIFY_IS_TRUE(found);        
       }
     }
   }
