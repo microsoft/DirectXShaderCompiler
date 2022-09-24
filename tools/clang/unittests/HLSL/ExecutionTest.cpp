@@ -11354,32 +11354,17 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     std::vector<std::wstring> dxcArgs, std::vector<std::string> LookFors,
     std::vector<std::string> Replacements,
     dxc::DxcDllSupport &dllSupport) {
-  // place ArrayRef arguments in std::vector locals, and copy them by value into the callback function lambda
-  std::vector<std::wstring> ArgsStorage(dxcArgs.size());
-    for (unsigned i = 0; i < dxcArgs.size(); ++i)
-      ArgsStorage[i] = dxcArgs[i];
-  std::vector<std::string> LookForsStorage(LookFors.size());
-    for (unsigned i = 0; i < LookFors.size(); ++i)
-      LookForsStorage[i] = LookFors[i];
-  std::vector<std::string> ReplacementsStorage(Replacements.size());
-    for (unsigned i = 0; i < Replacements.size(); ++i)
-      ReplacementsStorage[i] = Replacements[i];
+  
   auto ShaderInitFn = 
-      [ArgsStorage, LookForsStorage, ReplacementsStorage, &dllSupport]
+      [dxcArgs, &LookFors, &Replacements, &dllSupport]
       (LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, st::ShaderOp *pShaderOp) {
     
     UNREFERENCED_PARAMETER(pShaderOp);
     UNREFERENCED_PARAMETER(Name);
     // Create pointer vectors from local storage to supply API needs
-    std::vector<LPCWSTR> Args(ArgsStorage.size());
-    for (unsigned i = 0; i < ArgsStorage.size(); ++i)
-      Args[i] = ArgsStorage[i].c_str();
-    std::vector<std::string> LookFors(LookForsStorage.size());
-    for (unsigned i = 0; i < LookForsStorage.size(); ++i)
-      LookFors[i] = LookForsStorage[i];
-    std::vector<std::string> Replacements(ReplacementsStorage.size());
-    for (unsigned i = 0; i < ReplacementsStorage.size(); ++i)
-      Replacements[i] = ReplacementsStorage[i];
+    std::vector<LPCWSTR> Args(dxcArgs.size());
+    for (unsigned i = 0; i < dxcArgs.size(); ++i)
+      Args[i] = dxcArgs[i].c_str();    
 
     CComPtr<IDxcUtils> pUtils;
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));

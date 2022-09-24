@@ -233,14 +233,13 @@ void ReplaceDisassemblyTextWithRegex(llvm::ArrayRef<LPCSTR> pLookFors,
   }
 }
 
-std::vector<std::string> ConvertLLVMStringArrayToStringVector(llvm::ArrayRef<LPCSTR> a) {
-  std::vector<std::string> ret;
+void ConvertLLVMStringArrayToStringVector(llvm::ArrayRef<LPCSTR> a,
+                                          std::vector<std::string> &ret) {
+  ret.clear();
+  ret.reserve(a.size());
   for (int i = 0; i < a.size(); i++) {
-    const char *pStr = a[i];
-    std::string s(pStr);
-    ret.push_back(s);
+    ret.emplace_back(a[i]);
   }
-  return ret;
 }
 
 void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
@@ -250,10 +249,10 @@ void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
     ReplaceDisassemblyTextWithRegex(pLookFors, pReplacements, disassembly);
   } 
   else {
-    std::vector<std::string> pLookForStrs =
-        ConvertLLVMStringArrayToStringVector(pLookFors);
-    std::vector<std::string> pReplacementsStrs =
-        ConvertLLVMStringArrayToStringVector(pReplacements); 
+    std::vector<std::string> pLookForStrs;
+    ConvertLLVMStringArrayToStringVector(pLookFors, pLookForStrs);
+    std::vector<std::string> pReplacementsStrs;
+    ConvertLLVMStringArrayToStringVector(pReplacements, pReplacementsStrs); 
     ReplaceDisassemblyTextWithoutRegex(pLookForStrs, pReplacementsStrs,
                                        disassembly);
   }

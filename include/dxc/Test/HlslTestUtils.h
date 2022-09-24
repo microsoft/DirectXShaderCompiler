@@ -519,8 +519,8 @@ inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float
 }
 
 
-inline void ReplaceDisassemblyTextWithoutRegex(std::vector<std::string> pLookFors,
-                            std::vector<std::string> pReplacements,
+inline void ReplaceDisassemblyTextWithoutRegex(std::vector<std::string> &pLookFors,
+                            std::vector<std::string> &pReplacements,
                             std::string &disassembly) {
   for (unsigned i = 0; i < pLookFors.size(); ++i) {
     LPCSTR pLookFor = pLookFors[i].data();
