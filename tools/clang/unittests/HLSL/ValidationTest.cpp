@@ -1107,8 +1107,8 @@ TEST_F(ValidationTest, SignatureDataWidth) {
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\signature_packing_by_width.hlsl", "ps_6_2",
       pArguments.data(), 3, nullptr, 0,
-      {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
-      {"i8 9, i8 0, \\1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
+      {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null\\}"},
+      {"i8 9, i8 0, $1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
       "signature element F at location \\(0, 2\\) size \\(1, 2\\) has data "
       "width that differs from another element packed into the same row.",
       true);
