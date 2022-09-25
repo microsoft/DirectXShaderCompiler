@@ -2539,7 +2539,7 @@ SpirvInstruction *SpirvEmitter::getBaseOfMemberFunction(
 SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   const FunctionDecl *callee = getCalleeDefinition(callExpr);
 
-  // Note that we always want the defintion because Stmts/Exprs in the
+  // Note that we always want the definition because Stmts/Exprs in the
   // function body references the parameters in the definition.
   if (!callee) {
     emitError("found undefined function", callExpr->getExprLoc());
@@ -2641,7 +2641,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     const uint32_t argIndex = i + isOperatorOverloading;
 
     // We want the argument variable here so that we can write back to it
-    // later. We will do the OpLoad of this argument manually. So ingore
+    // later. We will do the OpLoad of this argument manually. So ignore
     // the LValueToRValue implicit cast here.
     auto *arg = callExpr->getArg(argIndex)->IgnoreParenLValueCasts();
     const auto *param = callee->getParamDecl(i);
@@ -7771,6 +7771,16 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
+    uint32_t fromCount = 0;
+    const bool fromIsVec = isVectorType(fromType, nullptr, &fromCount);
+    uint32_t toCount = 0;
+    const bool toIsVec = isVectorType(toFloatType, nullptr, &toCount);
+
+    if (fromIsVec != toIsVec || fromCount != toCount) {
+      emitError("casting from %0 to %1 unsupported", srcLoc) << fromType <<
+          toFloatType;
+      return nullptr;
+    }
     // This is the case of float to float conversion with different bitwidths.
     return convertBitwidth(fromVal, srcLoc, fromType, toFloatType, nullptr,
                            range);

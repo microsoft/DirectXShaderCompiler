@@ -518,6 +518,9 @@ TEST_F(FileTest, CastFlatConversionLiteralInitializer) {
 TEST_F(FileTest, CastFlatConversionDecomposeVector) {
   runFileTest("cast.flat-conversion.vector.hlsl");
 }
+TEST_F(FileTest, CastImplicitScalarToVec) {
+  runFileTest("cast.scalar-to-vec.implicit.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, CastExplicitVecToMat) {
   runFileTest("cast.vec-to-mat.explicit.hlsl");
 }
