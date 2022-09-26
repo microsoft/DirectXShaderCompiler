@@ -11356,7 +11356,7 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     dxc::DxcDllSupport &dllSupport) {
   
   auto ShaderInitFn = 
-      [dxcArgs, &lookFors, &replacements, &dllSupport]
+      [dxcArgs, lookFors, replacements, &dllSupport]
       (LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, st::ShaderOp *pShaderOp) {
     
     UNREFERENCED_PARAMETER(pShaderOp);

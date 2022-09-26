@@ -519,39 +519,41 @@ inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float
 }
 
 
-inline void ReplaceDisassemblyTextWithoutRegex(std::vector<std::string> &pLookFors,
-                            std::vector<std::string> &pReplacements,
+inline void ReplaceDisassemblyTextWithoutRegex(const std::vector<std::string> &lookFors,
+                            const std::vector<std::string> &replacements,
                             std::string &disassembly) {
-  for (unsigned i = 0; i < pLookFors.size(); ++i) {
-    LPCSTR pLookFor = pLookFors[i].data();
+  for (unsigned i = 0; i < lookFors.size(); ++i) {
+    
     bool bOptional = false;
+          
+    bool found = false;
+    size_t pos = 0;
+    LPCSTR pLookFor = lookFors[i].data();
+    size_t lookForLen = lookFors[i].size();
     if (pLookFor[0] == '?') {
       bOptional = true;
       pLookFor++;
+      lookForLen--;
     }
-    LPCSTR pReplacement = pReplacements[i].data();
-    if (pLookFor && *pLookFor) {
-      
-      bool found = false;
-      size_t pos = 0;
-      size_t lookForLen = strlen(pLookFor);
-      size_t replaceLen = strlen(pReplacement);
-      for (;;) {
-        pos = disassembly.find(pLookFor, pos);
-        if (pos == std::string::npos)
-          break;
-        found = true; // at least once
-        disassembly.replace(pos, lookForLen, pReplacement);
-        pos += replaceLen;
+    if (!pLookFor || !*pLookFor) {
+      continue;
+    }
+
+    for (;;) {
+      pos = disassembly.find(pLookFor, pos);
+      if (pos == std::string::npos)
+        break;
+      found = true; // at least once
+      disassembly.replace(pos, lookForLen, replacements[i]);
+      pos += replacements[i].size();
+    }
+    if (!bOptional) {
+      if (!found) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"String not found: '%S' in text:\r\n%.*S", pLookFor,
+            (unsigned)disassembly.size(), disassembly.data()));
       }
-      if (!bOptional) {
-        if (!found) {
-          WEX::Logging::Log::Comment(WEX::Common::String().Format(
-              L"String not found: '%S' in text:\r\n%.*S", pLookFor,
-              (unsigned)disassembly.size(), disassembly.data()));
-        }
-        VERIFY_IS_TRUE(found);        
-      }
+      VERIFY_IS_TRUE(found);        
     }
   }
 }

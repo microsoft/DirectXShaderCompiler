@@ -23,10 +23,6 @@ struct IDxcContainerReflection;
 
 namespace hlsl {
 
-class AbstractMemoryStream;
-class RootSignatureHandle;
-class DxilModule;
-
 #pragma pack(push, 1)
 
 static const size_t DxilContainerHashSize = 16;
