@@ -12,7 +12,6 @@
 #include <sstream>
 #include <fstream>
 #include <atomic>
-#include <regex>
 #include <cmath>
 #include <vector>
 #include <algorithm>
