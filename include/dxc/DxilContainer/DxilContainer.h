@@ -20,7 +20,6 @@
 #include "dxc/Support/WinAdapter.h"
 
 struct IDxcContainerReflection;
-// namespace llvm { class Module; }
 
 namespace hlsl {
 

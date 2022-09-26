@@ -237,7 +237,7 @@ void ConvertLLVMStringArrayToStringVector(llvm::ArrayRef<LPCSTR> a,
                                           std::vector<std::string> &ret) {
   ret.clear();
   ret.reserve(a.size());
-  for (int i = 0; i < a.size(); i++) {
+  for (unsigned int i = 0; i < a.size(); i++) {
     ret.emplace_back(a[i]);
   }
 }
