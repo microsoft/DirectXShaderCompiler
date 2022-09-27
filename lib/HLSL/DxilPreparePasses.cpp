@@ -831,6 +831,9 @@ public:
       // Strip parameters of entry function.
       StripEntryParameters(M, DM, IsLib);
 
+      // Remove unused types from type annotations
+      DM.RemoveUnusedTypeAnnotations();
+
       // Update flags to reflect any changes.
       DM.CollectShaderFlagsForModule();
 
