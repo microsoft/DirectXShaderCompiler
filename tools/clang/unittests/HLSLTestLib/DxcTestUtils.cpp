@@ -60,13 +60,6 @@ bool TestModuleCleanup() {
 
 std::shared_ptr<HlslIntellisenseSupport> CompilationResult::DefaultHlslSupport;
 
-void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
-  HRESULT status;
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-  VERIFY_SUCCEEDED(status);
-  VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
-}
-
 static bool CheckMsgs(llvm::StringRef text, llvm::ArrayRef<LPCSTR> pMsgs,
                       bool bRegex) {
   const char *pStart = !text.empty() ? text.begin() : nullptr;
@@ -170,15 +163,6 @@ bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
   return CheckOperationResultMsgs(
       pResult, llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount),
       maySucceedAnyway, bRegex);
-}
-
-void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
-                         IDxcBlob **pContainer) {
-  CComPtr<IDxcAssembler> pAssembler;
-  CComPtr<IDxcOperationResult> pResult;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-  VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pModule, &pResult));
-  CheckOperationSucceeded(pResult, pContainer);
 }
 
 void ReplaceDisassemblyTextWithRegex(llvm::ArrayRef<LPCSTR> pLookFors,

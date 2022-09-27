@@ -156,10 +156,8 @@ public:
                                                LPCWSTR dumpName = nullptr);
 };
 
-void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);
 std::string BlobToUtf8(_In_ IDxcBlob *pBlob);
 std::wstring BlobToWide(_In_ IDxcBlob *pBlob);
-void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               llvm::ArrayRef<LPCSTR> pErrorMsgs,
                               bool maySucceedAnyway, bool bRegex);

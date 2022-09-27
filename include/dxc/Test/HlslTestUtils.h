@@ -553,6 +553,22 @@ inline void ReplaceDisassemblyTextWithoutRegex(const std::vector<std::string> &l
   }
 }
 
+inline void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
+}
+
+inline void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
+                         IDxcBlob **pContainer) {
+  CComPtr<IDxcAssembler> pAssembler;
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pModule, &pResult));
+  CheckOperationSucceeded(pResult, pContainer);
+}
+
 inline void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
                            const std::string &val, UINT32 codePage,
                            _Outptr_ IDxcBlobEncoding **ppBlob) {
