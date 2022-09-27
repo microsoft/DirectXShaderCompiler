@@ -11351,36 +11351,20 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 
 // Copies input strings to local storage, so it doesn't rely on lifetime of input string pointers.
 st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
-    llvm::ArrayRef<LPCWSTR> dxcArgs,
-    llvm::ArrayRef<LPCSTR> LookFors,
-    llvm::ArrayRef<LPCSTR> Replacements,
+    std::vector<std::wstring> dxcArgs, std::vector<std::string> lookFors,
+    std::vector<std::string> replacements,
     dxc::DxcDllSupport &dllSupport) {
-  // place ArrayRef arguments in std::vector locals, and copy them by value into the callback function lambda
-  std::vector<std::wstring> ArgsStorage(dxcArgs.size());
-    for (unsigned i = 0; i < dxcArgs.size(); ++i)
-      ArgsStorage[i] = dxcArgs[i];
-  std::vector<std::string> LookForsStorage(LookFors.size());
-    for (unsigned i = 0; i < LookFors.size(); ++i)
-      LookForsStorage[i] = LookFors[i];
-  std::vector<std::string> ReplacementsStorage(Replacements.size());
-    for (unsigned i = 0; i < Replacements.size(); ++i)
-      ReplacementsStorage[i] = Replacements[i];
+  
   auto ShaderInitFn = 
-      [ArgsStorage, LookForsStorage, ReplacementsStorage, &dllSupport]
+      [dxcArgs, lookFors, replacements, &dllSupport]
       (LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, st::ShaderOp *pShaderOp) {
     
     UNREFERENCED_PARAMETER(pShaderOp);
     UNREFERENCED_PARAMETER(Name);
     // Create pointer vectors from local storage to supply API needs
-    std::vector<LPCWSTR> Args(ArgsStorage.size());
-    for (unsigned i = 0; i < ArgsStorage.size(); ++i)
-      Args[i] = ArgsStorage[i].c_str();
-    std::vector<LPCSTR> LookFors(LookForsStorage.size());
-    for (unsigned i = 0; i < LookForsStorage.size(); ++i)
-      LookFors[i] = LookForsStorage[i].c_str();
-    std::vector<LPCSTR> Replacements(ReplacementsStorage.size());
-    for (unsigned i = 0; i < ReplacementsStorage.size(); ++i)
-      Replacements[i] = ReplacementsStorage[i].c_str();
+    std::vector<LPCWSTR> Args(dxcArgs.size());
+    for (unsigned i = 0; i < dxcArgs.size(); ++i)
+      Args[i] = dxcArgs[i].c_str();    
 
     CComPtr<IDxcUtils> pUtils;
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
@@ -11389,12 +11373,10 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     VerifyCompileOK(dllSupport, pText, L"cs_6_0", Args, &compiledShader);
     std::string disassembly = DisassembleProgram(dllSupport, compiledShader);
     // Replace op
-    ReplaceDisassemblyText(
-      LookFors,
-      Replacements,
-      /*bRegex*/false,
+    ReplaceDisassemblyTextWithoutRegex(lookFors, replacements,      
       disassembly
     );
+
     // Wrap text in UTF8 blob
     // No need to copy, disassembly won't be changed again and will live as long as rewrittenDisassembly.
     // c_str() guarantees null termination; passing size + 1 to include it will create an IDxcBlobUtf8 without copying.

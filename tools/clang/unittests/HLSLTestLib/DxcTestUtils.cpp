@@ -195,9 +195,9 @@ void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
   CheckOperationSucceeded(pResult, pContainer);
 }
 
-void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
+void ReplaceDisassemblyTextWithRegex(llvm::ArrayRef<LPCSTR> pLookFors,
                 llvm::ArrayRef<LPCSTR> pReplacements,
-                bool bRegex, std::string& disassembly) {
+                std::string& disassembly) {
   for (unsigned i = 0; i < pLookFors.size(); ++i) {
     LPCSTR pLookFor = pLookFors[i];
     bool bOptional = false;
@@ -207,53 +207,54 @@ void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
     }
     LPCSTR pReplacement = pReplacements[i];
     if (pLookFor && *pLookFor) {
-      if (bRegex) {
-        llvm::Regex RE(pLookFor);
-        std::string reErrors;
-        if (!RE.isValid(reErrors)) {
-          WEX::Logging::Log::Comment(WEX::Common::String().Format(
-              L"Regex errors:\r\n%.*S\r\nWhile compiling expression '%S'",
-              (unsigned)reErrors.size(), reErrors.data(),
-              pLookFor));
-        }
-        VERIFY_IS_TRUE(RE.isValid(reErrors));
-        std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
-        if (!bOptional) {
-          if (!reErrors.empty()) {
-            WEX::Logging::Log::Comment(WEX::Common::String().Format(
-                L"Regex errors:\r\n%.*S\r\nWhile searching for '%S' in text:\r\n%.*S",
-                (unsigned)reErrors.size(), reErrors.data(),
-                pLookFor,
-                (unsigned)disassembly.size(), disassembly.data()));
-          }
-          VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
-          VERIFY_IS_TRUE(reErrors.empty());
-        }
-        disassembly = std::move(replaced);
-      } else {
-        bool found = false;
-        size_t pos = 0;
-        size_t lookForLen = strlen(pLookFor);
-        size_t replaceLen = strlen(pReplacement);
-        for (;;) {
-          pos = disassembly.find(pLookFor, pos);
-          if (pos == std::string::npos)
-            break;
-          found = true; // at least once
-          disassembly.replace(pos, lookForLen, pReplacement);
-          pos += replaceLen;
-        }
-        if (!bOptional) {
-          if (!found) {
-            WEX::Logging::Log::Comment(WEX::Common::String().Format(
-                L"String not found: '%S' in text:\r\n%.*S",
-                pLookFor,
-                (unsigned)disassembly.size(), disassembly.data()));
-          }
-          VERIFY_IS_TRUE(found);
-        }
+      llvm::Regex RE(pLookFor);
+      std::string reErrors;
+      if (!RE.isValid(reErrors)) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"Regex errors:\r\n%.*S\r\nWhile compiling expression '%S'",
+            (unsigned)reErrors.size(), reErrors.data(),
+            pLookFor));
       }
+      VERIFY_IS_TRUE(RE.isValid(reErrors));
+      std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
+      if (!bOptional) {
+        if (!reErrors.empty()) {
+          WEX::Logging::Log::Comment(WEX::Common::String().Format(
+              L"Regex errors:\r\n%.*S\r\nWhile searching for '%S' in text:\r\n%.*S",
+              (unsigned)reErrors.size(), reErrors.data(),
+              pLookFor,
+              (unsigned)disassembly.size(), disassembly.data()));
+        }
+        VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
+        VERIFY_IS_TRUE(reErrors.empty());
+      }
+      disassembly = std::move(replaced);
     }
+  }
+}
+
+void ConvertLLVMStringArrayToStringVector(llvm::ArrayRef<LPCSTR> a,
+                                          std::vector<std::string> &ret) {
+  ret.clear();
+  ret.reserve(a.size());
+  for (unsigned int i = 0; i < a.size(); i++) {
+    ret.emplace_back(a[i]);
+  }
+}
+
+void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
+                            llvm::ArrayRef<LPCSTR> pReplacements, bool bRegex,
+                            std::string &disassembly) {
+  if (bRegex) {
+    ReplaceDisassemblyTextWithRegex(pLookFors, pReplacements, disassembly);
+  } 
+  else {
+    std::vector<std::string> pLookForStrs;
+    ConvertLLVMStringArrayToStringVector(pLookFors, pLookForStrs);
+    std::vector<std::string> pReplacementsStrs;
+    ConvertLLVMStringArrayToStringVector(pReplacements, pReplacementsStrs); 
+    ReplaceDisassemblyTextWithoutRegex(pLookForStrs, pReplacementsStrs,
+                                       disassembly);
   }
 }
 
