@@ -24,6 +24,8 @@
 #endif
 #include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
+#include "dxc/Support/dxcapi.use.h" // disassembleProgram
+#include "dxc/Support/Global.h" // IFT and other macros
 
 using namespace std;
 
@@ -549,6 +551,129 @@ inline void ReplaceDisassemblyTextWithoutRegex(const std::vector<std::string> &l
       VERIFY_IS_TRUE(found);        
     }
   }
+}
+
+inline void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
+                           const std::string &val, UINT32 codePage,
+                           _Outptr_ IDxcBlobEncoding **ppBlob) {
+  CComPtr<IDxcLibrary> library;
+  IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+  IFT(library->CreateBlobWithEncodingOnHeapCopy(val.data(), (UINT32)val.size(),
+                                                codePage, ppBlob));
+}
+
+inline void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
+                           const std::string &val, UINT32 codePage,
+                           _Outptr_ IDxcBlob **ppBlob) {
+  MultiByteStringToBlob(dllSupport, val, codePage, (IDxcBlobEncoding **)ppBlob);
+}
+
+inline void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal,
+                _Outptr_ IDxcBlobEncoding **ppBlob) {
+  CComPtr<IDxcLibrary> library;
+  IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+  IFT(library->CreateBlobWithEncodingOnHeapCopy(pVal, (UINT32)strlen(pVal), CP_UTF8,
+                                                ppBlob));
+}
+
+
+inline void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
+                _Outptr_ IDxcBlobEncoding **ppBlob) {
+  MultiByteStringToBlob(dllSupport, val, CP_UTF8, ppBlob);
+}
+
+inline void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
+                _Outptr_ IDxcBlob **ppBlob) {
+  Utf8ToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
+}
+
+
+inline void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                            LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+                            _Outptr_ IDxcBlob **ppResult) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT hrCompile;
+  *ppResult = nullptr;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  Utf8ToBlob(dllSupport, pText, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      pTargetProfile, args.data(), (UINT32)args.size(),
+                                      nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
+  VERIFY_SUCCEEDED(hrCompile);
+  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
+}
+
+inline void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, LPCWSTR pArgs,
+                     _Outptr_ IDxcBlob **ppResult) {
+  std::vector<std::wstring> argsW;
+  std::vector<LPCWSTR> args;
+  if (pArgs) {
+    wistringstream argsS(pArgs);
+    copy(istream_iterator<wstring, wchar_t>(argsS),
+         istream_iterator<wstring, wchar_t>(), back_inserter(argsW));
+    transform(argsW.begin(), argsW.end(), back_inserter(args),
+              [](const wstring &w) { return w.data(); });
+  }
+  VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
+}
+
+inline std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
+  if (!pBlob)
+    return std::string();
+  CComPtr<IDxcBlobUtf8> pBlobUtf8;
+  if (SUCCEEDED(pBlob->QueryInterface(&pBlobUtf8)))
+    return std::string(pBlobUtf8->GetStringPointer(),
+                       pBlobUtf8->GetStringLength());
+  CComPtr<IDxcBlobEncoding> pBlobEncoding;
+  IFT(pBlob->QueryInterface(&pBlobEncoding));
+  // if (FAILED(pBlob->QueryInterface(&pBlobEncoding))) {
+  //   // Assume it is already UTF-8
+  //   return std::string((const char*)pBlob->GetBufferPointer(),
+  //                      pBlob->GetBufferSize());
+  // }
+  BOOL known;
+  UINT32 codePage;
+  IFT(pBlobEncoding->GetEncoding(&known, &codePage));
+  if (!known) {
+    throw std::runtime_error("unknown codepage for blob.");
+  }
+  std::string result;
+  if (codePage == DXC_CP_WIDE) {
+    const wchar_t *text = (const wchar_t *)pBlob->GetBufferPointer();
+    size_t length = pBlob->GetBufferSize() / 2;
+    if (length >= 1 && text[length - 1] == L'\0')
+      length -= 1; // Exclude null-terminator
+    Unicode::WideToUTF8String(text, length, &result);
+    return result;
+  } else if (codePage == CP_UTF8) {
+    const char *text = (const char *)pBlob->GetBufferPointer();
+    size_t length = pBlob->GetBufferSize();
+    if (length >= 1 && text[length - 1] == '\0')
+      length -= 1; // Exclude null-terminator
+    result.resize(length);
+    memcpy(&result[0], text, length);
+    return result;
+  } else {
+    throw std::runtime_error("Unsupported codepage.");
+  }
+}
+
+inline std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
+                               IDxcBlob *pProgram) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+
+  if (!dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(dllSupport.Initialize());
+  }
+
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+  return BlobToUtf8(pDisassembly);
 }
 
 inline bool CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref, int nRelativeExp) {
