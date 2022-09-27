@@ -11376,6 +11376,7 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     ReplaceDisassemblyTextWithoutRegex(lookFors, replacements,      
       disassembly
     );
+
     // Wrap text in UTF8 blob
     // No need to copy, disassembly won't be changed again and will live as long as rewrittenDisassembly.
     // c_str() guarantees null termination; passing size + 1 to include it will create an IDxcBlobUtf8 without copying.
