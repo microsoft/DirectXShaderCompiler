@@ -7969,8 +7969,11 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     break;
   case hlsl::IntrinsicOp::IOP_asdouble:
   case hlsl::IntrinsicOp::IOP_asfloat:
+  case hlsl::IntrinsicOp::IOP_asfloat16:
   case hlsl::IntrinsicOp::IOP_asint:
+  case hlsl::IntrinsicOp::IOP_asint16:
   case hlsl::IntrinsicOp::IOP_asuint:
+  case hlsl::IntrinsicOp::IOP_asuint16:
     retVal = processIntrinsicAsType(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_clip:
@@ -10106,7 +10109,18 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
 
 SpirvInstruction *
 SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
-  // This function handles 'asint', 'asuint', 'asfloat', and 'asdouble'.
+  // This function handles the following intrinsics:
+  //    'asint'
+  //    'asint16'
+  //    'asuint'
+  //    'asuint16'
+  //    'asfloat'
+  //    'asfloat16'
+  //    'asdouble'
+
+  // Note: The logic for the 32-bit and 16-bit variants of these functions is
+  //       identical so we don't bother distinguishing between related types
+  //       like float and float16 in the comments.
 
   // Method 1: ret asint(arg)
   //    arg component type = {float, uint}
