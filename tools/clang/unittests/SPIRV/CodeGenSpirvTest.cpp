@@ -1165,8 +1165,11 @@ TEST_F(FileTest, IntrinsicsAsDouble) {
   runFileTest("intrinsics.asdouble.hlsl");
 }
 TEST_F(FileTest, IntrinsicsAsfloat) { runFileTest("intrinsics.asfloat.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsfloat16) { runFileTest("intrinsics.asfloat16.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsint) { runFileTest("intrinsics.asint.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsint16) { runFileTest("intrinsics.asint16.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsuint) { runFileTest("intrinsics.asuint.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsuint16) { runFileTest("intrinsics.asuint16.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsuintArgumentMustBeRValue) {
   runFileTest("intrinsics.asuint.rvalue.hlsl");
 }
