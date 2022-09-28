@@ -1,7 +1,11 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
-// RUN: %dxc -T lib_6_7 -validator-version 1.7 %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKNORP
-// RUN: %dxc -T lib_6_8 %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKRP
 // RUN: %dxc -T lib_6_x %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKRP
+
+// For now: No scenario here should produce the type annotation, since that
+// should be unused in final DXIL, and thus eliminated.  Uncomment when a
+// scenario is crafted out that should produce the annotation.
+// xUN: %dxc -T lib_6_7 -validator-version 1.7 %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKNORP
+// xUN: %dxc -T lib_6_8 %s  | FileCheck %s -check-prefixes=CHECKTYPE,CHECKRP
 
 // CHECK: res.Tex1
 
@@ -26,9 +30,14 @@ struct Resources
   float4 foo;
 };
 
-Resources res;
+Resources g_res;
 
+float4 foo(Resources res, float4 coord) {
+  return res.Tex1.Sample(Samp, coord.xy) * res.foo;
+}
+
+[shader("pixel")]
 float4 main(int4 a : A, float4 coord : TEXCOORD) : SV_TARGET
 {
-  return res.Tex1.Sample(Samp, coord.xy) * res.foo;
+  return foo(g_res, coord);
 }
