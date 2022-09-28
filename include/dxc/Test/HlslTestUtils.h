@@ -29,14 +29,6 @@
 
 using namespace std;
 
-#ifndef HLSLDATAFILEPARAM
-#define HLSLDATAFILEPARAM L"HlslDataDir"
-#endif
-
-#ifndef FILECHECKDUMPDIRPARAM
-#define FILECHECKDUMPDIRPARAM L"FileCheckDumpDir"
-#endif
-
 // If TAEF verify macros are available, use them to alias other legacy
 // comparison macros that don't have a direct translation.
 //
@@ -47,6 +39,16 @@ using namespace std;
 //
 // Note that whether verification throws or continues depends on
 // preprocessor settings.
+
+static constexpr char whitespaceChars[] = " \t\r\n";
+
+#ifndef HLSLDATAFILEPARAM
+#define HLSLDATAFILEPARAM L"HlslDataDir"
+#endif
+
+#ifndef FILECHECKDUMPDIRPARAM
+#define FILECHECKDUMPDIRPARAM L"FileCheckDumpDir"
+#endif
 
 #ifdef VERIFY_ARE_EQUAL
 #ifndef EXPECT_STREQ
@@ -85,247 +87,62 @@ using namespace std;
 #endif 
 #endif // VERIFY_ARE_EQUAL
 
-static constexpr char whitespaceChars[] = " \t\r\n";
+// If TAEF verify macros are available, use them to alias other legacy
+// comparison macros that don't have a direct translation.
+//
+// Other common replacements are as follows.
+//
+// EXPECT_EQ -> VERIFY_ARE_EQUAL
+// ASSERT_EQ -> VERIFY_ARE_EQUAL
+//
+// Note that whether verification throws or continues depends on
+// preprocessor settings.
 
-inline std::string strltrim(const std::string &value) {
-  size_t first = value.find_first_not_of(whitespaceChars);
-  return first == string::npos ? value : value.substr(first);
-}
+std::string strltrim(const std::string &value);
 
-inline std::string strrtrim(const std::string &value) {
-  size_t last = value.find_last_not_of(whitespaceChars);
-  return last == string::npos ? value : value.substr(0, last + 1);
-}
+std::string strrtrim(const std::string &value);
 
-inline std::string strtrim(const std::string &value) {
-  return strltrim(strrtrim(value));
-}
+std::string strtrim(const std::string &value);
 
-inline bool strstartswith(const std::string& value, const char* pattern) {
-  for (size_t i = 0; ; ++i) {
-    if (pattern[i] == '\0') return true;
-    if (i == value.size() || value[i] != pattern[i]) return false;
-  }
-}
+bool strstartswith(const std::string &value, const char *pattern);
 
-inline std::vector<std::string> strtok(const std::string &value, const char *delimiters = whitespaceChars) {
-  size_t searchOffset = 0;
-  std::vector<std::string> tokens;
-  while (searchOffset != value.size()) {
-    size_t tokenStartIndex = value.find_first_not_of(delimiters, searchOffset);
-    if (tokenStartIndex == std::string::npos) break;
-    size_t tokenEndIndex = value.find_first_of(delimiters, tokenStartIndex);
-    if (tokenEndIndex == std::string::npos) tokenEndIndex = value.size();
-    tokens.emplace_back(value.substr(tokenStartIndex, tokenEndIndex - tokenStartIndex));
-    searchOffset = tokenEndIndex;
-  }
-  return tokens;
-}
+std::vector<std::string> strtok(const std::string &value, const char *delimiters = whitespaceChars);
 
 namespace hlsl_test {
 
-inline std::wstring
-vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, va_list argptr) {
-  std::wstring result;
-#ifdef _WIN32
-  int len = _vscwprintf(fmt, argptr);
-  result.resize(len + 1);
-  vswprintf_s((wchar_t *)result.data(), len + 1, fmt, argptr);
-#else
-  wchar_t fmtOut[1000];
-  int len = vswprintf(fmtOut, 1000, fmt, argptr);
-  DXASSERT_LOCALVAR(len, len >= 0,
-                    "Too long formatted string in vFormatToWstring");
-  result = fmtOut;
-#endif
-  return result;
-}
+  std::wstring vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, va_list argptr);
 
-inline std::wstring
-FormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  std::wstring result(vFormatToWString(fmt, args));
-  va_end(args);
-  return result;
-}
+  std::wstring FormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...);
 
-inline void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  std::wstring buf(vFormatToWString(fmt, args));
-  va_end(args);
-  WEX::Logging::Log::Comment(buf.data());
-}
+  void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...);
 
-inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    std::wstring buf(vFormatToWString(fmt, args));
-    va_end(args);
-    WEX::Logging::Log::Error(buf.data());
-}
+  void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...);
 
-inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  WEX::Common::String HlslDataDirValue;
-  if (std::wstring(paramName).compare(HLSLDATAFILEPARAM) != 0) {
-    // Not fatal, for instance, FILECHECKDUMPDIRPARAM will dump files before running FileCheck, so they can be compared run to run
-    if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(paramName, HlslDataDirValue)))
-      return std::wstring();
-  } else {
-    ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue));
-  }
+  std::wstring GetPathToHlslDataFile(const wchar_t *relative, LPCWSTR paramName = HLSLDATAFILEPARAM);
 
-  wchar_t envPath[MAX_PATH];
-  wchar_t expanded[MAX_PATH];
-  swprintf_s(envPath, _countof(envPath), L"%ls\\%ls", reinterpret_cast<const wchar_t*>(HlslDataDirValue.GetBuffer()), relative);
-  VERIFY_WIN32_BOOL_SUCCEEDED(ExpandEnvironmentStringsW(envPath, expanded, _countof(expanded)));
-  return std::wstring(expanded);
-}
+  bool PathLooksAbsolute(LPCWSTR name);
 
-inline bool PathLooksAbsolute(LPCWSTR name) {
-  // Very simplified, only for the cases we care about in the test suite.
-#ifdef _WIN32
-  return name && *name && ((*name == L'\\') || (name[1] == L':'));
-#else
-  return name && *name && (*name == L'/');
-#endif
-}
+  static bool HasRunLine(std::string &line);
 
-static bool HasRunLine(std::string &line) {
-  const char *delimiters = " ;/";
-  auto lineelems = strtok(line, delimiters);
-  return !lineelems.empty() &&
-    lineelems.front().compare("RUN:") == 0;
-}
+  std::vector<std::string> GetRunLines(const LPCWSTR name);
 
-inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
-  const std::wstring path = PathLooksAbsolute(name)
-    ? std::wstring(name)
-    : hlsl_test::GetPathToHlslDataFile(name);
-#ifdef _WIN32
-  std::ifstream infile(path);
-#else
-  std::ifstream infile((CW2A(path.c_str())));
-#endif
-  if (infile.bad()) {
-    std::wstring errMsg(L"Unable to read file ");
-    errMsg += path;
-    WEX::Logging::Log::Error(errMsg.c_str());
-    VERIFY_FAIL();
-  }
+  std::string GetFirstLine(LPCWSTR name);
 
-  std::vector<std::string> runlines;
-  std::string line;
-  while (std::getline(infile, line)) {
-    if (!HasRunLine(line))
-      continue;
-    runlines.emplace_back(line);
-  }
-  return runlines;
-}
+  HANDLE CreateFileForReading(LPCWSTR path);
 
-inline std::string GetFirstLine(LPCWSTR name) {
-  const std::wstring path = PathLooksAbsolute(name)
-                                ? std::wstring(name)
-                                : hlsl_test::GetPathToHlslDataFile(name);
-#ifdef _WIN32
-  std::ifstream infile(path);
-#else
-  std::ifstream infile((CW2A(path.c_str())));
-#endif
-  if (infile.bad()) {
-    std::wstring errMsg(L"Unable to read file ");
-    errMsg += path;
-    WEX::Logging::Log::Error(errMsg.c_str());
-    VERIFY_FAIL();
-  }
+  HANDLE CreateNewFileForReadWrite(LPCWSTR path);
 
-  std::string line;
-  std::getline(infile, line);
-  return line;
-}
+  bool GetTestParamBool(LPCWSTR name);
 
-inline HANDLE CreateFileForReading(LPCWSTR path) {
-  HANDLE sourceHandle = CreateFileW(path, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
-  if (sourceHandle == INVALID_HANDLE_VALUE) {
-    DWORD err = GetLastError();
-    std::wstring errorMessage(FormatToWString(L"Unable to open file '%s', err=%u", path, err).c_str());
-    VERIFY_SUCCEEDED(HRESULT_FROM_WIN32(err), errorMessage.c_str());
-  }
-  return sourceHandle;
-}
-
-inline HANDLE CreateNewFileForReadWrite(LPCWSTR path) {
-  HANDLE sourceHandle = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
-  if (sourceHandle == INVALID_HANDLE_VALUE) {
-    DWORD err = GetLastError();
-    std::wstring errorMessage(FormatToWString(L"Unable to create file '%s', err=%u", path, err).c_str());
-    VERIFY_SUCCEEDED(HRESULT_FROM_WIN32(err), errorMessage.c_str());
-  }
-  return sourceHandle;
-}
-
-inline bool GetTestParamBool(LPCWSTR name) {
-  WEX::Common::String ParamValue;
-  WEX::Common::String NameValue;
-  if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(name,
-                                                                ParamValue))) {
-    return false;
-  }
-  if (ParamValue.IsEmpty()) {
-    return false;
-  }
-  if (0 == wcscmp(ParamValue, L"*")) {
-    return true;
-  }
-  VERIFY_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-      L"TestName", NameValue));
-  if (NameValue.IsEmpty()) {
-    return false;
-  }
-  return Unicode::IsStarMatchWide(ParamValue, ParamValue.GetLength(),
-                                  NameValue, NameValue.GetLength());
-}
-
-inline bool GetTestParamUseWARP(bool defaultVal) {
-  WEX::Common::String AdapterValue;
-  if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-        L"Adapter", AdapterValue))) {
-    return defaultVal;
-  }
-  if ((defaultVal && AdapterValue.IsEmpty()) ||
-      AdapterValue.CompareNoCase(L"WARP") == 0) {
-    return true;
-  }
-  return false;
-}
+  bool GetTestParamUseWARP(bool defaultVal);
 
 }
 
-#ifdef FP_SUBNORMAL
+bool isdenorm(float f);
 
-inline bool isdenorm(float f) {
-  return FP_SUBNORMAL == std::fpclassify(f);
-}
+float ifdenorm_flushf(float a);
 
-#else
-
-inline bool isdenorm(float f) {
-  return (std::numeric_limits<float>::denorm_min() <= f && f < std::numeric_limits<float>::min()) ||
-         (-std::numeric_limits<float>::min() < f && f <= -std::numeric_limits<float>::denorm_min());
-}
-
-#endif // FP_SUBNORMAL
-
-inline float ifdenorm_flushf(float a) {
-  return isdenorm(a) ? copysign(0.0f, a) : a;
-}
-
-inline bool ifdenorm_flushf_eq(float a, float b) {
-  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
-}
+bool ifdenorm_flushf_eq(float a, float b);
 
 static const uint16_t Float16NaN = 0xff80;
 static const uint16_t Float16PosInf = 0x7c00;
@@ -335,441 +152,80 @@ static const uint16_t Float16NegDenorm = 0x8008;
 static const uint16_t Float16PosZero = 0x0000;
 static const uint16_t Float16NegZero = 0x8000;
 
-inline bool GetSign(float x) {
-  return std::signbit(x);
-}
+bool GetSign(float x);
 
-inline int GetMantissa(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return bits & 0x7fffff;
-}
+int GetMantissa(float x);
 
-inline int GetExponent(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return (bits >> 23) & 0xff;
-}
+int GetExponent(float x);
 
-#define FLOAT16_BIT_SIGN 0x8000
-#define FLOAT16_BIT_EXP 0x7c00
-#define FLOAT16_BIT_MANTISSA 0x03ff
-#define FLOAT16_BIGGEST_DENORM FLOAT16_BIT_MANTISSA
-#define FLOAT16_BIGGEST_NORMAL 0x7bff
+bool isnanFloat16(uint16_t val);
 
-inline bool isnanFloat16(uint16_t val) {
-  return (val & FLOAT16_BIT_EXP) == FLOAT16_BIT_EXP &&
-         (val & FLOAT16_BIT_MANTISSA) != 0;
-}
+uint16_t ConvertFloat32ToFloat16(float val);
 
-inline uint16_t ConvertFloat32ToFloat16(float val) {
-  union Bits {
-    uint32_t u_bits;
-    float f_bits;
-  };
-
-  static const uint32_t SignMask = 0x8000;
-
-  // Minimum f32 value representable in f16 format without denormalizing
-  static const uint32_t Min16in32 = 0x38800000;
-
-  // Maximum f32 value (next to infinity)
-  static const uint32_t Max32 = 0x7f7FFFFF;
-
-  // Mask for f32 mantissa
-  static const uint32_t Fraction32Mask = 0x007FFFFF;
-
-  // pow(2,24)
-  static const uint32_t DenormalRatio = 0x4B800000;
-
-  static const uint32_t NormalDelta = 0x38000000;
-
-  Bits bits;
-  bits.f_bits = val;
-  uint32_t sign = bits.u_bits & (SignMask << 16);
-  Bits Abs;
-  Abs.u_bits = bits.u_bits ^ sign;
-
-  bool isLessThanNormal = Abs.f_bits < *(const float*)&Min16in32;
-  bool isInfOrNaN = Abs.u_bits > Max32;
-
-  if (isLessThanNormal) {
-    // Compute Denormal result
-    return (uint16_t)(Abs.f_bits * *(const float*)(&DenormalRatio)) | (uint16_t)(sign >> 16);
-  }
-  else if (isInfOrNaN) {
-    // Compute Inf or Nan result
-    uint32_t Fraction = Abs.u_bits & Fraction32Mask;
-    uint16_t IsNaN = Fraction == 0 ? 0 : 0xffff;
-    return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
-  }
-  else {
-    // Compute Normal result
-    return (uint16_t)((Abs.u_bits - NormalDelta) >> 13) | (uint16_t)(sign >> 16);
-  }
-}
-
-inline float ConvertFloat16ToFloat32(uint16_t x) {
- union Bits {
-    float f_bits;
-    uint32_t u_bits;
-  };
-
-  uint32_t Sign = (x & FLOAT16_BIT_SIGN) << 16;
-
-  // nan -> exponent all set and mantisa is non zero
-  // +/-inf -> exponent all set and mantissa is zero
-  // denorm -> exponent zero and significand nonzero
-  uint32_t Abs = (x & 0x7fff);
-  uint32_t IsNormal = Abs > FLOAT16_BIGGEST_DENORM;
-  uint32_t IsInfOrNaN = Abs > FLOAT16_BIGGEST_NORMAL;
-
-  // Signless Result for normals
-  uint32_t DenormRatio = 0x33800000;
-  float DenormResult = Abs * (*(float*)&DenormRatio);
-
-  uint32_t AbsShifted = Abs << 13;
-  // Signless Result for normals
-  uint32_t NormalResult = AbsShifted + 0x38000000;
-  // Signless Result for int & nans
-  uint32_t InfResult = AbsShifted + 0x70000000;
-
-  Bits bits;
-  bits.u_bits = 0;
-  if (IsInfOrNaN)
-    bits.u_bits |= InfResult;
-  else if (IsNormal)
-    bits.u_bits |= NormalResult;
-  else
-    bits.f_bits = DenormResult;
-  bits.u_bits |= Sign;
-  return bits.f_bits;
-}
+float ConvertFloat16ToFloat32(uint16_t x);
 uint16_t ConvertFloat32ToFloat16(float val);
 float ConvertFloat16ToFloat32(uint16_t val);
 
-inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance,
-                            hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
-  if (fsrc == fref) {
-    return true;
-  }
-  if (std::isnan(fsrc)) {
-    return std::isnan(fref);
-  }
-  if (mode == hlsl::DXIL::Float32DenormMode::Any) {
-    // If denorm expected, output can be sign preserved zero. Otherwise output
-    // should pass the regular ulp testing.
-    if (isdenorm(fref) && fsrc == 0 && std::signbit(fsrc) == std::signbit(fref))
-      return true;
-  }
-  // For FTZ or Preserve mode, we should get the expected number within
-  // ULPTolerance for any operations.
-  int diff = *((const DWORD *)&fsrc) - *((const DWORD *)&fref);
-  unsigned int uDiff = diff < 0 ? -diff : diff;
-  return uDiff <= (unsigned int)ULPTolerance;
-}
+bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance,
+                            hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any);
 
-inline bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
-                    hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
-  if (fsrc == fref) {
-    return true;
-  }
-  if (std::isnan(fsrc)) {
-    return std::isnan(fref);
-  }
-  if (mode == hlsl::DXIL::Float32DenormMode::Any) {
-    // If denorm expected, output can be sign preserved zero. Otherwise output
-    // should pass the regular epsilon testing.
-    if (isdenorm(fref) && fsrc == 0 && std::signbit(fsrc) == std::signbit(fref))
-      return true;
-  }
-  // For FTZ or Preserve mode, we should get the expected number within
-  // epsilon for any operations.
-  return fabsf(fsrc - fref) < epsilon;
-}
+bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
+                    hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any);
 
 // Compare using relative error (relative error < 2^{nRelativeExp})
-inline bool CompareFloatRelativeEpsilon(const float &fsrc, const float &fref, int nRelativeExp,
-                            hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
-  return CompareFloatULP(fsrc, fref, 23 - nRelativeExp, mode);
-}
+bool CompareFloatRelativeEpsilon(const float &fsrc, const float &fref, int nRelativeExp,
+                            hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any);
 
-inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref, float ULPTolerance) {
-  if (fsrc == fref)
-    return true;
-  if (isnanFloat16(fsrc))
-    return isnanFloat16(fref);
-  // 16-bit floating point numbers must preserve denorms
-  int diff = fsrc - fref;
-  unsigned int uDiff = diff < 0 ? -diff : diff;
-  return uDiff <= (unsigned int)ULPTolerance;
-}
+bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref, float ULPTolerance);
 
-inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float epsilon) {
-  if (fsrc == fref)
-    return true;
-  if (isnanFloat16(fsrc))
-    return isnanFloat16(fref);
-  float src_f32 = ConvertFloat16ToFloat32(fsrc);
-  float ref_f32 = ConvertFloat16ToFloat32(fref);
-  return std::abs(src_f32-ref_f32) < epsilon;
-}
+bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float epsilon);
 
 
-inline void ReplaceDisassemblyTextWithoutRegex(const std::vector<std::string> &lookFors,
+void ReplaceDisassemblyTextWithoutRegex(const std::vector<std::string> &lookFors,
                             const std::vector<std::string> &replacements,
-                            std::string &disassembly) {
-  for (unsigned i = 0; i < lookFors.size(); ++i) {
-    
-    bool bOptional = false;
-          
-    bool found = false;
-    size_t pos = 0;
-    LPCSTR pLookFor = lookFors[i].data();
-    size_t lookForLen = lookFors[i].size();
-    if (pLookFor[0] == '?') {
-      bOptional = true;
-      pLookFor++;
-      lookForLen--;
-    }
-    if (!pLookFor || !*pLookFor) {
-      continue;
-    }
+                            std::string &disassembly);
 
-    for (;;) {
-      pos = disassembly.find(pLookFor, pos);
-      if (pos == std::string::npos)
-        break;
-      found = true; // at least once
-      disassembly.replace(pos, lookForLen, replacements[i]);
-      pos += replacements[i].size();
-    }
-    if (!bOptional) {
-      if (!found) {
-        WEX::Logging::Log::Comment(WEX::Common::String().Format(
-            L"String not found: '%S' in text:\r\n%.*S", pLookFor,
-            (unsigned)disassembly.size(), disassembly.data()));
-      }
-      VERIFY_IS_TRUE(found);        
-    }
-  }
-}
+void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
 
-inline void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
-  HRESULT status;
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-  VERIFY_SUCCEEDED(status);
-  VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
-}
+void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
+                         IDxcBlob **pContainer);
 
-inline void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
-                         IDxcBlob **pContainer) {
-  CComPtr<IDxcAssembler> pAssembler;
-  CComPtr<IDxcOperationResult> pResult;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-  VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pModule, &pResult));
-  CheckOperationSucceeded(pResult, pContainer);
-}
-
-inline void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
                            const std::string &val, UINT32 codePage,
-                           _Outptr_ IDxcBlobEncoding **ppBlob) {
-  CComPtr<IDxcLibrary> library;
-  IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-  IFT(library->CreateBlobWithEncodingOnHeapCopy(val.data(), (UINT32)val.size(),
-                                                codePage, ppBlob));
-}
+                           _Outptr_ IDxcBlobEncoding **ppBlob);
 
-inline void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
                            const std::string &val, UINT32 codePage,
-                           _Outptr_ IDxcBlob **ppBlob) {
-  MultiByteStringToBlob(dllSupport, val, codePage, (IDxcBlobEncoding **)ppBlob);
-}
+                           _Outptr_ IDxcBlob **ppBlob);
 
-inline void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal,
-                _Outptr_ IDxcBlobEncoding **ppBlob) {
-  CComPtr<IDxcLibrary> library;
-  IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-  IFT(library->CreateBlobWithEncodingOnHeapCopy(pVal, (UINT32)strlen(pVal), CP_UTF8,
-                                                ppBlob));
-}
+void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal,
+                _Outptr_ IDxcBlobEncoding **ppBlob);
 
 
-inline void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
-                _Outptr_ IDxcBlobEncoding **ppBlob) {
-  MultiByteStringToBlob(dllSupport, val, CP_UTF8, ppBlob);
-}
+void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
+                _Outptr_ IDxcBlobEncoding **ppBlob);
 
-inline void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
-                _Outptr_ IDxcBlob **ppBlob) {
-  Utf8ToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
-}
+void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
+                _Outptr_ IDxcBlob **ppBlob);
 
 
-inline void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                             LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
-                            _Outptr_ IDxcBlob **ppResult) {
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcOperationResult> pResult;
-  HRESULT hrCompile;
-  *ppResult = nullptr;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  Utf8ToBlob(dllSupport, pText, &pSource);
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-                                      pTargetProfile, args.data(), (UINT32)args.size(),
-                                      nullptr, 0, nullptr, &pResult));
-  VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
-  VERIFY_SUCCEEDED(hrCompile);
-  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
-}
+                            _Outptr_ IDxcBlob **ppResult);
 
-inline void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, LPCWSTR pArgs,
-                     _Outptr_ IDxcBlob **ppResult) {
-  std::vector<std::wstring> argsW;
-  std::vector<LPCWSTR> args;
-  if (pArgs) {
-    wistringstream argsS(pArgs);
-    copy(istream_iterator<wstring, wchar_t>(argsS),
-         istream_iterator<wstring, wchar_t>(), back_inserter(argsW));
-    transform(argsW.begin(), argsW.end(), back_inserter(args),
-              [](const wstring &w) { return w.data(); });
-  }
-  VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
-}
+                     _Outptr_ IDxcBlob **ppResult);
 
-inline std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
-  if (!pBlob)
-    return std::string();
-  CComPtr<IDxcBlobUtf8> pBlobUtf8;
-  if (SUCCEEDED(pBlob->QueryInterface(&pBlobUtf8)))
-    return std::string(pBlobUtf8->GetStringPointer(),
-                       pBlobUtf8->GetStringLength());
-  CComPtr<IDxcBlobEncoding> pBlobEncoding;
-  IFT(pBlob->QueryInterface(&pBlobEncoding));
-  // if (FAILED(pBlob->QueryInterface(&pBlobEncoding))) {
-  //   // Assume it is already UTF-8
-  //   return std::string((const char*)pBlob->GetBufferPointer(),
-  //                      pBlob->GetBufferSize());
-  // }
-  BOOL known;
-  UINT32 codePage;
-  IFT(pBlobEncoding->GetEncoding(&known, &codePage));
-  if (!known) {
-    throw std::runtime_error("unknown codepage for blob.");
-  }
-  std::string result;
-  if (codePage == DXC_CP_WIDE) {
-    const wchar_t *text = (const wchar_t *)pBlob->GetBufferPointer();
-    size_t length = pBlob->GetBufferSize() / 2;
-    if (length >= 1 && text[length - 1] == L'\0')
-      length -= 1; // Exclude null-terminator
-    Unicode::WideToUTF8String(text, length, &result);
-    return result;
-  } else if (codePage == CP_UTF8) {
-    const char *text = (const char *)pBlob->GetBufferPointer();
-    size_t length = pBlob->GetBufferSize();
-    if (length >= 1 && text[length - 1] == '\0')
-      length -= 1; // Exclude null-terminator
-    result.resize(length);
-    memcpy(&result[0], text, length);
-    return result;
-  } else {
-    throw std::runtime_error("Unsupported codepage.");
-  }
-}
+std::string BlobToUtf8(_In_ IDxcBlob *pBlob);
 
-inline std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
-                               IDxcBlob *pProgram) {
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcBlobEncoding> pDisassembly;
+std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
+                               IDxcBlob *pProgram);
 
-  if (!dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(dllSupport.Initialize());
-  }
-
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
-  return BlobToUtf8(pDisassembly);
-}
-
-inline bool CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref, int nRelativeExp) {
-  return CompareHalfULP(fsrc, fref, (float)(10 - nRelativeExp));
-}
+bool CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref, int nRelativeExp);
 
 #ifdef _WIN32
 // returns the number of bytes per pixel for a given dxgi format
 // add more cases if different format needed to copy back resources
-inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
-    switch (value) {
-    case DXGI_FORMAT_R32G32B32A32_TYPELESS: return 16;
-    case DXGI_FORMAT_R32G32B32A32_FLOAT: return 16;
-    case DXGI_FORMAT_R32G32B32A32_UINT: return 16;
-    case DXGI_FORMAT_R32G32B32A32_SINT: return 16;
-    case DXGI_FORMAT_R32G32B32_TYPELESS: return 12;
-    case DXGI_FORMAT_R32G32B32_FLOAT: return 12;
-    case DXGI_FORMAT_R32G32B32_UINT: return 12;
-    case DXGI_FORMAT_R32G32B32_SINT: return 12;
-    case DXGI_FORMAT_R16G16B16A16_TYPELESS: return 8;
-    case DXGI_FORMAT_R16G16B16A16_FLOAT: return 8;
-    case DXGI_FORMAT_R16G16B16A16_UNORM: return 8;
-    case DXGI_FORMAT_R16G16B16A16_UINT: return 8;
-    case DXGI_FORMAT_R16G16B16A16_SNORM: return 8;
-    case DXGI_FORMAT_R16G16B16A16_SINT: return 8;
-    case DXGI_FORMAT_R32G32_TYPELESS: return 8;
-    case DXGI_FORMAT_R32G32_FLOAT: return 8;
-    case DXGI_FORMAT_R32G32_UINT: return 8;
-    case DXGI_FORMAT_R32G32_SINT: return 8;
-    case DXGI_FORMAT_R32G8X24_TYPELESS: return 8;
-    case DXGI_FORMAT_D32_FLOAT_S8X24_UINT: return 4;
-    case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS: return 4;
-    case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT: return 4;
-    case DXGI_FORMAT_R10G10B10A2_TYPELESS: return 4;
-    case DXGI_FORMAT_R10G10B10A2_UNORM: return 4;
-    case DXGI_FORMAT_R10G10B10A2_UINT: return 4;
-    case DXGI_FORMAT_R11G11B10_FLOAT: return 4;
-    case DXGI_FORMAT_R8G8B8A8_TYPELESS: return 4;
-    case DXGI_FORMAT_R8G8B8A8_UNORM: return 4;
-    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB: return 4;
-    case DXGI_FORMAT_R8G8B8A8_UINT: return 4;
-    case DXGI_FORMAT_R8G8B8A8_SNORM: return 4;
-    case DXGI_FORMAT_R8G8B8A8_SINT: return 4;
-    case DXGI_FORMAT_R16G16_TYPELESS: return 4;
-    case DXGI_FORMAT_R16G16_FLOAT: return 4;
-    case DXGI_FORMAT_R16G16_UNORM: return 4;
-    case DXGI_FORMAT_R16G16_UINT: return 4;
-    case DXGI_FORMAT_R16G16_SNORM: return 4;
-    case DXGI_FORMAT_R16G16_SINT: return 4;
-    case DXGI_FORMAT_R32_TYPELESS: return 4;
-    case DXGI_FORMAT_D32_FLOAT: return 4;
-    case DXGI_FORMAT_R32_FLOAT: return 4;
-    case DXGI_FORMAT_R32_UINT: return 4;
-    case DXGI_FORMAT_R32_SINT: return 4;
-    case DXGI_FORMAT_R24G8_TYPELESS: return 4;
-    case DXGI_FORMAT_D24_UNORM_S8_UINT: return 4;
-    case DXGI_FORMAT_R24_UNORM_X8_TYPELESS: return 4;
-    case DXGI_FORMAT_X24_TYPELESS_G8_UINT: return 4;
-    case DXGI_FORMAT_R8G8_TYPELESS: return 2;
-    case DXGI_FORMAT_R8G8_UNORM: return 2;
-    case DXGI_FORMAT_R8G8_UINT: return 2;
-    case DXGI_FORMAT_R8G8_SNORM: return 2;
-    case DXGI_FORMAT_R8G8_SINT: return 2;
-    case DXGI_FORMAT_R16_TYPELESS: return 2;
-    case DXGI_FORMAT_R16_FLOAT: return 2;
-    case DXGI_FORMAT_D16_UNORM: return 2;
-    case DXGI_FORMAT_R16_UNORM: return 2;
-    case DXGI_FORMAT_R16_UINT: return 2;
-    case DXGI_FORMAT_R16_SNORM: return 2;
-    case DXGI_FORMAT_R16_SINT: return 2;
-    case DXGI_FORMAT_R8_TYPELESS: return 1;
-    case DXGI_FORMAT_R8_UNORM: return 1;
-    case DXGI_FORMAT_R8_UINT: return 1;
-    case DXGI_FORMAT_R8_SNORM: return 1;
-    case DXGI_FORMAT_R8_SINT: return 1;
-    case DXGI_FORMAT_A8_UNORM: return 1;
-    case DXGI_FORMAT_R1_UNORM: return 1;
-    default:
-        VERIFY_FAILED(E_INVALIDARG);
-        return 0;
-    }
-}
+UINT GetByteSizeForFormat(DXGI_FORMAT value);
 #endif
