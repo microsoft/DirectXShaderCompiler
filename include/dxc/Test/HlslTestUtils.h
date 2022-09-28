@@ -216,22 +216,15 @@ inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
 
   std::vector<std::string> runlines;
   std::string line;
-  constexpr size_t runlinesize = 300;
   while (std::getline(infile, line)) {
     if (!HasRunLine(line))
       continue;
-    char runline[runlinesize];
-    memset(runline, 0, runlinesize);
-    memcpy(runline, line.c_str(), min(runlinesize, line.size()));
-    runlines.emplace_back(runline);
+    runlines.emplace_back(line);
   }
   return runlines;
 }
 
 inline std::string GetFirstLine(LPCWSTR name) {
-  char firstLine[300];
-  memset(firstLine, 0, sizeof(firstLine));
-
   const std::wstring path = PathLooksAbsolute(name)
                                 ? std::wstring(name)
                                 : hlsl_test::GetPathToHlslDataFile(name);
@@ -247,8 +240,9 @@ inline std::string GetFirstLine(LPCWSTR name) {
     VERIFY_FAIL();
   }
 
-  infile.getline(firstLine, _countof(firstLine));
-  return firstLine;
+  std::string line;
+  std::getline(infile, line);
+  return line;
 }
 
 inline HANDLE CreateFileForReading(LPCWSTR path) {
@@ -515,6 +509,46 @@ inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float
   float src_f32 = ConvertFloat16ToFloat32(fsrc);
   float ref_f32 = ConvertFloat16ToFloat32(fref);
   return std::abs(src_f32-ref_f32) < epsilon;
+}
+
+
+inline void ReplaceDisassemblyTextWithoutRegex(const std::vector<std::string> &lookFors,
+                            const std::vector<std::string> &replacements,
+                            std::string &disassembly) {
+  for (unsigned i = 0; i < lookFors.size(); ++i) {
+    
+    bool bOptional = false;
+          
+    bool found = false;
+    size_t pos = 0;
+    LPCSTR pLookFor = lookFors[i].data();
+    size_t lookForLen = lookFors[i].size();
+    if (pLookFor[0] == '?') {
+      bOptional = true;
+      pLookFor++;
+      lookForLen--;
+    }
+    if (!pLookFor || !*pLookFor) {
+      continue;
+    }
+
+    for (;;) {
+      pos = disassembly.find(pLookFor, pos);
+      if (pos == std::string::npos)
+        break;
+      found = true; // at least once
+      disassembly.replace(pos, lookForLen, replacements[i]);
+      pos += replacements[i].size();
+    }
+    if (!bOptional) {
+      if (!found) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"String not found: '%S' in text:\r\n%.*S", pLookFor,
+            (unsigned)disassembly.size(), disassembly.data()));
+      }
+      VERIFY_IS_TRUE(found);        
+    }
+  }
 }
 
 inline bool CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref, int nRelativeExp) {
