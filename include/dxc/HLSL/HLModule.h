@@ -176,14 +176,7 @@ public:
   void LoadHLMetadata();
   /// Delete any HLDXIR from the specified module.
   static void ClearHLMetadata(llvm::Module &M);
-  /// Create Metadata from a resource.
-  llvm::MDNode *DxilSamplerToMDNode(const DxilSampler &S);
-  llvm::MDNode *DxilSRVToMDNode(const DxilResource &SRV);
-  llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
-  llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
-  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
-  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
-  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
+
   DxilResourceBase *
   AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
                                         DxilResourceProperties &RP);

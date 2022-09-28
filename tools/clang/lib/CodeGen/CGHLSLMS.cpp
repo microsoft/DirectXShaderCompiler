@@ -80,8 +80,6 @@ private:
   llvm::DataLayout dataLayout;
   // decl map to constant id for program
   llvm::DenseMap<HLSLBufferDecl *, uint32_t> constantBufMap;
-  // Map for resource type to resource metadata value.
-  std::unordered_map<llvm::Type *, MDNode*> resMetadataMap;
   // Map from Constant to register bindings.
   llvm::DenseMap<llvm::Constant *,
                  llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>, 1>>
@@ -211,7 +209,6 @@ private:
                                      DxilTypeSystem &dxilTypeSys);
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
                              unsigned &arrayEltSize);
-  MDNode *GetOrAddResTypeMD(QualType resTy, bool bCreate);
   DxilResourceProperties BuildResourceProperty(QualType resTy);
   void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
                                           QualType fieldTy,
@@ -671,56 +668,6 @@ static DxilSampler::SamplerKind KeywordToSamplerKind(llvm::StringRef keyword) {
     .Default(DxilSampler::SamplerKind::Invalid);
 }
 
-MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
-  const RecordType *RT = resTy->getAs<RecordType>();
-  if (!RT)
-    return nullptr;
-  RecordDecl *RD = RT->getDecl();
-  SourceLocation loc = RD->getLocation();
-
-  hlsl::DxilResourceBase::Class resClass = TypeToClass(resTy);
-  llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
-  auto it = resMetadataMap.find(Ty);
-  if (!bCreate && it != resMetadataMap.end())
-    return it->second;
-
-  // Save resource type metadata.
-  switch (resClass) {
-  case DXIL::ResourceClass::UAV: {
-    DxilResource UAV;
-    // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
-    SetUAVSRV(loc, resClass, &UAV, resTy);
-    // Set global symbol to save type.
-    UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
-    resMetadataMap[Ty] = MD;
-    return MD;
-  } break;
-  case DXIL::ResourceClass::SRV: {
-    DxilResource SRV;
-    SetUAVSRV(loc, resClass, &SRV, resTy);
-    // Set global symbol to save type.
-    SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
-    resMetadataMap[Ty] = MD;
-    return MD;
-  } break;
-  case DXIL::ResourceClass::Sampler: {
-    DxilSampler S;
-    DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
-    S.SetSamplerKind(kind);
-    // Set global symbol to save type.
-    S.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    MDNode *MD = m_pHLModule->DxilSamplerToMDNode(S);
-    resMetadataMap[Ty] = MD;
-    return MD;
-  }
-  default:
-    // Skip OutputStream for GS.
-    return nullptr;
-  }
-}
-
 
 namespace {
 MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
@@ -839,10 +786,7 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     EltTy = hlsl::GetHLSLVecElementType(Ty);
 
   if (IsHLSLResourceType(Ty)) {
-    // Always create for llvm::Type could be same for different QualType.
-    // TODO: change to DxilProperties.
-    MDNode *MD = GetOrAddResTypeMD(Ty, /*bCreate*/ true);
-    fieldAnnotation.SetResourceAttribute(MD);
+    fieldAnnotation.SetResourceProperties(BuildResourceProperty(Ty));
   }
 
   bool bSNorm = false;
