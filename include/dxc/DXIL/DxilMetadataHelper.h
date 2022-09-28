@@ -226,6 +226,7 @@ public:
   static const unsigned kDxilFieldAnnotationCompTypeTag           = 7;
   static const unsigned kDxilFieldAnnotationPreciseTag            = 8;
   static const unsigned kDxilFieldAnnotationCBUsedTag             = 9;
+  static const unsigned kDxilFieldAnnotationResPropTag            = 10;
 
   // DXR Payload Annotations
   static const unsigned kDxilPayloadAnnotationStructTag           = 0;
@@ -240,12 +241,6 @@ public:
 
   // Control flow hint.
   static const char kDxilControlFlowHintMDName[];
-
-  // Resource attribute.
-  static const char kHLDxilResourceAttributeMDName[];
-  static const unsigned kHLDxilResourceAttributeNumFields = 2;
-  static const unsigned kHLDxilResourceAttributeClass = 0;
-  static const unsigned kHLDxilResourceAttributeMeta = 1;
 
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];
@@ -411,9 +406,6 @@ public:
   llvm::MDTuple *EmitDxilSampler(const DxilSampler &S);
   void LoadDxilSampler(const llvm::MDOperand &MDO, DxilSampler &S);
   const llvm::MDOperand &GetResourceClass(llvm::MDNode *MD, DXIL::ResourceClass &RC);
-  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
-  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
-  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   // Type system.
   void EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, std::vector<llvm::GlobalVariable *> &LLVMUsed);
