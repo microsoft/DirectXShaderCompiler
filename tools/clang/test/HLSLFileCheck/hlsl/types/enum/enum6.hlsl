@@ -1,5 +1,4 @@
 // RUN: %dxc -E main -T vs_6_0 -HV 2017 %s | FileCheck %s
-// CHECK: %struct.PSInput = type { <4 x float>, <4 x float>, i16 }
 // CHECK: call void @dx.op.storeOutput.i16(i32 5, i32 2, i32 0, i8 0, i16 3)
 
 enum class E : min16int {

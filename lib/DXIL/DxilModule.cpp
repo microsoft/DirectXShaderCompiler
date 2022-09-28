@@ -1824,6 +1824,55 @@ bool DxilModule::StripReflection() {
   return bChanged;
 }
 
+static void RemoveTypesFromSet(Type *Ty, SetVector<const StructType*> &typeSet) {
+  if (Ty->isPointerTy())
+    Ty = Ty->getPointerElementType();
+  while (Ty->isArrayTy())
+    Ty = Ty->getArrayElementType();
+  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+    if (typeSet.count(ST)) {
+      typeSet.remove(ST);
+      for (unsigned i = 0; i < ST->getNumElements(); i++) {
+        RemoveTypesFromSet(ST->getElementType(i), typeSet);
+      }
+    }
+  }
+}
+
+template <typename TResource>
+static void
+RemoveUsedTypesFromSet(std::vector<std::unique_ptr<TResource>> &vec, SetVector<const StructType*> &typeSet) {
+  for (auto &p : vec) {
+    RemoveTypesFromSet(p->GetHLSLType(), typeSet);
+  }
+}
+
+void DxilModule::RemoveUnusedTypeAnnotations() {
+  // Collect annotated types
+  const DxilTypeSystem::StructAnnotationMap &SAMap = m_pTypeSystem->GetStructAnnotationMap();
+  SetVector<const StructType*> types;
+  for (const auto &it : SAMap)
+    types.insert(it.first);
+
+  // Iterate resource types and remove any HLSL types from set
+  RemoveUsedTypesFromSet(m_CBuffers, types);
+  RemoveUsedTypesFromSet(m_UAVs, types);
+  RemoveUsedTypesFromSet(m_SRVs, types);
+
+  // Iterate Function parameters and return types, removing any HLSL types found from set
+  for (Function &F : m_pModule->functions()) {
+    FunctionType *FT = F.getFunctionType();
+    RemoveTypesFromSet(FT->getReturnType(), types);
+    for (Type *PTy : FT->params())
+      RemoveTypesFromSet(PTy, types);
+  }
+
+  // Remove remaining set of types
+  for (const StructType *ST : types)
+    m_pTypeSystem->EraseStructAnnotation(ST);
+}
+
+
 void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   if (MDO.get() == nullptr)
     return;

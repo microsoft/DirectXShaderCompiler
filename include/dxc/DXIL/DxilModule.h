@@ -202,6 +202,7 @@ public:
 
   bool StripReflection();
   void StripDebugRelatedCode();
+  void RemoveUnusedTypeAnnotations();
 
   // Helper to remove dx.* metadata with source and compile options.
   // If the parameter `bReplaceWithDummyData` is true, the named metadata
