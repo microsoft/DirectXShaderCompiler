@@ -1,5 +1,6 @@
+#include <dxgiformat.h>
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/Test/HlslTestUtils.h" // disassembleProgram
+#include "dxc/Test/HlslTestUtils.h"
 #include <vector>
 #include <string>
 
