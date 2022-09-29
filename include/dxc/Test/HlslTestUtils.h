@@ -114,7 +114,13 @@ namespace hlsl_test {
   std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM);
 
   bool PathLooksAbsolute(LPCWSTR name);
-  static bool HasRunLine(std::string& line);
+
+  inline static bool HasRunLine(std::string& line) {
+    const char* delimiters = " ;/";
+    auto lineelems = strtok(line, delimiters);
+    return !lineelems.empty() &&
+      lineelems.front().compare("RUN:") == 0;
+  }
 
   std::vector<std::string> GetRunLines(const LPCWSTR name);
 

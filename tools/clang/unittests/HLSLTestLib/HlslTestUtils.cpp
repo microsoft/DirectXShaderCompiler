@@ -85,12 +85,6 @@ bool hlsl_test::PathLooksAbsolute(LPCWSTR name) {
   return name && *name && (*name == L'/');
 #endif
 }
-bool hlsl_test::HasRunLine(std::string& line) {
-  const char* delimiters = " ;/";
-  auto lineelems = strtok(line, delimiters);
-  return !lineelems.empty() &&
-    lineelems.front().compare("RUN:") == 0;
-}
 
 std::vector<std::string> hlsl_test::GetRunLines(const LPCWSTR name) {
   const std::wstring path = hlsl_test::PathLooksAbsolute(name)
