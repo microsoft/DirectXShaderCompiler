@@ -1,4 +1,3 @@
-#include <dxgiformat.h>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include <vector>
@@ -464,6 +463,8 @@ std::string DisassembleProgram(dxc::DxcDllSupport& dllSupport,
   return BlobToUtf8(pDisassembly);
 }
 
+
+#ifdef _WIN32
 UINT GetByteSizeForFormat(DXGI_FORMAT value) {
   switch (value) {
   case DXGI_FORMAT_R32G32B32A32_TYPELESS: return 16;
@@ -537,3 +538,4 @@ UINT GetByteSizeForFormat(DXGI_FORMAT value) {
     return 0;
   }
 }
+#endif
