@@ -46,7 +46,6 @@ add_clang_library(clang-hlsl-tests SHARED
   PixTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
-  HLSLTestUtils.cpp
   SystemValueTest.cpp
   ValidationTest.cpp
   VerifierTest.cpp
@@ -60,7 +59,6 @@ set(HLSL_IGNORE_SOURCES
   PixTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
-  HLSLTestUtils.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
