@@ -15,6 +15,7 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilCompType.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 #include <memory>
 #include <string>
@@ -57,9 +58,12 @@ public:
   unsigned GetVectorSize() const;
   void SetVectorSize(unsigned size);
 
-  bool HasResourceAttribute() const;
-  llvm::MDNode *GetResourceAttribute() const;
-  void SetResourceAttribute(llvm::MDNode *MD);
+  // Currently, ResourceProperties is only used to capture resource type
+  // information during CodeGen for the annotate handle generated during
+  // AddOpcodeParamForIntrinsic.
+  bool HasResourceProperties() const;
+  const DxilResourceProperties &GetResourceProperties() const;
+  void SetResourceProperties(const DxilResourceProperties &RP);
 
   bool HasCBufferOffset() const;
   unsigned GetCBufferOffset() const;
@@ -89,7 +93,7 @@ private:
   bool m_bPrecise;
   CompType m_CompType;
   DxilMatrixAnnotation m_Matrix;
-  llvm::MDNode *m_ResourceAttribute;
+  DxilResourceProperties m_ResourceProps;
   unsigned m_CBufferOffset;
   std::string m_Semantic;
   InterpolationMode m_InterpMode;

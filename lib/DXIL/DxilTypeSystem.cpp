@@ -42,7 +42,6 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 //
 DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
-, m_ResourceAttribute(nullptr)
 , m_CBufferOffset(UINT_MAX)
 , m_bCBufferVarUsed(false)
 , m_VectorSize(0)
@@ -55,14 +54,14 @@ const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { r
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
 unsigned DxilFieldAnnotation::GetVectorSize() const { return m_VectorSize; }
 void DxilFieldAnnotation::SetVectorSize(unsigned size) { m_VectorSize = size; }
-bool DxilFieldAnnotation::HasResourceAttribute() const {
-  return m_ResourceAttribute;
+bool DxilFieldAnnotation::HasResourceProperties() const {
+  return m_ResourceProps.isValid();
 }
-llvm::MDNode *DxilFieldAnnotation::GetResourceAttribute() const {
-  return m_ResourceAttribute;
+const DxilResourceProperties &DxilFieldAnnotation::GetResourceProperties() const {
+  return m_ResourceProps;
 }
-void DxilFieldAnnotation::SetResourceAttribute(llvm::MDNode *MD) {
-  m_ResourceAttribute = MD;
+void DxilFieldAnnotation::SetResourceProperties(const DxilResourceProperties &RP) {
+  m_ResourceProps = RP;
 }
 bool DxilFieldAnnotation::HasCBufferOffset() const { return m_CBufferOffset != UINT_MAX; }
 unsigned DxilFieldAnnotation::GetCBufferOffset() const { return m_CBufferOffset; }
