@@ -85,7 +85,7 @@ bool hlsl_test::PathLooksAbsolute(LPCWSTR name) {
   return name && *name && (*name == L'/');
 #endif
 }
-static bool hlsl_test::HasRunLine(std::string& line) {
+bool hlsl_test::HasRunLine(std::string& line) {
   const char* delimiters = " ;/";
   auto lineelems = strtok(line, delimiters);
   return !lineelems.empty() &&
