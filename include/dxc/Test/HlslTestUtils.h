@@ -27,6 +27,7 @@
 #endif
 #include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
+
 #include "dxc/Support/dxcapi.use.h" // disassembleProgram
 #include "dxc/Support/Global.h" // IFT and other macros
 
@@ -114,36 +115,36 @@ inline bool strstartswith(const std::string& value, const char* pattern) {
 std::vector<std::string> strtok(const std::string& value, const char* delimiters = whitespaceChars);
 
 namespace hlsl_test {
-  std::wstring vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t* fmt, va_list argptr);
+std::wstring vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t* fmt, va_list argptr);
 
-  std::wstring FormatToWString(_In_z_ _Printf_format_string_ const wchar_t* fmt, ...);
+std::wstring FormatToWString(_In_z_ _Printf_format_string_ const wchar_t* fmt, ...);
   
-  void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t* fmt, ...);
+void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t* fmt, ...);
 
-  void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t* fmt, ...);
+void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t* fmt, ...);
 
-  std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM);
+std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM);
 
-  bool PathLooksAbsolute(LPCWSTR name);
+bool PathLooksAbsolute(LPCWSTR name);
 
-  inline static bool HasRunLine(std::string& line) {
-    const char* delimiters = " ;/";
-    auto lineelems = strtok(line, delimiters);
-    return !lineelems.empty() &&
-      lineelems.front().compare("RUN:") == 0;
-  }
+inline static bool HasRunLine(std::string& line) {
+  const char* delimiters = " ;/";
+  auto lineelems = strtok(line, delimiters);
+  return !lineelems.empty() &&
+    lineelems.front().compare("RUN:") == 0;
+}
 
-  std::vector<std::string> GetRunLines(const LPCWSTR name);
+std::vector<std::string> GetRunLines(const LPCWSTR name);
 
-  std::string GetFirstLine(LPCWSTR name);
+std::string GetFirstLine(LPCWSTR name);
 
-  HANDLE CreateFileForReading(LPCWSTR path);
+HANDLE CreateFileForReading(LPCWSTR path);
 
-  HANDLE CreateNewFileForReadWrite(LPCWSTR path);
+HANDLE CreateNewFileForReadWrite(LPCWSTR path);
 
-  bool GetTestParamBool(LPCWSTR name);
+bool GetTestParamBool(LPCWSTR name);
 
-  bool GetTestParamUseWARP(bool defaultVal);
+bool GetTestParamUseWARP(bool defaultVal);
 }
 #ifdef FP_SUBNORMAL
 
@@ -155,7 +156,7 @@ inline bool isdenorm(float f) {
 
 inline bool isdenorm(float f) {
   return (std::numeric_limits<float>::denorm_min() <= f && f < std::numeric_limits<float>::min()) ||
-    (-std::numeric_limits<float>::min() < f && f <= -std::numeric_limits<float>::denorm_min());
+         (-std::numeric_limits<float>::min() < f && f <= -std::numeric_limits<float>::denorm_min());
 }
 
 #endif // FP_SUBNORMAL
@@ -181,12 +182,12 @@ inline bool GetSign(float x) {
 }
 
 inline int GetMantissa(float x) {
-  int bits = reinterpret_cast<int&>(x);
+  int bits = reinterpret_cast<int &>(x);
   return bits & 0x7fffff;
 }
 
 inline int GetExponent(float x) {
-  int bits = reinterpret_cast<int&>(x);
+  int bits = reinterpret_cast<int &>(x);
   return (bits >> 23) & 0xff;
 }
 
@@ -198,7 +199,7 @@ inline int GetExponent(float x) {
 
 inline bool isnanFloat16(uint16_t val) {
   return (val & FLOAT16_BIT_EXP) == FLOAT16_BIT_EXP &&
-    (val & FLOAT16_BIT_MANTISSA) != 0;
+         (val & FLOAT16_BIT_MANTISSA) != 0;
 }
 
 uint16_t ConvertFloat32ToFloat16(float val);
@@ -274,8 +275,7 @@ void VerifyCompileOK(dxc::DxcDllSupport& dllSupport, LPCSTR pText,
 
 std::string BlobToUtf8(_In_ IDxcBlob* pBlob);
 
-std::string DisassembleProgram(dxc::DxcDllSupport& dllSupport,
-  IDxcBlob* pProgram);
+std::string DisassembleProgram(dxc::DxcDllSupport& dllSupport, IDxcBlob* pProgram);
 
 inline bool CompareHalfRelativeEpsilon(const uint16_t& fsrc, const uint16_t& fref, int nRelativeExp) {
   return CompareHalfULP(fsrc, fref, (float)(10 - nRelativeExp));

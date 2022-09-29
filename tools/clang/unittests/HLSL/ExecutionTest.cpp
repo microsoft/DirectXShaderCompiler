@@ -35,10 +35,10 @@
 
 #undef _read
 #include "WexTestClass.h"
-#include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Unicode.h"
 

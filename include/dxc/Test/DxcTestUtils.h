@@ -170,7 +170,6 @@ bool CheckNotMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs
                size_t errorMsgCount, bool bRegex);
 void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram, IDxcBlob **pDxilPart);
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
-
 void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
                             llvm::ArrayRef<LPCSTR> pReplacements, bool bRegex,
                             std::string &disassembly);
@@ -182,10 +181,8 @@ void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
 void ReplaceDisassemblyTextWithRegex(llvm::ArrayRef<LPCSTR> pLookFors,
                                      llvm::ArrayRef<LPCSTR> pReplacements,
                                      std::string &disassembly);
-
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
-
 
 HRESULT GetVersion(dxc::DxcDllSupport& DllSupport, REFCLSID clsid, unsigned &Major, unsigned &Minor);
 bool ParseTargetProfile(llvm::StringRef targetProfile, llvm::StringRef &outStage, unsigned &outMajor, unsigned &outMinor);
