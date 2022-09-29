@@ -547,8 +547,11 @@ void DxilMutateResourceToHandle::collectCandidates(Module &M) {
         // If result type of GEP not related to resource type, skip.
         Type *Ty = GEP->getType();
         Type *MTy = mutateToHandleTy(Ty);
-        if (MTy == Ty)
+        if (MTy == Ty) {
+          // Don't recurse, but still need to mutate GEP.
+          MutateValSet.insert(GEP);
           continue;
+        }
         newCandidates.emplace_back(GEP);
       } else if (PHINode *Phi = dyn_cast<PHINode>(U)) {
         // Propagate all operands.
