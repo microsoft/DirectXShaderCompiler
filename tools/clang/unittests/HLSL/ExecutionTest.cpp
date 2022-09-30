@@ -13,6 +13,8 @@
 // We need to keep & fix these warnings to integrate smoothly with HLK
 #pragma warning(error: 4100 4146 4242 4244 4267 4701 4389)
 
+// *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
+
 #include <algorithm>
 #include <memory>
 #include <array>
@@ -33,10 +35,10 @@
 
 #undef _read
 #include "WexTestClass.h"
-#include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Unicode.h"
 
