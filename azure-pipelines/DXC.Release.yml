@@ -15,16 +15,22 @@ parameters:
   type: object
   default: [x64, x86, arm64]
 
+- name: LinuxBuildConfigurations
+  type: object
+  default: [Release, Debug]
+
 resources:
   repositories:
     - repository: XboxDXC
       type: git
       name: Xbox/Xbox.ShaderCompiler.DXC
-      ref: refs/heads/Xbox
+      #ref: refs/heads/Xbox
+      ref: refs/heads/user/hekotas/linux-build-pipelines # TODO
 
 extends:
   template: azure-pipelines\templates\DXC.Release.template.yml@XboxDXC
   parameters:
     BuildConfigurations: ${{parameters.BuildConfigurations}}
     BuildPlatforms: ${{parameters.BuildPlatforms}}
+    LinuxBuildConfigurations: ${{parameters.LinuxBuildConfigurations}}
     StatusEmail: $(StatusEmail)
