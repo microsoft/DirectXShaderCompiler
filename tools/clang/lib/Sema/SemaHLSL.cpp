@@ -1101,6 +1101,50 @@ static const ArBasicKind g_AnyCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_AnyObjectCT[] =
+{
+  AR_OBJECT_SAMPLER,
+  AR_OBJECT_SAMPLERCOMPARISON,
+  AR_OBJECT_TEXTURE1D,
+  AR_OBJECT_TEXTURE1D_ARRAY,
+  AR_OBJECT_TEXTURE2D,
+  AR_OBJECT_TEXTURE2D_ARRAY,
+  AR_OBJECT_TEXTURE3D,
+  AR_OBJECT_TEXTURE2DMS,
+  AR_OBJECT_TEXTURE2DMS_ARRAY,
+  AR_OBJECT_TEXTURECUBE,
+  AR_OBJECT_TEXTURECUBE_ARRAY,
+  AR_OBJECT_STRING_LITERAL,
+  AR_OBJECT_STRING,
+  AR_OBJECT_RWTEXTURE1D,
+  AR_OBJECT_RWTEXTURE1D_ARRAY,
+  AR_OBJECT_RWTEXTURE2D,
+  AR_OBJECT_RWTEXTURE2D_ARRAY,
+  AR_OBJECT_RWTEXTURE3D,
+  AR_OBJECT_RWBUFFER,
+  AR_OBJECT_BYTEADDRESS_BUFFER,
+  AR_OBJECT_RWBYTEADDRESS_BUFFER,
+  AR_OBJECT_STRUCTURED_BUFFER,
+  AR_OBJECT_RWSTRUCTURED_BUFFER,
+  AR_OBJECT_RWSTRUCTURED_BUFFER_ALLOC,
+  AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME,
+  AR_OBJECT_APPEND_STRUCTURED_BUFFER,
+  AR_OBJECT_CONSUME_STRUCTURED_BUFFER,
+  AR_OBJECT_CONSTANT_BUFFER,
+  AR_OBJECT_TEXTURE_BUFFER,
+  AR_OBJECT_ROVBUFFER,
+  AR_OBJECT_ROVBYTEADDRESS_BUFFER,
+  AR_OBJECT_ROVSTRUCTURED_BUFFER,
+  AR_OBJECT_ROVTEXTURE1D,
+  AR_OBJECT_ROVTEXTURE1D_ARRAY,
+  AR_OBJECT_ROVTEXTURE2D,
+  AR_OBJECT_ROVTEXTURE2D_ARRAY,
+  AR_OBJECT_ROVTEXTURE3D,
+  AR_OBJECT_FEEDBACKTEXTURE2D,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY,
+  AR_BASIC_UNKNOWN
+};
+
 static const ArBasicKind g_Sampler1DCT[] =
 {
   AR_OBJECT_SAMPLER1D,
@@ -1342,6 +1386,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
   g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
   g_SInt16Or32OnlyCT,   // LICOMPTYPE_SINT16_OR_32_ONLY
+  g_AnyObjectCT,        // LICOMPTYPE_ANY_OBJECT
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -2156,14 +2201,14 @@ static bool CombineBasicTypes(ArBasicKind LeftKind,
                               ArBasicKind RightKind,
                               _Out_ ArBasicKind* pOutKind)
 {
-  if ((LeftKind < 0 || LeftKind >= AR_BASIC_COUNT) ||
-    (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
-    return false;
-  }
-
   if (LeftKind == RightKind) {
     *pOutKind = LeftKind;
     return true;
+  }
+
+  if ((LeftKind < 0 || LeftKind >= AR_BASIC_COUNT) ||
+    (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
+    return false;
   }
 
   UINT uLeftProps = GetBasicKindProps(LeftKind);
@@ -6421,8 +6466,9 @@ bool HLSLExternalSource::MatchArguments(
       }
       pNewType = objectElement;
     }
-    else if (pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2D
-      || pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2DARRAY) {
+    else if (i != 0 && Template[pArgument->uTemplateId] == AR_TOBJ_OBJECT) {
+      // For object parameters, just use the argument type
+      // Return type is assigned below
       pNewType = Args[i - 1]->getType().getNonReferenceType();
     }
     else {
@@ -6503,6 +6549,11 @@ bool HLSLExternalSource::MatchArguments(
              "In the absence of varargs, a successful match would indicate we "
              "have as many arguments and types as the intrinsic template");
   }
+
+  // For object return types that need to match arguments, we need to slot in the full type here
+  // Can't do it sooner because when return is encountered above, the other arg types haven't been set
+  if (Template[pIntrinsic->pArgs[0].uTemplateId] == AR_TOBJ_OBJECT)
+    argTypes[0] = argTypes[pIntrinsic->pArgs[0].uComponentTypeId];
 
   return badArgIdx == MaxIntrinsicArgs;
 #undef CAB
