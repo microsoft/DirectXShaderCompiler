@@ -311,6 +311,8 @@ def print_before_all : Flag<["-", "/"], "print-before-all">, Group<hlslcomp_Grou
   HelpText<"Print LLVM IR before each pass.">;
 def print_before : Separate<["-", "/"], "print-before">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR before a specific pass. May be specificied multiple times.">;
+def select_validator : Separate<["-", "/"], "select-validator">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Select validator: auto: (default) use DXIL.dll if found, otherwise use internal;  internal: internal non-signing validator;  external: use DXIL.dll if found, otherwise fail compilation.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,

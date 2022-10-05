@@ -51,12 +51,17 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
 namespace {
 // AssembleToContainer helper functions.
 
-bool CreateValidator(CComPtr<IDxcValidator> &pValidator) {
-  if (DxilLibIsEnabled()) {
+bool CreateValidator(CComPtr<IDxcValidator> &pValidator,
+                     hlsl::options::ValidatorSelection SelectValidator =
+                         hlsl::options::ValidatorSelection::Auto) {
+  bool bInternal = SelectValidator == hlsl::options::ValidatorSelection::Internal;
+  bool bExternal = SelectValidator == hlsl::options::ValidatorSelection::External;
+  if (!bInternal && DxilLibIsEnabled()) {
     DxilLibCreateInstance(CLSID_DxcValidator, &pValidator);
   }
   bool bInternalValidator = false;
   if (pValidator == nullptr) {
+    IFTBOOL(!bExternal, DXC_E_VALIDATOR_MISSING);
     IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
     bInternalValidator = true;
   }
@@ -78,7 +83,8 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 AbstractMemoryStream *pReflectionOut,
                 AbstractMemoryStream *pRootSigOut,
                 CComPtr<IDxcBlob> pRootSigBlob,
-                CComPtr<IDxcBlob> pPrivateBlob)
+                CComPtr<IDxcBlob> pPrivateBlob,
+                hlsl::options::ValidatorSelection SelectValidator)
   : pM(std::move(pM)),
     pOutputContainerBlob(pOutputContainerBlob),
     pMalloc(pMalloc),
@@ -90,15 +96,17 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     pReflectionOut(pReflectionOut),
     pRootSigOut(pRootSigOut),
     pRootSigBlob(pRootSigBlob),
-    pPrivateBlob(pPrivateBlob)
+    pPrivateBlob(pPrivateBlob),
+    SelectValidator(SelectValidator)
 {}
 
-void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
+void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor,
+                         hlsl::options::ValidatorSelection SelectValidator) {
   if (pMajor == nullptr || pMinor == nullptr)
     return;
 
   CComPtr<IDxcValidator> pValidator;
-  CreateValidator(pValidator);
+  CreateValidator(pValidator, SelectValidator);
 
   CComPtr<IDxcVersionInfo> pVersionInfo;
   if (SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
@@ -166,7 +174,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
-  bool bInternalValidator = CreateValidator(pValidator);
+  bool bInternalValidator = CreateValidator(pValidator, inputs.SelectValidator);
   // Warning on internal Validator
 
   CComPtr<IDxcValidator2> pValidator2;
@@ -174,7 +182,8 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
     pValidator.QueryInterface(&pValidator2);
   }
 
-  if (bInternalValidator) {
+  if (bInternalValidator &&
+      inputs.SelectValidator != hlsl::options::ValidatorSelection::Internal) {
     if (inputs.pDiag) {
       unsigned diagID =
           inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
@@ -271,7 +280,8 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
 }
 
 HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag) {
+    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag,
+    hlsl::options::ValidatorSelection SelectValidator) {
   HRESULT valHR = S_OK;
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pValResult;

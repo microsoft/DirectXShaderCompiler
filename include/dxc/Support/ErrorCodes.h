@@ -116,3 +116,6 @@
 
 // 0X80AA001D - LLVM Cast Failure
 #define DXC_E_LLVM_CAST_ERROR                         DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x001D))
+
+// 0X80AA001E - External validator (DXIL.dll) required, and missing.
+#define DXC_E_VALIDATOR_MISSING                       DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x001E))

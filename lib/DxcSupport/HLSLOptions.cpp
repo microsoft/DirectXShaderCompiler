@@ -927,6 +927,21 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ValVerMinor = (unsigned long)minor64;
   }
 
+  llvm::StringRef valSelectStr = Args.getLastArgValue(OPT_select_validator);
+  if (!valSelectStr.empty()) {
+    if (valSelectStr.equals_lower("auto")) {
+      opts.SelectValidator = ValidatorSelection::Auto;
+    } else if (valSelectStr.equals_lower("internal")) {
+      opts.SelectValidator = ValidatorSelection::Internal;
+    } else if (valSelectStr.equals_lower("external")) {
+      opts.SelectValidator = ValidatorSelection::External;
+    } else {
+      errors << "Unsupported value '" << valSelectStr
+             << "for -select-validator option.";
+      return 1;
+    }
+  }
+
   if (opts.IsLibraryProfile() && Minor == 0xF) {
     if (opts.ValVerMajor != UINT_MAX && opts.ValVerMajor != 0) {
       errors << "Offline library profile cannot be used with non-zero -validator-version.";
