@@ -930,7 +930,8 @@ public:
         } else {
           // Version from dxil.dll, or internal validator if unavailable
           dxcutil::GetValidatorVersion(&compiler.getCodeGenOpts().HLSLValidatorMajorVer,
-                                      &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
+                                      &compiler.getCodeGenOpts().HLSLValidatorMinorVer,
+                                      opts.SelectValidator);
         }
 
         // Root signature-only container validation is only supported on 1.5 and above.
@@ -1005,7 +1006,8 @@ public:
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
             dxcutil::ValidateRootSignatureInContainer(
-              pOutputBlob, &compiler.getDiagnostics());
+              pOutputBlob, &compiler.getDiagnostics(),
+              opts.SelectValidator);
           }
         }
       }
@@ -1139,7 +1141,8 @@ public:
               std::move(serializeModule), pOutputBlob, m_pMalloc,
               SerializeFlags, pOutputStream, opts.GetPDBName(),
               &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
-              pRootSigStream, pRootSignatureBlob, pPrivateBlob);
+              pRootSigStream, pRootSignatureBlob, pPrivateBlob,
+              opts.SelectValidator);
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
@@ -1180,7 +1183,9 @@ public:
               if (validateRootSigContainer && needsValidation) {
                 CComPtr<IDxcBlobEncoding> pValErrors;
                 // Validation failure communicated through diagnostic error
-                dxcutil::ValidateRootSignatureInContainer(pRootSignature, &compiler.getDiagnostics());
+                dxcutil::ValidateRootSignatureInContainer(
+                    pRootSignature, &compiler.getDiagnostics(),
+                    opts.SelectValidator);
               }
               IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE, pRootSignature));
             }
@@ -1296,6 +1301,13 @@ public:
       CComPtr<IDxcResult> pResult;
       hr = e.hr;
       std::string msg("Internal Compiler error: ");
+      switch (hr) {
+      case DXC_E_VALIDATOR_MISSING:
+        msg = "Error: external validator selected, but DXIL.dll not found.";
+        break;
+      default:
+        break;
+      }
       msg += e.msg;
       if (SUCCEEDED(DxcResult::Create(e.hr, DXC_OUT_NONE, {
               DxcOutputObject::ErrorOutput(CP_UTF8,

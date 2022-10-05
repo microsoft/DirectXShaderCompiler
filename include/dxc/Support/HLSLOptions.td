@@ -286,6 +286,8 @@ def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[C
   HelpText<"Set default encoding for source inputs and text outputs (utf8|utf16(win)|utf32(*nix)|wide) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
+def select_validator : Separate<["-", "/"], "select-validator">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Select validator: auto: (default) use DXIL.dll if found, otherwise use internal;  internal: internal non-signing validator;  external: use DXIL.dll if found, otherwise fail compilation.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
