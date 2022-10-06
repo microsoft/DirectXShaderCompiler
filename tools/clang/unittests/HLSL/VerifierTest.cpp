@@ -433,3 +433,7 @@ TEST_F(VerifierTest, RunAtomicsOnBitfields) {
 TEST_F(VerifierTest, RunUnboundedResourceArrays) {
   CheckVerifiesHLSL(L"invalid-unbounded-resource-arrays.hlsl");
 }
+
+TEST_F(VerifierTest, RunBitFieldAnnotations) {
+  CheckVerifiesHLSL(L"bitfields-and-annotations.hlsl");
+}
