@@ -229,16 +229,16 @@ public:
 
   std::vector<std::string> Warnings;
 
-  bool IsRootSignatureProfile();
-  bool IsLibraryProfile();
+  bool IsRootSignatureProfile() const;
+  bool IsLibraryProfile() const;
 
   // Helpers to clarify interpretation of flags for behavior in implementation
-  bool GenerateFullDebugInfo(); // Zi
-  bool GeneratePDB();           // Zi or Zs
-  bool EmbedDebugInfo();        // Qembed_debug
-  bool EmbedPDBName();          // Zi or Fd
-  bool DebugFileIsDirectory();  // Fd ends in '\\'
-  llvm::StringRef GetPDBName(); // Fd name
+  bool GenerateFullDebugInfo() const; // Zi
+  bool GeneratePDB() const;           // Zi or Zs
+  bool EmbedDebugInfo() const;        // Qembed_debug
+  bool EmbedPDBName() const;          // Zi or Fd
+  bool DebugFileIsDirectory() const;  // Fd ends in '\\'
+  llvm::StringRef GetPDBName() const; // Fd name
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
