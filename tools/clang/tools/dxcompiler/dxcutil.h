@@ -41,6 +41,7 @@ class DxcOpts;
 } // namespace hlsl
 
 namespace dxcutil {
+hlsl::SerializeDxilFlags ComputeSerializeDxilFlags(const hlsl::options::DxcOpts &opts);
 struct AssembleInputs {
   AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                  CComPtr<IDxcBlob> &pOutputContainerBlob, IMalloc *pMalloc,

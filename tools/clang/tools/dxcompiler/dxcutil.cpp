@@ -67,6 +67,35 @@ bool CreateValidator(CComPtr<IDxcValidator> &pValidator) {
 
 namespace dxcutil {
 
+SerializeDxilFlags ComputeSerializeDxilFlags(const options::DxcOpts &opts) {
+  SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+
+  if (opts.EmbedPDBName()) {
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+  }
+  if (opts.EmbedDebugInfo()) {
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+  }
+  if (opts.DebugNameForSource) {
+    // Implies name part
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+    SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+  } else if (opts.DebugNameForBinary) {
+    // Implies name part
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+  }
+  if (!opts.KeepReflectionInDxil) {
+    SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
+  }
+  if (!opts.StripReflection) {
+    SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
+  }
+  if (opts.StripRootSignature) {
+    SerializeFlags |= SerializeDxilFlags::StripRootSignature;
+  }
+  return SerializeFlags;
+}
+
 AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 CComPtr<IDxcBlob> &pOutputContainerBlob,
                 IMalloc *pMalloc,

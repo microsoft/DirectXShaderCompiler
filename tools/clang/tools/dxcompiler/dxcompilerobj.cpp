@@ -926,35 +926,9 @@ public:
         }
         outStream.flush();
 
-        SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+        SerializeDxilFlags SerializeFlags = dxcutil::ComputeSerializeDxilFlags(opts);
         CComPtr<IDxcBlob> pRootSignatureBlob = nullptr;
         CComPtr<IDxcBlob> pPrivateBlob = nullptr;
-        if (opts.EmbedPDBName()) {
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
-        }
-        // If -Qembed_debug specified, embed the debug info.
-        // Or, if there is no output pointer for the debug blob (such as when called by Compile()),
-        // embed the debug info and emit a note.
-        if (opts.EmbedDebugInfo()) {
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
-        }
-        if (opts.DebugNameForSource) {
-          // Implies name part
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
-          SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
-        } else if (opts.DebugNameForBinary) {
-          // Implies name part
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
-        }
-        if (!opts.KeepReflectionInDxil) {
-          SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
-        }
-        if (!opts.StripReflection) {
-          SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
-        }
-        if (opts.StripRootSignature) {
-          SerializeFlags |= SerializeDxilFlags::StripRootSignature;
-        }
         if (!opts.RootSignatureSource.empty()) {
           hlsl::options::StringRefWide wstrRef(opts.RootSignatureSource);
           std::string error;
