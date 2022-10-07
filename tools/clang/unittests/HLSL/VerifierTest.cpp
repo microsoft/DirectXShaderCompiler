@@ -100,6 +100,7 @@ public:
   TEST_METHOD(RunWriteConstArrays)
   TEST_METHOD(RunAtomicsOnBitfields)
   TEST_METHOD(RunUnboundedResourceArrays)
+  TEST_METHOD(RunBitFieldAnnotations)
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
