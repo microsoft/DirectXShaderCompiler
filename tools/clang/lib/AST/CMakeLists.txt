@@ -29,6 +29,7 @@ add_clang_library(clangAST
   DeclGroup.cpp
   DeclObjC.cpp
   DeclOpenMP.cpp
+  DeclDslPrinter.cpp
   DeclPrinter.cpp
   DeclTemplate.cpp
   Expr.cpp
@@ -52,6 +53,7 @@ add_clang_library(clangAST
   SelectorLocationsKind.cpp
   Stmt.cpp
   StmtIterator.cpp
+  StmtDslPrinter.cpp
   StmtPrinter.cpp
   StmtProfile.cpp
   StmtViz.cpp
@@ -59,6 +61,7 @@ add_clang_library(clangAST
   TemplateName.cpp
   Type.cpp
   TypeLoc.cpp
+  TypeDslPrinter.cpp
   TypePrinter.cpp
   VTableBuilder.cpp
   VTTBuilder.cpp
