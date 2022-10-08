@@ -1386,10 +1386,11 @@ void StmtDslPrinter::VisitHLSLVectorElementExpr(HLSLVectorElementExpr *Node) {
 }
 // HLSL Change Ends
 void StmtDslPrinter::VisitCStyleCastExpr(CStyleCastExpr *Node) {
-  OS << '(';
+  OS << "cast(";
   Node->getTypeAsWritten().print(OS, Policy);
-  OS << ')';
+  OS << ", ";
   PrintExpr(Node->getSubExpr());
+  OS << ')';
 }
 void StmtDslPrinter::VisitCompoundLiteralExpr(CompoundLiteralExpr *Node) {
   OS << '(';
@@ -1685,9 +1686,9 @@ void StmtDslPrinter::VisitCUDAKernelCallExpr(CUDAKernelCallExpr *Node) {
 }
 
 void StmtDslPrinter::VisitCXXNamedCastExpr(CXXNamedCastExpr *Node) {
-  OS << Node->getCastName() << '<';
+  OS << Node->getCastName() << '<:';
   Node->getTypeAsWritten().print(OS, Policy);
-  OS << ">(";
+  OS << ":>(";
   PrintExpr(Node->getSubExpr());
   OS << ")";
 }
