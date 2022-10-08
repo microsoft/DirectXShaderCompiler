@@ -219,6 +219,11 @@ clang::ImplicitConversionSequence TrySubscriptIndexInitialization(
   clang::QualType DestType);
 
 bool IsHLSLAttr(clang::attr::Kind AttrKind);
+//Dsl Change Begin
+void CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
+                         const clang::PrintingPolicy &Policy,
+                         unsigned int Indentation);
+//Dsl Change End
 void CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, const clang::PrintingPolicy &Policy, unsigned int Indentation);
 void PrintClipPlaneIfPresent(clang::Expr *ClipPlane, llvm::raw_ostream &Out, const clang::PrintingPolicy &Policy);
 void Indent(unsigned int Indentation, llvm::raw_ostream &Out);

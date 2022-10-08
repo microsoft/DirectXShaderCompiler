@@ -455,27 +455,27 @@ void DeclDslPrinter::VisitFunctionDecl(FunctionDecl *D) {
   if (!Policy.SuppressSpecifiers) {
     switch (D->getStorageClass()) {
     case SC_None: break;
-    case SC_Extern: Out << "extern "; break;
-    case SC_Static: Out << "static "; break;
-    case SC_PrivateExtern: Out << "__private_extern__ "; break;
+    case SC_Extern: Out << "extern, "; break;
+    case SC_Static: Out << "static, "; break;
+    case SC_PrivateExtern: Out << "__private_extern__, "; break;
     case SC_Auto: case SC_Register: case SC_OpenCLWorkGroupLocal:
       llvm_unreachable("invalid for functions");
     }
 
-    if (D->isInlineSpecified())  Out << "inline ";
-    if (D->isVirtualAsWritten()) Out << "virtual ";
-    if (D->isModulePrivate())    Out << "__module_private__ ";
-    if (D->isConstexpr() && !D->isExplicitlyDefaulted()) Out << "constexpr ";
+    if (D->isInlineSpecified())  Out << "inline, ";
+    if (D->isVirtualAsWritten()) Out << "virtual, ";
+    if (D->isModulePrivate())    Out << "__module_private__, ";
+    if (D->isConstexpr() && !D->isExplicitlyDefaulted()) Out << "constexpr, ";
     if ((CDecl && CDecl->isExplicitSpecified()) ||
         (ConversionDecl && ConversionDecl->isExplicit()))
-      Out << "explicit ";
+      Out << "explicit, ";
   }
 
   // HLSL Change Begin
   if (D->hasAttrs() && Policy.LangOpts.HLSL)
     PrintHLSLPreAttr(D);
   // HLSL Change End
-  Out << "], ";
+  Out << "nothing], ";
   PrintingPolicy SubPolicy(Policy);
   SubPolicy.SuppressSpecifiers = false;
   std::string Proto = D->getNameInfo().getAsString();
@@ -719,15 +719,15 @@ void DeclDslPrinter::VisitFriendDecl(FriendDecl *D) {
 void DeclDslPrinter::VisitFieldDecl(FieldDecl *D) {
   Out << "field(spec[";
   if (!Policy.SuppressSpecifiers && D->isMutable())
-    Out << "mutable ";
+    Out << "mutable, ";
   if (!Policy.SuppressSpecifiers && D->isModulePrivate())
-    Out << "__module_private__ ";
+    Out << "__module_private__, ";
 
   // HLSL Change Begin
   if (D->hasAttrs())
     PrintHLSLPreAttr(D);
   // HLSL Change End
-  Out << "], ";
+  Out << "nothing], ";
   Out << D->getASTContext().getUnqualifiedObjCPointerType(D->getType()).
             stream(Policy, D->getName());
   Out << ")";
@@ -758,31 +758,31 @@ void DeclDslPrinter::VisitVarDecl(VarDecl *D) {
   if (!Policy.SuppressSpecifiers) {
     StorageClass SC = D->getStorageClass();
     if (SC != SC_None)
-      Out << VarDecl::getStorageClassSpecifierString(SC) << " ";
+      Out << VarDecl::getStorageClassSpecifierString(SC) << ", ";
 
     switch (D->getTSCSpec()) {
     case TSCS_unspecified:
       break;
     case TSCS___thread:
-      Out << "__thread ";
+      Out << "__thread, ";
       break;
     case TSCS__Thread_local:
-      Out << "_Thread_local ";
+      Out << "_Thread_local, ";
       break;
     case TSCS_thread_local:
-      Out << "thread_local ";
+      Out << "thread_local, ";
       break;
     }
 
     if (D->isModulePrivate())
-      Out << "__module_private__ ";
+      Out << "__module_private__, ";
   }
 
   // HLSL Change Begin
   if (D->hasAttrs() && Policy.LangOpts.HLSL) 
     PrintHLSLPreAttr(D); 
   // HLSL Change End
-  Out << "], ";
+  Out << "nothing], ";
   QualType T = D->getTypeSourceInfo()
     ? D->getTypeSourceInfo()->getType()
     : D->getASTContext().getUnqualifiedObjCPointerType(D->getType());
@@ -1467,13 +1467,13 @@ void DeclDslPrinter::VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *U
   switch (UA->getKind()) {
   case hlsl::UnusualAnnotation::UA_SemanticDecl: {
     const hlsl::SemanticDecl * semdecl = dyn_cast<hlsl::SemanticDecl>(UA);
-    Out << " semantic[" << semdecl->SemanticName.str() << "]";
+    Out << "semantic(" << semdecl->SemanticName.str() << ")";
     break;
   }
   case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
     const hlsl::RegisterAssignment * ra = dyn_cast<hlsl::RegisterAssignment>(UA);
     if (ra->RegisterType) {
-      Out << " register(";
+      Out << "register(";
       if (!ra->ShaderProfile.empty()) {
         Out << ra->ShaderProfile.str() << ", ";
       }
@@ -1491,7 +1491,7 @@ void DeclDslPrinter::VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *U
   }
   case hlsl::UnusualAnnotation::UA_ConstantPacking: {
     const hlsl::ConstantPacking * cp = dyn_cast<hlsl::ConstantPacking>(UA);
-    Out << " packoffset(c" << cp->Subcomponent; //packing applies to constant registers (c) only
+    Out << "packoffset(c" << cp->Subcomponent; //packing applies to constant registers (c) only
     if (cp->ComponentOffset) {
       switch (cp->ComponentOffset) {
       case 1:
@@ -1527,12 +1527,328 @@ void DeclDslPrinter::VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *U
   }
 }
 
+void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
+                               const clang::PrintingPolicy &Policy,
+                               unsigned int Indentation) {
+  switch (A->getKind()) {
+
+  // Parameter modifiers
+  case clang::attr::HLSLIn:
+    Out << "in, ";
+    break;
+
+  case clang::attr::HLSLInOut:
+    Out << "inout, ";
+    break;
+
+  case clang::attr::HLSLOut:
+    Out << "out, ";
+    break;
+
+  // Interpolation modifiers
+  case clang::attr::HLSLLinear:
+    Out << "linear, ";
+    break;
+
+  case clang::attr::HLSLCenter:
+    Out << "center ";
+    break;
+
+  case clang::attr::HLSLCentroid:
+    Out << "centroid, ";
+    break;
+
+  case clang::attr::HLSLNoInterpolation:
+    Out << "nointerpolation, ";
+    break;
+
+  case clang::attr::HLSLNoPerspective:
+    Out << "noperspective, ";
+    break;
+
+  case clang::attr::HLSLSample:
+    Out << "sample, ";
+    break;
+
+  // Function attributes
+  case clang::attr::HLSLClipPlanes: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLClipPlanesAttr *ACast = static_cast<HLSLClipPlanesAttr *>(noconst);
+
+    if (!ACast->getClipPlane1())
+      break;
+
+    Indent(Indentation, Out);
+    Out << "[clipplanes(";
+    ACast->getClipPlane1()->printPretty(Out, 0, Policy);
+    PrintClipPlaneIfPresent(ACast->getClipPlane2(), Out, Policy);
+    PrintClipPlaneIfPresent(ACast->getClipPlane3(), Out, Policy);
+    PrintClipPlaneIfPresent(ACast->getClipPlane4(), Out, Policy);
+    PrintClipPlaneIfPresent(ACast->getClipPlane5(), Out, Policy);
+    PrintClipPlaneIfPresent(ACast->getClipPlane6(), Out, Policy);
+    Out << ")],\n";
+
+    break;
+  }
+
+  case clang::attr::HLSLDomain: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLDomainAttr *ACast = static_cast<HLSLDomainAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[domain(\"" << ACast->getDomainType() << "\")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLEarlyDepthStencil:
+    Indent(Indentation, Out);
+    Out << "[earlydepthstencil],\n";
+    break;
+
+  case clang::attr::HLSLInstance: // TODO - test
+  {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLInstanceAttr *ACast = static_cast<HLSLInstanceAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[instance(" << ACast->getCount() << ")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLMaxTessFactor: // TODO - test
+  {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLMaxTessFactorAttr *ACast =
+        static_cast<HLSLMaxTessFactorAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[maxtessfactor(" << ACast->getFactor() << ")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLNumThreads: // TODO - test
+  {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNumThreadsAttr *ACast = static_cast<HLSLNumThreadsAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[numthreads(" << ACast->getX() << ", " << ACast->getY() << ", "
+        << ACast->getZ() << ")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLRootSignature: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLRootSignatureAttr *ACast =
+        static_cast<HLSLRootSignatureAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[RootSignature(\"" << ACast->getSignatureName() << "\")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLOutputControlPoints: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLOutputControlPointsAttr *ACast =
+        static_cast<HLSLOutputControlPointsAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[outputcontrolpoints(" << ACast->getCount() << ")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLOutputTopology: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLOutputTopologyAttr *ACast =
+        static_cast<HLSLOutputTopologyAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[outputtopology(\"" << ACast->getTopology() << "\")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLPartitioning: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLPartitioningAttr *ACast = static_cast<HLSLPartitioningAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[partitioning(\"" << ACast->getScheme() << "\")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLPatchConstantFunc: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLPatchConstantFuncAttr *ACast =
+        static_cast<HLSLPatchConstantFuncAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[patchconstantfunc(\"" << ACast->getFunctionName() << "\")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLShader: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLShaderAttr *ACast = static_cast<HLSLShaderAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[shader(\"" << ACast->getStage() << "\")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLExperimental: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLExperimentalAttr *ACast = static_cast<HLSLExperimentalAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[experimental(\"" << ACast->getName() << "\", \""
+        << ACast->getValue() << "\")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLMaxVertexCount: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLMaxVertexCountAttr *ACast =
+        static_cast<HLSLMaxVertexCountAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[maxvertexcount(" << ACast->getCount() << ")],\n";
+    break;
+  }
+
+  case clang::attr::NoInline:
+    Indent(Indentation, Out);
+    Out << "[noinline],\n";
+    break;
+
+  case clang::attr::HLSLExport:
+    Indent(Indentation, Out);
+    Out << "export,\n";
+    break;
+
+    // Statement attributes
+  case clang::attr::HLSLAllowUAVCondition:
+    Indent(Indentation, Out);
+    Out << "[allow_uav_condition],\n";
+    break;
+
+  case clang::attr::HLSLBranch:
+    Indent(Indentation, Out);
+    Out << "[branch],\n";
+    break;
+
+  case clang::attr::HLSLCall:
+    Indent(Indentation, Out);
+    Out << "[call],\n";
+    break;
+
+  case clang::attr::HLSLFastOpt:
+    Indent(Indentation, Out);
+    Out << "[fastopt],\n";
+    break;
+
+  case clang::attr::HLSLFlatten:
+    Indent(Indentation, Out);
+    Out << "[flatten],\n";
+    break;
+
+  case clang::attr::HLSLForceCase:
+    Indent(Indentation, Out);
+    Out << "[forcecase],\n";
+    break;
+
+  case clang::attr::HLSLLoop:
+    Indent(Indentation, Out);
+    Out << "[loop],\n";
+    break;
+
+  case clang::attr::HLSLUnroll: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLUnrollAttr *ACast = static_cast<HLSLUnrollAttr *>(noconst);
+    Indent(Indentation, Out);
+    if (ACast->getCount() == 0)
+      Out << "[unroll],\n";
+    else
+      Out << "[unroll(" << ACast->getCount() << ")],\n";
+    break;
+  }
+
+  case clang::attr::HLSLWaveSize: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLWaveSizeAttr *ACast = static_cast<HLSLWaveSizeAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[wavesize(" << ACast->getSize() << ")],\n";
+    break;
+  }
+
+  // Variable modifiers
+  case clang::attr::HLSLGroupShared:
+    Out << "groupshared, ";
+    break;
+
+  case clang::attr::HLSLPrecise:
+    Out << "precise, ";
+    break;
+
+  case clang::attr::HLSLSemantic: // TODO: Consider removing HLSLSemantic
+                                  // attribute
+    break;
+
+  case clang::attr::HLSLShared:
+    Out << "shared, ";
+    break;
+
+  case clang::attr::HLSLUniform:
+    Out << "uniform, ";
+    break;
+
+  // These four cases are printed in TypePrinter::printAttributedBefore
+  case clang::attr::HLSLColumnMajor:
+  case clang::attr::HLSLRowMajor:
+  case clang::attr::HLSLSnorm:
+  case clang::attr::HLSLUnorm:
+    break;
+
+  case clang::attr::HLSLPoint:
+    Out << "point, ";
+    break;
+
+  case clang::attr::HLSLLine:
+    Out << "line, ";
+    break;
+
+  case clang::attr::HLSLLineAdj:
+    Out << "lineadj, ";
+    break;
+
+  case clang::attr::HLSLTriangle:
+    Out << "triangle, ";
+    break;
+
+  case clang::attr::HLSLTriangleAdj:
+    Out << "triangleadj, ";
+    break;
+
+  case clang::attr::HLSLGloballyCoherent:
+    Out << "globallycoherent, ";
+    break;
+
+  case clang::attr::HLSLIndices:
+    Out << "indices, ";
+    break;
+
+  case clang::attr::HLSLVertices:
+    Out << "vertices, ";
+    break;
+
+  case clang::attr::HLSLPrimitives:
+    Out << "primitives, ";
+    break;
+
+  case clang::attr::HLSLPayload:
+    Out << "payload, ";
+    break;
+
+  default:
+    A->printPretty(Out, Policy);
+    Out << ", ";
+    break;
+  }
+}
+
 void DeclDslPrinter::PrintHLSLPreAttr(NamedDecl* D) {
   AttrVec &Attrs = D->getAttrs();
   std::vector<Attr*> tempVec;
   for (AttrVec::const_reverse_iterator i = Attrs.rbegin(), e = Attrs.rend(); i != e; ++i) {
     Attr *A = *i;
-    hlsl::CustomPrintHLSLAttr(A, Out, Policy, Indentation);
+    hlsl::CustomDslPrintHLSLAttr(A, Out, Policy, Indentation);
   }
   
 }
