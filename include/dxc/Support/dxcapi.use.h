@@ -28,13 +28,17 @@ protected:
 
 #ifdef _WIN32
     m_dll = LoadLibraryW(dllName);
+    if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
 #else
     char nameStr[256];
     std::wcstombs(nameStr, dllName, 256);
     m_dll = ::dlopen(nameStr, RTLD_LAZY);
+    if (!m_dll) {
+      fprintf(stderr, "%s\n", ::dlerror());
+      return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+    }
 #endif
 
-    if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
 
 #ifdef _WIN32
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
@@ -43,10 +47,13 @@ protected:
 #endif
 
     if (m_createFn == nullptr) {
-      HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
+      HRESULT hr;
 #ifdef _WIN32
+      hr = HRESULT_FROM_WIN32(GetLastError());
       FreeLibrary(m_dll);
 #else
+      fprintf(stderr, "%s\n", ::dlerror());
+      hr = HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
       ::dlclose(m_dll);
 #endif
       m_dll = nullptr;
