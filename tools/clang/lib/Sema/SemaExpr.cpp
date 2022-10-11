@@ -10412,7 +10412,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
   // HLSL Change Starts
   // Handle HLSL binary operands differently
   if ((getLangOpts().HLSL &&
-          (!getLangOpts().EnableOperatorOverloading ||
+          (getLangOpts().HLSLVersion < hlsl::LangStd::v2021 ||
            !hlsl::IsUserDefinedRecordType(LHSExpr->getType()))) ||
       !hlsl::DoesTypeDefineOverloadedOperator(
           LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),
@@ -10901,7 +10901,7 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
   // simply checks whether it is a user-defined type with operator overloading
   // methods or not.
   if (getLangOpts().CPlusPlus &&
-      (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+      (!getLangOpts().HLSL || getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) &&
       hlsl::IsUserDefinedRecordType(LHSExpr->getType()) &&
       hlsl::DoesTypeDefineOverloadedOperator(
           LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),

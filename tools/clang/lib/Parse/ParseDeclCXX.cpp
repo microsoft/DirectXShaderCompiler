@@ -2359,7 +2359,8 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     assert(!TemplateInfo.TemplateParams &&
            "Nested template improperly parsed?");
     // HLSL Change Starts
-    if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       SkipUntil(tok::r_brace, StopAtSemi);
       return;

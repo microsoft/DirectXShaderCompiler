@@ -1055,7 +1055,7 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     result = doArraySubscriptExpr(subscriptExpr, range);
   } else if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
     // Beginning with HLSL 2021, the ternary operator is short-circuited.
-    if (getCompilerInstance().getLangOpts().EnableShortCircuit) {
+    if (getCompilerInstance().getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
       result = doShortCircuitedConditionalOperator(condExpr);
     } else {
       const Expr *cond = condExpr->getCond();
@@ -6211,7 +6211,7 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
   // Beginning with HLSL 2021, logical operators are short-circuited,
   // and can only be used with scalar types.
   if ((opcode == BO_LAnd || opcode == BO_LOr) &&
-      getCompilerInstance().getLangOpts().EnableShortCircuit) {
+      getCompilerInstance().getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
 
     // We translate short-circuited operators as follows:
     // A && B =>

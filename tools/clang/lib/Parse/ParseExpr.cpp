@@ -1241,10 +1241,14 @@ HLSLReservedKeyword:
   case tok::kw_typeof:
   case tok::kw___vector: {
     // HLSL Change Starts
-    if (getLangOpts().HLSL && (
-        SavedKind == tok::kw_wchar_t || SavedKind == tok::kw_char || SavedKind == tok::kw_char16_t || SavedKind == tok::kw_char32_t ||
-        SavedKind == tok::kw_short || SavedKind == tok::kw_long || SavedKind == tok::kw___int64 || SavedKind == tok::kw___int128 ||
-        (SavedKind == tok::kw_typename && !getLangOpts().EnableTemplates) || SavedKind == tok::kw_typeof)) {
+    if (getLangOpts().HLSL &&
+        (SavedKind == tok::kw_wchar_t || SavedKind == tok::kw_char ||
+         SavedKind == tok::kw_char16_t || SavedKind == tok::kw_char32_t ||
+         SavedKind == tok::kw_short || SavedKind == tok::kw_long ||
+         SavedKind == tok::kw___int64 || SavedKind == tok::kw___int128 ||
+         (SavedKind == tok::kw_typename &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) ||
+         SavedKind == tok::kw_typeof)) {
       // the vector/image/sampler/event keywords aren't returned by the lexer for HLSL
       goto HLSLReservedKeyword;
     }
@@ -1337,7 +1341,8 @@ HLSLReservedKeyword:
   }
 
   case tok::kw_operator: // [C++] id-expression: operator/conversion-function-id
-    if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading &&
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021 &&
         SavedKind == tok::kw_operator) {
       goto HLSLReservedKeyword; // HLSL Change - 'operator' is reserved
     }
