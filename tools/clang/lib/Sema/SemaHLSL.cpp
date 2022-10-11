@@ -12131,6 +12131,26 @@ bool ValidateAttributeTargetIsFunction(Sema& S, Decl* D, const AttributeList &A)
   return false;
 }
 
+static Attr *handleHLSLGloballyCoherent(Sema &S, Decl *D,
+                                        const AttributeList &A) {
+  HLSLExternalSource *HLSLSrc = HLSLExternalSource::FromSema(&S);
+  ValueDecl *TD = dyn_cast<ValueDecl>(D);
+  if (TD && !TD->getType()->isDependentType()) {
+    QualType DeclType = TD->getType();
+    if (DeclType->isArrayType())
+      DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+    if (HLSLSrc->GetTypeObjectKind(DeclType) !=
+            ArTypeObjectKind::AR_TOBJ_OBJECT ||
+        hlsl::GetResourceClassForType(S.getASTContext(), DeclType) !=
+            DXIL::ResourceClass::UAV) {
+      S.Diag(A.getLoc(), diag::err_hlsl_varmodifierna)
+          << A.getName() << "non-UAV type";
+    }
+  }
+  return ::new (S.Context) HLSLGloballyCoherentAttr(
+      A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+}
+
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, bool& Handled)
 {
   DXASSERT_NOMSG(D != nullptr);
@@ -12234,8 +12254,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLGloballyCoherent:
-    declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
-        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    declAttr = handleHLSLGloballyCoherent(S, D, A);
     break;
   case AttributeList::AT_HLSLIndices:
     declAttr = ::new (S.Context) HLSLIndicesAttr(
@@ -13127,12 +13146,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         result = false;
       }
       break;
-    case AttributeList::AT_HLSLGloballyCoherent:
-      if (!bIsObject) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
-            << pAttr->getName() << "non-UAV type";
-        result = false;
-      }
+    case AttributeList::AT_HLSLGloballyCoherent: // Handled elsewhere
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {

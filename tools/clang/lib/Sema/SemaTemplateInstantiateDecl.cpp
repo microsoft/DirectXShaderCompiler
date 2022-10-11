@@ -22,6 +22,7 @@
 #include "clang/AST/TypeLoc.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
+#include "clang/Sema/SemaHLSL.h" // HLSL Change
 #include "clang/Sema/Template.h"
 
 using namespace clang;
@@ -265,6 +266,24 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                                                *CUDALaunchBounds, New);
       continue;
     }
+
+    // HLSL Change Begin - Validate post-instantiation attributes
+    if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
+            dyn_cast<HLSLGloballyCoherentAttr>(TmplAttr)) {
+      ValueDecl *TD = dyn_cast<ValueDecl>(New);
+      if (TD && !TD->getType()->isDependentType()) {
+        QualType DeclType = TD->getType();
+        if (DeclType->isArrayType())
+          DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+        if (!hlsl::IsObjectType(this, DeclType) ||
+            hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
+                hlsl::DXIL::ResourceClass::UAV) {
+          Diag(TmplAttr->getLocation(), diag::err_hlsl_varmodifierna)
+              << TmplAttr << "non-UAV type";
+        }
+      }
+    }
+    // HLSL Change End
 
     // Existing DLL attribute on the instantiation takes precedence.
     if (TmplAttr->getKind() == attr::DLLExport ||

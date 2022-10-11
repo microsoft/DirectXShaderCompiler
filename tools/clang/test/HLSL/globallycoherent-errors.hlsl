@@ -1,10 +1,8 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
-
-// CHECK: globallycoherent can only be used with Unordered Access View buffers
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 globallycoherent RWTexture1D<float4> uav1 : register(u3);
 RWBuffer<float4> uav2;
-globallycoherent Buffer<float4> srv;
+globallycoherent Buffer<float4> srv; // expected-error {{'globallycoherent' is not a valid modifier for a non-UAV type}}
 
  float4 main(uint2 a : A, uint2 b : B) : SV_Target
 {
