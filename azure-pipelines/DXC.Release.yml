@@ -32,8 +32,7 @@ resources:
     - repository: XboxDXC
       type: git
       name: Xbox/Xbox.ShaderCompiler.DXC
-      #ref: refs/heads/Xbox
-      ref: refs/heads/user/hekotas/linux-build-pipelines # TODO
+      ref: refs/heads/Xbox
 
 extends:
   template: azure-pipelines\templates\DXC.Release.template.yml@XboxDXC
