@@ -12,8 +12,6 @@ void doSomething2(uint pos) {
   globallycoherent float ThisShouldBreak = 2.0; // expected-error {{'globallycoherent' is not a valid modifier for a non-UAV type}}
 }
 
-globallycoherent RWTexture2D<float> tex[12];
-
 [numthreads(8, 8, 1)] void main(uint threadId
                                 : SV_DispatchThreadID) {
   doSomething<float>(threadId); // expected-note {{in instantiation of function template specialization 'doSomething<float>' requested here}}

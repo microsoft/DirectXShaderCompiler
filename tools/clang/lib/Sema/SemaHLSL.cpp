@@ -12136,10 +12136,10 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
   if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
           dyn_cast<HLSLGloballyCoherentAttr>(A)) {
-    const ValueDecl *TD = dyn_cast<ValueDecl>(D);
-    if (TD && !TD->getType()->isDependentType()) {
+    const ValueDecl *TD = cast<ValueDecl>(D);
+    if (!TD->getType()->isDependentType()) {
       QualType DeclType = TD->getType();
-      if (DeclType->isArrayType())
+      while (DeclType->isArrayType())
         DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
       if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
           hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
