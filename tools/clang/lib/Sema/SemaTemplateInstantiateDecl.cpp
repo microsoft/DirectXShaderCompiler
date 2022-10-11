@@ -268,21 +268,7 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     }
 
     // HLSL Change Begin - Validate post-instantiation attributes
-    if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
-            dyn_cast<HLSLGloballyCoherentAttr>(TmplAttr)) {
-      ValueDecl *TD = dyn_cast<ValueDecl>(New);
-      if (TD && !TD->getType()->isDependentType()) {
-        QualType DeclType = TD->getType();
-        if (DeclType->isArrayType())
-          DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
-        if (!hlsl::IsObjectType(this, DeclType) ||
-            hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
-                hlsl::DXIL::ResourceClass::UAV) {
-          Diag(TmplAttr->getLocation(), diag::err_hlsl_varmodifierna)
-              << TmplAttr << "non-UAV type";
-        }
-      }
-    }
+    DiagnoseHLSLDeclAttr(New, TmplAttr);
     // HLSL Change End
 
     // Existing DLL attribute on the instantiation takes precedence.

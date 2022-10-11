@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "clang/AST/DeclBase.h"
 #include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/DenseMap.h"
@@ -12131,24 +12132,24 @@ bool ValidateAttributeTargetIsFunction(Sema& S, Decl* D, const AttributeList &A)
   return false;
 }
 
-static Attr *handleHLSLGloballyCoherent(Sema &S, Decl *D,
-                                        const AttributeList &A) {
-  HLSLExternalSource *HLSLSrc = HLSLExternalSource::FromSema(&S);
-  ValueDecl *TD = dyn_cast<ValueDecl>(D);
-  if (TD && !TD->getType()->isDependentType()) {
-    QualType DeclType = TD->getType();
-    if (DeclType->isArrayType())
-      DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
-    if (HLSLSrc->GetTypeObjectKind(DeclType) !=
-            ArTypeObjectKind::AR_TOBJ_OBJECT ||
-        hlsl::GetResourceClassForType(S.getASTContext(), DeclType) !=
-            DXIL::ResourceClass::UAV) {
-      S.Diag(A.getLoc(), diag::err_hlsl_varmodifierna)
-          << A.getName() << "non-UAV type";
+void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
+  HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
+  if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
+          dyn_cast<HLSLGloballyCoherentAttr>(A)) {
+    const ValueDecl *TD = dyn_cast<ValueDecl>(D);
+    if (TD && !TD->getType()->isDependentType()) {
+      QualType DeclType = TD->getType();
+      if (DeclType->isArrayType())
+        DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+      if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
+          hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
+              hlsl::DXIL::ResourceClass::UAV) {
+        Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
+            << A << "non-UAV type";
+      }
     }
+    return;
   }
-  return ::new (S.Context) HLSLGloballyCoherentAttr(
-      A.getRange(), S.Context, A.getAttributeSpellingListIndex());
 }
 
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, bool& Handled)
@@ -12254,7 +12255,8 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLGloballyCoherent:
-    declAttr = handleHLSLGloballyCoherent(S, D, A);
+    declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLIndices:
     declAttr = ::new (S.Context) HLSLIndicesAttr(
@@ -12315,6 +12317,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
 
   if (declAttr != nullptr)
   {
+    S.DiagnoseHLSLDeclAttr(D, declAttr);
     DXASSERT_NOMSG(Handled);
     D->addAttr(declAttr);
     return;
