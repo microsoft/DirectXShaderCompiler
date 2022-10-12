@@ -137,7 +137,6 @@ public:
   TEST_METHOD(EmptyStructInBuffer)
   TEST_METHOD(BigStructInBuffer)
 
-  TEST_METHOD(GloballyCoherent3)
   // TODO: enable this.
   //TEST_METHOD(TGSMRaceCond)
   //TEST_METHOD(TGSMRaceCond2)
@@ -1612,10 +1611,6 @@ TEST_F(ValidationTest, EmptyStructInBuffer) {
 
 TEST_F(ValidationTest, BigStructInBuffer) {
   TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
-}
-
-TEST_F(ValidationTest, GloballyCoherent3) {
-  TestCheck(L"..\\CodeGenHLSL\\globallycoherent3.hlsl");
 }
 
 // TODO: enable this.
