@@ -13406,9 +13406,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   // SPIRV change ends
 
   // Disallow bitfields where not enabled explicitly or by HV
-  if (BitWidth && !getLangOpts().EnableBitfields) {
-    Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
-    result = false;
+  if (BitWidth) {
+    if (!getLangOpts().EnableBitfields) {
+      Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
+      result = false;
+    } else if (!D.UnusualAnnotations.empty()) {
+      Diag(BitWidth->getExprLoc(),
+           diag::err_hlsl_bitfields_with_annotation);
+      result = false;
+    }
   }
 
   // Validate unusual annotations.
