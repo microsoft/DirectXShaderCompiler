@@ -1961,6 +1961,30 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) { 
+  initInstruction(inst);
+
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getYDimension()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getZDimension()));
+  if (inst->getPayload() != nullptr)
+  {
+      curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
+  }
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+bool EmitVisitor::visit(SpirvSetMeshOutputsEXT *inst) {
+  initInstruction(inst);
+
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVertexCount()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPrimitiveCount()));
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

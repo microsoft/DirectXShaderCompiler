@@ -778,8 +778,29 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
       QualType arrayType = astContext.getConstantArrayType(
           astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
           clang::ArrayType::Normal, 0);
-      stageVarInstructions[cast<DeclaratorDecl>(decl)] = getBuiltinVar(
-          spv::BuiltIn::PrimitiveIndicesNV, arrayType, decl->getLocation());
+
+      spv::BuiltIn builtinID = spv::BuiltIn::Max;
+      if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+        switch (verticesPerPrim) { 
+          case 1:
+            builtinID = spv::BuiltIn::PrimitivePointIndicesEXT;
+            break;
+          case 2:
+            builtinID = spv::BuiltIn::PrimitiveLineIndicesEXT;
+            break;
+          case 3:
+            builtinID = spv::BuiltIn::PrimitiveTriangleIndicesEXT;
+            break;
+          default:
+            break;
+        }
+      } else {
+          builtinID = spv::BuiltIn::PrimitiveIndicesNV;
+      }
+
+      stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+          getBuiltinVar(builtinID, arrayType, decl->getLocation());
+
       return true;
     }
   }
@@ -853,7 +874,9 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   SemanticInfo inheritSemantic = {};
 
   if (paramDecl->hasAttr<HLSLPayloadAttr>()) {
-    spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+    spv::StorageClass sc = (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader))
+                           ? spv::StorageClass::TaskPayloadWorkgroupEXT
+                           : getStorageClassForSigPoint(sigPoint);
     return createPayloadStageVars(sigPoint, sc, paramDecl, /*asInput=*/true,
                                   type, "in.var", loadedValue);
   } else {
@@ -3132,9 +3155,12 @@ bool DeclResultIdMapper::createPayloadStageVars(
     }
     stageVars.push_back(stageVar);
 
-    // Decorate with PerTaskNV for mesh/amplification shader payload variables.
-    spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
-                                 varInstr->getSourceLocation());
+    if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      // Decorate with PerTaskNV for mesh/amplification shader payload
+      // variables.
+      spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
+                                   varInstr->getSourceLocation());
+    }
 
     if (asInput) {
       *value = spvBuilder.createLoad(type, varInstr, loc);
@@ -3388,7 +3414,10 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
     break;
   case spv::BuiltIn::PrimitiveCountNV:
   case spv::BuiltIn::PrimitiveIndicesNV:
-  case spv::BuiltIn::TaskCountNV:
+  case spv::BuiltIn::PrimitivePointIndicesEXT:
+  case spv::BuiltIn::PrimitiveLineIndicesEXT:
+  case spv::BuiltIn::PrimitiveTriangleIndicesEXT:
+  case spv::BuiltIn::CullPrimitiveEXT:
     sc = spv::StorageClass::Output;
     break;
   default:
@@ -3807,14 +3836,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
   // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
-    QualType checkType = type->getAs<ReferenceType>()
-                             ? type->getAs<ReferenceType>()->getPointeeType()
-                             : type;
-    QualType scalarTy;
-    if (!isScalarType(checkType, &scalarTy) || !scalarTy->isIntegerType()) {
-      emitError("semantic ShadingRate must be interger scalar type", srcLoc);
-    }
-
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
@@ -3823,12 +3844,27 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::MSOut:
+    case hlsl::SigPoint::Kind::MSPOut:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(
           type, sc, BuiltIn::PrimitiveShadingRateKHR, isPrecise, srcLoc);
     default:
       emitError("semantic ShadingRate must be used only for PSIn, VSOut, "
                 "GSOut, MSOut",
+                srcLoc);
+      break;
+    }
+    break;
+  }
+
+  case hlsl::Semantic::Kind::CullPrimitive: {
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::MSPOut:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
+                                           isPrecise, srcLoc);
+    default:
+      emitError("semantic CullPrimitive must be used only for MSPOut",
                 srcLoc);
       break;
     }

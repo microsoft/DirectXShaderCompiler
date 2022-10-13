@@ -221,6 +221,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_EXT_fragment_fully_covered";
   case Extension::EXT_fragment_invocation_density:
     return "SPV_EXT_fragment_invocation_density";
+  case Extension::EXT_mesh_shader:
+    return "SPV_EXT_mesh_shader";
   case Extension::EXT_shader_stencil_export:
     return "SPV_EXT_shader_stencil_export";
   case Extension::EXT_shader_viewport_index_layer:

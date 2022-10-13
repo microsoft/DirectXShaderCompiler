@@ -459,6 +459,20 @@ public:
   /// \brief Creates an OpEndPrimitive instruction.
   void createEndPrimitive(SourceLocation, SourceRange range = {});
 
+  /// \brief Creates an OpEmitMeshTasksEXT instruction.
+  void createEmitMeshTasksEXT(SpirvInstruction* xDim,
+                              SpirvInstruction* yDim,
+                              SpirvInstruction* zDim,
+                              SourceLocation loc,
+                              SpirvInstruction *payload = nullptr,
+                              SourceRange range = {});
+
+  /// \brief Creates an OpSetMeshOutputsEXT instruction.
+  void createSetMeshOutputsEXT(SpirvInstruction* vertCount,
+                               SpirvInstruction* primCount,
+                               SourceLocation loc,
+                               SourceRange range = {});
+
   /// \brief Creates an OpArrayLength instruction.
   SpirvArrayLength *createArrayLength(QualType resultType, SourceLocation loc,
                                       SpirvInstruction *structure,
