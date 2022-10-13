@@ -581,7 +581,9 @@ HRESULT DxcBasicUnsavedFile::Create(
   HRESULT hr = newValue->Initialize(fileName, contents, contentLength);
   if (FAILED(hr))
   {
-    delete newValue;
+    CComPtr<IMalloc> pTmp(newValue->m_pMalloc);
+    newValue->DxcBasicUnsavedFile::~DxcBasicUnsavedFile();
+    pTmp->Free(newValue);
     return hr;
   }
   newValue->AddRef();

@@ -20,6 +20,7 @@
 #include <atomic>
 
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/microcom.h"
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcisense.h"
@@ -49,14 +50,15 @@ inline HRESULT GetFirstChildFromCursor(IDxcCursor *cursor,
   return hr;
 }
 
-class TrivialDxcUnsavedFile : IDxcUnsavedFile
+class TrivialDxcUnsavedFile : public IDxcUnsavedFile
 {
 private:
-  volatile std::atomic<llvm::sys::cas_flag> m_dwRef;
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
   LPCSTR m_fileName;
   LPCSTR m_contents;
   unsigned m_length;
 public:
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   TrivialDxcUnsavedFile(LPCSTR fileName, LPCSTR contents)
     : m_dwRef(0), m_fileName(fileName), m_contents(contents)
   {
@@ -68,13 +70,8 @@ public:
     CComPtr<TrivialDxcUnsavedFile> pNewValue = new TrivialDxcUnsavedFile(fileName, contents);
     return pNewValue.QueryInterface(pResult);
   }
-  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)++m_dwRef; }
-  ULONG STDMETHODCALLTYPE Release() { 
-    ULONG result = (ULONG)--m_dwRef;
-    if (result == 0) delete this;
-    return result;
-  }
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     if (ppvObject == nullptr) return E_POINTER;
     if (IsEqualIID(iid, __uuidof(IUnknown)) ||
@@ -88,19 +85,19 @@ public:
 
     return E_NOINTERFACE;
   }
-  HRESULT STDMETHODCALLTYPE GetFileName(LPSTR* pFileName)
+  HRESULT STDMETHODCALLTYPE GetFileName(LPSTR* pFileName) override
   {
     *pFileName = (LPSTR)CoTaskMemAlloc(1 + strlen(m_fileName));
     strcpy(*pFileName, m_fileName);
     return S_OK;
   }
-  HRESULT STDMETHODCALLTYPE GetContents(LPSTR* pContents)
+  HRESULT STDMETHODCALLTYPE GetContents(LPSTR* pContents) override
   {
     *pContents = (LPSTR)CoTaskMemAlloc(m_length + 1);
     memcpy(*pContents, m_contents, m_length + 1);
     return S_OK;
   }
-  HRESULT STDMETHODCALLTYPE GetLength(unsigned* pLength)
+  HRESULT STDMETHODCALLTYPE GetLength(unsigned* pLength) override
   {
     *pLength = m_length;
     return S_OK;

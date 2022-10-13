@@ -44,13 +44,13 @@ public:
   STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
-  virtual void *STDMETHODCALLTYPE Alloc (
+  void *STDMETHODCALLTYPE Alloc (
     /* [annotation][in] */
     _In_  SIZE_T cb) override {
     return HeapAlloc(GetProcessHeap(), 0, cb);
   }
 
-  virtual void *STDMETHODCALLTYPE Realloc (
+  void *STDMETHODCALLTYPE Realloc (
     /* [annotation][in] */
     _In_opt_  void *pv,
     /* [annotation][in] */
@@ -59,30 +59,28 @@ public:
     return HeapReAlloc(GetProcessHeap(), 0, pv, cb);
   }
 
-  virtual void STDMETHODCALLTYPE Free (
+  void STDMETHODCALLTYPE Free (
     /* [annotation][in] */
     _In_opt_  void *pv) override
   {
     HeapFree(GetProcessHeap(), 0, pv);
   }
 
-
-  virtual SIZE_T STDMETHODCALLTYPE GetSize(
+  SIZE_T STDMETHODCALLTYPE GetSize(
     /* [annotation][in] */
-    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
+    _In_opt_ _Post_writable_byte_size_(return)  void *pv) override
   {
     return HeapSize(GetProcessHeap(), 0, pv);
   }
 
-  virtual int STDMETHODCALLTYPE DidAlloc(
+  int STDMETHODCALLTYPE DidAlloc(
     /* [annotation][in] */
-    _In_opt_  void *pv)
+    _In_opt_  void *pv) override
   {
     return -1; // don't know
   }
 
-
-  virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
+  void STDMETHODCALLTYPE HeapMinimize(void) override {}
 };
 
 static HeapMalloc g_HeapMalloc;
@@ -321,7 +319,7 @@ public:
     ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
-      this->~InternalDxcBlobEncoding_Impl();
+      this->InternalDxcBlobEncoding_Impl::~InternalDxcBlobEncoding_Impl();
       pTmp->Free(this);
     }
     return result;
@@ -1138,7 +1136,7 @@ public:
     ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
-      this->~MemoryStream();
+      this->MemoryStream::~MemoryStream();
       pTmp->Free(this);
     }
     return result;
