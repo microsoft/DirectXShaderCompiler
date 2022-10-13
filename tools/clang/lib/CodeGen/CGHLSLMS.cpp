@@ -3312,15 +3312,6 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     hlslRes->SetGloballyCoherent(true);
   }
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
-    if (hlslRes->IsGloballyCoherent()) {
-      DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "globallycoherent can only be used with "
-                                    "Unordered Access View buffers.");
-      Diags.Report(loc, DiagID);
-      return false;
-    }
-
     hlslRes->SetRW(false);
     hlslRes->SetID(m_pHLModule->GetSRVs().size());
   } else {
