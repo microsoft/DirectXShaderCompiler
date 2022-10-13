@@ -3793,6 +3793,7 @@ public:
   // HLSL Change Begins
   bool CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
                                             UnaryExprOrTypeTrait ExprKind);
+  void DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
