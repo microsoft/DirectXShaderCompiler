@@ -5797,11 +5797,6 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
               !hlsl::GetOriginalElementType(&S, Type)->isFloatingType()) {
     S.Diag(Attr.getLoc(), diag::err_hlsl_norm_float_only) << Attr.getRange();
     return true;
-  } else if (Kind == AttributeList::AT_HLSLGloballyCoherent &&
-             !hlsl::IsObjectType(&S, Type)) {
-    S.Diag(Attr.getLoc(), diag::err_hlsl_varmodifierna) <<
-        Attr.getName() << "non-UAV type";
-    return true;
   }
 
   const AttributedType *pMatrixOrientation = nullptr;
