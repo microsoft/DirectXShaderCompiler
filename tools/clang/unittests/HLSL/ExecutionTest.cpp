@@ -11390,11 +11390,11 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     AssembleToContainer(dllSupport, rewrittenDisassembly, &assembledShader);
 
     // Find root signature part in container
-    hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(compiledShader->GetBufferPointer(), compiledShader->GetBufferSize());
-    VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, compiledShader->GetBufferSize()));
-    hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
-        pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
-    if (!pPartHeader) {
+    CComPtr<IDxcContainerReflection> pReflection;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+    VERIFY_SUCCEEDED(pReflection->Load(compiledShader));
+    UINT32 iPartIndex;
+    if (FAILED(pReflection->FindFirstPartKind(hlsl::DxilFourCC::DFCC_RootSignature, &iPartIndex))) {
       // No root signature to copy, use the assembledShader.
       *ppShaderBlob = assembledShader.Detach();
       return;
@@ -11405,9 +11405,8 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     VERIFY_SUCCEEDED(pBuilder->Load(assembledShader));
 
     // Wrap root signature in blob
-    CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
-    VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
-      hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
+    CComPtr<IDxcBlob> pRootSignatureBlob;
+    VERIFY_SUCCEEDED(pReflection->GetPartContent(iPartIndex, &pRootSignatureBlob));
     // Add root signature to container
     pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
 
