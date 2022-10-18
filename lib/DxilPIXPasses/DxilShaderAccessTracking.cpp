@@ -432,10 +432,17 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
                                 res.RegisterID};
         m_DynamicallyIndexedBindPoints.emplace(std::move(id));
     
+        Value *index = res.index;
+        if (res.RegisterID != 0)
+        {
+          index =
+              Builder.CreateAdd(res.index, HlslOP->GetU32Const(res.RegisterID));
+        }
+
         // CompareWithSlotLimit will contain 1 if the access is out-of-bounds
         // (both over- and and under-flow via the unsigned >= with slot count)
         auto CompareWithSlotLimit = Builder.CreateICmpUGE(
-            res.index, HlslOP->GetU32Const(slot->second.numSlots),
+            index, HlslOP->GetU32Const(slot->second.numSlots),
             "CompareWithSlotLimit");
         auto CompareWithSlotLimitAsUint = Builder.CreateCast(
             Instruction::CastOps::ZExt, CompareWithSlotLimit,
@@ -447,7 +454,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
             HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
     
         auto SlotDwordOffset = Builder.CreateAdd(
-            res.index, HlslOP->GetU32Const(slot->second.startSlot),
+            index, HlslOP->GetU32Const(slot->second.startSlot),
             "SlotDwordOffset");
         auto SlotByteOffset = Builder.CreateMul(
             SlotDwordOffset,
@@ -644,6 +651,8 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
           binding =
               hlsl::resource_helper::loadBindingFromResourceBase(UAV.get());
           ret.registerType = RegisterType::UAV;
+          ret.RegisterID = binding.rangeLowerBound;
+          ret.RegisterSpace = binding.spaceID;
           if (ret.index == nullptr) {
             ret.index = DM.GetOP()->GetU32Const(binding.rangeLowerBound);
           }
@@ -942,18 +951,6 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
         auto *CallerParent = Call->getParent();
         if (llvm::isa<llvm::BasicBlock>(CallerParent)) {
-          auto *BlockParent =
-              llvm::cast<llvm::BasicBlock>(CallerParent)->getParent();
-          DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
-          if (!DM.HasDxilFunctionProps(BlockParent)) {
-            auto ShaderModel = DM.GetShaderModel();
-            shaderKind = ShaderModel->GetKind();
-          } else {
-            hlsl::DxilFunctionProps const &props =
-                DM.GetDxilFunctionProps(BlockParent);
-            shaderKind = props.shaderKind;
-          }
-
           auto opCode = OP::GetDxilOpFuncCallInst(Call);
 
           // Base Read/Write on function attribute - should match for all normal
