@@ -8,7 +8,7 @@ stages:
     timeoutInMinutes: 90
 
     pool:
-      vmImage: windows-2019
+      vmImage: windows-2022
 
     variables:
       HLSL_SRC_DIR: '$(Build.SourcesDirectory)'
@@ -17,14 +17,15 @@ stages:
 
     strategy:
       matrix:
-        VS2019_Release:
+        VS2022_Release:
          configuration: Release
-        VS2019_Debug:
+        VS2022_Debug:
          configuration: Debug
 
     steps:
-    - script: git submodule update --init
-      displayName: 'Updating submodules'
+    - checkout: self
+      clean: true
+      submodules: true
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest
@@ -90,6 +91,10 @@ stages:
       vmImage: $(image)
 
     steps:
+    - checkout: self
+      clean: true
+      submodules: true
+
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '3.x'
@@ -104,8 +109,6 @@ stages:
         ulimit -Sn 1024
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['macOS'])
-    - bash: git submodule update --init
-      displayName: 'Updating submodules'
     - bash: |
         mkdir build
         cd build
