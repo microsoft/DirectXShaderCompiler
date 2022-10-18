@@ -102,6 +102,8 @@ bool Align(unsigned &pos, unsigned end, unsigned align) {
 }
 
 struct Element {
+  Element() = default;
+  Element(const Element&) = default;
   Element(unsigned id, unsigned start, unsigned end) : id(id), start(start), end(end) {}
   bool operator<(const Element &other) { return id < other.id; }
   unsigned id;  // index in original ordered vector
@@ -663,7 +665,7 @@ TEST_F(AllocatorTest, GapFilling) {
 
 TEST_F(AllocatorTest, Allocate) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  for (auto &&scenario : m_Scenarios) {
+  for (auto &scenario : m_Scenarios) {
 
     // Test for alignment 1 (no alignment), then alignment 4
     unsigned alignment = 1;
@@ -678,11 +680,14 @@ TEST_F(AllocatorTest, Allocate) {
       Allocator alloc(scenario.Min, scenario.Max);
       VERIFY_IS_TRUE(scenario.InsertSpans(alloc));
 
+      // This needs to be allocated outside the control flow because we need the
+      // stack allocation to remain valid until the spans are verified.
+      Element e;
       if (!largestGap ||  // no gaps
           (sizeLess1 < UINT_MAX && sizeLess1 > largestGap->sizeLess1) ||  // not unbounded and size too large
           (sizeLess1 == UINT_MAX && !pEndGap)) {  // unbounded and no end gap
         // no large enough gap, should fail to allocate
-        Element e(UINT_MAX, 0, 0);
+        e = Element(UINT_MAX, 0, 0);
         unsigned pos = 0xFEFEFEFE;
         if (sizeLess1 == UINT_MAX) {
           VERIFY_IS_FALSE(alloc.AllocateUnbounded(&e, pos, alignment));
@@ -699,7 +704,7 @@ TEST_F(AllocatorTest, Allocate) {
         DXASSERT_NOMSG(expectedGap);
         unsigned start = expectedGap->start;
         unsigned end = expectedGap->start + sizeLess1;
-        Element e(UINT_MAX, start, end);
+        e = Element(UINT_MAX, start, end);
         unsigned pos = 0xFEFEFEFE;
         if (sizeLess1 == UINT_MAX) {
           e.end = expectedGap->end;

@@ -648,26 +648,8 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
           cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
 
       DxilFieldAnnotation &fieldAnno = Anno->GetFieldAnnotation(Index);
-      if (fieldAnno.HasResourceAttribute()) {
-        MDNode *resAttrib = fieldAnno.GetResourceAttribute();
-        DxilResourceBase R(DXIL::ResourceClass::Invalid);
-        HLM.LoadDxilResourceBaseFromMDNode(resAttrib, R);
-        switch (R.GetClass()) {
-        case DXIL::ResourceClass::SRV:
-        case DXIL::ResourceClass::UAV: {
-          DxilResource Res;
-          HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
-          RP = resource_helper::loadPropsFromResourceBase(&Res);
-        } break;
-        case DXIL::ResourceClass::Sampler: {
-          DxilSampler Sampler;
-          HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
-          RP = resource_helper::loadPropsFromResourceBase(&Sampler);
-        } break;
-        default:
-          DXASSERT(0, "invalid resource attribute in filed annotation");
-          break;
-        }
+      if (fieldAnno.HasResourceProperties()) {
+        RP = fieldAnno.GetResourceProperties();
         break;
       }
     }
