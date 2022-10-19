@@ -12,7 +12,7 @@
 // CHECK: slotIndex = mul i32
 
 // Check for udpate of UAV:
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %PIX_CountUAV_Handle
 
 
 ByteAddressBuffer inBuffer : register(t0);

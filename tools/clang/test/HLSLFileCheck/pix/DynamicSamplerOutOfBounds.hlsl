@@ -20,5 +20,5 @@ float4 Main() : SV_Target
 // There are therefore no expected in-bounds references to samplers, so any such reference should go to the out-of-bounds offset at 512:
 
 // Out of bounds sampler access should be at offset 512
-// CHECK: call void @dx.op.bufferStore.i32(
+// CHECK: call void @dx.op.rawBufferStore.i32(
 // CHECK:i32 512, i32 undef, i32 16777216

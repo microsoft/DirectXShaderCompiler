@@ -194,6 +194,7 @@ struct DxilResourceAndClass {
   int RegisterSpace;
   unsigned RegisterID;
   Value *index;
+  Value *indexDynamicOffset;
   Value *dynamicallyBoundIndex;
 };
 
@@ -433,10 +434,9 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
         m_DynamicallyIndexedBindPoints.emplace(std::move(id));
     
         Value *index = res.index;
-        if (res.RegisterID != 0)
-        {
-          index =
-              Builder.CreateAdd(res.index, HlslOP->GetU32Const(res.RegisterID));
+
+        if (res.indexDynamicOffset != nullptr) {
+          index = Builder.CreateAdd(res.index, res.indexDynamicOffset, "IndexPlusGEPIndex");
         }
 
         // CompareWithSlotLimit will contain 1 if the access is out-of-bounds
@@ -597,6 +597,8 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
   auto *ptr = loadInstruction->getOperand(0);
 
   GlobalVariable *global = nullptr;
+  bool addLowerBoundToIndex = false;
+  Value *GEPIndex = nullptr;
   if (llvm::isa<GetElementPtrInst>(ptr)) {
     auto *GEP = llvm::cast<GetElementPtrInst>(ptr);
     // GEPs can have complex nested pointer dereferences, so make sure
@@ -605,12 +607,14 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
     if (llvm::isa<ConstantInt>(FirstGEPIndex) &&
         llvm::cast<ConstantInt>(FirstGEPIndex)->getLimitedValue() == 0) {
       global = llvm::cast_or_null<GlobalVariable>(GEP->getPointerOperand());
-      ret.index = GEP->getOperand(2);
+      GEPIndex = GEP->getOperand(2);
     }
   } else if (GlobalVariable *Global = llvm::cast_or_null<GlobalVariable>(ptr)) {
     //  If the load instruction points straight at a global, it's not an indexed
     //  load, so we can ignore it.
     global = Global;
+    // The index within this global is relative to the base of the register range
+    addLowerBoundToIndex = true;
   }
 
   if (global != nullptr) {
@@ -624,9 +628,6 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
         binding =
             hlsl::resource_helper::loadBindingFromResourceBase(CBuffer.get());
         ret.registerType = RegisterType::CBV;
-        if (ret.index == nullptr) {
-          ret.index = DM.GetOP()->GetU32Const(binding.rangeLowerBound);
-        }
         break;
       }
     }
@@ -637,9 +638,6 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
           binding =
               hlsl::resource_helper::loadBindingFromResourceBase(SRV.get());
           ret.registerType = RegisterType::SRV;
-          if (ret.index == nullptr) {
-            ret.index = DM.GetOP()->GetU32Const(binding.rangeLowerBound);
-          }
           break;
         }
       }
@@ -651,11 +649,6 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
           binding =
               hlsl::resource_helper::loadBindingFromResourceBase(UAV.get());
           ret.registerType = RegisterType::UAV;
-          ret.RegisterID = binding.rangeLowerBound;
-          ret.RegisterSpace = binding.spaceID;
-          if (ret.index == nullptr) {
-            ret.index = DM.GetOP()->GetU32Const(binding.rangeLowerBound);
-          }
           break;
         }
       }
@@ -664,6 +657,11 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
       ret.accessStyle = AccessStyle::FromRootSig;
       ret.RegisterID = binding.rangeLowerBound;
       ret.RegisterSpace = binding.spaceID;
+      ret.index = DM.GetOP()->GetU32Const(binding.rangeLowerBound);
+      // The GEP index is of course relative to the base address of the
+      // resource, so we make a note of it so we can add it to the base
+      // register index later.
+      ret.indexDynamicOffset = GEPIndex;
     }
   }
 
@@ -679,6 +677,7 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
       RegisterType::Terminator,
       0,
       0,
+      nullptr,
       nullptr,
       nullptr};
 
