@@ -599,8 +599,28 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
   GlobalVariable *global = nullptr;
   bool addLowerBoundToIndex = false;
   Value *GEPIndex = nullptr;
+  GetElementPtrInst *GEP = nullptr;
+  std::unique_ptr<GetElementPtrInst> GEPOperandAsInstructionDestroyer;
   if (llvm::isa<GetElementPtrInst>(ptr)) {
-    auto *GEP = llvm::cast<GetElementPtrInst>(ptr);
+    GEP = llvm::cast<GetElementPtrInst>(ptr);
+  } else if (llvm::isa<ConstantExpr>(ptr)) {
+    auto *constant = llvm::cast<ConstantExpr>(ptr);
+    if (constant->getOpcode() == Instruction::GetElementPtr) {
+      GEPOperandAsInstructionDestroyer.reset(
+          llvm::cast<GetElementPtrInst>(constant->getAsInstruction()));
+      GEP = GEPOperandAsInstructionDestroyer.get();
+    }
+  } else if (llvm::isa<GlobalVariable>(ptr)) {
+    GlobalVariable *Global = llvm::cast_or_null<GlobalVariable>(ptr);
+
+    //  If the load instruction points straight at a global, it's not an indexed
+    //  load, so we can ignore it.
+    global = Global;
+    // The index within this global is relative to the base of the register
+    // range
+    addLowerBoundToIndex = true;
+  }
+  if (GEP != nullptr) {
     // GEPs can have complex nested pointer dereferences, so make sure
     // it's the kind we expect for an indexed global lookup:
     auto *FirstGEPIndex = GEP->getOperand(1);
@@ -609,14 +629,7 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
       global = llvm::cast_or_null<GlobalVariable>(GEP->getPointerOperand());
       GEPIndex = GEP->getOperand(2);
     }
-  } else if (GlobalVariable *Global = llvm::cast_or_null<GlobalVariable>(ptr)) {
-    //  If the load instruction points straight at a global, it's not an indexed
-    //  load, so we can ignore it.
-    global = Global;
-    // The index within this global is relative to the base of the register range
-    addLowerBoundToIndex = true;
   }
-
   if (global != nullptr) {
     hlsl::DxilResourceBinding binding{};
 
