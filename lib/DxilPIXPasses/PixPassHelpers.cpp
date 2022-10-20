@@ -164,7 +164,7 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
                           unsigned int registerId, const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
-  char * PIXStructTypeName = "struct.RWByteAddressBuffer";
+  const char * PIXStructTypeName = "struct.RWByteAddressBuffer";
   llvm::StructType *UAVStructTy =
       DM.GetModule()->getTypeByName(PIXStructTypeName);
   if (UAVStructTy == nullptr) {
