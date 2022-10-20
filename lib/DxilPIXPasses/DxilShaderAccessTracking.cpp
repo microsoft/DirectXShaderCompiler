@@ -217,8 +217,12 @@ private:
                           OP *HlslOP, LLVMContext &Ctx,
                           ShaderAccessFlags readWrite);
   DxilResourceAndClass GetResourceFromHandle(Value* resHandle, DxilModule& DM);
+  DxilResourceAndClass
+  DetermineAccessForHandleForLib(CallInst *handleCreation,
+                                 DxilResourceAndClass &initializedRnC,
+                                 DxilModule &DM);
 
-private:
+private :
   struct DynamicResourceBinding {
     int HeapIndex;
     bool HeapIsSampler; // else resource
@@ -234,6 +238,7 @@ private:
   std::map<llvm::Function *, CallInst *> m_FunctionToUAVHandle;
   std::map<llvm::Function *, std::map<ResourceAccessStyle, Constant *>> m_FunctionToEncodedAccess;
   std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
+  std::vector<std::unique_ptr<GetElementPtrInst>> m_GEPOperandAsInstructionDestroyers;
 };
 
 static unsigned DeserializeInt(std::deque<char> &q) {
@@ -419,7 +424,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
 
         Value *slotIndex;
     
-      if (isa<ConstantInt>(res.index)) {
+      if (isa<ConstantInt>(res.index) && res.indexDynamicOffset == nullptr) {
         unsigned index = cast<ConstantInt>(res.index)->getLimitedValue();
         if (index > slot->second.numSlots) {
           // out-of-range accesses are written to slot zero:
@@ -584,7 +589,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
 }
 
 
-DxilResourceAndClass DetermineAccessForHandleForLib(
+DxilResourceAndClass DxilShaderAccessTracking::DetermineAccessForHandleForLib(
     CallInst *handleCreation,
     DxilResourceAndClass &initializedRnC, DxilModule &DM) {
 
@@ -597,18 +602,16 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
   auto *ptr = loadInstruction->getOperand(0);
 
   GlobalVariable *global = nullptr;
-  bool addLowerBoundToIndex = false;
   Value *GEPIndex = nullptr;
   GetElementPtrInst *GEP = nullptr;
-  std::unique_ptr<GetElementPtrInst> GEPOperandAsInstructionDestroyer;
   if (llvm::isa<GetElementPtrInst>(ptr)) {
     GEP = llvm::cast<GetElementPtrInst>(ptr);
   } else if (llvm::isa<ConstantExpr>(ptr)) {
     auto *constant = llvm::cast<ConstantExpr>(ptr);
     if (constant->getOpcode() == Instruction::GetElementPtr) {
-      GEPOperandAsInstructionDestroyer.reset(
+      m_GEPOperandAsInstructionDestroyers.emplace_back(
           llvm::cast<GetElementPtrInst>(constant->getAsInstruction()));
-      GEP = GEPOperandAsInstructionDestroyer.get();
+      GEP = m_GEPOperandAsInstructionDestroyers.back().get();
     }
   } else if (llvm::isa<GlobalVariable>(ptr)) {
     GlobalVariable *Global = llvm::cast_or_null<GlobalVariable>(ptr);
@@ -616,9 +619,6 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
     //  If the load instruction points straight at a global, it's not an indexed
     //  load, so we can ignore it.
     global = Global;
-    // The index within this global is relative to the base of the register
-    // range
-    addLowerBoundToIndex = true;
   }
   if (GEP != nullptr) {
     // GEPs can have complex nested pointer dereferences, so make sure
@@ -637,7 +637,7 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
 
     auto const &CBuffers = DM.GetCBuffers();
     for (auto &CBuffer : CBuffers) {
-      if (global->getName() == CBuffer->GetGlobalSymbol()->getName()) {
+      if (global == CBuffer->GetGlobalSymbol()) {
         binding =
             hlsl::resource_helper::loadBindingFromResourceBase(CBuffer.get());
         ret.registerType = RegisterType::CBV;
@@ -647,7 +647,7 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
     if (ret.registerType == RegisterType::Invalid) {
       auto const &SRVs = DM.GetSRVs();
       for (auto &SRV : SRVs) {
-        if (global->getName() == SRV->GetGlobalSymbol()->getName()) {
+        if (global == SRV->GetGlobalSymbol()) {
           binding =
               hlsl::resource_helper::loadBindingFromResourceBase(SRV.get());
           ret.registerType = RegisterType::SRV;
@@ -658,7 +658,7 @@ DxilResourceAndClass DetermineAccessForHandleForLib(
     if (ret.registerType == RegisterType::Invalid) {
       auto const &UAVs = DM.GetUAVs();
       for (auto &UAV : UAVs) {
-        if (global->getName() == UAV->GetGlobalSymbol()->getName()) {
+        if (global == UAV->GetGlobalSymbol()) {
           binding =
               hlsl::resource_helper::loadBindingFromResourceBase(UAV.get());
           ret.registerType = RegisterType::UAV;
@@ -1038,6 +1038,9 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
   }
+
+  // Done with these guys:
+  m_GEPOperandAsInstructionDestroyers.clear();
 
   return Modified;
 }
