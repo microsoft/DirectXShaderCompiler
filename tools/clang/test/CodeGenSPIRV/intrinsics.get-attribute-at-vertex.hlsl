@@ -1,6 +1,6 @@
 // RUN: %dxc -T ps_6_1 -E main
 
-enum VertexID { 
+enum VertexID {
     FIRST = 0,
     SECOND = 1,
     THIRD = 2

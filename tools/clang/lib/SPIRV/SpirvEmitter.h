@@ -162,6 +162,10 @@ private:
                          SpirvInstruction **aliasVarInstr,
                          SourceRange rangeOverride = {});
 
+  /// Redecl variable type for some special usage like PerVertexKHR decorated input.
+  ///
+  QualType redeclSpecialVarType(QualType type, ParmVarDecl *param);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.

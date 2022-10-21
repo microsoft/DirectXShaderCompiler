@@ -2654,12 +2654,7 @@ bool DeclResultIdMapper::createStageVars(
       evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
-      if (decl->hasAttr<HLSLCentroidAttr>() || decl->hasAttr<HLSLSampleAttr>()) {
-        evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
-      }
-      else {
-        evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
-      }
+      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
       break;
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
@@ -2790,22 +2785,17 @@ bool DeclResultIdMapper::createStageVars(
 
     // Decorate with interpolation modes for pixel shader input variables
     // or vertex shader output variables.
-    if (((spvContext.isPS() && sigPoint->IsInput()) ||
-         (spvContext.isVS() && sigPoint->IsOutput())) &&
-        // BaryCoord*AMD and BaryCoord*KHR buitins already encode the interpolation mode.
-        semanticKind != hlsl::Semantic::Kind::Barycentrics)
-      decorateInterpolationMode(decl, type, varInstr);
+    if ((spvContext.isPS() && sigPoint->IsInput()) ||
+        (spvContext.isVS() && sigPoint->IsOutput()))
+      decorateInterpolationMode(decl, type, varInstr,
+                                (semanticKind == hlsl::Semantic::Kind::Barycentrics));
 
     if (asInput) {
-      if (astContext.validateBaryCoordInputLoc(loc)) {
-        if (!evalType->isArrayType()) {
-          QualType qtype = astContext.getConstantArrayType(evalType, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
-          *value = spvBuilder.createLoad(qtype, varInstr, loc);
-        } else
-         *value = spvBuilder.createLoad(evalType, varInstr, loc);
-    } else
-       *value = spvBuilder.createLoad(evalType, varInstr, loc);
+      if (astContext.validatePerVertexInput(decl) && !evalType->isArrayType())
+          evalType = astContext.getConstantArrayType(evalType, llvm::APInt(32, 3),
+                     clang::ArrayType::Normal, 0);
 
+      *value = spvBuilder.createLoad(evalType, varInstr, loc);
       // Fix ups for corner cases
 
       // Special handling of SV_TessFactor DS patch constant input.
@@ -3372,7 +3362,9 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
 
 void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
                                                    QualType type,
-                                                   SpirvVariable *varInstr) {
+                                                   SpirvVariable *varInstr,
+                                                   bool isBaryCoord)
+{
   if (varInstr->getStorageClass() != spv::StorageClass::Input &&
       varInstr->getStorageClass() != spv::StorageClass::Output) {
     return;
@@ -3397,9 +3389,9 @@ void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
     // Attributes can be used together. So cannot use else if.
     if (decl->getAttr<HLSLCentroidAttr>())
       spvBuilder.decorateCentroid(varInstr, loc);
-    if (decl->getAttr<HLSLNoInterpolationAttr>())
+    if (decl->getAttr<HLSLNoInterpolationAttr>() && !isBaryCoord)
       spvBuilder.decorateFlat(varInstr, loc);
-    if (decl->getAttr<HLSLNoPerspectiveAttr>())
+    if (decl->getAttr<HLSLNoPerspectiveAttr>() && !isBaryCoord)
       spvBuilder.decorateNoPerspective(varInstr, loc);
     if (decl->getAttr<HLSLSampleAttr>()) {
       spvBuilder.decorateSample(varInstr, loc);
@@ -3488,11 +3480,11 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   const auto sigPoint = stageVar->getSigPoint();
   const auto semanticKind = stageVar->getSemanticInfo().getKind();
   const auto sigPointKind = sigPoint->GetKind();
-  const auto type = stageVar->getAstType();
+  auto type = stageVar->getAstType();
   const auto isPrecise = decl->hasAttr<HLSLPreciseAttr>();
-  // Record fund decl of stage IO according to param loc in local call
-  if (astContext.validateBaryCoordInputLoc(decl->getLocation()))
-    astContext.recordBaryCoordInputLoc(srcLoc);
+  // Record fund decl of stage IO according to parameter node in local call
+  if (astContext.validatePerVertexInput(decl) && !type->isArrayType())
+    type = astContext.getConstantArrayType(type, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
 
   spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
   if (sc == spv::StorageClass::Max)
@@ -3767,25 +3759,9 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     // Selecting the correct builtin according to interpolation mode
     auto bi = BuiltIn::Max;
     if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
-      }
-      else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspSampleAMD;
-      }
-      else {
-        bi = BuiltIn::BaryCoordNoPerspKHR;
-      }
+      bi = BuiltIn::BaryCoordNoPerspKHR;
     } else {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothCentroidAMD;
-      }
-      else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothSampleAMD;
-      }
-      else {
-        bi = BuiltIn::BaryCoordKHR;
-      }
+      bi = BuiltIn::BaryCoordKHR;
     }
 
     return spvBuilder.addStageBuiltinVar(type, sc, bi, isPrecise, srcLoc);

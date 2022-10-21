@@ -715,7 +715,7 @@ private:
   /// Decorates varInstr of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
   void decorateInterpolationMode(const NamedDecl *decl, QualType asType,
-                                 SpirvVariable *varInstr);
+                                 SpirvVariable *varInstr, bool isBaryCoord);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.

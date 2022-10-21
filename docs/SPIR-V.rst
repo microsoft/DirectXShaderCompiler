@@ -297,7 +297,6 @@ Supported extensions
 * SPV_EXT_mesh_shader
 * SPV_EXT_shader_stencil_support
 * SPV_AMD_shader_early_and_late_fragment_tests
-* SPV_AMD_shader_explicit_vertex_parameter
 * SPV_GOOGLE_hlsl_functionality1
 * SPV_GOOGLE_user_type
 * SPV_NV_mesh_shader
@@ -1551,8 +1550,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 | SV_StencilRef             | PSOut       | ``FragStencilRefEXT``                  | N/A                   | ``StencilExportEXT``        |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_Barycentrics           | PSIn        | ``BaryCoord*KHR`` for linear interp    | N/A                   | ``FragmentBarycentricKHR``  |
-|                           |             | ``BaryCoord*AMD`` for other types      |                       |                             |
+| SV_Barycentrics           | PSIn        | ``BaryCoord*KHR``                      | N/A                   | ``FragmentBarycentricKHR``  |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``Layer``                              | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+

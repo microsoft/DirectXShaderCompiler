@@ -1210,23 +1210,13 @@ ASTContext::getInstantiatedFromUsingDecl(UsingDecl *UUD) {
 
 // HLSL change start
 bool
-ASTContext::validateBaryCoordInputLoc(SourceLocation srcLoc) {
-  for (unsigned i = 0; i < GetAttribAtVertCallInputLoc.size(); i++) {
-    if (GetAttribAtVertCallInputLoc[i] == srcLoc) {
-      return true;
-    }
-  }
-  return false;
+ASTContext::validatePerVertexInput(const NamedDecl *decl) {
+  return GetAttribAtVertCallInputDecl.count(decl);
 }
 
 void
-ASTContext::recordBaryCoordInputLoc(SourceLocation srcLoc) {
-  for (unsigned i = 0; i < GetAttribAtVertCallInputLoc.size(); i++) {
-    if (GetAttribAtVertCallInputLoc[i] == srcLoc) {
-      return;
-    }
-  }
-  GetAttribAtVertCallInputLoc.push_back(srcLoc);
+ASTContext::recordPerVertexInput(const NamedDecl *decl) {
+  GetAttribAtVertCallInputDecl.insert(decl);
 }
 // HLSL change end
 

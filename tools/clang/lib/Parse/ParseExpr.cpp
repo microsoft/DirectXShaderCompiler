@@ -1621,7 +1621,10 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
 
       ExprVector ArgExprs;
       CommaLocsTy CommaLocs;
+      // HLSL change starts
       Token firstParamTok = Tok;
+      Actions.GetAttributeAtVertexInputDecl = nullptr;
+      // HLSL change ends
       
       if (Tok.is(tok::code_completion)) {
         Actions.CodeCompleteCall(getCurScope(), LHS.get(), None);
@@ -1668,7 +1671,8 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         LHS = Actions.ActOnCallExpr(getCurScope(), LHS.get(), Loc,
                                     ArgExprs, Tok.getLocation(),
                                     ExecConfig);
-        Actions.ActOnBaryCentricsInputUsage(LHS, firstParamTok);
+
+        Actions.ActOnBaryCentricsInputUsage(LHS, firstParamTok);  // HLSL change
 
         PT.consumeClose();
       }

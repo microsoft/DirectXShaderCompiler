@@ -98,21 +98,8 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
         context.getPointerType(valueType, spv::StorageClass::UniformConstant),
         loc, spv::StorageClass::Function, isPrecise, init);
   } else {
-    if (astContext.validateBaryCoordInputLoc(loc)) {
-      if (!valueType->isArrayType())
-      {
-        QualType qtype = astContext.getConstantArrayType(
-            valueType, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
-        var = new (context) SpirvVariable(
-              qtype, loc, spv::StorageClass::Function, isPrecise, init);
-      }
-      else
-        var = new (context) SpirvVariable(
-            valueType, loc, spv::StorageClass::Function, isPrecise, init);
-    }
-    else
-      var = new (context) SpirvVariable(
-          valueType, loc, spv::StorageClass::Function, isPrecise, init);
+    var = new (context) SpirvVariable(
+        valueType, loc, spv::StorageClass::Function, isPrecise, init);
   }
   var->setDebugName(name);
   function->addVariable(var);
@@ -1323,20 +1310,7 @@ SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
                                            llvm::StringRef name, bool isPrecise,
                                            SourceLocation loc) {
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  SpirvVariable *var;
-  if (astContext.validateBaryCoordInputLoc(loc)) {
-    if (!type->isArrayType())
-    {
-      QualType qtype = astContext.getConstantArrayType(
-          type, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
-    spv::StorageClass sc = spv::StorageClass::Input;
-    var = new (context) SpirvVariable(qtype, loc, sc, isPrecise);
-    }
-    else
-      var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);
-  }
-  else
-    var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);
+  auto *var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);
   var->setDebugName(name);
   mod->addVariable(var);
   return var;

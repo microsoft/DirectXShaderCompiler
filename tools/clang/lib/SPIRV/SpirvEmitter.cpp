@@ -1251,6 +1251,35 @@ SpirvInstruction *SpirvEmitter::loadIfAliasVarRef(const Expr *expr,
   return instr;
 }
 
+QualType SpirvEmitter::redeclSpecialVarType(QualType type,
+                                            ParmVarDecl* param)
+{
+  QualType resultType;
+  if (type->isStructureType()) {
+    // For structure type inputs.
+    const auto *structDecl = type->getAs<RecordType>()->getDecl();
+    for (auto *field : structDecl->fields()) {
+      if (astContext.validatePerVertexInput(field) &&
+          !field->getType()->isArrayType()) {
+        QualType qtype = astContext.getConstantArrayType(
+            field->getType(), llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
+        field->setType(qtype);
+      }
+    }
+    resultType = type;
+  } else if (astContext.validatePerVertexInput(param) &&
+             !type->isArrayType()) {
+    QualType qtype = astContext.getConstantArrayType(
+        type, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
+    // Reset parameter type as it will be used in later instrics process.
+    param->setType(qtype);
+    resultType = qtype;
+  } else {
+    resultType = type;
+  }
+  return resultType;
+}
+
 bool SpirvEmitter::loadIfAliasVarRef(const Expr *varExpr,
                                      SpirvInstruction **instr,
                                      SourceRange rangeOverride) {
@@ -5851,7 +5880,14 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   auto *instr = loadIfAliasVarRef(base, range);
   const auto &loc = base->getExprLoc();
 
-  if (!instr || indices.empty()) {
+  if (instr && !indices.empty()) {
+    QualType elemType = expr->getType();
+    if (astContext.validatePerVertexInput(expr->getMemberDecl()) && !elemType->isArrayType()) {
+      elemType = astContext.getConstantArrayType(elemType, llvm::APInt(32, 3),
+                                                 clang::ArrayType::Normal, 0);
+    }
+    instr = turnIntoElementPtr(base->getType(), instr, elemType, indices,
+                               base->getExprLoc(), range);
     return instr;
   }
 
@@ -11548,27 +11584,31 @@ SpirvInstruction*
 SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   const auto exprLoc = expr->getExprLoc();
   const auto exprRange = expr->getSourceRange();
-
-  // arg0
-  const auto *arg0 = expr->getArg(0)->IgnoreParenLValueCasts();
-  const auto *arg0ValDecl = (dyn_cast<DeclRefExpr>(arg0))->getDecl();
-  const auto *arg0NamedDecl = dyn_cast<NamedDecl>(arg0ValDecl);
+  QualType arg0Type;
 
   // arg1
   const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
   const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
-  const auto *vectexId = arg1ConstExpr->getValue().getRawData();
+  const auto *vertexId = arg1ConstExpr->getValue().getRawData();
 
-  // Decorate input arg0
-  declIdMapper.decoratePerVertexKHR(arg0NamedDecl, *vectexId);
+  // arg0
+  const auto *arg0 = expr->getArg(0)->IgnoreParenLValueCasts();
+
+  if ((dyn_cast<DeclRefExpr>(arg0))){
+    const auto *arg0ValDecl = (dyn_cast<DeclRefExpr>(arg0))->getDecl();
+    arg0Type = (dyn_cast<VarDecl>(arg0ValDecl))->getType()->getAsArrayTypeUnsafe()->getElementType();
+    declIdMapper.decoratePerVertexKHR(dyn_cast<NamedDecl>(arg0ValDecl), *vertexId);
+  } else {
+    const auto *arg0NamedDecl = (dyn_cast<MemberExpr>(arg0))->getFoundDecl().getDecl();
+    arg0Type = dyn_cast<ValueDecl>(arg0NamedDecl)->getType()->getAsArrayTypeUnsafe()->getElementType();
+    declIdMapper.decoratePerVertexKHR(arg0NamedDecl, *vertexId);
+  }
 
   // Change to access chain instr
-  const auto arg0Type = (dyn_cast<VarDecl>(arg0ValDecl))->getType()->getAsArrayTypeUnsafe()->getElementType();
   auto *arg0BaseExpr = doExpr(arg0);
   auto *accessChainPtr = spvBuilder.createAccessChain(
       arg0Type, arg0BaseExpr,
-      {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                 llvm::APInt(32, *vectexId))},
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, *vertexId)),
       exprLoc, exprRange);
 
   auto *loadPtr = spvBuilder.createLoad(arg0Type, accessChainPtr, exprLoc, exprRange);
@@ -12638,14 +12678,12 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // Create temporary variables for holding function call arguments
   llvm::SmallVector<SpirvInstruction *, 4> params;
   for (auto *param : decl->params()) {
-    const auto paramType = param->getType();
+    const auto paramType = redeclSpecialVarType(param->getType(), param);
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
         spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,
                             param->hasAttr<HLSLPreciseAttr>());
 
-    if (paramType != tempVar->getAstResultType())
-        param->setType(tempVar->getAstResultType());
 
     params.push_back(tempVar);
 
