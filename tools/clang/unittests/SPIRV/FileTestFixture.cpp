@@ -110,8 +110,9 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
     ASSERT_TRUE(compileOk);
 
     // Disassemble the generated SPIR-V binary.
-    ASSERT_TRUE(utils::disassembleSpirvBinary(
-        generatedBinary, &generatedSpirvAsm, true /* generateHeader */));
+    ASSERT_TRUE(
+        utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
+                                      true /* generateHeader */, targetEnv));
 
     auto options = effcee::Options()
                        .SetChecksName(filename.str())

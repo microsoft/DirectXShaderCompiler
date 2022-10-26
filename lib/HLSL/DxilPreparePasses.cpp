@@ -21,6 +21,7 @@
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "dxc/HLSL/DxilPoisonValues.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -757,6 +758,10 @@ public:
   }
 
   bool runOnModule(Module &M) override {
+
+    // Remove all the poisoned values and emit errors if necessary.
+    (void)hlsl::FinalizePoisonValues(M);
+
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
       unsigned ValMajor = 0;
@@ -830,6 +835,9 @@ public:
 
       // Strip parameters of entry function.
       StripEntryParameters(M, DM, IsLib);
+
+      // Remove unused types from type annotations
+      DM.RemoveUnusedTypeAnnotations();
 
       // Update flags to reflect any changes.
       DM.CollectShaderFlagsForModule();

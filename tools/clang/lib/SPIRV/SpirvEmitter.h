@@ -122,6 +122,12 @@ private:
                                SourceRange rangeOverride = {});
   SpirvInstruction *doCompoundAssignOperator(const CompoundAssignOperator *);
   SpirvInstruction *doConditionalOperator(const ConditionalOperator *expr);
+  SpirvInstruction *doConditional(const Expr *expr,
+                                  const Expr *cond,
+                                  const Expr *falseExpr,
+                                  const Expr *trueExpr);
+  SpirvInstruction *
+  doShortCircuitedConditionalOperator(const ConditionalOperator *expr);
   SpirvInstruction *doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
   SpirvInstruction *doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
                                           SourceRange rangeOverride = {});
@@ -622,7 +628,7 @@ private:
       SourceLocation loc);
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
-  
+
   /// Process spirv intrinsic type definition
   SpirvInstruction *processSpvIntrinsicTypeDef(const CallExpr *expr);
 

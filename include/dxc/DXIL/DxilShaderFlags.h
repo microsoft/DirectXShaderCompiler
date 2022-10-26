@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 namespace hlsl {
   class DxilModule;
 }

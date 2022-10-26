@@ -11,5 +11,5 @@
 
 [component_0]
 type = Library
-name = Miniz
+name = DxilCompression
 parent = Libraries

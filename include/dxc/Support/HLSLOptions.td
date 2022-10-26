@@ -168,6 +168,10 @@ def opt_enable : Separate<["-", "/"], "opt-enable">, Group<hlsloptz_Group>, Flag
 def opt_select : MultiArg<["-", "/"], "opt-select", 2>, MetaVarName<"<opt> <variant>">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Select this optimization variant.">;
 
+def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Disable source location tracking in IR. This will break diagnostic generation for late validation. (Ignored if /Zi is passed)">;
+
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
  Flags<[CoreOption]>;

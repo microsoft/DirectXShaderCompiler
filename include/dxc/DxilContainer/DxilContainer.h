@@ -20,13 +20,8 @@
 #include "dxc/Support/WinAdapter.h"
 
 struct IDxcContainerReflection;
-namespace llvm { class Module; }
 
 namespace hlsl {
-
-class AbstractMemoryStream;
-class RootSignatureHandle;
-class DxilModule;
 
 #pragma pack(push, 1)
 
@@ -96,6 +91,7 @@ enum DxilFourCC {
   DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
   DFCC_ShaderHash               = DXIL_FOURCC('H', 'A', 'S', 'H'),
   DFCC_ShaderSourceInfo         = DXIL_FOURCC('S', 'R', 'C', 'I'),
+  DFCC_ShaderPDBInfo            = DXIL_FOURCC('P', 'D', 'B', 'I'),
   DFCC_CompilerVersion          = DXIL_FOURCC('V', 'E', 'R', 'S'),
 };
 
@@ -379,6 +375,32 @@ struct DxilSourceInfo_SourceContentsEntry {
 };
 
 #pragma pack(pop)
+
+enum class DxilShaderPDBInfoVersion : uint16_t {
+  Version_0 = 0, // At this point, the data is still subject to change.
+  LatestPlus1,
+  Latest = LatestPlus1-1
+};
+
+enum class DxilShaderPDBInfoCompressionType : uint16_t {
+  Uncompressed,
+  Zlib,
+};
+
+// Header for generic PDB info. It's only found in the shader PDB and contains
+// all the information about shader's creation, such as compilation args,
+// shader sources, shader libraries, etc.
+//
+// This data part replaces DxilSourceInfo completely. Instead of using a custom
+// format, it uses the existing RDAT shader reflection format. See
+// include\dxc\DxilContainer\RDAT_PdbInfoTypes.inl for more information.
+//
+struct DxilShaderPDBInfo {
+  DxilShaderPDBInfoVersion Version;
+  DxilShaderPDBInfoCompressionType CompressionType; 
+  uint32_t SizeInBytes;
+  uint32_t UncompressedSizeInBytes;
+};
 
 /// Gets a part header by index.
 inline const DxilPartHeader *

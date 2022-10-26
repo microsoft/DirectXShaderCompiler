@@ -22,6 +22,29 @@
 #  include "SVNVersion.inc"
 #endif
 
+// HLSL Change Starts
+#include "dxcversion.inc"
+
+// Here are some defaults, but these should be defined in dxcversion.inc
+#ifndef HLSL_TOOL_NAME
+  #define HLSL_TOOL_NAME "dxc(private)"
+#endif
+#ifndef HLSL_LLVM_IDENT
+  #ifdef RC_FILE_VERSION
+    #define HLSL_LLVM_IDENT HLSL_TOOL_NAME " " RC_FILE_VERSION
+  #else
+    #define HLSL_LLVM_IDENT HLSL_TOOL_NAME " version unknown"
+  #endif
+#endif
+#ifndef HLSL_VERSION_MACRO
+  #ifdef RC_PRODUCT_VERSION
+    #define HLSL_VERSION_MACRO HLSL_TOOL_NAME " " RC_PRODUCT_VERSION
+  #else
+    #define HLSL_VERSION_MACRO HLSL_TOOL_NAME " version unknown"
+  #endif
+#endif
+// HLSL Change Ends
+
 namespace clang {
 
 std::string getClangRepositoryPath() {
@@ -136,15 +159,13 @@ std::string getClangFullRepositoryVersion() {
 }
 
 std::string getClangFullVersion() {
-  return getClangToolFullVersion("clang");
+  return getClangToolFullVersion(HLSL_TOOL_NAME); // HLSL Change
 }
 
 std::string getClangToolFullVersion(StringRef ToolName) {
-#ifdef HLSL_FIXED_VER // HLSL Change Starts
-  // We fix a specific version for builds that are released;
-  // this allows tools to pick a known version for a given !llvm.ident value.
-  return std::string(HLSL_FIXED_VER);
-#else
+#ifdef HLSL_LLVM_IDENT // HLSL Change Starts
+  return std::string(HLSL_LLVM_IDENT);
+#else // HLSL Change Ends
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #ifdef CLANG_VENDOR
@@ -159,15 +180,13 @@ std::string getClangToolFullVersion(StringRef ToolName) {
 #endif
 
   return OS.str();
-#endif // HLSL Change Ends
+#endif // HLSL Change
 }
 
 std::string getClangFullCPPVersion() {
-#ifdef HLSL_FIXED_VER // HLSL Change Starts
-  // We fix a specific version for builds that are released;
-  // this allows tools to pick a known version for a given !llvm.ident value.
-  return std::string(HLSL_FIXED_VER);
-#else
+#ifdef HLSL_VERSION_MACRO // HLSL Change Starts
+  return std::string(HLSL_VERSION_MACRO);
+#else // HLSL Change Ends
   // The version string we report in __VERSION__ is just a compacted version of
   // the one we report on the command line.
   std::string buf;
@@ -176,8 +195,9 @@ std::string getClangFullCPPVersion() {
   OS << CLANG_VENDOR;
 #endif
   OS << "unofficial";
+
   return OS.str();
-#endif // HLSL Change Ends
+#endif // HLSL Change
 }
 
 // HLSL Change Starts

@@ -412,19 +412,31 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
     append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
 
-    # Check if -Wnon-virtual-dtor warns even though the class is marked final.
-    # If it does, don't add it. So it won't be added on clang 3.4 and older.
-    # This also catches cases when -Wnon-virtual-dtor isn't supported by
-    # the compiler at all.
-    set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Werror=non-virtual-dtor")
-    CHECK_CXX_SOURCE_COMPILES("class base {public: virtual void anchor();protected: ~base();};
-                               class derived final : public base { public: ~derived();};
-                               int main() { return 0; }"
-                              CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
-    append_if(CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR
-              "-Wnon-virtual-dtor" CMAKE_CXX_FLAGS)
+    # HLSL Change Starts
+
+    # Windows' and by extension WinAdapter's non-Windows implementation for IUnknown
+    # use virtual methods without virtual destructor, as that would add two extra
+    # function-pointers to the vtable in turn offsetting those for every subclass,
+    # resulting in ABI mismatches:
+    # https://github.com/microsoft/DirectXShaderCompiler/issues/3783.
+    # The -Wnon-virtual-dtor warning is disabled to allow this, conforming
+    # with MSVC behaviour.
+
+    # # Check if -Wnon-virtual-dtor warns even though the class is marked final.
+    # # If it does, don't add it. So it won't be added on clang 3.4 and older.
+    # # This also catches cases when -Wnon-virtual-dtor isn't supported by
+    # # the compiler at all.
+    # set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+    # set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Werror=non-virtual-dtor")
+    # CHECK_CXX_SOURCE_COMPILES("class base {public: virtual void anchor();protected: ~base();};
+    #                            class derived final : public base { public: ~derived();};
+    #                            int main() { return 0; }"
+    #                           CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR)
+    # set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+    # append_if(CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR
+    #           "-Wnon-virtual-dtor" CMAKE_CXX_FLAGS)
+
+    # HLSL Change Ends
 
     # Check if -Wcomment is OK with an // comment ending with '\' if the next
     # line is also a // comment.
@@ -488,7 +500,7 @@ macro(append_common_sanitizer_flags)
     add_flag_if_supported("-gline-tables-only" GLINE_TABLES_ONLY)
   endif()
   # Use -O1 even in debug mode, otherwise sanitizers slowdown is too large.
-  if (uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+  if (uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" AND LLVM_OPTIMIZE_SANITIZED_BUILDS)
     add_flag_if_supported("-O1" O1)
   endif()
 endmacro()
@@ -592,6 +604,21 @@ option(LLVM_ENABLE_RTTI "Enable run time type information" OFF)
 if(LLVM_ENABLE_EH AND NOT LLVM_ENABLE_RTTI)
   message(FATAL_ERROR "Exception handling requires RTTI. You must set LLVM_ENABLE_RTTI to ON")
 endif()
+
+# HLSL Change Begin
+option(LLVM_ENABLE_LTO "Enable building with LTO" ${HLSL_OFFICIAL_BUILD})
+if (LLVM_ENABLE_LTO)
+  if(MSVC)
+    if (CMAKE_CONFIGURATION_TYPES)
+      set(_SUFFIX _RELEASE)
+    endif()
+    append("/GL" CMAKE_C_FLAGS${_SUFFIX} CMAKE_CXX_FLAGS${_SUFFIX})
+    append("/LTCG" CMAKE_MODULE_LINKER_FLAGS${_SUFFIX} CMAKE_MODULE_LINKER_FLAGS${_SUFFIX} CMAKE_EXE_LINKER_FLAGS${_SUFFIX})
+  else()
+    add_flag_if_supported("-flto" SUPPORST_FLTO)
+  endif()
+endif()
+# HLSL Change End
 
 # Plugin support
 # FIXME: Make this configurable.

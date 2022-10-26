@@ -5,7 +5,7 @@
 
 // CHECK:      OpEntryPoint Vertex %main "main"
 // CHECK-SAME: %in_var_SV_RenderTargetArrayIndex
-// CHECK-SMAE: %gl_Layer
+// CHECK-SAME: %gl_Layer
 
 // CHECK:      OpDecorate %gl_Layer BuiltIn Layer
 // CHECK:      OpDecorate %in_var_SV_RenderTargetArrayIndex Location 0

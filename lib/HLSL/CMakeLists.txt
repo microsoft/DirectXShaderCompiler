@@ -58,6 +58,7 @@ add_llvm_library(LLVMHLSL
   PauseResumePasses.cpp
   WaveSensitivityAnalysis.cpp
   DxilNoOptLegalize.cpp
+  DxilPoisonValues.cpp
   DxilDeleteRedundantDebugValues.cpp
 
   ADDITIONAL_HEADER_DIRS

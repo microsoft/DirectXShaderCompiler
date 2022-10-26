@@ -8,27 +8,56 @@
 
 #include "clang/SPIRV/FeatureManager.h"
 
+#include <array>
 #include <sstream>
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringSwitch.h"
 
 namespace clang {
 namespace spirv {
 namespace {
 
-const char *spvEnvironmentAsString(spv_target_env spvEnv) {
-  if (spvEnv > SPV_ENV_VULKAN_1_2)
-    return "Vulkan 1.3";
-  if (spvEnv == SPV_ENV_VULKAN_1_1_SPIRV_1_4)
-    return "Vulkan 1.1 with SPIR-V 1.4";
-  if (spvEnv > SPV_ENV_VULKAN_1_1)
-    return "Vulkan 1.2";
-  if (spvEnv > SPV_ENV_VULKAN_1_0)
-    return "Vulkan 1.1";
-  return "Vulkan 1.0";
-}
+constexpr std::array<std::pair<const char*, spv_target_env>, 6> kKnownTargetEnv = {{
+    {"vulkan1.0", SPV_ENV_VULKAN_1_0},
+    {"vulkan1.1", SPV_ENV_VULKAN_1_1},
+    {"vulkan1.1spirv1.4", SPV_ENV_VULKAN_1_1_SPIRV_1_4},
+    {"vulkan1.2", SPV_ENV_VULKAN_1_2},
+    {"vulkan1.3", SPV_ENV_VULKAN_1_3},
+    {"universal1.5", SPV_ENV_UNIVERSAL_1_5}}};
+
+constexpr std::array<std::pair<spv_target_env, const char*>, 6> kHumanReadableTargetEnv = {{
+    {SPV_ENV_VULKAN_1_0, "Vulkan 1.0"},
+    {SPV_ENV_VULKAN_1_1, "Vulkan 1.1"},
+    {SPV_ENV_VULKAN_1_1_SPIRV_1_4, "Vulkan 1.1 with SPIR-V 1.4"},
+    {SPV_ENV_VULKAN_1_2, "Vulkan 1.2"},
+    {SPV_ENV_VULKAN_1_3, "Vulkan 1.3"},
+    {SPV_ENV_UNIVERSAL_1_5, "SPIR-V 1.5"}}};
+
+static_assert(kKnownTargetEnv.size() == kHumanReadableTargetEnv.size(),
+    "kKnownTargetEnv and kHumanReadableTargetEnv should remain in sync.");
 
 } // end namespace
+
+llvm::Optional<spv_target_env>
+FeatureManager::stringToSpvEnvironment(const std::string &target_env) {
+  auto it =
+      std::find_if(kKnownTargetEnv.cbegin(), kKnownTargetEnv.cend(),
+                   [&](const auto &pair) { return pair.first == target_env; });
+
+  return it == kKnownTargetEnv.end()
+             ? llvm::None
+             : llvm::Optional<spv_target_env>(it->second);
+}
+
+llvm::Optional<std::string>
+FeatureManager::spvEnvironmentToPrettyName(spv_target_env target_env) {
+  auto it =
+      std::find_if(kHumanReadableTargetEnv.cbegin(), kHumanReadableTargetEnv.cend(),
+                   [&](const auto &pair) { return pair.first == target_env; });
+  return it == kHumanReadableTargetEnv.end() ? llvm::None
+                                     : llvm::Optional<std::string>(it->second);
+}
 
 FeatureManager::FeatureManager(DiagnosticsEngine &de,
                                const SpirvCodeGenOptions &opts)
@@ -46,24 +75,15 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
 
   targetEnvStr = opts.targetEnv;
 
-  if (opts.targetEnv == "vulkan1.0")
-    targetEnv = SPV_ENV_VULKAN_1_0;
-  else if (opts.targetEnv == "vulkan1.1")
-    targetEnv = SPV_ENV_VULKAN_1_1;
-  else if (opts.targetEnv == "vulkan1.1spirv1.4")
-    targetEnv = SPV_ENV_VULKAN_1_1_SPIRV_1_4;
-  else if (opts.targetEnv == "vulkan1.2")
-    targetEnv = SPV_ENV_VULKAN_1_2;
-  else if (opts.targetEnv == "vulkan1.3")
-    targetEnv = SPV_ENV_VULKAN_1_3;
-  else if(opts.targetEnv == "universal1.5")
-    targetEnv = SPV_ENV_UNIVERSAL_1_5;
-  else {
+  llvm::Optional<spv_target_env> targetEnvOpt =
+      stringToSpvEnvironment(opts.targetEnv);
+  if (!targetEnvOpt) {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
     emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n "
              "vulkan1.1spirv1.4\n vulkan1.2\n vulkan1.3\n universal1.5",
              {});
   }
+  targetEnv = *targetEnvOpt;
 }
 
 bool FeatureManager::allowExtension(llvm::StringRef name) {
@@ -115,8 +135,9 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
                                       llvm::StringRef target,
                                       SourceLocation srcLoc) {
   if (targetEnv < requestedEnv) {
+    auto envName = spvEnvironmentToPrettyName(requestedEnv);
     emitError("%0 is required for %1 but not permitted to use", srcLoc)
-        << spvEnvironmentAsString(requestedEnv) << target;
+        << envName.getValueOr("unknown") << target;
     emitNote("please specify your target environment via command line option "
              "-fspv-target-env=",
              {});
@@ -256,7 +277,18 @@ std::string FeatureManager::getKnownExtensions(const char *delimiter,
 
 bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   bool required = true;
-  if (targetEnv >= SPV_ENV_VULKAN_1_1) {
+  if (targetEnv >= SPV_ENV_VULKAN_1_3) {
+    // The following extensions are incorporated into Vulkan 1.3 or above, and
+    // are therefore not required to be emitted for that target environment.
+    switch (ext) {
+    case Extension::KHR_non_semantic_info:
+      required = false;
+      break;
+    default:
+      break;
+    }
+  }
+  if (required && targetEnv >= SPV_ENV_VULKAN_1_1) {
     // The following extensions are incorporated into Vulkan 1.1 or above, and
     // are therefore not required to be emitted for that target environment.
     // TODO: Also add the following extensions  if we start to support them.
@@ -271,7 +303,7 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
       break;
     default:
       // Only 1.1 or above extensions can be suppressed.
-      required = true;
+      break;
     }
   }
 

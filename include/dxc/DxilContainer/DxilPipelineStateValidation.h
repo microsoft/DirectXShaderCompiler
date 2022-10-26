@@ -13,7 +13,8 @@
 #define __DXIL_PIPELINE_STATE_VALIDATION__H__
 
 #include <stdint.h>
-#include <string.h>
+#include <cstring>
+#include "dxc/Support/WinAdapter.h"
 
 // Don't include assert.h here.
 // Since this header is included from multiple environments,

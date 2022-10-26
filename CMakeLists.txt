@@ -340,6 +340,7 @@ endif( LLVM_USE_OPROFILE )
 
 set(LLVM_USE_SANITIZER "" CACHE STRING
   "Define the sanitizer used to build binaries and tests.")
+option(LLVM_OPTIMIZE_SANITIZED_BUILDS "Enable -O1 on sanitized builds" On)
 
 option(LLVM_USE_SPLIT_DWARF
   "Use -gsplit-dwarf when compiling llvm." OFF)

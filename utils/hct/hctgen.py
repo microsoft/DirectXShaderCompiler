@@ -50,7 +50,7 @@ def writeCodeTag(args):
   argsList = [args.input, args.output]
   result = CodeTags.main(argsList, getNewline(args))
   return 0
-  
+
 def openOutput(args):
   outputDir = os.path.dirname(os.path.realpath(args.output))
   if not os.path.exists(outputDir):

@@ -382,9 +382,22 @@ TEST_F(FileTest, BinaryOpLogicalOr) {
   runFileTest("binary-op.logical-or.hlsl");
 }
 
+// For short-circuited logical binary operators (HLSL 2021)
+TEST_F(FileTest, BinaryOpShortCircuitedLogicalAnd) {
+  runFileTest("binary-op.short-circuited-logical-and.hlsl");
+}
+TEST_F(FileTest, BinaryOpShortCircuitedLogicalOr) {
+  runFileTest("binary-op.short-circuited-logical-or.hlsl");
+}
+
 // For ternary operators
 TEST_F(FileTest, TernaryOpConditionalOp) {
   runFileTest("ternary-op.cond-op.hlsl");
+}
+
+// For short-circuited ternary operators (HLSL 2021)
+TEST_F(FileTest, TernaryOpShortCircuitedConditionalOp) {
+  runFileTest("ternary-op.short-circuited-cond-op.hlsl");
 }
 
 // For vector accessing/swizzling operators
@@ -645,6 +658,7 @@ TEST_F(FileTest, FunctionInCTBuffer) {
 }
 
 TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
+TEST_F(FileTest, FunctionDefaultParam) { runFileTest("fn.param.default.hlsl"); }
 TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
 
 TEST_F(FileTest, FixFunctionCall) {
@@ -863,6 +877,9 @@ TEST_F(FileTest, SemanticRenderTargetArrayIndexGS) {
 TEST_F(FileTest, SemanticRenderTargetArrayIndexPS) {
   runFileTest("semantic.render-target-array-index.ps.hlsl");
 }
+TEST_F(FileTest, SemanticRenderTargetArrayIndexCoreVS) {
+  runFileTest("semantic.render-target-array-index-core.vs.hlsl");
+}
 TEST_F(FileTest, SemanticViewportArrayIndexVS) {
   runFileTest("semantic.viewport-array-index.vs.hlsl");
 }
@@ -877,6 +894,9 @@ TEST_F(FileTest, SemanticViewportArrayIndexGS) {
 }
 TEST_F(FileTest, SemanticViewportArrayIndexPS) {
   runFileTest("semantic.viewport-array-index.ps.hlsl");
+}
+TEST_F(FileTest, SemanticViewportArrayIndexCoreVS) {
+  runFileTest("semantic.viewport-array-index-core.vs.hlsl");
 }
 TEST_F(FileTest, SemanticBarycentricsSmoothPS) {
   runFileTest("semantic.barycentrics.ps.s.hlsl");
@@ -1145,8 +1165,11 @@ TEST_F(FileTest, IntrinsicsAsDouble) {
   runFileTest("intrinsics.asdouble.hlsl");
 }
 TEST_F(FileTest, IntrinsicsAsfloat) { runFileTest("intrinsics.asfloat.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsfloat16) { runFileTest("intrinsics.asfloat16.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsint) { runFileTest("intrinsics.asint.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsint16) { runFileTest("intrinsics.asint16.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsuint) { runFileTest("intrinsics.asuint.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsuint16) { runFileTest("intrinsics.asuint16.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsuintArgumentMustBeRValue) {
   runFileTest("intrinsics.asuint.rvalue.hlsl");
 }
@@ -1211,6 +1234,7 @@ TEST_F(FileTest, IntrinsicsAllMemoryBarrier) {
 TEST_F(FileTest, IntrinsicsAllMemoryBarrierWithGroupSync) {
   runFileTest("intrinsics.allmemorybarrierwithgroupsync.hlsl");
 }
+TEST_F(FileTest, IntrinsicsAnd) { runFileTest("intrinsics.and.hlsl"); }
 TEST_F(FileTest, IntrinsicsDeviceMemoryBarrierWithGroupSync) {
   runFileTest("intrinsics.devicememorybarrierwithgroupsync.hlsl");
 }
@@ -1271,6 +1295,7 @@ TEST_F(FileTest, IntrinsicsMsad4) { runFileTest("intrinsics.msad4.hlsl"); }
 TEST_F(FileTest, IntrinsicsNormalize) {
   runFileTest("intrinsics.normalize.hlsl");
 }
+TEST_F(FileTest, IntrinsicsOr) { runFileTest("intrinsics.or.hlsl"); }
 TEST_F(FileTest, IntrinsicsPow) { runFileTest("intrinsics.pow.hlsl"); }
 TEST_F(FileTest, IntrinsicsRsqrt) { runFileTest("intrinsics.rsqrt.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloatSign) {
@@ -1291,6 +1316,7 @@ TEST_F(FileTest, IntrinsicsSmoothStep) {
 }
 TEST_F(FileTest, IntrinsicsStep) { runFileTest("intrinsics.step.hlsl"); }
 TEST_F(FileTest, IntrinsicsSqrt) { runFileTest("intrinsics.sqrt.hlsl"); }
+TEST_F(FileTest, IntrinsicsSelect) { runFileTest("intrinsics.select.hlsl"); }
 TEST_F(FileTest, IntrinsicsTranspose) {
   runFileTest("intrinsics.transpose.hlsl");
 }
@@ -3108,6 +3134,9 @@ TEST_F(FileTest, PositionInVSWithInvalidMin10Float4Type) {
 TEST_F(FileTest, ShaderDebugInfoFunction) {
   runFileTest("shader.debug.function.hlsl");
 }
+TEST_F(FileTest, ShaderDebugInfoExtensions) {
+  runFileTest("shader.debug.extensions.hlsl");
+}
 TEST_F(FileTest, ShaderDebugInfoDebugLexicalBlock) {
   runFileTest("shader.debug.debuglexicalblock.hlsl");
 }
@@ -3128,6 +3157,9 @@ TEST_F(FileTest, ShaderDebugInfoLineBranch) {
 }
 TEST_F(FileTest, ShaderDebugInfoLineComposite) {
   runFileTest("shader.debug.line.composite.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoFileComposite) {
+  runFileTest("shader.debug.file.composite.hlsl");
 }
 TEST_F(FileTest, ShaderDebugInfoLineInclude) {
   runFileTest("shader.debug.line.include.hlsl");

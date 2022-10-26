@@ -2,7 +2,7 @@
 # ShaderCompiler DXC Release Pipeline Entry Point
 # -----------------------------------------------------------------------------
 
-name: DXC.Release.$(date:yyMMdd).$(rev:rr)
+name: DXC.Release.$(date:yyMMdd).$(rev:rr).$(Build.SourceBranchName)
 
 trigger: none
 
@@ -10,10 +10,22 @@ parameters:
 - name: BuildConfigurations
   type: object
   default: [Release, Debug]
+  displayName: Windows Build Configurations
 
 - name: BuildPlatforms
   type: object
   default: [x64, x86, arm64]
+  displayName: Windows Build Platforms
+
+- name: LinuxBuildConfigurations
+  type: object
+  default: [Release, Debug]
+  displayName: Linux Build Configurations
+
+- name: LinuxBuildPlatforms
+  type: object
+  default: [x64]
+  displayName: Linux Build Platforms
 
 resources:
   repositories:
@@ -27,4 +39,6 @@ extends:
   parameters:
     BuildConfigurations: ${{parameters.BuildConfigurations}}
     BuildPlatforms: ${{parameters.BuildPlatforms}}
+    LinuxBuildConfigurations: ${{parameters.LinuxBuildConfigurations}}
+    LinuxBuildPlatforms: ${{parameters.LinuxBuildPlatforms}}
     StatusEmail: $(StatusEmail)

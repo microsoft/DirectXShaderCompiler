@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define FallbackLayerRegisterSpace 214743647
 
 // SRVs
