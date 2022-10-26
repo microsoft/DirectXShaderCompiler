@@ -1,7 +1,7 @@
 // RUN: %dxc -T ms_6_5 -E main
-// CHECK:  OpCapability MeshShadingNV
-// CHECK:  OpExtension "SPV_NV_mesh_shader"
-// CHECK:  OpEntryPoint MeshNV %main "main" %gl_ClipDistance %gl_CullDistance %in_var_dummy %in_var_pos [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primind:%\d+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[vmask:%\d+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR [[primcount:%\d+]]
+// CHECK:  OpCapability MeshShadingExt
+// CHECK:  OpExtension "SPV_EXT_mesh_shader"
+// CHECK:  OpEntryPoint MeshEXT %main "main" %gl_ClipDistance %gl_CullDistance %in_var_dummy %in_var_pos [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primind:%\d+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[vmask:%\d+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR [[primcount:%\d+]]
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 // CHECK:  OpExecutionMode %main OutputTrianglesNV
 // CHECK:  OpExecutionMode %main OutputVertices 64

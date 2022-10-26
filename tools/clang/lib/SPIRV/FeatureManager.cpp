@@ -87,6 +87,10 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
              {});
   }
   targetEnv = *targetEnvOpt;
+
+  if (targetEnv >= SPV_ENV_UNIVERSAL_1_4) {
+    allowExtension("SPV_EXT_mesh_shader");
+  }
 }
 
 bool FeatureManager::allowExtension(llvm::StringRef name) {
@@ -166,6 +170,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::EXT_fragment_fully_covered)
       .Case("SPV_EXT_fragment_invocation_density",
             Extension::EXT_fragment_invocation_density)
+      .Case("SPV_EXT_mesh_shader", Extension::EXT_mesh_shader)
       .Case("SPV_EXT_shader_stencil_export",
             Extension::EXT_shader_stencil_export)
       .Case("SPV_EXT_shader_viewport_index_layer",
@@ -334,6 +339,9 @@ bool FeatureManager::enabledByDefault(Extension ext) {
     // the user explicitly asks for it.
   case Extension::EXT_demote_to_helper_invocation:
     return false;
+  case Extension::EXT_mesh_shader:
+    // Enabling EXT_mesh_shader only when the target environment is SPIR-V 1.4 or above
+    return isTargetEnvSpirv1p4OrAbove();
   default:
     return true;
   }

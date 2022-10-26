@@ -1,7 +1,7 @@
 // RUN: %dxc -T as_6_5 -E main
-// CHECK:  OpCapability MeshShadingNV
-// CHECK:  OpExtension "SPV_NV_mesh_shader"
-// CHECK:  OpEntryPoint TaskNV %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex [[taskcount:%\d+]] %out_var_dummy %out_var_pos
+// CHECK:  OpCapability MeshShadingExt
+// CHECK:  OpExtension "SPV_EXT_mesh_shader"
+// CHECK:  OpEntryPoint TaskEXT %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex [[taskcount:%\d+]] %out_var_dummy %out_var_pos
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 
 // CHECK:  OpDecorate [[drawid]] BuiltIn DrawIndex
