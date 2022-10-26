@@ -144,11 +144,12 @@ Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
 {
 
   Function *StoreValue =
-      BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(BC.Ctx));
+      BC.HlslOP->GetOpFunc(OP::OpCode::RawBufferStore, Type::getInt32Ty(BC.Ctx));
   Constant *StoreValueOpcode =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
+      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::RawBufferStore);
   UndefValue *Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
   Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
+  Constant *Alignment = BC.HlslOP->GetI32Const(4);
 
   (void)BC.Builder.CreateCall(
       StoreValue,
@@ -160,7 +161,8 @@ Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
        Undef32Arg, // unused values
        Undef32Arg, // unused values
        Undef32Arg, // unused values
-       WriteMask_X});
+       WriteMask_X, 
+       Alignment});
 
   m_RemainingReservedSpaceInBytes -= sizeof(uint32_t);
   assert(m_RemainingReservedSpaceInBytes >=

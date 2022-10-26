@@ -12,7 +12,7 @@ void Main()
 // CHECK: call %dx.types.Handle @dx.op.createHandleFromBinding
 
 // Check we wrote to the PIX UAV:
-// CHECK: call void @dx.op.bufferStore.i32
+// CHECK: call void @dx.op.rawBufferStore.i32
 
 // Offset for buffer Load should be 256 + 8 (skip out-of-bounds record) + 8 (it's the 1th resource) + 4 (offset to the "read" field) = 276
 // The large integer is encoded flags for the ResourceAccessStyle (an enumerated type in lib\DxilPIXPasses\DxilShaderAccessTracking.cpp) for this access
