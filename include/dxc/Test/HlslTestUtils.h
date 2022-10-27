@@ -123,6 +123,43 @@ inline std::vector<std::string> strtok(const std::string &value, const char *del
   return tokens;
 }
 
+// strreplace will replace all instances of lookFors with replacements at the same index.
+// Will log an error if the string is not found, unless the first character is ? marking it optional.
+inline void strreplace(const std::vector<std::string>& lookFors, const std::vector<std::string>& replacements,
+                       std::string& str) {
+  for (unsigned i = 0; i < lookFors.size(); ++i) {
+    bool bOptional = false;
+    bool found = false;
+    size_t pos = 0;
+    LPCSTR pLookFor = lookFors[i].data();
+    size_t lookForLen = lookFors[i].size();
+    if (pLookFor[0] == '?') {
+      bOptional = true;
+      pLookFor++;
+      lookForLen--;
+    }
+    if (!pLookFor || !*pLookFor) {
+      continue;
+    }
+    for (;;) {
+      pos = str.find(pLookFor, pos);
+      if (pos == std::string::npos)
+        break;
+      found = true; // at least once
+      str.replace(pos, lookForLen, replacements[i]);
+      pos += replacements[i].size();
+    }
+    if (!bOptional) {
+      if (!found) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"String not found: '%S' in text:\r\n%.*S", pLookFor,
+          (unsigned)str.size(), str.data()));
+      }
+      VERIFY_IS_TRUE(found);
+    }
+  }
+}
+
 namespace hlsl_test {
 
 inline std::wstring

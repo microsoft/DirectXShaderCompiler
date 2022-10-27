@@ -26,7 +26,6 @@
 #include <iomanip>
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HLSLTestData.h"
-#include "dxc/DxilContainer/DxilContainer.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -36,6 +35,7 @@
 #undef _read
 #include "WexTestClass.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Test/HlslTestUtils.h"
