@@ -3738,10 +3738,10 @@ void MSMain(uint GID : SV_GroupIndex,
   </ShaderOp>
 
   <ShaderOp Name="IsNormal" CS="CS60">
-    <Resource Name="g_TestData"         Dimension="BUFFER"     Width="96"            InitialResourceState="COPY_DEST" Init="ByName"    Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true"  TransitionTo="UNORDERED_ACCESS" />
+    <Resource Name="g_TestData" Dimension="BUFFER" Width="96" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
     <DescriptorHeap Name="ResourceDescriptorHeap" Type="CBV_SRV_UAV">
-      <Descriptor Name="g_TestData"      NumElements="12" Kind="UAV"  StructureByteStride="8"/>
+      <Descriptor Name="g_TestData" NumElements="12" Kind="UAV" StructureByteStride="8"/>
     </DescriptorHeap>
     
     <RootValues>
@@ -3751,9 +3751,6 @@ void MSMain(uint GID : SV_GroupIndex,
     <Shader Name="CS60" Target="cs_6_0" EntryPoint="main" Text="@MAIN" Callback="True"/> 
     <Shader Name="MAIN" Target="cs_6_0" EntryPoint="main">
       <![CDATA[
-        
-      #define ROOT_SIG [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=1))")]
-    
       struct TestPoint{
         float input;
         uint output;
@@ -3762,7 +3759,7 @@ void MSMain(uint GID : SV_GroupIndex,
       // Result buffers
       RWStructuredBuffer <TestPoint> g_TestData     : register(u0);
    
-      ROOT_SIG
+      [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable( UAV(u0, numDescriptors=1))")]
       [NumThreads(12, 1, 1)]
       void main(uint ix : SV_GroupIndex)
       {

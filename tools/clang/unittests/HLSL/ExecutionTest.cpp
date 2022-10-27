@@ -26,7 +26,6 @@
 #include <iomanip>
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HLSLTestData.h"
-#include "dxc/DxilContainer/DxilContainer.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -959,7 +958,8 @@ public:
     if (castFormat) {
       CComPtr<ID3D12Device10> pDevice10;
       // Copy resDesc0 to resDesc1 zeroing anything new
-      D3D12_RESOURCE_DESC1 resDesc1 = {0};
+      D3D12_RESOURCE_DESC1 resDesc1;
+      memset(&resDesc1, 0, sizeof(resDesc1));
       CopyDesc0ToDesc1(resDesc1, resDesc);
       VERIFY_SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&pDevice10)));
       VERIFY_SUCCEEDED(pDevice10->CreateCommittedResource3(
@@ -11370,14 +11370,33 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
 
     CComPtr<IDxcUtils> pUtils;
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
     // Compile original HLSL with op to replace, and disassemble.
+    CComPtr<IDxcCompiler3> pCompiler;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     CComPtr<IDxcBlob> compiledShader;
-    VerifyCompileOK(dllSupport, pText, L"cs_6_0", Args, &compiledShader);
-    std::string disassembly = DisassembleProgram(dllSupport, compiledShader);
+    {
+      CComPtr<IDxcResult> pResult;
+      DxcBuffer source = {pText, strlen(pText), DXC_CP_UTF8};
+      VERIFY_SUCCEEDED(pCompiler->Compile(&source, Args.data(), (UINT32)Args.size(),
+                                          nullptr, IID_PPV_ARGS(&pResult)));
+      HRESULT hrCompile;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
+      VERIFY_SUCCEEDED(hrCompile);
+      VERIFY_SUCCEEDED(pResult->GetResult(&compiledShader));
+    }
+
+    // Disassemble
+    std::string disassembly;
+    {
+      CComPtr<IDxcBlobUtf8> pDisassembly;
+      DxcBuffer compiledBuffer = {compiledShader->GetBufferPointer(), compiledShader->GetBufferSize(), 0};
+      VERIFY_SUCCEEDED(pCompiler->Disassemble(&compiledBuffer, IID_PPV_ARGS(&pDisassembly)));
+      disassembly.assign(pDisassembly->GetStringPointer(), pDisassembly->GetStringLength());
+    }
+
     // Replace op
-    ReplaceDisassemblyTextWithoutRegex(lookFors, replacements,      
-      disassembly
-    );
+    strreplace(lookFors, replacements, disassembly);
 
     // Wrap text in UTF8 blob
     // No need to copy, disassembly won't be changed again and will live as long as rewrittenDisassembly.
@@ -11387,14 +11406,23 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
       disassembly.c_str(), (UINT32) disassembly.size() + 1, DXC_CP_UTF8, &rewrittenDisassembly));
     // Assemble to container
     CComPtr<IDxcBlob> assembledShader;
-    AssembleToContainer(dllSupport, rewrittenDisassembly, &assembledShader);
+    {
+      CComPtr<IDxcAssembler> pAssembler;
+      CComPtr<IDxcOperationResult> pResult;
+      VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+      VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(rewrittenDisassembly, &pResult));
+      HRESULT status;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+      VERIFY_SUCCEEDED(status);
+      VERIFY_SUCCEEDED(pResult->GetResult(&assembledShader));
+    }
 
     // Find root signature part in container
     CComPtr<IDxcContainerReflection> pReflection;
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
     VERIFY_SUCCEEDED(pReflection->Load(compiledShader));
     UINT32 iPartIndex;
-    if (FAILED(pReflection->FindFirstPartKind(hlsl::DxilFourCC::DFCC_RootSignature, &iPartIndex))) {
+    if (FAILED(pReflection->FindFirstPartKind(DXC_PART_ROOT_SIGNATURE, &iPartIndex))) {
       // No root signature to copy, use the assembledShader.
       *ppShaderBlob = assembledShader.Detach();
       return;
@@ -11408,7 +11436,7 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     CComPtr<IDxcBlob> pRootSignatureBlob;
     VERIFY_SUCCEEDED(pReflection->GetPartContent(iPartIndex, &pRootSignatureBlob));
     // Add root signature to container
-    pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
+    pBuilder->AddPart(DXC_PART_ROOT_SIGNATURE, pRootSignatureBlob);
 
     CComPtr<IDxcOperationResult> pOpResult;
     VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
@@ -11429,16 +11457,11 @@ struct FloatInputUintOutput
 };
 
 TEST_F(ExecutionTest, IsNormalTest) {
-  // EnableShaderBasedValidation();
-  // In order, the input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 Normal float numbers.
-  // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
   WEX::TestExecution::SetVerifyOutput verifySettings(
     WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);  
 
-  D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
-  
   CComPtr<ID3D12Device> pDevice;
-  VERIFY_IS_TRUE(CreateDevice(&pDevice, sm, false /* skipUnsupported */));
+  VERIFY_IS_TRUE(CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0, false /* skipUnsupported */));
 
   if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
       WEX::Logging::Log::Comment(L"WARP has a known issue with IsNormalTest.");
@@ -11446,6 +11469,8 @@ TEST_F(ExecutionTest, IsNormalTest) {
       return;
   }
 
+  // The input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 normal float numbers.
+  // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
   std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
   std::vector<float> *Validation_Input = &Validation_Input_Vec;
 
@@ -11455,17 +11480,15 @@ TEST_F(ExecutionTest, IsNormalTest) {
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
-      std::make_shared<st::ShaderOpSet>();
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
-  st::ShaderOp *pShaderOp =
-      ShaderOpSet->GetShaderOp("IsNormal");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("IsNormal");
   vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
  
   size_t count = Validation_Input->size();
 
   auto ShaderInitFn = MakeShaderReplacementCallback(
-      {},
+      {L"isSpecialFloat.hlsl", L"-Emain", L"-Tcs_6_0"},
       // Replace the above with what's below when IsSpecialFloat supports doubles
       //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f64(i32 8," },
       //{ "@dx.op.isSpecialFloat.f32(i32 11,", "@dx.op.isSpecialFloat.f64(i32 11," },
