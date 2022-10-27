@@ -139,6 +139,8 @@ public:
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestReflectionWithProgramHeader)
+  TEST_METHOD(CompileThenTestReflectionThreadSizeMS)
+  TEST_METHOD(CompileThenTestReflectionThreadSizeAS)
   TEST_METHOD(CompileThenTestPdbUtils)
   TEST_METHOD(CompileThenTestPdbUtilsWarningOpt)
   TEST_METHOD(CompileThenTestPdbInPrivate)
@@ -1661,6 +1663,107 @@ TEST_F(CompilerTest, CompileThenTestReflectionWithProgramHeader) {
 
   ID3D12ShaderReflectionConstantBuffer *cb = pReflection->GetConstantBufferByName("cb");
   VERIFY_IS_TRUE(cb != nullptr);
+}
+
+TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeAS) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pOperationResult;
+
+  const char* source = R"x(
+    struct Payload {
+        float2 dummy;
+        float4 pos;
+        float color[2];
+    };
+
+    [numthreads(2, 3, 1)]
+    void main()
+    {
+        Payload pld;
+        pld.dummy = float2(1.0,2.0);
+        pld.pos = float4(3.0,4.0,5.0,6.0);
+        pld.color[0] = 7.0;
+        pld.color[1] = 8.0;
+        DispatchMesh(2, 3, 1, pld);
+    }
+  )x";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(source, &pSource);
+
+  const WCHAR * args[] = { L"-Zs", };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"as_6_5", args, _countof(args), nullptr, 0, nullptr, &pOperationResult));
+
+  HRESULT CompileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOperationResult->GetStatus(&CompileStatus));
+  VERIFY_SUCCEEDED(CompileStatus);
+
+  CComPtr<IDxcBlob> pBlob;
+  VERIFY_SUCCEEDED(pOperationResult->GetResult(&pBlob));
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  DxcBuffer buf = {};
+  buf.Ptr  = pBlob->GetBufferPointer();
+  buf.Size = pBlob->GetBufferSize();
+
+  CComPtr<ID3D12ShaderReflection> pReflection;
+  VERIFY_SUCCEEDED(pUtils->CreateReflection(&buf, IID_PPV_ARGS(&pReflection)));
+
+  UINT x = 0, y = 0, z = 0;
+  VERIFY_SUCCEEDED(pReflection->GetThreadGroupSize(&x, &y, &z));
+  VERIFY_ARE_EQUAL(x, 2);
+  VERIFY_ARE_EQUAL(y, 3);
+  VERIFY_ARE_EQUAL(z, 1);
+}
+
+TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeMS) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pOperationResult;
+
+  const char* source = R"x(
+    [NumThreads(2,3,1)]
+    [OutputTopology("triangle")]
+    void main() {
+      int x = 2;
+    }
+  )x";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(source, &pSource);
+
+  const WCHAR * args[] = { L"-Zs", };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ms_6_5", args, _countof(args), nullptr, 0, nullptr, &pOperationResult));
+
+  HRESULT CompileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOperationResult->GetStatus(&CompileStatus));
+  VERIFY_SUCCEEDED(CompileStatus);
+
+  CComPtr<IDxcBlob> pBlob;
+  VERIFY_SUCCEEDED(pOperationResult->GetResult(&pBlob));
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  DxcBuffer buf = {};
+  buf.Ptr  = pBlob->GetBufferPointer();
+  buf.Size = pBlob->GetBufferSize();
+
+  CComPtr<ID3D12ShaderReflection> pReflection;
+  VERIFY_SUCCEEDED(pUtils->CreateReflection(&buf, IID_PPV_ARGS(&pReflection)));
+
+  UINT x = 0, y = 0, z = 0;
+  VERIFY_SUCCEEDED(pReflection->GetThreadGroupSize(&x, &y, &z));
+  VERIFY_ARE_EQUAL(x, 2);
+  VERIFY_ARE_EQUAL(y, 3);
+  VERIFY_ARE_EQUAL(z, 1);
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
