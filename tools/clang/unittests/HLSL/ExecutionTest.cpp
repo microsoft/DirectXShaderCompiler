@@ -34,7 +34,6 @@
 
 #undef _read
 #include "WexTestClass.h"
-#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
@@ -11423,7 +11422,7 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
     VERIFY_SUCCEEDED(pReflection->Load(compiledShader));
     UINT32 iPartIndex;
-    if (FAILED(pReflection->FindFirstPartKind(hlsl::DxilFourCC::DFCC_RootSignature, &iPartIndex))) {
+    if (FAILED(pReflection->FindFirstPartKind(DXC_PART_ROOT_SIGNATURE, &iPartIndex))) {
       // No root signature to copy, use the assembledShader.
       *ppShaderBlob = assembledShader.Detach();
       return;
@@ -11437,7 +11436,7 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     CComPtr<IDxcBlob> pRootSignatureBlob;
     VERIFY_SUCCEEDED(pReflection->GetPartContent(iPartIndex, &pRootSignatureBlob));
     // Add root signature to container
-    pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
+    pBuilder->AddPart(DXC_PART_ROOT_SIGNATURE, pRootSignatureBlob);
 
     CComPtr<IDxcOperationResult> pOpResult;
     VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pOpResult));
