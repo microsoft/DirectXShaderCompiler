@@ -150,6 +150,12 @@ public:
   TEST_METHOD(CompileSetPrivateThenWithStripPrivate)
   TEST_METHOD(CompileWithMultiplePrivateOptionsThenFail)
 
+  void CompileThenTestReflectionThreadSize(const char *source, const WCHAR *target, UINT expectedX, UINT expectedY, UINT expectedZ);
+
+  TEST_METHOD(CompileThenTestReflectionThreadSizeMS)
+  TEST_METHOD(CompileThenTestReflectionThreadSizeAS)
+  TEST_METHOD(CompileThenTestReflectionThreadSizeCS)
+
 
   void TestResourceBindingImpl(
     const char *bindingFileContent,
@@ -1661,6 +1667,88 @@ TEST_F(CompilerTest, CompileThenTestReflectionWithProgramHeader) {
 
   ID3D12ShaderReflectionConstantBuffer *cb = pReflection->GetConstantBufferByName("cb");
   VERIFY_IS_TRUE(cb != nullptr);
+}
+
+void CompilerTest::CompileThenTestReflectionThreadSize(const char *source, const WCHAR *target, UINT expectedX, UINT expectedY, UINT expectedZ) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pOperationResult;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(source, &pSource);
+
+  const WCHAR * args[] = { L"-Zs", };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", target,
+    args, _countof(args), nullptr, 0, nullptr, &pOperationResult));
+
+  HRESULT CompileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOperationResult->GetStatus(&CompileStatus));
+  VERIFY_SUCCEEDED(CompileStatus);
+
+  CComPtr<IDxcBlob> pBlob;
+  VERIFY_SUCCEEDED(pOperationResult->GetResult(&pBlob));
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  DxcBuffer buf = {};
+  buf.Ptr  = pBlob->GetBufferPointer();
+  buf.Size = pBlob->GetBufferSize();
+
+  CComPtr<ID3D12ShaderReflection> pReflection;
+  VERIFY_SUCCEEDED(pUtils->CreateReflection(&buf, IID_PPV_ARGS(&pReflection)));
+
+  UINT x = 0, y = 0, z = 0;
+  VERIFY_SUCCEEDED(pReflection->GetThreadGroupSize(&x, &y, &z));
+  VERIFY_ARE_EQUAL(x, expectedX);
+  VERIFY_ARE_EQUAL(y, expectedY);
+  VERIFY_ARE_EQUAL(z, expectedZ);
+}
+
+TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeCS) {
+  const char* source = R"x(
+    [numthreads(2, 3, 1)]
+    void main()
+    {
+    }
+  )x";
+
+  CompileThenTestReflectionThreadSize(source, L"cs_6_5", 2, 3, 1);
+}
+
+TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeAS) {
+  const char* source = R"x(
+    struct Payload {
+        float2 dummy;
+        float4 pos;
+        float color[2];
+    };
+
+    [numthreads(2, 3, 1)]
+    void main()
+    {
+        Payload pld;
+        pld.dummy = float2(1.0,2.0);
+        pld.pos = float4(3.0,4.0,5.0,6.0);
+        pld.color[0] = 7.0;
+        pld.color[1] = 8.0;
+        DispatchMesh(2, 3, 1, pld);
+    }
+  )x";
+
+  CompileThenTestReflectionThreadSize(source, L"as_6_5", 2, 3, 1);
+}
+
+TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeMS) {
+  const char* source = R"x(
+    [NumThreads(2,3,1)]
+    [OutputTopology("triangle")]
+    void main() {
+      int x = 2;
+    }
+  )x";
+  CompileThenTestReflectionThreadSize(source, L"ms_6_5", 2, 3, 1);
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
