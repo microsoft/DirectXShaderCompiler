@@ -4,13 +4,13 @@
 // CHECK:  %PIX_CountUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 1, i32 0, i1 false)
 
 // Feedback UAV:
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 28
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %PIX_CountUAV_Handle, i32 28
 
 // Texture:
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 12
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %PIX_CountUAV_Handle, i32 12
 
 // Sampler:
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 0
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %PIX_CountUAV_Handle, i32 0
 
 Texture2D texture : register(t0);
 SamplerState samplerState : register(s0);

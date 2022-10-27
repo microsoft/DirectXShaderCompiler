@@ -759,10 +759,10 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     addDebugEntryValue(BC, AsFloat);
   } else {
     Function *StoreValue =
-        BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore,
+        BC.HlslOP->GetOpFunc(OP::OpCode::RawBufferStore,
                              TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
     Constant *StoreValueOpcode =
-        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
+        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::RawBufferStore);
     UndefValue *Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     UndefValue *UndefArg = nullptr;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
@@ -774,6 +774,7 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
       assert(false);
     }
     Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
+    Constant *Alignment = BC.HlslOP->GetI32Const(4);
     (void)BC.Builder.CreateCall(
         StoreValue, {StoreValueOpcode, // i32 opcode
                      m_HandleForUAV,   // %dx.types.Handle, ; resource handle
@@ -783,7 +784,8 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
                      UndefArg, // unused values
                      UndefArg, // unused values
                      UndefArg, // unused values
-                     WriteMask_X});
+                     WriteMask_X,
+                     Alignment});
 
     m_RemainingReservedSpaceInBytes -= 4;
     assert(m_RemainingReservedSpaceInBytes < 1024); // check for underflow
