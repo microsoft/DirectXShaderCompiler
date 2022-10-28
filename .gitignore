@@ -24,7 +24,7 @@
 *.dmp
 # Visual Studio Code directory.
 .vscode
-# Visual Studio 2017
+# Visual Studio
 .vs/
 # Test outputs
 *.ll.converted

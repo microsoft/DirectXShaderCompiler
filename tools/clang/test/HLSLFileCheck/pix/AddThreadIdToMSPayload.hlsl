@@ -3,7 +3,7 @@
 // CHECK: getelementptr %PIX_AS2MS_Expanded_Type
 
 // Validate that instrumentation appeared before a store-output
-// CHECK: call void @dx.op.bufferStore.i32
+// CHECK: call void @dx.op.rawBufferStore.i32
 // CHECK: call void @dx.op.storeVertexOutput
 
 struct PSInput

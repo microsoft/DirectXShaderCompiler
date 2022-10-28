@@ -100,6 +100,9 @@ public:
   TEST_METHOD(RunWriteConstArrays)
   TEST_METHOD(RunAtomicsOnBitfields)
   TEST_METHOD(RunUnboundedResourceArrays)
+  TEST_METHOD(GloballyCoherentErrors)
+  TEST_METHOD(GloballyCoherentTemplateErrors)
+  TEST_METHOD(RunBitFieldAnnotations)
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
@@ -432,4 +435,16 @@ TEST_F(VerifierTest, RunAtomicsOnBitfields) {
 
 TEST_F(VerifierTest, RunUnboundedResourceArrays) {
   CheckVerifiesHLSL(L"invalid-unbounded-resource-arrays.hlsl");
+}
+
+TEST_F(VerifierTest, GloballyCoherentErrors) {
+  CheckVerifiesHLSL(L"globallycoherent-errors.hlsl");
+}
+
+TEST_F(VerifierTest, GloballyCoherentTemplateErrors) {
+  CheckVerifiesHLSL(L"globallycoherent-template-errors.hlsl");
+}
+
+TEST_F(VerifierTest, RunBitFieldAnnotations) {
+  CheckVerifiesHLSL(L"bitfields-and-annotations.hlsl");
 }
