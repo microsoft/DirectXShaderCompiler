@@ -1018,24 +1018,23 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           }
         }
       }
-
-      if (OSOverride != nullptr) {
-        formatted_raw_ostream FOS(*OSOverride);
-        FOS << "DynamicallyIndexedBindPoints=";
-        for (auto const &bp : m_DynamicallyIndexedBindPoints) {
-          FOS << EncodeRegisterType(bp.Type) << bp.Space << ':' << bp.Index
-              << ';';
-        }
-        FOS << ".";
-
-        // todo: this will reflect dynamic resource names when the metadata
-        // exists
-        FOS << "DynamicallyBoundResources=";
-        for (auto const &drb : m_dynamicResourceBindings) {
-          FOS << (drb.HeapIsSampler ? 'S' : 'R') << drb.HeapIndex << ';';
-        }
-        FOS << ".";
+    }
+    if (OSOverride != nullptr) {
+      formatted_raw_ostream FOS(*OSOverride);
+      FOS << "DynamicallyIndexedBindPoints=";
+      for (auto const &bp : m_DynamicallyIndexedBindPoints) {
+        FOS << EncodeRegisterType(bp.Type) << bp.Space << ':' << bp.Index
+            << ';';
       }
+      FOS << ".";
+
+      // todo: this will reflect dynamic resource names when the metadata
+      // exists
+      FOS << "DynamicallyBoundResources=";
+      for (auto const &drb : m_dynamicResourceBindings) {
+        FOS << (drb.HeapIsSampler ? 'S' : 'R') << drb.HeapIndex << ';';
+      }
+      FOS << ".";
     }
   }
 
