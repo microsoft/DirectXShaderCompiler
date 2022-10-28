@@ -2542,7 +2542,10 @@ HRESULT DxilShaderReflection::GetMinFeatureLevel(enum D3D_FEATURE_LEVEL* pLevel)
 
 _Use_decl_annotations_
 UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY, UINT *pSizeZ) {
-  if (!m_pDxilModule->GetShaderModel()->IsCS()) {
+  if (!m_pDxilModule->GetShaderModel()->IsCS() &&
+      !m_pDxilModule->GetShaderModel()->IsMS() &&
+      !m_pDxilModule->GetShaderModel()->IsAS())
+  {
     AssignToOutOpt((UINT)0, pSizeX);
     AssignToOutOpt((UINT)0, pSizeY);
     AssignToOutOpt((UINT)0, pSizeZ);
