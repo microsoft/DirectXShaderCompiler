@@ -264,6 +264,8 @@ clang::QualType CheckVectorConditional(
   _In_ clang::ExprResult &Cond,
   _In_ clang::ExprResult &LHS,
   _In_ clang::ExprResult &RHS,
+  _In_ clang::ExprValueKind &VK,
+  _In_ clang::ExprObjectKind &OK,
   _In_ clang::SourceLocation QuestionLoc);
 
 }

@@ -6346,7 +6346,7 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
   // HLSL Change Starts: HLSL supports a vector condition and is
   // sufficiently different to merit its own checker.
   if (getLangOpts().HLSL)
-    return hlsl::CheckVectorConditional(this, Cond, LHS, RHS, QuestionLoc);
+    return hlsl::CheckVectorConditional(this, Cond, LHS, RHS, VK, OK, QuestionLoc);
   // HLSL Change Ends
 
   // C++ is sufficiently different to merit its own checker.
