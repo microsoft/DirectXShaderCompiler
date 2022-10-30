@@ -429,8 +429,8 @@ public:
   /// \brief Returns the associated counter's (instr-ptr, is-alias-or-not)
   /// pair for the given {RW|Append|Consume}StructuredBuffer variable. Creates
   /// counter for RW buffer if not already created.
-  const CounterIdAliasPair *createOrGetCounterIdAliasPair(
-      const DeclaratorDecl *decl);
+  const CounterIdAliasPair *
+  createOrGetCounterIdAliasPair(const DeclaratorDecl *decl);
 
   /// \brief Returns all the associated counters for the given decl. The decl is
   /// expected to be a struct containing alias RW/Append/Consume structured
@@ -714,7 +714,8 @@ private:
   /// Decorates varInstr of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
   void decorateInterpolationMode(const NamedDecl *decl, QualType asType,
-                                 SpirvVariable *varInstr);
+                                 SpirvVariable *varInstr,
+                                 hlsl::Semantic::Kind semanticKind);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.

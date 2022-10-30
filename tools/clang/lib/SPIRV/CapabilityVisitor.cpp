@@ -368,6 +368,13 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                    "SV_Barycentrics", loc);
       break;
     }
+    case spv::BuiltIn::BaryCoordNoPerspKHR:
+    case spv::BuiltIn::BaryCoordKHR: {
+      addExtension(Extension::KHR_fragment_shader_barycentric,
+                   "SV_Barycentrics", loc);
+      addCapability(spv::Capability::FragmentBarycentricKHR);
+      break;
+    }
     case spv::BuiltIn::ShadingRateKHR:
     case spv::BuiltIn::PrimitiveShadingRateKHR: {
       addExtension(Extension::KHR_fragment_shading_rate, "SV_ShadingRate", loc);

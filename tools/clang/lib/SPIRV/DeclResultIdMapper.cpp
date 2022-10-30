@@ -1107,7 +1107,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
   if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
-    // Legalization is needed to propagate the correct image type for 
+    // Legalization is needed to propagate the correct image type for
     // instructions in addition to cases where the resource is assigned to
     // another variable or function parameter
     needsLegalization = true;
@@ -1252,12 +1252,11 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // Register the <type-id> for this decl
   ctBufferPCTypes[decl] = resultType;
 
-  const auto sc = forPC ? spv::StorageClass::PushConstant
-                        : forShaderRecordNV
-                              ? spv::StorageClass::ShaderRecordBufferNV
-                              : forShaderRecordEXT
-                                    ? spv::StorageClass::ShaderRecordBufferKHR
-                                    : spv::StorageClass::Uniform;
+  const auto sc = forPC               ? spv::StorageClass::PushConstant
+                  : forShaderRecordNV ? spv::StorageClass::ShaderRecordBufferNV
+                  : forShaderRecordEXT
+                      ? spv::StorageClass::ShaderRecordBufferKHR
+                      : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
   // The fields may be 'precise', but the structure itself is not.
@@ -1434,7 +1433,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
-                                                ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   const auto *recordType =
       hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
   assert(recordType);
@@ -1449,8 +1448,8 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
   const std::string structName =
       typeName + recordType->getDecl()->getName().str();
   SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
-      recordType->getDecl(), /*arraySize*/ 0,
-      kind, structName, decl->getName());
+      recordType->getDecl(), /*arraySize*/ 0, kind, structName,
+      decl->getName());
 
   // Register the VarDecl
   astDecls[decl] = createDeclSpirvInfo(var);
@@ -1463,7 +1462,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
-                                               ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
@@ -1471,12 +1470,10 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
                             ? "type.ShaderRecordBufferEXT."
                             : "type.ShaderRecordBufferNV.";
 
-  const std::string structName =
-      typeName + decl->getName().str();
+  const std::string structName = typeName + decl->getName().str();
   // The front-end does not allow arrays of cbuffer/tbuffer.
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      decl, /*arraySize*/ 0, kind, structName,
-      decl->getName());
+      decl, /*arraySize*/ 0, kind, structName, decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when
@@ -1602,7 +1599,7 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
       if (declInstr) {
         createCounterVar(decl, declInstr, /*isAlias*/ false);
         counter = counterVars.find(decl);
-	  }
+      }
     }
     if (counter != counterVars.end())
       return &counter->second;
@@ -1611,8 +1608,8 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
   return nullptr;
 }
 
-const CounterIdAliasPair *DeclResultIdMapper::createOrGetCounterIdAliasPair(
-    const DeclaratorDecl *decl) {
+const CounterIdAliasPair *
+DeclResultIdMapper::createOrGetCounterIdAliasPair(const DeclaratorDecl *decl) {
   auto counterPair = getCounterIdAliasPair(decl);
   if (counterPair)
     return counterPair;
@@ -2614,7 +2611,7 @@ bool DeclResultIdMapper::createStageVars(
       evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
+      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
       break;
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
@@ -2745,11 +2742,9 @@ bool DeclResultIdMapper::createStageVars(
 
     // Decorate with interpolation modes for pixel shader input variables
     // or vertex shader output variables.
-    if (((spvContext.isPS() && sigPoint->IsInput()) ||
-         (spvContext.isVS() && sigPoint->IsOutput())) &&
-        // BaryCoord*AMD buitins already encode the interpolation mode.
-        semanticKind != hlsl::Semantic::Kind::Barycentrics)
-      decorateInterpolationMode(decl, type, varInstr);
+    if ((spvContext.isPS() && sigPoint->IsInput()) ||
+        (spvContext.isVS() && sigPoint->IsOutput()))
+      decorateInterpolationMode(decl, type, varInstr, semanticKind);
 
     if (asInput) {
       *value = spvBuilder.createLoad(evalType, varInstr, loc);
@@ -2826,25 +2821,6 @@ bool DeclResultIdMapper::createStageVars(
             astContext.UnsignedIntTy, llvm::APInt(32, 0));
         *value = spvBuilder.createSelect(astContext.UnsignedIntTy, *value,
                                          constOne, constZero, thisSemantic.loc);
-      }
-      // Special handling of SV_Barycentrics, which is a float3, but the
-      // underlying stage input variable is a float2 (only provides the first
-      // two components). Calculate the third element.
-      else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
-        const auto x = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {0}, thisSemantic.loc);
-        const auto y = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {1}, thisSemantic.loc);
-        const auto xy = spvBuilder.createBinaryOp(
-            spv::Op::OpFAdd, astContext.FloatTy, x, y, thisSemantic.loc);
-        const auto z = spvBuilder.createBinaryOp(
-            spv::Op::OpFSub, astContext.FloatTy,
-            spvBuilder.getConstantFloat(astContext.FloatTy,
-                                        llvm::APFloat(1.0f)),
-            xy, thisSemantic.loc);
-        *value = spvBuilder.createCompositeConstruct(
-            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
-            thisSemantic.loc);
       }
       // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
       // be a uint or uint2, but the underlying stage input variable is a uint3.
@@ -3256,7 +3232,8 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
     uint32_t baseIndex = 0;
     for (auto base : cxxDecl->bases()) {
-      auto *subValue = spvBuilder.createCompositeExtract(base.getType(), value, {baseIndex++}, loc, range);
+      auto *subValue = spvBuilder.createCompositeExtract(
+          base.getType(), value, {baseIndex++}, loc, range);
 
       if (!writeBackOutputStream(base.getType()->getAsCXXRecordDecl(),
                                  base.getType(), subValue, range))
@@ -3285,9 +3262,10 @@ DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
                                        SourceLocation loc, SourceRange range) {
   // Negate SV_Position.y if requested
   if (spirvOptions.invertY) {
-    const auto oldY = spvBuilder.createCompositeExtract(astContext.FloatTy,
-                                                        position, {1}, loc, range);
-    const auto newY = spvBuilder.createUnaryOp(spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
+    const auto oldY = spvBuilder.createCompositeExtract(
+        astContext.FloatTy, position, {1}, loc, range);
+    const auto newY = spvBuilder.createUnaryOp(
+        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
     position = spvBuilder.createCompositeInsert(
         astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
         loc, range);
@@ -3313,9 +3291,9 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
   return position;
 }
 
-void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
-                                                   QualType type,
-                                                   SpirvVariable *varInstr) {
+void DeclResultIdMapper::decorateInterpolationMode(
+    const NamedDecl *decl, QualType type, SpirvVariable *varInstr,
+    hlsl::Semantic::Kind semanticKind) {
   if (varInstr->getStorageClass() != spv::StorageClass::Input &&
       varInstr->getStorageClass() != spv::StorageClass::Output) {
     return;
@@ -3340,9 +3318,11 @@ void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
     // Attributes can be used together. So cannot use else if.
     if (decl->getAttr<HLSLCentroidAttr>())
       spvBuilder.decorateCentroid(varInstr, loc);
-    if (decl->getAttr<HLSLNoInterpolationAttr>())
+    if (decl->getAttr<HLSLNoInterpolationAttr>()) // NoInterpolation
       spvBuilder.decorateFlat(varInstr, loc);
-    if (decl->getAttr<HLSLNoPerspectiveAttr>())
+    if (decl->getAttr<HLSLNoPerspectiveAttr>()
+        // noperpective already hanled by BaryCoordNoPerspKHR builtin
+        && semanticKind != hlsl::Semantic::Kind::Barycentrics)
       spvBuilder.decorateNoPerspective(varInstr, loc);
     if (decl->getAttr<HLSLSampleAttr>()) {
       spvBuilder.decorateSample(varInstr, loc);
@@ -3702,23 +3682,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     // Selecting the correct builtin according to interpolation mode
     auto bi = BuiltIn::Max;
     if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
-      } else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspSampleAMD;
-      } else {
-        bi = BuiltIn::BaryCoordNoPerspAMD;
-      }
+      bi = BuiltIn::BaryCoordNoPerspKHR;
     } else {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothCentroidAMD;
-      } else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothSampleAMD;
-      } else {
-        bi = BuiltIn::BaryCoordSmoothAMD;
-      }
+      bi = BuiltIn::BaryCoordKHR;
     }
-
     return spvBuilder.addStageBuiltinVar(type, sc, bi, isPrecise, srcLoc);
   }
   // According to DXIL spec, the RenderTargetArrayIndex SV can only be used by

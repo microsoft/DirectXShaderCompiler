@@ -33,6 +33,7 @@ enum class Extension {
   KHR_16bit_storage,
   KHR_device_group,
   KHR_fragment_shading_rate,
+  KHR_fragment_shader_barycentric,
   KHR_non_semantic_info,
   KHR_multiview,
   KHR_shader_draw_parameters,
