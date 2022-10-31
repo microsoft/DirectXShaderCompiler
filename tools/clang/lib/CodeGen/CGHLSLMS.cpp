@@ -2202,7 +2202,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           rayShaderHaveErrors = true;
         }
         if (ArgNo < 2) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+          if (!(IsHLSLNumericUserDefinedType(parmDecl->getType()) ||
+                IsHLSLBuiltinRayAttributeStruct(parmDecl->getType()))) {
             Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "payload and attribute structures must be user defined types with only numeric contents."));

@@ -111,14 +111,7 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
-    if (isa<ClassTemplateSpecializationDecl>(RD)) {
-      return false;   // UDT are not templates
-    }
-    // TODO: avoid check by name
-    StringRef name = RD->getName();
-    if (name == "ByteAddressBuffer" ||
-        name == "RWByteAddressBuffer" ||
-        name == "RaytracingAccelerationStructure")
+    if (!IsUserDefinedType(type))
       return false;
     for (auto member : RD->fields()) {
       if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
@@ -129,15 +122,38 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
+bool IsUserDefinedType(clang::QualType QT) {
+  const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (RD->isImplicit())
+      return false;
+    if (auto TD = dyn_cast<ClassTemplateSpecializationDecl>(RD))
+      if (TD->getSpecializedTemplate()->isImplicit())
+        return false;
+    return true;
+  }
+  return false;
+}
+
+bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
+  QT = QT.getCanonicalType();
+  const clang::Type *Ty = QT.getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (RD->getName() == "RaytracingAccelerationStructure" ||
+        RD->getName() == "BuiltInTriangleIntersectionAttributes")
+      return true;
+  }
+  return false;
+}
+
 // Aggregate types are arrays and user-defined structs
 bool IsHLSLAggregateType(clang::QualType type) {
   type = type.getCanonicalType();
   if (isa<clang::ArrayType>(type)) return true;
 
-  const RecordType *Record = dyn_cast<RecordType>(type);
-  return Record != nullptr
-    && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type)
-    && !dyn_cast<ClassTemplateSpecializationDecl>(Record->getAsCXXRecordDecl());
+  return IsUserDefinedType(type);
 }
 
 clang::QualType GetElementTypeOrType(clang::QualType type) {
