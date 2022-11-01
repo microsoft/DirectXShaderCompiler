@@ -48,6 +48,8 @@ protected:
 
 public:
   DerivedT operator+(DifferenceTypeT n) const {
+    static_assert(std::is_base_of<iterator_facade_base, DerivedT>::value,
+                  "Must pass the derived type to this template!");
     static_assert(
         IsRandomAccess,
         "The '+' operator is only defined for random access iterators.");
@@ -71,6 +73,8 @@ public:
   }
 
   DerivedT &operator++() {
+    static_assert(std::is_base_of<iterator_facade_base, DerivedT>::value,
+                  "Must pass the derived type to this template!");
     return static_cast<DerivedT *>(this)->operator+=(1);
   }
   DerivedT operator++(int) {
@@ -152,7 +156,10 @@ protected:
 
   iterator_adaptor_base() = default;
 
-  explicit iterator_adaptor_base(WrappedIteratorT u) : I(std::move(u)) {}
+  explicit iterator_adaptor_base(WrappedIteratorT u) : I(std::move(u)) {
+    static_assert(std::is_base_of<iterator_adaptor_base, DerivedT>::value,
+                  "Must pass the derived type to this template!");
+  }
 
   const WrappedIteratorT &wrapped() const { return I; }
 
