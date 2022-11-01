@@ -22,6 +22,15 @@ endif()
 set(LLVM_CODE_COVERAGE_TARGETS "" CACHE STRING "Targets to run code coverage on (defaults to all exported targets if empty)")
 mark_as_advanced(LLVM_CODE_COVERAGE_TARGETS)
 
+# HLSL Change Begin - This is probably worth upstreaming...
+set(LLVM_CODE_COVERAGE_TEST_TARGETS "" CACHE STRING "Targets to run to generate coverage profiles.")
+mark_as_advanced(LLVM_CODE_COVERAGE_TEST_TARGETS)
+
+if (LLVM_CODE_COVERAGE_TEST_TARGETS)
+  set(COV_DEPENDS DEPENDS ${LLVM_CODE_COVERAGE_TEST_TARGETS})
+endif()
+# HLSL Change End
+
 if(NOT LLVM_CODE_COVERAGE_TARGETS)
   # by default run the coverage report across all the exports provided
   get_property(COV_TARGETS GLOBAL PROPERTY LLVM_EXPORTS)
@@ -61,4 +70,4 @@ add_custom_target(generate-coverage-report
                           ${REPORT_DIR} ${coverage_binaries}
                           --unified-report ${restrict_flags}
                   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                  DEPENDS check-llvm) # Run tests
+                  ${COV_DEPENDS}) # Run tests
