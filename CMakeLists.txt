@@ -783,6 +783,8 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
   endif()
 endif()
 
+include(CoverageReport)
+
 # Disable regeneration target for official builds as they always fun a full clean build.
 # This should eliminate the race-condition issue with "Cannot restore timestamp".
 if (HLSL_OFFICIAL_BUILD)
