@@ -28,6 +28,9 @@
 #include <memory>
 #include <utility> // for std::pair
 
+#include "llvm/ADT/iterator_range.h"
+#include "llvm/Support/Compiler.h"
+
 namespace llvm {
 
 //===----------------------------------------------------------------------===//
