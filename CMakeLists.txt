@@ -408,6 +408,21 @@ if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND LLVM_ENABLE_ASSERTIONS))
   set(LLVM_USE_HOST_TOOLS ON)
 endif()
 
+if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE)
+  if(NOT LLVM_PROFILE_MERGE_POOL_SIZE)
+    # A pool size of 1-2 is probably sufficient on a SSD. 3-4 should be fine
+    # for spining disks. Anything higher may only help on slower mediums.
+    set(LLVM_PROFILE_MERGE_POOL_SIZE "4")
+  endif()
+  if(NOT LLVM_PROFILE_FILE_PATTERN)
+    if(NOT LLVM_PROFILE_DATA_DIR)
+      set(LLVM_PROFILE_FILE_PATTERN "%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw")
+    else()
+      file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
+    endif()
+  endif()
+endif()
+
 # All options referred to from HandleLLVMOptions have to be specified
 # BEFORE this include, otherwise options will not be correctly set on
 # first cmake run
