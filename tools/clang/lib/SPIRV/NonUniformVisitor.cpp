@@ -13,7 +13,7 @@ namespace clang {
 namespace spirv {
 
 bool NonUniformVisitor::visit(SpirvLoad *instr) {
-  if(instr->getPointer()->isNonUniform())
+  if (instr->getPointer()->isNonUniform())
     instr->setNonUniform();
   return true;
 }

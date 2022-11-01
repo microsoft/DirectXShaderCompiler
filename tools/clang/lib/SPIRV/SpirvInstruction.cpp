@@ -253,8 +253,8 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::ArrayRef<SpirvInstruction *> ids)
     : SpirvInstruction(IK_Decoration, spv::Op::OpDecorateId,
                        /*type*/ {}, loc),
-      target(targetInst), targetFunction(nullptr), decoration(decor), index(llvm::None), params(),
-      idParams(ids.begin(), ids.end()) {}
+      target(targetInst), targetFunction(nullptr), decoration(decor),
+      index(llvm::None), params(), idParams(ids.begin(), ids.end()) {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc, SpirvFunction *targetFunc,
                                  spv::Decoration decor,
@@ -403,7 +403,8 @@ SpirvAccessChain::SpirvAccessChain(QualType resultType, SourceLocation loc,
                                    SpirvInstruction *baseInst,
                                    llvm::ArrayRef<SpirvInstruction *> indexVec,
                                    SourceRange range)
-    : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType, loc, range),
+    : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType, loc,
+                       range),
       base(baseInst), indices(indexVec.begin(), indexVec.end()) {}
 
 SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
@@ -411,8 +412,7 @@ SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
                          spv::MemorySemanticsMask mask,
                          SpirvInstruction *valueInst, SourceRange range)
     : SpirvInstruction(IK_Atomic, op, resultType, loc, range),
-      pointer(pointerInst),
-      scope(s), memorySemantic(mask),
+      pointer(pointerInst), scope(s), memorySemantic(mask),
       memorySemanticUnequal(spv::MemorySemanticsMask::MaskNone),
       value(valueInst), comparator(nullptr) {
   assert(
@@ -433,8 +433,7 @@ SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
                          SpirvInstruction *valueInst,
                          SpirvInstruction *comparatorInst, SourceRange range)
     : SpirvInstruction(IK_Atomic, op, resultType, loc, range),
-      pointer(pointerInst),
-      scope(s), memorySemantic(semanticsEqual),
+      pointer(pointerInst), scope(s), memorySemantic(semanticsEqual),
       memorySemanticUnequal(semanticsUnequal), value(valueInst),
       comparator(comparatorInst) {
   assert(op == spv::Op::OpAtomicCompareExchange);
@@ -455,7 +454,7 @@ SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
                              SourceLocation loc, SpirvInstruction *op1,
                              SpirvInstruction *op2, SourceRange range)
     : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc, range),
-	  operand1(op1), operand2(op2) {}
+      operand1(op1), operand2(op2) {}
 
 SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
                              SourceLocation loc, SpirvInstruction *baseInst,
@@ -484,8 +483,7 @@ SpirvBitFieldInsert::SpirvBitFieldInsert(QualType resultType,
 
 SpirvCompositeConstruct::SpirvCompositeConstruct(
     QualType resultType, SourceLocation loc,
-    llvm::ArrayRef<SpirvInstruction *> constituentsVec,
-    SourceRange range)
+    llvm::ArrayRef<SpirvInstruction *> constituentsVec, SourceRange range)
     : SpirvInstruction(IK_CompositeConstruct, spv::Op::OpCompositeConstruct,
                        resultType, loc, range),
       consituents(constituentsVec.begin(), constituentsVec.end()) {}
@@ -592,7 +590,8 @@ SpirvCompositeInsert::SpirvCompositeInsert(QualType resultType,
       indices(indexVec.begin(), indexVec.end()) {}
 
 SpirvEmitVertex::SpirvEmitVertex(SourceLocation loc, SourceRange range)
-    : SpirvInstruction(IK_EmitVertex, spv::Op::OpEmitVertex, QualType(), loc, range) {}
+    : SpirvInstruction(IK_EmitVertex, spv::Op::OpEmitVertex, QualType(), loc,
+                       range) {}
 
 SpirvEndPrimitive::SpirvEndPrimitive(SourceLocation loc, SourceRange range)
     : SpirvInstruction(IK_EndPrimitive, spv::Op::OpEndPrimitive, QualType(),
@@ -689,9 +688,9 @@ SpirvImageOp::SpirvImageOp(
       image(imageInst), coordinate(coordinateInst), dref(drefInst),
       bias(biasInst), lod(lodInst), gradDx(gradDxInst), gradDy(gradDyInst),
       constOffset(constOffsetInst), offset(offsetInst),
-      constOffsets(constOffsetsInst), sample(sampleInst),
-      minLod(minLodInst), component(componentInst),
-      texelToWrite(texelToWriteInst), operandsMask(mask) {
+      constOffsets(constOffsetsInst), sample(sampleInst), minLod(minLodInst),
+      component(componentInst), texelToWrite(texelToWriteInst),
+      operandsMask(mask) {
   assert(op == spv::Op::OpImageSampleImplicitLod ||
          op == spv::Op::OpImageSampleExplicitLod ||
          op == spv::Op::OpImageSampleDrefImplicitLod ||
@@ -992,8 +991,7 @@ SpirvDebugExpression::SpirvDebugExpression(
 SpirvDebugDeclare::SpirvDebugDeclare(SpirvDebugLocalVariable *debugVar_,
                                      SpirvInstruction *var_,
                                      SpirvDebugExpression *expr,
-	                                 SourceLocation loc,
-	                                 SourceRange range)
+                                     SourceLocation loc, SourceRange range)
     : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u),
       debugVar(debugVar_), var(var_), expression(expr) {
   srcLoc = loc;
