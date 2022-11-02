@@ -19,9 +19,9 @@ bool RemoveBufferBlockVisitor::isBufferBlockDecorationAvailable() {
 }
 
 bool RemoveBufferBlockVisitor::visit(SpirvModule *mod, Phase phase) {
-  // The BufferBlock decoration requires SPIR-V version 1.3 or earlier. It should be
-  // removed from the module on newer versions.
-  // Otherwise, no action is needed by this IMR visitor.
+  // The BufferBlock decoration requires SPIR-V version 1.3 or earlier. It
+  // should be removed from the module on newer versions. Otherwise, no action
+  // is needed by this IMR visitor.
   if (phase == Visitor::Phase::Init)
     if (isBufferBlockDecorationAvailable())
       return false;

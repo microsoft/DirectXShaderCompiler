@@ -57,7 +57,8 @@ SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset0(
   result = spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr, loc, range);
   // Only need to mask the lowest 16 bits of the loaded 32-bit uint.
   // OpUConvert can perform truncation in this case.
-  result = spvBuilder.createUnaryOp(spv::Op::OpUConvert, astContext.UnsignedShortTy, result, loc, range);
+  result = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert, astContext.UnsignedShortTy, result, loc, range);
   result = bitCastToNumericalOrBool(result, astContext.UnsignedShortTy,
                                     target16BitType, loc, range);
   result->setRValue();
@@ -125,8 +126,10 @@ SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset0(
       spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
 
   // Convert both word0 and word1 to 64-bit uints.
-  word0 = spvBuilder.createUnaryOp(spv::Op::OpUConvert, astContext.UnsignedLongLongTy, word0, loc, range);
-  word1 = spvBuilder.createUnaryOp(spv::Op::OpUConvert, astContext.UnsignedLongLongTy, word1, loc, range);
+  word0 = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert, astContext.UnsignedLongLongTy, word0, loc, range);
+  word1 = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert, astContext.UnsignedLongLongTy, word1, loc, range);
 
   // Shift word1 to the left by 32 bits.
   word1 = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
@@ -171,7 +174,8 @@ SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset16(
   result = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                      astContext.UnsignedIntTy, result,
                                      constUint16, loc, range);
-  result = spvBuilder.createUnaryOp(spv::Op::OpUConvert, astContext.UnsignedShortTy, result, loc, range);
+  result = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert, astContext.UnsignedShortTy, result, loc, range);
   result = bitCastToNumericalOrBool(result, astContext.UnsignedShortTy,
                                     target16BitType, loc, range);
   result->setRValue();
@@ -424,13 +428,14 @@ void RawBufferHandler::store16BitsAtBitOffset0(SpirvInstruction *value,
                                            {constUint0, index}, loc, range);
   result = bitCastToNumericalOrBool(value, valueType,
                                     astContext.UnsignedShortTy, loc, range);
-  result = spvBuilder.createUnaryOp(spv::Op::OpUConvert, astContext.UnsignedIntTy, result, loc, range);
+  result = spvBuilder.createUnaryOp(
+      spv::Op::OpUConvert, astContext.UnsignedIntTy, result, loc, range);
   spvBuilder.createStore(ptr, result, loc, range);
 }
 
 void RawBufferHandler::store16BitsAtBitOffset16(SpirvInstruction *value,
-                                               SpirvInstruction *buffer,
-                                               SpirvInstruction *&index,
+                                                SpirvInstruction *buffer,
+                                                SpirvInstruction *&index,
                                                 const QualType valueType,
                                                 SourceRange range) {
   const auto loc = buffer->getSourceLocation();
@@ -557,12 +562,14 @@ void RawBufferHandler::storeArrayOfScalars(
       word = bitCastToNumericalOrBool(values[elemIndex], valueType,
                                       astContext.UnsignedShortTy, loc, range);
       // Zero-extend to 32 bits.
-      word = spvBuilder.createUnaryOp(spv::Op::OpUConvert, astContext.UnsignedIntTy, word, loc, range);
+      word = spvBuilder.createUnaryOp(
+          spv::Op::OpUConvert, astContext.UnsignedIntTy, word, loc, range);
       if (elemIndex + 1 < elemCount) {
         SpirvInstruction *msb = nullptr;
         msb = bitCastToNumericalOrBool(values[elemIndex + 1], valueType,
                                        astContext.UnsignedShortTy, loc, range);
-        msb = spvBuilder.createUnaryOp(spv::Op::OpUConvert, astContext.UnsignedIntTy, msb, loc, range);
+        msb = spvBuilder.createUnaryOp(
+            spv::Op::OpUConvert, astContext.UnsignedIntTy, msb, loc, range);
         msb = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
                                         astContext.UnsignedIntTy, msb,
                                         constUint16, loc, range);
@@ -579,7 +586,8 @@ void RawBufferHandler::storeArrayOfScalars(
       auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                                {constUint0, index}, loc, range);
       spvBuilder.createStore(ptr, word, loc, range);
-      index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+      index =
+          spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                     index, constUint1, loc, range);
     }
   } else if (storeWidth == 32u || storeWidth == 64u) {
@@ -725,7 +733,8 @@ void RawBufferHandler::processTemplatedStoreToBuffer(
     auto serializedType =
         serializeToScalarsOrStruct(&elems, valueType, loc, range);
     if (isScalarType(serializedType)) {
-      storeArrayOfScalars(elems, buffer, index, serializedType, bitOffset, loc, range);
+      storeArrayOfScalars(elems, buffer, index, serializedType, bitOffset, loc,
+                          range);
     } else if (const auto *structType = serializedType->getAs<RecordType>()) {
       for (auto elem : elems)
         processTemplatedStoreToBuffer(elem, buffer, index, serializedType,

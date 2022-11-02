@@ -11389,9 +11389,11 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     // Disassemble
     std::string disassembly;
     {
+      CComPtr<IDxcResult> pDisassemblyResult;
       CComPtr<IDxcBlobUtf8> pDisassembly;
       DxcBuffer compiledBuffer = {compiledShader->GetBufferPointer(), compiledShader->GetBufferSize(), 0};
-      VERIFY_SUCCEEDED(pCompiler->Disassemble(&compiledBuffer, IID_PPV_ARGS(&pDisassembly)));
+      VERIFY_SUCCEEDED(pCompiler->Disassemble(&compiledBuffer, IID_PPV_ARGS(&pDisassemblyResult)));
+      VERIFY_SUCCEEDED(pDisassemblyResult->GetOutput(DXC_OUT_DISASSEMBLY, IID_PPV_ARGS(&pDisassembly), nullptr));
       disassembly.assign(pDisassembly->GetStringPointer(), pDisassembly->GetStringLength());
     }
 

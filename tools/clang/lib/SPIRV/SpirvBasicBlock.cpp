@@ -98,7 +98,7 @@ bool SpirvBasicBlock::invokeVisitor(
     if (functionScope && !visitor->visit(functionScope))
       return false;
     if (!debugDeclares.empty()) {
-      for (auto *decl : debugDeclares ) {
+      for (auto *decl : debugDeclares) {
         if (!decl->invokeVisitor(visitor))
           return false;
       }

@@ -583,7 +583,8 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
   return false;
 }
 
-SpirvInstruction *GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
+SpirvInstruction *
+GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
                                      QualType asType, SourceLocation loc,
                                      SourceRange range) const {
   SpirvVariable *clipCullVar = isClip ? inClipVar : inCullVar;
@@ -747,8 +748,9 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
       assert(false && "expected vector type");
     }
     type = elemType;
-    offset = spvBuilder.createBinaryOp(
-        spv::Op::OpIAdd, astContext.UnsignedIntTy, vecComponent, offset, loc, range);
+    offset =
+        spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                  vecComponent, offset, loc, range);
   }
   writeClipCullArrayFromType(invocationId, isClip, offset, type, *value, loc,
                              range);

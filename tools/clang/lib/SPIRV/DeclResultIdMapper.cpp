@@ -1107,7 +1107,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
   if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
-    // Legalization is needed to propagate the correct image type for 
+    // Legalization is needed to propagate the correct image type for
     // instructions in addition to cases where the resource is assigned to
     // another variable or function parameter
     needsLegalization = true;
@@ -1252,12 +1252,11 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // Register the <type-id> for this decl
   ctBufferPCTypes[decl] = resultType;
 
-  const auto sc = forPC ? spv::StorageClass::PushConstant
-                        : forShaderRecordNV
-                              ? spv::StorageClass::ShaderRecordBufferNV
-                              : forShaderRecordEXT
-                                    ? spv::StorageClass::ShaderRecordBufferKHR
-                                    : spv::StorageClass::Uniform;
+  const auto sc = forPC               ? spv::StorageClass::PushConstant
+                  : forShaderRecordNV ? spv::StorageClass::ShaderRecordBufferNV
+                  : forShaderRecordEXT
+                      ? spv::StorageClass::ShaderRecordBufferKHR
+                      : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
   // The fields may be 'precise', but the structure itself is not.
@@ -1434,7 +1433,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
-                                                ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   const auto *recordType =
       hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
   assert(recordType);
@@ -1449,8 +1448,8 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
   const std::string structName =
       typeName + recordType->getDecl()->getName().str();
   SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
-      recordType->getDecl(), /*arraySize*/ 0,
-      kind, structName, decl->getName());
+      recordType->getDecl(), /*arraySize*/ 0, kind, structName,
+      decl->getName());
 
   // Register the VarDecl
   astDecls[decl] = createDeclSpirvInfo(var);
@@ -1463,7 +1462,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
-                                               ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
@@ -1471,12 +1470,10 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
                             ? "type.ShaderRecordBufferEXT."
                             : "type.ShaderRecordBufferNV.";
 
-  const std::string structName =
-      typeName + decl->getName().str();
+  const std::string structName = typeName + decl->getName().str();
   // The front-end does not allow arrays of cbuffer/tbuffer.
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      decl, /*arraySize*/ 0, kind, structName,
-      decl->getName());
+      decl, /*arraySize*/ 0, kind, structName, decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when
@@ -1602,7 +1599,7 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
       if (declInstr) {
         createCounterVar(decl, declInstr, /*isAlias*/ false);
         counter = counterVars.find(decl);
-	  }
+      }
     }
     if (counter != counterVars.end())
       return &counter->second;
@@ -1611,8 +1608,8 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
   return nullptr;
 }
 
-const CounterIdAliasPair *DeclResultIdMapper::createOrGetCounterIdAliasPair(
-    const DeclaratorDecl *decl) {
+const CounterIdAliasPair *
+DeclResultIdMapper::createOrGetCounterIdAliasPair(const DeclaratorDecl *decl) {
   auto counterPair = getCounterIdAliasPair(decl);
   if (counterPair)
     return counterPair;
@@ -3256,7 +3253,8 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
     uint32_t baseIndex = 0;
     for (auto base : cxxDecl->bases()) {
-      auto *subValue = spvBuilder.createCompositeExtract(base.getType(), value, {baseIndex++}, loc, range);
+      auto *subValue = spvBuilder.createCompositeExtract(
+          base.getType(), value, {baseIndex++}, loc, range);
 
       if (!writeBackOutputStream(base.getType()->getAsCXXRecordDecl(),
                                  base.getType(), subValue, range))
@@ -3285,9 +3283,10 @@ DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
                                        SourceLocation loc, SourceRange range) {
   // Negate SV_Position.y if requested
   if (spirvOptions.invertY) {
-    const auto oldY = spvBuilder.createCompositeExtract(astContext.FloatTy,
-                                                        position, {1}, loc, range);
-    const auto newY = spvBuilder.createUnaryOp(spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
+    const auto oldY = spvBuilder.createCompositeExtract(
+        astContext.FloatTy, position, {1}, loc, range);
+    const auto newY = spvBuilder.createUnaryOp(
+        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
     position = spvBuilder.createCompositeInsert(
         astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
         loc, range);
