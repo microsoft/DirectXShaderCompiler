@@ -7,7 +7,7 @@
 // exp(inf) -> inf
 // CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 0x7FF0000000000000)
 // exp(-inf) -> 0
-// CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 0.0)
+// CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 0.0
 
 float GetValue(float a, float b) {
   return a / b;

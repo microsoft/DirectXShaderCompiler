@@ -71,9 +71,40 @@ static bool GetDxilOpcode(StringRef Name, ArrayRef<Constant *> Operands, OP::OpC
   return false;
 }
 
+/// Fold some non-finite arguments when we know it's safe to do so.
+static bool IsFinite(ConstantFP *C) {
+  if (C->isNaN() || C->isInfinity())
+    return false;
+
+  return true;
+}
+
 // Typedefs for passing function pointers to evaluate float constants.
 typedef double(__cdecl *NativeFPUnaryOp)(double);
 typedef std::function<APFloat::opStatus(APFloat&)> APFloatUnaryOp;
+
+enum class DxilInfBehavior {
+  Giveup,                // Return nullptr, and don't fold constant
+  ToNaN,                 // Return NaN for all possible non-finite operand
+  NaNExceptPositiveInf,  // Return +inf for +inf, NaN for everything else
+  Passthrough,           // Return all non-finite result
+};
+
+Constant *HandleInf(ConstantFP *C, Type *Ty, DxilInfBehavior InfBehavior) {
+  switch (InfBehavior) {
+  case DxilInfBehavior::Giveup:
+    return nullptr;
+  case DxilInfBehavior::ToNaN:
+    return ConstantFP::getNaN(Ty);
+  case DxilInfBehavior::NaNExceptPositiveInf:
+    if (C->isInfinity() && !C->isNegative())
+      return ConstantFP::getInfinity(Ty, /*Is negative*/false);
+    return ConstantFP::getNaN(Ty);
+  case DxilInfBehavior::Passthrough:
+    return C;
+  }
+  llvm_unreachable("Unhandled Inf behavior.");
+}
 
 /// Currently APFloat versions of these functions do not exist, so we use
 /// the host native double versions.  Float versions are not called
@@ -81,13 +112,20 @@ typedef std::function<APFloat::opStatus(APFloat&)> APFloatUnaryOp;
 /// f(arg).  Long double not supported yet.
 ///
 /// Calls out to the llvm constant folding function to do the real work.
-static Constant *DxilConstantFoldFP(NativeFPUnaryOp NativeFP, ConstantFP *C, Type *Ty) {
+static Constant *DxilConstantFoldFP(NativeFPUnaryOp NativeFP, ConstantFP *C, Type *Ty, DxilInfBehavior InfBehavior = DxilInfBehavior::Giveup) {
+  if (!IsFinite(C)) {
+    return HandleInf(C, Ty, InfBehavior);
+  }
   double V = llvm::getValueAsDouble(C);
   return llvm::ConstantFoldFP(NativeFP, V, Ty);
 }
 
 // Constant fold using the provided function on APFloats.
-static Constant *HLSLConstantFoldAPFloat(APFloatUnaryOp NativeFP, ConstantFP *C, Type *Ty) {
+static Constant *HLSLConstantFoldAPFloat(APFloatUnaryOp NativeFP, ConstantFP *C, Type *Ty, DxilInfBehavior InfBehavior = DxilInfBehavior::Giveup) {
+  if (!IsFinite(C)) {
+    return HandleInf(C, Ty, InfBehavior);
+  }
+
   APFloat APF = C->getValueAPF();
 
   if (NativeFP(APF) != APFloat::opStatus::opOK)
@@ -99,7 +137,7 @@ static Constant *HLSLConstantFoldAPFloat(APFloatUnaryOp NativeFP, ConstantFP *C,
 // Constant fold a round dxil intrinsic.
 static Constant *HLSLConstantFoldRound(APFloat::roundingMode roundingMode, ConstantFP *C, Type *Ty) {
   APFloatUnaryOp f = [roundingMode](APFloat &x) { return x.roundToIntegral(roundingMode); };
-  return HLSLConstantFoldAPFloat(f, C, Ty);
+  return HLSLConstantFoldAPFloat(f, C, Ty, DxilInfBehavior::Passthrough);
 }
 
 namespace {
@@ -128,29 +166,6 @@ private:
 };
 }
 
-/// We only fold functions with finite arguments. Folding NaN and inf is
-/// likely to be aborted with an exception anyway, and some host libms
-/// have known errors raising exceptions.
-static bool IsFinite(ConstantFP *C) {
-  if (C->getValueAPF().isNaN() || C->getValueAPF().isInfinity())
-    return false;
-
-  return true;
-}
-
-// Check that the op is non-null and finite.
-static bool IsValidOp(ConstantFP *C) {
-  if (!C || !IsFinite(C))
-    return false;
-
-  return true;
-}
-
-// Check that all ops are valid.
-static bool AllValidOps(ArrayRef<ConstantFP *> Ops) {
-  return std::all_of(Ops.begin(), Ops.end(), IsValidOp);
-}
-
 // Constant fold unary floating point intrinsics.
 static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty, ConstantFP *Op) {
   switch (opcode) {
@@ -160,8 +175,8 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty, Const
     NativeFPUnaryOp f = [](double x) { return std::max(std::min(x, 1.0), 0.0); };
     return DxilConstantFoldFP(f, Op, Ty);
   }
-  case OP::OpCode::Cos:  return DxilConstantFoldFP(cos, Op, Ty);
-  case OP::OpCode::Sin:  return DxilConstantFoldFP(sin, Op, Ty);
+  case OP::OpCode::Cos:  return DxilConstantFoldFP(cos, Op, Ty, DxilInfBehavior::ToNaN);
+  case OP::OpCode::Sin:  return DxilConstantFoldFP(sin, Op, Ty, DxilInfBehavior::ToNaN);
   case OP::OpCode::Tan:  return DxilConstantFoldFP(tan, Op, Ty);
   case OP::OpCode::Acos: return DxilConstantFoldFP(acos, Op, Ty);
   case OP::OpCode::Asin: return DxilConstantFoldFP(asin, Op, Ty);
@@ -169,21 +184,32 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty, Const
   case OP::OpCode::Hcos: return DxilConstantFoldFP(cosh, Op, Ty);
   case OP::OpCode::Hsin: return DxilConstantFoldFP(sinh, Op, Ty);
   case OP::OpCode::Htan: return DxilConstantFoldFP(tanh, Op, Ty);
-  case OP::OpCode::Exp:  return DxilConstantFoldFP(exp2, Op, Ty);
+  case OP::OpCode::Exp:
+    if (!IsFinite(Op)) {
+      if (Op->isInfinity() && Op->isNegative())
+        return ConstantFP::get(Ty, 0);
+      return Op;
+    }
+    return DxilConstantFoldFP(exp2, Op, Ty);
   case OP::OpCode::Frc: {
     NativeFPUnaryOp f = [](double x) { double unused; return fabs(modf(x, &unused)); };
-    return DxilConstantFoldFP(f, Op, Ty);
+    return DxilConstantFoldFP(f, Op, Ty, DxilInfBehavior::ToNaN);
   }
-  case OP::OpCode::Log: return DxilConstantFoldFP(log2, Op, Ty);
-  case OP::OpCode::Sqrt: return DxilConstantFoldFP(sqrt, Op, Ty);
+  case OP::OpCode::Log:  return DxilConstantFoldFP(log2, Op, Ty, DxilInfBehavior::NaNExceptPositiveInf);
+  case OP::OpCode::Sqrt: return DxilConstantFoldFP(sqrt, Op, Ty, DxilInfBehavior::NaNExceptPositiveInf);
   case OP::OpCode::Rsqrt: {
+    if (!IsFinite(Op)) {
+      if (Op->isInfinity() && !Op->isNegative())
+        return ConstantFP::get(Ty, 0);
+      return ConstantFP::getNaN(Ty);
+    }
     NativeFPUnaryOp f = [](double x) { return 1.0 / sqrt(x); };
     return DxilConstantFoldFP(f, Op, Ty);
   }
   case OP::OpCode::Round_ne: return HLSLConstantFoldRound(APFloat::roundingMode::rmNearestTiesToEven, Op, Ty);
   case OP::OpCode::Round_ni: return HLSLConstantFoldRound(APFloat::roundingMode::rmTowardNegative, Op, Ty);
   case OP::OpCode::Round_pi: return HLSLConstantFoldRound(APFloat::roundingMode::rmTowardPositive, Op, Ty);
-  case OP::OpCode::Round_z: return HLSLConstantFoldRound(APFloat::roundingMode::rmTowardZero, Op, Ty);
+  case OP::OpCode::Round_z:  return HLSLConstantFoldRound(APFloat::roundingMode::rmTowardZero, Op, Ty);
   }
   
   return nullptr;
@@ -191,6 +217,9 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty, Const
 
 // Constant fold binary floating point intrinsics.
 static Constant *ConstantFoldBinaryFPIntrinsic(OP::OpCode opcode, Type *Ty, ConstantFP *Op1, ConstantFP *Op2) {
+  if (!IsFinite(Op1) || !IsFinite(Op2))
+    return nullptr;
+
   const APFloat &C1 = Op1->getValueAPF();
   const APFloat &C2 = Op2->getValueAPF();
   switch (opcode) {
@@ -231,9 +260,6 @@ static Constant *ComputeDot(Type *Ty, ArrayRef<ConstantFP *> A, ArrayRef<Constan
     assert(false && "invalid call to compute dot");
     return nullptr;
   }
-
-  if (!AllValidOps(A) || !AllValidOps(B))
-    return nullptr;
   
   APFloat::roundingMode roundingMode = APFloat::roundingMode::rmNearestTiesToEven;
   APFloat sum = APFloat::getZero(A[0]->getValueAPF().getSemantics());
@@ -460,20 +486,12 @@ static Constant *ConstantFoldFPIntrinsic(OP::OpCode opcode, Type *Ty, const Dxil
   case OP::OpCodeClass::Unary: {
     assert(IntrinsicOperands.Size() == 1);
     ConstantFP *Op = IntrinsicOperands.GetConstantFloat(0);
-
-    if (!IsValidOp(Op))
-      return nullptr;
-
     return ConstantFoldUnaryFPIntrinsic(opcode, Ty, Op);
   }
   case OP::OpCodeClass::Binary: {
     assert(IntrinsicOperands.Size() == 2);
     ConstantFP *Op1 = IntrinsicOperands.GetConstantFloat(0);
     ConstantFP *Op2 = IntrinsicOperands.GetConstantFloat(1);
-
-    if (!IsValidOp(Op1) || !IsValidOp(Op2))
-      return nullptr;
-
     return ConstantFoldBinaryFPIntrinsic(opcode, Ty, Op1, Op2);
   }
   case OP::OpCodeClass::Tertiary: {
@@ -481,10 +499,6 @@ static Constant *ConstantFoldFPIntrinsic(OP::OpCode opcode, Type *Ty, const Dxil
     ConstantFP *Op1 = IntrinsicOperands.GetConstantFloat(0);
     ConstantFP *Op2 = IntrinsicOperands.GetConstantFloat(1);
     ConstantFP *Op3 = IntrinsicOperands.GetConstantFloat(2);
-
-    if (!IsValidOp(Op1) || !IsValidOp(Op2) || !IsValidOp(Op3))
-      return nullptr;
-
     return ConstantFoldTernaryFPIntrinsic(opcode, Ty, Op1, Op2, Op3);
   }
   case OP::OpCodeClass::Dot2:
