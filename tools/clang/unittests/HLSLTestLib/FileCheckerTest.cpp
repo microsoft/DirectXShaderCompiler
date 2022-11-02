@@ -409,8 +409,13 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   CComPtr<IDxcBlob> pOriginalHash;
   // If failed the original compilation, just pass the test. The original test was likely
   // testing for failure.
-  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, original_flags, &pOriginalHash, originalOutput)))
+  try {
+    if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, original_flags,
+                              &pOriginalHash, originalOutput)))
+      return FileRunCommandResult::Success();
+  } catch (...) {
     return FileRunCommandResult::Success();
+  }
 
   // Results of our compilations
   CComPtr<IDxcBlob> pHash1;
