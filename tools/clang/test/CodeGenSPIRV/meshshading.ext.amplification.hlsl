@@ -1,7 +1,7 @@
-// RUN: %dxc -T as_6_5 -E main
+// RUN: %dxc -T as_6_5 -fspv-target-env=vulkan1.1spirv1.4 -E main
 // CHECK:  OpCapability MeshShadingExt
 // CHECK:  OpExtension "SPV_EXT_mesh_shader"
-// CHECK:  OpEntryPoint TaskEXT %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex [[taskcount:%\d+]] %out_var_dummy %out_var_pos
+// CHECK:  OpEntryPoint TaskEXT %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %out_var_dummy %out_var_pos [[taskcount:%\d+]]
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 
 // CHECK:  OpDecorate [[drawid]] BuiltIn DrawIndex
@@ -9,7 +9,6 @@
 // CHECK:  OpDecorate %gl_WorkGroupID BuiltIn WorkgroupId
 // CHECK:  OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
 // CHECK:  OpDecorate %gl_LocalInvocationIndex BuiltIn LocalInvocationIndex
-// CHECK:  OpDecorate [[taskcount]] BuiltIn TaskCountNV
 
 struct MeshPayload {
 // CHECK: %out_var_dummy = OpVariable %_ptr_TaskPayloadWorkgroupEXT__arr_float_uint_10 TaskPayloadWorkgroupEXT
@@ -23,9 +22,9 @@ groupshared MeshPayload pld;
 
 // CHECK:  %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
 // CHECK:  %gl_LocalInvocationIndex = OpVariable %_ptr_Input_uint Input
-// CHECK:  [[taskcount]] = OpVariable %_ptr_Output_uint Output
 // CHECK:  %out_var_dummy = OpVariable %_ptr_Output__arr_float_uint_10 Output
 // CHECK:  %out_var_pos = OpVariable %_ptr_Output_v4float Output
+// CHECK:  [[taskcount]] = OpVariable %_ptr_Output_uint Output
 
 #define NUM_THREADS 128
 
@@ -45,7 +44,7 @@ void main(
 
 // CHECK:  [[a:%\d+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
 // CHECK:  OpStore [[a]] {{%\d+}}
-    pld.pos = float4(3.0,4.0,5.0,6.0);
+    pld.pos = float4(gtid.x, gid.y, tid, tig);
 
 // CHECK:  OpControlBarrier %uint_2 %uint_2 %uint_264
 // CHECK:  [[e:%\d+]] = OpLoad %MeshPayload %pld
@@ -54,5 +53,5 @@ void main(
 // CHECK:  [[g:%\d+]] = OpCompositeExtract %v4float [[e]] 1
 // CHECK:  OpStore %out_var_pos [[g]]
 // CHECK:  OpEmitMeshTasksEXT % uint_128 % uint_1 % uint_1
-    DispatchMesh(NUM_THREADS, 1, 1, pld);
+   DispatchMesh(NUM_THREADS, drawId, drawId, pld);
 }

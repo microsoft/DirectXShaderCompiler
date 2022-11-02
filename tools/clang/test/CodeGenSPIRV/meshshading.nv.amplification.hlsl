@@ -1,7 +1,7 @@
 // RUN: %dxc -T as_6_5 -E main
 // CHECK:  OpCapability MeshShadingNV
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
-// CHECK:  OpEntryPoint TaskNV %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex [[taskcount:%\d+]] %out_var_dummy %out_var_pos
+// CHECK:  OpEntryPoint TaskNV %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %out_var_dummy %out_var_pos [[taskcount:%\d+]]
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 
 // CHECK:  OpDecorate [[drawid]] BuiltIn DrawIndex
@@ -9,7 +9,6 @@
 // CHECK:  OpDecorate %gl_WorkGroupID BuiltIn WorkgroupId
 // CHECK:  OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
 // CHECK:  OpDecorate %gl_LocalInvocationIndex BuiltIn LocalInvocationIndex
-// CHECK:  OpDecorate [[taskcount]] BuiltIn TaskCountNV
 
 struct MeshPayload {
 // CHECK:  OpDecorate %out_var_dummy PerTaskNV
@@ -20,14 +19,16 @@ struct MeshPayload {
     float4 pos;
 };
 
+// CHECK:  OpDecorate [[taskcount]] BuiltIn TaskCountNV
+
 // CHECK:  %pld = OpVariable %_ptr_Workgroup_MeshPayload Workgroup
 groupshared MeshPayload pld;
 
 // CHECK:  %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
 // CHECK:  %gl_LocalInvocationIndex = OpVariable %_ptr_Input_uint Input
-// CHECK:  [[taskcount]] = OpVariable %_ptr_Output_uint Output
 // CHECK:  %out_var_dummy = OpVariable %_ptr_Output__arr_float_uint_10 Output
 // CHECK:  %out_var_pos = OpVariable %_ptr_Output_v4float Output
+// CHECK:  [[taskcount]] = OpVariable %_ptr_Output_uint Output
 
 #define NUM_THREADS 128
 
@@ -47,16 +48,17 @@ void main(
 
 // CHECK:  [[a:%\d+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
 // CHECK:  OpStore [[a]] {{%\d+}}
-    pld.pos = float4(3.0,4.0,5.0,6.0);
+    pld.pos = float4(gtid.x, gid.y, tid, tig);
 
 // CHECK:  OpControlBarrier %uint_2 %uint_2 %uint_264
-// CHECK:  [[c:%\d+]] = OpIMul %uint %uint_1 %uint_1
-// CHECK:  [[d:%\d+]] = OpIMul %uint %uint_128 [[c]]
-// CHECK:  OpStore [[taskcount]] [[d]]
-// CHECK:  [[e:%\d+]] = OpLoad %MeshPayload %pld
-// CHECK:  [[f:%\d+]] = OpCompositeExtract %_arr_float_uint_10 [[e]] 0
-// CHECK:  OpStore %out_var_dummy [[f]]
-// CHECK:  [[g:%\d+]] = OpCompositeExtract %v4float [[e]] 1
-// CHECK:  OpStore %out_var_pos [[g]]
-    DispatchMesh(NUM_THREADS, 1, 1, pld);
+// CHECK:  [[c:%\d+]] = OpLoad %MeshPayload %pld
+// CHECK:  [[d:%\d+]] = OpCompositeExtract %_arr_float_uint_10 [[c]] 0
+// CHECK:  OpStore %out_var_dummy [[d]]
+// CHECK:  [[e:%\d+]] = OpCompositeExtract %v4float [[c]] 1
+// CHECK:  OpStore %out_var_pos [[e]]
+// CHECK:  [[f:%\d+]] = OpBitcast %uint {{%\d+}}
+// CHECK:  [[g:%\d+]] = OpIMul %uint [[f]] [[f]]
+// CHECK:  [[h:%\d+]] = OpIMul %uint %uint_128 [[g]]
+// CHECK:  OpStore [[taskcount]] [[g]]
+   DispatchMesh(NUM_THREADS, drawId, drawId, pld);
 }
