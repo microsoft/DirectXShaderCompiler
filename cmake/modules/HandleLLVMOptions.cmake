@@ -261,6 +261,7 @@ endif()
 
 if( MSVC )
   include(ChooseMSVCCRT)
+  set(CMAKE_CXX_STANDARD 17)
 
   if( NOT (${CMAKE_VERSION} VERSION_LESS 2.8.11) )
     # set stack reserved size to ~10MB
@@ -453,23 +454,22 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
   if (NOT LLVM_ENABLE_TIMESTAMPS)
     add_flag_if_supported("-Werror=date-time" WERROR_DATE_TIME)
   endif ()
-  if (LLVM_ENABLE_CXX1Y)
-    check_cxx_compiler_flag("-std=c++1y" CXX_SUPPORTS_CXX1Y)
-    append_if(CXX_SUPPORTS_CXX1Y "-std=c++1y" CMAKE_CXX_FLAGS)
-  else()
-    check_cxx_compiler_flag("-std=c++14" CXX_SUPPORTS_CXX14)
-    if (CXX_SUPPORTS_CXX14)
-      if (CYGWIN OR MINGW)
-        # MinGW and Cygwin are a bit stricter and lack things like
-        # 'strdup', 'stricmp', etc in c++11 mode.
-        append("-std=gnu++14" CMAKE_CXX_FLAGS)
-      else()
-        append("-std=c++14" CMAKE_CXX_FLAGS)
-      endif()
+  # HLSL Change Begin - Require C++ 17
+  check_cxx_compiler_flag("-std=c++17" CXX_SUPPORTS_CXX17)
+  if (CXX_SUPPORTS_CXX17)
+    # TODO: Remove this next line and fix the issues.
+    add_definitions(-D_LIBCPP_DISABLE_DEPRECATION_WARNINGS)
+    if (CYGWIN OR MINGW)
+      # MinGW and Cygwin are a bit stricter and lack things like
+      # 'strdup', 'stricmp', etc in c++11 mode.
+      append("-std=gnu++17" CMAKE_CXX_FLAGS)
     else()
-      message(FATAL_ERROR "LLVM requires C++11 support but the '-std=c++14' flag isn't supported.")
+      append("-std=c++17" CMAKE_CXX_FLAGS)
     endif()
+  else()
+    message(FATAL_ERROR "DXC requires C++17 support but the '-std=c++17' flag isn't supported.")
   endif()
+  # HLSL Change End - Require C++ 17
   if (LLVM_ENABLE_MODULES)
     set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fmodules -fcxx-modules")
