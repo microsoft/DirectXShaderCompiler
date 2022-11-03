@@ -7,16 +7,14 @@ import lit.TestRunner
 import lit.util
 from .base import TestFormat
 
-kIsWindows = sys.platform in ['win32', 'cygwin']
-
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll_path, hlsl_data_dir, test_path):
+    def __init__(self, te_path, bin_dir, hlsl_data_dir, test_path):
         self.te = te_path
-        self.test_dll = test_dll_path
+        self.bin_dir = bin_dir
         self.hlsl_data_dir = hlsl_data_dir
         self.test_path = test_path
 
-    def getTaefTests(self, litConfig, localConfig):
+    def getTaefTests(self, dll_path, litConfig, localConfig):
         """getTaefTests()
 
         Return the tests available in taef test dll.
@@ -29,39 +27,61 @@ class TaefTest(TestFormat):
         # test dll : F:\repos\DxcGitHub\hlsl.bin\Debug\test\clang-hlsl-tests.dll
         # /list
 
+        if litConfig.debug:
+            litConfig.note('searching taef test in %r' % dll_path)
+
         try:
-            lines = lit.util.capture([self.te, self.test_dll, '/list'],
+            lines = lit.util.capture([self.te, dll_path, '/list'],
                                      env=localConfig.environment)
-            if kIsWindows:
-              lines = lines.replace('\r', '')
+            # this is for windows
+            lines = lines.replace('\r', '')
             lines = lines.split('\n')
         except:
             litConfig.error("unable to discover taef in %r" % path)
             raise StopIteration
 
-        nested_tests = []
         for ln in lines:
             # The test name is like VerifierTest::RunUnboundedResourceArrays.
             if ln.find('::') == -1:
                 continue
 
-            yield ''.join(nested_tests) + ln.strip()
+            yield ln.strip()
 
     # Note: path_in_suite should not include the executable name.
-    def getTestsInExecutable(self, testSuite, path_in_suite,
+    def getTestsInExecutable(self, testSuite, path_in_suite, execpath,
                              litConfig, localConfig):
+        # taef test should be dll.
+        if not execpath.endswith('dll'):
+            return
+
+        (dirname, basename) = os.path.split(execpath)
         # Discover the tests in this executable.
-        for testname in self.getTaefTests(litConfig, localConfig):
-            yield lit.Test.Test(testSuite, testname, localConfig, file_path=testname)
+        for testname in self.getTaefTests(execpath, litConfig, localConfig):
+            testPath = path_in_suite + (basename, testname)
+            yield lit.Test.Test(testSuite, testPath, localConfig, file_path=execpath)
 
     def getTestsInDirectory(self, testSuite, path_in_suite,
                             litConfig, localConfig):
-        return self.getTestsInExecutable(testSuite, path_in_suite, litConfig, localConfig)
+        source_path = self.bin_dir
+
+        for filename in os.listdir(source_path):
+            filepath = os.path.join(source_path, filename)
+            # not search dll in sub dir.
+            if os.path.isdir(filepath):
+                continue
+
+            for test in self.getTestsInExecutable(
+                    testSuite, path_in_suite, filepath,
+                    litConfig, localConfig):
+                yield test
 
     def execute(self, test, litConfig):
-        testName = test.getFilePath()
+        test_dll = test.getFilePath()
+
+        testPath,testName = os.path.split(test.getSourcePath())
+
         param_hlsl_data_dir = str.format('/p:HlslDataDir={}', self.hlsl_data_dir)
-        cmd = [self.te, self.test_dll, '/inproc',
+        cmd = [self.te, test_dll, '/inproc',
                 param_hlsl_data_dir,
                 '/miniDumpOnCrash', '/unicodeOutput:false',
                 '/logOutput:LowWithConsoleBuffering',
