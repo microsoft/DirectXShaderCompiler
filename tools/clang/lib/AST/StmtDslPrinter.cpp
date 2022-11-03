@@ -295,7 +295,7 @@ void StmtDslPrinter::VisitForStmt(ForStmt *Node) {
     OS << " ";
     PrintExpr(Node->getCond());
   }
-  OS << ",[";
+  OS << ", [";
   if (Node->getInc()) {
     OS << " ";
     PrintExpr(Node->getInc());
