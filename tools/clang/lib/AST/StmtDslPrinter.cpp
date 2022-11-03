@@ -200,16 +200,23 @@ void StmtDslPrinter::PrintRawIfStmtImpl(IfStmt *If, bool incIfKeyword) {
     PrintRawDeclStmt(DS);
   else
     PrintExpr(If->getCond());
-  OS << ')';
+  OS << ")";
 
   if (CompoundStmt *CS = dyn_cast<CompoundStmt>(If->getThen())) {
     OS << ' ';
     PrintRawCompoundStmt(CS);
     OS << (If->getElse() ? " " : ";\n");
   } else {
-    OS << '\n';
+    OS << " {\n";
     PrintStmt(If->getThen());
-    if (If->getElse()) Indent();
+    if (If->getElse()) {
+      Indent();
+      OS << "}\n";
+      Indent();
+    } else {
+      Indent();
+      OS << "};\n";
+    }
   }
 
   if (Stmt *Else = If->getElse()) {
@@ -218,14 +225,16 @@ void StmtDslPrinter::PrintRawIfStmtImpl(IfStmt *If, bool incIfKeyword) {
       OS << "else";
       OS << ' ';
       PrintRawCompoundStmt(CS);
-      OS << ';\n';
+      OS << ";\n";
     } else if (IfStmt *ElseIf = dyn_cast<IfStmt>(Else)) {
       OS << "elseif";
-      OS << ' ';
       PrintRawIfStmtImpl(ElseIf, false);
     } else {
+      OS << "else {";
       OS << '\n';
       PrintStmt(If->getElse());
+      Indent();
+      OS << "};\n";
     }
   }
 }
