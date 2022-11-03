@@ -290,12 +290,12 @@ void StmtDslPrinter::VisitForStmt(ForStmt *Node) {
     else
       PrintExpr(cast<Expr>(Node->getInit()));
   }
-  OS << "];";
+  OS << "],";
   if (Node->getCond()) {
     OS << " ";
     PrintExpr(Node->getCond());
   }
-  OS << ";[";
+  OS << ",[";
   if (Node->getInc()) {
     OS << " ";
     PrintExpr(Node->getInc());
@@ -331,7 +331,7 @@ void StmtDslPrinter::VisitObjCForCollectionStmt(ObjCForCollectionStmt *Node) {
 }
 
 void StmtDslPrinter::VisitCXXForRangeStmt(CXXForRangeStmt *Node) {
-  Indent() << "for (";
+  Indent() << "foreach (";
   PrintingPolicy SubPolicy(Policy);
   SubPolicy.SuppressInitializers = true;
   Node->getLoopVariable()->print(OS, SubPolicy, IndentLevel);
