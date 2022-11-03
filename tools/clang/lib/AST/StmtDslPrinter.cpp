@@ -97,6 +97,8 @@ namespace  {
 #define STMT(CLASS, PARENT) \
     void Visit##CLASS(CLASS *Node);
 #include "clang/AST/StmtNodes.inc"
+  private:
+    void PrintRawIfStmtImpl(IfStmt *If, bool incIfKeyword);
   };
 }
 
@@ -188,7 +190,12 @@ void StmtDslPrinter::VisitAttributedStmt(AttributedStmt *Node) {
 }
 
 void StmtDslPrinter::PrintRawIfStmt(IfStmt *If) {
-  OS << "if (";
+  PrintRawIfStmtImpl(If, true);
+}
+void StmtDslPrinter::PrintRawIfStmtImpl(IfStmt *If, bool incIfKeyword) {
+  if (incIfKeyword)
+    OS << "if";
+  OS << " (";
   if (const DeclStmt *DS = If->getConditionVariableDeclStmt())
     PrintRawDeclStmt(DS);
   else
@@ -206,15 +213,16 @@ void StmtDslPrinter::PrintRawIfStmt(IfStmt *If) {
   }
 
   if (Stmt *Else = If->getElse()) {
-    OS << "else";
 
     if (CompoundStmt *CS = dyn_cast<CompoundStmt>(Else)) {
+      OS << "else";
       OS << ' ';
       PrintRawCompoundStmt(CS);
       OS << ';\n';
     } else if (IfStmt *ElseIf = dyn_cast<IfStmt>(Else)) {
+      OS << "elseif";
       OS << ' ';
-      PrintRawIfStmt(ElseIf);
+      PrintRawIfStmtImpl(ElseIf, false);
     } else {
       OS << '\n';
       PrintStmt(If->getElse());
@@ -275,24 +283,24 @@ void StmtDslPrinter::VisitDoStmt(DoStmt *Node) {
 }
 
 void StmtDslPrinter::VisitForStmt(ForStmt *Node) {
-  Indent() << "for (";
+  Indent() << "for ([";
   if (Node->getInit()) {
     if (DeclStmt *DS = dyn_cast<DeclStmt>(Node->getInit()))
       PrintRawDeclStmt(DS);
     else
       PrintExpr(cast<Expr>(Node->getInit()));
   }
-  OS << ";";
+  OS << "];";
   if (Node->getCond()) {
     OS << " ";
     PrintExpr(Node->getCond());
   }
-  OS << ";";
+  OS << ";[";
   if (Node->getInc()) {
     OS << " ";
     PrintExpr(Node->getInc());
   }
-  OS << ") ";
+  OS << "]) ";
 
   if (CompoundStmt *CS = dyn_cast<CompoundStmt>(Node->getBody())) {
     PrintRawCompoundStmt(CS);
@@ -304,12 +312,12 @@ void StmtDslPrinter::VisitForStmt(ForStmt *Node) {
 }
 
 void StmtDslPrinter::VisitObjCForCollectionStmt(ObjCForCollectionStmt *Node) {
-  Indent() << "for (";
+  Indent() << "foreach (";
   if (DeclStmt *DS = dyn_cast<DeclStmt>(Node->getElement()))
     PrintRawDeclStmt(DS);
   else
     PrintExpr(cast<Expr>(Node->getElement()));
-  OS << " in ";
+  OS << ", ";
   PrintExpr(Node->getCollection());
   OS << ") ";
 
@@ -327,7 +335,7 @@ void StmtDslPrinter::VisitCXXForRangeStmt(CXXForRangeStmt *Node) {
   PrintingPolicy SubPolicy(Policy);
   SubPolicy.SuppressInitializers = true;
   Node->getLoopVariable()->print(OS, SubPolicy, IndentLevel);
-  OS << " : ";
+  OS << ", ";
   PrintExpr(Node->getRangeInit());
   OS << ") {\n";
   PrintStmt(Node->getBody());
