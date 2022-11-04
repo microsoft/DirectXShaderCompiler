@@ -99,6 +99,7 @@ namespace  {
 #include "clang/AST/StmtNodes.inc"
   private:
     void PrintRawIfStmtImpl(IfStmt *If, bool incIfKeyword);
+    void PrintAsRawCompoundStmt(Stmt *S);
   };
 }
 
@@ -114,6 +115,17 @@ void StmtDslPrinter::PrintRawCompoundStmt(CompoundStmt *Node) {
     PrintStmt(I);
 
   Indent() << "}";
+}
+
+void StmtDslPrinter::PrintAsRawCompoundStmt(Stmt *S) {
+  if (CompoundStmt *CS = dyn_cast<CompoundStmt>(S)) {
+    PrintRawCompoundStmt(CS);
+  } else {
+    OS << "{\n";
+    PrintStmt(S);
+    Indent();
+    OS << "}";
+  }
 }
 
 void StmtDslPrinter::PrintRawDecl(Decl *D) {
@@ -258,8 +270,9 @@ void StmtDslPrinter::VisitSwitchStmt(SwitchStmt *Node) {
     PrintRawCompoundStmt(CS);
     OS << ";\n";
   } else {
-    OS << "\n";
-    PrintStmt(Node->getBody());
+    OS << " ";
+    PrintAsRawCompoundStmt(Node->getBody());
+    OS << ";\n";
   }
 }
 
@@ -271,7 +284,7 @@ void StmtDslPrinter::VisitWhileStmt(WhileStmt *Node) {
     PrintExpr(Node->getCond());
   OS << ")\n";
   IndentLevel = IndentLevel - 1; // HLSL Change - TODO: Find the root cause of this issue.
-  PrintStmt(Node->getBody());
+  PrintAsRawCompoundStmt(Node->getBody());
   IndentLevel = IndentLevel + 1; // HLSL Change  
 }
 
@@ -281,9 +294,8 @@ void StmtDslPrinter::VisitDoStmt(DoStmt *Node) {
     PrintRawCompoundStmt(CS);
     OS << " ";
   } else {
-    OS << "\n";
-    PrintStmt(Node->getBody());
-    Indent();
+    PrintAsRawCompoundStmt(Node->getBody());
+    OS << " ";
   }
 
   OS << "while (";
@@ -313,8 +325,8 @@ void StmtDslPrinter::VisitForStmt(ForStmt *Node) {
     PrintRawCompoundStmt(CS);
     OS << ";\n";
   } else {
-    OS << "\n";
-    PrintStmt(Node->getBody());
+    PrintAsRawCompoundStmt(Node->getBody());
+    OS << ";\n";
   }
 }
 
@@ -332,8 +344,8 @@ void StmtDslPrinter::VisitObjCForCollectionStmt(ObjCForCollectionStmt *Node) {
     PrintRawCompoundStmt(CS);
     OS << ";\n";
   } else {
-    OS << "\n";
-    PrintStmt(Node->getBody());
+    PrintAsRawCompoundStmt(Node->getBody());
+    OS << ";\n";
   }
 }
 
@@ -344,9 +356,9 @@ void StmtDslPrinter::VisitCXXForRangeStmt(CXXForRangeStmt *Node) {
   Node->getLoopVariable()->print(OS, SubPolicy, IndentLevel);
   OS << ", ";
   PrintExpr(Node->getRangeInit());
-  OS << ") {\n";
-  PrintStmt(Node->getBody());
-  Indent() << "};";
+  OS << ") \n";
+  PrintAsRawCompoundStmt(Node->getBody());
+  OS << ";\n";
   if (Policy.IncludeNewlines) OS << "\n";
 }
 
@@ -563,7 +575,7 @@ void StmtDslPrinter::VisitCXXTryStmt(CXXTryStmt *Node) {
     OS << " ";
     PrintRawCXXCatchStmt(Node->getHandler(i));
   }
-  OS << "\n";
+  OS << ";\n";
 }
 
 void StmtDslPrinter::VisitSEHTryStmt(SEHTryStmt *Node) {
@@ -583,7 +595,7 @@ void StmtDslPrinter::VisitSEHTryStmt(SEHTryStmt *Node) {
 void StmtDslPrinter::PrintRawSEHFinallyStmt(SEHFinallyStmt *Node) {
   OS << "__finally ";
   PrintRawCompoundStmt(Node->getBlock());
-  OS << "\n";
+  OS << ";\n";
 }
 
 void StmtDslPrinter::PrintRawSEHExceptHandler(SEHExceptStmt *Node) {
@@ -591,7 +603,7 @@ void StmtDslPrinter::PrintRawSEHExceptHandler(SEHExceptStmt *Node) {
   VisitExpr(Node->getFilterExpr());
   OS << ")\n";
   PrintRawCompoundStmt(Node->getBlock());
-  OS << "\n";
+  OS << ";\n";
 }
 
 void StmtDslPrinter::VisitSEHExceptStmt(SEHExceptStmt *Node) {
