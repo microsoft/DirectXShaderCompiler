@@ -10,7 +10,7 @@
 
 // CHECK:  %AddedForInterest5 = add i32 %MultipliedForInterest4, %OffsetAddend
 
-// CHECK:  call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5
+// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5
 
 
 struct VS_OUTPUT_ENV {
