@@ -22,6 +22,7 @@ struct MeshPayload {
 // CHECK:  OpDecorate [[taskcount]] BuiltIn TaskCountNV
 
 // CHECK:  %pld = OpVariable %_ptr_Workgroup_MeshPayload Workgroup
+// CHECK:  [[drawid]] = OpVariable %_ptr_Input_int Input
 groupshared MeshPayload pld;
 
 // CHECK:  %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
@@ -45,9 +46,14 @@ void main(
         in uint tid : SV_DispatchThreadID,
         in uint tig : SV_GroupIndex)
 {
+// CHECK:  %drawId = OpFunctionParameter %_ptr_Function_int
+// CHECK:  %gtid = OpFunctionParameter %_ptr_Function_v3uint
+// CHECK:  %gid = OpFunctionParameter %_ptr_Function_v2uint
+// CHECK:  %tid = OpFunctionParameter %_ptr_Function_uint
+// CHECK:  %tig = OpFunctionParameter %_ptr_Function_uint
 
-// CHECK:  [[a:%\d+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
-// CHECK:  OpStore [[a]] {{%\d+}}
+// CHECK:  [[b:%\d+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
+// CHECK:  OpStore [[b]] {{%\d+}}
     pld.pos = float4(gtid.x, gid.y, tid, tig);
 
 // CHECK:  OpControlBarrier %uint_2 %uint_2 %uint_264
@@ -56,9 +62,12 @@ void main(
 // CHECK:  OpStore %out_var_dummy [[d]]
 // CHECK:  [[e:%\d+]] = OpCompositeExtract %v4float [[c]] 1
 // CHECK:  OpStore %out_var_pos [[e]]
-// CHECK:  [[f:%\d+]] = OpBitcast %uint {{%\d+}}
-// CHECK:  [[g:%\d+]] = OpIMul %uint [[f]] [[f]]
-// CHECK:  [[h:%\d+]] = OpIMul %uint %uint_128 [[g]]
-// CHECK:  OpStore [[taskcount]] [[g]]
+// CHECK:  [[f:%\d+]] = OpLoad %int %drawId
+// CHECK:  [[g:%\d+]] = OpBitcast %uint [[f]]
+// CHECK:  [[h:%\d+]] = OpLoad %int %drawId
+// CHECK:  [[i:%\d+]] = OpBitcast %uint [[h]]
+// CHECK:  [[j:%\d+]] = OpIMul %uint [[g]] [[i]]
+// CHECK:  [[k:%\d+]] = OpIMul %uint %uint_128 [[j]]
+// CHECK:  OpStore [[taskcount]] [[k]]
    DispatchMesh(NUM_THREADS, drawId, drawId, pld);
 }
