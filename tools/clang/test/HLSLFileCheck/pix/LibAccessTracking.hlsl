@@ -6,11 +6,11 @@
 // CHECK: call %dx.types.Handle @dx.op.createHandleForLib.struct.RWByteAddressBuffer
 // 
 // check for an attempt to write to the PIX UAV before the load from TerrainTextures:
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle
 // CHECK: call %dx.types.ResRet.f32 @dx.op.textureLoad
 // 
 // And a write for the store to RenderTarget:
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle
 // CHECK: void @dx.op.textureStore
 
 
