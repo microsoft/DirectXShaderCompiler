@@ -1,4 +1,4 @@
-// RUN: %dxc /T vs_6_0 /E main > %s | FileCheck %s
+// RUN: %dxc /T vs_6_0 /E main  %s | FileCheck %s
 
 // Tests the exact place at which #pragma pack_matrix takes effect.
 
