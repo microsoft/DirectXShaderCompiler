@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 > %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0  %s | FileCheck %s
 
 // CHECK: define void @main()
 // CHECK: %{{[a-z0-9]+}} = shl i32 %{{[a-z0-9]+}}, 2
