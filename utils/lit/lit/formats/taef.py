@@ -8,11 +8,16 @@ import lit.util
 from .base import TestFormat
 
 class TaefTest(TestFormat):
-    def __init__(self, te_path, bin_dir, hlsl_data_dir, test_path):
+    def __init__(self, te_path, test_dll, hlsl_data_dir, test_path):
         self.te = te_path
-        self.bin_dir = bin_dir
+        self.test_dll = test_dll
         self.hlsl_data_dir = hlsl_data_dir
         self.test_path = test_path
+        # NOTE: when search test, always running on test_dll,
+        #       use test_searched to make sure only add test once.
+        #       If TaeftTest is created in directory with sub directory,
+        #       getTestsInDirectory will be called more than once.
+        self.test_searched = False
 
     def getTaefTests(self, dll_path, litConfig, localConfig):
         """getTaefTests()
@@ -50,6 +55,7 @@ class TaefTest(TestFormat):
     # Note: path_in_suite should not include the executable name.
     def getTestsInExecutable(self, testSuite, path_in_suite, execpath,
                              litConfig, localConfig):
+
         # taef test should be dll.
         if not execpath.endswith('dll'):
             return
@@ -62,18 +68,17 @@ class TaefTest(TestFormat):
 
     def getTestsInDirectory(self, testSuite, path_in_suite,
                             litConfig, localConfig):
-        source_path = self.bin_dir
+        # Make sure self.test_dll only search once.
+        if self.test_searched:
+            return
 
-        for filename in os.listdir(source_path):
-            filepath = os.path.join(source_path, filename)
-            # not search dll in sub dir.
-            if os.path.isdir(filepath):
-                continue
+        self.test_searched = True
 
-            for test in self.getTestsInExecutable(
-                    testSuite, path_in_suite, filepath,
-                    litConfig, localConfig):
-                yield test
+        filepath = self.test_dll
+        for test in self.getTestsInExecutable(
+                testSuite, path_in_suite, filepath,
+                litConfig, localConfig):
+            yield test
 
     def execute(self, test, litConfig):
         test_dll = test.getFilePath()
