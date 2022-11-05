@@ -1,16 +1,20 @@
-// RUN: %dxc -DResType=RasterizerOrderedTexture1D<uint> -DPosType=uint1 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
-// RUN: %dxc -DResType=RasterizerOrderedTexture2D<uint> -DPosType=uint2 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
-// RUN: %dxc -DResType=RasterizerOrderedTexture3D<uint> -DPosType=uint3 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
-// RUN: %dxc -DResType=RasterizerOrderedTexture1DArray<uint> -DPosType=uint2 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
-// RUN: %dxc -DResType=RasterizerOrderedTexture2DArray<uint> -DPosType=uint3 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
-// RUN: %dxc -DResType=RasterizerOrderedBuffer<uint> -DPosType=uint1 -T ps_6_0 %s | FileCheck %s -check-prefixes=BUFCHK,CHECK
-// RUN: %dxc -DResType=RasterizerOrderedStructuredBuffer<uint> -DPosType=uint1 -T ps_6_0 %s | FileCheck %s -check-prefixes=BUFCHK,CHECK
+// RUN: %dxc -DObjType=RasterizerOrderedTexture1D -DEltType=uint -DPosType=uint1 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
+// RUN: %dxc -DObjType=RasterizerOrderedTexture2D -DEltType=uint -DPosType=uint2 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
+// RUN: %dxc -DObjType=RasterizerOrderedTexture3D -DEltType=uint -DPosType=uint3 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
+// RUN: %dxc -DObjType=RasterizerOrderedTexture1DArray -DEltType=uint -DPosType=uint2 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
+// RUN: %dxc -DObjType=RasterizerOrderedTexture2DArray -DEltType=uint -DPosType=uint3 -T ps_6_0 %s | FileCheck %s -check-prefixes=TXTCHK,CHECK
+// RUN: %dxc -DObjType=RasterizerOrderedBuffer -DEltType=uint -DPosType=uint1 -T ps_6_0 %s | FileCheck %s -check-prefixes=BUFCHK,CHECK
+// RUN: %dxc -DObjType=RasterizerOrderedStructuredBuffer -DEltType=uint -DPosType=uint1 -T ps_6_0 %s | FileCheck %s -check-prefixes=BUFCHK,CHECK
 
 // BABs can't be indexed so they require special casing
 // RUN: %dxc -DBAB -DResType=RasterizerOrderedByteAddressBuffer -DPosType=uint -T ps_6_0 %s | FileCheck %s -check-prefixes=BUFCHK,CHECK
 
 // Verify that the ROV texture type is correctly identified
 // such that a struct member of that type can be assigned
+
+#ifndef BAB
+typedef ObjType<EltType> ResType;
+#endif
 
 ResType GlobalResource[6] : register(u0);
 

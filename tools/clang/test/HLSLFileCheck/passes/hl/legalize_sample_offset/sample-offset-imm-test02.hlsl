@@ -1,4 +1,4 @@
-// RUN: %dxc /O0 /Tps_6_0 /Emain > %s | FileCheck %s
+// RUN: %dxc /O0 /Tps_6_0 /Emain  %s | FileCheck %s
 // CHECK: define void @main()
 // CHECK: entry
 Texture2D g_Tex;

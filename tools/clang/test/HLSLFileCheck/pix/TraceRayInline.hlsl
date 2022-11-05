@@ -1,7 +1,7 @@
 // RUN: %dxc -T vs_6_5 -E main %s | %opt -S -hlsl-dxil-pix-shader-access-instrumentation,config=S0:1:1i1;U0:2:10i0;.0;0;0. | FileCheck %s
 
 // CHECK: call void @dx.op.rayQuery_TraceRayInline
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle
 
 RaytracingAccelerationStructure RTAS;
 
