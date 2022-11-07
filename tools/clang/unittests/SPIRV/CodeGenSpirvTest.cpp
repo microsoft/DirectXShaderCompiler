@@ -2733,6 +2733,15 @@ TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefErrorBack) {
               Expect::Failure);
 }
 
+// === MeshShading EXT examples ===
+TEST_F(FileTest, MeshShadingEXTMeshTriangle) {
+  runFileTest("meshshading.ext.triangle.mesh.hlsl");
+}
+
+TEST_F(FileTest, MeshShadingEXTAmplification) {
+  runFileTest("meshshading.ext.amplification.hlsl");
+}
+
 // === MeshShading NV examples ===
 TEST_F(FileTest, MeshShadingNVMeshTriangle) {
   // TODO: Re-enable spirv-val once issue#3006 is fixed.

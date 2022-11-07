@@ -1,7 +1,7 @@
-// RUN: %dxc -T ms_6_5 -E main
-// CHECK:  OpCapability MeshShadingExt
+// RUN: %dxc -T ms_6_5 -fspv-target-env=universal1.5 -E main
+// CHECK:  OpCapability MeshShadingEXT
 // CHECK:  OpExtension "SPV_EXT_mesh_shader"
-// CHECK:  OpEntryPoint MeshEXT %main "main" %gl_ClipDistance %gl_CullDistance %in_var_dummy %in_var_pos [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primind:%\d+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[vmask:%\d+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR [[primcount:%\d+]]
+// CHECK:  OpEntryPoint MeshEXT %main "main" %gl_ClipDistance %gl_CullDistance %in_var_dummy %in_var_pos [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primindices:%\d+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[cullprim:%\d+]] [[primshadingrate:%\d+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR 
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 // CHECK:  OpExecutionMode %main OutputTrianglesNV
 // CHECK:  OpExecutionMode %main OutputVertices 64
@@ -9,10 +9,6 @@
 
 // CHECK:  OpDecorate %gl_ClipDistance BuiltIn ClipDistance
 // CHECK:  OpDecorate %gl_CullDistance BuiltIn CullDistance
-// CHECK:  OpDecorate %in_var_dummy PerTaskNV
-// CHECK:  OpDecorate %in_var_dummy Offset 0
-// CHECK:  OpDecorate %in_var_pos PerTaskNV
-// CHECK:  OpDecorate %in_var_pos Offset 48
 // CHECK:  OpDecorate [[drawid]] BuiltIn DrawIndex
 // CHECK:  OpDecorate %gl_LocalInvocationID BuiltIn LocalInvocationId
 // CHECK:  OpDecorate %gl_WorkGroupID BuiltIn WorkgroupId
@@ -20,18 +16,19 @@
 // CHECK:  OpDecorate %gl_LocalInvocationIndex BuiltIn LocalInvocationIndex
 // CHECK:  OpDecorate %gl_Position BuiltIn Position
 // CHECK:  OpDecorate %gl_PointSize BuiltIn PointSize
-// CHECK:  OpDecorate [[primind]] BuiltIn PrimitiveIndicesNV
+// CHECK:  OpDecorate [[primindices]] BuiltIn PrimitiveTriangleIndicesEXT
 // CHECK:  OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
 // CHECK:  OpDecorate %gl_PrimitiveID PerPrimitiveNV
 // CHECK:  OpDecorate %gl_Layer BuiltIn Layer
 // CHECK:  OpDecorate %gl_Layer PerPrimitiveNV
 // CHECK:  OpDecorate %gl_ViewportIndex BuiltIn ViewportIndex
 // CHECK:  OpDecorate %gl_ViewportIndex PerPrimitiveNV
-// CHECK:  OpDecorate [[vmask]] BuiltIn ViewportMaskNV
-// CHECK:  OpDecorate [[vmask]] PerPrimitiveNV
+// CHECK:  OpDecorate [[cullprim]] BuiltIn CullPrimitiveEXT
+// CHECK:  OpDecorate [[cullprim]] PerPrimitiveNV
+// CHECK:  OpDecorate [[primshadingrate]] BuiltIn PrimitiveShadingRateKHR
+// CHECK:  OpDecorate [[primshadingrate]] PerPrimitiveNV
 // CHECK:  OpDecorate %out_var_PRIM_USER PerPrimitiveNV
 // CHECK:  OpDecorate %out_var_PRIM_USER_ARR PerPrimitiveNV
-// CHECK:  OpDecorate [[primcount]] BuiltIn PrimitiveCountNV
 // CHECK:  OpDecorate %out_var_USER Location 0
 // CHECK:  OpDecorate %out_var_USER_ARR Location 1
 // CHECK:  OpDecorate %out_var_USER_MAT Location 3
@@ -40,8 +37,8 @@
 
 // CHECK:  %gl_ClipDistance = OpVariable %_ptr_Output__arr__arr_float_uint_5_uint_64 Output
 // CHECK:  %gl_CullDistance = OpVariable %_ptr_Output__arr__arr_float_uint_3_uint_64 Output
-// CHECK:  %in_var_dummy = OpVariable %_ptr_Input__arr_float_uint_10 Input
-// CHECK:  %in_var_pos = OpVariable %_ptr_Input_v4float Input
+// CHECK:  %in_var_dummy = OpVariable %_ptr_TaskPayloadWorkgroupEXT__arr_float_uint_10 TaskPayloadWorkgroupEXT
+// CHECK:  %in_var_pos = OpVariable %_ptr_TaskPayloadWorkgroupEXT_v4float TaskPayloadWorkgroupEXT
 // CHECK:  %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
 // CHECK:  %gl_LocalInvocationIndex = OpVariable %_ptr_Input_uint Input
 // CHECK:  %gl_Position = OpVariable %_ptr_Output__arr_v4float_uint_64 Output
@@ -49,14 +46,14 @@
 // CHECK:  %out_var_USER = OpVariable %_ptr_Output__arr_v2float_uint_64 Output
 // CHECK:  %out_var_USER_ARR = OpVariable %_ptr_Output__arr__arr_v4float_uint_2_uint_64 Output
 // CHECK:  %out_var_USER_MAT = OpVariable %_ptr_Output__arr_mat4v4float_uint_64 Output
-// CHECK:  [[primind]] = OpVariable %_ptr_Output__arr_uint_uint_243 Output
+// CHECK:  [[primindices]] = OpVariable %_ptr_Output__arr_uint_uint_243 Output
 // CHECK:  %gl_PrimitiveID = OpVariable %_ptr_Output__arr_int_uint_81 Output
 // CHECK:  %gl_Layer = OpVariable %_ptr_Output__arr_int_uint_81 Output
 // CHECK:  %gl_ViewportIndex = OpVariable %_ptr_Output__arr_int_uint_81 Output
-// CHECK:  [[vmask]] = OpVariable %_ptr_Output__arr__arr_int_uint_1_uint_81 Output
+// CHECK:  [[cullprim]] = OpVariable %_ptr_Output__arr_int_uint_81 Output
+// CHECK:  [[primshadingrate]] = OpVariable %_ptr_Output__arr_uint_uint_81 Output
 // CHECK:  %out_var_PRIM_USER = OpVariable %_ptr_Output__arr_v3float_uint_81 Output
 // CHECK:  %out_var_PRIM_USER_ARR = OpVariable %_ptr_Output__arr__arr_v4float_uint_2_uint_81 Output
-// CHECK:  [[primcount]] = OpVariable %_ptr_Output_uint Output
 
 struct MeshPerVertex {
     float4 position : SV_Position;                          // -> BuiltIn Position
@@ -111,7 +108,7 @@ void main(
         in uint tid : SV_DispatchThreadID,
         in uint tig : SV_GroupIndex)
 {
-// CHECK:  OpStore [[primcount]] %uint_81
+// CHECK:  OpSetMeshOutputsEXT %uint_64 %uint_81
     SetMeshOutputCounts(MAX_VERT, MAX_PRIM);
 
     // Directly assign to per-vertex attribute object.
@@ -202,10 +199,12 @@ void main(
 // CHECK:  OpAccessChain %_ptr_Output_int %gl_ViewportIndex {{%\d+}}
 // CHECK:  OpStore {{%\d+}} %int_12
     prims[tig].vpIdx = 12;
-
-    prims[tig].cullPrim = 0;
-
-    prims[tig].shadingRate = 0;
+// CHECK:  OpAccessChain %_ptr_Output_int [[cullprim]] {{%\d+}}
+// CHECK:  OpStore {{%\d+}} %int_13
+    prims[tig].cullPrim = 13;
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primshadingrate]] {{%\d+}}
+// CHECK:  OpStore {{%\d+}} %uint_14
+    prims[tig].shadingRate = 14;
 
 // CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_PRIM_USER_ARR {{%\d+}} %int_0
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
@@ -233,41 +232,41 @@ void main(
 
 // CHECK:  OpIMul %uint %uint_4 %uint_3
 // CHECK:  OpIAdd %uint {{%\d+}} %uint_0
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpStore {{%\d+}} %uint_1
     primitiveInd[4].x = 1;
 // CHECK:  OpCompositeExtract %uint {{%\d+}} 0
 // CHECK:  OpIMul %uint %uint_4 %uint_3
 // CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
 // CHECK:  OpCompositeExtract %uint {{%\d+}} 1
 // CHECK:  OpIMul %uint %uint_4 %uint_3
 // CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
     primitiveInd[4].yz = uint2(2,3);
 // CHECK:  OpIMul %uint %uint_2 %uint_3
 // CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpStore {{%\d+}} %uint_2
     primitiveInd[2].y = 2;
 // CHECK:  OpIMul %uint %uint_2 %uint_3
 // CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpStore {{%\d+}} %uint_1
     primitiveInd[2][2] = 1;
 // CHECK:  OpLoad %uint %tid
 // CHECK:  OpIMul %uint {{%\d+}} %uint_3
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpCompositeExtract %uint {{%\d+}} 0
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
 // CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpCompositeExtract %uint {{%\d+}} 1
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
 // CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
 // CHECK:  OpCompositeExtract %uint {{%\d+}} 2
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
     primitiveInd[tid] = uint3(11,12,13);
