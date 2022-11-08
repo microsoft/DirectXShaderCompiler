@@ -88,7 +88,9 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
   }
   targetEnv = *targetEnvOpt;
 
-  if (targetEnv >= SPV_ENV_UNIVERSAL_1_4) {
+  // Override the default mesh extension to SPV_EXT_mesh_shader when the
+  // target environment is SPIR-V 1.4 or above
+  if (isTargetEnvSpirv1p4OrAbove()) {
     allowExtension("SPV_EXT_mesh_shader");
   }
 }
