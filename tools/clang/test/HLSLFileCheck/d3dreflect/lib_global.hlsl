@@ -15,6 +15,7 @@
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: _GLOBAL__sub_I_lib_global.hlsl
 // CHECK-NEXT:       Shader Version: Library
 // CHECK:       Flags: 0
+// CHECK-NEXT:       RequiredFeatureFlags: 0x40000
 // CHECK-NEXT:       ConstantBuffers: 2
 // CHECK-NEXT:       BoundResources: 2
 // CHECK-NEXT:       FunctionParameterCount: 0
@@ -183,6 +184,7 @@
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: test
 // CHECK-NEXT:       Shader Version: Pixel
 // CHECK:       Flags: 0
+// CHECK-NEXT:       RequiredFeatureFlags: 0x40000
 // CHECK-NEXT:       ConstantBuffers: 2
 // CHECK-NEXT:       BoundResources: 4
 // CHECK-NEXT:       FunctionParameterCount: 0
