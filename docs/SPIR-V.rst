@@ -872,6 +872,7 @@ SPIR-V, we introduce ``[[vk::image_format("FORMAT")]]`` attribute for texture ty
 For example,
 
 .. code:: hlsl
+
   [[vk::image_format("rgba8")]]
   RWBuffer<float4> Buf;
 
@@ -1755,6 +1756,7 @@ variable with the struct type.
 For example, the binding numbers for the following resources and cbuffers
 
 .. code:: hlsl
+
   cbuffer buf0 : register(b0) {
     float4 non_resource0;
   };
