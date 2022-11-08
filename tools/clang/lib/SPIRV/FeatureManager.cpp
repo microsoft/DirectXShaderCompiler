@@ -18,23 +18,25 @@ namespace clang {
 namespace spirv {
 namespace {
 
-constexpr std::array<std::pair<const char*, spv_target_env>, 6> kKnownTargetEnv = {{
-    {"vulkan1.0", SPV_ENV_VULKAN_1_0},
-    {"vulkan1.1", SPV_ENV_VULKAN_1_1},
-    {"vulkan1.1spirv1.4", SPV_ENV_VULKAN_1_1_SPIRV_1_4},
-    {"vulkan1.2", SPV_ENV_VULKAN_1_2},
-    {"vulkan1.3", SPV_ENV_VULKAN_1_3},
-    {"universal1.5", SPV_ENV_UNIVERSAL_1_5}}};
+constexpr std::array<std::pair<const char *, spv_target_env>, 6>
+    kKnownTargetEnv = {{{"vulkan1.0", SPV_ENV_VULKAN_1_0},
+                        {"vulkan1.1", SPV_ENV_VULKAN_1_1},
+                        {"vulkan1.1spirv1.4", SPV_ENV_VULKAN_1_1_SPIRV_1_4},
+                        {"vulkan1.2", SPV_ENV_VULKAN_1_2},
+                        {"vulkan1.3", SPV_ENV_VULKAN_1_3},
+                        {"universal1.5", SPV_ENV_UNIVERSAL_1_5}}};
 
-constexpr std::array<std::pair<spv_target_env, const char*>, 6> kHumanReadableTargetEnv = {{
-    {SPV_ENV_VULKAN_1_0, "Vulkan 1.0"},
-    {SPV_ENV_VULKAN_1_1, "Vulkan 1.1"},
-    {SPV_ENV_VULKAN_1_1_SPIRV_1_4, "Vulkan 1.1 with SPIR-V 1.4"},
-    {SPV_ENV_VULKAN_1_2, "Vulkan 1.2"},
-    {SPV_ENV_VULKAN_1_3, "Vulkan 1.3"},
-    {SPV_ENV_UNIVERSAL_1_5, "SPIR-V 1.5"}}};
+constexpr std::array<std::pair<spv_target_env, const char *>, 6>
+    kHumanReadableTargetEnv = {
+        {{SPV_ENV_VULKAN_1_0, "Vulkan 1.0"},
+         {SPV_ENV_VULKAN_1_1, "Vulkan 1.1"},
+         {SPV_ENV_VULKAN_1_1_SPIRV_1_4, "Vulkan 1.1 with SPIR-V 1.4"},
+         {SPV_ENV_VULKAN_1_2, "Vulkan 1.2"},
+         {SPV_ENV_VULKAN_1_3, "Vulkan 1.3"},
+         {SPV_ENV_UNIVERSAL_1_5, "SPIR-V 1.5"}}};
 
-static_assert(kKnownTargetEnv.size() == kHumanReadableTargetEnv.size(),
+static_assert(
+    kKnownTargetEnv.size() == kHumanReadableTargetEnv.size(),
     "kKnownTargetEnv and kHumanReadableTargetEnv should remain in sync.");
 
 } // end namespace
@@ -52,11 +54,12 @@ FeatureManager::stringToSpvEnvironment(const std::string &target_env) {
 
 llvm::Optional<std::string>
 FeatureManager::spvEnvironmentToPrettyName(spv_target_env target_env) {
-  auto it =
-      std::find_if(kHumanReadableTargetEnv.cbegin(), kHumanReadableTargetEnv.cend(),
-                   [&](const auto &pair) { return pair.first == target_env; });
-  return it == kHumanReadableTargetEnv.end() ? llvm::None
-                                     : llvm::Optional<std::string>(it->second);
+  auto it = std::find_if(
+      kHumanReadableTargetEnv.cbegin(), kHumanReadableTargetEnv.cend(),
+      [&](const auto &pair) { return pair.first == target_env; });
+  return it == kHumanReadableTargetEnv.end()
+             ? llvm::None
+             : llvm::Optional<std::string>(it->second);
 }
 
 FeatureManager::FeatureManager(DiagnosticsEngine &de,

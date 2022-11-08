@@ -122,10 +122,8 @@ private:
                                SourceRange rangeOverride = {});
   SpirvInstruction *doCompoundAssignOperator(const CompoundAssignOperator *);
   SpirvInstruction *doConditionalOperator(const ConditionalOperator *expr);
-  SpirvInstruction *doConditional(const Expr *expr,
-                                  const Expr *cond,
-                                  const Expr *falseExpr,
-                                  const Expr *trueExpr);
+  SpirvInstruction *doConditional(const Expr *expr, const Expr *cond,
+                                  const Expr *falseExpr, const Expr *trueExpr);
   SpirvInstruction *
   doShortCircuitedConditionalOperator(const ConditionalOperator *expr);
   SpirvInstruction *doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
@@ -292,14 +290,14 @@ private:
   /// are generated.
   SpirvInstruction *tryToAssignToVectorElements(const Expr *lhs,
                                                 SpirvInstruction *rhs,
-	                                            SourceRange range = {});
+                                                SourceRange range = {});
 
   /// Tries to emit instructions for assigning to the given matrix element
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
   SpirvInstruction *tryToAssignToMatrixElements(const Expr *lhs,
                                                 SpirvInstruction *rhs,
-	                                            SourceRange range = {});
+                                                SourceRange range = {});
 
   /// Tries to emit instructions for assigning to the given RWBuffer/RWTexture
   /// object. Returns 0 if the trial fails and no instructions are generated.
@@ -645,9 +643,9 @@ private:
   SpirvInstruction *processRawBufferStore(const CallExpr *callExpr);
   SpirvInstruction *storeDataToRawAddress(SpirvInstruction *addressInUInt64,
                                           SpirvInstruction *value,
-                                           QualType bufferType,
-                                           uint32_t alignment,
-                                           SourceLocation loc);
+                                          QualType bufferType,
+                                          uint32_t alignment,
+                                          SourceLocation loc);
 
   /// Returns the alignment of `vk::RawBufferLoad()`.
   uint32_t getAlignmentForRawBufferLoad(const CallExpr *callExpr);

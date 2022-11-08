@@ -353,12 +353,11 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext &Ctx, OP *HlslOP,
   UndefValue *UndefIntArg = UndefValue::get(Type::getInt32Ty(Ctx));
   Constant *LiteralOne = HlslOP->GetU32Const(1);
   Constant *ElementMask = HlslOP->GetI8Const(1);
-  Constant *Alignment = HlslOP->GetI32Const(4);
 
   Function *StoreFunc =
-      HlslOP->GetOpFunc(OP::OpCode::RawBufferStore, Type::getInt32Ty(Ctx));
+      HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
   Constant *StoreOpcode =
-      HlslOP->GetU32Const((unsigned)OP::OpCode::RawBufferStore);
+      HlslOP->GetU32Const((unsigned)OP::OpCode::BufferStore);
   (void)Builder.CreateCall(
       StoreFunc,
       {
@@ -372,8 +371,7 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext &Ctx, OP *HlslOP,
           UndefIntArg,            // i32, ; value v1
           UndefIntArg,            // i32, ; value v2
           UndefIntArg,            // i32, ; value v3
-          ElementMask,            // i8 ; just the first value is used
-          Alignment
+          ElementMask             // i8 ; just the first value is used
       });
 }
 
@@ -559,11 +557,10 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
             CombinedFlagOrInstructionValue = EncodedFlags;
           }
           Constant *ElementMask = HlslOP->GetI8Const(1);
-          Constant *Alignment = HlslOP->GetI32Const(4);
-          Function *StoreFunc = HlslOP->GetOpFunc(OP::OpCode::RawBufferStore,
+          Function *StoreFunc = HlslOP->GetOpFunc(OP::OpCode::BufferStore,
                                                   Type::getInt32Ty(Ctx));
           Constant *StoreOpcode =
-              HlslOP->GetU32Const((unsigned)OP::OpCode::RawBufferStore);
+              HlslOP->GetU32Const((unsigned)OP::OpCode::BufferStore);
           UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
           (void)Builder.CreateCall(
               StoreFunc,
@@ -578,8 +575,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
                   UndefArg,                     // i32, ; value v1
                   UndefArg,                     // i32, ; value v2
                   UndefArg,                     // i32, ; value v3
-                  ElementMask,                  // i8 ; just the first value is used
-                  Alignment
+                  ElementMask                   // i8 ; just the first value is used
               });
           return true; // did modify
       }
@@ -1018,24 +1014,23 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           }
         }
       }
-
-      if (OSOverride != nullptr) {
-        formatted_raw_ostream FOS(*OSOverride);
-        FOS << "DynamicallyIndexedBindPoints=";
-        for (auto const &bp : m_DynamicallyIndexedBindPoints) {
-          FOS << EncodeRegisterType(bp.Type) << bp.Space << ':' << bp.Index
-              << ';';
-        }
-        FOS << ".";
-
-        // todo: this will reflect dynamic resource names when the metadata
-        // exists
-        FOS << "DynamicallyBoundResources=";
-        for (auto const &drb : m_dynamicResourceBindings) {
-          FOS << (drb.HeapIsSampler ? 'S' : 'R') << drb.HeapIndex << ';';
-        }
-        FOS << ".";
+    }
+    if (OSOverride != nullptr) {
+      formatted_raw_ostream FOS(*OSOverride);
+      FOS << "DynamicallyIndexedBindPoints=";
+      for (auto const &bp : m_DynamicallyIndexedBindPoints) {
+        FOS << EncodeRegisterType(bp.Type) << bp.Space << ':' << bp.Index
+            << ';';
       }
+      FOS << ".";
+
+      // todo: this will reflect dynamic resource names when the metadata
+      // exists
+      FOS << "DynamicallyBoundResources=";
+      for (auto const &drb : m_dynamicResourceBindings) {
+        FOS << (drb.HeapIsSampler ? 'S' : 'R') << drb.HeapIndex << ';';
+      }
+      FOS << ".";
     }
   }
 

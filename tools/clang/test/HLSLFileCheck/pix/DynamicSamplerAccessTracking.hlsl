@@ -18,9 +18,9 @@ float4 Main() : SV_Target
 
 // Check we wrote sampler data to the PIX UAV. We told the pass to output starting at offset 512.
 // Add 8 to skip the "out of bounds" record. Add 4 to point to the "read" field within the next entry = 524
-// CHECK: call void @dx.op.rawBufferStore.i32(
+// CHECK: call void @dx.op.bufferStore.i32(
 // CHECK:i32 524, i32 undef, i32 16777216
 
 // twice: 512 + 8 + 8*3+4 = 548
-// CHECK: call void @dx.op.rawBufferStore.i32(
+// CHECK: call void @dx.op.bufferStore.i32(
 // CHECK:i32 548, i32 undef, i32 16777216

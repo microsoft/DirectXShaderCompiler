@@ -572,7 +572,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
         (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-      auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
+      auto loweredType =
+          lowerType(getElementType(astContext, sampledType), rule,
                     /*isRowMajor*/ llvm::None, srcLoc);
       // Treat bool textures as uint for compatibility with OpTypeImage.
       if (loweredType == spvContext.getBoolType()) {
@@ -767,21 +768,21 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
       case BuiltinType::Int:
       case BuiltinType::Min12Int:
       case BuiltinType::Min16Int:
-        return elemCount == 1 ? spv::ImageFormat::R32i
-                              : elemCount == 2 ? spv::ImageFormat::Rg32i
-                                               : spv::ImageFormat::Rgba32i;
+        return elemCount == 1   ? spv::ImageFormat::R32i
+               : elemCount == 2 ? spv::ImageFormat::Rg32i
+                                : spv::ImageFormat::Rgba32i;
       case BuiltinType::UInt:
       case BuiltinType::Min16UInt:
-        return elemCount == 1 ? spv::ImageFormat::R32ui
-                              : elemCount == 2 ? spv::ImageFormat::Rg32ui
-                                               : spv::ImageFormat::Rgba32ui;
+        return elemCount == 1   ? spv::ImageFormat::R32ui
+               : elemCount == 2 ? spv::ImageFormat::Rg32ui
+                                : spv::ImageFormat::Rgba32ui;
       case BuiltinType::Float:
       case BuiltinType::HalfFloat:
       case BuiltinType::Min10Float:
       case BuiltinType::Min16Float:
-        return elemCount == 1 ? spv::ImageFormat::R32f
-                              : elemCount == 2 ? spv::ImageFormat::Rg32f
-                                               : spv::ImageFormat::Rgba32f;
+        return elemCount == 1   ? spv::ImageFormat::R32f
+               : elemCount == 2 ? spv::ImageFormat::Rg32f
+                                : spv::ImageFormat::Rgba32f;
       case BuiltinType::LongLong:
         if (elemCount == 1)
           return spv::ImageFormat::R64i;
