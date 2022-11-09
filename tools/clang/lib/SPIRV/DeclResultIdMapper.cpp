@@ -774,10 +774,6 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
       if (!isVectorType(type, nullptr, &verticesPerPrim)) {
         assert(isScalarType(type));
       }
-      arraySize = arraySize * verticesPerPrim;
-      QualType arrayType = astContext.getConstantArrayType(
-          astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
-          clang::ArrayType::Normal, 0);
 
       spv::BuiltIn builtinID = spv::BuiltIn::Max;
       if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
@@ -796,13 +792,23 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
           default:
             break;
         }
+        QualType arrayType = astContext.getConstantArrayType(
+            type, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+
+        stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+            getBuiltinVar(builtinID, arrayType, decl->getLocation());
       } else {
           // For NV_mesh_shader, the built type is PrimitiveIndicesNV
           builtinID = spv::BuiltIn::PrimitiveIndicesNV;
-      }
 
-      stageVarInstructions[cast<DeclaratorDecl>(decl)] =
-          getBuiltinVar(builtinID, arrayType, decl->getLocation());
+          arraySize = arraySize * verticesPerPrim;
+          QualType arrayType = astContext.getConstantArrayType(
+              astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
+              clang::ArrayType::Normal, 0);
+
+          stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+              getBuiltinVar(builtinID, arrayType, decl->getLocation());
+      }
 
       return true;
     }

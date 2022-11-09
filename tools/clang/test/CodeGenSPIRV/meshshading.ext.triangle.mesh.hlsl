@@ -46,7 +46,7 @@
 // CHECK:  %out_var_USER = OpVariable %_ptr_Output__arr_v2float_uint_64 Output
 // CHECK:  %out_var_USER_ARR = OpVariable %_ptr_Output__arr__arr_v4float_uint_2_uint_64 Output
 // CHECK:  %out_var_USER_MAT = OpVariable %_ptr_Output__arr_mat4v4float_uint_64 Output
-// CHECK:  [[primindices]] = OpVariable %_ptr_Output__arr_uint_uint_243 Output
+// CHECK:  [[primindices]] = OpVariable %_ptr_Output__arr_v3uint_uint_81 Output
 // CHECK:  %gl_PrimitiveID = OpVariable %_ptr_Output__arr_int_uint_81 Output
 // CHECK:  %gl_Layer = OpVariable %_ptr_Output__arr_int_uint_81 Output
 // CHECK:  %gl_ViewportIndex = OpVariable %_ptr_Output__arr_int_uint_81 Output
@@ -230,44 +230,24 @@ void main(
  
     // Assign primitive indices.
 
-// CHECK:  OpIMul %uint %uint_4 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_0
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] %int_4 %uint_0
 // CHECK:  OpStore {{%\d+}} %uint_1
     primitiveInd[4].x = 1;
 // CHECK:  OpCompositeExtract %uint {{%\d+}} 0
-// CHECK:  OpIMul %uint %uint_4 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] %int_4 %uint_1
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
 // CHECK:  OpCompositeExtract %uint {{%\d+}} 1
-// CHECK:  OpIMul %uint %uint_4 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] %int_4 %uint_2
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
     primitiveInd[4].yz = uint2(2,3);
-// CHECK:  OpIMul %uint %uint_2 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] %int_2 %uint_1
 // CHECK:  OpStore {{%\d+}} %uint_2
     primitiveInd[2].y = 2;
-// CHECK:  OpIMul %uint %uint_2 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] %int_2 %uint_2
 // CHECK:  OpStore {{%\d+}} %uint_1
     primitiveInd[2][2] = 1;
 // CHECK:  OpLoad %uint %tid
-// CHECK:  OpIMul %uint {{%\d+}} %uint_3
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 0
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 1
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primindices]] {{%\d+}}
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 2
+// CHECK:  OpAccessChain %_ptr_Output_v3uint [[primindices]] {{%\d+}}
 // CHECK:  OpStore {{%\d+}} {{%\d+}}
     primitiveInd[tid] = uint3(11,12,13);
 }
