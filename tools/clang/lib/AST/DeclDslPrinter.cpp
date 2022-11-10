@@ -1578,7 +1578,6 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     if (!ACast->getClipPlane1())
       break;
 
-    Indent(Indentation, Out);
     Out << "[clipplanes(";
     ACast->getClipPlane1()->printPretty(Out, 0, Policy);
     PrintClipPlaneIfPresent(ACast->getClipPlane2(), Out, Policy);
@@ -1586,7 +1585,7 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     PrintClipPlaneIfPresent(ACast->getClipPlane4(), Out, Policy);
     PrintClipPlaneIfPresent(ACast->getClipPlane5(), Out, Policy);
     PrintClipPlaneIfPresent(ACast->getClipPlane6(), Out, Policy);
-    Out << ")],\n";
+    Out << ")], ";
 
     break;
   }
@@ -1594,22 +1593,19 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
   case clang::attr::HLSLDomain: {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLDomainAttr *ACast = static_cast<HLSLDomainAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[domain(\"" << ACast->getDomainType() << "\")],\n";
+    Out << "[domain(\"" << ACast->getDomainType() << "\")], ";
     break;
   }
 
   case clang::attr::HLSLEarlyDepthStencil:
-    Indent(Indentation, Out);
-    Out << "[earlydepthstencil],\n";
+    Out << "[earlydepthstencil], ";
     break;
 
   case clang::attr::HLSLInstance: // TODO - test
   {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLInstanceAttr *ACast = static_cast<HLSLInstanceAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[instance(" << ACast->getCount() << ")],\n";
+    Out << "[instance(" << ACast->getCount() << ")], ";
     break;
   }
 
@@ -1618,8 +1614,7 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLMaxTessFactorAttr *ACast =
         static_cast<HLSLMaxTessFactorAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[maxtessfactor(" << ACast->getFactor() << ")],\n";
+    Out << "[maxtessfactor(" << ACast->getFactor() << ")], ";
     break;
   }
 
@@ -1627,9 +1622,8 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
   {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLNumThreadsAttr *ACast = static_cast<HLSLNumThreadsAttr *>(noconst);
-    Indent(Indentation, Out);
     Out << "[numthreads(" << ACast->getX() << ", " << ACast->getY() << ", "
-        << ACast->getZ() << ")],\n";
+        << ACast->getZ() << ")], ";
     break;
   }
 
@@ -1637,8 +1631,7 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLRootSignatureAttr *ACast =
         static_cast<HLSLRootSignatureAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[RootSignature(\"" << ACast->getSignatureName() << "\")],\n";
+    Out << "[RootSignature(\"" << ACast->getSignatureName() << "\")], ";
     break;
   }
 
@@ -1646,8 +1639,7 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLOutputControlPointsAttr *ACast =
         static_cast<HLSLOutputControlPointsAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[outputcontrolpoints(" << ACast->getCount() << ")],\n";
+    Out << "[outputcontrolpoints(" << ACast->getCount() << ")], ";
     break;
   }
 
@@ -1655,16 +1647,14 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLOutputTopologyAttr *ACast =
         static_cast<HLSLOutputTopologyAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[outputtopology(\"" << ACast->getTopology() << "\")],\n";
+    Out << "[outputtopology(\"" << ACast->getTopology() << "\")], ";
     break;
   }
 
   case clang::attr::HLSLPartitioning: {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLPartitioningAttr *ACast = static_cast<HLSLPartitioningAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[partitioning(\"" << ACast->getScheme() << "\")],\n";
+    Out << "[partitioning(\"" << ACast->getScheme() << "\")], ";
     break;
   }
 
@@ -1672,25 +1662,22 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLPatchConstantFuncAttr *ACast =
         static_cast<HLSLPatchConstantFuncAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[patchconstantfunc(\"" << ACast->getFunctionName() << "\")],\n";
+    Out << "[patchconstantfunc(\"" << ACast->getFunctionName() << "\")], ";
     break;
   }
 
   case clang::attr::HLSLShader: {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLShaderAttr *ACast = static_cast<HLSLShaderAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[shader(\"" << ACast->getStage() << "\")],\n";
+    Out << "[shader(\"" << ACast->getStage() << "\")], ";
     break;
   }
 
   case clang::attr::HLSLExperimental: {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLExperimentalAttr *ACast = static_cast<HLSLExperimentalAttr *>(noconst);
-    Indent(Indentation, Out);
     Out << "[experimental(\"" << ACast->getName() << "\", \""
-        << ACast->getValue() << "\")],\n";
+        << ACast->getValue() << "\")], ";
     break;
   }
 
@@ -1698,73 +1685,61 @@ void hlsl::CustomDslPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLMaxVertexCountAttr *ACast =
         static_cast<HLSLMaxVertexCountAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[maxvertexcount(" << ACast->getCount() << ")],\n";
+    Out << "[maxvertexcount(" << ACast->getCount() << ")], ";
     break;
   }
 
   case clang::attr::NoInline:
-    Indent(Indentation, Out);
-    Out << "[noinline],\n";
+    Out << "[noinline], ";
     break;
 
   case clang::attr::HLSLExport:
-    Indent(Indentation, Out);
-    Out << "export,\n";
+    Out << "export, ";
     break;
 
     // Statement attributes
   case clang::attr::HLSLAllowUAVCondition:
-    Indent(Indentation, Out);
-    Out << "[allow_uav_condition],\n";
+    Out << "[allow_uav_condition], ";
     break;
 
   case clang::attr::HLSLBranch:
-    Indent(Indentation, Out);
-    Out << "[branch],\n";
+    Out << "[branch], ";
     break;
 
   case clang::attr::HLSLCall:
-    Indent(Indentation, Out);
-    Out << "[call],\n";
+    Out << "[call], ";
     break;
 
   case clang::attr::HLSLFastOpt:
-    Indent(Indentation, Out);
-    Out << "[fastopt],\n";
+    Out << "[fastopt], ";
     break;
 
   case clang::attr::HLSLFlatten:
-    Indent(Indentation, Out);
-    Out << "[flatten],\n";
+    Out << "[flatten], ";
     break;
 
   case clang::attr::HLSLForceCase:
-    Indent(Indentation, Out);
-    Out << "[forcecase],\n";
+    Out << "[forcecase], ";
     break;
 
   case clang::attr::HLSLLoop:
-    Indent(Indentation, Out);
-    Out << "[loop],\n";
+    Out << "[loop], ";
     break;
 
   case clang::attr::HLSLUnroll: {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLUnrollAttr *ACast = static_cast<HLSLUnrollAttr *>(noconst);
-    Indent(Indentation, Out);
     if (ACast->getCount() == 0)
-      Out << "[unroll],\n";
+      Out << "[unroll], ";
     else
-      Out << "[unroll(" << ACast->getCount() << ")],\n";
+      Out << "[unroll(" << ACast->getCount() << ")], ";
     break;
   }
 
   case clang::attr::HLSLWaveSize: {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLWaveSizeAttr *ACast = static_cast<HLSLWaveSizeAttr *>(noconst);
-    Indent(Indentation, Out);
-    Out << "[wavesize(" << ACast->getSize() << ")],\n";
+    Out << "[wavesize(" << ACast->getSize() << ")], ";
     break;
   }
 

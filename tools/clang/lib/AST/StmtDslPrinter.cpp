@@ -160,35 +160,39 @@ void StmtDslPrinter::VisitCompoundStmt(CompoundStmt *Node) {
 }
 
 void StmtDslPrinter::VisitCaseStmt(CaseStmt *Node) {
-  Indent(-1) << "case ";
+  Indent() << "case(";
   PrintExpr(Node->getLHS());
   if (Node->getRHS()) {
     OS << " ... ";
     PrintExpr(Node->getRHS());
   }
-  OS << ":\n";
+  OS << "){\n";
 
-  PrintStmt(Node->getSubStmt(), 0);
+  PrintStmt(Node->getSubStmt(), 1);
+  Indent() << "};\n";
 }
 
 void StmtDslPrinter::VisitDefaultStmt(DefaultStmt *Node) {
-  Indent(-1) << "default:\n";
-  PrintStmt(Node->getSubStmt(), 0);
+  Indent() << "default{\n";
+  PrintStmt(Node->getSubStmt(), 1);
+  Indent() << "};\n";
 }
 
 void StmtDslPrinter::VisitLabelStmt(LabelStmt *Node) {
-  Indent(-1) << Node->getName() << ":\n";
+  Indent(-1) << "lable(" << Node->getName() << ");\n";
   PrintStmt(Node->getSubStmt(), 0);
 }
 
 void StmtDslPrinter::VisitAttributedStmt(AttributedStmt *Node) {
   // HLSL Change Begin
   if (Policy.LangOpts.HLSL) {
+    Indent();
+    OS << "attrs(";
     for (ArrayRef<const Attr*>::reverse_iterator it = Node->getAttrs().rbegin(),
       end = Node->getAttrs().rend(); it != end; ++it) {
-      hlsl::CustomPrintHLSLAttr((*it), OS, Policy, IndentLevel);
+      hlsl::CustomDslPrintHLSLAttr((*it), OS, Policy, IndentLevel);
     }
-
+    OS << "nothing);\n";
     PrintStmt(Node->getSubStmt(), 0);
     return;
   }
@@ -379,14 +383,14 @@ void StmtDslPrinter::VisitMSDependentExistsStmt(MSDependentExistsStmt *Node) {
 }
 
 void StmtDslPrinter::VisitGotoStmt(GotoStmt *Node) {
-  Indent() << "goto " << Node->getLabel()->getName() << ";";
+  Indent() << "goto(" << Node->getLabel()->getName() << ");";
   if (Policy.IncludeNewlines) OS << "\n";
 }
 
 void StmtDslPrinter::VisitIndirectGotoStmt(IndirectGotoStmt *Node) {
-  Indent() << "goto *";
+  Indent() << "goto(*";
   PrintExpr(Node->getTarget());
-  OS << ";";
+  OS << ");";
   if (Policy.IncludeNewlines) OS << "\n";
 }
 
