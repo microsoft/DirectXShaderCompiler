@@ -124,7 +124,7 @@ if (WIN32)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 endif (WIN32)
 
-add_clang_library(dxcompiler SHARED ${SOURCES})
+add_clang_library(dxcompiler ${SOURCES})
 add_dependencies(dxcompiler TablegenHLSLOptions) 
 if (WIN32)
   # No DxcEtw on non-Windows platforms.
