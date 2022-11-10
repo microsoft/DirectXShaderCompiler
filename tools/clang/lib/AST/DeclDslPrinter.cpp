@@ -956,7 +956,7 @@ void DeclDslPrinter::PrintTemplateParameters(const TemplateParameterList *Params
   assert(Params);
   assert(!Args || Params->size() == Args->size());
 
-  Out << "template <";
+  Out << "template <:";
 
   for (unsigned i = 0, e = Params->size(); i != e; ++i) {
     if (i != 0)
@@ -1005,7 +1005,7 @@ void DeclDslPrinter::PrintTemplateParameters(const TemplateParameterList *Params
     }
   }
 
-  Out << "> ";
+  Out << ":> ";
 }
 
 void DeclDslPrinter::VisitTemplateDecl(const TemplateDecl *D) {

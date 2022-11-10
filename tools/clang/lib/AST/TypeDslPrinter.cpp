@@ -1377,7 +1377,7 @@ void TypeDslPrinter::printObjCObjectBefore(const ObjCObjectType *T,
 
   if (T->isSpecializedAsWritten()) {
     bool isFirst = true;
-    OS << '<';
+    OS << '<:';
     for (auto typeArg : T->getTypeArgsAsWritten()) {
       if (isFirst)
         isFirst = false;
@@ -1386,12 +1386,12 @@ void TypeDslPrinter::printObjCObjectBefore(const ObjCObjectType *T,
 
       print(typeArg, OS, StringRef());
     }
-    OS << '>';
+    OS << ':>';
   }
 
   if (!T->qual_empty()) {
     bool isFirst = true;
-    OS << '<';
+    OS << '<:';
     for (const auto *I : T->quals()) {
       if (isFirst)
         isFirst = false;
@@ -1399,7 +1399,7 @@ void TypeDslPrinter::printObjCObjectBefore(const ObjCObjectType *T,
         OS << ',';
       OS << I->getName();
     }
-    OS << '>';
+    OS << ':>';
   }
 
   spaceBeforePlaceHolder(OS);
@@ -1444,7 +1444,7 @@ TemplateSpecializationType::PrintTemplateArgumentList(
                                                   const PrintingPolicy &Policy,
                                                       bool SkipBrackets) {
   if (!SkipBrackets && !(Policy.LangOpts.HLSL && NumArgs == 0)) // HLSL Change
-    OS << '<';
+    OS << "<:";
   
   bool needSpace = false;
   for (unsigned Arg = 0; Arg < NumArgs; ++Arg) {
@@ -1483,7 +1483,7 @@ TemplateSpecializationType::PrintTemplateArgumentList(
     OS << ' ';
 
   if (!SkipBrackets && !(Policy.LangOpts.HLSL && NumArgs == 0)) // HLSL Change
-    OS << '>';
+    OS << ":>";
 }
 
 // Sadly, repeat all that with TemplateArgLoc.
@@ -1492,7 +1492,7 @@ PrintTemplateArgumentList(raw_ostream &OS,
                           const TemplateArgumentLoc *Args, unsigned NumArgs,
                           const PrintingPolicy &Policy) {
   if (!(Policy.LangOpts.HLSL && NumArgs == 0)) // HLSL Change
-    OS << '<';
+    OS << "<:";
 
   bool needSpace = false;
   for (unsigned Arg = 0; Arg < NumArgs; ++Arg) {
@@ -1530,7 +1530,7 @@ PrintTemplateArgumentList(raw_ostream &OS,
     OS << ' ';
 
   if (!(Policy.LangOpts.HLSL && NumArgs == 0)) // HLSL Change
-    OS << '>';
+    OS << ":>";
 }
 
 std::string Qualifiers::getAsString() const {
