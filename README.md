@@ -1,4 +1,4 @@
-# This fork modifies dxr to convert HLSL to MetaDSL for further conversion to python.
+# This fork modifies dxr to convert HLSL to MetaDSL for further conversion to python or other languages.
 
 # DirectX Shader Compiler
 
