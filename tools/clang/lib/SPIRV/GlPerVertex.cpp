@@ -173,7 +173,7 @@ SpirvInstruction *GlPerVertex::createScalarClipCullDistanceLoad(
   }
   spirvConstants.push_back(spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                      llvm::APInt(32, offset)));
-  return spvBuilder.createLoad(
+  return spvBuilder.load(
       f32Type, spvBuilder.createAccessChain(f32Type, ptr, spirvConstants, loc),
       loc);
 }
@@ -244,7 +244,7 @@ bool GlPerVertex::createScalarClipCullDistanceStore(
     value = spvBuilder.createCompositeExtract(astContext.FloatTy, value,
                                               valueIndices, loc);
   }
-  spvBuilder.createStore(ptr, value, loc);
+  spvBuilder.store(ptr, value, loc);
   return true;
 }
 

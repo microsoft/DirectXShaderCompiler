@@ -213,6 +213,26 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   return instruction;
 }
 
+SpirvInstruction *SpirvBuilder::load(QualType resultType,
+                                     SpirvInstruction *pointer,
+                                     SourceLocation loc, SourceRange range) {
+  // TODO: see if other definition of createLoad also needs to be replicated
+  assert(insertPoint && "null insert point");
+  SpirvInstruction *instruction = createLoad(resultType, pointer, loc, range);
+
+  auto bitFieldInfo = pointer->getBitfieldInfo();
+  if (bitFieldInfo) {
+    auto *offset = getConstantInt(
+        astContext.IntTy, llvm::APInt(32, bitFieldInfo->bitOffset, false));
+    auto *count = getConstantInt(
+        astContext.IntTy, llvm::APInt(32, bitFieldInfo->bitCount, false));
+    instruction = createBitFieldExtract(resultType, instruction, offset, count,
+                                        bitFieldInfo->isSigned, loc);
+  }
+
+  return instruction;
+}
+
 SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
                                                 SpirvInstruction *pointer,
                                                 SourceLocation loc) {
@@ -254,11 +274,36 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
 SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
                                       SpirvInstruction *value,
                                       SourceLocation loc, SourceRange range) {
-  assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvStore(loc, address, value, llvm::None, range);
   insertPoint->addInstruction(instruction);
   return instruction;
+}
+
+// TODO: check if SPIRV-Tools opt can do constant folding for bitfield ops
+SpirvInstruction *SpirvBuilder::store(SpirvInstruction *address,
+                                      SpirvInstruction *value,
+                                      SourceLocation loc, SourceRange range) {
+  auto *instruction = value;
+  auto bitFieldInfo = address->getBitfieldInfo();
+  if (bitFieldInfo) {
+    // Populate type for value
+    LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+    lowerTypeVisitor.visitInstruction(value);
+    context.addToInstructionsWithLoweredType(value);
+
+    auto *base = createLoad(value->getResultType(), address, loc, range);
+
+    auto *offset = getConstantInt(
+        astContext.IntTy, llvm::APInt(32, bitFieldInfo->bitOffset, false));
+    auto *count = getConstantInt(
+        astContext.IntTy, llvm::APInt(32, bitFieldInfo->bitCount, false));
+    instruction =
+        createBitFieldInsert(/*QualType*/ {}, base, value, offset, count, loc);
+    instruction->setResultType(value->getResultType());
+  }
+
+  return createStore(address, instruction, loc, range);
 }
 
 SpirvFunctionCall *
@@ -538,7 +583,7 @@ SpirvInstruction *SpirvBuilder::createImageSample(
     // Write the Residency Code
     const auto status = createCompositeExtract(
         astContext.UnsignedIntTy, imageSampleInst, {0}, loc, range);
-    createStore(residencyCode, status, loc, range);
+    store(residencyCode, status, loc, range);
     // Extract the real result from the struct
     return createCompositeExtract(texelType, imageSampleInst, {1}, loc, range);
   }
@@ -577,7 +622,7 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
     // Write the Residency Code
     const auto status = createCompositeExtract(
         astContext.UnsignedIntTy, fetchOrReadInst, {0}, loc, range);
-    createStore(residencyCode, status, loc, range);
+    store(residencyCode, status, loc, range);
     // Extract the real result from the struct
     return createCompositeExtract(texelType, fetchOrReadInst, {1}, loc, range);
   }
@@ -639,7 +684,7 @@ SpirvInstruction *SpirvBuilder::createImageGather(
     // Write the Residency Code
     const auto status = createCompositeExtract(astContext.UnsignedIntTy,
                                                imageInstruction, {0}, loc);
-    createStore(residencyCode, status, loc);
+    store(residencyCode, status, loc);
     // Extract the real result from the struct
     return createCompositeExtract(texelType, imageInstruction, {1}, loc);
   }
@@ -1162,7 +1207,7 @@ void SpirvBuilder::createCopyInstructionsFromFxcCTBufferToClone(
              fxcCTBufferType->getKind() == SpirvType::TK_Matrix) {
     auto *load = createLoad(fxcCTBufferType, fxcCTBuffer, loc);
     context.addToInstructionsWithLoweredType(load);
-    createStore(clone, load, loc);
+    store(clone, load, loc);
   } else {
     llvm_unreachable(
         "We expect only composite types are accessed with indexes");
@@ -1286,7 +1331,7 @@ SpirvVariable *SpirvBuilder::addVarForHelperInvocation(QualType type,
   switchInsertPointToModuleInit();
 
   SpirvInstruction *isHelperInvocation = createIsHelperInvocationEXT(type, loc);
-  createStore(var, isHelperInvocation, loc, SourceRange());
+  store(var, isHelperInvocation, loc, SourceRange());
 
   insertPoint = oldInsertPoint;
   return var;

@@ -39,6 +39,13 @@ class FunctionType;
 #define DEFINE_RELEASE_MEMORY_FOR_CLASS(cls)                                   \
   void releaseMemory() override { this->~cls(); }
 
+// TODO: document
+struct SpirvBitFieldInfo {
+  uint32_t bitOffset;
+  uint32_t bitCount;
+  bool isSigned;
+};
+
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
 public:
@@ -222,6 +229,11 @@ public:
   void setContainsAliasComponent(bool contains) { containsAlias = contains; }
   bool containsAliasComponent() const { return containsAlias; }
 
+  void setBitFieldInfo(SpirvBitFieldInfo &info) { bitFieldInfo = info; }
+  llvm::Optional<SpirvBitFieldInfo> getBitfieldInfo() const {
+    return bitFieldInfo;
+  }
+
 protected:
   // Forbid creating SpirvInstruction directly
   SpirvInstruction(Kind kind, spv::Op opcode, QualType astResultType,
@@ -255,6 +267,8 @@ protected:
   bool isRelaxedPrecision_;
   bool isNonUniform_;
   bool isPrecise_;
+
+  llvm::Optional<SpirvBitFieldInfo> bitFieldInfo;
 };
 
 /// \brief OpCapability instruction

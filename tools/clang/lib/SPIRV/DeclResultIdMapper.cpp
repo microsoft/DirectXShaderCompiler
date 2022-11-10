@@ -2745,14 +2745,13 @@ bool DeclResultIdMapper::createStageVars(
       auto *instanceIdVar =
           spvBuilder.addFnVar(type, semanticToUse->loc, "SV_InstanceID");
       auto *instanceIndexValue =
-          spvBuilder.createLoad(type, instanceIndexVar, semanticToUse->loc);
+          spvBuilder.load(type, instanceIndexVar, semanticToUse->loc);
       auto *baseInstanceValue =
-          spvBuilder.createLoad(type, baseInstanceVar, semanticToUse->loc);
+          spvBuilder.load(type, baseInstanceVar, semanticToUse->loc);
       auto *instanceIdValue =
           spvBuilder.createBinaryOp(spv::Op::OpISub, type, instanceIndexValue,
                                     baseInstanceValue, semanticToUse->loc);
-      spvBuilder.createStore(instanceIdVar, instanceIdValue,
-                             semanticToUse->loc);
+      spvBuilder.store(instanceIdVar, instanceIdValue, semanticToUse->loc);
       stageVarInstructions[cast<DeclaratorDecl>(decl)] = instanceIdVar;
       varInstr = instanceIdVar;
     }
@@ -2781,7 +2780,7 @@ bool DeclResultIdMapper::createStageVars(
       decorateInterpolationMode(decl, type, varInstr);
 
     if (asInput) {
-      *value = spvBuilder.createLoad(evalType, varInstr, loc);
+      *value = spvBuilder.load(evalType, varInstr, loc);
 
       // Fix ups for corner cases
 
@@ -2930,11 +2929,11 @@ bool DeclResultIdMapper::createStageVars(
               {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                          llvm::APInt(32, i))},
               thisSemantic.loc);
-          spvBuilder.createStore(
-              ptr,
-              spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {i},
-                                                thisSemantic.loc),
-              thisSemantic.loc);
+          spvBuilder.store(ptr,
+                           spvBuilder.createCompositeExtract(astContext.FloatTy,
+                                                             *value, {i},
+                                                             thisSemantic.loc),
+                           thisSemantic.loc);
         }
       }
       // Special handling of SV_InsideTessFactor HS patch constant output.
@@ -2953,7 +2952,7 @@ bool DeclResultIdMapper::createStageVars(
         if (type->isArrayType()) // float[1]
           *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
                                                      {0}, thisSemantic.loc);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
+        spvBuilder.store(ptr, *value, thisSemantic.loc);
       }
       // Special handling of SV_Coverage, which is an unit value. We need to
       // write it to the first element in the SampleMask builtin.
@@ -2964,7 +2963,7 @@ bool DeclResultIdMapper::createStageVars(
                                       llvm::APInt(32, 0)),
             thisSemantic.loc);
         ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
+        spvBuilder.store(ptr, *value, thisSemantic.loc);
       }
       // Special handling of HS ouput, for which we write to only one
       // element in the per-vertex data array: the one indexed by
@@ -2978,18 +2977,18 @@ bool DeclResultIdMapper::createStageVars(
         ptr = spvBuilder.createAccessChain(elementType, varInstr, index,
                                            thisSemantic.loc);
         ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
+        spvBuilder.store(ptr, *value, thisSemantic.loc);
       }
       // Since boolean output stage variables are represented as unsigned
       // integers, we must cast the value to uint before storing.
       else if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
         *value =
             theEmitter.castToType(*value, type, evalType, thisSemantic.loc);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
+        spvBuilder.store(ptr, *value, thisSemantic.loc);
       }
       // For all normal cases
       else {
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
+        spvBuilder.store(ptr, *value, thisSemantic.loc);
       }
     }
 
@@ -3172,9 +3171,9 @@ bool DeclResultIdMapper::createPayloadStageVars(
     }
 
     if (asInput) {
-      *value = spvBuilder.createLoad(type, varInstr, loc);
+      *value = spvBuilder.load(type, varInstr, loc);
     } else {
-      spvBuilder.createStore(varInstr, *value, loc);
+      spvBuilder.store(varInstr, *value, loc);
     }
     return true;
   }
@@ -3272,7 +3271,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
       value = theEmitter.castToType(value, type, uintType, loc, range);
     }
 
-    spvBuilder.createStore(found->second, value, loc, range);
+    spvBuilder.store(found->second, value, loc, range);
     return true;
   }
 
@@ -4292,9 +4291,9 @@ void DeclResultIdMapper::storeOutStageVarsToStorage(
     }
     auto *ptrToOutputStageVar = spvBuilder.createAccessChain(
         outputControlPointType, found->second, {ctrlPointID}, /*loc=*/{});
-    auto *load = spvBuilder.createLoad(outputControlPointType,
-                                       ptrToOutputStageVar, /*loc=*/{});
-    spvBuilder.createStore(ptr, load, /*loc=*/{});
+    auto *load = spvBuilder.load(outputControlPointType, ptrToOutputStageVar,
+                                 /*loc=*/{});
+    spvBuilder.store(ptr, load, /*loc=*/{});
     return;
   }
 

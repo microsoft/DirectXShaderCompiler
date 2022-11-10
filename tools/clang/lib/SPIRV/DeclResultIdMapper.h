@@ -910,8 +910,8 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
                                 SpirvBuilder &builder,
                                 SpirvContext &context) const {
   assert(isAlias);
-  builder.createStore(counterVar, srcPair.get(builder, context),
-                      /* SourceLocation */ {});
+  builder.store(counterVar, srcPair.get(builder, context),
+                /* SourceLocation */ {});
 }
 
 DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,

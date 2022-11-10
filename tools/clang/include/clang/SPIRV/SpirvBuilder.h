@@ -182,6 +182,10 @@ public:
   SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
                         SourceLocation loc, SourceRange range = {});
 
+  // TODO: docs
+  SpirvInstruction *load(QualType resultType, SpirvInstruction *pointer,
+                         SourceLocation loc, SourceRange range = {});
+
   /// \brief Creates an OpCopyObject instruction from the given pointer.
   SpirvCopyObject *createCopyObject(QualType resultType,
                                     SpirvInstruction *pointer, SourceLocation);
@@ -190,6 +194,10 @@ public:
   /// address. Returns the instruction pointer for the store instruction.
   SpirvStore *createStore(SpirvInstruction *address, SpirvInstruction *value,
                    SourceLocation loc, SourceRange range = {});
+
+  // TODO: docs
+  SpirvInstruction *store(SpirvInstruction *address, SpirvInstruction *value,
+                          SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates a function call instruction and returns the instruction
   /// pointer for the return value.
