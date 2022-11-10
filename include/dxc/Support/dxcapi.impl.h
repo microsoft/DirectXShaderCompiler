@@ -98,8 +98,9 @@ inline DxcOutputType DxcGetOutputType(DXC_OUT_KIND kind) {
   case DXC_OUT_TEXT:
   case DXC_OUT_REMARKS:
     return DxcOutputType_Text;
+  default:
+    return DxcOutputType_None;
   }
-  return DxcOutputType_None;
 }
 
 // Update when new results are allowed

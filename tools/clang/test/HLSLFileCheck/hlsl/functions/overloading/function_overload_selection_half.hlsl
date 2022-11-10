@@ -1,4 +1,4 @@
-// RUN: %dxc /Tps_6_2 /Emain > %s | FileCheck %s
+// RUN: %dxc /Tps_6_2 /Emain  %s | FileCheck %s
 // CHECK: define void @main()
 // CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = fmul fast float %{{[a-z0-9]+.*[a-z0-9]*}}, %{{[a-z0-9]+.*[a-z0-9]*}}
 // CHECK: entry

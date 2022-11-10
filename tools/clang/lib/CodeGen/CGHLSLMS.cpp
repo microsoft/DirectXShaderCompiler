@@ -1215,23 +1215,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
     // Resources don't count towards cbuffer size.
     return 0;
-  } else if (const RecordType *RT = paramTy->getAsStructureType()) {
-    RecordDecl *RD = RT->getDecl();
-    llvm::StructType *ST = CGM.getTypes().ConvertRecordDeclType(RD);
-    // Skip if already created.
-    if (DxilStructAnnotation *annotation = dxilTypeSys.GetStructAnnotation(ST)) {
-      unsigned structSize = annotation->GetCBufferSize();
-      return structSize;
-    }
-    DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST,
-      GetNumTemplateArgsForRecordDecl(RT->getDecl()));
-    DxilPayloadAnnotation *payloadAnnotation = nullptr;
-    if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
-      payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
-    // Resources don't count towards cbuffer size.
-    return IsHLSLResourceType(Ty) ? 0 : size;
-  } else if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
+  } else if (const RecordType *RT = paramTy->getAs<RecordType>()) {
     // For this pointer.
     RecordDecl *RD = RT->getDecl();
     llvm::StructType *ST = CGM.getTypes().ConvertRecordDeclType(RD);
@@ -1245,7 +1229,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilPayloadAnnotation* payloadAnnotation = nullptr;
     if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
          payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
+    unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
+    // Resources don't count towards cbuffer size.
+    return IsHLSLResourceType(Ty) ? 0 : size;
   } else if (IsStringType(Ty)) {
     // string won't be included in cbuffer
     return 0;
@@ -3177,10 +3163,7 @@ static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
         CollectScalarTypes(ScalarTys, EltTy);
       }
     } else {
-      const RecordType *RT = Ty->getAsStructureType();
-      // For CXXRecord.
-      if (!RT)
-        RT = Ty->getAs<RecordType>();
+      const RecordType *RT = Ty->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
       for (FieldDecl *field : RD->fields())
         CollectScalarTypes(ScalarTys, field->getType());
@@ -3329,15 +3312,6 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     hlslRes->SetGloballyCoherent(true);
   }
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
-    if (hlslRes->IsGloballyCoherent()) {
-      DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "globallycoherent can only be used with "
-                                    "Unordered Access View buffers.");
-      Diags.Report(loc, DiagID);
-      return false;
-    }
-
     hlslRes->SetRW(false);
     hlslRes->SetID(m_pHLModule->GetSRVs().size());
   } else {
@@ -3994,7 +3968,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
           elts.emplace_back(Builder.CreateLoad(val));
           eltTys.emplace_back(Ty);
         } else {
-          RecordDecl *RD = Ty->getAsStructureType()->getDecl();
+          const RecordDecl *RD = Ty->getAs<RecordType>()->getDecl();
           const CGRecordLayout& RL = CGF.getTypes().getCGRecordLayout(RD);
 
           // Take care base.
@@ -4124,10 +4098,7 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
       // Skip hlsl object.
       idx++;
     } else {
-      const RecordType *RT = Ty->getAsStructureType();
-      // For CXXRecord.
-      if (!RT)
-        RT = Ty->getAs<RecordType>();
+      const RecordType *RT = Ty->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
       // Take care base.
       if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
@@ -4210,10 +4181,7 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     } else {
       Constant *zero = Builder.getInt32(0);
 
-      const RecordType *RT = Type->getAsStructureType();
-      // For CXXRecord.
-      if (!RT)
-        RT = Type->getAs<RecordType>();
+      const RecordType *RT = Type->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
       const CGRecordLayout &RL = Types.getCGRecordLayout(RD);
       // Take care base.
@@ -5353,7 +5321,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
       EltTyList.push_back(Type);
       return;
     }
-    const clang::RecordType *RT = Type->getAsStructureType();
+    const clang::RecordType *RT = Type->getAs<RecordType>();
     RecordDecl *RD = RT->getDecl();
 
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
@@ -5802,7 +5770,7 @@ void CGMSHLSLRuntime::EmitHLSLSplat(
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     DXASSERT(!dxilutil::IsHLSLObjectType(ST), "cannot cast to hlsl object, Sema should reject");
 
-    const clang::RecordType *RT = Type->getAsStructureType();
+    const clang::RecordType *RT = Type->getAs<RecordType>();
     RecordDecl *RD = RT->getDecl();
 
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);

@@ -71,8 +71,8 @@ private:
           firstUnusedComponent = kNumComponentsInFullyUsedLocation;
           break;
         }
-        firstUnusedComponent = std::max(firstUnusedComponent,
-                                        nextUnusedComponent[startLoc + i]);
+        firstUnusedComponent =
+            std::max(firstUnusedComponent, nextUnusedComponent[startLoc + i]);
       }
       if (firstUnusedComponent != kNumComponentsInFullyUsedLocation) {
         // Based on Vulkan spec "15.1.5. Component Assignment", a scalar or

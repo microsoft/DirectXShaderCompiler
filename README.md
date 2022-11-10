@@ -1,3 +1,5 @@
+# This fork modifies dxr to convert HLSL to MetaDSL for further conversion to python or other languages.
+
 # DirectX Shader Compiler
 
 [![Build status](https://ci.appveyor.com/api/projects/status/6sx47j66g4dbyem9/branch/main?svg=true)](https://ci.appveyor.com/project/dnovillo/directxshadercompiler/branch/main)
@@ -12,7 +14,7 @@ Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-
 You can download the latest successful build's artifacts (built by Appveyor) for the main branch:
 | Downloads |        |
 |-----------|--------|
-| Windows   | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=main&pr=false&job=image%3A%20Visual%20Studio%202019) |
+| Windows   | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=main&pr=false&job=image%3A%20Visual%20Studio%202022) |
 | Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?branch=main&pr=false&job=image%3A%20Ubuntu) |
 
 ## Features and Goals

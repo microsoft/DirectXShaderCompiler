@@ -200,7 +200,8 @@ public:
 public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts, FeatureManager &featureMgr)
-      : Visitor(opts, spvCtx), astContext(astCtx), featureManager(featureMgr), id(0),
+      : Visitor(opts, spvCtx), astContext(astCtx), featureManager(featureMgr),
+        id(0),
         typeHandler(astCtx, spvCtx, opts, featureMgr, &debugVariableBinary,
                     &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 /Gec -HV 2016 2> %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 /Gec -HV 2016  %s | FileCheck %s
 
 // Modifying local const should fail even with HV <= 2016
 // CHECK: warning: /Gec flag is a deprecated functionality.

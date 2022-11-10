@@ -178,8 +178,8 @@ StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
     : SpirvType(TK_Struct, name), fields(fieldsVec.begin(), fieldsVec.end()),
       readOnly(isReadOnly), interfaceType(iface) {}
 
-bool StructType::FieldInfo::
-operator==(const StructType::FieldInfo &that) const {
+bool StructType::FieldInfo::operator==(
+    const StructType::FieldInfo &that) const {
   return type == that.type && offset.hasValue() == that.offset.hasValue() &&
          matrixStride.hasValue() == that.matrixStride.hasValue() &&
          isRowMajor.hasValue() == that.isRowMajor.hasValue() &&

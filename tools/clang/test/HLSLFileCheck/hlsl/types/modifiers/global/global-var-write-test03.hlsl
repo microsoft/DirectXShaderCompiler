@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E PSMain /Gec -HV 2016 > %s | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E PSMain /Gec -HV 2016 %s | FileCheck %s
 
 // CHECK: define void @PSMain()
 // CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %"$Globals_cbuffer", i32 0)
