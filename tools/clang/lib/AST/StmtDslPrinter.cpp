@@ -80,9 +80,11 @@ namespace  {
     }
 
     void Visit(Stmt* S) {
-      if (Helper && Helper->handledStmt(S,OS))
-          return;
-      else StmtVisitor<StmtDslPrinter>::Visit(S);
+      if (Helper && Helper->handledStmt(S, OS)) {
+        return;
+      } else {
+        StmtVisitor<StmtDslPrinter>::Visit(S);
+      }
     }
 
     void VisitStmt(Stmt *Node) LLVM_ATTRIBUTE_UNUSED {
@@ -2390,7 +2392,12 @@ void Stmt::printPretty(raw_ostream &OS,
                        const PrintingPolicy &Policy,
                        unsigned Indentation) const {
   StmtDslPrinter P(OS, Helper, Policy, Indentation);
-  P.Visit(const_cast<Stmt*>(this));
+  Stmt *pStmt = const_cast<Stmt *>(this);
+  if (CompoundStmt *CS = dyn_cast<CompoundStmt>(pStmt)) {
+    P.PrintRawCompoundStmt(CS);
+  } else {
+    P.Visit(pStmt);
+  }
 }
 
 //===----------------------------------------------------------------------===//

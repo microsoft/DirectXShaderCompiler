@@ -202,7 +202,8 @@ void Decl::printGroup(Decl** Begin, unsigned NumDecls,
       isFirst = false;
     } else {
       if (!isFirst) Out << ", ";
-      SubPolicy.SuppressSpecifiers = true;
+      SubPolicy.SuppressSpecifiers = false;
+      //SubPolicy.SuppressSpecifiers = true;
     }
 
     (*Begin)->print(Out, SubPolicy, Indentation);
