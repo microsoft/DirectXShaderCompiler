@@ -36,7 +36,7 @@ namespace spirv {
 
 void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
     QualType fieldType, uint32_t fieldSize, uint32_t fieldAlignment,
-    uint32_t *currentOffset) {
+    uint32_t *currentOffset) const {
   QualType vecElemType = {};
   const bool fieldIsVecType = isVectorType(fieldType, &vecElemType);
 
@@ -64,7 +64,7 @@ void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
 
 std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     QualType type, SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
-    uint32_t *stride) {
+    uint32_t *stride) const {
   // std140 layout rules:
 
   // 1. If the member is a scalar consuming N basic machine units, the base
