@@ -154,9 +154,9 @@ void StmtDslPrinter::VisitDeclStmt(DeclStmt *Node) {
 }
 
 void StmtDslPrinter::VisitCompoundStmt(CompoundStmt *Node) {
-  Indent();
+  Indent() << "block ";
   PrintRawCompoundStmt(Node);
-  OS << "\n";
+  OS << ";\n";
 }
 
 void StmtDslPrinter::VisitCaseStmt(CaseStmt *Node) {
