@@ -137,11 +137,11 @@ bool MergeGepUse(Value *V) {
               dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
         // merge the 2 GEPs, returns nullptr if couldn't merge
         if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
+          changed = true;
           worklist.push_back(newGEP);
           // delete prevGEP if no more users
           if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP)) {
             cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
-            changed = true;
           }
         }
         else {
