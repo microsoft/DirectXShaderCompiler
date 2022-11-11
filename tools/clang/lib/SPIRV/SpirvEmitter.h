@@ -226,6 +226,13 @@ private:
   ///   the original vector, no shuffling needed).
   bool isVectorShuffle(const Expr *expr);
 
+  /// Returns true if the given expression is a short-circuited operator.
+  bool isShortCircuitedOp(const Expr *expr);
+
+  /// Returns true if the given statement or any of its children are a
+  /// short-circuited operator.
+  bool stmtTreeContainsShortCircuitedOp(const Stmt *stmt);
+
   /// \brief Returns true if the given CXXOperatorCallExpr is indexing into a
   /// Buffer/RWBuffer/Texture/RWTexture using operator[].
   /// On success, writes the base buffer into *base if base is not nullptr, and

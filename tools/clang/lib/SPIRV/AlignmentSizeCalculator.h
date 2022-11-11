@@ -38,7 +38,7 @@ public:
   /// size contains post-paddings required by the given type.
   std::pair<uint32_t, uint32_t>
   getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
-                      llvm::Optional<bool> isRowMajor, uint32_t *stride);
+                      llvm::Optional<bool> isRowMajor, uint32_t *stride) const;
 
   /// \brief Aligns currentOffset properly to allow packing vectors in the HLSL
   /// way: using the element type's alignment as the vector alignment, as long
@@ -47,11 +47,12 @@ public:
   /// calculated without considering the HLSL vector relaxed rule.
   void alignUsingHLSLRelaxedLayout(QualType fieldType, uint32_t fieldSize,
                                    uint32_t fieldAlignment,
-                                   uint32_t *currentOffset);
+                                   uint32_t *currentOffset) const;
 
   /// \brief Returns true if we use row-major matrix for type. Otherwise,
   /// returns false.
-  bool useRowMajor(llvm::Optional<bool> isRowMajor, clang::QualType type) {
+  bool useRowMajor(llvm::Optional<bool> isRowMajor,
+                   clang::QualType type) const {
     return isRowMajor.hasValue() ? isRowMajor.getValue()
                                  : isRowMajorMatrix(spvOptions, type);
   }
@@ -60,7 +61,7 @@ private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation srcLoc = {}) {
+                              SourceLocation srcLoc = {}) const {
     const auto diagId = astContext.getDiagnostics().getCustomDiagID(
         clang::DiagnosticsEngine::Error, message);
     return astContext.getDiagnostics().Report(srcLoc, diagId);

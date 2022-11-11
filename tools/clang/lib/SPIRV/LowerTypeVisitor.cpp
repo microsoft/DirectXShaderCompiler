@@ -14,6 +14,9 @@
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvFunction.h"
 
+namespace clang {
+namespace spirv {
+
 namespace {
 /// Returns the :packoffset() annotation on the given decl. Returns nullptr if
 /// the decl does not have one.
@@ -30,10 +33,64 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   return (val + pow2 - 1) & ~(pow2 - 1);
 }
 
-} // end anonymous namespace
+// This method sorts a field list in the following order:
+//  - fields with register annotation first, sorted by register index.
+//  - then fields without annotation, in order of declaration.
+std::vector<const HybridStructType::FieldInfo *>
+sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
+  std::vector<const HybridStructType::FieldInfo *> output;
+  output.resize(fields.size());
 
-namespace clang {
-namespace spirv {
+  auto back_inserter = output.rbegin();
+  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
+  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
+    if (it->registerC) {
+      fixed_fields.insert({it->registerC->RegisterNumber, &*it});
+    } else {
+      *back_inserter = &*it;
+      back_inserter++;
+    }
+  }
+
+  auto front_inserter = output.begin();
+  for (const auto &item : fixed_fields) {
+    *front_inserter = item.second;
+    front_inserter++;
+  }
+  return output;
+}
+
+// Correctly determine a field offset/size/padding depending on its neighbors
+// and other rules.
+void setDefaultFieldOffsetAndSize(
+    const AlignmentSizeCalculator &alignmentCalc, const SpirvLayoutRule rule,
+    const uint32_t previousFieldEnd,
+    const HybridStructType::FieldInfo *currentField,
+    StructType::FieldInfo *field) {
+
+  const auto &fieldType = currentField->astType;
+  uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
+  std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
+      fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
+  field->sizeInBytes = memberSize;
+
+  const uint32_t baseOffset = previousFieldEnd;
+
+  // The next avaiable location after laying out the previous members
+  if (rule != SpirvLayoutRule::RelaxedGLSLStd140 &&
+      rule != SpirvLayoutRule::RelaxedGLSLStd430 &&
+      rule != SpirvLayoutRule::FxcCTBuffer) {
+    field->offset = roundToPow2(baseOffset, memberAlignment);
+    return;
+  }
+
+  uint32_t newOffset = previousFieldEnd;
+  alignmentCalc.alignUsingHLSLRelaxedLayout(fieldType, memberSize,
+                                            memberAlignment, &newOffset);
+  field->offset = newOffset;
+}
+
+} // end anonymous namespace
 
 bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
   if (phase == Visitor::Phase::Done) {
@@ -803,25 +860,113 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
   return spv::ImageFormat::Unknown;
 }
 
+StructType::FieldInfo
+LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
+                             SpirvLayoutRule rule) {
+  auto fieldType = field->astType;
+  // Lower the field type fist. This call will populate proper matrix
+  // majorness information.
+  StructType::FieldInfo loweredField(
+      lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), field->name);
+
+  // Set RelaxedPrecision information for the lowered field.
+  if (isRelaxedPrecisionType(fieldType, spvOptions)) {
+    loweredField.isRelaxedPrecision = true;
+  }
+  if (field->isPrecise) {
+    loweredField.isPrecise = true;
+  }
+
+  // We only need layout information for structures with non-void layout rule.
+  if (rule == SpirvLayoutRule::Void) {
+    return loweredField;
+  }
+
+  // Each structure-type member that is a matrix or array-of-matrices must be
+  // decorated with
+  // * A MatrixStride decoration, and
+  // * one of the RowMajor or ColMajor Decorations.
+  if (const auto *arrayType = astContext.getAsConstantArrayType(fieldType)) {
+    // We have an array of matrices as a field, we need to decorate
+    // MatrixStride on the field. So skip possible arrays here.
+    fieldType = arrayType->getElementType();
+  }
+
+  // Non-floating point matrices are represented as arrays of vectors, and
+  // therefore ColMajor and RowMajor decorations should not be applied to
+  // them.
+  QualType elemType = {};
+  if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
+    uint32_t stride = 0;
+    alignmentCalc.getAlignmentAndSize(fieldType, rule,
+                                      /*isRowMajor*/ llvm::None, &stride);
+    loweredField.matrixStride = stride;
+    loweredField.isRowMajor = isRowMajorMatrix(spvOptions, fieldType);
+  }
+  return loweredField;
+}
+
 llvm::SmallVector<StructType::FieldInfo, 4>
 LowerTypeVisitor::populateLayoutInformation(
     llvm::ArrayRef<HybridStructType::FieldInfo> fields, SpirvLayoutRule rule) {
 
-  // The resulting vector of fields with proper layout information.
-  llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
-  llvm::SmallVector<StructType::FieldInfo, 4> result;
-
-  using RegisterFieldPair =
-      std::pair<uint32_t, const HybridStructType::FieldInfo *>;
-  struct RegisterFieldPairLess {
-    bool operator()(const RegisterFieldPair &obj1,
-                    const RegisterFieldPair &obj2) const {
-      return obj1.first < obj2.first;
+  auto fieldVisitor = [this,
+                       &rule](const StructType::FieldInfo *previousField,
+                              const HybridStructType::FieldInfo *currentField) {
+    StructType::FieldInfo loweredField = lowerField(currentField, rule);
+    // We only need layout information for structures with non-void layout rule.
+    if (rule == SpirvLayoutRule::Void) {
+      return loweredField;
     }
+
+    const uint32_t previousFieldEnd =
+        previousField ? previousField->offset.getValue() +
+                            previousField->sizeInBytes.getValue()
+                      : 0;
+    setDefaultFieldOffsetAndSize(alignmentCalc, rule, previousFieldEnd,
+                                 currentField, &loweredField);
+
+    // The vk::offset attribute takes precedence over all.
+    if (currentField->vkOffsetAttr) {
+      loweredField.offset = currentField->vkOffsetAttr->getOffset();
+      return loweredField;
+    }
+
+    // The :packoffset() annotation takes precedence over normal layout
+    // calculation.
+    if (currentField->packOffsetAttr) {
+      const uint32_t offset = currentField->packOffsetAttr->Subcomponent * 16 +
+                              currentField->packOffsetAttr->ComponentOffset * 4;
+      // Do minimal check to make sure the offset specified by packoffset does
+      // not cause overlap.
+      if (offset < previousFieldEnd) {
+        emitError("packoffset caused overlap with previous members",
+                  currentField->packOffsetAttr->Loc);
+      }
+
+      loweredField.offset = offset;
+      return loweredField;
+    }
+
+    // The :register(c#) annotation takes precedence over normal layout
+    // calculation.
+    if (currentField->registerC) {
+      const uint32_t offset = 16 * currentField->registerC->RegisterNumber;
+      // Do minimal check to make sure the offset specified by :register(c#)
+      // does not cause overlap.
+      if (offset < previousFieldEnd) {
+        emitError(
+            "found offset overlap when processing register(c%0) assignment",
+            currentField->registerC->Loc)
+            << currentField->registerC->RegisterNumber;
+      }
+
+      loweredField.offset = offset;
+      return loweredField;
+    }
+
+    return loweredField;
   };
-  std::set<RegisterFieldPair, RegisterFieldPairLess> registerCSet;
-  std::vector<const HybridStructType::FieldInfo *> sortedFields;
-  llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
   // First, check to see if any of the structure members had 'register(c#)'
   // location semantics. If so, members that do not have the 'register(c#)'
@@ -830,128 +975,31 @@ LowerTypeVisitor::populateLayoutInformation(
   // float x : register(c10);   // Offset = 160 (10 * 16)
   // float y;                   // Offset = 164 (160 + 4)
   // float z: register(c1);     // Offset = 16  (1  * 16)
-  for (const auto &field : fields)
-    if (field.registerC)
-      registerCSet.insert(
-          RegisterFieldPair(field.registerC->RegisterNumber, &field));
-  for (const auto &pair : registerCSet)
-    sortedFields.push_back(pair.second);
-  for (const auto &field : fields)
-    if (!field.registerC)
-      sortedFields.push_back(&field);
+  //
+  // This step is only here to simplify the struct layout generation.
+  std::vector<const HybridStructType::FieldInfo *> sortedFields =
+      sortFields(fields);
 
-  uint32_t offset = 0;
-  for (const auto *fieldPtr : sortedFields) {
-    // The field can only be FieldDecl (for normal structs) or VarDecl (for
-    // HLSLBufferDecls).
-    const auto field = *fieldPtr;
-    auto fieldType = field.astType;
-    fieldToIndexMap[fieldPtr] = loweredFields.size();
+  // The resulting vector of fields with proper layout information.
+  // Second, build each field, and determine their actual offset in the
+  // structure.
+  llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
+  llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
-    // Lower the field type fist. This call will populate proper matrix
-    // majorness information.
-    StructType::FieldInfo loweredField(
-        lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), field.name);
+  for (size_t i = 0; i < sortedFields.size(); i++) {
+    const StructType::FieldInfo *previousField =
+        i > 0 ? &loweredFields.back() : nullptr;
+    const HybridStructType::FieldInfo *currentField = sortedFields[i];
+    const size_t field_index = loweredFields.size();
 
-    // Set RelaxedPrecision information for the lowered field.
-    if (isRelaxedPrecisionType(fieldType, spvOptions)) {
-      loweredField.isRelaxedPrecision = true;
-    }
-
-    // Set 'precise' information for the lowered field.
-    if (field.isPrecise) {
-      loweredField.isPrecise = true;
-    }
-
-    // We only need layout information for strcutres with non-void layout rule.
-    if (rule == SpirvLayoutRule::Void) {
-      loweredFields.push_back(loweredField);
-      continue;
-    }
-
-    uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
-    std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
-        fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
-
-    // The next avaiable location after laying out the previous members
-    const uint32_t nextLoc = offset;
-
-    if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      alignmentCalc.alignUsingHLSLRelaxedLayout(fieldType, memberSize,
-                                                memberAlignment, &offset);
-    } else {
-      offset = roundToPow2(offset, memberAlignment);
-    }
-
-    // The vk::offset attribute takes precedence over all.
-    if (field.vkOffsetAttr) {
-      offset = field.vkOffsetAttr->getOffset();
-    }
-    // The :packoffset() annotation takes precedence over normal layout
-    // calculation.
-    else if (field.packOffsetAttr) {
-      const uint32_t packOffset = field.packOffsetAttr->Subcomponent * 16 +
-                                  field.packOffsetAttr->ComponentOffset * 4;
-      // Do minimal check to make sure the offset specified by packoffset does
-      // not cause overlap.
-      if (packOffset < nextLoc) {
-        emitError("packoffset caused overlap with previous members",
-                  field.packOffsetAttr->Loc);
-      } else {
-        offset = packOffset;
-      }
-    }
-    // The :register(c#) annotation takes precedence over normal layout
-    // calculation.
-    else if (field.registerC) {
-      offset = 16 * field.registerC->RegisterNumber;
-      // Do minimal check to make sure the offset specified by :register(c#)
-      // does not cause overlap.
-      if (offset < nextLoc) {
-        emitError(
-            "found offset overlap when processing register(c%0) assignment",
-            field.registerC->Loc)
-            << field.registerC->RegisterNumber;
-      }
-    }
-
-    // Each structure-type member must have an Offset Decoration.
-    loweredField.offset = offset;
-    loweredField.sizeInBytes = memberSize;
-    offset += memberSize;
-
-    // Each structure-type member that is a matrix or array-of-matrices must be
-    // decorated with
-    // * A MatrixStride decoration, and
-    // * one of the RowMajor or ColMajor Decorations.
-    if (const auto *arrayType = astContext.getAsConstantArrayType(fieldType)) {
-      // We have an array of matrices as a field, we need to decorate
-      // MatrixStride on the field. So skip possible arrays here.
-      fieldType = arrayType->getElementType();
-    }
-
-    // Non-floating point matrices are represented as arrays of vectors, and
-    // therefore ColMajor and RowMajor decorations should not be applied to
-    // them.
-    QualType elemType = {};
-    if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
-      memberAlignment = memberSize = stride = 0;
-      std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
-          fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
-
-      loweredField.matrixStride = stride;
-      loweredField.isRowMajor = isRowMajorMatrix(spvOptions, fieldType);
-    }
-
-    loweredFields.push_back(loweredField);
+    loweredFields.emplace_back(fieldVisitor(previousField, currentField));
+    fieldToIndexMap[sortedFields[i]] = field_index;
   }
 
   // Re-order the sorted fields back to their original order.
+  llvm::SmallVector<StructType::FieldInfo, 4> result;
   for (const auto &field : fields)
     result.push_back(loweredFields[fieldToIndexMap[&field]]);
-
   return result;
 }
 
