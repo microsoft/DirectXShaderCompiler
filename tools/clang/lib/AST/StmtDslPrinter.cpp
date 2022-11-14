@@ -1184,7 +1184,7 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
   Node->getValue().toString(Str);
   OS << Str;
   if (Str.find_first_not_of("-0123456789") == StringRef::npos)
-    OS << '.'; // Trailing dot in order to separate from ints.
+    OS << ".0"; // Trailing dot in order to separate from ints.
 
   if (!PrintSuffix)
     return;
