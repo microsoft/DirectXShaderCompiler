@@ -192,6 +192,11 @@ if "%1"=="-enable-lit" (
   set ENABLE_LIT=On
   shift /1 & goto :parse_args
 )
+if "%1"=="-disable-lit" (
+  echo Disable LIT testing
+  set ENABLE_LIT=Off
+  shift /1 & goto :parse_args
+)
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
@@ -281,8 +286,8 @@ if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
   )
 )
 
-if "%ENABLE_LIT%"=="" (
-  set ENABLE_LIT=Off
+if "%DISABLE_LIT%"=="" (
+  set ENABLE_LIT=On
 )
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
