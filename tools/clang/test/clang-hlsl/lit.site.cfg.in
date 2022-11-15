@@ -5,6 +5,7 @@ import sys
 config.llvm_src_root = "@LLVM_SOURCE_DIR@"
 config.llvm_obj_root = "@LLVM_BINARY_DIR@"
 config.build_mode = lit_config.params["build_mode"]
+config.filter = lit_config.params["taef_filter"]
 config.arch = "@DXC_BUILD_ARCH@"
 
 # Let the main config do the real work.

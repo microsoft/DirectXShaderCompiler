@@ -8,11 +8,12 @@ import lit.util
 from .base import TestFormat
 
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll, hlsl_data_dir, test_path):
+    def __init__(self, te_path, test_dll, hlsl_data_dir, test_path, filter):
         self.te = te_path
         self.test_dll = test_dll
         self.hlsl_data_dir = hlsl_data_dir
         self.test_path = test_path
+        self.filter = filter
         # NOTE: when search test, always running on test_dll,
         #       use test_searched to make sure only add test once.
         #       If TaeftTest is created in directory with sub directory,
@@ -36,7 +37,8 @@ class TaefTest(TestFormat):
             litConfig.note('searching taef test in %r' % dll_path)
 
         try:
-            lines = lit.util.capture([self.te, dll_path, '/list'],
+            lines = lit.util.capture([self.te, dll_path, '/list',
+                                     self.filter],
                                      env=localConfig.environment)
             # this is for windows
             lines = lines.replace('\r', '')
@@ -115,6 +117,6 @@ class TaefTest(TestFormat):
             msg = ('Unable to find %r in taef output:\n\n%s%s' %
                    (no_fail, out, err))
             return lit.Test.UNRESOLVED, msg
-
-        return lit.Test.PASS,''
+        msg = out
+        return lit.Test.PASS, msg
 

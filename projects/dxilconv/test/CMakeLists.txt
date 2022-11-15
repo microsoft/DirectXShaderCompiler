@@ -12,6 +12,7 @@ add_lit_target("check-dxilconv" "Running lit suite dxilconv"
           ${CMAKE_CURRENT_SOURCE_DIR}/taef
           PARAMS
                  dxilconv_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
+                 taef_filter="/select:\"@Architecture='${DXC_BUILD_ARCH}'\""
           DEPENDS dxilconv-tests
           ARGS ${CLANG_TEST_EXTRA_ARGS}
         )

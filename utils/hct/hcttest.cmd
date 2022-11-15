@@ -313,12 +313,12 @@ if exist "%HCT_EXTRAS%\hcttest-before.cmd" (
 if "%TEST_CLANG%"=="1" (
   echo Running Clang unit tests ...
   if "%TEST_CLANG_FILTER%"=="" (
-    set SELECT_FILTER= /select:"@Priority<1 AND @Architecture='%TEST_ARCH%'"
+    set SELECT_FILTER= /select:"@Priority<1AND@Architecture='%TEST_ARCH%'"
   ) else (
     set SELECT_FILTER= /select:"@Name='%TEST_CLANG_FILTER%' AND @Architecture='%TEST_ARCH%'"
   )
 
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" !SELECT_FILTER! %ADDITIONAL_OPTS%
+  call py  %HLSL_SRC_DIR%/utils/lit/lit.py  -sv  --no-progress-bar --param taef_filter="!SELECT_FILTER!"  --param  build_mode=%BUILD_CONFIG%   --param  clang_hlsl_site_config=%HLSL_BLD_DIR%/tools/clang/test/clang-hlsl/lit.site.cfg  %HLSL_SRC_DIR%\tools\clang\test\clang-hlsl
   set RES_CLANG=!ERRORLEVEL!
 )
 
@@ -372,7 +372,7 @@ if "%TEST_DXILCONV%"=="1" (
   ) else (
     set SELECT_FILTER= /select:"@Name='%TEST_DXILCONV_FILTER%' AND @Architecture='%TEST_ARCH%'"
   )
-  call :runte dxilconv-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" !SELECT_FILTER!
+  call py  %HLSL_SRC_DIR%/utils/lit/lit.py  -sv  --no-progress-bar --param taef_filter="!SELECT_FILTER!"  --param  build_mode=%BUILD_CONFIG%   --param  dxilconv_site_config=%HLSL_BLD_DIR%/projects/dxilconv/test/taef/lit.site.cfg  %HLSL_SRC_DIR%\projects\dxilconv\test\taef
   set RES_DXILCONV=!ERRORLEVEL!
 )
 

@@ -103,6 +103,7 @@ add_lit_target("check-hlsl" "Running lit suite hlsl"
           ${CMAKE_CURRENT_SOURCE_DIR}/clang-hlsl
           PARAMS ${CLANG_TEST_PARAMS}
                  clang_hlsl_site_config=${CMAKE_CURRENT_BINARY_DIR}/clang-hlsl/lit.site.cfg
+                 taef_filter="/select:@Priority<1AND@Architecture='${DXC_BUILD_ARCH}'"
           DEPENDS clang-hlsl-tests
           ARGS ${CLANG_TEST_EXTRA_ARGS}
         )
