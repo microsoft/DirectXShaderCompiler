@@ -33,25 +33,12 @@ namespace llvm {
 
 class TargetMachine;
 
-#define CALL_ONCE_INITIALIZATION(function) \
-  static volatile sys::cas_flag initialized = 0; \
-  sys::cas_flag old_val = sys::CompareAndSwap(&initialized, 1, 0); \
-  if (old_val == 0) { \
-    function(Registry); \
-    sys::MemoryFence(); \
-    TsanIgnoreWritesBegin(); \
-    TsanHappensBefore(&initialized); \
-    initialized = 2; \
-    TsanIgnoreWritesEnd(); \
-  } else { \
-    sys::cas_flag tmp = initialized; \
-    sys::MemoryFence(); \
-    while (tmp != 2) { \
-      tmp = initialized; \
-      sys::MemoryFence(); \
-    } \
-  } \
-  TsanHappensAfter(&initialized);
+#define CALL_ONCE_INITIALIZATION(function)                                     \
+  static bool initialized_once = [&] {                                         \
+    function(Registry);                                                        \
+    return true;                                                               \
+  }();                                                                         \
+  (void) initialized_once;
 
 #define INITIALIZE_PASS(passName, arg, name, cfg, analysis) \
   static void* initialize##passName##PassOnce(PassRegistry &Registry) { \
