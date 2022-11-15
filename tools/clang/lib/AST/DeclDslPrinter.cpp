@@ -380,13 +380,17 @@ void DeclDslPrinter::VisitTranslationUnitDecl(TranslationUnitDecl *D) {
 }
 
 void DeclDslPrinter::VisitTypedefDecl(TypedefDecl *D) {
+  /*
   if (!Policy.SuppressSpecifiers) {
     Out << "typedef ";
     
     if (D->isModulePrivate())
       Out << "__module_private__ ";
   }
+  */
+  Out << "typedef(";
   D->getTypeSourceInfo()->getType().print(Out, Policy, D->getName());
+  Out << ")";
   PrintUnusualAnnotations(D); // HLSL Change
   prettyPrintAttributes(D);
 }
