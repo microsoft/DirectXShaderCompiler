@@ -450,13 +450,11 @@ std::error_code remove(const Twine &path, bool IgnoreNonExisting) {
   // file to be deleted once it is closed. We also use the flags
   // FILE_FLAG_BACKUP_SEMANTICS (which allows us to open directories), and
   // FILE_FLAG_OPEN_REPARSE_POINT (don't follow symlinks).
-  ScopedFileHandle h(::CreateFileW(
+  ScopedFileHandle h(fsr->CreateFileW(
       c_str(path_utf16), DELETE,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
-      OPEN_EXISTING,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, OPEN_EXISTING,
       FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS |
-          FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_DELETE_ON_CLOSE,
-      NULL));
+          FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_DELETE_ON_CLOSE));
   if (!h) {
     std::error_code EC = mapWindowsError(::GetLastError());
     if (EC != errc::no_such_file_or_directory || !IgnoreNonExisting)
