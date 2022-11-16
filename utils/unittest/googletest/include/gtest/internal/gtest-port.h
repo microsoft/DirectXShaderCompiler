@@ -797,6 +797,9 @@ using ::std::tuple_size;
      GTEST_OS_WINDOWS_MINGW || GTEST_OS_AIX || GTEST_OS_HPUX || \
      GTEST_OS_OPENBSD || GTEST_OS_QNX || GTEST_OS_FREEBSD)
 # define GTEST_HAS_DEATH_TEST 1
+// HLSL Change Begin - disable death test for assert in dxc not work with death test.
+#undef GTEST_HAS_DEATH_TEST
+// HLSL Change End.
 #endif
 
 // We don't support MSVC 7.1 with exceptions disabled now.  Therefore
