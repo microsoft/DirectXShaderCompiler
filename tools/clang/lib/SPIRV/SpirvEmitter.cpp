@@ -568,7 +568,9 @@ uint32_t getFieldIndexInStruct(const SpirvCodeGenOptions &spirvOptions,
   // What we need is to match each AST node with the squashed field and then,
   // determine the real index.
   const SpirvType *spvType = lowerTypeVisitor.lowerType(
-      baseType, spirvOptions.sBufferLayoutRule, llvm::None, SourceLocation());
+      baseType,
+      spirvOptions.sBufferLayoutRule,
+      llvm::None, SourceLocation());
   assert(spvType);
 
   const auto st = dynamic_cast<const StructType *>(spvType);
@@ -599,12 +601,6 @@ uint32_t getFieldIndexInStruct(const SpirvCodeGenOptions &spirvOptions,
     }
   }
 
-  // TODO(issue #4140): remove once bitfields are implemented.
-  // This is just a safeguard until bitfield support is in. Before bitfields,
-  // AST indices were always correct, so this function should not change that
-  // behavior. Once the bitfield support is in, indices will start to diverge,
-  // and this assert should be removed.
-  assert(indexSPV == indexAST);
   return indexSPV;
 }
 

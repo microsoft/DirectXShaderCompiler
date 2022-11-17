@@ -320,6 +320,14 @@ public:
     bool isRelaxedPrecision;
     // Whether this field is marked as 'precise'.
     bool isPrecise;
+
+    // Whether this field is a bitfield or not. If set to false, bitfield width
+    // value is undefined.
+    struct BitfieldInfo {
+      uint32_t offsetInBits;
+      uint32_t sizeInBits;
+    };
+    llvm::Optional<BitfieldInfo> bitfield;
   };
 
   StructType(
@@ -467,9 +475,11 @@ public:
               clang::VKOffsetAttr *offset = nullptr,
               hlsl::ConstantPacking *packOffset = nullptr,
               const hlsl::RegisterAssignment *regC = nullptr,
-              bool precise = false)
+              bool precise = false, bool isBitfield = false,
+              uint32_t bitfieldWidth = 0)
         : astType(astType_), name(name_), vkOffsetAttr(offset),
-          packOffsetAttr(packOffset), registerC(regC), isPrecise(precise) {}
+          packOffsetAttr(packOffset), registerC(regC), isPrecise(precise),
+          isBitfield(isBitfield), bitfieldWidth(bitfieldWidth) {}
 
     // The field's type.
     QualType astType;
@@ -483,6 +493,11 @@ public:
     const hlsl::RegisterAssignment *registerC;
     // Whether this field is marked as 'precise'.
     bool isPrecise;
+
+    // Whether this field is a bitfield or not. If set to false, bitfield width
+    // value is undefined.
+    bool isBitfield;
+    uint32_t bitfieldWidth;
   };
 
   HybridStructType(

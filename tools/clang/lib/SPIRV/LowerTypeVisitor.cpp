@@ -510,12 +510,17 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
     // Create fields for all members of this struct
     for (const auto *field : decl->fields()) {
+      const uint32_t bitfieldWidth =
+          field->isBitField() ? field->getBitWidthValue(field->getASTContext())
+                              : 0;
       fields.push_back(HybridStructType::FieldInfo(
           field->getType(), field->getName(),
           /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
           /*packoffset*/ getPackOffset(field),
           /*RegisterAssignment*/ nullptr,
-          /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>()));
+          /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
+          /*isBitfield*/ field->isBitField(),
+          /*isBitfield*/ bitfieldWidth));
     }
 
     auto loweredFields = populateLayoutInformation(fields, rule);
@@ -876,6 +881,11 @@ LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
   if (field->isPrecise) {
     loweredField.isPrecise = true;
   }
+  if (field->isBitfield) {
+    loweredField.bitfield = {
+        0 /* default value, modified when computing struct layout */,
+        field->bitfieldWidth};
+  }
 
   // We only need layout information for structures with non-void layout rule.
   if (rule == SpirvLayoutRule::Void) {
@@ -965,6 +975,31 @@ LowerTypeVisitor::populateLayoutInformation(
       return loweredField;
     }
 
+    if (!currentField->isBitfield) {
+      return loweredField;
+    }
+
+    // Previous field is a full type, cannot merge.
+    if (!previousField || !previousField->bitfield.hasValue()) {
+      return loweredField;
+    }
+
+    // Bitfields can only be merged if they have the exact base type.
+    // (SPIR-V cannot handle mixed-types bitfields).
+    if (previousField->type != loweredField.type) {
+      return loweredField;
+    }
+
+    const uint32_t basetypeSize = previousField->sizeInBytes.getValue() * 8;
+    const auto &previousBitfield = previousField->bitfield.getValue();
+    const uint32_t nextAvailableBit =
+        previousBitfield.offsetInBits + previousBitfield.sizeInBits;
+    if (nextAvailableBit + currentField->bitfieldWidth > basetypeSize) {
+      return loweredField;
+    }
+
+    loweredField.bitfield->offsetInBits = nextAvailableBit;
+    loweredField.offset = previousField->offset.getValue();
     return loweredField;
   };
 
@@ -982,7 +1017,7 @@ LowerTypeVisitor::populateLayoutInformation(
 
   // The resulting vector of fields with proper layout information.
   // Second, build each field, and determine their actual offset in the
-  // structure.
+  // structure (explicit layout, bitfield merging, etc).
   llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
   llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 

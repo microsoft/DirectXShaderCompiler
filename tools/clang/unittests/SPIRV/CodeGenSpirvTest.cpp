@@ -2306,6 +2306,9 @@ TEST_F(FileTest, VulkanLayoutStructRelaxedLayout) {
   // Checks VK_KHR_relaxed_block_layout on struct types
   runFileTest("vk.layout.struct.relaxed.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutStructBitfield) {
+  runFileTest("vk.layout.struct.bitfield.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
   // Checks the behavior of [[vk::offset]]
