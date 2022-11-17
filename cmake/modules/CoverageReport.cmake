@@ -10,9 +10,17 @@ file(TO_NATIVE_PATH
 # llvm-cov and llvm-profdata need to match the host compiler. They can either be
 # explicitly provided by the user, or we will look them up based on the install
 # location of the C++ compiler.
+
+# HLSL Change Begin - This is probably worth upstreaming. Some Linux packages
+# install versions of the LLVM tools that are versioned. This handles that case.
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  string(REGEX REPLACE "(^[0-9]+)(\\.[0-9\\.]+)" "-\\1" HOST_LLVM_VERSION_SUFFIX ${CMAKE_CXX_COMPILER_VERSION})
+endif()
+
 get_filename_component(COMPILER_DIRECTORY ${CMAKE_CXX_COMPILER} DIRECTORY)
-find_program(LLVM_COV "llvm-cov" ${COMPILER_DIRECTORY} NO_DEFAULT_PATH)
-find_program(LLVM_PROFDATA "llvm-profdata" ${COMPILER_DIRECTORY} NO_DEFAULT_PATH)
+find_program(LLVM_COV NAMES llvm-cov llvm-cov${HOST_LLVM_VERSION_SUFFIX} PATHS ${COMPILER_DIRECTORY} NO_DEFAULT_PATH)
+find_program(LLVM_PROFDATA NAMES llvm-profdata llvm-profdata${HOST_LLVM_VERSION_SUFFIX} PATHS ${COMPILER_DIRECTORY} NO_DEFAULT_PATH)
+# HLSL Change End - Detect versioned tools.
 
 if(NOT LLVM_COV OR NOT LLVM_PROFDATA)
   message(WARNING "Could not find code coverage tools, skipping generating targets. You may explicitly specify LLVM_COV and LLVM_PROFDATA to work around this warning.")
