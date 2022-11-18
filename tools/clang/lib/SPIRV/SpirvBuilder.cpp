@@ -838,7 +838,29 @@ void SpirvBuilder::createEndPrimitive(SourceLocation loc, SourceRange range) {
   auto *inst = new (context) SpirvEndPrimitive(loc, range);
   insertPoint->addInstruction(inst);
 }
+/// \brief Creates an OpEmitMeshTasksEXT instruction.
+void SpirvBuilder::createEmitMeshTasksEXT(SpirvInstruction* xDim,
+                                          SpirvInstruction* yDim,
+                                          SpirvInstruction* zDim,
+                                          SourceLocation loc,
+                                          SpirvInstruction *payload,
+                                          SourceRange range) {
+  assert(insertPoint && "null insert point");
+  auto *inst =
+      new (context) SpirvEmitMeshTasksEXT(xDim, yDim, zDim, payload, loc, range);
+  insertPoint->addInstruction(inst);
+}
 
+/// \brief Creates an OpSetMeshOutputsEXT instruction.
+void SpirvBuilder::createSetMeshOutputsEXT(SpirvInstruction* vertCount,
+                                           SpirvInstruction* primCount,
+                                           SourceLocation loc,
+                                           SourceRange range) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context)
+      SpirvSetMeshOutputsEXT(vertCount, primCount, loc, range);
+  insertPoint->addInstruction(inst);
+}
 SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
                                                   SourceLocation loc,
                                                   SpirvInstruction *structure,
