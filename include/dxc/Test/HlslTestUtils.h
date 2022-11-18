@@ -249,7 +249,7 @@ inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
 #else
   std::ifstream infile((CW2A(path.c_str())));
 #endif
-  if (infile.bad()) {
+  if (infile.fail() || infile.bad()) {
     std::wstring errMsg(L"Unable to read file ");
     errMsg += path;
     WEX::Logging::Log::Error(errMsg.c_str());
