@@ -884,7 +884,7 @@ QualType GetOrCreateVectorSpecialization(ASTContext& context, Sema* sema,
         clang::Diagnostic(
             &sema->getDiagnostics(),
             llvm::StringRef("otherwise vector handle cannot be looked up "
-                            "[SemaHLSL.cpp:877 ASSERT]"))));
+                            "[SemaHLSL.cpp:880 ASSERT]"))));
   }
   // DSL Change end.
 #endif
