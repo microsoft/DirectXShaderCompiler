@@ -300,6 +300,8 @@ public:
   bool visit(SpirvDebugTypeTemplate *) override;
   bool visit(SpirvDebugTypeTemplateParameter *) override;
   bool visit(SpirvIntrinsicInstruction *) override;
+  bool visit(SpirvEmitMeshTasksEXT *) override;
+  bool visit(SpirvSetMeshOutputsEXT *) override;
 
   using Visitor::visit;
 
