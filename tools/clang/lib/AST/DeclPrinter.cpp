@@ -852,6 +852,13 @@ void DeclPrinter::VisitStaticAssertDecl(StaticAssertDecl *D) {
 // C++ declarations
 //----------------------------------------------------------------------------
 void DeclPrinter::VisitNamespaceDecl(NamespaceDecl *D) {
+  // HLSL Change Begin - Don't emit built-in "vk" namespace, it's implicitly
+  // declared when compiling to SPIR-V and would otherwise cause parsing errors
+  // due to unsupported HLSL 2021 features.
+  if (D->getNameAsString() == "vk")
+    return;
+  // HLSL Change End
+
   if (D->isInline())
     Out << "inline ";
   Out << "namespace " << *D << " {\n";
