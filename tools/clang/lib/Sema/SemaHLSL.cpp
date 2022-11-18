@@ -784,9 +784,15 @@ QualType GetOrCreateTemplateSpecialization(
     context, TagDecl::TagKind::TTK_Class, currentDeclContext, NoLoc, NoLoc,
     templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(), nullptr);
   // InstantiateClassTemplateSpecialization returns true if it finds an error.
-  DXVERIFY_NOMSG(false == sema.InstantiateClassTemplateSpecialization(
-    NoLoc, specializationDecl, TemplateSpecializationKind::TSK_ImplicitInstantiation, true));
-  templateDecl->AddSpecialization(specializationDecl, InsertPos);
+  // DSL Change begin.
+  if (sema.InstantiateClassTemplateSpecialization(
+          NoLoc, specializationDecl,
+          TemplateSpecializationKind::TSK_ImplicitInstantiation, true)) {  
+    return context.getTypeDeclType(specializationDecl);
+  }
+  // DSL Change end.
+
+  templateDecl->AddSpecialization(specializationDecl, InsertPos);  
   specializationDecl->setImplicit(true);
 
   QualType canonType = context.getTypeDeclType(specializationDecl);
@@ -829,7 +835,14 @@ QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
            "type of non-dependent specialization is not a RecordType");
   DeclContext::lookup_result lookupResult = matrixSpecializationType->getAsCXXRecordDecl()->
     lookup(DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(), "otherwise matrix handle cannot be looked up");
+  // DSL Change begin.
+  //DXASSERT(!lookupResult.empty(), "otherwise matrix handle cannot be looked up");
+  sema->getDiagnostics().Report(clang::StoredDiagnostic(
+      clang::DiagnosticsEngine::Fatal,
+      clang::Diagnostic(
+          &sema->getDiagnostics(),
+          llvm::StringRef("otherwise matrix handle cannot be looked up [SemaHLSL.cpp:839 ASSERT]"))));
+  // DSL Change end.
 #endif
 
   return matrixSpecializationType;
@@ -860,7 +873,14 @@ QualType GetOrCreateVectorSpecialization(ASTContext& context, Sema* sema,
            "type of non-dependent specialization is not a RecordType");
   DeclContext::lookup_result lookupResult = vectorSpecializationType->getAsCXXRecordDecl()->
     lookup(DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(), "otherwise vector handle cannot be looked up");
+  // DSL Change begin.
+  //DXASSERT(!lookupResult.empty(), "otherwise vector handle cannot be looked up");
+  sema->getDiagnostics().Report(clang::StoredDiagnostic(
+      clang::DiagnosticsEngine::Fatal,
+      clang::Diagnostic(
+          &sema->getDiagnostics(),
+          llvm::StringRef("otherwise vector handle cannot be looked up [SemaHLSL.cpp:877 ASSERT]"))));
+  // DSL Change end.
 #endif
 
   return vectorSpecializationType;
