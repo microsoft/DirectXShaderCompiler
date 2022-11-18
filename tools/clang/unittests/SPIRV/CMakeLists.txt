@@ -44,6 +44,12 @@ target_include_directories(clang-spirv-tests
 set_output_directory(clang-spirv-tests
   ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
 
+set(SPIRV_TEST_DATA_DIR ${LLVM_SOURCE_DIR}/tools/clang/test/CodeGenSPIRV/)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/SpirvTestOptions.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/SpirvTestOptions.h
+    )
+
 if(WIN32)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj") # otherwise will hit fatal error C1128 on windows x64
 endif(WIN32)

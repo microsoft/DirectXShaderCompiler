@@ -103,9 +103,6 @@ int main(int argc, char **argv) {
       // Allow the user set the root directory for test input files.
       if (i + 1 < argc) {
         clang::spirv::testOptions::inputDataDir = argv[++i];
-      } else {
-        fprintf(stderr, "Error: --spirv-test-root requires an argument\n");
-        return 1;
       }
     }
   }
