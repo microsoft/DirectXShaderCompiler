@@ -1,3 +1,16 @@
+# This file contains the basic options required for building DXC using CMake on
+# *nix platforms. It is passed to CMake using the `-C` flag and gets processed
+# before the root CMakeLists.txt file. Only cached variables persist after this
+# file executes, so all state must be saved into the cache. These variables also
+# will not override explicit command line parameters, and can only read
+# parameters that are specified before the `-C` flag.
+
+if (DXC_COVERAGE)
+  set(LLVM_BUILD_INSTRUMENTED_COVERAGE ON CACHE BOOL "")
+  set(LLVM_PROFILE_DATA_DIR "${CMAKE_BINARY_DIR}/profile" CACHE STRING "")
+  set(LLVM_CODE_COVERAGE_TARGETS "dxc;dxcompiler" CACHE STRING "")
+endif()
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "")
 set(LLVM_APPEND_VC_REV ON CACHE BOOL "") 
 set(LLVM_DEFAULT_TARGET_TRIPLE "dxil-ms-dx" CACHE STRING "")
