@@ -2312,6 +2312,11 @@ MicrosoftRecordLayoutBuilder::getAdjustedElementInfo(
   // Get the alignment of the field type's natural alignment, ignore any
   // alignment attributes.
   ElementInfo Info;
+  if (Context.IsBufferRef(FD)) {
+    std::tie(Info.Size, Info.Alignment) = Context.getTypeInfoInChars(
+        Context.BufferRefProxyType());
+    return Info;
+  }
   std::tie(Info.Size, Info.Alignment) =
       Context.getTypeInfoInChars(FD->getType()->getUnqualifiedDesugaredType());
   // Respect align attributes on the field.

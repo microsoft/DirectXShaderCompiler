@@ -305,8 +305,14 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
 
     for (const auto *field : structType->getDecl()->fields()) {
       uint32_t memberAlignment = 0, memberSize = 0;
-      std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
+      // Check for buffer ref
+      if (astContext.IsBufferRef(field)) {
+        memberAlignment = astContext.BufferRefByteAlign();
+        memberSize = astContext.BufferRefByteSize();
+      } else {
+        std::tie(memberAlignment, memberSize) =
+            getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
+      }
 
       if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
           rule == SpirvLayoutRule::RelaxedGLSLStd430 ||

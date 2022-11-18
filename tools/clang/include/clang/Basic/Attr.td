@@ -1012,6 +1012,14 @@ def VKLocation : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKBufferRef : InheritableAttr {
+  let Spellings = [CXX11<"vk", "buffer_ref">];
+  let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
+  let Args = [IntArgument<"Number">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKIndex : InheritableAttr {
   let Spellings = [CXX11<"vk", "index">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;

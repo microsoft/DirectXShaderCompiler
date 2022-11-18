@@ -53,6 +53,7 @@ public:
     TK_RuntimeArray,
     TK_Struct,
     TK_Pointer,
+    TK_FwdPointer,
     TK_Function,
     TK_AccelerationStructureNV,
     TK_RayQueryKHR,
@@ -384,6 +385,25 @@ private:
   spv::StorageClass storageClass;
 };
 
+/// Represents a SPIR-V forward pointer type.
+class SpirvFwdPointerType : public SpirvType {
+public:
+  SpirvFwdPointerType(unsigned pointee_id, spv::StorageClass sc)
+      : SpirvType(TK_FwdPointer), pointeeId(pointee_id), storageClass(sc) {}
+
+  static bool classof(const SpirvType *t) { return t->getKind() == TK_FwdPointer; }
+
+  spv::StorageClass getStorageClass() const { return storageClass; }
+
+  bool operator==(const SpirvFwdPointerType &that) const {
+    return pointeeId == that.pointeeId && storageClass == that.storageClass;
+  }
+
+private:
+  unsigned pointeeId;
+  spv::StorageClass storageClass;
+};
+
 /// Represents a SPIR-V function type. None of the parameters nor the return
 /// type is allowed to be a hybrid type.
 class FunctionType : public SpirvType {
@@ -480,12 +500,14 @@ public:
   public:
     FieldInfo(QualType astType_, llvm::StringRef name_ = "",
               clang::VKOffsetAttr *offset = nullptr,
+              bool is_buffer_ref = false,
               hlsl::ConstantPacking *packOffset = nullptr,
               const hlsl::RegisterAssignment *regC = nullptr,
               bool precise = false,
               llvm::Optional<BitfieldInfo> bitfield = llvm::None)
         : astType(astType_), name(name_), vkOffsetAttr(offset),
-          packOffsetAttr(packOffset), registerC(regC), isPrecise(precise),
+          isBufferRef(is_buffer_ref), packOffsetAttr(packOffset),
+          registerC(regC), isPrecise(precise),
           bitfield(std::move(bitfield)) {}
 
     // The field's type.
@@ -494,6 +516,8 @@ public:
     std::string name;
     // vk::offset attributes associated with this field.
     clang::VKOffsetAttr *vkOffsetAttr;
+    // vk::buffer_ref attribute is associated with this field.
+    bool isBufferRef;
     // :packoffset() annotations associated with this field.
     hlsl::ConstantPacking *packOffsetAttr;
     // :register(c#) annotations associated with this field.

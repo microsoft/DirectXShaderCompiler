@@ -12777,6 +12777,20 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
   return NewFD;
 }
 
+bool Sema::IsBufferRefDecltr(Declarator *D) {
+  if (!LangOpts.HLSL)
+    return false;
+  if (D == nullptr)
+    return false;
+  if (const AttributeList *Attrs = D->getDeclSpec().getAttributes().getList()) {
+    for (const AttributeList *l = Attrs; l; l = l->getNext()) {
+      if (l->getKind() == AttributeList::AT_VKBufferRef)
+        return true;
+    }
+  }
+  return false;
+}
+
 /// \brief Build a new FieldDecl and check its well-formedness.
 ///
 /// This routine builds a new FieldDecl given the fields name, type,
@@ -12808,7 +12822,8 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
 
   QualType EltTy = Context.getBaseElementType(T);
   if (!EltTy->isDependentType()) {
-    if (RequireCompleteType(Loc, EltTy, diag::err_field_incomplete)) {
+    if (!IsBufferRefDecltr(D) && !Context.IsBufferRefTypeDef(T) &&
+        RequireCompleteType(Loc, EltTy, diag::err_field_incomplete)) {
       // Fields of incomplete type force their record to be invalid.
       Record->setInvalidDecl();
       InvalidDecl = true;
@@ -13318,7 +13333,7 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
       }
       // Okay, we have a legal flexible array member at the end of the struct.
       Record->setHasFlexibleArrayMember(true);
-    } else if (!FDTy->isDependentType() &&
+    } else if (!FDTy->isDependentType() && !Context.IsBufferRef(FD) &&
                RequireCompleteType(FD->getLocation(), FD->getType(),
                                    diag::err_field_incomplete)) {
       // Incomplete type

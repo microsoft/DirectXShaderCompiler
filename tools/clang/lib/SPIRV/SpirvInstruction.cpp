@@ -404,10 +404,11 @@ SpirvUnreachable::SpirvUnreachable(SourceLocation loc)
 SpirvAccessChain::SpirvAccessChain(QualType resultType, SourceLocation loc,
                                    SpirvInstruction *baseInst,
                                    llvm::ArrayRef<SpirvInstruction *> indexVec,
-                                   SourceRange range)
+                                   SourceRange range, uint32_t bufRefAlign)
     : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType, loc,
                        range),
-      base(baseInst), indices(indexVec.begin(), indexVec.end()) {}
+      base(baseInst), indices(indexVec.begin(), indexVec.end()),
+      bufferRefAlign(bufRefAlign) {}
 
 SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
                          SpirvInstruction *pointerInst, spv::Scope s,

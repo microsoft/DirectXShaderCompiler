@@ -987,7 +987,8 @@ bool isAKindOfStructuredOrByteBuffer(QualType type) {
   return false;
 }
 
-bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
+bool isOrContainsAKindOfStructuredOrByteBuffer(const ASTContext &astContext,
+                                               QualType type) {
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
@@ -996,13 +997,18 @@ bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
       return true;
 
     for (const auto *field : recordType->getDecl()->fields()) {
-      if (isOrContainsAKindOfStructuredOrByteBuffer(field->getType()))
+      // TODO: Probably better to do a true cycle detection here and continue
+      if (astContext.IsBufferRef(field))
+        continue;
+      if (isOrContainsAKindOfStructuredOrByteBuffer(astContext,
+                                                    field->getType()))
         return true;
     }
 
     if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
       for (const auto &base : cxxDecl->bases()) {
-        if (isOrContainsAKindOfStructuredOrByteBuffer(base.getType())) {
+        if (isOrContainsAKindOfStructuredOrByteBuffer(astContext,
+                                                      base.getType())) {
           return true;
         }
       }
@@ -1081,16 +1087,20 @@ std::string getHlslResourceTypeName(QualType type) {
   return "";
 }
 
-bool isOpaqueStructType(QualType type) {
+bool isOpaqueStructType(const ASTContext &astContext, QualType type) {
   if (isOpaqueType(type))
     return false;
 
   if (const auto *recordType = type->getAs<RecordType>())
     for (const auto *field : recordType->getDecl()->decls())
-      if (const auto *fieldDecl = dyn_cast<FieldDecl>(field))
+      if (const auto *fieldDecl = dyn_cast<FieldDecl>(field)) {
+        // TODO: probably better to do true cycle detection and continue
+        if (astContext.IsBufferRef(fieldDecl))
+          continue;
         if (isOpaqueType(fieldDecl->getType()) ||
-            isOpaqueStructType(fieldDecl->getType()))
+            isOpaqueStructType(astContext, fieldDecl->getType()))
           return true;
+      }
 
   return false;
 }
@@ -1258,6 +1268,8 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
   if (const auto *structType = type->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
     for (const auto *field : decl->fields()) {
+      if (astContext.IsBufferRef(field))
+        continue;
       if (isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
                                           field->getType(), field))
         return true;

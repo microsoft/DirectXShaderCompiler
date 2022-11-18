@@ -46,7 +46,8 @@ public:
   /// The lowering is recursive; all the types that the target type depends
   /// on will be created in SpirvContext.
   const SpirvType *lowerType(QualType type, SpirvLayoutRule,
-                             llvm::Optional<bool> isRowMajor, SourceLocation);
+                             llvm::Optional<bool> isRowMajor, SourceLocation,
+                             bool isRef = false);
 
   bool useSpvArrayForHlslMat1xN() { return useArrayForMat1xN; }
 

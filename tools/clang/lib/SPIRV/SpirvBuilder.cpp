@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "AlignmentSizeCalculator.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "CapabilityVisitor.h"
 #include "DebugTypeVisitor.h"
@@ -88,7 +89,7 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
 
 SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
                                       llvm::StringRef name, bool isPrecise,
-                                      SpirvInstruction *init) {
+                                      SpirvInstruction *init, bool isRef) {
   assert(function && "found detached local variable");
   SpirvVariable *var = nullptr;
   if (isBindlessOpaqueArray(valueType)) {
@@ -97,6 +98,15 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
     var = new (context) SpirvVariable(
         context.getPointerType(valueType, spv::StorageClass::UniformConstant),
         loc, spv::StorageClass::Function, isPrecise, init);
+  } else if (isRef) {
+    // If it is a buffer reference, use a physical pointer to the type.
+    // Decorate the pointer as aliased.
+    var = new (context)
+        SpirvVariable(context.getPointerType(
+                          valueType, spv::StorageClass::PhysicalStorageBuffer),
+                      loc, spv::StorageClass::Function, isPrecise, init);
+    decorateAliasedPointer(var, loc);
+    var->setLayoutRule(spirvOptions.sBufferLayoutRule);
   } else {
     var = new (context) SpirvVariable(
         valueType, loc, spv::StorageClass::Function, isPrecise, init);
@@ -196,9 +206,33 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
                                            SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvLoad(resultType, loc, pointer, range);
-  instruction->setStorageClass(pointer->getStorageClass());
   instruction->setLayoutRule(pointer->getLayoutRule());
   instruction->setRValue(true);
+
+  auto sc = pointer->getStorageClass();
+  instruction->setStorageClass(sc);
+
+  // Load of physical storage needs alignment
+  if (sc == spv::StorageClass::PhysicalStorageBuffer) {
+    uint32_t align = 0;
+    if (resultType->getAs<PointerType>()) {
+      align = 8u;
+    } else {
+      AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+      uint32_t stride = 0;
+      std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
+          resultType, spirvOptions.sBufferLayoutRule,
+          /*isRowMajor*/ llvm::None, &stride);
+    }
+    // Look for buffer alignment
+    auto accessChain = dynamic_cast<SpirvAccessChain*>(pointer);
+    if (accessChain) {
+      auto bufRefAlign = accessChain->getBufferRefAlign();
+      if (bufRefAlign)
+        align = (bufRefAlign < align) ? bufRefAlign : align;
+    }
+    instruction->setAlignment(align);
+  }
 
   if (pointer->containsAliasComponent() &&
       isAKindOfStructuredOrByteBuffer(resultType)) {
@@ -247,7 +281,12 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   auto *instruction =
       new (context) SpirvLoad(/*QualType*/ {}, loc, pointer, range);
   instruction->setResultType(resultType);
-  instruction->setStorageClass(pointer->getStorageClass());
+
+  auto sc = pointer->getStorageClass();
+  instruction->setStorageClass(sc);
+  assert(sc != spv::StorageClass::PhysicalStorageBuffer &&
+         "unexpected physical pointer");
+
   // Special case for legalization. We could have point-to-pointer types.
   // For example:
   //
@@ -347,10 +386,11 @@ SpirvAccessChain *SpirvBuilder::createAccessChain(
 SpirvAccessChain *
 SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
                                 llvm::ArrayRef<SpirvInstruction *> indexes,
-                                SourceLocation loc, SourceRange range) {
+                                SourceLocation loc, SourceRange range,
+                                uint32_t bufRefAlign) {
   assert(insertPoint && "null insert point");
-  auto *instruction =
-      new (context) SpirvAccessChain(resultType, loc, base, indexes, range);
+  auto *instruction = new (context)
+      SpirvAccessChain(resultType, loc, base, indexes, range, bufRefAlign);
   instruction->setStorageClass(base->getStorageClass());
   instruction->setLayoutRule(base->getLayoutRule());
   instruction->setContainsAliasComponent(base->containsAliasComponent());
@@ -1502,6 +1542,13 @@ void SpirvBuilder::decorateNoPerspective(SpirvInstruction *target,
                                          SourceLocation srcLoc) {
   auto *decor = new (context)
       SpirvDecoration(srcLoc, target, spv::Decoration::NoPerspective);
+  mod->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateAliasedPointer(SpirvInstruction *target,
+                                          SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::AliasedPointer);
   mod->addDecoration(decor);
 }
 

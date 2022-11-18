@@ -848,7 +848,8 @@ public:
   SpirvAccessChain(QualType resultType, SourceLocation loc,
                    SpirvInstruction *base,
                    llvm::ArrayRef<SpirvInstruction *> indexVec,
-                   SourceRange range = {});
+                   SourceRange range = {},
+                   uint32_t bufRefAlign = 0);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvAccessChain)
 
@@ -861,10 +862,12 @@ public:
 
   SpirvInstruction *getBase() const { return base; }
   llvm::ArrayRef<SpirvInstruction *> getIndexes() const { return indices; }
+  uint32_t getBufferRefAlign() const { return bufferRefAlign; }
 
 private:
   SpirvInstruction *base;
   llvm::SmallVector<SpirvInstruction *, 4> indices;
+  uint32_t bufferRefAlign;
 };
 
 /// \brief Atomic instructions.

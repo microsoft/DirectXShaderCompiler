@@ -16,6 +16,7 @@
 #define LLVM_CLANG_AST_ASTCONTEXT_H
 
 #include "clang/AST/ASTTypeTraits.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/CanonicalType.h"
 #include "clang/AST/CommentCommandTraits.h"
 #include "clang/AST/Decl.h"
@@ -2490,6 +2491,17 @@ public:
   };
 
   llvm::StringMap<SectionInfo> SectionInfos;
+
+  // Buffer Reference Utilities
+public:
+  bool IsBufferRef(const ValueDecl *D) const;
+  bool IsBufferRefDecl(const Decl *D) const;
+  bool IsBufferRefTypeDef(QualType T) const;
+  clang::VKBufferRefAttr *GetBufferRefAttr(const Expr *base) const;
+  clang::VKBufferRefAttr *GetBufferRefAttr(const ValueDecl *decl) const;
+  uint32_t BufferRefByteSize() const;
+  uint32_t BufferRefByteAlign() const;
+  clang::CanQualType BufferRefProxyType() const;
 };
 
 /// \brief Utility function for constructing a nullary selector.

@@ -1923,6 +1923,8 @@ public:
                                    AccessSpecifier AS,
                                    AttributeList *MSPropertyAttr);
 
+  bool IsBufferRefDecltr(Declarator *D);
+
   FieldDecl *CheckFieldDecl(DeclarationName Name, QualType T,
                             TypeSourceInfo *TInfo,
                             RecordDecl *Record, SourceLocation Loc,

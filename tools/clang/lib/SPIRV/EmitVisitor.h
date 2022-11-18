@@ -57,7 +57,7 @@ public:
         typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn),
         emittedConstantInts({}), emittedConstantFloats({}),
         emittedConstantComposites({}), emittedConstantNulls({}),
-        emittedConstantBools() {
+        emittedConstantBools(), emittedFwdPtrs() {
     assert(decVec);
     assert(typesVec);
   }
@@ -176,6 +176,10 @@ private:
   // emittedTypes is a map that caches the result-id of types in order to avoid
   // emitting an identical type multiple times.
   llvm::DenseMap<const SpirvType *, uint32_t> emittedTypes;
+
+  // emittedFwdPtrs is a vector that keeps track of forward pointers that have
+  // been emitted for later generation of the true pointers.
+  std::vector<const SpirvFwdPointerType *> emittedFwdPtrs;
 };
 
 /// \breif The visitor class that emits the SPIR-V words from the in-memory

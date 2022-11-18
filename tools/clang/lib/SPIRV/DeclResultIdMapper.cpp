@@ -1009,8 +1009,14 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   const auto loc = var->getLocation();
   const auto name = var->getName();
   const bool isPrecise = var->hasAttr<HLSLPreciseAttr>();
-  SpirvVariable *varInstr = spvBuilder.addFnVar(
-      type, loc, name, isPrecise, init.hasValue() ? init.getValue() : nullptr);
+
+  // Look for buffer ref
+  bool isRef =
+      astContext.IsBufferRefDecl(var) || astContext.IsBufferRefTypeDef(type);
+
+  SpirvVariable *varInstr =
+      spvBuilder.addFnVar(type, loc, name, isPrecise,
+                          init.hasValue() ? init.getValue() : nullptr, isRef);
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
@@ -1257,8 +1263,13 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
     varType.removeLocalConst();
+
+    // Look for buffer ref
+    bool isBufferRef = astContext.IsBufferRef(declDecl);
+
     HybridStructType::FieldInfo info(varType, declDecl->getName(),
                                      declDecl->getAttr<VKOffsetAttr>(),
+                                     isBufferRef,
                                      getPackOffset(declDecl), registerC,
                                      declDecl->hasAttr<HLSLPreciseAttr>());
     fields.push_back(info);
@@ -4110,7 +4121,7 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
 
   // For ConstantBuffers, TextureBuffers, StructuredBuffers, ByteAddressBuffers
   if (isConstantTextureBuffer(type) ||
-      isOrContainsAKindOfStructuredOrByteBuffer(type)) {
+      isOrContainsAKindOfStructuredOrByteBuffer(astContext, type)) {
     genAlias = true;
   }
 

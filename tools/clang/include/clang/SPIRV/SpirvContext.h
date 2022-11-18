@@ -274,6 +274,21 @@ public:
   const SpirvPointerType *getPointerType(const SpirvType *pointee,
                                          spv::StorageClass);
 
+  const SpirvFwdPointerType *getFwdPointerType(unsigned pointee_id,
+                                               spv::StorageClass);
+
+  const SpirvFwdPointerType *getFwdPointerForDecl(const DeclContext *decl);
+
+  void registerFwdPointerForDecl(const SpirvFwdPointerType *fwd_ptr,
+                                 const DeclContext *decl);
+
+  void registerFwdPointerForPointer(const SpirvFwdPointerType *fwd_ptr,
+                                    const SpirvPointerType *ptr);
+  const SpirvFwdPointerType *getFwdPointerForPointer(
+      const SpirvPointerType *ptr);
+  const SpirvPointerType *getPointerForFwdPointer(
+      const SpirvFwdPointerType *fwd_ptr);
+
   FunctionType *getFunctionType(const SpirvType *ret,
                                 llvm::ArrayRef<const SpirvType *> param);
 
@@ -398,9 +413,48 @@ public:
                                       const DeclContext *decl) {
     assert(spvTy != nullptr && decl != nullptr);
     spvStructTypeToDecl[spvTy] = decl;
+    registeredDecls.insert(decl);
   }
   const DeclContext *getStructDeclForSpirvType(const SpirvType *spvTy) {
     return spvStructTypeToDecl[spvTy];
+  }
+
+  // Remember and query if struct_ty is part of buffer reference
+  void registerRefdStructType(const StructType* struct_ty) {
+    refdStructTypes.insert(struct_ty);
+  }
+  bool isRefdStructType(const StructType *struct_ty) {
+    return refdStructTypes.find(struct_ty) != refdStructTypes.end();
+  }
+
+  // Has decl been registered with a spv type yet?
+  bool isRegisteredStructDecl(const DeclContext* decl) {
+    return registeredDecls.find(decl) != registeredDecls.end();
+  }
+
+  // Is decl lowering in progress?
+  bool isInProgressStructDecl(const DeclContext *decl) {
+    return inProgressDecls.find(decl) != inProgressDecls.end();
+  }
+
+  // Set decl in-progress status
+  void setInProgressStructDecl(const DeclContext *decl,
+                                     const bool inProgress) {
+    if (inProgress)
+      inProgressDecls.insert(decl);
+    else
+      inProgressDecls.erase(decl);
+    return;
+  }
+
+  // Return forward pointee_id associated with decl
+  unsigned getPointeeIdForStructDecl(const DeclContext* decl) {
+    auto pid_itr = pointeeIdForDecl.find(decl);
+    if (pid_itr != pointeeIdForDecl.end())
+      return pid_itr->second;
+    auto pid = nextPointeeId++;
+    pointeeIdForDecl[decl] = pid;
+    return pid;
   }
 
   /// Function to add/get the mapping from a FunctionDecl to its DebugFunction.
@@ -455,6 +509,9 @@ private:
   using SCToPtrTyMap =
       llvm::DenseMap<spv::StorageClass, const SpirvPointerType *,
                      StorageClassDenseMapInfo>;
+  using SCToFwdPtrTyMap =
+      llvm::DenseMap<spv::StorageClass, const SpirvFwdPointerType *,
+                     StorageClassDenseMapInfo>;
 
   // Vector/matrix types for each possible element count.
   // Type at index is for vector of index components. Index 0/1 is unused.
@@ -471,6 +528,19 @@ private:
   llvm::SmallVector<const StructType *, 8> structTypes;
   llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
+  llvm::DenseMap<unsigned, SCToFwdPtrTyMap> fwdPointerTypes;
+  llvm::DenseMap<const DeclContext *, const SpirvFwdPointerType *>
+      fwdPointerForDecl;
+  llvm::DenseSet<const DeclContext *> registeredDecls;
+  llvm::DenseSet<const DeclContext *> inProgressDecls;
+  llvm::DenseSet<const StructType *> refdStructTypes;
+  llvm::DenseMap<const DeclContext *, unsigned> pointeeIdForDecl;
+  llvm::DenseMap<const SpirvPointerType *, const SpirvFwdPointerType *>
+      fwdPointerForPointer;
+  llvm::DenseMap<const SpirvFwdPointerType *, const SpirvPointerType *>
+      pointerForFwdPointer;
+  llvm::DenseMap<const StructType *, const SpirvPointerType *>
+      pointerForStruct;
   llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   llvm::DenseMap<unsigned, SpirvIntrinsicType*> spirvIntrinsicTypes;
@@ -490,6 +560,9 @@ private:
   /// recursively.
   llvm::StringMap<RichDebugInfo> debugInfo;
   SpirvDebugInstruction *currentLexicalScope;
+
+  // Ids for StructDecls pointee
+  unsigned nextPointeeId;
 
   // Mapping from SPIR-V type to debug type instruction.
   // The purpose is not to generate several DebugType* instructions for the same

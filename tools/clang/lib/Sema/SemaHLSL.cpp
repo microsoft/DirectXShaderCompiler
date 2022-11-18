@@ -3982,6 +3982,10 @@ public:
     return m_sema;
   }
 
+  ASTContext* getASTContext() {
+    return m_context;
+  }
+
   TypedefDecl* LookupScalarTypeDef(HLSLScalarType scalarType) {
     // We shouldn't create Typedef for built in scalar types.
     // For built in scalar types, this funciton may be called for
@@ -11417,11 +11421,20 @@ bool FlattenedTypeIterator::considerLeaf()
       result = considerLeaf();
     }
     break;
-  case FlattenedIterKind::FK_Fields:
-    if (pushTrackerForType(tracker.CurrentField->getType(), nullptr)) {
+  case FlattenedIterKind::FK_Fields: {
+    // If buffer ref, push unsigned64
+    auto fieldType = tracker.CurrentField->getType();
+    auto fDecl = tracker.CurrentField->getCanonicalDecl();
+    auto context = m_source.getASTContext();
+    if (context->IsBufferRef(fDecl)) {
+      if (pushTrackerForType(context->BufferRefProxyType(), nullptr))
+        result = considerLeaf();
+    }
+    else if (pushTrackerForType(fieldType, nullptr)) {
       result = considerLeaf();
     }
     break;
+  }
   case FlattenedIterKind::FK_Bases:
     if (pushTrackerForType(tracker.CurrentBase->getType(), nullptr)) {
       result = considerLeaf();
@@ -12465,6 +12478,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_VKLocation:
     declAttr = ::new (S.Context) VKLocationAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKBufferRef:
+    declAttr = ::new (S.Context) VKBufferRefAttr(A.getRange(), S.Context,
+	  ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKIndex:
     declAttr = ::new (S.Context) VKIndexAttr(A.getRange(), S.Context,
@@ -14010,6 +14027,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLWaveSensitive:
   case clang::attr::HLSLWaveSize:
   case clang::attr::VKBinding:
+  case clang::attr::VKBufferRef:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:
   case clang::attr::VKCounterBinding:

@@ -95,7 +95,7 @@ public:
   /// this method for the variable itself.
   SpirvVariable *addFnVar(QualType valueType, SourceLocation,
                           llvm::StringRef name = "", bool isPrecise = false,
-                          SpirvInstruction *init = nullptr);
+                          SpirvInstruction *init = nullptr, bool isRef = false);
 
   /// \brief Ends building of the current function. All basic blocks constructed
   /// from the beginning or after ending the previous function will be collected
@@ -208,7 +208,8 @@ public:
   SpirvAccessChain *
   createAccessChain(QualType resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
-                    SourceLocation loc, SourceRange range = {});
+                    SourceLocation loc, SourceRange range = {},
+                    uint32_t bufRefAlign = 0);
   SpirvAccessChain *
   createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
@@ -689,6 +690,9 @@ public:
 
   /// \brief Decorates the given target with noperspective
   void decorateNoPerspective(SpirvInstruction *target, SourceLocation);
+
+  /// \brief Decorates the given target with aliased pointer
+  void decorateAliasedPointer(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with sample
   void decorateSample(SpirvInstruction *target, SourceLocation);

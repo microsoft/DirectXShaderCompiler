@@ -2517,7 +2517,8 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
                          ? spv::Decoration::Block
                          : spv::Decoration::BufferBlock,
                      {});
-    else if (interfaceType == StructInterfaceType::UniformBuffer)
+    else if (interfaceType == StructInterfaceType::UniformBuffer ||
+             context.isRefdStructType(structType))
       emitDecoration(id, spv::Decoration::Block, {});
 
     initTypeInstruction(spv::Op::OpTypeStruct);
@@ -2525,14 +2526,36 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     for (auto fieldTypeId : fieldTypeIds)
       curTypeInst.push_back(fieldTypeId);
     finalizeTypeInstruction();
+    // Generate pointer if fwd pointer emitted
+    while (!emittedFwdPtrs.empty()) {
+      auto fwd_ptr = emittedFwdPtrs.back();
+      emittedFwdPtrs.pop_back();
+      auto ptr_ty = context.getPointerForFwdPointer(fwd_ptr);
+      (void)emitType(ptr_ty);
+    }
   }
   // Pointer types
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
+    uint32_t ptr_id = id;
+    auto fwd_ptr = context.getFwdPointerForPointer(ptrType);
+    if (fwd_ptr) {
+      // Use forward pointer id if emitted
+      ptr_id = emitType(fwd_ptr);
+      emittedTypes[ptrType] = ptr_id;
+    }
     const uint32_t pointeeType = emitType(ptrType->getPointeeType());
     initTypeInstruction(spv::Op::OpTypePointer);
-    curTypeInst.push_back(id);
+    curTypeInst.push_back(ptr_id);
     curTypeInst.push_back(static_cast<uint32_t>(ptrType->getStorageClass()));
     curTypeInst.push_back(pointeeType);
+    finalizeTypeInstruction();
+  }
+  // Forward Pointer types
+  else if (const auto *ptrType = dyn_cast<SpirvFwdPointerType>(type)) {
+    emittedFwdPtrs.push_back(ptrType);
+    initTypeInstruction(spv::Op::OpTypeForwardPointer);
+    curTypeInst.push_back(id);
+    curTypeInst.push_back(static_cast<uint32_t>(ptrType->getStorageClass()));
     finalizeTypeInstruction();
   }
   // Function types

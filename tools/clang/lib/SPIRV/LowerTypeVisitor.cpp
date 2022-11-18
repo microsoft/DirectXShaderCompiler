@@ -62,12 +62,16 @@ sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
   return output;
 }
 
-static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
+static void setDefaultFieldSize(const ASTContext &astContext,
+                                const AlignmentSizeCalculator &alignmentCalc,
                                 const SpirvLayoutRule rule,
                                 const HybridStructType::FieldInfo *currentField,
                                 StructType::FieldInfo *field) {
-
   const auto &fieldType = currentField->astType;
+  if (currentField->isBufferRef) {
+    field->sizeInBytes = astContext.BufferRefByteSize();
+    return;
+  }
   uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
   std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
       fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
@@ -77,17 +81,22 @@ static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
 
 // Correctly determine a field offset/size/padding depending on its neighbors
 // and other rules.
-static void
-setDefaultFieldOffset(const AlignmentSizeCalculator &alignmentCalc,
-                      const SpirvLayoutRule rule,
-                      const uint32_t previousFieldEnd,
-                      const HybridStructType::FieldInfo *currentField,
-                      StructType::FieldInfo *field) {
+static void setDefaultFieldOffset(const ASTContext &astContext,
+                                  const AlignmentSizeCalculator &alignmentCalc,
+                                  const SpirvLayoutRule rule,
+                                  const uint32_t previousFieldEnd,
+                                  const HybridStructType::FieldInfo *currentField,
+                                  StructType::FieldInfo *field) {
 
   const auto &fieldType = currentField->astType;
   uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
-  std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
-      fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
+  if (currentField->isBufferRef) {
+    memberAlignment = astContext.BufferRefByteAlign();
+    memberSize = astContext.BufferRefByteSize();
+  } else {
+    std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
+        fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
+  }
 
   const uint32_t baseOffset = previousFieldEnd;
   // The next avaiable location after laying out the previous members
@@ -272,8 +281,18 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     const StructType *structType = spvContext.getStructType(
         loweredFields, hybridStruct->getStructName(),
         hybridStruct->isReadOnly(), hybridStruct->getInterfaceType());
-    if (const auto *decl = spvContext.getStructDeclForSpirvType(type))
+    const auto *decl = spvContext.getStructDeclForSpirvType(type);
+    if (decl)
       spvContext.registerStructDeclForSpirvType(structType, decl);
+    // Check if a FwdPointer was created for this struct. If so, create a
+    // Pointer to this struct and map the Pointer to the FwdPointer for later
+    // SPIR-V generation.
+    auto fwdPtr = spvContext.getFwdPointerForDecl(decl);
+    if (fwdPtr != nullptr) {
+      const auto spvPtrType = spvContext.getPointerType(
+          structType, spv::StorageClass::PhysicalStorageBuffer);
+      spvContext.registerFwdPointerForPointer(fwdPtr, spvPtrType);
+    }
     return structType;
   }
   // Void, bool, int, float cannot be further lowered.
@@ -337,11 +356,14 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
 const SpirvType *LowerTypeVisitor::lowerType(QualType type,
                                              SpirvLayoutRule rule,
                                              llvm::Optional<bool> isRowMajor,
-                                             SourceLocation srcLoc) {
+                                             SourceLocation srcLoc,
+                                             bool isRef) {
+
   const auto desugaredType = desugarType(type, &isRowMajor);
 
   if (desugaredType != type) {
-    const auto *spvType = lowerType(desugaredType, rule, isRowMajor, srcLoc);
+    const auto *spvType = lowerType(desugaredType, rule, isRowMajor, srcLoc,
+                                    isRef);
     return spvType;
   }
 
@@ -500,6 +522,28 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   if (const auto *structType = type->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
 
+    if (isRef) {
+      // If the decl already has a registered FwdPointer,
+      // return the FwdPointer
+      auto fwdPtr = spvContext.getFwdPointerForDecl(decl);
+      if (fwdPtr != nullptr)
+        return fwdPtr;
+      // If the decl is not registered but is in progress,
+      // create a FwdPointer for decl, register the FwdPointer
+      // with the decl, and return the FwdPointer
+      if (!spvContext.isRegisteredStructDecl(decl) &&
+          spvContext.isInProgressStructDecl(decl)) {
+        auto pte_id = spvContext.getPointeeIdForStructDecl(decl);
+        fwdPtr = spvContext.getFwdPointerType(
+            pte_id, spv::StorageClass::PhysicalStorageBuffer);
+        spvContext.registerFwdPointerForDecl(fwdPtr, decl);
+        return fwdPtr;
+      }
+    }
+
+    // Remember decl is now in progress to avoid recursive loop
+    spvContext.setInProgressStructDecl(decl, true);
+
     // HLSL resource types are also represented as RecordType in the AST.
     // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which
     // is then a subclass of RecordDecl.) So we need to check them before
@@ -529,9 +573,13 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
             field->getBitWidthValue(field->getASTContext());
       }
 
+      // Look for buffer ref
+      bool isBufferRef = astContext.IsBufferRef(field);
+
       fields.push_back(HybridStructType::FieldInfo(
           field->getType(), field->getName(),
           /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
+          /*isBufferRef*/ isBufferRef,
           /*packoffset*/ getPackOffset(field),
           /*RegisterAssignment*/ nullptr,
           /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
@@ -543,7 +591,27 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     const auto *spvStructType =
         spvContext.getStructType(loweredFields, decl->getName());
     spvContext.registerStructDeclForSpirvType(spvStructType, decl);
-    return spvStructType;
+
+    // Remember decl is now completed
+    spvContext.setInProgressStructDecl(decl, false);
+
+    if (!isRef)
+      return spvStructType;
+
+    spvContext.registerRefdStructType(spvStructType);
+
+    const auto *spvPtrType = spvContext.getPointerType(
+        spvStructType, spv::StorageClass::PhysicalStorageBuffer);
+
+    // If decl has a FwdPointer, register the FwdPointer with the spvPtrType
+    // for use during SPIRV generation and return the FwdPointer.
+    auto fwdPtr = spvContext.getFwdPointerForDecl(decl);
+    if (fwdPtr != nullptr) {
+      spvContext.registerFwdPointerForPointer(fwdPtr, spvPtrType);
+      return fwdPtr;
+    }
+
+    return spvPtrType;
   }
 
   // Array type
@@ -584,8 +652,13 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>()) {
-    // The this object in a struct member function is of pointer type.
-    return lowerType(ptrType->getPointeeType(), rule, isRowMajor, srcLoc);
+    // This object in a struct member function is of pointer type. For example,
+    // buffer ref.
+    const auto *spvPteType =
+        lowerType(ptrType->getPointeeType(), rule, isRowMajor, srcLoc);
+    const auto *spvPtrType = spvContext.getPointerType(
+        spvPteType, spv::StorageClass::PhysicalStorageBuffer);
+    return spvPtrType;
   }
 
   // Enum types
@@ -898,11 +971,12 @@ StructType::FieldInfo
 LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
                              SpirvLayoutRule rule, const uint32_t fieldIndex) {
   auto fieldType = field->astType;
-  // Lower the field type fist. This call will populate proper matrix
+  // Lower the field type first. This call will populate proper matrix
   // majorness information.
-  StructType::FieldInfo loweredField(
-      lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), fieldIndex,
-      field->name);
+  StructType::FieldInfo loweredField(lowerType(fieldType, rule,
+                                               /*isRowMajor*/ llvm::None, {},
+                                               field->isBufferRef),
+                                     fieldIndex, field->name);
 
   // Set RelaxedPrecision information for the lowered field.
   if (isRelaxedPrecisionType(fieldType, spvOptions)) {
@@ -952,7 +1026,7 @@ LowerTypeVisitor::populateLayoutInformation(
                               const uint32_t nextFieldIndex) {
     StructType::FieldInfo loweredField =
         lowerField(currentField, rule, nextFieldIndex);
-    setDefaultFieldSize(alignmentCalc, rule, currentField, &loweredField);
+    setDefaultFieldSize(astContext, alignmentCalc, rule, currentField, &loweredField);
 
     // We only need size information for structures with non-void layout &
     // non-bitfield fields.
@@ -965,8 +1039,8 @@ LowerTypeVisitor::populateLayoutInformation(
           previousField ? previousField->offset.getValue() +
                               previousField->sizeInBytes.getValue()
                         : 0;
-      setDefaultFieldOffset(alignmentCalc, rule, previousFieldEnd, currentField,
-                            &loweredField);
+      setDefaultFieldOffset(astContext, alignmentCalc, rule, previousFieldEnd,
+                            currentField, &loweredField);
 
       // The vk::offset attribute takes precedence over all.
       if (currentField->vkOffsetAttr) {

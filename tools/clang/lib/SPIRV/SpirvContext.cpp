@@ -20,7 +20,7 @@ SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
       uintTypes({}), floatTypes({}), samplerType(nullptr),
       curShaderModelKind(ShaderModelKind::Invalid), majorVersion(0),
-      minorVersion(0), currentLexicalScope(nullptr) {
+      minorVersion(0), currentLexicalScope(nullptr), nextPointeeId(0) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
@@ -322,6 +322,51 @@ const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
   const HybridPointerType *result = new (this) HybridPointerType(pointee, sc);
   hybridPointerTypes.push_back(result);
   return result;
+}
+
+const SpirvFwdPointerType *
+SpirvContext::getFwdPointerType(const unsigned pointee_id,
+                                spv::StorageClass sc) {
+  auto foundPointee = fwdPointerTypes.find(pointee_id);
+
+  if (foundPointee != fwdPointerTypes.end()) {
+    auto &pointeeMap = foundPointee->second;
+    auto foundSC = pointeeMap.find(sc);
+
+    if (foundSC != pointeeMap.end())
+      return foundSC->second;
+  }
+
+  return fwdPointerTypes[pointee_id][sc] =
+             new (this) SpirvFwdPointerType(pointee_id, sc);
+}
+
+const SpirvFwdPointerType *
+SpirvContext::getFwdPointerForDecl(const DeclContext *decl) {
+  auto foundPointer = fwdPointerForDecl.find(decl);
+  return (foundPointer != fwdPointerForDecl.end()) ? foundPointer->second
+                                                   : nullptr;
+}
+
+void SpirvContext::registerFwdPointerForDecl(const SpirvFwdPointerType *fwd_ptr,
+                                             const DeclContext *decl) {
+  fwdPointerForDecl[decl] = fwd_ptr;
+}
+
+void SpirvContext::registerFwdPointerForPointer(
+    const SpirvFwdPointerType *fwd_ptr, const SpirvPointerType *ptr) {
+  fwdPointerForPointer[ptr] = fwd_ptr;
+  pointerForFwdPointer[fwd_ptr] = ptr;
+}
+
+const SpirvFwdPointerType *
+SpirvContext::getFwdPointerForPointer(const SpirvPointerType *ptr) {
+  return fwdPointerForPointer[ptr];
+}
+
+const SpirvPointerType *
+SpirvContext::getPointerForFwdPointer(const SpirvFwdPointerType *fwd_ptr) {
+  return pointerForFwdPointer[fwd_ptr];
 }
 
 FunctionType *

@@ -14,7 +14,6 @@
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
 #include "clang/AST/ASTMutationListener.h"
-#include "clang/AST/Attr.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Comment.h"
 #include "clang/AST/CommentCommandTraits.h"
@@ -3217,8 +3216,8 @@ ASTContext::getTypedefType(const TypedefNameDecl *Decl,
 
   if (Canonical.isNull())
     Canonical = getCanonicalType(Decl->getUnderlyingType());
-  TypedefType *newType = new(*this, TypeAlignment)
-    TypedefType(Type::Typedef, Decl, Canonical);
+  TypedefType *newType =
+      new (*this, TypeAlignment) TypedefType(Type::Typedef, Decl, Canonical);
   Decl->TypeForDecl = newType;
   Types.push_back(newType);
   return QualType(newType, 0);
@@ -8906,3 +8905,59 @@ clang::LazyGenerationalUpdatePtr<
 clang::LazyGenerationalUpdatePtr<
     const Decl *, Decl *, &ExternalASTSource::CompleteRedeclChain>::makeValue(
         const clang::ASTContext &Ctx, Decl *Value);
+
+// Buffer Reference Utilities
+
+bool
+ASTContext::IsBufferRefDecl(const Decl *D) const {
+  return D->hasAttr<VKBufferRefAttr>();
+}
+
+bool
+ASTContext::IsBufferRefTypeDef(QualType T) const {
+  auto typedef_type = T->getAs<TypedefType>();
+  if (!typedef_type)
+    return false;
+  auto decl = typedef_type->getDecl();
+  return decl->hasAttr<VKBufferRefAttr>();
+}
+
+bool ASTContext::IsBufferRef(const ValueDecl *D) const {
+  return IsBufferRefDecl(D) || IsBufferRefTypeDef(D->getType());
+}
+
+VKBufferRefAttr*
+ASTContext::GetBufferRefAttr(const Expr *base) const {
+  VKBufferRefAttr *attr = nullptr;
+  if (const auto *arg = dyn_cast<DeclRefExpr>(base))
+    if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl()))
+      attr = varDecl->getAttr<VKBufferRefAttr>();
+  if (attr == nullptr) {
+    auto typedef_type = base->getType()->getAs<TypedefType>();
+    if (typedef_type) {
+      auto decl = typedef_type->getDecl();
+      attr = decl->getAttr<VKBufferRefAttr>();
+    }
+  }
+  return attr;
+}
+
+VKBufferRefAttr *ASTContext::GetBufferRefAttr(const ValueDecl *decl) const {
+  auto attr = decl->getAttr<VKBufferRefAttr>();
+  if (attr == nullptr) {
+    const auto fieldType = decl->getType();
+    const auto typedef_type = fieldType->getAs<TypedefType>();
+    if (typedef_type) {
+      auto decl = typedef_type->getDecl();
+      attr = decl->getAttr<VKBufferRefAttr>();
+    }
+  }
+  return attr;
+}
+
+uint32_t ASTContext::BufferRefByteSize() const { return 8u; }
+uint32_t ASTContext::BufferRefByteAlign() const { return 8u; }
+
+clang::CanQualType ASTContext::BufferRefProxyType() const {
+  return UnsignedLongLongTy;
+}

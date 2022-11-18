@@ -186,7 +186,7 @@ private:
   /// reference to adjust the CodeGen if not nullptr.
   void storeValue(SpirvInstruction *lhsPtr, SpirvInstruction *rhsVal,
                   QualType lhsValType, SourceLocation loc,
-                  SourceRange range = {});
+                  SourceRange range = {}, bool isRef = false);
 
   /// Decomposes and reconstructs the given srcVal of the given valType to meet
   /// the requirements of the dstLR layout rule.
@@ -363,11 +363,14 @@ private:
   /// CXXOperatorCallExprs. Also special handles all mesh shader out attributes
   /// to return the entire expression in order for caller to extract the member
   /// expression.
-  const Expr *
-  collectArrayStructIndices(const Expr *expr, bool rawIndex,
-                            llvm::SmallVectorImpl<uint32_t> *rawIndices,
-                            llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-                            bool *isMSOutAttribute = nullptr);
+  const Expr *collectArrayStructIndices(
+      const Expr *expr, bool rawIndex,
+      llvm::SmallVectorImpl<uint32_t> *rawIndices,
+      llvm::SmallVectorImpl<SpirvInstruction *> *indices,
+      bool *isMSOutAttribute = nullptr,
+      llvm::SmallVectorImpl<bool> *isRef = nullptr,
+      llvm::SmallVectorImpl<QualType> *refTypes = nullptr,
+      llvm::SmallVectorImpl<uint32_t> *refAligns = nullptr);
 
   /// For L-values, creates an access chain to index into the given SPIR-V
   /// evaluation result and returns the new SPIR-V evaluation result.
@@ -376,7 +379,11 @@ private:
   SpirvInstruction *derefOrCreatePointerToValue(
       QualType baseType, SpirvInstruction *base, QualType elemType,
       const llvm::SmallVector<SpirvInstruction *, 4> &indices,
-      SourceLocation loc, SourceRange range = {});
+      SourceLocation loc, SourceRange range = {},
+      const llvm::SmallVector<bool, 4> *isRef = nullptr,
+      const llvm::SmallVector<QualType, 4> *refTypes = nullptr,
+      const llvm::SmallVector<uint32_t, 4> *refAligns = nullptr,
+      uint32_t baseAlign = 0);
 
   SpirvVariable *turnIntoLValue(QualType type, SpirvInstruction *source,
                                 SourceLocation loc);

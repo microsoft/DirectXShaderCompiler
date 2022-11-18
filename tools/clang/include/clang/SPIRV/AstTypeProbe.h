@@ -233,7 +233,8 @@ bool isAKindOfStructuredOrByteBuffer(QualType type);
 /// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
 /// (RW)ByteAddressBuffer, {Append|Consume}StructuredBuffer, or a struct
 /// containing one of the above.
-bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type);
+bool isOrContainsAKindOfStructuredOrByteBuffer(const ASTContext &astContext,
+                                               QualType type);
 
 /// \brief Returns true if the given type is the HLSL Buffer type.
 bool isBuffer(QualType type);
@@ -285,7 +286,7 @@ bool isOpaqueArrayType(QualType type);
 /// (in a recursive away).
 ///
 /// Note: legalization specific code
-bool isOpaqueStructType(QualType type);
+bool isOpaqueStructType(const ASTContext &astContext, QualType type);
 
 /// \brief Returns true if the given type can use relaxed precision
 /// decoration. Integer and float types with lower than 32 bits can be
