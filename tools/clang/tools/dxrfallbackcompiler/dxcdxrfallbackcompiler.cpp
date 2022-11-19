@@ -331,7 +331,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
         }
 
         DiagStream.flush();
-        CComPtr<IStream> pStream = pDiagStream;
+        CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
         std::string warnings;
         dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, hasErrors, ppResult);
     }
@@ -415,7 +415,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::PatchShaderBindingTables(
         }
 
         DiagStream.flush();
-        CComPtr<IStream> pStream = pDiagStream;
+        CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
         std::string warnings;
         dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, false, ppResult);
     }
@@ -574,7 +574,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Link(
         }
 
         DiagStream.flush();
-        CComPtr<IStream> pStream = pDiagStream;
+        CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
         std::string warnings;
         dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, hasErrors, ppResult);
     }
@@ -729,7 +729,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
     }
 
     DiagStream.flush();
-    CComPtr<IStream> pStream = pDiagStream;
+    CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
     std::string warnings;
     dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, hasErrors, ppResult);
 
