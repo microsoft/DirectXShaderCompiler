@@ -87,6 +87,12 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
              {});
   }
   targetEnv = *targetEnvOpt;
+
+  // Override the default mesh extension to SPV_EXT_mesh_shader when the
+  // target environment is SPIR-V 1.4 or above
+  if (isTargetEnvSpirv1p4OrAbove()) {
+    allowExtension("SPV_EXT_mesh_shader");
+  }
 }
 
 bool FeatureManager::allowExtension(llvm::StringRef name) {
@@ -166,6 +172,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::EXT_fragment_fully_covered)
       .Case("SPV_EXT_fragment_invocation_density",
             Extension::EXT_fragment_invocation_density)
+      .Case("SPV_EXT_mesh_shader", Extension::EXT_mesh_shader)
       .Case("SPV_EXT_shader_stencil_export",
             Extension::EXT_shader_stencil_export)
       .Case("SPV_EXT_shader_viewport_index_layer",
@@ -221,6 +228,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_EXT_fragment_fully_covered";
   case Extension::EXT_fragment_invocation_density:
     return "SPV_EXT_fragment_invocation_density";
+  case Extension::EXT_mesh_shader:
+    return "SPV_EXT_mesh_shader";
   case Extension::EXT_shader_stencil_export:
     return "SPV_EXT_shader_stencil_export";
   case Extension::EXT_shader_viewport_index_layer:
@@ -331,6 +340,9 @@ bool FeatureManager::enabledByDefault(Extension ext) {
     // behavior for the 'discard' statement. Therefore we will only enable it if
     // the user explicitly asks for it.
   case Extension::EXT_demote_to_helper_invocation:
+    return false;
+  case Extension::EXT_mesh_shader:
+    // Enabling EXT_mesh_shader only when the target environment is SPIR-V 1.4 or above
     return false;
   default:
     return true;

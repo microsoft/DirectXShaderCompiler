@@ -143,6 +143,9 @@ public:
   DEFINE_VISIT_METHOD(SpirvReadClock)
   DEFINE_VISIT_METHOD(SpirvRayTracingTerminateOpKHR)
   DEFINE_VISIT_METHOD(SpirvIntrinsicInstruction)
+
+  DEFINE_VISIT_METHOD(SpirvEmitMeshTasksEXT)
+  DEFINE_VISIT_METHOD(SpirvSetMeshOutputsEXT)
 #undef DEFINE_VISIT_METHOD
 
   const SpirvCodeGenOptions &getCodeGenOptions() const { return spvOptions; }

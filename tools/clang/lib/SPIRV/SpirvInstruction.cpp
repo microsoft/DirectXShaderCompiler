@@ -110,6 +110,8 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayQueryOpKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvReadClock)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIntrinsicInstruction)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitMeshTasksEXT)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSetMeshOutputsEXT)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -1106,6 +1108,20 @@ SpirvIntrinsicInstruction::SpirvIntrinsicInstruction(
       instruction(opcode), operands(vecOperands.begin(), vecOperands.end()),
       capabilities(capts.begin(), capts.end()),
       extensions(exts.begin(), exts.end()), instructionSet(set) {}
+
+SpirvEmitMeshTasksEXT::SpirvEmitMeshTasksEXT(
+    SpirvInstruction *xDim, SpirvInstruction *yDim, SpirvInstruction *zDim,
+    SpirvInstruction *payload, SourceLocation loc, SourceRange range)
+    : SpirvInstruction(IK_EmitMeshTasksEXT, spv::Op::OpEmitMeshTasksEXT,
+                       QualType(), loc, range),
+      xDim(xDim), yDim(yDim), zDim(zDim), payload(payload) {}
+
+SpirvSetMeshOutputsEXT::SpirvSetMeshOutputsEXT(
+    SpirvInstruction *vertCount, SpirvInstruction *primCount,
+    SourceLocation loc, SourceRange range)
+    : SpirvInstruction(IK_SetMeshOutputsEXT, spv::Op::OpSetMeshOutputsEXT,
+                       QualType(), loc, range),
+      vertCount(vertCount), primCount(primCount) {}
 
 } // namespace spirv
 } // namespace clang
