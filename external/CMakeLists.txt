@@ -7,6 +7,25 @@ if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
   add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
 endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
 
+# Need DirectX-Headers module if not on windows
+if (NOT WIN32)
+  set(DXC_DIRECTX_HEADERS_DIR "${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers"
+      CACHE STRING "Location of DirectX-Headers source")
+  if (NOT DEFINED DirectX-Headers_SOURCE_DIR)
+    if (IS_DIRECTORY ${DXC_DIRECTX_HEADERS_DIR})
+      add_subdirectory(${DXC_DIRECTX_HEADERS_DIR}
+          "${CMAKE_BINARY_DIR}/external/DirectX-Headers"
+          EXCLUDE_FROM_ALL)
+    endif()
+  endif()
+
+  if (NOT DEFINED DirectX-Headers_SOURCE_DIR)
+    message(FATAL_ERROR "DirectX-Headers was not found - required for reflection support on *nix see https://github.com/microsoft/DirectX-Headers")
+  else()
+    set(DIRECTX_HEADER_INCLUDE_DIR ${DirectX-Headers_SOURCE_DIR}/include PARENT_SCOPE)
+  endif()
+endif (NOT WIN32)
+
 # Enabling SPIR-V codegen requires SPIRV-Headers for spirv.hpp and
 # SPIRV-Tools for SPIR-V disassembling functionality.
 if (${ENABLE_SPIRV_CODEGEN})

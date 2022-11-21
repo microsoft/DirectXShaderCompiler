@@ -33,6 +33,8 @@
 #include <vector>
 #endif // __cplusplus
 
+#define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
+
 //===----------------------------------------------------------------------===//
 //
 //                             Begin: Macro Definitions
@@ -64,10 +66,12 @@
 #endif // __EMULATE_UUID
 
 #define STDMETHODCALLTYPE
-#define STDAPI extern "C" HRESULT STDAPICALLTYPE
-#define STDAPI_(type) extern "C" type STDAPICALLTYPE
-#define STDMETHODIMP HRESULT STDMETHODCALLTYPE
 #define STDMETHODIMP_(type) type STDMETHODCALLTYPE
+#define STDMETHODIMP STDMETHODIMP_(HRESULT)
+#define STDMETHOD_(type,name) virtual STDMETHODIMP_(type) name
+#define STDMETHOD(name) STDMETHOD_(HRESULT, name)
+#define EXTERN_C extern "C"
+
 
 #define UNREFERENCED_PARAMETER(P) (void)(P)
 
@@ -325,6 +329,9 @@
 #define _Null_
 #define _Notnull_
 #define _Maybenull_
+#define THIS_
+#define THIS
+#define PURE = 0
 
 #define _Outptr_result_bytebuffer_(size)
 
@@ -351,6 +358,7 @@
 
 typedef unsigned char BYTE, UINT8;
 typedef unsigned char *LPBYTE;
+typedef const unsigned char *LPCBYTE;
 
 typedef BYTE BOOLEAN;
 typedef BOOLEAN *PBOOLEAN;
@@ -364,6 +372,7 @@ typedef unsigned int UINT;
 typedef unsigned long ULONG;
 typedef long long LONGLONG;
 typedef long long LONG_PTR;
+typedef unsigned long long ULONG_PTR;
 typedef unsigned long long ULONGLONG;
 
 typedef uint16_t WORD;
@@ -403,6 +412,7 @@ typedef signed int HRESULT;
 //===--------------------- Handle Types -----------------------------------===//
 
 typedef void *HANDLE;
+typedef void *RPC_IF_HANDLE;
 
 #define DECLARE_HANDLE(name)                                                   \
   struct name##__ {                                                            \
@@ -609,6 +619,13 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 #define IID_PPV_ARGS(ppType) __uuidof(**(ppType)), IID_PPV_ARGS_Helper(ppType)
 
 #endif // __EMULATE_UUID
+
+// Needed for d3d headers, but fail to create actual interfaces
+#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) const GUID name = { l, w1, w2, { b1, b2,  b3,  b4,  b5,  b6,  b7,  b8 } }
+#define DECLSPEC_UUID(x)
+#define MIDL_INTERFACE(x) struct DECLSPEC_UUID(x)
+#define DECLARE_INTERFACE(iface)                struct iface
+#define DECLARE_INTERFACE_(iface, parent)       DECLARE_INTERFACE(iface) : parent
 
 //===--------------------- COM Interfaces ---------------------------------===//
 
