@@ -37,19 +37,17 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxctools.h"
+#include "dxc/Support/D3DReflection.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 
-#ifdef _WIN32 // Reflection unsupported
 #include "dxc/Test/D3DReflectionDumper.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/Test/RDATDumper.h"
 
-#include "d3d12shader.h"
 using namespace hlsl::dump;
-#endif // WIN32 - Reflection unsupported
 
 using namespace std;
 using namespace hlsl_test;
@@ -108,22 +106,10 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
     return RunOpt(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%listparts")) {
-#ifdef _WIN32 // Reflection unsupported
     return RunListParts(DllSupport, Prior);
-#else
-    FileRunCommandResult result = FileRunCommandResult::Success("Can't run listparts on non-windows, so just assuming success");
-    result.AbortPipeline = true;
-    return result;
-#endif // WIN32 - Reflection unsupported
   }
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
-#ifdef _WIN32 // Reflection unsupported
     return RunD3DReflect(DllSupport, Prior);
-#else
-    FileRunCommandResult result = FileRunCommandResult::Success("Can't run D3DReflect on non-windows, so just assuming success");
-    result.AbortPipeline = true;
-    return result;
-#endif // WIN32 - Reflection unsupported
   }
   else if (0 == _stricmp(Command.c_str(), "%dxr")) {
     return RunDxr(DllSupport, Prior);
@@ -666,7 +652,6 @@ FileRunCommandResult FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, 
   return FileRunCommandResult::Success(BlobToUtf8(pOutputText));
 }
 
-#ifdef _WIN32 // Reflection unsupported
 FileRunCommandResult FileRunCommandPart::RunListParts(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
@@ -811,7 +796,6 @@ FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSu
 
   return FileRunCommandResult::Success(ss.str());
 }
-#endif // _WIN32 - Reflection unsupported
 
 FileRunCommandResult FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.

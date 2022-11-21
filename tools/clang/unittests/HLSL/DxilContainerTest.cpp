@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <unordered_set>
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/D3DReflection.h"
 #include "dxc/dxcapi.h"
 #ifdef _WIN32
 #include <atlfile.h>
@@ -139,7 +140,7 @@ public:
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
   }
 
-#ifdef _WIN32 // - Reflection Unsupported
+#ifdef _WIN32 // DXBC Unsupported
   void CompareShaderInputBindDesc(D3D12_SHADER_INPUT_BIND_DESC *pTestDesc,
     D3D12_SHADER_INPUT_BIND_DESC *pBaseDesc) {
     VERIFY_ARE_EQUAL(pTestDesc->BindCount, pBaseDesc->BindCount);
@@ -410,7 +411,7 @@ public:
         D3DReflect(pBlob->GetBufferPointer(), pBlob->GetBufferSize(),
                    __uuidof(ID3D12ShaderReflection), (void **)ppReflection));
   }
-#endif // _WIN32 - Reflection unsupported
+#endif // _WIN32 - DXBC Unsupported
 
   void CompileToProgram(LPCSTR program, LPCWSTR entryPoint, LPCWSTR target,
                         LPCWSTR *pArguments, UINT32 argCount,
@@ -546,7 +547,7 @@ public:
     }
   }
 
-#ifdef _WIN32 // Reflection unsupported
+#ifdef _WIN32  // DXBC Unsupported
   WEX::Common::String WStrFmt(const wchar_t* msg, ...) {
     va_list args;
     va_start(args, msg);
@@ -590,7 +591,7 @@ public:
 
     CompareReflection(pProgramReflection, pProgramReflectionDXBC);
   }
-#endif // _WIN32 - Reflection unsupported
+#endif // _WIN32 - DXBC Unsupported
 };
 
 bool DxilContainerTest::InitSupport() {
@@ -888,7 +889,6 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
 #endif
 }
 
-#ifdef _WIN32 // - Reflection unsupported
 TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
   const char asSource[] =
@@ -1649,7 +1649,6 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
     }
   }
 }
-#endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -1897,7 +1896,7 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
   return S_OK;
 }
 
-#ifdef _WIN32 // Reflection unsupported
+#ifdef _WIN32 // DXBC unsupported
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
@@ -1968,7 +1967,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
     }
   }
 }
-#endif // _WIN32 - Reflection unsupported
+#endif // _WIN32 - DXBC unsupported
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");

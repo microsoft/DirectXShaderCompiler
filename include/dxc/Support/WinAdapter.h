@@ -683,6 +683,11 @@ struct IStream : public ISequentialStream {
   virtual HRESULT Clone(IStream **ppstm) = 0;
 };
 
+// These don't need stub implementations as they come from the DirectX Headers
+// They still need the __uuidof() though
+CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection, "8E349D19-54DB-4A56-9DC9-119D87BDB804")
+CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection, "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
+
 //===--------------------- COM Pointer Types ------------------------------===//
 
 class CAllocator {
