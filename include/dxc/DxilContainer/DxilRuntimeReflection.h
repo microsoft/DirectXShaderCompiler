@@ -237,15 +237,9 @@ public:
 template<typename _T>
 class RecordTraits {
 public:
-  static constexpr const char *TypeName() {
-    assert(false);
-    return nullptr;
-  }
+  static constexpr const char *TypeName();
 
-  static constexpr RuntimeDataPartType PartType() {
-    assert(false);
-    return RuntimeDataPartType::Invalid;
-  }
+  static constexpr RuntimeDataPartType PartType();
 
   // If the following static assert is hit, it means a structure defined with
   // RDAT_STRUCT is being used in ref type, which requires the struct to have
