@@ -12,6 +12,7 @@
 #pragma once
 
 #include "dxc/Support/Global.h"
+#include "dxc/Test/D3DReflectionStrings.h"
 #include <string>
 #include <ostream>
 #include <sstream>
@@ -19,6 +20,7 @@
 #include <unordered_set>
 
 namespace hlsl {
+using namespace RDAT;
 namespace dump {
 
 template<typename _T>

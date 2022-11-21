@@ -5,6 +5,7 @@ include_directories(${TAEF_INCLUDE_DIRS})
 
 add_clang_library(HLSLTestLib
   D3DReflectionDumper.cpp
+  D3DReflectionStrings.cpp
   DxcTestUtils.cpp
   FileCheckerTest.cpp
   FileCheckForTest.cpp
@@ -13,6 +14,7 @@ add_clang_library(HLSLTestLib
 else(WIN32)
 set(HLSL_IGNORE_SOURCES
   D3DReflectionDumper.cpp
+  D3DReflectionStrings.cpp
   RDATDumper.cpp
 )
 add_clang_library(HLSLTestLib
