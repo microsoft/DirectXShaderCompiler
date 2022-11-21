@@ -132,6 +132,8 @@ namespace WEX {
 namespace Common {
 class String : public std::wstring {
 public:
+  String() = default;
+  String(const wchar_t *S) : std::wstring(S) {}
   size_t GetLength() { return length(); }
   bool IsEmpty() { return empty(); }
   int CompareNoCase(std::wstring str) const {

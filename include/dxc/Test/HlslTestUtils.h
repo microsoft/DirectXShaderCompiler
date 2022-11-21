@@ -26,6 +26,7 @@
 #include "WEXAdapter.h"
 #endif
 #include "dxc/Support/Unicode.h"
+#include "dxc/Test/TestConfig.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 
 using namespace std;
@@ -212,7 +213,8 @@ inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR param
     if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(paramName, HlslDataDirValue)))
       return std::wstring();
   } else {
-    ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue));
+    if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue)))
+      HlslDataDirValue = DEFAULT_TEST_DIR;
   }
 
   wchar_t envPath[MAX_PATH];
