@@ -5867,28 +5867,32 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   instr = turnIntoElementPtr(base->getType(), instr, expr->getType(), indices,
                              base->getExprLoc(), range);
 
-#if 1
   const auto *fieldDecl = dynamic_cast<FieldDecl*>(expr->getMemberDecl());
-#else
-  // TODO: find out if this might be a CXXMethodDecl and handle correctly if so
-  // look at CGExpr.cpp:3043 for the possibilities of what this could be cast to and how to handle them
-  const auto *fieldDecl = cast<FieldDecl>(expr->getMemberDecl());
-  assert(fieldDecl);
-#endif
   if (!fieldDecl || !fieldDecl->isBitField()) {
     return instr;
   }
 
-  const ASTRecordLayout &layout = astContext.getASTRecordLayout(fieldDecl->getParent());
-  // TODO: see CGRecordLayoutBuilder.cpp:226 for reference on how to calculate
-  uint32_t bitOffset = layout.getFieldOffset(
-      fieldDecl->getFieldIndex()); // TODO: subtract the starting offset of
-                                   // the storage type
-  uint32_t bitWidth = fieldDecl->getBitWidthValue(astContext);
-  bool isSigned = fieldDecl->getType()->isSignedIntegerOrEnumerationType();
+  auto baseType = expr->getBase()->getType();
+  if (baseType->isPointerType()) {
+    baseType = baseType->getPointeeType();
+  }
+  const uint32_t indexAST = getNumBaseClasses(baseType) + fieldDecl->getFieldIndex();
+
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+  const SpirvType *spvType = lowerTypeVisitor.lowerType(
+      baseType,
+      spirvOptions.sBufferLayoutRule,
+      llvm::None, SourceLocation());
+  const StructType *st = dynamic_cast<const StructType*>(spvType);
+  assert(st);
+
+  const uint32_t bitOffset = st->getFields()[indexAST].bitfield->offsetInBits;
+  const uint32_t bitWidth = st->getFields()[indexAST].bitfield->sizeInBits;
+  const bool isSigned = fieldDecl->getType()->isSignedIntegerOrEnumerationType();
 
   SpirvBitFieldInfo bitFieldInfo{bitOffset, bitWidth, isSigned};
   instr->setBitFieldInfo(bitFieldInfo);
+
   return instr;
 }
 

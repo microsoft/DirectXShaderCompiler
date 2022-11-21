@@ -2309,6 +2309,9 @@ TEST_F(FileTest, VulkanLayoutStructRelaxedLayout) {
 TEST_F(FileTest, VulkanLayoutStructBitfield) {
   runFileTest("vk.layout.struct.bitfield.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutStructBitfieldAssignment) {
+  runFileTest("vk.layout.struct.bitfield.assignment.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
   // Checks the behavior of [[vk::offset]]

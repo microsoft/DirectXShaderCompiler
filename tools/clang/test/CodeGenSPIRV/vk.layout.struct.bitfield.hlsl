@@ -78,6 +78,7 @@
 // CHECK: %S11 = OpTypeStruct %uint %uint
 // CHECK: %S12 = OpTypeStruct %uint %uint
 // CHECK: %S13 = OpTypeStruct %uint %v4float
+// CHECK: %S14 = OpTypeStruct %uint
 
 // Sanity check.
 struct S1 {
@@ -150,6 +151,12 @@ struct S13 {
     float4 f2;
 };
 
+struct S14 {
+    uint f1 : 1;
+    uint f2 : 3;
+    uint f3 : 8;
+};
+
 cbuffer buff : register(b0) {
   S1 CB_s1;
   S2 CB_s2;
@@ -164,6 +171,7 @@ cbuffer buff : register(b0) {
   S11 CB_s11;
   S12 CB_s12;
   S13 CB_s13;
+  S14 CB_s14;
 }
 
 uint main() : A {
