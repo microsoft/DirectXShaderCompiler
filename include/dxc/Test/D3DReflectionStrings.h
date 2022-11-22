@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include <d3d12shader.h>
+#include "dxc/Support/D3DReflection.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 
 namespace hlsl {
