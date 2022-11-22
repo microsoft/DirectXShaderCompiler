@@ -624,7 +624,7 @@ public:
   void VerifyRawBufferLdStTestResults(const std::shared_ptr<st::ShaderOpTest> test, const RawBufferLdStTestData<Ty> &testData);
                                       
   bool SetupRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType, CComPtr<ID3D12Device> &pDevice, 
-                              CComPtr<IStream> &pStream, char *&sTy, char *&additionalOptions);
+                              CComPtr<IStream> &pStream, const char *&sTy, const char *&additionalOptions);
 
   template <class Ty>
   void RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice, const char *pShaderModelStr, const char *pShader, Ty *pInputDataPairs, unsigned inputDataCount);
@@ -9225,7 +9225,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
 
 bool ExecutionTest::SetupRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
                                            CComPtr<ID3D12Device> &pDevice, CComPtr<IStream> &pStream, 
-                                           char *&sTy, char *&additionalOptions) {
+                                           const char *&sTy, const char *&additionalOptions) {
   if (!CreateDevice(&pDevice, shaderModel)) {
     return false;
   }
@@ -9333,7 +9333,8 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
 
    CComPtr<ID3D12Device> pDevice;
    CComPtr<IStream> pStream;
-   char *sTy = nullptr, *additionalOptions = nullptr;
+   const char *sTy = nullptr;
+   const char *additionalOptions = nullptr;
 
    if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
      return;
@@ -9373,7 +9374,8 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
 
   CComPtr<ID3D12Device> pDevice;
   CComPtr<IStream> pStream;
-  char *sTy = nullptr, *additionalOptions = nullptr;
+  const char *sTy = nullptr;
+  const char *additionalOptions = nullptr;
 
   if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
     return;

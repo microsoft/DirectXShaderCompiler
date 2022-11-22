@@ -10,7 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/Global.h"
-#include "dxc/test/RDATDumper.h"
+#include "dxc/Test/RDATDumper.h"
 
 using namespace hlsl;
 using namespace RDAT;
