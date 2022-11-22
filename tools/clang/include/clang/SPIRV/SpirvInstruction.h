@@ -14,6 +14,7 @@
 #include "clang/AST/APValue.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/SPIRV/SpirvType.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Optional.h"
@@ -38,13 +39,6 @@ class FunctionType;
 
 #define DEFINE_RELEASE_MEMORY_FOR_CLASS(cls)                                   \
   void releaseMemory() override { this->~cls(); }
-
-// TODO: document
-struct SpirvBitFieldInfo {
-  uint32_t bitOffset;
-  uint32_t bitCount;
-  bool isSigned;
-};
 
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
@@ -220,6 +214,9 @@ public:
   void setPrecise(bool p = true) { isPrecise_ = p; }
   bool isPrecise() const { return isPrecise_; }
 
+  void setBitfieldInfo(BitfieldInfo &info) { bitfieldInfo = info; }
+  llvm::Optional<BitfieldInfo> getBitfieldInfo() const { return bitfieldInfo; }
+
   /// Legalization-specific code
   ///
   /// Note: the following two functions are currently needed in order to support
@@ -228,11 +225,6 @@ public:
   /// TODO: Clean up aliasing and try to move it to a separate pass.
   void setContainsAliasComponent(bool contains) { containsAlias = contains; }
   bool containsAliasComponent() const { return containsAlias; }
-
-  void setBitFieldInfo(SpirvBitFieldInfo &info) { bitFieldInfo = info; }
-  llvm::Optional<SpirvBitFieldInfo> getBitfieldInfo() const {
-    return bitFieldInfo;
-  }
 
 protected:
   // Forbid creating SpirvInstruction directly
@@ -267,8 +259,7 @@ protected:
   bool isRelaxedPrecision_;
   bool isNonUniform_;
   bool isPrecise_;
-
-  llvm::Optional<SpirvBitFieldInfo> bitFieldInfo;
+  llvm::Optional<BitfieldInfo> bitfieldInfo;
 };
 
 /// \brief OpCapability instruction

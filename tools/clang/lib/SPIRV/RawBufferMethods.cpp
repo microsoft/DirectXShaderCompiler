@@ -54,7 +54,7 @@ SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset0(
   // need to load 32-bits at the very least.
   auto *loadPtr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                                {constUint0, index}, loc, range);
-  result = spvBuilder.load(astContext.UnsignedIntTy, loadPtr, loc, range);
+  result = spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr, loc, range);
   // Only need to mask the lowest 16 bits of the loaded 32-bit uint.
   // OpUConvert can perform truncation in this case.
   result = spvBuilder.createUnaryOp(
@@ -82,7 +82,7 @@ SpirvInstruction *RawBufferHandler::load32BitsAtBitOffset0(
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
   auto *loadPtr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                                {constUint0, index}, loc, range);
-  result = spvBuilder.load(astContext.UnsignedIntTy, loadPtr, loc, range);
+  result = spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr, loc, range);
   result = bitCastToNumericalOrBool(result, astContext.UnsignedIntTy,
                                     target32BitType, loc, range);
   result->setRValue();
@@ -115,7 +115,7 @@ SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset0(
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
   SpirvInstruction *word0 =
-      spvBuilder.load(astContext.UnsignedIntTy, ptr, loc, range);
+      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
   // Increment the base index
   index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                     index, constUint1, loc, range);
@@ -123,7 +123,7 @@ SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset0(
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
   SpirvInstruction *word1 =
-      spvBuilder.load(astContext.UnsignedIntTy, ptr, loc, range);
+      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
 
   // Convert both word0 and word1 to 64-bit uints.
   word0 = spvBuilder.createUnaryOp(
@@ -170,7 +170,7 @@ SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset16(
   // need to load 32-bits at the very least.
   auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                            {constUint0, index}, loc, range);
-  result = spvBuilder.load(astContext.UnsignedIntTy, ptr, loc, range);
+  result = spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
   result = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                      astContext.UnsignedIntTy, result,
                                      constUint16, loc, range);
@@ -430,7 +430,7 @@ void RawBufferHandler::store16BitsAtBitOffset0(SpirvInstruction *value,
                                     astContext.UnsignedShortTy, loc, range);
   result = spvBuilder.createUnaryOp(
       spv::Op::OpUConvert, astContext.UnsignedIntTy, result, loc, range);
-  spvBuilder.store(ptr, result, loc, range);
+  spvBuilder.createStore(ptr, result, loc, range);
 }
 
 void RawBufferHandler::store16BitsAtBitOffset16(SpirvInstruction *value,
@@ -459,8 +459,9 @@ void RawBufferHandler::store16BitsAtBitOffset16(SpirvInstruction *value,
                                      constUint16, loc, range);
   result = spvBuilder.createBinaryOp(
       spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
-      spvBuilder.load(astContext.UnsignedIntTy, ptr, loc), result, loc, range);
-  spvBuilder.store(ptr, result, loc, range);
+      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc), result, loc,
+      range);
+  spvBuilder.createStore(ptr, result, loc, range);
   index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                     index, constUint1, loc, range);
 }
@@ -481,7 +482,7 @@ void RawBufferHandler::store32BitsAtBitOffset0(SpirvInstruction *value,
                                            {constUint0, index}, loc, range);
   value = bitCastToNumericalOrBool(value, valueType, astContext.UnsignedIntTy,
                                    loc, range);
-  spvBuilder.store(ptr, value, loc, range);
+  spvBuilder.createStore(ptr, value, loc, range);
   index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                     index, constUint1, loc, range);
 }
@@ -521,12 +522,12 @@ void RawBufferHandler::store64BitsAtBitOffset0(SpirvInstruction *value,
                                 constUint32, loc, range),
       loc, range);
 
-  spvBuilder.store(ptr, lsb, loc, range);
+  spvBuilder.createStore(ptr, lsb, loc, range);
   index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                     index, constUint1, loc, range);
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
-  spvBuilder.store(ptr, msb, loc, range);
+  spvBuilder.createStore(ptr, msb, loc, range);
   index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                     index, constUint1, loc, range);
 }
@@ -584,7 +585,7 @@ void RawBufferHandler::storeArrayOfScalars(
 
       auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                                {constUint0, index}, loc, range);
-      spvBuilder.store(ptr, word, loc, range);
+      spvBuilder.createStore(ptr, word, loc, range);
       index =
           spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                     index, constUint1, loc, range);

@@ -30,6 +30,13 @@ enum class StructInterfaceType : uint32_t {
   UniformBuffer = 2,
 };
 
+struct BitfieldInfo {
+  // Offset of the bitfield, in bits, from the basetype start.
+  uint32_t offsetInBits;
+  // Size of the bitfield, in bits.
+  uint32_t sizeInBits;
+};
+
 class SpirvType {
 public:
   enum Kind {
@@ -320,13 +327,7 @@ public:
     bool isRelaxedPrecision;
     // Whether this field is marked as 'precise'.
     bool isPrecise;
-
-    // Whether this field is a bitfield or not. If set to false, bitfield width
-    // value is undefined.
-    struct BitfieldInfo {
-      uint32_t offsetInBits;
-      uint32_t sizeInBits;
-    };
+    // Information about the bitfield (if applicable).
     llvm::Optional<BitfieldInfo> bitfield;
   };
 
@@ -475,11 +476,11 @@ public:
               clang::VKOffsetAttr *offset = nullptr,
               hlsl::ConstantPacking *packOffset = nullptr,
               const hlsl::RegisterAssignment *regC = nullptr,
-              bool precise = false, bool isBitfield = false,
-              uint32_t bitfieldWidth = 0)
+              bool precise = false,
+              llvm::Optional<BitfieldInfo> bitfield = llvm::None)
         : astType(astType_), name(name_), vkOffsetAttr(offset),
           packOffsetAttr(packOffset), registerC(regC), isPrecise(precise),
-          isBitfield(isBitfield), bitfieldWidth(bitfieldWidth) {}
+          bitfield(std::move(bitfield)) {}
 
     // The field's type.
     QualType astType;
@@ -493,11 +494,9 @@ public:
     const hlsl::RegisterAssignment *registerC;
     // Whether this field is marked as 'precise'.
     bool isPrecise;
-
     // Whether this field is a bitfield or not. If set to false, bitfield width
     // value is undefined.
-    bool isBitfield;
-    uint32_t bitfieldWidth;
+    llvm::Optional<BitfieldInfo> bitfield;
   };
 
   HybridStructType(

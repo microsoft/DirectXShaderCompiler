@@ -510,17 +510,20 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
     // Create fields for all members of this struct
     for (const auto *field : decl->fields()) {
-      const uint32_t bitfieldWidth =
-          field->isBitField() ? field->getBitWidthValue(field->getASTContext())
-                              : 0;
+      llvm::Optional<BitfieldInfo> bitfieldInfo;
+      if (field->isBitField()) {
+        bitfieldInfo = BitfieldInfo();
+        bitfieldInfo->sizeInBits =
+            field->getBitWidthValue(field->getASTContext());
+      }
+
       fields.push_back(HybridStructType::FieldInfo(
           field->getType(), field->getName(),
           /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
           /*packoffset*/ getPackOffset(field),
           /*RegisterAssignment*/ nullptr,
           /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
-          /*isBitfield*/ field->isBitField(),
-          /*isBitfield*/ bitfieldWidth));
+          /*bitfield*/ bitfieldInfo));
     }
 
     auto loweredFields = populateLayoutInformation(fields, rule);
@@ -881,11 +884,7 @@ LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
   if (field->isPrecise) {
     loweredField.isPrecise = true;
   }
-  if (field->isBitfield) {
-    loweredField.bitfield = {
-        0 /* default value, modified when computing struct layout */,
-        field->bitfieldWidth};
-  }
+  loweredField.bitfield = field->bitfield;
 
   // We only need layout information for structures with non-void layout rule.
   if (rule == SpirvLayoutRule::Void) {
@@ -975,7 +974,7 @@ LowerTypeVisitor::populateLayoutInformation(
       return loweredField;
     }
 
-    if (!currentField->isBitfield) {
+    if (!currentField->bitfield.hasValue()) {
       return loweredField;
     }
 
@@ -994,7 +993,7 @@ LowerTypeVisitor::populateLayoutInformation(
     const auto &previousBitfield = previousField->bitfield.getValue();
     const uint32_t nextAvailableBit =
         previousBitfield.offsetInBits + previousBitfield.sizeInBits;
-    if (nextAvailableBit + currentField->bitfieldWidth > basetypeSize) {
+    if (nextAvailableBit + currentField->bitfield->sizeInBits > basetypeSize) {
       return loweredField;
     }
 
