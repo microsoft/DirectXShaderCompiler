@@ -27,16 +27,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          submodules: true
       - name: Setup Pages
         uses: actions/configure-pages@v2
+      - name: Install dependencies
+        run: sudo apt install -y ninja-build
       - name: Configure
-        run: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DDXC_COVERAGE=On -C ${{github.workspace}}/cmake/caches/PredefinedParams -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ${{github.workspace}}
+        run: mkdir build && cd build && cmake -G Ninja -DLLVM_PARALLEL_LINK_JOBS=1 -DLLVM_USE_LINKER=lld -DCMAKE_BUILD_TYPE=Release -DDXC_COVERAGE=On -C ${{github.workspace}}/cmake/caches/PredefinedParams.cmake -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ${{github.workspace}}
       - name: Build
-        run: cd build && make
+        run: cd build && ninja
       - name: Test
-        run: cd build && ctest
+        run: cd build && ctest --rerun-failed --output-on-failure
       - name: Generate Report
-        run: cd build && make generate-coverage-report
+        run: cd build && ninja generate-coverage-report
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
