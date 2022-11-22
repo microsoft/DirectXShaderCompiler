@@ -1854,7 +1854,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
 
     CComBSTR pMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
-    std::wstring mainFileName = pMainFileName;
+    std::wstring mainFileName = static_cast<const wchar_t*>(pMainFileName);
     VERIFY_ARE_EQUAL(mainFileName, L"hlsl.hlsl");
   };
 
@@ -4037,7 +4037,7 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
   WEX::Common::String value;
   VERIFY_SUCCEEDED(RuntimeParameters::TryGetValue(L"InputPath", value));
 
-  std::wstring path = value;
+  std::wstring path = static_cast<const wchar_t*>(value);
   if (!llvm::sys::path::is_absolute(CW2A(path.c_str()).m_psz)) {
     path = hlsl_test::GetPathToHlslDataFile(path.c_str());
   }

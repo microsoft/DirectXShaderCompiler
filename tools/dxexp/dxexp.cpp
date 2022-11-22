@@ -152,21 +152,21 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS14
 
 #define DXEXP_HIGHEST_SHADER_MODEL D3D_SHADER_MODEL_6_8
 
-static char *BoolToStrJson(bool value) {
+static const char *BoolToStrJson(bool value) {
   return value ? "true" : "false";
 }
 
-static char *BoolToStrText(bool value) {
+static const char *BoolToStrText(bool value) {
   return value ? "YES" : "NO";
 }
 
-static char *(*BoolToStr)(bool value);
+static const char *(*BoolToStr)(bool value);
 static bool IsOutputJson;
 
 #define json_printf(...) if (IsOutputJson) { printf(__VA_ARGS__); }
 #define text_printf(...) if (!IsOutputJson) { printf(__VA_ARGS__); }
 
-static char *ShaderModelToStr(D3D_SHADER_MODEL SM) {
+static const char *ShaderModelToStr(D3D_SHADER_MODEL SM) {
   switch ((UINT32)SM) {
   case D3D_SHADER_MODEL_5_1: return "5.1";
   case D3D_SHADER_MODEL_6_0: return "6.0";
