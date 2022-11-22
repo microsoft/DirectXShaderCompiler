@@ -99,11 +99,13 @@ add_lit_target("check-clang-unit" "Running lit suite clang-unit"
 # HLSL Change End - Add a separate target for clang unit tests
 
 # HLSL Change Begin - Add taef tests
-add_lit_target("check-hlsl" "Running lit suite hlsl"
-          ${CMAKE_CURRENT_SOURCE_DIR}/clang-hlsl
-          PARAMS ${CLANG_TEST_PARAMS}
-                 clang_hlsl_site_config=${CMAKE_CURRENT_BINARY_DIR}/clang-hlsl/lit.site.cfg
-          DEPENDS clang-hlsl-tests
-          ARGS ${CLANG_TEST_EXTRA_ARGS}
-        )
+if (WIN32)
+  add_lit_target("check-hlsl" "Running lit suite hlsl"
+            ${CMAKE_CURRENT_SOURCE_DIR}/clang-hlsl
+            PARAMS ${CLANG_TEST_PARAMS}
+                  clang_hlsl_site_config=${CMAKE_CURRENT_BINARY_DIR}/clang-hlsl/lit.site.cfg
+            DEPENDS clang-hlsl-tests
+            ARGS ${CLANG_TEST_EXTRA_ARGS}
+          )
+endif()
 # HLSL Change End
