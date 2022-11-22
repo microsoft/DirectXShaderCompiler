@@ -102,7 +102,7 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
 endif()
 
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
-if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
+if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32 AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
 
