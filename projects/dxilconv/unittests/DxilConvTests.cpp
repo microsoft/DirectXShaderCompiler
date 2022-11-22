@@ -188,7 +188,7 @@ TEST_F(DxilConvTest, ManualFileCheckTest) {
   WEX::Common::String value;
   VERIFY_SUCCEEDED(RuntimeParameters::TryGetValue(L"InputPath", value));
 
-  std::wstring path = value;
+  std::wstring path = static_cast<const wchar_t*>(value);
   if (!llvm::sys::path::is_absolute(CW2A(path.c_str()).m_psz)) {
     path = hlsl_test::GetPathToHlslDataFile(path.c_str());
   }
