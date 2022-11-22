@@ -206,6 +206,11 @@ if "%1"=="-spirvtest" (
 rem End SPIRV change
 if "%1"=="-ninja" (
   set BUILD_GENERATOR=Ninja
+  set PARALLEL_OPT=
+  shift /1 & goto :parse_args
+)
+if "%1"=="-clang" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
   shift /1 & goto :parse_args
 )
 if "%1"=="-update-generated-sources" (
