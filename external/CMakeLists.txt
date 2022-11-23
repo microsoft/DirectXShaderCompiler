@@ -9,10 +9,10 @@ endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
 
 # Need DirectX-Headers module if not on windows
 if (NOT WIN32)
-  if (NOT DEFINED DirectX-Headers_SOURCE_DIR)
-    message(FATAL_ERROR "DirectX-Headers was not found - required for reflection support on *nix see https://github.com/microsoft/DirectX-Headers")
+  if (IS_DIRECTORY "${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers")
+    set(DIRECTX_HEADER_INCLUDE_DIR ${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers/include PARENT_SCOPE)
   else()
-    set(DIRECTX_HEADER_INCLUDE_DIR ${DirectX-Headers_SOURCE_DIR}/include PARENT_SCOPE)
+    message(FATAL_ERROR "DirectX-Headers was not found - required for reflection support on *nix see https://github.com/microsoft/DirectX-Headers")
   endif()
 endif (NOT WIN32)
 
