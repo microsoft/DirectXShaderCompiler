@@ -224,6 +224,27 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
     return DM.GetPatchConstantFunction();
 }
 
+std::vector<llvm::Function *>
+GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
+
+  std::vector<llvm::Function *> ret;
+
+  for (llvm::Function &F : DM.GetModule()->functions()) {
+    if (F.isDeclaration() || F.isIntrinsic() || hlsl::OP::IsDxilOpFunc(&F))
+      continue;
+    if (F.getBasicBlockList().empty())
+      continue;
+    ret.push_back(&F);
+  }
+
+  auto patchConstant = DM.GetPatchConstantFunction();
+  if (patchConstant != nullptr) {
+    ret.push_back(patchConstant);
+  }
+
+  return ret;
+}
+
 std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
     std::vector<llvm::BasicBlock*> ret;
     auto entryPoints = DM.GetExportedFunctions();

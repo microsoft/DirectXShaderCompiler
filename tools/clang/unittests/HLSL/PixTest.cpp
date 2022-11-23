@@ -221,6 +221,8 @@ public:
   TEST_METHOD(PixStructAnnotation_ResourceAsMember)
   TEST_METHOD(PixStructAnnotation_WheresMyDbgValue)
 
+  TEST_METHOD(VirtualRegisters_InstructionCounts)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -717,9 +719,10 @@ public:
   {
     CComPtr<IDxcBlob> blob;
     std::vector<ValueLocation> valueLocations;
+    std::vector<std::string> lines;
   };
 
-  PassOutput RunAnnotationPasses(IDxcBlob * dxil)
+  PassOutput RunAnnotationPasses(IDxcBlob * dxil, int startingLineNumber = 0)
   {
     CComPtr<IDxcOptimizer> pOptimizer;
     VERIFY_SUCCEEDED(
@@ -727,7 +730,10 @@ public:
     std::vector<LPCWSTR> Options;
     Options.push_back(L"-opt-mod-passes");
     Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
-    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+    std::wstring annotationCommandLine =
+        L"-dxil-annotate-with-virtual-regs,startInstruction=" +
+        std::to_wstring(startingLineNumber);
+    Options.push_back(annotationCommandLine.c_str());
 
     CComPtr<IDxcBlob> pOptimizedModule;
     CComPtr<IDxcBlobEncoding> pText;
@@ -772,7 +778,7 @@ public:
       }
     }
 
-    return { std::move(pOptimizedModule), std::move(valueLocations) };
+    return { std::move(pOptimizedModule), std::move(valueLocations), std::move(lines) };
   }
 
   std::wstring Disassemble(IDxcBlob * pProgram)
@@ -3241,5 +3247,183 @@ void main()
     }
 }
 
+TEST_F(PixTest, VirtualRegisters_InstructionCounts) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  for (auto choice : OptimizationChoices) {
+    auto optimization = choice.Flag;
+    const char *hlsl = R"(
+
+RaytracingAccelerationStructure Scene : register(t0, space0);
+RWTexture2D<float4> RenderTarget : register(u0);
+
+struct SceneConstantBuffer
+{
+    float4x4 projectionToWorld;
+    float4 cameraPosition;
+    float4 lightPosition;
+    float4 lightAmbientColor;
+    float4 lightDiffuseColor;
+};
+
+ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
+
+struct RayPayload
+{
+    float4 color;
+};
+
+inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
+{
+    float2 xy = index + 0.5f; // center in the middle of the pixel.
+    float2 screenPos = xy;// / DispatchRaysDimensions().xy * 2.0 - 1.0;
+
+    // Invert Y for DirectX-style coordinates.
+    screenPos.y = -screenPos.y;
+
+    // Unproject the pixel coordinate into a ray.
+    float4 world = /*mul(*/float4(screenPos, 0, 1)/*, g_sceneCB.projectionToWorld)*/;
+
+    //world.xyz /= world.w;
+    origin = world.xyz; //g_sceneCB.cameraPosition.xyz;
+    direction = float3(1,0,0);//normalize(world.xyz - origin);
+}
+
+void RaygenCommon()
+{
+    float3 rayDir;
+    float3 origin;
+    
+    // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
+    GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
+
+    // Trace the ray.
+    // Set the ray's extents.
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = rayDir;
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    RayPayload payload = { float4(0, 0, 0, 0) };
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+
+    // Write the raytraced color to the output texture.
+   // RenderTarget[DispatchRaysIndex().xy] = payload.color;
+}
+
+[shader("raygeneration")]
+void Raygen0()
+{
+    RaygenCommon();
+}
+
+[shader("raygeneration")]
+void Raygen1()
+{
+    RaygenCommon();
+}
+
+typedef BuiltInTriangleIntersectionAttributes MyAttributes;
+
+[shader("closesthit")]
+void InnerClosestHitShader(inout RayPayload payload, in MyAttributes attr)
+{
+    payload.color = float4(0,1,0,0);
+}
+
+
+[shader("miss")]
+void MyMissShader(inout RayPayload payload)
+{
+    payload.color = float4(1, 0, 0, 0);
+})";
+
+    CComPtr<IDxcBlob> pBlob = Compile(hlsl, L"lib_6_6", {optimization});
+    CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
+    auto outputLines = RunAnnotationPasses(pDxil).lines;
+
+    const char instructionRangeLabel[] = "InstructionRange:";
+
+    // The numbering pass should have counted  instructions for each "interesting" (to PIX)
+    // function and output its start and (end+1) instruction ordinal. End should always
+    // be a reasonable number of instructions (>10) and end should always be higher
+    // than start, and all four functions above should be represented.
+    int countOfInstructionRangeLines = 0;
+    for (auto const &line : outputLines) {
+      auto tokens = Tokenize(line, " ");
+      if (tokens.size() >= 4) {
+        if (tokens[0] == instructionRangeLabel) {
+          countOfInstructionRangeLines++;
+          int instructionStart = atoi(tokens[1].c_str());
+          int instructionEnd = atoi(tokens[2].c_str());
+          VERIFY_IS_TRUE(instructionEnd > 10);
+          VERIFY_IS_TRUE(instructionEnd > instructionStart);
+          auto found1 = tokens[3].find("Raygen0@@YAXXZ") != std::string::npos;
+          auto found2 = tokens[3].find("Raygen1@@YAXXZ") != std::string::npos;
+          auto foundClosest = tokens[3].find("InnerClosestHit") != std::string::npos;
+          auto foundMiss = tokens[3].find("MyMiss") != std::string::npos;
+          VERIFY_IS_TRUE(found1 || found2 || foundClosest || foundMiss);
+        }
+      }
+    }
+    VERIFY_ARE_EQUAL(4, countOfInstructionRangeLines);
+
+    // Non-library target:
+    const char *PixelShader= R"(
+    [RootSignature("")]
+    float main(float pos : A) : SV_Target {
+      float x = abs(pos);
+      float y = sin(pos);
+      float z = x + y;
+      return z;
+    }
+  )";
+    pBlob = Compile(PixelShader, L"ps_6_6", {optimization});
+    pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
+    outputLines = RunAnnotationPasses(pDxil).lines;
+
+    countOfInstructionRangeLines = 0;
+    for (auto const &line : outputLines) {
+      auto tokens = Tokenize(line, " ");
+      if (tokens.size() >= 4) {
+        if (tokens[0] == instructionRangeLabel) {
+          countOfInstructionRangeLines++;
+          int instructionStart = atoi(tokens[1].c_str());
+          int instructionEnd = atoi(tokens[2].c_str());
+          VERIFY_IS_TRUE(instructionStart == 0);
+          VERIFY_IS_TRUE(instructionEnd > 10);
+          VERIFY_IS_TRUE(instructionEnd > instructionStart);
+          auto foundMain = tokens[3].find("main") != std::string::npos;
+          VERIFY_IS_TRUE(foundMain);
+        }
+      }
+    }
+    VERIFY_ARE_EQUAL(1, countOfInstructionRangeLines);
+
+    // Now check that the initial value parameter works:
+    const int startingInstructionOrdinal = 1234;
+    outputLines = RunAnnotationPasses(pDxil, startingInstructionOrdinal).lines;
+
+    countOfInstructionRangeLines = 0;
+    for (auto const &line : outputLines) {
+      auto tokens = Tokenize(line, " ");
+      if (tokens.size() >= 4) {
+        if (tokens[0] == instructionRangeLabel) {
+          countOfInstructionRangeLines++;
+          int instructionStart = atoi(tokens[1].c_str());
+          int instructionEnd = atoi(tokens[2].c_str());
+          VERIFY_IS_TRUE(instructionStart == startingInstructionOrdinal);
+          VERIFY_IS_TRUE(instructionEnd > instructionStart);
+          auto foundMain = tokens[3].find("main") != std::string::npos;
+          VERIFY_IS_TRUE(foundMain);
+        }
+      }
+    }
+    VERIFY_ARE_EQUAL(1, countOfInstructionRangeLines);
+  }
+}
 
 #endif

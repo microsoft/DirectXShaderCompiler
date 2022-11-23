@@ -952,19 +952,12 @@ void DxilDebugInstrumentation::addStepDebugEntryValue(
 bool DxilDebugInstrumentation::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
 
-  auto ShaderModel = DM.GetShaderModel();
-  auto shaderKind = ShaderModel->GetKind();
+  auto instrumentableFunctions =
+      PIXPassHelpers::GetAllInstrumentableFunctions(DM);
 
   bool modified = false;
-  if (shaderKind == DXIL::ShaderKind::Library) {
-    for (llvm::Function& F : M.functions()) {
-      modified = modified | RunOnFunction(M, DM, &F); 
-      return modified;
-    }
-  }
-  else {
-    llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
-    modified = RunOnFunction(M, DM, entryFunction);
+  for (auto * F : instrumentableFunctions) {
+    modified = modified | RunOnFunction(M, DM, F);
   }
   return modified;
 }
