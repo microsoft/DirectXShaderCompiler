@@ -73,10 +73,6 @@ public:
   std::ostream &Write(std::ostream &out, _T t) {
     return out << t;
   }
-  template<>
-  std::ostream &Write<uint8_t>(std::ostream &out, uint8_t t) {
-    return out << (unsigned)t;
-  }
   template<typename _T, typename... Args>
   std::ostream &Write(std::ostream &out, _T t, Args... args) {
     return Write(Write(out, t), args...);
@@ -121,6 +117,11 @@ public:
   bool Visit(const void *ptr) { return Visit((size_t)ptr); }
   void VisitReset() { m_visited.clear(); }
 };
+
+template<>
+inline std::ostream &DumpContext::Write<uint8_t>(std::ostream &out, uint8_t t) {
+  return out << (unsigned)t;
+}
 
 // Copied from llvm/ADT/StringExtras.h
 inline char hexdigit(unsigned X, bool LowerCase = false) {
