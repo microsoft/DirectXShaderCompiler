@@ -2331,8 +2331,12 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
 namespace {
 inline bool isFieldMergeWithPrevious(const StructType::FieldInfo &previous,
                                      const StructType::FieldInfo &field) {
-  return previous.bitfield.hasValue() && field.bitfield.hasValue() &&
-         previous.offset.getValueOr(0) == field.offset.getValueOr(1);
+  if (previous.fieldIndex == field.fieldIndex) {
+    // Right now, the only reason for those indices to be shared is if both
+    // are merged bitfields.
+    assert(previous.bitfield.hasValue() && field.bitfield.hasValue());
+  }
+  return previous.fieldIndex == field.fieldIndex;
 }
 } // namespace
 

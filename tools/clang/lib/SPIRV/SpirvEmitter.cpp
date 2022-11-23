@@ -547,36 +547,14 @@ bool isVkRawBufferLoadIntrinsic(const clang::FunctionDecl *FD) {
 // Takes an AST member type, and determines its index in the equivalent SPIR-V
 // struct type. This is required as the struct layout might change between the
 // AST representation and SPIR-V representation.
-uint32_t getFieldIndexInStruct(const SpirvCodeGenOptions &spirvOptions,
-                               LowerTypeVisitor &lowerTypeVisitor,
-                               const MemberExpr *expr) {
-  // If we are accessing a derived struct, we need to account for the number
-  // of base structs, since they are placed as fields at the beginning of the
-  // derived struct.
-  auto baseType = expr->getBase()->getType();
-  if (baseType->isPointerType()) {
-    baseType = baseType->getPointeeType();
-  }
-
-  const auto *fieldDecl =
-      dynamic_cast<const FieldDecl *>(expr->getMemberDecl());
+uint32_t getFieldIndexInStruct(const StructType *spirvStructType,
+                               const QualType &astStructType,
+                               const FieldDecl *fieldDecl) {
   assert(fieldDecl);
   const uint32_t indexAST =
-      getNumBaseClasses(baseType) + fieldDecl->getFieldIndex();
+      getNumBaseClasses(astStructType) + fieldDecl->getFieldIndex();
 
-  // The AST type index is not representative of the SPIR-V type index
-  // because we might squash some fields (bitfields by ex.).
-  // What we need is to match each AST node with the squashed field and then,
-  // determine the real index.
-  const SpirvType *spvType = lowerTypeVisitor.lowerType(
-      baseType,
-      spirvOptions.sBufferLayoutRule,
-      llvm::None, SourceLocation());
-  assert(spvType);
-
-  const auto st = dynamic_cast<const StructType *>(spvType);
-  assert(st != nullptr);
-  const auto &fields = st->getFields();
+  const auto &fields = spirvStructType->getFields();
   assert(indexAST <= fields.size());
 
   // Some fields in SPIR-V share the same index (bitfields). Computing the final
@@ -603,6 +581,30 @@ uint32_t getFieldIndexInStruct(const SpirvCodeGenOptions &spirvOptions,
   }
 
   return indexSPV;
+}
+
+// Takes an AST struct type, and lowers is to the equivalent SPIR-V type.
+const StructType *lowerStructType(const SpirvCodeGenOptions &spirvOptions,
+                                  LowerTypeVisitor &lowerTypeVisitor,
+                                  const QualType &structType) {
+  // If we are accessing a derived struct, we need to account for the number
+  // of base structs, since they are placed as fields at the beginning of the
+  // derived struct.
+  auto baseType = structType;
+  if (baseType->isPointerType()) {
+    baseType = baseType->getPointeeType();
+  }
+
+  // The AST type index is not representative of the SPIR-V type index
+  // because we might squash some fields (bitfields by ex.).
+  // What we need is to match each AST node with the squashed field and then,
+  // determine the real index.
+  const SpirvType *spvType = lowerTypeVisitor.lowerType(
+      baseType, spirvOptions.sBufferLayoutRule, llvm::None, SourceLocation());
+
+  const StructType *output = dynamic_cast<const StructType *>(spvType);
+  assert(output != nullptr);
+  return output;
 }
 
 } // namespace
@@ -6922,24 +6924,34 @@ void SpirvEmitter::splitVecLastElement(QualType vecType, SpirvInstruction *vec,
       spvBuilder.createCompositeExtract(elemType, vec, {count - 1}, loc);
 }
 
-SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType structType,
+SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType astStructType,
                                                       QualType elemType,
                                                       SpirvInstruction *vector,
                                                       SourceLocation loc,
                                                       SourceRange range) {
-  assert(structType->isStructureType());
+  assert(astStructType->isStructureType());
 
-  const auto *structDecl = structType->getAsStructureType()->getDecl();
+  const auto uintType = astContext.UnsignedIntTy;
+  const auto intType = astContext.IntTy;
+
+  const auto *structDecl = astStructType->getAsStructureType()->getDecl();
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+  const StructType *spirvStructType =
+      lowerStructType(spirvOptions, lowerTypeVisitor, astStructType);
+
   uint32_t vectorIndex = 0;
   uint32_t elemCount = 1;
   llvm::SmallVector<SpirvInstruction *, 4> members;
-
-  for (const auto *field : structDecl->fields()) {
+  for (auto field = structDecl->field_begin(); field != structDecl->field_end();
+       field++) {
     // TODO(brioche): extract bitfield
     if (isScalarType(field->getType())) {
       members.push_back(spvBuilder.createCompositeExtract(
           elemType, vector, {vectorIndex++}, loc, range));
-    } else if (isVectorType(field->getType(), nullptr, &elemCount)) {
+      continue;
+    }
+
+    if (isVectorType(field->getType(), nullptr, &elemCount)) {
       llvm::SmallVector<uint32_t, 4> indices;
       for (uint32_t i = 0; i < elemCount; ++i)
         indices.push_back(vectorIndex++);
@@ -6947,13 +6959,14 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType structType,
       members.push_back(spvBuilder.createVectorShuffle(
           astContext.getExtVectorType(elemType, elemCount), vector, vector,
           indices, loc, range));
-    } else {
-      assert(false && "unhandled type");
+      continue;
     }
+
+    assert(false && "unhandled type");
   }
 
   return spvBuilder.createCompositeConstruct(
-      structType, members, vector->getSourceLocation(), range);
+      astStructType, members, vector->getSourceLocation(), range);
 }
 
 SpirvInstruction *
@@ -7707,8 +7720,15 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
 
     {
       LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
-      const uint32_t fieldIndex =
-          getFieldIndexInStruct(spirvOptions, lowerTypeVisitor, indexing);
+      const auto &astStructType =
+          /* structType */ indexing->getBase()->getType();
+      const StructType *spirvStructType =
+          lowerStructType(spirvOptions, lowerTypeVisitor, astStructType);
+      assert(spirvStructType != nullptr);
+      const uint32_t fieldIndex = getFieldIndexInStruct(
+          spirvStructType, astStructType,
+          /* fieldDecl */
+          dynamic_cast<const FieldDecl *>(indexing->getMemberDecl()));
 
       if (rawIndex) {
         rawIndices->push_back(fieldIndex);

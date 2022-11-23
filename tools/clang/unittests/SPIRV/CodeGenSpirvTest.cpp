@@ -432,6 +432,9 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
 
 // For struct & array accessing operator
 TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
+TEST_F(FileTest, OpStructAccessBitfield) {
+  runFileTest("op.struct.access.bitfield.hlsl");
+}
 TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 
 // For buffer accessing operator

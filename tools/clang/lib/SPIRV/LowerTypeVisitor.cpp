@@ -60,22 +60,33 @@ sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
   return output;
 }
 
-// Correctly determine a field offset/size/padding depending on its neighbors
-// and other rules.
-void setDefaultFieldOffsetAndSize(
-    const AlignmentSizeCalculator &alignmentCalc, const SpirvLayoutRule rule,
-    const uint32_t previousFieldEnd,
-    const HybridStructType::FieldInfo *currentField,
-    StructType::FieldInfo *field) {
+void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
+                         const SpirvLayoutRule rule,
+                         const HybridStructType::FieldInfo *currentField,
+                         StructType::FieldInfo *field) {
 
   const auto &fieldType = currentField->astType;
   uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
   std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
       fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
   field->sizeInBytes = memberSize;
+  return;
+}
+
+// Correctly determine a field offset/size/padding depending on its neighbors
+// and other rules.
+void setDefaultFieldOffset(const AlignmentSizeCalculator &alignmentCalc,
+                           const SpirvLayoutRule rule,
+                           const uint32_t previousFieldEnd,
+                           const HybridStructType::FieldInfo *currentField,
+                           StructType::FieldInfo *field) {
+
+  const auto &fieldType = currentField->astType;
+  uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
+  std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
+      fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
 
   const uint32_t baseOffset = previousFieldEnd;
-
   // The next avaiable location after laying out the previous members
   if (rule != SpirvLayoutRule::RelaxedGLSLStd140 &&
       rule != SpirvLayoutRule::RelaxedGLSLStd430 &&
@@ -223,8 +234,8 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpImageSparseRead: {
     const auto *uintType = spvContext.getUIntType(32);
     const auto *sparseResidencyStruct = spvContext.getStructType(
-        {StructType::FieldInfo(uintType, "Residency.Code"),
-         StructType::FieldInfo(resultType, "Result.Type")},
+        {StructType::FieldInfo(uintType, /* fieldIndex*/ 0, "Residency.Code"),
+         StructType::FieldInfo(resultType, /* fieldIndex*/ 1, "Result.Type")},
         "SparseResidencyStruct");
     instr->setResultType(sparseResidencyStruct);
     break;
@@ -727,8 +738,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
     const std::string typeName = "type." + name.str() + "." + getAstTypeName(s);
     const auto *valType = spvContext.getStructType(
-        {StructType::FieldInfo(raType, /*name*/ "", /*offset*/ 0, matrixStride,
-                               isRowMajor)},
+        {StructType::FieldInfo(raType, /* fieldIndex*/ 0, /*name*/ "",
+                               /*offset*/ 0, matrixStride, isRowMajor)},
         typeName, isReadOnly, StructInterfaceType::StorageBuffer);
 
     if (asAlias) {
@@ -870,12 +881,13 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
 
 StructType::FieldInfo
 LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
-                             SpirvLayoutRule rule) {
+                             SpirvLayoutRule rule, const uint32_t fieldIndex) {
   auto fieldType = field->astType;
   // Lower the field type fist. This call will populate proper matrix
   // majorness information.
   StructType::FieldInfo loweredField(
-      lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), field->name);
+      lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), fieldIndex,
+      field->name);
 
   // Set RelaxedPrecision information for the lowered field.
   if (isRelaxedPrecisionType(fieldType, spvOptions)) {
@@ -921,57 +933,66 @@ LowerTypeVisitor::populateLayoutInformation(
 
   auto fieldVisitor = [this,
                        &rule](const StructType::FieldInfo *previousField,
-                              const HybridStructType::FieldInfo *currentField) {
-    StructType::FieldInfo loweredField = lowerField(currentField, rule);
+                              const HybridStructType::FieldInfo *currentField,
+                              const uint32_t nextFieldIndex) {
+    StructType::FieldInfo loweredField =
+        lowerField(currentField, rule, nextFieldIndex);
+    setDefaultFieldSize(alignmentCalc, rule, currentField, &loweredField);
+
+    // We only need size information for structures with non-void layout &
+    // non-bitfield fields.
+    if (rule == SpirvLayoutRule::Void && !currentField->bitfield.hasValue()) {
+      return loweredField;
+    }
+
     // We only need layout information for structures with non-void layout rule.
-    if (rule == SpirvLayoutRule::Void) {
-      return loweredField;
-    }
+    if (rule != SpirvLayoutRule::Void) {
+      const uint32_t previousFieldEnd =
+          previousField ? previousField->offset.getValue() +
+                              previousField->sizeInBytes.getValue()
+                        : 0;
+      setDefaultFieldOffset(alignmentCalc, rule, previousFieldEnd, currentField,
+                            &loweredField);
 
-    const uint32_t previousFieldEnd =
-        previousField ? previousField->offset.getValue() +
-                            previousField->sizeInBytes.getValue()
-                      : 0;
-    setDefaultFieldOffsetAndSize(alignmentCalc, rule, previousFieldEnd,
-                                 currentField, &loweredField);
-
-    // The vk::offset attribute takes precedence over all.
-    if (currentField->vkOffsetAttr) {
-      loweredField.offset = currentField->vkOffsetAttr->getOffset();
-      return loweredField;
-    }
-
-    // The :packoffset() annotation takes precedence over normal layout
-    // calculation.
-    if (currentField->packOffsetAttr) {
-      const uint32_t offset = currentField->packOffsetAttr->Subcomponent * 16 +
-                              currentField->packOffsetAttr->ComponentOffset * 4;
-      // Do minimal check to make sure the offset specified by packoffset does
-      // not cause overlap.
-      if (offset < previousFieldEnd) {
-        emitError("packoffset caused overlap with previous members",
-                  currentField->packOffsetAttr->Loc);
+      // The vk::offset attribute takes precedence over all.
+      if (currentField->vkOffsetAttr) {
+        loweredField.offset = currentField->vkOffsetAttr->getOffset();
+        return loweredField;
       }
 
-      loweredField.offset = offset;
-      return loweredField;
-    }
+      // The :packoffset() annotation takes precedence over normal layout
+      // calculation.
+      if (currentField->packOffsetAttr) {
+        const uint32_t offset =
+            currentField->packOffsetAttr->Subcomponent * 16 +
+            currentField->packOffsetAttr->ComponentOffset * 4;
+        // Do minimal check to make sure the offset specified by packoffset does
+        // not cause overlap.
+        if (offset < previousFieldEnd) {
+          emitError("packoffset caused overlap with previous members",
+                    currentField->packOffsetAttr->Loc);
+        }
 
-    // The :register(c#) annotation takes precedence over normal layout
-    // calculation.
-    if (currentField->registerC) {
-      const uint32_t offset = 16 * currentField->registerC->RegisterNumber;
-      // Do minimal check to make sure the offset specified by :register(c#)
-      // does not cause overlap.
-      if (offset < previousFieldEnd) {
-        emitError(
-            "found offset overlap when processing register(c%0) assignment",
-            currentField->registerC->Loc)
-            << currentField->registerC->RegisterNumber;
+        loweredField.offset = offset;
+        return loweredField;
       }
 
-      loweredField.offset = offset;
-      return loweredField;
+      // The :register(c#) annotation takes precedence over normal layout
+      // calculation.
+      if (currentField->registerC) {
+        const uint32_t offset = 16 * currentField->registerC->RegisterNumber;
+        // Do minimal check to make sure the offset specified by :register(c#)
+        // does not cause overlap.
+        if (offset < previousFieldEnd) {
+          emitError(
+              "found offset overlap when processing register(c%0) assignment",
+              currentField->registerC->Loc)
+              << currentField->registerC->RegisterNumber;
+        }
+
+        loweredField.offset = offset;
+        return loweredField;
+      }
     }
 
     if (!currentField->bitfield.hasValue()) {
@@ -998,7 +1019,8 @@ LowerTypeVisitor::populateLayoutInformation(
     }
 
     loweredField.bitfield->offsetInBits = nextAvailableBit;
-    loweredField.offset = previousField->offset.getValue();
+    loweredField.offset = previousField->offset;
+    loweredField.fieldIndex = previousField->fieldIndex;
     return loweredField;
   };
 
@@ -1020,14 +1042,22 @@ LowerTypeVisitor::populateLayoutInformation(
   llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
   llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
+  // This stores the index of the field in the actual SPIR-V construct.
+  // When bitfields are merged, this index will be the same for merged fields.
+  uint32_t fieldIndexInConstruct = 0;
   for (size_t i = 0; i < sortedFields.size(); i++) {
     const StructType::FieldInfo *previousField =
         i > 0 ? &loweredFields.back() : nullptr;
     const HybridStructType::FieldInfo *currentField = sortedFields[i];
-    const size_t field_index = loweredFields.size();
+    const size_t fieldIndexForMap = loweredFields.size();
 
-    loweredFields.emplace_back(fieldVisitor(previousField, currentField));
-    fieldToIndexMap[sortedFields[i]] = field_index;
+    loweredFields.emplace_back(
+        fieldVisitor(previousField, currentField, fieldIndexInConstruct));
+    if (!previousField ||
+        previousField->fieldIndex != loweredFields.back().fieldIndex) {
+      fieldIndexInConstruct++;
+    }
+    fieldToIndexMap[sortedFields[i]] = fieldIndexForMap;
   }
 
   // Re-order the sorted fields back to their original order.
