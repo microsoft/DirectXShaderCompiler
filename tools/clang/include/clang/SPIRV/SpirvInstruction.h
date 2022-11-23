@@ -204,6 +204,7 @@ public:
 
   void setRValue(bool rvalue = true) { isRValue_ = rvalue; }
   bool isRValue() const { return isRValue_; }
+  bool isLValue() const { return !isRValue_; }
 
   void setRelaxedPrecision() { isRelaxedPrecision_ = true; }
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
@@ -214,7 +215,7 @@ public:
   void setPrecise(bool p = true) { isPrecise_ = p; }
   bool isPrecise() const { return isPrecise_; }
 
-  void setBitfieldInfo(BitfieldInfo &info) { bitfieldInfo = info; }
+  void setBitfieldInfo(const BitfieldInfo &info) { bitfieldInfo = info; }
   llvm::Optional<BitfieldInfo> getBitfieldInfo() const { return bitfieldInfo; }
 
   /// Legalization-specific code

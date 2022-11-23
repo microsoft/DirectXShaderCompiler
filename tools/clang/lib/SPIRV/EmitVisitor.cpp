@@ -2524,7 +2524,6 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
 
     initTypeInstruction(spv::Op::OpTypeStruct);
     curTypeInst.push_back(id);
-
     for (auto fieldTypeId : fieldTypeIds)
       curTypeInst.push_back(fieldTypeId);
     finalizeTypeInstruction();

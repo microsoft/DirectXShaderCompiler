@@ -217,10 +217,12 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
     return instruction;
   }
 
-  auto *offset = getConstantInt(
-      astContext.IntTy, llvm::APInt(32, bitfieldInfo->offsetInBits, false));
-  auto *count = getConstantInt(
-      astContext.IntTy, llvm::APInt(32, bitfieldInfo->sizeInBits, false));
+  auto *offset =
+      getConstantInt(astContext.UnsignedIntTy,
+                     llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits), /* isSigned= */ false));
+  auto *count =
+      getConstantInt(astContext.UnsignedIntTy,
+                     llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits), /* isSigned= */ false));
   return createBitFieldExtract(
       resultType, instruction, offset, count,
       pointer->getAstResultType()->isSignedIntegerOrEnumerationType(), loc);
@@ -267,8 +269,11 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
 SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
                                       SpirvInstruction *value,
                                       SourceLocation loc, SourceRange range) {
-  SpirvInstruction *source = value;
+  assert(insertPoint && "null insert point");
+  // Safeguard. If this happens, it means we leak non-extracted bitfields.
+  assert(false == value->getBitfieldInfo().hasValue());
 
+  SpirvInstruction *source = value;
   const auto &bitfieldInfo = address->getBitfieldInfo();
   if (bitfieldInfo.hasValue()) {
     // Generate SPIR-V type for value. This is required to know the final
@@ -278,10 +283,12 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     context.addToInstructionsWithLoweredType(value);
 
     auto *base = createLoad(value->getResultType(), address, loc, range);
-    auto *offset = getConstantInt(
-        astContext.IntTy, llvm::APInt(32, bitfieldInfo->offsetInBits, false));
-    auto *count = getConstantInt(
-        astContext.IntTy, llvm::APInt(32, bitfieldInfo->sizeInBits, false));
+    auto *offset =
+        getConstantInt(astContext.UnsignedIntTy,
+                       llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits), false));
+    auto *count =
+        getConstantInt(astContext.UnsignedIntTy,
+                       llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits), false));
     source =
         createBitFieldInsert(/*QualType*/ {}, base, value, offset, count, loc);
     source->setResultType(value->getResultType());
@@ -846,6 +853,7 @@ SpirvBitFieldInsert *SpirvBuilder::createBitFieldInsert(
   auto *inst = new (context)
       SpirvBitFieldInsert(resultType, loc, base, insert, offset, count);
   insertPoint->addInstruction(inst);
+  inst->setRValue(true);
   return inst;
 }
 
@@ -856,6 +864,7 @@ SpirvBitFieldExtract *SpirvBuilder::createBitFieldExtract(
   auto *inst = new (context)
       SpirvBitFieldExtract(resultType, loc, base, offset, count, isSigned);
   insertPoint->addInstruction(inst);
+  inst->setRValue(true);
   return inst;
 }
 

@@ -556,31 +556,7 @@ uint32_t getFieldIndexInStruct(const StructType *spirvStructType,
 
   const auto &fields = spirvStructType->getFields();
   assert(indexAST <= fields.size());
-
-  // Some fields in SPIR-V share the same index (bitfields). Computing the final
-  // index of the requested field.
-  uint32_t indexSPV = 0;
-  for (size_t i = 1; i <= indexAST; i++) {
-    // Do not remove this condition. This is required to support inheritance:
-    // 1. SPIR-V composite first element is the parent type:
-    //  by ex "OpTypeStruct %base_struct %float".
-    // 2. if the parent type is an empty class, it's size it zero, hence
-    // "%float" offset is also 0.
-    //
-    // A way to detect such cases is to check for type difference: fields cannot
-    // be merged if the type is different.
-    if (fields[i - 1].type != fields[i].type) {
-      indexSPV++;
-      continue;
-    }
-
-    if (fields[i - 1].offset.getValueOr(0) != fields[i].offset.getValueOr(0)) {
-      indexSPV++;
-      continue;
-    }
-  }
-
-  return indexSPV;
+  return fields[indexAST].fieldIndex;
 }
 
 // Takes an AST struct type, and lowers is to the equivalent SPIR-V type.
@@ -2649,12 +2625,12 @@ SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
-  if (!indices.empty()) {
-    info = turnIntoElementPtr(base->getType(), info, expr->getType(), indices,
-                              base->getExprLoc(), range);
+  if (indices.empty()) {
+    return info;
   }
 
-  return info;
+  return derefOrCreatePointerToValue(base->getType(), info, expr->getType(),
+                                     indices, base->getExprLoc(), range);
 }
 
 SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
@@ -3346,9 +3322,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
           astContext.UnsignedIntTy, llvm::APInt(32, baseIndices[i]));
 
     auto *derivedInfo = doExpr(subExpr);
-    return turnIntoElementPtr(subExpr->getType(), derivedInfo, expr->getType(),
-                              baseIndexInstructions, subExpr->getExprLoc(),
-                              range);
+    return derefOrCreatePointerToValue(subExpr->getType(), derivedInfo,
+                                       expr->getType(), baseIndexInstructions,
+                                       subExpr->getExprLoc(), range);
   }
   case CastKind::CK_ArrayToPointerDecay: {
     // Literal string to const string conversion falls under this category.
@@ -4420,8 +4396,9 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   auto *zero = spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
   auto *index = doExpr(expr->getArg(0));
 
-  return turnIntoElementPtr(buffer->getType(), info, structType, {zero, index},
-                            buffer->getExprLoc(), range);
+  return derefOrCreatePointerToValue(buffer->getType(), info, structType,
+                                     {zero, index}, buffer->getExprLoc(),
+                                     range);
 }
 
 SpirvInstruction *
@@ -4639,7 +4616,8 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   }
 
   const auto range = expr->getSourceRange();
-  bufferInfo = turnIntoElementPtr(object->getType(), bufferInfo, bufferElemTy,
+  bufferInfo =
+      derefOrCreatePointerToValue(object->getType(), bufferInfo, bufferElemTy,
                                   {zero, index}, object->getExprLoc(), range);
 
   if (isAppend) {
@@ -5663,8 +5641,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
-  return turnIntoElementPtr(baseExpr->getType(), base, expr->getType(), indices,
-                            baseExpr->getExprLoc(), range);
+  return derefOrCreatePointerToValue(baseExpr->getType(), base, expr->getType(),
+                                     indices, baseExpr->getExprLoc(), range);
 }
 
 SpirvInstruction *
@@ -5859,42 +5837,50 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   llvm::SmallVector<SpirvInstruction *, 4> indices;
   const Expr *base = collectArrayStructIndices(
       expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
-  SourceRange range =
+  const SourceRange &range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
   auto *instr = loadIfAliasVarRef(base, range);
+  const auto &loc = base->getExprLoc();
 
   if (!instr || indices.empty()) {
     return instr;
   }
 
-  instr = turnIntoElementPtr(base->getType(), instr, expr->getType(), indices,
-                             base->getExprLoc(), range);
-
   const auto *fieldDecl = dynamic_cast<FieldDecl*>(expr->getMemberDecl());
   if (!fieldDecl || !fieldDecl->isBitField()) {
-    return instr;
+    return derefOrCreatePointerToValue(base->getType(), instr, expr->getType(),
+                                       indices, loc, range);
   }
 
   auto baseType = expr->getBase()->getType();
   if (baseType->isPointerType()) {
     baseType = baseType->getPointeeType();
   }
-  const uint32_t indexAST = getNumBaseClasses(baseType) + fieldDecl->getFieldIndex();
-
+  const uint32_t indexAST =
+      getNumBaseClasses(baseType) + fieldDecl->getFieldIndex();
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
-  const SpirvType *spvType = lowerTypeVisitor.lowerType(
-      baseType,
-      spirvOptions.sBufferLayoutRule,
-      llvm::None, SourceLocation());
-  const StructType *st = dynamic_cast<const StructType*>(spvType);
-  assert(st);
+  const StructType *spirvStructType =
+      lowerStructType(spirvOptions, lowerTypeVisitor, baseType);
+  assert(spirvStructType);
 
-  const uint32_t bitOffset = st->getFields()[indexAST].bitfield->offsetInBits;
-  const uint32_t bitWidth = st->getFields()[indexAST].bitfield->sizeInBits;
+  const uint32_t bitfieldOffset =
+      spirvStructType->getFields()[indexAST].bitfield->offsetInBits;
+  const uint32_t bitfieldSize =
+      spirvStructType->getFields()[indexAST].bitfield->sizeInBits;
+  BitfieldInfo bitfieldInfo{bitfieldOffset, bitfieldSize};
 
-  BitfieldInfo bitFieldInfo{bitOffset, bitWidth};
-  instr->setBitfieldInfo(bitFieldInfo);
-  return instr;
+  if (instr->isRValue()) {
+    SpirvVariable *variable = turnIntoLValue(base->getType(), instr, loc);
+    SpirvInstruction *chain = spvBuilder.createAccessChain(
+        expr->getType(), variable, indices, loc, range);
+    chain->setBitfieldInfo(bitfieldInfo);
+    return spvBuilder.createLoad(expr->getType(), chain, loc);
+  }
+
+  SpirvInstruction *chain =
+      spvBuilder.createAccessChain(expr->getType(), instr, indices, loc, range);
+  chain->setBitfieldInfo(bitfieldInfo);
+  return chain;
 }
 
 SpirvVariable *SpirvEmitter::createTemporaryVar(QualType type,
@@ -6931,9 +6917,6 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType astStructType,
                                                       SourceRange range) {
   assert(astStructType->isStructureType());
 
-  const auto uintType = astContext.UnsignedIntTy;
-  const auto intType = astContext.IntTy;
-
   const auto *structDecl = astStructType->getAsStructureType()->getDecl();
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
   const StructType *spirvStructType =
@@ -6941,10 +6924,21 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType astStructType,
 
   uint32_t vectorIndex = 0;
   uint32_t elemCount = 1;
+  uint32_t lastConvertedIndex = 0;
   llvm::SmallVector<SpirvInstruction *, 4> members;
   for (auto field = structDecl->field_begin(); field != structDecl->field_end();
        field++) {
-    // TODO(brioche): extract bitfield
+    // Multiple bitfields can share the same storing type. In such case, we only
+    // want to append the whole storage once.
+    const size_t astFieldIndex =
+        std::distance(structDecl->field_begin(), field);
+    const uint32_t currentFieldIndex =
+        spirvStructType->getFields()[astFieldIndex].fieldIndex;
+    if (astFieldIndex > 0 && currentFieldIndex == lastConvertedIndex) {
+      continue;
+    }
+    lastConvertedIndex = currentFieldIndex;
+
     if (isScalarType(field->getType())) {
       members.push_back(spvBuilder.createCompositeExtract(
           elemType, vector, {vectorIndex++}, loc, range));
@@ -7386,7 +7380,6 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
     // Extract subvalue and assign to its corresponding member attribute.
     const auto *structDecl = type->getAs<RecordType>()->getDecl();
     for (const auto *field : structDecl->fields()) {
-      // TODO(brioche): this is only for mesh shaders??? but still needs bitfield extract
       const auto fieldType = field->getType();
       SpirvInstruction *subValue = spvBuilder.createCompositeExtract(
           fieldType, rhs, {getNumBaseClasses(type) + field->getFieldIndex()},
@@ -7863,26 +7856,31 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
   return expr;
 }
 
-SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
+SpirvVariable *SpirvEmitter::turnIntoLValue(QualType type,
+                                            SpirvInstruction *source,
+                                            SourceLocation loc) {
+  assert(source->isRValue());
+  const auto varName = getAstTypeName(type);
+  const auto var = createTemporaryVar(type, varName, source, loc);
+  var->setLayoutRule(SpirvLayoutRule::Void);
+  var->setStorageClass(spv::StorageClass::Function);
+  var->setContainsAliasComponent(source->containsAliasComponent());
+  return var;
+}
+
+SpirvInstruction *SpirvEmitter::derefOrCreatePointerToValue(
     QualType baseType, SpirvInstruction *base, QualType elemType,
     const llvm::SmallVector<SpirvInstruction *, 4> &indices, SourceLocation loc,
     SourceRange range) {
-  // If this is a rvalue, we need a temporary object to hold it
-  // so that we can get access chain from it.
-  const bool needTempVar = base->isRValue();
-  SpirvInstruction *accessChainBase = base;
-
-  if (needTempVar) {
-    auto varName = getAstTypeName(baseType);
-    const auto var = createTemporaryVar(baseType, varName, base, loc);
-    var->setLayoutRule(SpirvLayoutRule::Void);
-    var->setStorageClass(spv::StorageClass::Function);
-    var->setContainsAliasComponent(base->containsAliasComponent());
-    accessChainBase = var;
+  if (base->isLValue()) {
+    return spvBuilder.createAccessChain(elemType, base, indices, loc, range);
   }
 
-  base = spvBuilder.createAccessChain(elemType, accessChainBase, indices, loc,
-                                      range);
+  // If this is a rvalue, we need a temporary object to hold it
+  // so that we can get access chain from it.
+  SpirvVariable *variable = turnIntoLValue(baseType, base, loc);
+  SpirvInstruction *chain =
+      spvBuilder.createAccessChain(elemType, variable, indices, loc, range);
 
   // Okay, this part seems weird, but it is intended:
   // If the base is originally a rvalue, the whole AST involving the base
@@ -7893,11 +7891,7 @@ SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
   // to rely on to load the access chain if a rvalue is expected. Therefore,
   // we must do the load here. Otherwise, it's up to the consumer of this
   // access chain to do the load, and that can be everywhere.
-  if (needTempVar) {
-    base = spvBuilder.createLoad(elemType, base, loc);
-  }
-
-  return base;
+  return spvBuilder.createLoad(elemType, chain, loc);
 }
 
 SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
@@ -13583,7 +13577,6 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
 
   SpirvLoad *loadInst = dynamic_cast<SpirvLoad *>(
       spvBuilder.createLoad(bufferType, address, loc));
-  // TODO(brioche): is is true tho?
   assert(loadInst);
   loadInst->setAlignment(alignment);
   loadInst->setRValue();

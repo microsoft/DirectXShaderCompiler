@@ -439,6 +439,9 @@ TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 
 // For buffer accessing operator
 TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
+TEST_F(FileTest, OpBufferAccessBitfield) {
+  runFileTest("op.buffer.access.bitfield.hlsl");
+}
 TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccessMajorness) {
@@ -454,6 +457,9 @@ TEST_F(FileTest, OpTextureBufferAccess) {
 }
 TEST_F(FileTest, OpStructuredBufferAccess) {
   runFileTest("op.structured-buffer.access.hlsl");
+}
+TEST_F(FileTest, OpStructuredBufferAccessBitfield) {
+  runFileTest("op.structured-buffer.access.bitfield.hlsl");
 }
 TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
@@ -1412,6 +1418,9 @@ TEST_F(FileTest, IntrinsicsVkReadClock) {
 }
 TEST_F(FileTest, IntrinsicsVkRawBufferLoad) {
   runFileTest("intrinsics.vkrawbufferload.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkRawBufferLoadBitfield) {
+  runFileTest("intrinsics.vkrawbufferload.bitfield.hlsl");
 }
 TEST_F(FileTest, IntrinsicsVkRawBufferStore) {
   runFileTest("intrinsics.vkrawbufferstore.hlsl");
