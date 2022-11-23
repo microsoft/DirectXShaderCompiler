@@ -358,7 +358,6 @@
 
 typedef unsigned char BYTE, UINT8;
 typedef unsigned char *LPBYTE;
-typedef const unsigned char *LPCBYTE;
 
 typedef BYTE BOOLEAN;
 typedef BOOLEAN *PBOOLEAN;
