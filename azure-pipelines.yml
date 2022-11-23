@@ -43,8 +43,8 @@ stages:
     timeoutInMinutes: 90
 
     variables:
-      macOS: macOS-11
-      linux: Ubuntu-18.04
+      macOS: macOS-latest
+      linux: Ubuntu-latest
 
     strategy:
       matrix:
