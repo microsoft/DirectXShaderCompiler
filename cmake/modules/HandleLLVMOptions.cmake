@@ -551,14 +551,14 @@ add_llvm_definitions( -D__STDC_LIMIT_MACROS )
 
 # clang doesn't print colored diagnostics when invoked from Ninja
 if (UNIX AND
-    CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+    CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND # HLSL Change - Update to CMake 3.13.4
     CMAKE_GENERATOR STREQUAL "Ninja")
   append("-fcolor-diagnostics" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 endif()
 
 # HLSL Change Starts
 # Enable -fms-extensions for clang to use MS uuid extensions for COM.
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   append("-fms-extensions -Wno-language-extension-token" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 endif()
 # HLSL Change Ends

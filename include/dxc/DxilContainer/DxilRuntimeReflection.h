@@ -274,39 +274,19 @@ public:
 template<typename _T>
 class RecordTraits {
 public:
-  static constexpr const char *TypeName() {
-#ifdef _WIN32
-    static_assert(false, "");
-#else
-    assert(false);
-#endif
-    return nullptr;
-  }
+  static constexpr const char *TypeName();
 
-  static constexpr RuntimeDataPartType PartType() {
-#ifdef _WIN32
-    static_assert(false, "");
-#else
-    assert(false);
-#endif
-    return RuntimeDataPartType::Invalid;
-  }
+  static constexpr RuntimeDataPartType PartType();
 
   // If the following static assert is hit, it means a structure defined with
   // RDAT_STRUCT is being used in ref type, which requires the struct to have
   // a table and be defined with RDAT_STRUCT_TABLE instead.
-  static constexpr RecordTableIndex TableIndex() {
-#ifdef _WIN32
-    static_assert(false, "");
-#else
-    assert(false);
-#endif
-    return (RecordTableIndex)-1;
-  }
+  static constexpr RecordTableIndex TableIndex();
+  
   // RecordSize() is defined in order to allow for use of forward decl type in RecordRef
-  static constexpr size_t RecordSize() { /*static_assert(false, "");*/ return sizeof(_T); }
+  static constexpr size_t RecordSize() { return sizeof(_T); }
   static constexpr size_t MaxRecordSize() { return RecordTraits<_T>::DerivedRecordSize(); }
-  static constexpr size_t DerivedRecordSize() { return sizeof(_T); }
+  static constexpr size_t DerivedRecordSize();
 };
 
 ///////////////////////////////////////

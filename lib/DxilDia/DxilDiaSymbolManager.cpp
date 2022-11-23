@@ -103,7 +103,7 @@ struct DISymbol : public Symbol {
 
 template <typename N>
 struct TypedSymbol : public DISymbol<N> {
-  TypedSymbol(IMalloc *M, N Node, DWORD dwTypeID, llvm::DIType *Type) : DISymbol(M, Node), m_dwTypeID(dwTypeID), m_pType(Type) {}
+  TypedSymbol(IMalloc *M, N Node, DWORD dwTypeID, llvm::DIType *Type) : DISymbol<N>(M, Node), m_dwTypeID(dwTypeID), m_pType(Type) {}
 
   STDMETHODIMP get_type(
     /* [retval][out] */ IDiaSymbol **ppRetVal) override {

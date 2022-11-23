@@ -44,19 +44,19 @@ void DumpWithBase(const hlsl::RDAT::RDATContext &ctx, DumpContext &d, const _Rec
 template<typename _RecordType>
 class RecordRefDumper : public hlsl::RDAT::RecordRef<_RecordType> {
 public:
-  RecordRefDumper(uint32_t index) { Index = index; }
+  RecordRefDumper(uint32_t index) { this->Index = index; }
   template<typename _DumpTy = _RecordType>
   const char *TypeName(const hlsl::RDAT::RDATContext &ctx) const {
-    if (const char *name = RecordRefDumper<_DumpTy>(Index).TypeNameDerived(ctx))
+    if (const char *name = RecordRefDumper<_DumpTy>(this->Index).TypeNameDerived(ctx))
       return name;
-    RecordRef<_DumpTy> rr = { Index };
+    RecordRef<_DumpTy> rr = { this->Index };
     if (rr.Get(ctx))
       return RecordTraits<_DumpTy>::TypeName();
     return nullptr;
   }
   template<typename _DumpTy = _RecordType>
   void Dump(const hlsl::RDAT::RDATContext &ctx, DumpContext &d) const {
-    RecordRefDumper<_DumpTy> rrDumper(Index);
+    RecordRefDumper<_DumpTy> rrDumper(this->Index);
     if (const _DumpTy *ptr = rrDumper.Get(ctx)) {
       static_cast< const RecordDumper<_DumpTy>* >(ptr)->Dump(ctx, d);
       rrDumper.DumpDerived(ctx, d);
