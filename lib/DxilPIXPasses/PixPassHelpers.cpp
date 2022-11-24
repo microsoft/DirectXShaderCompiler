@@ -237,11 +237,6 @@ GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
     ret.push_back(&F);
   }
 
-  auto patchConstant = DM.GetPatchConstantFunction();
-  if (patchConstant != nullptr) {
-    ret.push_back(patchConstant);
-  }
-
   return ret;
 }
 
