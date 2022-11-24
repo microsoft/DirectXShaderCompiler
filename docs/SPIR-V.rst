@@ -580,10 +580,15 @@ information, you can use ``-fspv-debug=``. It accepts:
 * ``line``: for emitting line information (turns on ``source`` implicitly)
 * ``tool``: for emitting DXC Git commit hash and command-line options
 
-``-fspv-debug=`` overrules ``-Zi``. And you can provide multiple instances of
-``-fspv-debug=``. For example, you can use ``-fspv-debug=file -fspv-debug=tool``
-to turn on emitting file path and DXC information; source code and line
-information will not be emitted.
+These ``-fspv-debug=`` options overrule ``-Zi``. And you can provide multiple
+instances of ``-fspv-debug=``. For example, you can use ``-fspv-debug=file
+-fspv-debug=tool`` to turn on emitting file path and DXC information; source
+code and line information will not be emitted.
+
+If you want to generate `NonSemantic.Shader.DebugInfo.100 <http://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/main/nonsemantic/NonSemantic.Shader.DebugInfo.100.html>`_ extended instructions, you can use
+``-fspv-debug=vulkan-with-source``. These instructions support source-level
+shader debugging with tools such as RenderDoc, even if the SPIR-V is optimized.
+This option overrules the other ``-fspv-debug`` options above.
 
 Reflection
 ----------

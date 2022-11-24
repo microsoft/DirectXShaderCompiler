@@ -1090,6 +1090,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         opts.SpirvOptions.debugInfoLine = true;
         opts.SpirvOptions.debugInfoRich = true;
       } else if (v == "vulkan") {
+        // For test purposes only
         opts.SpirvOptions.debugInfoFile = true;
         opts.SpirvOptions.debugInfoSource = false;
         opts.SpirvOptions.debugInfoLine = true;

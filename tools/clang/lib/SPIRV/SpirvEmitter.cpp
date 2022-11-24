@@ -707,7 +707,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                      richDebugInfo->scopeStack.back());
   }
 
-  if (spirvOptions.debugInfoTool &&
+  if (spirvOptions.debugInfoTool && !spirvOptions.debugInfoVulkan &&
       featureManager.isTargetEnvVulkan1p1OrAbove()) {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =

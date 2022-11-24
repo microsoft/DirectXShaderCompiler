@@ -28,13 +28,11 @@
 using namespace llvm;
 using namespace hlsl;
 
-#ifdef _WIN32
 // Temporary: Define these here until a better header location is found.
 namespace hlsl {
 HRESULT CreateDxilShaderOrLibraryReflectionFromProgramHeader(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject);
 HRESULT CreateDxilShaderOrLibraryReflectionFromModulePart(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject);
 }
-#endif
 
 class DxcIncludeHandlerForFS : public IDxcIncludeHandler {
 private:
@@ -345,7 +343,6 @@ public:
 
   virtual HRESULT STDMETHODCALLTYPE CreateReflection(
     _In_ const DxcBuffer *pData, REFIID iid, void **ppvReflection) override {
-#ifdef _WIN32
     if (!pData || !pData->Ptr || pData->Size < 8 || pData->Encoding != DXC_CP_ACP ||
         !ppvReflection)
       return E_INVALIDARG;
@@ -419,7 +416,7 @@ public:
         UINT32 SizeRemaining = pData->Size - (sizeof(DxilPartHeader) + pPart->PartSize);
         if (SizeRemaining > sizeof(DxilPartHeader)) {
           // Looks like we also have an RDAT part
-          pPart = (DxilPartHeader*)(GetDxilPartData(pPart) + pPart->PartSize);
+          pPart = (const DxilPartHeader*)(GetDxilPartData(pPart) + pPart->PartSize);
           if (pPart->PartSize < /*sizeof(RuntimeDataHeader)*/8 ||
               pPart->PartSize + sizeof(DxilPartHeader) > SizeRemaining)
             return E_INVALIDARG;
@@ -432,9 +429,6 @@ public:
       return hlsl::CreateDxilShaderOrLibraryReflectionFromModulePart(pModulePart, pRDATPart, iid, ppvReflection);
     }
     CATCH_CPP_RETURN_HRESULT();
-#else
-    return E_NOTIMPL;
-#endif
   }
 
   virtual HRESULT STDMETHODCALLTYPE BuildArguments(

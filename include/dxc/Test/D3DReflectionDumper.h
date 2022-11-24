@@ -14,30 +14,9 @@
 #include "dxc/Support/Global.h"
 #include "DumpContext.h"
 #include "dxc/Support/WinIncludes.h"
-#include <d3d12shader.h>
 
 namespace hlsl {
 namespace dump {
-
-LPCSTR ToString(D3D_CBUFFER_TYPE CBType);
-LPCSTR ToString(D3D_SHADER_INPUT_TYPE Type);
-LPCSTR ToString(D3D_RESOURCE_RETURN_TYPE ReturnType);
-LPCSTR ToString(D3D_SRV_DIMENSION Dimension);
-LPCSTR ToString(D3D_PRIMITIVE_TOPOLOGY GSOutputTopology);
-LPCSTR ToString(D3D_PRIMITIVE InputPrimitive);
-LPCSTR ToString(D3D_TESSELLATOR_OUTPUT_PRIMITIVE HSOutputPrimitive);
-LPCSTR ToString(D3D_TESSELLATOR_PARTITIONING HSPartitioning);
-LPCSTR ToString(D3D_TESSELLATOR_DOMAIN TessellatorDomain);
-LPCSTR ToString(D3D_SHADER_VARIABLE_CLASS Class);
-LPCSTR ToString(D3D_SHADER_VARIABLE_TYPE Type);
-LPCSTR ToString(D3D_SHADER_VARIABLE_FLAGS Flag);
-LPCSTR ToString(D3D_SHADER_INPUT_FLAGS Flag);
-LPCSTR ToString(D3D_SHADER_CBUFFER_FLAGS Flag);
-LPCSTR ToString(D3D_PARAMETER_FLAGS Flag);
-LPCSTR ToString(D3D_NAME Name);
-LPCSTR ToString(D3D_REGISTER_COMPONENT_TYPE CompTy);
-LPCSTR ToString(D3D_MIN_PRECISION MinPrec);
-LPCSTR CompMaskToString(unsigned CompMask);
 
 class D3DReflectionDumper : public DumpContext {
 private:
