@@ -12,6 +12,7 @@
 #pragma once
 
 #include "dxc/Support/Global.h"
+#include "dxc/Test/D3DReflectionStrings.h"
 #include <string>
 #include <ostream>
 #include <sstream>
@@ -19,6 +20,7 @@
 #include <unordered_set>
 
 namespace hlsl {
+using namespace RDAT;
 namespace dump {
 
 template<typename _T>
@@ -45,7 +47,6 @@ class DumpContext {
 private:
   std::ostream &m_out;
   unsigned m_indent = 0;
-  bool m_bCheckByName = false;
   std::unordered_set<size_t> m_visited;
 
   std::ostream &DoIndent() {
@@ -71,10 +72,6 @@ public:
   template<typename _T>
   std::ostream &Write(std::ostream &out, _T t) {
     return out << t;
-  }
-  template<>
-  std::ostream &Write<uint8_t>(std::ostream &out, uint8_t t) {
-    return out << (unsigned)t;
   }
   template<typename _T, typename... Args>
   std::ostream &Write(std::ostream &out, _T t, Args... args) {
@@ -120,6 +117,11 @@ public:
   bool Visit(const void *ptr) { return Visit((size_t)ptr); }
   void VisitReset() { m_visited.clear(); }
 };
+
+template<>
+inline std::ostream &DumpContext::Write<uint8_t>(std::ostream &out, uint8_t t) {
+  return out << (unsigned)t;
+}
 
 // Copied from llvm/ADT/StringExtras.h
 inline char hexdigit(unsigned X, bool LowerCase = false) {
