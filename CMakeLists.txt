@@ -662,6 +662,12 @@ add_subdirectory(include/dxc)
 # This over-specifies the dependency graph, but since generating these doesn't
 # really depend on anything else in the build it is safe.
 list(APPEND LLVM_COMMON_DEPENDS HCTGen) 
+
+if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
+  add_subdirectory(external) # SPIRV change
+endif()
+include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
+
 # HLSL - Change End
 
 add_subdirectory(lib)
@@ -701,10 +707,6 @@ if(WITH_POLLY)
     set(WITH_POLLY OFF)
   endif()
 endif(WITH_POLLY)
-
-if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
-  add_subdirectory(external) # SPIRV change
-endif()
 
 if( LLVM_INCLUDE_TOOLS )
   add_subdirectory(tools)

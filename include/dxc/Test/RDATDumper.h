@@ -13,7 +13,6 @@
 
 #include "DumpContext.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 
 namespace hlsl {
 using namespace RDAT;
@@ -97,10 +96,5 @@ template<typename _T>
 void DumpValueArray(DumpContext &d, const char *memberName,
                     const char *typeName, const void *valueArray,
                     unsigned arraySize);
-
-#define DEF_RDAT_ENUMS DEF_RDAT_DUMP_DECL
-#define DEF_DXIL_ENUMS DEF_RDAT_DUMP_DECL
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-
 } // namespace dump
 } // namespace hlsl
