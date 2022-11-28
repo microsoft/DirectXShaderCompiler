@@ -43,8 +43,8 @@ stages:
     timeoutInMinutes: 90
 
     variables:
-      macOS: macOS-11
-      linux: Ubuntu-18.04
+      macOS: macOS-latest
+      linux: Ubuntu-latest
 
     strategy:
       matrix:
@@ -64,14 +64,14 @@ stages:
         Linux_Gcc_Release:
           image: ${{ variables.linux }}
           configuration: Release
-          CC: gcc-7
-          CXX: g++-7
+          CC: gcc-9
+          CXX: g++-9
           CXX_FLAGS:
         Linux_Gcc_Debug:
           image: ${{ variables.linux }}
           configuration: Debug
-          CC: gcc-7
-          CXX: g++-7
+          CC: gcc-9
+          CXX: g++-9
           CXX_FLAGS:
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
