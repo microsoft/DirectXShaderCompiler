@@ -2578,7 +2578,7 @@ bool DeclResultIdMapper::createStageVars(
             break;
           }
         }
-        // fall through
+        __fallthrough;
       default:
         emitError("invalid usage of semantic '%0' in shader profile %1", loc)
             << semanticToUse->str

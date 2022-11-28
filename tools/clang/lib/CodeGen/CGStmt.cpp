@@ -708,7 +708,7 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
       }
       // Vectorization/interleaving is disabled, set width/count to 1.
       ValueInt = 1;
-      // Fallthrough.
+      __fallthrough; // HLSL Change
     case LoopHintAttr::VectorizeWidth:
     case LoopHintAttr::InterleaveCount:
     case LoopHintAttr::UnrollCount:

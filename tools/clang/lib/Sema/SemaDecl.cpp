@@ -9513,7 +9513,7 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
       // that has an in-class initializer, so we type-check this like
       // a declaration. 
       //
-      // Fall through
+      __fallthrough; // HLSL Change
       
     case VarDecl::DeclarationOnly:
       // It's only a declaration. 

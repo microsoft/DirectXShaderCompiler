@@ -1081,7 +1081,7 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
         if (!MD->isStatic())
           Arity++;
     }
-  // FALLTHROUGH
+    __fallthrough; // HLSL Change
   case DeclarationName::CXXConversionFunctionName:
   case DeclarationName::CXXLiteralOperatorName:
     mangleOperatorName(Name, Arity);

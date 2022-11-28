@@ -6712,7 +6712,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
         << /*isConstexpr*/0 << /*isConstructor*/0 << "'strlen'";
     else
       Info.CCEDiag(E, diag::note_invalid_subexpr_in_const_expr);
-    // Fall through.
+    __fallthrough; // HLSL Change.
   case Builtin::BI__builtin_strlen: {
     // As an extension, we support __builtin_strlen() as a constant expression,
     // and support folding strlen() to a constant.
@@ -9191,8 +9191,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return CheckICE(Exp->getSubExpr(), Ctx);
     }
 
-    // OffsetOf falls through here.
-    __fallthrough; // HLSL Change
+    return CheckEvalInICE(E, Ctx); // HLSL Change - avoid dead-code fallthrough
 
   }
   case Expr::OffsetOfExprClass: {

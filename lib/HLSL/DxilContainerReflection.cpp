@@ -1060,6 +1060,7 @@ HRESULT CShaderReflectionType::Initialize(
       OutputDebugStringA("DxilContainerReflection.cpp: error: unknown matrix orientation\n");
 #endif
     // Note: column-major layout is the default
+    __fallthrough; // HLSL Change
     case hlsl::MatrixOrientation::Undefined:
     case hlsl::MatrixOrientation::ColumnMajor:
       m_Desc.Class = D3D_SVC_MATRIX_COLUMNS;

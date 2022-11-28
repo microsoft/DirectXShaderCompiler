@@ -3019,7 +3019,6 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
           Tok.setIdentifierInfo(II);
         }
       }
-      // Fall through.
       __fallthrough; // HLSL Change
     }
     case tok::comma:
@@ -4218,7 +4217,8 @@ HLSLReservedKeyword:
         isInvalid = true;
         break;
       };
-      __fallthrough; // HLSL Change
+      ParseOpenCLQualifiers(DS.getAttributes()); // HLSL Change -
+      break; // avoid dead-code fallthrough
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -5137,7 +5137,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())
       return true;
-    // Fall through.
+    __fallthrough; // HLSL Change.
   case tok::kw_typename:  // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
     // recurse to handle whatever we get.
@@ -5266,7 +5266,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
       return false;
     if (TryAltiVecVectorToken())
       return true;
-    // Fall through.
+    __fallthrough; // HLSL Change.
   case tok::kw_decltype: // decltype(T())::type
   case tok::kw_typename: // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just

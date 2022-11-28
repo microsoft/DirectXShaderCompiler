@@ -1108,7 +1108,7 @@ Value *TranslateQuadReadAcross(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   switch (IOP) {
   case IntrinsicOp::IOP_QuadReadAcrossX: opKind = DXIL::QuadOpKind::ReadAcrossX; break;
   case IntrinsicOp::IOP_QuadReadAcrossY: opKind = DXIL::QuadOpKind::ReadAcrossY; break;
-  default: DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_QuadReadAcrossDiagonal);
+  default: DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_QuadReadAcrossDiagonal); __fallthrough;
   case IntrinsicOp::IOP_QuadReadAcrossDiagonal: opKind = DXIL::QuadOpKind::ReadAcrossDiagonal; break;
   }
   Constant *OpArg = hlslOP->GetI8Const((unsigned)opKind);

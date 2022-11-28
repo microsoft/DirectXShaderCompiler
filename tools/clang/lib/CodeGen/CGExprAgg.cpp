@@ -697,7 +697,7 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
       return Visit(E->getSubExpr());
     }
 
-    // fallthrough
+    __fallthrough; // HLSL Change
 
   case CK_NoOp:
   case CK_UserDefinedConversion:

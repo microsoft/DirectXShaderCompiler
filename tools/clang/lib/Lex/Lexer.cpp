@@ -2467,7 +2467,7 @@ void Lexer::ReadToEndOfLine(SmallVectorImpl<char> *Result) {
           Result->push_back(Char);
         break;
       }
-      // FALL THROUGH.
+      __fallthrough; // HLSL Change
     case '\r':
     case '\n':
       // Okay, we found the end of the line. First, back up past the \0, \r, \n.

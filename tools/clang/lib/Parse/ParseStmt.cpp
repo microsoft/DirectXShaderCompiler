@@ -234,11 +234,10 @@ Retry:
     }
 
     // Fall through
-    __fallthrough; // HLSL Change
   }
-
-  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
+  __fallthrough; // HLSL Change
   default: {
+  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
     if ((getLangOpts().CPlusPlus || !OnlyStatement) && isDeclarationStatement()) {
       SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
       DeclGroupPtrTy Decl = ParseDeclaration(Declarator::BlockContext,

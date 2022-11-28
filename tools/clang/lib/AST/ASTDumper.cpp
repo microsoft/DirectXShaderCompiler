@@ -1394,7 +1394,7 @@ void ASTDumper::VisitTemplateDeclSpecialization(const SpecializationDecl *D,
     case TSK_ExplicitInstantiationDefinition:
       if (!DumpExplicitInst)
         break;
-      // Fall through.
+      __fallthrough; // HLSL Change
     case TSK_Undeclared:
     case TSK_ImplicitInstantiation:
       if (DumpRefOnly)

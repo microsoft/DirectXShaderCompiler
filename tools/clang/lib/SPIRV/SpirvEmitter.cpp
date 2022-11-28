@@ -6531,7 +6531,7 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
     rhsVal = spvBuilder.createBinaryOp(spv::Op::OpBitwiseAnd, computationType,
                                        rhsVal, getMaskForBitwidthValue(rhsType),
                                        loc, sourceRange);
-    // Fall through
+    __fallthrough;
   case BO_Add:
   case BO_Sub:
   case BO_Mul:

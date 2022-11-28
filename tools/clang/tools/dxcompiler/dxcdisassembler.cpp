@@ -390,6 +390,7 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
       OS << right_justify(compName, alignment);
       break;
     }
+    break;
   case DxilResource::Class::Invalid:
     break;
   }

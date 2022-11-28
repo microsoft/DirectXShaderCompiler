@@ -151,7 +151,7 @@ Parser::TPResult Parser::TryConsumeDeclarationSpecifier() {
       ConsumeToken();
       break;
     }
-    // Fall through.
+    __fallthrough; // HLSL Change
   case tok::kw_typeof:
   case tok::kw___attribute:
   case tok::kw___underlying_type: {
@@ -208,7 +208,7 @@ Parser::TPResult Parser::TryConsumeDeclarationSpecifier() {
 
   case tok::annot_cxxscope:
     ConsumeToken();
-    // Fall through.
+    __fallthrough; // HLSL Change
   default:
     ConsumeToken();
 
@@ -1203,7 +1203,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
                      tok::kw_delete))   // ::delete
       return TPResult::False;
   }
-    // Fall through.
+    __fallthrough; // HLSL Change
   case tok::kw___super:
   case tok::kw_decltype:
     // Annotate typenames and C++ scope specifiers.  If we get one, just

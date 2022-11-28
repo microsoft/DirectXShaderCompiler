@@ -228,7 +228,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::VariableArray:
     case Type::DependentSizedArray:
       NeedARCStrongQualifier = true;
-      // Fall through
+      __fallthrough; // HLSL Change
       
     case Type::Adjusted:
     case Type::Decayed:

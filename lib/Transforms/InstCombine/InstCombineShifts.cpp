@@ -456,7 +456,7 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
         }
       }
 
-      // FALL THROUGH.
+      __fallthrough; // HLSL CHANGE
       case Instruction::Sub: {
         // Turn ((X >> C) + Y) << C  ->  (X + (Y << C)) & (~0 << C)
         if (isLeftShift && Op0BO->getOperand(0)->hasOneUse() &&

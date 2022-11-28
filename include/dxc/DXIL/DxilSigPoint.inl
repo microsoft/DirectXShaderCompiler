@@ -172,6 +172,7 @@ DXIL::SigPointKind SigPoint::GetKind(DXIL::ShaderKind shaderKind, DXIL::Signatur
     case DXIL::ShaderKind::Geometry:
       if (sigKind == DXIL::SignatureKind::Input)
         return DXIL::SigPointKind::GSIn;
+      break;
     default:
       break;
     }

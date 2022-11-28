@@ -6635,7 +6635,7 @@ Sema::CheckSpecializationInstantiationRedecl(SourceLocation NewLoc,
         StripImplicitInstantiation(PrevDecl);
         return false;
       }
-      // Fall through
+      __fallthrough; // HLSL Change
 
     case TSK_ExplicitInstantiationDeclaration:
     case TSK_ExplicitInstantiationDefinition:

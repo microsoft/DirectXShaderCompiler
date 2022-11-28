@@ -579,7 +579,7 @@ Optional<TemplateDeductionInfo *> Sema::isSFINAEContext() const {
       // context, depending on what else is on the stack.
       if (isa<TypeAliasTemplateDecl>(Active->Entity))
         break;
-      // Fall through.
+      __fallthrough; // HLSL Change
     case ActiveTemplateInstantiation::DefaultFunctionArgumentInstantiation:
     case ActiveTemplateInstantiation::ExceptionSpecInstantiation:
       // This is a template instantiation, so there is no SFINAE.

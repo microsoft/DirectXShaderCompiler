@@ -181,7 +181,7 @@ SourceLocation TypeLoc::getBeginLoc() const {
         LeftMost = Cur;
         break;
       }
-      /* Fall through */
+      __fallthrough; // HLSL Change
     case FunctionNoProto:
     case ConstantArray:
     case DependentSizedArray:

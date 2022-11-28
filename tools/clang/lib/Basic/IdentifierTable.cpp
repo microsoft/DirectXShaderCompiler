@@ -537,6 +537,7 @@ ObjCInstanceTypeFamily Selector::getInstTypeMethodFamily(Selector sel) {
       break;
     case 'i':
       if (startsWithWord(name, "init")) return OIT_Init;
+      break; // HLSL Change
     default:
       break;
   }

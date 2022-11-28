@@ -361,7 +361,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, unsigned Context) {
     case tok::r_brace:
       if (!NestedModules)
         break;
-      // Fall through.
+      __fallthrough; // HLSL Change.
     default:
       ParsedAttributesWithRange attrs(AttrFactory);
       MaybeParseCXX11Attributes(attrs);

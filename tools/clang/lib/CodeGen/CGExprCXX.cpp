@@ -614,7 +614,7 @@ CodeGenFunction::EmitCXXConstructExpr(const CXXConstructExpr *E,
 
      case CXXConstructExpr::CK_VirtualBase:
       ForVirtualBase = true;
-      // fall-through
+      __fallthrough; // HLSL Change
 
      case CXXConstructExpr::CK_NonVirtualBase:
       Type = Ctor_Base;

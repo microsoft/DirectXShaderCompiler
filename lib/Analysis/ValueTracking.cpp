@@ -2332,7 +2332,7 @@ bool llvm::CannotBeOrderedLessThanZero(const Value *V, unsigned Depth) {
     // x*x is always non-negative or a NaN.
     if (I->getOperand(0) == I->getOperand(1)) 
       return true;
-    // Fall through
+    __fallthrough; // HLSL Change
   case Instruction::FAdd:
   case Instruction::FDiv:
   case Instruction::FRem:

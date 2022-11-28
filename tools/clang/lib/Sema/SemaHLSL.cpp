@@ -7834,6 +7834,7 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     }
   default:
     DXASSERT(false, "unreachable");
+    return false;
   case AR_TOBJ_BASIC:
   case AR_TOBJ_MATRIX:
   case AR_TOBJ_VECTOR:
@@ -9162,7 +9163,7 @@ lSuccess:
         case ICK_Vector_Conversion:
         case ICK_Vector_Splat:
           DXASSERT(false, "We shouldn't be producing these implicit conversion kinds");
-
+          break;
         case ICK_Flat_Conversion:
         case ICK_HLSLVector_Splat:
           standard->First = ICK_Lvalue_To_Rvalue;
@@ -11424,7 +11425,7 @@ bool FlattenedTypeIterator::considerLeaf()
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:
-    m_springLoaded = true; // fall through.
+    m_springLoaded = true; __fallthrough;
   default:
   case FlattenedIterKind::FK_Simple: {
     ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(tracker.Type);

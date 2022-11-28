@@ -354,7 +354,7 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
     case tok::semi:
       if (HasFlagsSet(Flags, StopAtSemi))
         return false;
-      // FALL THROUGH.
+      __fallthrough; // HLSL Change
     default:
       // Skip this token.
       ConsumeToken();
@@ -1505,7 +1505,7 @@ Parser::TryAnnotateName(bool IsAddressOfOperand,
         AnnotateScopeToken(SS, !WasScopeAnnotation);
       return ANK_TemplateName;
     }
-    // Fall through.
+    __fallthrough; // HLSL Change
   case Sema::NC_VarTemplate:
   case Sema::NC_FunctionTemplate: {
     // We have a type, variable or function template followed by '<'.

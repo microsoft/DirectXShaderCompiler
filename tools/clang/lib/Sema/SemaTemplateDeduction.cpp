@@ -1410,7 +1410,7 @@ DeduceTemplateArgumentsByTypeMatch(Sema &S,
         ->getInjectedSpecializationType();
       assert(isa<TemplateSpecializationType>(Param) &&
              "injected class name is not a template specialization type");
-      // fall through
+      __fallthrough; // HLSL Change
     }
 
     //     template-name<T> (where template-name refers to a class template)
@@ -4839,7 +4839,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
 
   case Type::InjectedClassName:
     T = cast<InjectedClassNameType>(T)->getInjectedSpecializationType();
-    // fall through
+    __fallthrough; // HLSL Change
 
   case Type::TemplateSpecialization: {
     const TemplateSpecializationType *Spec
@@ -4941,7 +4941,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
     MarkUsedTemplateParameters(Ctx,
                                cast<AutoType>(T)->getDeducedType(),
                                OnlyDeduced, Depth, Used);
-
+    break;
   // None of these types have any template parameters in them.
   case Type::Builtin:
   case Type::VariableArray:

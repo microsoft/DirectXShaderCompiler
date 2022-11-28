@@ -1374,7 +1374,7 @@ static void AddFunctionSpecifiers(Sema::ParserCompletionContext CCC,
       Results.AddResult(Result("mutable"));
       Results.AddResult(Result("virtual"));
     }    
-    // Fall through
+    __fallthrough; // HLSL Change
 
   case Sema::PCC_ObjCInterface:
   case Sema::PCC_ObjCImplementation:
@@ -1577,7 +1577,7 @@ static void AddOrdinaryNameResults(Sema::ParserCompletionContext CCC,
       AddObjCTopLevelResults(Results, true);
       
     AddTypedefResult(Results);
-    // Fall through
+    __fallthrough; // HLSL Change
 
   case Sema::PCC_Class:
     if (SemaRef.getLangOpts().CPlusPlus) {
@@ -1623,7 +1623,7 @@ static void AddOrdinaryNameResults(Sema::ParserCompletionContext CCC,
         Results.AddResult(Result(Builder.TakeString()));
       }
     }
-    // Fall through
+    __fallthrough; // HLSL Change
 
   case Sema::PCC_Template:
   case Sema::PCC_MemberTemplate:
@@ -1851,7 +1851,7 @@ static void AddOrdinaryNameResults(Sema::ParserCompletionContext CCC,
       Builder.AddPlaceholderChunk("expression");
       Results.AddResult(Result(Builder.TakeString()));      
     }
-    // Fall through
+    __fallthrough; // HLSL Change
 
   case Sema::PCC_Expression: {
     if (SemaRef.getLangOpts().CPlusPlus) {
@@ -3076,7 +3076,7 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
     default:
       if (const TagDecl *TD = dyn_cast<TagDecl>(D)) {
         switch (TD->getTagKind()) {
-          case TTK_Interface:  // fall through
+          case TTK_Interface:  __fallthrough; // HLSL Change
           case TTK_Struct: return CXCursor_StructDecl;
           case TTK_Class:  return CXCursor_ClassDecl;
           case TTK_Union:  return CXCursor_UnionDecl;
