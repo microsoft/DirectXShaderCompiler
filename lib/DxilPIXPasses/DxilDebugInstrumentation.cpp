@@ -955,14 +955,16 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   bool modified = false;
   if (shaderKind == DXIL::ShaderKind::Library) {
-    for (llvm::Function& F : M.functions()) {
-      modified = modified | RunOnFunction(M, DM, &F); 
-      return modified;
+    auto instrumentableFunctions =
+        PIXPassHelpers::GetAllInstrumentableFunctions(DM);
+    for (auto *F : instrumentableFunctions) {
+      if (RunOnFunction(M, DM, F)) {
+        modified = true;
+      }
     }
-  }
-  else {
+  } else {
     llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
-    modified = RunOnFunction(M, DM, entryFunction);
+    modified = RunOnFunction(M, DM, entryFunction);  
   }
   return modified;
 }
