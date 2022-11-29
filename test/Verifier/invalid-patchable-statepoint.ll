@@ -1,5 +1,7 @@
 ; RUN: not opt -verify 2>&1 < %s | FileCheck %s
 
+; REQUIRES: hlsl-gc.statepoint-unsupported
+
 ; CHECK: gc.statepoint must have null as call target if number of patchable bytes is non zero
 
 define i1 @invalid_patchable_statepoint() gc "statepoint-example" {
