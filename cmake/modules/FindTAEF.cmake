@@ -29,6 +29,8 @@ endmacro(find_taef_libraries)
 
 if(CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   find_taef_libraries(arm64)
+elseif(CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARMV7")
+  find_taef_libraries(arm)
 else()
   find_taef_libraries(${CMAKE_C_COMPILER_ARCHITECTURE_ID})
 endif()
