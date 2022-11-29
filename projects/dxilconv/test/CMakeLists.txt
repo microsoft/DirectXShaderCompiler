@@ -8,7 +8,7 @@ configure_lit_site_cfg(
 
 
 # HLSL Change Begin - Add taef tests
-add_lit_target("check-dxilconv" "Running lit suite dxilconv"
+add_lit_testsuite("check-dxilconv" "Running lit suite dxilconv"
           ${CMAKE_CURRENT_SOURCE_DIR}/taef
           PARAMS
                  dxilconv_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
