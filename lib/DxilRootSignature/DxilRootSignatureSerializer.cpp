@@ -260,8 +260,10 @@ void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSigna
 
   DxilStaticSamplerDesc *pSS;
   unsigned StaticSamplerSize = sizeof(DxilStaticSamplerDesc)*RS.NumStaticSamplers;
-  IFT(Serializer.ReserveBlock((void**)&pSS, StaticSamplerSize, &RS.StaticSamplersOffset));
-  memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
+  if (StaticSamplerSize > 0) {
+    IFT(Serializer.ReserveBlock((void**)&pSS, StaticSamplerSize, &RS.StaticSamplersOffset));
+    memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
+  }
 
   // Create the result blob.
   CDxcMallocHeapPtr<char> bytes(DxcGetThreadMallocNoRef());
@@ -450,8 +452,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   IFTBOOL(((const char*)pInRTS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumParameters) {
     pRootSignature->pParameters = new T_ROOT_PARAMETER[pRootSignature->NumParameters];
+    memset((void *)pRootSignature->pParameters, 0, s);
   }
-  memset((void *)pRootSignature->pParameters, 0, s);
 
   for(unsigned iRP = 0; iRP < pRootSignature->NumParameters; iRP++) {
     DxilRootParameterType ParameterType = (DxilRootParameterType)pInRTS[iRP].ParameterType;
@@ -510,8 +512,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   IFTBOOL(((const char*)pInSS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumStaticSamplers) {
     pRootSignature->pStaticSamplers = new DxilStaticSamplerDesc[pRootSignature->NumStaticSamplers];
+    memcpy((void*)pRootSignature->pStaticSamplers, pInSS, s);
   }
-  memcpy((void*)pRootSignature->pStaticSamplers, pInSS, s);
 }
 
 _Use_decl_annotations_

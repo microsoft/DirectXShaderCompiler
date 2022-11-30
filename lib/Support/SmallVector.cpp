@@ -33,8 +33,10 @@ void SmallVectorBase::grow_pod(void *FirstEl, size_t MinSizeInBytes,
     // If this wasn't grown from the inline copy, grow the allocated space.
     // HLSL Change Begins: Use overridable operator new
     NewElts = new char[NewCapacityInBytes];
-    memcpy(NewElts, this->BeginX, CurSizeBytes);
-    delete[] (char*)this->BeginX;
+    if (this->BeginX != nullptr) {
+      memcpy(NewElts, this->BeginX, CurSizeBytes);
+      delete[] (char*)this->BeginX;
+    }
     // HLSL Change Ends
   }
   assert(NewElts && "Out of memory");
