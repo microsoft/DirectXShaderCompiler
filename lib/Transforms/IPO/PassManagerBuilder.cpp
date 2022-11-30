@@ -270,7 +270,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
     // without interfering with HLSL-specific lowering.
     if (EnableLifetimeMarkers) {
       MPM.add(createSROAPass());
-      MPM.add(createInstructionCombiningPass());
+      MPM.add(createSimplifyInstPass());
       MPM.add(createJumpThreadingPass());
     }
   }
