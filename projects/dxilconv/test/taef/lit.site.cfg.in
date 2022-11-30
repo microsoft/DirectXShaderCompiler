@@ -5,7 +5,7 @@ import sys
 config.llvm_src_root = "@LLVM_SOURCE_DIR@"
 config.llvm_obj_root = "@LLVM_BINARY_DIR@"
 config.build_mode = lit_config.params["build_mode"]
-config.arch = "@DXC_BUILD_ARCH@"
+config.arch = "@CMAKE_C_COMPILER_ARCHITECTURE_ID@"
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@LLVM_SOURCE_DIR@/projects/dxilconv/test/taef/lit.cfg")
