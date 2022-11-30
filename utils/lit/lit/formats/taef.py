@@ -42,7 +42,7 @@ class TaefTest(TestFormat):
             lines = lines.replace('\r', '')
             lines = lines.split('\n')
         except:
-            litConfig.error("unable to discover taef in %r" % path)
+            litConfig.error("unable to discover taef in %r" % dll_path)
             raise StopIteration
 
         for ln in lines:
