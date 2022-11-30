@@ -8,4 +8,4 @@ config.build_mode = lit_config.params["build_mode"]
 config.arch = "@DXC_BUILD_ARCH@"
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@CLANG_SOURCE_DIR@/test/clang-hlsl/lit.cfg")
+lit_config.load_config(config, "@CLANG_SOURCE_DIR@/test/taef/lit.cfg")
