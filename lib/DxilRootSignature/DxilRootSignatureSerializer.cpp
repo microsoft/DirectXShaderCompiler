@@ -260,10 +260,9 @@ void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSigna
 
   DxilStaticSamplerDesc *pSS;
   unsigned StaticSamplerSize = sizeof(DxilStaticSamplerDesc)*RS.NumStaticSamplers;
-  if (StaticSamplerSize > 0) {
-    IFT(Serializer.ReserveBlock((void**)&pSS, StaticSamplerSize, &RS.StaticSamplersOffset));
+  IFT(Serializer.ReserveBlock((void**)&pSS, StaticSamplerSize, &RS.StaticSamplersOffset));
+  if (StaticSamplerSize > 0)
     memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
-  }
 
   // Create the result blob.
   CDxcMallocHeapPtr<char> bytes(DxcGetThreadMallocNoRef());
