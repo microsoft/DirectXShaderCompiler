@@ -1,4 +1,5 @@
 ; RUN: opt -S %s -verify | FileCheck %s
+; REQUIRES: hlsl-gc.statepoint-unsupported
 
 declare void @use(...)
 declare i8 addrspace(1)* @llvm.experimental.gc.relocate.p1i8(i32, i32, i32)

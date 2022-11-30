@@ -4,6 +4,9 @@
 ; RUN: llvm-as < %s | lli --force-interpreter=true | FileCheck %s
 ; CHECK: -255
 
+; HLSL Change: lli doesn't work in DXC
+; REQUIRES: hlsl-lli
+
 @ARRAY   = global [ 20 x i17 ] zeroinitializer
 @FORMAT  = constant [ 4 x i8 ] c"%d\0A\00"
 
