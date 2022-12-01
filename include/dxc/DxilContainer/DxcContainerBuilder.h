@@ -42,6 +42,9 @@ public:
     m_HasPrivateData = false;
   }
 
+  HRESULT AddPartWithoutRestrictions(_In_ UINT32 fourCC,
+                                     _In_ IDxcBlob *pSource);
+
 protected:
   DXC_MICROCOM_TM_REF_FIELDS()
 

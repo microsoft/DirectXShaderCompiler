@@ -207,6 +207,13 @@ IDxcPixDxilDebugInfoFactory : public IUnknown
       _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo) = 0;
 };
 
+struct __declspec(uuid("cab55c12-8933-4b0e-a702-a6470eb4c2e3"))
+IDxcPixContainerOperations : public IUnknown 
+{
+  virtual STDMETHODIMP AddPart(_In_ IDxcContainerBuilder *container,
+                               _In_ UINT32 fourCC, _In_ IDxcBlob *pSource) = 0;
+};
+
 #ifndef CLSID_SCOPE
 #ifdef _MSC_VER
 #define CLSID_SCOPE __declspec(selectany) extern

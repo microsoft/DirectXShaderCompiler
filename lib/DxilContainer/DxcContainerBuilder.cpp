@@ -220,3 +220,19 @@ void DxcContainerBuilder::AddPart(DxilPart&& part) {
     m_HasPrivateData = true;
   }
 }
+
+HRESULT DxcContainerBuilder::AddPartWithoutRestrictions(_In_ UINT32 fourCC,
+                                                _In_ IDxcBlob *pSource) {
+  DxcThreadMalloc TM(m_pMalloc);
+  try {
+    PartList::iterator it =
+        std::find_if(m_parts.begin(), m_parts.end(),
+                     [&](DxilPart part) { return part.m_fourCC == fourCC; });
+    if (it != m_parts.end()) {
+      m_parts.erase(it);
+    }
+    AddPart(DxilPart(fourCC, pSource));
+    return S_OK;
+  }
+  CATCH_CPP_RETURN_HRESULT();
+}

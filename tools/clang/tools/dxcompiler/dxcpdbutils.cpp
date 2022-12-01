@@ -30,6 +30,7 @@
 #include "dxc/dxcpix.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
@@ -252,7 +253,9 @@ public:
   }
 };
 
-struct DxcPdbUtils : public IDxcPdbUtils2, public IDxcPixDxilDebugInfoFactory
+struct DxcPdbUtils : public IDxcPdbUtils2,
+                     public IDxcPixDxilDebugInfoFactory,
+                     public IDxcPixContainerOperations 
 {
 private:
   // Making the adapter and this interface the same object and share reference counting.
@@ -797,7 +800,10 @@ public:
   DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc), m_Adapter(this) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    HRESULT hr = DoBasicQueryInterface<IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    HRESULT hr = DoBasicQueryInterface<
+        IDxcPdbUtils2, 
+        IDxcPixDxilDebugInfoFactory,
+        IDxcPixContainerOperations>(this, iid, ppvObject);
     if (FAILED(hr)) {
       return DoBasicQueryInterface<IDxcPdbUtils>(&m_Adapter, iid, ppvObject);
     }
@@ -1069,6 +1075,13 @@ public:
     if (m_customToolchainData)
       return m_customToolchainData.QueryInterface(ppBlob);
     return S_OK;
+  }
+
+  // IDxcPixContainerOperations:
+  STDMETHODIMP AddPart(_In_ IDxcContainerBuilder *container, _In_ UINT32 fourCC,
+                       _In_ IDxcBlob *pSource) override {
+    auto *builder = static_cast<DxcContainerBuilder *>(container);
+    return builder->AddPartWithoutRestrictions(fourCC, pSource);
   }
 };
 
