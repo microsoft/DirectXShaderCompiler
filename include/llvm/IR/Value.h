@@ -199,6 +199,7 @@ public:
 
   /// \brief Support for debugging, callable in GDB: V->dump()
   void dump() const;
+  void dumpToFile(const char *path) const; // HLSL Change
 
   /// \brief Implement operator<< on Value.
   /// @{

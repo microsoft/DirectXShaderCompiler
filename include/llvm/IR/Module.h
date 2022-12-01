@@ -663,6 +663,7 @@ public:
 
   /// Dump the module to stderr (for debugging).
   void dump() const;
+  void dumpToFile(const char *path) const; // HLSL Change
   
   /// This function causes all the subinstructions to "let go" of all references
   /// that they are maintaining.  This allows one to 'delete' a whole class at

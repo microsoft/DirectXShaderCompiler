@@ -3366,6 +3366,30 @@ void MDNode::printAsBody(raw_ostream &OS, ModuleSlotTracker &MST, const Module *
     TypePrinter.incorporateTypes(*M);
   WriteMDNodeBodyInternal(OS, this, &TypePrinter, MST.getMachine(), M);
 }
+
+template<typename T>
+static void dumpToFileImpl(const T *obj, const char *path) {
+  std::string s;
+  llvm::raw_string_ostream os(s);
+  os << *obj;
+  os.flush();
+
+  size_t bytesWritten = 0;
+  FILE *f = fopen(path, "wb");
+  if (f) {
+    bytesWritten = fwrite(s.c_str(), 1, s.size(), f);
+    fclose(f);
+  }
+  fprintf(stderr, "%u bytes written to %s\n", (unsigned)bytesWritten, path);
+}
+LLVM_DUMP_METHOD
+void Value::dumpToFile(const char *path) const {
+  dumpToFileImpl(this, path);
+}
+LLVM_DUMP_METHOD
+void Module::dumpToFile(const char *path) const {
+  dumpToFileImpl(this, path);
+}
 // HLSL Change end
 
 // Value::dump - allow easy printing of Values from the debugger.
