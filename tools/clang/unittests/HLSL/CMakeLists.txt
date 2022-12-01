@@ -51,6 +51,8 @@ add_clang_library(ClangHLSLTests SHARED
   VerifierTest.cpp
   clang-hlsl-tests.rc
   )
+
+  add_dependencies(ClangUnitTests ClangHLSLTests)
 else (WIN32)
 set(HLSL_IGNORE_SOURCES
   ExecutionTest.cpp
