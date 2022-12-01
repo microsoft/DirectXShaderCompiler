@@ -983,7 +983,7 @@ DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc,
         *pBlobEncoding = internalEncoding;
       }
       return hr;
-    } else {
+    } else if (utf8CharCount > 0) {
       // Copy to new buffer and null-terminate
       if(!utf8NewCopy.Allocate(utf8CharCount + 1))
         return E_OUTOFMEMORY;
