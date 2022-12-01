@@ -451,7 +451,7 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   IFTBOOL(((const char*)pInRTS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumParameters) {
     pRootSignature->pParameters = new T_ROOT_PARAMETER[pRootSignature->NumParameters];
-    memset((void *)pRootSignature->pParameters, 0, s);
+    memset((void *)pRootSignature->pParameters, 0, pRootSignature->NumParameters * sizeof(T_ROOT_PARAMETER));
   }
 
   for(unsigned iRP = 0; iRP < pRootSignature->NumParameters; iRP++) {
