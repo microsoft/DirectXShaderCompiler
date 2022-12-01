@@ -193,7 +193,7 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
   VERIFY_SUCCEEDED(pFrameEncode->WriteSource(pBitmap, nullptr));
   VERIFY_SUCCEEDED(pFrameEncode->Commit());
   VERIFY_SUCCEEDED(pEncoder->Commit());
-  hlsl::WriteBinaryFile(pFileName, pStream->GetPtr(), pStream->GetPtrSize());
+  IFT(hlsl::WriteBinaryFile(pFileName, pStream->GetPtr(), pStream->GetPtrSize()));
 }
 
 // Checks if the given warp version supports the given operation.
