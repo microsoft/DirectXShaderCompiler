@@ -11,4 +11,4 @@
 # FIXME: The string below should actually be
 #   "as space trimmed\nspecific\nescaped\tnone", but the parser currently has
 #   a bug when parsing multiline quoted strings.
-# CHECK: !!str "as space\n trimmed\n specific\n escaped\t none"
+# CHECK: !!str "as space{{(\\n)+}} trimmed{{(\\n)+}} specific{{(\\n)+}} escaped\t none"
