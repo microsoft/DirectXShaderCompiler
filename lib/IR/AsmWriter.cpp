@@ -3367,6 +3367,7 @@ void MDNode::printAsBody(raw_ostream &OS, ModuleSlotTracker &MST, const Module *
   WriteMDNodeBodyInternal(OS, this, &TypePrinter, MST.getMachine(), M);
 }
 
+#if defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 template<typename T>
 static void dumpToFileImpl(const T *obj, const char *path) {
   std::string s;
@@ -3390,6 +3391,7 @@ LLVM_DUMP_METHOD
 void Module::dumpToFile(const char *path) const {
   dumpToFileImpl(this, path);
 }
+#endif
 // HLSL Change end
 
 // Value::dump - allow easy printing of Values from the debugger.
