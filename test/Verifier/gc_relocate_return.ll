@@ -2,6 +2,7 @@
 ; This is to verify that gc_relocate must return a pointer type, which is defined
 ; in intrinsics.td.
 
+; REQUIRES: hlsl-gc.statepoint-unsupported
 ; CHECK: Intrinsic has incorrect return type!
 
 declare void @foo()

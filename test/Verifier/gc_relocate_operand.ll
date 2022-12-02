@@ -1,6 +1,7 @@
 ; RUN: not llvm-as -disable-output <%s 2>&1 | FileCheck %s
 ; This is to verify that the relocated value by gc_relocate must be a pointer type.
 
+; REQUIRES: hlsl-gc.statepoint-unsupported
 ; CHECK: gc.relocate: relocated value must be a gc pointer
 
 declare void @foo()
