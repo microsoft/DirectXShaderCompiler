@@ -73,7 +73,7 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
       case 'r': // createhandle
         return HLOpcodeGroup::HLCreateHandle;
       }
-      break;
+      llvm_unreachable("unrecognized group code");
     case 'i': // init
       return HLOpcodeGroup::HLInit;
     case 'b': // binaryOp
@@ -87,7 +87,7 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
       case 'e':
         return HLOpcodeGroup::HLSelect;
       }
-      break;
+      llvm_unreachable("unrecognized group code");
     case 'm': // matldst
       return HLOpcodeGroup::HLMatLoadStore;
     case 'a': // annotatehandle

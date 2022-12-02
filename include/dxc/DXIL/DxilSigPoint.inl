@@ -166,9 +166,9 @@ DXIL::SigPointKind SigPoint::GetKind(DXIL::ShaderKind shaderKind, DXIL::Signatur
   if (isSpecialInput) {
     switch (shaderKind) {
     case DXIL::ShaderKind::Hull:
-    if (sigKind == DXIL::SignatureKind::Input)
-      return isPatchConstantFunction ? DXIL::SigPointKind::PCIn : DXIL::SigPointKind::HSIn;
-      break;
+      if (sigKind == DXIL::SignatureKind::Input)
+        return isPatchConstantFunction ? DXIL::SigPointKind::PCIn : DXIL::SigPointKind::HSIn;
+          break;
     case DXIL::ShaderKind::Geometry:
       if (sigKind == DXIL::SignatureKind::Input)
         return DXIL::SigPointKind::GSIn;

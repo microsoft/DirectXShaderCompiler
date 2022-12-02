@@ -314,7 +314,7 @@
 #define _Null_terminated_
 
 #if __cplusplus > 201402L
-#define __fallthrough [[fallthrough]
+#define __fallthrough [[fallthrough]]
 #elif defined(__clang__)
 #define __fallthrough [[clang::fallthrough]]
 #else
