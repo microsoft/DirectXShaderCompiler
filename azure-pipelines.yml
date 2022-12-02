@@ -110,13 +110,10 @@ stages:
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['macOS'])
     - bash: |
-        mkdir build
-        cd build
-        cmake -G Ninja $BUILD_SOURCESDIRECTORY -C $BUILD_SOURCESDIRECTORY/cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXX_FLAGS)
+        cmake -B build -G Ninja $BUILD_SOURCESDIRECTORY -DLLVM_LIT_ARGS=--xunit-xml-output=testresults.xunit.xml -DDXC_USE_LIT=On -C $BUILD_SOURCESDIRECTORY/cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXX_FLAGS)
       displayName: 'Running Cmake'
     - bash: |
-        cd build
-        ninja
+        ninja -C build test-depends
       displayName: 'Building'
     - bash: |
         ./build/bin/dxc -T ps_6_0 tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
@@ -125,8 +122,10 @@ stages:
         ls -ld $AGENT_BUILDDIRECTORY
         ls -ld $BUILD_SOURCESDIRECTORY
       displayName: 'Smoke tests'
-    - bash: ./build/bin/clang-spirv-tests --spirv-test-root tools/clang/test/CodeGenSPIRV/
-      displayName: 'SPIRV tests'
-    - bash: ./build/bin/clang-hlsl-tests --HlslDataDir $PWD/tools/clang/test/HLSL/
-      displayName: 'DXIL tests'
+    - bash: ninja -C build check-all
+      displayName: 'DXC tests'
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'XUnit'
+        testREsultsFiles: '**/testresults.xunit.xml'
 
