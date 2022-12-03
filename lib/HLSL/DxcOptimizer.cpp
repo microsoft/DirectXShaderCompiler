@@ -14,6 +14,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
@@ -307,8 +308,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
               GetDxilPartByType(pContainerHeader, DFCC_RootSignature)) {
         DxilModule &DM = M->GetOrCreateDxilModule();
         const uint8_t* pPartData = (const uint8_t*)GetDxilPartData(pPartHeader);
-        DM.ResetSerializedRootSignature(
-            std::vector<uint8_t>(pPartData, pPartData + pPartHeader->PartSize));
+        std::vector<uint8_t> partData(pPartData, pPartData + pPartHeader->PartSize);
+        DM.ResetSerializedRootSignature(partData);
       }
 
       // PSV0 - TBD
@@ -510,8 +511,31 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       {
         raw_stream_ostream outStream(pProgramStream.p);
         WriteBitcodeToFile(M.get(), outStream, true);
+        if (bIsFullContainer) {
+          DxilModule &DM = M->GetOrCreateDxilModule();
+          CComPtr<AbstractMemoryStream> pFinalStream;
+          IFT(CreateMemoryStream(m_pMalloc, &pFinalStream));
+          CComPtr<AbstractMemoryStream> pReflectionStreamOut;
+          IFT(CreateMemoryStream(m_pMalloc, &pReflectionStreamOut));
+          CComPtr<AbstractMemoryStream> pRootSigStreamOut;
+          IFT(CreateMemoryStream(m_pMalloc, &pRootSigStreamOut));
+          DxilShaderHash shaderHashOut;
+          void *pPrivateData = nullptr; //todo
+          size_t PrivateDataSize = 0;
+          SerializeDxilContainerForModule(
+                &DM, pProgramStream, pFinalStream, "Container",
+              SerializeDxilFlags::IncludeDebugInfoPart /*todo: full set of flags*/
+              ,
+              &shaderHashOut,
+                pReflectionStreamOut,
+                pRootSigStreamOut, 
+                pPrivateData,
+                PrivateDataSize);
+          IFT(pFinalStream.QueryInterface(ppOutputModule));
+        } else {
+          IFT(pProgramStream.QueryInterface(ppOutputModule));
+        }
       }
-      IFT(pProgramStream.QueryInterface(ppOutputModule));
     }
   }
   CATCH_CPP_RETURN_HRESULT();
