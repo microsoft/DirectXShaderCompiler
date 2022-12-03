@@ -20,7 +20,13 @@
 #include <cassert>
 #include <sstream>
 #include <algorithm>
+
+// For DxilRuntimeReflection.h:
+#include "dxc/Support/WinIncludes.h"
+
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 
@@ -40,6 +46,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+
 
 using namespace std;
 using namespace hlsl_test;
@@ -264,10 +271,6 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWST
 }
 
 TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesSubobjects) {
-  // Compile lib with subobjects
-  // Run through optimizer with -hlsl-dxilemit
-  // Assemble to container
-  // Ensure RDAT part of new container contains expected subobjects
 
     const char *source = R"x(
 GlobalRootSignature so_GlobalRootSignature =
@@ -354,7 +357,6 @@ void MyMiss(inout MyPayload payload)
 
   CComPtr<IDxcBlobEncoding> pSource;
   Utf8ToBlob(m_dllSupport, source, &pSource);
-  std::vector<LPCWSTR> highLevelArgs{};//= {L"/T lib_6_6"};
 
   CComPtr<IDxcOperationResult> pResult;
   VERIFY_SUCCEEDED(pCompiler->Compile(
@@ -362,7 +364,7 @@ void MyMiss(inout MyPayload payload)
       L"source.hlsl", 
       L"", 
       L"lib_6_6",
-      highLevelArgs.data(), static_cast<UINT32>(highLevelArgs.size()), 
+      nullptr, 0,
       nullptr, 0, nullptr, &pResult));
   VerifyOperationSucceeded(pResult);
   CComPtr<IDxcBlob> pProgram;
@@ -375,31 +377,139 @@ void MyMiss(inout MyPayload payload)
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-hlsl-dxilemit");
 
-  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlob> pOptimizedContainer;
   CComPtr<IDxcBlobEncoding> pText;
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      pProgram, Options.data(), Options.size(), &pOptimizedModule, &pText));
+      pProgram, Options.data(), Options.size(), &pOptimizedContainer, &pText));
 
-  CComPtr<IDxcContainerReflection> reflector;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &reflector));
-  VERIFY_SUCCEEDED(reflector->Load(pOptimizedModule));
-  UINT32 RDAT;
-  VERIFY_SUCCEEDED(
-      reflector->FindFirstPartKind(hlsl::DFCC_RuntimeData, &RDAT));
+  const char *pBlobContent =
+      reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
+  unsigned blobSize = pOptimizedContainer->GetBufferSize();
+  const hlsl::DxilContainerHeader *pContainerHeader =
+      hlsl::IsDxilContainerLike(pBlobContent, blobSize);
 
-  CComPtr<IDxcBlob> rdat;
-  VERIFY_SUCCEEDED(reflector->GetPartContent(RDAT, &rdat));
+  const hlsl::DxilPartHeader *pPartHeader =
+      GetDxilPartByType(pContainerHeader, hlsl::DFCC_RuntimeData);
+  VERIFY_ARE_NOT_EQUAL(pPartHeader, nullptr);
 
-  auto const *rdatData =
-      reinterpret_cast < const char *>(rdat->GetBufferPointer());
+  hlsl::RDAT::DxilRuntimeData rdat(GetDxilPartData(pPartHeader),
+                             pPartHeader->PartSize);
 
-  rdatData;
+  auto const subObjectTableReader = rdat.GetSubobjectTable();
+
+  // There are 9 subobjects in the HLSL above:
+  VERIFY_ARE_EQUAL(subObjectTableReader.Count(), 9);
+  for (uint32_t i = 0; i < subObjectTableReader.Count(); ++i) {
+    auto subObject = subObjectTableReader[i];
+    hlsl::DXIL::SubobjectKind subobjectKind = subObject.getKind();
+    switch (subobjectKind) {
+    case hlsl::DXIL::SubobjectKind::StateObjectConfig:
+      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_StateObjectConfig"));
+      break;
+    case hlsl::DXIL::SubobjectKind::GlobalRootSignature:
+      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_GlobalRootSignature"));
+      break;
+    case hlsl::DXIL::SubobjectKind::LocalRootSignature:
+      VERIFY_IS_TRUE(
+          0 == strcmp(subObject.getName(), "so_LocalRootSignature1") || 
+          0 == strcmp(subObject.getName(), "so_LocalRootSignature2"));
+      break;
+    case hlsl::DXIL::SubobjectKind::SubobjectToExportsAssociation:
+      VERIFY_IS_TRUE(
+          0 == strcmp(subObject.getName(), "so_Association1") ||
+          0 == strcmp(subObject.getName(), "so_Association2"));
+      break;
+    case hlsl::DXIL::SubobjectKind::RaytracingShaderConfig:
+      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_RaytracingShaderConfig"));
+      break;
+    case hlsl::DXIL::SubobjectKind::RaytracingPipelineConfig:
+      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_RaytracingPipelineConfig"));
+      break;
+    case hlsl::DXIL::SubobjectKind::HitGroup:
+      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "MyHitGroup"));
+      break;
+      break;
+    }
+  }
 }
 
 TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesRootSig) {
-  // Compile shader with root signature
-  // Run through optimizer with -hlsl-dxilemit
-  // Assemble to container
-  // Ensure RST0 part of new container contains expected root signature
+  const char * source =
+R"(
+#define RootSig \
+        "UAV(u3, space=12), " \
+        "RootConstants(num32BitConstants=1, b7, space = 42) "
+    [numthreads(1, 1, 1)]
+    [RootSignature(RootSig)]
+    void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
+    {
+    }
+)";
+
+
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  Utf8ToBlob(m_dllSupport, source, &pSource);
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"CSMain", L"cs_6_6",
+                                      nullptr, 0, nullptr, 0, nullptr,
+                                      &pResult));
+  VerifyOperationSucceeded(pResult);
+  CComPtr<IDxcBlob> pProgram;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-hlsl-dxilemit");
+
+  CComPtr<IDxcBlob> pOptimizedContainer;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      pProgram, Options.data(), Options.size(), &pOptimizedContainer, &pText));
+
+  const char *pBlobContent =
+      reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
+  unsigned blobSize = pOptimizedContainer->GetBufferSize();
+  const hlsl::DxilContainerHeader *pContainerHeader =
+      hlsl::IsDxilContainerLike(pBlobContent, blobSize);
+
+  const hlsl::DxilPartHeader *pPartHeader =
+      GetDxilPartByType(pContainerHeader, hlsl::DFCC_RootSignature);
+  VERIFY_ARE_NOT_EQUAL(pPartHeader, nullptr);
+
+
+  hlsl::RootSignatureHandle RSH;
+  RSH.LoadSerialized((const uint8_t *)GetDxilPartData(pPartHeader),
+                         pPartHeader->PartSize);
+
+  RSH.Deserialize();
+
+  auto const * desc = RSH.GetDesc();
+
+  VERIFY_ARE_EQUAL(desc->Version, hlsl::DxilRootSignatureVersion::Version_1_1);
+  VERIFY_ARE_EQUAL(desc->Desc_1_1.NumParameters, 2);
+  for (unsigned int i = 0; i < desc->Desc_1_1.NumParameters; ++i)
+  {
+    hlsl::DxilRootParameter1 const *param = desc->Desc_1_1.pParameters + i;
+    switch (param->ParameterType) {
+    case hlsl::DxilRootParameterType::Constants32Bit:
+      VERIFY_ARE_EQUAL(param->Constants.Num32BitValues, 1);
+      VERIFY_ARE_EQUAL(param->Constants.RegisterSpace, 42);
+      VERIFY_ARE_EQUAL(param->Constants.ShaderRegister, 7);
+      break;
+    case hlsl::DxilRootParameterType::UAV:
+      VERIFY_ARE_EQUAL(param->Descriptor.RegisterSpace, 12);
+      VERIFY_ARE_EQUAL(param->Descriptor.ShaderRegister, 3);
+      break;
+    default:
+      VERIFY_FAIL(L"Unexpected root param type");
+      break;
+    }
+  }
 }
