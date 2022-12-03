@@ -235,26 +235,27 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
 
   DxcThreadMalloc TM(m_pMalloc);
 
-  // Setup input buffer.
-  //
-  // The ir parsing requires the buffer to be null terminated. We deal with
-  // both source and bitcode input, so the input buffer may not be null
-  // terminated; we create a new membuf that copies and appends for this.
-  //
-  // If we have the beginning of a DXIL program header, skip to the bitcode.
-  //
-  LLVMContext Context;
-  SMDiagnostic Err;
-  std::unique_ptr<MemoryBuffer> memBuf;
-  std::unique_ptr<Module> M;
-  const char * pBlobContent = reinterpret_cast<const char *>(pBlob->GetBufferPointer());
-  unsigned blobSize = pBlob->GetBufferSize();
-  const DxilProgramHeader *pProgramHeader =
-      reinterpret_cast<const DxilProgramHeader *>(pBlobContent);
-  const DxilContainerHeader *pContainerHeader = IsDxilContainerLike(pBlobContent, blobSize);
-  bool bIsFullContainer = IsValidDxilContainer(pContainerHeader, blobSize);
-
   try {
+
+    // Setup input buffer.
+    //
+    // The ir parsing requires the buffer to be null terminated. We deal with
+    // both source and bitcode input, so the input buffer may not be null
+    // terminated; we create a new membuf that copies and appends for this.
+    //
+    // If we have the beginning of a DXIL program header, skip to the bitcode.
+    //
+
+    LLVMContext Context;
+    SMDiagnostic Err;
+    std::unique_ptr<MemoryBuffer> memBuf;
+    std::unique_ptr<Module> M;
+    const char * pBlobContent = reinterpret_cast<const char *>(pBlob->GetBufferPointer());
+    unsigned blobSize = pBlob->GetBufferSize();
+    const DxilProgramHeader *pProgramHeader =
+        reinterpret_cast<const DxilProgramHeader *>(pBlobContent);
+    const DxilContainerHeader *pContainerHeader = IsDxilContainerLike(pBlobContent, blobSize);
+    bool bIsFullContainer = IsValidDxilContainer(pContainerHeader, blobSize);
 
     if (bIsFullContainer) {
       // Prefer debug module, if present.
