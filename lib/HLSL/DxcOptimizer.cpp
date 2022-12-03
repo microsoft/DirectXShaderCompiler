@@ -225,52 +225,74 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     IDxcBlob *pBlob, _In_count_(optionCount) LPCWSTR *ppOptions,
     UINT32 optionCount, _COM_Outptr_ IDxcBlob **ppOutputModule,
     _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) {
-  AssignToOutOpt(nullptr, ppOutputModule);
-  AssignToOutOpt(nullptr, ppOutputText);
-  if (pBlob == nullptr)
-    return E_POINTER;
-  if (optionCount > 0 && ppOptions == nullptr)
-    return E_POINTER;
-
-  DxcThreadMalloc TM(m_pMalloc);
-
-  // Setup input buffer.
-  //
-  // The ir parsing requires the buffer to be null terminated. We deal with
-  // both source and bitcode input, so the input buffer may not be null
-  // terminated; we create a new membuf that copies and appends for this.
-  //
-  // If we have the beginning of a DXIL program header, skip to the bitcode.
-  //
-  LLVMContext Context;
-  SMDiagnostic Err;
-  std::unique_ptr<MemoryBuffer> memBuf;
-  std::unique_ptr<Module> M;
-  const char * pBlobContent = reinterpret_cast<const char *>(pBlob->GetBufferPointer());
-  unsigned blobSize = pBlob->GetBufferSize();
-  const DxilProgramHeader *pProgramHeader =
-    reinterpret_cast<const DxilProgramHeader *>(pBlobContent);
-  if (IsValidDxilProgramHeader(pProgramHeader, blobSize)) {
-    std::string DiagStr;
-    GetDxilProgramBitcode(pProgramHeader, &pBlobContent, &blobSize);
-    M = hlsl::dxilutil::LoadModuleFromBitcode(
-      llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
-  }
-  else {
-    StringRef bufStrRef(pBlobContent, blobSize);
-    memBuf = MemoryBuffer::getMemBufferCopy(bufStrRef);
-    M = parseIR(memBuf->getMemBufferRef(), Err, Context);
-  }
-
-  if (M == nullptr) {
-    return DXC_E_IR_VERIFICATION_FAILED;
-  }
-
-  legacy::PassManager ModulePasses;
-  legacy::FunctionPassManager FunctionPasses(M.get());
-  legacy::PassManagerBase *pPassManager = &ModulePasses;
 
   try {
+    AssignToOutOpt(nullptr, ppOutputModule);
+    AssignToOutOpt(nullptr, ppOutputText);
+    if (pBlob == nullptr)
+      return E_POINTER;
+    if (optionCount > 0 && ppOptions == nullptr)
+      return E_POINTER;
+  
+    DxcThreadMalloc TM(m_pMalloc);
+  
+    // Setup input buffer.
+    //
+    // The ir parsing requires the buffer to be null terminated. We deal with
+    // both source and bitcode input, so the input buffer may not be null
+    // terminated; we create a new membuf that copies and appends for this.
+    //
+    // If we have the beginning of a DXIL program header, skip to the bitcode.
+    //
+    LLVMContext Context;
+    SMDiagnostic Err;
+    std::unique_ptr<MemoryBuffer> memBuf;
+    std::unique_ptr<Module> M;
+    const char * pBlobContent = reinterpret_cast<const char *>(pBlob->GetBufferPointer());
+    unsigned blobSize = pBlob->GetBufferSize();
+    const DxilProgramHeader *pProgramHeader =
+      reinterpret_cast<const DxilProgramHeader *>(pBlobContent);
+    if (IsValidDxilProgramHeader(pProgramHeader, blobSize)) {
+      std::string DiagStr;
+      GetDxilProgramBitcode(pProgramHeader, &pBlobContent, &blobSize);
+      M = hlsl::dxilutil::LoadModuleFromBitcode(
+        llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
+    } else if (IsDxilContainerLike(pBlob->GetBufferPointer(),
+                                   pBlob->GetBufferSize())) {
+      CComPtr<IDxcContainerReflection> containerReflector;
+      IFT(DxcCreateInstance(CLSID_DxcContainerReflection,
+                            IID_PPV_ARGS(&containerReflector)));
+      IFT(containerReflector->Load(pBlob));
+      UINT32 dxilIndex;
+      IFT(containerReflector->FindFirstPartKind(DFCC_DXIL, &dxilIndex));
+      CComPtr<IDxcBlob> dxilBlob;
+      IFT(containerReflector->GetPartContent(dxilIndex, &dxilBlob));
+      const char * dxilBlobPointer = reinterpret_cast<const char *>(dxilBlob->GetBufferPointer());
+      unsigned dxilBlobSize = dxilBlob->GetBufferSize();
+      const DxilProgramHeader *dxilPartProgramHeader =
+          reinterpret_cast<const DxilProgramHeader *>(dxilBlobPointer);
+      if (IsValidDxilProgramHeader(dxilPartProgramHeader, dxilBlobSize)) {
+        std::string DiagStr;
+        GetDxilProgramBitcode(pProgramHeader, &dxilBlobPointer, &dxilBlobSize);
+        M = hlsl::dxilutil::LoadModuleFromBitcode(
+            llvm::StringRef(dxilBlobPointer, dxilBlobSize), Context, DiagStr);
+      } else {
+        return E_INVALIDARG;
+      }
+    } else {
+      StringRef bufStrRef(pBlobContent, blobSize);
+      memBuf = MemoryBuffer::getMemBufferCopy(bufStrRef);
+      M = parseIR(memBuf->getMemBufferRef(), Err, Context);
+    }
+  
+    if (M == nullptr) {
+      return DXC_E_IR_VERIFICATION_FAILED;
+    }
+  
+    legacy::PassManager ModulePasses;
+    legacy::FunctionPassManager FunctionPasses(M.get());
+    legacy::PassManagerBase *pPassManager = &ModulePasses;
+  
     CComPtr<AbstractMemoryStream> pOutputStream;
     CComPtr<IDxcBlob> pOutputBlob;
 

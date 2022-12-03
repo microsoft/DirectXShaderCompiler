@@ -44,6 +44,7 @@
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -157,6 +158,7 @@ public:
   TEST_METHOD(CompileThenTestReflectionThreadSizeAS)
   TEST_METHOD(CompileThenTestReflectionThreadSizeCS)
 
+  TEST_METHOD(CompileThenOptimizeCheckForRDATSurvival)
 
   void TestResourceBindingImpl(
     const char *bindingFileContent,
@@ -291,6 +293,9 @@ public:
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
     return m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, ppResult);
   }
+
+  CComPtr<IDxcBlob> Compile(const char *source,
+                                          const WCHAR *target);
 
   template <typename T, typename TDefault, typename TIface>
   void WriteIfValue(TIface *pSymbol, std::wstringstream &o,
@@ -1175,6 +1180,143 @@ TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeMS) {
     }
   )x";
   CompileThenTestReflectionThreadSize(source, L"ms_6_5", 2, 3, 1);
+}
+
+CComPtr<IDxcBlob> CompilerTest::Compile(const char *source,
+                                             const WCHAR *target) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pOperationResult;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(source, &pSource);
+
+  const WCHAR *args[] = {
+      L"-Zs",
+  };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", target,
+                                      args, _countof(args), nullptr, 0, nullptr,
+                                      &pOperationResult));
+
+  HRESULT CompileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOperationResult->GetStatus(&CompileStatus));
+  VERIFY_SUCCEEDED(CompileStatus);
+
+  CComPtr<IDxcBlob> pBlob;
+  VERIFY_SUCCEEDED(pOperationResult->GetResult(&pBlob));
+
+  return pBlob;
+}
+
+TEST_F(CompilerTest, CompileThenOptimizeCheckForRDATSurvival) {
+  const char* source = R"x(
+GlobalRootSignature so_GlobalRootSignature =
+{
+	"RootConstants(num32BitConstants=1, b8), "
+};
+
+StateObjectConfig so_StateObjectConfig = 
+{ 
+    STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS
+};
+
+LocalRootSignature so_LocalRootSignature1 = 
+{
+	"RootConstants(num32BitConstants=3, b2), "
+	"UAV(u6),RootFlags(LOCAL_ROOT_SIGNATURE)" 
+};
+
+LocalRootSignature so_LocalRootSignature2 = 
+{
+	"RootConstants(num32BitConstants=3, b2), "
+	"UAV(u8, flags=DATA_STATIC), " 
+	"RootFlags(LOCAL_ROOT_SIGNATURE)"
+};
+
+RaytracingShaderConfig  so_RaytracingShaderConfig =
+{
+    128, // max payload size
+    32   // max attribute size
+};
+
+RaytracingPipelineConfig so_RaytracingPipelineConfig =
+{
+    2 // max trace recursion depth
+};
+
+TriangleHitGroup MyHitGroup =
+{
+    "MyAnyHit",       // AnyHit
+    "MyClosestHit",   // ClosestHit
+};
+
+SubobjectToExportsAssociation so_Association1 =
+{
+	"so_LocalRootSignature1", // subobject name
+	"MyRayGen"                // export association 
+};
+
+SubobjectToExportsAssociation so_Association2 =
+{
+	"so_LocalRootSignature2", // subobject name
+	"MyAnyHit"                // export association 
+};
+
+struct MyPayload
+{
+    float4 color;
+};
+
+[shader("raygeneration")]
+void MyRayGen()
+{
+}
+
+[shader("closesthit")]
+void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{  
+}
+
+[shader("anyhit")]
+void MyAnyHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("miss")]
+void MyMiss(inout MyPayload payload)
+{
+}
+
+)x";
+
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
+  IFT(CreateMSFileSystemForDisk(&msfPtr));
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+  SetCurrentThreadFileSystem(msf.get());
+  //llvm::sys::fs::AutoPerThreadSystem fs(msf.get());
+
+  auto compiled = Compile(source, L"lib_6_6");
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+  Options.push_back(L"-dxil-annotate-with-virtual-regs,startInstruction=0");
+  
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      compiled, Options.data(), Options.size(), &pOptimizedModule, &pText));
+  
+  CComPtr<IDxcContainerReflection> reflector;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &reflector));
+  VERIFY_SUCCEEDED(reflector->Load(pOptimizedModule));
+  UINT32 RDAT;
+  VERIFY_SUCCEEDED(reflector->FindFirstPartKind(hlsl::DFCC_RuntimeData, &RDAT));
+
 }
 
 #ifdef _WIN32 // No PDBUtil support
