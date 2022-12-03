@@ -1,5 +1,6 @@
 ; RUN: not opt -S < %s -verify 2>&1 | FileCheck %s
 
+; REQUIRES: hlsl-gc.statepoint-unsupported
 ; CHECK: gc.statepoint: number of deoptimization arguments must be a constant integer
 
 declare void @use(...)
