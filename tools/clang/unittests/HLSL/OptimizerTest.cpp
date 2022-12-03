@@ -268,6 +268,133 @@ TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesSubobjects) {
   // Run through optimizer with -hlsl-dxilemit
   // Assemble to container
   // Ensure RDAT part of new container contains expected subobjects
+
+    const char *source = R"x(
+GlobalRootSignature so_GlobalRootSignature =
+{
+	"RootConstants(num32BitConstants=1, b8), "
+};
+
+StateObjectConfig so_StateObjectConfig = 
+{ 
+    STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS
+};
+
+LocalRootSignature so_LocalRootSignature1 = 
+{
+	"RootConstants(num32BitConstants=3, b2), "
+	"UAV(u6),RootFlags(LOCAL_ROOT_SIGNATURE)" 
+};
+
+LocalRootSignature so_LocalRootSignature2 = 
+{
+	"RootConstants(num32BitConstants=3, b2), "
+	"UAV(u8, flags=DATA_STATIC), " 
+	"RootFlags(LOCAL_ROOT_SIGNATURE)"
+};
+
+RaytracingShaderConfig  so_RaytracingShaderConfig =
+{
+    128, // max payload size
+    32   // max attribute size
+};
+
+RaytracingPipelineConfig so_RaytracingPipelineConfig =
+{
+    2 // max trace recursion depth
+};
+
+TriangleHitGroup MyHitGroup =
+{
+    "MyAnyHit",       // AnyHit
+    "MyClosestHit",   // ClosestHit
+};
+
+SubobjectToExportsAssociation so_Association1 =
+{
+	"so_LocalRootSignature1", // subobject name
+	"MyRayGen"                // export association 
+};
+
+SubobjectToExportsAssociation so_Association2 =
+{
+	"so_LocalRootSignature2", // subobject name
+	"MyAnyHit"                // export association 
+};
+
+struct MyPayload
+{
+    float4 color;
+};
+
+[shader("raygeneration")]
+void MyRayGen()
+{
+}
+
+[shader("closesthit")]
+void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{  
+}
+
+[shader("anyhit")]
+void MyAnyHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("miss")]
+void MyMiss(inout MyPayload payload)
+{
+}
+
+)x";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  Utf8ToBlob(m_dllSupport, source, &pSource);
+  std::vector<LPCWSTR> highLevelArgs{};//= {L"/T lib_6_6"};
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(
+      pSource, 
+      L"source.hlsl", 
+      L"", 
+      L"lib_6_6",
+      highLevelArgs.data(), static_cast<UINT32>(highLevelArgs.size()), 
+      nullptr, 0, nullptr, &pResult));
+  VerifyOperationSucceeded(pResult);
+  CComPtr<IDxcBlob> pProgram;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-hlsl-dxilemit");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      pProgram, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  CComPtr<IDxcContainerReflection> reflector;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &reflector));
+  VERIFY_SUCCEEDED(reflector->Load(pOptimizedModule));
+  UINT32 RDAT;
+  VERIFY_SUCCEEDED(
+      reflector->FindFirstPartKind(hlsl::DFCC_RuntimeData, &RDAT));
+
+  CComPtr<IDxcBlob> rdat;
+  VERIFY_SUCCEEDED(reflector->GetPartContent(RDAT, &rdat));
+
+  auto const *rdatData =
+      reinterpret_cast < const char *>(rdat->GetBufferPointer());
+
+  rdatData;
 }
 
 TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesRootSig) {
