@@ -23,6 +23,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassInfo.h"
@@ -249,28 +250,77 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
   const char * pBlobContent = reinterpret_cast<const char *>(pBlob->GetBufferPointer());
   unsigned blobSize = pBlob->GetBufferSize();
   const DxilProgramHeader *pProgramHeader =
-    reinterpret_cast<const DxilProgramHeader *>(pBlobContent);
-  if (IsValidDxilProgramHeader(pProgramHeader, blobSize)) {
-    std::string DiagStr;
-    GetDxilProgramBitcode(pProgramHeader, &pBlobContent, &blobSize);
-    M = hlsl::dxilutil::LoadModuleFromBitcode(
-      llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
-  }
-  else {
-    StringRef bufStrRef(pBlobContent, blobSize);
-    memBuf = MemoryBuffer::getMemBufferCopy(bufStrRef);
-    M = parseIR(memBuf->getMemBufferRef(), Err, Context);
-  }
-
-  if (M == nullptr) {
-    return DXC_E_IR_VERIFICATION_FAILED;
-  }
-
-  legacy::PassManager ModulePasses;
-  legacy::FunctionPassManager FunctionPasses(M.get());
-  legacy::PassManagerBase *pPassManager = &ModulePasses;
+      reinterpret_cast<const DxilProgramHeader *>(pBlobContent);
+  const DxilContainerHeader *pContainerHeader = IsDxilContainerLike(pBlobContent, blobSize);
+  bool bIsFullContainer = IsValidDxilContainer(pContainerHeader, blobSize);
 
   try {
+
+    if (bIsFullContainer) {
+      // Prefer debug module, if present.
+      pProgramHeader = GetDxilProgramHeader(pContainerHeader, DFCC_ShaderDebugInfoDXIL);
+      if (!pProgramHeader)
+        pProgramHeader = GetDxilProgramHeader(pContainerHeader, DFCC_DXIL);
+    }
+
+    if (IsValidDxilProgramHeader(pProgramHeader, blobSize)) {
+      std::string DiagStr;
+      GetDxilProgramBitcode(pProgramHeader, &pBlobContent, &blobSize);
+      M = hlsl::dxilutil::LoadModuleFromBitcode(
+        llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
+    } else if (!bIsFullContainer) {
+      StringRef bufStrRef(pBlobContent, blobSize);
+      memBuf = MemoryBuffer::getMemBufferCopy(bufStrRef);
+      M = parseIR(memBuf->getMemBufferRef(), Err, Context);
+    } else {
+      return E_INVALIDARG;
+    }
+
+    if (M == nullptr) {
+      return DXC_E_IR_VERIFICATION_FAILED;
+    }
+
+    if (bIsFullContainer) {
+      // Restore extra data from certain parts back into the module so that data isn't lost.
+      // Note: Only GetOrCreateDxilModule if one of these is present.
+      // - Subobjects from RDAT
+      // - RootSignature from RTS0
+      // - ViewID and I/O dependency data from PSV0
+
+      // RDAT
+      if (const DxilPartHeader *pPartHeader =
+              GetDxilPartByType(pContainerHeader, DFCC_RuntimeData)) {
+        DxilModule &DM = M->GetOrCreateDxilModule();
+        RDAT::DxilRuntimeData rdat(GetDxilPartData(pPartHeader), pPartHeader->PartSize);
+        auto table = rdat.GetSubobjectTable();
+        if (table && table.Count() > 0) {
+          DM.ResetSubobjects(new DxilSubobjects());
+          if (!LoadSubobjectsFromRDAT(*DM.GetSubobjects(), rdat)) {
+            return DXC_E_CONTAINER_INVALID;
+          }
+        }
+      }
+
+      // RST0
+      if (const DxilPartHeader *pPartHeader =
+              GetDxilPartByType(pContainerHeader, DFCC_RootSignature)) {
+        DxilModule &DM = M->GetOrCreateDxilModule();
+        const uint8_t* pPartData = (const uint8_t*)GetDxilPartData(pPartHeader);
+        DM.ResetSerializedRootSignature(
+            std::vector<uint8_t>(pPartData, pPartData + pPartHeader->PartSize));
+      }
+
+      // PSV0 - TBD
+      //if (const DxilPartHeader *pPartHeader = GetDxilPartByType(
+      //        pContainerHeader, DFCC_PipelineStateValidation)) {
+      //  DxilModule &DM = M->GetOrCreateDxilModule();
+      //}
+    }
+
+    legacy::PassManager ModulePasses;
+    legacy::FunctionPassManager FunctionPasses(M.get());
+    legacy::PassManagerBase *pPassManager = &ModulePasses;
+
     CComPtr<AbstractMemoryStream> pOutputStream;
     CComPtr<IDxcBlob> pOutputBlob;
 
