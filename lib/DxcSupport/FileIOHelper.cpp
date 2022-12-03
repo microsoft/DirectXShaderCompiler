@@ -107,7 +107,7 @@ HRESULT ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
     return HRESULT_FROM_WIN32(GetLastError());
   }
   if (FileSize.u.HighPart != 0) {
-    return HRESULT_FROM_WIN32(DXC_E_INPUT_FILE_TOO_LARGE);
+    return DXC_E_INPUT_FILE_TOO_LARGE;
   }
 
   char *pData = (char *)pMalloc->Alloc(FileSize.u.LowPart);
