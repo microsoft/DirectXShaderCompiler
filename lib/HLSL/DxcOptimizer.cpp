@@ -274,7 +274,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       memBuf = MemoryBuffer::getMemBufferCopy(bufStrRef);
       M = parseIR(memBuf->getMemBufferRef(), Err, Context);
     } else {
-      return E_INVALIDARG;
+      return DXC_E_CONTAINER_MISSING_DXIL;
     }
 
     if (M == nullptr) {
