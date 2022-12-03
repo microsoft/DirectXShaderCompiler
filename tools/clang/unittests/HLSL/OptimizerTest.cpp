@@ -67,6 +67,9 @@ public:
   TEST_METHOD(OptimizerWhenSlice3ThenOK)
   TEST_METHOD(OptimizerWhenSliceWithIntermediateOptionsThenOK)
 
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesSubobjects)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesRootSig)
+
   void OptimizerWhenSliceNThenOK(int optLevel);
   void OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
 
@@ -258,4 +261,18 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWST
       VERIFY_FAIL();
     }
   }
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesSubobjects) {
+  // Compile lib with subobjects
+  // Run through optimizer with -hlsl-dxilemit
+  // Assemble to container
+  // Ensure RDAT part of new container contains expected subobjects
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesRootSig) {
+  // Compile shader with root signature
+  // Run through optimizer with -hlsl-dxilemit
+  // Assemble to container
+  // Ensure RST0 part of new container contains expected root signature
 }
