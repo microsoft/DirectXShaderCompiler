@@ -249,7 +249,7 @@ public:
   // RecordSize() is defined in order to allow for use of forward decl type in RecordRef
   static constexpr size_t RecordSize() { return sizeof(_T); }
   static constexpr size_t MaxRecordSize() { return RecordTraits<_T>::DerivedRecordSize(); }
-  static constexpr size_t DerivedRecordSize();
+  static constexpr size_t DerivedRecordSize() { return sizeof(_T); }
 };
 
 ///////////////////////////////////////
