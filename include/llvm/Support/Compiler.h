@@ -224,6 +224,8 @@
 #define LLVM_FALLTHROUGH [[fallthrough]]
 #elif defined(__clang__)
 #define LLVM_FALLTHROUGH [[clang::fallthrough]]
+#elif defined(_MSC_VER)
+#define LLVM_FALLTHROUGH __fallthrough
 #else
 #define LLVM_FALLTHROUGH [[gnu::fallthrough]]
 #endif
