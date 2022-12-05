@@ -277,10 +277,7 @@ public:
     _In_z_ LPCWSTR pFileName, _In_opt_ UINT32* pCodePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
-    try {
-      return ::hlsl::DxcCreateBlobFromFile(pFileName, pCodePage, pBlobEncoding);
-    }
-    CATCH_CPP_RETURN_HRESULT();
+    return ::hlsl::DxcCreateBlobFromFile(pFileName, pCodePage, pBlobEncoding);
   }
 
   HRESULT STDMETHODCALLTYPE CreateReadOnlyStreamFromBlob(
