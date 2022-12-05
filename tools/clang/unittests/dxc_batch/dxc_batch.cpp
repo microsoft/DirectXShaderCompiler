@@ -406,7 +406,7 @@ HRESULT DxcContext::ReadFileIntoPartContent(hlsl::DxilFourCC fourCC,
     CComPtr<IDxcBlob> pResult;
     CComHeapPtr<BYTE> pData;
     DWORD dataSize;
-    hlsl::ReadBinaryFile(fileName, (void **)&pData, &dataSize);
+    IFT(hlsl::ReadBinaryFile(fileName, (void **)&pData, &dataSize));
     DXASSERT(pData != nullptr,
              "otherwise ReadBinaryFile should throw an exception");
     hlsl::DxilContainerHeader *pHeader = 
