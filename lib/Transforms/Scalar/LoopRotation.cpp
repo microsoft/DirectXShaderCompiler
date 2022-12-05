@@ -228,7 +228,7 @@ static bool shouldSpeculateInstrs(BasicBlock::iterator Begin,
       if (!cast<GEPOperator>(I)->hasAllConstantIndices())
         return false;
       // fall-thru to increment case
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     case Instruction::Add:
     case Instruction::Sub:
     case Instruction::And:

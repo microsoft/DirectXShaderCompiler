@@ -306,7 +306,7 @@ void JumpScopeChecker::BuildScopeInformation(Stmt *S, unsigned &origParentScope)
       BuildScopeInformation(Var, ParentScope);
       SkipFirstSubStmt = true;
     }
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Stmt::GotoStmtClass:
     // Remember both what scope a goto is in as well as the fact that we have

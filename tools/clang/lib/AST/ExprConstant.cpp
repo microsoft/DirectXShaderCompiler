@@ -641,7 +641,7 @@ namespace {
               break;
             // We've had side-effects; we want the diagnostic from them, not
             // some later problem.
-            __fallthrough; // HLSL Change
+            LLVM_FALLTHROUGH; // HLSL Change
           case EM_ConstantExpression:
           case EM_PotentialConstantExpression:
           case EM_ConstantExpressionUnevaluated:
@@ -6712,7 +6712,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
         << /*isConstexpr*/0 << /*isConstructor*/0 << "'strlen'";
     else
       Info.CCEDiag(E, diag::note_invalid_subexpr_in_const_expr);
-    __fallthrough; // HLSL Change.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case Builtin::BI__builtin_strlen: {
     // As an extension, we support __builtin_strlen() as a constant expression,
     // and support folding strlen() to a constant.

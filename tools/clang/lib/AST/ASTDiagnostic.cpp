@@ -317,7 +317,7 @@ void clang::FormatASTNodeDiagnosticArgument(
       Modifier = StringRef();
       Argument = StringRef();
       // Fall through
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     }
     case DiagnosticsEngine::ak_qualtype: {
       assert(Modifier.empty() && Argument.empty() &&

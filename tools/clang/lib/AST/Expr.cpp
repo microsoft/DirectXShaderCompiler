@@ -2190,7 +2190,7 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     }
 
     // Fallthrough for generic call handling.
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   }
   case CallExprClass:
   case CXXMemberCallExprClass:
@@ -3112,7 +3112,7 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
     if (DCE->getTypeAsWritten()->isReferenceType() &&
         DCE->getCastKind() == CK_Dynamic)
       return true;
-  } __fallthrough; // HLSL Change.
+  } LLVM_FALLTHROUGH; // HLSL Change.
   case ImplicitCastExprClass:
   case CStyleCastExprClass:
   case CXXStaticCastExprClass:

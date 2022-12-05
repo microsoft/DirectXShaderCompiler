@@ -3390,7 +3390,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     // Skip variable templates
     if (cast<VarDecl>(D)->getDescribedVarTemplate())
       return;
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   case Decl::VarTemplateSpecialization:
     EmitGlobal(cast<VarDecl>(D));
     // HLSL Change Start - add resource or subobject for global variables

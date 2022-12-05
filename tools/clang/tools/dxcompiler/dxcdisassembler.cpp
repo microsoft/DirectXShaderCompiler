@@ -706,7 +706,7 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
     }
     case DXIL::SubobjectKind::LocalRootSignature:
       bLocalRS = true;
-      __fallthrough;
+      LLVM_FALLTHROUGH;
     case DXIL::SubobjectKind::GlobalRootSignature: {
       const char *Text = nullptr;
       const void *Data = nullptr;

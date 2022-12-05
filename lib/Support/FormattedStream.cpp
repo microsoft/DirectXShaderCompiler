@@ -32,7 +32,7 @@ static void UpdatePosition(std::pair<unsigned, unsigned> &Position, const char *
     switch (*Ptr) {
     case '\n':
       Line += 1;
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     case '\r':
       Column = 0;
       break;

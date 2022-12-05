@@ -3140,7 +3140,7 @@ bool Sema::CheckTemplateTypeArgument(TemplateTypeParmDecl *Param,
       }
     }
     // fallthrough
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   }
   default: {
     // We have a template type parameter but the template argument
@@ -6635,7 +6635,7 @@ Sema::CheckSpecializationInstantiationRedecl(SourceLocation NewLoc,
         StripImplicitInstantiation(PrevDecl);
         return false;
       }
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case TSK_ExplicitInstantiationDeclaration:
     case TSK_ExplicitInstantiationDefinition:
@@ -8201,7 +8201,7 @@ Sema::CheckTypenameType(ElaboratedTypeKeyword Keyword,
   }
   // Fall through to create a dependent typename type, from which we can recover
   // better.
-  __fallthrough; // HLSL Change
+  LLVM_FALLTHROUGH; // HLSL Change
   case LookupResult::NotFoundInCurrentInstantiation:
     // Okay, it's a member of an unknown instantiation.
     return Context.getDependentNameType(Keyword, 

@@ -1410,7 +1410,7 @@ DeduceTemplateArgumentsByTypeMatch(Sema &S,
         ->getInjectedSpecializationType();
       assert(isa<TemplateSpecializationType>(Param) &&
              "injected class name is not a template specialization type");
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     }
 
     //     template-name<T> (where template-name refers to a class template)
@@ -4783,7 +4783,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
                                cast<DependentSizedArrayType>(T)->getSizeExpr(),
                                OnlyDeduced, Depth, Used);
     // Fall through to check the element type
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Type::ConstantArray:
   case Type::IncompleteArray:
@@ -4839,7 +4839,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
 
   case Type::InjectedClassName:
     T = cast<InjectedClassNameType>(T)->getInjectedSpecializationType();
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Type::TemplateSpecialization: {
     const TemplateSpecializationType *Spec

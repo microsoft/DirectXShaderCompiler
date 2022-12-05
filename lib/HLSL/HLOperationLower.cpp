@@ -1108,7 +1108,7 @@ Value *TranslateQuadReadAcross(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   switch (IOP) {
   case IntrinsicOp::IOP_QuadReadAcrossX: opKind = DXIL::QuadOpKind::ReadAcrossX; break;
   case IntrinsicOp::IOP_QuadReadAcrossY: opKind = DXIL::QuadOpKind::ReadAcrossY; break;
-  default: DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_QuadReadAcrossDiagonal); __fallthrough;
+  default: DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_QuadReadAcrossDiagonal); LLVM_FALLTHROUGH;
   case IntrinsicOp::IOP_QuadReadAcrossDiagonal: opKind = DXIL::QuadOpKind::ReadAcrossDiagonal; break;
   }
   Constant *OpArg = hlslOP->GetI8Const((unsigned)opKind);
@@ -8154,10 +8154,10 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
           switch (opcode) {
           case HLCastOpcode::RowMatrixToColMatrix:
             bColDest = true;
-            __fallthrough;
+            LLVM_FALLTHROUGH;
           case HLCastOpcode::ColMatrixToRowMatrix:
             bTranspose = true;
-            __fallthrough;
+            LLVM_FALLTHROUGH;
           case HLCastOpcode::ColMatrixToVecCast:
           case HLCastOpcode::RowMatrixToVecCast: {
             Value *matVal = CI->getArgOperand(HLOperandIndex::kInitFirstArgOpIdx);

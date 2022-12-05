@@ -371,7 +371,7 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
           if (onlyBlockPointers)
             continue;
 
-          __fallthrough; // HLSL Change
+          LLVM_FALLTHROUGH; // HLSL Change
 
         case DeclaratorChunk::BlockPointer:
           result = &ptrChunk;
@@ -1280,7 +1280,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       }
     }
 
-    __fallthrough; // HLSL CHANGE
+    LLVM_FALLTHROUGH; // HLSL CHANGE
   case DeclSpec::TST_int: {
     if (DS.getTypeSpecSign() != DeclSpec::TSS_unsigned) {
       switch (DS.getTypeSpecWidth()) {
@@ -3404,14 +3404,14 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case Declarator::PrototypeContext:
     case Declarator::TrailingReturnContext:
       isFunctionOrMethod = true;
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case Declarator::MemberContext:
       if (state.getDeclarator().isObjCIvar() && !isFunctionOrMethod) {
         complainAboutMissingNullability = CAMN_No;
         break;
       }
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case Declarator::FileContext:
     case Declarator::KNRTypeListContext:
@@ -3538,7 +3538,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case CAMN_InnerPointers:
       if (NumPointersRemaining == 0)
         break;
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case CAMN_Yes:
       checkNullabilityConsistency(state, pointerKind, pointerLoc);

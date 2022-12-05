@@ -354,7 +354,7 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
     case tok::semi:
       if (HasFlagsSet(Flags, StopAtSemi))
         return false;
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     default:
       // Skip this token.
       ConsumeToken();
@@ -1505,7 +1505,7 @@ Parser::TryAnnotateName(bool IsAddressOfOperand,
         AnnotateScopeToken(SS, !WasScopeAnnotation);
       return ANK_TemplateName;
     }
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   case Sema::NC_VarTemplate:
   case Sema::NC_FunctionTemplate: {
     // We have a type, variable or function template followed by '<'.
@@ -1831,7 +1831,7 @@ bool Parser::isTokenEqualOrEqualTypo() {
     Diag(Tok, diag::err_invalid_token_after_declarator_suggest_equal)
         << Kind
         << FixItHint::CreateReplacement(SourceRange(Tok.getLocation()), "=");
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   case tok::equal:
     return true;
   }

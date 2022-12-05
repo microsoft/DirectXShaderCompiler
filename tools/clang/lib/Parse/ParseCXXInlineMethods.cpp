@@ -761,7 +761,7 @@ bool Parser::ConsumeAndStoreUntil(tok::TokenKind T1, tok::TokenKind T2,
     case tok::semi:
       if (StopAtSemi)
         return false;
-      __fallthrough; // HLSL CHANGE.
+      LLVM_FALLTHROUGH; // HLSL CHANGE.
     default:
       // consume this token.
       Toks.push_back(Tok);
@@ -1226,7 +1226,7 @@ bool Parser::ConsumeAndStoreInitializer(CachedTokens &Toks,
     case tok::semi:
       if (CIK == CIK_DefaultInitializer)
         return true; // End of the default initializer.
-      __fallthrough; // HLSL CHANGE.
+      LLVM_FALLTHROUGH; // HLSL CHANGE.
     default:
     consume_token:
       Toks.push_back(Tok);

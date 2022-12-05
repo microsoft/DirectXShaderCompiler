@@ -6531,7 +6531,7 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
     rhsVal = spvBuilder.createBinaryOp(spv::Op::OpBitwiseAnd, computationType,
                                        rhsVal, getMaskForBitwidthValue(rhsType),
                                        loc, sourceRange);
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case BO_Add:
   case BO_Sub:
   case BO_Mul:
@@ -11102,13 +11102,13 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     break;
   case hlsl::IntrinsicOp::IOP_ObjectToWorld3x4:
     transposeMatrix = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case hlsl::IntrinsicOp::IOP_ObjectToWorld4x3:
     builtin = spv::BuiltIn::ObjectToWorldNV;
     break;
   case hlsl::IntrinsicOp::IOP_WorldToObject3x4:
     transposeMatrix = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case hlsl::IntrinsicOp::IOP_WorldToObject4x3:
     builtin = spv::BuiltIn::WorldToObjectNV;
     break;

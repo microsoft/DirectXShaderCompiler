@@ -504,7 +504,7 @@ public:
       case LangOptions::SOB_Undefined:
         if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
           return Builder.CreateNSWMul(Ops.LHS, Ops.RHS, "mul");
-        __fallthrough; // HLSL Change
+        LLVM_FALLTHROUGH; // HLSL Change
       case LangOptions::SOB_Trapping:
         return EmitOverflowCheckedBinOp(Ops);
       }
@@ -1899,7 +1899,7 @@ llvm::Value *ScalarExprEmitter::EmitIncDecConsiderOverflowBehavior(
   case LangOptions::SOB_Undefined:
     if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
       return Builder.CreateNSWAdd(InVal, Amount, Name);
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   case LangOptions::SOB_Trapping:
     return EmitOverflowCheckedBinOp(createBinOpInfoFromIncDec(E, InVal, IsInc));
   }
@@ -2908,7 +2908,7 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
     case LangOptions::SOB_Undefined:
       if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
         return Builder.CreateNSWAdd(op.LHS, op.RHS, "add");
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     case LangOptions::SOB_Trapping:
       return EmitOverflowCheckedBinOp(op);
     }
@@ -2939,7 +2939,7 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
       case LangOptions::SOB_Undefined:
         if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
           return Builder.CreateNSWSub(op.LHS, op.RHS, "sub");
-        __fallthrough; // HLSL Change
+        LLVM_FALLTHROUGH; // HLSL Change
       case LangOptions::SOB_Trapping:
         return EmitOverflowCheckedBinOp(op);
       }

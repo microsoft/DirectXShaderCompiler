@@ -2603,7 +2603,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     }
 
     assert(isa<ObjCInterfaceType>(Ty));
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Type::ObjCInterface:
     if (cast<ObjCInterfaceType>(Ty)->getDecl()->getSuperClass()) {
@@ -3480,7 +3480,7 @@ static void InitCatchParam(CodeGenFunction &CGF,
       switch (CatchType.getQualifiers().getObjCLifetime()) {
       case Qualifiers::OCL_Strong:
         CastExn = CGF.EmitARCRetainNonBlock(CastExn);
-        __fallthrough; // HLSL Change
+        LLVM_FALLTHROUGH; // HLSL Change
 
       case Qualifiers::OCL_None:
       case Qualifiers::OCL_ExplicitNone:

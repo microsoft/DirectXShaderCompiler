@@ -774,7 +774,7 @@ bool FunctionAttrs::IsFunctionMallocLike(Function *F,
           if (CS.getCalledFunction() &&
               SCCNodes.count(CS.getCalledFunction()))
             break;
-        } __fallthrough; // HLSL Change
+        } LLVM_FALLTHROUGH; // HLSL Change
         default:
           return false;  // Did not come from an allocation.
       }

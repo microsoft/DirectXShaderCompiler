@@ -8090,28 +8090,28 @@ VectorMemberAccessError TryConsumeVectorDigit(const char*& memberText, uint32_t*
   switch (*memberText) {
   case 'r':
     rgbaStyle = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case 'x':
     *value = 0;
     break;
 
   case 'g':
     rgbaStyle = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case 'y':
     *value = 1;
     break;
 
   case 'b':
     rgbaStyle = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case 'z':
     *value = 2;
     break;
 
   case 'a':
     rgbaStyle = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case 'w':
     *value = 3;
     break;
@@ -8521,7 +8521,7 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
         DXASSERT(false, "PerformHLSLConversion: Invalid source type for truncation cast");
       }
     }
-    __fallthrough;
+    LLVM_FALLTHROUGH;
 
     case ICK_HLSLVector_Conversion: {
       // 2. Do ShapeKind conversion if necessary
@@ -11425,7 +11425,7 @@ bool FlattenedTypeIterator::considerLeaf()
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:
-    m_springLoaded = true; __fallthrough;
+    m_springLoaded = true; LLVM_FALLTHROUGH;
   default:
   case FlattenedIterKind::FK_Simple: {
     ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(tracker.Type);

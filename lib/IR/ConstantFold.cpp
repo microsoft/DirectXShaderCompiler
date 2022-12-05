@@ -925,7 +925,7 @@ Constant *llvm::ConstantFoldBinaryInstruction(unsigned Opcode,
         // Handle undef ^ undef -> 0 special case. This is a common
         // idiom (misuse).
         return Constant::getNullValue(C1->getType());
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     case Instruction::Add:
     case Instruction::Sub:
       return UndefValue::get(C1->getType());

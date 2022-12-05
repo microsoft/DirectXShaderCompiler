@@ -2578,7 +2578,7 @@ bool DeclResultIdMapper::createStageVars(
             break;
           }
         }
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       default:
         emitError("invalid usage of semantic '%0' in shader profile %1", loc)
             << semanticToUse->str
@@ -3399,7 +3399,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
     needsLegalization = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case spv::BuiltIn::HitTNV:
   case spv::BuiltIn::RayTmaxNV:
   case spv::BuiltIn::RayTminNV:

@@ -2159,7 +2159,7 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
       return SetResult(Builder->CreateAdd(LHS, RHS), Builder->getTrue(), true);
   }
   // FALL THROUGH uadd into sadd
-  __fallthrough; // HLSL Change
+  LLVM_FALLTHROUGH; // HLSL Change
   case OCF_SIGNED_ADD: {
     // X + 0 -> {X, false}
     if (match(RHS, m_Zero()))
@@ -2199,7 +2199,7 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
                        true);
     if (OR == OverflowResult::AlwaysOverflows)
       return SetResult(Builder->CreateMul(LHS, RHS), Builder->getTrue(), true);
-  } __fallthrough; // HLSL CHANGE
+  } LLVM_FALLTHROUGH; // HLSL CHANGE
   case OCF_SIGNED_MUL:
     // X * undef -> undef
     if (isa<UndefValue>(RHS))
@@ -2705,28 +2705,28 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
 
     case ICmpInst::ICMP_UGT:
       std::swap(Op0, Op1);                   // Change icmp ugt -> icmp ult
-      __fallthrough; // HLSL CHANGE
+      LLVM_FALLTHROUGH; // HLSL CHANGE
     case ICmpInst::ICMP_ULT:{               // icmp ult i1 A, B -> ~A & B
       Value *Not = Builder->CreateNot(Op0, I.getName()+"tmp");
       return BinaryOperator::CreateAnd(Not, Op1);
     }
     case ICmpInst::ICMP_SGT:
       std::swap(Op0, Op1);                   // Change icmp sgt -> icmp slt
-      __fallthrough; // HLSL CHANGE
+      LLVM_FALLTHROUGH; // HLSL CHANGE
     case ICmpInst::ICMP_SLT: {               // icmp slt i1 A, B -> A & ~B
       Value *Not = Builder->CreateNot(Op1, I.getName()+"tmp");
       return BinaryOperator::CreateAnd(Not, Op0);
     }
     case ICmpInst::ICMP_UGE:
       std::swap(Op0, Op1);                   // Change icmp uge -> icmp ule
-      __fallthrough; // HLSL CHANGE
+      LLVM_FALLTHROUGH; // HLSL CHANGE
     case ICmpInst::ICMP_ULE: {               //  icmp ule i1 A, B -> ~A | B
       Value *Not = Builder->CreateNot(Op0, I.getName()+"tmp");
       return BinaryOperator::CreateOr(Not, Op1);
     }
     case ICmpInst::ICMP_SGE:
       std::swap(Op0, Op1);                   // Change icmp sge -> icmp sle
-      __fallthrough; // HLSL CHANGE
+      LLVM_FALLTHROUGH; // HLSL CHANGE
     case ICmpInst::ICMP_SLE: {               //  icmp sle i1 A, B -> A | ~B
       Value *Not = Builder->CreateNot(Op1, I.getName()+"tmp");
       return BinaryOperator::CreateOr(Not, Op0);
@@ -3477,7 +3477,7 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
       case Instruction::LShr:
         if (I.isSigned())
           break;
-        __fallthrough; // HLSL Change
+        LLVM_FALLTHROUGH; // HLSL Change
       case Instruction::SDiv:
       case Instruction::AShr:
         if (!BO0->isExact() || !BO1->isExact())

@@ -1554,13 +1554,13 @@ APFloat::divideSpecials(const APFloat &rhs)
   case PackCategoriesIntoKey(fcInfinity, fcNaN):
     category = fcNaN;
     copySignificand(rhs);
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   case PackCategoriesIntoKey(fcNaN, fcZero):
   case PackCategoriesIntoKey(fcNaN, fcNormal):
   case PackCategoriesIntoKey(fcNaN, fcInfinity):
   case PackCategoriesIntoKey(fcNaN, fcNaN):
     sign = false;
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
   case PackCategoriesIntoKey(fcInfinity, fcZero):
   case PackCategoriesIntoKey(fcInfinity, fcNormal):
   case PackCategoriesIntoKey(fcZero, fcInfinity):

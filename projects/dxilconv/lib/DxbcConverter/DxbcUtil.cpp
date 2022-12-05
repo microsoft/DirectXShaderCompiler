@@ -407,7 +407,7 @@ CompType GetCompTypeWithMinPrec(D3D_REGISTER_COMPONENT_TYPE BaseCompTy,
   case D3D_REGISTER_COMPONENT_FLOAT32:
     switch (MinPrec) {
     case D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT:   return CompType::getF32();
-    case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16:  __fallthrough;
+    case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16:  LLVM_FALLTHROUGH;
     case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_2_8: return CompType::getF16();
     }
     break;
@@ -436,7 +436,7 @@ CompType GetCompTypeWithMinPrec(CompType BaseCompTy,
   case CompType::Kind::F32:
     switch (MinPrec) {
     case D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT:   return CompType::getF32();
-    case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16:  __fallthrough;
+    case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16:  LLVM_FALLTHROUGH;
     case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_2_8: return CompType::getF16();
     }
     break;
@@ -474,7 +474,7 @@ CompType GetCompTypeFromMinPrec(D3D11_SB_OPERAND_MIN_PRECISION MinPrec,
                                 CompType DefaultPrecCompType) {
   switch (MinPrec) {
   case D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT:    return GetFullPrecCompType(DefaultPrecCompType);
-  case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16:   __fallthrough;
+  case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16:   LLVM_FALLTHROUGH;
   case D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_2_8:  return CompType::getF16();
   case D3D11_SB_OPERAND_MIN_PRECISION_SINT_16:    return CompType::getI16();
   case D3D11_SB_OPERAND_MIN_PRECISION_UINT_16:    return CompType::getU16();
@@ -821,10 +821,10 @@ DXIL::PrimitiveTopology GetPrimitiveTopology(D3D10_SB_PRIMITIVE_TOPOLOGY Topolog
   case D3D10_SB_PRIMITIVE_TOPOLOGY_LINESTRIP:           return DXIL::PrimitiveTopology::LineStrip;
   case D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLELIST:        return DXIL::PrimitiveTopology::TriangleList;
   case D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP:       return DXIL::PrimitiveTopology::TriangleStrip;
-  case D3D10_SB_PRIMITIVE_TOPOLOGY_LINELIST_ADJ:        __fallthrough;  // The ADJ versions are redundant in DXBC and are ot used, probably put there by mistake.
-  case D3D10_SB_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ:       __fallthrough;
-  case D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ:    __fallthrough;
-  case D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ:   __fallthrough;
+  case D3D10_SB_PRIMITIVE_TOPOLOGY_LINELIST_ADJ:        LLVM_FALLTHROUGH;  // The ADJ versions are redundant in DXBC and are ot used, probably put there by mistake.
+  case D3D10_SB_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ:       LLVM_FALLTHROUGH;
+  case D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ:    LLVM_FALLTHROUGH;
+  case D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ:   LLVM_FALLTHROUGH;
   }
 
   IFTBOOL(false, DXC_E_INCORRECT_DXBC);

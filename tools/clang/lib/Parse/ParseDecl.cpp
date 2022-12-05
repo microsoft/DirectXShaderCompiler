@@ -3019,7 +3019,7 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
           Tok.setIdentifierInfo(II);
         }
       }
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     }
     case tok::comma:
     case tok::equal:
@@ -5137,7 +5137,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())
       return true;
-    __fallthrough; // HLSL Change.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case tok::kw_typename:  // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
     // recurse to handle whatever we get.
@@ -5266,7 +5266,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
       return false;
     if (TryAltiVecVectorToken())
       return true;
-    __fallthrough; // HLSL Change.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case tok::kw_decltype: // decltype(T())::type
   case tok::kw_typename: // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
@@ -5626,7 +5626,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
           continue; // do *not* consume the next token!
         }
         // otherwise, FALL THROUGH!
-        __fallthrough; // HLSL Change
+        LLVM_FALLTHROUGH; // HLSL Change
       default:
         // If this is not a type-qualifier token, we're done reading type
         // qualifiers.  First verify that DeclSpec's are consistent.
@@ -5686,7 +5686,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         if (TryKeywordIdentFallback(false))
           continue;
       }
-    __fallthrough; // HLSL Change
+    LLVM_FALLTHROUGH; // HLSL Change
     case tok::kw___sptr:
     case tok::kw___w64:
     case tok::kw___ptr64:
@@ -5736,7 +5736,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         continue; // do *not* consume the next token!
       }
       // otherwise, FALL THROUGH!
-      __fallthrough; // HLSL Change
+      LLVM_FALLTHROUGH; // HLSL Change
     default:
       DoneWithTypeQuals:
       // If this is not a type-qualifier token, we're done reading type

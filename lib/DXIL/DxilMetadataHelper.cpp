@@ -1348,7 +1348,7 @@ const Function *DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
@@ -1712,7 +1712,7 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
@@ -1861,7 +1861,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const char * Text;
     const void * Data;
@@ -1949,7 +1949,7 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const MDNode *pDataMDWrapper = dyn_cast<MDNode>(MD.getOperand(i++));
     IFTBOOL(pDataMDWrapper != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
