@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "clang/AST/DeclBase.h"
 #include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/DenseMap.h"
@@ -9855,8 +9856,15 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     return QualType();
   }
 
-  // Here, element kind is combined with dimensions for result type.
-  ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  // Here, element kind is combined with dimensions for primitive types.
+  if (IS_BASIC_PRIMITIVE(resultElementKind)) {
+    ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  } else {
+    DXASSERT(rowCount == 1 && colCount == 1,
+             "otherwise, attempting to construct vector or matrix with "
+             "non-primitive component type");
+    ResultTy = ResultTy.getUnqualifiedType();
+  }
 
   // Cast condition to RValue
   if (Cond.get()->isLValue())
@@ -12132,6 +12140,26 @@ bool ValidateAttributeTargetIsFunction(Sema& S, Decl* D, const AttributeList &A)
   return false;
 }
 
+void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
+  HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
+  if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
+          dyn_cast<HLSLGloballyCoherentAttr>(A)) {
+    const ValueDecl *TD = cast<ValueDecl>(D);
+    if (!TD->getType()->isDependentType()) {
+      QualType DeclType = TD->getType();
+      while (DeclType->isArrayType())
+        DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+      if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
+          hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
+              hlsl::DXIL::ResourceClass::UAV) {
+        Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
+            << A << "non-UAV type";
+      }
+    }
+    return;
+  }
+}
+
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, bool& Handled)
 {
   DXASSERT_NOMSG(D != nullptr);
@@ -12297,6 +12325,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
 
   if (declAttr != nullptr)
   {
+    S.DiagnoseHLSLDeclAttr(D, declAttr);
     DXASSERT_NOMSG(Handled);
     D->addAttr(declAttr);
     return;
@@ -13130,12 +13159,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         result = false;
       }
       break;
-    case AttributeList::AT_HLSLGloballyCoherent:
-      if (!bIsObject) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
-            << pAttr->getName() << "non-UAV type";
-        result = false;
-      }
+    case AttributeList::AT_HLSLGloballyCoherent: // Handled elsewhere
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {
@@ -13392,9 +13416,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   // SPIRV change ends
 
   // Disallow bitfields where not enabled explicitly or by HV
-  if (BitWidth && getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
-    Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
-    result = false;
+  if (BitWidth) {
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+      Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
+      result = false;
+    } else if (!D.UnusualAnnotations.empty()) {
+      Diag(BitWidth->getExprLoc(),
+           diag::err_hlsl_bitfields_with_annotation);
+      result = false;
+    }
   }
 
   // Validate unusual annotations.

@@ -73,6 +73,7 @@ public:
   TEST_METHOD(RunVectorSyntaxMix);
   TEST_METHOD(RunVectorSyntax);
   TEST_METHOD(RunIncludes);
+  TEST_METHOD(RunSpirv);
   TEST_METHOD(RunStructMethods);
   TEST_METHOD(RunPredefines);
   TEST_METHOD(RunWideOneByte);
@@ -396,6 +397,31 @@ TEST_F(RewriterTest, RunNoFunctionBodyInclude) {
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold_nobody.hlsl",
       RewriterOptionMask::SkipFunctionBody));
+}
+
+TEST_F(RewriterTest, RunSpirv) {
+  CComPtr<IDxcRewriter> pRewriter;
+  CComPtr<IDxcRewriter2> pRewriter2;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  VERIFY_SUCCEEDED(pRewriter->QueryInterface(&pRewriter2));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(m_dllSupport,
+                      GetPathToHlslDataFile(L"rewriter\\spirv.hlsl").c_str());
+
+  LPCWSTR compileOptions[] = {L"-E", L"main", L"-HV", L"2021", L"-spirv"};
+
+  // Run rewriter with HLSL 2021 specification and SPIR-V support
+  VERIFY_SUCCEEDED(pRewriter2->RewriteWithOptions(
+      source.BlobEncoding, L"spirv.hlsl", compileOptions,
+      _countof(compileOptions), nullptr, 0, nullptr, &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  std::string strResult = BlobToUtf8(result);
+  // No built-in namespace "vk"
+  VERIFY_IS_TRUE(strResult.find("namespace vk") == std::string::npos);
 }
 
 TEST_F(RewriterTest, RunStructMethods) {

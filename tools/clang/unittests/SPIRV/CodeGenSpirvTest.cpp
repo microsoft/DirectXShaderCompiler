@@ -559,12 +559,14 @@ TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("cf.for.plain.hlsl"); }
 TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("cf.for.nested.hlsl"); }
 TEST_F(FileTest, ForStmtContinue) { runFileTest("cf.for.continue.hlsl"); }
 TEST_F(FileTest, ForStmtBreak) { runFileTest("cf.for.break.hlsl"); }
+TEST_F(FileTest, ForStmtShortCircuitedCond) { runFileTest("cf.for.short-circuited-cond.hlsl"); }
 
 // For while statements
 TEST_F(FileTest, WhileStmtPlain) { runFileTest("cf.while.plain.hlsl"); }
 TEST_F(FileTest, WhileStmtNested) { runFileTest("cf.while.nested.hlsl"); }
 TEST_F(FileTest, WhileStmtContinue) { runFileTest("cf.while.continue.hlsl"); }
 TEST_F(FileTest, WhileStmtBreak) { runFileTest("cf.while.break.hlsl"); }
+TEST_F(FileTest, WhileStmtShortCircuitedCond) { runFileTest("cf.while.short-circuited-cond.hlsl"); }
 
 // For do statements
 TEST_F(FileTest, DoStmtPlain) { runFileTest("cf.do.plain.hlsl"); }
@@ -2733,6 +2735,15 @@ TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefErrorBack) {
               Expect::Failure);
 }
 
+// === MeshShading EXT examples ===
+TEST_F(FileTest, MeshShadingEXTMeshTriangle) {
+  runFileTest("meshshading.ext.triangle.mesh.hlsl");
+}
+
+TEST_F(FileTest, MeshShadingEXTAmplification) {
+  runFileTest("meshshading.ext.amplification.hlsl");
+}
+
 // === MeshShading NV examples ===
 TEST_F(FileTest, MeshShadingNVMeshTriangle) {
   // TODO: Re-enable spirv-val once issue#3006 is fixed.
@@ -2848,10 +2859,6 @@ TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr2) {
 // -fspv-target-env=vulkan1.2 option to make sure that enabling
 // Vulkan1.2 also enables Vulkan1.1.
 TEST_F(FileTest, CompatibilityWithVk1p1) {
-  // TODO: Re-enable spirv-val once issue#3006 is fixed.
-  runFileTest("meshshading.nv.fncall.amplification.vulkan1.2.hlsl",
-              Expect::Success,
-              /* runValidation */ false);
   runFileTest("sm6.quad-read-across-diagonal.vulkan1.2.hlsl");
   runFileTest("sm6.quad-read-across-x.vulkan1.2.hlsl");
   runFileTest("sm6.quad-read-across-y.vulkan1.2.hlsl");

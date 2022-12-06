@@ -44,13 +44,13 @@ public:
   STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
-  virtual void *STDMETHODCALLTYPE Alloc (
+  void *STDMETHODCALLTYPE Alloc (
     /* [annotation][in] */
     _In_  SIZE_T cb) override {
     return HeapAlloc(GetProcessHeap(), 0, cb);
   }
 
-  virtual void *STDMETHODCALLTYPE Realloc (
+  void *STDMETHODCALLTYPE Realloc (
     /* [annotation][in] */
     _In_opt_  void *pv,
     /* [annotation][in] */
@@ -59,30 +59,28 @@ public:
     return HeapReAlloc(GetProcessHeap(), 0, pv, cb);
   }
 
-  virtual void STDMETHODCALLTYPE Free (
+  void STDMETHODCALLTYPE Free (
     /* [annotation][in] */
     _In_opt_  void *pv) override
   {
     HeapFree(GetProcessHeap(), 0, pv);
   }
 
-
-  virtual SIZE_T STDMETHODCALLTYPE GetSize(
+  SIZE_T STDMETHODCALLTYPE GetSize(
     /* [annotation][in] */
-    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
+    _In_opt_ _Post_writable_byte_size_(return)  void *pv) override
   {
     return HeapSize(GetProcessHeap(), 0, pv);
   }
 
-  virtual int STDMETHODCALLTYPE DidAlloc(
+  int STDMETHODCALLTYPE DidAlloc(
     /* [annotation][in] */
-    _In_opt_  void *pv)
+    _In_opt_  void *pv) override
   {
     return -1; // don't know
   }
 
-
-  virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
+  void STDMETHODCALLTYPE HeapMinimize(void) override {}
 };
 
 static HeapMalloc g_HeapMalloc;
@@ -94,60 +92,63 @@ IMalloc *GetGlobalHeapMalloc() throw() {
 }
 
 _Use_decl_annotations_
-void ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
-                    DWORD *pDataSize) {
+HRESULT ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
+                    DWORD *pDataSize) throw() {
   HANDLE hFile = CreateFileW(pFileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (hFile == INVALID_HANDLE_VALUE) {
-    IFT(HRESULT_FROM_WIN32(GetLastError()));
+    return HRESULT_FROM_WIN32(GetLastError());
   }
 
   CHandle h(hFile);
 
   LARGE_INTEGER FileSize;
   if (!GetFileSizeEx(hFile, &FileSize)) {
-    IFT(HRESULT_FROM_WIN32(GetLastError()));
+    return HRESULT_FROM_WIN32(GetLastError());
   }
   if (FileSize.u.HighPart != 0) {
-    throw(hlsl::Exception(DXC_E_INPUT_FILE_TOO_LARGE, "input file is too large"));
+    return DXC_E_INPUT_FILE_TOO_LARGE;
   }
 
   char *pData = (char *)pMalloc->Alloc(FileSize.u.LowPart);
   if (!pData) {
-    throw std::bad_alloc();
+    return E_OUTOFMEMORY;
   }
 
   DWORD BytesRead;
   if (!ReadFile(hFile, pData, FileSize.u.LowPart, &BytesRead, nullptr)) {
     HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
     pMalloc->Free(pData);
-    throw ::hlsl::Exception(hr);
+    return hr;
   }
   DXASSERT(FileSize.u.LowPart == BytesRead, "ReadFile operation failed");
 
   *ppData = pData;
   *pDataSize = FileSize.u.LowPart;
 
+  return S_OK;
 }
 
 _Use_decl_annotations_
-void ReadBinaryFile(LPCWSTR pFileName, void **ppData, DWORD *pDataSize) {
+HRESULT ReadBinaryFile(LPCWSTR pFileName, void **ppData, DWORD *pDataSize) throw() {
   return ReadBinaryFile(GetGlobalHeapMalloc(), pFileName, ppData, pDataSize);
 }
 
 _Use_decl_annotations_
-void WriteBinaryFile(LPCWSTR pFileName, const void *pData, DWORD DataSize) {
+HRESULT WriteBinaryFile(LPCWSTR pFileName, const void *pData, DWORD DataSize) throw() {
   HANDLE hFile = CreateFileW(pFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
   if(hFile == INVALID_HANDLE_VALUE) {
-    IFT(HRESULT_FROM_WIN32(GetLastError()));
+    return HRESULT_FROM_WIN32(GetLastError());
   }
   CHandle h(hFile);
 
   DWORD BytesWritten;
   if(!WriteFile(hFile, pData, DataSize, &BytesWritten, nullptr)) {
-    IFT(HRESULT_FROM_WIN32(GetLastError()));
+    return HRESULT_FROM_WIN32(GetLastError());
   }
   DXASSERT(DataSize == BytesWritten, "WriteFile operation failed");
+
+  return S_OK;
 }
 
 _Use_decl_annotations_
@@ -321,7 +322,7 @@ public:
     ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
-      this->~InternalDxcBlobEncoding_Impl();
+      this->InternalDxcBlobEncoding_Impl::~InternalDxcBlobEncoding_Impl();
       pTmp->Free(this);
     }
     return result;
@@ -827,15 +828,15 @@ DxcCreateBlobFromFile(IMalloc *pMalloc, LPCWSTR pFileName, UINT32 *pCodePage,
   LPVOID pData;
   DWORD dataSize;
   *ppBlobEncoding = nullptr;
-  try {
-    ReadBinaryFile(pMalloc, pFileName, &pData, &dataSize);
-  }
-  CATCH_CPP_RETURN_HRESULT();
+
+  HRESULT hr = ReadBinaryFile(pMalloc, pFileName, &pData, &dataSize);
+  if (FAILED(hr))
+    return hr;
 
   bool known = (pCodePage != nullptr);
   UINT32 codePage = (pCodePage != nullptr) ? *pCodePage : 0;
 
-  HRESULT hr = DxcCreateBlob(pData, dataSize, false, false, known, codePage, pMalloc, ppBlobEncoding);
+  hr = DxcCreateBlob(pData, dataSize, false, false, known, codePage, pMalloc, ppBlobEncoding);
   if (FAILED(hr))
     pMalloc->Free(pData);
   return hr;
@@ -1138,7 +1139,7 @@ public:
     ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
-      this->~MemoryStream();
+      this->MemoryStream::~MemoryStream();
       pTmp->Free(this);
     }
     return result;

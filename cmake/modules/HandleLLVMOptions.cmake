@@ -412,19 +412,31 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
     append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
 
-    # Check if -Wnon-virtual-dtor warns even though the class is marked final.
-    # If it does, don't add it. So it won't be added on clang 3.4 and older.
-    # This also catches cases when -Wnon-virtual-dtor isn't supported by
-    # the compiler at all.
-    set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Werror=non-virtual-dtor")
-    CHECK_CXX_SOURCE_COMPILES("class base {public: virtual void anchor();protected: ~base();};
-                               class derived final : public base { public: ~derived();};
-                               int main() { return 0; }"
-                              CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
-    append_if(CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR
-              "-Wnon-virtual-dtor" CMAKE_CXX_FLAGS)
+    # HLSL Change Starts
+
+    # Windows' and by extension WinAdapter's non-Windows implementation for IUnknown
+    # use virtual methods without virtual destructor, as that would add two extra
+    # function-pointers to the vtable in turn offsetting those for every subclass,
+    # resulting in ABI mismatches:
+    # https://github.com/microsoft/DirectXShaderCompiler/issues/3783.
+    # The -Wnon-virtual-dtor warning is disabled to allow this, conforming
+    # with MSVC behaviour.
+
+    # # Check if -Wnon-virtual-dtor warns even though the class is marked final.
+    # # If it does, don't add it. So it won't be added on clang 3.4 and older.
+    # # This also catches cases when -Wnon-virtual-dtor isn't supported by
+    # # the compiler at all.
+    # set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+    # set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Werror=non-virtual-dtor")
+    # CHECK_CXX_SOURCE_COMPILES("class base {public: virtual void anchor();protected: ~base();};
+    #                            class derived final : public base { public: ~derived();};
+    #                            int main() { return 0; }"
+    #                           CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR)
+    # set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+    # append_if(CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR
+    #           "-Wnon-virtual-dtor" CMAKE_CXX_FLAGS)
+
+    # HLSL Change Ends
 
     # Check if -Wcomment is OK with an // comment ending with '\' if the next
     # line is also a // comment.
@@ -539,14 +551,14 @@ add_llvm_definitions( -D__STDC_LIMIT_MACROS )
 
 # clang doesn't print colored diagnostics when invoked from Ninja
 if (UNIX AND
-    CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+    CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND # HLSL Change - Update to CMake 3.13.4
     CMAKE_GENERATOR STREQUAL "Ninja")
   append("-fcolor-diagnostics" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 endif()
 
 # HLSL Change Starts
 # Enable -fms-extensions for clang to use MS uuid extensions for COM.
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   append("-fms-extensions -Wno-language-extension-token" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 endif()
 # HLSL Change Ends
@@ -607,6 +619,22 @@ if (LLVM_ENABLE_LTO)
   endif()
 endif()
 # HLSL Change End
+
+option(LLVM_BUILD_INSTRUMENTED "Build LLVM and tools with PGO instrumentation (experimental)" Off)
+mark_as_advanced(LLVM_BUILD_INSTRUMENTED)
+append_if(LLVM_BUILD_INSTRUMENTED "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}'"
+  CMAKE_CXX_FLAGS
+  CMAKE_C_FLAGS
+  CMAKE_EXE_LINKER_FLAGS
+  CMAKE_SHARED_LINKER_FLAGS)
+
+option(LLVM_BUILD_INSTRUMENTED_COVERAGE "Build LLVM and tools with Code Coverage instrumentation (experimental)" Off)
+mark_as_advanced(LLVM_BUILD_INSTRUMENTED_COVERAGE)
+append_if(LLVM_BUILD_INSTRUMENTED_COVERAGE "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}' -fcoverage-mapping"
+  CMAKE_CXX_FLAGS
+  CMAKE_C_FLAGS
+  CMAKE_EXE_LINKER_FLAGS
+  CMAKE_SHARED_LINKER_FLAGS)
 
 # Plugin support
 # FIXME: Make this configurable.

@@ -348,7 +348,7 @@ def fspv_use_legacy_buffer_matrix_order: Flag<["-"], "fspv-use-legacy-buffer-mat
 def fspv_reflect: Flag<["-"], "fspv-reflect">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Emit additional SPIR-V instructions to aid reflection">;
 def fspv_debug_EQ : Joined<["-"], "fspv-debug=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Specify whitelist of debug info category (file -> source -> line, tool)">;
+  HelpText<"Specify whitelist of debug info category (file -> source -> line, tool, vulkan-with-source)">;
 def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,

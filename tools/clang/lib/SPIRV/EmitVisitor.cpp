@@ -32,7 +32,7 @@ static const uint32_t kMaximumCharOpSource = 0xFFFA;
 static const uint32_t kMaximumCharOpSourceContinued = 0xFFFD;
 
 // Since OpSource does not have a result id, this is used to mark it was emitted
-static const uint32_t kEmittedSourceForOpSource = 1; 
+static const uint32_t kEmittedSourceForOpSource = 1;
 
 /// Chops the given original string into multiple smaller ones to make sure they
 /// can be encoded in a sequence of OpSourceContinued instructions following an
@@ -1434,7 +1434,8 @@ void EmitVisitor::generateDebugSourceContinued(uint32_t textId,
   finalizeInstruction(&richDebugInfo);
 }
 
-void EmitVisitor::generateChoppedSource(uint32_t fileId, SpirvDebugSource *inst) {
+void EmitVisitor::generateChoppedSource(uint32_t fileId,
+                                        SpirvDebugSource *inst) {
   // Chop up the source into multiple segments if it is too long.
   llvm::SmallVector<std::string, 2> choppedSrcCode;
   uint32_t textId = 0;
@@ -1960,6 +1961,30 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) { 
+  initInstruction(inst);
+
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getYDimension()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getZDimension()));
+  if (inst->getPayload() != nullptr)
+  {
+      curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
+  }
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+bool EmitVisitor::visit(SpirvSetMeshOutputsEXT *inst) {
+  initInstruction(inst);
+
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVertexCount()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPrimitiveCount()));
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {
@@ -2077,9 +2102,9 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
   if (valueBitwidth != typeBitwidth) {
     bool losesInfo = false;
     const llvm::fltSemantics &targetSemantics =
-        typeBitwidth == 16 ? llvm::APFloat::IEEEhalf
-                           : typeBitwidth == 32 ? llvm::APFloat::IEEEsingle
-                                                : llvm::APFloat::IEEEdouble;
+        typeBitwidth == 16   ? llvm::APFloat::IEEEhalf
+        : typeBitwidth == 32 ? llvm::APFloat::IEEEsingle
+                             : llvm::APFloat::IEEEdouble;
     const auto status = valueToUse.convert(
         targetSemantics, llvm::APFloat::roundingMode::rmTowardZero, &losesInfo);
     if (status != llvm::APFloat::opStatus::opOK &&

@@ -544,9 +544,9 @@ const SpirvIntrinsicType *SpirvContext::getSpirvIntrinsicType(
 
 SpirvIntrinsicType *
 SpirvContext::getCreatedSpirvIntrinsicType(unsigned typeId) {
-  if (spirvIntrinsicTypes.find(typeId) == spirvIntrinsicTypes.end()){
+  if (spirvIntrinsicTypes.find(typeId) == spirvIntrinsicTypes.end()) {
     return nullptr;
-  }  
+  }
   return spirvIntrinsicTypes[typeId];
 }
 

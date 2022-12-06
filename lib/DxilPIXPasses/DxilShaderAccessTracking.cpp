@@ -13,6 +13,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBinding.h"
@@ -193,6 +194,7 @@ struct DxilResourceAndClass {
   int RegisterSpace;
   unsigned RegisterID;
   Value *index;
+  Value *indexDynamicOffset;
   Value *dynamicallyBoundIndex;
 };
 
@@ -215,8 +217,12 @@ private:
                           OP *HlslOP, LLVMContext &Ctx,
                           ShaderAccessFlags readWrite);
   DxilResourceAndClass GetResourceFromHandle(Value* resHandle, DxilModule& DM);
+  DxilResourceAndClass
+  DetermineAccessForHandleForLib(CallInst *handleCreation,
+                                 DxilResourceAndClass &initializedRnC,
+                                 DxilModule &DM);
 
-private:
+private :
   struct DynamicResourceBinding {
     int HeapIndex;
     bool HeapIsSampler; // else resource
@@ -232,6 +238,7 @@ private:
   std::map<llvm::Function *, CallInst *> m_FunctionToUAVHandle;
   std::map<llvm::Function *, std::map<ResourceAccessStyle, Constant *>> m_FunctionToEncodedAccess;
   std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
+  std::vector<std::unique_ptr<GetElementPtrInst>> m_GEPOperandAsInstructionDestroyers;
 };
 
 static unsigned DeserializeInt(std::deque<char> &q) {
@@ -415,7 +422,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
 
         Value *slotIndex;
     
-      if (isa<ConstantInt>(res.index)) {
+      if (isa<ConstantInt>(res.index) && res.indexDynamicOffset == nullptr) {
         unsigned index = cast<ConstantInt>(res.index)->getLimitedValue();
         if (index > slot->second.numSlots) {
           // out-of-range accesses are written to slot zero:
@@ -429,10 +436,16 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
                                 res.RegisterID};
         m_DynamicallyIndexedBindPoints.emplace(std::move(id));
     
+        Value *index = res.index;
+
+        if (res.indexDynamicOffset != nullptr) {
+          index = Builder.CreateAdd(res.index, res.indexDynamicOffset, "IndexPlusGEPIndex");
+        }
+
         // CompareWithSlotLimit will contain 1 if the access is out-of-bounds
         // (both over- and and under-flow via the unsigned >= with slot count)
         auto CompareWithSlotLimit = Builder.CreateICmpUGE(
-            res.index, HlslOP->GetU32Const(slot->second.numSlots),
+            index, HlslOP->GetU32Const(slot->second.numSlots),
             "CompareWithSlotLimit");
         auto CompareWithSlotLimitAsUint = Builder.CreateCast(
             Instruction::CastOps::ZExt, CompareWithSlotLimit,
@@ -444,7 +457,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
             HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
     
         auto SlotDwordOffset = Builder.CreateAdd(
-            res.index, HlslOP->GetU32Const(slot->second.startSlot),
+            index, HlslOP->GetU32Const(slot->second.startSlot),
             "SlotDwordOffset");
         auto SlotByteOffset = Builder.CreateMul(
             SlotDwordOffset,
@@ -544,8 +557,8 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
             CombinedFlagOrInstructionValue = EncodedFlags;
           }
           Constant *ElementMask = HlslOP->GetI8Const(1);
-          Function *StoreFunc =
-              HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
+          Function *StoreFunc = HlslOP->GetOpFunc(OP::OpCode::BufferStore,
+                                                  Type::getInt32Ty(Ctx));
           Constant *StoreOpcode =
               HlslOP->GetU32Const((unsigned)OP::OpCode::BufferStore);
           UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
@@ -571,6 +584,99 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
   return false; // did not modify
 }
 
+
+DxilResourceAndClass DxilShaderAccessTracking::DetermineAccessForHandleForLib(
+    CallInst *handleCreation,
+    DxilResourceAndClass &initializedRnC, DxilModule &DM) {
+
+  DxilResourceAndClass ret = initializedRnC;
+
+  DxilInst_CreateHandleForLib createHandleForLib(handleCreation);
+  auto *res = createHandleForLib.get_Resource();
+
+  auto *loadInstruction = llvm::cast<llvm::LoadInst>(res);
+  auto *ptr = loadInstruction->getOperand(0);
+
+  GlobalVariable *global = nullptr;
+  Value *GEPIndex = nullptr;
+  GetElementPtrInst *GEP = nullptr;
+  if (llvm::isa<GetElementPtrInst>(ptr)) {
+    GEP = llvm::cast<GetElementPtrInst>(ptr);
+  } else if (llvm::isa<ConstantExpr>(ptr)) {
+    auto *constant = llvm::cast<ConstantExpr>(ptr);
+    if (constant->getOpcode() == Instruction::GetElementPtr) {
+      m_GEPOperandAsInstructionDestroyers.emplace_back(
+          llvm::cast<GetElementPtrInst>(constant->getAsInstruction()));
+      GEP = m_GEPOperandAsInstructionDestroyers.back().get();
+    }
+  } else if (llvm::isa<GlobalVariable>(ptr)) {
+    GlobalVariable *Global = llvm::cast_or_null<GlobalVariable>(ptr);
+
+    //  If the load instruction points straight at a global, it's not an indexed
+    //  load, so we can ignore it.
+    global = Global;
+  }
+  if (GEP != nullptr) {
+    // GEPs can have complex nested pointer dereferences, so make sure
+    // it's the kind we expect for an indexed global lookup:
+    auto *FirstGEPIndex = GEP->getOperand(1);
+    if (llvm::isa<ConstantInt>(FirstGEPIndex) &&
+        llvm::cast<ConstantInt>(FirstGEPIndex)->getLimitedValue() == 0) {
+      global = llvm::cast_or_null<GlobalVariable>(GEP->getPointerOperand());
+      GEPIndex = GEP->getOperand(2);
+    }
+  }
+  if (global != nullptr) {
+    hlsl::DxilResourceBinding binding{};
+
+    ret.registerType = RegisterType::Invalid;
+
+    auto const &CBuffers = DM.GetCBuffers();
+    for (auto &CBuffer : CBuffers) {
+      if (global == CBuffer->GetGlobalSymbol()) {
+        binding =
+            hlsl::resource_helper::loadBindingFromResourceBase(CBuffer.get());
+        ret.registerType = RegisterType::CBV;
+        break;
+      }
+    }
+    if (ret.registerType == RegisterType::Invalid) {
+      auto const &SRVs = DM.GetSRVs();
+      for (auto &SRV : SRVs) {
+        if (global == SRV->GetGlobalSymbol()) {
+          binding =
+              hlsl::resource_helper::loadBindingFromResourceBase(SRV.get());
+          ret.registerType = RegisterType::SRV;
+          break;
+        }
+      }
+    }
+    if (ret.registerType == RegisterType::Invalid) {
+      auto const &UAVs = DM.GetUAVs();
+      for (auto &UAV : UAVs) {
+        if (global == UAV->GetGlobalSymbol()) {
+          binding =
+              hlsl::resource_helper::loadBindingFromResourceBase(UAV.get());
+          ret.registerType = RegisterType::UAV;
+          break;
+        }
+      }
+    }
+    if (ret.registerType != RegisterType::Invalid) {
+      ret.accessStyle = AccessStyle::FromRootSig;
+      ret.RegisterID = binding.rangeLowerBound;
+      ret.RegisterSpace = binding.spaceID;
+      ret.index = DM.GetOP()->GetU32Const(binding.rangeLowerBound);
+      // The GEP index is of course relative to the base address of the
+      // resource, so we make a note of it so we can add it to the base
+      // register index later.
+      ret.indexDynamicOffset = GEPIndex;
+    }
+  }
+
+  return ret;
+}
+
 DxilResourceAndClass
 DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
                                                 DxilModule &DM) {
@@ -581,11 +687,16 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
       0,
       0,
       nullptr,
+      nullptr,
       nullptr};
 
   Constant *C = dyn_cast<Constant>(resHandle);
   if (C && C->isZeroValue()) {
     return ret;
+  }
+
+  if (!isa<CallInst>(resHandle)) {
+    return ret; //todo
   }
 
   CallInst *handle = cast<CallInst>(resHandle);
@@ -666,13 +777,100 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
             m_dynamicResourceBindings.emplace_back(std::move(drb));
   
             return ret;
+        } else if (hlsl::OP::IsDxilOpFuncCallInst(
+                       handleCreation, hlsl::OP::OpCode::CreateHandleForLib)) {
+          ret = DetermineAccessForHandleForLib(handleCreation, ret, DM);
         } else {
             DXASSERT_NOMSG(false);
         }
       }
+  } else if (hlsl::OP::IsDxilOpFuncCallInst(
+                 handle, hlsl::OP::OpCode::CreateHandleForLib)) {
+    ret = DetermineAccessForHandleForLib(handle, ret, DM);
   }
 
   return ret;
+}
+
+
+static bool CheckForDynamicIndexing(OP *HlslOP, LLVMContext &Ctx, DxilModule &DM) {
+  bool FoundDynamicIndexing = false;
+
+  for (llvm::Function &F : DM.GetModule()->functions()) {
+    if (F.isDeclaration() && !F.use_empty() && OP::IsDxilOpFunc(&F)) {
+      if (F.hasName()) {
+        if (F.getName().find("createHandleForLib") != StringRef::npos) {
+          auto FunctionUses = F.uses();
+          for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
+            auto &FunctionUse = *FI++;
+            auto FunctionUser = FunctionUse.getUser();
+            auto instruction = cast<Instruction>(FunctionUser);
+            Value *resourceLoad =
+                instruction->getOperand(kCreateHandleForLibResOpIdx);
+            if (auto *load = cast<LoadInst>(resourceLoad)) {
+              auto *resOrGep = load->getOperand(0);
+              if (isa<GetElementPtrInst>(resOrGep)) {
+                FoundDynamicIndexing = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    if (FoundDynamicIndexing) {
+      break;
+    }
+  }
+
+  if (!FoundDynamicIndexing) {
+    auto CreateHandleFn =
+        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
+    for (auto FI = CreateHandleFn->user_begin();
+         FI != CreateHandleFn->user_end();) {
+      auto *FunctionUser = *FI++;
+      auto instruction = cast<Instruction>(FunctionUser);
+      Value *index = instruction->getOperand(kCreateHandleResIndexOpIdx);
+      if (!isa<Constant>(index)) {
+        FoundDynamicIndexing = true;
+        break;
+      }
+    }
+  }
+
+  if (!FoundDynamicIndexing) {
+    auto CreateHandleFromBindingFn = HlslOP->GetOpFunc(
+        DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
+    for (auto FI = CreateHandleFromBindingFn->user_begin();
+         FI != CreateHandleFromBindingFn->user_end();) {
+      auto *FunctionUser = *FI++;
+      auto instruction = cast<Instruction>(FunctionUser);
+      Value *index =
+          instruction->getOperand(kCreateHandleFromBindingResIndexOpIdx);
+      if (!isa<Constant>(index)) {
+        FoundDynamicIndexing = true;
+        break;
+      }
+    }
+  }
+
+  if (!FoundDynamicIndexing) {
+    auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
+        DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
+    for (auto FI = CreateHandleFromHeapFn->user_begin();
+         FI != CreateHandleFromHeapFn->user_end();) {
+      auto *FunctionUser = *FI++;
+      auto instruction = cast<Instruction>(FunctionUser);
+      Value *index =
+          instruction->getOperand(kCreateHandleFromHeapHeapIndexOpIdx);
+      if (!isa<Constant>(index)) {
+        FoundDynamicIndexing = true;
+        break;
+      }
+    }
+  }
+
+  return FoundDynamicIndexing;
 }
 
 bool DxilShaderAccessTracking::runOnModule(Module &M) {
@@ -686,44 +884,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
   if (m_CheckForDynamicIndexing) {
 
-    bool FoundDynamicIndexing = false;
-
-    auto CreateHandleFn =
-        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-    for (auto FI = CreateHandleFn->user_begin(); FI != CreateHandleFn->user_end();) {
-      auto *FunctionUser = *FI++;
-      auto instruction = cast<Instruction>(FunctionUser);
-      Value *index = instruction->getOperand(kCreateHandleResIndexOpIdx);
-      if (!isa<Constant>(index)) {
-        FoundDynamicIndexing = true;
-        break;
-      }
-    }
-
-    auto CreateHandleFromBindingFn =
-        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
-    for (auto FI = CreateHandleFromBindingFn->user_begin(); FI != CreateHandleFromBindingFn->user_end();) {
-      auto * FunctionUser = *FI++;
-      auto instruction = cast<Instruction>(FunctionUser);
-      Value *index = instruction->getOperand(kCreateHandleFromBindingResIndexOpIdx);
-      if (!isa<Constant>(index)) {
-        FoundDynamicIndexing = true;
-        break;
-      }
-    }
-
-    auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
-        DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
-    for (auto FI = CreateHandleFromHeapFn->user_begin();
-         FI != CreateHandleFromHeapFn->user_end();) {
-      auto *FunctionUser = *FI++;
-      auto instruction = cast<Instruction>(FunctionUser);
-      Value *index = instruction->getOperand(kCreateHandleFromHeapHeapIndexOpIdx);
-      if (!isa<Constant>(index)) {
-        FoundDynamicIndexing = true;
-        break;
-      }
-    }
+    bool FoundDynamicIndexing =
+        CheckForDynamicIndexing(HlslOP, Ctx, DM);
 
     if (FoundDynamicIndexing) {
       if (OSOverride != nullptr) {
@@ -732,42 +894,49 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
   } else {
-    {
-      if (DM.m_ShaderFlags.GetForceEarlyDepthStencil()) {
-        if (OSOverride != nullptr) {
-          formatted_raw_ostream FOS(*OSOverride);
-          FOS << "ShouldAssumeDsvAccess";
-        }
-      }
-      int uavRegId = 0;
-      for (llvm::Function &F : M.functions()) {
-        if (!F.getBasicBlockList().empty()) {
-          IRBuilder<> Builder(F.getEntryBlock().getFirstInsertionPt());
 
-          m_FunctionToUAVHandle[&F] = PIXPassHelpers::CreateUAV(DM, Builder, uavRegId++, "PIX_CountUAV_Handle");
-          auto const* shaderModel = DM.GetShaderModel();
-          auto shaderKind = shaderModel->GetKind();
-          OP *HlslOP = DM.GetOP();
-          for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
-              accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
-              ++accessStyle)
-          {
-              ResourceAccessStyle style = static_cast<ResourceAccessStyle>(accessStyle);
-              m_FunctionToEncodedAccess[&F][style] =
-                  HlslOP->GetU32Const(EncodeShaderModel(shaderKind) |
-                      EncodeAccess(style));
-          }
-        }
+    auto instrumentableFunctions =
+        PIXPassHelpers::GetAllInstrumentableFunctions(DM);
+
+    if (DM.m_ShaderFlags.GetForceEarlyDepthStencil()) {
+      if (OSOverride != nullptr) {
+        formatted_raw_ostream FOS(*OSOverride);
+        FOS << "ShouldAssumeDsvAccess";
       }
-      DM.ReEmitDxilResources();
     }
+    int uavRegId = 0;
+    for (auto * F : instrumentableFunctions) {
+      DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
+      if (!DM.HasDxilFunctionProps(F)) {
+        auto ShaderModel = DM.GetShaderModel();
+        shaderKind = ShaderModel->GetKind();
+        if (shaderKind == DXIL::ShaderKind::Library) {
+          continue;
+        }
+      } else {
+        hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(F);
+        shaderKind = props.shaderKind;
+      }
+
+      IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+
+      m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
+          DM, Builder, uavRegId++, "PIX_CountUAV_Handle");
+      OP *HlslOP = DM.GetOP();
+      for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
+           accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
+           ++accessStyle) {
+        ResourceAccessStyle style =
+            static_cast<ResourceAccessStyle>(accessStyle);
+        m_FunctionToEncodedAccess[F][style] = HlslOP->GetU32Const(
+            EncodeShaderModel(shaderKind) | EncodeAccess(style));
+      }
+    }
+    DM.ReEmitDxilResources();
 
     for (llvm::Function &F : M.functions()) {
-      // Only used DXIL intrinsics:
-      if (!F.isDeclaration() || F.isIntrinsic() || F.use_empty() ||
-          !OP::IsDxilOpFunc(&F))
+      if (!F.isDeclaration() || F.isIntrinsic() || !OP::IsDxilOpFunc(&F))
         continue;
-
       // Gather handle parameter indices, if any
       FunctionType *fnTy =
           cast<FunctionType>(F.getType()->getPointerElementType());
@@ -785,64 +954,65 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
         auto &FunctionUse = *FI++;
         auto FunctionUser = FunctionUse.getUser();
         auto Call = cast<CallInst>(FunctionUser);
-        auto opCode = OP::GetDxilOpFuncCallInst(Call);
 
-        // Base Read/Write on function attribute - should match for all normal
-        // resource operations
-        ShaderAccessFlags readWrite = ShaderAccessFlags::Write;
-        if (OP::GetMemAccessAttr(opCode) == llvm::Attribute::AttrKind::ReadOnly)
-          readWrite = ShaderAccessFlags::Read;
+        auto *CallerParent = Call->getParent();
+        if (llvm::isa<llvm::BasicBlock>(CallerParent)) {
+          auto opCode = OP::GetDxilOpFuncCallInst(Call);
 
-        // Special cases
-        switch (opCode) {
-        case DXIL::OpCode::GetDimensions:
-          // readWrite = ShaderAccessFlags::DescriptorRead;  // TODO: Support
-          // GetDimensions
-          continue;
-        case DXIL::OpCode::BufferUpdateCounter:
-          readWrite = ShaderAccessFlags::Counter;
-          break;
-        case DXIL::OpCode::TraceRay:
-          // Read of AccelerationStructure; doesn't match function attribute
-          // readWrite = ShaderAccessFlags::Read;  // TODO: Support
-          continue;
-        case DXIL::OpCode::RayQuery_TraceRayInline: {
-          // Read of AccelerationStructure; doesn't match function attribute
-          auto res = GetResourceFromHandle(Call->getArgOperand(2), DM);
-          if (EmitResourceAccess(
-            DM,
-            res, 
-            Call, 
-            HlslOP, 
-            Ctx,
-            ShaderAccessFlags::Read)) 
-          {
-            Modified = true;
-          }
-        }
-          continue;
-        default:
-          break;
-        }
+          // Base Read/Write on function attribute - should match for all normal
+          // resource operations
+          ShaderAccessFlags readWrite = ShaderAccessFlags::Write;
+          if (OP::GetMemAccessAttr(opCode) ==
+              llvm::Attribute::AttrKind::ReadOnly)
+            readWrite = ShaderAccessFlags::Read;
 
-        for (unsigned iParam : handleParams) {
-          auto res = GetResourceFromHandle(Call->getArgOperand(iParam), DM);
-          if (res.accessStyle == AccessStyle::None) {
+          // Special cases
+          switch (opCode) {
+          case DXIL::OpCode::GetDimensions:
+            // readWrite = ShaderAccessFlags::DescriptorRead;  // TODO: Support
+            // GetDimensions
             continue;
+          case DXIL::OpCode::BufferUpdateCounter:
+            readWrite = ShaderAccessFlags::Counter;
+            break;
+          case DXIL::OpCode::TraceRay:
+            // Read of AccelerationStructure; doesn't match function attribute
+            // readWrite = ShaderAccessFlags::Read;  // TODO: Support
+            continue;
+          case DXIL::OpCode::RayQuery_TraceRayInline: {
+            // Read of AccelerationStructure; doesn't match function attribute
+            auto res = GetResourceFromHandle(Call->getArgOperand(2), DM);
+            if (res.accessStyle == AccessStyle::None) {
+              continue;
+            }
+            if (EmitResourceAccess(DM, res, Call, HlslOP, Ctx,
+                                   ShaderAccessFlags::Read)) {
+              Modified = true;
+            }
           }
-          // Don't instrument the accesses to the UAV that we just added
-          if (res.RegisterSpace  == -2) {
+            continue;
+          default:
             break;
           }
-          if (EmitResourceAccess(DM, res, Call, HlslOP, Ctx, readWrite)) {
-            Modified = true;
+
+          for (unsigned iParam : handleParams) {
+            auto res = GetResourceFromHandle(Call->getArgOperand(iParam), DM);
+            if (res.accessStyle == AccessStyle::None) {
+              continue;
+            }
+            // Don't instrument the accesses to the UAV that we just added
+            if (res.RegisterSpace == -2) {
+              break;
+            }
+            if (EmitResourceAccess(DM, res, Call, HlslOP, Ctx, readWrite)) {
+              Modified = true;
+            }
+            // Remaining resources are DescriptorRead.
+            readWrite = ShaderAccessFlags::DescriptorRead;
           }
-          // Remaining resources are DescriptorRead.
-          readWrite = ShaderAccessFlags::DescriptorRead;
         }
       }
     }
-
     if (OSOverride != nullptr) {
       formatted_raw_ostream FOS(*OSOverride);
       FOS << "DynamicallyIndexedBindPoints=";
@@ -852,7 +1022,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
       FOS << ".";
 
-      // todo: this will reflect dynamic resource names when the metadata exists
+      // todo: this will reflect dynamic resource names when the metadata
+      // exists
       FOS << "DynamicallyBoundResources=";
       for (auto const &drb : m_dynamicResourceBindings) {
         FOS << (drb.HeapIsSampler ? 'S' : 'R') << drb.HeapIndex << ';';
@@ -861,9 +1032,11 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
     }
   }
 
+  // Done with these guys:
+  m_GEPOperandAsInstructionDestroyers.clear();
+
   return Modified;
 }
-
 char DxilShaderAccessTracking::ID = 0;
 
 ModulePass *llvm::createDxilShaderAccessTrackingPass() {

@@ -200,7 +200,8 @@ public:
 public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts, FeatureManager &featureMgr)
-      : Visitor(opts, spvCtx), astContext(astCtx), featureManager(featureMgr), id(0),
+      : Visitor(opts, spvCtx), astContext(astCtx), featureManager(featureMgr),
+        id(0),
         typeHandler(astCtx, spvCtx, opts, featureMgr, &debugVariableBinary,
                     &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
@@ -299,6 +300,8 @@ public:
   bool visit(SpirvDebugTypeTemplate *) override;
   bool visit(SpirvDebugTypeTemplateParameter *) override;
   bool visit(SpirvIntrinsicInstruction *) override;
+  bool visit(SpirvEmitMeshTasksEXT *) override;
+  bool visit(SpirvSetMeshOutputsEXT *) override;
 
   using Visitor::visit;
 

@@ -300,7 +300,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       }
     }
     DiagStream.flush();
-    CComPtr<IStream> pStream = pDiagStream;
+    CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
     dxcutil::CreateOperationResultFromOutputs(pOutputBlob, pStream, warnings,
                                               hasErrorOccurred, ppResult);
   }

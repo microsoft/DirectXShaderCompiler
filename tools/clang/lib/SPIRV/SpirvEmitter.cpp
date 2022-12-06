@@ -14,7 +14,9 @@
 #include "SpirvEmitter.h"
 
 #include "AlignmentSizeCalculator.h"
+#include "InitListHandler.h"
 #include "RawBufferMethods.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
@@ -22,8 +24,6 @@
 #include "clang/Sema/Sema.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "InitListHandler.h"
-#include "dxc/DXIL/DxilConstants.h"
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "clang/Basic/Version.h"
@@ -625,7 +625,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // Rich DebugInfo DebugSource
   if (spirvOptions.debugInfoRich) {
-    auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString(), source);
+    auto *dbgSrc =
+        spvBuilder.createDebugSource(mainSourceFile->getString(), source);
     // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
     // pair and returns {{string key, RichDebugInfo}, true /*Success*/}.
     // spvContext.getDebugInfo().insert().first->second is a RichDebugInfo.
@@ -640,7 +641,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                      richDebugInfo->scopeStack.back());
   }
 
-  if (spirvOptions.debugInfoTool &&
+  if (spirvOptions.debugInfoTool && !spirvOptions.debugInfoVulkan &&
       featureManager.isTargetEnvVulkan1p1OrAbove()) {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
@@ -760,7 +761,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
     spvBuilder.addEntryPoint(
-        getSpirvShaderStage(entryInfo->shaderModelKind),
+        getSpirvShaderStage(entryInfo->shaderModelKind, featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
         entryInfo->entryFunction, getEntryPointName(entryInfo),
         getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
@@ -1065,8 +1066,11 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     }
   } else if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
     if (defaultArgExpr->getParam()->hasUninstantiatedDefaultArg()) {
-      auto defaultArg = defaultArgExpr->getParam()->getUninstantiatedDefaultArg();
-      result = castToType(doExpr(defaultArg), defaultArg->getType(), defaultArgExpr->getType(), defaultArg->getLocStart(), defaultArg->getSourceRange());
+      auto defaultArg =
+          defaultArgExpr->getParam()->getUninstantiatedDefaultArg();
+      result = castToType(doExpr(defaultArg), defaultArg->getType(),
+                          defaultArgExpr->getType(), defaultArg->getLocStart(),
+                          defaultArg->getSourceRange());
       result->setRValue();
     } else {
       result = doExpr(defaultArgExpr->getParam()->getDefaultArg());
@@ -1996,14 +2000,50 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
   //     | merge |
   //     +-------+
   //
+  // The only exception is when the condition cannot be expressed in a single
+  // block. Specifically, short-circuited operators end up producing multiple
+  // blocks. In that case, we cannot treat the <check> block as the header
+  // block, and must instead have a bespoke <header> block. The condition is
+  // then moved into the loop. For example, given a loop in the form
+  //   while (a && b) { <body> }
+  // we will generate instructions for the equivalent loop
+  //   while (true) { if (!(a && b)) { break }  <body> }
+  //            +----------+
+  //            |  header  | <------------------+
+  //            +----------+                    |
+  //                 |                          |
+  //                 v                          |
+  //            +----------+                    |
+  //            |  check   |                    |
+  //            +----------+                    |
+  //                 |                          |
+  //         +-------+-------+                  |
+  //         | false         | true             |
+  //         |               v                  |
+  //         |            +------+     +------------------+
+  //         |            | body | --> | continue (no-op) |
+  //         v            +------+     +------------------+
+  //     +-------+
+  //     | merge |
+  //     +-------+
+  // The reason we don't unconditionally apply this transformation, which is
+  // technically always legal, is because it prevents loop unrolling in SPIR-V
+  // Tools, which does not support unrolling loops with early breaks.
   // For more details, see "2.11. Structured Control Flow" in the SPIR-V spec.
 
   const spv::LoopControlMask loopControl =
       attrs.empty() ? spv::LoopControlMask::MaskNone
                     : translateLoopAttribute(whileStmt, *attrs.front());
 
+  const Expr *check = whileStmt->getCond();
+  const Stmt *body = whileStmt->getBody();
+  bool checkHasShortcircuitedOp = stmtTreeContainsShortCircuitedOp(check);
+
   // Create basic blocks
   auto *checkBB = spvBuilder.createBasicBlock("while.check");
+  auto *headerBB = checkHasShortcircuitedOp
+                       ? spvBuilder.createBasicBlock("while.header")
+                       : checkBB;
   auto *bodyBB = spvBuilder.createBasicBlock("while.body");
   auto *continueBB = spvBuilder.createBasicBlock("while.continue");
   auto *mergeBB = spvBuilder.createBasicBlock("while.merge");
@@ -2013,42 +2053,80 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
   continueStack.push(continueBB);
   breakStack.push(mergeBB);
 
-  // Process the <check> block
-  spvBuilder.createBranch(checkBB, whileStmt->getLocStart());
-  spvBuilder.addSuccessor(checkBB);
-  spvBuilder.setInsertPoint(checkBB);
+  spvBuilder.createBranch(headerBB, whileStmt->getLocStart());
+  spvBuilder.addSuccessor(headerBB);
+  spvBuilder.setInsertPoint(headerBB);
+  if (checkHasShortcircuitedOp) {
+    // Process the <header> block.
+    spvBuilder.setInsertPoint(headerBB);
+    spvBuilder.createBranch(
+        checkBB,
+        check ? check->getLocStart()
+              : (body ? body->getLocStart() : whileStmt->getLocStart()),
+        mergeBB, continueBB, loopControl,
+        check
+            ? check->getSourceRange()
+            : SourceRange(whileStmt->getLocStart(), whileStmt->getLocStart()));
+    spvBuilder.addSuccessor(checkBB);
+    // The current basic block has a OpLoopMerge instruction. We need to set
+    // its continue and merge target.
+    spvBuilder.setContinueTarget(continueBB);
+    spvBuilder.setMergeTarget(mergeBB);
 
-  // If we have:
-  // while (int a = foo()) {...}
-  // we should evaluate 'a' by calling 'foo()' every single time the check has
-  // to occur.
-  if (const auto *condVarDecl = whileStmt->getConditionVariableDeclStmt())
-    doStmt(condVarDecl);
+    // Process the <check> block.
+    spvBuilder.setInsertPoint(checkBB);
 
-  SpirvInstruction *condition = nullptr;
-  const Expr *check = whileStmt->getCond();
-  if (check) {
-    condition = doExpr(check);
+    // If we have:
+    //   while (int a = foo()) {...}
+    // we should evaluate 'a' by calling 'foo()' every single time the check has
+    // to occur.
+    if (const auto *condVarDecl = whileStmt->getConditionVariableDeclStmt())
+      doStmt(condVarDecl);
+
+    SpirvInstruction *condition = doExpr(check);
+    spvBuilder.createConditionalBranch(
+        condition, bodyBB, mergeBB,
+        check ? check->getLocEnd()
+              : (body ? body->getLocStart() : whileStmt->getLocStart()),
+        nullptr, nullptr, spv::SelectionControlMask::MaskNone,
+        spv::LoopControlMask::MaskNone,
+        check
+            ? check->getSourceRange()
+            : SourceRange(whileStmt->getLocStart(), whileStmt->getLocStart()));
+    spvBuilder.addSuccessor(bodyBB);
+    spvBuilder.addSuccessor(mergeBB);
   } else {
-    condition = spvBuilder.getConstantBool(true);
-  }
-  spvBuilder.createConditionalBranch(
-      condition, bodyBB,
-      /*false branch*/ mergeBB, whileStmt->getLocStart(),
-      /*merge*/ mergeBB, continueBB, spv::SelectionControlMask::MaskNone,
-      loopControl,
-      check ? check->getSourceRange()
-            : SourceRange(whileStmt->getWhileLoc(), whileStmt->getLocEnd()));
-  spvBuilder.addSuccessor(bodyBB);
-  spvBuilder.addSuccessor(mergeBB);
-  // The current basic block has OpLoopMerge instruction. We need to set its
-  // continue and merge target.
-  spvBuilder.setContinueTarget(continueBB);
-  spvBuilder.setMergeTarget(mergeBB);
+    // In the case of simple or empty conditions, we can use a
+    // single block for <check> and <header>.
 
-  // Process the <body> block
+    // If we have:
+    //   while (int a = foo()) {...}
+    // we should evaluate 'a' by calling 'foo()' every single time the check has
+    // to occur.
+    if (const auto *condVarDecl = whileStmt->getConditionVariableDeclStmt())
+      doStmt(condVarDecl);
+
+    SpirvInstruction *condition = nullptr;
+    if (check) {
+      condition = doExpr(check);
+    } else {
+      condition = spvBuilder.getConstantBool(true);
+    }
+    spvBuilder.createConditionalBranch(
+        condition, bodyBB, mergeBB, whileStmt->getLocStart(), mergeBB,
+        continueBB, spv::SelectionControlMask::MaskNone, loopControl,
+        check ? check->getSourceRange()
+              : SourceRange(whileStmt->getWhileLoc(), whileStmt->getLocEnd()));
+    spvBuilder.addSuccessor(bodyBB);
+    spvBuilder.addSuccessor(mergeBB);
+    // The current basic block has OpLoopMerge instruction. We need to set its
+    // continue and merge target.
+    spvBuilder.setContinueTarget(continueBB);
+    spvBuilder.setMergeTarget(mergeBB);
+  }
+
+  // Process the <body> block.
   spvBuilder.setInsertPoint(bodyBB);
-  const Stmt *body = whileStmt->getBody();
   if (body) {
     doStmt(body);
   }
@@ -2057,12 +2135,12 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
   spvBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block. While loops do not have an explicit
-  // continue block. The continue block just branches to the <check> block.
+  // continue block. The continue block just branches to the <header> block.
   spvBuilder.setInsertPoint(continueBB);
-  spvBuilder.createBranch(checkBB, whileStmt->getLocEnd());
-  spvBuilder.addSuccessor(checkBB);
+  spvBuilder.createBranch(headerBB, whileStmt->getLocEnd());
+  spvBuilder.addSuccessor(headerBB);
 
-  // Set insertion point to the <merge> block for subsequent statements
+  // Set insertion point to the <merge> block for subsequent statements.
   spvBuilder.setInsertPoint(mergeBB);
 
   // Done with the current scope's continue and merge blocks.
@@ -2104,13 +2182,56 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
   //     | merge |
   //     +-------+
   //
+  // The only exception is when the condition cannot be expressed in a single
+  // block. Specifically, short-circuited operators end up producing multiple
+  // blocks. In that case, we cannot treat the <check> block as the header
+  // block, and must instead have a bespoke <header> block. The condition is
+  // then moved into the loop. For example, given a loop in the form
+  //   for (<init>; a && b; <continue>) { <body> }
+  // we will generate instructions for the equivalent loop
+  //   for (<init>; ; <continue>) { if (!(a && b)) { break }  <body> }
+  //             +--------+
+  //             |  init  |
+  //             +--------+
+  //                 |
+  //                 v
+  //            +----------+
+  //            |  header  | <---------------+
+  //            +----------+                 |
+  //                 |                       |
+  //                 v                       |
+  //            +----------+                 |
+  //            |  check   |                 |
+  //            +----------+                 |
+  //                 |                       |
+  //         +-------+-------+               |
+  //         | false         | true          |
+  //         |               v               |
+  //         |            +------+     +----------+
+  //         |            | body | --> | continue |
+  //         v            +------+     +----------+
+  //     +-------+
+  //     | merge |
+  //     +-------+
+  // The reason we don't unconditionally apply this transformation, which is
+  // technically always legal, is because it prevents loop unrolling in SPIR-V
+  // Tools, which does not support unrolling loops with early breaks.
   // For more details, see "2.11. Structured Control Flow" in the SPIR-V spec.
   const spv::LoopControlMask loopControl =
       attrs.empty() ? spv::LoopControlMask::MaskNone
                     : translateLoopAttribute(forStmt, *attrs.front());
 
-  // Create basic blocks
+  const Stmt *initStmt = forStmt->getInit();
+  const Stmt *body = forStmt->getBody();
+  const Expr *check = forStmt->getCond();
+
+  bool checkHasShortcircuitedOp = stmtTreeContainsShortCircuitedOp(check);
+
+  // Create basic blocks.
   auto *checkBB = spvBuilder.createBasicBlock("for.check");
+  auto *headerBB = checkHasShortcircuitedOp
+                       ? spvBuilder.createBasicBlock("for.header")
+                       : checkBB;
   auto *bodyBB = spvBuilder.createBasicBlock("for.body");
   auto *continueBB = spvBuilder.createBasicBlock("for.continue");
   auto *mergeBB = spvBuilder.createBasicBlock("for.merge");
@@ -2120,72 +2241,104 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
   continueStack.push(continueBB);
   breakStack.push(mergeBB);
 
-  // Process the <init> block
-  const Stmt *initStmt = forStmt->getInit();
+  // Process the <init> block.
   if (initStmt) {
     doStmt(initStmt);
   }
-  const Expr *check = forStmt->getCond();
   spvBuilder.createBranch(
-      checkBB, check ? check->getLocStart() : forStmt->getLocStart(), nullptr,
+      headerBB, check ? check->getLocStart() : forStmt->getLocStart(), nullptr,
       nullptr, spv::LoopControlMask::MaskNone,
       initStmt ? initStmt->getSourceRange()
                : SourceRange(forStmt->getLocStart(), forStmt->getLocStart()));
-  spvBuilder.addSuccessor(checkBB);
+  spvBuilder.addSuccessor(headerBB);
 
-  // Process the <check> block
-  spvBuilder.setInsertPoint(checkBB);
-  SpirvInstruction *condition = nullptr;
-  if (check) {
-    condition = doExpr(check);
+  if (checkHasShortcircuitedOp) {
+    // Process the <header> block.
+    spvBuilder.setInsertPoint(headerBB);
+    spvBuilder.createBranch(
+        checkBB,
+        check ? check->getLocStart()
+              : (body ? body->getLocStart() : forStmt->getLocStart()),
+        mergeBB, continueBB, loopControl,
+        check ? check->getSourceRange()
+              : (initStmt ? initStmt->getSourceRange()
+                          : SourceRange(forStmt->getLocStart(),
+                                        forStmt->getLocStart())));
+    spvBuilder.addSuccessor(checkBB);
+    // The current basic block has a OpLoopMerge instruction. We need to set
+    // its continue and merge target.
+    spvBuilder.setContinueTarget(continueBB);
+    spvBuilder.setMergeTarget(mergeBB);
+
+    // Process the <check> block.
+    spvBuilder.setInsertPoint(checkBB);
+    SpirvInstruction *condition = doExpr(check);
+    spvBuilder.createConditionalBranch(
+        condition, bodyBB, mergeBB,
+        check ? check->getLocEnd()
+              : (body ? body->getLocStart() : forStmt->getLocStart()),
+        nullptr, nullptr, spv::SelectionControlMask::MaskNone,
+        spv::LoopControlMask::MaskNone,
+        check ? check->getSourceRange()
+              : (initStmt ? initStmt->getSourceRange()
+                          : SourceRange(forStmt->getLocStart(),
+                                        forStmt->getLocStart())));
+    spvBuilder.addSuccessor(bodyBB);
+    spvBuilder.addSuccessor(mergeBB);
   } else {
-    condition = spvBuilder.getConstantBool(true);
+    // In the case of simple or empty conditions, we can use a
+    // single block for <check> and <header>.
+    spvBuilder.setInsertPoint(checkBB);
+    SpirvInstruction *condition = nullptr;
+    if (check) {
+      condition = doExpr(check);
+    } else {
+      condition = spvBuilder.getConstantBool(true);
+    }
+    spvBuilder.createConditionalBranch(
+        condition, bodyBB, mergeBB,
+        check ? check->getLocEnd()
+              : (body ? body->getLocStart() : forStmt->getLocStart()),
+        mergeBB, continueBB, spv::SelectionControlMask::MaskNone, loopControl,
+        check ? check->getSourceRange()
+              : (initStmt ? initStmt->getSourceRange()
+                          : SourceRange(forStmt->getLocStart(),
+                                        forStmt->getLocStart())));
+    spvBuilder.addSuccessor(bodyBB);
+    spvBuilder.addSuccessor(mergeBB);
+    // The current basic block has a OpLoopMerge instruction. We need to set
+    // its continue and merge target.
+    spvBuilder.setContinueTarget(continueBB);
+    spvBuilder.setMergeTarget(mergeBB);
   }
-  const Stmt *body = forStmt->getBody();
-  spvBuilder.createConditionalBranch(
-      condition, bodyBB,
-      /*false branch*/ mergeBB,
-      check ? check->getLocEnd()
-            : (body ? body->getLocStart() : forStmt->getLocStart()),
-      /*merge*/ mergeBB, continueBB, spv::SelectionControlMask::MaskNone,
-      loopControl,
-      check ? check->getSourceRange()
-            : (initStmt ? initStmt->getSourceRange()
-                        : SourceRange(forStmt->getLocStart(),
-                                      forStmt->getLocStart())));
-  spvBuilder.addSuccessor(bodyBB);
-  spvBuilder.addSuccessor(mergeBB);
-  // The current basic block has OpLoopMerge instruction. We need to set its
-  // continue and merge target.
-  spvBuilder.setContinueTarget(continueBB);
-  spvBuilder.setMergeTarget(mergeBB);
 
-  // Process the <body> block
+  // Process the <body> block.
   spvBuilder.setInsertPoint(bodyBB);
   if (body) {
     doStmt(body);
   }
   const Expr *cont = forStmt->getInc();
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(continueBB, forStmt->getLocEnd(), nullptr, nullptr,
+    spvBuilder.createBranch(
+        continueBB, forStmt->getLocEnd(), nullptr, nullptr,
         spv::LoopControlMask::MaskNone,
         cont ? cont->getSourceRange()
              : SourceRange(forStmt->getLocStart(), forStmt->getLocStart()));
   spvBuilder.addSuccessor(continueBB);
 
-  // Process the <continue> block
+  // Process the <continue> block. It will jump back to the header.
   spvBuilder.setInsertPoint(continueBB);
   if (cont) {
     doExpr(cont);
   }
-  // <continue> should jump back to header
-  spvBuilder.createBranch(checkBB, forStmt->getLocEnd(), nullptr, nullptr,
+  spvBuilder.createBranch(
+      headerBB, forStmt->getLocEnd(), nullptr, nullptr,
       spv::LoopControlMask::MaskNone,
       cont ? cont->getSourceRange()
            : SourceRange(forStmt->getLocStart(), forStmt->getLocStart()));
-  spvBuilder.addSuccessor(checkBB);
+  spvBuilder.addSuccessor(headerBB);
 
-  // Set insertion point to the <merge> block for subsequent statements
+  // Set insertion point to the <merge> block for subsequent statements.
   spvBuilder.setInsertPoint(mergeBB);
 
   // Done with the current scope's continue block and merge block.
@@ -2267,7 +2420,7 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
   spvBuilder.createConditionalBranch(
       condition, thenBB, elseBB, then->getLocStart(), mergeBB,
       /*continue*/ 0, selectionControl, spv::LoopControlMask::MaskNone,
-	  cond->getSourceRange());
+      cond->getSourceRange());
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(elseBB);
   // The current basic block has the OpSelectionMerge instruction. We need
@@ -2289,7 +2442,8 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
     const auto *elseStmt = ifStmt->getElse();
     doStmt(elseStmt);
     if (!spvBuilder.isCurrentBasicBlockTerminated())
-      spvBuilder.createBranch(mergeBB, elseStmt->getLocEnd(), nullptr, nullptr,
+      spvBuilder.createBranch(
+          mergeBB, elseStmt->getLocEnd(), nullptr, nullptr,
           spv::LoopControlMask::MaskNone,
           SourceRange(elseStmt->getLocEnd(), elseStmt->getLocEnd()));
     spvBuilder.addSuccessor(mergeBB);
@@ -2487,7 +2641,7 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
   if (funcDecl) {
     if (funcDecl->hasAttr<VKInstructionExtAttr>())
       return processSpvIntrinsicCallExpr(callExpr);
-    else if(funcDecl->hasAttr<VKTypeDefExtAttr>())
+    else if (funcDecl->hasAttr<VKTypeDefExtAttr>())
       return processSpvIntrinsicTypeDef(callExpr);
   }
   // Intrinsic functions such as 'dot' or 'mul'
@@ -3383,11 +3537,10 @@ SpirvInstruction *SpirvEmitter::doShortCircuitedConditionalOperator(
   return result;
 }
 
-SpirvInstruction
-*SpirvEmitter::doConditional(const Expr *expr,
-                             const Expr *cond,
-                             const Expr *falseExpr,
-                             const Expr *trueExpr) {
+SpirvInstruction *SpirvEmitter::doConditional(const Expr *expr,
+                                              const Expr *cond,
+                                              const Expr *falseExpr,
+                                              const Expr *trueExpr) {
   const auto type = expr->getType();
   const SourceLocation loc = expr->getExprLoc();
   const SourceRange range = expr->getSourceRange();
@@ -3484,14 +3637,12 @@ SpirvInstruction
   spvBuilder.setMergeTarget(mergeBB);
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
-  spvBuilder.createStore(tempVar, trueBranch,
-                         trueExpr->getLocStart(), range);
+  spvBuilder.createStore(tempVar, trueBranch, trueExpr->getLocStart(), range);
   spvBuilder.createBranch(mergeBB, trueExpr->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // Handle the else branch
   spvBuilder.setInsertPoint(elseBB);
-  spvBuilder.createStore(tempVar, falseBranch,
-                         falseExpr->getLocStart(), range);
+  spvBuilder.createStore(tempVar, falseBranch, falseExpr->getLocStart(), range);
   spvBuilder.createBranch(mergeBB, falseExpr->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // From now on, emit instructions into the merge block.
@@ -6475,6 +6626,38 @@ bool SpirvEmitter::isVectorShuffle(const Expr *expr) {
   return false;
 }
 
+bool SpirvEmitter::isShortCircuitedOp(const Expr *expr) {
+  if (!expr || !getCompilerInstance().getLangOpts().EnableShortCircuit) {
+    return false;
+  }
+
+  const auto *binOp = dyn_cast<BinaryOperator>(expr->IgnoreParens());
+  if (binOp) {
+    return binOp->getOpcode() == BO_LAnd || binOp->getOpcode() == BO_LOr;
+  }
+
+  const auto *condOp = dyn_cast<ConditionalOperator>(expr->IgnoreParens());
+  return condOp;
+}
+
+bool SpirvEmitter::stmtTreeContainsShortCircuitedOp(const Stmt *stmt) {
+  if (!stmt) {
+    return false;
+  }
+
+  if (isShortCircuitedOp(dyn_cast<Expr>(stmt))) {
+    return true;
+  }
+
+  for (const auto *child : stmt->children()) {
+    if (stmtTreeContainsShortCircuitedOp(child)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool SpirvEmitter::isTextureMipsSampleIndexing(const CXXOperatorCallExpr *expr,
                                                const Expr **base,
                                                const Expr **location,
@@ -7147,6 +7330,9 @@ void SpirvEmitter::assignToMSOutIndices(
     const llvm::SmallVector<SpirvInstruction *, 4> &indices) {
   assert(spvContext.isMS() && !indices.empty());
 
+  bool extMesh =
+      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader);
+
   // Extract vertex index and vecComponent (if any).
   SpirvInstruction *vertIndex = indices.front();
   SpirvInstruction *vecComponent = nullptr;
@@ -7178,45 +7364,65 @@ void SpirvEmitter::assignToMSOutIndices(
   } else {
     // for "line" or "triangle" output topology.
     assert(numVertices == 2 || numVertices == 3);
-    // set baseOffset = vertIndex * numVertices.
-    auto *baseOffset = spvBuilder.createBinaryOp(
-        spv::Op::OpIMul, astContext.UnsignedIntTy, vertIndex,
-        spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                  llvm::APInt(32, numVertices)),
-        loc);
+
     if (vecComponent) {
       // write an individual vector component of uint2 or uint3.
       assert(numValues == 1);
-      // set baseOffset = baseOffset + vecComponent.
-      baseOffset =
-          spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    baseOffset, vecComponent, loc);
-      // create accesschain for PrimitiveIndicesNV[baseOffset].
-      auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, var,
-                                               {baseOffset}, loc);
-      // finally create store for PrimitiveIndicesNV[baseOffset] = value.
-      spvBuilder.createStore(ptr, value, loc);
-    } else {
-      // write all vector components of uint2 or uint3.
-      assert(numValues == numVertices);
-      auto *curOffset = baseOffset;
-      for (uint32_t i = 0; i < numValues; ++i) {
-        if (i != 0) {
-          // set curOffset = baseOffset + i.
-          curOffset = spvBuilder.createBinaryOp(
-              spv::Op::OpIAdd, astContext.UnsignedIntTy, baseOffset,
-              spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                        llvm::APInt(32, i)),
-              loc);
-        }
-        // create accesschain for PrimitiveIndicesNV[curOffset].
+      if (extMesh) {
+        // create accesschain for Primitive*IndicesEXT[vertIndex][vecComponent].
+        auto *ptr = spvBuilder.createAccessChain(
+            astContext.UnsignedIntTy, var, {vertIndex, vecComponent}, loc);
+        // finally create store for Primitive*IndicesEXT[vertIndex][vecComponent] = value.
+        spvBuilder.createStore(ptr, value, loc);
+      } else {
+        // set baseOffset = vertIndex * numVertices.
+        auto *baseOffset = spvBuilder.createBinaryOp(
+            spv::Op::OpIMul, astContext.UnsignedIntTy, vertIndex,
+            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                      llvm::APInt(32, numVertices)), loc);
+        // set baseOffset = baseOffset + vecComponent.
+        baseOffset =
+            spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                      baseOffset, vecComponent, loc);
+        // create accesschain for PrimitiveIndicesNV[baseOffset].
         auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, var,
-                                                 {curOffset}, loc);
-        // finally create store for PrimitiveIndicesNV[curOffset] = value[i].
-        spvBuilder.createStore(ptr,
-                               spvBuilder.createCompositeExtract(
-                                   astContext.UnsignedIntTy, value, {i}, loc),
-                               loc);
+                                                 {baseOffset}, loc);
+        // finally create store for PrimitiveIndicesNV[baseOffset] = value.
+        spvBuilder.createStore(ptr, value, loc);
+      }
+    } else {
+      assert(numValues == numVertices);
+      if (extMesh) {
+        // create accesschain for Primitive*IndicesEXT[vertIndex].
+        auto *ptr = spvBuilder.createAccessChain(varType, var, vertIndex, loc);
+        // finally create store for Primitive*IndicesEXT[vertIndex] = value.
+        spvBuilder.createStore(ptr, value, loc);
+      } else {
+        // set baseOffset = vertIndex * numVertices.
+        auto *baseOffset = spvBuilder.createBinaryOp(
+            spv::Op::OpIMul, astContext.UnsignedIntTy, vertIndex,
+            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                      llvm::APInt(32, numVertices)), loc);
+        // write all vector components of uint2 or uint3.
+        auto *curOffset = baseOffset;
+        for (uint32_t i = 0; i < numValues; ++i) {
+          if (i != 0) {
+            // set curOffset = baseOffset + i.
+            curOffset = spvBuilder.createBinaryOp(
+                spv::Op::OpIAdd, astContext.UnsignedIntTy, baseOffset,
+                spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                          llvm::APInt(32, i)),
+                loc);
+          }
+          // create accesschain for PrimitiveIndicesNV[curOffset].
+          auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy,
+                                                   var, {curOffset}, loc);
+          // finally create store for PrimitiveIndicesNV[curOffset] = value[i].
+          spvBuilder.createStore(ptr,
+                                 spvBuilder.createCompositeExtract(
+                                     astContext.UnsignedIntTy, value, {i}, loc),
+                                 loc);
+        }
       }
     }
   }
@@ -7348,9 +7554,9 @@ SpirvEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_MulAssign:
   case BO_DivAssign:
   case BO_RemAssign: {
-    const auto actOnEachVec = [this, spvOp, rhsVal, rhs,
-                               loc, range](uint32_t index, QualType vecType,
-                                    SpirvInstruction *lhsVec) {
+    const auto actOnEachVec = [this, spvOp, rhsVal, rhs, loc,
+                               range](uint32_t index, QualType vecType,
+                                      SpirvInstruction *lhsVec) {
       // For each vector of lhs, we need to load the corresponding vector of
       // rhs and do the operation on them.
       auto *rhsVec = spvBuilder.createCompositeExtract(vecType, rhsVal, {index},
@@ -7868,10 +8074,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 #define INTRINSIC_OP_CASE_SINT_UINT_FLOAT(intrinsicOp, glslSintOp, glslUintOp, \
                                           glslFloatOp, doEachVec)              \
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
-    glslOpcode = isFloatType                                                   \
-                     ? GLSLstd450::GLSLstd450##glslFloatOp                     \
-                     : isSintType ? GLSLstd450::GLSLstd450##glslSintOp         \
-                                  : GLSLstd450::GLSLstd450##glslUintOp;        \
+    glslOpcode = isFloatType  ? GLSLstd450::GLSLstd450##glslFloatOp            \
+                 : isSintType ? GLSLstd450::GLSLstd450##glslSintOp             \
+                              : GLSLstd450::GLSLstd450##glslUintOp;            \
     retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec,    \
                                            srcLoc, srcRange);                  \
   } break
@@ -9497,8 +9702,8 @@ SpirvEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
 
   // Get <result-id> for memory semantics
   const auto memSemaMask = isAllBarrier ? allMemoryBarrierSema
-                                        : isDevice ? deviceMemoryBarrierSema
-                                                   : groupMemoryBarrierSema;
+                           : isDevice   ? deviceMemoryBarrierSema
+                                        : groupMemoryBarrierSema;
   spvBuilder.createBarrier(memScope, memSemaMask, execScope,
                            callExpr->getExprLoc(), callExpr->getSourceRange());
   return nullptr;
@@ -10315,9 +10520,9 @@ SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
   if (isScalarType(argType, &elemType)) {
     auto *floatZero = getValueZero(elemType);
     auto *floatOne = getValueOne(elemType);
-    return spvBuilder.createGLSLExtInst(returnType,
-                                        GLSLstd450::GLSLstd450FClamp,
-                                        {argId, floatZero, floatOne}, loc, range);
+    return spvBuilder.createGLSLExtInst(
+        returnType, GLSLstd450::GLSLstd450FClamp, {argId, floatZero, floatOne},
+        loc, range);
   }
 
   if (isVectorType(argType, &elemType, &vecSize)) {
@@ -10332,11 +10537,12 @@ SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
   if (isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
     auto *vecZero = getVecValueZero(elemType, numCols);
     auto *vecOne = getVecValueOne(elemType, numCols);
-    const auto actOnEachVec = [this, loc, vecZero,
-                               vecOne, range](uint32_t /*index*/, QualType vecType,
-                                       SpirvInstruction *curRow) {
+    const auto actOnEachVec = [this, loc, vecZero, vecOne,
+                               range](uint32_t /*index*/, QualType vecType,
+                                      SpirvInstruction *curRow) {
       return spvBuilder.createGLSLExtInst(vecType, GLSLstd450::GLSLstd450FClamp,
-                                          {curRow, vecZero, vecOne}, loc, range);
+                                          {curRow, vecZero, vecOne}, loc,
+                                          range);
     };
     return processEachVectorInMatrix(arg, argId, actOnEachVec, loc, range);
   }
@@ -10410,7 +10616,7 @@ SpirvEmitter::processIntrinsicF16ToF32(const CallExpr *callExpr) {
       v2f32Type, GLSLstd450::GLSLstd450UnpackHalf2x16, argId, loc, range);
   // f16tof32() converts the float16 stored in the low-half of the uint to
   // a float. So just need to return the first component.
-  return spvBuilder.createCompositeExtract(f32Type, convert, {0}, loc,  range);
+  return spvBuilder.createCompositeExtract(f32Type, convert, {0}, loc, range);
 }
 
 SpirvInstruction *
@@ -10613,11 +10819,9 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
   auto *log2 = processIntrinsicUsingGLSLInst(
       callExpr, GLSLstd450::GLSLstd450Log2, true, loc, range);
   const auto returnType = callExpr->getType();
-  spv::Op scaleOp = isScalarType(returnType)
-                        ? spv::Op::OpFMul
-                        : isVectorType(returnType)
-                              ? spv::Op::OpVectorTimesScalar
-                              : spv::Op::OpMatrixTimesScalar;
+  spv::Op scaleOp = isScalarType(returnType)   ? spv::Op::OpFMul
+                    : isVectorType(returnType) ? spv::Op::OpVectorTimesScalar
+                                               : spv::Op::OpMatrixTimesScalar;
   return spvBuilder.createBinaryOp(scaleOp, returnType, log2, scale, loc,
                                    range);
 }
@@ -11138,26 +11342,16 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
                                 /*isDevice*/ false,
                                 /*groupSync*/ true,
                                 /*isAllBarrier*/ false);
-
-  // 2) set TaskCountNV = threadX * threadY * threadZ.
-  auto *threadX = doExpr(args[0]);
-  auto *threadY = doExpr(args[1]);
-  auto *threadZ = doExpr(args[2]);
-  auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::TaskCountNV,
-                                         astContext.UnsignedIntTy, loc);
-  auto *taskCount = spvBuilder.createBinaryOp(
-      spv::Op::OpIMul, astContext.UnsignedIntTy, threadX,
-      spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
-                                threadY, threadZ, loc, range),
-      loc, range);
-  spvBuilder.createStore(var, taskCount, loc, range);
-
-  // 3) create PerTaskNV out attribute block and store MeshPayload info.
+  
+  // 2) create PerTaskNV out attribute block and store MeshPayload info.
   const auto *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::DXIL::SigPointKind::MSOut);
-  spv::StorageClass sc = spv::StorageClass::Output;
+  spv::StorageClass sc = featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)
+          ? spv::StorageClass::TaskPayloadWorkgroupEXT
+          : spv::StorageClass::Output;
   auto *payloadArg = doExpr(args[3]);
   bool isValid = false;
+  const VarDecl *param = nullptr;
   if (const auto *implCastExpr = dyn_cast<CastExpr>(args[3])) {
     if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
       if (const auto *paramDecl = dyn_cast<VarDecl>(arg->getDecl())) {
@@ -11165,6 +11359,7 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
           isValid = declIdMapper.createPayloadStageVars(
               sigPoint, sc, paramDecl, /*asInput=*/false, paramDecl->getType(),
               "out.var", &payloadArg);
+          param = paramDecl;
         }
       }
     }
@@ -11172,6 +11367,26 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
   if (!isValid) {
     emitError("expected groupshared object as argument to DispatchMesh()",
               args[3]->getExprLoc());
+  }
+
+  // 3) set up emit dimension.
+  auto *threadX = doExpr(args[0]);
+  auto *threadY = doExpr(args[1]);
+  auto *threadZ = doExpr(args[2]);
+
+  if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+    // for EXT_mesh_shader, create opEmitMeshTasksEXT.
+    spvBuilder.createEmitMeshTasksEXT(threadX, threadY, threadZ, loc, nullptr, range);
+  } else {
+    // for NV_mesh_shader, set TaskCountNV = threadX * threadY * threadZ.
+    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::TaskCountNV,
+                                           astContext.UnsignedIntTy, loc);
+    auto *taskCount = spvBuilder.createBinaryOp(
+        spv::Op::OpIMul, astContext.UnsignedIntTy, threadX,
+        spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
+                                  threadY, threadZ, loc, range),
+        loc, range);
+    spvBuilder.createStore(var, taskCount, loc, range);
   }
 }
 
@@ -11181,9 +11396,14 @@ void SpirvEmitter::processMeshOutputCounts(const CallExpr *callExpr) {
   const auto args = callExpr->getArgs();
   const auto loc = callExpr->getExprLoc();
   const auto range = callExpr->getSourceRange();
-  auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::PrimitiveCountNV,
+
+  if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+    spvBuilder.createSetMeshOutputsEXT(doExpr(args[0]), doExpr(args[1]), loc, range);
+  } else {
+    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::PrimitiveCountNV,
                                          astContext.UnsignedIntTy, loc);
-  spvBuilder.createStore(var, doExpr(args[1]), loc, range);
+    spvBuilder.createStore(var, doExpr(args[1]), loc, range);
+  }
 }
 
 SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
@@ -11506,7 +11726,7 @@ hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
 }
 
 spv::ExecutionModel
-SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk) {
+SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk, bool extMeshShading) {
   switch (smk) {
   case hlsl::ShaderModel::Kind::Vertex:
     return spv::ExecutionModel::Vertex;
@@ -11533,9 +11753,13 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk) {
   case hlsl::ShaderModel::Kind::Callable:
     return spv::ExecutionModel::CallableNV;
   case hlsl::ShaderModel::Kind::Mesh:
-    return spv::ExecutionModel::MeshNV;
+    return extMeshShading ?
+           spv::ExecutionModel::MeshEXT: 
+           spv::ExecutionModel::MeshNV;
   case hlsl::ShaderModel::Kind::Amplification:
-    return spv::ExecutionModel::TaskNV;
+    return extMeshShading ?
+        spv::ExecutionModel::TaskEXT:
+        spv::ExecutionModel::TaskNV;
   default:
     llvm_unreachable("invalid shader model kind");
     break;
@@ -12633,8 +12857,8 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
   discoverAllCaseStmtInSwitchStmt(switchStmt->getBody(), &defaultBB, &targets);
 
   // Create the OpSelectionMerge and OpSwitch.
-  spvBuilder.createSwitch(mergeBB, selector, defaultBB, targets,
-                          srcLoc, cond->getSourceRange());
+  spvBuilder.createSwitch(mergeBB, selector, defaultBB, targets, srcLoc,
+                          cond->getSourceRange());
 
   // Handle the switch body.
   doStmt(switchStmt->getBody());
@@ -13258,13 +13482,11 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   return loadInst;
 }
 
-SpirvInstruction *
-SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
-                      SpirvInstruction *value,
-                      QualType bufferType, uint32_t alignment,
-                      SourceLocation loc) {
+SpirvInstruction *SpirvEmitter::storeDataToRawAddress(
+    SpirvInstruction *addressInUInt64, SpirvInstruction *value,
+    QualType bufferType, uint32_t alignment, SourceLocation loc) {
 
-// Summary:
+  // Summary:
   //   %address = OpBitcast %ptrTobufferType %addressInUInt64
   //   %storeInst = OpStore %address %value alignment %alignment
 
@@ -13280,7 +13502,8 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
   return nullptr;
 }
 
-SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
+SpirvInstruction *
+SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
   uint32_t alignment = getAlignmentForRawBufferStore(callExpr);
   if (alignment == 0)
     return nullptr;
@@ -13306,7 +13529,7 @@ SpirvInstruction *SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) 
   QualType boolType = bufferType;
   bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
   auto *storeAsInt = castToInt(value, boolType, bufferType, loc);
-  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment,loc);
+  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment, loc);
 }
 
 SpirvInstruction *

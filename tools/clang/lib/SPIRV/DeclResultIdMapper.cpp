@@ -774,12 +774,42 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
       if (!isVectorType(type, nullptr, &verticesPerPrim)) {
         assert(isScalarType(type));
       }
-      arraySize = arraySize * verticesPerPrim;
-      QualType arrayType = astContext.getConstantArrayType(
-          astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
-          clang::ArrayType::Normal, 0);
-      stageVarInstructions[cast<DeclaratorDecl>(decl)] = getBuiltinVar(
-          spv::BuiltIn::PrimitiveIndicesNV, arrayType, decl->getLocation());
+
+      spv::BuiltIn builtinID = spv::BuiltIn::Max;
+      if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+        // For EXT_mesh_shader, set builtin type as PrimitivePoint/Line/TriangleIndicesEXT
+        // based on the vertices per primitive
+        switch (verticesPerPrim) { 
+          case 1:
+            builtinID = spv::BuiltIn::PrimitivePointIndicesEXT;
+            break;
+          case 2:
+            builtinID = spv::BuiltIn::PrimitiveLineIndicesEXT;
+            break;
+          case 3:
+            builtinID = spv::BuiltIn::PrimitiveTriangleIndicesEXT;
+            break;
+          default:
+            break;
+        }
+        QualType arrayType = astContext.getConstantArrayType(
+            type, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+
+        stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+            getBuiltinVar(builtinID, arrayType, decl->getLocation());
+      } else {
+          // For NV_mesh_shader, the built type is PrimitiveIndicesNV
+          builtinID = spv::BuiltIn::PrimitiveIndicesNV;
+
+          arraySize = arraySize * verticesPerPrim;
+          QualType arrayType = astContext.getConstantArrayType(
+              astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
+              clang::ArrayType::Normal, 0);
+
+          stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+              getBuiltinVar(builtinID, arrayType, decl->getLocation());
+      }
+
       return true;
     }
   }
@@ -853,7 +883,9 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   SemanticInfo inheritSemantic = {};
 
   if (paramDecl->hasAttr<HLSLPayloadAttr>()) {
-    spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+    spv::StorageClass sc = (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader))
+                           ? spv::StorageClass::TaskPayloadWorkgroupEXT
+                           : getStorageClassForSigPoint(sigPoint);
     return createPayloadStageVars(sigPoint, sc, paramDecl, /*asInput=*/true,
                                   type, "in.var", loadedValue);
   } else {
@@ -1107,7 +1139,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
   if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
-    // Legalization is needed to propagate the correct image type for 
+    // Legalization is needed to propagate the correct image type for
     // instructions in addition to cases where the resource is assigned to
     // another variable or function parameter
     needsLegalization = true;
@@ -1252,12 +1284,11 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // Register the <type-id> for this decl
   ctBufferPCTypes[decl] = resultType;
 
-  const auto sc = forPC ? spv::StorageClass::PushConstant
-                        : forShaderRecordNV
-                              ? spv::StorageClass::ShaderRecordBufferNV
-                              : forShaderRecordEXT
-                                    ? spv::StorageClass::ShaderRecordBufferKHR
-                                    : spv::StorageClass::Uniform;
+  const auto sc = forPC               ? spv::StorageClass::PushConstant
+                  : forShaderRecordNV ? spv::StorageClass::ShaderRecordBufferNV
+                  : forShaderRecordEXT
+                      ? spv::StorageClass::ShaderRecordBufferKHR
+                      : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
   // The fields may be 'precise', but the structure itself is not.
@@ -1434,7 +1465,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
-                                                ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   const auto *recordType =
       hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
   assert(recordType);
@@ -1449,8 +1480,8 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
   const std::string structName =
       typeName + recordType->getDecl()->getName().str();
   SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
-      recordType->getDecl(), /*arraySize*/ 0,
-      kind, structName, decl->getName());
+      recordType->getDecl(), /*arraySize*/ 0, kind, structName,
+      decl->getName());
 
   // Register the VarDecl
   astDecls[decl] = createDeclSpirvInfo(var);
@@ -1463,7 +1494,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
-                                               ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
@@ -1471,12 +1502,10 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
                             ? "type.ShaderRecordBufferEXT."
                             : "type.ShaderRecordBufferNV.";
 
-  const std::string structName =
-      typeName + decl->getName().str();
+  const std::string structName = typeName + decl->getName().str();
   // The front-end does not allow arrays of cbuffer/tbuffer.
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      decl, /*arraySize*/ 0, kind, structName,
-      decl->getName());
+      decl, /*arraySize*/ 0, kind, structName, decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when
@@ -1602,7 +1631,7 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
       if (declInstr) {
         createCounterVar(decl, declInstr, /*isAlias*/ false);
         counter = counterVars.find(decl);
-	  }
+      }
     }
     if (counter != counterVars.end())
       return &counter->second;
@@ -1611,8 +1640,8 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
   return nullptr;
 }
 
-const CounterIdAliasPair *DeclResultIdMapper::createOrGetCounterIdAliasPair(
-    const DeclaratorDecl *decl) {
+const CounterIdAliasPair *
+DeclResultIdMapper::createOrGetCounterIdAliasPair(const DeclaratorDecl *decl) {
   auto counterPair = getCounterIdAliasPair(decl);
   if (counterPair)
     return counterPair;
@@ -3135,9 +3164,12 @@ bool DeclResultIdMapper::createPayloadStageVars(
     }
     stageVars.push_back(stageVar);
 
-    // Decorate with PerTaskNV for mesh/amplification shader payload variables.
-    spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
-                                 varInstr->getSourceLocation());
+    if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      // Decorate with PerTaskNV for mesh/amplification shader payload
+      // variables.
+      spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
+                                   varInstr->getSourceLocation());
+    }
 
     if (asInput) {
       *value = spvBuilder.createLoad(type, varInstr, loc);
@@ -3256,7 +3288,8 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
     uint32_t baseIndex = 0;
     for (auto base : cxxDecl->bases()) {
-      auto *subValue = spvBuilder.createCompositeExtract(base.getType(), value, {baseIndex++}, loc, range);
+      auto *subValue = spvBuilder.createCompositeExtract(
+          base.getType(), value, {baseIndex++}, loc, range);
 
       if (!writeBackOutputStream(base.getType()->getAsCXXRecordDecl(),
                                  base.getType(), subValue, range))
@@ -3285,9 +3318,10 @@ DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
                                        SourceLocation loc, SourceRange range) {
   // Negate SV_Position.y if requested
   if (spirvOptions.invertY) {
-    const auto oldY = spvBuilder.createCompositeExtract(astContext.FloatTy,
-                                                        position, {1}, loc, range);
-    const auto newY = spvBuilder.createUnaryOp(spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
+    const auto oldY = spvBuilder.createCompositeExtract(
+        astContext.FloatTy, position, {1}, loc, range);
+    const auto newY = spvBuilder.createUnaryOp(
+        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
     position = spvBuilder.createCompositeInsert(
         astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
         loc, range);
@@ -3387,9 +3421,13 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::LocalInvocationIndex:
     sc = spv::StorageClass::Input;
     break;
+  case spv::BuiltIn::TaskCountNV:
   case spv::BuiltIn::PrimitiveCountNV:
   case spv::BuiltIn::PrimitiveIndicesNV:
-  case spv::BuiltIn::TaskCountNV:
+  case spv::BuiltIn::PrimitivePointIndicesEXT:
+  case spv::BuiltIn::PrimitiveLineIndicesEXT:
+  case spv::BuiltIn::PrimitiveTriangleIndicesEXT:
+  case spv::BuiltIn::CullPrimitiveEXT:
     sc = spv::StorageClass::Output;
     break;
   default:
@@ -3796,9 +3834,9 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex,
                                          isPrecise, srcLoc);
   }
-    // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
-    // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
-    // PSIn.
+  // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
+  // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
+  // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FullyCoveredEXT,
@@ -3808,14 +3846,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
   // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
-    QualType checkType = type->getAs<ReferenceType>()
-                             ? type->getAs<ReferenceType>()->getPointeeType()
-                             : type;
-    QualType scalarTy;
-    if (!isScalarType(checkType, &scalarTy) || !scalarTy->isIntegerType()) {
-      emitError("semantic ShadingRate must be interger scalar type", srcLoc);
-    }
-
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
@@ -3824,12 +3854,34 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::MSOut:
+    case hlsl::SigPoint::Kind::MSPOut:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(
           type, sc, BuiltIn::PrimitiveShadingRateKHR, isPrecise, srcLoc);
     default:
       emitError("semantic ShadingRate must be used only for PSIn, VSOut, "
                 "GSOut, MSOut",
+                srcLoc);
+      break;
+    }
+    break;
+  }
+  // According to DXIL spec, the ShadingRate SV can only be used by
+  // MSPOut or PSIn.
+  // According to Vulkan spec, the CullPrimitiveEXT BuiltIn can only
+  // be used as MSOut.
+  case hlsl::Semantic::Kind::CullPrimitive: {
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::PSIn:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
+                                           isPrecise, srcLoc);
+    case hlsl::SigPoint::Kind::MSPOut:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
+                                           isPrecise, srcLoc);
+    default:
+      emitError("semantic CullPrimitive must be used only for PSIn, MSPOut",
                 srcLoc);
       break;
     }

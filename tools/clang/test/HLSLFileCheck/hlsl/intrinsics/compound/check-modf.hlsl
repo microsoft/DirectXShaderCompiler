@@ -1,4 +1,4 @@
-// RUN: %dxc /Tps_6_0 /Eps_main > %s | FileCheck %s
+// RUN: %dxc /Tps_6_0 /Eps_main  %s | FileCheck %s
 // CHECK: define void @ps_main()
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0x3FFB333340000000)
 // CHECK: entry

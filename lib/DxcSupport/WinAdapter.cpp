@@ -12,31 +12,6 @@
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
 
-//===--------------------------- IUnknown ---------------------------------===//
-
-ULONG IUnknown::AddRef() {
-  ++m_count;
-  return m_count;
-}
-ULONG IUnknown::Release() {
-  ULONG result = --m_count;
-  if (m_count == 0) {
-    delete this;
-  }
-  return result;
-}
-IUnknown::~IUnknown() {}
-
-//===--------------------------- IMalloc ----------------------------------===//
-
-void *IMalloc::Alloc(size_t size) { return malloc(size); }
-void *IMalloc::Realloc(void *ptr, size_t size) { return realloc(ptr, size); }
-void IMalloc::Free(void *ptr) { free(ptr); }
-HRESULT IMalloc::QueryInterface(REFIID riid, void **ppvObject) {
-  assert(false && "QueryInterface not implemented for IMalloc.");
-  return E_NOINTERFACE;
-}
-
 //===--------------------------- CAllocator -------------------------------===//
 
 void *CAllocator::Reallocate(void *p, size_t nBytes) throw() {
