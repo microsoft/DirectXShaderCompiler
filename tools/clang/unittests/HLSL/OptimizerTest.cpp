@@ -382,6 +382,12 @@ void MyMiss(inout MyPayload payload)
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
       pProgram, Options.data(), Options.size(), &pOptimizedContainer, &pText));
 
+  CComPtr<IDxcContainerReflection> pReflection;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(pOptimizedContainer));
+  UINT32 dxilIndex;
+  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &dxilIndex));
+
   const char *pBlobContent =
       reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
   unsigned blobSize = pOptimizedContainer->GetBufferSize();
@@ -398,7 +404,7 @@ void MyMiss(inout MyPayload payload)
   auto const subObjectTableReader = rdat.GetSubobjectTable();
 
   // There are 9 subobjects in the HLSL above:
-  VERIFY_ARE_EQUAL(subObjectTableReader.Count(), 9);
+  VERIFY_ARE_EQUAL(subObjectTableReader.Count(), 9u);
   for (uint32_t i = 0; i < subObjectTableReader.Count(); ++i) {
     auto subObject = subObjectTableReader[i];
     hlsl::DXIL::SubobjectKind subobjectKind = subObject.getKind();
@@ -493,19 +499,19 @@ R"(
   auto const * desc = RSH.GetDesc();
 
   VERIFY_ARE_EQUAL(desc->Version, hlsl::DxilRootSignatureVersion::Version_1_1);
-  VERIFY_ARE_EQUAL(desc->Desc_1_1.NumParameters, 2);
+  VERIFY_ARE_EQUAL(desc->Desc_1_1.NumParameters, 2u);
   for (unsigned int i = 0; i < desc->Desc_1_1.NumParameters; ++i)
   {
     hlsl::DxilRootParameter1 const *param = desc->Desc_1_1.pParameters + i;
     switch (param->ParameterType) {
     case hlsl::DxilRootParameterType::Constants32Bit:
-      VERIFY_ARE_EQUAL(param->Constants.Num32BitValues, 1);
-      VERIFY_ARE_EQUAL(param->Constants.RegisterSpace, 42);
-      VERIFY_ARE_EQUAL(param->Constants.ShaderRegister, 7);
+      VERIFY_ARE_EQUAL(param->Constants.Num32BitValues, 1u);
+      VERIFY_ARE_EQUAL(param->Constants.RegisterSpace, 42u);
+      VERIFY_ARE_EQUAL(param->Constants.ShaderRegister, 7u);
       break;
     case hlsl::DxilRootParameterType::UAV:
-      VERIFY_ARE_EQUAL(param->Descriptor.RegisterSpace, 12);
-      VERIFY_ARE_EQUAL(param->Descriptor.ShaderRegister, 3);
+      VERIFY_ARE_EQUAL(param->Descriptor.RegisterSpace, 12u);
+      VERIFY_ARE_EQUAL(param->Descriptor.ShaderRegister, 3u);
       break;
     default:
       VERIFY_FAIL(L"Unexpected root param type");
