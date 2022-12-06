@@ -127,8 +127,7 @@ bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
   const clang::Type *Ty = QT.getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
-    if (RD->getName() == "RaytracingAccelerationStructure" ||
-        RD->getName() == "BuiltInTriangleIntersectionAttributes")
+    if (RD->getName() == "BuiltInTriangleIntersectionAttributes")
       return true;
   }
   return false;
