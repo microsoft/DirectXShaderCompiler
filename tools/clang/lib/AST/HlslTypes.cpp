@@ -97,7 +97,7 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
       return true;
-    return IsHLSLNumericUserDefinedType(type);
+    return IsHLSLNumericAggregate(type);
   } else if (type->isArrayType()) {
     return IsHLSLNumericOrAggregateOfNumericType(QualType(type->getArrayElementTypeNoTypeQual(), 0));
   }
@@ -120,6 +120,11 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
     return true;
   }
   return false;
+}
+
+bool IsHLSLNumericAggregate(clang::QualType QT) {
+  return IsHLSLNumericUserDefinedType(QT) ||
+         IsHLSLBuiltinRayAttributeStruct(QT);
 }
 
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
