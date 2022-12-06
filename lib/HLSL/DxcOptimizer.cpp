@@ -527,6 +527,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       {
         raw_stream_ostream outStream(pProgramStream.p);
         WriteBitcodeToFile(M.get(), outStream, true);
+        outStream.flush();
         if (bIsFullContainer) {
           DxilModule &DM = M->GetOrCreateDxilModule();
           CComPtr<AbstractMemoryStream> pFinalStream;
