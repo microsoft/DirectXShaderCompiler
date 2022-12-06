@@ -200,7 +200,7 @@ void Converter::Run() {
   // Load DXBC blob.
   CComHeapPtr<void> pDxbcPtr;
   DWORD DxbcSize;
-  hlsl::ReadBinaryFile(m_InputFile.c_str(), &pDxbcPtr, &DxbcSize);
+  IFT(hlsl::ReadBinaryFile(m_InputFile.c_str(), &pDxbcPtr, &DxbcSize));
 
   // Disassemble Dxbc blob and exit.
   if (m_bDisasmDxbc) {
@@ -222,7 +222,7 @@ void Converter::Run() {
     if (m_OutputFile.empty())
       printf("%s", pText);
     else
-      hlsl::WriteBinaryFile(m_OutputFile.c_str(), pText, strlen(pText));
+      IFT(hlsl::WriteBinaryFile(m_OutputFile.c_str(), pText, strlen(pText)));
 
     return;
   }
@@ -291,7 +291,7 @@ void Converter::Run() {
     }
   }
 
-  hlsl::WriteBinaryFile(m_OutputFile.c_str(), pOutput, OutputSize);
+  IFT(hlsl::WriteBinaryFile(m_OutputFile.c_str(), pOutput, OutputSize));
 }
 
 HRESULT Converter::CreateDxcLibrary(_Outptr_ IDxcLibrary **ppLibrary) {

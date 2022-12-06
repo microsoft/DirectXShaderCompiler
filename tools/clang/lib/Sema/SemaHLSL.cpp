@@ -9908,8 +9908,15 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     return QualType();
   }
 
-  // Here, element kind is combined with dimensions for result type.
-  ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  // Here, element kind is combined with dimensions for primitive types.
+  if (IS_BASIC_PRIMITIVE(resultElementKind)) {
+    ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  } else {
+    DXASSERT(rowCount == 1 && colCount == 1,
+             "otherwise, attempting to construct vector or matrix with "
+             "non-primitive component type");
+    ResultTy = ResultTy.getUnqualifiedType();
+  }
 
   // Cast condition to RValue
   if (Cond.get()->isLValue())
