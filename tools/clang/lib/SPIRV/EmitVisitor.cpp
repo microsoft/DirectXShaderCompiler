@@ -2328,9 +2328,9 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
   return inst->getResultId();
 }
 
-namespace {
-inline bool isFieldMergeWithPrevious(const StructType::FieldInfo &previous,
-                                     const StructType::FieldInfo &field) {
+static inline bool
+isFieldMergeWithPrevious(const StructType::FieldInfo &previous,
+                         const StructType::FieldInfo &field) {
   if (previous.fieldIndex == field.fieldIndex) {
     // Right now, the only reason for those indices to be shared is if both
     // are merged bitfields.
@@ -2338,7 +2338,6 @@ inline bool isFieldMergeWithPrevious(const StructType::FieldInfo &previous,
   }
   return previous.fieldIndex == field.fieldIndex;
 }
-} // namespace
 
 uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // First get the decorations that would apply to this type.
@@ -2466,9 +2465,8 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     {
       llvm::ArrayRef<StructType::FieldInfo> fields = structType->getFields();
       for (size_t i = 0; i < fields.size(); ++i) {
-        if (i > 0 && isFieldMergeWithPrevious(fields[i - 1], fields[i])) {
+        if (i > 0 && isFieldMergeWithPrevious(fields[i - 1], fields[i]))
           continue;
-        }
         fieldsToGenerate.push_back(std::ref(fields[i]));
       }
     }

@@ -33,10 +33,12 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   return (val + pow2 - 1) & ~(pow2 - 1);
 }
 
+} // end anonymous namespace
+
 // This method sorts a field list in the following order:
 //  - fields with register annotation first, sorted by register index.
 //  - then fields without annotation, in order of declaration.
-std::vector<const HybridStructType::FieldInfo *>
+static std::vector<const HybridStructType::FieldInfo *>
 sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
   std::vector<const HybridStructType::FieldInfo *> output;
   output.resize(fields.size());
@@ -60,10 +62,10 @@ sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
   return output;
 }
 
-void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
-                         const SpirvLayoutRule rule,
-                         const HybridStructType::FieldInfo *currentField,
-                         StructType::FieldInfo *field) {
+static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
+                                const SpirvLayoutRule rule,
+                                const HybridStructType::FieldInfo *currentField,
+                                StructType::FieldInfo *field) {
 
   const auto &fieldType = currentField->astType;
   uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
@@ -75,11 +77,12 @@ void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
 
 // Correctly determine a field offset/size/padding depending on its neighbors
 // and other rules.
-void setDefaultFieldOffset(const AlignmentSizeCalculator &alignmentCalc,
-                           const SpirvLayoutRule rule,
-                           const uint32_t previousFieldEnd,
-                           const HybridStructType::FieldInfo *currentField,
-                           StructType::FieldInfo *field) {
+static void
+setDefaultFieldOffset(const AlignmentSizeCalculator &alignmentCalc,
+                      const SpirvLayoutRule rule,
+                      const uint32_t previousFieldEnd,
+                      const HybridStructType::FieldInfo *currentField,
+                      StructType::FieldInfo *field) {
 
   const auto &fieldType = currentField->astType;
   uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
@@ -100,8 +103,6 @@ void setDefaultFieldOffset(const AlignmentSizeCalculator &alignmentCalc,
                                             memberAlignment, &newOffset);
   field->offset = newOffset;
 }
-
-} // end anonymous namespace
 
 bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
   if (phase == Visitor::Phase::Done) {
@@ -941,9 +942,8 @@ LowerTypeVisitor::populateLayoutInformation(
 
     // We only need size information for structures with non-void layout &
     // non-bitfield fields.
-    if (rule == SpirvLayoutRule::Void && !currentField->bitfield.hasValue()) {
+    if (rule == SpirvLayoutRule::Void && !currentField->bitfield.hasValue())
       return loweredField;
-    }
 
     // We only need layout information for structures with non-void layout rule.
     if (rule != SpirvLayoutRule::Void) {
@@ -995,28 +995,24 @@ LowerTypeVisitor::populateLayoutInformation(
       }
     }
 
-    if (!currentField->bitfield.hasValue()) {
+    if (!currentField->bitfield.hasValue())
       return loweredField;
-    }
 
     // Previous field is a full type, cannot merge.
-    if (!previousField || !previousField->bitfield.hasValue()) {
+    if (!previousField || !previousField->bitfield.hasValue())
       return loweredField;
-    }
 
     // Bitfields can only be merged if they have the exact base type.
     // (SPIR-V cannot handle mixed-types bitfields).
-    if (previousField->type != loweredField.type) {
+    if (previousField->type != loweredField.type)
       return loweredField;
-    }
 
     const uint32_t basetypeSize = previousField->sizeInBytes.getValue() * 8;
     const auto &previousBitfield = previousField->bitfield.getValue();
     const uint32_t nextAvailableBit =
         previousBitfield.offsetInBits + previousBitfield.sizeInBits;
-    if (nextAvailableBit + currentField->bitfield->sizeInBits > basetypeSize) {
+    if (nextAvailableBit + currentField->bitfield->sizeInBits > basetypeSize)
       return loweredField;
-    }
 
     loweredField.bitfield->offsetInBits = nextAvailableBit;
     loweredField.offset = previousField->offset;

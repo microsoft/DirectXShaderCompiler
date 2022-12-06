@@ -393,9 +393,8 @@ bool LiteralTypeVisitor::updateTypeForCompositeMembers(
         // If the field is a bitfield, it might be squashed later when building
         // the SPIR-V type depending on context. This means indices starting
         // from this bitfield are not guaranteed, and we shouldn't touch them.
-        if (field->isBitField()) {
+        if (field->isBitField())
           break;
-        }
         tryToUpdateInstLitType(constituents[i], field->getType());
         ++i;
       }

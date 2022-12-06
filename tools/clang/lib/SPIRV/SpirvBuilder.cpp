@@ -213,9 +213,8 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   insertPoint->addInstruction(instruction);
 
   const auto &bitfieldInfo = pointer->getBitfieldInfo();
-  if (!bitfieldInfo.hasValue()) {
+  if (!bitfieldInfo.hasValue())
     return instruction;
-  }
 
   auto *offset =
       getConstantInt(astContext.UnsignedIntTy,
