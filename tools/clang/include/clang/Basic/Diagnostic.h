@@ -1395,6 +1395,12 @@ public:
   /// warnings and errors.
   virtual void HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
                                 const Diagnostic &Info);
+  
+  // HLSL Change - begin
+  // Add setPrefix method to DiagnosticConsumer to avoid needing to dynamic cast
+  // in order to call it.
+  virtual void setPrefix(std::string) {}
+  // HLSL Change - end 
 };
 
 /// \brief A diagnostic client that ignores all diagnostics.

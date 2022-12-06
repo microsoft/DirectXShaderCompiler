@@ -557,7 +557,7 @@ BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
 
   // If no location information is available, add function name
   if (Loc.isInvalid()) {
-    auto *DiagClient = dynamic_cast<TextDiagnosticPrinter*>(Diags.getClient());
+    auto *DiagClient = Diags.getClient();
     auto *func = D.getFunction();
     if (DiagClient && func)
       DiagClient->setPrefix("Function: " + func->getName().str());
