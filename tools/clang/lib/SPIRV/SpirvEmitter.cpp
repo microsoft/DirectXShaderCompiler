@@ -578,7 +578,7 @@ const StructType *lowerStructType(const SpirvCodeGenOptions &spirvOptions,
   const SpirvType *spvType = lowerTypeVisitor.lowerType(
       baseType, spirvOptions.sBufferLayoutRule, llvm::None, SourceLocation());
 
-  const StructType *output = dyn_cast<const StructType *>(spvType);
+  const StructType *output = dyn_cast<StructType>(spvType);
   assert(output != nullptr);
   return output;
 }
@@ -5846,7 +5846,7 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
     return instr;
   }
 
-  const auto *fieldDecl = dyn_cast<FieldDecl*>(expr->getMemberDecl());
+  const auto *fieldDecl = dyn_cast<FieldDecl>(expr->getMemberDecl());
   if (!fieldDecl || !fieldDecl->isBitField()) {
     return derefOrCreatePointerToValue(base->getType(), instr, expr->getType(),
                                        indices, loc, range);
@@ -7721,7 +7721,7 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
       const uint32_t fieldIndex = getFieldIndexInStruct(
           spirvStructType, astStructType,
           /* fieldDecl */
-          dyn_cast<const FieldDecl *>(indexing->getMemberDecl()));
+          dyn_cast<FieldDecl>(indexing->getMemberDecl()));
 
       if (rawIndex) {
         rawIndices->push_back(fieldIndex);
@@ -13575,7 +13575,7 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
       spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  SpirvLoad *loadInst = dyn_cast<SpirvLoad *>(
+  SpirvLoad *loadInst = dyn_cast<SpirvLoad>(
       spvBuilder.createLoad(bufferType, address, loc));
   assert(loadInst);
   loadInst->setAlignment(alignment);
