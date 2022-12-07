@@ -6627,7 +6627,7 @@ bool SpirvEmitter::isVectorShuffle(const Expr *expr) {
 }
 
 bool SpirvEmitter::isShortCircuitedOp(const Expr *expr) {
-  if (!expr || !getCompilerInstance().getLangOpts().EnableShortCircuit) {
+  if (!expr || astContext.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     return false;
   }
 
