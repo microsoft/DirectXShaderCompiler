@@ -668,6 +668,12 @@ template <typename T> struct container_hash {
   }
 };
 
+template <typename T> struct internal_hash {
+  size_t operator()(const T &param) const {
+      return param.getHash();
+  }
+};
+
 template <typename T, typename U> struct hash<std::pair<T, U>> {
   constexpr size_t operator()(const std::pair<T, U> &param) const {
     return hash_combine(param.first, param.second);

@@ -945,7 +945,7 @@ bool MatchableInfo::validate(StringRef CommentDelimiter, bool Hack) const {
   //
   // Also, check for instructions which reference the operand multiple times;
   // this implies a constraint we would not honor.
-  std::set<std::string> OperandNames;
+  std::unordered_set<std::string> OperandNames;
   for (unsigned i = 0, e = AsmOperands.size(); i != e; ++i) {
     StringRef Tok = AsmOperands[i].Token;
     if (Tok[0] == '$' && Tok.find(':') != StringRef::npos)

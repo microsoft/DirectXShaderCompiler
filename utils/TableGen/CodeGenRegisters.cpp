@@ -1320,7 +1320,7 @@ static void computeUberSets(std::vector<UberRegSet> &UberSets,
 
   // For simplicitly make the SetID the same as EnumValue.
   IntEqClasses UberSetIDs(Registers.size()+1);
-  std::set<unsigned> AllocatableRegs;
+  std::unordered_set<unsigned> AllocatableRegs;
   for (auto &RegClass : RegBank.getRegClasses()) {
     if (!RegClass.Allocatable)
       continue;
