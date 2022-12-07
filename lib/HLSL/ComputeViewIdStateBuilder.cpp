@@ -834,7 +834,7 @@ void DxilViewIdStateBuilder::CreateViewIdSets(const std::unordered_map<unsigned,
 
             const auto it = m_InputsContributingToOutputs[0].find(index);
             if (it != m_InputsContributingToOutputs[0].end()) {
-              const std::set<unsigned> &LoadOutputCPInputsContributingToOutputs = it->second;
+              const std::unordered_set<unsigned> &LoadOutputCPInputsContributingToOutputs = it->second;
               ContributingInputs.insert(LoadOutputCPInputsContributingToOutputs.begin(),
                                         LoadOutputCPInputsContributingToOutputs.end());
             }
