@@ -38,6 +38,7 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "deadargelim"

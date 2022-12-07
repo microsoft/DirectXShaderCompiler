@@ -28,6 +28,8 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 
+#include <unordered_set>
+
 using namespace clang;
 using namespace sema;
 using namespace hlsl;

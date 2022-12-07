@@ -658,4 +658,15 @@ hash_code hash_value(const std::basic_string<T> &arg) {
 
 } // namespace llvm
 
+namespace std {
+
+template <typename T, typename U>
+struct hash<std::pair<T, U>> {
+  constexpr size_t operator()(const std::pair<T, U>& param) const {
+    return hash_combine(param.first, param.second);
+  }
+};
+
+}
+
 #endif
