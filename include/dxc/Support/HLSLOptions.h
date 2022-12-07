@@ -21,7 +21,7 @@
 #include "dxc/Support/HLSLVersion.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include <map>
-#include <set>
+#include <unordered_set>
 
 namespace llvm {
 namespace opt {
@@ -219,11 +219,11 @@ public:
   std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
   std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
 
-  std::set<std::string> IgnoreSemDefs; // OPT_ignore_semdef
+  std::unordered_set<std::string> IgnoreSemDefs;      // OPT_ignore_semdef
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
 
   bool PrintAfterAll; // OPT_print_after_all
-  std::set<std::string> PrintAfter; // OPT_print_after
+  std::unordered_set<std::string> PrintAfter; // OPT_print_after
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
   bool HandleExceptions = false; // OPT_disable_exception_handling
 

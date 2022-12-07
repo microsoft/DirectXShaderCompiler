@@ -183,7 +183,7 @@ public:
   // Optional parameters to be specified before run()
   void setAttributeSize(int sizeInBytes); // needed for TraceRay()
   void setParameterInfo(const std::vector<ParameterSemanticType>& paramTypes, bool useCommittedAttr = true);
-  void setResourceGlobals(const std::set<llvm::Value*>& resources);
+  void setResourceGlobals(const std::unordered_set<llvm::Value*>& resources);
 
   static llvm::Function* createDummyRuntimeDataArgFunc(llvm::Module* M, llvm::Type* runtimeDataArgTy);
 
@@ -225,7 +225,7 @@ private:
   int m_attributeSizeInBytes = -1;
   std::vector<ParameterSemanticType> m_paramTypes;
   bool m_useCommittedAttr = false;
-  const std::set<llvm::Value*>* m_resources;
+  const std::unordered_set<llvm::Value*>* m_resources;
 
   std::vector<llvm::CallInst*> m_callSites;
   std::vector<int> m_callSiteFunctionIdx;

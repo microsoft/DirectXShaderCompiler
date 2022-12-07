@@ -20,7 +20,7 @@
 
 #include "llvm/IR/Dominators.h"
 #include <map>
-#include <set>
+#include <unordered_set>
 
 namespace llvm {
 //                                                                           //
@@ -31,7 +31,7 @@ namespace llvm {
 template <class BlockT>
 class DominanceFrontierBase {
 public:
-  typedef std::set<BlockT *> DomSetType;                // Dom set for a bb
+  typedef std::unordered_set<BlockT *> DomSetType;                // Dom set for a bb
   typedef std::map<BlockT *, DomSetType> DomSetMapType; // Dom set map
 
 protected:

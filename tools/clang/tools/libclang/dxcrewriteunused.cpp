@@ -426,7 +426,7 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   const llvm::SetVector<std::string> &nonOptDefines =
     helper->GetNonOptSemanticDefines();
 
-  std::set<std::string> overridenMacroSemDef;
+  std::unordered_set<std::string> overridenMacroSemDef;
 
   // This is very inefficient in general, but in practice we either have
   // no semantic defines, or we have a star define for a some reserved prefix.

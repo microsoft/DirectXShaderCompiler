@@ -328,7 +328,7 @@ public:
   };
   static bool FindAllStores(Module &M, Value *V, SmallVectorImpl<StoreInfo> *Stores) {
     SmallVector<StoreInfo, 8> Worklist;
-    std::set<Value *> Seen;
+    std::unordered_set<Value *> Seen;
 
     auto Add = [&](Value *V, unsigned OffsetInBits) {
       if (Seen.insert(V).second)

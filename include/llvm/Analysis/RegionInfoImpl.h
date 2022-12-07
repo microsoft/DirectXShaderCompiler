@@ -23,7 +23,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
 #include <iterator>
-#include <set>
+#include <unordered_set>
 
 namespace llvm {
 
@@ -258,7 +258,7 @@ void RegionBase<Tr>::verifyBBInRegion(BlockT *BB) const {
 }
 
 template <class Tr>
-void RegionBase<Tr>::verifyWalk(BlockT *BB, std::set<BlockT *> *visited) const {
+void RegionBase<Tr>::verifyWalk(BlockT *BB, std::unordered_set<BlockT *> *visited) const {
   BlockT *exit = getExit();
 
   visited->insert(BB);
@@ -281,7 +281,7 @@ void RegionBase<Tr>::verifyRegion() const {
   if (!RegionInfoBase<Tr>::VerifyRegionInfo)
     return;
 
-  std::set<BlockT *> visited;
+  std::unordered_set<BlockT *> visited;
   verifyWalk(getEntry(), &visited);
 }
 

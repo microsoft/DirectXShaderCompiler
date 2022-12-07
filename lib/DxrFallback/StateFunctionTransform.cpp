@@ -509,7 +509,7 @@ public:
   Rematerializer(
     DenseMap<AllocaInst*, Instruction*>& allocaToVal,
     const InstructionSetVector& liveHere,
-    const std::set<Value*>& resources
+    const std::unordered_set<Value*>& resources
   )
     : m_allocaToVal(allocaToVal)
     , m_liveHere(liveHere)
@@ -624,7 +624,7 @@ private:
   DenseMap<Instruction*, Instruction*> m_rematMap;    // Map instructions to their rematerialized counterparts
   DenseMap<AllocaInst*, Instruction*>& m_allocaToVal; // Map allocas for reg2mem'd live values back to the value
   const InstructionSetVector& m_liveHere;             // Values live at this callsite
-  const std::set<Value*>& m_resources;                // Values for resources like SRVs, UAVs, etc.
+  const std::unordered_set<Value*>& m_resources;                // Values for resources like SRVs, UAVs, etc.
 };
 
 
@@ -651,7 +651,7 @@ void StateFunctionTransform::setParameterInfo(const std::vector<ParameterSemanti
   m_useCommittedAttr = useCommittedAttr;
 }
 
-void StateFunctionTransform::setResourceGlobals(const std::set<llvm::Value*>& resources)
+void StateFunctionTransform::setResourceGlobals(const std::unordered_set<llvm::Value*>& resources)
 {
   m_resources = &resources;
 }
@@ -969,7 +969,7 @@ void StateFunctionTransform::preserveLiveValuesAcrossCallsites(_Out_ unsigned in
 
     const InstructionSetVector& liveHere = lv.getLiveValues(i);
     std::vector<Instruction*> workList(liveHere.begin(), liveHere.end());
-    std::set<Instruction*> visited;
+    std::unordered_set<Instruction*> visited;
     Rematerializer R(allocaToVal, liveHere, *m_resources);
     Instruction* saveInsertBefore = m_callSites[i];
     Instruction* restoreInsertBefore = getInstructionAfter(m_callSites[i]);

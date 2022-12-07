@@ -107,7 +107,7 @@ class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
 
-  std::set<Loop *> LoopsThatFailed;
+  std::unordered_set<Loop *> LoopsThatFailed;
   unsigned MaxIterationAttempt = 0;
   bool OnlyWarnOnFail = false;
   bool StructurizeLoopExits = false;

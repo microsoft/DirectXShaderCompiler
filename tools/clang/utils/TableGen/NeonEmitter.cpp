@@ -305,7 +305,7 @@ class Intrinsic {
   ///            function.
   bool UseMacro;
   /// The set of intrinsics that this intrinsic uses/requires.
-  std::set<Intrinsic *> Dependencies;
+  std::unordered_set<Intrinsic *> Dependencies;
   /// The "base type", which is Type('d', OutTS). InBaseType is only
   /// different if CartesianProductOfTypes = 1 (for vreinterpret).
   Type BaseType, InBaseType;
@@ -356,7 +356,7 @@ public:
   /// Get the set of Intrinsics that this intrinsic calls.
   /// this is the set of immediate dependencies, NOT the
   /// transitive closure.
-  const std::set<Intrinsic *> &getDependencies() const { return Dependencies; }
+  const std::unordered_set<Intrinsic *> &getDependencies() const { return Dependencies; }
   /// Get the architectural guard string (#ifdef).
   std::string getGuard() const { return Guard; }
   /// Get the non-mangled name.
@@ -1966,8 +1966,8 @@ void NeonEmitter::genBuiltinsDef(raw_ostream &OS,
   OS << "#ifdef GET_NEON_BUILTINS\n";
 
   // We only want to emit a builtin once, and we want to emit them in
-  // alphabetical order, so use a std::set.
-  std::set<std::string> Builtins;
+  // alphabetical order, so use a std::unordered_set.
+  std::unordered_set<std::string> Builtins;
 
   for (auto *Def : Defs) {
     if (Def->hasBody())
@@ -2092,7 +2092,7 @@ NeonEmitter::genIntrinsicRangeCheckCode(raw_ostream &OS,
                                         SmallVectorImpl<Intrinsic *> &Defs) {
   OS << "#ifdef GET_NEON_IMMEDIATE_CHECK\n";
 
-  std::set<std::string> Emitted;
+  std::unordered_set<std::string> Emitted;
 
   for (auto *Def : Defs) {
     if (Def->hasBody())

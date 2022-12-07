@@ -173,7 +173,7 @@ static Node* split(Node* N, std::map<BasicBlock*, Node*>& bbToNode, bool firstSp
 
   // Remove incoming values from phis in Np that don't come from actual predecessors
   BasicBlock* NpEntry = Np->blocks[0];
-  std::set<BasicBlock*> predSet(pred_begin(NpEntry), pred_end(NpEntry));
+  std::unordered_set<BasicBlock*> predSet(pred_begin(NpEntry), pred_end(NpEntry));
   auto I = NpEntry->begin();
   while (PHINode* phi = dyn_cast<PHINode>(I++))
   {

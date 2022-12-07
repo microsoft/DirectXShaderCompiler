@@ -31,7 +31,7 @@
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <fstream>
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "internalize"
@@ -54,7 +54,7 @@ APIList("internalize-public-api-list", cl::value_desc("list"),
 
 namespace {
   class InternalizePass : public ModulePass {
-    std::set<std::string> ExternalNames;
+    std::unordered_set<std::string> ExternalNames;
   public:
     static char ID; // Pass identification, replacement for typeid
     explicit InternalizePass();
@@ -106,7 +106,7 @@ void InternalizePass::LoadFile(const char *Filename) {
 }
 
 static bool shouldInternalize(const GlobalValue &GV,
-                              const std::set<std::string> &ExternalNames) {
+                              const std::unordered_set<std::string> &ExternalNames) {
   // Function must be defined here
   if (GV.isDeclaration())
     return false;

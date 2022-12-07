@@ -3327,7 +3327,7 @@ static void CopyElementsOfStructsWithIdenticalLayout(
 }
 
 static void removeLifetimeUsers(Value *V) {
-  std::set<Value*> users(V->users().begin(), V->users().end());
+  std::unordered_set<Value*> users(V->users().begin(), V->users().end());
   for (Value *U : users) {
     if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
       if (II->getIntrinsicID() == Intrinsic::lifetime_start ||

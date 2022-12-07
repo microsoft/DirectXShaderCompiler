@@ -226,7 +226,7 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
   DXASSERT(ppResult != nullptr, "else Result should not be nullptr");
 
   std::vector<const VariableInfo *> LiveVars;
-  std::set<std::string> LiveVarsName;
+  std::unordered_set<std::string> LiveVarsName;
 
   const llvm::DebugLoc &DL = IP->getDebugLoc();
 

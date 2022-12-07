@@ -40,7 +40,6 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
 
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/DXIL/DxilCBuffer.h"

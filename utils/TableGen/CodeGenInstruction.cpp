@@ -18,7 +18,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -48,7 +48,7 @@ CGIOperandList::CGIOperandList(Record *R) : TheDef(R) {
     PrintFatalError(R->getName() + ": invalid input list: use 'ins'");
 
   unsigned MIOperandNo = 0;
-  std::set<std::string> OperandNames;
+  std::unordered_set<std::string> OperandNames;
   for (unsigned i = 0, e = InDI->getNumArgs()+OutDI->getNumArgs(); i != e; ++i){
     Init *ArgInit;
     std::string ArgName;

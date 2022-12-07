@@ -387,4 +387,12 @@ public:
 
 } // End llvm namespace
 
+namespace std {
+template <typename T> struct hash<llvm::AssertingVH<T>> {
+  size_t operator()(const llvm::AssertingVH<T>& param) const {
+    return std::hash<const T *>{}(static_cast<const T *>(param));
+  }
+};
+}
+
 #endif

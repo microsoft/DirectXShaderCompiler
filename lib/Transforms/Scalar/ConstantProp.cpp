@@ -26,7 +26,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "constprop"
@@ -62,7 +62,7 @@ FunctionPass *llvm::createConstantPropagationPass() {
 
 bool ConstantPropagation::runOnFunction(Function &F) {
   // Initialize the worklist to all of the instructions ready to process...
-  std::set<Instruction*> WorkList;
+  std::unordered_set<Instruction*> WorkList;
   for(inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
       WorkList.insert(&*i);
   }

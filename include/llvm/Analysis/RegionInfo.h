@@ -43,7 +43,7 @@
 #include "llvm/IR/Dominators.h"
 #include <map>
 #include <memory>
-#include <set>
+#include <unordered_set>
 
 namespace llvm {
 
@@ -289,7 +289,7 @@ class RegionBase : public RegionNodeBase<Tr> {
   /// verifyWalk - Walk over all the BBs of the region starting from BB and
   /// verify that all reachable basic blocks are elements of the region.
   /// (EXPENSIVE!)
-  void verifyWalk(BlockT *BB, std::set<BlockT *> *visitedBB) const;
+  void verifyWalk(BlockT *BB, std::unordered_set<BlockT *> *visitedBB) const;
 
   /// verifyRegionNest - Verify if the region and its children are valid
   /// regions (EXPENSIVE!)

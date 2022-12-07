@@ -20,7 +20,7 @@
 
 #include <stdint.h>
 #include <limits>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace llvm {
@@ -31,7 +31,7 @@ class Value;
 
 struct BitSetInfo {
   // The indices of the set bits in the bitset.
-  std::set<uint64_t> Bits;
+  std::unordered_set<uint64_t> Bits;
 
   // The byte offset into the combined global represented by the bitset.
   uint64_t ByteOffset;
@@ -137,7 +137,7 @@ struct GlobalLayoutBuilder {
   /// Add F to the layout while trying to keep its indices contiguous.
   /// If a previously seen fragment uses any of F's indices, that
   /// fragment will be laid out inside F.
-  void addFragment(const std::set<uint64_t> &F);
+  void addFragment(const std::unordered_set<uint64_t> &F);
 };
 
 /// This class is used to build a byte array containing overlapping bit sets. By
@@ -189,7 +189,7 @@ struct ByteArrayBuilder {
   /// AllocMask is set to the bitmask for those bits. This uses the LPT (Longest
   /// Processing Time) multiprocessor scheduling algorithm to lay out the bits
   /// efficiently; the pass allocates bit sets in decreasing size order.
-  void allocate(const std::set<uint64_t> &Bits, uint64_t BitSize,
+  void allocate(const std::unordered_set<uint64_t> &Bits, uint64_t BitSize,
                 uint64_t &AllocByteOffset, uint8_t &AllocMask);
 };
 

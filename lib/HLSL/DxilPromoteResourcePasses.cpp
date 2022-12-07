@@ -184,7 +184,7 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
   }
 
   bool bModified = false;
-  std::set<GlobalVariable *> staticResources;
+  std::unordered_set<GlobalVariable *> staticResources;
   for (auto &GV : M.globals()) {
     if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
         dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {

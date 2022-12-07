@@ -25,7 +25,7 @@
 #include "llvm/Support/Timer.h"
 #include <deque>
 #include <memory>
-#include <set>
+#include <unordered_set>
 
 namespace clang {
 namespace ast_matchers {
@@ -746,7 +746,7 @@ private:
   ASTContext *ActiveASTContext;
 
   // Maps a canonical type to its TypedefDecls.
-  llvm::DenseMap<const Type*, std::set<const TypedefNameDecl*> > TypeAliases;
+  llvm::DenseMap<const Type*, std::unordered_set<const TypedefNameDecl*> > TypeAliases;
 
   // Maps (matcher, node) -> the match result for memoization.
   typedef std::map<MatchKey, MemoizedMatchResult> MemoizationMap;

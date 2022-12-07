@@ -12,7 +12,7 @@
 ///
 /// Defines clang::QualTypeOrdering, a total ordering on clang::QualType,
 /// and hence enables QualType values to be sorted and to be used in
-/// std::maps, std::sets, llvm::DenseMaps, and llvm::DenseSets.
+/// std::maps, std::unordered_sets, llvm::DenseMaps, and llvm::DenseSets.
 ///
 //===----------------------------------------------------------------------===//
 

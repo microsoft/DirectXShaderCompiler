@@ -6,7 +6,7 @@
 #include "llvm/IR/BasicBlock.h"
 
 #include <map>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace llvm
@@ -19,7 +19,7 @@ namespace llvm
   class Value;
 }
 
-typedef std::set<llvm::BasicBlock*> BasicBlockSet;
+typedef std::unordered_set<llvm::BasicBlock*> BasicBlockSet;
 typedef llvm::SetVector<llvm::Instruction*> InstructionSetVector;
 
 // Compute live values at specified instructions.

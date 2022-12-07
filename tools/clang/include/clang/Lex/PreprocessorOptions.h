@@ -16,7 +16,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include <cassert>
-#include <set>
+#include <unordered_set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -80,7 +80,7 @@ public:
 
   /// \brief This is a set of names for decls that we do not want to be
   /// deserialized, and we emit an error if they are; for testing purposes.
-  std::set<std::string> DeserializedPCHDeclsToErrorOn;
+  std::unordered_set<std::string> DeserializedPCHDeclsToErrorOn;
 
   /// \brief If non-zero, the implicit PCH include is actually a precompiled
   /// preamble that covers this number of bytes in the main source file.

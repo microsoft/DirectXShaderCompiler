@@ -47,7 +47,7 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <map>
-#include <set>
+#include <unordered_set>
 
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - control flow hint.
 
@@ -884,7 +884,7 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(TerminatorInst *TI,
       if (PredDefault == BB) {
         // If this is the default destination from PTI, only the edges in TI
         // that don't occur in PTI, or that branch to BB will be activated.
-        std::set<ConstantInt*, ConstantIntOrdering> PTIHandled;
+        std::unordered_set<ConstantInt*, ConstantIntOrdering> PTIHandled;
         for (unsigned i = 0, e = PredCases.size(); i != e; ++i)
           if (PredCases[i].Dest != BB)
             PTIHandled.insert(PredCases[i].Value);
@@ -938,7 +938,7 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(TerminatorInst *TI,
         // If this is not the default destination from PSI, only the edges
         // in SI that occur in PSI with a destination of BB will be
         // activated.
-        std::set<ConstantInt*, ConstantIntOrdering> PTIHandled;
+        std::unordered_set<ConstantInt*, ConstantIntOrdering> PTIHandled;
         std::map<ConstantInt*, uint64_t> WeightsForHandled;
         for (unsigned i = 0, e = PredCases.size(); i != e; ++i)
           if (PredCases[i].Dest == BB) {
@@ -969,7 +969,7 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(TerminatorInst *TI,
 
         // If there are any constants vectored to BB that TI doesn't handle,
         // they must go to the default destination of TI.
-        for (std::set<ConstantInt*, ConstantIntOrdering>::iterator I =
+        for (std::unordered_set<ConstantInt*, ConstantIntOrdering>::iterator I =
                                     PTIHandled.begin(),
                E = PTIHandled.end(); I != E; ++I) {
           if (PredHasWeights || SuccHasWeights)

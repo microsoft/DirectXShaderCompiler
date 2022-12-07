@@ -28,7 +28,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 using namespace llvm;
@@ -54,7 +54,7 @@ using namespace llvm;
 /// \param RequiredLibs [out] - The ordered list of required libraries.
 static void VisitComponent(StringRef Name,
                            const StringMap<AvailableComponent*> &ComponentMap,
-                           std::set<AvailableComponent*> &VisitedComponents,
+                           std::unordered_set<AvailableComponent*> &VisitedComponents,
                            std::vector<StringRef> &RequiredLibs,
                            bool IncludeNonInstalled) {
   // Lookup the component.
@@ -94,7 +94,7 @@ static void VisitComponent(StringRef Name,
 static void ComputeLibsForComponents(const std::vector<StringRef> &Components,
                                      std::vector<StringRef> &RequiredLibs,
                                      bool IncludeNonInstalled) {
-  std::set<AvailableComponent*> VisitedComponents;
+  std::unordered_set<AvailableComponent*> VisitedComponents;
 
   // Build a map of component names to information.
   StringMap<AvailableComponent*> ComponentMap;

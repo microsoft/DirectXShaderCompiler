@@ -29,7 +29,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "globalsmodref-aa"
@@ -75,11 +75,11 @@ struct FunctionRecord {
 class GlobalsModRef : public ModulePass, public AliasAnalysis {
   /// NonAddressTakenGlobals - The globals that do not have their addresses
   /// taken.
-  std::set<const GlobalValue *> NonAddressTakenGlobals;
+  std::unordered_set<const GlobalValue *> NonAddressTakenGlobals;
 
   /// IndirectGlobals - The memory pointed to by this global is known to be
   /// 'owned' by the global.
-  std::set<const GlobalValue *> IndirectGlobals;
+  std::unordered_set<const GlobalValue *> IndirectGlobals;
 
   /// AllocsForIndirectGlobals - If an instruction allocates memory for an
   /// indirect global, this map indicates which one.

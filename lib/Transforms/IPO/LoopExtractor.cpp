@@ -26,7 +26,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include <fstream>
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "loop-extract"
@@ -247,7 +247,7 @@ void BlockExtractorPass::SplitLandingPadPreds(Function *F) {
 }
 
 bool BlockExtractorPass::runOnModule(Module &M) {
-  std::set<BasicBlock*> TranslatedBlocksToNotExtract;
+  std::unordered_set<BasicBlock*> TranslatedBlocksToNotExtract;
   for (unsigned i = 0, e = BlocksToNotExtract.size(); i != e; ++i) {
     BasicBlock *BB = BlocksToNotExtract[i];
     Function *F = BB->getParent();

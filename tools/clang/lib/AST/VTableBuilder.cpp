@@ -2076,7 +2076,7 @@ void ItaniumVTableBuilder::dumpLayout(raw_ostream &Out) {
           AddressPointsByIndex.lower_bound(NextIndex)->second.getBaseOffset();
         
         // We store the class names in a set to get a stable order.
-        std::set<std::string> ClassNames;
+        std::unordered_set<std::string> ClassNames;
         for (std::multimap<uint64_t, BaseSubobject>::const_iterator I =
              AddressPointsByIndex.lower_bound(NextIndex), E =
              AddressPointsByIndex.upper_bound(NextIndex); I != E; ++I) {
@@ -2086,7 +2086,7 @@ void ItaniumVTableBuilder::dumpLayout(raw_ostream &Out) {
           ClassNames.insert(RD->getQualifiedNameAsString());
         }
         
-        for (std::set<std::string>::const_iterator I = ClassNames.begin(),
+        for (std::unordered_set<std::string>::const_iterator I = ClassNames.begin(),
              E = ClassNames.end(); I != E; ++I) {
           Out << "       -- (" << *I;
           Out << ", " << BaseOffset.getQuantity() << ") vtable address --\n";
@@ -3538,7 +3538,7 @@ static const FullPathTy *selectBestPath(ASTContext &Context,
     return &FullPaths.front();
 
   const FullPathTy *BestPath = nullptr;
-  typedef std::set<const CXXMethodDecl *> OverriderSetTy;
+  typedef std::unordered_set<const CXXMethodDecl *> OverriderSetTy;
   OverriderSetTy LastOverrides;
   for (const FullPathTy &SpecificPath : FullPaths) {
     assert(!SpecificPath.empty());

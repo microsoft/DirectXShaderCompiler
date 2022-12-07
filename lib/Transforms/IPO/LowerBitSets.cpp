@@ -127,7 +127,7 @@ BitSetInfo BitSetBuilder::build() {
   return BSI;
 }
 
-void GlobalLayoutBuilder::addFragment(const std::set<uint64_t> &F) {
+void GlobalLayoutBuilder::addFragment(const std::unordered_set<uint64_t> &F) {
   // Create a new fragment to hold the layout for F.
   Fragments.emplace_back();
   std::vector<uint64_t> &Fragment = Fragments.back();
@@ -156,7 +156,7 @@ void GlobalLayoutBuilder::addFragment(const std::set<uint64_t> &F) {
     FragmentMap[ObjIndex] = FragmentIndex;
 }
 
-void ByteArrayBuilder::allocate(const std::set<uint64_t> &Bits,
+void ByteArrayBuilder::allocate(const std::unordered_set<uint64_t> &Bits,
                                 uint64_t BitSize, uint64_t &AllocByteOffset,
                                 uint8_t &AllocMask) {
   // Find the smallest current allocation.
@@ -182,7 +182,7 @@ void ByteArrayBuilder::allocate(const std::set<uint64_t> &Bits,
 namespace {
 
 struct ByteArrayInfo {
-  std::set<uint64_t> Bits;
+  std::unordered_set<uint64_t> Bits;
   uint64_t BitSize;
   GlobalVariable *ByteArray;
   Constant *Mask;
@@ -671,7 +671,7 @@ bool LowerBitSets::buildBitSets() {
 
     // For each bitset, build a set of indices that refer to globals referenced
     // by the bitset.
-    std::vector<std::set<uint64_t>> BitSetMembers(BitSets.size());
+    std::vector<std::unordered_set<uint64_t>> BitSetMembers(BitSets.size());
     if (BitSetNM) {
       for (MDNode *Op : BitSetNM->operands()) {
         // Op = { bitset name, global, offset }
@@ -693,7 +693,7 @@ bool LowerBitSets::buildBitSets() {
     // when given small index sets first.
     std::stable_sort(
         BitSetMembers.begin(), BitSetMembers.end(),
-        [](const std::set<uint64_t> &O1, const std::set<uint64_t> &O2) {
+        [](const std::unordered_set<uint64_t> &O1, const std::unordered_set<uint64_t> &O2) {
           return O1.size() < O2.size();
         });
 

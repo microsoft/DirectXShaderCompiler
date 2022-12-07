@@ -41,7 +41,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include <map>
-#include <set>
+#include <unordered_set>
 #include "clang/Basic/Specifiers.h" // HLSL Change
 
 using namespace clang;
@@ -1862,7 +1862,7 @@ Sema::CheckDerivedToBaseConversion(QualType Derived, QualType Base,
 /// @endcode
 std::string Sema::getAmbiguousPathsDisplayString(CXXBasePaths &Paths) {
   std::string PathDisplayStr;
-  std::set<unsigned> DisplayedPaths;
+  std::unordered_set<unsigned> DisplayedPaths;
   for (CXXBasePaths::paths_iterator Path = Paths.begin();
        Path != Paths.end(); ++Path) {
     if (DisplayedPaths.insert(Path->back().SubobjectNumber).second) {

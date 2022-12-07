@@ -30,7 +30,7 @@
 #include <cctype>
 #include <functional>
 #include <map>
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//

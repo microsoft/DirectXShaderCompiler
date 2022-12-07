@@ -78,9 +78,9 @@ struct DxrShaderDiagnoseInfo {
 
 std::vector<const FieldDecl *>
 DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
-                      const std::set<const FieldDecl *> &FieldsToIgnoreRead,
-                      const std::set<const FieldDecl *> &FieldsToIgnoreWrite,
-                      std::set<const FunctionDecl *> VisitedFunctions);
+                      const std::unordered_set<const FieldDecl *> &FieldsToIgnoreRead,
+                      const std::unordered_set<const FieldDecl *> &FieldsToIgnoreWrite,
+                      std::unordered_set<const FunctionDecl *> VisitedFunctions);
 
 const Stmt *IgnoreParensAndDecay(const Stmt *S);
 
@@ -231,7 +231,7 @@ PayloadUse GetLastWriteInBlock(CFGBlock &Block,
 // Travers the CFG until every path has reached a write or the ENTRY.
 void TraverseCFGUntilWrite(CFGBlock &Current, std::vector<PayloadUse> &Writes,
                            ArrayRef<PayloadUse> PayloadWrites,
-                           std::set<const CFGBlock *> &Visited) {
+                           std::unordered_set<const CFGBlock *> &Visited) {
 
   if (Visited.count(&Current))
     return;
@@ -257,7 +257,7 @@ GetAllWritesReachingExit(CFG &ShaderCFG, ArrayRef<PayloadUse> PayloadWrites) {
   std::vector<PayloadUse> Writes;
   CFGBlock &Exit = ShaderCFG.getExit();
 
-  std::set<const CFGBlock *> Visited;
+  std::unordered_set<const CFGBlock *> Visited;
   TraverseCFGUntilWrite(Exit, Writes, PayloadWrites, Visited);
 
   return Writes;
@@ -285,7 +285,7 @@ PayloadUse GetFirstReadInBlock(CFGBlock &Block,
 // Travers the CFG until every path has reached a read or the EXIT.
 void TraverseCFGUntilRead(CFGBlock &Current, std::vector<PayloadUse> &Reads,
                           ArrayRef<PayloadUse> PayloadWrites,
-                          std::set<const CFGBlock *> &Visited) {
+                          std::unordered_set<const CFGBlock *> &Visited) {
 
   if (Visited.count(&Current))
     return;
@@ -310,7 +310,7 @@ GetAllReadsReachedFromEntry(CFG &ShaderCFG, ArrayRef<PayloadUse> PayloadReads) {
   std::vector<PayloadUse> Reads;
   CFGBlock &Entry = ShaderCFG.getEntry();
 
-  std::set<const CFGBlock *> Visited;
+  std::unordered_set<const CFGBlock *> Visited;
   TraverseCFGUntilRead(Entry, Reads, PayloadReads, Visited);
 
   return Reads;
@@ -497,7 +497,7 @@ void DiagnosePayloadReads(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
 // CFG.
 template <bool Backward, typename Action>
 void TraverseCFG(const CFGBlock &Block, Action PerElementAction,
-                 std::set<const CFGBlock *> &Visited) {
+                 std::unordered_set<const CFGBlock *> &Visited) {
   if (Visited.count(&Block))
     return;
   Visited.insert(&Block);
@@ -526,7 +526,7 @@ void TraverseCFG(const CFGBlock &Block, Action PerElementAction,
 // Forward traverse the CFG and collect calls to TraceRay.
 void ForwardTraverseCFGAndCollectTraceCalls(
     const CFGBlock &Block, DxrShaderDiagnoseInfo &Info,
-    std::set<const CFGBlock *> &Visited) {
+    std::unordered_set<const CFGBlock *> &Visited) {
   auto Action = [&Info](const CFGBlock &Block, const CFGElement &Element) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       CollectTraceRayCalls(S->getStmt(), Info, &Block);
@@ -539,7 +539,7 @@ void ForwardTraverseCFGAndCollectTraceCalls(
 // Foward traverse the CFG and collect all reads and writes to the payload.
 void ForwardTraverseCFGAndCollectReadsWrites(
     const CFGBlock &StartBlock, DxrShaderDiagnoseInfo &Info,
-    std::set<const CFGBlock *> &Visited) {
+    std::unordered_set<const CFGBlock *> &Visited) {
   auto Action = [&Info](const CFGBlock &Block, const CFGElement &Element) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       CollectReadsWritesAndCallsForPayload(S->getStmt(), Info, &Block);
@@ -552,7 +552,7 @@ void ForwardTraverseCFGAndCollectReadsWrites(
 // Backward traverse the CFG and collect all reads and writes to the payload.
 void BackwardTraverseCFGAndCollectReadsWrites(
     const CFGBlock &StartBlock, DxrShaderDiagnoseInfo &Info,
-    std::set<const CFGBlock *> &Visited) {
+    std::unordered_set<const CFGBlock *> &Visited) {
   auto Action = [&](const CFGBlock &Block, const CFGElement &Element) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       CollectReadsWritesAndCallsForPayload(S->getStmt(), Info, &Block);
@@ -583,10 +583,10 @@ bool DiagnoseCallExprForExternal(Sema &S, const FunctionDecl *FD,
 
 // Collects all writes that dominate a PayloadUse in a CallExpr
 // and returns a set of the Fields accessed.
-std::set<const FieldDecl *>
+std::unordered_set<const FieldDecl *>
 CollectDominatingWritesForCall(PayloadUse &Use, DxrShaderDiagnoseInfo &Info,
                                DominatorTree &DT) {
-  std::set<const FieldDecl *> FieldsToIgnore;
+  std::unordered_set<const FieldDecl *> FieldsToIgnore;
 
   for (auto P : Info.WritesPerField) {
     for (auto Write : P.second) {
@@ -603,10 +603,10 @@ CollectDominatingWritesForCall(PayloadUse &Use, DxrShaderDiagnoseInfo &Info,
 
 // Collects all reads that are reachable from a PayloadUse in a CallExpr
 // and returns a set of the Fields accessed.
-std::set<const FieldDecl *>
+std::unordered_set<const FieldDecl *>
 CollectReachableWritesForCall(PayloadUse &Use,
                               const DxrShaderDiagnoseInfo &Info) {
-  std::set<const FieldDecl *> FieldsToIgnore;
+  std::unordered_set<const FieldDecl *> FieldsToIgnore;
   assert(Use.Parent);
   const CFGBlock *Current = Use.Parent;
 
@@ -632,7 +632,7 @@ CollectReachableWritesForCall(PayloadUse &Use,
     CFGBlock *Succ = *I;
     if (!Succ)
       continue;
-    std::set<const CFGBlock *> Visited;
+    std::unordered_set<const CFGBlock *> Visited;
     ForwardTraverseCFGAndCollectReadsWrites(*Succ, TempInfo, Visited);
   }
   for (auto &p : TempInfo.WritesPerField)
@@ -646,9 +646,9 @@ CollectReachableWritesForCall(PayloadUse &Use,
 std::map<PayloadUse, std::vector<const FieldDecl *>>
 DiagnosePayloadAsFunctionArg(
     Sema &S, DxrShaderDiagnoseInfo &Info, DominatorTree &DT,
-    const std::set<const FieldDecl *> &ParentFieldsToIgnoreRead,
-    const std::set<const FieldDecl *> &ParentFieldsToIgnoreWrite,
-    std::set<const FunctionDecl *> VisitedFunctions) {
+    const std::unordered_set<const FieldDecl *> &ParentFieldsToIgnoreRead,
+    const std::unordered_set<const FieldDecl *> &ParentFieldsToIgnoreWrite,
+    std::unordered_set<const FunctionDecl *> VisitedFunctions) {
   std::map<PayloadUse, std::vector<const FieldDecl *>> WrittenFieldsInCalls;
   for (PayloadUse &Use : Info.PayloadAsCallArg) {
     if (const CallExpr *Call = dyn_cast<CallExpr>(Use.S)) {
@@ -709,8 +709,8 @@ DiagnosePayloadAsFunctionArg(
 // This function recurses into nested payload types.
 void CollectNonAccessableFields(
     RecordDecl *PayloadType, DXIL::PayloadAccessShaderStage Stage,
-    const std::set<const FieldDecl *> &FieldsToIgnoreRead,
-    const std::set<const FieldDecl *> &FieldsToIgnoreWrite,
+    const std::unordered_set<const FieldDecl *> &FieldsToIgnoreRead,
+    const std::unordered_set<const FieldDecl *> &FieldsToIgnoreWrite,
     std::vector<FieldDecl *> &NonWriteableFields,
     std::vector<FieldDecl *> &NonReadableFields) {
   for (FieldDecl *Field : PayloadType->fields()) {
@@ -819,7 +819,7 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
   // Handle initializers for the payload struct if any is present.
   HandlePayloadInitializer(TraceInfo);
 
-  std::set<const CFGBlock *> Visited;
+  std::unordered_set<const CFGBlock *> Visited;
 
   const CFGBlock *Parent = Trace.Parent;
   Visited.insert(Parent);
@@ -921,10 +921,10 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
 void DiagnoseTraceCalls(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
                         DxrShaderDiagnoseInfo &Info) {
   // Collect TraceRay calls in the shader.
-  std::set<const CFGBlock *> Visited;
+  std::unordered_set<const CFGBlock *> Visited;
   ForwardTraverseCFGAndCollectTraceCalls(ShaderCFG.getEntry(), Info, Visited);
 
-  std::set<const CallExpr *> Diagnosed;
+  std::unordered_set<const CallExpr *> Diagnosed;
 
   for (const TraceRayCall &TraceCall : Info.TraceCalls) {
     if (Diagnosed.count(TraceCall.Call))
@@ -940,9 +940,9 @@ void DiagnoseTraceCalls(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
 // and the input to TraceRay calls.
 std::vector<const FieldDecl *>
 DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
-                      const std::set<const FieldDecl *> &FieldsToIgnoreRead,
-                      const std::set<const FieldDecl *> &FieldsToIgnoreWrite,
-                      std::set<const FunctionDecl *> VisitedFunctions) {
+                      const std::unordered_set<const FieldDecl *> &FieldsToIgnoreRead,
+                      const std::unordered_set<const FieldDecl *> &FieldsToIgnoreWrite,
+                      std::unordered_set<const FunctionDecl *> VisitedFunctions) {
   clang::DominatorTree DT;
   AnalysisDeclContextManager AnalysisManager;
   AnalysisDeclContext *AnalysisContext =
@@ -967,7 +967,7 @@ DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
                                FieldsToIgnoreWrite, NonWriteableFields,
                                NonReadableFields);
 
-    std::set<const CFGBlock *> Visited;
+    std::unordered_set<const CFGBlock *> Visited;
     ForwardTraverseCFGAndCollectReadsWrites(TheCFG.getEntry(), Info, Visited);
 
     if (Info.Payload->hasAttr<HLSLOutAttr>() ||
@@ -1118,7 +1118,7 @@ public:
       Info.Payload = Payload;
       Info.Stage = Stage;
 
-      std::set<const FunctionDecl *> VisitedFunctions;
+      std::unordered_set<const FunctionDecl *> VisitedFunctions;
       DiagnosePayloadAccess(S, Info, {}, {}, VisitedFunctions);
     }
     return true;

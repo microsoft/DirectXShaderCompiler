@@ -25,7 +25,7 @@
 #include "clang/Sema/Initialization.h"
 #include "llvm/ADT/SmallVector.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
-#include <set>
+#include <unordered_set>
 using namespace clang;
 
 
@@ -1324,7 +1324,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
       Self.IsDerivedFrom(DestType, SrcType, Paths);
     }
     std::string PathDisplayStr;
-    std::set<unsigned> DisplayedPaths;
+    std::unordered_set<unsigned> DisplayedPaths;
     for (CXXBasePaths::paths_iterator PI = Paths.begin(), PE = Paths.end();
          PI != PE; ++PI) {
       if (DisplayedPaths.insert(PI->back().SubobjectNumber).second) {

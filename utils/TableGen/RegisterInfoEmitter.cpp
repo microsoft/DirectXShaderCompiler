@@ -25,7 +25,7 @@
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/TableGenBackend.h"
 #include <algorithm>
-#include <set>
+#include <unordered_set>
 #include <vector>
 using namespace llvm;
 
@@ -1143,7 +1143,7 @@ RegisterInfoEmitter::runTargetDesc(raw_ostream &OS, CodeGenTarget &Target,
   const auto &SubRegIndices = RegBank.getSubRegIndices();
 
   // Collect all registers belonging to any allocatable class.
-  std::set<Record*> AllocatableRegs;
+  std::unordered_set<Record*> AllocatableRegs;
 
   // Collect allocatable registers.
   for (const auto &RC : RegisterClasses) {

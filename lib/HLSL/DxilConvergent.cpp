@@ -82,7 +82,7 @@ private:
   bool PropagateConvergent(Value *V, Function *F,
                            DominatorTreeBase<BasicBlock> &PostDom);
   bool PropagateConvergentImpl(Value *V, Function *F,
-                           DominatorTreeBase<BasicBlock> &PostDom, std::set<Value*>& visited);
+                           DominatorTreeBase<BasicBlock> &PostDom, std::unordered_set<Value*>& visited);
 };
 
 char DxilConvergentMark::ID = 0;
@@ -124,12 +124,12 @@ void DxilConvergentMark::MarkConvergent(Value *V, IRBuilder<> &Builder,
 
 bool DxilConvergentMark::PropagateConvergent(
     Value *V, Function *F, DominatorTreeBase<BasicBlock> &PostDom) {
-  std::set<Value *> visited;
+  std::unordered_set<Value *> visited;
   return PropagateConvergentImpl(V, F, PostDom, visited);
 }
 
 bool DxilConvergentMark::PropagateConvergentImpl(Value *V, Function *F,
-  DominatorTreeBase<BasicBlock> &PostDom, std::set<Value*>& visited) {
+  DominatorTreeBase<BasicBlock> &PostDom, std::unordered_set<Value*>& visited) {
   // Don't go through already visted nodes
   if (visited.find(V) != visited.end())
     return false;

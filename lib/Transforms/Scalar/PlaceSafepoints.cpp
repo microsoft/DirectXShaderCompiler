@@ -289,7 +289,7 @@ static bool mustBeFiniteCountedLoop(Loop *L, ScalarEvolution *SE,
 
 static void scanOneBB(Instruction *start, Instruction *end,
                       std::vector<CallInst *> &calls,
-                      std::set<BasicBlock *> &seen,
+                      std::unordered_set<BasicBlock *> &seen,
                       std::vector<BasicBlock *> &worklist) {
   for (BasicBlock::iterator itr(start);
        itr != start->getParent()->end() && itr != BasicBlock::iterator(end);
@@ -315,7 +315,7 @@ static void scanOneBB(Instruction *start, Instruction *end,
 }
 static void scanInlinedCode(Instruction *start, Instruction *end,
                             std::vector<CallInst *> &calls,
-                            std::set<BasicBlock *> &seen) {
+                            std::unordered_set<BasicBlock *> &seen) {
   calls.clear();
   std::vector<BasicBlock *> worklist;
   seen.insert(start->getParent());
@@ -486,7 +486,7 @@ static void findCallSafepoints(Function &F,
 /// vector.  Doing so has the effect of changing the output of a couple of
 /// tests in ways which make them less useful in testing fused safepoints.
 template <typename T> static void unique_unsorted(std::vector<T> &vec) {
-  std::set<T> seen;
+  std::unordered_set<T> seen;
   std::vector<T> tmp;
   vec.reserve(vec.size());
   std::swap(tmp, vec);
@@ -824,7 +824,7 @@ InsertSafepointPoll(Instruction *InsertBefore,
   assert(IFI.StaticAllocas.empty() && "can't have allocs");
 
   std::vector<CallInst *> calls; // new calls
-  std::set<BasicBlock *> BBs;    // new BBs + insertee
+  std::unordered_set<BasicBlock *> BBs;    // new BBs + insertee
   // Include only the newly inserted instructions, Note: begin may not be valid
   // if we inserted to the beginning of the basic block
   BasicBlock::iterator start;

@@ -100,11 +100,11 @@ public:
 /// matches one given in command-line using -error-on-deserialized-decl.
 class DeserializedDeclsChecker : public DelegatingDeserializationListener {
   ASTContext &Ctx;
-  std::set<std::string> NamesToCheck;
+  std::unordered_set<std::string> NamesToCheck;
 
 public:
   DeserializedDeclsChecker(ASTContext &Ctx,
-                           const std::set<std::string> &NamesToCheck,
+                           const std::unordered_set<std::string> &NamesToCheck,
                            ASTDeserializationListener *Previous,
                            bool DeletePrevious)
       : DelegatingDeserializationListener(Previous, DeletePrevious), Ctx(Ctx),

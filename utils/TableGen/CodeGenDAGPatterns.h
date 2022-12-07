@@ -22,7 +22,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
 #include <map>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace llvm {
@@ -162,7 +162,7 @@ namespace EEVT {
 }
 
 /// Set type used to track multiply used variables in patterns
-typedef std::set<std::string> MultipleUseVarSet;
+typedef std::unordered_set<std::string> MultipleUseVarSet;
 
 /// SDTypeConstraint - This is a discriminated union of constraints,
 /// corresponding to the SDTypeConstraint tablegen class in Target.td.

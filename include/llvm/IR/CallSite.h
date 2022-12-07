@@ -427,4 +427,12 @@ public:
 
 } // End llvm namespace
 
+namespace std {
+template <> struct hash<llvm::CallSite> {
+  size_t operator()(const llvm::CallSite& cs) const {
+    return std::hash<const llvm::Instruction *>{}(cs.getInstruction());
+  }
+};
+}
+
 #endif

@@ -35,7 +35,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <algorithm>
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "code-extractor"
@@ -751,7 +751,7 @@ Function *CodeExtractor::extractCodeRegion() {
   for (unsigned i = 0, e = Succs.size(); i != e; ++i)
     for (BasicBlock::iterator I = Succs[i]->begin(); isa<PHINode>(I); ++I) {
       PHINode *PN = cast<PHINode>(I);
-      std::set<BasicBlock*> ProcessedPreds;
+      std::unordered_set<BasicBlock*> ProcessedPreds;
       for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i)
         if (Blocks.count(PN->getIncomingBlock(i))) {
           if (ProcessedPreds.insert(PN->getIncomingBlock(i)).second)

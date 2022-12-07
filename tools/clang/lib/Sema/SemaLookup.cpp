@@ -49,7 +49,7 @@
 #include <limits>
 #include <list>
 #include <map>
-#include <set>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 using namespace clang;
@@ -2087,7 +2087,7 @@ void Sema::DiagnoseAmbiguousLookup(LookupResult &Result) {
       << Name << LookupRange;
 
     CXXBasePaths *Paths = Result.getBasePaths();
-    std::set<Decl *> DeclsPrinted;
+    std::unordered_set<Decl *> DeclsPrinted;
     for (CXXBasePaths::paths_iterator Path = Paths->begin(),
                                       PathEnd = Paths->end();
          Path != PathEnd; ++Path) {

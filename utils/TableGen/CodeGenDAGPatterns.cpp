@@ -22,7 +22,7 @@
 #include "llvm/TableGen/Record.h"
 #include <algorithm>
 #include <cstdio>
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "dag-patterns"
@@ -2439,7 +2439,7 @@ void CodeGenDAGPatterns::ParsePatternFragments(bool OutFrags) {
 
     // Validate the argument list, converting it to set, to discard duplicates.
     std::vector<std::string> &Args = P->getArgList();
-    std::set<std::string> OperandsSet(Args.begin(), Args.end());
+    std::unordered_set<std::string> OperandsSet(Args.begin(), Args.end());
 
     if (OperandsSet.count(""))
       P->error("Cannot have unnamed 'node' values in pattern fragment!");

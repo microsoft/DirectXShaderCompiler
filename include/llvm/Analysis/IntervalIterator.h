@@ -37,7 +37,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include <algorithm>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace llvm {
@@ -89,7 +89,7 @@ template<class NodeTy, class OrigContainer_t, class GT = GraphTraits<NodeTy*>,
          class IGT = GraphTraits<Inverse<NodeTy*> > >
 class IntervalIterator {
   std::vector<std::pair<Interval*, typename Interval::succ_iterator> > IntStack;
-  std::set<BasicBlock*> Visited;
+  std::unordered_set<BasicBlock*> Visited;
   OrigContainer_t *OrigContainer;
   bool IOwnMem;     // If True, delete intervals when done with them
                     // See file header for conditions of use

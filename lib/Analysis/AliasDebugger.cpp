@@ -23,7 +23,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include <set>
+#include <unordered_set>
 using namespace llvm;
 
 namespace {
@@ -35,7 +35,7 @@ namespace {
     //A query to a value that didn't exist when the AA was created
     //means someone forgot to update the AA when creating new values
 
-    std::set<const Value*> Vals;
+    std::unordered_set<const Value*> Vals;
     
   public:
     static char ID; // Class identification, replacement for typeinfo

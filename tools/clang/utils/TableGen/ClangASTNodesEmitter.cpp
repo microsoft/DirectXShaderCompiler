@@ -15,7 +15,7 @@
 #include "llvm/TableGen/TableGenBackend.h"
 #include <cctype>
 #include <map>
-#include <set>
+#include <unordered_set>
 #include <string>
 using namespace llvm;
 
@@ -195,7 +195,7 @@ void EmitClangDeclContext(RecordKeeper &Records, raw_ostream &OS) {
   OS << "#  define DECL_CONTEXT_BASE(DECL) DECL_CONTEXT(DECL)\n";
   OS << "#endif\n";
   
-  typedef std::set<Record*> RecordSet;
+  typedef std::unordered_set<Record*> RecordSet;
   typedef std::vector<Record*> RecordVector;
   
   RecordVector DeclContextsVector

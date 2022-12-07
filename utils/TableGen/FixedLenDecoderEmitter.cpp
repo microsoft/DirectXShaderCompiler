@@ -1715,13 +1715,13 @@ static bool populateInstruction(CodeGenTarget &Target,
   }
 
   std::map<std::string, std::vector<OperandInfo> > NumberedInsnOperands;
-  std::set<std::string> NumberedInsnOperandsNoTie;
+  std::unordered_set<std::string> NumberedInsnOperandsNoTie;
   if (Target.getInstructionSet()->
         getValueAsBit("decodePositionallyEncodedOperands")) {
     const std::vector<RecordVal> &Vals = Def.getValues();
     unsigned NumberedOp = 0;
 
-    std::set<unsigned> NamedOpIndices;
+    std::unordered_set<unsigned> NamedOpIndices;
     if (Target.getInstructionSet()->
          getValueAsBit("noNamedPositionallyEncodedOperands"))
       // Collect the set of operand indices that might correspond to named

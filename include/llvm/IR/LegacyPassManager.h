@@ -19,7 +19,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Support/CBindingWrapping.h"
-#include <set> // HLSL change
+#include <unordered_set> // HLSL change
 
 namespace llvm {
 
@@ -37,7 +37,7 @@ class FunctionPassManagerImpl;
 class PassManagerBase {
 public:
   bool HLSLPrintAfterAll = false; // HLSL Change
-  std::set<std::string> HLSLPrintAfter; // HLSL Change
+  std::unordered_set<std::string> HLSLPrintAfter; // HLSL Change
 
   virtual ~PassManagerBase();
 

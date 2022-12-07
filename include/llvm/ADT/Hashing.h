@@ -54,6 +54,8 @@
 #include <cstring>
 #include <iterator>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace llvm {
@@ -657,5 +659,36 @@ hash_code hash_value(const std::basic_string<T> &arg) {
 }
 
 } // namespace llvm
+
+namespace std {
+
+template <typename T> struct container_hash {
+  constexpr size_t operator()(const T &param) const {
+    return hash_combine_range(param.cbegin(), param.cend());
+  }
+};
+
+template <typename T, typename U> struct hash<std::pair<T, U>> {
+  constexpr size_t operator()(const std::pair<T, U> &param) const {
+    return hash_combine(param.first, param.second);
+  }
+};
+
+template <typename T> struct container_equal {
+  constexpr bool operator()(const T &lhs, const T &rhs) const {
+    return ((lhs.size() == rhs.size()) &&
+            std::equal(lhs.begin(), lhs.end(), rhs.begin()));
+  }
+};
+
+// Useful for when Key is a container type.
+template <typename Key, typename Allocator = std::allocator<Key>>
+using container_unordered_set = std::unordered_set<Key, container_hash<Key>, container_equal<Key>, Allocator>;
+
+template <typename Key, typename T,
+          typename Allocator = std::allocator<std::pair<const Key, T>>>
+using container_unordered_map = std::unordered_map<Key, T, container_hash<Key>, container_equal<Key>, Allocator>;
+
+} // namespace std
 
 #endif

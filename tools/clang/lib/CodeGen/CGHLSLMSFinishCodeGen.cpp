@@ -994,7 +994,7 @@ void CopyAndAnnotateResourceArgument(llvm::Value *Src, llvm::Value *Dest,
 namespace {
 
 // Returns true a global value is being updated
-bool GlobalHasStoreUserRec(Value *V, std::set<Value *> &visited) {
+bool GlobalHasStoreUserRec(Value *V, std::unordered_set<Value *> &visited) {
   bool isWriteEnabled = false;
   if (V && visited.find(V) == visited.end()) {
     visited.insert(V);
@@ -1037,7 +1037,7 @@ bool GlobalHasStoreUserRec(Value *V, std::set<Value *> &visited) {
 // otherwise recurse through the remaining users and check if any GEP
 // exists and which in turn has a store inst as user.
 bool GlobalHasStoreUser(GlobalVariable *GV) {
-  std::set<Value *> visited;
+  std::unordered_set<Value *> visited;
   Value *V = cast<Value>(GV);
   return GlobalHasStoreUserRec(V, visited);
 }

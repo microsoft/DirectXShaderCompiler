@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <set>
+#include <unordered_set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 #include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
@@ -199,7 +199,7 @@ public:
   /// Skip adding optional semantics defines except ones which are required for correctness.
   bool HLSLIgnoreOptSemDefs = false;
   /// List of semantic defines that must be ignored.
-  std::set<std::string> HLSLIgnoreSemDefs;
+  std::unordered_set<std::string> HLSLIgnoreSemDefs;
   /// List of semantic defines that must be overridden with user-provided values.
   std::map<std::string, std::string> HLSLOverrideSemDefs;
   /// Major version of validator to run.
@@ -237,7 +237,7 @@ public:
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
   /// Debug option to print IR after specific pass
-  std::set<std::string> HLSLPrintAfter;
+  std::unordered_set<std::string> HLSLPrintAfter;
   /// Force-replace lifetime intrinsics by zeroinitializer stores.
   bool HLSLForceZeroStoreLifetimes = false;
   /// Enable lifetime marker generation

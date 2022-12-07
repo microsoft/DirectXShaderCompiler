@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <cctype>
 #include <memory>
-#include <set>
+#include <unordered_set>
 #include <sstream>
 
 using namespace llvm;
@@ -135,7 +135,7 @@ typedef std::vector<std::pair<std::string, const Record *>> ParsedAttrMap;
 static ParsedAttrMap getParsedAttrList(const RecordKeeper &Records,
                                        ParsedAttrMap *Dupes = nullptr) {
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
-  std::set<std::string> Seen;
+  std::unordered_set<std::string> Seen;
   ParsedAttrMap R;
   for (const auto *Attr : Attrs) {
     if (Attr->getValueAsBit("SemaHandler")) {
@@ -611,9 +611,9 @@ namespace {
   std::vector<std::string>
   uniqueEnumsInOrder(const std::vector<std::string> &enums) {
     std::vector<std::string> uniques;
-    std::set<std::string> unique_set(enums.begin(), enums.end());
+    std::unordered_set<std::string> unique_set(enums.begin(), enums.end());
     for (const auto &i : enums) {
-      std::set<std::string>::iterator set_i = unique_set.find(i);
+      std::unordered_set<std::string>::iterator set_i = unique_set.find(i);
       if (set_i != unique_set.end()) {
         uniques.push_back(i);
         unique_set.erase(set_i);
@@ -723,7 +723,7 @@ namespace {
       OS << "  static const char *Convert" << type << "ToStr("
          << type << " Val) {\n"
          << "    switch(Val) {\n";
-      std::set<std::string> Uniques;
+      std::unordered_set<std::string> Uniques;
       for (size_t I = 0; I < enums.size(); ++I) {
         if (Uniques.insert(enums[I]).second)
           OS << "    case " << getAttrName() << "Attr::" << enums[I]
@@ -828,7 +828,7 @@ namespace {
       OS << "  static const char *Convert" << type << "ToStr("
         << type << " Val) {\n"
         << "    switch(Val) {\n";
-      std::set<std::string> Uniques;
+      std::unordered_set<std::string> Uniques;
       for (size_t I = 0; I < enums.size(); ++I) {
         if (Uniques.insert(enums[I]).second)
           OS << "    case " << getAttrName() << "Attr::" << enums[I]
@@ -1281,7 +1281,7 @@ CreateSemanticSpellings(const std::vector<FlattenedSpelling> &Spellings,
   // care is taken to avoid trampling on the reserved namespace due to
   // underscores.
   std::string Ret("  enum Spelling {\n");
-  std::set<std::string> Uniques;
+  std::unordered_set<std::string> Uniques;
   unsigned Idx = 0;
   for (auto I = Spellings.begin(), E = Spellings.end(); I != E; ++I, ++Idx) {
     const FlattenedSpelling &S = *I;
@@ -1368,7 +1368,7 @@ static void emitClangAttrTypeArgList(RecordKeeper &Records, raw_ostream &OS) {
 
     // All these spellings take a single type argument.
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
-    std::set<std::string> Emitted;
+    std::unordered_set<std::string> Emitted;
     for (const auto &S : Spellings) {
       if (Emitted.insert(S.name()).second)
         OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
@@ -1390,7 +1390,7 @@ static void emitClangAttrArgContextList(RecordKeeper &Records, raw_ostream &OS) 
 
     // All these spellings take are parsed unevaluated.
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(Attr);
-    std::set<std::string> Emitted;
+    std::unordered_set<std::string> Emitted;
     for (const auto &S : Spellings) {
       if (Emitted.insert(S.name()).second)
         OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
@@ -1421,7 +1421,7 @@ static void emitClangAttrIdentifierArgList(RecordKeeper &Records, raw_ostream &O
 
     // All these spellings take an identifier argument.
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
-    std::set<std::string> Emitted;
+    std::unordered_set<std::string> Emitted;
     for (const auto &S : Spellings) {
       if (Emitted.insert(S.name()).second)
         OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
@@ -2355,8 +2355,8 @@ static std::string GenerateCustomAppertainsTo(const Record &Subject,
 
   // If this code has already been generated, simply return the previous
   // instance of it.
-  static std::set<std::string> CustomSubjectSet;
-  std::set<std::string>::iterator I = CustomSubjectSet.find(FnName);
+  static std::unordered_set<std::string> CustomSubjectSet;
+  std::unordered_set<std::string>::iterator I = CustomSubjectSet.find(FnName);
   if (I != CustomSubjectSet.end())
     return *I;
 
@@ -2469,8 +2469,8 @@ static std::string GenerateLangOptRequirements(const Record &R,
 
   // If this code has already been generated, simply return the previous
   // instance of it.
-  static std::set<std::string> CustomLangOptsSet;
-  std::set<std::string>::iterator I = CustomLangOptsSet.find(FnName);
+  static std::unordered_set<std::string> CustomLangOptsSet;
+  std::unordered_set<std::string>::iterator I = CustomLangOptsSet.find(FnName);
   if (I != CustomLangOptsSet.end())
     return *I;
 
@@ -2558,8 +2558,8 @@ static std::string GenerateTargetRequirements(const Record &Attr,
 
   // If this code has already been generated, simply return the previous
   // instance of it.
-  static std::set<std::string> CustomTargetSet;
-  std::set<std::string>::iterator I = CustomTargetSet.find(FnName);
+  static std::unordered_set<std::string> CustomTargetSet;
+  std::unordered_set<std::string>::iterator I = CustomTargetSet.find(FnName);
   if (I != CustomTargetSet.end())
     return *I;
 
@@ -2678,7 +2678,7 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<StringMatcher::StringPair> GNU, Declspec, CXX11, Keywords, Pragma;
-  std::set<std::string> Seen;
+  std::unordered_set<std::string> Seen;
   for (const auto *A : Attrs) {
     const Record &Attr = *A;
 
@@ -2849,7 +2849,7 @@ static void WriteDocumentation(const DocumentationData &Doc,
     if (Spellings.size() == 1)
       Heading = Spellings.begin()->name();
     else {
-      std::set<std::string> Uniques;
+      std::unordered_set<std::string> Uniques;
       for (auto I = Spellings.begin(), E = Spellings.end();
            I != E && Uniques.size() <= 1; ++I) {
         std::string Spelling = NormalizeNameForSpellingComparison(I->name());

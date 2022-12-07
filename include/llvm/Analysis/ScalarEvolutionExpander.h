@@ -45,8 +45,8 @@ namespace llvm {
     std::map<std::pair<const SCEV *, Instruction *>, TrackingVH<Value> >
       InsertedExpressions;
     // InsertedValues only flags inserted instructions so needs no RAUW.
-    std::set<AssertingVH<Value> > InsertedValues;
-    std::set<AssertingVH<Value> > InsertedPostIncValues;
+    std::unordered_set<AssertingVH<Value>> InsertedValues;
+    std::unordered_set<AssertingVH<Value>> InsertedPostIncValues;
 
     /// A memoization of the "relevant" loop for a given SCEV.
     DenseMap<const SCEV *, const Loop *> RelevantLoops;
@@ -67,7 +67,7 @@ namespace llvm {
     Instruction *IVIncInsertPos;
 
     /// \brief Phis that complete an IV chain. Reuse
-    std::set<AssertingVH<PHINode> > ChainedPhis;
+    std::unordered_set<AssertingVH<PHINode>> ChainedPhis;
 
     /// \brief When true, expressions are expanded in "canonical" form. In
     /// particular, addrecs are expanded as arithmetic based on a canonical

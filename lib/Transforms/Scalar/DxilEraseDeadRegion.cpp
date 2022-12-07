@@ -113,7 +113,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
   // this region (i.e. if any values defined in the block are used outside of
   // the region) and whether it's safe to delete the block in general (side
   // effects).
-  bool SafeToDeleteBlock(BasicBlock *BB, const std::set<BasicBlock*> &Region) {
+  bool SafeToDeleteBlock(BasicBlock *BB, const std::unordered_set<BasicBlock*> &Region) {
     assert(Region.count(BB)); // Region must be a complete region that contains the block.
 
     auto FindIt = m_SafeBlocks.find(BB);
@@ -160,7 +160,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
   // Find a region of blocks between `Begin` and `End` that are entirely self
   // contained and produce no values that leave the region.
-  bool FindDeadRegion(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
+  bool FindDeadRegion(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::unordered_set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
     auto ProcessSuccessors = [DT, PDT, &WorkList, Begin, End, &Region](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
@@ -251,7 +251,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
     if (!PDT->properlyDominates(BB, Common))
       return false;
 
-    std::set<BasicBlock *> Region;
+    std::unordered_set<BasicBlock *> Region;
     if (!this->FindDeadRegion(DT, PDT, Common, BB, Region))
       return false;
 
@@ -266,7 +266,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
   // Only call this after all the incoming branches have
   // been removed.
-  void DeleteRegion(std::set<BasicBlock *> &Region, LoopInfo *LI) {
+  void DeleteRegion(std::unordered_set<BasicBlock *> &Region, LoopInfo *LI) {
     for (BasicBlock *BB : Region) {
       UndefBasicBlock(BB);
       // Don't leave any dangling pointers in the LoopInfo for subsequent iterations.
@@ -296,7 +296,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
       LoopWorklist.push_back(L);
     }
 
-    std::set<BasicBlock *> LoopRegion;
+    std::unordered_set<BasicBlock *> LoopRegion;
     while (LoopWorklist.size()) {
       Loop *L = LoopWorklist.pop_back_val();
 

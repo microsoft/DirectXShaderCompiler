@@ -484,7 +484,7 @@ static std::vector<StateFunctionTransform::ParameterSemanticType> getParameterTy
   return paramTypes;
 }
 
-static void collectResources(DxilModule& DM, std::set<Value*>& resources)
+static void collectResources(DxilModule& DM, std::unordered_set<Value*>& resources)
 {
   for (auto& r : DM.GetCBuffers())
     resources.insert(r->GetGlobalSymbol());
@@ -513,7 +513,7 @@ void DxrFallbackCompiler::createStateFunctions(
   }
 
   DxilModule& DM = m_module->GetOrCreateDxilModule();
-  std::set<Value*> resources;
+  std::unordered_set<Value*> resources;
   collectResources(DM, resources);
 
   shaderEntryStateIds.clear();

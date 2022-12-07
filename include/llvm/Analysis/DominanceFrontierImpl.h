@@ -66,7 +66,7 @@ void DominanceFrontierBase<BlockT>::removeFromFrontier(iterator I,
 template <class BlockT>
 bool DominanceFrontierBase<BlockT>::compareDomSet(DomSetType &DS1,
                                                   const DomSetType &DS2) const {
-  std::set<BlockT *> tmpSet;
+  std::unordered_set<BlockT *> tmpSet;
   for (BlockT *BB : DS2)
     tmpSet.insert(BB);
 
@@ -128,7 +128,7 @@ void DominanceFrontierBase<BlockT>::print(raw_ostream &OS) const {
       OS << " <<exit node>>";
     OS << " is:\t";
 
-    const std::set<BlockT *> &BBs = I->second;
+    const std::unordered_set<BlockT *> &BBs = I->second;
 
     for (const BlockT *BB : BBs) {
       OS << ' ';

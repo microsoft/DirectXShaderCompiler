@@ -18,7 +18,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/Compiler.h"
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace clang {
@@ -93,7 +93,7 @@ public:
 
     // We retain the list of install paths that were considered and rejected in
     // order to print out detailed information in verbose mode.
-    std::set<std::string> CandidateGCCInstallPaths;
+    std::unordered_set<std::string> CandidateGCCInstallPaths;
 
     /// The set of multilibs that the detected installation supports.
     MultilibSet Multilibs;

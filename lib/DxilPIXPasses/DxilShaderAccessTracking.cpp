@@ -177,7 +177,20 @@ struct RSRegisterIdentifier {
     return static_cast<unsigned>(Type) < static_cast<unsigned>(o.Type) &&
            Space < o.Space && Index < o.Index;
   }
+
+  bool operator==(const RSRegisterIdentifier& o) const {
+    return static_cast<unsigned>(Type) == static_cast<unsigned>(o.Type) &&
+           Space == o.Space && Index == o.Index; 
+  }
 };
+
+namespace std {
+template <> struct hash<RSRegisterIdentifier> {
+    size_t operator()(const RSRegisterIdentifier& param) const {
+    return hash_combine(static_cast<unsigned>(param.Type), param.Space, param.Index);
+  }
+};
+}
 
 struct SlotRange {
   unsigned startSlot;
@@ -237,7 +250,7 @@ private :
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
   std::map<llvm::Function *, CallInst *> m_FunctionToUAVHandle;
   std::map<llvm::Function *, std::map<ResourceAccessStyle, Constant *>> m_FunctionToEncodedAccess;
-  std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
+  std::unordered_set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
   std::vector<std::unique_ptr<GetElementPtrInst>> m_GEPOperandAsInstructionDestroyers;
 };
 
