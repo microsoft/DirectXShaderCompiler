@@ -369,13 +369,17 @@ private:
                             llvm::SmallVectorImpl<SpirvInstruction *> *indices,
                             bool *isMSOutAttribute = nullptr);
 
-  /// Creates an access chain to index into the given SPIR-V evaluation result
-  /// and returns the new SPIR-V evaluation result.
-  SpirvInstruction *
-  turnIntoElementPtr(QualType baseType, SpirvInstruction *base,
-                     QualType elemType,
-                     const llvm::SmallVector<SpirvInstruction *, 4> &indices,
-                     SourceLocation loc, SourceRange range = {});
+  /// For L-values, creates an access chain to index into the given SPIR-V
+  /// evaluation result and returns the new SPIR-V evaluation result.
+  /// For R-values, stores it in a variable, then create the access chain and
+  /// return the evaluation result.
+  SpirvInstruction *derefOrCreatePointerToValue(
+      QualType baseType, SpirvInstruction *base, QualType elemType,
+      const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+      SourceLocation loc, SourceRange range = {});
+
+  SpirvVariable *turnIntoLValue(QualType type, SpirvInstruction *source,
+                                SourceLocation loc);
 
 private:
   /// Validates that vk::* attributes are used correctly and returns false if
