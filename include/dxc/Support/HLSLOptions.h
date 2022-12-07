@@ -219,7 +219,7 @@ public:
   std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
   std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
 
-  std::unordered_set<std::string> IgnoreSemDefs;      // OPT_ignore_semdef
+  std::unordered_set<std::string> IgnoreSemDefs; // OPT_ignore_semdef
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
 
   bool PrintAfterAll; // OPT_print_after_all

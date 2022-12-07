@@ -22,7 +22,6 @@
 #include "llvm/IR/Function.h"
 #include <string>
 #include <vector>
-#include <unordered_set>
 
 using namespace llvm;
 using namespace hlsl;

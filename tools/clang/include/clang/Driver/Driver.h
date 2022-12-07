@@ -22,7 +22,6 @@
 #include <memory>
                               // lands.
 #include <list>
-#include <unordered_set>
 #include <string>
 
 namespace llvm {

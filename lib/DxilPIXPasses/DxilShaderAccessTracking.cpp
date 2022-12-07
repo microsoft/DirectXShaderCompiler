@@ -179,8 +179,7 @@ struct RSRegisterIdentifier {
   }
 
   bool operator==(const RSRegisterIdentifier& o) const {
-    return static_cast<unsigned>(Type) == static_cast<unsigned>(o.Type) &&
-           Space == o.Space && Index == o.Index; 
+    return Type == o.Type && Space == o.Space && Index == o.Index; 
   }
 };
 

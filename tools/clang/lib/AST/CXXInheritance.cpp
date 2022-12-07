@@ -17,7 +17,6 @@
 #include "clang/AST/RecordLayout.h"
 #include "llvm/ADT/SetVector.h"
 #include <algorithm>
-#include <unordered_set>
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 using namespace clang;

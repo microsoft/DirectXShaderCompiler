@@ -24,7 +24,6 @@
 #include <algorithm>
 #include <utility>
 #include <vector>
-#include <unordered_set>
 
 #include "DxilRootSignatureHelper.h"
 
