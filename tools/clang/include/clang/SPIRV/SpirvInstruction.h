@@ -14,6 +14,7 @@
 #include "clang/AST/APValue.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/SPIRV/SpirvType.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Optional.h"
@@ -203,6 +204,7 @@ public:
 
   void setRValue(bool rvalue = true) { isRValue_ = rvalue; }
   bool isRValue() const { return isRValue_; }
+  bool isLValue() const { return !isRValue_; }
 
   void setRelaxedPrecision() { isRelaxedPrecision_ = true; }
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
@@ -212,6 +214,9 @@ public:
 
   void setPrecise(bool p = true) { isPrecise_ = p; }
   bool isPrecise() const { return isPrecise_; }
+
+  void setBitfieldInfo(const BitfieldInfo &info) { bitfieldInfo = info; }
+  llvm::Optional<BitfieldInfo> getBitfieldInfo() const { return bitfieldInfo; }
 
   /// Legalization-specific code
   ///
@@ -255,6 +260,7 @@ protected:
   bool isRelaxedPrecision_;
   bool isNonUniform_;
   bool isPrecise_;
+  llvm::Optional<BitfieldInfo> bitfieldInfo;
 };
 
 /// \brief OpCapability instruction

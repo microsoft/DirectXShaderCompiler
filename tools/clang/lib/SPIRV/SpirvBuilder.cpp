@@ -190,9 +190,10 @@ SpirvVectorShuffle *SpirvBuilder::createVectorShuffle(
   return instruction;
 }
 
-SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
-                                    SpirvInstruction *pointer,
-                                    SourceLocation loc, SourceRange range) {
+SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
+                                           SpirvInstruction *pointer,
+                                           SourceLocation loc,
+                                           SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvLoad(resultType, loc, pointer, range);
   instruction->setStorageClass(pointer->getStorageClass());
@@ -210,7 +211,20 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   }
 
   insertPoint->addInstruction(instruction);
-  return instruction;
+
+  const auto &bitfieldInfo = pointer->getBitfieldInfo();
+  if (!bitfieldInfo.hasValue())
+    return instruction;
+
+  auto *offset =
+      getConstantInt(astContext.UnsignedIntTy,
+                     llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits), /* isSigned= */ false));
+  auto *count =
+      getConstantInt(astContext.UnsignedIntTy,
+                     llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits), /* isSigned= */ false));
+  return createBitFieldExtract(
+      resultType, instruction, offset, count,
+      pointer->getAstResultType()->isSignedIntegerOrEnumerationType(), loc);
 }
 
 SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
@@ -255,8 +269,32 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
                                       SpirvInstruction *value,
                                       SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
+  // Safeguard. If this happens, it means we leak non-extracted bitfields.
+  assert(false == value->getBitfieldInfo().hasValue());
+
+  SpirvInstruction *source = value;
+  const auto &bitfieldInfo = address->getBitfieldInfo();
+  if (bitfieldInfo.hasValue()) {
+    // Generate SPIR-V type for value. This is required to know the final
+    // layout.
+    LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+    lowerTypeVisitor.visitInstruction(value);
+    context.addToInstructionsWithLoweredType(value);
+
+    auto *base = createLoad(value->getResultType(), address, loc, range);
+    auto *offset =
+        getConstantInt(astContext.UnsignedIntTy,
+                       llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits), false));
+    auto *count =
+        getConstantInt(astContext.UnsignedIntTy,
+                       llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits), false));
+    source =
+        createBitFieldInsert(/*QualType*/ {}, base, value, offset, count, loc);
+    source->setResultType(value->getResultType());
+  }
+
   auto *instruction =
-      new (context) SpirvStore(loc, address, value, llvm::None, range);
+      new (context) SpirvStore(loc, address, source, llvm::None, range);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -814,6 +852,7 @@ SpirvBitFieldInsert *SpirvBuilder::createBitFieldInsert(
   auto *inst = new (context)
       SpirvBitFieldInsert(resultType, loc, base, insert, offset, count);
   insertPoint->addInstruction(inst);
+  inst->setRValue(true);
   return inst;
 }
 
@@ -824,6 +863,7 @@ SpirvBitFieldExtract *SpirvBuilder::createBitFieldExtract(
   auto *inst = new (context)
       SpirvBitFieldExtract(resultType, loc, base, offset, count, isSigned);
   insertPoint->addInstruction(inst);
+  inst->setRValue(true);
   return inst;
 }
 

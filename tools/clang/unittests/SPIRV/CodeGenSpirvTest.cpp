@@ -432,10 +432,16 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
 
 // For struct & array accessing operator
 TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
+TEST_F(FileTest, OpStructAccessBitfield) {
+  runFileTest("op.struct.access.bitfield.hlsl");
+}
 TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 
 // For buffer accessing operator
 TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
+TEST_F(FileTest, OpBufferAccessBitfield) {
+  runFileTest("op.buffer.access.bitfield.hlsl");
+}
 TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccessMajorness) {
@@ -451,6 +457,9 @@ TEST_F(FileTest, OpTextureBufferAccess) {
 }
 TEST_F(FileTest, OpStructuredBufferAccess) {
   runFileTest("op.structured-buffer.access.hlsl");
+}
+TEST_F(FileTest, OpStructuredBufferAccessBitfield) {
+  runFileTest("op.structured-buffer.access.bitfield.hlsl");
 }
 TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
@@ -1410,6 +1419,9 @@ TEST_F(FileTest, IntrinsicsVkReadClock) {
 TEST_F(FileTest, IntrinsicsVkRawBufferLoad) {
   runFileTest("intrinsics.vkrawbufferload.hlsl");
 }
+TEST_F(FileTest, IntrinsicsVkRawBufferLoadBitfield) {
+  runFileTest("intrinsics.vkrawbufferload.bitfield.hlsl");
+}
 TEST_F(FileTest, IntrinsicsVkRawBufferStore) {
   runFileTest("intrinsics.vkrawbufferstore.hlsl");
 }
@@ -2305,6 +2317,12 @@ TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
 TEST_F(FileTest, VulkanLayoutStructRelaxedLayout) {
   // Checks VK_KHR_relaxed_block_layout on struct types
   runFileTest("vk.layout.struct.relaxed.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutStructBitfield) {
+  runFileTest("vk.layout.struct.bitfield.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutStructBitfieldAssignment) {
+  runFileTest("vk.layout.struct.bitfield.assignment.hlsl");
 }
 
 TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {

@@ -4292,8 +4292,9 @@ void DeclResultIdMapper::storeOutStageVarsToStorage(
     }
     auto *ptrToOutputStageVar = spvBuilder.createAccessChain(
         outputControlPointType, found->second, {ctrlPointID}, /*loc=*/{});
-    auto *load = spvBuilder.createLoad(outputControlPointType,
-                                       ptrToOutputStageVar, /*loc=*/{});
+    auto *load =
+        spvBuilder.createLoad(outputControlPointType, ptrToOutputStageVar,
+                              /*loc=*/{});
     spvBuilder.createStore(ptr, load, /*loc=*/{});
     return;
   }
