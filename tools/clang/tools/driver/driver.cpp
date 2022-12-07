@@ -70,7 +70,7 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
   return llvm::sys::fs::getMainExecutable(Argv0, P);
 }
 
-static const char *GetStableCStr(std::unordered_set<std::string> &SavedStrings,
+static const char *GetStableCStr(std::set<std::string> &SavedStrings,
                                  StringRef S) {
   return SavedStrings.insert(S).first->c_str();
 }
@@ -105,7 +105,7 @@ static const char *GetStableCStr(std::unordered_set<std::string> &SavedStrings,
 static void ApplyOneQAOverride(raw_ostream &OS,
                                SmallVectorImpl<const char*> &Args,
                                StringRef Edit,
-                               std::unordered_set<std::string> &SavedStrings) {
+                               std::set<std::string> &SavedStrings) {
   // This does not need to be efficient.
 
   if (Edit[0] == '^') {
@@ -177,7 +177,7 @@ static void ApplyOneQAOverride(raw_ostream &OS,
 /// input argument lists. See ApplyOneQAOverride.
 static void ApplyQAOverride(SmallVectorImpl<const char*> &Args,
                             const char *OverrideStr,
-                            std::unordered_set<std::string> &SavedStrings) {
+                            std::set<std::string> &SavedStrings) {
   raw_ostream *OS = &llvm::errs();
 
   if (OverrideStr[0] == '#') {
@@ -238,7 +238,7 @@ static const DriverSuffix *FindDriverSuffix(StringRef ProgName) {
 }
 
 static void ParseProgName(SmallVectorImpl<const char *> &ArgVector,
-                          std::unordered_set<std::string> &SavedStrings) {
+                          std::set<std::string> &SavedStrings) {
   // Try to infer frontend type and default target from the program name by
   // comparing it against DriverSuffixes in order.
 
@@ -435,7 +435,7 @@ int __cdecl main(int argc_, const char **argv_) {
     }
   }
 
-  std::unordered_set<std::string> SavedStrings;
+  std::set<std::string> SavedStrings;
   // Handle CCC_OVERRIDE_OPTIONS, used for editing a command line behind the
   // scenes.
   if (const char *OverrideStr = ::getenv("CCC_OVERRIDE_OPTIONS")) {
