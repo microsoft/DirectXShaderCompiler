@@ -23,6 +23,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstdio>
+#include <unordered_set>
 
 using namespace clang;
 

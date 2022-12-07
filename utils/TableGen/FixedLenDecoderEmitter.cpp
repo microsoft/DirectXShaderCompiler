@@ -28,6 +28,7 @@
 #include "llvm/TableGen/Record.h"
 #include <map>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 using namespace llvm;

@@ -115,6 +115,7 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <unordered_set>
 #include <forward_list>
 using namespace llvm;
 
