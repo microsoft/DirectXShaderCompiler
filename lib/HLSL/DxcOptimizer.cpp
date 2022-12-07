@@ -25,6 +25,8 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
+#include "dxc/DxilContainer/DxilContainerAssembler.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassInfo.h"
@@ -312,11 +314,21 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
         DM.ResetSerializedRootSignature(partData);
       }
 
-      // PSV0 - TBD
-      //if (const DxilPartHeader *pPartHeader = GetDxilPartByType(
-      //        pContainerHeader, DFCC_PipelineStateValidation)) {
-      //  DxilModule &DM = M->GetOrCreateDxilModule();
-      //}
+      // PSV0
+      if (const DxilPartHeader *pPartHeader = GetDxilPartByType(
+              pContainerHeader, DFCC_PipelineStateValidation)) {
+        DxilModule &DM = M->GetOrCreateDxilModule();
+        std::vector<unsigned int> &viewState = DM.GetSerializedViewIdState();
+        if (viewState.empty()) {
+          DxilPipelineStateValidation PSV;
+          PSV.InitFromPSV0(GetDxilPartData(pPartHeader), pPartHeader->PartSize);
+          unsigned OutputSizeInUInts = hlsl::LoadViewIDStateFromPSV(nullptr, 0, PSV);
+          if (OutputSizeInUInts) {
+            viewState.assign(OutputSizeInUInts, 0);
+            hlsl::LoadViewIDStateFromPSV(viewState.data(), (unsigned)viewState.size(), PSV);
+          }
+        }
+      }
     }
 
     legacy::PassManager ModulePasses;
