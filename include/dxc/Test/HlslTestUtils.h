@@ -420,6 +420,9 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
   // Maximum f32 value (next to infinity)
   static const uint32_t Max32 = 0x7f7FFFFF;
 
+  // Maximum F16 value in F32
+  static const uint32_t Max16In32 = 0x477FE000;
+
   // Mask for f32 mantissa
   static const uint32_t Fraction32Mask = 0x007FFFFF;
 
@@ -446,6 +449,10 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
     uint32_t Fraction = Abs.u_bits & Fraction32Mask;
     uint16_t IsNaN = Fraction == 0 ? 0 : 0xffff;
     return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
+  }
+  else if (Abs.u_bits > Max16In32) {
+    // Normal float larger than max half: return Inf
+    return (uint16_t)FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
   }
   else {
     // Compute Normal result
