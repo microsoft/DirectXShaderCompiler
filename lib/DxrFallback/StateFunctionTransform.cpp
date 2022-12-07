@@ -624,7 +624,7 @@ private:
   DenseMap<Instruction*, Instruction*> m_rematMap;    // Map instructions to their rematerialized counterparts
   DenseMap<AllocaInst*, Instruction*>& m_allocaToVal; // Map allocas for reg2mem'd live values back to the value
   const InstructionSetVector& m_liveHere;             // Values live at this callsite
-  const std::unordered_set<Value*>& m_resources;                // Values for resources like SRVs, UAVs, etc.
+  const std::unordered_set<Value*>& m_resources;      // Values for resources like SRVs, UAVs, etc.
 };
 
 
