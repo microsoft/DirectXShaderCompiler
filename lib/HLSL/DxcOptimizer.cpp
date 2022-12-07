@@ -282,8 +282,6 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       return DXC_E_IR_VERIFICATION_FAILED;
     }
 
-    SerializeDxilFlags serializeFlagsForFullContainerOutput =
-        SerializeDxilFlags::None;
     if (bIsFullContainer) {
       // Restore extra data from certain parts back into the module so that data isn't lost.
       // Note: Only GetOrCreateDxilModule if one of these is present.
@@ -319,20 +317,6 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       //        pContainerHeader, DFCC_PipelineStateValidation)) {
       //  DxilModule &DM = M->GetOrCreateDxilModule();
       //}
-
-      if (GetDxilPartByType(pContainerHeader, DFCC_ShaderDebugInfoDXIL)) {
-        serializeFlagsForFullContainerOutput |=
-            SerializeDxilFlags::IncludeDebugInfoPart;
-      }
-      if (GetDxilPartByType(pContainerHeader, DFCC_ShaderDebugName)) {
-        serializeFlagsForFullContainerOutput |=
-            SerializeDxilFlags::IncludeDebugNamePart;
-      }
-      // todo:
-      // DebugNameDependOnSource
-      // StripReflectionFromDxilPart
-      // IncludeReflectionPart
-      // StripRootSignature
     }
 
     legacy::PassManager ModulePasses;
@@ -527,31 +511,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       {
         raw_stream_ostream outStream(pProgramStream.p);
         WriteBitcodeToFile(M.get(), outStream, true);
-        outStream.flush();
-        if (bIsFullContainer) {
-          DxilModule &DM = M->GetOrCreateDxilModule();
-          CComPtr<AbstractMemoryStream> pFinalStream;
-          IFT(CreateMemoryStream(m_pMalloc, &pFinalStream));
-          CComPtr<AbstractMemoryStream> pReflectionStreamOut;
-          IFT(CreateMemoryStream(m_pMalloc, &pReflectionStreamOut));
-          CComPtr<AbstractMemoryStream> pRootSigStreamOut;
-          IFT(CreateMemoryStream(m_pMalloc, &pRootSigStreamOut));
-          DxilShaderHash shaderHashOut;
-          void *pPrivateData = nullptr; //todo
-          size_t PrivateDataSize = 0;
-          SerializeDxilContainerForModule(
-                &DM, pProgramStream, pFinalStream, "Container",
-                serializeFlagsForFullContainerOutput,
-                &shaderHashOut,
-                pReflectionStreamOut,
-                pRootSigStreamOut, 
-                pPrivateData,
-                PrivateDataSize);
-          IFT(pFinalStream.QueryInterface(ppOutputModule));
-        } else {
-          IFT(pProgramStream.QueryInterface(ppOutputModule));
-        }
       }
+      IFT(pProgramStream.QueryInterface(ppOutputModule));
     }
   }
   CATCH_CPP_RETURN_HRESULT();

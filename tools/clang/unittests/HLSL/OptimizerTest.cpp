@@ -377,10 +377,20 @@ void MyMiss(inout MyPayload payload)
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-hlsl-dxilemit");
 
-  CComPtr<IDxcBlob> pOptimizedContainer;
+  CComPtr<IDxcBlob> pDxil;
   CComPtr<IDxcBlobEncoding> pText;
-  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      pProgram, Options.data(), Options.size(), &pOptimizedContainer, &pText));
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pProgram, Options.data(),
+                                            Options.size(), &pDxil, &pText));
+
+  CComPtr<IDxcAssembler> pAssembler;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+  CComPtr<IDxcOperationResult> result;
+  pAssembler->AssembleToContainer(pDxil, &result);
+
+  CComPtr<IDxcBlob> pOptimizedContainer;
+  result->GetResult(&pOptimizedContainer);
 
   CComPtr<IDxcContainerReflection> pReflection;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
@@ -474,10 +484,20 @@ R"(
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-hlsl-dxilemit");
 
-  CComPtr<IDxcBlob> pOptimizedContainer;
+  CComPtr<IDxcBlob> pDxil;
   CComPtr<IDxcBlobEncoding> pText;
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      pProgram, Options.data(), Options.size(), &pOptimizedContainer, &pText));
+      pProgram, Options.data(), Options.size(), &pDxil, &pText));
+
+  CComPtr<IDxcAssembler> pAssembler;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+  CComPtr<IDxcOperationResult> result;
+  pAssembler->AssembleToContainer(pDxil, &result);
+
+  CComPtr<IDxcBlob> pOptimizedContainer;
+  result->GetResult(&pOptimizedContainer);
 
   const char *pBlobContent =
       reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
