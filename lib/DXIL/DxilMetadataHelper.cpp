@@ -1892,7 +1892,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   case DXIL::SubobjectKind::HitGroup: {
     llvm::StringRef Intersection, AnyHit, ClosestHit;
     DXIL::HitGroupType hgType;
-    IFTBOOL(obj.GetHitGroup(hgType, Intersection, AnyHit, ClosestHit),
+    IFTBOOL(obj.GetHitGroup(hgType, AnyHit, ClosestHit, Intersection),
       DXC_E_INCORRECT_DXIL_METADATA);
     Args.emplace_back(Uint32ToConstMD((uint32_t)hgType));
     Args.emplace_back(MDString::get(m_Ctx, Intersection));
