@@ -19,7 +19,6 @@
 #include "dxc/DXIL/DxilResourceBase.h"
 
 #include <ctype.h>
-#include <set>
 
 using namespace llvm;
 using namespace hlsl;

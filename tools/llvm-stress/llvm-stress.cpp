@@ -28,7 +28,6 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include <algorithm>
-#include <set>
 #include <sstream>
 #include <random>
 #include <vector>
