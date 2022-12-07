@@ -165,7 +165,7 @@ unsigned shiftedCodePosition(const Replacements &Replaces, unsigned Position) {
 }
 
 // FIXME: Remove this function when Replacements is implemented as std::vector
-// instead of std::unordered_set.
+// instead of std::set.
 unsigned shiftedCodePosition(const std::vector<Replacement> &Replaces,
                              unsigned Position) {
   unsigned NewPosition = Position;
@@ -248,7 +248,7 @@ bool applyAllReplacements(const Replacements &Replaces, Rewriter &Rewrite) {
 }
 
 // FIXME: Remove this function when Replacements is implemented as std::vector
-// instead of std::unordered_set.
+// instead of std::set.
 bool applyAllReplacements(const std::vector<Replacement> &Replaces,
                           Rewriter &Rewrite) {
   bool Result = true;

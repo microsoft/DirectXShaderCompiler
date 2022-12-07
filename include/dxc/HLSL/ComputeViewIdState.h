@@ -18,8 +18,8 @@
 
 #include <memory>
 #include <bitset>
-#include <set>
 #include <unordered_map>
+#include <set>
 #include <map>
 
 namespace llvm {

@@ -1721,7 +1721,7 @@ static bool populateInstruction(CodeGenTarget &Target,
     const std::vector<RecordVal> &Vals = Def.getValues();
     unsigned NumberedOp = 0;
 
-    std::unordered_set<unsigned> NamedOpIndices;
+    std::set<unsigned> NamedOpIndices;
     if (Target.getInstructionSet()->
          getValueAsBit("noNamedPositionallyEncodedOperands"))
       // Collect the set of operand indices that might correspond to named
