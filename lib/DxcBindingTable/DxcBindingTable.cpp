@@ -292,7 +292,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
   };
 
   llvm::SmallVector<ColumnType, 5> columns;
-  std::set<ColumnType> columnsSet;
+  std::unordered_set<ColumnType> columnsSet;
 
   for (;;) {
     llvm::SmallString<32> column;
