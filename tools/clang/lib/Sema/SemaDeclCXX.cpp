@@ -1862,7 +1862,7 @@ Sema::CheckDerivedToBaseConversion(QualType Derived, QualType Base,
 /// @endcode
 std::string Sema::getAmbiguousPathsDisplayString(CXXBasePaths &Paths) {
   std::string PathDisplayStr;
-  std::unordered_set<unsigned> DisplayedPaths;
+  std::set<unsigned> DisplayedPaths;
   for (CXXBasePaths::paths_iterator Path = Paths.begin();
        Path != Paths.end(); ++Path) {
     if (DisplayedPaths.insert(Path->back().SubobjectNumber).second) {

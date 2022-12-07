@@ -1324,7 +1324,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
       Self.IsDerivedFrom(DestType, SrcType, Paths);
     }
     std::string PathDisplayStr;
-    std::unordered_set<unsigned> DisplayedPaths;
+    std::set<unsigned> DisplayedPaths;
     for (CXXBasePaths::paths_iterator PI = Paths.begin(), PE = Paths.end();
          PI != PE; ++PI) {
       if (DisplayedPaths.insert(PI->back().SubobjectNumber).second) {

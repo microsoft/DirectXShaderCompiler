@@ -2083,7 +2083,7 @@ static bool insertParsePoints(Function &F, DominatorTree &DT, Pass *P,
                               SmallVectorImpl<CallSite> &toUpdate) {
 #ifndef NDEBUG
   // sanity check the input
-  std::unordered_set<CallSite> uniqued;
+  std::set<CallSite> uniqued;
   uniqued.insert(toUpdate.begin(), toUpdate.end());
   assert(uniqued.size() == toUpdate.size() && "no duplicates please!");
 

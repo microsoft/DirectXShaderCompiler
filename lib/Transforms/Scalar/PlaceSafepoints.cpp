@@ -486,7 +486,7 @@ static void findCallSafepoints(Function &F,
 /// vector.  Doing so has the effect of changing the output of a couple of
 /// tests in ways which make them less useful in testing fused safepoints.
 template <typename T> static void unique_unsorted(std::vector<T> &vec) {
-  std::unordered_set<T> seen;
+  std::set<T> seen;
   std::vector<T> tmp;
   vec.reserve(vec.size());
   std::swap(tmp, vec);

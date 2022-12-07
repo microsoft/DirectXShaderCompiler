@@ -18,7 +18,7 @@
 
 #include <memory>
 #include <bitset>
-#include <unordered_set>
+#include <set>
 #include <unordered_map>
 #include <map>
 
@@ -48,7 +48,7 @@ struct DxilViewIdStateData {
   static const unsigned kMaxSigScalars = 32*4;
 
   using OutputsDependentOnViewIdType = std::bitset<kMaxSigScalars>;
-  using InputsContributingToOutputType = std::map<unsigned, std::unordered_set<unsigned>>;
+  using InputsContributingToOutputType = std::map<unsigned, std::set<unsigned>>;
 
   static const unsigned kNumStreams = 4;
 
@@ -73,7 +73,7 @@ class DxilViewIdState : public DxilViewIdStateData {
   static const unsigned kMaxSigScalars = 32*4;
 public:
   using OutputsDependentOnViewIdType = std::bitset<kMaxSigScalars>;
-  using InputsContributingToOutputType = std::map<unsigned, std::unordered_set<unsigned>>;
+  using InputsContributingToOutputType = std::map<unsigned, std::set<unsigned>>;
 
   DxilViewIdState(DxilModule *pDxilModule);
 

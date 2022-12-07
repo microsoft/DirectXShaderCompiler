@@ -38,7 +38,7 @@ private:
   void AddCodeToMergeInOperand(Record *R, BitsInit *BI,
                                const std::string &VarName,
                                unsigned &NumberedOp,
-                               std::unordered_set<unsigned> &NamedOpIndices,
+                               std::set<unsigned> &NamedOpIndices,
                                std::string &Case, CodeGenTarget &Target);
 
 };
@@ -62,7 +62,7 @@ int CodeEmitterGen::getVariableBit(const std::string &VarName,
 void CodeEmitterGen::
 AddCodeToMergeInOperand(Record *R, BitsInit *BI, const std::string &VarName,
                         unsigned &NumberedOp,
-                        std::unordered_set<unsigned> &NamedOpIndices,
+                        std::set<unsigned> &NamedOpIndices,
                         std::string &Case, CodeGenTarget &Target) {
   CodeGenInstruction &CGI = Target.getInstruction(R);
 
@@ -183,7 +183,7 @@ std::string CodeEmitterGen::getInstructionCase(Record *R,
   const std::vector<RecordVal> &Vals = R->getValues();
   unsigned NumberedOp = 0;
 
-  std::unordered_set<unsigned> NamedOpIndices;
+  std::set<unsigned> NamedOpIndices;
   // Collect the set of operand indices that might correspond to named
   // operand, and skip these when assigning operands based on position.
   if (Target.getInstructionSet()->

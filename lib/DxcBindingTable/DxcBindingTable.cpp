@@ -19,6 +19,7 @@
 #include "dxc/DXIL/DxilResourceBase.h"
 
 #include <ctype.h>
+#include <set>
 
 using namespace llvm;
 using namespace hlsl;
@@ -291,7 +292,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
   };
 
   llvm::SmallVector<ColumnType, 5> columns;
-  std::unordered_set<ColumnType> columnsSet;
+  std::set<ColumnType> columnsSet;
 
   for (;;) {
     llvm::SmallString<32> column;

@@ -36,6 +36,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include <map>
+#include <set>
 #include <tuple>
 using namespace llvm;
 
@@ -75,12 +76,6 @@ namespace {
         return (Twine(IsArg ? "Argument #" : "Return value #") + utostr(Idx) +
                 " of function " + F->getName()).str();
       }
-
-      /// Hash value function needs to be defined before use so
-      /// defining it directly inside the struct.
-      size_t getHash() const {
-        return hash_combine(F, Idx, IsArg);
-      }
     };
 
     /// Liveness enum - During our initial pass over the program, we determine
@@ -116,7 +111,7 @@ namespace {
     ///    directly to F.
     UseMap Uses;
 
-    typedef std::unordered_set<RetOrArg, std::internal_hash<RetOrArg>> LiveSet;
+    typedef std::set<RetOrArg> LiveSet;
     typedef std::unordered_set<const Function*> LiveFuncSet;
 
     /// This set contains all values that have been determined to be live.
@@ -716,13 +711,17 @@ void DAE::MarkLive(const RetOrArg &RA) {
 /// PropagateLiveness - Given that RA is a live value, propagate it's liveness
 /// to any other values it uses (according to Uses).
 void DAE::PropagateLiveness(const RetOrArg &RA) {
-  UseMap::iterator Begin = Uses.find(RA);
+  // We don't use upper_bound (or equal_range) here, because our recursive call
+  // to ourselves is likely to cause the upper_bound (which is the first value
+  // not belonging to RA) to become erased and the iterator invalidated.
+  UseMap::iterator Begin = Uses.lower_bound(RA);
   UseMap::iterator E = Uses.end();
   UseMap::iterator I;
   for (I = Begin; I != E && I->first == RA; ++I)
     MarkLive(I->second);
 
-  // Erase RA from the Uses map
+  // Erase RA from the Uses map (from the lower bound to wherever we ended up
+  // after the loop).
   Uses.erase(Begin, I);
 }
 

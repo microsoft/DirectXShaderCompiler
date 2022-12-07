@@ -1320,7 +1320,7 @@ static void computeUberSets(std::vector<UberRegSet> &UberSets,
 
   // For simplicitly make the SetID the same as EnumValue.
   IntEqClasses UberSetIDs(Registers.size()+1);
-  std::unordered_set<unsigned> AllocatableRegs;
+  std::set<unsigned> AllocatableRegs;
   for (auto &RegClass : RegBank.getRegClasses()) {
     if (!RegClass.Allocatable)
       continue;
@@ -1649,7 +1649,7 @@ void CodeGenRegBank::computeRegUnitSets() {
     // Compare new sets with all original classes.
     for (unsigned SearchIdx = (Idx >= NumRegUnitSubSets) ? 0 : Idx+1;
          SearchIdx != EndIdx; ++SearchIdx) {
-      std::unordered_set<unsigned> Intersection;
+      std::set<unsigned> Intersection;
       std::set_intersection(RegUnitSets[Idx].Units.begin(),
                             RegUnitSets[Idx].Units.end(),
                             RegUnitSets[SearchIdx].Units.begin(),
