@@ -1968,8 +1968,8 @@ void NeonEmitter::genBuiltinsDef(raw_ostream &OS,
   OS << "#ifdef GET_NEON_BUILTINS\n";
 
   // We only want to emit a builtin once, and we want to emit them in
-  // alphabetical order, so use a std::unordered_set.
-  std::unordered_set<std::string> Builtins;
+  // alphabetical order, so use a std::set.
+  std::set<std::string> Builtins;
 
   for (auto *Def : Defs) {
     if (Def->hasBody())
