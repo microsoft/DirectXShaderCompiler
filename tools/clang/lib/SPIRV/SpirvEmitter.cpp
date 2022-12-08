@@ -5888,9 +5888,9 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   if (astContext.validatePerVertexInput(expr->getMemberDecl()) && !elemType->isArrayType()) {
     elemType = astContext.getConstantArrayType(elemType, llvm::APInt(32, 3),
                                                clang::ArrayType::Normal, 0);
+    return derefOrCreatePointerToValue(base->getType(), instr, elemType, indices,
+                                       base->getExprLoc(), range);
   }
-  instr = derefOrCreatePointerToValue(base->getType(), instr, elemType, indices,
-                                      base->getExprLoc(), range);
 
   const auto *fieldDecl = dyn_cast<FieldDecl>(expr->getMemberDecl());
   if (!fieldDecl || !fieldDecl->isBitField()) {
