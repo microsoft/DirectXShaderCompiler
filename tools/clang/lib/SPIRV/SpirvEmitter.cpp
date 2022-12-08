@@ -5880,16 +5880,17 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   auto *instr = loadIfAliasVarRef(base, range);
   const auto &loc = base->getExprLoc();
 
-  if (instr && !indices.empty()) {
-    QualType elemType = expr->getType();
-    if (astContext.validatePerVertexInput(expr->getMemberDecl()) && !elemType->isArrayType()) {
-      elemType = astContext.getConstantArrayType(elemType, llvm::APInt(32, 3),
-                                                 clang::ArrayType::Normal, 0);
-    }
-    instr = turnIntoElementPtr(base->getType(), instr, elemType, indices,
-                               base->getExprLoc(), range);
+  if (!instr || indices.empty()) {
     return instr;
   }
+
+  QualType elemType = expr->getType();
+  if (astContext.validatePerVertexInput(expr->getMemberDecl()) && !elemType->isArrayType()) {
+    elemType = astContext.getConstantArrayType(elemType, llvm::APInt(32, 3),
+                                               clang::ArrayType::Normal, 0);
+  }
+  instr = derefOrCreatePointerToValue(base->getType(), instr, elemType, indices,
+                                      base->getExprLoc(), range);
 
   const auto *fieldDecl = dyn_cast<FieldDecl>(expr->getMemberDecl());
   if (!fieldDecl || !fieldDecl->isBitField()) {
