@@ -226,25 +226,35 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
 }
 
 template <typename _T>
-static void CopyResourceName(_T &TargetRes, _T &SourceRes) {
+static void CopyResourceInfo(_T &TargetRes, const _T &SourceRes,
+                             DxilTypeSystem &TargetTypeSys,
+                             const DxilTypeSystem &SourceTypeSys) {
   if (TargetRes.GetGlobalName().empty() && !SourceRes.GetGlobalName().empty()) {
     TargetRes.SetGlobalName(SourceRes.GetGlobalName());
   }
+  TargetRes.SetHLSLType(SourceRes.GetHLSLType());
+  TargetTypeSys.CopyTypeAnnotation(SourceRes.GetHLSLType(), SourceTypeSys);
 }
 
-static void CopyMatchingResourceNames(DxilModule &TargetDM,
-                                      DxilModule &SourceDM) {
+static void CopyMatchingResourceInfo(DxilModule &TargetDM,
+                                     const DxilModule &SourceDM) {
+  DxilTypeSystem &TargetTypeSys = TargetDM.GetTypeSystem();
+  const DxilTypeSystem &SourceTypeSys = SourceDM.GetTypeSystem();
   for (unsigned i = 0; i < TargetDM.GetCBuffers().size(); ++i) {
-    CopyResourceName(TargetDM.GetCBuffer(i), SourceDM.GetCBuffer(i));
+    CopyResourceInfo(TargetDM.GetCBuffer(i), SourceDM.GetCBuffer(i),
+                     TargetTypeSys, SourceTypeSys);
   }
   for (unsigned i = 0; i < TargetDM.GetSRVs().size(); ++i) {
-    CopyResourceName(TargetDM.GetSRV(i), SourceDM.GetSRV(i));
+    CopyResourceInfo(TargetDM.GetSRV(i), SourceDM.GetSRV(i), TargetTypeSys,
+                     SourceTypeSys);
   }
   for (unsigned i = 0; i < TargetDM.GetUAVs().size(); ++i) {
-    CopyResourceName(TargetDM.GetUAV(i), SourceDM.GetUAV(i));
+    CopyResourceInfo(TargetDM.GetUAV(i), SourceDM.GetUAV(i), TargetTypeSys,
+                     SourceTypeSys);
   }
   for (unsigned i = 0; i < TargetDM.GetSamplers().size(); ++i) {
-    CopyResourceName(TargetDM.GetSampler(i), SourceDM.GetSampler(i));
+    CopyResourceInfo(TargetDM.GetSampler(i), SourceDM.GetSampler(i),
+                     TargetTypeSys, SourceTypeSys);
   }
 }
 
@@ -370,7 +380,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
               llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
           if (ReflM) {
             // Restore resource names from reflection
-            CopyMatchingResourceNames(M->GetOrCreateDxilModule(), ReflM->GetOrCreateDxilModule());
+            CopyMatchingResourceInfo(M->GetOrCreateDxilModule(),
+                                     ReflM->GetOrCreateDxilModule());
           }
         }
       }
