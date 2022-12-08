@@ -1,5 +1,5 @@
 // RUN: %dxc -E main -fcgl  -T ps_6_0  %s | FileCheck %s -check-prefix=IR
-// RUN: %dxc -E main -T ps_6_0  -enable-short-circuit %s | FileCheck %s -check-prefix=DXIL
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s -check-prefix=DXIL
 
 // The issue happens when d.cb copy in foo and copy in d.cb = cbv.
 // Then, when lower memcpy, there're more than one write to d.cb.

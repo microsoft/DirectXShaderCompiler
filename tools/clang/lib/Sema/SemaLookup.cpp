@@ -315,7 +315,7 @@ void LookupResult::configure() {
   //   UNREACHABLE executed at ../../tools/clang/lib/Sema/SemaExprCXX.cpp:2163!
   //   Aborted
   if (!getSema().getLangOpts().HLSL ||
-      !getSema().getLangOpts().EnableOperatorOverloading) {
+      getSema().getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     // If we're looking for one of the allocation or deallocation
     // operators, make sure that the implicitly-declared new and delete
     // operators can be found.

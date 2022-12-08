@@ -13,6 +13,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "RAIIObjectsForParser.h"
+#include "dxc/Support/HLSLVersion.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Lex/LiteralSupport.h"
@@ -308,7 +309,8 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
     // 'identifier <' after it.
     if (Tok.is(tok::kw_template)) {
       // HLSL Change Starts - template is reserved
-      if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
         ConsumeToken();
         return true;
@@ -331,7 +333,8 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         ConsumeToken();
       } else if (Tok.is(tok::kw_operator)) {
         // HLSL Change Starts
-        if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
+        if (getLangOpts().HLSL &&
+            getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
           Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
           TPA.Commit();
           return true;
@@ -2196,7 +2199,8 @@ bool Parser::ParseUnqualifiedIdTemplateId(CXXScopeSpec &SS,
 bool Parser::ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
                                         ParsedType ObjectType,
                                         UnqualifiedId &Result) {
-  assert((!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+  assert((!getLangOpts().HLSL ||
+          getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) &&
          "not supported in HLSL - unreachable"); // HLSL Change
   assert(Tok.is(tok::kw_operator) && "Expected 'operator' keyword");
   
@@ -2527,7 +2531,8 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, bool EnteringContext,
   //   conversion-function-id
   if (Tok.is(tok::kw_operator)) {
     // HLSL Change Starts
-    if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       ConsumeToken();
       return true;

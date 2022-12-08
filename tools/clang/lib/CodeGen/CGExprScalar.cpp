@@ -3422,7 +3422,8 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
     // 0 && RHS: If it is safe, just elide the RHS, and return 0/false.
     if (!CGF.ContainsLabel(E->getRHS())) {
       // HLSL Change Begins.
-      if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+      if (CGF.getLangOpts().HLSL &&
+          CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         // HLSL does not short circuit by default.
         Visit(E->getRHS());
       }
@@ -3432,7 +3433,8 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
   }
 
   // HLSL Change Begins.
-  if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+  if (CGF.getLangOpts().HLSL &&
+      CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     // HLSL does not short circuit by default.
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
@@ -3527,7 +3529,8 @@ Value *ScalarExprEmitter::VisitBinLOr(const BinaryOperator *E) {
     // 1 || RHS: If it is safe, just elide the RHS, and return 1/true.
     if (!CGF.ContainsLabel(E->getRHS())) {
       // HLSL Change Begins.
-      if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+      if (CGF.getLangOpts().HLSL &&
+          CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         // HLSL does not short circuit by default.
         Visit(E->getRHS());
       }
@@ -3537,7 +3540,8 @@ Value *ScalarExprEmitter::VisitBinLOr(const BinaryOperator *E) {
   }
 
   // HLSL Change Begins.
-  if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+  if (CGF.getLangOpts().HLSL &&
+      CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     // HLSL does not short circuit by default.
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
@@ -3702,7 +3706,8 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
     return tmp5;
   }
   // HLSL Change Starts
-  if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+  if (CGF.getLangOpts().HLSL &&
+      CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     // HLSL does not short circuit by default before HLSL 2021
     if (hlsl::IsHLSLVecType(E->getType()) || E->getType()->isArithmeticType()) {
       llvm::Value *CondV = CGF.EmitScalarExpr(condExpr);
@@ -3754,7 +3759,8 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
 
   // HLSL Change Begins
   llvm::Instruction *ResultAlloca = nullptr;
-  if (CGF.getLangOpts().HLSL && CGF.getLangOpts().EnableShortCircuit &&
+  if (CGF.getLangOpts().HLSL &&
+      CGF.getLangOpts().HLSLVersion >= hlsl::LangStd::v2021 &&
       hlsl::IsHLSLMatType(E->getType())) {
     llvm::Type *MatTy = CGF.ConvertTypeForMem(E->getType());
     ResultAlloca = CGF.CreateTempAlloca(MatTy);

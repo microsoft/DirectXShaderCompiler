@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -enable-templates %s | FileCheck %s
+// RUN: %dxc -T ps_6_0 -HV 2021 %s | FileCheck %s
 
 // Test applying the [] subscript operator in a templated function.
 // With the side effect of testing passing matrices, arrays, and vectors as params.

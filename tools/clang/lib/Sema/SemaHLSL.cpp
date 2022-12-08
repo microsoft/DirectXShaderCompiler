@@ -4786,7 +4786,8 @@ public:
       // Some intrinsics only optionally exist in later language versions.
       // To prevent collisions with existing functions or templates, exclude
       // intrinsics when they aren't enabled.
-      if (IsBuiltinTable(tableName) && !m_sema->getLangOpts().EnableShortCircuit) {
+      if (IsBuiltinTable(tableName) &&
+          m_sema->getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
@@ -9085,7 +9086,7 @@ bool HLSLExternalSource::CanConvert(
           break;
         }
       }
-    } else if (m_sema->getLangOpts().StrictUDTCasting &&
+    } else if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021 &&
                (SourceInfo.ShapeKind == AR_TOBJ_COMPOUND ||
                 TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) &&
                !TargetIsAnonymous) {
@@ -9466,7 +9467,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   ArBasicKind resultElementKind = leftElementKind;
   {
     if (BinaryOperatorKindIsLogical(Opc)) {
-      if (m_sema->getLangOpts().EnableShortCircuit) {
+      if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
         // Only allow scalar types for logical operators &&, ||
         if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
             rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
@@ -9770,7 +9771,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
 
   QualType ResultTy = leftType;
 
-  if (m_sema->getLangOpts().EnableShortCircuit) {
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
     // Only allow scalar.
     if (condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX) {
       SmallVector<char, 256> Buff;
@@ -9872,7 +9873,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   // Convert condition component type to bool, using result component dimensions
   QualType boolType;
   // If short-circuiting, condition must be scalar.
-  if (m_sema->getLangOpts().EnableShortCircuit)
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021)
     boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, 1, 1)->getCanonicalTypeInternal();
   else
     boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
@@ -12924,7 +12925,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
          "otherwise this is called without checking language first");
 
   // If we have a template declaration but haven't enabled templates, error.
-  if (DC->isDependentContext() && !getLangOpts().EnableTemplates) return false;
+  if (DC->isDependentContext() &&
+      getLangOpts().HLSLVersion < hlsl::LangStd::v2021)
+    return false;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
@@ -13414,7 +13417,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 
   // Disallow bitfields where not enabled explicitly or by HV
   if (BitWidth) {
-    if (!getLangOpts().EnableBitfields) {
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
       result = false;
     } else if (!D.UnusualAnnotations.empty()) {
