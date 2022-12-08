@@ -225,6 +225,29 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
       GetPassArgDescriptions(m_passes[index]->getPassArgument()), ppResult);
 }
 
+template <typename _T>
+static void CopyResourceName(_T &TargetRes, _T &SourceRes) {
+  if (TargetRes.GetGlobalName().empty() && !SourceRes.GetGlobalName().empty()) {
+    TargetRes.SetGlobalName(SourceRes.GetGlobalName());
+  }
+}
+
+static void CopyMatchingResourceNames(DxilModule &TargetDM,
+                                      DxilModule &SourceDM) {
+  for (unsigned i = 0; i < TargetDM.GetCBuffers().size(); ++i) {
+    CopyResourceName(TargetDM.GetCBuffer(i), SourceDM.GetCBuffer(i));
+  }
+  for (unsigned i = 0; i < TargetDM.GetSRVs().size(); ++i) {
+    CopyResourceName(TargetDM.GetSRV(i), SourceDM.GetSRV(i));
+  }
+  for (unsigned i = 0; i < TargetDM.GetUAVs().size(); ++i) {
+    CopyResourceName(TargetDM.GetUAV(i), SourceDM.GetUAV(i));
+  }
+  for (unsigned i = 0; i < TargetDM.GetSamplers().size(); ++i) {
+    CopyResourceName(TargetDM.GetSampler(i), SourceDM.GetSampler(i));
+  }
+}
+
 HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     IDxcBlob *pBlob, _In_count_(optionCount) LPCWSTR *ppOptions,
     UINT32 optionCount, _COM_Outptr_ IDxcBlob **ppOutputModule,
@@ -290,6 +313,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       // - Subobjects from RDAT
       // - RootSignature from RTS0
       // - ViewID and I/O dependency data from PSV0
+      // - Resource names from shader reflection: STAT
 
       // RDAT
       if (const DxilPartHeader *pPartHeader =
@@ -326,6 +350,27 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
           if (OutputSizeInUInts) {
             viewState.assign(OutputSizeInUInts, 0);
             hlsl::LoadViewIDStateFromPSV(viewState.data(), (unsigned)viewState.size(), PSV);
+          }
+        }
+      }
+
+      // STAT
+      if (const DxilPartHeader *pPartHeader = GetDxilPartByType(
+              pContainerHeader, DFCC_ShaderStatistics)) {
+        const DxilProgramHeader *pReflProgramHeader =
+          reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPartHeader));
+        if (!IsValidDxilProgramHeader(pReflProgramHeader,
+                                      pPartHeader->PartSize)) {
+          const char *pReflBitcode;
+          uint32_t reflBitcodeLength;
+          GetDxilProgramBitcode((const DxilProgramHeader *)pReflProgramHeader,
+                                &pReflBitcode, &reflBitcodeLength);
+          std::string DiagStr;
+          std::unique_ptr<Module> ReflM = hlsl::dxilutil::LoadModuleFromBitcode(
+              llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
+          if (ReflM) {
+            // Restore resource names from reflection
+            CopyMatchingResourceNames(M->GetOrCreateDxilModule(), ReflM->GetOrCreateDxilModule());
           }
         }
       }
