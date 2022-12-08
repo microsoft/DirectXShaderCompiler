@@ -236,11 +236,27 @@ static void CopyResourceInfo(_T &TargetRes, const _T &SourceRes,
     DXASSERT(false, "otherwise, resource details don't match");
     return;
   }
+
   if (TargetRes.GetGlobalName().empty() && !SourceRes.GetGlobalName().empty()) {
     TargetRes.SetGlobalName(SourceRes.GetGlobalName());
   }
-  TargetRes.SetHLSLType(SourceRes.GetHLSLType());
-  TargetTypeSys.CopyTypeAnnotation(SourceRes.GetHLSLType(), SourceTypeSys);
+
+  Type *Ty = SourceRes.GetHLSLType();
+  TargetRes.SetHLSLType(Ty);
+
+  if (isa<PointerType>(Ty))
+    Ty = Ty->getPointerElementType();
+
+  while (isa<ArrayType>(Ty))
+    Ty = Ty->getArrayElementType();
+
+  // TODO: Detect if struct annotation is stripped, then remove it if so, so
+  // it can be replaced.  For now, just always replace it.
+  if (StructType *ST = dyn_cast_or_null<StructType>(Ty)) {
+    if (const DxilStructAnnotation *STAnn = TargetTypeSys.GetStructAnnotation(ST))
+      TargetTypeSys.EraseStructAnnotation(ST);
+  }
+  TargetTypeSys.CopyTypeAnnotation(Ty, SourceTypeSys);
 }
 
 static void CopyMatchingResourceInfo(DxilModule &TargetDM,
