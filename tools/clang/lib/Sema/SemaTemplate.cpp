@@ -2054,9 +2054,10 @@ QualType Sema::CheckTemplateIdType(TemplateName Name,
     return QualType();
 
   // HLSL Change Starts - check template values for HLSL object/matrix/vector signatures
-  if (getLangOpts().HLSL && hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc, TemplateArgs)) {
+  if (getLangOpts().HLSL && Template->isImplicit() &&
+      hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc,
+                                             TemplateArgs))
     return QualType();
-  }
   // HLSL Change Ends
 
   QualType CanonType;
