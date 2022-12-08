@@ -420,9 +420,6 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
   // Maximum f32 value (next to infinity)
   static const uint32_t Max32 = 0x7f7FFFFF;
 
-  // Maximum F16 value in F32
-  static const uint32_t Max16In32 = 0x477FE000;
-
   // Mask for f32 mantissa
   static const uint32_t Fraction32Mask = 0x007FFFFF;
 
@@ -430,6 +427,10 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
   static const uint32_t DenormalRatio = 0x4B800000;
 
   static const uint32_t NormalDelta = 0x38000000;
+
+  // Maximum F16 value in F32
+  static const uint32_t Max16In32 =
+      ((uint32_t)FLOAT16_BIGGEST_NORMAL << 13) + NormalDelta; // 0x477FE000
 
   Bits bits;
   bits.f_bits = val;
