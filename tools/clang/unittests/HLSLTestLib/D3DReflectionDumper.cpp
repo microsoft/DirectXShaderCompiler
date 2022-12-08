@@ -171,6 +171,7 @@ void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC &Desc) {
   DumpShaderVersion(Desc.Version);
   WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
   WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
+  WriteLn("RequiredFeatureFlags: ", std::hex, std::showbase, Desc.RequiredFeatureFlags);
   WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
   WriteLn("BoundResources: ", Desc.BoundResources);
   WriteLn("FunctionParameterCount: ", Desc.FunctionParameterCount);
