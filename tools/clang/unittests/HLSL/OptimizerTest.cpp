@@ -81,10 +81,15 @@ public:
 
   void OptimizerWhenSliceNThenOK(int optLevel);
   void OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
-  CComPtr<IDxcBlob> CompileAndRunHlslEmitAndReturnContainer(
+  CComPtr<IDxcBlob> Compile(
       char const *source, wchar_t const *entry, wchar_t const *profile);
+  CComPtr<IDxcBlob> RunHlslEmitAndReturnContainer(IDxcBlob *container);
   CComPtr<IDxcBlob> RetrievePartFromContainer(IDxcBlob *container,
                                                        UINT32 part);
+  void ComparePSV0BeforeAndAfterOptimization(const char *source,
+                                        const wchar_t *entry,
+                                        const wchar_t *profile,
+                                        int streamCount = 1);
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -276,10 +281,8 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWST
   }
 }
 
-CComPtr<IDxcBlob> OptimizerTest::CompileAndRunHlslEmitAndReturnContainer(
-    char const * source,
-    wchar_t const * entry,
-    wchar_t const * profile) {
+CComPtr<IDxcBlob> OptimizerTest::Compile(
+    char const *source, wchar_t const *entry, wchar_t const *profile) {
 
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
@@ -288,13 +291,17 @@ CComPtr<IDxcBlob> OptimizerTest::CompileAndRunHlslEmitAndReturnContainer(
   Utf8ToBlob(m_dllSupport, source, &pSource);
 
   CComPtr<IDxcOperationResult> pResult;
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", entry,
-                                      profile, nullptr, 0, nullptr, 0,
-                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", entry, profile,
+                                      nullptr, 0, nullptr, 0, nullptr,
+                                      &pResult));
   VerifyOperationSucceeded(pResult);
   CComPtr<IDxcBlob> pProgram;
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  return pProgram;
+}
 
+CComPtr<IDxcBlob> OptimizerTest::RunHlslEmitAndReturnContainer(IDxcBlob *container) 
+{
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
@@ -304,7 +311,7 @@ CComPtr<IDxcBlob> OptimizerTest::CompileAndRunHlslEmitAndReturnContainer(
 
   CComPtr<IDxcBlob> pDxil;
   CComPtr<IDxcBlobEncoding> pText;
-  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pProgram, Options.data(),
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(container, Options.data(),
                                             Options.size(), &pDxil, &pText));
 
   CComPtr<IDxcAssembler> pAssembler;
@@ -416,7 +423,7 @@ void MyMiss(inout MyPayload payload)
 )x";
 
   auto pOptimizedContainer =
-      CompileAndRunHlslEmitAndReturnContainer(source, L"", L"lib_6_6");
+      RunHlslEmitAndReturnContainer(Compile(source, L"", L"lib_6_6"));
 
   auto runtimeDataPart = RetrievePartFromContainer(
       pOptimizedContainer, hlsl::DFCC_RuntimeData);
@@ -476,7 +483,7 @@ R"(
 )";
 
   auto pOptimizedContainer =
-      CompileAndRunHlslEmitAndReturnContainer(source, L"CSMain", L"cs_6_6");
+      RunHlslEmitAndReturnContainer(Compile(source, L"CSMain", L"cs_6_6"));
 
   auto rootSigPart = RetrievePartFromContainer(
       pOptimizedContainer, hlsl::DFCC_RootSignature);
@@ -511,10 +518,75 @@ R"(
   }
 }
 
-TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_HSNonDependent) {
+void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, const wchar_t *entry, const wchar_t *profile, int streamCount /*= 1*/)
+{
+  auto originalContainer = Compile(source, entry, profile);
 
-  const char *source =
-R"(
+  auto originalPsvPart = RetrievePartFromContainer(
+      originalContainer, hlsl::DFCC_PipelineStateValidation);
+
+  auto optimizedContainer = RunHlslEmitAndReturnContainer(originalContainer);
+
+  auto optimizedPsvPart = RetrievePartFromContainer(optimizedContainer,
+                                           hlsl::DFCC_PipelineStateValidation);
+
+  VERIFY_ARE_EQUAL(originalPsvPart->GetBufferSize(), optimizedPsvPart->GetBufferSize());
+
+  DxilPipelineStateValidation originalPsv;
+  originalPsv.InitFromPSV0(
+      reinterpret_cast<const uint8_t *>(optimizedPsvPart->GetBufferPointer()),
+      static_cast<uint32_t>(optimizedPsvPart->GetBufferSize()));
+
+  const PSVRuntimeInfo1 *originalInfo1 = originalPsv.GetPSVRuntimeInfo1();
+  VERIFY_IS_TRUE(originalInfo1->UsesViewID);
+
+  DxilPipelineStateValidation optimizedPsv;
+  optimizedPsv.InitFromPSV0(
+      reinterpret_cast<const uint8_t *>(originalPsvPart->GetBufferPointer()),
+      static_cast<uint32_t>(originalPsvPart->GetBufferSize()));
+
+  const PSVRuntimeInfo1 *optimizedInfo1 = optimizedPsv.GetPSVRuntimeInfo1();
+  VERIFY_IS_TRUE(optimizedInfo1->UsesViewID);
+
+  VERIFY_ARE_EQUAL(originalInfo1->ShaderStage, optimizedInfo1->ShaderStage);
+  VERIFY_ARE_EQUAL(originalInfo1->UsesViewID , optimizedInfo1->UsesViewID);
+  VERIFY_ARE_EQUAL(originalInfo1->SigInputElements,
+                   optimizedInfo1->SigInputElements);
+  VERIFY_ARE_EQUAL(originalInfo1->SigOutputElements,
+                   optimizedInfo1->SigOutputElements);
+  VERIFY_ARE_EQUAL(originalInfo1->SigPatchConstOrPrimElements,
+                   optimizedInfo1->SigPatchConstOrPrimElements);
+  VERIFY_ARE_EQUAL(originalPsv.GetViewIDPCOutputMask().IsValid(),
+                   optimizedPsv.GetViewIDPCOutputMask().IsValid());
+  if (originalPsv.GetViewIDPCOutputMask().IsValid()) {
+    VERIFY_ARE_EQUAL(originalPsv.GetViewIDPCOutputMask().Mask,
+                     optimizedPsv.GetViewIDPCOutputMask().Mask);
+    VERIFY_ARE_EQUAL(originalPsv.GetViewIDPCOutputMask().NumVectors,
+                     optimizedPsv.GetViewIDPCOutputMask().NumVectors);
+  }
+  for (int stream = 0; stream < streamCount; ++stream) 
+  {
+    VERIFY_ARE_EQUAL(originalInfo1->SigOutputVectors[stream],
+                     optimizedInfo1->SigOutputVectors[stream]);
+
+    VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).IsValid(),
+                     optimizedPsv.GetViewIDOutputMask(stream).IsValid());
+    if (originalPsv.GetViewIDOutputMask(stream).IsValid())
+    {
+      VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).Mask,
+                       optimizedPsv.GetViewIDOutputMask(stream).Mask);
+      VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).NumVectors,
+                       optimizedPsv.GetViewIDOutputMask(stream).NumVectors);
+
+    }
+  }
+}
+
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_HSNonDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
 #define NumOutPoints 2
 
 struct HsCpIn {
@@ -550,23 +622,6 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
     return output;
 }
 
-)";
+)", L"main", L"hs_6_6");
 
-  auto pOptimizedContainer =
-      CompileAndRunHlslEmitAndReturnContainer(source, L"main", L"hs_6_6");
-
-  auto psvPart = RetrievePartFromContainer(
-      pOptimizedContainer, hlsl::DFCC_PipelineStateValidation);
-
-  DxilPipelineStateValidation PSV;
-  PSV.InitFromPSV0(
-      reinterpret_cast<const uint8_t *>(psvPart->GetBufferPointer()),
-      static_cast<uint32_t>(psvPart->GetBufferSize()));
-  const PSVRuntimeInfo0 *pInfo0 = PSV.GetPSVRuntimeInfo0();
-  const PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
-  const PSVRuntimeInfo2 *pInfo2 = PSV.GetPSVRuntimeInfo2();
-
-  pInfo0;
-  pInfo1;
-  pInfo2;
 }
