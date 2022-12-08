@@ -1,4 +1,3 @@
-// RUN: %dxc -E main -T cs_6_0 -ast-dump -enable-templates %s | FileCheck %s
 // RUN: %dxc -E main -T cs_6_0 -ast-dump -HV 2021 %s | FileCheck %s
 struct Foo { float f;};
 template <typename T> struct Wrap { T value; };

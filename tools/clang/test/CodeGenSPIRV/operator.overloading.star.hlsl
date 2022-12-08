@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -enable-operator-overloading
+// RUN: %dxc -T ps_6_0 -E main -HV 2021
 
 // CHECK:           %a = OpVariable %_ptr_Function_Number Function
 // CHECK:           %b = OpVariable %_ptr_Function_Number Function

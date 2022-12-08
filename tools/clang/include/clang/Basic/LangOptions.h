@@ -159,12 +159,7 @@ public:
   bool UseMinPrecision = true; // use min precision, not native precision.
   bool EnableDX9CompatMode = false;
   bool EnableFXCCompatMode = false;
-  bool EnableTemplates = false;
-  bool EnableOperatorOverloading = false;
-  bool StrictUDTCasting = false;
   bool EnablePayloadAccessQualifiers = false;
-  bool EnableShortCircuit = false;
-  bool EnableBitfields = false;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change
