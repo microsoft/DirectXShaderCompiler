@@ -428,9 +428,13 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
 
   static const uint32_t NormalDelta = 0x38000000;
 
-  // Maximum F16 value in F32
-  static const uint32_t Max16In32 =
-      ((uint32_t)FLOAT16_BIGGEST_NORMAL << 13) + NormalDelta; // 0x477FE000
+  // Maximum F32 value that truncates to F16 normal. Normal floats above this
+  // value translate to INF. Computed by translating biggest normal F16, then
+  // setting all fraction bits for F32.  This is consistent with the rounding
+  // mode that the rest of this function presumes (trunc).
+  static const uint32_t Max32For16Normal =
+      (((uint32_t)FLOAT16_BIGGEST_NORMAL << 13) + NormalDelta) |
+      Fraction32Mask; // 0x477FFFFF
 
   Bits bits;
   bits.f_bits = val;
@@ -451,7 +455,7 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
     uint16_t IsNaN = Fraction == 0 ? 0 : 0xffff;
     return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
   }
-  else if (Abs.u_bits > Max16In32) {
+  else if (Abs.u_bits > Max32For16Normal) {
     // Normal float larger than max half: return Inf
     return (uint16_t)FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
   }
