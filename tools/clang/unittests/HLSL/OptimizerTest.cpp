@@ -25,6 +25,7 @@
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/WinIncludes.h"
@@ -76,9 +77,14 @@ public:
 
   TEST_METHOD(OptimizerWhenPassedContainerPreservesSubobjects)
   TEST_METHOD(OptimizerWhenPassedContainerPreservesRootSig)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_HSNonDependent)
 
   void OptimizerWhenSliceNThenOK(int optLevel);
   void OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
+  CComPtr<IDxcBlob> CompileAndRunHlslEmitAndReturnContainer(
+      char const *source, wchar_t const *entry, wchar_t const *profile);
+  CComPtr<IDxcBlob> RetrievePartFromContainer(IDxcBlob *container,
+                                                       UINT32 part);
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -270,6 +276,63 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWST
   }
 }
 
+CComPtr<IDxcBlob> OptimizerTest::CompileAndRunHlslEmitAndReturnContainer(
+    char const * source,
+    wchar_t const * entry,
+    wchar_t const * profile) {
+
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  Utf8ToBlob(m_dllSupport, source, &pSource);
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", entry,
+                                      profile, nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VerifyOperationSucceeded(pResult);
+  CComPtr<IDxcBlob> pProgram;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-hlsl-dxilemit");
+
+  CComPtr<IDxcBlob> pDxil;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pProgram, Options.data(),
+                                            Options.size(), &pDxil, &pText));
+
+  CComPtr<IDxcAssembler> pAssembler;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+  CComPtr<IDxcOperationResult> result;
+  pAssembler->AssembleToContainer(pDxil, &result);
+
+  CComPtr<IDxcBlob> pOptimizedContainer;
+  result->GetResult(&pOptimizedContainer);
+
+  return pOptimizedContainer;
+}
+
+CComPtr<IDxcBlob> OptimizerTest::RetrievePartFromContainer(IDxcBlob *container,
+                                                     UINT32 part) {
+  CComPtr<IDxcContainerReflection> pReflection;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(container));
+  UINT32 dxilIndex;
+  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(part, &dxilIndex));
+  CComPtr<IDxcBlob> blob;
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(dxilIndex, & blob));
+  return blob;
+}
+
 TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesSubobjects) {
 
     const char *source = R"x(
@@ -352,64 +415,14 @@ void MyMiss(inout MyPayload payload)
 
 )x";
 
-  CComPtr<IDxcCompiler> pCompiler;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  auto pOptimizedContainer =
+      CompileAndRunHlslEmitAndReturnContainer(source, L"", L"lib_6_6");
 
-  CComPtr<IDxcBlobEncoding> pSource;
-  Utf8ToBlob(m_dllSupport, source, &pSource);
+  auto runtimeDataPart = RetrievePartFromContainer(
+      pOptimizedContainer, hlsl::DFCC_RuntimeData);
 
-  CComPtr<IDxcOperationResult> pResult;
-  VERIFY_SUCCEEDED(pCompiler->Compile(
-      pSource, 
-      L"source.hlsl", 
-      L"", 
-      L"lib_6_6",
-      nullptr, 0,
-      nullptr, 0, nullptr, &pResult));
-  VerifyOperationSucceeded(pResult);
-  CComPtr<IDxcBlob> pProgram;
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  CComPtr<IDxcOptimizer> pOptimizer;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
-
-  std::vector<LPCWSTR> Options;
-  Options.push_back(L"-hlsl-dxilemit");
-
-  CComPtr<IDxcBlob> pDxil;
-  CComPtr<IDxcBlobEncoding> pText;
-  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pProgram, Options.data(),
-                                            Options.size(), &pDxil, &pText));
-
-  CComPtr<IDxcAssembler> pAssembler;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-
-  CComPtr<IDxcOperationResult> result;
-  pAssembler->AssembleToContainer(pDxil, &result);
-
-  CComPtr<IDxcBlob> pOptimizedContainer;
-  result->GetResult(&pOptimizedContainer);
-
-  CComPtr<IDxcContainerReflection> pReflection;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  VERIFY_SUCCEEDED(pReflection->Load(pOptimizedContainer));
-  UINT32 dxilIndex;
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &dxilIndex));
-
-  const char *pBlobContent =
-      reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
-  unsigned blobSize = pOptimizedContainer->GetBufferSize();
-  const hlsl::DxilContainerHeader *pContainerHeader =
-      hlsl::IsDxilContainerLike(pBlobContent, blobSize);
-
-  const hlsl::DxilPartHeader *pPartHeader =
-      GetDxilPartByType(pContainerHeader, hlsl::DFCC_RuntimeData);
-  VERIFY_ARE_NOT_EQUAL(pPartHeader, nullptr);
-
-  hlsl::RDAT::DxilRuntimeData rdat(GetDxilPartData(pPartHeader),
-                             pPartHeader->PartSize);
+  hlsl::RDAT::DxilRuntimeData rdat(runtimeDataPart->GetBufferPointer(),
+                                   static_cast<size_t>(runtimeDataPart->GetBufferSize()));
 
   auto const subObjectTableReader = rdat.GetSubobjectTable();
 
@@ -462,57 +475,15 @@ R"(
     }
 )";
 
+  auto pOptimizedContainer =
+      CompileAndRunHlslEmitAndReturnContainer(source, L"CSMain", L"cs_6_6");
 
-  CComPtr<IDxcCompiler> pCompiler;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-
-  CComPtr<IDxcBlobEncoding> pSource;
-  Utf8ToBlob(m_dllSupport, source, &pSource);
-
-  CComPtr<IDxcOperationResult> pResult;
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"CSMain", L"cs_6_6",
-                                      nullptr, 0, nullptr, 0, nullptr,
-                                      &pResult));
-  VerifyOperationSucceeded(pResult);
-  CComPtr<IDxcBlob> pProgram;
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  CComPtr<IDxcOptimizer> pOptimizer;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
-
-  std::vector<LPCWSTR> Options;
-  Options.push_back(L"-hlsl-dxilemit");
-
-  CComPtr<IDxcBlob> pDxil;
-  CComPtr<IDxcBlobEncoding> pText;
-  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      pProgram, Options.data(), Options.size(), &pDxil, &pText));
-
-  CComPtr<IDxcAssembler> pAssembler;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-
-  CComPtr<IDxcOperationResult> result;
-  pAssembler->AssembleToContainer(pDxil, &result);
-
-  CComPtr<IDxcBlob> pOptimizedContainer;
-  result->GetResult(&pOptimizedContainer);
-
-  const char *pBlobContent =
-      reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
-  unsigned blobSize = pOptimizedContainer->GetBufferSize();
-  const hlsl::DxilContainerHeader *pContainerHeader =
-      hlsl::IsDxilContainerLike(pBlobContent, blobSize);
-
-  const hlsl::DxilPartHeader *pPartHeader =
-      GetDxilPartByType(pContainerHeader, hlsl::DFCC_RootSignature);
-  VERIFY_ARE_NOT_EQUAL(pPartHeader, nullptr);
-
+  auto rootSigPart = RetrievePartFromContainer(
+      pOptimizedContainer, hlsl::DFCC_RootSignature);
 
   hlsl::RootSignatureHandle RSH;
-  RSH.LoadSerialized((const uint8_t *)GetDxilPartData(pPartHeader),
-                         pPartHeader->PartSize);
+  RSH.LoadSerialized(reinterpret_cast<const uint8_t *>(rootSigPart->GetBufferPointer()),
+                         static_cast<uint32_t>(rootSigPart->GetBufferSize()));
 
   RSH.Deserialize();
 
@@ -538,4 +509,64 @@ R"(
       break;
     }
   }
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_HSNonDependent) {
+
+  const char *source =
+R"(
+#define NumOutPoints 2
+
+struct HsCpIn {
+    int foo : FOO;
+};
+
+struct HsCpOut {
+    int bar : BAR;
+};
+
+struct HsPcfOut {
+  float tessOuter[4] : SV_TessFactor;
+  float tessInner[2] : SV_InsideTessFactor;
+};
+
+// Patch Constant Function
+HsPcfOut pcf(uint viewid : SV_ViewID) {
+  HsPcfOut output;
+  output = (HsPcfOut)0;
+  return output;
+}
+
+[domain("quad")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(NumOutPoints)]
+[patchconstantfunc("pcf")]
+HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
+             uint id : SV_OutputControlPointID,
+             uint viewid : SV_ViewID) {
+    HsCpOut output;
+    output.bar = viewid;
+    return output;
+}
+
+)";
+
+  auto pOptimizedContainer =
+      CompileAndRunHlslEmitAndReturnContainer(source, L"main", L"hs_6_6");
+
+  auto psvPart = RetrievePartFromContainer(
+      pOptimizedContainer, hlsl::DFCC_PipelineStateValidation);
+
+  DxilPipelineStateValidation PSV;
+  PSV.InitFromPSV0(
+      reinterpret_cast<const uint8_t *>(psvPart->GetBufferPointer()),
+      static_cast<uint32_t>(psvPart->GetBufferSize()));
+  const PSVRuntimeInfo0 *pInfo0 = PSV.GetPSVRuntimeInfo0();
+  const PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
+  const PSVRuntimeInfo2 *pInfo2 = PSV.GetPSVRuntimeInfo2();
+
+  pInfo0;
+  pInfo1;
+  pInfo2;
 }
