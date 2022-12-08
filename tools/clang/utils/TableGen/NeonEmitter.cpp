@@ -45,7 +45,6 @@ using namespace llvm;
 
 namespace {
 
-
 // While globals are generally bad, this one allows us to perform assertions
 // liberally and somehow still trace them back to the def they indirectly
 // came from.

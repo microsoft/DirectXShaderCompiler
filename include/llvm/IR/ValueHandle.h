@@ -96,6 +96,8 @@ public:
   Value *operator->() const { return V; }
   Value &operator*() const { return *V; }
 
+  bool operator==(const ValueHandleBase &o) const { return V == o.V; }
+
 protected:
   Value *getValPtr() const { return V; }
 
@@ -386,5 +388,15 @@ public:
 };
 
 } // End llvm namespace
+
+namespace std {
+
+template <typename T> struct hash<llvm::AssertingVH<T>> {
+  constexpr size_t operator()(const llvm::AssertingVH<T>& param) const {
+    return llvm::hash_value(static_cast<const T*>(param));
+  }
+};
+
+}
 
 #endif
