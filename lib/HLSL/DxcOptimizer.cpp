@@ -225,6 +225,69 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
       GetPassArgDescriptions(m_passes[index]->getPassArgument()), ppResult);
 }
 
+template <typename _T>
+static void CopyResourceInfo(_T &TargetRes, const _T &SourceRes,
+                             DxilTypeSystem &TargetTypeSys,
+                             const DxilTypeSystem &SourceTypeSys) {
+  if (TargetRes.GetKind() != SourceRes.GetKind() ||
+      TargetRes.GetLowerBound() != SourceRes.GetLowerBound() ||
+      TargetRes.GetRangeSize() != SourceRes.GetRangeSize() ||
+      TargetRes.GetSpaceID() != SourceRes.GetSpaceID()) {
+    DXASSERT(false, "otherwise, resource details don't match");
+    return;
+  }
+
+  if (TargetRes.GetGlobalName().empty() && !SourceRes.GetGlobalName().empty()) {
+    TargetRes.SetGlobalName(SourceRes.GetGlobalName());
+  }
+
+  Type *Ty = SourceRes.GetHLSLType();
+  TargetRes.SetHLSLType(Ty);
+
+  if (isa<PointerType>(Ty))
+    Ty = Ty->getPointerElementType();
+
+  while (isa<ArrayType>(Ty))
+    Ty = Ty->getArrayElementType();
+
+  // TODO: Detect if struct annotation is stripped, then remove it if so, so
+  // it can be replaced.  For now, just always replace it.
+  if (StructType *ST = dyn_cast_or_null<StructType>(Ty)) {
+    if (const DxilStructAnnotation *STAnn = TargetTypeSys.GetStructAnnotation(ST))
+      TargetTypeSys.EraseStructAnnotation(ST);
+  }
+  TargetTypeSys.CopyTypeAnnotation(Ty, SourceTypeSys);
+}
+
+static void CopyMatchingResourceInfo(DxilModule &TargetDM,
+                                     const DxilModule &SourceDM) {
+  DxilTypeSystem &TargetTypeSys = TargetDM.GetTypeSystem();
+  const DxilTypeSystem &SourceTypeSys = SourceDM.GetTypeSystem();
+  if (TargetDM.GetCBuffers().size() != SourceDM.GetCBuffers().size() ||
+      TargetDM.GetSRVs().size() != SourceDM.GetSRVs().size() ||
+      TargetDM.GetUAVs().size() != SourceDM.GetUAVs().size() ||
+      TargetDM.GetSamplers().size() != SourceDM.GetSamplers().size()) {
+    DXASSERT(false, "otherwise, resource lists don't match");
+    return;
+  }
+  for (unsigned i = 0; i < TargetDM.GetCBuffers().size(); ++i) {
+    CopyResourceInfo(TargetDM.GetCBuffer(i), SourceDM.GetCBuffer(i),
+                     TargetTypeSys, SourceTypeSys);
+  }
+  for (unsigned i = 0; i < TargetDM.GetSRVs().size(); ++i) {
+    CopyResourceInfo(TargetDM.GetSRV(i), SourceDM.GetSRV(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < TargetDM.GetUAVs().size(); ++i) {
+    CopyResourceInfo(TargetDM.GetUAV(i), SourceDM.GetUAV(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < TargetDM.GetSamplers().size(); ++i) {
+    CopyResourceInfo(TargetDM.GetSampler(i), SourceDM.GetSampler(i),
+                     TargetTypeSys, SourceTypeSys);
+  }
+}
+
 HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     IDxcBlob *pBlob, _In_count_(optionCount) LPCWSTR *ppOptions,
     UINT32 optionCount, _COM_Outptr_ IDxcBlob **ppOutputModule,
@@ -290,6 +353,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       // - Subobjects from RDAT
       // - RootSignature from RTS0
       // - ViewID and I/O dependency data from PSV0
+      // - Resource names from shader reflection: STAT
 
       // RDAT
       if (const DxilPartHeader *pPartHeader =
@@ -326,6 +390,28 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
           if (OutputSizeInUInts) {
             viewState.assign(OutputSizeInUInts, 0);
             hlsl::LoadViewIDStateFromPSV(viewState.data(), (unsigned)viewState.size(), PSV);
+          }
+        }
+      }
+
+      // STAT
+      if (const DxilPartHeader *pPartHeader = GetDxilPartByType(
+              pContainerHeader, DFCC_ShaderStatistics)) {
+        const DxilProgramHeader *pReflProgramHeader =
+          reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPartHeader));
+        if (!IsValidDxilProgramHeader(pReflProgramHeader,
+                                      pPartHeader->PartSize)) {
+          const char *pReflBitcode;
+          uint32_t reflBitcodeLength;
+          GetDxilProgramBitcode((const DxilProgramHeader *)pReflProgramHeader,
+                                &pReflBitcode, &reflBitcodeLength);
+          std::string DiagStr;
+          std::unique_ptr<Module> ReflM = hlsl::dxilutil::LoadModuleFromBitcode(
+              llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
+          if (ReflM) {
+            // Restore resource names from reflection
+            CopyMatchingResourceInfo(M->GetOrCreateDxilModule(),
+                                     ReflM->GetOrCreateDxilModule());
           }
         }
       }
