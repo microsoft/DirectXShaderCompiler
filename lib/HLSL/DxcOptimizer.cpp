@@ -229,6 +229,13 @@ template <typename _T>
 static void CopyResourceInfo(_T &TargetRes, const _T &SourceRes,
                              DxilTypeSystem &TargetTypeSys,
                              const DxilTypeSystem &SourceTypeSys) {
+  if (TargetRes.GetKind() != SourceRes.GetKind() ||
+      TargetRes.GetLowerBound() != SourceRes.GetLowerBound() ||
+      TargetRes.GetRangeSize() != SourceRes.GetRangeSize() ||
+      TargetRes.GetSpaceID() != SourceRes.GetSpaceID()) {
+    DXASSERT(false, "otherwise, resource details don't match");
+    return;
+  }
   if (TargetRes.GetGlobalName().empty() && !SourceRes.GetGlobalName().empty()) {
     TargetRes.SetGlobalName(SourceRes.GetGlobalName());
   }
@@ -240,6 +247,13 @@ static void CopyMatchingResourceInfo(DxilModule &TargetDM,
                                      const DxilModule &SourceDM) {
   DxilTypeSystem &TargetTypeSys = TargetDM.GetTypeSystem();
   const DxilTypeSystem &SourceTypeSys = SourceDM.GetTypeSystem();
+  if (TargetDM.GetCBuffers().size() != SourceDM.GetCBuffers().size() ||
+      TargetDM.GetSRVs().size() != SourceDM.GetSRVs().size() ||
+      TargetDM.GetUAVs().size() != SourceDM.GetUAVs().size() ||
+      TargetDM.GetSamplers().size() != SourceDM.GetSamplers().size()) {
+    DXASSERT(false, "otherwise, resource lists don't match");
+    return;
+  }
   for (unsigned i = 0; i < TargetDM.GetCBuffers().size(); ++i) {
     CopyResourceInfo(TargetDM.GetCBuffer(i), SourceDM.GetCBuffer(i),
                      TargetTypeSys, SourceTypeSys);
