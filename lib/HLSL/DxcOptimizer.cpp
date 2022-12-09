@@ -336,7 +336,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
               pContainerHeader, DFCC_ShaderStatistics)) {
         const DxilProgramHeader *pReflProgramHeader =
           reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPartHeader));
-        if (!IsValidDxilProgramHeader(pReflProgramHeader,
+        if (IsValidDxilProgramHeader(pReflProgramHeader,
                                       pPartHeader->PartSize)) {
           const char *pReflBitcode;
           uint32_t reflBitcodeLength;
@@ -344,7 +344,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
                                 &pReflBitcode, &reflBitcodeLength);
           std::string DiagStr;
           std::unique_ptr<Module> ReflM = hlsl::dxilutil::LoadModuleFromBitcode(
-              llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
+              llvm::StringRef(pReflBitcode, reflBitcodeLength), Context,
+              DiagStr);
           if (ReflM) {
             // Restore resource names from reflection
             M->GetOrCreateDxilModule().RestoreResourceReflection(
