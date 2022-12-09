@@ -477,7 +477,9 @@ typedef enum DXC_OUT_KIND {
   DXC_OUT_ROOT_SIGNATURE = 9, // IDxcBlob - Serialized root signature output
   DXC_OUT_EXTRA_OUTPUTS  = 10,// IDxcExtraResults - Extra outputs
   DXC_OUT_REMARKS = 11,       // IDxcBlobUtf8 or IDxcBlobUtf16 - text directed at stdout
+  DXC_OUT_TIME_REPORT = 12,   // IDxcBlobUtf8 or IDxcBlobUtf16 - text directed at stdout
 
+  DXC_OUT_LAST = DXC_OUT_TIME_REPORT, // Last value for a counter
   DXC_OUT_FORCE_DWORD = 0xFFFFFFFF
 } DXC_OUT_KIND;
 

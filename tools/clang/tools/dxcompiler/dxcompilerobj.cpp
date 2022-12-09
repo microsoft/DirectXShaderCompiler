@@ -1827,8 +1827,13 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     pResult->CopyOutputsFromResult(pImplResult);
     pResult->SetStatusAndPrimaryResult(hr, pImplResult->PrimaryOutput());
 
-    if (opts.TimeReport)
-      llvm::TimerGroup::printAll(outStream);
+    if (opts.TimeReport) {
+      std::string TimeReport;
+      raw_string_ostream OS(TimeReport);
+      llvm::TimerGroup::printAll(OS);
+      IFT(pResult->SetOutputString(DXC_OUT_TIME_REPORT, TimeReport.c_str(),
+                                   TimeReport.size()));
+    }
 
     outStream.flush();
 
