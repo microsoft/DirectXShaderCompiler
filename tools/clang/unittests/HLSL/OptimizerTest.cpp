@@ -24,6 +24,9 @@
 // For DxilRuntimeReflection.h:
 #include "dxc/Support/WinIncludes.h"
 
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilUtil.h"
+
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
@@ -42,7 +45,10 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/SmallString.h"
@@ -89,6 +95,7 @@ public:
   TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_VSNonDependent)
   TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_GSDependent)
   TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_GSNonDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesResourceStats_PSMultiCBTex2D)
 
   void OptimizerWhenSliceNThenOK(int optLevel);
   void OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
@@ -102,7 +109,11 @@ public:
                                         const wchar_t *profile,
                                         bool usesViewId,
                                         int streamCount = 1);
-
+  void CompareSTATBeforeAndAfterOptimization(const char *source,
+                                             const wchar_t *entry,
+                                             const wchar_t *profile,
+                                             bool usesViewId,
+                                             int streamCount = 1);
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -1177,7 +1188,267 @@ void main(triangleadj MyStructIn array[6], inout TriangleStream<MyStructOut> Out
 
 
 )",
-      L"main", L"gs_6_5", true /*does not use view id*/, 4);
+      L"main", L"gs_6_5", true /*does use view id*/, 4);
+
+}
+
+using namespace llvm;
+using namespace hlsl;
+
+static std::unique_ptr<llvm::Module>
+    GetDxilModuleFromStatsBlobInContainer(LLVMContext & Context, IDxcBlob *pBlob) {
+  const char *pBlobContent =
+      reinterpret_cast<const char *>(pBlob->GetBufferPointer());
+  unsigned blobSize = pBlob->GetBufferSize();
+  const DxilContainerHeader *pContainerHeader =
+      IsDxilContainerLike(pBlobContent, blobSize);
+  const DxilPartHeader *pPartHeader =
+      GetDxilPartByType(pContainerHeader, DFCC_ShaderStatistics);
+  const DxilProgramHeader *pReflProgramHeader =
+      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPartHeader));
+  (void)IsValidDxilProgramHeader(pReflProgramHeader, pPartHeader->PartSize);
+  const char *pReflBitcode;
+  uint32_t reflBitcodeLength;
+  GetDxilProgramBitcode((const DxilProgramHeader *)pReflProgramHeader,
+                        &pReflBitcode, &reflBitcodeLength);
+  std::string DiagStr;
+
+  return hlsl::dxilutil::LoadModuleFromBitcode(
+      llvm::StringRef(pReflBitcode, reflBitcodeLength), Context, DiagStr);
+}
+ 
+template<typename ResourceType>
+void CompareResources(const vector<unique_ptr<ResourceType>> &original,
+                      const vector<unique_ptr<ResourceType>> &optimized) {
+
+  VERIFY_ARE_EQUAL(original.size(), optimized.size());
+  for (size_t i = 0; i < original.size(); ++i) {
+    auto const &originalRes = original.at(i);
+    auto const &optimizedRes = optimized.at(i);
+    VERIFY_ARE_EQUAL(originalRes->GetClass(), optimizedRes->GetClass());
+    VERIFY_ARE_EQUAL(originalRes->GetGlobalName(), optimizedRes->GetGlobalName());
+    VERIFY_ARE_EQUAL(originalRes->GetGlobalSymbol()->getName(),
+                     optimizedRes->GetGlobalSymbol()->getName());
+    VERIFY_ARE_EQUAL(originalRes->GetHLSLType()->getTypeID(),
+                     optimizedRes->GetHLSLType()->getTypeID());
+    if (originalRes->GetHLSLType()->getTypeID() == Type::TypeID::StructTyID) {
+      VERIFY_ARE_EQUAL(originalRes->GetHLSLType()->getStructName(),
+                       optimizedRes->GetHLSLType()->getStructName());
+    }
+    VERIFY_ARE_EQUAL(originalRes->GetID(), optimizedRes->GetID());
+    VERIFY_ARE_EQUAL(originalRes->GetKind(), optimizedRes->GetKind());
+    VERIFY_ARE_EQUAL(originalRes->GetLowerBound(), optimizedRes->GetLowerBound());
+    VERIFY_ARE_EQUAL(originalRes->GetRangeSize(), optimizedRes->GetRangeSize());
+    VERIFY_ARE_EQUAL(originalRes->GetResBindPrefix(), optimizedRes->GetResBindPrefix());
+    VERIFY_ARE_EQUAL(originalRes->GetResClassName(), optimizedRes->GetResClassName());
+    VERIFY_ARE_EQUAL(originalRes->GetResDimName(), optimizedRes->GetResDimName());
+    VERIFY_ARE_EQUAL(originalRes->GetResIDPrefix(), optimizedRes->GetResIDPrefix());
+    VERIFY_ARE_EQUAL(originalRes->GetSpaceID(), optimizedRes->GetSpaceID());
+    VERIFY_ARE_EQUAL(originalRes->GetUpperBound(), optimizedRes->GetUpperBound());
+  }
+}
+
+void OptimizerTest::CompareSTATBeforeAndAfterOptimization(
+    const char *source, const wchar_t *entry, const wchar_t *profile,
+    bool usesViewId, int streamCount /*= 1*/) {
+
+
+  auto originalContainer = Compile(source, entry, profile);
+
+  auto optimizedContainer = RunHlslEmitAndReturnContainer(originalContainer);
+
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
+  IFT(CreateMSFileSystemForDisk(&msfPtr));
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+
+  LLVMContext originalContext, optimizedContext;
+  auto originalStatModule =
+      GetDxilModuleFromStatsBlobInContainer(originalContext, originalContainer);
+  auto optimizedStatModule =
+      GetDxilModuleFromStatsBlobInContainer(optimizedContext, optimizedContainer);
+
+ 
+  auto &originalDM = originalStatModule->GetOrCreateDxilModule();
+  auto & optimizeDM = optimizedStatModule->GetOrCreateDxilModule();
+
+
+  CompareResources(originalDM.GetCBuffers(), optimizeDM.GetCBuffers());
+  CompareResources(originalDM.GetSRVs(), optimizeDM.GetSRVs());
+  CompareResources(originalDM.GetUAVs(), optimizeDM.GetUAVs());
+  CompareResources(originalDM.GetSamplers(), optimizeDM.GetSamplers());
+
+}
+
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesResourceStats_PSMultiCBTex2D)
+{
+  CompareSTATBeforeAndAfterOptimization(
+      R"(
+
+#define MOD4(x) ((x)&3)
+#ifndef MAX_POINTS
+#define MAX_POINTS 32
+#endif
+#define MAX_BONE_MATRICES 80
+                        
+//--------------------------------------------------------------------------------------
+// Textures
+//--------------------------------------------------------------------------------------
+Texture2D       g_txHeight : register( t0 );           // Height and Bump texture
+Texture2D       g_txDiffuse : register( t1 );          // Diffuse texture
+Texture2D       g_txSpecular : register( t2 );         // Specular texture
+
+//--------------------------------------------------------------------------------------
+// Samplers
+//--------------------------------------------------------------------------------------
+SamplerState g_samLinear : register( s0 );
+SamplerState g_samPoint : register( s0 );
+
+//--------------------------------------------------------------------------------------
+// Constant Buffers
+//--------------------------------------------------------------------------------------
+cbuffer cbTangentStencilConstants : register( b0 )
+{
+    float g_TanM[1024]; // Tangent patch stencils precomputed by the application
+    float g_fCi[16];    // Valence coefficients precomputed by the application
+};
+
+cbuffer cbPerMesh : register( b1 )
+{
+    matrix g_mConstBoneWorld[MAX_BONE_MATRICES];
+};
+
+cbuffer cbPerFrame : register( b2 )
+{
+    matrix g_mViewProjection;
+    float3 g_vCameraPosWorld;
+    float  g_fTessellationFactor;
+    float  g_fDisplacementHeight;
+    float3 g_vSolidColor;
+};
+
+cbuffer cbPerSubset : register( b3 )
+{
+    int g_iPatchStartIndex;
+}
+
+//--------------------------------------------------------------------------------------
+Buffer<uint4>  g_ValencePrefixBuffer : register( t0 );
+
+//--------------------------------------------------------------------------------------
+struct VS_CONTROL_POINT_OUTPUT
+{
+    float3 vPosition		: WORLDPOS;
+    float2 vUV				: TEXCOORD0;
+    float3 vTangent			: TANGENT;
+};
+
+struct BEZIER_CONTROL_POINT
+{
+    float3 vPosition	: BEZIERPOS;
+};
+
+struct PS_INPUT
+{
+    float3 vWorldPos        : POSITION;
+    float3 vNormal			: NORMAL;
+    float2 vUV				: TEXCOORD;
+    float3 vTangent			: TANGENT;
+    float3 vBiTangent		: BITANGENT;
+};
+
+
+//--------------------------------------------------------------------------------------
+// Smooth shading pixel shader section
+//--------------------------------------------------------------------------------------
+
+float3 safe_normalize( float3 vInput )
+{
+    float len2 = dot( vInput, vInput );
+    if( len2 > 0 )
+    {
+        return vInput * rsqrt( len2 );
+    }
+    return vInput;
+}
+
+static const float g_fSpecularExponent = 32.0f;
+static const float g_fSpecularIntensity = 0.6f;
+static const float g_fNormalMapIntensity = 1.5f;
+
+float2 ComputeDirectionalLight( float3 vWorldPos, float3 vWorldNormal, float3 vDirLightDir )
+{
+    // Result.x is diffuse illumination, Result.y is specular illumination
+    float2 Result = float2( 0, 0 );
+    Result.x = pow( saturate( dot( vWorldNormal, -vDirLightDir ) ), 2 );
+    
+    float3 vPointToCamera = normalize( g_vCameraPosWorld - vWorldPos );
+    float3 vHalfAngle = normalize( vPointToCamera - vDirLightDir );
+    Result.y = pow( saturate( dot( vHalfAngle, vWorldNormal ) ), g_fSpecularExponent );
+    
+    return Result;
+}
+
+float3 ColorGamma( float3 Input )
+{
+    return pow( Input, 2.2f );
+}
+
+float4 main( PS_INPUT Input ) : SV_TARGET
+{
+    float4 vNormalMapSampleRaw = g_txHeight.Sample( g_samLinear, Input.vUV );
+    float3 vNormalMapSampleBiased = ( vNormalMapSampleRaw.xyz * 2 ) - 1; 
+    vNormalMapSampleBiased.xy *= g_fNormalMapIntensity;
+    float3 vNormalMapSample = normalize( vNormalMapSampleBiased );
+    
+    float3 vNormal = safe_normalize( Input.vNormal ) * vNormalMapSample.z;
+    vNormal += safe_normalize( Input.vTangent ) * vNormalMapSample.x;
+    vNormal += safe_normalize( Input.vBiTangent ) * vNormalMapSample.y;
+                     
+    //float3 vColor = float3( 1, 1, 1 );
+    float3 vColor = g_txDiffuse.Sample( g_samLinear, Input.vUV ).rgb;
+    float vSpecular = g_txSpecular.Sample( g_samLinear, Input.vUV ).r * g_fSpecularIntensity;
+    
+    const float3 DirLightDirections[4] =
+    {
+        // key light
+        normalize( float3( -63.345150, -58.043934, 27.785097 ) ),
+        // fill light
+        normalize( float3( 23.652107, -17.391443, 54.972504 ) ),
+        // back light 1
+        normalize( float3( 20.470509, -22.939510, -33.929531 ) ),
+        // back light 2
+        normalize( float3( -31.003685, 24.242104, -41.352859 ) ),
+    };
+    
+    const float3 DirLightColors[4] = 
+    {
+        // key light
+        ColorGamma( float3( 1.0f, 0.964f, 0.706f ) * 1.0f ),
+        // fill light
+        ColorGamma( float3( 0.446f, 0.641f, 1.0f ) * 1.0f ),
+        // back light 1
+        ColorGamma( float3( 1.0f, 0.862f, 0.419f ) * 1.0f ),
+        // back light 2
+        ColorGamma( float3( 0.405f, 0.630f, 1.0f ) * 1.0f ),
+    };
+        
+    float3 fLightColor = 0;
+    for( int i = 0; i < 4; ++i )
+    {
+        float2 LightDiffuseSpecular = ComputeDirectionalLight( Input.vWorldPos, vNormal, DirLightDirections[i] );
+        fLightColor += DirLightColors[i] * vColor * LightDiffuseSpecular.x;
+        fLightColor += DirLightColors[i] * LightDiffuseSpecular.y * vSpecular;
+    }
+    
+    return float4( fLightColor, 1 );
+}
+
+
+)",
+      L"main", L"ps_6_5", false /*does not use view id*/, 4);
 
 }
 
