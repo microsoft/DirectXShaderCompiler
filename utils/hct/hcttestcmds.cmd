@@ -136,7 +136,7 @@ call :check_file log find TranslationUnitDecl
 if %Failed% neq 0 goto :failed
 
 set testname=time-report
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /ftime-report
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -ftime-report
 call :check_file log find "Pass execution timing report"
 if %Failed% neq 0 goto :failed
 
