@@ -206,6 +206,7 @@ public:
   bool ForceZeroStoreLifetimes = false; // OPT_force_zero_store_lifetimes
   bool EnableLifetimeMarkers = false; // OPT_enable_lifetime_markers
   bool ForceDisableLocTracking = false; // OPT_fdisable_loc_tracking
+  bool TimeReport = false; // OPT_ftime_report
 
   // Optimization pass enables, disables and selects
   std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
