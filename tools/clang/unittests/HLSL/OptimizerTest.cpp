@@ -1163,10 +1163,10 @@ struct MyStructOut
 };
 
 [maxvertexcount(18)]
-void main(triangleadj MyStructIn array[6], inout TriangleStream<MyStructOut> OutputStream0)
+void main(triangleadj MyStructIn array[6], inout TriangleStream<MyStructOut> OutputStream0, uint viewid : SV_ViewID)
 {
   float4 r = array[1].a + array[2].b.x + array[3].pos;
-  r += array[r.x].c[r.y].w;
+  r += array[r.x].c[r.y].w + viewid;
   MyStructOut output = (MyStructOut)0;
   output.pos = array[r.x].a;
   output.out_a = array[r.y].b;
@@ -1177,7 +1177,7 @@ void main(triangleadj MyStructIn array[6], inout TriangleStream<MyStructOut> Out
 
 
 )",
-      L"main", L"gs_6_5", false /*does not use view id*/, 4);
+      L"main", L"gs_6_5", true /*does not use view id*/, 4);
 
 }
 
