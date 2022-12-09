@@ -480,8 +480,13 @@ typedef enum DXC_OUT_KIND {
   DXC_OUT_TIME_REPORT = 12,   // IDxcBlobUtf8 or IDxcBlobUtf16 - text directed at stdout
 
   DXC_OUT_LAST = DXC_OUT_TIME_REPORT, // Last value for a counter
+
+  DXC_OUT_NUM_ENUMS,
   DXC_OUT_FORCE_DWORD = 0xFFFFFFFF
 } DXC_OUT_KIND;
+
+static_assert(DXC_OUT_NUM_ENUMS == DXC_OUT_LAST + 1,
+              "DXC_OUT_* Enum added and last value not updated.");
 
 CROSS_PLATFORM_UUIDOF(IDxcResult, "58346CDA-DDE7-4497-9461-6F87AF5E0659")
 struct IDxcResult : public IDxcOperationResult {
