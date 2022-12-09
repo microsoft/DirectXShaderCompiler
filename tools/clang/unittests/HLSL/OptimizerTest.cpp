@@ -463,10 +463,10 @@ void MyMiss(inout MyPayload payload)
     hlsl::DXIL::SubobjectKind subobjectKind = subObject.getKind();
     switch (subobjectKind) {
     case hlsl::DXIL::SubobjectKind::StateObjectConfig:
-      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_StateObjectConfig"));
+      VERIFY_ARE_EQUAL_STR(subObject.getName(), "so_StateObjectConfig");
       break;
     case hlsl::DXIL::SubobjectKind::GlobalRootSignature:
-      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_GlobalRootSignature"));
+      VERIFY_ARE_EQUAL_STR(subObject.getName(), "so_GlobalRootSignature");
       break;
     case hlsl::DXIL::SubobjectKind::LocalRootSignature:
       VERIFY_IS_TRUE(
@@ -479,13 +479,13 @@ void MyMiss(inout MyPayload payload)
           0 == strcmp(subObject.getName(), "so_Association2"));
       break;
     case hlsl::DXIL::SubobjectKind::RaytracingShaderConfig:
-      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_RaytracingShaderConfig"));
+      VERIFY_ARE_EQUAL_STR(subObject.getName(), "so_RaytracingShaderConfig");
       break;
     case hlsl::DXIL::SubobjectKind::RaytracingPipelineConfig:
-      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "so_RaytracingPipelineConfig"));
+      VERIFY_ARE_EQUAL_STR(subObject.getName(), "so_RaytracingPipelineConfig");
       break;
     case hlsl::DXIL::SubobjectKind::HitGroup:
-      VERIFY_IS_TRUE(0 == strcmp(subObject.getName(), "MyHitGroup"));
+      VERIFY_ARE_EQUAL_STR(subObject.getName(), "MyHitGroup");
       break;
       break;
     }
