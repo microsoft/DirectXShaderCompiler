@@ -511,8 +511,7 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   IFTBOOL(((const char*)pInSS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumStaticSamplers) {
     pRootSignature->pStaticSamplers = new DxilStaticSamplerDesc[pRootSignature->NumStaticSamplers];
-    memcpy((void*)pRootSignature->pStaticSamplers, pInSS,
-           sizeof(DxilStaticSamplerDesc) * pRootSignature->NumStaticSamplers);
+    memcpy((void*)pRootSignature->pStaticSamplers, pInSS, s);
   }
 }
 
