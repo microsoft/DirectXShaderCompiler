@@ -606,7 +606,16 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
                        *optimizedPsv.GetViewIDOutputMask(stream).Mask);
       VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).NumVectors,
                        optimizedPsv.GetViewIDOutputMask(stream).NumVectors);
-
+      VERIFY_ARE_EQUAL(originalPsv.GetInputToOutputTable(stream).IsValid(),
+                       optimizedPsv.GetInputToOutputTable(stream).IsValid());
+      if (originalPsv.GetInputToOutputTable(stream).IsValid()) {
+        VERIFY_ARE_EQUAL(
+            originalPsv.GetInputToOutputTable(stream).InputVectors,
+            optimizedPsv.GetInputToOutputTable(stream).InputVectors);
+        VERIFY_ARE_EQUAL(
+            originalPsv.GetInputToOutputTable(stream).OutputVectors,
+            optimizedPsv.GetInputToOutputTable(stream).OutputVectors);
+      }
     }
   }
 }
@@ -1227,22 +1236,32 @@ void CompareResources(const vector<unique_ptr<ResourceType>> &original,
     auto const &optimizedRes = optimized.at(i);
     VERIFY_ARE_EQUAL(originalRes->GetClass(), optimizedRes->GetClass());
     VERIFY_ARE_EQUAL(originalRes->GetGlobalName(), optimizedRes->GetGlobalName());
-    VERIFY_ARE_EQUAL(originalRes->GetGlobalSymbol()->getName(),
-                     optimizedRes->GetGlobalSymbol()->getName());
-    VERIFY_ARE_EQUAL(originalRes->GetHLSLType()->getTypeID(),
+    if (originalRes->GetGlobalSymbol() != nullptr &&
+        optimizedRes->GetGlobalSymbol() != nullptr) {
+      VERIFY_ARE_EQUAL(originalRes->GetGlobalSymbol()->getName(),
+                       optimizedRes->GetGlobalSymbol()->getName());
+    }
+    if (originalRes->GetHLSLType() != nullptr &&
+            optimizedRes->GetHLSLType() != nullptr) {
+        VERIFY_ARE_EQUAL(originalRes->GetHLSLType()->getTypeID(),
                      optimizedRes->GetHLSLType()->getTypeID());
-    if (originalRes->GetHLSLType()->getTypeID() == Type::TypeID::StructTyID) {
-      VERIFY_ARE_EQUAL(originalRes->GetHLSLType()->getStructName(),
-                       optimizedRes->GetHLSLType()->getStructName());
+      if (originalRes->GetHLSLType()->getTypeID() == Type::PointerTyID) {
+        auto originalPointedType = originalRes->GetHLSLType()->getArrayElementType();
+        auto optimizedPointedType = optimizedRes->GetHLSLType()->getArrayElementType();
+        VERIFY_ARE_EQUAL(originalPointedType->getTypeID(),
+                           optimizedPointedType->getTypeID());
+        if (optimizedPointedType->getTypeID() == Type::StructTyID) {
+          VERIFY_ARE_EQUAL(originalPointedType->getStructName(),
+                           optimizedPointedType->getStructName());
+        }
+      }
     }
     VERIFY_ARE_EQUAL(originalRes->GetID(), optimizedRes->GetID());
     VERIFY_ARE_EQUAL(originalRes->GetKind(), optimizedRes->GetKind());
     VERIFY_ARE_EQUAL(originalRes->GetLowerBound(), optimizedRes->GetLowerBound());
     VERIFY_ARE_EQUAL(originalRes->GetRangeSize(), optimizedRes->GetRangeSize());
-    VERIFY_ARE_EQUAL(originalRes->GetResBindPrefix(), optimizedRes->GetResBindPrefix());
-    VERIFY_ARE_EQUAL(originalRes->GetResClassName(), optimizedRes->GetResClassName());
-    VERIFY_ARE_EQUAL(originalRes->GetResDimName(), optimizedRes->GetResDimName());
-    VERIFY_ARE_EQUAL(originalRes->GetResIDPrefix(), optimizedRes->GetResIDPrefix());
+    VERIFY_ARE_EQUAL_STR(originalRes->GetResBindPrefix(), optimizedRes->GetResBindPrefix());
+    VERIFY_ARE_EQUAL_STR(originalRes->GetResIDPrefix(), optimizedRes->GetResIDPrefix());
     VERIFY_ARE_EQUAL(originalRes->GetSpaceID(), optimizedRes->GetSpaceID());
     VERIFY_ARE_EQUAL(originalRes->GetUpperBound(), optimizedRes->GetUpperBound());
   }
