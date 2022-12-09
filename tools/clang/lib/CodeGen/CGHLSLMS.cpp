@@ -2202,7 +2202,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           rayShaderHaveErrors = true;
         }
         if (ArgNo < 2) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
             Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "payload and attribute structures must be user defined types with only numeric contents."));
@@ -2230,7 +2230,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           rayShaderHaveErrors = true;
         }
         if (ArgNo < 1) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
             Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "ray payload parameter must be a user defined type with only numeric contents."));
@@ -2255,7 +2255,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           rayShaderHaveErrors = true;
         }
         if (ArgNo < 1) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
             Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "callable parameter must be a user defined type with only numeric contents."));

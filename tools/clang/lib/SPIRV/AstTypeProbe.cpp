@@ -355,19 +355,6 @@ bool isResourceType(QualType type) {
   return hlsl::IsHLSLResourceType(type);
 }
 
-bool isUserDefinedRecordType(const ASTContext &astContext, QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    if (rt->getDecl()->getName() == "mips_slice_type" ||
-        rt->getDecl()->getName() == "sample_slice_type") {
-      return false;
-    }
-  }
-  return type->getAs<RecordType>() != nullptr && !isResourceType(type) &&
-         !isMatrixOrArrayOfMatrix(astContext, type) &&
-         !isScalarOrVectorType(type, nullptr, nullptr) &&
-         !isArrayType(type, nullptr, nullptr);
-}
-
 bool isOrContains16BitType(QualType type, bool enable16BitTypesOption) {
   // Primitive types
   {

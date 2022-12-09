@@ -97,7 +97,7 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
       return true;
-    return IsHLSLNumericUserDefinedType(type);
+    return IsHLSLCopyableAnnotatableRecord(type);
   } else if (type->isArrayType()) {
     return IsHLSLNumericOrAggregateOfNumericType(QualType(type->getArrayElementTypeNoTypeQual(), 0));
   }
@@ -111,14 +111,7 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
-    if (isa<ClassTemplateSpecializationDecl>(RD)) {
-      return false;   // UDT are not templates
-    }
-    // TODO: avoid check by name
-    StringRef name = RD->getName();
-    if (name == "ByteAddressBuffer" ||
-        name == "RWByteAddressBuffer" ||
-        name == "RaytracingAccelerationStructure")
+    if (!IsUserDefinedRecordType(type))
       return false;
     for (auto member : RD->fields()) {
       if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
@@ -129,15 +122,34 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
+// In some cases we need record types that are annotatable and trivially
+// copyable from outside the shader. This excludes resource types which may be
+// trivially copyable inside the shader, and builtin matrix and vector types
+// which can't be annotated. But includes UDTs of trivially copyable data and
+// the builtin trivially copyable raytracing structs.
+bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
+  return IsHLSLNumericUserDefinedType(QT) ||
+         IsHLSLBuiltinRayAttributeStruct(QT);
+}
+
+bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
+  QT = QT.getCanonicalType();
+  const clang::Type *Ty = QT.getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (RD->getName() == "BuiltInTriangleIntersectionAttributes" || 
+        RD->getName() == "RayDesc")
+      return true;
+  }
+  return false;
+}
+
 // Aggregate types are arrays and user-defined structs
 bool IsHLSLAggregateType(clang::QualType type) {
   type = type.getCanonicalType();
   if (isa<clang::ArrayType>(type)) return true;
 
-  const RecordType *Record = dyn_cast<RecordType>(type);
-  return Record != nullptr
-    && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type)
-    && !dyn_cast<ClassTemplateSpecializationDecl>(Record->getAsCXXRecordDecl());
+  return IsUserDefinedRecordType(type);
 }
 
 clang::QualType GetElementTypeOrType(clang::QualType type) {
@@ -586,23 +598,17 @@ bool IsHLSLSubobjectType(clang::QualType type) {
   return GetHLSLSubobjectKind(type, kind, hgType);
 }
 
-bool IsUserDefinedRecordType(clang::QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    // HLSL specific types
-    if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
-        isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
-        type->isArrayType()) {
+bool IsUserDefinedRecordType(clang::QualType QT) {
+  const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (RD->isImplicit())
       return false;
-    }
-
-    // SubpassInput or SubpassInputMS type
-    if (rt->getDecl()->getName() == "SubpassInput" ||
-        rt->getDecl()->getName() == "SubpassInputMS") {
-      return false;
-    }
+    if (auto TD = dyn_cast<ClassTemplateSpecializationDecl>(RD))
+      if (TD->getSpecializedTemplate()->isImplicit())
+        return false;
     return true;
   }
-
   return false;
 }
 

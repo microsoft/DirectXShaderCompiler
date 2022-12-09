@@ -103,6 +103,7 @@ public:
   TEST_METHOD(GloballyCoherentErrors)
   TEST_METHOD(GloballyCoherentTemplateErrors)
   TEST_METHOD(RunBitFieldAnnotations)
+  TEST_METHOD(RunUDTByteAddressBufferLoad)
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
@@ -447,4 +448,8 @@ TEST_F(VerifierTest, GloballyCoherentTemplateErrors) {
 
 TEST_F(VerifierTest, RunBitFieldAnnotations) {
   CheckVerifiesHLSL(L"bitfields-and-annotations.hlsl");
+}
+
+TEST_F(VerifierTest, RunUDTByteAddressBufferLoad) {
+  CheckVerifiesHLSL(L"template-udt-load.hlsl");
 }
