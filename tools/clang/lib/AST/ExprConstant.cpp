@@ -641,6 +641,7 @@ namespace {
               break;
             // We've had side-effects; we want the diagnostic from them, not
             // some later problem.
+            LLVM_FALLTHROUGH; // HLSL Change
           case EM_ConstantExpression:
           case EM_PotentialConstantExpression:
           case EM_ConstantExpressionUnevaluated:
@@ -6571,6 +6572,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
     case EvalInfo::EM_PotentialConstantExpressionUnevaluated:
       return Success(-1ULL, E);
     }
+    llvm_unreachable("Invalid EvalMode!");
   }
 
   case Builtin::BI__builtin_bswap16:
@@ -6710,7 +6712,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
         << /*isConstexpr*/0 << /*isConstructor*/0 << "'strlen'";
     else
       Info.CCEDiag(E, diag::note_invalid_subexpr_in_const_expr);
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case Builtin::BI__builtin_strlen: {
     // As an extension, we support __builtin_strlen() as a constant expression,
     // and support folding strlen() to a constant.
@@ -9189,7 +9191,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return CheckICE(Exp->getSubExpr(), Ctx);
     }
 
-    // OffsetOf falls through here.
+    return CheckEvalInICE(E, Ctx); // HLSL Change - avoid dead-code fallthrough
+
   }
   case Expr::OffsetOfExprClass: {
     // Note that per C99, offsetof must be an ICE. And AFAIK, using
@@ -9292,6 +9295,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return Worst(LHSResult, RHSResult);
     }
     }
+    llvm_unreachable("Invalid binary operator!");
   }
   case Expr::ImplicitCastExprClass:
   case Expr::CStyleCastExprClass:

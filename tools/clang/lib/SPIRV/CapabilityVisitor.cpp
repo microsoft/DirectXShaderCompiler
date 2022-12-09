@@ -559,6 +559,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
       addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
+    break;
   }
 
   case spv::Op::OpSetMeshOutputsEXT:
@@ -725,6 +726,7 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
     case GLSLstd450::GLSLstd450InterpolateAtOffset:
       addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
                    instr->getSourceLocation());
+      break;
     default:
       break;
     }

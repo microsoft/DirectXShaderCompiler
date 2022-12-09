@@ -1885,7 +1885,7 @@ isAllocSiteRemovable(Instruction *AI, SmallVectorImpl<WeakVH> &Users,
             if (MI->isVolatile() || MI->getRawDest() != PI)
               return false;
           }
-          // fall through
+          LLVM_FALLTHROUGH; // HLSL Change
           case Intrinsic::dbg_declare:
           case Intrinsic::dbg_value:
           case Intrinsic::invariant_start:

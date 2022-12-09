@@ -4713,6 +4713,7 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
       // We only need an instantiation if the pending instantiation *is* the
       // explicit instantiation.
       if (Var != Var->getMostRecentDecl()) continue;
+      break;
     case TSK_ImplicitInstantiation:
       break;
     }

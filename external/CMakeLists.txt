@@ -39,6 +39,11 @@ if (${ENABLE_SPIRV_CODEGEN})
 
   if (NOT TARGET SPIRV-Tools)
     if (IS_DIRECTORY ${DXC_SPIRV_TOOLS_DIR})
+      # Avoid implicit fallthrough warning from clang
+      # This add_compile_options() will only affect the current directory and its subdirectories.
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-Wno-implicit-fallthrough)
+      endif(NOT WIN32)
       # We only need the library from SPIRV-Tools.
       set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip building SPIRV-Tools executables")
       if (NOT HLSL_ENABLE_DEBUG_ITERATORS)

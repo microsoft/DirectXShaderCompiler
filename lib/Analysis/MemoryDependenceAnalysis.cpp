@@ -641,6 +641,7 @@ MemDepResult MemoryDependenceAnalysis::getPointerDependencyFrom(
       // load query, we can safely ignore it (scan past it).
       if (isLoad)
         continue;
+      LLVM_FALLTHROUGH; // HLSL Change
     default:
       // Otherwise, there is a potential dependence.  Return a clobber.
       return MemDepResult::getClobber(Inst);
@@ -1014,6 +1015,7 @@ SortNonLocalDepInfoCache(MemoryDependenceAnalysis::NonLocalDepInfo &Cache,
       std::upper_bound(Cache.begin(), Cache.end()-1, Val);
     Cache.insert(Entry, Val);
     // FALL THROUGH.
+    LLVM_FALLTHROUGH; // HLSL Change
   }
   case 1:
     // One new entry, Just insert the new value at the appropriate position.

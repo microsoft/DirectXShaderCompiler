@@ -863,7 +863,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::EmitObj; break;
     case OPT_fixit_EQ:
       Opts.FixItSuffix = A->getValue();
-      // fall-through!
+      LLVM_FALLTHROUGH; // HLSL Change
     case OPT_fixit:
       Opts.ProgramAction = frontend::FixIt; break;
     case OPT_emit_module:

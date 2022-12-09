@@ -126,6 +126,7 @@ SerializedDiagnosticReader::readMetaBlock(llvm::BitstreamCursor &Stream) {
     case Cursor::BlockBegin:
       if (Stream.SkipBlock())
         return SDError::MalformedMetadataBlock;
+      LLVM_FALLTHROUGH; // HLSL Change
     case Cursor::BlockEnd:
       if (!VersionChecked)
         return SDError::MissingVersion;

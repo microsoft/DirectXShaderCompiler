@@ -17,14 +17,14 @@
 
 // The attribute name can be bracketed with double underscores.
 // CHECK: has_clang_fallthrough_2
-#if __has_cpp_attribute(clang::__fallthrough__)
+#if __has_cpp_attribute(clang::LLVM_FALLTHROUGH__)
   int has_clang_fallthrough_2();
 #endif
 
 // The scope cannot be bracketed with double underscores.
-// CHECK: does_not_have___clang___fallthrough
+// CHECK: does_not_have___clang_LLVM_FALLTHROUGH
 #if !__has_cpp_attribute(__clang__::fallthrough)
-  int does_not_have___clang___fallthrough();
+  int does_not_have___clang_LLVM_FALLTHROUGH();
 #endif
 
 // Test that C++11, target-specific attributes behave properly.

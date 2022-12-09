@@ -2738,7 +2738,7 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
           break;
         }
       }
-      __fallthrough;
+      LLVM_FALLTHROUGH;
       default:
         // RayQuery this pointer replacement.
         if (OldVal->getType()->isPointerTy() &&

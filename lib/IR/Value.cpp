@@ -439,7 +439,7 @@ static Value *stripPointerCastsAndOffsets(Value *V) {
       case PSK_InBoundsConstantIndices:
         if (!GEP->hasAllConstantIndices())
           return V;
-        // fallthrough
+        LLVM_FALLTHROUGH; // HLSL Change
       case PSK_InBounds:
         if (!GEP->isInBounds())
           return V;
@@ -731,7 +731,7 @@ void ValueHandleBase::ValueIsRAUWd(Value *Old, Value *New) {
       // virtual (or inline) interface to handle this though, so instead we make
       // the TrackingVH accessors guarantee that a client never sees this value.
 
-      // FALLTHROUGH
+      LLVM_FALLTHROUGH; // HLSL CHANGE
     case Weak:
       // Weak goes to the new value, which will unlink it from Old's list.
       Entry->operator=(New);
