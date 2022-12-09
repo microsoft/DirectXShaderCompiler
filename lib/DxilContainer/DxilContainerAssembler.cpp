@@ -102,7 +102,7 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
   case Semantic::Kind::DepthLessEqual: return DxilProgramSigSemantic::DepthLE;
   case Semantic::Kind::DepthGreaterEqual: return DxilProgramSigSemantic::DepthGE;
   case Semantic::Kind::StencilRef:
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   default:
     DXASSERT(kind == Semantic::Kind::StencilRef, "else Invalid or switch is missing a case");
     return DxilProgramSigSemantic::StencilRef;
@@ -127,7 +127,7 @@ static DxilProgramSigCompType CompTypeToSigCompType(hlsl::CompType value, bool i
   case CompType::Kind::U64: return DxilProgramSigCompType::UInt64;
   case CompType::Kind::F16: return DxilProgramSigCompType::Float16;
   case CompType::Kind::F64: return DxilProgramSigCompType::Float64;
-  case CompType::Kind::Invalid: __fallthrough;
+  case CompType::Kind::Invalid: LLVM_FALLTHROUGH;
   default:
     return DxilProgramSigCompType::Unknown;
   }
@@ -139,13 +139,13 @@ static DxilProgramSigMinPrecision CompTypeToSigMinPrecision(hlsl::CompType value
   case CompType::Kind::U32: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::F32: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::I1: return DxilProgramSigMinPrecision::Default;
-  case CompType::Kind::U64: __fallthrough;
-  case CompType::Kind::I64: __fallthrough;
+  case CompType::Kind::U64: LLVM_FALLTHROUGH;
+  case CompType::Kind::I64: LLVM_FALLTHROUGH;
   case CompType::Kind::F64: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::I16: return DxilProgramSigMinPrecision::SInt16;
   case CompType::Kind::U16: return DxilProgramSigMinPrecision::UInt16;
   case CompType::Kind::F16: return DxilProgramSigMinPrecision::Float16; // Float2_8 is not supported in DXIL.
-  case CompType::Kind::Invalid: __fallthrough;
+  case CompType::Kind::Invalid: LLVM_FALLTHROUGH;
   default:
     return DxilProgramSigMinPrecision::Default;
   }
@@ -1142,7 +1142,7 @@ private:
         break;
       case DXIL::SubobjectKind::LocalRootSignature:
         bLocalRS = true;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case DXIL::SubobjectKind::GlobalRootSignature: {
         const void *Data;
         obj.GetRootSignature(bLocalRS, Data, info.RootSignature.Data.Size);

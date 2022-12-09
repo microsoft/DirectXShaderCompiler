@@ -901,7 +901,7 @@ LambdaCapture::LambdaCapture(SourceLocation Loc, bool Implicit,
 
   case LCK_ByCopy:
     Bits |= Capture_ByCopy;
-    // Fall through 
+    LLVM_FALLTHROUGH; // HLSL Change
   case LCK_ByRef:
     assert(Var && "capture must have a variable!");
     break;

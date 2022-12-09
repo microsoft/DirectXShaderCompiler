@@ -1060,6 +1060,7 @@ HRESULT CShaderReflectionType::Initialize(
       OutputDebugStringA("DxilContainerReflection.cpp: error: unknown matrix orientation\n");
 #endif
     // Note: column-major layout is the default
+    LLVM_FALLTHROUGH; // HLSL Change
     case hlsl::MatrixOrientation::Undefined:
     case hlsl::MatrixOrientation::ColumnMajor:
       m_Desc.Class = D3D_SVC_MATRIX_COLUMNS;
@@ -2682,10 +2683,10 @@ void DxilLibraryReflection::AddResourceDependencies() {
       switch (prevClass) {
       case DXIL::ResourceClass::Sampler:
         SamplersStart = i;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case DXIL::ResourceClass::SRV:
         SRVsStart = i;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case DXIL::ResourceClass::UAV:
         UAVsStart = i;
         break;

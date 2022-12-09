@@ -7835,6 +7835,7 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     }
   default:
     DXASSERT(false, "unreachable");
+    return false;
   case AR_TOBJ_BASIC:
   case AR_TOBJ_MATRIX:
   case AR_TOBJ_VECTOR:
@@ -8090,24 +8091,28 @@ VectorMemberAccessError TryConsumeVectorDigit(const char*& memberText, uint32_t*
   switch (*memberText) {
   case 'r':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'x':
     *value = 0;
     break;
 
   case 'g':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'y':
     *value = 1;
     break;
 
   case 'b':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'z':
     *value = 2;
     break;
 
   case 'a':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'w':
     *value = 3;
     break;
@@ -8517,7 +8522,7 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
         DXASSERT(false, "PerformHLSLConversion: Invalid source type for truncation cast");
       }
     }
-    __fallthrough;
+    LLVM_FALLTHROUGH;
 
     case ICK_HLSLVector_Conversion: {
       // 2. Do ShapeKind conversion if necessary
@@ -9159,7 +9164,7 @@ lSuccess:
         case ICK_Vector_Conversion:
         case ICK_Vector_Splat:
           DXASSERT(false, "We shouldn't be producing these implicit conversion kinds");
-
+          break;
         case ICK_Flat_Conversion:
         case ICK_HLSLVector_Splat:
           standard->First = ICK_Lvalue_To_Rvalue;
@@ -11428,7 +11433,7 @@ bool FlattenedTypeIterator::considerLeaf()
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:
-    m_springLoaded = true; // fall through.
+    m_springLoaded = true; LLVM_FALLTHROUGH;
   default:
   case FlattenedIterKind::FK_Simple: {
     ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(tracker.Type);

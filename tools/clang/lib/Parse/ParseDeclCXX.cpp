@@ -361,7 +361,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, unsigned Context) {
     case tok::r_brace:
       if (!NestedModules)
         break;
-      // Fall through.
+      LLVM_FALLTHROUGH; // HLSL Change.
     default:
       ParsedAttributesWithRange attrs(AttrFactory);
       MaybeParseCXX11Attributes(attrs);
@@ -4000,6 +4000,7 @@ void Parser::ParseMicrosoftIfExistsClassDeclaration(DeclSpec::TST TagType,
     Diag(Result.KeywordLoc, diag::warn_microsoft_dependent_exists)
       << Result.IsIfExists;
     // Fall through to skip.
+    LLVM_FALLTHROUGH; // HLSL Change
       
   case IEB_Skip:
     Braces.skipToEnd();

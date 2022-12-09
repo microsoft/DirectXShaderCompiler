@@ -204,22 +204,22 @@ bool CompType::Is16Bit() const {
 CompType CompType::GetBaseCompType() const {
   switch (m_Kind) {
   case Kind::I1:        return CompType(Kind::I1);
-  case Kind::I16:       __fallthrough;
-  case Kind::PackedS8x32: __fallthrough;
-  case Kind::PackedU8x32: __fallthrough;
+  case Kind::I16:       LLVM_FALLTHROUGH;
+  case Kind::PackedS8x32: LLVM_FALLTHROUGH;
+  case Kind::PackedU8x32: LLVM_FALLTHROUGH;
   case Kind::I32:       return CompType(Kind::I32);
   case Kind::I64:       return CompType(Kind::I64);
-  case Kind::U16:       __fallthrough;
+  case Kind::U16:       LLVM_FALLTHROUGH;
   case Kind::U32:       return CompType(Kind::U32);
   case Kind::U64:       return CompType(Kind::U64);
-  case Kind::SNormF16:  __fallthrough;
-  case Kind::UNormF16:  __fallthrough;
-  case Kind::F16:       __fallthrough;
-  case Kind::SNormF32:  __fallthrough;
-  case Kind::UNormF32:  __fallthrough;
+  case Kind::SNormF16:  LLVM_FALLTHROUGH;
+  case Kind::UNormF16:  LLVM_FALLTHROUGH;
+  case Kind::F16:       LLVM_FALLTHROUGH;
+  case Kind::SNormF32:  LLVM_FALLTHROUGH;
+  case Kind::UNormF32:  LLVM_FALLTHROUGH;
   case Kind::F32:       return CompType(Kind::F32);
-  case Kind::SNormF64:  __fallthrough;
-  case Kind::UNormF64:  __fallthrough;
+  case Kind::SNormF64:  LLVM_FALLTHROUGH;
+  case Kind::UNormF64:  LLVM_FALLTHROUGH;
   case Kind::F64:       return CompType(Kind::F64);
   default:
     DXASSERT(false, "invalid type kind");
