@@ -111,26 +111,12 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
-    if (!IsUserDefinedType(type))
+    if (!IsUserDefinedRecordType(type))
       return false;
     for (auto member : RD->fields()) {
       if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
         return false;
     }
-    return true;
-  }
-  return false;
-}
-
-bool IsUserDefinedType(clang::QualType QT) {
-  const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
-  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
-    const RecordDecl *RD = RT->getDecl();
-    if (RD->isImplicit())
-      return false;
-    if (auto TD = dyn_cast<ClassTemplateSpecializationDecl>(RD))
-      if (TD->getSpecializedTemplate()->isImplicit())
-        return false;
     return true;
   }
   return false;
@@ -153,7 +139,7 @@ bool IsHLSLAggregateType(clang::QualType type) {
   type = type.getCanonicalType();
   if (isa<clang::ArrayType>(type)) return true;
 
-  return IsUserDefinedType(type);
+  return IsUserDefinedRecordType(type);
 }
 
 clang::QualType GetElementTypeOrType(clang::QualType type) {
@@ -602,23 +588,17 @@ bool IsHLSLSubobjectType(clang::QualType type) {
   return GetHLSLSubobjectKind(type, kind, hgType);
 }
 
-bool IsUserDefinedRecordType(clang::QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    // HLSL specific types
-    if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
-        isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
-        type->isArrayType()) {
+bool IsUserDefinedRecordType(clang::QualType QT) {
+  const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (RD->isImplicit())
       return false;
-    }
-
-    // SubpassInput or SubpassInputMS type
-    if (rt->getDecl()->getName() == "SubpassInput" ||
-        rt->getDecl()->getName() == "SubpassInputMS") {
-      return false;
-    }
+    if (auto TD = dyn_cast<ClassTemplateSpecializationDecl>(RD))
+      if (TD->getSpecializedTemplate()->isImplicit())
+        return false;
     return true;
   }
-
   return false;
 }
 
