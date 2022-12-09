@@ -1889,7 +1889,8 @@ static void CopyResourceInfo(_T &TargetRes, const _T &SourceRes,
     TargetRes.SetGlobalName(SourceRes.GetGlobalName());
   }
 
-  if (SourceRes.GetGlobalSymbol() && SourceRes.GetGlobalSymbol()->hasName()) {
+  if (TargetRes.GetGlobalSymbol() && SourceRes.GetGlobalSymbol() &&
+      SourceRes.GetGlobalSymbol()->hasName()) {
     TargetRes.GetGlobalSymbol()->setName(
         SourceRes.GetGlobalSymbol()->getName());
   }
