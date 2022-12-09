@@ -77,7 +77,18 @@ public:
 
   TEST_METHOD(OptimizerWhenPassedContainerPreservesSubobjects)
   TEST_METHOD(OptimizerWhenPassedContainerPreservesRootSig)
-  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_HSNonDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_HSDependentPCDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_HSDependentPCNonDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_HSNonDependentPCDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_HSNonDependentPCNonDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_MSDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_MSNonDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_DSDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_DSNonDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_VSDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_VSNonDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_GSDependent)
+  TEST_METHOD(OptimizerWhenPassedContainerPreservesViewId_GSNonDependent)
 
   void OptimizerWhenSliceNThenOK(int optLevel);
   void OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
@@ -89,6 +100,7 @@ public:
   void ComparePSV0BeforeAndAfterOptimization(const char *source,
                                         const wchar_t *entry,
                                         const wchar_t *profile,
+                                        bool usesViewId,
                                         int streamCount = 1);
 
   dxc::DxcDllSupport m_dllSupport;
@@ -518,7 +530,7 @@ R"(
   }
 }
 
-void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, const wchar_t *entry, const wchar_t *profile, int streamCount /*= 1*/)
+void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, const wchar_t *entry, const wchar_t *profile, bool usesViewId, int streamCount /*= 1*/)
 {
   auto originalContainer = Compile(source, entry, profile);
 
@@ -532,13 +544,20 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
 
   VERIFY_ARE_EQUAL(originalPsvPart->GetBufferSize(), optimizedPsvPart->GetBufferSize());
 
+  VERIFY_ARE_EQUAL(memcmp(originalPsvPart->GetBufferPointer(),
+                          optimizedPsvPart->GetBufferPointer(),
+                          originalPsvPart->GetBufferSize()),
+                   0);
+
   DxilPipelineStateValidation originalPsv;
   originalPsv.InitFromPSV0(
       reinterpret_cast<const uint8_t *>(optimizedPsvPart->GetBufferPointer()),
       static_cast<uint32_t>(optimizedPsvPart->GetBufferSize()));
 
   const PSVRuntimeInfo1 *originalInfo1 = originalPsv.GetPSVRuntimeInfo1();
-  VERIFY_IS_TRUE(originalInfo1->UsesViewID);
+  if (usesViewId) {
+    VERIFY_IS_TRUE(originalInfo1->UsesViewID);
+  }
 
   DxilPipelineStateValidation optimizedPsv;
   optimizedPsv.InitFromPSV0(
@@ -546,7 +565,6 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
       static_cast<uint32_t>(originalPsvPart->GetBufferSize()));
 
   const PSVRuntimeInfo1 *optimizedInfo1 = optimizedPsv.GetPSVRuntimeInfo1();
-  VERIFY_IS_TRUE(optimizedInfo1->UsesViewID);
 
   VERIFY_ARE_EQUAL(originalInfo1->ShaderStage, optimizedInfo1->ShaderStage);
   VERIFY_ARE_EQUAL(originalInfo1->UsesViewID , optimizedInfo1->UsesViewID);
@@ -559,8 +577,8 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
   VERIFY_ARE_EQUAL(originalPsv.GetViewIDPCOutputMask().IsValid(),
                    optimizedPsv.GetViewIDPCOutputMask().IsValid());
   if (originalPsv.GetViewIDPCOutputMask().IsValid()) {
-    VERIFY_ARE_EQUAL(originalPsv.GetViewIDPCOutputMask().Mask,
-                     optimizedPsv.GetViewIDPCOutputMask().Mask);
+    VERIFY_ARE_EQUAL(*originalPsv.GetViewIDPCOutputMask().Mask,
+                     *optimizedPsv.GetViewIDPCOutputMask().Mask);
     VERIFY_ARE_EQUAL(originalPsv.GetViewIDPCOutputMask().NumVectors,
                      optimizedPsv.GetViewIDPCOutputMask().NumVectors);
   }
@@ -573,8 +591,8 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
                      optimizedPsv.GetViewIDOutputMask(stream).IsValid());
     if (originalPsv.GetViewIDOutputMask(stream).IsValid())
     {
-      VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).Mask,
-                       optimizedPsv.GetViewIDOutputMask(stream).Mask);
+      VERIFY_ARE_EQUAL(*originalPsv.GetViewIDOutputMask(stream).Mask,
+                       *optimizedPsv.GetViewIDOutputMask(stream).Mask);
       VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).NumVectors,
                        optimizedPsv.GetViewIDOutputMask(stream).NumVectors);
 
@@ -583,7 +601,93 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
 }
 
 
-TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_HSNonDependent)
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_HSDependentPCDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+#define NumOutPoints 2
+
+struct HsCpIn {
+    int foo : FOO;
+};
+
+struct HsCpOut {
+    int bar : BAR;
+};
+
+struct HsPcfOut {
+  float tessOuter[4] : SV_TessFactor;
+  float tessInner[2] : SV_InsideTessFactor;
+};
+
+// Patch Constant Function
+HsPcfOut pcf(uint viewid : SV_ViewID) {
+  HsPcfOut output;
+  output = (HsPcfOut)viewid;
+  return output;
+}
+
+[domain("quad")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(NumOutPoints)]
+[patchconstantfunc("pcf")]
+HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
+             uint id : SV_OutputControlPointID,
+             uint viewid : SV_ViewID) {
+    HsCpOut output;
+    output.bar = viewid;
+    return output;
+}
+
+)", L"main", L"hs_6_6", true);
+
+}
+
+TEST_F(OptimizerTest,
+       OptimizerWhenPassedContainerPreservesViewId_HSNonDependentPCDependent) {
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+#define NumOutPoints 2
+
+struct HsCpIn {
+    int foo : FOO;
+};
+
+struct HsCpOut {
+    int bar : BAR;
+};
+
+struct HsPcfOut {
+  float tessOuter[4] : SV_TessFactor;
+  float tessInner[2] : SV_InsideTessFactor;
+};
+
+// Patch Constant Function
+HsPcfOut pcf(uint viewid : SV_ViewID) {
+  HsPcfOut output;
+  output = (HsPcfOut)viewid;
+  return output;
+}
+
+[domain("quad")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(NumOutPoints)]
+[patchconstantfunc("pcf")]
+HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
+             uint id : SV_OutputControlPointID,
+             uint viewid : SV_ViewID) {
+    HsCpOut output;
+    output.bar = 0;
+    return output;
+}
+
+)",
+      L"main", L"hs_6_6", true);
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_HSDependentPCNonDependent)
 {
   ComparePSV0BeforeAndAfterOptimization(
       R"(
@@ -622,6 +726,458 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
     return output;
 }
 
-)", L"main", L"hs_6_6");
+)", L"main", L"hs_6_6", true);
 
 }
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_HSNonDependentPCNonDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+#define NumOutPoints 2
+
+struct HsCpIn {
+    int foo : FOO;
+};
+
+struct HsCpOut {
+    int bar : BAR;
+};
+
+struct HsPcfOut {
+  float tessOuter[4] : SV_TessFactor;
+  float tessInner[2] : SV_InsideTessFactor;
+};
+
+// Patch Constant Function
+HsPcfOut pcf(uint viewid : SV_ViewID) {
+  HsPcfOut output;
+  output = (HsPcfOut)0;
+  return output;
+}
+
+[domain("quad")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(NumOutPoints)]
+[patchconstantfunc("pcf")]
+HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
+             uint id : SV_OutputControlPointID,
+             uint viewid : SV_ViewID) {
+    HsCpOut output;
+    output.bar = 0;
+    return output;
+}
+
+)",
+      L"main", L"hs_6_6", false /*does not use view id*/);
+
+}
+
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_MSDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+#define MAX_VERT 32
+#define MAX_PRIM 16
+#define NUM_THREADS 32
+struct MeshPerVertex {
+    float4 position : SV_Position;
+    float color[4] : COLOR;
+};
+
+struct MeshPerPrimitive {
+    float normal : NORMAL;
+    float malnor : MALNOR;
+    float alnorm : ALNORM;
+    float ormaln : ORMALN;
+    int layer[6] : LAYER;
+};
+
+struct MeshPayload {
+    float normal;
+    float malnor;
+    float alnorm;
+    float ormaln;
+    int layer[6];
+};
+
+groupshared float gsMem[MAX_PRIM];
+
+[numthreads(NUM_THREADS, 1, 1)]
+[outputtopology("triangle")]
+void main(
+            out indices uint3 primIndices[MAX_PRIM],
+            out vertices MeshPerVertex verts[MAX_VERT],
+            out primitives MeshPerPrimitive prims[MAX_PRIM],
+            in payload MeshPayload mpl,
+            in uint tig : SV_GroupIndex,
+            in uint vid : SV_ViewID
+         )
+{
+    SetMeshOutputCounts(MAX_VERT, MAX_PRIM);
+    MeshPerVertex ov;
+    if (vid % 2) {
+        ov.position = float4(4.0,5.0,6.0,7.0);
+        ov.color[0] = 4.0;
+        ov.color[1] = 5.0;
+        ov.color[2] = 6.0;
+        ov.color[3] = 7.0;
+    } else {
+        ov.position = float4(14.0,15.0,16.0,17.0);
+        ov.color[0] = 14.0;
+        ov.color[1] = 15.0;
+        ov.color[2] = 16.0;
+        ov.color[3] = 17.0;
+    }
+    if (tig % 3) {
+      primIndices[tig / 3] = uint3(tig, tig + 1, tig + 2);
+      MeshPerPrimitive op;
+      op.normal = mpl.normal;
+      op.malnor = gsMem[tig / 3 + 1];
+      op.alnorm = mpl.alnorm;
+      op.ormaln = mpl.ormaln;
+      op.layer[0] = mpl.layer[0];
+      op.layer[1] = mpl.layer[1];
+      op.layer[2] = mpl.layer[2];
+      op.layer[3] = mpl.layer[3];
+      op.layer[4] = mpl.layer[4];
+      op.layer[5] = mpl.layer[5];
+      gsMem[tig / 3] = op.normal;
+      prims[tig / 3] = op;
+    }
+    verts[tig] = ov;
+}
+)",
+      L"main", L"ms_6_5", true /*does use view id*/);
+
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_MSNonDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+#define MAX_VERT 32
+#define MAX_PRIM 16
+#define NUM_THREADS 32
+struct MeshPerVertex {
+    float4 position : SV_Position;
+    float color[4] : COLOR;
+};
+
+struct MeshPerPrimitive {
+    float normal : NORMAL;
+    float malnor : MALNOR;
+    float alnorm : ALNORM;
+    float ormaln : ORMALN;
+    int layer[6] : LAYER;
+};
+
+struct MeshPayload {
+    float normal;
+    float malnor;
+    float alnorm;
+    float ormaln;
+    int layer[6];
+};
+
+groupshared float gsMem[MAX_PRIM];
+
+[numthreads(NUM_THREADS, 1, 1)]
+[outputtopology("triangle")]
+void main(
+            out indices uint3 primIndices[MAX_PRIM],
+            out vertices MeshPerVertex verts[MAX_VERT],
+            out primitives MeshPerPrimitive prims[MAX_PRIM],
+            in payload MeshPayload mpl,
+            in uint tig : SV_GroupIndex,
+            in uint vid : SV_ViewID
+         )
+{
+    SetMeshOutputCounts(MAX_VERT, MAX_PRIM);
+    MeshPerVertex ov;
+    if (false) {
+        ov.position = float4(4.0,5.0,6.0,7.0);
+        ov.color[0] = 4.0;
+        ov.color[1] = 5.0;
+        ov.color[2] = 6.0;
+        ov.color[3] = 7.0;
+    } else {
+        ov.position = float4(14.0,15.0,16.0,17.0);
+        ov.color[0] = 14.0;
+        ov.color[1] = 15.0;
+        ov.color[2] = 16.0;
+        ov.color[3] = 17.0;
+    }
+    if (tig % 3) {
+      primIndices[tig / 3] = uint3(tig, tig + 1, tig + 2);
+      MeshPerPrimitive op;
+      op.normal = mpl.normal;
+      op.malnor = gsMem[tig / 3 + 1];
+      op.alnorm = mpl.alnorm;
+      op.ormaln = mpl.ormaln;
+      op.layer[0] = mpl.layer[0];
+      op.layer[1] = mpl.layer[1];
+      op.layer[2] = mpl.layer[2];
+      op.layer[3] = mpl.layer[3];
+      op.layer[4] = mpl.layer[4];
+      op.layer[5] = mpl.layer[5];
+      gsMem[tig / 3] = op.normal;
+      prims[tig / 3] = op;
+    }
+    verts[tig] = ov;
+}
+)",
+      L"main", L"ms_6_5", false /*does not use view id*/);
+
+}
+
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_DSDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+struct HS_CONSTANT_DATA_OUTPUT
+{
+    float Edges[3]        : SV_TessFactor;
+    float Inside       : SV_InsideTessFactor;
+};
+
+struct BEZIER_CONTROL_POINT
+{
+    float3 vPosition    : BEZIERPOS;
+    float4 color : COLOR;
+};
+
+[domain("tri")]
+PSInput DSMain(HS_CONSTANT_DATA_OUTPUT input,
+    float3 UV : SV_DomainLocation,
+    uint viewID : SV_ViewID,
+    const OutputPatch<BEZIER_CONTROL_POINT, 3> bezpatch)
+{
+    PSInput Output;
+
+    Output.position = float4(
+        bezpatch[0].vPosition * UV.x + viewID +
+        bezpatch[1].vPosition * UV.y +
+        bezpatch[2].vPosition * UV.z
+        ,1);
+    Output.color = float4(
+        bezpatch[0].color * UV.x +
+        bezpatch[1].color * UV.y +
+        bezpatch[2].color * UV.z
+        );
+    return Output;
+}
+
+)",
+      L"DSMain", L"ds_6_5", true /*does use view id*/);
+
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_DSNonDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+struct HS_CONSTANT_DATA_OUTPUT
+{
+    float Edges[3]        : SV_TessFactor;
+    float Inside       : SV_InsideTessFactor;
+};
+
+struct BEZIER_CONTROL_POINT
+{
+    float3 vPosition    : BEZIERPOS;
+    float4 color : COLOR;
+};
+
+[domain("tri")]
+PSInput DSMain(HS_CONSTANT_DATA_OUTPUT input,
+    float3 UV : SV_DomainLocation,
+    uint viewID : SV_ViewID,
+    const OutputPatch<BEZIER_CONTROL_POINT, 3> bezpatch)
+{
+    PSInput Output;
+
+    Output.position = float4(
+        bezpatch[0].vPosition * UV.x + 
+        bezpatch[1].vPosition * UV.y +
+        bezpatch[2].vPosition * UV.z
+        ,1);
+    Output.color = float4(
+        bezpatch[0].color * UV.x +
+        bezpatch[1].color * UV.y +
+        bezpatch[2].color * UV.z
+        );
+    return Output;
+}
+
+)",
+      L"DSMain", L"ds_6_5", false /*does not use view id*/);
+
+}
+
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_VSDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+struct VertexShaderInput
+{
+	float3 pos : POSITION;
+	float3 color : COLOR0;
+	uint viewID : SV_ViewID;
+};
+struct VertexShaderOutput
+{
+	float4 pos : SV_POSITION;
+	float3 color : COLOR0;
+};
+
+VertexShaderOutput main(VertexShaderInput input)
+{
+	VertexShaderOutput output;
+	output.pos = float4(input.pos, 1.0f);
+	if (input.viewID % 2) {
+		output.color = float3(1.0f, 0.0f, 1.0f);
+	} else {
+		output.color = float3(0.0f, 1.0f, 0.0f);
+	}
+	return output;
+}
+
+)",
+      L"main", L"vs_6_5", true /*does use view id*/);
+
+}
+
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_VSNonDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+struct VertexShaderInput
+{
+	float3 pos : POSITION;
+	float3 color : COLOR0;
+	uint viewID : SV_ViewID;
+};
+struct VertexShaderOutput
+{
+	float4 pos : SV_POSITION;
+	float3 color : COLOR0;
+};
+
+VertexShaderOutput main(VertexShaderInput input)
+{
+	VertexShaderOutput output;
+	output.pos = float4(input.pos, 1.0f);
+	if (false) {
+		output.color = float3(1.0f, 0.0f, 1.0f);
+	} else {
+		output.color = float3(0.0f, 1.0f, 0.0f);
+	}
+	return output;
+}
+
+)",
+      L"main", L"vs_6_5", false /*does not use view id*/);
+
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_GSNonDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+
+
+struct MyStructIn
+{
+//  float4 pos : SV_Position;
+  float4 a : AAA;
+  float2 b : BBB;
+  float4 c[3] : CCC;
+  //uint d : SV_RenderTargetIndex;
+  float4 pos : SV_Position;
+};
+
+struct MyStructOut
+{
+  float4 pos : SV_Position;
+  float2 out_a : OUT_AAA;
+  uint d : SV_RenderTargetArrayIndex;
+};
+
+[maxvertexcount(18)]
+void main(triangleadj MyStructIn array[6], inout TriangleStream<MyStructOut> OutputStream0)
+{
+  float4 r = array[1].a + array[2].b.x + array[3].pos;
+  r += array[r.x].c[r.y].w;
+  MyStructOut output = (MyStructOut)0;
+  output.pos = array[r.x].a;
+  output.out_a = array[r.y].b;
+  output.d = array[r.x].a + 3;
+  OutputStream0.Append(output);
+  OutputStream0.RestartStrip();
+}
+
+
+)",
+      L"main", L"gs_6_5", false /*does not use view id*/);
+
+}
+
+TEST_F(OptimizerTest, OptimizerWhenPassedContainerPreservesViewId_GSDependent)
+{
+  ComparePSV0BeforeAndAfterOptimization(
+      R"(
+
+
+struct MyStructIn
+{
+//  float4 pos : SV_Position;
+  float4 a : AAA;
+  float2 b : BBB;
+  float4 c[3] : CCC;
+  float4 pos : SV_Position;
+};
+
+struct MyStructOut
+{
+  float4 pos : SV_Position;
+  float2 out_a : OUT_AAA;
+  uint d : SV_RenderTargetArrayIndex;
+};
+
+[maxvertexcount(18)]
+void main(triangleadj MyStructIn array[6], inout TriangleStream<MyStructOut> OutputStream0)
+{
+  float4 r = array[1].a + array[2].b.x + array[3].pos;
+  r += array[r.x].c[r.y].w;
+  MyStructOut output = (MyStructOut)0;
+  output.pos = array[r.x].a;
+  output.out_a = array[r.y].b;
+  output.d = array[r.x].a + 3;
+  OutputStream0.Append(output);
+  OutputStream0.RestartStrip();
+}
+
+
+)",
+      L"main", L"gs_6_5", false /*does not use view id*/, 4);
+
+}
+
