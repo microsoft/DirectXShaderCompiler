@@ -781,6 +781,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
   opts.ForceDisableLocTracking =
       Args.hasFlag(OPT_fdisable_loc_tracking, OPT_INVALID, false);
+  opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
 
