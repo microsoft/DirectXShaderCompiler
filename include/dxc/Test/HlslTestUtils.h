@@ -406,6 +406,9 @@ inline bool isnanFloat16(uint16_t val) {
          (val & FLOAT16_BIT_MANTISSA) != 0;
 }
 
+// Disable custom conversion implementations, using stubs that just use the
+// DirectX::PackedVector::XMConvert* functions instead.
+#if 0
 inline uint16_t ConvertFloat32ToFloat16(float val) {
   union Bits {
     uint32_t u_bits;
@@ -501,6 +504,9 @@ inline float ConvertFloat16ToFloat32(uint16_t x) {
   bits.u_bits |= Sign;
   return bits.f_bits;
 }
+#endif // 0
+
+// These are defined in ExecutionTest.cpp using DirectXPackedVector functions.
 uint16_t ConvertFloat32ToFloat16(float val);
 float ConvertFloat16ToFloat32(uint16_t val);
 

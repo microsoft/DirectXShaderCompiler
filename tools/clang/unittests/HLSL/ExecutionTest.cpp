@@ -51,11 +51,19 @@
 #include <DXGIDebug.h>
 #include "dxc/Support/d3dx12.h"
 #include <DirectXMath.h>
+#include <DirectXPackedVector.h>
 #include <strsafe.h>
 #include <d3dcompiler.h>
 #include <wincodec.h>
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
+
+uint16_t ConvertFloat32ToFloat16(float Value) noexcept {
+  return DirectX::PackedVector::XMConvertFloatToHalf(Value);
+}
+float ConvertFloat16ToFloat32(uint16_t Value) noexcept {
+  return DirectX::PackedVector::XMConvertHalfToFloat(Value);
+}
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")
