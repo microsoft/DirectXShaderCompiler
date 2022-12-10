@@ -182,7 +182,7 @@ void ExtendRootSig(RootSigDesc &rootSigDesc) {
   rootSigDesc.NumParameters++;
 } 
 
-static CComPtr<IDxcBlob> AddUAVParamterToRootSignature(const void *Data,
+static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
                                                        uint32_t Size) {
   DxilVersionedRootSignatureDesc const *rootSignature = nullptr;
   DeserializeRootSignature(Data, Size, &rootSignature);
@@ -202,22 +202,22 @@ static CComPtr<IDxcBlob> AddUAVParamterToRootSignature(const void *Data,
   constexpr bool allowReservedRegisterSpace = true;
   SerializeRootSignature(rootSignature, &serializedRootSignature, &errorBlob,
                          allowReservedRegisterSpace);
-  return serializedRootSignature;
+  std::vector<uint8_t> ret;
+  auto const *serializedData = reinterpret_cast<const uint8_t *>(
+      serializedRootSignature->GetBufferPointer());
+  ret.assign(serializedData,
+             serializedData + serializedRootSignature->GetBufferSize());
+
+  return ret;
 }
 
-static void AddUAVToShaderAttributeRootSignature(DxilModule &DM,
-                                                 Function *function) {
-  if (DM.HasDxilFunctionProps(function)) {
-    auto &fnProps = DM.GetDxilFunctionProps(function);
-    if (!fnProps.serializedRootSignature.empty()) {
-      auto extendedRootSig = AddUAVParamterToRootSignature(
-          fnProps.serializedRootSignature.data(),
-          static_cast<uint32_t>(fnProps.serializedRootSignature.size()));
-      fnProps.SetSerializedRootSignature(
-          reinterpret_cast<const uint8_t *>(
-              extendedRootSig->GetBufferPointer()),
-          static_cast<unsigned int>(extendedRootSig->GetBufferSize()));
-    }
+static void AddUAVToShaderAttributeRootSignature(DxilModule &DM) {
+  auto rs = DM.GetSerializedRootSignature();
+  if(!rs.empty()) {
+    auto extendedRootSig = AddUAVParamterToRootSignature(
+          rs.data(),
+          static_cast<uint32_t>(rs.size()));
+    DM.ResetSerializedRootSignature(extendedRootSig);
   }
 }
 
@@ -238,8 +238,8 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule& DM) {
           subObjects->RemoveSubobject(rootSignatureSubObjectName);
           subObjects->CreateRootSignature(rootSignatureSubObjectName,
                                           notALocalRS,
-                                          extendedRootSig->GetBufferPointer(),
-                                          extendedRootSig->GetBufferSize());
+                                          extendedRootSig.data(),
+                                          static_cast<uint32_t>(extendedRootSig.size()));
           break;
         }
       }
@@ -262,11 +262,8 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
     // Since we only have to do this once per module, we can do it now when
     // we're adding the singular UAV structure type to the module:
     AddUAVToDxilDefinedGlobalRootSignatures(DM);
+    AddUAVToShaderAttributeRootSignature(DM);
   }
-
-  AddUAVToShaderAttributeRootSignature(
-      DM, 
-      Builder.GetInsertBlock()->getParent());
 
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
 

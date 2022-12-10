@@ -224,8 +224,8 @@ public:
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
 
-  //TEST_METHOD(RootSignatureUpgrade_SubObjects)
-  //TEST_METHOD(RootSignatureUpgrade_Annotation)
+  TEST_METHOD(RootSignatureUpgrade_SubObjects)
+  TEST_METHOD(RootSignatureUpgrade_Annotation)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -1683,7 +1683,22 @@ CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
       blob, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
-  return pOptimizedModule;
+  CComPtr<IDxcAssembler> pAssembler;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+  CComPtr<IDxcOperationResult> pAssembleResult;
+  VERIFY_SUCCEEDED(
+      pAssembler->AssembleToContainer(pOptimizedModule, &pAssembleResult));
+
+  HRESULT hr;
+  VERIFY_SUCCEEDED(pAssembleResult->GetStatus(&hr));
+  VERIFY_SUCCEEDED(hr);
+
+  CComPtr<IDxcBlob> pNewContainer;
+  VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
+
+  return pNewContainer;
 }
 
 CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
@@ -3383,7 +3398,6 @@ static void VerifyOperationSucceeded(IDxcOperationResult *pResult)
   VERIFY_SUCCEEDED(result);
 }
 
-#if 0
 TEST_F(PixTest, RootSignatureUpgrade_SubObjects) {
 
   const char *source = R"x(
@@ -3574,7 +3588,7 @@ float4 main(int i : A, float j : B) : SV_TARGET
   bool foundGlobalRS = false;
 
   VERIFY_ARE_EQUAL(desc->Version, hlsl::DxilRootSignatureVersion::Version_1_1);
-  VERIFY_ARE_EQUAL(desc->Desc_1_1.NumParameters, 2u);
+  VERIFY_ARE_EQUAL(desc->Desc_1_1.NumParameters, 3u);
   for (unsigned int i = 0; i < desc->Desc_1_1.NumParameters; ++i) {
     hlsl::DxilRootParameter1 const *param = desc->Desc_1_1.pParameters + i;
     switch (param->ParameterType) {
@@ -3588,6 +3602,5 @@ float4 main(int i : A, float j : B) : SV_TARGET
 
   VERIFY_IS_TRUE(foundGlobalRS);
 }
-#endif
 
 #endif
