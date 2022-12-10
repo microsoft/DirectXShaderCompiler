@@ -266,29 +266,27 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
   }
 }
 
-static void WriteDxcRemarksToConsole(IDxcOperationResult *pCompileResult) {
+static void WriteDxcOutputToConsole(IDxcOperationResult *pCompileResult, DXC_OUT_KIND kind) {
   CComPtr<IDxcResult> pResult;
   if (SUCCEEDED(pCompileResult->QueryInterface(&pResult))) {
-    DXC_OUT_KIND kind = DXC_OUT_REMARKS;
     if (!pResult->HasOutput(kind)) {
       return;
     }
 
     CComPtr<IDxcBlob> pBlob;
     IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pBlob), nullptr));
-    llvm::StringRef remarkRef((LPSTR)pBlob->GetBufferPointer(),
-                              pBlob->GetBufferSize());
-    std::istringstream remarkIStream(remarkRef);
-
-    // Printing remarks to console as comments
-    std::string remarkPrintStr;
-    llvm::raw_string_ostream remarkPrintStream(remarkPrintStr);
-    for (std::string line; std::getline(remarkIStream, line);) {
-      remarkPrintStream << "; " << line << "\r\n";
+    llvm::StringRef outputString((LPSTR)pBlob->GetBufferPointer(),
+                            pBlob->GetBufferSize());
+    llvm::SmallVector<llvm::StringRef, 20> lines;
+    outputString.split(lines, "\n");
+    
+    std::string outputStr;
+    llvm::raw_string_ostream SS(outputStr);
+    for (auto line : lines) {
+      SS << "; " << line << "\n";
     }
-    remarkPrintStream.flush();
 
-    WriteUtf8ToConsole(remarkPrintStr.data(), remarkPrintStr.size());
+    WriteUtf8ToConsole(outputStr.data(), outputStr.size());
   }
 }
 
@@ -868,12 +866,15 @@ int DxcContext::Compile() {
   else {
     WriteOperationErrorsToConsole(pCompileResult, m_Opts.OutputWarnings);
   }
+  
+  if (m_Opts.TimeReport)
+    WriteDxcOutputToConsole(pCompileResult, DXC_OUT_TIME_REPORT);
 
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
   if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
       m_Opts.DumpDependencies) {
-    WriteDxcRemarksToConsole(pCompileResult);
+    WriteDxcOutputToConsole(pCompileResult, DXC_OUT_REMARKS);
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {
