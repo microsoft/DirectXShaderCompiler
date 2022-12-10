@@ -25,7 +25,12 @@
 #include <sstream>
 #include <algorithm>
 #include <cfloat>
+
+#include "dxc/Support/WinIncludes.h"
+
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 #include "dxc/dxcpix.h"
@@ -195,10 +200,6 @@ public:
   TEST_METHOD(DiaCompileArgs)
   TEST_METHOD(PixDebugCompileInfo)
 
-  TEST_METHOD(CheckSATPassFor66_NoDynamicAccess)
-  TEST_METHOD(CheckSATPassFor66_DynamicFromRootSig)
-  TEST_METHOD(CheckSATPassFor66_DynamicFromHeap)
-
   TEST_METHOD(AddToASPayload)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
@@ -222,6 +223,9 @@ public:
   TEST_METHOD(PixStructAnnotation_WheresMyDbgValue)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
+
+  //TEST_METHOD(RootSignatureUpgrade_SubObjects)
+  //TEST_METHOD(RootSignatureUpgrade_Annotation)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -1003,8 +1007,9 @@ public:
                                            bool validateCoverage = true,
                                            const wchar_t *profile = L"as_6_5");
   void ValidateAllocaWrite(std::vector<AllocaWrite> const& allocaWrites, size_t index, const char* name);
-  std::string RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob);
-  std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob* blob);
+  CComPtr<IDxcBlob> RunShaderAccessTrackingPass(IDxcBlob* blob);
+  std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *
+                                                                 blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob* blob);
 };
 
@@ -1665,81 +1670,20 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
 }
 
-std::string PixTest::RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob)
-{
-  CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
+CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=,checkForDynamicIndexing=1");
+  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=");
 
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+      blob, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
-  std::string outputText;
-  if (pText->GetBufferSize() != 0) {
-    outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
-  }
-
-  return outputText;
-}
-
-TEST_F(PixTest, CheckSATPassFor66_NoDynamicAccess) {
-
-  const char *noDynamicAccess = R"(
-    [RootSignature("")]
-    float main(float pos : A) : SV_Target {
-      float x = abs(pos);
-      float y = sin(pos);
-      float z = x + y;
-      return z;
-    }
-  )";
-
-  auto compiled = Compile(noDynamicAccess, L"ps_6_6");
-  auto satResults = RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
-  VERIFY_IS_TRUE(satResults.empty());
-}
-
-TEST_F(PixTest, CheckSATPassFor66_DynamicFromRootSig) {
-
-  const char *dynamicTextureAccess = R"x(
-Texture1D<float4> tex[5] : register(t3);
-SamplerState SS[3] : register(s2);
-
-[RootSignature("DescriptorTable(SRV(t3, numDescriptors=5)),\
-                DescriptorTable(Sampler(s2, numDescriptors=3))")]
-float4 main(int i : A, float j : B) : SV_TARGET
-{
-  float4 r = tex[i].Sample(SS[i], i);
-  return r;
-}
-  )x";
-
-  auto compiled = Compile(dynamicTextureAccess, L"ps_6_6");
-  auto satResults = RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
-  VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
-}
-
-TEST_F(PixTest, CheckSATPassFor66_DynamicFromHeap) {
-
-  const char *dynamicResourceDecriptorHeapAccess = R"(
-static sampler sampler0 = SamplerDescriptorHeap[0];
-float4 main(int input : INPUT) : SV_Target
-{
-    Texture2D texture = ResourceDescriptorHeap[input];
-    return texture.Sample(sampler0, float2(0,0));
-}
-  )";
-
-  auto compiled = Compile(dynamicResourceDecriptorHeapAccess, L"ps_6_6");
-  auto satResults =
-      RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
-  VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
+  return pOptimizedModule;
 }
 
 CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
@@ -3425,5 +3369,225 @@ void MyMissShader(inout RayPayload payload)
     VERIFY_ARE_EQUAL(1, countOfInstructionRangeLines);
   }
 }
+
+static void VerifyOperationSucceeded(IDxcOperationResult *pResult) 
+{
+  HRESULT result;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&result));
+  if (FAILED(result)) {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+    CA2W errorsWide(BlobToUtf8(pErrors).c_str(), CP_UTF8);
+    WEX::Logging::Log::Comment(errorsWide);
+  }
+  VERIFY_SUCCEEDED(result);
+}
+
+#if 0
+TEST_F(PixTest, RootSignatureUpgrade_SubObjects) {
+
+  const char *source = R"x(
+GlobalRootSignature so_GlobalRootSignature =
+{
+	"RootConstants(num32BitConstants=1, b8), "
+};
+
+StateObjectConfig so_StateObjectConfig = 
+{ 
+    STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS
+};
+
+LocalRootSignature so_LocalRootSignature1 = 
+{
+	"RootConstants(num32BitConstants=3, b2), "
+	"UAV(u6),RootFlags(LOCAL_ROOT_SIGNATURE)" 
+};
+
+LocalRootSignature so_LocalRootSignature2 = 
+{
+	"RootConstants(num32BitConstants=3, b2), "
+	"UAV(u8, flags=DATA_STATIC), " 
+	"RootFlags(LOCAL_ROOT_SIGNATURE)"
+};
+
+RaytracingShaderConfig  so_RaytracingShaderConfig =
+{
+    128, // max payload size
+    32   // max attribute size
+};
+
+RaytracingPipelineConfig so_RaytracingPipelineConfig =
+{
+    2 // max trace recursion depth
+};
+
+TriangleHitGroup MyHitGroup =
+{
+    "MyAnyHit",       // AnyHit
+    "MyClosestHit",   // ClosestHit
+};
+
+SubobjectToExportsAssociation so_Association1 =
+{
+	"so_LocalRootSignature1", // subobject name
+	"MyRayGen"                // export association 
+};
+
+SubobjectToExportsAssociation so_Association2 =
+{
+	"so_LocalRootSignature2", // subobject name
+	"MyAnyHit"                // export association 
+};
+
+struct MyPayload
+{
+    float4 color;
+};
+
+[shader("raygeneration")]
+void MyRayGen()
+{
+}
+
+[shader("closesthit")]
+void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{  
+}
+
+[shader("anyhit")]
+void MyAnyHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("miss")]
+void MyMiss(inout MyPayload payload)
+{
+}
+
+)x";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  Utf8ToBlob(m_dllSupport, source, &pSource);
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"", L"lib_6_6",
+                                      nullptr, 0, nullptr, 0, nullptr,
+                                      &pResult));
+  VerifyOperationSucceeded(pResult);
+  CComPtr<IDxcBlob> compiled;
+  VERIFY_SUCCEEDED(pResult->GetResult(&compiled));
+
+  auto optimizedContainer = RunShaderAccessTrackingPass(compiled);
+
+  const char *pBlobContent =
+      reinterpret_cast<const char *>(optimizedContainer->GetBufferPointer());
+  unsigned blobSize = optimizedContainer->GetBufferSize();
+  const hlsl::DxilContainerHeader *pContainerHeader =
+      hlsl::IsDxilContainerLike(pBlobContent, blobSize);
+
+  const hlsl::DxilPartHeader *pPartHeader =
+      GetDxilPartByType(pContainerHeader, hlsl::DFCC_RuntimeData);
+  VERIFY_ARE_NOT_EQUAL(pPartHeader, nullptr);
+
+  hlsl::RDAT::DxilRuntimeData rdat(GetDxilPartData(pPartHeader),
+                                   pPartHeader->PartSize);
+
+  auto const subObjectTableReader = rdat.GetSubobjectTable();
+
+  // There are 9 subobjects in the HLSL above:
+  VERIFY_ARE_EQUAL(subObjectTableReader.Count(), 9u);
+
+  bool foundGlobalRS = false;
+  for (uint32_t i = 0; i < subObjectTableReader.Count(); ++i) {
+    auto subObject = subObjectTableReader[i];
+    hlsl::DXIL::SubobjectKind subobjectKind = subObject.getKind();
+    switch (subobjectKind) {
+    case hlsl::DXIL::SubobjectKind::GlobalRootSignature: {
+      foundGlobalRS = true;
+      VERIFY_IS_TRUE(0 ==
+                     strcmp(subObject.getName(), "so_GlobalRootSignature"));
+
+      constexpr bool notALocalRS = false;
+      auto rootSigReader = subObject.getRootSignature();
+      DxilVersionedRootSignatureDesc const *rootSignature = nullptr;
+      DeserializeRootSignature(rootSigReader.getData(),
+                               rootSigReader.sizeData(), &rootSignature);
+      VERIFY_ARE_EQUAL(rootSignature->Version,
+                       DxilRootSignatureVersion::Version_1_1);
+      VERIFY_ARE_EQUAL(rootSignature->Desc_1_1.NumParameters, 2);
+      VERIFY_ARE_EQUAL(rootSignature->Desc_1_1.pParameters[1].ParameterType,
+                       DxilRootParameterType::UAV);
+      VERIFY_ARE_EQUAL(rootSignature->Desc_1_1.pParameters[1].ShaderVisibility,
+                       DxilShaderVisibility::All);
+      VERIFY_ARE_EQUAL(
+          rootSignature->Desc_1_1.pParameters[1].Descriptor.RegisterSpace,
+          static_cast<uint32_t>(-2));
+      VERIFY_ARE_EQUAL(
+          rootSignature->Desc_1_1.pParameters[1].Descriptor.ShaderRegister, 0u);
+      break;
+    }
+    }
+  }
+  VERIFY_IS_TRUE(foundGlobalRS);
+}
+
+TEST_F(PixTest, RootSignatureUpgrade_Annotation)
+{
+
+  const char *dynamicTextureAccess = R"x(
+Texture1D<float4> tex[5] : register(t3);
+SamplerState SS[3] : register(s2);
+
+[RootSignature("DescriptorTable(SRV(t3, numDescriptors=5)),\
+                DescriptorTable(Sampler(s2, numDescriptors=3))")]
+float4 main(int i : A, float j : B) : SV_TARGET
+{
+  float4 r = tex[i].Sample(SS[i], i);
+  return r;
+}
+  )x";
+
+  auto compiled = Compile(dynamicTextureAccess, L"ps_6_6");
+  auto pOptimizedContainer = RunShaderAccessTrackingPass(compiled);
+
+  const char *pBlobContent =
+      reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
+  unsigned blobSize = pOptimizedContainer->GetBufferSize();
+  const hlsl::DxilContainerHeader *pContainerHeader =
+      hlsl::IsDxilContainerLike(pBlobContent, blobSize);
+
+  const hlsl::DxilPartHeader *pPartHeader =
+      GetDxilPartByType(pContainerHeader, hlsl::DFCC_RootSignature);
+  VERIFY_ARE_NOT_EQUAL(pPartHeader, nullptr);
+
+  hlsl::RootSignatureHandle RSH;
+  RSH.LoadSerialized((const uint8_t *)GetDxilPartData(pPartHeader),
+                     pPartHeader->PartSize);
+
+  RSH.Deserialize();
+
+  auto const *desc = RSH.GetDesc();
+  
+  bool foundGlobalRS = false;
+
+  VERIFY_ARE_EQUAL(desc->Version, hlsl::DxilRootSignatureVersion::Version_1_1);
+  VERIFY_ARE_EQUAL(desc->Desc_1_1.NumParameters, 2u);
+  for (unsigned int i = 0; i < desc->Desc_1_1.NumParameters; ++i) {
+    hlsl::DxilRootParameter1 const *param = desc->Desc_1_1.pParameters + i;
+    switch (param->ParameterType) {
+    case hlsl::DxilRootParameterType::UAV:
+      VERIFY_ARE_EQUAL(param->Descriptor.RegisterSpace, static_cast<uint32_t>(-2));
+      VERIFY_ARE_EQUAL(param->Descriptor.ShaderRegister, 0u);
+      foundGlobalRS = true;
+      break;
+    }
+  }
+
+  VERIFY_IS_TRUE(foundGlobalRS);
+}
+#endif
 
 #endif
