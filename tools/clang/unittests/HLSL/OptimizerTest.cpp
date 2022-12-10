@@ -587,6 +587,10 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
                    optimizedInfo1->SigPatchConstOrPrimElements);
   VERIFY_ARE_EQUAL(originalPsv.GetViewIDPCOutputMask().IsValid(),
                    optimizedPsv.GetViewIDPCOutputMask().IsValid());
+  VERIFY_ARE_EQUAL(originalPsv.GetSigInputElements(),
+                   optimizedPsv.GetSigInputElements());
+  VERIFY_ARE_EQUAL(originalPsv.GetSigOutputElements(),
+                   optimizedPsv.GetSigOutputElements());
   if (originalPsv.GetViewIDPCOutputMask().IsValid()) {
     VERIFY_ARE_EQUAL(*originalPsv.GetViewIDPCOutputMask().Mask,
                      *optimizedPsv.GetViewIDPCOutputMask().Mask);
@@ -600,6 +604,7 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
 
     VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).IsValid(),
                      optimizedPsv.GetViewIDOutputMask(stream).IsValid());
+
     if (originalPsv.GetViewIDOutputMask(stream).IsValid())
     {
       VERIFY_ARE_EQUAL(*originalPsv.GetViewIDOutputMask(stream).Mask,
@@ -615,6 +620,12 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
         VERIFY_ARE_EQUAL(
             originalPsv.GetInputToOutputTable(stream).OutputVectors,
             optimizedPsv.GetInputToOutputTable(stream).OutputVectors);
+        constexpr uint32_t componentsPerVector = 4;
+        VERIFY_ARE_EQUAL(
+            0, 
+            memcmp(originalPsv.GetInputToOutputTable(stream).Table, 
+                   optimizedPsv.GetInputToOutputTable(stream).Table,
+                   componentsPerVector * originalPsv.GetInputToOutputTable(stream).InputVectors) * sizeof(uint32_t));
       }
     }
   }
@@ -1260,11 +1271,9 @@ void CompareResources(const vector<unique_ptr<ResourceType>> &original,
     VERIFY_ARE_EQUAL(originalRes->GetKind(), optimizedRes->GetKind());
     VERIFY_ARE_EQUAL(originalRes->GetLowerBound(), optimizedRes->GetLowerBound());
     VERIFY_ARE_EQUAL(originalRes->GetRangeSize(), optimizedRes->GetRangeSize());
-    VERIFY_ARE_EQUAL_STR(originalRes->GetResBindPrefix(), optimizedRes->GetResBindPrefix());
-    VERIFY_ARE_EQUAL_STR(originalRes->GetResIDPrefix(), optimizedRes->GetResIDPrefix());
     VERIFY_ARE_EQUAL(originalRes->GetSpaceID(), optimizedRes->GetSpaceID());
     VERIFY_ARE_EQUAL(originalRes->GetUpperBound(), optimizedRes->GetUpperBound());
-  }
+   }
 }
 
 void OptimizerTest::CompareSTATBeforeAndAfterOptimization(
