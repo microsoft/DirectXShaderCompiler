@@ -541,6 +541,23 @@ R"(
   }
 }
 
+void VerifyIOTablesMatch(PSVDependencyTable original,
+                         PSVDependencyTable optimized) {
+  VERIFY_ARE_EQUAL(original.IsValid(), optimized.IsValid());
+  if (original.IsValid()) {
+    VERIFY_ARE_EQUAL(original.InputVectors, optimized.InputVectors);
+    VERIFY_ARE_EQUAL(original.OutputVectors, optimized.OutputVectors);
+    if (original.InputVectors == optimized.InputVectors &&
+        original.OutputVectors == optimized.OutputVectors &&
+        original.InputVectors * original.OutputVectors > 0) {
+      VERIFY_ARE_EQUAL(
+          0, memcmp(original.Table, optimized.Table,
+                    PSVComputeMaskDwordsFromVectors(original.OutputVectors) *
+                        original.InputVectors * 4 * sizeof(uint32_t)));
+    }
+  }
+}
+
 void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, const wchar_t *entry, const wchar_t *profile, bool usesViewId, int streamCount /*= 1*/)
 {
   auto originalContainer = Compile(source, entry, profile);
@@ -605,28 +622,19 @@ void OptimizerTest::ComparePSV0BeforeAndAfterOptimization(const char *source, co
     VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).IsValid(),
                      optimizedPsv.GetViewIDOutputMask(stream).IsValid());
 
+    VerifyIOTablesMatch(originalPsv.GetInputToOutputTable(),
+                        optimizedPsv.GetInputToOutputTable());
+    VerifyIOTablesMatch(originalPsv.GetInputToPCOutputTable(),
+                        optimizedPsv.GetInputToPCOutputTable());
+    VerifyIOTablesMatch(originalPsv.GetPCInputToOutputTable(),
+                        optimizedPsv.GetPCInputToOutputTable());
+
     if (originalPsv.GetViewIDOutputMask(stream).IsValid())
     {
       VERIFY_ARE_EQUAL(*originalPsv.GetViewIDOutputMask(stream).Mask,
                        *optimizedPsv.GetViewIDOutputMask(stream).Mask);
       VERIFY_ARE_EQUAL(originalPsv.GetViewIDOutputMask(stream).NumVectors,
                        optimizedPsv.GetViewIDOutputMask(stream).NumVectors);
-      VERIFY_ARE_EQUAL(originalPsv.GetInputToOutputTable(stream).IsValid(),
-                       optimizedPsv.GetInputToOutputTable(stream).IsValid());
-      if (originalPsv.GetInputToOutputTable(stream).IsValid()) {
-        VERIFY_ARE_EQUAL(
-            originalPsv.GetInputToOutputTable(stream).InputVectors,
-            optimizedPsv.GetInputToOutputTable(stream).InputVectors);
-        VERIFY_ARE_EQUAL(
-            originalPsv.GetInputToOutputTable(stream).OutputVectors,
-            optimizedPsv.GetInputToOutputTable(stream).OutputVectors);
-        constexpr uint32_t componentsPerVector = 4;
-        VERIFY_ARE_EQUAL(
-            0, 
-            memcmp(originalPsv.GetInputToOutputTable(stream).Table, 
-                   optimizedPsv.GetInputToOutputTable(stream).Table,
-                   componentsPerVector * originalPsv.GetInputToOutputTable(stream).InputVectors) * sizeof(uint32_t));
-      }
     }
   }
 }
