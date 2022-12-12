@@ -1679,6 +1679,17 @@ void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
 void DeclResultIdMapper::createCounterVar(
     const DeclaratorDecl *decl, SpirvInstruction *declInstr, bool isAlias,
     const llvm::SmallVector<uint32_t, 4> *indices) {
+
+  if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
+    if (const Expr *init = varDecl->getInit()) {
+      init = init->IgnoreParenCasts();
+      if (dyn_cast<ArraySubscriptExpr>(init)) {
+        // do not create counter from array subscript
+        return;
+      }
+    }
+  }
+
   std::string counterName = "counter.var." + decl->getName().str();
   if (indices) {
     // Append field indices to the name

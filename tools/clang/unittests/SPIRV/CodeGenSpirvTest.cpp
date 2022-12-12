@@ -142,6 +142,10 @@ TEST_F(FileTest, RWStructuredBufferArray) {
 TEST_F(FileTest, RWStructuredBufferArrayError) {
   runFileTest("type.rw-structured-buffer.array.error.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, RWStructuredBufferArrayLocalError) {
+  runFileTest("type.rw-structured-buffer.array.local.error.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, AppendStructuredBufferArrayError) {
   runFileTest("type.append-structured-buffer.array.error.hlsl",
               Expect::Failure);

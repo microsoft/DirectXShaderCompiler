@@ -1171,6 +1171,10 @@ will be translated into
   ; Variable
   %myCbuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
 
+You may create arrays of ``RWStructuredBuffer<T>``, but no associated counter
+variables will be created, and you may not use ``.IncrementCounter()`` or
+``.DecrementCounter()`` on the generated array's elements.
+
 ``AppendStructuredBuffer`` and ``ConsumeStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
