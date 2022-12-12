@@ -9,8 +9,17 @@ endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
 
 # Need DirectX-Headers module if not on windows
 if (NOT WIN32)
-  if (IS_DIRECTORY "${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers")
-    set(DIRECTX_HEADER_INCLUDE_DIR ${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers/include PARENT_SCOPE)
+  set(DXC_DIRECTX_HEADERS_DIR "${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers"
+      CACHE STRING "Location of DirectX-Headers source")
+  if (NOT DEFINED DirectX-Headers_SOURCE_DIR)
+    if (IS_DIRECTORY ${DXC_DIRECTX_HEADERS_DIR})
+      add_subdirectory(${DXC_DIRECTX_HEADERS_DIR}
+          "${CMAKE_BINARY_DIR}/external/DirectX-Headers"
+          EXCLUDE_FROM_ALL)
+    endif()
+  endif()
+  if (DEFINED DirectX-Headers_SOURCE_DIR)
+    set(DIRECTX_HEADER_INCLUDE_DIR ${DirectX-Headers_SOURCE_DIR}/include PARENT_SCOPE)
   else()
     message(FATAL_ERROR "DirectX-Headers was not found - required for reflection support on *nix see https://github.com/microsoft/DirectX-Headers")
   endif()
