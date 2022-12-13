@@ -453,8 +453,8 @@ mkdir inc       2>nul
 copy "%testfiles%\include-declarations.h" inc  >nul
 call :run dxc.exe -Tps_6_0 -Vi -I inc "%testfiles%\include-main.hlsl"
 if %Failed% neq 0 goto :failed
-call :check-file log find "; Opening file ["
-call :check-file log find "inc\include-declarations.h], stack top [0]"
+call :check_file log find "; Opening file ["
+call :check_file log find "include-declarations.h], stack top [0]"
 if %Failed% neq 0 goto :failed
 
 set testname=Test Version macro
