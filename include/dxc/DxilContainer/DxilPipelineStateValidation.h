@@ -13,7 +13,8 @@
 #define __DXIL_PIPELINE_STATE_VALIDATION__H__
 
 #include <stdint.h>
-#include <string.h>
+#include <cstring>
+#include "dxc/Support/WinAdapter.h"
 
 // Don't include assert.h here.
 // Since this header is included from multiple environments,
@@ -667,7 +668,8 @@ DxilPipelineStateValidation::CheckedReaderWriter::IncrementPos(size_t size) {
 template <typename _T> inline bool
 DxilPipelineStateValidation::CheckedReaderWriter::Cast(_T **ppPtr, size_t size) {
   PSV_RETB(CheckBounds(size));
-  *ppPtr = reinterpret_cast<_T*>(Ptr + Offset);
+  if (Mode != RWMode::CalcSize)
+    *ppPtr = reinterpret_cast<_T*>(Ptr + Offset);
   return true;
 }
 template <typename _T>

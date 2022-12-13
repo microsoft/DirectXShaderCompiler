@@ -2054,9 +2054,10 @@ QualType Sema::CheckTemplateIdType(TemplateName Name,
     return QualType();
 
   // HLSL Change Starts - check template values for HLSL object/matrix/vector signatures
-  if (getLangOpts().HLSL && hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc, TemplateArgs)) {
+  if (getLangOpts().HLSL && Template->isImplicit() &&
+      hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc,
+                                             TemplateArgs))
     return QualType();
-  }
   // HLSL Change Ends
 
   QualType CanonType;
@@ -3140,6 +3141,7 @@ bool Sema::CheckTemplateTypeArgument(TemplateTypeParmDecl *Param,
       }
     }
     // fallthrough
+    LLVM_FALLTHROUGH; // HLSL Change
   }
   default: {
     // We have a template type parameter but the template argument
@@ -6634,7 +6636,7 @@ Sema::CheckSpecializationInstantiationRedecl(SourceLocation NewLoc,
         StripImplicitInstantiation(PrevDecl);
         return false;
       }
-      // Fall through
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case TSK_ExplicitInstantiationDeclaration:
     case TSK_ExplicitInstantiationDefinition:
@@ -6661,6 +6663,7 @@ Sema::CheckSpecializationInstantiationRedecl(SourceLocation NewLoc,
 
       return true;
     }
+    llvm_unreachable("Unrecognized PrevTSK!");
 
   case TSK_ExplicitInstantiationDeclaration:
     switch (PrevTSK) {
@@ -6700,6 +6703,7 @@ Sema::CheckSpecializationInstantiationRedecl(SourceLocation NewLoc,
       HasNoEffect = true;
       return false;
     }
+    llvm_unreachable("Unrecognized PrevTSK!");
 
   case TSK_ExplicitInstantiationDefinition:
     switch (PrevTSK) {
@@ -8198,7 +8202,7 @@ Sema::CheckTypenameType(ElaboratedTypeKeyword Keyword,
   }
   // Fall through to create a dependent typename type, from which we can recover
   // better.
-
+  LLVM_FALLTHROUGH; // HLSL Change
   case LookupResult::NotFoundInCurrentInstantiation:
     // Okay, it's a member of an unknown instantiation.
     return Context.getDependentNameType(Keyword, 

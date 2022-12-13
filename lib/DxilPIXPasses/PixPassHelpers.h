@@ -9,8 +9,12 @@
 
 #pragma once
 
-//#define PIX_DEBUG_DUMP_HELPER
+#include "dxc/DXIL/DxilModule.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 
+//#define PIX_DEBUG_DUMP_HELPER
 #ifdef PIX_DEBUG_DUMP_HELPER
 #include "dxc/Support/Global.h"
 #endif
@@ -25,6 +29,7 @@ namespace PIXPassHelpers
         const char* name);
     llvm::Function* GetEntryFunction(hlsl::DxilModule& DM);
     std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM);
+    std::vector<llvm::Function*> GetAllInstrumentableFunctions(hlsl::DxilModule& DM);
 #ifdef PIX_DEBUG_DUMP_HELPER
     void Log(const char* format, ...);
     void LogPartialLine(const char* format, ...);

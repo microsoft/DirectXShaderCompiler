@@ -109,10 +109,6 @@ public:
   const DxilResource &GetUAV(unsigned idx) const;
   const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
 
-  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
-  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
-  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
-
   void RemoveUnusedResources();
   void RemoveResourcesWithUnusedSymbols();
   void RemoveFunction(llvm::Function *F);
@@ -206,6 +202,10 @@ public:
 
   bool StripReflection();
   void StripDebugRelatedCode();
+  void RemoveUnusedTypeAnnotations();
+
+  // Copy resource reflection back to this module's resources.
+  void RestoreResourceReflection(const DxilModule &SourceDM);
 
   // Helper to remove dx.* metadata with source and compile options.
   // If the parameter `bReplaceWithDummyData` is true, the named metadata

@@ -458,6 +458,7 @@ unsigned OP::GetTypeSlot(Type *pType) {
     case 32:              return 7;
     case 64:              return 8;
     }
+    llvm_unreachable("Invalid Bits size");
   }
   case Type::PointerTyID: return 9;
   case Type::StructTyID:  return 10;

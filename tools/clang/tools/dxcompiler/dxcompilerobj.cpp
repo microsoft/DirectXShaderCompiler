@@ -25,6 +25,7 @@
 #include "clang/CodeGen/CodeGenAction.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/Timer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
@@ -1019,10 +1020,16 @@ public:
         opts.SpirvOptions.codeGenHighLevel = opts.CodeGenHighLevel;
         opts.SpirvOptions.defaultRowMajor = opts.DefaultRowMajor;
         opts.SpirvOptions.disableValidation = opts.DisableValidation;
-        // Store a string representation of command line options.
-        if (opts.DebugInfo)
-          for (auto opt : mainArgs.getArrayRef())
-            opts.SpirvOptions.clOptions += " " + std::string(opt);
+        // Save a string representation of command line options and
+        // input file name.
+        if (opts.DebugInfo) {
+          opts.SpirvOptions.inputFile = opts.InputFile;
+          for (auto opt : mainArgs.getArrayRef()) {
+            if (opts.InputFile.compare(opt) != 0) {
+              opts.SpirvOptions.clOptions += " " + std::string(opt);
+            }
+          }
+        }
 
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
         clang::EmitSpirvAction action;
@@ -1404,6 +1411,7 @@ public:
     }
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
+    compiler.getFrontendOpts().ShowTimers = Opts.TimeReport ? 1 : 0;
     // Setup debug information.
     if (Opts.GenerateFullDebugInfo()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
@@ -1417,7 +1425,7 @@ public:
       // TODO: consider
       // DebugPass, DebugCompilationDir, DwarfDebugFlags, SplitDwarfFile
     }
-    else {
+    else if (!Opts.ForceDisableLocTracking) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       CGOpts.setDebugInfo(CodeGenOptions::LocTrackingOnly);
       CGOpts.DebugColumnInfo = 1;
@@ -1464,16 +1472,10 @@ public:
     compiler.getLangOpts().HLSLVersion = Opts.HLSLVersion;
     compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
     compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
-    compiler.getLangOpts().EnableTemplates = Opts.EnableTemplates;
-    compiler.getLangOpts().EnableOperatorOverloading =
-        Opts.EnableOperatorOverloading;
-    compiler.getLangOpts().StrictUDTCasting = Opts.StrictUDTCasting;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
-    compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
-    compiler.getLangOpts().EnableBitfields = Opts.EnableBitfields;
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
 
@@ -1824,6 +1826,14 @@ HRESULT DxcCompilerAdapter::WrapCompile(
 
     pResult->CopyOutputsFromResult(pImplResult);
     pResult->SetStatusAndPrimaryResult(hr, pImplResult->PrimaryOutput());
+
+    if (opts.TimeReport) {
+      std::string TimeReport;
+      raw_string_ostream OS(TimeReport);
+      llvm::TimerGroup::printAll(OS);
+      IFT(pResult->SetOutputString(DXC_OUT_TIME_REPORT, TimeReport.c_str(),
+                                   TimeReport.size()));
+    }
 
     outStream.flush();
 

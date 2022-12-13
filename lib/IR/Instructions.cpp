@@ -1890,7 +1890,7 @@ void BinaryOperator::copyIRFlags(const Value *V) {
   // Copy the exact flag.
   if (auto *PE = dyn_cast<PossiblyExactOperator>(V))
     setIsExact(PE->isExact());
-  
+
   // Copy the fast-math flags.
   if (auto *FP = dyn_cast<FPMathOperator>(V))
     copyFastMathFlags(FP->getFastMathFlags());
@@ -1898,13 +1898,13 @@ void BinaryOperator::copyIRFlags(const Value *V) {
 
 void BinaryOperator::andIRFlags(const Value *V) {
   if (auto *OB = dyn_cast<OverflowingBinaryOperator>(V)) {
-    setHasNoSignedWrap(hasNoSignedWrap() & OB->hasNoSignedWrap());
-    setHasNoUnsignedWrap(hasNoUnsignedWrap() & OB->hasNoUnsignedWrap());
+    setHasNoSignedWrap(hasNoSignedWrap() && OB->hasNoSignedWrap());
+    setHasNoUnsignedWrap(hasNoUnsignedWrap() && OB->hasNoUnsignedWrap());
   }
-  
+
   if (auto *PE = dyn_cast<PossiblyExactOperator>(V))
-    setIsExact(isExact() & PE->isExact());
-  
+    setIsExact(isExact() && PE->isExact());
+
   if (auto *FP = dyn_cast<FPMathOperator>(V)) {
     FastMathFlags FM = getFastMathFlags();
     FM &= FP->getFastMathFlags();

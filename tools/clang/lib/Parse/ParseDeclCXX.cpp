@@ -361,7 +361,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, unsigned Context) {
     case tok::r_brace:
       if (!NestedModules)
         break;
-      // Fall through.
+      LLVM_FALLTHROUGH; // HLSL Change.
     default:
       ParsedAttributesWithRange attrs(AttrFactory);
       MaybeParseCXX11Attributes(attrs);
@@ -2359,7 +2359,8 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     assert(!TemplateInfo.TemplateParams &&
            "Nested template improperly parsed?");
     // HLSL Change Starts
-    if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       SkipUntil(tok::r_brace, StopAtSemi);
       return;
@@ -3999,6 +4000,7 @@ void Parser::ParseMicrosoftIfExistsClassDeclaration(DeclSpec::TST TagType,
     Diag(Result.KeywordLoc, diag::warn_microsoft_dependent_exists)
       << Result.IsIfExists;
     // Fall through to skip.
+    LLVM_FALLTHROUGH; // HLSL Change
       
   case IEB_Skip:
     Braces.skipToEnd();

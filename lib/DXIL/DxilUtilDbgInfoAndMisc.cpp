@@ -108,7 +108,8 @@ namespace hlsl {
 
 namespace dxilutil {
 
-void MergeGepUse(Value *V) {
+bool MergeGepUse(Value *V) {
+  bool changed = false;
   SmallVector<Value *, 16> worklist;
   auto addUsersToWorklist = [&worklist](Value *V) {
     if (!V->user_empty()) {
@@ -125,6 +126,7 @@ void MergeGepUse(Value *V) {
     V = worklist.pop_back_val();
     if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
       if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
+        changed = true;
         worklist.push_back(NewV);
       } else {
         // merge any GEP users of the untranslated bitcast
@@ -135,10 +137,15 @@ void MergeGepUse(Value *V) {
               dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
         // merge the 2 GEPs, returns nullptr if couldn't merge
         if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
+          changed = true;
           worklist.push_back(newGEP);
           // delete prevGEP if no more users
-          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP))
+          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP)) {
             cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
+          }
+        }
+        else {
+          addUsersToWorklist(GEP);
         }
       } else {
         // nothing to merge yet, add GEP users
@@ -146,6 +153,8 @@ void MergeGepUse(Value *V) {
       }
     }
   }
+
+  return changed;
 }
 
 std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,

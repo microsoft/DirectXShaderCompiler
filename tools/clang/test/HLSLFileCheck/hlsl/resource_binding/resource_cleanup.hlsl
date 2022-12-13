@@ -1,8 +1,9 @@
-// RUN: %dxc /O3 /Tps_6_0 /Emain > %s | FileCheck %s
+// RUN: %dxc /O3 /Tps_6_0 /Emain  %s | FileCheck %s
 
 // Make sure only one cbuffer is emitted for the final
 // dxil.
 
+// CHECK-LABEL: ; Buffer Definitions:
 // CHECK-NOT: cb1 
 
 cbuffer BAR {

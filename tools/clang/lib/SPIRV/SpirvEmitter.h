@@ -122,6 +122,10 @@ private:
                                SourceRange rangeOverride = {});
   SpirvInstruction *doCompoundAssignOperator(const CompoundAssignOperator *);
   SpirvInstruction *doConditionalOperator(const ConditionalOperator *expr);
+  SpirvInstruction *doConditional(const Expr *expr, const Expr *cond,
+                                  const Expr *falseExpr, const Expr *trueExpr);
+  SpirvInstruction *
+  doShortCircuitedConditionalOperator(const ConditionalOperator *expr);
   SpirvInstruction *doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
   SpirvInstruction *doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
                                           SourceRange rangeOverride = {});
@@ -222,6 +226,13 @@ private:
   ///   the original vector, no shuffling needed).
   bool isVectorShuffle(const Expr *expr);
 
+  /// Returns true if the given expression is a short-circuited operator.
+  bool isShortCircuitedOp(const Expr *expr);
+
+  /// Returns true if the given statement or any of its children are a
+  /// short-circuited operator.
+  bool stmtTreeContainsShortCircuitedOp(const Stmt *stmt);
+
   /// \brief Returns true if the given CXXOperatorCallExpr is indexing into a
   /// Buffer/RWBuffer/Texture/RWTexture using operator[].
   /// On success, writes the base buffer into *base if base is not nullptr, and
@@ -286,14 +297,14 @@ private:
   /// are generated.
   SpirvInstruction *tryToAssignToVectorElements(const Expr *lhs,
                                                 SpirvInstruction *rhs,
-	                                            SourceRange range = {});
+                                                SourceRange range = {});
 
   /// Tries to emit instructions for assigning to the given matrix element
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
   SpirvInstruction *tryToAssignToMatrixElements(const Expr *lhs,
                                                 SpirvInstruction *rhs,
-	                                            SourceRange range = {});
+                                                SourceRange range = {});
 
   /// Tries to emit instructions for assigning to the given RWBuffer/RWTexture
   /// object. Returns 0 if the trial fails and no instructions are generated.
@@ -358,13 +369,17 @@ private:
                             llvm::SmallVectorImpl<SpirvInstruction *> *indices,
                             bool *isMSOutAttribute = nullptr);
 
-  /// Creates an access chain to index into the given SPIR-V evaluation result
-  /// and returns the new SPIR-V evaluation result.
-  SpirvInstruction *
-  turnIntoElementPtr(QualType baseType, SpirvInstruction *base,
-                     QualType elemType,
-                     const llvm::SmallVector<SpirvInstruction *, 4> &indices,
-                     SourceLocation loc, SourceRange range = {});
+  /// For L-values, creates an access chain to index into the given SPIR-V
+  /// evaluation result and returns the new SPIR-V evaluation result.
+  /// For R-values, stores it in a variable, then create the access chain and
+  /// return the evaluation result.
+  SpirvInstruction *derefOrCreatePointerToValue(
+      QualType baseType, SpirvInstruction *base, QualType elemType,
+      const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+      SourceLocation loc, SourceRange range = {});
+
+  SpirvVariable *turnIntoLValue(QualType type, SpirvInstruction *source,
+                                SourceLocation loc);
 
 private:
   /// Validates that vk::* attributes are used correctly and returns false if
@@ -622,7 +637,7 @@ private:
       SourceLocation loc);
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
-  
+
   /// Process spirv intrinsic type definition
   SpirvInstruction *processSpvIntrinsicTypeDef(const CallExpr *expr);
 
@@ -639,9 +654,9 @@ private:
   SpirvInstruction *processRawBufferStore(const CallExpr *callExpr);
   SpirvInstruction *storeDataToRawAddress(SpirvInstruction *addressInUInt64,
                                           SpirvInstruction *value,
-                                           QualType bufferType,
-                                           uint32_t alignment,
-                                           SourceLocation loc);
+                                          QualType bufferType,
+                                          uint32_t alignment,
+                                          SourceLocation loc);
 
   /// Returns the alignment of `vk::RawBufferLoad()`.
   uint32_t getAlignmentForRawBufferLoad(const CallExpr *callExpr);
@@ -738,7 +753,7 @@ private:
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
   static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
-  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk);
+  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk, bool);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.

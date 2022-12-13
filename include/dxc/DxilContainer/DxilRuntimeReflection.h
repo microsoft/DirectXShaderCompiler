@@ -10,7 +10,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/Support/WinAdapter.h"
 
 #define RDAT_NULL_REF ((uint32_t)0xFFFFFFFF)
 
@@ -37,6 +39,15 @@ enum RuntimeDataVersion {
   RDAT_Version_10 = 0x10,
 };
 
+enum class RuntimeDataGroup : uint32_t {
+  Core    = 0,
+  PdbInfo = 1,
+};
+
+constexpr uint32_t RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup group, uint32_t id) {
+  return (((uint32_t)(group) << 16) | ((id) & 0xFFFF));
+}
+
 enum class RuntimeDataPartType : uint32_t {
   Invalid             = 0,
   StringBuffer        = 1,
@@ -47,8 +58,13 @@ enum class RuntimeDataPartType : uint32_t {
   RawBytes            = 5,
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
+
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
+
+  DxilPdbInfoTable        = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
+  DxilPdbInfoSourceTable  = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 2),
+  DxilPdbInfoLibraryTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
 };
 
 inline
@@ -66,6 +82,11 @@ enum class RecordTableIndex : unsigned {
   ResourceTable,
   FunctionTable,
   SubobjectTable,
+
+  DxilPdbInfoTable,
+  DxilPdbInfoSourceTable,
+  DxilPdbInfoLibraryTable,
+
   RecordTableCount
 };
 
@@ -216,27 +237,19 @@ public:
 template<typename _T>
 class RecordTraits {
 public:
-  static constexpr const char *TypeName() {
-#ifdef _WIN32
-    static_assert(false, "");
-#else
-    assert(false);
-#endif
-    return nullptr;
-  }
+  static constexpr const char *TypeName();
+
+  static constexpr RuntimeDataPartType PartType();
+
   // If the following static assert is hit, it means a structure defined with
   // RDAT_STRUCT is being used in ref type, which requires the struct to have
   // a table and be defined with RDAT_STRUCT_TABLE instead.
-  static constexpr RecordTableIndex TableIndex() {
-#ifdef _WIN32
-    static_assert(false, "");
-#else
-    assert(false);
-#endif
-    return (RecordTableIndex)-1;
-  }
+  static constexpr RecordTableIndex TableIndex();
+  
   // RecordSize() is defined in order to allow for use of forward decl type in RecordRef
-  static constexpr size_t RecordSize() { /*static_assert(false, "");*/ return sizeof(_T); }
+  static constexpr size_t RecordSize() { return sizeof(_T); }
+  static constexpr size_t MaxRecordSize() { return RecordTraits<_T>::DerivedRecordSize(); }
+  static constexpr size_t DerivedRecordSize() { return sizeof(_T); }
 };
 
 ///////////////////////////////////////

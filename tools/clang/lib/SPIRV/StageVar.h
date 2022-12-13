@@ -10,11 +10,12 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_STAGEVAR_H
 #define LLVM_CLANG_LIB_SPIRV_STAGEVAR_H
 
-#include <string>
-
 #include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/DXIL/DxilSigPoint.h"
 #include "clang/AST/Attr.h"
+#include "clang/SPIRV/SpirvInstruction.h"
+
+#include <string>
 
 namespace clang {
 namespace spirv {

@@ -390,6 +390,7 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
       OS << right_justify(compName, alignment);
       break;
     }
+    break;
   case DxilResource::Class::Invalid:
     break;
   }
@@ -705,7 +706,7 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
     }
     case DXIL::SubobjectKind::LocalRootSignature:
       bLocalRS = true;
-      __fallthrough;
+      LLVM_FALLTHROUGH;
     case DXIL::SubobjectKind::GlobalRootSignature: {
       const char *Text = nullptr;
       const void *Data = nullptr;

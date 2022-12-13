@@ -22,9 +22,9 @@ namespace spirv {
 namespace utils {
 
 bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
-                            std::string *generatedSpirvAsm,
-                            bool generateHeader) {
-  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
+                            std::string *generatedSpirvAsm, bool generateHeader,
+                            spv_target_env target_env) {
+  spvtools::SpirvTools spirvTools(target_env);
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
          const char *message) { fprintf(stdout, "%s\n", message); });

@@ -13,10 +13,13 @@
 #define __DXC_ISENSEIMPL__
 
 #include "clang-c/Index.h"
-#include "dxc/dxcisense.h"
-#include "dxc/dxcapi.internal.h"
-#include "dxc/Support/microcom.h"
+#include "clang/AST/Decl.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "dxc/Support/DxcLangExtensionsCommonHelper.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
+#include "dxc/Support/microcom.h"
+#include "dxc/dxcapi.internal.h"
+#include "dxc/dxcisense.h"
 
 // Forward declarations.
 class DxcCursor;

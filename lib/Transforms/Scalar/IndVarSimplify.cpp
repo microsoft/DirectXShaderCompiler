@@ -1485,6 +1485,7 @@ static PHINode *getLoopPhiForCounter(Value *IncV, Loop *L, DominatorTree *DT) {
     // An IV counter must preserve its type.
     if (IncI->getNumOperands() == 2)
       break;
+    LLVM_FALLTHROUGH; // HLSL Change
   default:
     return nullptr;
   }

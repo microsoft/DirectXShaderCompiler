@@ -65,6 +65,10 @@ class VersionGen():
         self.current_branch = get_current_branch()
         self.rc_version_field_4_cache = None
 
+    def tool_name(self):
+        return self.latest_release_info.get("toolname",
+            "dxcoob" if self.options.official else "dxc(private)")
+
     def rc_version_field_1(self):
         return self.latest_release_info["version"]["major"]
 
@@ -127,6 +131,9 @@ class VersionGen():
         self.print_define('RC_COPYRIGHT',        '"(c) Microsoft Corporation. All rights reserved."')
         self.print_define('RC_PRODUCT_NAME',     '"Microsoft(r) DirectX for Windows(r) - Out Of Band"')
         self.print_define('RC_PRODUCT_VERSION',   self.product_version_str())
+        self.print_define('HLSL_TOOL_NAME',       '"{}"'.format(self.tool_name()))
+        self.print_define('HLSL_VERSION_MACRO',   'HLSL_TOOL_NAME " " RC_FILE_VERSION')
+        self.print_define('HLSL_LLVM_IDENT',      'HLSL_TOOL_NAME " " RC_PRODUCT_VERSION')
 
 
 def main():

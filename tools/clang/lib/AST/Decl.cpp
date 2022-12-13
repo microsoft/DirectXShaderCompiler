@@ -409,7 +409,7 @@ static bool hasDirectVisibilityAttribute(const NamedDecl *D,
   case LVForExplicitType:
     if (D->hasAttr<TypeVisibilityAttr>())
       return true;
-    // fallthrough
+    LLVM_FALLTHROUGH; // HLSL Change
   case LVForValue:
   case LVForExplicitValue:
     if (D->hasAttr<VisibilityAttr>())
@@ -3410,7 +3410,7 @@ SourceRange FieldDecl::getSourceRange() const {
   case ISK_InClassListInit:
     if (const Expr *E = static_cast<const Expr *>(InitStorage.getPointer()))
       return SourceRange(getInnerLocStart(), E->getLocEnd());
-    // FALLTHROUGH
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case ISK_CapturedVLAType:
     return DeclaratorDecl::getSourceRange();

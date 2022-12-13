@@ -281,7 +281,7 @@ InductiveRangeCheck::parseRangeCheckICmp(Loop *L, ICmpInst *ICI,
 
   case ICmpInst::ICMP_SLE:
     std::swap(LHS, RHS);
-  // fallthrough
+  LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_SGE:
     if (match(RHS, m_ConstantInt<0>())) {
       Index = LHS;
@@ -291,7 +291,7 @@ InductiveRangeCheck::parseRangeCheckICmp(Loop *L, ICmpInst *ICI,
 
   case ICmpInst::ICMP_SLT:
     std::swap(LHS, RHS);
-  // fallthrough
+  LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_SGT:
     if (match(RHS, m_ConstantInt<-1>())) {
       Index = LHS;
@@ -307,7 +307,7 @@ InductiveRangeCheck::parseRangeCheckICmp(Loop *L, ICmpInst *ICI,
 
   case ICmpInst::ICMP_ULT:
     std::swap(LHS, RHS);
-  // fallthrough
+  LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_UGT:
     if (IsNonNegativeAndNotLoopVarying(LHS)) {
       Index = RHS;

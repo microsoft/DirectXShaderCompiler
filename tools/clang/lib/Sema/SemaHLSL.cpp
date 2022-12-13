@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "clang/AST/DeclBase.h"
 #include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/DenseMap.h"
@@ -708,6 +709,7 @@ BITWISE_ENUM_OPS(TYPE_CONVERSION_REMARKS)
 struct ArTypeInfo {
   ArTypeObjectKind ShapeKind;      // The shape of the type (basic, matrix, etc.)
   ArBasicKind EltKind;             // The primitive type of elements in this type.
+  const clang::Type *EltTy;        // Canonical element type ptr
   ArBasicKind ObjKind;             // The object type for this type (textures, buffers, etc.)
   UINT uRows;
   UINT uCols;
@@ -4308,6 +4310,22 @@ public:
     return QualType(type->getCanonicalTypeUnqualified()->getTypePtr(), 0);
   }
 
+  /// <summary>Given a Clang type, return the QualType for its element, drilling through any array/vector/matrix.</summary>
+  QualType GetTypeElementType(QualType type)
+  {
+    type = GetStructuralForm(type);
+    ArTypeObjectKind kind = GetTypeObjectKind(type);
+    if (kind == AR_TOBJ_MATRIX || kind == AR_TOBJ_VECTOR) {
+      type = GetMatrixOrVectorElementType(type);
+    } else if (kind == AR_TOBJ_STRING) {
+      // return original type even if it's an array (string literal)
+    } else if (type->isArrayType()) {
+      const ArrayType* arrayType = type->getAsArrayTypeUnsafe();
+      type = GetTypeElementType(arrayType->getElementType());
+    }
+    return type;
+  }
+
   /// <summary>Given a Clang type, return the ArBasicKind classification for its contents.</summary>
   ArBasicKind GetTypeElementKind(QualType type)
   {
@@ -4768,7 +4786,8 @@ public:
       // Some intrinsics only optionally exist in later language versions.
       // To prevent collisions with existing functions or templates, exclude
       // intrinsics when they aren't enabled.
-      if (IsBuiltinTable(tableName) && !m_sema->getLangOpts().EnableShortCircuit) {
+      if (IsBuiltinTable(tableName) &&
+          m_sema->getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
@@ -6779,6 +6798,7 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
   //       Try to inline that here, making it cheaper to use this function
   //       when retrieving multiple properties.
   pTypeInfo->ObjKind = GetTypeElementKind(type);
+  pTypeInfo->EltTy = GetTypeElementType(type)->getCanonicalTypeUnqualified()->getTypePtr();
   pTypeInfo->EltKind = pTypeInfo->ObjKind;
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
   GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
@@ -7815,6 +7835,7 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     }
   default:
     DXASSERT(false, "unreachable");
+    return false;
   case AR_TOBJ_BASIC:
   case AR_TOBJ_MATRIX:
   case AR_TOBJ_VECTOR:
@@ -8070,24 +8091,28 @@ VectorMemberAccessError TryConsumeVectorDigit(const char*& memberText, uint32_t*
   switch (*memberText) {
   case 'r':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'x':
     *value = 0;
     break;
 
   case 'g':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'y':
     *value = 1;
     break;
 
   case 'b':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'z':
     *value = 2;
     break;
 
   case 'a':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'w':
     *value = 3;
     break;
@@ -8497,7 +8522,7 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
         DXASSERT(false, "PerformHLSLConversion: Invalid source type for truncation cast");
       }
     }
-    __fallthrough;
+    LLVM_FALLTHROUGH;
 
     case ICK_HLSLVector_Conversion: {
       // 2. Do ShapeKind conversion if necessary
@@ -8899,6 +8924,18 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
           ComponentConversion = ICK_Floating_Integral;
       }
     }
+  } else if (TargetInfo.EltTy != SourceInfo.EltTy) {
+    // Types are identical in HLSL, but not identical in clang,
+    // such as unsigned long vs. unsigned int.
+    // Add conversion based on the type.
+    if (IS_BASIC_AINT(TargetInfo.EltKind))
+      ComponentConversion = ICK_Integral_Conversion;
+    else if (IS_BASIC_FLOAT(TargetInfo.EltKind))
+      ComponentConversion = ICK_Floating_Conversion;
+    else {
+      DXASSERT(false, "unhandled case for conversion that's identical in HLSL, but not in clang");
+      return false;
+    }
   }
 
   return true;
@@ -9054,7 +9091,7 @@ bool HLSLExternalSource::CanConvert(
           break;
         }
       }
-    } else if (m_sema->getLangOpts().StrictUDTCasting &&
+    } else if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021 &&
                (SourceInfo.ShapeKind == AR_TOBJ_COMPOUND ||
                 TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) &&
                !TargetIsAnonymous) {
@@ -9127,7 +9164,7 @@ lSuccess:
         case ICK_Vector_Conversion:
         case ICK_Vector_Splat:
           DXASSERT(false, "We shouldn't be producing these implicit conversion kinds");
-
+          break;
         case ICK_Flat_Conversion:
         case ICK_HLSLVector_Splat:
           standard->First = ICK_Lvalue_To_Rvalue;
@@ -9435,7 +9472,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   ArBasicKind resultElementKind = leftElementKind;
   {
     if (BinaryOperatorKindIsLogical(Opc)) {
-      if (m_sema->getLangOpts().EnableShortCircuit) {
+      if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
         // Only allow scalar types for logical operators &&, ||
         if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
             rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
@@ -9739,7 +9776,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
 
   QualType ResultTy = leftType;
 
-  if (m_sema->getLangOpts().EnableShortCircuit) {
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
     // Only allow scalar.
     if (condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX) {
       SmallVector<char, 256> Buff;
@@ -9824,8 +9861,15 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     return QualType();
   }
 
-  // Here, element kind is combined with dimensions for result type.
-  ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  // Here, element kind is combined with dimensions for primitive types.
+  if (IS_BASIC_PRIMITIVE(resultElementKind)) {
+    ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  } else {
+    DXASSERT(rowCount == 1 && colCount == 1,
+             "otherwise, attempting to construct vector or matrix with "
+             "non-primitive component type");
+    ResultTy = ResultTy.getUnqualifiedType();
+  }
 
   // Cast condition to RValue
   if (Cond.get()->isLValue())
@@ -9834,7 +9878,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   // Convert condition component type to bool, using result component dimensions
   QualType boolType;
   // If short-circuiting, condition must be scalar.
-  if (m_sema->getLangOpts().EnableShortCircuit)
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021)
     boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, 1, 1)->getCanonicalTypeInternal();
   else
     boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
@@ -11389,7 +11433,7 @@ bool FlattenedTypeIterator::considerLeaf()
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:
-    m_springLoaded = true; // fall through.
+    m_springLoaded = true; LLVM_FALLTHROUGH;
   default:
   case FlattenedIterKind::FK_Simple: {
     ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(tracker.Type);
@@ -12101,6 +12145,26 @@ bool ValidateAttributeTargetIsFunction(Sema& S, Decl* D, const AttributeList &A)
   return false;
 }
 
+void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
+  HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
+  if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
+          dyn_cast<HLSLGloballyCoherentAttr>(A)) {
+    const ValueDecl *TD = cast<ValueDecl>(D);
+    if (!TD->getType()->isDependentType()) {
+      QualType DeclType = TD->getType();
+      while (DeclType->isArrayType())
+        DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+      if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
+          hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
+              hlsl::DXIL::ResourceClass::UAV) {
+        Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
+            << A << "non-UAV type";
+      }
+    }
+    return;
+  }
+}
+
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, bool& Handled)
 {
   DXASSERT_NOMSG(D != nullptr);
@@ -12266,6 +12330,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
 
   if (declAttr != nullptr)
   {
+    S.DiagnoseHLSLDeclAttr(D, declAttr);
     DXASSERT_NOMSG(Handled);
     D->addAttr(declAttr);
     return;
@@ -12865,7 +12930,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
          "otherwise this is called without checking language first");
 
   // If we have a template declaration but haven't enabled templates, error.
-  if (DC->isDependentContext() && !getLangOpts().EnableTemplates) return false;
+  if (DC->isDependentContext() &&
+      getLangOpts().HLSLVersion < hlsl::LangStd::v2021)
+    return false;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
@@ -13097,12 +13164,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         result = false;
       }
       break;
-    case AttributeList::AT_HLSLGloballyCoherent:
-      if (!bIsObject) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
-            << pAttr->getName() << "non-UAV type";
-        result = false;
-      }
+    case AttributeList::AT_HLSLGloballyCoherent: // Handled elsewhere
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {
@@ -13359,9 +13421,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   // SPIRV change ends
 
   // Disallow bitfields where not enabled explicitly or by HV
-  if (BitWidth && !getLangOpts().EnableBitfields) {
-    Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
-    result = false;
+  if (BitWidth) {
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+      Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
+      result = false;
+    } else if (!D.UnusualAnnotations.empty()) {
+      Diag(BitWidth->getExprLoc(),
+           diag::err_hlsl_bitfields_with_annotation);
+      result = false;
+    }
   }
 
   // Validate unusual annotations.

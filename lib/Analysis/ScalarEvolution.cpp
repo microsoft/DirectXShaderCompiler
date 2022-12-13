@@ -4380,7 +4380,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       case ICmpInst::ICMP_SLT:
       case ICmpInst::ICMP_SLE:
         std::swap(LHS, RHS);
-        // fall through
+        LLVM_FALLTHROUGH; // HLSL Change
       case ICmpInst::ICMP_SGT:
       case ICmpInst::ICMP_SGE:
         // a >s b ? a+x : b+x  ->  smax(a, b)+x
@@ -4404,7 +4404,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       case ICmpInst::ICMP_ULT:
       case ICmpInst::ICMP_ULE:
         std::swap(LHS, RHS);
-        // fall through
+        LLVM_FALLTHROUGH; // HLSL Change
       case ICmpInst::ICMP_UGT:
       case ICmpInst::ICMP_UGE:
         // a >u b ? a+x : b+x  ->  umax(a, b)+x
@@ -4458,7 +4458,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       default:
         break;
       }
-    }
+    } break;
 
   default: // We cannot analyze this expression.
     break;
@@ -6696,6 +6696,7 @@ ScalarEvolution::isKnownPredicateWithRanges(ICmpInst::Predicate Pred,
     llvm_unreachable("Unexpected ICmpInst::Predicate value!");
   case ICmpInst::ICMP_SGT:
     std::swap(LHS, RHS);
+    LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_SLT: {
     ConstantRange LHSRange = getSignedRange(LHS);
     ConstantRange RHSRange = getSignedRange(RHS);
@@ -6707,6 +6708,7 @@ ScalarEvolution::isKnownPredicateWithRanges(ICmpInst::Predicate Pred,
   }
   case ICmpInst::ICMP_SGE:
     std::swap(LHS, RHS);
+    LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_SLE: {
     ConstantRange LHSRange = getSignedRange(LHS);
     ConstantRange RHSRange = getSignedRange(RHS);
@@ -6718,6 +6720,7 @@ ScalarEvolution::isKnownPredicateWithRanges(ICmpInst::Predicate Pred,
   }
   case ICmpInst::ICMP_UGT:
     std::swap(LHS, RHS);
+    LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_ULT: {
     ConstantRange LHSRange = getUnsignedRange(LHS);
     ConstantRange RHSRange = getUnsignedRange(RHS);
@@ -6729,6 +6732,7 @@ ScalarEvolution::isKnownPredicateWithRanges(ICmpInst::Predicate Pred,
   }
   case ICmpInst::ICMP_UGE:
     std::swap(LHS, RHS);
+    LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_ULE: {
     ConstantRange LHSRange = getUnsignedRange(LHS);
     ConstantRange RHSRange = getUnsignedRange(RHS);
@@ -7052,6 +7056,7 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred,
           if (isImpliedCondOperands(Pred, LHS, RHS, V,
                                     getConstant(SharperMin)))
             return true;
+          LLVM_FALLTHROUGH; // HLSL Change
 
         case ICmpInst::ICMP_SGT:
         case ICmpInst::ICMP_UGT:
@@ -7066,7 +7071,7 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred,
 
           if (isImpliedCondOperands(Pred, LHS, RHS, V, getConstant(Min)))
             return true;
-
+          break;
         default:
           // No change
           break;
@@ -7163,7 +7168,7 @@ static bool IsKnownPredicateViaMinOrMax(ScalarEvolution &SE,
 
   case ICmpInst::ICMP_SGE:
     std::swap(LHS, RHS);
-    // fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_SLE:
     return
       // min(A, ...) <= A
@@ -7173,7 +7178,7 @@ static bool IsKnownPredicateViaMinOrMax(ScalarEvolution &SE,
 
   case ICmpInst::ICMP_UGE:
     std::swap(LHS, RHS);
-    // fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case ICmpInst::ICMP_ULE:
     return
       // min(A, ...) <= A
@@ -8423,6 +8428,7 @@ ScalarEvolution::computeBlockDisposition(const SCEV *S, const BasicBlock *BB) {
       return DoesNotDominateBlock;
   }
   // FALL THROUGH into SCEVNAryExpr handling.
+  LLVM_FALLTHROUGH; // HLSL Change
   case scAddExpr:
   case scMulExpr:
   case scUMaxExpr:

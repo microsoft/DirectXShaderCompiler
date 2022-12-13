@@ -15,6 +15,10 @@
 #ifndef LLVM_CLANG_LIB_SEMA_VKCONSTANTSTABLES_H
 #define LLVM_CLANG_LIB_SEMA_VKCONSTANTSTABLES_H
 
+#include <string>
+#include <utility>
+#include <vector>
+
 std::vector<std::pair<std::string, uint32_t>> GetVkIntegerConstants() {
   return {
       {"CrossDeviceScope", 0u},

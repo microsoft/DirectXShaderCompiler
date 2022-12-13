@@ -11,13 +11,14 @@
 
 #pragma once
 
+#include "dxc/HLSL/DxilExportMap.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/ErrorOr.h"
+
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringMap.h"
-#include <memory>
-#include "llvm/Support/ErrorOr.h"
-#include "dxc/HLSL/DxilExportMap.h"
 
 namespace llvm {
 class Function;

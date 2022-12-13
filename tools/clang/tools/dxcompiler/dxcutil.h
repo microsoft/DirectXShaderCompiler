@@ -11,10 +11,12 @@
 
 #pragma once
 
-#include "dxc/dxcapi.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/microcom.h"
-#include <memory>
+#include "dxc/dxcapi.h"
 #include "llvm/ADT/StringRef.h"
+
+#include <memory>
 
 namespace clang {
 class DiagnosticsEngine;

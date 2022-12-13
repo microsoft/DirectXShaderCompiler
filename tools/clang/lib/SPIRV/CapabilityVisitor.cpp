@@ -15,10 +15,11 @@ namespace spirv {
 
 void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
                                      SourceLocation loc) {
-  featureManager.requestExtension(ext, target, loc);
   // Do not emit OpExtension if the given extension is natively supported in
   // the target environment.
-  if (featureManager.isExtensionRequiredForTargetEnv(ext))
+  if (!featureManager.isExtensionRequiredForTargetEnv(ext))
+    return;
+  if (featureManager.requestExtension(ext, target, loc))
     spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
 }
 
@@ -306,7 +307,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     case spv::BuiltIn::PrimitiveId: {
       // PrimitiveID can be used as PSIn or MSPOut.
       if (shaderModel == spv::ExecutionModel::Fragment ||
-          shaderModel == spv::ExecutionModel::MeshNV)
+          shaderModel == spv::ExecutionModel::MeshNV   ||
+          shaderModel == spv::ExecutionModel::MeshEXT)
         addCapability(spv::Capability::Geometry);
       break;
     }
@@ -314,11 +316,17 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        addExtension(Extension::EXT_shader_viewport_index_layer,
-                     "SV_RenderTargetArrayIndex", loc);
-        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+
+        if (featureManager.isTargetEnvVulkan1p2OrAbove()) {
+          addCapability(spv::Capability::ShaderLayer);
+        } else {
+          addExtension(Extension::EXT_shader_viewport_index_layer,
+                       "SV_RenderTargetArrayIndex", loc);
+          addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::MeshNV) {
+                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
         addCapability(spv::Capability::Geometry);
       }
@@ -328,12 +336,17 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        addExtension(Extension::EXT_shader_viewport_index_layer,
-                     "SV_ViewPortArrayIndex", loc);
-        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        if (featureManager.isTargetEnvVulkan1p2OrAbove()) {
+          addCapability(spv::Capability::ShaderViewportIndex);
+        } else {
+          addExtension(Extension::EXT_shader_viewport_index_layer,
+                       "SV_ViewPortArrayIndex", loc);
+          addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry ||
-                 shaderModel == spv::ExecutionModel::MeshNV) {
+                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
         addCapability(spv::Capability::MultiViewport);
       }
@@ -546,6 +559,18 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
       addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
+    break;
+  }
+
+  case spv::Op::OpSetMeshOutputsEXT:
+  case spv::Op::OpEmitMeshTasksEXT: {
+    if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader",
+                                     {});
+      addCapability(spv::Capability::MeshShadingEXT);
+      addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
+    }
+    break;
   }
 
   default:
@@ -592,6 +617,11 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::TaskNV:
     addCapability(spv::Capability::MeshShadingNV);
     addExtension(Extension::NV_mesh_shader, "SPV_NV_mesh_shader", {});
+    break;
+  case spv::ExecutionModel::MeshEXT:
+  case spv::ExecutionModel::TaskEXT:
+    addCapability(spv::Capability::MeshShadingEXT);
+    addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
     break;
   default:
     llvm_unreachable("found unknown shader model");
@@ -696,6 +726,7 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
     case GLSLstd450::GLSLstd450InterpolateAtOffset:
       addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
                    instr->getSourceLocation());
+      break;
     default:
       break;
     }

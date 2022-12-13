@@ -1,4 +1,3 @@
-// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify -enable-operator-overloading %s
 // RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify -HV 2021 %s
 
 // This test checks that dxcompiler generates errors when overloading operators

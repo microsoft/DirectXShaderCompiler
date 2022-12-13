@@ -242,7 +242,7 @@ public:
   /// block.  The TargetInstrInfo::AnalyzeBranch method can be used to get more
   /// information about this branch.
   bool isConditionalBranch() const {
-    return isBranch() & !isBarrier() & !isIndirectBranch();
+    return isBranch() && !isBarrier() && !isIndirectBranch();
   }
 
   /// \brief Return true if this is a branch which always
@@ -250,7 +250,7 @@ public:
   /// TargetInstrInfo::AnalyzeBranch method can be used to get more information
   /// about this branch.
   bool isUnconditionalBranch() const {
-    return isBranch() & isBarrier() & !isIndirectBranch();
+    return isBranch() && isBarrier() && !isIndirectBranch();
   }
 
   /// \brief Return true if this is a branch or an instruction which directly

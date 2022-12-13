@@ -12,7 +12,7 @@
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/Support/Global.h"
-#include <unordered_map>
+#include <algorithm>
 
 
 namespace hlsl {
@@ -83,7 +83,7 @@ bool ShaderModel::IsValidForModule() const {
 const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_shader_model_get()</py>*/
   // VALRULE-TEXT:BEGIN
-  const static std::unordered_map<unsigned, unsigned> hashToIdxMap = {
+  const static std::pair<unsigned, unsigned> hashToIdxMap[] = {
   {1024,0}, //ps_4_0
   {1025,1}, //ps_4_1
   {1280,2}, //ps_5_0
@@ -169,8 +169,9 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
   {919047,81}, //as_6_7
   };
   unsigned hash = (unsigned)Kind << 16 | Major << 8 | Minor;
-  auto it = hashToIdxMap.find(hash);
-  if (it == hashToIdxMap.end())
+  auto pred = [](const std::pair<unsigned, unsigned>& elem, unsigned val){ return elem.first < val;};
+  auto it = std::lower_bound(std::begin(hashToIdxMap), std::end(hashToIdxMap), hash, pred);
+  if (it == std::end(hashToIdxMap) || it->first != hash)
     return GetInvalid();
   return &ms_ShaderModels[it->second];
   // VALRULE-TEXT:END

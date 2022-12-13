@@ -26,6 +26,7 @@
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/HLSL/DxilPoisonValues.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -133,6 +134,34 @@ public:
                       "must UAV for counter");
     std::unordered_set<Value *> resSet;
     MarkHasCounterOnCreateHandle(counterHandle, resSet);
+  }
+
+  DxilResourceBase *FindCBufferResourceFromHandle(Value *handle) {
+    if (CallInst *CI = dyn_cast<CallInst>(handle)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLAnnotateHandle) {
+        handle = CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
+      }
+    }
+
+    Constant *symbol = nullptr;
+    if (CallInst *CI = dyn_cast<CallInst>(handle)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLCreateHandle) {
+        symbol = dyn_cast<Constant>(CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
+      }
+    }
+
+    if (!symbol)
+      return nullptr;
+
+    for (const std::unique_ptr<DxilCBuffer> &res : HLM.GetCBuffers()) {
+      if (res->GetGlobalSymbol() == symbol)
+        return res.get();
+    }
+    return nullptr;
   }
 
   Value *GetOrCreateResourceForCbPtr(GetElementPtrInst *CbPtr,
@@ -1079,7 +1108,7 @@ Value *TranslateQuadReadAcross(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   switch (IOP) {
   case IntrinsicOp::IOP_QuadReadAcrossX: opKind = DXIL::QuadOpKind::ReadAcrossX; break;
   case IntrinsicOp::IOP_QuadReadAcrossY: opKind = DXIL::QuadOpKind::ReadAcrossY; break;
-  default: DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_QuadReadAcrossDiagonal);
+  default: DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_QuadReadAcrossDiagonal); LLVM_FALLTHROUGH;
   case IntrinsicOp::IOP_QuadReadAcrossDiagonal: opKind = DXIL::QuadOpKind::ReadAcrossDiagonal; break;
   }
   Constant *OpArg = hlslOP->GetI8Const((unsigned)opKind);
@@ -6816,15 +6845,18 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
       // Array always start from x channel.
       channel = 0;
     } else if (GEPIt->isVectorTy()) {
-      unsigned size = DL.getTypeAllocSize(GEPIt->getVectorElementType());
       // Indexing on vector.
       if (bImmIdx) {
-        unsigned tempOffset = size * immIdx;
-        if (size == 2) { // 16-bit types
-          unsigned channelInc = tempOffset >> 1;
-          DXASSERT((channel + channelInc) <= 8, "vector should not cross cb register (8x16bit)");
+        if (immIdx < GEPIt->getVectorNumElements()) {
+          const unsigned vectorElmSize     = DL.getTypeAllocSize(GEPIt->getVectorElementType());
+          const bool     bIs16bitType      = vectorElmSize == 2;
+          const unsigned tempOffset        = vectorElmSize * immIdx;
+          const unsigned numChannelsPerRow = bIs16bitType ? 8 : 4;
+          const unsigned channelInc        = bIs16bitType ? tempOffset >> 1 : tempOffset >> 2;
+
+          DXASSERT((channel + channelInc) < numChannelsPerRow, "vector should not cross cb register");
           channel += channelInc;
-          if (channel == 8) {
+          if (channel == numChannelsPerRow) {
             // Get to another row.
             // Update index and channel.
             channel = 0;
@@ -6832,15 +6864,14 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
           }
         }
         else {
-          unsigned channelInc = tempOffset >> 2;
-          DXASSERT((channel + channelInc) <= 4, "vector should not cross cb register (8x32bit)");
-          channel += channelInc;
-          if (channel == 4) {
-            // Get to another row.
-            // Update index and channel.
-            channel = 0;
-            legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+          StringRef resName = "(unknown)";
+          if (DxilResourceBase *Res = pObjHelper->FindCBufferResourceFromHandle(handle)) {
+            resName = Res->GetGlobalName();
           }
+          legacyIndex = hlsl::CreatePoisonValue(legacyIndex->getType(),
+            Twine("Out of bounds index (") + Twine(immIdx) + Twine(") in CBuffer '") + Twine(resName) + ("'"),
+            GEP->getDebugLoc(), GEP);
+          channel = 0;
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();
@@ -8123,8 +8154,10 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
           switch (opcode) {
           case HLCastOpcode::RowMatrixToColMatrix:
             bColDest = true;
+            LLVM_FALLTHROUGH;
           case HLCastOpcode::ColMatrixToRowMatrix:
             bTranspose = true;
+            LLVM_FALLTHROUGH;
           case HLCastOpcode::ColMatrixToVecCast:
           case HLCastOpcode::RowMatrixToVecCast: {
             Value *matVal = CI->getArgOperand(HLOperandIndex::kInitFirstArgOpIdx);

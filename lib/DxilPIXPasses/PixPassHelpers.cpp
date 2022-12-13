@@ -59,6 +59,10 @@ static bool IsDynamicResourceShaderModel(DxilModule &DM) {
   return DM.GetShaderModel()->IsSMAtLeast(6, 6);
 }
 
+static bool ShaderModelRequiresAnnotateHandle(DxilModule &DM) {
+  return DM.GetShaderModel()->IsSMAtLeast(6, 6);
+}
+
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
                                         llvm::IRBuilder<> &Builder,
                                         hlsl::DxilResourceBase *resource,
@@ -77,14 +81,30 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   {
     llvm::Constant *object = resource->GetGlobalSymbol();
     auto * load = Builder.CreateLoad(object);
-    Function *CreateHandleFromBindingOpFunc = HlslOP->GetOpFunc(
+    Function *CreateHandleForLibOpFunc = HlslOP->GetOpFunc(
         DXIL::OpCode::CreateHandleForLib, resource->GetHLSLType()->getVectorElementType());
-    Constant *CreateHandleFromBindingOpcodeArg =
+    Constant *CreateHandleForLibOpcodeArg =
         HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
     auto *handle =
-        Builder.CreateCall(CreateHandleFromBindingOpFunc,
-        {CreateHandleFromBindingOpcodeArg, load });
-    return handle;
+        Builder.CreateCall(CreateHandleForLibOpFunc,
+        {CreateHandleForLibOpcodeArg, load });
+
+    if (ShaderModelRequiresAnnotateHandle(DM)) {
+      Function *annotHandleFn =
+          HlslOP->GetOpFunc(DXIL::OpCode::AnnotateHandle, Type::getVoidTy(Ctx));
+      Value *annotHandleArg =
+          HlslOP->GetI32Const((unsigned)DXIL::OpCode::AnnotateHandle);
+      DxilResourceProperties RP =
+          resource_helper::loadPropsFromResourceBase(resource);
+      Type *resPropertyTy = HlslOP->GetResourcePropertiesType();
+      Value *propertiesV = resource_helper::getAsConstant(RP, resPropertyTy,
+                                                          *DM.GetShaderModel());
+
+      return Builder.CreateCall(annotHandleFn,
+                                {annotHandleArg, handle, propertiesV});
+    } else {
+      return handle;
+    }
   }
   else if (IsDynamicResourceShaderModel(DM)) {
     Function *CreateHandleFromBindingOpFunc = HlslOP->GetOpFunc(
@@ -144,19 +164,24 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
                           unsigned int registerId, const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
-  SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
+  const char * PIXStructTypeName = "struct.RWByteAddressBuffer";
   llvm::StructType *UAVStructTy =
-      llvm::StructType::create(Elements, "class.PIXRWStructuredBuffer");
+      DM.GetModule()->getTypeByName(PIXStructTypeName);
+  if (UAVStructTy == nullptr) {
+    SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
+    UAVStructTy = llvm::StructType::create(Elements, PIXStructTypeName);
+  }
 
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
 
   auto const *shaderModel = DM.GetShaderModel();
   if (shaderModel->IsLib()) {
-    GlobalVariable *NewGV = cast<GlobalVariable>(
-        DM.GetModule()->getOrInsertGlobal("PIXUAV", UAVStructTy));
-    NewGV->setConstant(false);
+    auto *Global = DM.GetModule()->getOrInsertGlobal("PIXUAV", UAVStructTy);
+    GlobalVariable *NewGV = cast<GlobalVariable>(Global);
+    NewGV->setConstant(true);
     NewGV->setLinkage(GlobalValue::ExternalLinkage);
     NewGV->setThreadLocal(false);
+    NewGV->setAlignment(4);
     pUAV->SetGlobalSymbol(NewGV);
   }
   else {
@@ -197,6 +222,22 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
         return DM.GetEntryFunction();
     }
     return DM.GetPatchConstantFunction();
+}
+
+std::vector<llvm::Function *>
+GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
+
+  std::vector<llvm::Function *> ret;
+
+  for (llvm::Function &F : DM.GetModule()->functions()) {
+    if (F.isDeclaration() || F.isIntrinsic() || hlsl::OP::IsDxilOpFunc(&F))
+      continue;
+    if (F.getBasicBlockList().empty())
+      continue;
+    ret.push_back(&F);
+  }
+
+  return ret;
 }
 
 std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {

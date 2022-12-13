@@ -1088,7 +1088,8 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       }
 
       // HLSL Change Begins.
-      if (getLangOpts().HLSL && !getLangOpts().EnableShortCircuit) {
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         // HLSL does not short circuit by default.
         // Emit the code with the fully general case.
         llvm::Value *CondV;
@@ -1148,7 +1149,8 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       }
 
       // HLSL Change Begins.
-      if (getLangOpts().HLSL && !getLangOpts().EnableShortCircuit) {
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         // HLSL does not short circuit by default.
         // Emit the code with the fully general case.
         llvm::Value *CondV;

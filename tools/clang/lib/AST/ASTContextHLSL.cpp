@@ -132,6 +132,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           return HLSLScalarType_int64;
         }
       }
+      break;
     case 8: // min12int, min16int, uint64_t
       if (typeName[0] == 'm' && typeName[1] == 'i') {
         if (typeName[4] == '2') {
@@ -210,6 +211,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           return HLSLScalarType_int32;
         }
       }
+      break;
     case 8: // uint16_t, uint32_t
       if (!langOptions.UseMinPrecision) {
         if (typeName[0] == 'u' && typeName[1] == 'i') {
@@ -225,6 +227,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           break;
         return HLSLScalarType_uint32;
       }
+      break;
     case 9: // float16_t, float32_t, float64_t
       if (typeName[0] == 'f' && typeName[1] == 'l') {
         if (!langOptions.UseMinPrecision) {

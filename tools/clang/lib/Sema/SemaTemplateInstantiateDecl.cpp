@@ -22,6 +22,7 @@
 #include "clang/AST/TypeLoc.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
+#include "clang/Sema/SemaHLSL.h" // HLSL Change
 #include "clang/Sema/Template.h"
 
 using namespace clang;
@@ -265,6 +266,10 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                                                *CUDALaunchBounds, New);
       continue;
     }
+
+    // HLSL Change Begin - Validate post-instantiation attributes
+    DiagnoseHLSLDeclAttr(New, TmplAttr);
+    // HLSL Change End
 
     // Existing DLL attribute on the instantiation takes precedence.
     if (TmplAttr->getKind() == attr::DLLExport ||
@@ -4708,6 +4713,7 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
       // We only need an instantiation if the pending instantiation *is* the
       // explicit instantiation.
       if (Var != Var->getMostRecentDecl()) continue;
+      break;
     case TSK_ImplicitInstantiation:
       break;
     }

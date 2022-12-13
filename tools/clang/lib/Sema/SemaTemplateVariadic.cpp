@@ -864,7 +864,7 @@ ExprResult Sema::ActOnSizeofParameterPackExpr(Scope *S,
                    PDiag(diag::note_parameter_pack_here));
       ParameterPack = Corrected.getCorrectionDecl();
     }
-
+    break;
   case LookupResult::FoundOverloaded:
   case LookupResult::FoundUnresolvedValue:
     break;

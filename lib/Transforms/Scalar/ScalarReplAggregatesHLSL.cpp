@@ -2738,7 +2738,7 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
           break;
         }
       }
-      __fallthrough;
+      LLVM_FALLTHROUGH;
       default:
         // RayQuery this pointer replacement.
         if (OldVal->getType()->isPointerTy() &&
@@ -5268,7 +5268,7 @@ void SROA_Parameter_HLSL::flattenArgument(
       flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
       flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
       flatParamAnnotation.SetPrecise(annotation.IsPrecise());
-      flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
+      flatParamAnnotation.SetResourceProperties(annotation.GetResourceProperties());
 
       // Add debug info.
       if (DDIs.size() && V != Arg) {

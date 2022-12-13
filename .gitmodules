@@ -13,3 +13,6 @@
 [submodule "external/effcee"]
 	path = external/effcee
 	url = https://github.com/google/effcee
+[submodule "external/DirectX-Headers"]
+	path = external/DirectX-Headers
+	url = https://github.com/microsoft/DirectX-Headers.git

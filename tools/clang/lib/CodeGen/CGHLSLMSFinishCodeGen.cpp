@@ -648,26 +648,8 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
           cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
 
       DxilFieldAnnotation &fieldAnno = Anno->GetFieldAnnotation(Index);
-      if (fieldAnno.HasResourceAttribute()) {
-        MDNode *resAttrib = fieldAnno.GetResourceAttribute();
-        DxilResourceBase R(DXIL::ResourceClass::Invalid);
-        HLM.LoadDxilResourceBaseFromMDNode(resAttrib, R);
-        switch (R.GetClass()) {
-        case DXIL::ResourceClass::SRV:
-        case DXIL::ResourceClass::UAV: {
-          DxilResource Res;
-          HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
-          RP = resource_helper::loadPropsFromResourceBase(&Res);
-        } break;
-        case DXIL::ResourceClass::Sampler: {
-          DxilSampler Sampler;
-          HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
-          RP = resource_helper::loadPropsFromResourceBase(&Sampler);
-        } break;
-        default:
-          DXASSERT(0, "invalid resource attribute in filed annotation");
-          break;
-        }
+      if (fieldAnno.HasResourceProperties()) {
+        RP = fieldAnno.GetResourceProperties();
         break;
       }
     }
@@ -1809,27 +1791,6 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
       if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(CE)) {
         SimplifyBitCast(BCO, deadInsts);
       }
-    }
-  } break;
-  case Instruction::LShr:
-  case Instruction::AShr:
-  case Instruction::Shl: {
-    llvm::BinaryOperator *BO = cast<llvm::BinaryOperator>(I);
-    Value *op2 = BO->getOperand(1);
-    IntegerType *Ty = cast<IntegerType>(BO->getType()->getScalarType());
-    unsigned bitWidth = Ty->getBitWidth();
-    // Clamp op2 to 0 ~ bitWidth-1
-    if (ConstantInt *cOp2 = dyn_cast<ConstantInt>(op2)) {
-      unsigned iOp2 = cOp2->getLimitedValue();
-      unsigned clampedOp2 = iOp2 & (bitWidth - 1);
-      if (iOp2 != clampedOp2) {
-        BO->setOperand(1, ConstantInt::get(op2->getType(), clampedOp2));
-      }
-    } else {
-      Value *mask = ConstantInt::get(op2->getType(), bitWidth - 1);
-      IRBuilder<> Builder(I);
-      op2 = Builder.CreateAnd(op2, mask);
-      BO->setOperand(1, op2);
     }
   } break;
   }

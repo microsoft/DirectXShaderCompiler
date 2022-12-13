@@ -1,5 +1,5 @@
 // RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers | FileCheck %s
-// RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers -enable-templates -DTEMPLATES | FileCheck %s
+// RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers -HV 2021 -DTEMPLATES | FileCheck %s
 
 // CHECK: error: field 'x1' is qualified 'read' for shader stage 'miss' but has no valid producer
 // CHECK: error: field 'x2' is qualified 'read' for shader stage 'closesthit' but has no valid producer

@@ -116,16 +116,16 @@ public:
   }
 };
 
-void ReadBinaryFile(_In_opt_ IMalloc *pMalloc,
+HRESULT ReadBinaryFile(_In_opt_ IMalloc *pMalloc,
                     _In_z_ LPCWSTR pFileName,
                     _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
-                    _Out_ DWORD *pDataSize);
-void ReadBinaryFile(_In_z_ LPCWSTR pFileName,
+                    _Out_ DWORD *pDataSize) throw();
+HRESULT ReadBinaryFile(_In_z_ LPCWSTR pFileName,
                     _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
-                    _Out_ DWORD *pDataSize);
-void WriteBinaryFile(_In_z_ LPCWSTR pFileName,
+                    _Out_ DWORD *pDataSize) throw();
+HRESULT WriteBinaryFile(_In_z_ LPCWSTR pFileName,
                      _In_reads_bytes_(DataSize) const void *pData,
-                     _In_ DWORD DataSize);
+                     _In_ DWORD DataSize) throw();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Blob and encoding manipulation functions.
@@ -153,8 +153,7 @@ HRESULT DxcCreateBlobEncodingFromBlob(
     IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw();
 
 // Load files
-HRESULT
-DxcCreateBlobFromFile(_In_opt_ IMalloc *pMalloc, LPCWSTR pFileName,
+HRESULT DxcCreateBlobFromFile(_In_opt_ IMalloc *pMalloc, LPCWSTR pFileName,
                       _In_opt_ UINT32 *pCodePage,
                       _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 

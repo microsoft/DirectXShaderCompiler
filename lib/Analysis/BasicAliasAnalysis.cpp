@@ -216,7 +216,7 @@ static Value *GetLinearExpression(Value *V, APInt &Scale, APInt &Offset,
         if (!MaskedValueIsZero(BOp->getOperand(0), RHSC->getValue(), DL, 0, AC,
                                BOp, DT))
           break;
-        // FALL THROUGH.
+        LLVM_FALLTHROUGH; // HLSL Change
       case Instruction::Add:
         V = GetLinearExpression(BOp->getOperand(0), Scale, Offset, Extension,
                                 DL, Depth + 1, AC, DT);

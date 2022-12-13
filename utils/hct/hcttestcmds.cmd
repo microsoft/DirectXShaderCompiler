@@ -135,6 +135,11 @@ call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /ast-dump
 call :check_file log find TranslationUnitDecl
 if %Failed% neq 0 goto :failed
 
+set testname=time-report
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -ftime-report
+call :check_file log find "Pass execution timing report"
+if %Failed% neq 0 goto :failed
+
 set testname=Check Warning
 call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning
 call :check_file log find warning:
@@ -448,8 +453,8 @@ mkdir inc       2>nul
 copy "%testfiles%\include-declarations.h" inc  >nul
 call :run dxc.exe -Tps_6_0 -Vi -I inc "%testfiles%\include-main.hlsl"
 if %Failed% neq 0 goto :failed
-call :check-file log find "; Opening file ["
-call :check-file log find "inc\include-declarations.h], stack top [0]"
+call :check_file log find "; Opening file ["
+call :check_file log find "include-declarations.h], stack top [0]"
 if %Failed% neq 0 goto :failed
 
 set testname=Test Version macro

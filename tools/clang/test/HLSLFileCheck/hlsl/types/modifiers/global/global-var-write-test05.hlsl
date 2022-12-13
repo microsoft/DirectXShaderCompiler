@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_6_0 /Gec -HV 2016 > %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 /Gec -HV 2016 %s | FileCheck %s
 
 // CHECK: define void @main()
 // CHECK: ret void

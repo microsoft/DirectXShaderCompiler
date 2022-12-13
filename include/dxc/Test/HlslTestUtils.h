@@ -8,6 +8,9 @@
 // Provides utility functions for HLSL tests.                                //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
+
+// *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
+
 #include <string>
 #include <sstream>
 #include <fstream>
@@ -23,6 +26,7 @@
 #include "WEXAdapter.h"
 #endif
 #include "dxc/Support/Unicode.h"
+#include "dxc/Test/TestConfig.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 
 using namespace std;
@@ -120,6 +124,43 @@ inline std::vector<std::string> strtok(const std::string &value, const char *del
   return tokens;
 }
 
+// strreplace will replace all instances of lookFors with replacements at the same index.
+// Will log an error if the string is not found, unless the first character is ? marking it optional.
+inline void strreplace(const std::vector<std::string>& lookFors, const std::vector<std::string>& replacements,
+                       std::string& str) {
+  for (unsigned i = 0; i < lookFors.size(); ++i) {
+    bool bOptional = false;
+    bool found = false;
+    size_t pos = 0;
+    LPCSTR pLookFor = lookFors[i].data();
+    size_t lookForLen = lookFors[i].size();
+    if (pLookFor[0] == '?') {
+      bOptional = true;
+      pLookFor++;
+      lookForLen--;
+    }
+    if (!pLookFor || !*pLookFor) {
+      continue;
+    }
+    for (;;) {
+      pos = str.find(pLookFor, pos);
+      if (pos == std::string::npos)
+        break;
+      found = true; // at least once
+      str.replace(pos, lookForLen, replacements[i]);
+      pos += replacements[i].size();
+    }
+    if (!bOptional) {
+      if (!found) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"String not found: '%S' in text:\r\n%.*S", pLookFor,
+          (unsigned)str.size(), str.data()));
+      }
+      VERIFY_IS_TRUE(found);
+    }
+  }
+}
+
 namespace hlsl_test {
 
 inline std::wstring
@@ -172,7 +213,8 @@ inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR param
     if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(paramName, HlslDataDirValue)))
       return std::wstring();
   } else {
-    ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue));
+    if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue)))
+      HlslDataDirValue = DEFAULT_TEST_DIR;
   }
 
   wchar_t envPath[MAX_PATH];
@@ -207,7 +249,7 @@ inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
 #else
   std::ifstream infile((CW2A(path.c_str())));
 #endif
-  if (infile.bad()) {
+  if (infile.fail() || infile.bad()) {
     std::wstring errMsg(L"Unable to read file ");
     errMsg += path;
     WEX::Logging::Log::Error(errMsg.c_str());

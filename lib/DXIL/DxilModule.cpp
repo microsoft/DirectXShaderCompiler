@@ -916,16 +916,6 @@ const vector<unique_ptr<DxilResource> > &DxilModule::GetUAVs() const {
   return m_UAVs;
 }
 
-void DxilModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
-  return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
-}
-void DxilModule::LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R) {
-  return m_pMDHelper->LoadDxilResourceFromMDNode(MD, R);
-}
-void DxilModule::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
-  return m_pMDHelper->LoadDxilSamplerFromMDNode(MD, S);
-}
-
 template <typename TResource>
 static void RemoveResources(std::vector<std::unique_ptr<TResource>> &vec,
                     std::unordered_set<unsigned> &immResID) {
@@ -1833,6 +1823,111 @@ bool DxilModule::StripReflection() {
 
   return bChanged;
 }
+
+static void RemoveTypesFromSet(Type *Ty, SetVector<const StructType*> &typeSet) {
+  if (Ty->isPointerTy())
+    Ty = Ty->getPointerElementType();
+  while (Ty->isArrayTy())
+    Ty = Ty->getArrayElementType();
+  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+    if (typeSet.count(ST)) {
+      typeSet.remove(ST);
+      for (unsigned i = 0; i < ST->getNumElements(); i++) {
+        RemoveTypesFromSet(ST->getElementType(i), typeSet);
+      }
+    }
+  }
+}
+
+template <typename TResource>
+static void
+RemoveUsedTypesFromSet(std::vector<std::unique_ptr<TResource>> &vec, SetVector<const StructType*> &typeSet) {
+  for (auto &p : vec) {
+    RemoveTypesFromSet(p->GetHLSLType(), typeSet);
+  }
+}
+
+void DxilModule::RemoveUnusedTypeAnnotations() {
+  // Collect annotated types
+  const DxilTypeSystem::StructAnnotationMap &SAMap = m_pTypeSystem->GetStructAnnotationMap();
+  SetVector<const StructType*> types;
+  for (const auto &it : SAMap)
+    types.insert(it.first);
+
+  // Iterate resource types and remove any HLSL types from set
+  RemoveUsedTypesFromSet(m_CBuffers, types);
+  RemoveUsedTypesFromSet(m_UAVs, types);
+  RemoveUsedTypesFromSet(m_SRVs, types);
+
+  // Iterate Function parameters and return types, removing any HLSL types found from set
+  for (Function &F : m_pModule->functions()) {
+    FunctionType *FT = F.getFunctionType();
+    RemoveTypesFromSet(FT->getReturnType(), types);
+    for (Type *PTy : FT->params())
+      RemoveTypesFromSet(PTy, types);
+  }
+
+  // Remove remaining set of types
+  for (const StructType *ST : types)
+    m_pTypeSystem->EraseStructAnnotation(ST);
+}
+
+
+template <typename _T>
+static void CopyResourceInfo(_T &TargetRes, const _T &SourceRes,
+                             DxilTypeSystem &TargetTypeSys,
+                             const DxilTypeSystem &SourceTypeSys) {
+  if (TargetRes.GetKind() != SourceRes.GetKind() ||
+      TargetRes.GetLowerBound() != SourceRes.GetLowerBound() ||
+      TargetRes.GetRangeSize() != SourceRes.GetRangeSize() ||
+      TargetRes.GetSpaceID() != SourceRes.GetSpaceID()) {
+    DXASSERT(false, "otherwise, resource details don't match");
+    return;
+  }
+
+  if (TargetRes.GetGlobalName().empty() && !SourceRes.GetGlobalName().empty()) {
+    TargetRes.SetGlobalName(SourceRes.GetGlobalName());
+  }
+
+  if (TargetRes.GetGlobalSymbol() && SourceRes.GetGlobalSymbol() &&
+      SourceRes.GetGlobalSymbol()->hasName()) {
+    TargetRes.GetGlobalSymbol()->setName(
+        SourceRes.GetGlobalSymbol()->getName());
+  }
+
+  Type *Ty = SourceRes.GetHLSLType();
+  TargetRes.SetHLSLType(Ty);
+  TargetTypeSys.CopyTypeAnnotation(Ty, SourceTypeSys);
+}
+
+void DxilModule::RestoreResourceReflection(const DxilModule &SourceDM) {
+  DxilTypeSystem &TargetTypeSys = GetTypeSystem();
+  const DxilTypeSystem &SourceTypeSys = SourceDM.GetTypeSystem();
+  if (GetCBuffers().size() != SourceDM.GetCBuffers().size() ||
+      GetSRVs().size() != SourceDM.GetSRVs().size() ||
+      GetUAVs().size() != SourceDM.GetUAVs().size() ||
+      GetSamplers().size() != SourceDM.GetSamplers().size()) {
+    DXASSERT(false, "otherwise, resource lists don't match");
+    return;
+  }
+  for (unsigned i = 0; i < GetCBuffers().size(); ++i) {
+    CopyResourceInfo(GetCBuffer(i), SourceDM.GetCBuffer(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < GetSRVs().size(); ++i) {
+    CopyResourceInfo(GetSRV(i), SourceDM.GetSRV(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < GetUAVs().size(); ++i) {
+    CopyResourceInfo(GetUAV(i), SourceDM.GetUAV(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < GetSamplers().size(); ++i) {
+    CopyResourceInfo(GetSampler(i), SourceDM.GetSampler(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+}
+
 
 void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   if (MDO.get() == nullptr)

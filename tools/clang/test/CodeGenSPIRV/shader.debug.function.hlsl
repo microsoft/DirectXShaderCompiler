@@ -6,6 +6,7 @@
 // CHECK:         [[fooName:%\d+]] = OpString "foo"
 // CHECK:        [[emptyStr:%\d+]] = OpString ""
 // CHECK:        [[mainName:%\d+]] = OpString "main"
+// CHECK:         [[clOpts:%\d+]] = OpString " -E main -T ps_6_0 -spirv -fcgl -Vd -fspv-debug=vulkan -Qembed_debug" 
 
 // CHECK:    [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 %uint_4 %uint_0
 // CHECK:  [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 %uint_3 %uint_0
@@ -16,12 +17,12 @@
 
 // Check DebugFunction instructions
 //
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] %uint_34 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_35
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] %uint_35 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_36
 
 // CHECK: [[float4:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[float]] %uint_4
 // CHECK: [[mainFnType:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction %uint_3 [[float4]] [[float4]]
-// CHECK: [[mainDbgFn:%\d+]] = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] %uint_39 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_40 
-// CHECK: [[mainDbgEp:%\d+]] = OpExtInst %void [[set]] DebugEntryPoint [[mainDbgFn]] [[compilationUnit]] {{%\d+}} {{%\d+}}
+// CHECK: [[mainDbgFn:%\d+]] = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] %uint_40 %uint_1 [[compilationUnit]] [[emptyStr]] %uint_3 %uint_41 
+// CHECK: [[mainDbgEp:%\d+]] = OpExtInst %void [[set]] DebugEntryPoint [[mainDbgFn]] [[compilationUnit]] {{%\d+}} [[clOpts]]
 
 // Check DebugFunctionDefintion is in main
 //
