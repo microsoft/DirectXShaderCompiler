@@ -173,6 +173,7 @@ public:
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
   TEST_METHOD(CompileThenPrintTimeReport)
+  TEST_METHOD(CompileThenPrintTimeTrace)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
   TEST_METHOD(CompileWhenIncludeHasPathThenOK)
   TEST_METHOD(CompileWhenIncludeEmptyThenOK)
