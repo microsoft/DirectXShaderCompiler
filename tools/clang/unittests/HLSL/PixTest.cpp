@@ -3524,7 +3524,6 @@ void MyMiss(inout MyPayload payload)
       VERIFY_IS_TRUE(0 ==
                      strcmp(subObject.getName(), "so_GlobalRootSignature"));
 
-      constexpr bool notALocalRS = false;
       auto rootSigReader = subObject.getRootSignature();
       DxilVersionedRootSignatureDesc const *rootSignature = nullptr;
       DeserializeRootSignature(rootSigReader.getData(),
