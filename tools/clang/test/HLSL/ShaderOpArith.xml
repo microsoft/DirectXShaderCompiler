@@ -1493,12 +1493,9 @@
 
   <ShaderOp Name="Barycentrics" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
-    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes" ReadBack="true">
-        { {   0.0f,  1.0f , 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-        { {   1.0f, -1.0f , 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-        { {  -1.0f, -1.0f , 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
-      </Resource>
-    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="1280" Height="2400" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="ByName" ReadBack="true">
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
     </DescriptorHeap>
@@ -1535,7 +1532,47 @@
         float4 vColor2 = GetAttributeAtVertex(input.color, 2);
         return bary.x * vColor0 + bary.y * vColor1 + bary.z * vColor2;
       }
-      ]]>
+      ]]>          
+    </Shader>
+    
+    <!-- This part of the shader op is for the barycentrics ordering part of the barycentrics test -->
+    <Shader Name="PSordering" Target="ps_6_1" EntryPoint="PSMain" Text="@MAIN"/>
+    <Shader Name="VSordering" Target="vs_6_1" EntryPoint="VSMain" Text="@MAIN"/>
+
+    <Shader Name="MAIN" Target="vs_6_1" EntryPoint="VSMain">
+      <![CDATA[
+    struct PSInput {
+      float4 position : SV_POSITION;
+      nointerpolation float4 color : COLOR;
+      uint svid : SVertexID;
+    };    
+            
+    PSInput VSMain(float4 position : POSITION, float4 color : COLOR, uint svid : SV_VertexID) {
+      PSInput result;
+      result.position = position;
+      result.color = color;
+      result.svid = svid;
+         
+      return result;
+    }
+    
+    float4 PSMain(PSInput input) : SV_Target {
+      // check to make sure that the pixel shader will see the barycentric weight associated
+      // with the first vertex in the x component of the SV_Barycentric vector, and likewise for subsequent vertices
+      
+      if (0 == GetAttributeAtVertex(input.svid, 0) && 
+          1 ==  GetAttributeAtVertex(input.svid, 1) &&
+          2 ==  GetAttributeAtVertex(input.svid, 2))
+      {
+        // special value of all 1's in a float4 will be returned if the ordering is maintained for this pixel.
+        return float4(1.0, 1.0, 1.0, 1.0);
+      }
+      
+      // special value of all 0's in a float 4 will be returned otherwise
+      return float4(0.0, 0.0, 0.0, 0.0);      
+    }
+      
+    ]]>
     </Shader>
   </ShaderOp>
 
