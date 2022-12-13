@@ -290,7 +290,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       // - Subobjects from RDAT
       // - RootSignature from RTS0
       // - ViewID and I/O dependency data from PSV0
-      // - Resource names from shader reflection: STAT
+      // - Resource names and types/annotations from STAT
 
       // RDAT
       if (const DxilPartHeader *pPartHeader =
