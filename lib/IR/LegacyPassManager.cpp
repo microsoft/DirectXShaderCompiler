@@ -1561,7 +1561,9 @@ bool FPPassManager::runOnFunction(Function &F) {
     FunctionPass *FP = getContainedPass(Index);
     bool LocalChanged = false;
 
+    // HLSL Change Begin - Support hierarchial time tracing.
     llvm::TimeTraceScope PassScope("RunFunctionPass", FP->getPassName());
+    // HLSL Change End - Support hierarchial time tracing.
 
     dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, F.getName());
     dumpRequiredSet(FP);
