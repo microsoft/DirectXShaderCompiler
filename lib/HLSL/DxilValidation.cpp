@@ -5850,8 +5850,8 @@ HRESULT ValidateDxilBitcode(
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
     pOutputStream->Reserve(pWriter->size());
     pWriter->write(pOutputStream);
+    const DxilVersionedRootSignatureDesc* pDesc = nullptr;
     try {
-      const DxilVersionedRootSignatureDesc* pDesc = nullptr;
       DeserializeRootSignature(SerializedRootSig.data(), SerializedRootSig.size(), &pDesc);
       if (!pDesc) {
         return DXC_E_INCORRECT_ROOT_SIGNATURE;
@@ -5861,6 +5861,7 @@ HRESULT ValidateDxilBitcode(
                                                pOutputStream->GetPtr(), pWriter->size(),
                                                DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
     } catch (...) {
+      DeleteRootSignature(pDesc);
       return DXC_E_INCORRECT_ROOT_SIGNATURE;
     }
   }

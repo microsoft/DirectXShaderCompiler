@@ -165,6 +165,24 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   }
 }
 
+static std::vector<uint8_t> SerializeRootSignatureToVector(DxilVersionedRootSignatureDesc const *rootSignature) {
+  CComPtr<IDxcBlob> serializedRootSignature;
+  CComPtr<IDxcBlobEncoding> errorBlob;
+  constexpr bool allowReservedRegisterSpace = true;
+  SerializeRootSignature(rootSignature, &serializedRootSignature, &errorBlob,
+                         allowReservedRegisterSpace);
+  std::vector<uint8_t> ret;
+  auto const *serializedData = reinterpret_cast<const uint8_t *>(
+      serializedRootSignature->GetBufferPointer());
+  ret.assign(serializedData,
+             serializedData + serializedRootSignature->GetBufferSize());
+
+  return ret;
+}
+
+constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
+constexpr uint32_t toolsUAVRegister = 0;
+
 template<typename RootSigDesc, typename RootParameterDesc>
 void ExtendRootSig(RootSigDesc &rootSigDesc) {
   auto *existingParams = rootSigDesc.pParameters;
@@ -176,8 +194,8 @@ void ExtendRootSig(RootSigDesc &rootSigDesc) {
   }
   rootSigDesc.pParameters = newParams;
   rootSigDesc.pParameters[rootSigDesc.NumParameters].ParameterType = DxilRootParameterType::UAV;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace = -2;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister = 0;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace = toolsRegisterSpace;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister = toolsUAVRegister;
   rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility = DxilShaderVisibility::All;
   rootSigDesc.NumParameters++;
 } 
@@ -197,27 +215,17 @@ static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
         hlsl::DxilRootDescriptorFlags::None;
     break;
   }
-  CComPtr<IDxcBlob> serializedRootSignature;
-  CComPtr<IDxcBlobEncoding> errorBlob;
-  constexpr bool allowReservedRegisterSpace = true;
-  SerializeRootSignature(rootSignature, &serializedRootSignature, &errorBlob,
-                         allowReservedRegisterSpace);
-  std::vector<uint8_t> ret;
-  auto const *serializedData = reinterpret_cast<const uint8_t *>(
-      serializedRootSignature->GetBufferPointer());
-  ret.assign(serializedData,
-             serializedData + serializedRootSignature->GetBufferSize());
-
-  return ret;
+  return SerializeRootSignatureToVector(rs);
 }
 
 static void AddUAVToShaderAttributeRootSignature(DxilModule &DM) {
   auto rs = DM.GetSerializedRootSignature();
   if(!rs.empty()) {
-    auto extendedRootSig = AddUAVParamterToRootSignature(
-          rs.data(),
-          static_cast<uint32_t>(rs.size()));
-    DM.ResetSerializedRootSignature(extendedRootSig);
+    DxilVersionedRootSignatureDesc const *rootSignature = nullptr;
+    DeserializeRootSignature(rs.data(), static_cast<uint32_t>(rs.size()), &rootSignature);
+    AddDescriptorParamter(rootSignature, toolsUAVRegister, toolsRegisterSpace);
+    std::vector<uint8_t> asVector = SerializeRootSignatureToVector(rootSignature);
+    DM.ResetSerializedRootSignature(asVector);
   }
 }
 

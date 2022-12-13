@@ -360,6 +360,9 @@ public:
 
 void DeleteRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature);  
 
+void AddDescriptorParamter(const DxilVersionedRootSignatureDesc *pRootSignature,
+                           uint32_t ShaderRegister, uint32_t RegisterSpace);
+
 // Careful to delete: returns the original root signature, if conversion is not required.  
 void ConvertRootSignature(const DxilVersionedRootSignatureDesc* pRootSignatureIn,
                           DxilRootSignatureVersion RootSignatureVersionOut,  

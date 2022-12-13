@@ -3541,6 +3541,7 @@ void MyMiss(inout MyPayload payload)
           static_cast<uint32_t>(-2));
       VERIFY_ARE_EQUAL(
           rootSignature->Desc_1_1.pParameters[1].Descriptor.ShaderRegister, 0u);
+      DeleteRootSignature(rootSignature);
       break;
     }
     }
