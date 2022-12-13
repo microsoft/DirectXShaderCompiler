@@ -196,8 +196,9 @@ void ExtendRootSig(RootSigDesc &rootSigDesc,
                    uint32_t RegisterSpace) {
   auto *existingParams = rootSigDesc.pParameters;
   auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
-  memcpy(newParams, existingParams, rootSigDesc.NumParameters * sizeof(RootParameterDesc));
   if (existingParams != nullptr) {
+    memcpy(newParams, existingParams,
+           rootSigDesc.NumParameters * sizeof(RootParameterDesc));
     delete[] existingParams;
   }
   rootSigDesc.pParameters = newParams;
@@ -208,7 +209,7 @@ void ExtendRootSig(RootSigDesc &rootSigDesc,
   rootSigDesc.NumParameters++;
 }
 
-void AddDescriptorParamter(const DxilVersionedRootSignatureDesc *pRootSignature,
+void AddDescriptorParameter(const DxilVersionedRootSignatureDesc *pRootSignature,
                            uint32_t ShaderRegister, 
                            uint32_t RegisterSpace) {
 

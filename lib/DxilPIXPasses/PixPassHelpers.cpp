@@ -187,9 +187,9 @@ template<typename RootSigDesc, typename RootParameterDesc>
 void ExtendRootSig(RootSigDesc &rootSigDesc) {
   auto *existingParams = rootSigDesc.pParameters;
   auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
-  memcpy(newParams, existingParams,
-         rootSigDesc.NumParameters * sizeof(RootParameterDesc));
   if (existingParams != nullptr) {
+    memcpy(newParams, existingParams,
+           rootSigDesc.NumParameters * sizeof(RootParameterDesc));
     delete[] existingParams;
   }
   rootSigDesc.pParameters = newParams;
@@ -223,7 +223,7 @@ static void AddUAVToShaderAttributeRootSignature(DxilModule &DM) {
   if(!rs.empty()) {
     DxilVersionedRootSignatureDesc const *rootSignature = nullptr;
     DeserializeRootSignature(rs.data(), static_cast<uint32_t>(rs.size()), &rootSignature);
-    AddDescriptorParamter(rootSignature, toolsUAVRegister, toolsRegisterSpace);
+    AddDescriptorParameter(rootSignature, toolsUAVRegister, toolsRegisterSpace);
     std::vector<uint8_t> asVector = SerializeRootSignatureToVector(rootSignature);
     DM.ResetSerializedRootSignature(asVector);
   }

@@ -5864,6 +5864,7 @@ HRESULT ValidateDxilBitcode(
       DeleteRootSignature(pDesc);
       return DXC_E_INCORRECT_ROOT_SIGNATURE;
     }
+    DeleteRootSignature(pDesc);
   }
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
