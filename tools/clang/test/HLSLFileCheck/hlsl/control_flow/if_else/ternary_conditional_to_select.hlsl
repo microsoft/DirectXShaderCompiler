@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_2 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -HV 2018 %s | FileCheck %s
 
 // Make sure no branch.
 // CHECK-NOT:br i1

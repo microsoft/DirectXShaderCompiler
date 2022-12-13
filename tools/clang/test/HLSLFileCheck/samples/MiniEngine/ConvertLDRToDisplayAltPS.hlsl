@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2018 %s | FileCheck %s
 
 // CHECK: textureLoad
 // CHECK: Log

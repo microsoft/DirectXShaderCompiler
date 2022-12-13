@@ -2057,7 +2057,8 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
     const wchar_t * optimizationLevel,
     bool validateCoverage,
     const wchar_t *profile) {
-  CComPtr<IDxcBlob> pBlob = Compile(hlsl, profile, {optimizationLevel});
+  CComPtr<IDxcBlob> pBlob = Compile(hlsl, profile,
+                                    {optimizationLevel, L"-HV", L"2018"});
 
   CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
 

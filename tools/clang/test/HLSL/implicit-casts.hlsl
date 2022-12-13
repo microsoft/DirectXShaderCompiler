@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -HV 2018 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 implicit-casts.hlsl

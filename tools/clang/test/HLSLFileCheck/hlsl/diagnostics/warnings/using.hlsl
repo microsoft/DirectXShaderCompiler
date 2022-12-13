@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s -HV 2021  | FileCheck -check-prefix=HV2021 %s
 
-// RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -HV 2018 | FileCheck %s
 
 // CHECK:using.hlsl:14:5: warning: keyword 'using' is a HLSL 2021 feature, and is available in older versions as a non-portable extension.
 // CHECK:using.hlsl:21:1: warning: keyword 'using' is a HLSL 2021 feature, and is available in older versions as a non-portable extension.
