@@ -9008,15 +9008,16 @@ void TestBarycentricVariant(bool checkOrdering, std::shared_ptr<ShaderOpTestResu
     XMFLOAT2 p0(pTriangleData[0], pTriangleData[1]);
     XMFLOAT2 p1(pTriangleData[triangleVertexSizeInFloat], pTriangleData[triangleVertexSizeInFloat + 1]);
     XMFLOAT2 p2(pTriangleData[triangleVertexSizeInFloat * 2], pTriangleData[triangleVertexSizeInFloat * 2 + 1]);
-
+    
+    // Seems like the 3 floats must add up to 1 to get accurate results.
     XMFLOAT3 barycentricWeights[4] = {
-        XMFLOAT3(0.3333f, 0.3333f, 0.3333f),
+        XMFLOAT3(0.4f, 0.2f, 0.4f),
         XMFLOAT3(0.5f, 0.25f, 0.25f),
         XMFLOAT3(0.25f, 0.5f, 0.25f),
         XMFLOAT3(0.25f, 0.25f, 0.50f)
-    };
+    };    
 
-    float tolerance = 0.019f;
+    float tolerance = 0.02f;
     for (unsigned i = 0; i < sizeof(barycentricWeights) / sizeof(XMFLOAT3); ++i) {
         float w0 = barycentricWeights[i].x;
         float w1 = barycentricWeights[i].y;
@@ -9024,8 +9025,8 @@ void TestBarycentricVariant(bool checkOrdering, std::shared_ptr<ShaderOpTestResu
         float x1 = w0 * p0.x + w1 * p1.x + w2 * p2.x;
         float y1 = w0 * p0.y + w1 * p1.y + w2 * p2.y;
         // map from x1 y1 to rtv pixels
-        int pixelX = (int)((x1 + 1) * (width - 1) / 2);
-        int pixelY = (int)((1 - y1) * (height - 1) / 2);
+        int pixelX = (int)round((x1 + 1) * (width - 1) / 2);
+        int pixelY = (int)round((1 - y1) * (height - 1) / 2); //1.3332 * 63 = 83.999, /2 = 41.999 truncated = 41
         int offset = pixelSize * (pixelX + pixelY * width) / sizeof(pPixels[0]);
         LogCommentFmt(L"location  %u %u, value %f, %f, %f", pixelX, pixelY, pPixels[offset], pPixels[offset + 1], pPixels[offset + 2]);
         if (!checkOrdering){
@@ -9042,6 +9043,27 @@ void TestBarycentricVariant(bool checkOrdering, std::shared_ptr<ShaderOpTestResu
             VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 3], 1.0, tolerance));        
         }  
     }
+}
+
+st::ShaderOpTest::TInitCallbackFn MakeBarycentricsResourceInitCallbackFn(int &vertexShift){
+    return [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+        std::vector<float> bary = { 0.0f,  1.0f , 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
+                                    1.0f, -1.0f , 0.0f,   0.0f, 1.0f, 0.0f, 1.0f,
+                                  -1.0f, -1.0f , 0.0f,   0.0f, 0.0f, 1.0f, 1.0f };
+        const int barysize = 21;
+
+        UNREFERENCED_PARAMETER(pShaderOp);
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "VBuffer"));
+        size_t size = sizeof(float) * barysize;
+        Data.resize(size);
+        float* vb = (float*)Data.data();
+        for (size_t i = 0; i < barysize; ++i) {
+          float* p = &vb[i];
+          float tempfloat = bary[(i + (7 * vertexShift)) % barysize];
+          *p = tempfloat;
+        }
+    };
+
 }
 
 TEST_F(ExecutionTest, BarycentricsTest) {
@@ -9061,41 +9083,28 @@ TEST_F(ExecutionTest, BarycentricsTest) {
 
     DXASSERT_NOMSG(pStream != nullptr);
     std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
-          std::make_shared<st::ShaderOpSet>();
+      std::make_shared<st::ShaderOpSet>();
     st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+    st::ShaderOp* pShaderOp =
+      ShaderOpSet->GetShaderOp("Barycentrics");
 
-    
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Barycentrics", nullptr, ShaderOpSet);
+    int test_iteration = 0;
+    auto ResourceCallbackFnNoShift = MakeBarycentricsResourceInitCallbackFn(test_iteration);
+     
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Barycentrics", ResourceCallbackFnNoShift, ShaderOpSet);
     TestBarycentricVariant(false, test);     
     
     // Now test that barycentric ordering is consistent
     LogCommentFmt(L"Now testing that the barycentric ordering constraint is upheld for each pixel...");
-    for(int test_iteration = 0; test_iteration < 3; test_iteration++)
+    pShaderOp->VS = pShaderOp->GetString("VSordering");
+    pShaderOp->PS = pShaderOp->GetString("PSordering");
+    for(; test_iteration < 3; test_iteration++)
     {
-        auto ResourceCallbackFn = 
-            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-              std::vector<float> bary = {0.0f,  1.0f , 0.0f,   1.0f, 0.0f, 0.0f, 1.0f, 
-                                          1.0f, -1.0f , 0.0f,   0.0f, 1.0f, 0.0f, 1.0f,
-                                        -1.0f, -1.0f , 0.0f,   0.0f, 0.0f, 1.0f, 1.0f}; 
-              const int barysize = 21;
+        auto ResourceCallbackFn = MakeBarycentricsResourceInitCallbackFn(test_iteration);
 
-              UNREFERENCED_PARAMETER(pShaderOp);
-              VERIFY_IS_TRUE(0 == _stricmp(Name, "VBuffer"));
-              size_t size = sizeof(float)*barysize;
-              Data.resize(size);
-              float *vb = (float *)Data.data();
-              for (size_t i = 0; i < barysize; ++i) {
-                float *p = &vb[i];
-                float tempfloat = bary[(i+(7*test_iteration))%barysize];
-                *p = tempfloat;
-              }
-            };
-
-        std::shared_ptr<ShaderOpTestResult> test2 = RunShaderOpTestAfterParse(pDevice, m_support, "BarycentricsCheckOrder", ResourceCallbackFn, ShaderOpSet);
+        std::shared_ptr<ShaderOpTestResult> test2 = RunShaderOpTestAfterParse(pDevice, m_support, "Barycentrics", ResourceCallbackFn, ShaderOpSet);
         TestBarycentricVariant(true, test2);
-    }
-          
-
+    }   
 }
 
 
@@ -11515,8 +11524,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
   st::ShaderOp *pShaderOp =
       ShaderOpSet->GetShaderOp("IsNormal");
   vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
-
-  const int expectedResultsSize = 12;
   
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
   LogCommentFmt(L"\r\nVerifying isNormal in shader "
