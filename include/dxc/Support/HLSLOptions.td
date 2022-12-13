@@ -172,6 +172,9 @@ def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Disable source location tracking in IR. This will break diagnostic generation for late validation. (Ignored if /Zi is passed)">;
 
+
+def ftime_report : Flag<["-"], "ftime-report">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Print time report">;
+
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
  Flags<[CoreOption]>;

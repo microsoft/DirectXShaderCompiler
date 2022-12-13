@@ -25,6 +25,7 @@
 #include "clang/CodeGen/CodeGenAction.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/Timer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
@@ -1410,6 +1411,7 @@ public:
     }
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
+    compiler.getFrontendOpts().ShowTimers = Opts.TimeReport ? 1 : 0;
     // Setup debug information.
     if (Opts.GenerateFullDebugInfo()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
@@ -1824,6 +1826,14 @@ HRESULT DxcCompilerAdapter::WrapCompile(
 
     pResult->CopyOutputsFromResult(pImplResult);
     pResult->SetStatusAndPrimaryResult(hr, pImplResult->PrimaryOutput());
+
+    if (opts.TimeReport) {
+      std::string TimeReport;
+      raw_string_ostream OS(TimeReport);
+      llvm::TimerGroup::printAll(OS);
+      IFT(pResult->SetOutputString(DXC_OUT_TIME_REPORT, TimeReport.c_str(),
+                                   TimeReport.size()));
+    }
 
     outStream.flush();
 
