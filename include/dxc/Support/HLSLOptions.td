@@ -174,6 +174,12 @@ def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
 
 
 def ftime_report : Flag<["-"], "ftime-report">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Print time report">;
+def ftime_trace : Flag<["-"], "ftime-trace">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Print hierchial time tracing to stdout">;
+def ftime_trace_EQ : Joined<["-"], "ftime-trace=">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Print hierchial time tracing to file">;
 
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,

@@ -173,6 +173,7 @@ public:
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
   TEST_METHOD(CompileThenPrintTimeReport)
+  TEST_METHOD(CompileThenPrintTimeTrace)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
   TEST_METHOD(CompileWhenIncludeHasPathThenOK)
   TEST_METHOD(CompileWhenIncludeEmptyThenOK)
@@ -2837,6 +2838,32 @@ TEST_F(CompilerTest, CompileThenPrintTimeReport) {
 
   VERIFY_ARE_NOT_EQUAL(string::npos,
                        text.find("... Pass execution timing report ..."));
+}
+
+TEST_F(CompilerTest, CompileThenPrintTimeTrace) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target { return 0.0; }", &pSource);
+
+  LPCWSTR args[] = {L"-ftime-trace"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pInclude, &pResult));
+  VerifyOperationSucceeded(pResult);
+
+  CComPtr<IDxcResult> pCompileResult;
+  CComPtr<IDxcBlob> pReportBlob;
+  pResult->QueryInterface(&pCompileResult);
+  VERIFY_SUCCEEDED(pCompileResult->GetOutput(
+      DXC_OUT_TIME_TRACE, IID_PPV_ARGS(&pReportBlob), nullptr));
+  std::string text(BlobToUtf8(pReportBlob));
+
+  VERIFY_ARE_NOT_EQUAL(string::npos,
+                       text.find("{ \"traceEvents\": ["));
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {

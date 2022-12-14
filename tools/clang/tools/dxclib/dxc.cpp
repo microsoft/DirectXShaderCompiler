@@ -266,28 +266,24 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
   }
 }
 
-static void WriteDxcOutputToConsole(IDxcOperationResult *pCompileResult, DXC_OUT_KIND kind) {
-  CComPtr<IDxcResult> pResult;
-  if (SUCCEEDED(pCompileResult->QueryInterface(&pResult))) {
-    if (!pResult->HasOutput(kind)) {
-      return;
-    }
+static void WriteDxcOutputToConsole(IDxcResult *pResult, DXC_OUT_KIND kind) {
+  if (!pResult->HasOutput(kind))
+    return;
 
-    CComPtr<IDxcBlob> pBlob;
-    IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pBlob), nullptr));
-    llvm::StringRef outputString((LPSTR)pBlob->GetBufferPointer(),
-                            pBlob->GetBufferSize());
-    llvm::SmallVector<llvm::StringRef, 20> lines;
-    outputString.split(lines, "\n");
-    
-    std::string outputStr;
-    llvm::raw_string_ostream SS(outputStr);
-    for (auto line : lines) {
-      SS << "; " << line << "\n";
-    }
-
-    WriteUtf8ToConsole(outputStr.data(), outputStr.size());
+  CComPtr<IDxcBlob> pBlob;
+  IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pBlob), nullptr));
+  llvm::StringRef outputString((LPSTR)pBlob->GetBufferPointer(),
+                          pBlob->GetBufferSize());
+  llvm::SmallVector<llvm::StringRef, 20> lines;
+  outputString.split(lines, "\n");
+  
+  std::string outputStr;
+  llvm::raw_string_ostream SS(outputStr);
+  for (auto line : lines) {
+    SS << "; " << line << "\n";
   }
+
+  WriteUtf8ToConsole(outputStr.data(), outputStr.size());
 }
 
 std::string getDependencyOutputFileName(llvm::StringRef inputFileName) {
@@ -867,14 +863,11 @@ int DxcContext::Compile() {
     WriteOperationErrorsToConsole(pCompileResult, m_Opts.OutputWarnings);
   }
   
-  if (m_Opts.TimeReport)
-    WriteDxcOutputToConsole(pCompileResult, DXC_OUT_TIME_REPORT);
 
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
   if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
       m_Opts.DumpDependencies) {
-    WriteDxcOutputToConsole(pCompileResult, DXC_OUT_REMARKS);
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {
@@ -883,6 +876,18 @@ int DxcContext::Compile() {
       // Now write out extra parts
       CComPtr<IDxcResult> pResult;
       if (SUCCEEDED(pCompileResult->QueryInterface(&pResult))) {
+        WriteDxcOutputToConsole(pResult, DXC_OUT_REMARKS);
+        WriteDxcOutputToConsole(pResult, DXC_OUT_TIME_REPORT);
+        
+        if (m_Opts.TimeTrace == "-")
+          WriteDxcOutputToConsole(pResult, DXC_OUT_TIME_TRACE);
+        else if (!m_Opts.TimeTrace.empty()) {
+          CComPtr<IDxcBlob> pData;
+          CComPtr<IDxcBlobWide> pName;
+          IFT(pResult->GetOutput(DXC_OUT_TIME_TRACE, IID_PPV_ARGS(&pData), &pName));
+          WriteBlobToFile(pData, m_Opts.TimeTrace, m_Opts.DefaultTextCodePage);
+        }
+
         WriteDxcOutputToFile(DXC_OUT_ROOT_SIGNATURE, pResult, m_Opts.DefaultTextCodePage);
         WriteDxcOutputToFile(DXC_OUT_SHADER_HASH, pResult, m_Opts.DefaultTextCodePage);
         WriteDxcOutputToFile(DXC_OUT_REFLECTION, pResult, m_Opts.DefaultTextCodePage);

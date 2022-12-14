@@ -207,6 +207,7 @@ public:
   bool EnableLifetimeMarkers = false; // OPT_enable_lifetime_markers
   bool ForceDisableLocTracking = false; // OPT_fdisable_loc_tracking
   bool TimeReport = false; // OPT_ftime_report
+  std::string TimeTrace = ""; // OPT_ftime_trace[EQ]
 
   // Optimization pass enables, disables and selects
   std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable

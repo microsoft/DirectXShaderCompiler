@@ -24,6 +24,7 @@
 #include "llvm/Support/Mutex.h"
 #include "llvm/Support/TimeValue.h"
 #include "llvm/Support/Timer.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <map>
@@ -1321,7 +1322,7 @@ bool BBPassManager::runOnFunction(Function &F) {
 
   bool Changed = doInitialization(F);
 
-  for (Function::iterator I = F.begin(), E = F.end(); I != E; ++I)
+  for (Function::iterator I = F.begin(), E = F.end(); I != E; ++I) 
     for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
       BasicBlockPass *BP = getContainedPass(Index);
       bool LocalChanged = false;
@@ -1552,9 +1553,17 @@ bool FPPassManager::runOnFunction(Function &F) {
   // Collect inherited analysis from Module level pass manager.
   populateInheritedAnalysis(TPM->activeStack);
 
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope FunctionScope("OptFunction", F.getName());
+  // HLSL Change End
+
   for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
     FunctionPass *FP = getContainedPass(Index);
     bool LocalChanged = false;
+
+    // HLSL Change Begin - Support hierarchial time tracing.
+    llvm::TimeTraceScope PassScope("RunFunctionPass", FP->getPassName());
+    // HLSL Change End - Support hierarchial time tracing.
 
     dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, F.getName());
     dumpRequiredSet(FP);
@@ -1578,12 +1587,14 @@ bool FPPassManager::runOnFunction(Function &F) {
     recordAvailableAnalysis(FP);
     removeDeadPasses(FP, F.getName(), ON_FUNCTION_MSG);
   }
+
   return Changed;
 }
 
 bool FPPassManager::runOnModule(Module &M) {
   bool Changed = false;
 
+  llvm::TimeTraceScope TimeScope("OptModule", M.getName());
   for (Function &F : M)
     Changed |= runOnFunction(F);
 
@@ -1616,6 +1627,8 @@ bool FPPassManager::doFinalization(Module &M) {
 /// the module, and if so, return true.
 bool
 MPPassManager::runOnModule(Module &M) {
+  llvm::TimeTraceScope TimeScope("OptModule", M.getName());
+
   bool Changed = false;
 
   // Initialize on-the-fly passes
@@ -1631,6 +1644,8 @@ MPPassManager::runOnModule(Module &M) {
   for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
     ModulePass *MP = getContainedPass(Index);
     bool LocalChanged = false;
+
+    llvm::TimeTraceScope PassScope("RunModulePass", MP->getPassName());
 
     dumpPassInfo(MP, EXECUTION_MSG, ON_MODULE_MSG, M.getModuleIdentifier());
     dumpRequiredSet(MP);
