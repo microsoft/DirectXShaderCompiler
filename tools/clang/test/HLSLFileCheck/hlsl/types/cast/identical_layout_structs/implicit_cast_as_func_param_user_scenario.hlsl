@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2018 %s | FileCheck %s
 // github issue #1725
 // Test implicit cast scenario between structs of identical layout
 // which would crash as reported by a user.

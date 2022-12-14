@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 -HV 2018 %s | FileCheck %s
 
 // Regression test for an SROA bug where the flattening the output stream argument
 // would not handle the case where its input had already been SROA'd.

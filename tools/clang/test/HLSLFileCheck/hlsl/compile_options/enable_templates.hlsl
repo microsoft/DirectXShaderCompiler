@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck -check-prefix=DISABLED %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2018 %s | FileCheck -check-prefix=DISABLED %s
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck -check-prefix=ENABLED %s
 
 // DISABLED: error: 'template' is a reserved keyword in HLSL
