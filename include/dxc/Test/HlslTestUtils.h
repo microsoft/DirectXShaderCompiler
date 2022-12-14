@@ -408,7 +408,7 @@ inline bool isnanFloat16(uint16_t val) {
 
 // Disable custom conversion implementations, using stubs that just use the
 // DirectX::PackedVector::XMConvert* functions instead.
-#if 0
+#ifdef USE_CUSTOM_FP16_CONVERSION
 inline uint16_t ConvertFloat32ToFloat16(float val) throw() {
   union Bits {
     uint32_t u_bits;
@@ -504,11 +504,11 @@ inline float ConvertFloat16ToFloat32(uint16_t x) throw() {
   bits.u_bits |= Sign;
   return bits.f_bits;
 }
-#endif // 0
-
+#else // USE_CUSTOM_FP16_CONVERSION
 // These are defined in ExecutionTest.cpp using DirectXPackedVector functions.
 uint16_t ConvertFloat32ToFloat16(float val) throw();
 float ConvertFloat16ToFloat32(uint16_t val) throw();
+#endif // USE_CUSTOM_FP16_CONVERSION
 
 inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance,
                             hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {

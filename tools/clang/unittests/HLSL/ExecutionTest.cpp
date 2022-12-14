@@ -58,12 +58,14 @@
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
 
+#ifndef USE_CUSTOM_FP16_CONVERSION
 uint16_t ConvertFloat32ToFloat16(float Value) throw() {
   return DirectX::PackedVector::XMConvertFloatToHalf(Value);
 }
 float ConvertFloat16ToFloat32(uint16_t Value) throw() {
   return DirectX::PackedVector::XMConvertHalfToFloat(Value);
 }
+#endif // USE_CUSTOM_FP16_CONVERSION
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")
