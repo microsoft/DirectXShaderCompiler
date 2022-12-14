@@ -117,14 +117,17 @@ public:
     
     ~Builder() {
       std::sort(Self.Rep.begin(), Self.Rep.end(), Compare());
-      std::unique(Self.Rep.begin(), Self.Rep.end(),
-                  [](const_reference A, const_reference B) {
-        // FIXME: we should not allow any duplicate keys, but there are a lot of
-        // duplicate 0 -> 0 mappings to remove first.
-        assert((A == B || A.first != B.first) &&
-               "ContinuousRangeMap::Builder given non-unique keys");
-        return A == B;
-      });
+      Self.Rep.erase(
+          std::unique(
+              Self.Rep.begin(), Self.Rep.end(),
+              [](const_reference A, const_reference B) {
+                // FIXME: we should not allow any duplicate keys, but there are
+                // a lot of duplicate 0 -> 0 mappings to remove first.
+                assert((A == B || A.first != B.first) &&
+                       "ContinuousRangeMap::Builder given non-unique keys");
+                return A == B;
+              }),
+          Self.Rep.end());
     }
     
     void insert(const value_type &Val) {
