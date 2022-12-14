@@ -202,9 +202,9 @@ void ExtendRootSig(RootSigDesc &rootSigDesc) {
 
 static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
                                                        uint32_t Size) {
-  DxilVersionedRootSignatureDesc const *rootSignature = nullptr;
-  DeserializeRootSignature(Data, Size, &rootSignature);
-  auto *rs = const_cast<DxilVersionedRootSignatureDesc *>(rootSignature);
+  ScopedVersionedRootSignature rootSignature;
+  DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
+  auto *rs = rootSignature.get_mutable();
   switch (rootSignature->Version) {
   case DxilRootSignatureVersion::Version_1_0:
     ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(rs->Desc_1_0);
@@ -221,10 +221,7 @@ static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
 static void AddUAVToShaderAttributeRootSignature(DxilModule &DM) {
   auto rs = DM.GetSerializedRootSignature();
   if(!rs.empty()) {
-    DxilVersionedRootSignatureDesc const *rootSignature = nullptr;
-    DeserializeRootSignature(rs.data(), static_cast<uint32_t>(rs.size()), &rootSignature);
-    AddDescriptorParameter(rootSignature, toolsUAVRegister, toolsRegisterSpace);
-    std::vector<uint8_t> asVector = SerializeRootSignatureToVector(rootSignature);
+    std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(rs.data(), static_cast<uint32_t>(rs.size()));
     DM.ResetSerializedRootSignature(asVector);
   }
 }

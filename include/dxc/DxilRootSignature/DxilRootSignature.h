@@ -360,9 +360,6 @@ public:
 
 void DeleteRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature);  
 
-void AddDescriptorParameter(const DxilVersionedRootSignatureDesc *pRootSignature,
-                           uint32_t ShaderRegister, uint32_t RegisterSpace);
-
 // Careful to delete: returns the original root signature, if conversion is not required.  
 void ConvertRootSignature(const DxilVersionedRootSignatureDesc* pRootSignatureIn,
                           DxilRootSignatureVersion RootSignatureVersionOut,  
@@ -388,6 +385,30 @@ bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
                          _In_ llvm::raw_ostream &DiagStream,
                          _In_ bool bAllowReservedRegisterSpace);
 
+class ScopedVersionedRootSignature {
+  const DxilVersionedRootSignatureDesc *m_pRootSignature;
+
+public:
+  ScopedVersionedRootSignature() : m_pRootSignature(nullptr) {}
+  ScopedVersionedRootSignature(
+      const DxilVersionedRootSignatureDesc *pRootSignature)
+  : m_pRootSignature(pRootSignature){}
+  ~ScopedVersionedRootSignature() { 
+      DeleteRootSignature(m_pRootSignature);
+  }
+  const DxilVersionedRootSignatureDesc* operator -> () const {
+    return m_pRootSignature;
+  }
+  const DxilVersionedRootSignatureDesc ** get_address_of() {
+    return &m_pRootSignature;
+  }
+  const DxilVersionedRootSignatureDesc* get() const { 
+      return m_pRootSignature;
+  }
+  DxilVersionedRootSignatureDesc* get_mutable() { 
+      return const_cast<DxilVersionedRootSignatureDesc *>(m_pRootSignature);
+  }
+};
 } // namespace hlsl
 
 #endif // __DXC_ROOTSIGNATURE__

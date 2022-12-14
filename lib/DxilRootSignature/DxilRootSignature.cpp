@@ -190,45 +190,6 @@ void DeleteRootSignature(const DxilVersionedRootSignatureDesc * pRootSignature)
   delete pRootSignature;
 }
 
-template <typename RootSigDesc, typename RootParameterDesc>
-void ExtendRootSig(RootSigDesc &rootSigDesc, 
-                   uint32_t ShaderRegister,
-                   uint32_t RegisterSpace) {
-  auto *existingParams = rootSigDesc.pParameters;
-  auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
-  if (existingParams != nullptr) {
-    memcpy(newParams, existingParams,
-           rootSigDesc.NumParameters * sizeof(RootParameterDesc));
-    delete[] existingParams;
-  }
-  rootSigDesc.pParameters = newParams;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ParameterType = DxilRootParameterType::UAV;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace = RegisterSpace;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister = ShaderRegister;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility = DxilShaderVisibility::All;
-  rootSigDesc.NumParameters++;
-}
-
-void AddDescriptorParameter(const DxilVersionedRootSignatureDesc *pRootSignature,
-                           uint32_t ShaderRegister, 
-                           uint32_t RegisterSpace) {
-
-  auto *rs = const_cast<DxilVersionedRootSignatureDesc *>(pRootSignature);
-  switch (pRootSignature->Version) {
-  case DxilRootSignatureVersion::Version_1_0:
-    ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(rs->Desc_1_0,
-                                                            ShaderRegister, RegisterSpace);
-    break;
-  case DxilRootSignatureVersion::Version_1_1:
-    ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(rs->Desc_1_1,
-                                                            ShaderRegister, RegisterSpace);
-    rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1].Descriptor.Flags =
-        hlsl::DxilRootDescriptorFlags::None;
-    break;
-  }
-}
-
-
 namespace {
 // Dump root sig.
 
