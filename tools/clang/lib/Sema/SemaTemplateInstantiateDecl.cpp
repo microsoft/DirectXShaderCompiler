@@ -24,6 +24,7 @@
 #include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
 #include "clang/Sema/Template.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 
 using namespace clang;
 
@@ -3351,6 +3352,12 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
                                          bool DefinitionRequired) {
   if (Function->isInvalidDecl() || Function->isDefined())
     return;
+
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope TimeScope("InstantiateFunction", [&]() {
+    return Function->getQualifiedNameAsString();
+  });
+  // HLSL Change End - Support hierarchial time tracing.
 
   // Never instantiate an explicit specialization except if it is a class scope
   // explicit specialization.

@@ -23,6 +23,7 @@
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 
 using namespace clang;
 using namespace sema;
@@ -1941,6 +1942,13 @@ Sema::InstantiateClass(SourceLocation PointOfInstantiation,
                                 Instantiation->getInstantiatedFromMemberClass(),
                                      Pattern, PatternDef, TSK, Complain))
     return true;
+  
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope TimeScope("InstantiateClass", [&]() {
+    return Instantiation->getQualifiedNameAsString();
+  });
+  // HLSL Change End - Support hierarchial time tracing.
+
   Pattern = PatternDef;
 
   // \brief Record the point of instantiation.
