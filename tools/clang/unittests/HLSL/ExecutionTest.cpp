@@ -58,10 +58,10 @@
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
 
-uint16_t ConvertFloat32ToFloat16(float Value) noexcept {
+uint16_t ConvertFloat32ToFloat16(float Value) throw() {
   return DirectX::PackedVector::XMConvertFloatToHalf(Value);
 }
-float ConvertFloat16ToFloat32(uint16_t Value) noexcept {
+float ConvertFloat16ToFloat32(uint16_t Value) throw() {
   return DirectX::PackedVector::XMConvertHalfToFloat(Value);
 }
 
