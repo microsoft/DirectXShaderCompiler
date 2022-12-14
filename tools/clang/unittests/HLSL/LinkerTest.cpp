@@ -866,8 +866,8 @@ TEST_F(LinkerTest, LinkSm63ToSm66) {
 
 TEST_F(LinkerTest, RunLinkWithRootSig) {
   CComPtr<IDxcBlob> pLib0;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pLib0, {},
-             L"lib_6_x");
+  CompileLib(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pLib0,
+            {L"-HV", L"2018"}, L"lib_6_x");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -888,8 +888,8 @@ TEST_F(LinkerTest, RunLinkWithRootSig) {
   VERIFY_IS_TRUE(pLinkedProgram);
 
   CComPtr<IDxcBlob> pProgram;
-  Compile(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pProgram, {},
-          pEntryName, pShaderModel);
+  Compile(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pProgram,
+          {L"-HV", L"2018"}, pEntryName, pShaderModel);
   VERIFY_IS_TRUE(pProgram);
 
   const DxilContainerHeader *pLinkedContainer = IsDxilContainerLike(

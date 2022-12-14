@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2018 %s
 
 // Disable validation on fxc (/Vd) because
 // non-literal ternary with objects results in bad code.

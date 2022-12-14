@@ -1,5 +1,5 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
-// RUN: %dxc -E main -T ps_6_0 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2018 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2018 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
 // CHECK: sampleLevel
 
