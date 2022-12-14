@@ -16,6 +16,8 @@ set FailingCmdWritten=0
 set OutputLog=%1\testcmd.log
 set LogOutput=1
 
+if "%HLSL_TESTCMD_CLEANUP_ON_FAILURE%" == "" set HLSL_TESTCMD_CLEANUP_ON_FAILURE=1
+
 pushd %1
 
 set testname=Basic Rewriter Smoke Test
@@ -442,19 +444,19 @@ set testname=Test file with relative path and include
 mkdir subfolder 2>nul
 mkdir inc       2>nul
 copy "%testfiles%\include-main.hlsl" subfolder >nul
+call :check_file subfolder\include-main.hlsl
 copy "%testfiles%\include-declarations.h" inc  >nul
+call :check_file inc\include-declarations.h
 call :run dxc.exe -Tps_6_0 -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 call :run dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 
 set testname=Test display include process with /Vi
-mkdir inc       2>nul
-copy "%testfiles%\include-declarations.h" inc  >nul
-call :run dxc.exe -Tps_6_0 -Vi -I inc "%testfiles%\include-main.hlsl"
+call :run dxc.exe -Tps_6_0 -Vi -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 call :check_file log find "; Opening file ["
-call :check_file log find "include-declarations.h], stack top [0]"
+call :check_file log find "inc\include-declarations.h], stack top [0]"
 if %Failed% neq 0 goto :failed
 
 set testname=Test Version macro
@@ -502,7 +504,9 @@ findstr /c:"SPIR-V CodeGen not available" %CD%\smoke.spirv.log >nul
 if %errorlevel% equ 0 set spirv_smoke_success=1
 if %spirv_smoke_success% neq 1 (
   echo dxc failed SPIR-V smoke test
-  call :cleanup 2>nul
+  if %HLSL_TESTCMD_CLEANUP_ON_FAILURE% equ 1 (
+    call :cleanup 2>nul
+  )
   exit /b 1
 )
 rem SPIR-V Change Ends
@@ -515,7 +519,7 @@ for %%f in (%cleanup_files%) do (
   del %%f 1>nul 2>nul
 )
 popd
-endlocal
+endlocal & set Failed=%Failed%
 exit /b 0
 
 rem ============================================
@@ -673,6 +677,8 @@ exit /b 0
 rem ============================================
 rem Cleanup and return failure
 :failed
-call :cleanup 2>nul
-if %Failed% eq 0 set Failed=1
+if %HLSL_TESTCMD_CLEANUP_ON_FAILURE% neq 0 (
+  call :cleanup 2>nul
+)
+if %Failed% equ 0 set Failed=1
 exit /b %Failed%
