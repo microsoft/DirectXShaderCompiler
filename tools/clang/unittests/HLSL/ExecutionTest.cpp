@@ -11552,9 +11552,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
                 L"model 6.%1u",
                 ((UINT)sm & 0x0f));
 
-  CComPtr<ID3D12Device> pDevice;
-  VERIFY_IS_TRUE(CreateDevice(&pDevice, sm, false /* skipUnsupported */));
-
   size_t count = Validation_Input->size();
 
   auto ShaderInitFn = MakeShaderReplacementCallback(
