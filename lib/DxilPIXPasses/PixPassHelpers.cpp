@@ -202,7 +202,7 @@ void ExtendRootSig(RootSigDesc &rootSigDesc) {
 
 static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
                                                        uint32_t Size) {
-  ScopedVersionedRootSignature rootSignature;
+  DxilVersionedRootSignature rootSignature;
   DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
   auto *rs = rootSignature.get_mutable();
   switch (rootSignature->Version) {

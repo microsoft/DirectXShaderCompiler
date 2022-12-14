@@ -385,28 +385,39 @@ bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
                          _In_ llvm::raw_ostream &DiagStream,
                          _In_ bool bAllowReservedRegisterSpace);
 
-class ScopedVersionedRootSignature {
-  const DxilVersionedRootSignatureDesc *m_pRootSignature;
+class DxilVersionedRootSignature {
+  DxilVersionedRootSignatureDesc *m_pRootSignature;
 
 public:
-  ScopedVersionedRootSignature() : m_pRootSignature(nullptr) {}
-  ScopedVersionedRootSignature(
+    // Non-copyable:
+  DxilVersionedRootSignature(DxilVersionedRootSignature const &) = delete;
+  DxilVersionedRootSignature const &
+  operator=(DxilVersionedRootSignature const &) = delete;
+
+  // but movable:
+  DxilVersionedRootSignature(DxilVersionedRootSignature &&) = default;
+  DxilVersionedRootSignature &
+  operator=(DxilVersionedRootSignature &&) = default;
+
+  DxilVersionedRootSignature() : m_pRootSignature(nullptr) {}
+  DxilVersionedRootSignature(
       const DxilVersionedRootSignatureDesc *pRootSignature)
-  : m_pRootSignature(pRootSignature){}
-  ~ScopedVersionedRootSignature() { 
+      : m_pRootSignature(
+            const_cast<DxilVersionedRootSignatureDesc *> (pRootSignature)) {}
+  ~DxilVersionedRootSignature() { 
       DeleteRootSignature(m_pRootSignature);
   }
   const DxilVersionedRootSignatureDesc* operator -> () const {
     return m_pRootSignature;
   }
   const DxilVersionedRootSignatureDesc ** get_address_of() {
-    return &m_pRootSignature;
+    return const_cast<const DxilVersionedRootSignatureDesc **> (&m_pRootSignature);
   }
   const DxilVersionedRootSignatureDesc* get() const { 
       return m_pRootSignature;
   }
-  DxilVersionedRootSignatureDesc* get_mutable() { 
-      return const_cast<DxilVersionedRootSignatureDesc *>(m_pRootSignature);
+  DxilVersionedRootSignatureDesc* get_mutable() const { 
+      return m_pRootSignature;
   }
 };
 } // namespace hlsl

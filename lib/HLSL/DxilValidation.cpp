@@ -5850,7 +5850,7 @@ HRESULT ValidateDxilBitcode(
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
     pOutputStream->Reserve(pWriter->size());
     pWriter->write(pOutputStream);
-    ScopedVersionedRootSignature desc;
+    DxilVersionedRootSignature desc;
     try {
       DeserializeRootSignature(SerializedRootSig.data(),
                                SerializedRootSig.size(), desc.get_address_of());
