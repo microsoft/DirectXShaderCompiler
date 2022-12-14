@@ -406,7 +406,7 @@ inline bool isnanFloat16(uint16_t val) {
          (val & FLOAT16_BIT_MANTISSA) != 0;
 }
 
-// These are defined in ExecutionTest.cpp using DirectXPackedVector functions.
+// These are defined in ShaderOpTest.cpp using DirectXPackedVector functions.
 uint16_t ConvertFloat32ToFloat16(float val) throw();
 float ConvertFloat16ToFloat32(uint16_t val) throw();
 
