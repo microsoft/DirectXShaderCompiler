@@ -24,6 +24,7 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/Timer.h"
 #include "dxc/Support/WinIncludes.h"
@@ -637,6 +638,7 @@ public:
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _In_ REFIID riid, _Out_ LPVOID *ppResult      // IDxcResult: status, buffer, and errors
   ) override {
+    llvm::TimeTraceScope TimeScope("Compile", StringRef(""));
     if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr))
       return E_INVALIDARG;
@@ -1785,6 +1787,8 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     bool finished = false;
     CComPtr<IDxcOperationResult> pOperationResult;
     dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, &pOperationResult, finished);
+    if (!opts.TimeTrace.empty())
+      llvm::timeTraceProfilerInitialize();
     if (finished) {
       IFT(pOperationResult->QueryInterface(ppResult));
       return S_OK;
@@ -1833,6 +1837,15 @@ HRESULT DxcCompilerAdapter::WrapCompile(
       llvm::TimerGroup::printAll(OS);
       IFT(pResult->SetOutputString(DXC_OUT_TIME_REPORT, TimeReport.c_str(),
                                    TimeReport.size()));
+    }
+
+    if (llvm::timeTraceProfilerEnabled()) {
+      std::string TimeTrace;
+      raw_string_ostream OS(TimeTrace);
+      llvm::timeTraceProfilerWrite(OS);
+      llvm::timeTraceProfilerCleanup();
+      IFT(pResult->SetOutputString(DXC_OUT_TIME_TRACE, TimeTrace.c_str(),
+                                   TimeTrace.size()));
     }
 
     outStream.flush();

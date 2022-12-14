@@ -41,6 +41,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/CrashRecoveryContext.h"
+#include "llvm/Support/TimeProfiler.h"
 using namespace clang;
 using namespace sema;
 
@@ -683,7 +684,14 @@ void Sema::ActOnEndOfTranslationUnit() {
       PendingInstantiations.insert(PendingInstantiations.begin(),
                                    Pending.begin(), Pending.end());
     }
-    PerformPendingInstantiations();
+
+    // HLSL Change Begin - Support hierarchial time tracing.
+    {
+      llvm::TimeTraceScope TimeScope("PerformPendingInstantiations",
+                                     StringRef(""));
+      PerformPendingInstantiations();
+    }
+    // HLSL Change Ends - Support hierarchial time tracing.
 
     if (LateTemplateParserCleanup)
       LateTemplateParserCleanup(OpaqueParser);
