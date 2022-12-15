@@ -400,7 +400,7 @@ public:
   operator=(DxilVersionedRootSignature &&) = default;
 
   DxilVersionedRootSignature() : m_pRootSignature(nullptr) {}
-  DxilVersionedRootSignature(
+  explicit DxilVersionedRootSignature(
       const DxilVersionedRootSignatureDesc *pRootSignature)
       : m_pRootSignature(
             const_cast<DxilVersionedRootSignatureDesc *> (pRootSignature)) {}
@@ -411,6 +411,8 @@ public:
     return m_pRootSignature;
   }
   const DxilVersionedRootSignatureDesc ** get_address_of() {
+    if (m_pRootSignature != nullptr)
+      return nullptr; // You're probably about to leak...
     return const_cast<const DxilVersionedRootSignatureDesc **> (&m_pRootSignature);
   }
   const DxilVersionedRootSignatureDesc* get() const { 
