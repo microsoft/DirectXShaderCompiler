@@ -26,8 +26,11 @@
 #include "WEXAdapter.h"
 #endif
 #include "dxc/Support/Unicode.h"
-#include "dxc/Test/TestConfig.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
+
+#ifndef DEFAULT_TEST_DIR
+#include "dxc/Test/TestConfig.h"
+#endif
 
 using namespace std;
 
