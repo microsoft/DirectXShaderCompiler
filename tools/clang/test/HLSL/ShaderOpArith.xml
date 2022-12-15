@@ -1560,16 +1560,9 @@
       // check to make sure that the pixel shader will see the barycentric weight associated
       // with the first vertex in the x component of the SV_Barycentric vector, and likewise for subsequent vertices
       
-      if (0 == GetAttributeAtVertex(input.svid, 0) && 
-          1 ==  GetAttributeAtVertex(input.svid, 1) &&
-          2 ==  GetAttributeAtVertex(input.svid, 2))
-      {
-        // special value of all 1's in a float4 will be returned if the ordering is maintained for this pixel.
-        return float4(1.0, 1.0, 1.0, 1.0);
-      }
-      
-      // special value of all 0's in a float 4 will be returned otherwise
-      return float4(0.0, 0.0, 0.0, 0.0);      
+      return float4(float3(GetAttributeAtVertex(input.svid, 0),
+                     GetAttributeAtVertex(input.svid, 1),
+                     GetAttributeAtVertex(input.svid, 2)) * 0.5, 1.0);    
     }
       
     ]]>
