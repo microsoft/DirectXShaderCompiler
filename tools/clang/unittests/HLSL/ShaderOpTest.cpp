@@ -32,6 +32,7 @@
 
 #include <stdlib.h>
 #include <DirectXMath.h>
+#include <DirectXPackedVector.h>
 #include <intsafe.h>
 #include <strsafe.h>
 #include <xmllite.h>
@@ -39,6 +40,13 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 // Useful helper functions.
+
+uint16_t ConvertFloat32ToFloat16(float Value) throw() {
+  return DirectX::PackedVector::XMConvertFloatToHalf(Value);
+}
+float ConvertFloat16ToFloat32(uint16_t Value) throw() {
+  return DirectX::PackedVector::XMConvertHalfToFloat(Value);
+}
 
 static st::OutputStringFn g_OutputStrFn;
 static void * g_OutputStrFnCtx;
