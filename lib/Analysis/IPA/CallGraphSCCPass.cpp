@@ -26,6 +26,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Timer.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
@@ -126,6 +127,12 @@ bool CGPassManager::RunPassOnSCC(Pass *P, CallGraphSCC &CurSCC,
     }
 
     {
+      // HLSL Change Begin - Support hierarchial time tracing.
+      StringRef FnName = (*CurSCC.begin())->getFunction()
+                             ? (*CurSCC.begin())->getFunction()->getName()
+                             : "Unnamed";
+      TimeTraceScope FunctionScope("CGSCCPass-Function", FnName);
+      // HLSL Change End - Support hierarchial time tracing.
       TimeRegion PassTimer(getPassTimer(CGSP));
       Changed = CGSP->runOnSCC(CurSCC);
     }
@@ -150,6 +157,9 @@ bool CGPassManager::RunPassOnSCC(Pass *P, CallGraphSCC &CurSCC,
     if (Function *F = CGN->getFunction()) {
       dumpPassInfo(P, EXECUTION_MSG, ON_FUNCTION_MSG, F->getName());
       {
+        // HLSL Change Begin - Support hierarchial time tracing.
+        TimeTraceScope FunctionScope("CGSCCPass-Function", F->getName());
+        // HLSL Change End - Support hierarchial time tracing.
         TimeRegion PassTimer(getPassTimer(FPP));
         Changed |= FPP->runOnFunction(*F);
       }
@@ -398,6 +408,9 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
   for (unsigned PassNo = 0, e = getNumContainedPasses();
        PassNo != e; ++PassNo) {
     Pass *P = getContainedPass(PassNo);
+    // HLSL Change Begin - Support hierarchial time tracing.
+    TimeTraceScope PassScope("RunCallGraphSCCPass", P->getPassName());
+    // HLSL Change End - Support hierarchial time tracing.
     
     // If we're in -debug-pass=Executions mode, construct the SCC node list,
     // otherwise avoid constructing this string as it is expensive.

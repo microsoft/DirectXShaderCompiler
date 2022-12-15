@@ -24,6 +24,7 @@
 #include "clang/Sema/SemaConsumer.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
 #include "llvm/Support/CrashRecoveryContext.h"
+#include "llvm/Support/TimeProfiler.h"
 #include <cstdio>
 #include <memory>
 
@@ -98,6 +99,9 @@ void clang::ParseAST(Preprocessor &PP, ASTConsumer *Consumer,
 }
 
 void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
+
+  // HLSL Change - Support hierarchial time tracing.
+  llvm::TimeTraceScope TimeScope("Frontend", StringRef(""));
   // Collect global stats on Decls/Stmts (until we have a module streamer).
   if (PrintStats) {
     Decl::EnableStatistics();
