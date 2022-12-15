@@ -232,12 +232,11 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule& DM) {
     for (auto const &subObject : subObjects->GetSubobjects()) {
       if (subObject.second->GetKind() ==
           DXIL::SubobjectKind::GlobalRootSignature) {
-        const char *Text;
-        const void *Data;
-        uint32_t Size;
+        const void *Data = nullptr;
+        uint32_t Size = 0;
         constexpr bool notALocalRS = false;
         if (subObject.second->GetRootSignature(notALocalRS, Data, Size,
-                                               &Text)) {
+                                               nullptr)) {
           auto extendedRootSig = AddUAVParamterToRootSignature(Data, Size);
           auto rootSignatureSubObjectName = subObject.first;
           subObjects->RemoveSubobject(rootSignatureSubObjectName);
