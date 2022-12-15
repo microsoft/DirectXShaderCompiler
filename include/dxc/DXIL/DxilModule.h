@@ -351,7 +351,6 @@ private:
   bool m_ForceZeroStoreLifetimes = false;
 
   std::unique_ptr<OP> m_pOP;
-  size_t m_pUnused = 0;
 
   // LLVM used.
   std::vector<llvm::GlobalVariable*> m_LLVMUsed;

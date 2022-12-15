@@ -73,12 +73,12 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
 // HLSL Change Begin - Windows doesn't support __attribute__((used)) so these methods
 // need to be forcibly bound or they could be stripped at build time.
 #if defined(_MSC_VER) && (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP))
+#pragma optimize("", off)
   // Pin LLVM dump methods.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
   void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
   void (__thiscall Function::*pfnViewCFGOnly)() const = &Function::viewCFGOnly;
-  m_pUnused = (char *)&pfnModuleDump - (char *)&pfnTypeDump;
-  m_pUnused -= (size_t)&pfnViewCFGOnly;
+#pragma optimize("", on)
 #endif
 // HLSL Change End
 }
