@@ -9027,8 +9027,8 @@ void TestBarycentricVariant(bool checkOrdering, std::shared_ptr<ShaderOpTestResu
         float x1 = w0 * p0.x + w1 * p1.x + w2 * p2.x;
         float y1 = w0 * p0.y + w1 * p1.y + w2 * p2.y;
         // map from x1 y1 to rtv pixels
-        int pixelX = (int)round((x1 + 1) * (width - 1) / 2);
-        int pixelY = (int)round((1 - y1) * (height - 1) / 2); //1.3332 * 63 = 83.999, /2 = 41.999 truncated = 41
+        int pixelX = (int)round((x1 + 1) * (width - 1) / 2.0);
+        int pixelY = (int)round((1 - y1) * (height - 1) / 2.0); //1.3332 * 63 = 83.999, /2 = 41.999 truncated = 41
         int offset = pixelSize * (pixelX + pixelY * width) / sizeof(pPixels[0]);
         LogCommentFmt(L"location  %u %u, value %f, %f, %f", pixelX, pixelY, pPixels[offset], pPixels[offset + 1], pPixels[offset + 2]);
         if (!checkOrdering){
