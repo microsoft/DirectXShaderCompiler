@@ -28,7 +28,9 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 
-#ifndef DEFAULT_TEST_DIR
+#ifdef _HLK_CONF
+#define DEFAULT_TEST_DIR ""
+#else
 #include "dxc/Test/TestConfig.h"
 #endif
 
