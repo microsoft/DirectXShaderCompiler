@@ -41,20 +41,21 @@ set(TAEF_INCLUDE_DIRS ${TAEF_INCLUDE_DIR})
 set(TAEF_NUGET_BIN ${TAEF_INCLUDE_DIR}/../Binaries/Release)
 set(TAEF_SDK_BIN ${TAEF_INCLUDE_DIR}/../../Runtimes/TAEF)
 
-if(EXISTS "$ENV{HLSL_TAEF_DIR}/x64/te.exe" OR EXISTS "$ENV{HLSL_TAEF_DIR}/x86/te.exe")
-  # Use HLSL_TAEF_DIR for debug executable setting if set.
-  # we don't actually support multiple architectures in the same project.
-  set(TAEF_BIN_DIR "$ENV{HLSL_TAEF_DIR}")
-elseif(EXISTS "${TAEF_NUGET_BIN}/x64/te.exe" AND EXISTS "${TAEF_NUGET_BIN}/x86/te.exe")
-  set(TAEF_BIN_DIR "${TAEF_NUGET_BIN}")
-elseif(EXISTS "${TAEF_SDK_BIN}/x64/te.exe" AND EXISTS "${TAEF_SDK_BIN}/x86/te.exe")
-  set(TAEF_BIN_DIR "${TAEF_SDK_BIN}")
-elseif(EXISTS "${WINDOWS_KIT_10_PATH}")
-  message(ERROR "Unable to find TAEF binaries under Windows 10 SDK.")
-elseif(EXISTS "${WINDOWS_KIT_81_PATH}")
-  message(ERROR "Unable to find TAEF binaries under Windows 8.1 or 10 SDK.")
+find_program(TAEF_EXECUTABLE te.exe PATHS
+  $ENV{HLSL_TAEF_DIR}/x64
+  $ENV{HLSL_TAEF_DIR}/x86
+  ${TAEF_NUGET_BIN}/x64
+  ${TAEF_NUGET_BIN}/x86
+  ${TAEF_SDK_BIN}/x64
+  ${TAEF_SDK_BIN}/x86
+  ${WINDOWS_KIT_10_PATH}
+  ${WINDOWS_KIT_81_PATH}
+  )
+
+if (TAEF_EXECUTABLE)
+  get_filename_component(TAEF_BIN_DIR ${TAEF_EXECUTABLE} DIRECTORY)
 else()
-  message(ERROR "Unable to find TAEF binaries or Windows 8.1 or 10 SDK.")
+  message(ERROR "Unable to find TAEF binaries.")
 endif()
 
 include(FindPackageHandleStandardArgs)
