@@ -1345,7 +1345,12 @@ void CXXRecordDecl::completeDefinition() {
 
 void CXXRecordDecl::completeDefinition(CXXFinalOverriderMap *FinalOverriders) {
   RecordDecl::completeDefinition();
-  
+  // Dsl Change Begin
+  auto *DD = DefinitionData.get();
+  if (nullptr == DD)
+    return;
+  // Dsl Change End
+ 
   // If the class may be abstract (but hasn't been marked as such), check for
   // any pure final overriders.
   if (mayBeAbstract()) {

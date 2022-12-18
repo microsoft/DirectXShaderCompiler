@@ -3464,9 +3464,13 @@ void TagDecl::startDefinition() {
 }
 
 void TagDecl::completeDefinition() {
+  // Dsl Change Begin
+  /*
   assert((!isa<CXXRecordDecl>(this) ||
           cast<CXXRecordDecl>(this)->hasDefinition()) &&
          "definition completed but not started");
+  */
+  // Dsl Change End
 
   IsCompleteDefinition = true;
   IsBeingDefined = false;
