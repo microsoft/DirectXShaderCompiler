@@ -1,7 +1,7 @@
-// RUN: %dxc -E main -T ps_6_0 -ast-dump -enable-templates %s | FileCheck -check-prefix=AST %s
 // RUN: %dxc -E main -T ps_6_0 -ast-dump -HV 2021 %s | FileCheck -check-prefix=AST %s
-// RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck %s
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
+
+
 
 template<uint VSize, typename T>
 vector<T, VSize> make_vec(T X) {

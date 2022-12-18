@@ -159,6 +159,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     return #Name;
 #include "clang/Basic/OpenMPKinds.def"
     }
+    llvm_unreachable("Invalid OpenMP 'schedule' clause type");
   case OMPC_depend:
     switch (Type) {
     case OMPC_DEPEND_unknown:

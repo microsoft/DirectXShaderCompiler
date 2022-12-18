@@ -94,7 +94,8 @@ private:
   /// This function only considers the field as standalone.
   /// Offset and layout constraint from the parent struct are not considered.
   StructType::FieldInfo lowerField(const HybridStructType::FieldInfo *field,
-                                   SpirvLayoutRule rule);
+                                   SpirvLayoutRule rule,
+                                   const uint32_t fieldIndex);
 
 private:
   ASTContext &astContext;                /// AST context

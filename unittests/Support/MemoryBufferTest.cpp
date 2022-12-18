@@ -161,7 +161,15 @@ void MemoryBufferTest::testGetOpenFileSlice(bool Reopen) {
   EXPECT_EQ(BufData[9], '9');
 }
 
+// HLSL Change Begin
+// The MS filesystem breaks loading file slices on Windows unless you are
+// reopening the file, so we disable this test case.
+#if LLVM_ON_WIN32
+TEST_F(MemoryBufferTest, DISABLED_getOpenFileNoReopen) {
+#else
 TEST_F(MemoryBufferTest, getOpenFileNoReopen) {
+#endif
+// HLSL Change End
   testGetOpenFileSlice(false);
 }
 

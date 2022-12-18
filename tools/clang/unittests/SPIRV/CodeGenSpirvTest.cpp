@@ -432,10 +432,16 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
 
 // For struct & array accessing operator
 TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
+TEST_F(FileTest, OpStructAccessBitfield) {
+  runFileTest("op.struct.access.bitfield.hlsl");
+}
 TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 
 // For buffer accessing operator
 TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
+TEST_F(FileTest, OpBufferAccessBitfield) {
+  runFileTest("op.buffer.access.bitfield.hlsl");
+}
 TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccessMajorness) {
@@ -451,6 +457,9 @@ TEST_F(FileTest, OpTextureBufferAccess) {
 }
 TEST_F(FileTest, OpStructuredBufferAccess) {
   runFileTest("op.structured-buffer.access.hlsl");
+}
+TEST_F(FileTest, OpStructuredBufferAccessBitfield) {
+  runFileTest("op.structured-buffer.access.bitfield.hlsl");
 }
 TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
@@ -1410,6 +1419,9 @@ TEST_F(FileTest, IntrinsicsVkReadClock) {
 TEST_F(FileTest, IntrinsicsVkRawBufferLoad) {
   runFileTest("intrinsics.vkrawbufferload.hlsl");
 }
+TEST_F(FileTest, IntrinsicsVkRawBufferLoadBitfield) {
+  runFileTest("intrinsics.vkrawbufferload.bitfield.hlsl");
+}
 TEST_F(FileTest, IntrinsicsVkRawBufferStore) {
   runFileTest("intrinsics.vkrawbufferstore.hlsl");
 }
@@ -2306,6 +2318,12 @@ TEST_F(FileTest, VulkanLayoutStructRelaxedLayout) {
   // Checks VK_KHR_relaxed_block_layout on struct types
   runFileTest("vk.layout.struct.relaxed.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutStructBitfield) {
+  runFileTest("vk.layout.struct.bitfield.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutStructBitfieldAssignment) {
+  runFileTest("vk.layout.struct.bitfield.assignment.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
   // Checks the behavior of [[vk::offset]]
@@ -2735,6 +2753,15 @@ TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefErrorBack) {
               Expect::Failure);
 }
 
+// === MeshShading EXT examples ===
+TEST_F(FileTest, MeshShadingEXTMeshTriangle) {
+  runFileTest("meshshading.ext.triangle.mesh.hlsl");
+}
+
+TEST_F(FileTest, MeshShadingEXTAmplification) {
+  runFileTest("meshshading.ext.amplification.hlsl");
+}
+
 // === MeshShading NV examples ===
 TEST_F(FileTest, MeshShadingNVMeshTriangle) {
   // TODO: Re-enable spirv-val once issue#3006 is fixed.
@@ -2850,10 +2877,6 @@ TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr2) {
 // -fspv-target-env=vulkan1.2 option to make sure that enabling
 // Vulkan1.2 also enables Vulkan1.1.
 TEST_F(FileTest, CompatibilityWithVk1p1) {
-  // TODO: Re-enable spirv-val once issue#3006 is fixed.
-  runFileTest("meshshading.nv.fncall.amplification.vulkan1.2.hlsl",
-              Expect::Success,
-              /* runValidation */ false);
   runFileTest("sm6.quad-read-across-diagonal.vulkan1.2.hlsl");
   runFileTest("sm6.quad-read-across-x.vulkan1.2.hlsl");
   runFileTest("sm6.quad-read-across-y.vulkan1.2.hlsl");

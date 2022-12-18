@@ -14,6 +14,7 @@
 #include <memory>
 
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/Support/Global.h"
@@ -70,6 +71,7 @@ public:
   DxilAnnotateWithVirtualRegister() : llvm::ModulePass(ID) {}
 
   bool runOnModule(llvm::Module &M) override;
+  void applyOptions(llvm::PassOptions O) override;
 
 private:
   void AnnotateValues(llvm::Instruction *pI);
@@ -86,6 +88,8 @@ private:
   hlsl::DxilModule* m_DM;
   std::uint32_t m_uVReg;
   std::unique_ptr<llvm::ModuleSlotTracker> m_MST;
+  int m_StartInstruction = 0;
+
   void Init(llvm::Module &M) {
     m_DM = &M.GetOrCreateDxilModule();
     m_uVReg = 0;
@@ -96,6 +100,10 @@ private:
     }
   }
 };
+
+void DxilAnnotateWithVirtualRegister::applyOptions(llvm::PassOptions O) {
+  GetPassOptionInt(O, "startInstruction", &m_StartInstruction, 0);
+}
 
 char DxilAnnotateWithVirtualRegister::ID = 0;
 
@@ -111,37 +119,55 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     m_DM->SetValidatorVersion(1, 4);
   }
 
-  std::uint32_t InstNum = 0;
-  auto blocks = PIXPassHelpers::GetAllBlocks(*m_DM);
-  for(auto * block : blocks) {
-    for (llvm::Instruction& I : block->getInstList()) {
-      if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
-        pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+  std::uint32_t InstNum = m_StartInstruction;
+  std::map<llvm::StringRef, std::pair<int, int>> InstructionRangeByFunctionName;
+
+  auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
+
+  for (auto * F : instrumentableFunctions) {
+    auto &EndInstruction = InstructionRangeByFunctionName[F->getName()];
+    EndInstruction.first = InstNum;
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
+          pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+          EndInstruction.second = InstNum;
+        }
       }
     }
   }
 
   if (OSOverride != nullptr) {
+    // Print a set of strings of the exemplary form "InstructionCount: <n> <fnName>"
     *OSOverride << "\nInstructionCount:" << InstNum << "\n";
-  }
+    for (auto const &fn : InstructionRangeByFunctionName) {
+      *OSOverride << "InstructionRange: ";
+      int skipOverLeadingUnprintableCharacters = 0;
+      if (fn.first.size() > 2 && fn.first[0] == '\1' && fn.first[1] == '?') {
+        skipOverLeadingUnprintableCharacters = 2;
+      }
+      *OSOverride << fn.second.first << " " << fn.second.second << " "
+                  << (fn.first.str().c_str() +
+                      skipOverLeadingUnprintableCharacters)
+                  << "\n";
+    }
 
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nEnd - instruction ID to line\n";
-  }
-
-  if (OSOverride != nullptr) {
     *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
-  for (auto* block : blocks) {
-    for (llvm::Instruction& I : block->getInstList()) {
-      AnnotateValues(&I);
+  for (auto * F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        AnnotateValues(&I);
+      }
     }
   }
 
-  for (auto* block : blocks) {
-    for (llvm::Instruction& I : block->getInstList()) {
-      AnnotateStore(&I);
+  for (auto * F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        AnnotateStore(&I);
+      }
     }
   }
 

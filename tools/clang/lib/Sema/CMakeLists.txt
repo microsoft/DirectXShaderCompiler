@@ -66,3 +66,11 @@ add_clang_library(clangSema
   clangEdit
   clangLex
   )
+
+# HLSL Change Begin
+# Sema got too big for debug builds on arm64ec, which means it will hit
+# other targets too eventually.
+if(WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+endif(WIN32)
+# HLSL Change End

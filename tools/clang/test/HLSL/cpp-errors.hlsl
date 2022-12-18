@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
+// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -HV 2018 -verify %s
 
 float f_arr_empty_init[] = { 1, 2, 3 };
 float f_arr_empty_pack[] = { 1, 2 ... }; // expected-error {{expansion is unsupported in HLSL}}

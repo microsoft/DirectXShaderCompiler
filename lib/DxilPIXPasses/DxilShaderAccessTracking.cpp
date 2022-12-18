@@ -894,6 +894,10 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
   } else {
+
+    auto instrumentableFunctions =
+        PIXPassHelpers::GetAllInstrumentableFunctions(DM);
+
     if (DM.m_ShaderFlags.GetForceEarlyDepthStencil()) {
       if (OSOverride != nullptr) {
         formatted_raw_ostream FOS(*OSOverride);
@@ -901,44 +905,38 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
     int uavRegId = 0;
-    for (llvm::Function &F : M.functions()) {
-      if (!F.getBasicBlockList().empty()) {
-
-        DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
-        if (!DM.HasDxilFunctionProps(&F)) {
-          auto ShaderModel = DM.GetShaderModel();
-          shaderKind = ShaderModel->GetKind();
-          if (shaderKind == DXIL::ShaderKind::Library) {
-            continue;
-          }
-        } else {
-          hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(&F);
-          shaderKind = props.shaderKind;
+    for (auto * F : instrumentableFunctions) {
+      DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
+      if (!DM.HasDxilFunctionProps(F)) {
+        auto ShaderModel = DM.GetShaderModel();
+        shaderKind = ShaderModel->GetKind();
+        if (shaderKind == DXIL::ShaderKind::Library) {
+          continue;
         }
+      } else {
+        hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(F);
+        shaderKind = props.shaderKind;
+      }
 
-        IRBuilder<> Builder(F.getEntryBlock().getFirstInsertionPt());
+      IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
-        m_FunctionToUAVHandle[&F] = PIXPassHelpers::CreateUAV(
-            DM, Builder, uavRegId++, "PIX_CountUAV_Handle");
-        OP *HlslOP = DM.GetOP();
-        for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
-             accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
-             ++accessStyle) {
-          ResourceAccessStyle style =
-              static_cast<ResourceAccessStyle>(accessStyle);
-          m_FunctionToEncodedAccess[&F][style] = HlslOP->GetU32Const(
-              EncodeShaderModel(shaderKind) | EncodeAccess(style));
-        }
+      m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
+          DM, Builder, uavRegId++, "PIX_CountUAV_Handle");
+      OP *HlslOP = DM.GetOP();
+      for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
+           accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
+           ++accessStyle) {
+        ResourceAccessStyle style =
+            static_cast<ResourceAccessStyle>(accessStyle);
+        m_FunctionToEncodedAccess[F][style] = HlslOP->GetU32Const(
+            EncodeShaderModel(shaderKind) | EncodeAccess(style));
       }
     }
     DM.ReEmitDxilResources();
 
     for (llvm::Function &F : M.functions()) {
-      // Only used DXIL intrinsics:
-      if (!F.isDeclaration() || F.isIntrinsic() || F.use_empty() ||
-          !OP::IsDxilOpFunc(&F))
+      if (!F.isDeclaration() || F.isIntrinsic() || !OP::IsDxilOpFunc(&F))
         continue;
-
       // Gather handle parameter indices, if any
       FunctionType *fnTy =
           cast<FunctionType>(F.getType()->getPointerElementType());

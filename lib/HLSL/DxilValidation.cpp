@@ -4083,7 +4083,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticInterpretationKind::NotInSig:
   case DXIL::SemanticInterpretationKind::Invalid:
     bAllowedInSig = false;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SemanticInterpretationKind::NotPacked:
   case DXIL::SemanticInterpretationKind::Shadow:
     bShouldBeAllocated = false;
@@ -4127,7 +4127,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     break;
   case DXIL::SemanticKind::Coverage:
     DXASSERT(!SE.IsInput() || !bAllowedInSig, "else internal inconsistency between semantic interpretation table and validation code");
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SemanticKind::InnerCoverage:
   case DXIL::SemanticKind::OutputControlPointID:
     if (compKind != CompType::Kind::U32 || SE.GetCols() != 1) {
@@ -4569,6 +4569,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
           Ty = Ty->getPointerElementType();
         attrSize = (unsigned)std::min(DL.getTypeAllocSize(Ty), (uint64_t)UINT_MAX);
       }
+      LLVM_FALLTHROUGH;
     case DXIL::ShaderKind::Miss:
     case DXIL::ShaderKind::Callable:
       if (itPayload != F.arg_end()) {
@@ -5849,13 +5850,14 @@ HRESULT ValidateDxilBitcode(
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
     pOutputStream->Reserve(pWriter->size());
     pWriter->write(pOutputStream);
+    DxilVersionedRootSignature desc;
     try {
-      const DxilVersionedRootSignatureDesc* pDesc = nullptr;
-      DeserializeRootSignature(SerializedRootSig.data(), SerializedRootSig.size(), &pDesc);
-      if (!pDesc) {
+      DeserializeRootSignature(SerializedRootSig.data(),
+                               SerializedRootSig.size(), desc.get_address_of());
+      if (!desc.get()) {
         return DXC_E_INCORRECT_ROOT_SIGNATURE;
       }
-      IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc,
+      IFTBOOL(VerifyRootSignatureWithShaderPSV(desc.get(),
                                                dxilModule.GetShaderModel()->GetKind(),
                                                pOutputStream->GetPtr(), pWriter->size(),
                                                DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);

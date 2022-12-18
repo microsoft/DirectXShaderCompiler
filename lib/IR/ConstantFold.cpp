@@ -925,7 +925,7 @@ Constant *llvm::ConstantFoldBinaryInstruction(unsigned Opcode,
         // Handle undef ^ undef -> 0 special case. This is a common
         // idiom (misuse).
         return Constant::getNullValue(C1->getType());
-      // Fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
     case Instruction::Add:
     case Instruction::Sub:
       return UndefValue::get(C1->getType());
@@ -1142,24 +1142,15 @@ Constant *llvm::ConstantFoldBinaryInstruction(unsigned Opcode,
       case Instruction::Shl:
         if (C2V.ult(C1V.getBitWidth()))
           return ConstantInt::get(CI1->getContext(), C1V.shl(C2V));
-        // HLSL Change Begins: Shift only uses bottom bitwidth-1 bits
-        return ConstantInt::get(CI1->getContext(), C1V.shl(C2V & APInt(C2V.getBitWidth(), (uint64_t)(C1V.getBitWidth() - 1))));
-        //return UndefValue::get(C1->getType()); // too big shift is undef
-        // HLSL Change Ends
+        return UndefValue::get(C1->getType()); // too big shift is undef
       case Instruction::LShr:
         if (C2V.ult(C1V.getBitWidth()))
           return ConstantInt::get(CI1->getContext(), C1V.lshr(C2V));
-        // HLSL Change Begins: Shift only uses bottom bitwidth-1 bits
-        return ConstantInt::get(CI1->getContext(), C1V.lshr(C2V & APInt(C2V.getBitWidth(), (uint64_t)(C1V.getBitWidth() - 1))));
-        //return UndefValue::get(C1->getType()); // too big shift is undef
-        // HLSL Change Ends
+        return UndefValue::get(C1->getType()); // too big shift is undef
       case Instruction::AShr:
         if (C2V.ult(C1V.getBitWidth()))
           return ConstantInt::get(CI1->getContext(), C1V.ashr(C2V));
-        // HLSL Change Begins: Shift only uses bottom bitwidth-1 bits
-        return ConstantInt::get(CI1->getContext(), C1V.ashr(C2V & APInt(C2V.getBitWidth(), (uint64_t)(C1V.getBitWidth() - 1))));
-        //return UndefValue::get(C1->getType()); // too big shift is undef
-        // HLSL Change Ends
+        return UndefValue::get(C1->getType()); // too big shift is undef
       }
     }
 
@@ -1657,7 +1648,7 @@ static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2,
           }
         }
       }
-    }
+    } break;
     default:
       break;
     }

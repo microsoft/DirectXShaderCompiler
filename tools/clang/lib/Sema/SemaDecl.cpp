@@ -365,6 +365,7 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
       }
     }
     // If typo correction failed or was not performed, fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case LookupResult::FoundOverloaded:
   case LookupResult::FoundUnresolvedValue:
     Result.suppressDiagnostics();
@@ -9512,7 +9513,7 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
       // that has an in-class initializer, so we type-check this like
       // a declaration. 
       //
-      // Fall through
+      LLVM_FALLTHROUGH; // HLSL Change
       
     case VarDecl::DeclarationOnly:
       // It's only a declaration. 

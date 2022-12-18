@@ -1,5 +1,3 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck %s
-// RUN: %dxc -E main -T ps_6_0 %s -enable-templates -DCHECK_DIAGNOSTICS | FileCheck -check-prefix=DIAG %s
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 // RUN: %dxc -E main -T ps_6_0 %s -HV 2021 -DCHECK_DIAGNOSTICS | FileCheck -check-prefix=DIAG %s
 

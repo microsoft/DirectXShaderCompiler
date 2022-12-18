@@ -145,7 +145,7 @@ void ParseCommandPartsFromFile(LPCWSTR fileName, std::vector<FileRunCommandPart>
 class FileRunTestResult {
 public:
   std::string ErrorMessage;
-  int RunResult;
+  int RunResult = -1;
   static FileRunTestResult RunHashTestFromFileCommands(LPCWSTR fileName);
   static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
                                                PluginToolsPaths *pPluginToolsPaths = nullptr,

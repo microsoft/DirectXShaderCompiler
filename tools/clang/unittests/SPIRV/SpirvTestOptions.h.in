@@ -16,6 +16,8 @@
 #ifndef LLVM_CLANG_UNITTESTS_SPIRV_TEST_OPTIONS_H
 #define LLVM_CLANG_UNITTESTS_SPIRV_TEST_OPTIONS_H
 
+#define DEFAULT_TEST_DIR "@SPIRV_TEST_DATA_DIR@"
+
 #include <string>
 
 namespace clang {

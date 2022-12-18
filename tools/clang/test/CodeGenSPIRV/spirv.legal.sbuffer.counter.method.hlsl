@@ -48,10 +48,18 @@ struct Wrapper {
     RWStructuredBuffer<float> getRWSBuffer() { return b.b2.rw; }
 };
 
+ConsumeStructuredBuffer<float> globalCSBuffer;
+AppendStructuredBuffer<float> globalASBuffer;
+RWStructuredBuffer<float> globalRWSBuffer;
+
 // CHECK-LABLE: %src_main = OpFunction
 float main() : VVV {
     TwoBundle localBundle;
     Wrapper   localWrapper;
+
+    localBundle.b1.consume = globalCSBuffer;
+    localWrapper.b.b1.append = globalASBuffer;
+    localWrapper.b.b2.rw = globalRWSBuffer;
 
 // CHECK:      [[counter:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_localBundle_0_0
 // CHECK-NEXT:                    OpStore %counter_var_getCSBuffer_this_0_0 [[counter]]

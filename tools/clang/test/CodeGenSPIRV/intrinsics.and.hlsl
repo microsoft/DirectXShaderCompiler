@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_0 -E main -HV 2021
+// RUN: %dxc -T ps_6_0 -E main -HV 2018
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
