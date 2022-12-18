@@ -345,7 +345,7 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
     // C-style casts will be lvalue for shortened matrices and vectors;
     // perform regular processing otherwise, which is based purely on type.
     if (Lang.HLSL && E->getValueKind() == VK_LValue) return Cl::CL_LValue;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
     // HLSL Change Ends  
   case Expr::CXXFunctionalCastExprClass:
   case Expr::CXXStaticCastExprClass:

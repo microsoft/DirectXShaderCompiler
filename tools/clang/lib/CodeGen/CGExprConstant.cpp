@@ -874,6 +874,7 @@ public:
           return llvm::Constant::getNullValue(destType);
         }
       }
+      return nullptr;
     }
 
     case CK_FlatConversion:
@@ -918,6 +919,8 @@ public:
         llvm::Constant *destVal = llvm::Constant::getNullValue(destType);
         return destVal;
       }
+      llvm_unreachable("Invalid cast target");
+      return nullptr;
     }
     case CK_HLSLMatrixTruncationCast: {
       if (llvm::ConstantStruct *CS = dyn_cast<llvm::ConstantStruct>(C)) {
@@ -942,6 +945,8 @@ public:
         llvm::Constant *destVal = llvm::Constant::getNullValue(destType);
         return destVal;
       }
+      llvm_unreachable("Invalid cast target");
+      return nullptr;
     }
     // HLSL Change Ends.
     }

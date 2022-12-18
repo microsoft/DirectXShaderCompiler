@@ -2183,6 +2183,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
                 "raygeneration" : "intersection");
         rayShaderHaveErrors = true;
+        break;
       case DXIL::ShaderKind::AnyHit:
       case DXIL::ShaderKind::ClosestHit:
         if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
@@ -2202,7 +2203,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           rayShaderHaveErrors = true;
         }
         if (ArgNo < 2) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
             Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "payload and attribute structures must be user defined types with only numeric contents."));
@@ -2230,7 +2231,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           rayShaderHaveErrors = true;
         }
         if (ArgNo < 1) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
             Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "ray payload parameter must be a user defined type with only numeric contents."));
@@ -2255,7 +2256,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           rayShaderHaveErrors = true;
         }
         if (ArgNo < 1) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
             Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "callable parameter must be a user defined type with only numeric contents."));
@@ -2299,8 +2300,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     case DXIL::ShaderKind::AnyHit:
     case DXIL::ShaderKind::ClosestHit:
       bNeedsAttributes = true;
+      LLVM_FALLTHROUGH;
     case DXIL::ShaderKind::Miss:
       bNeedsPayload = true;
+      LLVM_FALLTHROUGH;
     case DXIL::ShaderKind::Callable:
       if (0 == funcProps->ShaderProps.Ray.payloadSizeInBytes) {
         unsigned DiagID = bNeedsPayload ?
@@ -3048,7 +3051,7 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
     }
     case DXIL::SubobjectKind::LocalRootSignature:
       flags = DxilRootSignatureCompilationFlags::LocalRootSignature;
-      __fallthrough;
+      LLVM_FALLTHROUGH;
     case DXIL::SubobjectKind::GlobalRootSignature: {
       DXASSERT_NOMSG(argCount == 1);
       StringRef signature;

@@ -10,7 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/Global.h"
-#include "dxc/test/RDATDumper.h"
+#include "dxc/Test/RDATDumper.h"
 
 using namespace hlsl;
 using namespace RDAT;
@@ -179,8 +179,6 @@ void DumpValueArray(DumpContext &d, const char *memberName,
 }
 
 #define DEF_RDAT_TYPES DEF_RDAT_DUMP_IMPL
-#define DEF_RDAT_ENUMS DEF_RDAT_DUMP_IMPL
-#define DEF_DXIL_ENUMS DEF_RDAT_DUMP_IMPL
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
 } // namespace dump

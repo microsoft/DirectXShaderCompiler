@@ -1,4 +1,3 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck -check-prefixes=CHECK,BUFFER %s
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck -check-prefixes=CHECK,BUFFER %s
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 -DERANGE1 %s | FileCheck %s -check-prefix=ERANGE1
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 -DERANGE2 %s | FileCheck %s -check-prefix=ERANGE2

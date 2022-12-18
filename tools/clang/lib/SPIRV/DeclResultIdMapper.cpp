@@ -774,12 +774,42 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
       if (!isVectorType(type, nullptr, &verticesPerPrim)) {
         assert(isScalarType(type));
       }
-      arraySize = arraySize * verticesPerPrim;
-      QualType arrayType = astContext.getConstantArrayType(
-          astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
-          clang::ArrayType::Normal, 0);
-      stageVarInstructions[cast<DeclaratorDecl>(decl)] = getBuiltinVar(
-          spv::BuiltIn::PrimitiveIndicesNV, arrayType, decl->getLocation());
+
+      spv::BuiltIn builtinID = spv::BuiltIn::Max;
+      if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+        // For EXT_mesh_shader, set builtin type as PrimitivePoint/Line/TriangleIndicesEXT
+        // based on the vertices per primitive
+        switch (verticesPerPrim) { 
+          case 1:
+            builtinID = spv::BuiltIn::PrimitivePointIndicesEXT;
+            break;
+          case 2:
+            builtinID = spv::BuiltIn::PrimitiveLineIndicesEXT;
+            break;
+          case 3:
+            builtinID = spv::BuiltIn::PrimitiveTriangleIndicesEXT;
+            break;
+          default:
+            break;
+        }
+        QualType arrayType = astContext.getConstantArrayType(
+            type, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+
+        stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+            getBuiltinVar(builtinID, arrayType, decl->getLocation());
+      } else {
+          // For NV_mesh_shader, the built type is PrimitiveIndicesNV
+          builtinID = spv::BuiltIn::PrimitiveIndicesNV;
+
+          arraySize = arraySize * verticesPerPrim;
+          QualType arrayType = astContext.getConstantArrayType(
+              astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
+              clang::ArrayType::Normal, 0);
+
+          stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+              getBuiltinVar(builtinID, arrayType, decl->getLocation());
+      }
+
       return true;
     }
   }
@@ -853,7 +883,9 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   SemanticInfo inheritSemantic = {};
 
   if (paramDecl->hasAttr<HLSLPayloadAttr>()) {
-    spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+    spv::StorageClass sc = (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader))
+                           ? spv::StorageClass::TaskPayloadWorkgroupEXT
+                           : getStorageClassForSigPoint(sigPoint);
     return createPayloadStageVars(sigPoint, sc, paramDecl, /*asInput=*/true,
                                   type, "in.var", loadedValue);
   } else {
@@ -2546,7 +2578,7 @@ bool DeclResultIdMapper::createStageVars(
             break;
           }
         }
-        // fall through
+        LLVM_FALLTHROUGH;
       default:
         emitError("invalid usage of semantic '%0' in shader profile %1", loc)
             << semanticToUse->str
@@ -3132,9 +3164,12 @@ bool DeclResultIdMapper::createPayloadStageVars(
     }
     stageVars.push_back(stageVar);
 
-    // Decorate with PerTaskNV for mesh/amplification shader payload variables.
-    spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
-                                 varInstr->getSourceLocation());
+    if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      // Decorate with PerTaskNV for mesh/amplification shader payload
+      // variables.
+      spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
+                                   varInstr->getSourceLocation());
+    }
 
     if (asInput) {
       *value = spvBuilder.createLoad(type, varInstr, loc);
@@ -3364,6 +3399,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
     needsLegalization = true;
+    LLVM_FALLTHROUGH;
   case spv::BuiltIn::HitTNV:
   case spv::BuiltIn::RayTmaxNV:
   case spv::BuiltIn::RayTminNV:
@@ -3386,9 +3422,13 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::LocalInvocationIndex:
     sc = spv::StorageClass::Input;
     break;
+  case spv::BuiltIn::TaskCountNV:
   case spv::BuiltIn::PrimitiveCountNV:
   case spv::BuiltIn::PrimitiveIndicesNV:
-  case spv::BuiltIn::TaskCountNV:
+  case spv::BuiltIn::PrimitivePointIndicesEXT:
+  case spv::BuiltIn::PrimitiveLineIndicesEXT:
+  case spv::BuiltIn::PrimitiveTriangleIndicesEXT:
+  case spv::BuiltIn::CullPrimitiveEXT:
     sc = spv::StorageClass::Output;
     break;
   default:
@@ -3795,9 +3835,9 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex,
                                          isPrecise, srcLoc);
   }
-    // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
-    // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
-    // PSIn.
+  // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
+  // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
+  // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FullyCoveredEXT,
@@ -3807,14 +3847,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
   // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
-    QualType checkType = type->getAs<ReferenceType>()
-                             ? type->getAs<ReferenceType>()->getPointeeType()
-                             : type;
-    QualType scalarTy;
-    if (!isScalarType(checkType, &scalarTy) || !scalarTy->isIntegerType()) {
-      emitError("semantic ShadingRate must be interger scalar type", srcLoc);
-    }
-
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
@@ -3823,12 +3855,34 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::MSOut:
+    case hlsl::SigPoint::Kind::MSPOut:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(
           type, sc, BuiltIn::PrimitiveShadingRateKHR, isPrecise, srcLoc);
     default:
       emitError("semantic ShadingRate must be used only for PSIn, VSOut, "
                 "GSOut, MSOut",
+                srcLoc);
+      break;
+    }
+    break;
+  }
+  // According to DXIL spec, the ShadingRate SV can only be used by
+  // MSPOut or PSIn.
+  // According to Vulkan spec, the CullPrimitiveEXT BuiltIn can only
+  // be used as MSOut.
+  case hlsl::Semantic::Kind::CullPrimitive: {
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::PSIn:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
+                                           isPrecise, srcLoc);
+    case hlsl::SigPoint::Kind::MSPOut:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
+                                           isPrecise, srcLoc);
+    default:
+      emitError("semantic CullPrimitive must be used only for PSIn, MSPOut",
                 srcLoc);
       break;
     }
@@ -4239,8 +4293,9 @@ void DeclResultIdMapper::storeOutStageVarsToStorage(
     }
     auto *ptrToOutputStageVar = spvBuilder.createAccessChain(
         outputControlPointType, found->second, {ctrlPointID}, /*loc=*/{});
-    auto *load = spvBuilder.createLoad(outputControlPointType,
-                                       ptrToOutputStageVar, /*loc=*/{});
+    auto *load =
+        spvBuilder.createLoad(outputControlPointType, ptrToOutputStageVar,
+                              /*loc=*/{});
     spvBuilder.createStore(ptr, load, /*loc=*/{});
     return;
   }

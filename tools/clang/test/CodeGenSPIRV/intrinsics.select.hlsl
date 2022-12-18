@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_0 -E main -HV 2021
+// RUN: %dxc -T ps_6_0 -E main -HV 2018
 
 // CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
 

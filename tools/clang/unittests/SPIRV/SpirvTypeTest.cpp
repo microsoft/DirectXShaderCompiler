@@ -126,8 +126,9 @@ TEST_F(SpirvTypeTest, StructType) {
   IntegerType int32(32, true);
   IntegerType uint32(32, false);
 
-  StructType::FieldInfo field0(&int32, "field1");
-  StructType::FieldInfo field1(&uint32, "field2", /*offset*/ 4,
+  StructType::FieldInfo field0(&int32, /* fieldIndex */ 0, "field1");
+  StructType::FieldInfo field1(&uint32, /* fieldIndex */ 1, "field2",
+                               /*offset*/ 4,
                                /*matrixStride*/ 16, /*isRowMajor*/ false);
 
   StructType s({field0, field1}, "some_struct", /*isReadOnly*/ true,

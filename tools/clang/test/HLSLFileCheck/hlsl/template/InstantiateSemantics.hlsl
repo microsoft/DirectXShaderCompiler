@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_5 -enable-templates %s -ast-dump %s | FileCheck %s
+// RUN: %dxc -T ps_6_5 -HV 2021 %s -ast-dump %s | FileCheck %s
 
 template<typename C>
 struct Output {

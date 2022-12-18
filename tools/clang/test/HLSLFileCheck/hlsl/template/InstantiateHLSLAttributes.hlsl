@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -enable-templates -ast-dump %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 -HV 2021 -ast-dump %s | FileCheck %s
 
 
 template<typename U, typename FV>

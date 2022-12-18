@@ -128,6 +128,8 @@ public:
                                            /// metrics and statistics.
   unsigned ShowTimers : 1;                 ///< Show timers for individual
                                            /// actions.
+  unsigned TimeTrace : 1;                  /// HLSL Change
+                                           /// Output time trace profile.
   unsigned ShowVersion : 1;                ///< Show the -version text.
   unsigned FixWhatYouCan : 1;              ///< Apply fixes even if there are
                                            /// unfixable errors.
@@ -256,7 +258,9 @@ public:
 public:
   FrontendOptions() :
     DisableFree(false), RelocatablePCH(false), ShowHelp(false),
-    ShowStats(false), ShowTimers(false), ShowVersion(false),
+// HLSL Change Begin - Support hierarchial time tracing.
+    ShowStats(false), ShowTimers(false), TimeTrace(false), ShowVersion(false),
+// HLSL Change End - Support hierarchial time tracing.
     FixWhatYouCan(false), FixOnlyWarnings(false), FixAndRecompile(false),
     FixToTemporaries(false), ARCMTMigrateEmitARCErrors(false),
     SkipFunctionBodies(false), UseGlobalModuleIndex(true),

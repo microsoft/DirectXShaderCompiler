@@ -18,7 +18,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/test/RDATDumper.h"
+#include "dxc/Test/RDATDumper.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support//MSFileSystem.h"

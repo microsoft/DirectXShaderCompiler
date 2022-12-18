@@ -383,6 +383,7 @@ struct ConstModifier: public Modifier {
       switch (Ran->Rand() % 2) {
       case 0: if (Ty->getScalarType()->isIntegerTy())
                 return PT->push_back(ConstantVector::getAllOnesValue(Ty));
+        break;
       case 1: if (Ty->getScalarType()->isIntegerTy())
                 return PT->push_back(ConstantVector::getNullValue(Ty));
       }
@@ -408,9 +409,11 @@ struct ConstModifier: public Modifier {
       case 0: if (Ty->isIntegerTy())
                 return PT->push_back(ConstantInt::get(Ty,
                   APInt::getAllOnesValue(Ty->getPrimitiveSizeInBits())));
+        break;
       case 1: if (Ty->isIntegerTy())
                 return PT->push_back(ConstantInt::get(Ty,
                   APInt::getNullValue(Ty->getPrimitiveSizeInBits())));
+        break;
       case 2: case 3: case 4: case 5:
       case 6: if (Ty->isIntegerTy())
                 PT->push_back(ConstantInt::get(Ty, Ran->Rand()));

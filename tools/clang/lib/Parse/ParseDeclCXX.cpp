@@ -26,6 +26,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 using namespace clang;
 
 /// ParseNamespace - We know that the current token is a namespace keyword. This
@@ -361,7 +362,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, unsigned Context) {
     case tok::r_brace:
       if (!NestedModules)
         break;
-      // Fall through.
+      LLVM_FALLTHROUGH; // HLSL Change.
     default:
       ParsedAttributesWithRange attrs(AttrFactory);
       MaybeParseCXX11Attributes(attrs);
@@ -2359,7 +2360,8 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     assert(!TemplateInfo.TemplateParams &&
            "Nested template improperly parsed?");
     // HLSL Change Starts
-    if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       SkipUntil(tok::r_brace, StopAtSemi);
       return;
@@ -2881,6 +2883,14 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
          TagType == DeclSpec::TST_interface ||
          TagType == DeclSpec::TST_union  ||
          TagType == DeclSpec::TST_class) && "Invalid TagType!");
+
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope TimeScope("ParseClass", [&]() {
+    if (auto *TD = dyn_cast_or_null<NamedDecl>(TagDecl))
+      return TD->getQualifiedNameAsString();
+    return std::string("<anonymous>");
+  });
+  // HLSL Change End - Support hierarchial time tracing.
 
   PrettyDeclStackTraceEntry CrashInfo(Actions, TagDecl, RecordLoc,
                                       "parsing struct/union/class body");
@@ -3999,6 +4009,7 @@ void Parser::ParseMicrosoftIfExistsClassDeclaration(DeclSpec::TST TagType,
     Diag(Result.KeywordLoc, diag::warn_microsoft_dependent_exists)
       << Result.IsIfExists;
     // Fall through to skip.
+    LLVM_FALLTHROUGH; // HLSL Change
       
   case IEB_Skip:
     Braces.skipToEnd();

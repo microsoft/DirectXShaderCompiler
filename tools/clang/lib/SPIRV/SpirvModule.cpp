@@ -249,6 +249,7 @@ bool SpirvModule::promoteAddressingModel(spv::AddressingModel addrModel) {
     switch (am) {
     default:
       assert(false && "unknown addressing model");
+      return 0;
     case spv::AddressingModel::Logical:
       return 0;
     case spv::AddressingModel::Physical32:

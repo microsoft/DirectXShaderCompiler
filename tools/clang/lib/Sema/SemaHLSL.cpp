@@ -4809,17 +4809,6 @@ public:
         pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
 
-      // Some intrinsics only optionally exist in later language versions.
-      // To prevent collisions with existing functions or templates, exclude
-      // intrinsics when they aren't enabled.
-      if (IsBuiltinTable(tableName) && !m_sema->getLangOpts().EnableShortCircuit) {
-        if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
-            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
-            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
-          continue;
-        }
-      }
-
       std::vector<QualType> functionArgTypes;
       size_t badArgIdx;
       bool argsMatch = MatchArguments(cursor, QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
@@ -7860,6 +7849,7 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     }
   default:
     DXASSERT(false, "unreachable");
+    return false;
   case AR_TOBJ_BASIC:
   case AR_TOBJ_MATRIX:
   case AR_TOBJ_VECTOR:
@@ -8115,24 +8105,28 @@ VectorMemberAccessError TryConsumeVectorDigit(const char*& memberText, uint32_t*
   switch (*memberText) {
   case 'r':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'x':
     *value = 0;
     break;
 
   case 'g':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'y':
     *value = 1;
     break;
 
   case 'b':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'z':
     *value = 2;
     break;
 
   case 'a':
     rgbaStyle = true;
+    LLVM_FALLTHROUGH;
   case 'w':
     *value = 3;
     break;
@@ -8542,7 +8536,7 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
         DXASSERT(false, "PerformHLSLConversion: Invalid source type for truncation cast");
       }
     }
-    __fallthrough;
+    LLVM_FALLTHROUGH;
 
     case ICK_HLSLVector_Conversion: {
       // 2. Do ShapeKind conversion if necessary
@@ -9111,7 +9105,7 @@ bool HLSLExternalSource::CanConvert(
           break;
         }
       }
-    } else if (m_sema->getLangOpts().StrictUDTCasting &&
+    } else if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021 &&
                (SourceInfo.ShapeKind == AR_TOBJ_COMPOUND ||
                 TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) &&
                !TargetIsAnonymous) {
@@ -9184,7 +9178,7 @@ lSuccess:
         case ICK_Vector_Conversion:
         case ICK_Vector_Splat:
           DXASSERT(false, "We shouldn't be producing these implicit conversion kinds");
-
+          break;
         case ICK_Flat_Conversion:
         case ICK_HLSLVector_Splat:
           standard->First = ICK_Lvalue_To_Rvalue;
@@ -9492,7 +9486,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   ArBasicKind resultElementKind = leftElementKind;
   {
     if (BinaryOperatorKindIsLogical(Opc)) {
-      if (m_sema->getLangOpts().EnableShortCircuit) {
+      if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
         // Only allow scalar types for logical operators &&, ||
         if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
             rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
@@ -9796,7 +9790,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
 
   QualType ResultTy = leftType;
 
-  if (m_sema->getLangOpts().EnableShortCircuit) {
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
     // Only allow scalar.
     if (condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX) {
       SmallVector<char, 256> Buff;
@@ -9881,8 +9875,15 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     return QualType();
   }
 
-  // Here, element kind is combined with dimensions for result type.
-  ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  // Here, element kind is combined with dimensions for primitive types.
+  if (IS_BASIC_PRIMITIVE(resultElementKind)) {
+    ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  } else {
+    DXASSERT(rowCount == 1 && colCount == 1,
+             "otherwise, attempting to construct vector or matrix with "
+             "non-primitive component type");
+    ResultTy = ResultTy.getUnqualifiedType();
+  }
 
   // Cast condition to RValue
   if (Cond.get()->isLValue())
@@ -9891,7 +9892,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   // Convert condition component type to bool, using result component dimensions
   QualType boolType;
   // If short-circuiting, condition must be scalar.
-  if (m_sema->getLangOpts().EnableShortCircuit)
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v2021)
     boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, 1, 1)->getCanonicalTypeInternal();
   else
     boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
@@ -11446,7 +11447,7 @@ bool FlattenedTypeIterator::considerLeaf()
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:
-    m_springLoaded = true; // fall through.
+    m_springLoaded = true; LLVM_FALLTHROUGH;
   default:
   case FlattenedIterKind::FK_Simple: {
     ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(tracker.Type);
@@ -12943,7 +12944,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
          "otherwise this is called without checking language first");
 
   // If we have a template declaration but haven't enabled templates, error.
-  if (DC->isDependentContext() && !getLangOpts().EnableTemplates) return false;
+  if (DC->isDependentContext() &&
+      getLangOpts().HLSLVersion < hlsl::LangStd::v2021)
+    return false;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
@@ -13433,7 +13436,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 
   // Disallow bitfields where not enabled explicitly or by HV
   if (BitWidth) {
-    if (!getLangOpts().EnableBitfields) {
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
       result = false;
     } else if (!D.UnusualAnnotations.empty()) {

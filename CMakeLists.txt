@@ -1,5 +1,5 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
-cmake_minimum_required(VERSION 2.8.12.2)
+cmake_minimum_required(VERSION 3.10) # HLSL Change - Require CMake 3.10.
 
 if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
   include(${DXC_CMAKE_BEGINS_INCLUDE})
@@ -102,7 +102,7 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
 endif()
 
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
-if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
+if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32 AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
 
@@ -662,6 +662,12 @@ add_subdirectory(include/dxc)
 # This over-specifies the dependency graph, but since generating these doesn't
 # really depend on anything else in the build it is safe.
 list(APPEND LLVM_COMMON_DEPENDS HCTGen) 
+
+if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
+  add_subdirectory(external) # SPIRV change
+endif()
+include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
+
 # HLSL - Change End
 
 add_subdirectory(lib)
@@ -702,10 +708,6 @@ if(WITH_POLLY)
   endif()
 endif(WITH_POLLY)
 
-if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
-  add_subdirectory(external) # SPIRV change
-endif()
-
 if( LLVM_INCLUDE_TOOLS )
   add_subdirectory(tools)
 endif()
@@ -737,6 +739,7 @@ if( LLVM_INCLUDE_TESTS )
     DEPENDS ${LLVM_LIT_DEPENDS}
     ARGS ${LLVM_LIT_EXTRA_ARGS}
     )
+  add_custom_target(test-depends DEPENDS ${LLVM_LIT_DEPENDS}) # HLSL Change
 endif()
 
 if (LLVM_INCLUDE_DOCS)
