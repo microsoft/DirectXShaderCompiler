@@ -1,0 +1,6 @@
+
+// RUN: %dxc /T ps_6_0 %S/bom-main-ascii.hlsl | FileCheck %s
+// RUN: %dxc /T ps_6_0 %S/bom-main-utf8.hlsl | FileCheck %s
+// RUN: %dxc /T ps_6_0 %S/bom-main-utf16le.hlsl | FileCheck %s
+
+// CHECK:define void @main()

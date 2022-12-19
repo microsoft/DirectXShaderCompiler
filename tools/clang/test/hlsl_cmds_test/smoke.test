@@ -1,0 +1,239 @@
+// Basic Rewriter Smoke Test
+// RUN: %dxr -remove-unused-globals %s -Emain | FileCheck %s --check-prefix=DXR
+
+// DXR:int f2(int g)
+// DXR-not:g_unused
+
+// Basic DXC Smoke Test
+// RUN: %dxc /T ps_6_0 %s /Fc %t
+// RUN: FileCheck --input-file=%t %s --check-prefix=FC
+
+// FC:define void @main()
+
+// Test extra DXC outputs together
+// RUN: %dxc /T ps_6_0 %s /DDX12 /Dcheck_warning /Fh %t.h /Vn g_myvar /Fc %t.ll /Fo %t.cso /Fre %t.reflection /Frs %t.rootsig /Fe %t.err
+// RUN: FileCheck --input-file=%t.h %s --check-prefix=HEADER | FileCheck --input-file=%t.ll %s --check-prefix=IR
+
+// HEADER:define void @main()
+// HEADER:g_myvar
+// HEADER:0x44, 0x58
+
+// IR:define void @main()
+
+// /Fd implies /Qstrip_debug
+// RUN: %dxc /T ps_6_0 %s /Zi /Fd %t.fd /Fo %t.dxo
+// RUN:FileCheck --input-file=%t.fd %s --check-prefix=FD | %dxc -dumpbin %t.dxo | FileCheck %s --check-prefix=FO
+
+// Make sure FD not empty.
+// FD:{{.+}}
+// FO:shader debug name: {{.*}}smoke.test.tmp.fd
+// FO-not:DICompileUnit
+
+// /Fd plus /Zs
+// RUN: %dxc /T ps_6_0 %s /Zs /Fd %t.pdb /Fo %t.dxo_fd
+// RUN:FileCheck --input-file=%t.pdb %s --check-prefix=PDB
+// Make sure PDB not empty.
+// PDB:{{.+}}
+// RUN:FileCheck --input-file=%t.dxo_fd %s --check-prefix=FD_FO
+// FD_FO:{{.+}}
+
+
+// /Fd implies /Qstrip_debug ; path with \ produces auto hash-named .pdb file
+// RUN: %dxc /T ps_6_0 %s /Zi /Fd .\ /Fo %t.strip
+// RUN: %dxc -dumpbin %t.strip | FileCheck  %s --check-prefix=STRIP_DBG
+
+// /Zi with /Qstrip_debug and no output should not embed
+// RUN: %dxc /T ps_6_0 %s /Zi /Qstrip_debug /Fo %t.strip2
+// RUN: %dxc -dumpbin %t.strip2 | FileCheck  %s --check-prefix=STRIP_DBG
+
+// STRIP_DBG:shader debug name: {{[0-9a-z]+}}.pdb
+// STRIP_DBG-not:DICompileUnit
+
+// Embed debug info
+// RUN: %dxc /T ps_6_0 %s /Zi /Qembed_debug /Fo %t.embedpdb
+// RUN: %dxc -dumpbin %t.embedpdb | FileCheck  %s --check-prefix=EMBED_PDB
+
+
+// Auto-embed debug info when no debug output, and expect warning signifying that this is the case.
+// RUN: %dxc /T ps_6_0 %s  /Zi /Fo %t.embedpdb2 /Fe %t.err.embedpdb
+// RUN: FileCheck --input-file=%t.err.embedpdb %s --check-prefix=ERR_EMBED_PDB
+// ERR_EMBED_PDB:warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning.
+
+// RUN: %dxc -dumpbin %t.embedpdb2 | FileCheck  %s --check-prefix=EMBED_PDB
+// EMBED_PDB:shader debug name: {{[0-9a-z]+}}.pdb
+// EMBED_PDB:DICompileUnit
+
+// /Qstrip_reflect strips reflection
+// RUN: %dxc /T ps_6_0 %s -D DX12 /Qstrip_reflect /Fo %t.strip.reflection
+// RUN: %dxc -dumpbin %t.strip.reflection | FileCheck  %s --check-prefix=STRIP_REFLECTION
+// STRIP_REFLECTION:define void @main()
+// STRIP_REFLECTION-not:i32 6, !"g"
+
+// ast-dump
+// RUN: %dxc /T ps_6_0 %s /ast-dump | FileCheck %s --check-prefix=AST
+// AST:TranslationUnitDecl
+
+// Check Warning
+// RUN: %dxc /T ps_6_0 %s /Dcheck_warning 2>&1 | FileCheck %s --check-prefix=CHECK_WARNING
+// CHECK_WARNING:warning:
+
+// /no-warnings
+// RUN: %dxc /T ps_6_0 %s /Dcheck_warning /no-warnings 2>&1 | FileCheck %s --check-prefix=CHECK_NOWARNING
+// CHECK_NOWARNING-NOT:warning:
+
+// Preprocess
+// RUN: %dxc /T ps_6_0 %s /P %t.preprocessed.hlsl
+// RUN: FileCheck --input-file=%t.preprocessed.hlsl %s --check-prefix=PREPROCESSED
+// PREPROCESSED:float4 main
+
+// force_rootsig_ver
+// RUN: %dxc /T ps_6_0 %s -force_rootsig_ver rootsig_1_0
+// RUN: %dxc /T ps_6_0 %s -force_rootsig_ver rootsig_1_1
+// RUN: not %dxc /T ps_6_0 %s -force_rootsig_ver rootsig_2_0
+
+// HLSL Version
+// RUN: %dxc /T ps_6_0 %s  /HV 2016
+// RUN: not %dxc /T ps_6_0 %s  /HV 2015
+
+// Embed Debug, Recompile
+// RUN: %dxc /T ps_6_0 %s /Zi /Qembed_debug /Fo %t.recompile.cso
+// RUN: %dxc -dumpbin %t.recompile.cso | FileCheck %s --check-prefix=RECOMPILE_EMBED_DEBUG
+// RECOMPILE_EMBED_DEBUG:DICompileUnit
+
+// RUN: %dxc /T ps_6_0 %s /Zi /Qembed_debug /Fo %t.recompile.cc.cso /Cc /Ni /No /Lx
+// RUN: %dxc -dumpbin %t.recompile.cc.cso | FileCheck %s --check-prefix=RECOMPILE_CC_EMBED_DEBUG
+// RECOMPILE_CC_EMBED_DEBUG:DICompileUnit
+// RUN: %dxc  %t.recompile.cc.cso /recompile
+// RUN: %dxc  %t.recompile.cc.cso /recompile  /T ps_6_0 /E main
+
+// Strip Debug, Recompile PDB
+// RUN: %dxc /T ps_6_0 %s /Zi /Fd %t.recompiled.pdb
+// RUN: %dxc -dumpbin %t.recompiled.pdb | FileCheck %s --check-prefix=RECOMPILE_PDB
+// RECOMPILE_PDB:DICompileUnit
+// RUN: %dxc %t.recompiled.pdb  /recompile > %t.recompiled.pdb.ll
+// RUN: %dxc %t.recompiled.pdb /recompile /T ps_6_0 /E main
+
+// Command-line Defines, Recompile
+// RUN: %dxc  %s  /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo %t.define.cso
+// RUN: %dxc %t.define.cso /recompile
+
+// Strip Debug from compiled object
+// RUN: %dxc %t.define.cso /dumpbin /Qstrip_debug /Fo %t.nodebug.cso
+// RUN: %dxc -dumpbin %t.nodebug.cso | FileCheck %s --check-prefix=STRIP_DEBUG_CSO
+// STRIP_DEBUG_CSO:define void @main()
+// STRIP_DEBUG_CSO-NOT:DICompileUnit
+
+// Strip Root Signature from compiled object
+// RUN: %dxc %t.define.cso /dumpbin /Qstrip_rootsignature /Fo %t.norootsignature.cso
+// RUN:%dxa  -listparts %t.norootsignature.cso | FileCheck %s --check-prefix=NO_RS
+
+// NO_RS:Part count
+// NO_RS-NOT:RTS0
+
+// Extract rootsignature from compiled object
+// RUN: %dxc %t.define.cso /dumpbin /extractrootsignature /Fo %t.rootsig.cso
+// RUN:%dxa  -listparts %t.rootsig.cso | FileCheck %s --check-prefix=RS_PART
+
+
+// Add rootsignature to compiled object
+// RUN: %dxc %t.norootsignature.cso /dumpbin /setrootsignature %t.rootsig.cso /Fo %t.merged.cso
+// RUN:%dxa  -listparts %t.merged.cso | FileCheck %s --check-prefix=RS_PART
+
+// RS_PART:Part count
+// RS_PART:RTS0
+
+
+// Verify root signature for smoke.cso
+// RUN: %dxc %t.define.cso /dumpbin /verifyrootsignature %t.rootsig.cso
+// RUN: %dxc %t.norootsignature.cso /dumpbin /verifyrootsignature %t.rootsig.cso
+
+// Set root signature when already has one should succeed
+// RUN: %dxc %t.define.cso /dumpbin /setrootsignature %t.rootsig.cso /Fo %t.smoke.rsadded.cso
+// RUN: %dxc -dumpbin %t.smoke.rsadded.cso
+
+// Set mismatched root signature when already has one should fail
+// RUN: not %dxc %t.define.cso /dumpbin /setrootsignature %t.NonUniformRootSig.cso /Fo %t.smoke.rsadded.cso
+
+// dxc.exe shader model upgrade
+// RUN: %dxc -dumpbin %t.define.cso -Fc %t.upgrade.ll
+// RUN: FileCheck --input-file=%t.upgrade.ll %s --check-prefix=MODEL_UPGRADE
+// MODEL_UPGRADE:DICompileUnit
+
+// dxc.exe shader model version promtion warning
+// RUN: %dxc  %s /Emain /Tps_5_0 2>%t.version.err
+// RUN: FileCheck --input-file=%t.version.err %s --check-prefix=VERSION_WARNING
+
+// RUN: %dxc  %s /Emain /Tps_5_1 2>%t.version2.err
+// RUN: FileCheck --input-file=%t.version2.err %s --check-prefix=VERSION_WARNING
+
+// VERSION_WARNING:warning: Promoting older shader model profile to 6.0 version
+
+
+// Test for denorm options
+// RUN: %dxc  %s /Tps_6_2 /denorm preserve
+// RUN: %dxc  %s /Tps_6_2 /denorm ftz
+// RUN: not %dxc  %s /Tps_6_2 /denorm abc
+// RUN: not %dxc  %s /Tps_6_1 /denorm any
+
+
+// Test /enable-16bit-types option
+// RUN: %dxc  %s /Tps_6_2 /enable-16bit-types
+// RUN: not %dxc  %s /Tps_6_1 /enable-16bit-types
+// RUN: not %dxc  %s /Tps_6_2 /enable-16bit-types /HV 2017
+
+
+// RUN: %del  %t
+// RUN: %del  %t.cso
+// RUN: %del  %t.define.cso
+// RUN: %del  %t.dxo
+// RUN: %del  %t.dxo_fd
+// RUN: %del  %t.embedpdb
+// RUN: %del  %t.embedpdb2
+// RUN: %del  %t.err
+// RUN: %del  %t.err.embedpdb
+// RUN: %del  %t.fd
+// RUN: %del  %t.h
+// RUN: %del  %t.ll
+// RUN: %del  %t.merged.cso
+// RUN: %del  %t.nodebug.cso
+// RUN: %del  %t.norootsignature.cso
+// RUN: %del  %t.pdb
+// RUN: %del  %t.preprocessed.hlsl
+// RUN: %del  %t.recompile.cc.cso
+// RUN: %del  %t.recompile.cso
+// RUN: %del  %t.recompiled.pdb
+// RUN: %del  %t.recompiled.pdb.ll
+// RUN: %del  %t.reflection
+// RUN: %del  %t.rootsig
+// RUN: %del  %t.rootsig.cso
+// RUN: %del  %t.smoke.rsadded.cso
+// RUN: %del  %t.strip
+// RUN: %del  %t.strip.reflection
+// RUN: %del  %t.strip2
+// RUN: %del  %t.upgrade.ll
+// RUN: %del  %t.version.err
+// RUN: %del  %t.version2.err
+// RUN: %del  %S\*.pdb
+
+// Verify that we can successfully process an include
+#include "include/inc1.hlsli"
+
+int g;
+static int g_unused;
+
+#ifndef semantic
+#define semantic SV_Target
+#endif
+#ifdef DX12
+#define RS "CBV(b0)"
+[RootSignature ( RS )]
+#endif
+
+float4 main() : semantic
+{
+  #ifdef check_warning
+  int x = 3;
+  x;
+  #endif
+  return f1(g);
+}

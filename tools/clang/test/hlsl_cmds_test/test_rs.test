@@ -1,0 +1,18 @@
+// Root Signature target
+// RUN:%echo #define main "CBV(b0)"> %t.test-global-rs.hlsl
+// RUN:%dxc -T rootsig_1_1 %t.test-global-rs.hlsl -rootsig-define main -Fo %t.test-global-rs.cso
+// RUN:%dxa  -listparts %t.test-global-rs.cso | FileCheck %s
+
+
+// Local Root Signature target
+// RUN:%echo #define main "CBV(b0), RootFlags(LOCAL_ROOT_SIGNATURE)"> %t.test-local-rs.hlsl
+// RUN:%dxc -T rootsig_1_1 %t.test-local-rs.hlsl -rootsig-define main -Fo %t.test-local-rs.cso
+// RUN:%dxa  -listparts %t.test-local-rs.cso | FileCheck %s
+
+// CHECK:Part count: 1
+// CHECK:#0 - RTS0
+
+// RUN: %del %t.test-global-rs.hlsl
+// RUN: %del %t.test-global-rs.cso
+// RUN: %del  %t.test-local-rs.hlsl
+// RUN: %del  %t.test-local-rs.cso

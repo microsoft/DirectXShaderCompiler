@@ -1,0 +1,3 @@
+// RUN: %batch -lib-link -multi-thread %S\batch_cmds2.txt
+// RUN: %batch -lib-link -multi-thread %S\batch_cmds.txt
+// RUN: %batch  -multi-thread %S\batch_cmds.txt
