@@ -122,6 +122,7 @@
 #define ERROR_NOT_CAPABLE EPERM
 #define ERROR_NOT_FOUND ENOTSUP
 #define ERROR_UNHANDLED_EXCEPTION EBADF
+#define ERROR_BROKEN_PIPE EPIPE
 
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
@@ -1037,6 +1038,16 @@ public:
 
 private:
   HANDLE m_h;
+};
+
+//===--------- Convert argv to wchar ----------------===//
+class WArgV {
+  std::vector<std::wstring> WStringVector;
+  std::vector<const wchar_t *> WCharPtrVector;
+
+public:
+  WArgV(int argc, const char **argv);
+  const wchar_t **argv() { return WCharPtrVector.data();}
 };
 
 #endif // __cplusplus

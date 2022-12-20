@@ -11,6 +11,7 @@
 
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/Unicode.h"
 
 //===--------------------------- CAllocator -------------------------------===//
 
@@ -74,5 +75,21 @@ const char *CPToLocale(uint32_t CodePage) {
 CHandle::CHandle(HANDLE h) { m_h = h; }
 CHandle::~CHandle() { CloseHandle(m_h); }
 CHandle::operator HANDLE() const throw() { return m_h; }
+
+//===--------------------------- WArgV -------------------------------===//
+WArgV::WArgV(int argc, const char **argv)
+    : WStringVector(argc), WCharPtrVector(argc) {
+  for (int i = 0; i < argc; ++i) {
+    std::string S(argv[i]);
+    const int wideLength = ::MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(), nullptr, 0);
+    assert(wideLength > 0 &&
+           "else it should have failed during size calculation");
+    WStringVector[i].resize(wideLength);
+    ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(),
+                          &(WStringVector[i])[0], WStringVector[i].size());
+    WCharPtrVector[i] = WStringVector[i].data();
+  }
+}
 
 #endif

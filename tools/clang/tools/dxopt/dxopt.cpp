@@ -22,8 +22,9 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/microcom.h"
-#include <comdef.h>
+
 #include <iostream>
 #include <limits>
 
@@ -62,25 +63,27 @@ bool isFileInputArg(LPCWSTR arg) {
 }
 
 static HRESULT ReadStdin(std::string &input) {
-  HANDLE hStdIn = GetStdHandle(STD_INPUT_HANDLE);
-  std::vector<unsigned char> buffer(1024);
-  DWORD numBytesRead = -1;
-  BOOL ok = FALSE;
-
-  // Read all data from stdin.
-  while (ok = ReadFile(hStdIn, buffer.data(), buffer.size(), &numBytesRead, NULL)) {
-    if (numBytesRead == 0)
+  bool emptyLine = false;
+  while (!std::cin.eof()) {
+    std::string line;
+    std::getline(std::cin, line);
+    if (line.empty()) {
+      emptyLine = true;
       break;
-    std::copy(buffer.begin(), buffer.begin() + numBytesRead, std::back_inserter(input));
+    }
+
+    std::copy(line.begin(), line.end(),
+              std::back_inserter(input));
   }
 
   DWORD lastError = GetLastError();
 
   // Make sure we reached finished successfully.
-  if (ok)
+  if (std::cin.eof())
     return S_OK;
   // Or reached the end of a pipe.
-  else if (!ok && numBytesRead == 0 && lastError == ERROR_BROKEN_PIPE)
+  else if (!std::cin.good() && emptyLine &&
+           lastError == ERROR_BROKEN_PIPE)
     return S_OK;
   else
     return HRESULT_FROM_WIN32(lastError);
@@ -210,7 +213,14 @@ static void PrintHelp() {
   );
 }
 
+#ifdef _WIN32
 int __cdecl wmain(int argc, const wchar_t **argv_) {
+#else
+int main(int argc, const char **argv) {
+  // Convert argv to wchar.
+  WArgV ArgV(argc, argv);
+  const wchar_t **argv_ = ArgV.argv();
+#endif
   const char *pStage = "Operation";
   int retVal = 0;
   if (llvm::sys::fs::SetupPerThreadFileSystem())
@@ -223,7 +233,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     ProgramAction action = ProgramAction::PrintHelp;
     LPCWSTR inFileName = nullptr;
     LPCWSTR outFileName = nullptr;
-    LPCWSTR externalLib = nullptr;
+    LPCWSTR externalLib = nullptr; 
     LPCWSTR externalFn = nullptr;
     LPCWSTR passFileName = nullptr;
     const wchar_t **optArgs = nullptr;

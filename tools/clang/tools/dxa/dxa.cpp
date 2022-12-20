@@ -24,8 +24,7 @@
 #include "llvm/Support//MSFileSystem.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include <dia2.h>
-#include <intsafe.h>
+
 
 using namespace llvm;
 using namespace llvm::opt;
@@ -170,7 +169,7 @@ void DxaContext::ListFiles() {
   IFT(pPdbUtils->GetSourceCount(&uNumSources));
 
   for (UINT32 i = 0; i < uNumSources; i++) {
-    CComBSTR name;
+    BSTR name;
     IFT(pPdbUtils->GetSourceName(i, &name));
     printf("%S\r\n", (LPWSTR)name);
   }
@@ -190,7 +189,7 @@ bool DxaContext::ExtractFile(const char *pName) {
 
   CA2W WideName(pName, CP_UTF8);
   for (UINT32 i = 0; i < uNumSources; i++) {
-    CComBSTR name;
+    BSTR name;
     IFT(pPdbUtils->GetSourceName(i, &name));
     if (strcmp("*", pName) == 0 || wcscmp((LPWSTR)name, WideName) == 0) {
       printedAny = true;
@@ -381,7 +380,11 @@ void DxaContext::DumpRDAT() {
 
 using namespace hlsl::options;
 
+#ifdef _WIN32
 int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
+#else
+int main(int argc, const char **argv) {
+#endif
   if (llvm::sys::fs::SetupPerThreadFileSystem())
     return 1;
   llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;

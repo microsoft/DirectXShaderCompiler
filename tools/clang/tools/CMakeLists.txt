@@ -26,16 +26,16 @@ add_llvm_external_project(clang-tools-extra extra)
 add_subdirectory(dxcompiler)
 add_subdirectory(dxclib)
 add_subdirectory(dxc)
-
-# These targets can currently only be built on Windows.
-if (WIN32)
-add_subdirectory(d3dcomp)
-add_subdirectory(dxrfallbackcompiler)
 add_subdirectory(dxa)
 add_subdirectory(dxopt)
 add_subdirectory(dxl)
 add_subdirectory(dxr)
 add_subdirectory(dxv)
+
+# These targets can currently only be built on Windows.
+if (WIN32)
+add_subdirectory(d3dcomp)
+add_subdirectory(dxrfallbackcompiler)
 add_subdirectory(dxlib-sample)
 # UI powered by .NET.
 add_subdirectory(dotnetc)
