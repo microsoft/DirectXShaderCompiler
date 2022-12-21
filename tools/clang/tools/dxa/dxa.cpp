@@ -148,7 +148,7 @@ HRESULT DxaContext::FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcL
   }
   if (fourCC == pDxilPartHeader->PartFourCC) {
     UINT32 pBlobSize;
-    hlsl::DxilProgramHeader *pDxilProgramHeader = (hlsl::DxilProgramHeader*)(pDxilPartHeader + 1);
+    const hlsl::DxilProgramHeader *pDxilProgramHeader = (const hlsl::DxilProgramHeader *)(pDxilPartHeader + 1);
     hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &pBlobSize);
     UINT32 offset = (UINT32)(pBitcode - (const char *)pSource->GetBufferPointer());
     pLibrary->CreateBlobFromBlob(pSource, offset, pBlobSize, ppTargetBlob);
@@ -281,8 +281,13 @@ bool DxaContext::ExtractPart(const char *pName) {
 
   WriteBlobToFile(pContent, StringRefWide(OutputFilename),
                   DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
+#ifdef _WIN32
   printf("%Iu bytes written to %s\n", pContent->GetBufferSize(),
          OutputFilename.c_str());
+#else
+  printf("%zu bytes written to %s\n", pContent->GetBufferSize(),
+         OutputFilename.c_str());
+#endif
   return true;
 }
 
