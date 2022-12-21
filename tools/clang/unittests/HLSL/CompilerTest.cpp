@@ -238,6 +238,7 @@ public:
   TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(PreprocessWithDebugOptsThenOk)
+  TEST_METHOD(PreprocessCheckBuiltinIsOk)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
   TEST_METHOD(CompileOtherModesWithDebugOptsThenOk)
 
@@ -3965,6 +3966,31 @@ TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
     "int g_int = 123;\n"
     "\n"
     "int BAR;\n", text.c_str());
+}
+
+// Make sure that '#line 1 "<built-in>"' won't blow up when preprocessing.
+TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    " \r\n\t \r\n\r\n"
+    "#line 1 \"<built-in>\"\r\n"
+    "int x;", &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Preprocess(pSource, L"file.hlsl", nullptr, 0,
+                                         nullptr, 0, nullptr,
+                                         &pResult));
+  HRESULT hrOp;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrOp));
+  VERIFY_SUCCEEDED(hrOp);
+
+  CComPtr<IDxcBlob> pOutText;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
+  std::string text(BlobToUtf8(pOutText));
+  VERIFY_ARE_EQUAL_STR(
+    "#line 1 \"file.hlsl\"\n\n", text.c_str());
 }
 
 TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {
