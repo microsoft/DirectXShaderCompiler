@@ -6029,6 +6029,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         // be updated silently. For non global variable or constant global
         // variable, it should be safe.
         bool SafeToSkip = false;
+        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
+          SafeToSkip = ParamTy.isConstQualified() && (m_ConstVarAnnotationMap.count(GV) > 0 || GV->isConstant());
+        }
         if (Ptr) {
           if (isa<AllocaInst>(Ptr) && 0 == ArgVals.count(Ptr))
             SafeToSkip = true;
