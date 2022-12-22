@@ -3976,7 +3976,6 @@ TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
   
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText(
-    " \r\n\t \r\n\r\n"
     "#line 1 \"<built-in>\"\r\n"
     "int x;", &pSource);
   VERIFY_SUCCEEDED(pCompiler->Preprocess(pSource, L"file.hlsl", nullptr, 0,
