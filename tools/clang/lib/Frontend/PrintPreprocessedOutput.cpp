@@ -280,7 +280,6 @@ void PrintPPOutputPPCallbacks::FileChanged(SourceLocation Loc,
   }
   if (PP.getLangOpts().HLSL) {
     if (0 == strcmp(UserLoc.getFilename(), "<built-in>")) {
-      assert(NewLine == 1 && "else built-in is generating preprocessor output");
       return;
     }
   }
