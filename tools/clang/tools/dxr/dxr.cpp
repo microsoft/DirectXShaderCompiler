@@ -129,18 +129,13 @@ int main(int argc, const char **argv_) {
     IFT(dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dxcSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
-#ifdef _WIN32
-    IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(),
-                                      argv_, argc,
-                                      nullptr, 0, pIncludeHandler,
-                                      &pRewriteResult));
-#else
+
     // Convert argv to wchar.
     WArgV ArgV(argc, argv_);
     IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(),
                                       ArgV.argv(), argc, nullptr, 0,
                                       pIncludeHandler, &pRewriteResult));
-#endif
+                        
     if (dxcOpts.OutputObject.empty()) {
       // No -Fo, print to console
       WriteOperationResultToConsole(pRewriteResult, !dxcOpts.OutputWarnings);

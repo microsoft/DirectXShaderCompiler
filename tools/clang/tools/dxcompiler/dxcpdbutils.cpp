@@ -48,6 +48,9 @@
 #include <locale>
 #include <codecvt>
 #include <string>
+#ifdef _WIN32
+#include <dia2.h>
+#endif
 
 using namespace dxc;
 using namespace llvm;
@@ -93,7 +96,7 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) {
+  virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
     if (!pFlags) return E_POINTER;
     *pFlags = m_Version.VersionFlags;
     return S_OK;
@@ -142,7 +145,7 @@ public:
   ULONG STDMETHODCALLTYPE Release() override {
     return m_pImpl->Release();
   }
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
      return m_pImpl->QueryInterface(iid, ppvObject);
   }
 
@@ -206,7 +209,7 @@ public:
     IFR(m_pImpl->GetEntryPoint(&pBlob));
     return CopyBlobWideToBSTR(pBlob, pResult);
   }
-  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_Outptr_result_z_ BSTR *pResult) {
+  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_Outptr_result_z_ BSTR *pResult) override {
     CComPtr<IDxcBlobWide> pBlob;
     IFR(m_pImpl->GetMainFileName(&pBlob));
     return CopyBlobWideToBSTR(pBlob, pResult);
@@ -224,7 +227,7 @@ public:
     return E_NOTIMPL;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) override {
     return E_NOTIMPL;
   }
 
@@ -242,7 +245,7 @@ public:
     return CopyBlobWideToBSTR(pBlob, pResult);
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) {
+  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) override {
     return m_pImpl->GetVersionInfo(ppVersionInfo);
   }
 
@@ -697,7 +700,7 @@ private:
       case hlsl::DFCC_ShaderDebugName:
       {
         const hlsl::DxilShaderDebugName *name_header = (const hlsl::DxilShaderDebugName *)(part+1);
-        const char *ptr = (char *)(name_header+1);
+        const char *ptr = (const char *)(name_header+1);
         IFR(Utf8ToBlobWide(ptr, &m_Name));
       } break;
 
@@ -797,7 +800,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPdbUtils)
 
-  DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc), m_Adapter(this) {}
+  DxcPdbUtils(IMalloc *pMalloc) : m_Adapter(this), m_dwRef(0), m_pMalloc(pMalloc) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
 #ifdef _WIN32
@@ -942,7 +945,7 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_COM_Outptr_ IDxcBlobWide **ppResult) override {
     return CopyBlobWide(m_EntryPoint, ppResult);
   }
-  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_COM_Outptr_ IDxcBlobWide **ppResult) {
+  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_COM_Outptr_ IDxcBlobWide **ppResult) override {
     return CopyBlobWide(m_MainFileName, ppResult);
   }
 
@@ -971,7 +974,7 @@ public:
     return E_FAIL;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetWholeDxil(_COM_Outptr_result_maybenull_ IDxcBlob **ppResult) {
+  virtual HRESULT STDMETHODCALLTYPE GetWholeDxil(_COM_Outptr_result_maybenull_ IDxcBlob **ppResult) override {
     if (!ppResult) return E_POINTER;
     *ppResult = nullptr;
     if (m_WholeDxil)
@@ -982,6 +985,7 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetName(_COM_Outptr_result_maybenull_ IDxcBlobWide **ppResult) override {
     return CopyBlobWide(m_Name, ppResult);
   }
+
 #ifdef _WIN32
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) override
@@ -1015,7 +1019,8 @@ public:
   }
 
 #endif
-  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_result_maybenull_ IDxcVersionInfo **ppVersionInfo) {
+
+  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_result_maybenull_ IDxcVersionInfo **ppVersionInfo) override {
     if (!ppVersionInfo)
       return E_POINTER;
 

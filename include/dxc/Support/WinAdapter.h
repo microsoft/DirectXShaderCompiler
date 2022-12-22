@@ -1047,6 +1047,7 @@ class WArgV {
 
 public:
   WArgV(int argc, const char **argv);
+  WArgV(int argc, const wchar_t **argv);
   const wchar_t **argv() { return WCharPtrVector.data();}
 };
 
