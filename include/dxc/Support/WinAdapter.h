@@ -1050,6 +1050,38 @@ public:
   const wchar_t **argv() { return WCharPtrVector.data();}
 };
 
+/////////////////////////////////////////////////////////////////////////////
+// CComBSTR
+
+class CComBSTR
+{
+public:
+    BSTR m_str;
+    CComBSTR() : m_str(nullptr) {};
+    CComBSTR(_In_ int nSize, LPCWSTR sz);
+    ~CComBSTR() throw() { free(m_str); }
+
+    operator BSTR() const throw()
+    {
+        return m_str;
+    }
+
+
+    BSTR* operator&() throw()
+    {
+        return &m_str;
+    }
+
+    BSTR Detach() throw()
+    {
+        BSTR s = m_str;
+        m_str = NULL;
+        return s;
+    }
+
+};
+
+
 #endif // __cplusplus
 
 #endif // _WIN32

@@ -92,4 +92,24 @@ WArgV::WArgV(int argc, const char **argv)
   }
 }
 
+// CComBSTR
+CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
+  if (nSize < 0) {
+    throw  std::invalid_argument("CComBSTR must have size >= 0");
+  }
+
+  if (nSize == 0) {
+    m_str = NULL;
+  } else {
+    m_str = (BSTR)malloc(nSize * sizeof(WCHAR));
+    if (!*this) {
+      std::runtime_error("out of memory");
+    }
+    wcsncpy ( m_str, sz, nSize);
+  }
+}
+
+
+
+
 #endif

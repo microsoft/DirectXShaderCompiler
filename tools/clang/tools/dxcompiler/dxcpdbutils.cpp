@@ -10,8 +10,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifdef _WIN32
-
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -27,7 +25,9 @@
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
+#ifdef _WIN32
 #include "dxc/dxcpix.h"
+#endif
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -48,7 +48,6 @@
 #include <locale>
 #include <codecvt>
 #include <string>
-#include <dia2.h>
 
 using namespace dxc;
 using namespace llvm;
@@ -100,7 +99,7 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Outptr_result_z_ char **pCommitHash) {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Outptr_result_z_ char **pCommitHash) override {
     if (!pCommitHash)
       return E_POINTER;
 
@@ -110,7 +109,7 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **pVersionString) {
+  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **pVersionString) override {
     if (!pVersionString)
       return E_POINTER;
     IFR(CopyStringToOutStringPtr(m_VersionString, pVersionString));
@@ -252,7 +251,11 @@ public:
   }
 };
 
-struct DxcPdbUtils : public IDxcPdbUtils2, public IDxcPixDxilDebugInfoFactory
+struct DxcPdbUtils : public IDxcPdbUtils2
+#ifdef _WIN32
+  // Skip Pix debug info on linux for dia dependence.
+, public IDxcPixDxilDebugInfoFactory
+#endif
 {
 private:
   // Making the adapter and this interface the same object and share reference counting.
@@ -797,7 +800,13 @@ public:
   DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc), m_Adapter(this) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    HRESULT hr = DoBasicQueryInterface<IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+#ifdef _WIN32
+    HRESULT hr =
+        DoBasicQueryInterface<IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(
+            this, iid, ppvObject);
+#else
+    HRESULT hr = DoBasicQueryInterface<IDxcPdbUtils2>(this, iid, ppvObject);
+#endif
     if (FAILED(hr)) {
       return DoBasicQueryInterface<IDxcPdbUtils>(&m_Adapter, iid, ppvObject);
     }
@@ -973,7 +982,7 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetName(_COM_Outptr_result_maybenull_ IDxcBlobWide **ppResult) override {
     return CopyBlobWide(m_Name, ppResult);
   }
-
+#ifdef _WIN32
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) override
   {
@@ -1005,6 +1014,7 @@ public:
     return E_NOTIMPL;
   }
 
+#endif
   virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_result_maybenull_ IDxcVersionInfo **ppVersionInfo) {
     if (!ppVersionInfo)
       return E_POINTER;
@@ -1089,15 +1099,3 @@ HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   }
   return E_NOINTERFACE;
 }
-
-#else
-
-#include "dxc/Support/WinIncludes.h"
-
-HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
-  return E_NOTIMPL;
-}
-
-#endif
-
-

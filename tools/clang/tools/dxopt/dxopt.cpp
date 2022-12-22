@@ -58,7 +58,7 @@ bool isStdIn(LPCWSTR fName) {
 // Arg does not start with '-' or '/' and so assume it is a filename,
 // or next arg equals '-' which is the name of stdin.
 bool isFileInputArg(LPCWSTR arg) {
-  const bool isNonOptionArg = !wcsistarts(arg, L"-") && !wcsistarts(arg, L"/");
+  const bool isNonOptionArg = !wcsistarts(arg, L"-") && wcsrchr(arg, L'/') != arg;
   return isNonOptionArg || isStdIn(arg);
 }
 
@@ -109,9 +109,15 @@ static void PrintOptOutput(LPCWSTR pFileName, IDxcBlob *pBlob, IDxcBlobEncoding 
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pOutputText16;
   IFT(g_DxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+#ifdef _WIN32
   IFT(pLibrary->GetBlobAsWide(pOutputText, &pOutputText16));
   wprintf(L"%*s", (int)pOutputText16->GetBufferSize(),
           (wchar_t *)pOutputText16->GetBufferPointer());
+#else
+  IFT(pLibrary->GetBlobAsUtf8(pOutputText, &pOutputText16));
+  printf("%*s", (int)pOutputText16->GetBufferSize(),
+          (char *)pOutputText16->GetBufferPointer());
+#endif
   if (pBlob && pFileName && *pFileName) {
     dxc::WriteBlobToFile(pBlob, pFileName, DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
   }
