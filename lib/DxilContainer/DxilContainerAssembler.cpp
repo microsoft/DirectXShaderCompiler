@@ -9,6 +9,21 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/MD5.h"
+#include "llvm/Support/TimeProfiler.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DXIL/DxilCounters.h"
 #include "dxc/DXIL/DxilEntryProps.h"
@@ -37,6 +52,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/MD5.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <algorithm>
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
@@ -1781,6 +1797,7 @@ void hlsl::SerializeDxilContainerForModule(
     size_t PrivateDataSize) {
   // TODO: add a flag to update the module and remove information that is not
   // part of DXIL proper and is used only to assemble the container.
+  llvm::TimeTraceScope TimeScope("SerializeDxilContainer", StringRef(""));
 
   DXASSERT_NOMSG(pModule != nullptr);
   DXASSERT_NOMSG(pModuleBitcode != nullptr);

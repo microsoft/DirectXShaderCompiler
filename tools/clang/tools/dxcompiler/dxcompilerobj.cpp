@@ -528,7 +528,7 @@ public:
                                            // #include directives (optional)
       REFIID riid, LPVOID *ppResult // IDxcResult: status, buffer, and errors
       ) override {
-    llvm::TimeTraceScope TimeScope("Compile", StringRef(""));
+    llvm::TimeTraceScope TimeScope("DxcCompiler::Compile", StringRef(""));
     if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr))
       return E_INVALIDARG;
@@ -719,6 +719,7 @@ public:
       bool validateRootSigContainer = false;
 
       if (isPreprocessing) {
+        TimeTraceScope TimeScope("PreprocessAction", StringRef(""));
         // These settings are back-compatible with fxc.
         clang::PreprocessorOutputOptions &PPOutOpts =
             compiler.getPreprocessorOutputOpts();
@@ -857,6 +858,7 @@ public:
       }
 
       if (opts.AstDump) {
+        TimeTraceScope TimeScope("DumpAST", StringRef(""));
         clang::ASTDumpAction dumpAction;
         // Consider - ASTDumpFilter, ASTDumpLookups
         compiler.getFrontendOpts().ASTDumpDecls = true;
@@ -866,6 +868,7 @@ public:
         dumpAction.EndSourceFile();
         outStream.flush();
       } else if (opts.DumpDependencies) {
+        TimeTraceScope TimeScope("DumpDependencies", StringRef(""));
         auto dependencyCollector = std::make_shared<DependencyCollector>();
         compiler.addDependencyCollector(dependencyCollector);
         compiler.createPreprocessor(clang::TranslationUnitKind::TU_Complete);
@@ -967,14 +970,17 @@ public:
         EmitBCAction action(&llvmContext);
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         bool compileOK;
-        if (action.BeginSourceFile(compiler, file)) {
-          action.Execute();
-          action.EndSourceFile();
-          compileOK = !compiler.getDiagnostics().hasErrorOccurred();
-        } else {
-          compileOK = false;
+        {
+          TimeTraceScope TimeScope("Compile", StringRef(""));
+          if (action.BeginSourceFile(compiler, file)) {
+            action.Execute();
+            action.EndSourceFile();
+            compileOK = !compiler.getDiagnostics().hasErrorOccurred();
+          } else {
+            compileOK = false;
+          }
+          outStream.flush();
         }
-        outStream.flush();
 
         SerializeDxilFlags SerializeFlags =
             hlsl::options::ComputeSerializeDxilFlags(opts);
@@ -1021,6 +1027,7 @@ public:
         // Do not create a container when there is only a a high-level
         // representation in the module.
         if (compileOK && !opts.CodeGenHighLevel) {
+          TimeTraceScope TimeScope("AssembleAndWriteContainer", StringRef(""));
           HRESULT valHR = S_OK;
           CComPtr<AbstractMemoryStream> pRootSigStream;
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(),
@@ -1104,7 +1111,7 @@ public:
           } // SUCCEEDED(valHR)
         }   // compileOK && !opts.CodeGenHighLevel
       }
-
+      
       std::string remarks;
       raw_string_ostream r(remarks);
       msfPtr->WriteStdOutToStream(r);
