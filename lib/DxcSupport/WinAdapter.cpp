@@ -7,9 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/Support/WinAdapter.h"
+
 #ifndef _WIN32
 
-#include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/Unicode.h"
 
@@ -76,6 +77,25 @@ CHandle::CHandle(HANDLE h) { m_h = h; }
 CHandle::~CHandle() { CloseHandle(m_h); }
 CHandle::operator HANDLE() const throw() { return m_h; }
 
+// CComBSTR
+CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
+  if (nSize < 0) {
+    throw  std::invalid_argument("CComBSTR must have size >= 0");
+  }
+
+  if (nSize == 0) {
+    m_str = NULL;
+  } else {
+    m_str = (BSTR)malloc(nSize * sizeof(WCHAR));
+    if (!*this) {
+      std::runtime_error("out of memory");
+    }
+    wcsncpy ( m_str, sz, nSize);
+  }
+}
+
+#endif
+
 //===--------------------------- WArgV -------------------------------===//
 WArgV::WArgV(int argc, const char **argv)
     : WStringVector(argc), WCharPtrVector(argc) {
@@ -98,25 +118,3 @@ WArgV::WArgV(int argc, const wchar_t **argv)
     WCharPtrVector[i] = argv[i];
   }
 }
-
-// CComBSTR
-CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
-  if (nSize < 0) {
-    throw  std::invalid_argument("CComBSTR must have size >= 0");
-  }
-
-  if (nSize == 0) {
-    m_str = NULL;
-  } else {
-    m_str = (BSTR)malloc(nSize * sizeof(WCHAR));
-    if (!*this) {
-      std::runtime_error("out of memory");
-    }
-    wcsncpy ( m_str, sz, nSize);
-  }
-}
-
-
-
-
-#endif

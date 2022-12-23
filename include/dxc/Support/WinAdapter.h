@@ -1040,16 +1040,6 @@ private:
   HANDLE m_h;
 };
 
-//===--------- Convert argv to wchar ----------------===//
-class WArgV {
-  std::vector<std::wstring> WStringVector;
-  std::vector<const wchar_t *> WCharPtrVector;
-
-public:
-  WArgV(int argc, const char **argv);
-  WArgV(int argc, const wchar_t **argv);
-  const wchar_t **argv() { return WCharPtrVector.data();}
-};
 
 /////////////////////////////////////////////////////////////////////////////
 // CComBSTR
@@ -1086,5 +1076,18 @@ public:
 #endif // __cplusplus
 
 #endif // _WIN32
+
+#ifdef __cplusplus
+//===--------- Convert argv to wchar ----------------===//
+class WArgV {
+  std::vector<std::wstring> WStringVector;
+  std::vector<const wchar_t *> WCharPtrVector;
+
+public:
+  WArgV(int argc, const char **argv);
+  WArgV(int argc, const wchar_t **argv);
+  const wchar_t **argv() { return WCharPtrVector.data();}
+};
+#endif
 
 #endif // LLVM_SUPPORT_WIN_ADAPTER_H

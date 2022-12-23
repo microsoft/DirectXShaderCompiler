@@ -9,7 +9,7 @@
 // Make sure hl.ll not empty.
 // HL_LL:{{.+}}
 
-// RUN: %opt -pf %t.opt.passes.txt -o=%t.smoke.opt.bc %t.smoke.hl.ll | FileCheck %s --check-prefix=OPT_PRN
+// RUN: %dxopt -pf %t.opt.passes.txt -o=%t.smoke.opt.bc %t.smoke.hl.ll | FileCheck %s --check-prefix=OPT_PRN
 
 // OPT_PRN:MODULE-PRINT
 
