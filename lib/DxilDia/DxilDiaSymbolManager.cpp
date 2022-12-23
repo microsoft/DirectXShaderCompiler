@@ -28,6 +28,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MathExtras.h"
 
 #include "DxilDiaSession.h"
 #include "DxilDiaTableSymbols.h"
@@ -596,10 +597,11 @@ public:
     TypeInfo(const TypeInfo &) = delete;
     TypeInfo(TypeInfo &&) = default;
 
-    explicit TypeInfo(DWORD dwTypeID) : m_dwTypeID(dwTypeID) {}
+    TypeInfo(DWORD dwTypeID, uint64_t alignInBits) : m_dwTypeID(dwTypeID), m_alignInBytes(alignInBits / 8) {}
 
     DWORD GetTypeID() const { return m_dwTypeID; }
     DWORD GetCurrentSizeInBytes() const { return m_dwCurrentSizeInBytes; }
+    uint64_t GetAlignmentInBytes() const { return m_alignInBytes; }
     const std::vector<llvm::DIType *> &GetLayout() const { return m_Layout; }
 
     void Embed(const TypeInfo &TI);
@@ -610,6 +612,7 @@ public:
     DWORD m_dwTypeID;
     std::vector<llvm::DIType *> m_Layout;
     DWORD m_dwCurrentSizeInBytes = 0;
+    uint64_t m_alignInBytes;
   };
   using TypeToInfoMap = llvm::DenseMap<llvm::DIType *, std::unique_ptr<TypeInfo> >;
 
@@ -662,9 +665,9 @@ private:
   HRESULT GetTypeInfo(llvm::DIType *T, TypeInfo **TI);
 
   template<typename Factory, typename... Args>
-  HRESULT AddType(DWORD dwParentID, llvm::DIType *T, DWORD *pNewSymID, Args&&... args) {
+  HRESULT AddType(DWORD dwParentID, llvm::DIType *T, DWORD *pNewSymID, uint64_t alignment, Args&&... args) {
       IFR(AddSymbol<Factory>(dwParentID, pNewSymID, std::forward<Args>(args)...));
-      if (!m_TypeToInfo.insert(std::make_pair(T, llvm::make_unique<TypeInfo>(*pNewSymID))).second) {
+      if (!m_TypeToInfo.insert(std::make_pair(T, llvm::make_unique<TypeInfo>(*pNewSymID, alignment))).second) {
           return E_FAIL;
       }
       return S_OK;
@@ -1140,6 +1143,11 @@ void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::Embed(const TypeInfo &
   for (const auto &E : TI.GetLayout()) {
     m_Layout.emplace_back(E);
   }
+  uint64_t alignmentInBytes = TI.GetAlignmentInBytes();
+  if (alignmentInBytes != 0 && 
+      m_dwCurrentSizeInBytes % alignmentInBytes != 0) {
+    m_dwCurrentSizeInBytes += alignmentInBytes - (m_dwCurrentSizeInBytes % alignmentInBytes);
+  }
   m_dwCurrentSizeInBytes += TI.m_dwCurrentSizeInBytes;
 }
 
@@ -1147,6 +1155,11 @@ void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::AddBasicType(llvm::DIB
   m_Layout.emplace_back(BT);
 
   static constexpr DWORD kNumBitsPerByte = 8;
+  uint64_t alignmentInBytes = BT->getAlignInBits() / kNumBitsPerByte;
+  if (alignmentInBytes != 0 && m_dwCurrentSizeInBytes % alignmentInBytes != 0) {
+    m_dwCurrentSizeInBytes +=
+        alignmentInBytes - (m_dwCurrentSizeInBytes % alignmentInBytes);
+  }
   m_dwCurrentSizeInBytes += BT->getSizeInBits() / kNumBitsPerByte;
 }
 
@@ -1402,7 +1415,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateSubroutineType(DWORD dw
     };
   }
 
-  IFR(AddType<symbol_factory::Type>(dwParentID, ST, pNewTypeID, SymTagFunctionType, ST, LazyName));
+  IFR(AddType<symbol_factory::Type>(dwParentID, ST, pNewTypeID, 0 /*alignment*/, SymTagFunctionType, ST, LazyName));
 
   return S_OK;
 }
@@ -1418,7 +1431,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateBasicType(DWORD dwParen
     return S_OK;
   };
 
-  IFR(AddType<symbol_factory::Type>(dwParentID, BT, pNewTypeID, SymTagBaseType, BT, LazyName));
+  IFR(AddType<symbol_factory::Type>(dwParentID, BT, pNewTypeID, BT->getAlignInBits(), SymTagBaseType, BT, LazyName));
 
   TypeInfo *TI;
   IFR(GetTypeInfo(BT, &TI));
@@ -1477,7 +1490,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
       return S_OK;
     };
 
-    IFR(AddType<symbol_factory::Type>(dwParentID, CT, pNewTypeID, SymTagArrayType, CT, LazyName));
+    IFR(AddType<symbol_factory::Type>(dwParentID, CT, pNewTypeID, BaseType->getAlignInBits(), SymTagArrayType, CT, LazyName));
     TypeInfo *ctTI;
     IFR(GetTypeInfo(CT, &ctTI));
     TypeInfo *baseTI;
@@ -1512,7 +1525,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     return S_OK;
   };
 
-  IFR(AddType<symbol_factory::UDT>(dwParentID, CT, pNewTypeID, CT, LazyName));
+  IFR(AddType<symbol_factory::UDT>(dwParentID, CT, pNewTypeID, CT->getAlignInBits(), CT, LazyName));
 
   TypeInfo *udtTI;
   IFR(GetTypeInfo(CT, &udtTI));
@@ -1612,7 +1625,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateHLSLVectorType(llvm::DI
   }
 
   const DWORD dwParentID = HlslProgramId;
-  IFR(AddType<symbol_factory::VectorType>(dwParentID, T, pNewTypeID, T, dwElemTyID, ElemCnt->getLimitedValue()));
+  IFR(AddType<symbol_factory::VectorType>(dwParentID, T, pNewTypeID, T->getAlignInBits(), T, dwElemTyID, ElemCnt->getLimitedValue()));
 
   TypeInfo *vecTI;
   IFR(GetTypeInfo(T, &vecTI));
@@ -1676,7 +1689,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::HandleDerivedType(DWORD dwPar
       return E_FAIL;
     }
 
-    IFR(AddType<symbol_factory::TypedefType>(dwParentID, DT, pNewTypeID, DT, dwBaseTypeID));
+    IFR(AddType<symbol_factory::TypedefType>(dwParentID, DT, pNewTypeID, BaseTy->getAlignInBits(), DT, dwBaseTypeID));
 
     TypeInfo *dtTI;
     IFR(GetTypeInfo(DT, &dtTI));
@@ -1715,7 +1728,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::HandleDerivedType(DWORD dwPar
   }
   }
 
-  IFR(AddType<symbol_factory::Type>(dwParentID, DT, pNewTypeID, st, DT, LazyName));
+  IFR(AddType<symbol_factory::Type>(dwParentID, DT, pNewTypeID, DT->getAlignInBits(), st, DT, LazyName));
 
   if (DT->getTag() == llvm::dwarf::DW_TAG_const_type) {
     TypeInfo *dtTI;
@@ -1788,13 +1801,16 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateUDTField(DWORD dwParent
   DWORD dwLVTypeID;
   IFR(CreateType(FieldTy, &dwLVTypeID));
   if (m_pCurUDT != nullptr) {
-    const DWORD dwOffsetInBytes = CurrentUDTInfo().GetCurrentSizeInBytes();
+    TypeInfo *lvTI;
+    IFR(GetTypeInfo(FieldTy, &lvTI));
+    const DWORD dwOffsetInBytes =
+        (lvTI->GetAlignmentInBytes() == 0)
+        ? CurrentUDTInfo().GetCurrentSizeInBytes()
+        : llvm::RoundUpToAlignment(CurrentUDTInfo().GetCurrentSizeInBytes(), lvTI->GetAlignmentInBytes());
     DXASSERT_ARGS(dwOffsetInBytes == Field->getOffsetInBits() / 8,
       "%d vs %d",
       dwOffsetInBytes,
       Field->getOffsetInBits() / 8);
-    TypeInfo *lvTI;
-    IFR(GetTypeInfo(FieldTy, &lvTI));
     CurrentUDTInfo().Embed(*lvTI);
   }
 

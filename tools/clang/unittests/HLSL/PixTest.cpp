@@ -227,6 +227,8 @@ public:
   TEST_METHOD(RootSignatureUpgrade_SubObjects)
   TEST_METHOD(RootSignatureUpgrade_Annotation)
 
+  TEST_METHOD(SymbolManager_Embedded2DArray)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -3602,6 +3604,110 @@ float4 main(int i : A, float j : B) : SV_TARGET
   }
 
   VERIFY_IS_TRUE(foundGlobalRS);
+}
+
+static CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
+                                      IDxcBlob *container) {
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  CComPtr<IDxcContainerReflection> pReflection;
+
+  VERIFY_SUCCEEDED(
+      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(container));
+
+  UINT32 index;
+  VERIFY_SUCCEEDED(
+      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+
+  CComPtr<IDxcBlob> debugPart;
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, &debugPart));
+
+  return debugPart;
+}
+
+
+TEST_F(PixTest, SymbolManager_Embedded2DArray) {
+  const char *code = R"x(
+struct EmbeddedStruct
+{
+    uint32_t TwoDArray[2][2];
+};
+
+struct smallPayload
+{
+    uint32_t OneInt;
+    EmbeddedStruct embeddedStruct;
+    uint64_t bigOne;
+};
+
+[numthreads(1, 1, 1)]
+void ASMain()
+{
+    smallPayload p;
+    p.OneInt = -137;
+    p.embeddedStruct.TwoDArray[0][0] = 252;
+    p.embeddedStruct.TwoDArray[0][1] = 253;
+    p.embeddedStruct.TwoDArray[1][0] = 254;
+    p.embeddedStruct.TwoDArray[1][1] = 255;
+    p.bigOne = 123456789;
+
+    DispatchMesh(2, 1, 1, p);
+}
+
+)x";
+
+  auto compiled = Compile(code, L"as_6_5", {}, L"ASMain");
+
+  auto debugPart = GetDebugPart(m_dllSupport, compiled);
+
+  CComPtr<IDxcLibrary> library;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+
+  CComPtr<IStream> programStream;
+  VERIFY_SUCCEEDED(
+      library->CreateStreamFromBlobReadOnly(debugPart, &programStream));
+
+  CComPtr<IDiaDataSource> diaDataSource;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &diaDataSource));
+
+  VERIFY_SUCCEEDED(diaDataSource->loadDataFromIStream(programStream));
+
+  CComPtr<IDiaSession> session;
+  VERIFY_SUCCEEDED(diaDataSource->openSession(&session));
+
+  CComPtr<IDxcPixDxilDebugInfoFactory> Factory;
+  VERIFY_SUCCEEDED(session->QueryInterface(&Factory));
+  CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
+  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
+  CComPtr<IDxcPixDxilLiveVariables> liveVariables;
+  VERIFY_SUCCEEDED(dxilDebugger->GetLiveVariablesAt(43, &liveVariables));
+  CComPtr<IDxcPixVariable> variable;
+  VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(0, &variable));
+  CComBSTR name;
+  variable->GetName(&name);
+  VERIFY_ARE_EQUAL_WSTR(name, L"p");
+  CComPtr<IDxcPixType> type;
+  VERIFY_SUCCEEDED(variable->GetType(&type));
+  CComPtr<IDxcPixStructType> structType;
+  VERIFY_SUCCEEDED(type->QueryInterface(IID_PPV_ARGS(&structType)));
+  auto ValidateStructMember = [&structType](DWORD index, const wchar_t *name,
+                                            uint64_t offset) {
+    CComPtr<IDxcPixStructField> member;
+    VERIFY_SUCCEEDED(structType->GetFieldByIndex(index, &member));
+    CComBSTR actualName;
+    VERIFY_SUCCEEDED(member->GetName(&actualName));
+    VERIFY_ARE_EQUAL_WSTR(actualName, name);
+    DWORD actualOffset= 0;
+    VERIFY_SUCCEEDED(member->GetOffsetInBits(&actualOffset));
+    VERIFY_ARE_EQUAL(actualOffset, offset);
+  };
+
+  ValidateStructMember(0, L"OneInt", 0);
+  ValidateStructMember(1, L"embeddedStruct", 4*8);
+  ValidateStructMember(2, L"bigOne", 24*8);
 }
 
 #endif
