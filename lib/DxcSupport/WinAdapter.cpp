@@ -7,12 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dxc/Support/WinAdapter.h"
-
-#ifndef _WIN32
-
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/Unicode.h"
+
+#ifndef _WIN32
 
 //===--------------------------- CAllocator -------------------------------===//
 
