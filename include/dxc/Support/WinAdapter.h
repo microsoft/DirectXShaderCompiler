@@ -1078,6 +1078,9 @@ public:
 #endif // _WIN32
 
 #ifdef __cplusplus
+
+#include <string>
+#include <vector>
 //===--------- Convert argv to wchar ----------------===//
 class WArgV {
   std::vector<std::wstring> WStringVector;
