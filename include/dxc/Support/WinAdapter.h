@@ -1048,9 +1048,13 @@ class CComBSTR
 {
 public:
     BSTR m_str;
-    CComBSTR() : m_str(nullptr) {};
+    bool m_needFree;
+    CComBSTR() : m_str(nullptr), m_needFree(false) {};
     CComBSTR(_In_ int nSize, LPCWSTR sz);
-    ~CComBSTR() throw() { free(m_str); }
+    ~CComBSTR() throw() {
+    if (m_needFree)
+      free(m_str);
+    }
 
     operator BSTR() const throw()
     {
