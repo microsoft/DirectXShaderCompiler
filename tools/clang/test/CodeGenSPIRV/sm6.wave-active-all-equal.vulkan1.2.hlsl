@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_0 -E main -HV 2018 -fspv-target-env=vulkan1.2
 
 // CHECK: ; Version: 1.5
 

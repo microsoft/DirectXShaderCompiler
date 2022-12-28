@@ -25,6 +25,7 @@ extern "C" {
   }
   void* regex_realloc(void* ptr, size_t oldsize, size_t newsize) {
     void* newptr = regex_malloc(newsize);
+    if (ptr == nullptr) return newptr;
     if (newptr == nullptr) return nullptr;
     std::memcpy(newptr, ptr, std::min(oldsize, newsize));
     regex_free(ptr);

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan -no-warnings
+// RUN: %dxc -T ps_6_0 -HV 2018 -E main -fspv-debug=vulkan -no-warnings
 
 // CHECK:      [[file:%\d+]] = OpString
 // CHECK:      [[src:%\d+]] = OpExtInst %void %1 DebugSource [[file]]

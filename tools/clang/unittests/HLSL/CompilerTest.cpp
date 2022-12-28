@@ -172,6 +172,8 @@ public:
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
+  TEST_METHOD(CompileThenPrintTimeReport)
+  TEST_METHOD(CompileThenPrintTimeTrace)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
   TEST_METHOD(CompileWhenIncludeHasPathThenOK)
   TEST_METHOD(CompileWhenIncludeEmptyThenOK)
@@ -236,6 +238,7 @@ public:
   TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(PreprocessWithDebugOptsThenOk)
+  TEST_METHOD(PreprocessCheckBuiltinIsOk)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
   TEST_METHOD(CompileOtherModesWithDebugOptsThenOk)
 
@@ -2812,6 +2815,58 @@ TEST_F(CompilerTest, CompileThenCheckDisplayIncludeProcess) {
 
 }
 
+TEST_F(CompilerTest, CompileThenPrintTimeReport) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target { return 0.0; }", &pSource);
+
+  LPCWSTR args[] = {L"-ftime-report"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pInclude, &pResult));
+  VerifyOperationSucceeded(pResult);
+
+  CComPtr<IDxcResult> pCompileResult;
+  CComPtr<IDxcBlob> pReportBlob;
+  pResult->QueryInterface(&pCompileResult);
+  VERIFY_SUCCEEDED(pCompileResult->GetOutput(
+      DXC_OUT_TIME_REPORT, IID_PPV_ARGS(&pReportBlob), nullptr));
+  std::string text(BlobToUtf8(pReportBlob));
+
+  VERIFY_ARE_NOT_EQUAL(string::npos,
+                       text.find("... Pass execution timing report ..."));
+}
+
+TEST_F(CompilerTest, CompileThenPrintTimeTrace) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target { return 0.0; }", &pSource);
+
+  LPCWSTR args[] = {L"-ftime-trace"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pInclude, &pResult));
+  VerifyOperationSucceeded(pResult);
+
+  CComPtr<IDxcResult> pCompileResult;
+  CComPtr<IDxcBlob> pReportBlob;
+  pResult->QueryInterface(&pCompileResult);
+  VERIFY_SUCCEEDED(pCompileResult->GetOutput(
+      DXC_OUT_TIME_TRACE, IID_PPV_ARGS(&pReportBlob), nullptr));
+  std::string text(BlobToUtf8(pReportBlob));
+
+  VERIFY_ARE_NOT_EQUAL(string::npos,
+                       text.find("{ \"traceEvents\": ["));
+}
+
 TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -3911,6 +3966,30 @@ TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
     "int g_int = 123;\n"
     "\n"
     "int BAR;\n", text.c_str());
+}
+
+// Make sure that '#line 1 "<built-in>"' won't blow up when preprocessing.
+TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    "#line 1 \"<built-in>\"\r\n"
+    "int x;", &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Preprocess(pSource, L"file.hlsl", nullptr, 0,
+                                         nullptr, 0, nullptr,
+                                         &pResult));
+  HRESULT hrOp;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrOp));
+  VERIFY_SUCCEEDED(hrOp);
+
+  CComPtr<IDxcBlob> pOutText;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
+  std::string text(BlobToUtf8(pOutText));
+  VERIFY_ARE_EQUAL_STR(
+    "#line 1 \"file.hlsl\"\n\n", text.c_str());
 }
 
 TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {

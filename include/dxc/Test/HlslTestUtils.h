@@ -26,12 +26,13 @@
 #include "WEXAdapter.h"
 #endif
 #include "dxc/Support/Unicode.h"
+#include "dxc/DXIL/DxilConstants.h" // DenormMode
+
 #ifdef _HLK_CONF
 #define DEFAULT_TEST_DIR ""
 #else
 #include "dxc/Test/TestConfig.h"
 #endif
-#include "dxc/DXIL/DxilConstants.h" // DenormMode
 
 using namespace std;
 
@@ -445,91 +446,9 @@ inline bool isnanFloat16(uint16_t val) {
          (val & FLOAT16_BIT_MANTISSA) != 0;
 }
 
-inline uint16_t ConvertFloat32ToFloat16(float val) {
-  union Bits {
-    uint32_t u_bits;
-    float f_bits;
-  };
-
-  static const uint32_t SignMask = 0x8000;
-
-  // Minimum f32 value representable in f16 format without denormalizing
-  static const uint32_t Min16in32 = 0x38800000;
-
-  // Maximum f32 value (next to infinity)
-  static const uint32_t Max32 = 0x7f7FFFFF;
-
-  // Mask for f32 mantissa
-  static const uint32_t Fraction32Mask = 0x007FFFFF;
-
-  // pow(2,24)
-  static const uint32_t DenormalRatio = 0x4B800000;
-
-  static const uint32_t NormalDelta = 0x38000000;
-
-  Bits bits;
-  bits.f_bits = val;
-  uint32_t sign = bits.u_bits & (SignMask << 16);
-  Bits Abs;
-  Abs.u_bits = bits.u_bits ^ sign;
-
-  bool isLessThanNormal = Abs.f_bits < *(const float*)&Min16in32;
-  bool isInfOrNaN = Abs.u_bits > Max32;
-
-  if (isLessThanNormal) {
-    // Compute Denormal result
-    return (uint16_t)(Abs.f_bits * *(const float*)(&DenormalRatio)) | (uint16_t)(sign >> 16);
-  }
-  else if (isInfOrNaN) {
-    // Compute Inf or Nan result
-    uint32_t Fraction = Abs.u_bits & Fraction32Mask;
-    uint16_t IsNaN = Fraction == 0 ? 0 : 0xffff;
-    return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
-  }
-  else {
-    // Compute Normal result
-    return (uint16_t)((Abs.u_bits - NormalDelta) >> 13) | (uint16_t)(sign >> 16);
-  }
-}
-
-inline float ConvertFloat16ToFloat32(uint16_t x) {
- union Bits {
-    float f_bits;
-    uint32_t u_bits;
-  };
-
-  uint32_t Sign = (x & FLOAT16_BIT_SIGN) << 16;
-
-  // nan -> exponent all set and mantisa is non zero
-  // +/-inf -> exponent all set and mantissa is zero
-  // denorm -> exponent zero and significand nonzero
-  uint32_t Abs = (x & 0x7fff);
-  uint32_t IsNormal = Abs > FLOAT16_BIGGEST_DENORM;
-  uint32_t IsInfOrNaN = Abs > FLOAT16_BIGGEST_NORMAL;
-
-  // Signless Result for normals
-  uint32_t DenormRatio = 0x33800000;
-  float DenormResult = Abs * (*(float*)&DenormRatio);
-
-  uint32_t AbsShifted = Abs << 13;
-  // Signless Result for normals
-  uint32_t NormalResult = AbsShifted + 0x38000000;
-  // Signless Result for int & nans
-  uint32_t InfResult = AbsShifted + 0x70000000;
-
-  Bits bits;
-  bits.u_bits = 0;
-  if (IsInfOrNaN)
-    bits.u_bits |= InfResult;
-  else if (IsNormal)
-    bits.u_bits |= NormalResult;
-  else
-    bits.f_bits = DenormResult;
-  bits.u_bits |= Sign;
-  return bits.f_bits;
-}
-uint16_t ConvertFloat32ToFloat16(float val);
-float ConvertFloat16ToFloat32(uint16_t val);
+// These are defined in ShaderOpTest.cpp using DirectXPackedVector functions.
+uint16_t ConvertFloat32ToFloat16(float val) throw();
+float ConvertFloat16ToFloat32(uint16_t val) throw();
 
 inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance,
                             hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {

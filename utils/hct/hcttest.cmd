@@ -23,6 +23,7 @@ set TEST_DXILCONV_FILTER=
 set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
+set TEST_USE_LIT=0
 set TEST_CLANG_FILTER=
 set TEST_EXEC_FILTER=ExecutionTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
@@ -143,6 +144,8 @@ if "%1"=="-clean" (
   set TEST_EXTRAS=1
 ) else if "%1"=="-ninja" (
   set GENERATOR_NINJA=1
+) else if "%1"=="-enable-lit" (
+  set TEST_USE_LIT=1
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Release" (
@@ -252,11 +255,45 @@ if "%TEST_CLEAN%"=="1" (
   )
 )
 
+if "%TEST_USE_LIT%"=="1" (
+  rem LIT does not separate exect tests from other taef tests.
+  if "%TEST_EXEC%"=="1" (
+    set TEST_CLANG=1
+  )
+  if "%TEST_SPIRV%"=="1" (
+    set TEST_CLANG=1
+  )
+  if "%TEST_ALL%"=="1" (
+    rem check all includes clang, dxilconv, and exec
+    cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
+    set RES_CLANG=!ERRORLEVEL!
+    set RES_DXILCONV=%RES_CLANG%
+    set RES_EXEC=%RES_CLANG%
+  ) else (
+    if "%TEST_DXILCONV%"=="1" (
+      cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
+      set RES_DXILCONV=!ERRORLEVEL!
+    )
+    if "%TEST_CLANG%"=="1" (
+      cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
+      set RES_CLANG=!ERRORLEVEL!
+      set RES_EXEC=%RES_CLANG%
+    )
+  )
+  set TEST_CLANG=0
+  set TEST_DXILCONV=0
+  set TEST_SPIRV=0
+  set TEST_EXEC=0
+)
+
 if not exist %TEST_DIR% (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
 if "%CUSTOM_BIN_SET%"=="" (
-  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll exec-hlsl-tests.dll
+  if not "%TEST_USE_LIT%"=="1" (
+    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% clang-hlsl-tests.dll exec-hlsl-tests.dll
+  )
+  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
   if errorlevel 1 exit /b 1
   if "%TEST_DXILCONV%"=="1" (
     call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxbc2dxil.exe dxilconv-tests.dll opt.exe
