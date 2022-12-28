@@ -47,6 +47,7 @@ if (HLSL_INCLUDE_TESTS)
   add_subdirectory(HLSLTestLib)
   if (WIN32) # These tests require MS specific TAEF and DIA SDK
     add_subdirectory(HLSLErrors)
+    add_subdirectory(HLSLExec)
     add_subdirectory(HLSLHost)
     add_subdirectory(dxc_batch)
     add_subdirectory(DxrFallback)
