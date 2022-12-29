@@ -164,7 +164,7 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
   CComPtr<IWICBitmap> pBitmap;
   CComPtr<IWICBitmapEncoder> pEncoder;
   CComPtr<IWICBitmapFrameEncode> pFrameEncode;
-  CComPtr<hlsl::AbstractMemoryStream> pStream;
+  CComPtr<IStream> pStream;
   CComPtr<IMalloc> pMalloc;
 
   struct PF {
@@ -183,17 +183,17 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
   VERIFY_SUCCEEDED(ctx.Init());
   VERIFY_SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&pFactory));
   VERIFY_SUCCEEDED(CoGetMalloc(1, &pMalloc));
-  VERIFY_SUCCEEDED(hlsl::CreateMemoryStream(pMalloc, &pStream));
   VERIFY_ARE_NOT_EQUAL(pFormat, Vals + _countof(Vals));
   VERIFY_SUCCEEDED(pFactory->CreateBitmapFromMemory(m_width, m_height, pFormat->PixelFormat, m_width * pFormat->PixelSize, m_width * m_height * pFormat->PixelSize, (BYTE *)pPixels, &pBitmap));
   VERIFY_SUCCEEDED(pFactory->CreateEncoder(GUID_ContainerFormatBmp, nullptr, &pEncoder));
+  VERIFY_SUCCEEDED(SHCreateStreamOnFileEx(pFileName, STGM_WRITE, STGM_CREATE, 0, nullptr, &pStream));
   VERIFY_SUCCEEDED(pEncoder->Initialize(pStream, WICBitmapEncoderNoCache));
   VERIFY_SUCCEEDED(pEncoder->CreateNewFrame(&pFrameEncode, nullptr));
   VERIFY_SUCCEEDED(pFrameEncode->Initialize(nullptr));
   VERIFY_SUCCEEDED(pFrameEncode->WriteSource(pBitmap, nullptr));
   VERIFY_SUCCEEDED(pFrameEncode->Commit());
   VERIFY_SUCCEEDED(pEncoder->Commit());
-  IFT(hlsl::WriteBinaryFile(pFileName, pStream->GetPtr(), pStream->GetPtrSize()));
+  VERIFY_SUCCEEDED(pStream->Commit(STGC_DEFAULT));
 }
 
 // Checks if the given warp version supports the given operation.
@@ -470,7 +470,6 @@ public:
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_support;
-  VersionSupportInfo m_ver;
 
   bool m_D3DInitCompleted = false;
   bool m_ExperimentalModeEnabled = false;
@@ -520,6 +519,48 @@ public:
     }
 
     return true;
+  }
+
+  std::wstring DxcBlobToWide(_In_ IDxcBlob *pBlob) {
+    if (!pBlob)
+      return std::wstring();
+
+    CComPtr<IDxcBlobWide> pBlobWide;
+    if (SUCCEEDED(pBlob->QueryInterface(&pBlobWide)))
+      return std::wstring(pBlobWide->GetStringPointer(), pBlobWide->GetStringLength());
+
+    CComPtr<IDxcBlobEncoding> pBlobEncoding;
+    IFT(pBlob->QueryInterface(&pBlobEncoding));
+    BOOL known;
+    UINT32 codePage;
+    IFT(pBlobEncoding->GetEncoding(&known, &codePage));
+    if (!known) {
+      throw std::runtime_error("unknown codepage for blob.");
+    }
+
+    std::wstring result;
+    if (codePage == DXC_CP_WIDE) {
+      const wchar_t* text = (const wchar_t *)pBlob->GetBufferPointer();
+      size_t length = pBlob->GetBufferSize() / 2;
+      if (length >= 1 && text[length-1] == L'\0')
+        length -= 1;  // Exclude null-terminator
+      result.resize(length);
+      memcpy(&result[0], text, length);
+      return result;
+    }
+    if (codePage == CP_UTF8) {
+      const char* text = (const char *)pBlob->GetBufferPointer();
+      size_t length = pBlob->GetBufferSize();
+      if (length >= 1 && text[length-1] == '\0')
+        length -= 1;  // Exclude null-terminator
+      if (length == 0)
+        return std::wstring();
+      int wideLength = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, (int)length, nullptr, 0);
+      result.resize(wideLength);
+      ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, (int)length, &result[0], wideLength);
+      return result;
+    }
+    throw std::runtime_error("Unsupported codepage.");
   }
 
 // Do not remove the following line - it is used by TranslateExecutionTest.py
@@ -645,10 +686,10 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Compile(pTextBlob, L"hlsl.hlsl", pEntryPoint, pTargetProfile, pOptions, numOptions, nullptr, 0, nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetStatus(&resultCode));
     if (FAILED(resultCode)) {
+#ifndef _HLK_CONF
       CComPtr<IDxcBlobEncoding> errors;
       VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&errors));
-#ifndef _HLK_CONF
-      LogCommentFmt(L"Failed to compile shader: %s", BlobToWide(errors).data());
+      LogCommentFmt(L"Failed to compile shader: %s", DxcBlobToWide(errors).data());
 #endif
     }
     VERIFY_SUCCEEDED(resultCode);
@@ -1643,7 +1684,7 @@ public:
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlob;
     CComPtr<IStream> pStream;
-    std::wstring path = GetPathToHlslDataFile(relativePath);
+    std::wstring path = GetPathToHlslDataFile(relativePath, HLSLDATAFILEPARAM, DEFAULT_EXEC_TEST_DIR);
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
     VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
