@@ -14,6 +14,7 @@
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/Unicode.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/Support/ManagedStatic.h"

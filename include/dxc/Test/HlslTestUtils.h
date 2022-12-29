@@ -25,7 +25,6 @@
 #include "dxc/Support/Global.h" // DXASSERT_LOCALVAR
 #include "WEXAdapter.h"
 #endif
-#include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 
 #ifdef _HLK_CONF
@@ -319,6 +318,8 @@ inline HANDLE CreateNewFileForReadWrite(LPCWSTR path) {
   return sourceHandle;
 }
 
+// Copy of Unicode::IsStarMatchT/IsStarMatchWide is included here to avoid the dependency on
+// DXC support libraries.
 template<typename TChar>
 inline static
 bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName, size_t nameLen, TChar star) {
