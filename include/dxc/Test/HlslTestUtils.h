@@ -29,7 +29,8 @@
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 
 #ifdef _HLK_CONF
-#define DEFAULT_TEST_DIR ""
+#define DEFAULT_TEST_DIR L""
+#define DEFAULT_EXEC_TEST_DIR DEFAULT_TEST_DIR
 #else
 #include "dxc/Test/TestConfig.h"
 #endif
