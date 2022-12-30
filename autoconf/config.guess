@@ -977,6 +977,9 @@ EOF
     ppc:Linux:*:*)
 	echo powerpc-unknown-linux-gnu
 	exit ;;
+    riscv64:Linux:*:*)
+	echo ${UNAME_MACHINE}-unknown-linux-gnu
+	exit ;;
     s390:Linux:*:* | s390x:Linux:*:*)
 	echo ${UNAME_MACHINE}-ibm-linux
 	exit ;;
