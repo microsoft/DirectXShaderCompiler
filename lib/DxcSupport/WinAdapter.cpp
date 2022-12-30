@@ -86,12 +86,17 @@ CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) : m_needFree(true) {
   if (nSize == 0) {
     m_str = NULL;
   } else {
-    m_str = (BSTR)malloc(nSize * sizeof(WCHAR));
+    m_str = (BSTR)malloc((nSize + 1) * sizeof(WCHAR));
     if (!*this) {
       std::runtime_error("out of memory");
     }
     wcsncpy ( m_str, sz, nSize);
+    m_str[nSize] = L'\0';
   }
+}
+
+bool CComBSTR::operator==(_In_ const CComBSTR &bstrSrc) const throw() {
+  return wcscmp(m_str, bstrSrc.m_str) == 0;
 }
 
 #endif

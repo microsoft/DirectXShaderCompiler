@@ -1061,6 +1061,7 @@ public:
         return m_str;
     }
 
+    bool operator==(_In_ const CComBSTR& bstrSrc) const throw();
 
     BSTR* operator&() throw()
     {
