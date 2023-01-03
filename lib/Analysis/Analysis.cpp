@@ -18,6 +18,26 @@
 
 using namespace llvm;
 
+// HLSL Change Begin - Windows doesn't support __attribute__((used)) so these methods
+// need to be forcibly bound or they could be stripped at build time.
+#if defined(_MSC_VER) && (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP))
+#pragma optimize("", off)
+void BindDumpMethods() {
+  // Pin LLVM dump methods.
+  void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
+  (void)pfnModuleDump;
+  void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
+  (void)pfnTypeDump;
+  void (__thiscall Function::*pfnViewCFGOnly)() const = &Function::viewCFGOnly;
+  (void)pfnViewCFGOnly;
+}
+#pragma optimize("", on)
+#define HLSL_BIND_DUMP_METHODS BindDumpMethods();
+#else
+#define HLSL_BIND_DUMP_METHODS
+#endif
+// HLSL Change End
+
 /// initializeAnalysis - Initialize all passes linked into the Analysis library.
 void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeAliasAnalysisAnalysisGroup(Registry);
@@ -69,6 +89,8 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeTargetTransformInfoWrapperPassPass(Registry);
   initializeTypeBasedAliasAnalysisPass(Registry);
   initializeScopedNoAliasAAPass(Registry);
+
+  HLSL_BIND_DUMP_METHODS // HLSL Change - Force binding dump methods.
 }
 
 void LLVMInitializeAnalysis(LLVMPassRegistryRef R) {
