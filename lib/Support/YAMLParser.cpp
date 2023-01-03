@@ -2146,6 +2146,7 @@ void MappingNode::increment() {
       break;
     default:
       setError("Unexpected token. Expected Key or Block End", T);
+      LLVM_FALLTHROUGH; // HLSL Change
     case Token::TK_Error:
       IsAtEnd = true;
       CurrentEntry = nullptr;
@@ -2158,6 +2159,7 @@ void MappingNode::increment() {
       return increment();
     case Token::TK_FlowMappingEnd:
       getNext();
+      LLVM_FALLTHROUGH; // HLSL Change
     case Token::TK_Error:
       // Set this to end iterator.
       IsAtEnd = true;
@@ -2200,6 +2202,7 @@ void SequenceNode::increment() {
     default:
       setError( "Unexpected token. Expected Block Entry or Block End."
               , T);
+      LLVM_FALLTHROUGH; // HLSL Change
     case Token::TK_Error:
       IsAtEnd = true;
       CurrentEntry = nullptr;
@@ -2228,6 +2231,7 @@ void SequenceNode::increment() {
       return increment();
     case Token::TK_FlowSequenceEnd:
       getNext();
+      LLVM_FALLTHROUGH; // HLSL Change
     case Token::TK_Error:
       // Set this to end iterator.
       IsAtEnd = true;

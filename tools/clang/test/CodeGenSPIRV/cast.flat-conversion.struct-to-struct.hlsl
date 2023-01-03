@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -HV 2018 -E main
 
 // Processing FlatConversion when source and destination
 // are both structures with identical members.

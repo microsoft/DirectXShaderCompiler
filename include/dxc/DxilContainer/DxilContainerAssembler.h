@@ -16,6 +16,7 @@
 #include "llvm/ADT/StringRef.h"
 
 struct IStream;
+class DxilPipelineStateValidation;
 
 namespace llvm {
 class Module;
@@ -50,6 +51,16 @@ DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
 DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX);
 DxilPartWriter *NewRDATWriter(const DxilModule &M);
+
+// Store serialized ViewID data from DxilModule to PipelineStateValidation.
+void StoreViewIDStateToPSV(const uint32_t *pInputData,
+                           unsigned InputSizeInUInts,
+                           DxilPipelineStateValidation &PSV);
+// Load ViewID state from PSV back to DxilModule view state vector.
+// Pass nullptr for pOutputData to compute and return needed OutputSizeInUInts.
+unsigned LoadViewIDStateFromPSV(unsigned *pOutputData,
+                                unsigned OutputSizeInUInts,
+                                const DxilPipelineStateValidation &PSV);
 
 // Unaligned is for matching container for validator version < 1.7.
 DxilContainerWriter *NewDxilContainerWriter(bool bUnaligned = false);

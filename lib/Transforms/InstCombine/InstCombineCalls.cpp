@@ -493,7 +493,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
       II->setArgOperand(1, LHS);
       return II;
     }
-    // fall through
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Intrinsic::usub_with_overflow:
   case Intrinsic::ssub_with_overflow: {

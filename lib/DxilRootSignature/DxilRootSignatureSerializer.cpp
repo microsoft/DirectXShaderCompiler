@@ -261,7 +261,8 @@ void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSigna
   DxilStaticSamplerDesc *pSS;
   unsigned StaticSamplerSize = sizeof(DxilStaticSamplerDesc)*RS.NumStaticSamplers;
   IFT(Serializer.ReserveBlock((void**)&pSS, StaticSamplerSize, &RS.StaticSamplersOffset));
-  memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
+  if (StaticSamplerSize > 0)
+    memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
 
   // Create the result blob.
   CDxcMallocHeapPtr<char> bytes(DxcGetThreadMallocNoRef());
@@ -331,93 +332,6 @@ void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature
   }
 }
 
-//=============================================================================
-//
-// CVersionedRootSignatureDeserializer.
-//
-//=============================================================================
-class CVersionedRootSignatureDeserializer {
-protected:
-  const DxilVersionedRootSignatureDesc *m_pRootSignature;
-  const DxilVersionedRootSignatureDesc *m_pRootSignature10;
-  const DxilVersionedRootSignatureDesc *m_pRootSignature11;
-
-public:
-  CVersionedRootSignatureDeserializer();
-  ~CVersionedRootSignatureDeserializer();
-
-  void Initialize(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
-                  _In_ uint32_t SrcDataSizeInBytes);
-
-  const DxilVersionedRootSignatureDesc *GetRootSignatureDescAtVersion(DxilRootSignatureVersion convertToVersion);
-
-  const DxilVersionedRootSignatureDesc *GetUnconvertedRootSignatureDesc();
-};
-
-CVersionedRootSignatureDeserializer::CVersionedRootSignatureDeserializer()
-  : m_pRootSignature(nullptr)
-  , m_pRootSignature10(nullptr)
-  , m_pRootSignature11(nullptr) {
-}
-
-CVersionedRootSignatureDeserializer::~CVersionedRootSignatureDeserializer() {
-  DeleteRootSignature(m_pRootSignature10);
-  DeleteRootSignature(m_pRootSignature11);
-}
-
-void CVersionedRootSignatureDeserializer::Initialize(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
-                                                     _In_ uint32_t SrcDataSizeInBytes) {
-  const DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
-  DeserializeRootSignature(pSrcData, SrcDataSizeInBytes, &pRootSignature);
-
-  switch (pRootSignature->Version) {
-  case DxilRootSignatureVersion::Version_1_0:
-    m_pRootSignature10 = pRootSignature;
-    break;
-
-  case DxilRootSignatureVersion::Version_1_1:
-    m_pRootSignature11 = pRootSignature;
-    break;
-
-  default:
-    DeleteRootSignature(pRootSignature);
-    return;
-  }
-
-  m_pRootSignature = pRootSignature;
-}
-
-const DxilVersionedRootSignatureDesc *
-CVersionedRootSignatureDeserializer::GetUnconvertedRootSignatureDesc() {
-  return m_pRootSignature;
-}
-
-const DxilVersionedRootSignatureDesc *
-CVersionedRootSignatureDeserializer::GetRootSignatureDescAtVersion(DxilRootSignatureVersion ConvertToVersion) {
-  switch (ConvertToVersion) {
-  case DxilRootSignatureVersion::Version_1_0:
-    if (m_pRootSignature10 == nullptr) {
-      ConvertRootSignature(m_pRootSignature,
-                           ConvertToVersion,
-                           (const DxilVersionedRootSignatureDesc **)&m_pRootSignature10);
-    }
-    return m_pRootSignature10;
-
-  case DxilRootSignatureVersion::Version_1_1:
-    if (m_pRootSignature11 == nullptr) {
-      ConvertRootSignature(m_pRootSignature,
-                           ConvertToVersion,
-                           (const DxilVersionedRootSignatureDesc **)&m_pRootSignature11);
-    }
-    return m_pRootSignature11;
-
-  default:
-    IFTBOOL(false, E_FAIL);
-  }
-
-  return nullptr;
-}
-
 template<typename T_ROOT_SIGNATURE_DESC,
          typename T_ROOT_PARAMETER,
          typename T_ROOT_DESCRIPTOR,
@@ -450,8 +364,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   IFTBOOL(((const char*)pInRTS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumParameters) {
     pRootSignature->pParameters = new T_ROOT_PARAMETER[pRootSignature->NumParameters];
+    memset((void *)pRootSignature->pParameters, 0, pRootSignature->NumParameters * sizeof(T_ROOT_PARAMETER));
   }
-  memset((void *)pRootSignature->pParameters, 0, s);
 
   for(unsigned iRP = 0; iRP < pRootSignature->NumParameters; iRP++) {
     DxilRootParameterType ParameterType = (DxilRootParameterType)pInRTS[iRP].ParameterType;
@@ -510,8 +424,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   IFTBOOL(((const char*)pInSS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumStaticSamplers) {
     pRootSignature->pStaticSamplers = new DxilStaticSamplerDesc[pRootSignature->NumStaticSamplers];
+    memcpy((void*)pRootSignature->pStaticSamplers, pInSS, s);
   }
-  memcpy((void*)pRootSignature->pStaticSamplers, pInSS, s);
 }
 
 _Use_decl_annotations_

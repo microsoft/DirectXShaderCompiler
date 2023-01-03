@@ -1590,7 +1590,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
       RetAttrs.addAttribute(llvm::Attribute::SExt);
     else if (RetTy->hasUnsignedIntegerRepresentation())
       RetAttrs.addAttribute(llvm::Attribute::ZExt);
-    // FALL THROUGH
+    LLVM_FALLTHROUGH; // HLSL Change
   case ABIArgInfo::Direct:
     if (RetAI.getInReg())
       RetAttrs.addAttribute(llvm::Attribute::InReg);
@@ -1672,7 +1672,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
         else
           Attrs.addAttribute(llvm::Attribute::ZExt);
       }
-      // FALL THROUGH
+      LLVM_FALLTHROUGH; // HLSL Change
     case ABIArgInfo::Direct:
       if (ArgNo == 0 && FI.isChainCall())
         Attrs.addAttribute(llvm::Attribute::Nest);

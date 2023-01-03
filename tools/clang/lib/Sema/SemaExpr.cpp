@@ -923,7 +923,7 @@ void Sema::checkVariadicArgument(const Expr *E, VariadicCallType CT) {
         E->getLocStart(), nullptr,
         PDiag(diag::warn_cxx98_compat_pass_non_pod_arg_to_vararg)
           << Ty << CT);
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change
   case VAK_Valid:
     if (Ty->isRecordType()) {
       // This is unlikely to be what the user intended. If the class has a
@@ -3006,7 +3006,7 @@ ExprResult Sema::BuildDeclarationNameExpr(
         valueKind = VK_RValue;
         break;
       }
-      // fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case Decl::ImplicitParam:
     case Decl::ParmVar: {
@@ -3087,7 +3087,7 @@ ExprResult Sema::BuildDeclarationNameExpr(
         valueKind = VK_LValue;
         break;
       }
-      // fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case Decl::CXXConversion:
     case Decl::CXXDestructor:
@@ -10412,7 +10412,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
   // HLSL Change Starts
   // Handle HLSL binary operands differently
   if ((getLangOpts().HLSL &&
-          (!getLangOpts().EnableOperatorOverloading ||
+          (getLangOpts().HLSLVersion < hlsl::LangStd::v2021 ||
            !hlsl::IsUserDefinedRecordType(LHSExpr->getType()))) ||
       !hlsl::DoesTypeDefineOverloadedOperator(
           LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),
@@ -10492,6 +10492,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     break;
   case BO_And:
     checkObjCPointerIntrospection(*this, LHS, RHS, OpLoc);
+    LLVM_FALLTHROUGH; // HLSL Change
   case BO_Xor:
   case BO_Or:
     ResultTy = CheckBitwiseOperands(LHS, RHS, OpLoc);
@@ -10534,6 +10535,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
   case BO_AndAssign:
   case BO_OrAssign: // fallthrough
 	  DiagnoseSelfAssignment(*this, LHS.get(), RHS.get(), OpLoc);
+          LLVM_FALLTHROUGH; // HLSL Change
   case BO_XorAssign:
     CompResultTy = CheckBitwiseOperands(LHS, RHS, OpLoc, true);
     CompLHSTy = CompResultTy;
@@ -10901,7 +10903,7 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
   // simply checks whether it is a user-defined type with operator overloading
   // methods or not.
   if (getLangOpts().CPlusPlus &&
-      (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+      (!getLangOpts().HLSL || getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) &&
       hlsl::IsUserDefinedRecordType(LHSExpr->getType()) &&
       hlsl::DoesTypeDefineOverloadedOperator(
           LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),

@@ -172,6 +172,15 @@ def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Disable source location tracking in IR. This will break diagnostic generation for late validation. (Ignored if /Zi is passed)">;
 
+
+def ftime_report : Flag<["-"], "ftime-report">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Print time report">;
+def ftime_trace : Flag<["-"], "ftime-trace">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Print hierchial time tracing to stdout">;
+def ftime_trace_EQ : Joined<["-"], "ftime-trace=">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Print hierchial time tracing to file">;
+
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
  Flags<[CoreOption]>;
@@ -304,12 +313,6 @@ def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group
   HelpText<"Enable generation of lifetime markers">;
 def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
-def enable_templates: Flag<["-", "/"], "enable-templates">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Enable template support for HLSL.">;
-def enable_operator_overloading: Flag<["-", "/"], "enable-operator-overloading">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Enable operator overloading support for HLSL.">;
-def strict_udt_casting: Flag<["-", "/"], "strict-udt-casting">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Require explicit casts between different structure types with compatible layouts.">;
 def enable_payload_qualifiers : Flag<["-", "/"], "enable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
   HelpText<"Enables support for payload access qualifiers for raytracing payloads in SM 6.6.">;
 def disable_payload_qualifiers : Flag<["-", "/"], "disable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
@@ -484,12 +487,6 @@ def Qkeep_reflect_in_dxil : Flag<["-", "/"], "Qkeep_reflect_in_dxil">,
 def Qstrip_reflect_from_dxil : Flag<["-", "/"], "Qstrip_reflect_from_dxil">,
   Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
-
-def enable_short_circuit : Flag<["-", "/"], "enable-short-circuit">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
-  HelpText<"Operators '&&', '||', and '?:' will short circuit, only accepting scalar inputs.  Use and(), or(), and select() intrinsics in place of non-short-circuiting vector operators.">;
-
-def enable_bitfields : Flag<["-", "/"], "enable-bitfields">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
-  HelpText<"Enables bitfields on struct members">;
 
 /*
 def shtemplate : JoinedOrSeparate<["-", "/"], "shtemplate">, MetaVarName<"<file>">, Group<hlslcomp_Group>,

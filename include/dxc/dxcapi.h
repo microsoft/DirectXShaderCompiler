@@ -476,10 +476,18 @@ typedef enum DXC_OUT_KIND {
   DXC_OUT_REFLECTION = 8,     // IDxcBlob - RDAT part with reflection data
   DXC_OUT_ROOT_SIGNATURE = 9, // IDxcBlob - Serialized root signature output
   DXC_OUT_EXTRA_OUTPUTS  = 10,// IDxcExtraResults - Extra outputs
-  DXC_OUT_REMARKS = 11,       // IDxcBlobUtf8 or IDxcBlobUtf16 - text directed at stdout
+  DXC_OUT_REMARKS = 11,       // IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout
+  DXC_OUT_TIME_REPORT = 12,   // IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout
+  DXC_OUT_TIME_TRACE = 13,   // IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout
 
+  DXC_OUT_LAST = DXC_OUT_TIME_TRACE, // Last value for a counter
+
+  DXC_OUT_NUM_ENUMS,
   DXC_OUT_FORCE_DWORD = 0xFFFFFFFF
 } DXC_OUT_KIND;
+
+static_assert(DXC_OUT_NUM_ENUMS == DXC_OUT_LAST + 1,
+              "DXC_OUT_* Enum added and last value not updated.");
 
 CROSS_PLATFORM_UUIDOF(IDxcResult, "58346CDA-DDE7-4497-9461-6F87AF5E0659")
 struct IDxcResult : public IDxcOperationResult {

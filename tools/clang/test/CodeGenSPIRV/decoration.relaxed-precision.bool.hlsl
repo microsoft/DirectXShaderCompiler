@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -HV 2018 -E main
 
 // According to the SPIR-V spec (2.14. Relaxed Precision):
 // The RelaxedPrecision decoration can be applied to:

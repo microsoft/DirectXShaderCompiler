@@ -312,7 +312,6 @@
 
 #define _Printf_format_string_
 #define _Null_terminated_
-#define __fallthrough
 
 #define _Field_size_(size)
 #define _Field_size_full_(size)

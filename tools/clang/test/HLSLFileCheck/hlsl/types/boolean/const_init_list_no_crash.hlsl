@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -HV 2018 %s | FileCheck %s
 
 // Regression test for bools in constant initialization lists crashing
 // due to a mismatch between register and memory representations (GitHub #1880, #1881)

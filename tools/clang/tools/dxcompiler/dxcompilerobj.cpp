@@ -24,7 +24,9 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/Timer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
@@ -636,6 +638,7 @@ public:
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _In_ REFIID riid, _Out_ LPVOID *ppResult      // IDxcResult: status, buffer, and errors
   ) override {
+    llvm::TimeTraceScope TimeScope("Compile", StringRef(""));
     if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr))
       return E_INVALIDARG;
@@ -1422,6 +1425,7 @@ public:
     }
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
+    compiler.getFrontendOpts().ShowTimers = Opts.TimeReport ? 1 : 0;
     // Setup debug information.
     if (Opts.GenerateFullDebugInfo()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
@@ -1482,16 +1486,10 @@ public:
     compiler.getLangOpts().HLSLVersion = Opts.HLSLVersion;
     compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
     compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
-    compiler.getLangOpts().EnableTemplates = Opts.EnableTemplates;
-    compiler.getLangOpts().EnableOperatorOverloading =
-        Opts.EnableOperatorOverloading;
-    compiler.getLangOpts().StrictUDTCasting = Opts.StrictUDTCasting;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
-    compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
-    compiler.getLangOpts().EnableBitfields = Opts.EnableBitfields;
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
 
@@ -1801,6 +1799,8 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     bool finished = false;
     CComPtr<IDxcOperationResult> pOperationResult;
     dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, &pOperationResult, finished);
+    if (!opts.TimeTrace.empty())
+      llvm::timeTraceProfilerInitialize();
     if (finished) {
       IFT(pOperationResult->QueryInterface(ppResult));
       return S_OK;
@@ -1842,6 +1842,23 @@ HRESULT DxcCompilerAdapter::WrapCompile(
 
     pResult->CopyOutputsFromResult(pImplResult);
     pResult->SetStatusAndPrimaryResult(hr, pImplResult->PrimaryOutput());
+
+    if (opts.TimeReport) {
+      std::string TimeReport;
+      raw_string_ostream OS(TimeReport);
+      llvm::TimerGroup::printAll(OS);
+      IFT(pResult->SetOutputString(DXC_OUT_TIME_REPORT, TimeReport.c_str(),
+                                   TimeReport.size()));
+    }
+
+    if (llvm::timeTraceProfilerEnabled()) {
+      std::string TimeTrace;
+      raw_string_ostream OS(TimeTrace);
+      llvm::timeTraceProfilerWrite(OS);
+      llvm::timeTraceProfilerCleanup();
+      IFT(pResult->SetOutputString(DXC_OUT_TIME_TRACE, TimeTrace.c_str(),
+                                   TimeTrace.size()));
+    }
 
     outStream.flush();
 

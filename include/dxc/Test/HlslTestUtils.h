@@ -25,9 +25,14 @@
 #include "dxc/Support/Global.h" // DXASSERT_LOCALVAR
 #include "WEXAdapter.h"
 #endif
-#include "dxc/Support/Unicode.h"
-#include "dxc/Test/TestConfig.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
+
+#ifdef _HLK_CONF
+#define DEFAULT_TEST_DIR L""
+#define DEFAULT_EXEC_TEST_DIR DEFAULT_TEST_DIR
+#else
+#include "dxc/Test/TestConfig.h"
+#endif
 
 using namespace std;
 
@@ -205,7 +210,7 @@ inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
     WEX::Logging::Log::Error(buf.data());
 }
 
-inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM) {
+inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM, LPCWSTR defaultDataDir = DEFAULT_TEST_DIR) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   WEX::Common::String HlslDataDirValue;
   if (std::wstring(paramName).compare(HLSLDATAFILEPARAM) != 0) {
@@ -214,7 +219,7 @@ inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR param
       return std::wstring();
   } else {
     if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue)))
-      HlslDataDirValue = DEFAULT_TEST_DIR;
+      HlslDataDirValue = defaultDataDir;
   }
 
   wchar_t envPath[MAX_PATH];
@@ -313,6 +318,42 @@ inline HANDLE CreateNewFileForReadWrite(LPCWSTR path) {
   return sourceHandle;
 }
 
+// Copy of Unicode::IsStarMatchT/IsStarMatchWide is included here to avoid the dependency on
+// DXC support libraries.
+template<typename TChar>
+inline static
+bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName, size_t nameLen, TChar star) {
+  if (maskLen == 0 && nameLen == 0) {
+    return true;
+  }
+  if (maskLen == 0 || nameLen == 0) {
+    return false;
+  }
+
+  if (pMask[maskLen - 1] == star) {
+    // Prefix match.
+    if (maskLen == 1) { // For just '*', everything is a match.
+      return true;
+    }
+    --maskLen;
+    if (maskLen > nameLen) { // Mask is longer than name, can't be a match.
+      return false;
+    }
+    return 0 == memcmp(pMask, pName, sizeof(TChar) * maskLen);
+  }
+  else {
+    // Exact match.
+    if (nameLen != maskLen) {
+      return false;
+    }
+    return 0 == memcmp(pMask, pName, sizeof(TChar) * nameLen);
+  }
+}
+
+inline bool IsStarMatchWide(const wchar_t *pMask, size_t maskLen, const wchar_t *pName, size_t nameLen) {
+  return IsStarMatchT<wchar_t>(pMask, maskLen, pName, nameLen, L'*');
+}
+
 inline bool GetTestParamBool(LPCWSTR name) {
   WEX::Common::String ParamValue;
   WEX::Common::String NameValue;
@@ -331,8 +372,9 @@ inline bool GetTestParamBool(LPCWSTR name) {
   if (NameValue.IsEmpty()) {
     return false;
   }
-  return Unicode::IsStarMatchWide(ParamValue, ParamValue.GetLength(),
-                                  NameValue, NameValue.GetLength());
+
+  return hlsl_test::IsStarMatchWide(ParamValue, ParamValue.GetLength(),
+                                    NameValue, NameValue.GetLength());
 }
 
 inline bool GetTestParamUseWARP(bool defaultVal) {
@@ -406,91 +448,9 @@ inline bool isnanFloat16(uint16_t val) {
          (val & FLOAT16_BIT_MANTISSA) != 0;
 }
 
-inline uint16_t ConvertFloat32ToFloat16(float val) {
-  union Bits {
-    uint32_t u_bits;
-    float f_bits;
-  };
-
-  static const uint32_t SignMask = 0x8000;
-
-  // Minimum f32 value representable in f16 format without denormalizing
-  static const uint32_t Min16in32 = 0x38800000;
-
-  // Maximum f32 value (next to infinity)
-  static const uint32_t Max32 = 0x7f7FFFFF;
-
-  // Mask for f32 mantissa
-  static const uint32_t Fraction32Mask = 0x007FFFFF;
-
-  // pow(2,24)
-  static const uint32_t DenormalRatio = 0x4B800000;
-
-  static const uint32_t NormalDelta = 0x38000000;
-
-  Bits bits;
-  bits.f_bits = val;
-  uint32_t sign = bits.u_bits & (SignMask << 16);
-  Bits Abs;
-  Abs.u_bits = bits.u_bits ^ sign;
-
-  bool isLessThanNormal = Abs.f_bits < *(const float*)&Min16in32;
-  bool isInfOrNaN = Abs.u_bits > Max32;
-
-  if (isLessThanNormal) {
-    // Compute Denormal result
-    return (uint16_t)(Abs.f_bits * *(const float*)(&DenormalRatio)) | (uint16_t)(sign >> 16);
-  }
-  else if (isInfOrNaN) {
-    // Compute Inf or Nan result
-    uint32_t Fraction = Abs.u_bits & Fraction32Mask;
-    uint16_t IsNaN = Fraction == 0 ? 0 : 0xffff;
-    return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
-  }
-  else {
-    // Compute Normal result
-    return (uint16_t)((Abs.u_bits - NormalDelta) >> 13) | (uint16_t)(sign >> 16);
-  }
-}
-
-inline float ConvertFloat16ToFloat32(uint16_t x) {
- union Bits {
-    float f_bits;
-    uint32_t u_bits;
-  };
-
-  uint32_t Sign = (x & FLOAT16_BIT_SIGN) << 16;
-
-  // nan -> exponent all set and mantisa is non zero
-  // +/-inf -> exponent all set and mantissa is zero
-  // denorm -> exponent zero and significand nonzero
-  uint32_t Abs = (x & 0x7fff);
-  uint32_t IsNormal = Abs > FLOAT16_BIGGEST_DENORM;
-  uint32_t IsInfOrNaN = Abs > FLOAT16_BIGGEST_NORMAL;
-
-  // Signless Result for normals
-  uint32_t DenormRatio = 0x33800000;
-  float DenormResult = Abs * (*(float*)&DenormRatio);
-
-  uint32_t AbsShifted = Abs << 13;
-  // Signless Result for normals
-  uint32_t NormalResult = AbsShifted + 0x38000000;
-  // Signless Result for int & nans
-  uint32_t InfResult = AbsShifted + 0x70000000;
-
-  Bits bits;
-  bits.u_bits = 0;
-  if (IsInfOrNaN)
-    bits.u_bits |= InfResult;
-  else if (IsNormal)
-    bits.u_bits |= NormalResult;
-  else
-    bits.f_bits = DenormResult;
-  bits.u_bits |= Sign;
-  return bits.f_bits;
-}
-uint16_t ConvertFloat32ToFloat16(float val);
-float ConvertFloat16ToFloat32(uint16_t val);
+// These are defined in ShaderOpTest.cpp using DirectXPackedVector functions.
+uint16_t ConvertFloat32ToFloat16(float val) throw();
+float ConvertFloat16ToFloat32(uint16_t val) throw();
 
 inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance,
                             hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {

@@ -520,55 +520,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.EnableFXCCompatMode = true;
   }
 
-  // If the HLSL version is 2021, allow the 2021 features by default.
-  // If the HLSL version is 2016 or 2018, allow them only
-  // when the individual option is enabled.
-  // If the HLSL version is 2015, dissallow these features
-  if (opts.HLSLVersion >= hlsl::LangStd::v2021) {
-    // Enable operator overloading in structs
-    opts.EnableOperatorOverloading = true;
-    // Enable template support
-    opts.EnableTemplates = true;
-    // Determine overload matching based on UDT names, not just types
-    opts.StrictUDTCasting = true;
-    // Experimental option to enable short-circuiting operators
-    opts.EnableShortCircuit = true;
-    // Enable bitfield support
-    opts.EnableBitfields = true;
-
-  } else {
-    opts.EnableOperatorOverloading = Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
-    opts.EnableTemplates = Args.hasFlag(OPT_enable_templates, OPT_INVALID, false);
-    opts.StrictUDTCasting = Args.hasFlag(OPT_strict_udt_casting, OPT_INVALID, false);
-    opts.EnableShortCircuit = Args.hasFlag(OPT_enable_short_circuit, OPT_INVALID, false);
-    opts.EnableBitfields = Args.hasFlag(OPT_enable_bitfields, OPT_INVALID, false);
-
-    if (opts.HLSLVersion <= hlsl::LangStd::v2015) {
-
-      if (opts.EnableOperatorOverloading)
-        errors << "/enable-operator-overloading is not supported with HLSL "
-                  "Version "
-               << (unsigned long)opts.HLSLVersion;
-      if (opts.EnableTemplates)
-        errors << "/enable-templates is not supported with HLSL Version "
-               << (unsigned long)opts.HLSLVersion;
-
-      if (opts.StrictUDTCasting)
-        errors << "/enable-udt-casting is not supported with HLSL Version "
-               << (unsigned long)opts.HLSLVersion;
-
-      if (opts.EnableShortCircuit)
-        errors << "/enable-short-circuit is not supported with HLSL Version "
-               << (unsigned long)opts.HLSLVersion;
-
-      if (opts.EnableBitfields)
-        errors << "/enable-bitfields is not supported with HLSL Version "
-               << (unsigned long)opts.HLSLVersion;
-
-      return 1;
-    }
-  }
-
   // AssemblyCodeHex not supported (Fx)
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
@@ -830,6 +781,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
   opts.ForceDisableLocTracking =
       Args.hasFlag(OPT_fdisable_loc_tracking, OPT_INVALID, false);
+  opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
+  opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
+  if (Args.hasArg(OPT_ftime_trace_EQ))
+    opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
 

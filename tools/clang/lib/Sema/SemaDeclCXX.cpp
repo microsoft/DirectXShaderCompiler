@@ -3403,7 +3403,7 @@ BuildImplicitBaseInitializer(Sema &SemaRef, CXXConstructorDecl *Constructor,
       break;
     }
   }
-  // Fall through.
+  LLVM_FALLTHROUGH; // HLSL Change
   case IIK_Default: {
     InitializationKind InitKind
       = InitializationKind::CreateDefault(Constructor->getLocation());
@@ -7022,7 +7022,7 @@ void Sema::CheckConversionDeclarator(Declarator &D, QualType &R,
           PastFunctionChunk = true;
           break;
         }
-        // Fall through.
+        LLVM_FALLTHROUGH; // HLSL Change
       case DeclaratorChunk::Array:
         NeedsTypedef = true;
         extendRight(After, Chunk.getSourceRange());
@@ -11318,7 +11318,7 @@ static bool hasOneRealArgument(MultiExprArg Args) {
     if (!Args[1]->isDefaultArgument())
       return false;
     
-    // fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case 1:
     return !Args[0]->isDefaultArgument();
   }
@@ -13598,6 +13598,7 @@ bool Sema::checkThisInStaticMemberFunctionExceptionSpec(CXXMethodDecl *Method) {
   case EST_ComputedNoexcept:
     if (!Finder.TraverseStmt(Proto->getNoexceptExpr()))
       return true;
+      LLVM_FALLTHROUGH; // HLSL Change
     
   case EST_Dynamic:
     for (const auto &E : Proto->exceptions()) {

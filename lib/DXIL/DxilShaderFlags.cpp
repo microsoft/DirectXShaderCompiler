@@ -481,7 +481,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
               !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset1OpIdx)) ||
               !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset2OpIdx)))
             hasAdvancedTextureOps = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case DXIL::OpCode::BufferLoad: {
           if (hasMulticomponentUAVLoads) continue;
           // This is the old-style computation (overestimating requirements).
@@ -551,7 +551,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
               !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
               !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
             hasAdvancedTextureOps = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case DXIL::OpCode::DerivFineX:
         case DXIL::OpCode::DerivFineY:
         case DXIL::OpCode::DerivCoarseX:
@@ -579,7 +579,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         } break;
         case DXIL::OpCode::TextureStoreSample:
           hasWriteableMSAATextures = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case DXIL::OpCode::SampleCmpLevel:
         case DXIL::OpCode::TextureGatherRaw:
           hasAdvancedTextureOps = true;

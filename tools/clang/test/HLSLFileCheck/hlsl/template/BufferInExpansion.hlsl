@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_5 -enable-templates -ast-dump %s | FileCheck %s
+// RUN: %dxc -T cs_6_5 -HV 2021 -ast-dump %s | FileCheck %s
 
 struct ConstantsStruct
 {

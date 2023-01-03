@@ -956,6 +956,7 @@ HRESULT CShaderReflectionType::Initialize(
       OutputDebugStringA("DxilContainerReflection.cpp: error: unknown matrix orientation\n");
 #endif
     // Note: column-major layout is the default
+    LLVM_FALLTHROUGH; // HLSL Change
     case hlsl::MatrixOrientation::Undefined:
     case hlsl::MatrixOrientation::ColumnMajor:
       m_Desc.Class = D3D_SVC_MATRIX_COLUMNS;
@@ -2557,6 +2558,7 @@ protected:
   typedef SmallSetVector<UINT32, 8> ResourceUseSet;
   ResourceUseSet m_UsedResources;
   ResourceUseSet m_UsedCBs;
+  UINT64 m_FeatureFlags;
 
 public:
   void Initialize(DxilLibraryReflection* pLibraryReflection, Function *pFunction) {
@@ -2577,6 +2579,9 @@ public:
   }
   void AddCBReference(UINT cbIndex) {
     m_UsedCBs.insert(cbIndex);
+  }
+  void SetFeatureFlags(UINT64 flags) {
+    m_FeatureFlags = flags;
   }
 
   // ID3D12FunctionReflection
@@ -2640,7 +2645,12 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   //Unset:  UINT                    ConversionInstructionCount;  // Number of type conversion instructions used
   //Unset:  UINT                    BitwiseInstructionCount;     // Number of bitwise arithmetic instructions used
   //Unset:  D3D_FEATURE_LEVEL       MinFeatureLevel;             // Min target of the function byte code
-  //Unset:  UINT64                  RequiredFeatureFlags;        // Required feature flags
+
+  pDesc->RequiredFeatureFlags = m_FeatureFlags & ~(UINT64)D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
+  if (kind == DXIL::ShaderKind::Pixel && m_pProps &&
+      m_pProps->ShaderProps.PS.EarlyDepthStencil) {
+    pDesc->RequiredFeatureFlags |= D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
+  }
 
   pDesc->Name = m_Name.c_str();
 
@@ -2704,10 +2714,10 @@ void DxilLibraryReflection::AddResourceDependencies() {
       switch (prevClass) {
       case DXIL::ResourceClass::Sampler:
         SamplersStart = i;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case DXIL::ResourceClass::SRV:
         SRVsStart = i;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case DXIL::ResourceClass::UAV:
         UAVsStart = i;
         break;
@@ -2727,6 +2737,8 @@ void DxilLibraryReflection::AddResourceDependencies() {
     func->Initialize(this, F);
     m_FunctionsByPtr[F] = func.get();
     orderedMap[FR.getName()] = func.get();
+
+    func->SetFeatureFlags(FR.GetFeatureFlags());
 
     for (unsigned iRes = 0; iRes < FR.getResources().Count(); ++iRes) {
       auto RR = FR.getResources()[iRes];

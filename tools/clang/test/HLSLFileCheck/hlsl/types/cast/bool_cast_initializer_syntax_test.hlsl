@@ -1,4 +1,4 @@
-// RUN: %dxc /T ps_6_0 /E main %s | FileCheck %s
+// RUN: %dxc /T ps_6_0 /E main -HV 2018 %s | FileCheck %s
 
 // Ensure that when casting to bool, we never use fptoui or fptosi instruction
 // CHECK-NOT: fptoui

@@ -24,7 +24,6 @@
 
 #include "dxc/dxcapi.h"             // IDxcCompiler
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/Unicode.h"    // IsStarMatchWide
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
@@ -32,6 +31,7 @@
 
 #include <stdlib.h>
 #include <DirectXMath.h>
+#include <DirectXPackedVector.h>
 #include <intsafe.h>
 #include <strsafe.h>
 #include <xmllite.h>
@@ -39,6 +39,13 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 // Useful helper functions.
+
+uint16_t ConvertFloat32ToFloat16(float Value) throw() {
+  return DirectX::PackedVector::XMConvertFloatToHalf(Value);
+}
+float ConvertFloat16ToFloat32(uint16_t Value) throw() {
+  return DirectX::PackedVector::XMConvertHalfToFloat(Value);
+}
 
 static st::OutputStringFn g_OutputStrFn;
 static void * g_OutputStrFnCtx;
@@ -104,8 +111,8 @@ bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
 
   if (!AdapterName)
     return true;
-  return Unicode::IsStarMatchWide(AdapterName, wcslen(AdapterName),
-                                   desc.Description, wcslen(desc.Description));
+  return hlsl_test::IsStarMatchWide(AdapterName, wcslen(AdapterName),
+                                    desc.Description, wcslen(desc.Description));
 }
 
 void GetHardwareAdapter(IDXGIFactory2 *pFactory, LPCWSTR AdapterName,

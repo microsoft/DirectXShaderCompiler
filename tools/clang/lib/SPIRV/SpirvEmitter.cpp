@@ -20,6 +20,7 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/String.h"
@@ -1097,7 +1098,7 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     result = doArraySubscriptExpr(subscriptExpr, range);
   } else if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
     // Beginning with HLSL 2021, the ternary operator is short-circuited.
-    if (getCompilerInstance().getLangOpts().EnableShortCircuit) {
+    if (getCompilerInstance().getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
       result = doShortCircuitedConditionalOperator(condExpr);
     } else {
       const Expr *cond = condExpr->getCond();
@@ -2667,7 +2668,7 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
             dyn_cast<CXXMethodDecl>(operatorCall->getCalleeDecl())) {
       QualType parentType =
           QualType(cxxMethodDecl->getParent()->getTypeForDecl(), 0);
-      if (isUserDefinedRecordType(astContext, parentType)) {
+      if (hlsl::IsUserDefinedRecordType(parentType)) {
         // If the parent is a user-defined record type
         return processCall(callExpr);
       }
@@ -5002,6 +5003,7 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     break;
   case IntrinsicOp::MOP_CalculateLevelOfDetail:
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ false);
+    break;
   case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ true);
     break;
@@ -6439,7 +6441,7 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
   // Beginning with HLSL 2021, logical operators are short-circuited,
   // and can only be used with scalar types.
   if ((opcode == BO_LAnd || opcode == BO_LOr) &&
-      getCompilerInstance().getLangOpts().EnableShortCircuit) {
+      getCompilerInstance().getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
 
     // We translate short-circuited operators as follows:
     // A && B =>
@@ -6541,7 +6543,7 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
     rhsVal = spvBuilder.createBinaryOp(spv::Op::OpBitwiseAnd, computationType,
                                        rhsVal, getMaskForBitwidthValue(rhsType),
                                        loc, sourceRange);
-    // Fall through
+    LLVM_FALLTHROUGH;
   case BO_Add:
   case BO_Sub:
   case BO_Mul:
@@ -6704,7 +6706,7 @@ bool SpirvEmitter::isVectorShuffle(const Expr *expr) {
 }
 
 bool SpirvEmitter::isShortCircuitedOp(const Expr *expr) {
-  if (!expr || !getCompilerInstance().getLangOpts().EnableShortCircuit) {
+  if (!expr || astContext.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     return false;
   }
 
@@ -11140,11 +11142,13 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     break;
   case hlsl::IntrinsicOp::IOP_ObjectToWorld3x4:
     transposeMatrix = true;
+    LLVM_FALLTHROUGH;
   case hlsl::IntrinsicOp::IOP_ObjectToWorld4x3:
     builtin = spv::BuiltIn::ObjectToWorldNV;
     break;
   case hlsl::IntrinsicOp::IOP_WorldToObject3x4:
     transposeMatrix = true;
+    LLVM_FALLTHROUGH;
   case hlsl::IntrinsicOp::IOP_WorldToObject4x3:
     builtin = spv::BuiltIn::WorldToObjectNV;
     break;

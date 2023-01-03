@@ -1356,6 +1356,7 @@ const Function *DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
+    LLVM_FALLTHROUGH;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
@@ -1719,6 +1720,7 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
+    LLVM_FALLTHROUGH;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
@@ -1867,7 +1869,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const char * Text;
     const void * Data;
@@ -1914,7 +1916,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   case DXIL::SubobjectKind::HitGroup: {
     llvm::StringRef Intersection, AnyHit, ClosestHit;
     DXIL::HitGroupType hgType;
-    IFTBOOL(obj.GetHitGroup(hgType, Intersection, AnyHit, ClosestHit),
+    IFTBOOL(obj.GetHitGroup(hgType, AnyHit, ClosestHit, Intersection),
       DXC_E_INCORRECT_DXIL_METADATA);
     Args.emplace_back(Uint32ToConstMD((uint32_t)hgType));
     Args.emplace_back(MDString::get(m_Ctx, Intersection));
@@ -1955,7 +1957,7 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const MDNode *pDataMDWrapper = dyn_cast<MDNode>(MD.getOperand(i++));
     IFTBOOL(pDataMDWrapper != nullptr, DXC_E_INCORRECT_DXIL_METADATA);

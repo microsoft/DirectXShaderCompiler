@@ -102,7 +102,7 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
   case Semantic::Kind::DepthLessEqual: return DxilProgramSigSemantic::DepthLE;
   case Semantic::Kind::DepthGreaterEqual: return DxilProgramSigSemantic::DepthGE;
   case Semantic::Kind::StencilRef:
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   default:
     DXASSERT(kind == Semantic::Kind::StencilRef, "else Invalid or switch is missing a case");
     return DxilProgramSigSemantic::StencilRef;
@@ -127,7 +127,7 @@ static DxilProgramSigCompType CompTypeToSigCompType(hlsl::CompType value, bool i
   case CompType::Kind::U64: return DxilProgramSigCompType::UInt64;
   case CompType::Kind::F16: return DxilProgramSigCompType::Float16;
   case CompType::Kind::F64: return DxilProgramSigCompType::Float64;
-  case CompType::Kind::Invalid: __fallthrough;
+  case CompType::Kind::Invalid: LLVM_FALLTHROUGH;
   default:
     return DxilProgramSigCompType::Unknown;
   }
@@ -139,13 +139,13 @@ static DxilProgramSigMinPrecision CompTypeToSigMinPrecision(hlsl::CompType value
   case CompType::Kind::U32: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::F32: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::I1: return DxilProgramSigMinPrecision::Default;
-  case CompType::Kind::U64: __fallthrough;
-  case CompType::Kind::I64: __fallthrough;
+  case CompType::Kind::U64: LLVM_FALLTHROUGH;
+  case CompType::Kind::I64: LLVM_FALLTHROUGH;
   case CompType::Kind::F64: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::I16: return DxilProgramSigMinPrecision::SInt16;
   case CompType::Kind::U16: return DxilProgramSigMinPrecision::UInt16;
   case CompType::Kind::F16: return DxilProgramSigMinPrecision::Float16; // Float2_8 is not supported in DXIL.
-  case CompType::Kind::Invalid: __fallthrough;
+  case CompType::Kind::Invalid: LLVM_FALLTHROUGH;
   default:
     return DxilProgramSigMinPrecision::Default;
   }
@@ -442,6 +442,180 @@ DxilPartWriter *hlsl::NewFeatureInfoWriter(const DxilModule &M) {
   return new DxilFeatureInfoWriter(M);
 }
 
+
+//////////////////////////////////////////////////////////
+// Utility code for serializing/deserializing ViewID state
+
+// Code for ComputeSeriaizedViewIDStateSizeInUInts copied from
+// ComputeViewIdState. It could be moved into some common location if this
+// ViewID serialization/deserialization code were moved out of here.
+static unsigned RoundUpToUINT(unsigned x) { return (x + 31) / 32; }
+static unsigned ComputeSeriaizedViewIDStateSizeInUInts(
+    const PSVShaderKind SK, const bool bUsesViewID,
+    const unsigned InputScalars, const unsigned OutputScalars[4],
+    const unsigned PCScalars) {
+  // Compute serialized state size in UINTs.
+  unsigned NumStreams = SK == PSVShaderKind::Geometry ? 4 : 1;
+  unsigned Size = 0;
+  Size += 1; // #Inputs.
+  for (unsigned StreamId = 0; StreamId < NumStreams; StreamId++) {
+    Size += 1; // #Outputs for stream StreamId.
+    unsigned NumOutputs = OutputScalars[StreamId];
+    unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
+    if (bUsesViewID) {
+      Size += NumOutUINTs; // m_OutputsDependentOnViewId[StreamId]
+    }
+    Size += InputScalars * NumOutUINTs; // m_InputsContributingToOutputs[StreamId]
+  }
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Domain || SK == PSVShaderKind::Mesh) {
+    Size += 1; // #PatchConstant.
+    unsigned NumPCUINTs = RoundUpToUINT(PCScalars);
+    if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
+      if (bUsesViewID) {
+        Size += NumPCUINTs; // m_PCOrPrimOutputsDependentOnViewId
+      }
+      Size += InputScalars * NumPCUINTs; // m_InputsContributingToPCOrPrimOutputs
+    } else {
+      unsigned NumOutputs = OutputScalars[0];
+      unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
+      Size += PCScalars * NumOutUINTs; // m_PCInputsContributingToOutputs
+    }
+  }
+  return Size;
+}
+
+static const uint32_t *CopyViewIDStateForOutputToPSV(
+    const uint32_t *pSrc, uint32_t InputScalars, uint32_t OutputScalars,
+    PSVComponentMask ViewIDMask, PSVDependencyTable IOTable) {
+  unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
+  if (ViewIDMask.IsValid()) {
+    DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
+    memcpy(ViewIDMask.Mask, pSrc, 4 * MaskDwords);
+    pSrc += MaskDwords;
+  }
+  if (IOTable.IsValid() && IOTable.InputVectors && IOTable.OutputVectors) {
+    DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
+    DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
+    memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
+    pSrc += MaskDwords * InputScalars;
+  }
+  return pSrc;
+}
+
+static uint32_t *CopyViewIDStateForOutputFromPSV(uint32_t *pOutputData,
+                                                 const unsigned InputScalars,
+                                                 const unsigned OutputScalars,
+                                                 PSVComponentMask ViewIDMask,
+                                                 PSVDependencyTable IOTable) {
+  unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
+  if (ViewIDMask.IsValid()) {
+    DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
+    for (unsigned i = 0; i < MaskDwords; i++)
+      *(pOutputData++) = ViewIDMask.Mask[i];
+  }
+  if (IOTable.IsValid() && IOTable.InputVectors && IOTable.OutputVectors) {
+    DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
+    DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
+    for (unsigned i = 0; i < MaskDwords * InputScalars; i++)
+      *(pOutputData++) = IOTable.Table[i];
+  }
+  return pOutputData;
+}
+
+void hlsl::StoreViewIDStateToPSV(const uint32_t *pInputData,
+                           unsigned InputSizeInUInts,
+                           DxilPipelineStateValidation &PSV) {
+  PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
+  DXASSERT(pInfo1, "otherwise, PSV does not meet version requirement.");
+  PSVShaderKind SK = static_cast<PSVShaderKind>(pInfo1->ShaderStage);
+  const unsigned OutputStreams = SK == PSVShaderKind::Geometry ? 4 : 1;
+  const uint32_t *pSrc = pInputData;
+  const uint32_t InputScalars = *(pSrc++);
+  uint32_t OutputScalars[4];
+  for (unsigned streamIndex = 0; streamIndex < OutputStreams; streamIndex++) {
+    OutputScalars[streamIndex] = *(pSrc++);
+    pSrc = CopyViewIDStateForOutputToPSV(
+        pSrc, InputScalars, OutputScalars[streamIndex],
+        PSV.GetViewIDOutputMask(streamIndex),
+        PSV.GetInputToOutputTable(streamIndex));
+  }
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
+    const uint32_t PCScalars = *(pSrc++);
+    pSrc = CopyViewIDStateForOutputToPSV(pSrc, InputScalars, PCScalars,
+                                         PSV.GetViewIDPCOutputMask(),
+                                         PSV.GetInputToPCOutputTable());
+  } else if (SK == PSVShaderKind::Domain) {
+    const uint32_t PCScalars = *(pSrc++);
+    pSrc = CopyViewIDStateForOutputToPSV(pSrc, PCScalars, OutputScalars[0],
+                                         PSVComponentMask(),
+                                         PSV.GetPCInputToOutputTable());
+  }
+  DXASSERT(pSrc - pInputData == InputSizeInUInts,
+           "otherwise, different amout of data written than expected.");
+}
+
+// This function is defined close to the serialization code in DxilPSVWriter to
+// reduce the chance of a mismatch.  It could be defined elsewhere, but it would
+// make sense to move both the serialization and deserialization out of here and
+// into a common location.
+unsigned hlsl::LoadViewIDStateFromPSV(unsigned *pOutputData,
+                                      unsigned OutputSizeInUInts,
+                                      const DxilPipelineStateValidation &PSV) {
+  PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
+  if (!pInfo1) {
+    return 0;
+  }
+  PSVShaderKind SK = static_cast<PSVShaderKind>(pInfo1->ShaderStage);
+  const unsigned OutputStreams = SK == PSVShaderKind::Geometry ? 4 : 1;
+  const unsigned InputScalars = pInfo1->SigInputVectors * 4;
+  unsigned OutputScalars[4];
+  for (unsigned streamIndex = 0; streamIndex < OutputStreams; streamIndex++) {
+    OutputScalars[streamIndex] = pInfo1->SigOutputVectors[streamIndex] * 4;
+  }
+  unsigned PCScalars = 0;
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh ||
+      SK == PSVShaderKind::Domain) {
+    PCScalars = pInfo1->SigPatchConstOrPrimVectors * 4;
+  }
+  if (pOutputData == nullptr) {
+    return ComputeSeriaizedViewIDStateSizeInUInts(
+        SK, pInfo1->UsesViewID != 0, InputScalars, OutputScalars, PCScalars);
+  }
+
+  // Fill in serialized viewid buffer.
+  DXASSERT(ComputeSeriaizedViewIDStateSizeInUInts(
+               SK, pInfo1->UsesViewID != 0, InputScalars, OutputScalars,
+               PCScalars) == OutputSizeInUInts,
+           "otherwise, OutputSize doesn't match computed size.");
+  unsigned *pStartOutputData = pOutputData;
+  *(pOutputData++) = InputScalars;
+  for (unsigned streamIndex = 0; streamIndex < OutputStreams; streamIndex++) {
+    *(pOutputData++) = OutputScalars[streamIndex];
+    pOutputData = CopyViewIDStateForOutputFromPSV(
+        pOutputData, InputScalars, OutputScalars[streamIndex],
+        PSV.GetViewIDOutputMask(streamIndex),
+        PSV.GetInputToOutputTable(streamIndex));
+  }
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
+    *(pOutputData++) = PCScalars;
+    pOutputData = CopyViewIDStateForOutputFromPSV(
+        pOutputData, InputScalars, PCScalars, PSV.GetViewIDPCOutputMask(),
+        PSV.GetInputToPCOutputTable());
+  } else if (SK == PSVShaderKind::Domain) {
+    *(pOutputData++) = PCScalars;
+    pOutputData = CopyViewIDStateForOutputFromPSV(
+        pOutputData, PCScalars, OutputScalars[0], PSVComponentMask(),
+        PSV.GetPCInputToOutputTable());
+  }
+  DXASSERT(pOutputData - pStartOutputData == OutputSizeInUInts,
+           "otherwise, OutputSizeInUInts didn't match size written.");
+  return pOutputData - pStartOutputData;
+}
+
+
+//////////////////////////////////////////////////////////
+// DxilPSVWriter - Writes PSV0 part
+
 class DxilPSVWriter : public DxilPartWriter  {
 private:
   const DxilModule &m_Module;
@@ -507,22 +681,6 @@ private:
     DXASSERT_NOMSG(SE.GetOutputStream() < 4);
     E.DynamicMaskAndStream = (uint8_t)((SE.GetOutputStream() & 0x3) << 4);
     E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
-  }
-
-  const uint32_t *CopyViewIDState(const uint32_t *pSrc, uint32_t InputScalars, uint32_t OutputScalars, PSVComponentMask ViewIDMask, PSVDependencyTable IOTable) {
-    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
-    if (ViewIDMask.IsValid()) {
-      DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
-      memcpy(ViewIDMask.Mask, pSrc, 4 * MaskDwords);
-      pSrc += MaskDwords;
-    }
-    if (IOTable.IsValid() && IOTable.InputVectors && IOTable.OutputVectors) {
-      DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
-      DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
-      memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
-      pSrc += MaskDwords * InputScalars;
-    }
-    return pSrc;
   }
 
 public:
@@ -840,23 +998,7 @@ public:
       // Gather ViewID dependency information
       auto &viewState = m_Module.GetSerializedViewIdState();
       if (!viewState.empty()) {
-        const uint32_t *pSrc = viewState.data();
-        const uint32_t InputScalars = *(pSrc++);
-        uint32_t OutputScalars[4];
-        for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
-          OutputScalars[streamIndex] = *(pSrc++);
-          pSrc = CopyViewIDState(pSrc, InputScalars, OutputScalars[streamIndex], m_PSV.GetViewIDOutputMask(streamIndex), m_PSV.GetInputToOutputTable(streamIndex));
-          if (!SM->IsGS())
-            break;
-        }
-        if (SM->IsHS() || SM->IsMS()) {
-          const uint32_t PCScalars = *(pSrc++);
-          pSrc = CopyViewIDState(pSrc, InputScalars, PCScalars, m_PSV.GetViewIDPCOutputMask(), m_PSV.GetInputToPCOutputTable());
-        } else if (SM->IsDS()) {
-          const uint32_t PCScalars = *(pSrc++);
-          pSrc = CopyViewIDState(pSrc, PCScalars, OutputScalars[0], PSVComponentMask(), m_PSV.GetPCInputToOutputTable());
-        }
-        DXASSERT_NOMSG(viewState.data() + viewState.size() == pSrc);
+        StoreViewIDStateToPSV(viewState.data(), (unsigned)viewState.size(), m_PSV);
       }
     }
 
@@ -1329,7 +1471,7 @@ private:
         break;
       case DXIL::SubobjectKind::LocalRootSignature:
         bLocalRS = true;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case DXIL::SubobjectKind::GlobalRootSignature: {
         const void *Data;
         obj.GetRootSignature(bLocalRS, Data, info.RootSignature.Data.Size);
