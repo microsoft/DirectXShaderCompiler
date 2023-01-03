@@ -1,5 +1,5 @@
 #include "dxc/Support/Global.h"
-#include "dxc/DxilRDATBuilder/DxilRDATBuilder.h"
+#include "dxc/DxilContainer/DxilRDATBuilder.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/Support/FileIOHelper.h"
 
