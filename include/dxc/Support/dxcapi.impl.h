@@ -97,13 +97,16 @@ inline DxcOutputType DxcGetOutputType(DXC_OUT_KIND kind) {
   case DXC_OUT_HLSL:
   case DXC_OUT_TEXT:
   case DXC_OUT_REMARKS:
+  case DXC_OUT_TIME_REPORT:
+  case DXC_OUT_TIME_TRACE:
     return DxcOutputType_Text;
+  default:
+    return DxcOutputType_None;
   }
-  return DxcOutputType_None;
 }
 
 // Update when new results are allowed
-static const unsigned kNumDxcOutputTypes = DXC_OUT_REMARKS;
+static const unsigned kNumDxcOutputTypes = DXC_OUT_LAST;
 static const SIZE_T kAutoSize = (SIZE_T)-1;
 static const LPCWSTR DxcOutNoName = nullptr;
 

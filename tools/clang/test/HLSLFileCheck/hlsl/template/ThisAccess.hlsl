@@ -1,5 +1,5 @@
-// RUN: %dxc -T cs_6_6 -E main -enable-templates -ast-dump %s | FileCheck %s
 // RUN: %dxc -T cs_6_6 -E main -HV 2021 -ast-dump %s | FileCheck %s
+
 
 template<typename K, typename V>
 struct pair {

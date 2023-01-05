@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_6_0 -O0 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 -O0 -HV 2018 %s | FileCheck %s
 
 // CHECK: threadId
 // CHECK: bufferLoad

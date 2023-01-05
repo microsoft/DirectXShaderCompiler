@@ -2182,6 +2182,7 @@ bool llvm::ComputeMultiple(Value *V, unsigned Base, Value *&Multiple,
   case Instruction::SExt:
     if (!LookThroughSExt) return false;
     // otherwise fall through to ZExt
+    LLVM_FALLTHROUGH; // HLSL Change
   case Instruction::ZExt:
     return ComputeMultiple(I->getOperand(0), Base, Multiple,
                            LookThroughSExt, Depth+1);
@@ -2331,7 +2332,7 @@ bool llvm::CannotBeOrderedLessThanZero(const Value *V, unsigned Depth) {
     // x*x is always non-negative or a NaN.
     if (I->getOperand(0) == I->getOperand(1)) 
       return true;
-    // Fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case Instruction::FAdd:
   case Instruction::FDiv:
   case Instruction::FRem:

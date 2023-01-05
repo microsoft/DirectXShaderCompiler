@@ -1,5 +1,5 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
-cmake_minimum_required(VERSION 2.8.12.2)
+cmake_minimum_required(VERSION 3.10) # HLSL Change - Require CMake 3.10.
 cmake_policy(SET CMP0091 NEW)
 
 if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
@@ -103,7 +103,7 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
 endif()
 
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
-if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
+if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32 AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
 
@@ -409,6 +409,21 @@ if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND LLVM_ENABLE_ASSERTIONS))
   set(LLVM_USE_HOST_TOOLS ON)
 endif()
 
+if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE)
+  if(NOT LLVM_PROFILE_MERGE_POOL_SIZE)
+    # A pool size of 1-2 is probably sufficient on a SSD. 3-4 should be fine
+    # for spining disks. Anything higher may only help on slower mediums.
+    set(LLVM_PROFILE_MERGE_POOL_SIZE "4")
+  endif()
+  if(NOT LLVM_PROFILE_FILE_PATTERN)
+    if(NOT LLVM_PROFILE_DATA_DIR)
+      set(LLVM_PROFILE_FILE_PATTERN "%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw")
+    else()
+      file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
+    endif()
+  endif()
+endif()
+
 # All options referred to from HandleLLVMOptions have to be specified
 # BEFORE this include, otherwise options will not be correctly set on
 # first cmake run
@@ -643,6 +658,12 @@ add_subdirectory(include/dxc)
 # This over-specifies the dependency graph, but since generating these doesn't
 # really depend on anything else in the build it is safe.
 list(APPEND LLVM_COMMON_DEPENDS HCTGen) 
+
+if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
+  add_subdirectory(external) # SPIRV change
+endif()
+include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
+
 # HLSL - Change End
 
 add_subdirectory(lib)
@@ -683,10 +704,6 @@ if(WITH_POLLY)
   endif()
 endif(WITH_POLLY)
 
-if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
-  add_subdirectory(external) # SPIRV change
-endif()
-
 if( LLVM_INCLUDE_TOOLS )
   add_subdirectory(tools)
 endif()
@@ -718,6 +735,7 @@ if( LLVM_INCLUDE_TESTS )
     DEPENDS ${LLVM_LIT_DEPENDS}
     ARGS ${LLVM_LIT_EXTRA_ARGS}
     )
+  add_custom_target(test-depends DEPENDS ${LLVM_LIT_DEPENDS}) # HLSL Change
 endif()
 
 if (LLVM_INCLUDE_DOCS)
@@ -763,6 +781,8 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
   endif()
 endif()
+
+include(CoverageReport)
 
 # Disable regeneration target for official builds as they always fun a full clean build.
 # This should eliminate the race-condition issue with "Cannot restore timestamp".

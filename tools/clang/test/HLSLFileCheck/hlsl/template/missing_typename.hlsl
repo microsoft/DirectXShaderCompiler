@@ -1,4 +1,3 @@
-// RUN: %dxc -T vs_6_0 -E VSMain -enable-templates %s | FileCheck %s
 // RUN: %dxc -T vs_6_0 -E VSMain -HV 2021 %s | FileCheck %s
 
 // CHECK: error: nested typedefs are not supported in HLSL

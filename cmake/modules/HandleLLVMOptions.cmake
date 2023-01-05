@@ -379,7 +379,7 @@ if( MSVC )
 
 elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
   if (LLVM_ENABLE_WARNINGS)
-    append("-Wall -W -Wno-unused-parameter -Wwrite-strings" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append("-Wall -W -Wno-unused-parameter -Wwrite-strings -Wimplicit-fallthrough" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     append("-Wcast-qual" CMAKE_CXX_FLAGS)
 
     # Disable unknown pragma warnings because the output is just too long with them.
@@ -551,14 +551,14 @@ add_llvm_definitions( -D__STDC_LIMIT_MACROS )
 
 # clang doesn't print colored diagnostics when invoked from Ninja
 if (UNIX AND
-    CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+    CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND # HLSL Change - Update to CMake 3.13.4
     CMAKE_GENERATOR STREQUAL "Ninja")
   append("-fcolor-diagnostics" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 endif()
 
 # HLSL Change Starts
 # Enable -fms-extensions for clang to use MS uuid extensions for COM.
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   append("-fms-extensions -Wno-language-extension-token" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 endif()
 # HLSL Change Ends
@@ -619,6 +619,22 @@ if (LLVM_ENABLE_LTO)
   endif()
 endif()
 # HLSL Change End
+
+option(LLVM_BUILD_INSTRUMENTED "Build LLVM and tools with PGO instrumentation (experimental)" Off)
+mark_as_advanced(LLVM_BUILD_INSTRUMENTED)
+append_if(LLVM_BUILD_INSTRUMENTED "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}'"
+  CMAKE_CXX_FLAGS
+  CMAKE_C_FLAGS
+  CMAKE_EXE_LINKER_FLAGS
+  CMAKE_SHARED_LINKER_FLAGS)
+
+option(LLVM_BUILD_INSTRUMENTED_COVERAGE "Build LLVM and tools with Code Coverage instrumentation (experimental)" Off)
+mark_as_advanced(LLVM_BUILD_INSTRUMENTED_COVERAGE)
+append_if(LLVM_BUILD_INSTRUMENTED_COVERAGE "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}' -fcoverage-mapping"
+  CMAKE_CXX_FLAGS
+  CMAKE_C_FLAGS
+  CMAKE_EXE_LINKER_FLAGS
+  CMAKE_SHARED_LINKER_FLAGS)
 
 # Plugin support
 # FIXME: Make this configurable.

@@ -1461,7 +1461,7 @@ void CodeGenFunction::EmitDestructorBody(FunctionArgList &Args) {
     }
 #endif // HLSL Change - no support for exception handling
     // Fallthrough: act like we're in the base variant.
-
+    LLVM_FALLTHROUGH;
   case Dtor_Base:
     assert(Body);
 

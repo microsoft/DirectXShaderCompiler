@@ -204,6 +204,9 @@ public:
   void StripDebugRelatedCode();
   void RemoveUnusedTypeAnnotations();
 
+  // Copy resource reflection back to this module's resources.
+  void RestoreResourceReflection(const DxilModule &SourceDM);
+
   // Helper to remove dx.* metadata with source and compile options.
   // If the parameter `bReplaceWithDummyData` is true, the named metadata
   // are replaced with valid empty data that satisfy tools.
@@ -351,7 +354,6 @@ private:
   bool m_ForceZeroStoreLifetimes = false;
 
   std::unique_ptr<OP> m_pOP;
-  size_t m_pUnused = 0;
 
   // LLVM used.
   std::vector<llvm::GlobalVariable*> m_LLVMUsed;

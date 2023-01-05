@@ -1037,6 +1037,7 @@ void CommandLineParser::ParseCommandLineOptions(int argc,
         case cl::Optional:
           Done = true; // Optional arguments want _at most_ one value
         // FALL THROUGH
+        LLVM_FALLTHROUGH; // HLSL Change
         case cl::ZeroOrMore: // Zero or more will take all they can get...
         case cl::OneOrMore:  // One or more will take all they can get...
           ProvidePositionalOption(PositionalOpts[i],
@@ -1091,6 +1092,7 @@ void CommandLineParser::ParseCommandLineOptions(int argc,
         ErrorParsing = true;
       }
     // Fall through
+    LLVM_FALLTHROUGH; // HLSL Change
     default:
       break;
     }
@@ -1142,6 +1144,7 @@ bool Option::addOccurrence(unsigned pos, StringRef ArgName, StringRef Value,
     if (NumOccurrences > 1)
       return error("must occur exactly one time!", ArgName);
   // Fall through
+  LLVM_FALLTHROUGH; // HLSL Change
   case OneOrMore:
   case ZeroOrMore:
   case ConsumeAfter:

@@ -116,6 +116,7 @@ Sema::getCurrentMangleNumberContext(const DeclContext *DC,
       return nullptr;
     }
     // Fall through to get the current context.
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case DataMember:
     //  -- the in-class initializers of class members

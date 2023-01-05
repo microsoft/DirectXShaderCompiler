@@ -105,15 +105,6 @@ DxilModule::DxilModule(Module *pModule)
 
   DXASSERT_NOMSG(m_pModule != nullptr);
   SetDxilHook(*m_pModule);
-
-#ifndef NDEBUG
-  // Pin LLVM dump methods.
-  void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
-  void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
-  void (__thiscall Function::*pfnViewCFGOnly)() const = &Function::viewCFGOnly;
-  m_pUnused = (char *)&pfnModuleDump - (char *)&pfnTypeDump;
-  m_pUnused -= (size_t)&pfnViewCFGOnly;
-#endif
 }
 
 DxilModule::~DxilModule() { ClearDxilHook(*m_pModule); }
@@ -1870,6 +1861,62 @@ void DxilModule::RemoveUnusedTypeAnnotations() {
   // Remove remaining set of types
   for (const StructType *ST : types)
     m_pTypeSystem->EraseStructAnnotation(ST);
+}
+
+
+template <typename _T>
+static void CopyResourceInfo(_T &TargetRes, const _T &SourceRes,
+                             DxilTypeSystem &TargetTypeSys,
+                             const DxilTypeSystem &SourceTypeSys) {
+  if (TargetRes.GetKind() != SourceRes.GetKind() ||
+      TargetRes.GetLowerBound() != SourceRes.GetLowerBound() ||
+      TargetRes.GetRangeSize() != SourceRes.GetRangeSize() ||
+      TargetRes.GetSpaceID() != SourceRes.GetSpaceID()) {
+    DXASSERT(false, "otherwise, resource details don't match");
+    return;
+  }
+
+  if (TargetRes.GetGlobalName().empty() && !SourceRes.GetGlobalName().empty()) {
+    TargetRes.SetGlobalName(SourceRes.GetGlobalName());
+  }
+
+  if (TargetRes.GetGlobalSymbol() && SourceRes.GetGlobalSymbol() &&
+      SourceRes.GetGlobalSymbol()->hasName()) {
+    TargetRes.GetGlobalSymbol()->setName(
+        SourceRes.GetGlobalSymbol()->getName());
+  }
+
+  Type *Ty = SourceRes.GetHLSLType();
+  TargetRes.SetHLSLType(Ty);
+  TargetTypeSys.CopyTypeAnnotation(Ty, SourceTypeSys);
+}
+
+void DxilModule::RestoreResourceReflection(const DxilModule &SourceDM) {
+  DxilTypeSystem &TargetTypeSys = GetTypeSystem();
+  const DxilTypeSystem &SourceTypeSys = SourceDM.GetTypeSystem();
+  if (GetCBuffers().size() != SourceDM.GetCBuffers().size() ||
+      GetSRVs().size() != SourceDM.GetSRVs().size() ||
+      GetUAVs().size() != SourceDM.GetUAVs().size() ||
+      GetSamplers().size() != SourceDM.GetSamplers().size()) {
+    DXASSERT(false, "otherwise, resource lists don't match");
+    return;
+  }
+  for (unsigned i = 0; i < GetCBuffers().size(); ++i) {
+    CopyResourceInfo(GetCBuffer(i), SourceDM.GetCBuffer(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < GetSRVs().size(); ++i) {
+    CopyResourceInfo(GetSRV(i), SourceDM.GetSRV(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < GetUAVs().size(); ++i) {
+    CopyResourceInfo(GetUAV(i), SourceDM.GetUAV(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
+  for (unsigned i = 0; i < GetSamplers().size(); ++i) {
+    CopyResourceInfo(GetSampler(i), SourceDM.GetSampler(i), TargetTypeSys,
+                     SourceTypeSys);
+  }
 }
 
 

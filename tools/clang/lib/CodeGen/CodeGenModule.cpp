@@ -53,6 +53,7 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 #include "dxc/DXIL/DxilConstants.h"    // HLSL Change
 
 using namespace clang;
@@ -1573,6 +1574,12 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
     // linkage.
     if (!shouldEmitFunction(GD))
       return;
+    
+    // HLSL Change Begin - Support hierarchial time tracing.
+    const auto *FD = dyn_cast<FunctionDecl>(D);
+    llvm::TimeTraceScope TimeScope(
+        "CodeGen Function", [FD]() { return FD->getQualifiedNameAsString(); });
+    // HLSL Change End - Support hierarchial time tracing.
 
     if (const auto *Method = dyn_cast<CXXMethodDecl>(D)) {
       CompleteDIClassType(Method);
@@ -3390,6 +3397,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     // Skip variable templates
     if (cast<VarDecl>(D)->getDescribedVarTemplate())
       return;
+    LLVM_FALLTHROUGH; // HLSL Change
   case Decl::VarTemplateSpecialization:
     EmitGlobal(cast<VarDecl>(D));
     // HLSL Change Start - add resource or subobject for global variables

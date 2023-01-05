@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -enable-templates -verify %s
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -HV 2021 -verify %s
 RWStructuredBuffer<float> Output;
 
 // expected-note@+1 {{candidate template ignored: deduced conflicting types for parameter 'T' ('float' vs. 'literal float')}}

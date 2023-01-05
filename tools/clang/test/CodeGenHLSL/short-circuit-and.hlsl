@@ -1,4 +1,4 @@
-// RUN: %dxc /T ps_6_0 %s -enable-short-circuit /Zi | FileCheck %s
+// RUN: %dxc /T ps_6_0 %s -HV 2021 /Zi | FileCheck %s
 // RUN: %dxc /T ps_6_0 %s | FileCheck %s -check-prefix=NO_SHORT_CIRCUIT
 
 // Load the two uav handles

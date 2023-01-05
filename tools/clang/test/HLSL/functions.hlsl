@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
+// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -HV 2018 -verify %s
 
 // __decltype is the GCC way of saying 'decltype', but doesn't require C++11
 // _Static_assert is the C11 way of saying 'static_assert', but doesn't require C++11

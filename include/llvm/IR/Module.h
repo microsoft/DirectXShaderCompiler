@@ -662,7 +662,7 @@ public:
              bool ShouldPreserveUseListOrder = false) const;
 
   /// Dump the module to stderr (for debugging).
-  void dump() const;
+  LLVM_DUMP_METHOD void dump() const; // HLSL Change - Add LLVM_DUMP_METHOD
   
   /// This function causes all the subinstructions to "let go" of all references
   /// that they are maintaining.  This allows one to 'delete' a whole class at

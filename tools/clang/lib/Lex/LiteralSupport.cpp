@@ -444,8 +444,11 @@ static void EncodeUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   ResultBuf += bytesToWrite;
   switch (bytesToWrite) { // note: everything falls through.
   case 4: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+    LLVM_FALLTHROUGH; // HLSL Change
   case 3: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+    LLVM_FALLTHROUGH; // HLSL Change
   case 2: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+    LLVM_FALLTHROUGH; // HLSL Change
   case 1: *--ResultBuf = (UTF8) (UcnVal | firstByteMark[bytesToWrite]);
   }
   // Update the buffer.
@@ -679,7 +682,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       // "i", "if", and "il" are user-defined suffixes in C++1y.
       if (*s == 'i' && PP.getLangOpts().CPlusPlus14)
         break;
-      // fall through.
+      LLVM_FALLTHROUGH; // HLSL Change
     case 'j':
     case 'J':
       if (isImaginary) break;   // Cannot be repeated.

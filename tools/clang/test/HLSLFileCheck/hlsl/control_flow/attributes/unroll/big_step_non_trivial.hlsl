@@ -1,4 +1,4 @@
-// RUN: %dxc -Od -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -Od -E main -T ps_6_0 -HV 2018 %s | FileCheck %s
 // CHECK: @main
 
 // CHECK: @dx.op.unary.f32(i32 13
