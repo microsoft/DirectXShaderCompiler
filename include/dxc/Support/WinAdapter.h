@@ -1048,11 +1048,9 @@ class CComBSTR
 {
 public:
     BSTR m_str;
-    bool m_needFree;
-    CComBSTR() : m_str(nullptr), m_needFree(false) {};
+    CComBSTR() : m_str(nullptr) {};
     CComBSTR(_In_ int nSize, LPCWSTR sz);
     ~CComBSTR() throw() {
-    if (m_needFree)
       SysFreeString(m_str);
     }
 

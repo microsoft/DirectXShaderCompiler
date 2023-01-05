@@ -78,7 +78,7 @@ CHandle::~CHandle() { CloseHandle(m_h); }
 CHandle::operator HANDLE() const throw() { return m_h; }
 
 // CComBSTR
-CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) : m_needFree(true) {
+CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
   if (nSize < 0) {
     throw  std::invalid_argument("CComBSTR must have size >= 0");
   }
