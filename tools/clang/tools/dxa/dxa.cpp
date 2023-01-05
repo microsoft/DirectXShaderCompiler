@@ -189,7 +189,7 @@ bool DxaContext::ExtractFile(const char *pName) {
 
   CA2W WideName(pName, CP_UTF8);
   for (UINT32 i = 0; i < uNumSources; i++) {
-    BSTR name;
+    CComBSTR name;
     IFT(pPdbUtils->GetSourceName(i, &name));
     if (strcmp("*", pName) == 0 || wcscmp((LPWSTR)name, WideName) == 0) {
       printedAny = true;

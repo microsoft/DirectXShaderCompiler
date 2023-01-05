@@ -90,8 +90,6 @@ CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) : m_needFree(true) {
     if (!*this) {
       std::runtime_error("out of memory");
     }
-    wcsncpy ( m_str, sz, nSize);
-    m_str[nSize] = L'\0';
   }
 }
 
