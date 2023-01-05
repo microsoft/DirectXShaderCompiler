@@ -24,7 +24,6 @@
 
 #include "dxc/dxcapi.h"             // IDxcCompiler
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/Unicode.h"    // IsStarMatchWide
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
@@ -112,8 +111,8 @@ bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
 
   if (!AdapterName)
     return true;
-  return Unicode::IsStarMatchWide(AdapterName, wcslen(AdapterName),
-                                   desc.Description, wcslen(desc.Description));
+  return hlsl_test::IsStarMatchWide(AdapterName, wcslen(AdapterName),
+                                    desc.Description, wcslen(desc.Description));
 }
 
 void GetHardwareAdapter(IDXGIFactory2 *pFactory, LPCWSTR AdapterName,

@@ -25,10 +25,12 @@
 #include "dxc/Support/Global.h" // DXASSERT_LOCALVAR
 #include "WEXAdapter.h"
 #endif
-#include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 
-#ifndef DEFAULT_TEST_DIR
+#ifdef _HLK_CONF
+#define DEFAULT_TEST_DIR L""
+#define DEFAULT_EXEC_TEST_DIR DEFAULT_TEST_DIR
+#else
 #include "dxc/Test/TestConfig.h"
 #endif
 
@@ -208,7 +210,7 @@ inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
     WEX::Logging::Log::Error(buf.data());
 }
 
-inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM) {
+inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM, LPCWSTR defaultDataDir = DEFAULT_TEST_DIR) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   WEX::Common::String HlslDataDirValue;
   if (std::wstring(paramName).compare(HLSLDATAFILEPARAM) != 0) {
@@ -217,7 +219,7 @@ inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR param
       return std::wstring();
   } else {
     if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue)))
-      HlslDataDirValue = DEFAULT_TEST_DIR;
+      HlslDataDirValue = defaultDataDir;
   }
 
   wchar_t envPath[MAX_PATH];
@@ -316,6 +318,42 @@ inline HANDLE CreateNewFileForReadWrite(LPCWSTR path) {
   return sourceHandle;
 }
 
+// Copy of Unicode::IsStarMatchT/IsStarMatchWide is included here to avoid the dependency on
+// DXC support libraries.
+template<typename TChar>
+inline static
+bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName, size_t nameLen, TChar star) {
+  if (maskLen == 0 && nameLen == 0) {
+    return true;
+  }
+  if (maskLen == 0 || nameLen == 0) {
+    return false;
+  }
+
+  if (pMask[maskLen - 1] == star) {
+    // Prefix match.
+    if (maskLen == 1) { // For just '*', everything is a match.
+      return true;
+    }
+    --maskLen;
+    if (maskLen > nameLen) { // Mask is longer than name, can't be a match.
+      return false;
+    }
+    return 0 == memcmp(pMask, pName, sizeof(TChar) * maskLen);
+  }
+  else {
+    // Exact match.
+    if (nameLen != maskLen) {
+      return false;
+    }
+    return 0 == memcmp(pMask, pName, sizeof(TChar) * nameLen);
+  }
+}
+
+inline bool IsStarMatchWide(const wchar_t *pMask, size_t maskLen, const wchar_t *pName, size_t nameLen) {
+  return IsStarMatchT<wchar_t>(pMask, maskLen, pName, nameLen, L'*');
+}
+
 inline bool GetTestParamBool(LPCWSTR name) {
   WEX::Common::String ParamValue;
   WEX::Common::String NameValue;
@@ -334,8 +372,9 @@ inline bool GetTestParamBool(LPCWSTR name) {
   if (NameValue.IsEmpty()) {
     return false;
   }
-  return Unicode::IsStarMatchWide(ParamValue, ParamValue.GetLength(),
-                                  NameValue, NameValue.GetLength());
+
+  return hlsl_test::IsStarMatchWide(ParamValue, ParamValue.GetLength(),
+                                    NameValue, NameValue.GetLength());
 }
 
 inline bool GetTestParamUseWARP(bool defaultVal) {
