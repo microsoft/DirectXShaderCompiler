@@ -13,4 +13,4 @@
 type = Library
 name = DxilRootSignature
 parent = Libraries
-required_libraries = BitReader Core DxcSupport IPA Support
+required_libraries = BitReader Core DXIL DxilContainer DxcSupport IPA Support

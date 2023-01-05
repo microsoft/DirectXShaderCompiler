@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -HV 2018 %s | FileCheck %s
 
 // Make sure 1-component vector in conditional compiles
 // CHECK: = select i1

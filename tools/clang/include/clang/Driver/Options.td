@@ -680,14 +680,6 @@ def hlsl_version : Separate<["-", "/"], "HV">, Group<f_Group>, Flags<[DriverOpti
   HelpText<"HLSL version (2015, 2016, 2017, 2018, 2021). Default is 2018">; // HLSL Change - mimic the HLSLOptions.td flag
 def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Enable 16bit types and disable min precision types.">; // HLSL Change - mimic the HLSLOptions.td flag
-def enable_templates: Flag<["-", "/"], "enable-templates">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Enable template support for HLSL.">; // HLSL Change
-def enable_operator_overloading: Flag<["-", "/"], "enable-operator-overloading">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Enable operator overloading support for HLSL.">; // HLSL Change
-def strict_udt_casting: Flag<["-", "/"], "strict-udt-casting">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Require explicit casts between different structure types with compatible layouts.">; // HLSL Change
-def enable_bitfields : Flag<["-", "/"], "enable-bitfields">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Enables bitfields on struct members">; // HLSL Change
 def fms_compatibility_version
     : Joined<["-"], "fms-compatibility-version=">,
       Group<f_Group>,
@@ -1019,6 +1011,8 @@ def Wframe_larger_than_EQ : Joined<["-"], "Wframe-larger-than=">, Group<f_Group>
 def : Flag<["-"], "fterminated-vtables">, Alias<fapple_kext>;
 def fthreadsafe_statics : Flag<["-"], "fthreadsafe-statics">, Group<f_Group>;
 def ftime_report : Flag<["-"], "ftime-report">, Group<f_Group>, Flags<[CC1Option]>;
+// HLSL Change - Support hierarchial time tracing.
+def ftime_trace : Flag<["-"], "ftime-trace">, Group<f_Group>, Flags<[CC1Option]>;
 def ftlsmodel_EQ : Joined<["-"], "ftls-model=">, Group<f_Group>, Flags<[CC1Option]>;
 def ftrapv : Flag<["-"], "ftrapv">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Trap on integer overflow">;

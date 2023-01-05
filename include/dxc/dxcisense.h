@@ -12,8 +12,10 @@
 #ifndef __DXC_ISENSE__
 #define __DXC_ISENSE__
 
-#include "dxc/dxcapi.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxcapi.h"
+#ifndef _WIN32
+#include "Support/WinAdapter.h"
+#endif
 
 typedef enum DxcGlobalOptions
 {

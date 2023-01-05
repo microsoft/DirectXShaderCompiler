@@ -19,6 +19,11 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
   )
 
+configure_lit_site_cfg(
+  ${CMAKE_CURRENT_SOURCE_DIR}/taef/lit.site.cfg.in
+  ${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
+  )
+
 option(CLANG_TEST_USE_VG "Run Clang tests under Valgrind" OFF)
 if(CLANG_TEST_USE_VG)
   set(CLANG_TEST_EXTRA_ARGS ${CLANG_TEST_EXTRA_ARGS} "--vg")
@@ -64,7 +69,9 @@ endif()
 
 # HLSL Change Begin
 # Explicitly overriding check-clang dependencies for HLSL
-set(CLANG_TEST_DEPS clang opt FileCheck count not)
+set(CLANG_TEST_DEPS dxc dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
+add_custom_target(clang-test-depends DEPENDS ${CLANG_TEST_DEPS})
+set_target_properties(clang-test-depends PROPERTIES FOLDER "Clang tests")
 # HLSL Change End
 
 
@@ -92,3 +99,15 @@ add_lit_target("check-clang-unit" "Running lit suite clang-unit"
           ARGS ${CLANG_TEST_EXTRA_ARGS}
         )
 # HLSL Change End - Add a separate target for clang unit tests
+
+# HLSL Change Begin - Add taef tests
+if (WIN32)
+  add_lit_target("check-clang-taef" "Running lit suite hlsl"
+            ${CMAKE_CURRENT_SOURCE_DIR}/taef
+            PARAMS ${CLANG_TEST_PARAMS}
+                  clang_taef_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
+            DEPENDS ClangHLSLTests
+            ARGS ${CLANG_TEST_EXTRA_ARGS}
+          )
+endif()
+# HLSL Change End

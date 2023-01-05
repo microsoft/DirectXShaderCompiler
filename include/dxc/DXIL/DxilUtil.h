@@ -61,7 +61,13 @@ namespace dxilutil {
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
   bool HasDynamicIndexing(llvm::Value *V);
-  void MergeGepUse(llvm::Value *V);
+
+  // Cleans up unnecessary chains of GEPs and bitcasts left over from certain
+  // optimizations. This function is NOT safe to call while iterating
+  // instructions either forward or backward. If V happens to be a GEP or
+  // bitcast, the function may delete V, instructions preceding V it, and
+  // instructions following V.
+  bool MergeGepUse(llvm::Value *V);
 
   // Find alloca insertion point, given instruction
   llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I); // Considers entire parent function

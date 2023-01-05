@@ -316,7 +316,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         switch (opcode) {
         case HLMatLoadStoreOpcode::ColMatLoad:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLMatLoadStoreOpcode::RowMatLoad: {
           Value *val = UndefValue::get(
             VectorType::get(NewTy->getArrayElementType(),
@@ -354,7 +354,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         } break;
         case HLMatLoadStoreOpcode::ColMatStore:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLMatLoadStoreOpcode::RowMatStore: {
           // HLCast matrix value to vector
           unsigned newOpcode = (unsigned)(bColMajor ?
@@ -391,7 +391,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
           break;
         case HLSubscriptOpcode::ColMatElement:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLSubscriptOpcode::RowMatElement: {
           ConstantDataSequential *cIdx = cast<ConstantDataSequential>(
             CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx));
@@ -401,7 +401,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         } break;
         case HLSubscriptOpcode::ColMatSubscript:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLSubscriptOpcode::RowMatSubscript: {
           for (unsigned Idx = HLOperandIndex::kMatSubscriptSubOpIdx; Idx < CI->getNumArgOperands(); ++Idx) {
             ElemIndices.emplace_back(CI->getArgOperand(Idx));

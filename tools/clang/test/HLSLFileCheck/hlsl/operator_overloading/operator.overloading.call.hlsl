@@ -1,4 +1,3 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-operator-overloading %s | FileCheck %s
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 
 // CHECK: define void @main()

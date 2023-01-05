@@ -1,4 +1,4 @@
-// RUN: %dxc /Tvs_6_0 /Evs_main > %s | FileCheck %s
+// RUN: %dxc /Tvs_6_0 /Evs_main  %s | FileCheck %s
 
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 2.000000e+00)
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 4.000000e+00)

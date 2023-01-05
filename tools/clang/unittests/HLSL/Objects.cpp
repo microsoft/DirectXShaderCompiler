@@ -735,6 +735,7 @@ TEST_F(ObjectTest, PassToInoutArgs) {
         // Stream-output objects can only be inout. Skip other cases.
         if (std::string(iop.Keyword) != "inout")
           continue;
+        break;
       default:
         // other cases can be what they want
         break;

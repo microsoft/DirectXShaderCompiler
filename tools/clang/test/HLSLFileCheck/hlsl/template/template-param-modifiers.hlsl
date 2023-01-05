@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_6_0 -enable-templates -ast-dump %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 -HV 2021 -ast-dump %s | FileCheck %s
 template<typename T>
 void apply(in T X, inout T Y, out T Z);
 

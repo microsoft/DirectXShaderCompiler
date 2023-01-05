@@ -2,6 +2,8 @@
 ; This is to verify that gc_relocate must return a pointer with the same
 ; address space with the relocated value.
 
+; REQUIRES: hlsl-gc.statepoint-unsupported
+
 ; CHECK:       gc.relocate: relocating a pointer shouldn't change its address space
 ; CHECK-NEXT:  %obj.relocated = call coldcc i8* @llvm.experimental.gc.relocate.p0i8(i32 %safepoint_token, i32 7, i32 7) ;
 

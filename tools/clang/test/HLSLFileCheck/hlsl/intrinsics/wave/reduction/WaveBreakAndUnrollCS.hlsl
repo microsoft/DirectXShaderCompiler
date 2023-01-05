@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -Od %s | FileCheck %s
+// RUN: %dxc -T cs_6_0 -Od -HV 2018 %s | FileCheck %s
 // A test of explicit loop unrolling on a loop that uses a wave op in a break block
 
 // CHECK: void @main

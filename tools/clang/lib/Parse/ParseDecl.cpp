@@ -2005,7 +2005,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   switch (Tok.getKind()) {
   case tok::kw_template:
     // HLSL Change Starts
-    if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       SkipMalformedDecl();
       return DeclGroupPtrTy();
@@ -3019,7 +3020,7 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
           Tok.setIdentifierInfo(II);
         }
       }
-      // Fall through.
+      LLVM_FALLTHROUGH; // HLSL Change
     }
     case tok::comma:
     case tok::equal:
@@ -4169,7 +4170,10 @@ HLSLReservedKeyword:
 
     // C++ typename-specifier:
     case tok::kw_typename:
-      if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+        goto HLSLReservedKeyword;
+      } // HLSL Change - reserved for HLSL
       if (TryAnnotateTypeOrScopeToken()) {
         DS.SetTypeSpecError();
         goto DoneWithDeclSpec;
@@ -4217,6 +4221,8 @@ HLSLReservedKeyword:
         isInvalid = true;
         break;
       };
+      ParseOpenCLQualifiers(DS.getAttributes()); // HLSL Change -
+      break; // avoid dead-code fallthrough
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -5135,7 +5141,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())
       return true;
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case tok::kw_typename:  // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
     // recurse to handle whatever we get.
@@ -5264,7 +5270,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
       return false;
     if (TryAltiVecVectorToken())
       return true;
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case tok::kw_decltype: // decltype(T())::type
   case tok::kw_typename: // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
@@ -5624,6 +5630,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
           continue; // do *not* consume the next token!
         }
         // otherwise, FALL THROUGH!
+        LLVM_FALLTHROUGH; // HLSL Change
       default:
         // If this is not a type-qualifier token, we're done reading type
         // qualifiers.  First verify that DeclSpec's are consistent.
@@ -5683,6 +5690,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         if (TryKeywordIdentFallback(false))
           continue;
       }
+    LLVM_FALLTHROUGH; // HLSL Change
     case tok::kw___sptr:
     case tok::kw___w64:
     case tok::kw___ptr64:
@@ -5732,6 +5740,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         continue; // do *not* consume the next token!
       }
       // otherwise, FALL THROUGH!
+      LLVM_FALLTHROUGH; // HLSL Change
     default:
       DoneWithTypeQuals:
       // If this is not a type-qualifier token, we're done reading type

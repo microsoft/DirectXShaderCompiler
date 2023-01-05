@@ -15,6 +15,8 @@
 #ifndef LLVM_CLANG_AST_OPERATIONKINDS_H
 #define LLVM_CLANG_AST_OPERATIONKINDS_H
 
+#include <limits> // HLSL Change
+
 namespace clang {
   
 /// CastKind - The kind of operation required for a conversion.
@@ -46,7 +48,7 @@ enum CastKind {
   /// reinterpret_casts of l-value expressions to reference types.
   ///    bool b; reinterpret_cast<char&>(b) = 'a';
   CK_LValueBitCast,
-  
+
   /// CK_LValueToRValue - A conversion which causes the extraction of
   /// an r-value from the operand gl-value.  The result of an r-value
   /// conversion is always unqualified.
@@ -112,7 +114,7 @@ enum CastKind {
   /// member pointer in base class.
   ///   int A::*mptr = static_cast<int A::*>(&B::member);
   CK_DerivedToBaseMemberPointer,
-    
+
   /// CK_MemberPointerToBoolean - Member pointer to boolean.  A check
   /// against the null member pointer.
   CK_MemberPointerToBoolean,
@@ -134,14 +136,14 @@ enum CastKind {
   /// CK_ConstructorConversion - Conversion by constructor.
   ///    struct A { A(int); }; A a = A(10);
   CK_ConstructorConversion,
-    
+
   /// CK_IntegralToPointer - Integral to pointer.  A special kind of
   /// reinterpreting conversion.  Applies to normal, ObjC, and block
   /// pointers.
   ///    (char*) 0x1001aab0
   ///    reinterpret_cast<int*>(0)
   CK_IntegralToPointer,
-    
+
   /// CK_PointerToIntegral - Pointer to integral.  A special kind of
   /// reinterpreting conversion.  Applies to normal, ObjC, and block
   /// pointers.
@@ -151,17 +153,17 @@ enum CastKind {
   /// CK_PointerToBoolean - Pointer to boolean conversion.  A check
   /// against null.  Applies to normal, ObjC, and block pointers.
   CK_PointerToBoolean,
-    
+
   /// CK_ToVoid - Cast to void, discarding the computed value.
   ///    (void) malloc(2048)
   CK_ToVoid,
-    
+
   /// CK_VectorSplat - A conversion from an arithmetic type to a
   /// vector of that element type.  Fills all elements ("splats") with
   /// the source value.
   ///    __attribute__((ext_vector_type(4))) int v = 5;
   CK_VectorSplat,
-    
+
   /// CK_IntegralCast - A cast between integral types (other than to
   /// boolean).  Variously a bitcast, a truncation, a sign-extension,
   /// or a zero-extension.
@@ -176,7 +178,7 @@ enum CastKind {
   /// CK_IntegralToFloating - Integral to floating point.
   ///    float f = i;
   CK_IntegralToFloating,
-    
+
   /// CK_FloatingToIntegral - Floating point to integral.  Rounds
   /// towards zero, discarding any fractional component.
   ///    (int) f
@@ -185,12 +187,12 @@ enum CastKind {
   /// CK_FloatingToBoolean - Floating point to boolean.
   ///    (bool) f
   CK_FloatingToBoolean,
-    
+
   /// CK_FloatingCast - Casting between floating types of different size.
   ///    (double) f
   ///    (float) ld
   CK_FloatingCast,
-    
+
   /// CK_CPointerToObjCPointerCast - Casting a C pointer kind to an
   /// Objective-C pointer.
   CK_CPointerToObjCPointerCast,
@@ -282,8 +284,8 @@ enum CastKind {
   CK_AtomicToNonAtomic,
   /// \brief Converts from T to _Atomic(T).
   CK_NonAtomicToAtomic,
-  
-  /// \brief Causes a block literal to by copied to the heap and then 
+
+  /// \brief Causes a block literal to by copied to the heap and then
   /// autoreleased.
   ///
   /// This particular cast kind is used for the conversion from a C++11
@@ -299,7 +301,7 @@ enum CastKind {
 
   // Convert a pointer to a different address space.
   CK_AddressSpaceConversion
-  
+
   // HLSL Change Starts
   ,
   CK_FlatConversion,
@@ -318,11 +320,17 @@ enum CastKind {
   CK_HLSLCC_IntegralToFloating,
   CK_HLSLCC_FloatingToIntegral,
   CK_HLSLCC_FloatingToBoolean,
-  CK_HLSLCC_FloatingCast
-  // HLSL Change Ends  
+  CK_HLSLCC_FloatingCast,
+
+  // HLSL Change - Made CK_Invalid an enum case because otherwise it is UB to
+  // assign it to a value of CastKind.
+  CK_Invalid = std::numeric_limits<unsigned int>::max()
 };
 
-static const CastKind CK_Invalid = static_cast<CastKind>(-1);
+static_assert(
+    sizeof(CastKind) == sizeof(unsigned int),
+    "Cast Kind larger than expected. Must increase value of CK_Invalid.");
+// HLSL Change Ends
 
 enum BinaryOperatorKind {
   // Operators listed in order of precedence.

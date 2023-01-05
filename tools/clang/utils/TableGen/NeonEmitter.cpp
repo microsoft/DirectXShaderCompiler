@@ -756,19 +756,19 @@ void Type::applyTypespec(bool &Quad) {
       break;
     case 'h':
       Float = true;
-    // Fall through
+      LLVM_FALLTHROUGH; // HLSL Change
     case 's':
       ElementBitwidth = 16;
       break;
     case 'f':
       Float = true;
-    // Fall through
+      LLVM_FALLTHROUGH; // HLSL Change
     case 'i':
       ElementBitwidth = 32;
       break;
     case 'd':
       Float = true;
-    // Fall through
+      LLVM_FALLTHROUGH; // HLSL Change
     case 'l':
       ElementBitwidth = 64;
       break;
@@ -898,7 +898,7 @@ void Type::applyModifier(char Mod) {
     break;
   case 'c':
     Constant = true;
-  // Fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case 'p':
     Pointer = true;
     Bitwidth = ElementBitwidth;

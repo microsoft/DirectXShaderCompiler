@@ -181,7 +181,7 @@ SourceLocation TypeLoc::getBeginLoc() const {
         LeftMost = Cur;
         break;
       }
-      /* Fall through */
+      LLVM_FALLTHROUGH; // HLSL Change
     case FunctionNoProto:
     case ConstantArray:
     case DependentSizedArray:

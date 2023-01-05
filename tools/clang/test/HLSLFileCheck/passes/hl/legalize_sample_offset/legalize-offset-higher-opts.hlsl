@@ -1,4 +1,4 @@
-// RUN: %dxc /Tps_6_0 /Emain > %s | FileCheck %s
+// RUN: %dxc /Tps_6_0 /Emain  %s | FileCheck %s
 
 // Make sure that the sample offsets get legalized even when loop is not unrolled
 // for higher optimizations.

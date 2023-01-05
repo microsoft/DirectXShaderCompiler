@@ -14,6 +14,7 @@
 #include "clang/AST/APValue.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/SPIRV/SpirvType.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Optional.h"
@@ -84,6 +85,7 @@ public:
     IK_Switch,              // OpSwitch
     IK_Unreachable,         // OpUnreachable
     IK_RayTracingTerminate, // OpIgnoreIntersectionKHR/OpTerminateRayKHR
+    IK_EmitMeshTasksEXT,    // OpEmitMeshTasksEXT
 
     // Normal instruction kinds
     // In alphabetical order
@@ -106,6 +108,8 @@ public:
 
     IK_EndPrimitive, // OpEndPrimitive
     IK_EmitVertex,   // OpEmitVertex
+
+    IK_SetMeshOutputsEXT,       // OpSetMeshOutputsEXT
 
     // The following section is for group non-uniform instructions.
     // Used by LLVM-style RTTI; order matters.
@@ -200,6 +204,7 @@ public:
 
   void setRValue(bool rvalue = true) { isRValue_ = rvalue; }
   bool isRValue() const { return isRValue_; }
+  bool isLValue() const { return !isRValue_; }
 
   void setRelaxedPrecision() { isRelaxedPrecision_ = true; }
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
@@ -209,6 +214,9 @@ public:
 
   void setPrecise(bool p = true) { isPrecise_ = p; }
   bool isPrecise() const { return isPrecise_; }
+
+  void setBitfieldInfo(const BitfieldInfo &info) { bitfieldInfo = info; }
+  llvm::Optional<BitfieldInfo> getBitfieldInfo() const { return bitfieldInfo; }
 
   /// Legalization-specific code
   ///
@@ -252,6 +260,7 @@ protected:
   bool isRelaxedPrecision_;
   bool isNonUniform_;
   bool isPrecise_;
+  llvm::Optional<BitfieldInfo> bitfieldInfo;
 };
 
 /// \brief OpCapability instruction
@@ -664,7 +673,7 @@ public:
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() >= IK_Branch &&
-           inst->getKind() <= IK_RayTracingTerminate;
+           inst->getKind() <= IK_EmitMeshTasksEXT;
   }
 
 protected:
@@ -2151,6 +2160,61 @@ private:
   // The pointer to the debug info extended instruction set.
   // This is not required by the constructor, and can be set via any IMR pass.
   SpirvExtInstImport *instructionSet;
+};
+
+/// \brief OpEmitMeshTasksEXT instruction.
+class SpirvEmitMeshTasksEXT : public SpirvInstruction {
+public:
+  SpirvEmitMeshTasksEXT(SpirvInstruction* xDim,
+                        SpirvInstruction* yDim,
+                        SpirvInstruction* zDim,
+                        SpirvInstruction* payload,
+                        SourceLocation loc, SourceRange range = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEmitMeshTasksEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_EmitMeshTasksEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getXDimension() const { return xDim; }
+  SpirvInstruction *getYDimension() const { return yDim; }
+  SpirvInstruction *getZDimension() const { return zDim; }
+  SpirvInstruction *getPayload() const { return payload; }
+
+private:
+  SpirvInstruction *xDim;
+  SpirvInstruction *yDim;
+  SpirvInstruction *zDim;
+  SpirvInstruction *payload;
+};
+
+/// \brief OpSetMeshOutputsEXT instruction.
+class SpirvSetMeshOutputsEXT : public SpirvInstruction {
+public:
+  SpirvSetMeshOutputsEXT(SpirvInstruction* vertCount,
+                         SpirvInstruction* primCount, 
+                         SourceLocation loc,
+                         SourceRange range = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSetMeshOutputsEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_SetMeshOutputsEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getVertexCount() const { return vertCount; }
+  SpirvInstruction *getPrimitiveCount() const { return primCount; }
+
+private:
+  SpirvInstruction *vertCount;
+  SpirvInstruction *primCount;
 };
 
 class SpirvDebugInfoNone : public SpirvDebugInstruction {

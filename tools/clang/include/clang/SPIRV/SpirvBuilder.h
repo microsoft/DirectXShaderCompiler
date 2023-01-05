@@ -174,11 +174,11 @@ public:
                                           SourceLocation loc,
                                           SourceRange range = {});
 
-  /// \brief Creates a load instruction loading the value of the given
-  /// <result-type> from the given pointer. Returns the instruction pointer for
-  /// the loaded value.
-  SpirvLoad *createLoad(QualType resultType, SpirvInstruction *pointer,
-                        SourceLocation loc, SourceRange range = {});
+  /// \brief Creates a load sequence loading the value of the given
+  /// <result-type> from the given pointer (load + optional extraction,
+  /// ex:bitfield). Returns the instruction pointer for the loaded value.
+  SpirvInstruction *createLoad(QualType resultType, SpirvInstruction *pointer,
+                               SourceLocation loc, SourceRange range = {});
   SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
                         SourceLocation loc, SourceRange range = {});
 
@@ -186,8 +186,9 @@ public:
   SpirvCopyObject *createCopyObject(QualType resultType,
                                     SpirvInstruction *pointer, SourceLocation);
 
-  /// \brief Creates a store instruction storing the given value into the given
+  /// \brief Creates a store sequence storing the given value into the given
   /// address. Returns the instruction pointer for the store instruction.
+  /// This function handles storing to bitfields.
   SpirvStore *createStore(SpirvInstruction *address, SpirvInstruction *value,
                    SourceLocation loc, SourceRange range = {});
 
@@ -458,6 +459,20 @@ public:
 
   /// \brief Creates an OpEndPrimitive instruction.
   void createEndPrimitive(SourceLocation, SourceRange range = {});
+
+  /// \brief Creates an OpEmitMeshTasksEXT instruction.
+  void createEmitMeshTasksEXT(SpirvInstruction* xDim,
+                              SpirvInstruction* yDim,
+                              SpirvInstruction* zDim,
+                              SourceLocation loc,
+                              SpirvInstruction *payload = nullptr,
+                              SourceRange range = {});
+
+  /// \brief Creates an OpSetMeshOutputsEXT instruction.
+  void createSetMeshOutputsEXT(SpirvInstruction* vertCount,
+                               SpirvInstruction* primCount,
+                               SourceLocation loc,
+                               SourceRange range = {});
 
   /// \brief Creates an OpArrayLength instruction.
   SpirvArrayLength *createArrayLength(QualType resultType, SourceLocation loc,

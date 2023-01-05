@@ -191,7 +191,7 @@ Retry:
     // E.g., center = <RHS>.
     if (tok::isPunctuator(NextToken().getKind())) {
       Tok.setKind(tok::identifier);
-      __fallthrough;
+      LLVM_FALLTHROUGH;
     } else {
       goto tok_default_case;
     }
@@ -235,9 +235,9 @@ Retry:
 
     // Fall through
   }
-
-  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
+  LLVM_FALLTHROUGH; // HLSL Change
   default: {
+  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
     if ((getLangOpts().CPlusPlus || !OnlyStatement) && isDeclarationStatement()) {
       SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
       DeclGroupPtrTy Decl = ParseDeclaration(Declarator::BlockContext,

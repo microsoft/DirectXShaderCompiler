@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 -no-warnings %s | FileCheck -check-prefix=DXC %s
+// RUN: %dxc -E main -T vs_6_0 -no-warnings -HV 2018 %s | FileCheck -check-prefix=DXC %s
 
 // Tests all implicit conversions and explicit casts between type shapes
 // (scalars, vectors, matrices, arrays and structs).

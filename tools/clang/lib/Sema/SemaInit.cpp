@@ -7062,7 +7062,7 @@ bool InitializationSequence::Diagnose(Sema &S,
       << Args[0]->getSourceRange();
       break;
     }
-    // Intentional fallthrough
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case FK_NonConstLValueReferenceBindingToUnrelated:
     S.Diag(Kind.getLocation(),

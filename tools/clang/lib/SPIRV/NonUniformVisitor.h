@@ -31,7 +31,6 @@ public:
   NonUniformVisitor(SpirvContext &spvCtx, const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx) {}
 
-
   bool visit(SpirvLoad *) override;
   bool visit(SpirvAccessChain *) override;
   bool visit(SpirvUnaryOp *) override;

@@ -5799,6 +5799,7 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
       S += "{objc_class=}";
       return;
     }
+    LLVM_FALLTHROUGH; // HLSL Change
   }
   
   case Type::ObjCInterface: {

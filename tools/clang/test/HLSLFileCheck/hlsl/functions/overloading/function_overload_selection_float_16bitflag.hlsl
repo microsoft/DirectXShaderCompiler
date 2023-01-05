@@ -1,4 +1,4 @@
-// RUN: %dxc /Tps_6_2 -enable-16bit-types /Emain > %s | FileCheck %s
+// RUN: %dxc /Tps_6_2 -enable-16bit-types /Emain  %s | FileCheck %s
 // CHECK: define void @main()
 // CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = frem fast float %{{[a-z0-9]+.*[a-z0-9]*}}, 1.000000e+01
 // CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = fdiv fast float %{{[a-z0-9]+.*[a-z0-9]*}}, %{{[a-z0-9]+.*[a-z0-9]*}}

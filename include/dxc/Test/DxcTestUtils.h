@@ -145,7 +145,7 @@ void ParseCommandPartsFromFile(LPCWSTR fileName, std::vector<FileRunCommandPart>
 class FileRunTestResult {
 public:
   std::string ErrorMessage;
-  int RunResult;
+  int RunResult = -1;
   static FileRunTestResult RunHashTestFromFileCommands(LPCWSTR fileName);
   static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
                                                PluginToolsPaths *pPluginToolsPaths = nullptr,
@@ -156,8 +156,10 @@ public:
                                                LPCWSTR dumpName = nullptr);
 };
 
+void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);
 std::string BlobToUtf8(_In_ IDxcBlob *pBlob);
 std::wstring BlobToWide(_In_ IDxcBlob *pBlob);
+void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               llvm::ArrayRef<LPCSTR> pErrorMsgs,
                               bool maySucceedAnyway, bool bRegex);
@@ -169,20 +171,21 @@ bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
 bool CheckNotMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
                size_t errorMsgCount, bool bRegex);
 void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram, IDxcBlob **pDxilPart);
+std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram);
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
-void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
-                            llvm::ArrayRef<LPCSTR> pReplacements, bool bRegex,
-                            std::string &disassembly);
-void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
-                            llvm::ArrayRef<LPCSTR> pReplacements,
-                            _Outptr_ IDxcBlob **pBlob, bool bRegex,
-                            std::string &disassembly,
-                            dxc::DxcDllSupport &dllSupport);
-void ReplaceDisassemblyTextWithRegex(llvm::ArrayRef<LPCSTR> pLookFors,
-                                     llvm::ArrayRef<LPCSTR> pReplacements,
-                                     std::string &disassembly);
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlob **ppBlob);
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlobEncoding **ppBlob);
+void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
+void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);
+void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, LPCWSTR pArgs,
+                     _Outptr_ IDxcBlob **ppResult);
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+                     _Outptr_ IDxcBlob **ppResult);
 
 HRESULT GetVersion(dxc::DxcDllSupport& DllSupport, REFCLSID clsid, unsigned &Major, unsigned &Minor);
 bool ParseTargetProfile(llvm::StringRef targetProfile, llvm::StringRef &outStage, unsigned &outMajor, unsigned &outMinor);

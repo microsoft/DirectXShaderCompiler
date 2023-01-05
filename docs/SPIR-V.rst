@@ -294,6 +294,7 @@ Supported extensions
 * SPV_KHR_shader_draw_parameters
 * SPV_EXT_descriptor_indexing
 * SPV_EXT_fragment_fully_covered
+* SPV_EXT_mesh_shader
 * SPV_EXT_shader_stencil_support
 * SPV_AMD_shader_early_and_late_fragment_tests
 * SPV_AMD_shader_explicit_vertex_parameter
@@ -579,10 +580,15 @@ information, you can use ``-fspv-debug=``. It accepts:
 * ``line``: for emitting line information (turns on ``source`` implicitly)
 * ``tool``: for emitting DXC Git commit hash and command-line options
 
-``-fspv-debug=`` overrules ``-Zi``. And you can provide multiple instances of
-``-fspv-debug=``. For example, you can use ``-fspv-debug=file -fspv-debug=tool``
-to turn on emitting file path and DXC information; source code and line
-information will not be emitted.
+These ``-fspv-debug=`` options overrule ``-Zi``. And you can provide multiple
+instances of ``-fspv-debug=``. For example, you can use ``-fspv-debug=file
+-fspv-debug=tool`` to turn on emitting file path and DXC information; source
+code and line information will not be emitted.
+
+If you want to generate `NonSemantic.Shader.DebugInfo.100 <http://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/main/nonsemantic/NonSemantic.Shader.DebugInfo.100.html>`_ extended instructions, you can use
+``-fspv-debug=vulkan-with-source``. These instructions support source-level
+shader debugging with tools such as RenderDoc, even if the SPIR-V is optimized.
+This option overrules the other ``-fspv-debug`` options above.
 
 Reflection
 ----------
@@ -872,6 +878,7 @@ SPIR-V, we introduce ``[[vk::image_format("FORMAT")]]`` attribute for texture ty
 For example,
 
 .. code:: hlsl
+
   [[vk::image_format("rgba8")]]
   RWBuffer<float4> Buf;
 
@@ -1521,13 +1528,15 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | DsIn        | ``PrimitiveId``                        | N/A                   | ``Tessellation``            |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_PrimitiveID            | GSIn        | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
-|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSIn        | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
+| SV_PrimitiveID            +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | PSIn        | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``PrimitiveId``                        | N/A                   | ``MeshShadingNV``           |
+|                           |             |                                        |                       | ``MeshShadingNV``           |
+|                           | MSOut       | ``PrimitiveId``                        | N/A                   |                             |
+|                           |             |                                        |                       | ``MeshShadingEXT``          |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | PCOut       | ``TessLevelOuter``                     | N/A                   | ``Tessellation``            |
 | SV_TessFactor             +-------------+----------------------------------------+-----------------------+-----------------------------+
@@ -1545,15 +1554,19 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``Layer``                              | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_RenderTargetArrayIndex | PSIn        | ``Layer``                              | N/A                   | ``Geometry``                |
-|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``Layer``                              | N/A                   | ``MeshShadingNV``           |
+|                           | PSIn        | ``Layer``                              | N/A                   | ``Geometry``                |
+| SV_RenderTargetArrayIndex +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           |             |                                        |                       | ``MeshShadingNV``           |
+|                           | MSOut       | ``Layer``                              | N/A                   |                             |
+|                           |             |                                        |                       | ``MeshShadingEXT``          |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``ViewportIndex``                      | N/A                   | ``MultiViewport``           |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_ViewportArrayIndex     | PSIn        | ``ViewportIndex``                      | N/A                   | ``MultiViewport``           |
-|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``ViewportIndex``                      | N/A                   | ``MeshShadingNV``           |
+|                           | PSIn        | ``ViewportIndex``                      | N/A                   | ``MultiViewport``           |
+| SV_ViewportArrayIndex     +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           |             |                                        |                       | ``MeshShadingNV``           |
+|                           | MSOut       | ``ViewportIndex``                      | N/A                   |                             |
+|                           |             |                                        |                       | ``MeshShadingEXT``          |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | PSIn        | ``SampleMask``                         | N/A                   | ``Shader``                  |
 | SV_Coverage               +-------------+----------------------------------------+-----------------------+-----------------------------+
@@ -1581,6 +1594,9 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | MSOut       | ``PrimitiveShadingRateKHR``            | N/A                   | ``FragmentShadingRate``     |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_CullPrimitive          | MSOut       | ``CullPrimitiveEXT``                   | N/A                   | ``MeshShadingEXT ``         |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+
 
 For entities (function parameters, function return values, struct fields) with
 the above SV semantic strings attached, SPIR-V variables of the
@@ -1755,6 +1771,7 @@ variable with the struct type.
 For example, the binding numbers for the following resources and cbuffers
 
 .. code:: hlsl
+
   cbuffer buf0 : register(b0) {
     float4 non_resource0;
   };
@@ -3407,26 +3424,34 @@ shaders and are translated to SPIR-V execution modes according to the table belo
 
 .. table:: Mapping from HLSL attribute to SPIR-V execution mode
 
-+-------------------+--------------------+-------------------------+
-|  HLSL Attribute   |   Value            | SPIR-V Execution Mode   |
-+===================+====================+=========================+
-|``outputtopology`` | ``point``          | ``OutputPoints``        |
-|                   +--------------------+-------------------------+
-|``(Mesh shader)``  | ``line``           | ``OutputLinesNV``       |
-|                   +--------------------+-------------------------+
-|                   | ``triangle``       | ``OutputTrianglesNV``   |
-+-------------------+--------------------+-------------------------+
-| ``numthreads``    | ``X, Y, Z``        | ``LocalSize X, Y, Z``   |
-|                   |                    |                         |
-|                   | ``(X*Y*Z <= 128)`` |                         |
-+-------------------+--------------------+-------------------------+
++-----------------------+--------------------+-------------------------+
+|  HLSL Attribute       |   Value            | SPIR-V Execution Mode   |
++=======================+====================+=========================+
+|``outputtopology``     | ``point``          | ``OutputPoints``        |
+|                       +--------------------+-------------------------+
+| (SPV_NV_mesh_shader)  | ``line``           | ``OutputLinesNV``       |
+|                       |                    |                         |
+|                       +--------------------+-------------------------+
+|                       | ``triangle``       | ``OutputTrianglesNV``   |
++-----------------------+--------------------+-------------------------+
+|``outputtopology``     | ``point``          | ``OutputPoints``        |
+|                       +--------------------+-------------------------+
+| (SPV_EXT_mesh_shader) | ``line``           | ``OutputLinesEXT``      |
+|                       |                    |                         |
+|                       +--------------------+-------------------------+
+|                       | ``triangle``       | ``OutputTrianglesEXT``  |
++-----------------------+--------------------+-------------------------+
+| ``numthreads``        | ``X, Y, Z``        | ``LocalSize X, Y, Z``   |
+|                       |                    |                         |
+|                       | ``(X*Y*Z <= 128)`` |                         |
++-----------------------+--------------------+-------------------------+
 
 Intrinsics
 ~~~~~~~~~~
 The following HLSL intrinsics are used in Mesh or Amplification shaders
 and are translated to SPIR-V intrinsics according to the table below:
 
-.. table:: Mapping from HLSL intrinsics to SPIR-V intrinsics
+.. table:: Mapping from HLSL intrinsics to SPIR-V intrinsics for SPV_NV_mesh_shader
 
 +---------------------------+--------------------+-----------------------------------------+
 |  HLSL Intrinsic           |  Parameters        | SPIR-V Intrinsic                        |
@@ -3443,6 +3468,24 @@ and are translated to SPIR-V intrinsics according to the table below:
 |                           |                    |                                         |
 |                           | ``MeshPayload``    |                                         |
 +---------------------------+--------------------+-----------------------------------------+
+
+.. table:: Mapping from HLSL intrinsics to SPIR-V intrinsics for SPV_EXT_mesh_shader
+
++---------------------------+--------------------+--------------------------------------------------------------+
+|  HLSL Intrinsic           |  Parameters        | SPIR-V Intrinsic                                             |
++===========================+====================+==============================================================+
+| ``SetMeshOutputCounts``   | ``numVertices``    | ``OpSetMeshOutputsEXT``                                      |
+|                           |                    |                                                              |
+| ``(Mesh shader)``         | ``numPrimitives``  |                                                              |
++---------------------------+--------------------+--------------------------------------------------------------+
+| ``DispatchMesh``          | ``ThreadX``        | ``OpEmitMeshTasksEXT ThreadX ThreadY ThreadZ MeshPayload``   |
+|                           |                    |                                                              |
+| ``(Amplification shader)``| ``ThreadY``        | ``TaskCountNV ThreadX*ThreadY*ThreadZ``                      |
+|                           |                    |                                                              |
+|                           | ``ThreadZ``        |                                                              |
+|                           |                    |                                                              |
+|                           | ``MeshPayload``    |                                                              |
++---------------------------+--------------------+--------------------------------------------------------------+
 
 | Note : For ``DispatchMesh`` intrinsic, we also emit ``MeshPayload`` as output block with ``PerTaskNV`` decoration
 

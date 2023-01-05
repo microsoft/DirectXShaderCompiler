@@ -1017,6 +1017,7 @@ file_magic identify_magic(StringRef Magic) {
     case 0xc4: // ARMNT Windows
       if (Magic[1] == 0x01)
         return file_magic::coff_object;
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case 0x90: // PA-RISC Windows
     case 0x68: // mc68K Windows

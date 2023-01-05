@@ -99,7 +99,8 @@ static void ArgTest12(ArrayRef<int> A) {
 }
 
 TEST(ArrayRefTest, InitializerList) {
-  ArrayRef<int> A = { 0, 1, 2, 3, 4 };
+  std::initializer_list<int> InitList = { 0, 1, 2, 3, 4 };
+  ArrayRef<int> A = InitList;
   for (int i = 0; i < 5; ++i)
     EXPECT_EQ(i, A[i]);
 
