@@ -1053,7 +1053,7 @@ public:
     CComBSTR(_In_ int nSize, LPCWSTR sz);
     ~CComBSTR() throw() {
     if (m_needFree)
-      free(m_str);
+      SysFreeString(m_str);
     }
 
     operator BSTR() const throw()

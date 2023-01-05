@@ -86,7 +86,7 @@ CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) : m_needFree(true) {
   if (nSize == 0) {
     m_str = NULL;
   } else {
-    m_str = (BSTR)malloc((nSize + 1) * sizeof(WCHAR));
+    m_str = SysAllocStringLen(sz, nSize);
     if (!*this) {
       std::runtime_error("out of memory");
     }
