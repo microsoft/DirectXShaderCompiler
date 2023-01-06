@@ -5899,7 +5899,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
   llvm::SmallSet<llvm::Value*, 8> ArgVals;
   for (uint32_t i = 0; i < FD->getNumParams(); i++) {
     const ParmVarDecl *Param = FD->getParamDecl(i);
-    const Expr *Arg = E->getArg(i+ArgsToSkip);
+    uint32_t ArgIdx = i+ArgsToSkip;
+    const Expr *Arg = E->getArg(ArgIdx);
     QualType ParamTy = Param->getType().getNonReferenceType();
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool bAnnotResource = false;
@@ -5939,7 +5940,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                       dyn_cast<ImplicitCastExpr>(cCast->getSubExpr())) {
                 if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
                   // update the arg
-                  argList[i] = cast->getSubExpr();
+                  argList[ArgIdx] = cast->getSubExpr();
                   continue;
                 }
               }
@@ -6072,7 +6073,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         (isAggregateType || isObject) ? VK_RValue : VK_LValue);
 
     // must update the arg, since we did emit Arg, else we get double emit.
-    argList[i] = tmpRef;
+    argList[ArgIdx] = tmpRef;
 
     // create alloc for the tmp arg
     Value *tmpArgAddr = nullptr;
