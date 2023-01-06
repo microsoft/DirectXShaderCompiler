@@ -568,16 +568,7 @@ bool canTreatAsSameScalarType(QualType type1, QualType type2) {
          (type1->isSpecificBuiltinType(BuiltinType::LitFloat) &&
           type2->isFloatingType()) ||
          (type2->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-          type1->isFloatingType()) ||
-         // Treat 'literal int' and 'int'/'uint' as the same
-         (type1->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type2->isIntegerType() &&
-          // Disallow boolean types
-          !type2->isSpecificBuiltinType(BuiltinType::Bool)) ||
-         (type2->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type1->isIntegerType() &&
-          // Disallow boolean types
-          !type1->isSpecificBuiltinType(BuiltinType::Bool));
+          type1->isFloatingType());
 }
 
 bool canFitIntoOneRegister(const ASTContext &astContext, QualType structType,
@@ -738,9 +729,26 @@ bool isSameScalarOrVecType(QualType type1, QualType type2) {
   { // Vector types
     QualType elemType1 = {}, elemType2 = {};
     uint32_t count1 = {}, count2 = {};
-    if (isVectorType(type1, &elemType1, &count1) &&
-        isVectorType(type2, &elemType2, &count2))
-      return count1 == count2 && canTreatAsSameScalarType(elemType1, elemType2);
+    if (!isVectorType(type1, &elemType1, &count1) ||
+        !isVectorType(type2, &elemType2, &count2))
+      return false;
+
+    if (count1 != count2)
+      return false;
+
+    // That's a corner case we had to add to solve #4727.
+    // Normally, clang doesn't have the 'literal type', thus we can rely on
+    // direct type check. But this flavor of the AST has this 'literal int' type
+    // that is sign-less (nor signed or unsigned), until usage. Obviously,
+    // int(3) == literal int (3), but since they are considered different in the
+    // AST, we must check explicitly. Note: this is only valid here, as this is
+    // related to a vector size. Considering int == literal int elsewhere could
+    // break codegen, as SPIR-V does need explicit signedness.
+    return canTreatAsSameScalarType(elemType1, elemType2) ||
+           (elemType1->isIntegerType() &&
+            elemType2->isSpecificBuiltinType(BuiltinType::LitInt)) ||
+           (elemType2->isIntegerType() &&
+            elemType1->isSpecificBuiltinType(BuiltinType::LitInt));
   }
 
   return false;
