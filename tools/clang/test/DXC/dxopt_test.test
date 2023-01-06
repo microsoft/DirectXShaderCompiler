@@ -1,7 +1,7 @@
 // Smoke test for dxopt command line
 // RUN: %dxc /Odump  -Tps_6_0 %S/Inputs/smoke.hlsl > %t.opt.passes.txt
 
-// RUN: %echo -print-module:test >> %t.opt.passes.txt
+// RUN: echo -print-module:test >> %t.opt.passes.txt
 
 // RUN: %dxc -T ps_6_0 %S/Inputs/smoke.hlsl -fcgl -Fc %t.smoke.hl.ll
 // RUN: FileCheck --input-file=%t.smoke.hl.ll %s --check-prefix=HL_LL
