@@ -119,7 +119,7 @@ protected:
 
 public:
   void print(raw_ostream &O) const;
-  void dump() const;
+  LLVM_DUMP_METHOD void dump() const; // HLSL Change - Add LLVM_DUMP_METHOD
 
   /// getContext - Return the LLVMContext in which this type was uniqued.
   LLVMContext &getContext() const { return Context; }
