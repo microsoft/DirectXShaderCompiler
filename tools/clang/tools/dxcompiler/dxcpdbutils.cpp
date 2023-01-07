@@ -25,9 +25,6 @@
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
-#ifdef _WIN32
-#include "dxc/dxcpix.h"
-#endif
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -48,7 +45,9 @@
 #include <locale>
 #include <codecvt>
 #include <string>
+
 #ifdef _WIN32
+#include "dxc/dxcpix.h"
 #include <dia2.h>
 #endif
 

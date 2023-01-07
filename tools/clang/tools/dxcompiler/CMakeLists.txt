@@ -81,7 +81,6 @@ set(SOURCES
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp
-  dxclinker.cpp
 )
 endif(WIN32)
 
