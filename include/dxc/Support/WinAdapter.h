@@ -122,6 +122,7 @@
 #define ERROR_NOT_CAPABLE EPERM
 #define ERROR_NOT_FOUND ENOTSUP
 #define ERROR_UNHANDLED_EXCEPTION EBADF
+#define ERROR_BROKEN_PIPE EPIPE
 
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
@@ -1039,8 +1040,60 @@ private:
   HANDLE m_h;
 };
 
+
+/////////////////////////////////////////////////////////////////////////////
+// CComBSTR
+
+class CComBSTR
+{
+public:
+    BSTR m_str;
+    CComBSTR() : m_str(nullptr) {};
+    CComBSTR(_In_ int nSize, LPCWSTR sz);
+    ~CComBSTR() throw() {
+      SysFreeString(m_str);
+    }
+
+    operator BSTR() const throw()
+    {
+        return m_str;
+    }
+
+    bool operator==(_In_ const CComBSTR& bstrSrc) const throw();
+
+    BSTR* operator&() throw()
+    {
+        return &m_str;
+    }
+
+    BSTR Detach() throw()
+    {
+        BSTR s = m_str;
+        m_str = NULL;
+        return s;
+    }
+
+};
+
+
 #endif // __cplusplus
 
 #endif // _WIN32
+
+#ifdef __cplusplus
+
+#include <string>
+#include <vector>
+//===--------- Convert argv to wchar ----------------===//
+class WArgV {
+  std::vector<std::wstring> WStringVector;
+  std::vector<const wchar_t *> WCharPtrVector;
+
+public:
+  WArgV(int argc, const char **argv);
+  WArgV(int argc, const wchar_t **argv);
+  const wchar_t **argv() { return WCharPtrVector.data();}
+};
+#endif
 
 #endif // LLVM_SUPPORT_WIN_ADAPTER_H
