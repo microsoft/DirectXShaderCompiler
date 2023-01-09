@@ -1,0 +1,5 @@
+
+// force_rootsig_ver
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl -force_rootsig_ver rootsig_1_0
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl -force_rootsig_ver rootsig_1_1
+// RUN: not %dxc /T ps_6_0 %S/Inputs/smoke.hlsl -force_rootsig_ver rootsig_2_0

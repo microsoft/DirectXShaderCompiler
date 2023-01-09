@@ -1,0 +1,5 @@
+// Test for denorm options
+// RUN: %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /denorm preserve
+// RUN: %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /denorm ftz
+// RUN: not %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /denorm abc
+// RUN: not %dxc  %S/Inputs/smoke.hlsl /Tps_6_1 /denorm any

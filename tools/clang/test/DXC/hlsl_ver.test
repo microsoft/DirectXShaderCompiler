@@ -1,0 +1,3 @@
+// HLSL Version
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl  /HV 2016
+// RUN: not %dxc /T ps_6_0 %S/Inputs/smoke.hlsl  /HV 2015

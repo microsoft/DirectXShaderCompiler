@@ -1,0 +1,31 @@
+// RUN: %dxc -T ps_6_5 -P -Fi %t.ps_65.hlsl.pp %s
+// RUN: FileCheck --input-file=%t.ps_65.hlsl.pp %s --check-prefix=PS_65
+// PS_65:ps 6 5
+
+// RUN: %dxc -T ps_6_6 -P -Fi %t.ps_66.hlsl.pp %s
+// RUN: FileCheck --input-file=%t.ps_66.hlsl.pp %s --check-prefix=PS_66
+// PS_66:ps 6 6
+
+// VS PS GS HS DS CS LIB MS AS
+
+#if __SHADER_TARGET_STAGE == __SHADER_STAGE_VERTEX
+#define __SHADER_STAGE_PREFIX vs
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_PIXEL
+#define __SHADER_STAGE_PREFIX ps
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_GEOMETRY
+#define __SHADER_STAGE_PREFIX gs
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_HULL
+#define __SHADER_STAGE_PREFIX hs
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_DOMAIN
+#define __SHADER_STAGE_PREFIX ds
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_COMPUTE
+#define __SHADER_STAGE_PREFIX cs
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_AMPLIFICATION
+#define __SHADER_STAGE_PREFIX as
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_MESH
+#define __SHADER_STAGE_PREFIX ms
+#elif __SHADER_TARGET_STAGE == __SHADER_STAGE_LIBRARY
+#define __SHADER_STAGE_PREFIX lib
+#endif
+
+__SHADER_STAGE_PREFIX __SHADER_TARGET_MAJOR __SHADER_TARGET_MINOR)

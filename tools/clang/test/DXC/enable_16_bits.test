@@ -1,0 +1,4 @@
+// Test /enable-16bit-types option
+// RUN: %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /enable-16bit-types
+// RUN: not %dxc  %S/Inputs/smoke.hlsl /Tps_6_1 /enable-16bit-types
+// RUN: not %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /enable-16bit-types /HV 2017

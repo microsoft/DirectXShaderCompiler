@@ -1,0 +1,9 @@
+
+
+// RUN: %dxc  %S/Inputs/smoke.hlsl  /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo %t.define.cso
+
+// dxc.exe shader model upgrade
+// RUN: %dxc -dumpbin %t.define.cso -Fc %t.upgrade.ll
+// RUN: FileCheck --input-file=%t.upgrade.ll %s --check-prefix=MODEL_UPGRADE
+// MODEL_UPGRADE:DICompileUnit
+
