@@ -1144,9 +1144,9 @@ void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::Embed(const TypeInfo &
     m_Layout.emplace_back(E);
   }
   uint64_t alignmentInBytes = TI.GetAlignmentInBytes();
-  if (alignmentInBytes != 0 && 
-      m_dwCurrentSizeInBytes % alignmentInBytes != 0) {
-    m_dwCurrentSizeInBytes += alignmentInBytes - (m_dwCurrentSizeInBytes % alignmentInBytes);
+  if (alignmentInBytes != 0) {
+    m_dwCurrentSizeInBytes =
+        llvm::RoundUpToAlignment(m_dwCurrentSizeInBytes, alignmentInBytes);
   }
   m_dwCurrentSizeInBytes += TI.m_dwCurrentSizeInBytes;
 }
@@ -1156,9 +1156,8 @@ void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::AddBasicType(llvm::DIB
 
   static constexpr DWORD kNumBitsPerByte = 8;
   uint64_t alignmentInBytes = BT->getAlignInBits() / kNumBitsPerByte;
-  if (alignmentInBytes != 0 && m_dwCurrentSizeInBytes % alignmentInBytes != 0) {
-    m_dwCurrentSizeInBytes +=
-        alignmentInBytes - (m_dwCurrentSizeInBytes % alignmentInBytes);
+  if (alignmentInBytes != 0) {
+    m_dwCurrentSizeInBytes = llvm::RoundUpToAlignment(m_dwCurrentSizeInBytes, alignmentInBytes);
   }
   m_dwCurrentSizeInBytes += BT->getSizeInBits() / kNumBitsPerByte;
 }
