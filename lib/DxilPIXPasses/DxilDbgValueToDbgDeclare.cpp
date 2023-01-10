@@ -864,8 +864,11 @@ VariableRegisters::VariableRegisters(
 {
   PopulateAllocaMap(Ty);
   m_Offsets.AlignTo(Ty); // For padding.
+
+  // (min16* types can occupy 16 or 32 bits depending on whether or not they are natively supported.
+  // If non-native, the alignment will be 32, but the claimed size will still be 16, hence the "max" here)
   assert(m_Offsets.GetCurrentAlignedOffset() ==
-         DITypePeelTypeAlias(Ty)->getSizeInBits());
+         std::max<uint64_t>(DITypePeelTypeAlias(Ty)->getSizeInBits(), DITypePeelTypeAlias(Ty)->getAlignInBits()));
 }
 
 void VariableRegisters::PopulateAllocaMap(
