@@ -728,6 +728,144 @@ public:
     std::vector<std::string> lines;
   };
 
+  std::string ExtractBracedSubstring(std::string const &line) {
+    auto open = line.find('{');
+    auto close = line.find('}');
+    if (open != std::string::npos && close != std::string::npos &&
+        open + 1 < close) {
+      return line.substr(open + 1, close - open - 1);
+    }
+    return "";
+  }
+
+  int ExtractMetaInt32Value(std::string const &token) {
+    if (token.substr(0, 5) == " i32 ") {
+      return atoi(token.c_str() + 5);
+    }
+    return -1;
+  }
+
+  std::map<int, std::pair<int, int>>
+  MetaDataKeyToRegisterNumber(std::vector<std::string> const &lines) {
+    // Find lines of the exemplary form
+    // "!249 = !{i32 0, i32 20}"  (in the case of a DXIL value)
+    // "!196 = !{i32 1, i32 5, i32 1}" (in the case of a DXIL alloca reg)
+    // The first i32 is a tag indicating what type of metadata this is.
+    // It doesn't matter if we parse poorly and find some data that don't match
+    // this pattern, as long as we do find all the data that do match (we won't
+    // be looking up the non-matchers in the resultant map anyway).
+
+    constexpr char *valueMetaDataAssignment = "= !{i32 0, ";
+    constexpr char *allocaMetaDataAssignment = "= !{i32 1, ";
+
+    std::map<int, std::pair<int, int>> ret;
+    for (auto const &line : lines) {
+      if (line[0] == '!') {
+        if (line.find(valueMetaDataAssignment) != std::string::npos ||
+            line.find(allocaMetaDataAssignment) != std::string::npos) {
+          int key = atoi(line.c_str() + 1);
+          if (key != 0) {
+            std::string bitInBraces = ExtractBracedSubstring(line); 
+            if (bitInBraces != "") {
+              auto tokens = Tokenize(bitInBraces.c_str(), ",");
+              if (tokens.size() == 2) {
+                auto value = ExtractMetaInt32Value(tokens[1]);
+                if (value != -1) {
+                  ret[key] = {value, 1};
+                }
+              }
+              if (tokens.size() == 3) {
+                auto value0 = ExtractMetaInt32Value(tokens[1]);
+                if (value0 != -1) {
+                  auto value1 = ExtractMetaInt32Value(tokens[2]);
+                  if (value1 != -1) {
+                    ret[key] = {value0, value1};
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return ret;
+  }
+
+  std::string ExtractValueName(std::string const &line) {
+    auto foundEquals = line.find('=');
+    if (foundEquals != std::string::npos && foundEquals > 4) {
+      return line.substr(2, foundEquals - 3);
+    }
+    return "";
+  }
+
+    using DxilRegisterToNameMap = std::map<std::pair<int, int>, std::string>;
+
+  void CheckForAndInsertMapEntryIfFound(
+        DxilRegisterToNameMap &registerToNameMap,
+      std::map<int, std::pair<int, int>> const &metaDataKeyToValue,
+      std::string const &line, char const *tag, size_t tagLength) {
+    auto foundAlloca = line.find(tag); 
+    if (foundAlloca != std::string::npos) {
+      auto valueName = ExtractValueName(line);
+      if (valueName != "") {
+        int key = atoi(line.c_str() + foundAlloca + tagLength);
+        auto foundKey = metaDataKeyToValue.find(key);
+        if (foundKey != metaDataKeyToValue.end()) {
+          registerToNameMap[foundKey->second] = valueName;
+        }
+      }
+    }
+  }
+
+  // Here's some exemplary DXIL to help understand what's going on:
+  //
+  //  %5 = alloca [1 x float], i32 0, !pix-alloca-reg !196
+  //  %25 = call float @dx.op.loadInput.f32(...), !pix-dxil-reg !255
+  //
+  // The %5 is an alloca name, and the %25 is a regular llvm value.
+  // The meta-data tags !pix-alloca-reg and !pix-dxil-reg denote this,
+  // and provide keys !196 and !255 respectively.
+  // Those keys are then given values later on in the DXIL like this:
+  //
+  // !196 = !{i32 1, i32 5, i32 1}  (5 is the base alloca, 1 is the offset into
+  // it) !255 = !{i32 0, i32 23}
+  //
+  // So the task is first to find all of those key/value pairs and make a map
+  // from e.g. !196 to, e.g., (5,1), and then to find all of the alloca and reg
+  // tags and look up the keys in said map to build the map we're actually
+  // looking for, with key->values like e.g. "%5"->(5,1) and "%25"->(23)
+
+DxilRegisterToNameMap BuildDxilRegisterToNameMap(char const *disassembly) {
+    DxilRegisterToNameMap ret;
+
+    auto lines = Tokenize(disassembly, "\n");
+
+    auto metaDataKeyToValue = MetaDataKeyToRegisterNumber(lines);
+
+    for (auto const &line : lines) {
+      if (line[0] == '!') {
+        // Stop searching for values when we've run into the metadata region of
+        // the disassembly
+        break;
+      }
+      const char allocaTag[] = "!pix-alloca-reg !";
+      CheckForAndInsertMapEntryIfFound(ret, metaDataKeyToValue, line, allocaTag,
+                                       _countof(allocaTag) - 1);
+      const char valueTag[] = "!pix-dxil-reg !";
+      CheckForAndInsertMapEntryIfFound(ret, metaDataKeyToValue, line, valueTag,
+                                       _countof(valueTag) - 1);
+    }
+    return ret;
+  }
+
+static std::string ToString(std::wstring from)
+{
+    std::string ret;
+    ret.assign(from.data(), from.data() + from.size());
+    return ret;
+}
+
   PassOutput RunAnnotationPasses(IDxcBlob * dxil, int startingLineNumber = 0)
   {
     CComPtr<IDxcOptimizer> pOptimizer;
@@ -752,39 +890,18 @@ public:
       outputText = reinterpret_cast<const char*>(pText->GetBufferPointer());
     }
 
-    auto lines = Tokenize(outputText, "\n");
+    auto disasm = ToString(Disassemble(pOptimizedModule));
+
+    auto registerToName = BuildDxilRegisterToNameMap(disasm.c_str());
 
     std::vector<ValueLocation> valueLocations;
 
-    for (size_t line = 0; line < lines.size(); ++line) {
-      if (lines[line] == "Begin - dxil values to virtual register mapping") {
-        for (++line; line < lines.size(); ++line) {
-          if (lines[line] == "End - dxil values to virtual register mapping") {
-            break;
-          }
-
-          auto lineTokens = Tokenize(lines[line], " ");
-          VERIFY_IS_TRUE(lineTokens.size() >= 2);
-          if (lineTokens[1] == "dxil")
-          {
-            VERIFY_IS_TRUE(lineTokens.size() == 3);
-            valueLocations.push_back({atoi(lineTokens[2].c_str()), 1});
-          }
-          else if (lineTokens[1] == "alloca")
-          {
-            VERIFY_IS_TRUE(lineTokens.size() == 4);
-            valueLocations.push_back(
-                {atoi(lineTokens[2].c_str()), atoi(lineTokens[3].c_str())});
-          }
-          else
-          {
-            VERIFY_IS_TRUE(false);
-          }
-        }
-      }
+    for (auto const& r2n : registerToName)
+    {
+      valueLocations.push_back({r2n.first.first, r2n.first.second});
     }
 
-    return { std::move(pOptimizedModule), std::move(valueLocations), std::move(lines) };
+    return { std::move(pOptimizedModule), std::move(valueLocations), Tokenize(outputText.c_str(), "\n") };
   }
 
   std::wstring Disassemble(IDxcBlob * pProgram)
@@ -2126,10 +2243,10 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
           for (ValueLocation const &valueLocation :
                passOutput.valueLocations) // For each allocas and dxil values
           {
-            if (CurRegIdx == valueLocation.base) {
+            if (CurRegIdx == valueLocation.base && 
+                valueLocation.count == cover.countOfMembers) {
               VERIFY_IS_FALSE(found);
               found = true;
-              VERIFY_ARE_EQUAL(valueLocation.count, cover.countOfMembers);
             }
           }
           VERIFY_IS_TRUE(found);
