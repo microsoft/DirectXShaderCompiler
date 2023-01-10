@@ -3,7 +3,7 @@
 if(WIN32)
 find_package(TAEF REQUIRED)
 find_package(DiaSDK REQUIRED) # Used for constants and declarations.
-find_package(D3D12 REQUIRED) # Used for ExecutionTest.cpp.
+find_package(D3D12 REQUIRED)  # Used in DxilContainerTest for DXBC compilation/reflection
 endif(WIN32)
 
 set( LLVM_LINK_COMPONENTS
@@ -35,7 +35,6 @@ add_clang_library(ClangHLSLTests SHARED
   DxilModuleTest.cpp
   DxilResourceTests.cpp
   DXIsenseTest.cpp
-  ExecutionTest.cpp
   ExtensionTest.cpp
   FunctionTest.cpp
   LinkerTest.cpp
@@ -45,17 +44,14 @@ add_clang_library(ClangHLSLTests SHARED
   OptionsTest.cpp
   PixTest.cpp
   RewriterTest.cpp
-  ShaderOpTest.cpp
   SystemValueTest.cpp
   ValidationTest.cpp
   VerifierTest.cpp
-  clang-hlsl-tests.rc
   )
 
   add_dependencies(ClangUnitTests ClangHLSLTests)
 else (WIN32)
 set(HLSL_IGNORE_SOURCES
-  ExecutionTest.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
   PixTest.cpp

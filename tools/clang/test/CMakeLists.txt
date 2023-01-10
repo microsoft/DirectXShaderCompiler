@@ -69,7 +69,7 @@ endif()
 
 # HLSL Change Begin
 # Explicitly overriding check-clang dependencies for HLSL
-set(CLANG_TEST_DEPS dxc dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
+set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
 add_custom_target(clang-test-depends DEPENDS ${CLANG_TEST_DEPS})
 set_target_properties(clang-test-depends PROPERTIES FOLDER "Clang tests")
 # HLSL Change End

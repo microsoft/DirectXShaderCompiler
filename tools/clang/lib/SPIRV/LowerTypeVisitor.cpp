@@ -1043,16 +1043,16 @@ LowerTypeVisitor::populateLayoutInformation(
   // This stores the index of the field in the actual SPIR-V construct.
   // When bitfields are merged, this index will be the same for merged fields.
   uint32_t fieldIndexInConstruct = 0;
-  for (size_t i = 0; i < sortedFields.size(); i++) {
-    const StructType::FieldInfo *previousField =
-        i > 0 ? &loweredFields.back() : nullptr;
-    const HybridStructType::FieldInfo *currentField = sortedFields[i];
+  for (size_t i = 0, iPrevious = -1; i < sortedFields.size(); iPrevious = i++) {
     const size_t fieldIndexForMap = loweredFields.size();
 
-    loweredFields.emplace_back(
-        fieldVisitor(previousField, currentField, fieldIndexInConstruct));
-    if (!previousField ||
-        previousField->fieldIndex != loweredFields.back().fieldIndex) {
+    loweredFields.emplace_back(fieldVisitor(
+        (iPrevious < loweredFields.size() ? &loweredFields[iPrevious]
+                                          : nullptr),
+        sortedFields[i], fieldIndexInConstruct));
+    if (!(iPrevious < loweredFields.size()) ||
+        loweredFields[iPrevious].fieldIndex !=
+            loweredFields.back().fieldIndex) {
       fieldIndexInConstruct++;
     }
     fieldToIndexMap[sortedFields[i]] = fieldIndexForMap;

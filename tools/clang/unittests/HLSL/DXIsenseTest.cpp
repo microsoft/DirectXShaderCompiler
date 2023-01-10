@@ -23,7 +23,6 @@
 #ifdef _WIN32
 class DXIntellisenseTest {
 #else
-typedef BSTR CComBSTR;
 class DXIntellisenseTest : public ::testing::Test {
 #endif
 public:
