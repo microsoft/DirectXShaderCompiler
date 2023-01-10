@@ -4041,7 +4041,9 @@ static Value* ConvertScalarOrVector(CGBuilderTy& Builder, CodeGenTypes &Types,
   llvm::Type *SrcTy = Val->getType();
   llvm::Type *DstTy = Types.ConvertType(DstQualTy);
 
-  DXASSERT(Val->getType() == Types.ConvertType(SrcQualTy), "QualType/Value mismatch!");
+  DXASSERT(Val->getType() == Types.ConvertType(SrcQualTy) ||
+               Val->getType() == Types.ConvertTypeForMem(SrcQualTy),
+           "QualType/Value mismatch!");
   DXASSERT((SrcTy->isIntOrIntVectorTy() || SrcTy->isFPOrFPVectorTy())
     && (DstTy->isIntOrIntVectorTy() || DstTy->isFPOrFPVectorTy()),
     "EmitNumericConversion can only be used with int/float scalars/vectors.");
