@@ -223,6 +223,7 @@ public:
   TEST_METHOD(PixStructAnnotation_WheresMyDbgValue)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
+  TEST_METHOD(VirtualRegisters_AlignedOffsets)
 
   TEST_METHOD(RootSignatureUpgrade_SubObjects)
   TEST_METHOD(RootSignatureUpgrade_Annotation)
@@ -641,7 +642,7 @@ public:
 
     VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     CreateBlobFromText(hlsl, &pSource);
-    std::vector<const wchar_t*>  args = { L"/Zi", L"-enable-16bit-types", L"/Qembed_debug" };
+    std::vector<const wchar_t*>  args = { L"/Zi", L"/Qembed_debug" };
     args.insert(args.end(), extraArgs.begin(), extraArgs.end());
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", entry,
       target, args.data(), static_cast<UINT32>(args.size()), nullptr, 0, nullptr, &pResult));
@@ -2135,7 +2136,8 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
     const wchar_t * optimizationLevel,
     bool validateCoverage,
     const wchar_t *profile) {
-  CComPtr<IDxcBlob> pBlob = Compile(hlsl, profile, {optimizationLevel});
+  CComPtr<IDxcBlob> pBlob = Compile(hlsl, profile,
+              {optimizationLevel, L"-HV", L"2018", L"-enable-16bit-types"});
 
   CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
 
@@ -3501,6 +3503,53 @@ void MyMissShader(inout RayPayload payload)
       }
     }
     VERIFY_ARE_EQUAL(1, countOfInstructionRangeLines);
+  }
+}
+
+
+TEST_F(PixTest, VirtualRegisters_AlignedOffsets) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  {
+    const char *hlsl = R"(
+cbuffer cbEveryFrame : register(b0)
+{
+    int i32;
+    float f32;
+};
+
+struct VS_OUTPUT_ENV
+{
+    float4 Pos        : SV_Position;
+    float2 Tex        : TEXCOORD0;
+};
+
+float4 main(VS_OUTPUT_ENV input) : SV_Target
+{
+    // (BTW we load from i32 and f32 (which are resident in a cb) so that these local variables aren't optimized away)
+    bool i1 = i32 != 0;
+    min16uint u16 = (min16uint)(i32 / 4);
+    min16int s16 = (min16int)(i32/4) * -1; // signed s16 gets -8
+    min12int s12 = (min12int)(i32/8) * -1; // signed s12 gets -4
+    half h = (half) f32 / 2.f; // f32 is initialized to 32.0 in8he CB, so the 16-bit type now has "16.0" in it
+    min16float mf16 = (min16float) f32 / -2.f;
+    min10float mf10 = (min10float) f32 / -4.f;
+    return float4((float)(i1 + u16) / 2.f, (float)(s16 + s12) / -128.f, h / 128.f, mf16 / 128.f + mf10 / 256.f);
+}
+)";
+
+    //This is little more than a crash test, designed to exercise a previously over-active assert..
+    std::vector<std::pair<const wchar_t *,  std::vector<const wchar_t *>>> argSets = {
+          {L"ps_6_0", {L"-Od"}}, 
+          {L"ps_6_2", {L"-Od", L"-HV", L"2018", L"-enable-16bit-types"}}
+    };
+    for (auto const &args : argSets) {
+
+      CComPtr<IDxcBlob> pBlob = Compile(hlsl, args.first, args.second);
+      CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
+      RunAnnotationPasses(pDxil).lines;
+    }
   }
 }
 
