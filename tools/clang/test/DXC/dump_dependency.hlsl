@@ -1,6 +1,7 @@
 // RUN: %dxc /T ps_6_0 %s -I %S/Inputs /M | FileCheck %s
 
-// RUN: %dxc /T ps_6_0 %s -I %S/Inputs /MF%t.deps | FileCheck --input-file=%t.deps %s
+// RUN: %dxc /T ps_6_0 %s -I %S/Inputs /MF%t.deps
+// RUN: FileCheck --input-file=%t.deps %s
 
 // RUN: %dxc /T ps_6_0 %s -I %S/Inputs /MD
 // RUN: FileCheck --input-file=%S/dump_dependency.d %s
