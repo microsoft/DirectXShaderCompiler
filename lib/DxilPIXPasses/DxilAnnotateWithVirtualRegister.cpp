@@ -81,9 +81,7 @@ private:
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
-  void PrintSingleRegister(llvm::Instruction* pI, uint32_t Register);
   void AssignNewAllocaRegister(llvm::AllocaInst* pAlloca, std::uint32_t C);
-  void PrintAllocaMember(llvm::AllocaInst* pAlloca, uint32_t Base, uint32_t Offset);
 
   hlsl::DxilModule* m_DM;
   std::uint32_t m_uVReg;
@@ -406,34 +404,13 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
 void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(
     llvm::Instruction *pI) {
   PixDxilReg::AddMD(m_DM->GetCtx(), pI, m_uVReg);
-  PrintSingleRegister(pI, m_uVReg);
   m_uVReg++;
 }
 
 void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(
     llvm::AllocaInst *pAlloca, std::uint32_t C) {
   PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
-  PrintAllocaMember(pAlloca, m_uVReg, C);
   m_uVReg += C;
-}
-
-void DxilAnnotateWithVirtualRegister::PrintSingleRegister(
-    llvm::Instruction* pI, uint32_t Register) {
-  if (OSOverride != nullptr) {
-    static constexpr bool DontPrintType = false;
-    pI->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
-    *OSOverride << " dxil " << Register << "\n";
-  }
-}
-
-void DxilAnnotateWithVirtualRegister::PrintAllocaMember(llvm::AllocaInst* pAlloca,
-                                                   uint32_t Base,
-                                                   uint32_t Offset) {
-  if (OSOverride != nullptr) {
-    static constexpr bool DontPrintType = false;
-    pAlloca->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
-    *OSOverride << " alloca " << Base << " " << Offset << "\n";
-  }
 }
 
 } // namespace
