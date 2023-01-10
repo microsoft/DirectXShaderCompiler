@@ -5896,9 +5896,11 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
   // Special case: skip first argument of CXXOperatorCall (it is "this").
   unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(E) ? 1 : 0;
+  llvm::SmallSet<llvm::Value*, 8> ArgVals;
   for (uint32_t i = 0; i < FD->getNumParams(); i++) {
     const ParmVarDecl *Param = FD->getParamDecl(i);
-    const Expr *Arg = E->getArg(i+ArgsToSkip);
+    uint32_t ArgIdx = i+ArgsToSkip;
+    const Expr *Arg = E->getArg(ArgIdx);
     QualType ParamTy = Param->getType().getNonReferenceType();
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool bAnnotResource = false;
@@ -5938,7 +5940,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                       dyn_cast<ImplicitCastExpr>(cCast->getSubExpr())) {
                 if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
                   // update the arg
-                  argList[i] = cast->getSubExpr();
+                  argList[ArgIdx] = cast->getSubExpr();
                   continue;
                 }
               }
@@ -6018,21 +6020,28 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         // copy to let the lower not happen on argument when calle is noinline
         // or extern functions. Will do it in HLLegalizeParameter after known
         // which functions are extern but before inline.
-        bool bConstGlobal = false;
         Value *Ptr = argAddr;
         while (GEPOperator *GEP = dyn_cast_or_null<GEPOperator>(Ptr)) {
           Ptr = GEP->getPointerOperand();
-        }
-        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
-          bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
         }
         // Skip copy-in copy-out when safe.
         // The unsafe case will be global variable alias with parameter.
         // Then global variable is updated in the function, the parameter will
         // be updated silently. For non global variable or constant global
         // variable, it should be safe.
-        if (argAddr &&
-            (isa<AllocaInst>(Ptr) || isa<Argument>(Ptr) || bConstGlobal)) {
+        bool SafeToSkip = false;
+        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
+          SafeToSkip = ParamTy.isConstQualified() && (m_ConstVarAnnotationMap.count(GV) > 0 || GV->isConstant());
+        }
+        if (Ptr) {
+          if (isa<AllocaInst>(Ptr) && 0 == ArgVals.count(Ptr))
+            SafeToSkip = true;
+          else if (const auto *A = dyn_cast<Argument>(Ptr))
+            SafeToSkip = A->hasNoAliasAttr() && 0 == ArgVals.count(Ptr);
+        }
+
+        if (argAddr && SafeToSkip) {
+          ArgVals.insert(Ptr);
           llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
           if (argAddr->getType()->getPointerElementType() == ToTy &&
               // Check clang Type for case like int cast to unsigned.
@@ -6064,7 +6073,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         (isAggregateType || isObject) ? VK_RValue : VK_LValue);
 
     // must update the arg, since we did emit Arg, else we get double emit.
-    argList[i] = tmpRef;
+    argList[ArgIdx] = tmpRef;
 
     // create alloc for the tmp arg
     Value *tmpArgAddr = nullptr;

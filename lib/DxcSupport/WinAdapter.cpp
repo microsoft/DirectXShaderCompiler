@@ -7,10 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
+#include "assert.h"
 #ifndef _WIN32
 
-#include "dxc/Support/WinAdapter.h"
-#include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/Unicode.h"
 
 //===--------------------------- CAllocator -------------------------------===//
 
@@ -75,4 +77,47 @@ CHandle::CHandle(HANDLE h) { m_h = h; }
 CHandle::~CHandle() { CloseHandle(m_h); }
 CHandle::operator HANDLE() const throw() { return m_h; }
 
+// CComBSTR
+CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
+  if (nSize < 0) {
+    throw  std::invalid_argument("CComBSTR must have size >= 0");
+  }
+
+  if (nSize == 0) {
+    m_str = NULL;
+  } else {
+    m_str = SysAllocStringLen(sz, nSize);
+    if (!*this) {
+      std::runtime_error("out of memory");
+    }
+  }
+}
+
+bool CComBSTR::operator==(_In_ const CComBSTR &bstrSrc) const throw() {
+  return wcscmp(m_str, bstrSrc.m_str) == 0;
+}
+
 #endif
+
+//===--------------------------- WArgV -------------------------------===//
+WArgV::WArgV(int argc, const char **argv)
+    : WStringVector(argc), WCharPtrVector(argc) {
+  for (int i = 0; i < argc; ++i) {
+    std::string S(argv[i]);
+    const int wideLength = ::MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(), nullptr, 0);
+    assert(wideLength > 0 &&
+           "else it should have failed during size calculation");
+    WStringVector[i].resize(wideLength);
+    ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(),
+                          &(WStringVector[i])[0], WStringVector[i].size());
+    WCharPtrVector[i] = WStringVector[i].data();
+  }
+}
+
+WArgV::WArgV(int argc, const wchar_t **argv)
+    : WCharPtrVector(argc) {
+  for (int i = 0; i < argc; ++i) {
+    WCharPtrVector[i] = argv[i];
+  }
+}

@@ -105,15 +105,6 @@ DxilModule::DxilModule(Module *pModule)
 
   DXASSERT_NOMSG(m_pModule != nullptr);
   SetDxilHook(*m_pModule);
-
-#ifndef NDEBUG
-  // Pin LLVM dump methods.
-  void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
-  void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
-  void (__thiscall Function::*pfnViewCFGOnly)() const = &Function::viewCFGOnly;
-  m_pUnused = (char *)&pfnModuleDump - (char *)&pfnTypeDump;
-  m_pUnused -= (size_t)&pfnViewCFGOnly;
-#endif
 }
 
 DxilModule::~DxilModule() { ClearDxilHook(*m_pModule); }

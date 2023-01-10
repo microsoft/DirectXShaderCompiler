@@ -523,14 +523,15 @@ public:
   /// basic block inside.  This depends on there being a 'dot' and 'gv' program
   /// in your path.
   ///
-  void viewCFG() const;
+  LLVM_DUMP_METHOD void viewCFG() const; // HLSL Change - Add LLVM_DUMP_METHOD
 
   /// viewCFGOnly - This function is meant for use from the debugger.  It works
   /// just like viewCFG, but it does not include the contents of basic blocks
   /// into the nodes, just the label.  If you are only interested in the CFG
   /// this can make the graph smaller.
   ///
-  void viewCFGOnly() const;
+  // HLSL Change - Add LLVM_DUMP_METHOD
+  LLVM_DUMP_METHOD void viewCFGOnly() const;
 
   /// Methods for support type inquiry through isa, cast, and dyn_cast:
   static inline bool classof(const Value *V) {

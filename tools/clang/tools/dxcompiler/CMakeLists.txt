@@ -76,11 +76,11 @@ set(SOURCES
   dxcpdbutils.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  dxclinker.cpp
   dxcshadersourceinfo.cpp
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp
-  dxclinker.cpp
 )
 endif(WIN32)
 

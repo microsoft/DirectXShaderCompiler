@@ -17,6 +17,7 @@ add_subdirectory(AsmParser)
 add_subdirectory(Bitcode)
 # add_subdirectory(CodeGen) - HLSL doesn't codegen...
 # add_subdirectory(DebugInfo) - HLSL doesn't generate dwarf
+add_subdirectory(DxcSupport)
 # add_subdirectory(ExecutionEngine) - HLSL Change - removed
 add_subdirectory(IR)
 # add_subdirectory(LineEditor) - HLSL Change - removed

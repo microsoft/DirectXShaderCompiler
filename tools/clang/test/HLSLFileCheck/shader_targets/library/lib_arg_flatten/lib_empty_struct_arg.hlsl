@@ -2,7 +2,7 @@
 
 // Make sure calls with empty struct params are well-behaved
 
-// CHECK: define float @"\01?test2@@YAMUT@@@Z"(%struct.T* %t)
+// CHECK: define float @"\01?test2@@YAMUT@@@Z"(%struct.T* nocapture readnone %t)
 // CHECK-NOT:memcpy
 // CHECK-NOT:load
 // CHECK-NOT:store

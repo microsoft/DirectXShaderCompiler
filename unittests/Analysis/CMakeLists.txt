@@ -1,5 +1,4 @@
 set(LLVM_LINK_COMPONENTS
-  DXIL # HLSL Change
   IPA
   Analysis
   AsmParser

@@ -651,7 +651,7 @@ public:
 #else
       // Note: try_emplace is only available in C++17 on Linux.
       // try_emplace does nothing if the key already exists in the map.
-      if (includeFiles.find(std::wstring(pFilename)) != includeFiles.end())
+      if (includeFiles.find(std::wstring(pFilename)) == includeFiles.end())
         includeFiles.emplace(std::wstring(pFilename), pBlob);
 #endif // _WIN32
     }
@@ -682,8 +682,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                            std::wstring &outputPDBPath,
                            CComPtr<IDxcBlob> &pDebugBlob,
                            IDxcOperationResult **ppCompileResult) {
-// Recompile currently only supported on Windows
-#ifdef _WIN32
+
   CComPtr<IDxcPdbUtils> pPdbUtils;
   IFT(CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
   IFT(pPdbUtils->Load(pSource));
@@ -770,11 +769,12 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
       NewDefines.size(), pIncludeHandler, &pResult));
   }
 
+#ifndef _WIN32
+  // FIXME: fix crash on linux when not detach pCompileSource.
+  pCompileSource.Detach();
+#endif
+
   *ppCompileResult = pResult.Detach();
-#else
-  assert(false && "Recompile is currently only supported on Windows.");
-  *ppCompileResult = nullptr;
-#endif // _WIN32
 }
 
 int DxcContext::Compile() {
