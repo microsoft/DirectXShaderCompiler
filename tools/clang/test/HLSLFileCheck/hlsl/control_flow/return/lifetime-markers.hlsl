@@ -8,10 +8,10 @@
 // to modify the control flow is incorrect if lifetime-markers are enabled. This test checks that 
 
 //=================================
-// The fcgl test checks the return condition alloca bReturn is not generated and the cleanup blocks for lifetime-markers
-// are present.
+// The fcgl test checks the return condition alloca bReturn is not generated and the cleanup code for lifetime-markers
+// is present.
 // FCGL-NOT: bReturned
-// FCGL: cleanup:
+// FCGL: %cleanup.dest
 
 //=================================
 // The non-fcgl test checks the shader is compiled correctly (the bug causes irreducible flow)
