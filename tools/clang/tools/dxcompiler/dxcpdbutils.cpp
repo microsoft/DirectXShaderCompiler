@@ -958,10 +958,13 @@ public:
   HRESULT SetEntryPointToDefaultIfEmpty() {
     // Entry point might have been omitted. Set it to main by default.
     // Don't set entry point if this instance is non-debug DXIL and has no arguments at all.
-    // TODO: Check to see that this DxilContainer is not a library before setting the entry point.
     if ((!m_EntryPoint || m_EntryPoint->GetStringLength() == 0) && !m_ArgPairs.empty()) {
-      m_EntryPoint = nullptr;
-      IFR(Utf8ToBlobWide("main", &m_EntryPoint));
+      // Don't set the name if the target is a lib
+      if (m_TargetProfile->GetStringLength() < 3 ||
+          0 != wcsncmp(m_TargetProfile->GetStringPointer(), L"lib", 3)) {
+        m_EntryPoint = nullptr;
+        IFR(Utf8ToBlobWide("main", &m_EntryPoint));
+      }
     }
     return S_OK;
   }
