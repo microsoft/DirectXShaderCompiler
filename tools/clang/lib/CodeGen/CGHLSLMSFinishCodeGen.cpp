@@ -3534,6 +3534,12 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
 
   if (ScopeInfo.CanSkipStructurize())
     return;
+
+  // If there are cleanup blocks generated for lifetime markers, do
+  // not structurize returns. The scope info recorded is no longer correct.
+  if (ScopeInfo.HasCleanupBlocks())
+    return;
+
   // Get bbWithRets.
   auto &rets = ScopeInfo.GetRetScopes();
 
@@ -3548,12 +3554,14 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
   AllocaInst *bIsReturned = B.CreateAlloca(boolTy, nullptr, "bReturned");
   B.CreateStore(cFalse, bIsReturned);
 
-  Scope &RetScope = ScopeInfo.GetScope(rets[0]);
-  BasicBlock *exitBB = RetScope.EndScopeBB->getTerminator()->getSuccessor(0);
-  FunctionScope.EndScopeBB = exitBB;
-  // Find alloca for retunr val and init it to avoid undef after guard code with
-  // bIsReturned.
-  InitRetValue(exitBB);
+  {
+    Scope &RetScope = ScopeInfo.GetScope(rets[0]);
+    BasicBlock *exitBB = RetScope.EndScopeBB->getTerminator()->getSuccessor(0);
+    FunctionScope.EndScopeBB = exitBB;
+    // Find alloca for retunr val and init it to avoid undef after guard code with
+    // bIsReturned.
+    InitRetValue(exitBB);
+  }
 
   ScopeInfo.LegalizeWholeReturnedScope();
 

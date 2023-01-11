@@ -304,6 +304,7 @@ public:
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
                       BasicBlock *endSwitch) override;
   void MarkReturnStmt(CodeGenFunction &CGF, BasicBlock *bbWithRet) override;
+  void MarkCleanupBlock(CodeGenFunction &CGF, llvm::BasicBlock *cleanupBB) override;
   void MarkLoopStmt(CodeGenFunction &CGF, BasicBlock *loopContinue,
                      BasicBlock *loopExit) override;
   CGHLSLMSHelper::Scope* MarkScopeEnd(CodeGenFunction &CGF) override;
@@ -6244,6 +6245,10 @@ void CGMSHLSLRuntime::MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
     Scope->AddIf(endIfBB);
 }
 
+void CGMSHLSLRuntime::MarkCleanupBlock(CodeGenFunction &CGF, llvm::BasicBlock *cleanupBB) {
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddCleanupBB(cleanupBB);
+}
 
 void CGMSHLSLRuntime::MarkSwitchStmt(CodeGenFunction &CGF,
                                      SwitchInst *switchInst,
