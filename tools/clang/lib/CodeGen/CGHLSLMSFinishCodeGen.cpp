@@ -3554,14 +3554,12 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
   AllocaInst *bIsReturned = B.CreateAlloca(boolTy, nullptr, "bReturned");
   B.CreateStore(cFalse, bIsReturned);
 
-  {
-    Scope &RetScope = ScopeInfo.GetScope(rets[0]);
-    BasicBlock *exitBB = RetScope.EndScopeBB->getTerminator()->getSuccessor(0);
-    FunctionScope.EndScopeBB = exitBB;
-    // Find alloca for retunr val and init it to avoid undef after guard code with
-    // bIsReturned.
-    InitRetValue(exitBB);
-  }
+  Scope &RetScope = ScopeInfo.GetScope(rets[0]);
+  BasicBlock *exitBB = RetScope.EndScopeBB->getTerminator()->getSuccessor(0);
+  FunctionScope.EndScopeBB = exitBB;
+  // Find alloca for retunr val and init it to avoid undef after guard code with
+  // bIsReturned.
+  InitRetValue(exitBB);
 
   ScopeInfo.LegalizeWholeReturnedScope();
 
