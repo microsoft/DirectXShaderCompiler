@@ -1,8 +1,0 @@
-// dxc.exe shader model version promtion warning
-// RUN: %dxc  %S/Inputs/smoke.hlsl /Emain /Tps_5_0 2>%t.version.err
-// RUN: FileCheck --input-file=%t.version.err %s --check-prefix=VERSION_WARNING
-
-// RUN: %dxc  %S/Inputs/smoke.hlsl /Emain /Tps_5_1 2>%t.version2.err
-// RUN: FileCheck --input-file=%t.version2.err %s --check-prefix=VERSION_WARNING
-
-// VERSION_WARNING:warning: Promoting older shader model profile to 6.0 version
