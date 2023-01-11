@@ -960,6 +960,7 @@ public:
     // Don't set entry point if this instance is non-debug DXIL and has no arguments at all.
     // TODO: Check to see that this DxilContainer is not a library before setting the entry point.
     if ((!m_EntryPoint || m_EntryPoint->GetStringLength() == 0) && !m_ArgPairs.empty()) {
+      m_EntryPoint = nullptr;
       IFR(Utf8ToBlobWide("main", &m_EntryPoint));
     }
     return S_OK;
