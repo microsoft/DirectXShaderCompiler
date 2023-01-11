@@ -140,6 +140,7 @@ public:
       clang::QualType FnRetTy,
       const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) = 0;
   virtual void MarkIfStmt(CodeGenFunction &CGF, llvm::BasicBlock *endIfBB) = 0;
+  virtual void MarkCleanupBlock(CodeGenFunction &CGF, llvm::BasicBlock *cleanupBB) = 0;
   virtual void MarkSwitchStmt(CodeGenFunction &CGF,
                               llvm::SwitchInst *switchInst,
                               llvm::BasicBlock *endSwitch) = 0;
