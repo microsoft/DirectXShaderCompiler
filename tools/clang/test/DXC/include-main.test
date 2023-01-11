@@ -5,7 +5,7 @@
 // RUN: %dxc -T ps_6_0 -Vi -I %S/Inputs/inc %S/Inputs/subfolder/include-main.hlsl | FileCheck %s --check-prefix=VI
 
 // VI:; Opening file [
-// VI-SAME:inc/include-declarations.h], stack top [0]
+// VI-SAME:inc{{/|\\}}include-declarations.h], stack top [0]
 
 #include "include-declarations.h"
 
