@@ -960,7 +960,8 @@ public:
     // Don't set entry point if this instance is non-debug DXIL and has no arguments at all.
     if ((!m_EntryPoint || m_EntryPoint->GetStringLength() == 0) && !m_ArgPairs.empty()) {
       // Don't set the name if the target is a lib
-      if (m_TargetProfile->GetStringLength() < 3 ||
+      if (!m_TargetProfile || 
+          m_TargetProfile->GetStringLength() < 3 ||
           0 != wcsncmp(m_TargetProfile->GetStringPointer(), L"lib", 3)) {
         m_EntryPoint = nullptr;
         IFR(Utf8ToBlobWide("main", &m_EntryPoint));
