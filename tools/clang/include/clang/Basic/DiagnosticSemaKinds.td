@@ -7754,6 +7754,9 @@ def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
    "condition for short-circuiting ternary operator must be scalar, for non-scalar types use 'select'">;
+def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
+   "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
+  InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
 // HLSL Change Ends
 
 // SPIRV Change Starts
