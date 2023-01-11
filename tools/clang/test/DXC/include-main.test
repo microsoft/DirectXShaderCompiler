@@ -6,8 +6,3 @@
 
 // VI:; Opening file [
 // VI-SAME:inc{{/|\\}}include-declarations.h], stack top [0]
-
-#include "include-declarations.h"
-
-void main() {
-}
