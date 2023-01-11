@@ -2394,7 +2394,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
 
-  m_ScopeMap[F] = ScopeInfo(F);
+  m_ScopeMap[F] = ScopeInfo(F, FD->getLocation());
 }
 
 void CGMSHLSLRuntime::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {

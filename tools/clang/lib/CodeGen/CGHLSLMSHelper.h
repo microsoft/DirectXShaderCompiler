@@ -122,7 +122,7 @@ struct Scope {
 class ScopeInfo {
 public:
   ScopeInfo(){}
-  ScopeInfo(llvm::Function *F);
+  ScopeInfo(llvm::Function *F, clang::SourceLocation loc);
   void AddIf(llvm::BasicBlock *endIfBB);
   void AddSwitch(llvm::BasicBlock *endSwitchBB);
   void AddLoop(llvm::BasicBlock *loopContinue, llvm::BasicBlock *endLoopBB);
@@ -136,6 +136,7 @@ public:
   bool CanSkipStructurize();
   void dump();
   bool HasCleanupBlocks() const { return hasCleanupBlocks; }
+  clang::SourceLocation GetSourceLocation() const { return sourceLoc; }
 
 private:
   void AddScope(Scope::ScopeKind k, llvm::BasicBlock *endScopeBB);
@@ -146,6 +147,7 @@ private:
   llvm::SmallVector<unsigned, 8> scopeStack;
   // save all scopes.
   llvm::SmallVector<Scope, 16> scopes;
+  clang::SourceLocation sourceLoc;
 };
 
 // Map from value to resource properties.

@@ -1,5 +1,6 @@
 // RUN: %dxc -fdisable-loc-tracking -E main -opt-enable structurize-returns -T cs_6_0 -enable-lifetime-markers -fcgl %s | FileCheck %s -check-prefix=FCGL
 // RUN: %dxc -fdisable-loc-tracking -E main -opt-enable structurize-returns -T cs_6_0 -enable-lifetime-markers %s | FileCheck %s
+// RUN: %dxc -fdisable-loc-tracking -E main -opt-enable structurize-returns -T cs_6_0 -enable-lifetime-markers %s | FileCheck %s -check-prefix=WARNING -input-file=stderr
 // RUN: %dxc -fdisable-loc-tracking -E main -opt-enable structurize-returns -T cs_6_0 -disable-lifetime-markers -fcgl %s | FileCheck %s -check-prefix=NO-LIFETIME
 
 // Regression test for a bug where program structure is completely messed up when lifetime-markers are enabled and
@@ -13,8 +14,12 @@
 // FCGL: cleanup:
 
 //=================================
-// The non-fcgl test checks the shader is compiled correctly (the bug causes irreducible flow).
-// CHECK: @main
+// The non-fcgl test checks the shader is compiled correctly (the bug causes irreducible flow)
+// CHECK-DAG: @main
+
+//=================================
+// Check a warning was emitted.
+// WARNING: structurize-returns skipped function 'main' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.
 
 //=================================
 // The last test makes sure structurize-returns runs as expected
