@@ -29,6 +29,7 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
+#include "clang/Sema/SemaDiagnostic.h"
 #include "CodeGenFunction.h"
 
 #include "dxc/DXIL/DxilConstants.h"
@@ -3288,7 +3289,7 @@ void AddDxBreak(Module &M,
 
 namespace CGHLSLMSHelper {
 
-ScopeInfo::ScopeInfo(Function *F) : maxRetLevel(0), bAllReturnsInIf(true) {
+ScopeInfo::ScopeInfo(Function *F, clang::SourceLocation loc) : maxRetLevel(0), bAllReturnsInIf(true), sourceLoc(loc) {
   Scope FuncScope;
   FuncScope.kind = Scope::ScopeKind::FunctionScope;
   FuncScope.EndScopeBB = nullptr;
@@ -3528,12 +3529,21 @@ static void ChangePredBranch(BasicBlock *BB, BasicBlock *NewBB) {
 //   }
 //   return vRet;
 // }
-void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
+void StructurizeMultiRetFunction(Function *F, clang::DiagnosticsEngine &Diags, ScopeInfo &ScopeInfo,
                                  bool bWaveEnabledStage,
                                  SmallVector<BranchInst *, 16> &DxBreaks) {
 
   if (ScopeInfo.CanSkipStructurize())
     return;
+
+  // If there are cleanup blocks generated for lifetime markers, do
+  // not structurize returns. The scope info recorded is no longer correct.
+  if (ScopeInfo.HasCleanupBlocks()) {
+    Diags.Report(ScopeInfo.GetSourceLocation(), clang::diag::warn_hlsl_structurize_exits_lifetime_markers_conflict)
+      << F->getName();
+    return;
+  }
+
   // Get bbWithRets.
   auto &rets = ScopeInfo.GetRetScopes();
 
@@ -3701,7 +3711,8 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
     auto it = ScopeMap.find(&F);
     if (it == ScopeMap.end())
       continue;
-    StructurizeMultiRetFunction(&F, it->second, bWaveEnabledStage, DxBreaks);
+
+    StructurizeMultiRetFunction(&F, CGM.getDiags(), it->second, bWaveEnabledStage, DxBreaks);
   }
 }
 
