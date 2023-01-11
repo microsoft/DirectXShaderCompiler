@@ -1,19 +1,25 @@
 // RUN: %dxc -fdisable-loc-tracking -E main -opt-enable structurize-returns -T cs_6_0 -enable-lifetime-markers -fcgl %s | FileCheck %s -check-prefix=FCGL
 // RUN: %dxc -fdisable-loc-tracking -E main -opt-enable structurize-returns -T cs_6_0 -enable-lifetime-markers %s | FileCheck %s
+// RUN: %dxc -fdisable-loc-tracking -E main -opt-enable structurize-returns -T cs_6_0 -disable-lifetime-markers -fcgl %s | FileCheck %s -check-prefix=NO-LIFETIME
 
 // Regression test for a bug where program structure is completely messed up when lifetime-markers are enabled and
 // -opt-enable structurize-returns is on. The scope information recorded during codegen that structurize-returns uses
 // to modify the control flow is incorrect if lifetime-markers are enabled. This test checks that 
 
+//=================================
 // The fcgl test checks the return condition alloca bReturn is not generated and the cleanup blocks for lifetime-markers
 // are present.
-
-// The non-fcgl test checks the shader is compiled correctly (the bug causes irreducible flow).
-
 // FCGL-NOT: bReturned
 // FCGL: cleanup:
 
+//=================================
+// The non-fcgl test checks the shader is compiled correctly (the bug causes irreducible flow).
 // CHECK: @main
+
+//=================================
+// The last test makes sure structurize-returns runs as expected
+// NO-LIFETIME: @main
+// NO-LIFETIME: %bReturned = alloca
 
 struct D {
  float3 d_member;
