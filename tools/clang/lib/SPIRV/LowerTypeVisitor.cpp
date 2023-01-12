@@ -837,47 +837,59 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
   uint32_t elemCount = 1;
   QualType ty = {};
-  if (isScalarType(sampledType, &ty) ||
-      isVectorType(sampledType, &ty, &elemCount) ||
-      canFitIntoOneRegister(astContext, sampledType, &ty, &elemCount)) {
-    if (const auto *builtinType = ty->getAs<BuiltinType>()) {
-      switch (builtinType->getKind()) {
-      case BuiltinType::Int:
-      case BuiltinType::Min12Int:
-      case BuiltinType::Min16Int:
-        return elemCount == 1   ? spv::ImageFormat::R32i
-               : elemCount == 2 ? spv::ImageFormat::Rg32i
-                                : spv::ImageFormat::Rgba32i;
-      case BuiltinType::UInt:
-      case BuiltinType::Min16UInt:
-        return elemCount == 1   ? spv::ImageFormat::R32ui
-               : elemCount == 2 ? spv::ImageFormat::Rg32ui
-                                : spv::ImageFormat::Rgba32ui;
-      case BuiltinType::Float:
-      case BuiltinType::HalfFloat:
-      case BuiltinType::Min10Float:
-      case BuiltinType::Min16Float:
-        return elemCount == 1   ? spv::ImageFormat::R32f
-               : elemCount == 2 ? spv::ImageFormat::Rg32f
-                                : spv::ImageFormat::Rgba32f;
-      case BuiltinType::LongLong:
-        if (elemCount == 1)
-          return spv::ImageFormat::R64i;
-        break;
-      case BuiltinType::ULongLong:
-        if (elemCount == 1)
-          return spv::ImageFormat::R64ui;
-        break;
-      default:
-        // Other sampled types unimplemented or irrelevant.
-        break;
-      }
-    }
+  if (!isScalarType(sampledType, &ty) &&
+      !isVectorType(sampledType, &ty, &elemCount) &&
+      !canFitIntoOneRegister(astContext, sampledType, &ty, &elemCount)) {
+    return spv::ImageFormat::Unknown;
   }
-  emitError(
-      "cannot translate resource type parameter %0 to proper image format",
-      srcLoc)
-      << sampledType;
+
+  const auto *builtinType = ty->getAs<BuiltinType>();
+  if (builtinType == nullptr) {
+    return spv::ImageFormat::Unknown;
+  }
+
+  switch (builtinType->getKind()) {
+  case BuiltinType::Int:
+    return elemCount == 1   ? spv::ImageFormat::R32i
+           : elemCount == 2 ? spv::ImageFormat::Rg32i
+           : elemCount == 4 ? spv::ImageFormat::Rgba32i
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Min12Int:
+  case BuiltinType::Min16Int:
+    return elemCount == 1   ? spv::ImageFormat::R16i
+           : elemCount == 2 ? spv::ImageFormat::Rg16i
+           : elemCount == 4 ? spv::ImageFormat::Rgba16i
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::UInt:
+    return elemCount == 1   ? spv::ImageFormat::R32ui
+           : elemCount == 2 ? spv::ImageFormat::Rg32ui
+           : elemCount == 4 ? spv::ImageFormat::Rgba32ui
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Min16UInt:
+    return elemCount == 1   ? spv::ImageFormat::R16ui
+           : elemCount == 2 ? spv::ImageFormat::Rg16ui
+           : elemCount == 4 ? spv::ImageFormat::Rgba16ui
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Float:
+    return elemCount == 1   ? spv::ImageFormat::R32f
+           : elemCount == 2 ? spv::ImageFormat::Rg32f
+           : elemCount == 4 ? spv::ImageFormat::Rgba32f
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::HalfFloat:
+  case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
+    return elemCount == 1   ? spv::ImageFormat::R16f
+           : elemCount == 2 ? spv::ImageFormat::Rg16f
+           : elemCount == 4 ? spv::ImageFormat::Rgba16f
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::LongLong:
+    return elemCount == 1 ? spv::ImageFormat::R64i : spv::ImageFormat::Unknown;
+  case BuiltinType::ULongLong:
+    return elemCount == 1 ? spv::ImageFormat::R64ui : spv::ImageFormat::Unknown;
+  default:
+    // Other sampled types unimplemented or irrelevant.
+    break;
+  }
 
   return spv::ImageFormat::Unknown;
 }
