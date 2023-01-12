@@ -1,16 +1,30 @@
 // RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpCapability ImageBuffer
+// CHECK: OpCapability StorageImageReadWithoutFormat
 
+
+// CHECK: %type_buffer_image = OpTypeImage %int Buffer 2 0 0 1 R32i
+// CHECK: %type_buffer_image_0 = OpTypeImage %uint Buffer 2 0 0 1 R32ui
+// CHECK: %type_buffer_image_1 = OpTypeImage %float Buffer 2 0 0 1 R32f
 Buffer<int> intbuf;
 Buffer<uint> uintbuf;
 Buffer<float> floatbuf;
+// CHECK: %type_buffer_image_2 = OpTypeImage %int Buffer 2 0 0 2 Rg32i
+// CHECK: %type_buffer_image_3 = OpTypeImage %uint Buffer 2 0 0 2 Rg32ui
+// CHECK: %type_buffer_image_4 = OpTypeImage %float Buffer 2 0 0 2 Rg32f
 RWBuffer<int2> int2buf;
 RWBuffer<uint2> uint2buf;
 RWBuffer<float2> float2buf;
+// CHECK: %type_buffer_image_5 = OpTypeImage %int Buffer 2 0 0 1 Unknown
+// CHECK: %type_buffer_image_6 = OpTypeImage %uint Buffer 2 0 0 1 Unknown
+// CHECK: %type_buffer_image_7 = OpTypeImage %float Buffer 2 0 0 1 Unknown
 Buffer<int3> int3buf;
 Buffer<uint3> uint3buf;
 Buffer<float3> float3buf;
+// CHECK: %type_buffer_image_8 = OpTypeImage %int Buffer 2 0 0 2 Rgba32i
+// CHECK: %type_buffer_image_9 = OpTypeImage %uint Buffer 2 0 0 2 Rgba32ui
+// CHECK: %type_buffer_image_10 = OpTypeImage %float Buffer 2 0 0 2 Rgba32f
 RWBuffer<int4> int4buf;
 RWBuffer<uint4> uint4buf;
 RWBuffer<float4> float4buf;
@@ -21,7 +35,8 @@ struct S {
   float1 c;
 };
 
-  Buffer<S> sBuf;
+// CHECK: %type_buffer_image_11 = OpTypeImage %float Buffer 2 0 0 1 Rgba32f
+Buffer<S> sBuf;
 
 void main() {
   int address;
@@ -111,7 +126,7 @@ void main() {
 // CHECK-NEXT:                  OpStore %b [[b]]
   float b = float4buf[address][2];
 
-// CHECK:        [[img:%\d+]] = OpLoad %type_buffer_image_7 %sBuf
+// CHECK:        [[img:%\d+]] = OpLoad %type_buffer_image_11 %sBuf
 // CHECK-NEXT: [[fetch:%\d+]] = OpImageFetch %v4float [[img]] %uint_0 None
 // CHECK-NEXT:   [[s_a:%\d+]] = OpCompositeExtract %float [[fetch]] 0
 // CHECK-NEXT:   [[s_b:%\d+]] = OpVectorShuffle %v2float [[fetch]] [[fetch]] 1 2
@@ -123,7 +138,7 @@ void main() {
 // CHECK-NEXT:                  OpStore %c [[c]]
   float c = sBuf[0].a;
 
-// CHECK:        [[img:%\d+]] = OpLoad %type_buffer_image_7 %sBuf
+// CHECK:        [[img:%\d+]] = OpLoad %type_buffer_image_11 %sBuf
 // CHECK-NEXT: [[fetch:%\d+]] = OpImageFetch %v4float [[img]] %uint_1 None
 // CHECK-NEXT:   [[s_a:%\d+]] = OpCompositeExtract %float [[fetch]] 0
 // CHECK-NEXT:   [[s_b:%\d+]] = OpVectorShuffle %v2float [[fetch]] [[fetch]] 1 2
