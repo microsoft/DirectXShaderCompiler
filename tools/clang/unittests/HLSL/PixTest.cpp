@@ -225,6 +225,7 @@ public:
   TEST_METHOD(PixTypeManager_InheritancePointerStruct)
   TEST_METHOD(PixTypeManager_InheritancePointerTypedef)
   TEST_METHOD(PixTypeManager_MatricesInBase)
+  TEST_METHOD(PixTypeManager_SamplersAndResources)
 
       TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -1800,6 +1801,30 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
 }
 
+static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+                     _Outptr_ IDxcBlob **ppResult) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT hrCompile;
+  *ppResult = nullptr;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  Utf8ToBlob(dllSupport, pText, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      pTargetProfile, args.data(), args.size(),
+                                      nullptr, 0, nullptr, &pResult));
+
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
+  if (FAILED(hrCompile)) {
+    CComPtr<IDxcBlobEncoding> textBlob;
+    VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&textBlob));
+    std::wstring text = BlobToWide(textBlob);
+    WEX::Logging::Log::Comment(text.c_str());
+  }
+  VERIFY_SUCCEEDED(hrCompile);
+  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
+}
 void PixTest::CompileAndRunAnnotationAndGetDebugPart(
     dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
     IDxcBlob **ppDebugPart) {
@@ -1811,7 +1836,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
   args.push_back(L"/Zi");
   args.push_back(L"/Qembed_debug");
 
-  VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
+  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
 
   auto annotated = RunAnnotationPasses(pContainer);
 
@@ -1983,6 +2008,75 @@ void main()
     payload.intValue = 2;
     TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);}
 
+)";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
+TEST_F(PixTest, PixTypeManager_SamplersAndResources) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+static const SamplerState SamplerRef = SamplerDescriptorHeap[1];
+
+Texture3D<uint4> Tex3DTemplated ;
+Texture3D Tex3d ;
+Texture2D Tex2D ;
+Texture2D<uint> Tex2DTemplated ;
+StructuredBuffer<float4> StructBuf ;
+Texture2DArray Tex2DArray ;
+Buffer<float4> Buff ;
+
+static const struct
+{
+	float  AFloat;
+	SamplerState Samp1;
+	Texture3D<uint4> Tex1;
+	Texture3D Tex2;
+	Texture2D Tex3;
+	Texture2D<uint> Tex4;
+	StructuredBuffer<float4> Buff1;
+	Texture2DArray Tex5;
+	Buffer<float4> Buff2;
+	float  AnotherFloat;
+} View = {
+1,
+SamplerRef,
+Tex3DTemplated,
+Tex3d,
+Tex2D,
+Tex2DTemplated,
+StructBuf,
+Tex2DArray,
+Buff,
+2
+};
+
+struct Payload
+{
+	int intValue;
+};
+
+RaytracingAccelerationStructure Scene : register(t0, space0);
+
+[shader("raygeneration")]
+void main()
+{
+    RayDesc ray;
+    ray.Origin = float3(0,0,0);
+    ray.Direction = float3(0,0,1);
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    Payload payload;
+    payload.intValue = View.AFloat;
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);}
 )";
 
   CComPtr<IDiaDataSource> pDiaDataSource;
