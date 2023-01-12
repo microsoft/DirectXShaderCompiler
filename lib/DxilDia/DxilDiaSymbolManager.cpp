@@ -607,6 +607,7 @@ public:
     void Embed(const TypeInfo &TI);
 
     void AddBasicType(llvm::DIBasicType *BT);
+    void PrependBaseClassSize(uint64_t baseSize);
 
   private:
     DWORD m_dwTypeID;
@@ -1151,6 +1152,12 @@ void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::Embed(const TypeInfo &
   m_dwCurrentSizeInBytes += TI.m_dwCurrentSizeInBytes;
 }
 
+void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::PrependBaseClassSize(
+    uint64_t baseSize) {
+  static constexpr DWORD kNumBitsPerByte = 8;
+  m_dwCurrentSizeInBytes += baseSize / kNumBitsPerByte;
+}
+
 void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::AddBasicType(llvm::DIBasicType *BT) {
   m_Layout.emplace_back(BT);
 
@@ -1439,6 +1446,33 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateBasicType(DWORD dwParen
   return S_OK;
 }
 
+static uint64_t getBaseClassSize(llvm::DIType * Ty)
+{
+    uint64_t sizeInBits = Ty->getSizeInBits();
+    auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty);
+    if (DerivedTy != nullptr) {
+      // Working around a bug where byte size is stored instead of bit size
+      if (sizeInBits == 4 && Ty->getSizeInBits() == 32) {
+        sizeInBits = 32;
+      }
+      if (sizeInBits == 0) {
+        const llvm::DITypeIdentifierMap EmptyMap;
+        switch (DerivedTy->getTag()) {
+        case llvm::dwarf::DW_TAG_restrict_type:
+        case llvm::dwarf::DW_TAG_reference_type:
+        case llvm::dwarf::DW_TAG_const_type:
+        case llvm::dwarf::DW_TAG_typedef: {
+          llvm::DIType *baseType = DerivedTy->getBaseType().resolve(EmptyMap);
+          if (baseType != nullptr) {
+            return getBaseClassSize(baseType);
+          }
+        }
+        }
+      }
+    }
+    return sizeInBits;
+}
+
 HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwParentID, llvm::DICompositeType *CT, DWORD *pNewTypeID) {
   switch (CT->getTag()) {
   case llvm::dwarf::DW_TAG_array_type: {
@@ -1533,6 +1567,14 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
       DWORD dwUnusedFieldID;
       IFR(CreateType(Field, &dwUnusedFieldID));
+      if (Field->getTag() == llvm::dwarf::DW_TAG_inheritance) {
+        // The base class is a type of its own, so will have contributed to its own TypeInfo.
+        // But we still need to remember the size that it contributed to this type:
+        auto *DerivedType = llvm::dyn_cast<llvm::DIDerivedType>(Field);
+        const llvm::DITypeIdentifierMap EmptyMap;
+        llvm::DIType *BaseType = DerivedType->getBaseType().resolve(EmptyMap);
+        udtTI->PrependBaseClassSize(getBaseClassSize(BaseType));
+      }
     }
   }
 
