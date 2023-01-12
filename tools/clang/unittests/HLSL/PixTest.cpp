@@ -219,11 +219,14 @@ public:
   TEST_METHOD(PixStructAnnotation_BigMess)
   TEST_METHOD(PixStructAnnotation_AlignedFloat4Arrays)
   TEST_METHOD(PixStructAnnotation_Inheritance)
-  TEST_METHOD(PixStructAnnotation_InheritancePointer)
   TEST_METHOD(PixStructAnnotation_ResourceAsMember)
   TEST_METHOD(PixStructAnnotation_WheresMyDbgValue)
 
-  TEST_METHOD(VirtualRegisters_InstructionCounts)
+  TEST_METHOD(PixTypeManager_InheritancePointerStruct)
+  TEST_METHOD(PixTypeManager_InheritancePointerTypedef)
+  TEST_METHOD(PixTypeManager_MatricesInBase)
+
+      TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
 
   TEST_METHOD(RootSignatureUpgrade_SubObjects)
@@ -1797,6 +1800,199 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
 }
 
+void PixTest::CompileAndRunAnnotationAndGetDebugPart(
+    dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+    IDxcBlob **ppDebugPart) {
+  CComPtr<IDxcBlob> pContainer;
+  CComPtr<IDxcLibrary> pLib;
+  CComPtr<IDxcContainerReflection> pReflection;
+  UINT32 index;
+  std::vector<LPCWSTR> args;
+  args.push_back(L"/Zi");
+  args.push_back(L"/Qembed_debug");
+
+  VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
+
+  auto annotated = RunAnnotationPasses(pContainer);
+
+  CComPtr<IDxcBlob> pNewContainer;
+  {
+    CComPtr<IDxcAssembler> pAssembler;
+    IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+    CComPtr<IDxcOperationResult> pAssembleResult;
+    VERIFY_SUCCEEDED(
+        pAssembler->AssembleToContainer(annotated.blob, &pAssembleResult));
+
+    CComPtr<IDxcBlobEncoding> pAssembleErrors;
+    VERIFY_SUCCEEDED(pAssembleResult->GetErrorBuffer(&pAssembleErrors));
+
+    if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
+      OutputDebugStringA(
+          static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
+      VERIFY_SUCCEEDED(E_FAIL);
+    }
+
+    VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
+  }
+
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  VERIFY_SUCCEEDED(
+      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(pNewContainer));
+  VERIFY_SUCCEEDED(
+      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
+}
+
+void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
+    dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+    IDiaDataSource **ppDataSource) {
+  CComPtr<IDxcBlob> pDebugContent;
+  CComPtr<IStream> pStream;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  CompileAndRunAnnotationAndGetDebugPart(dllSupport, source, profile,
+                                         &pDebugContent);
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pDebugContent, &pStream));
+  VERIFY_SUCCEEDED(
+      dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
+  VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pStream));
+  if (ppDataSource) {
+    *ppDataSource = pDiaSource.Detach();
+  }
+}
+
+TEST_F(PixTest, PixTypeManager_InheritancePointerStruct) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct Base
+{
+    float floatValue;
+};
+
+struct Derived : Base
+{
+	int intValue;
+};
+
+RaytracingAccelerationStructure Scene : register(t0, space0);
+
+[shader("raygeneration")]
+void main()
+{
+    RayDesc ray;
+    ray.Origin = float3(0,0,0);
+    ray.Direction = float3(0,0,1);
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    Derived payload;
+    payload.floatValue = 1;
+    payload.intValue = 2;
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);}
+
+)";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
+TEST_F(PixTest, PixTypeManager_InheritancePointerTypedef) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct Base
+{
+    float floatValue;
+};
+typedef Base BaseTypedef;
+
+struct Derived : BaseTypedef
+{
+	int intValue;
+};
+
+RaytracingAccelerationStructure Scene : register(t0, space0);
+
+[shader("raygeneration")]
+void main()
+{
+    RayDesc ray;
+    ray.Origin = float3(0,0,0);
+    ray.Direction = float3(0,0,1);
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    Derived payload;
+    payload.floatValue = 1;
+    payload.intValue = 2;
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);}
+
+)";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
+TEST_F(PixTest, PixTypeManager_MatricesInBase) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct Base
+{
+    float4x4 mat;
+};
+typedef Base BaseTypedef;
+
+struct Derived : BaseTypedef
+{
+	int intValue;
+};
+
+RaytracingAccelerationStructure Scene : register(t0, space0);
+
+[shader("raygeneration")]
+void main()
+{
+    RayDesc ray;
+    ray.Origin = float3(0,0,0);
+    ray.Direction = float3(0,0,1);
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    Derived payload;
+    payload.mat[0][0] = 1;
+    payload.intValue = 2;
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);}
+
+)";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
@@ -3219,73 +3415,6 @@ void main()
     }
 }
 
-void PixTest::CompileAndRunAnnotationAndGetDebugPart(dxc::DxcDllSupport &dllSupport,
-                                   const char *source, wchar_t *profile,
-                                   IDxcBlob **ppDebugPart) {
-  CComPtr<IDxcBlob> pContainer;
-  CComPtr<IDxcLibrary> pLib;
-  CComPtr<IDxcContainerReflection> pReflection;
-  UINT32 index;
-  std::vector<LPCWSTR> args;
-  args.push_back(L"/Zi");
-  args.push_back(L"/Qembed_debug");
-
-  VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
-
-  auto annotated = RunAnnotationPasses(pContainer);
-
-  CComPtr<IDxcBlob> pNewContainer;
-  {
-    CComPtr<IDxcAssembler> pAssembler;
-    IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-
-    CComPtr<IDxcOperationResult> pAssembleResult;
-    VERIFY_SUCCEEDED(
-        pAssembler->AssembleToContainer(annotated.blob, &pAssembleResult));
-
-    CComPtr<IDxcBlobEncoding> pAssembleErrors;
-    VERIFY_SUCCEEDED(pAssembleResult->GetErrorBuffer(&pAssembleErrors));
-
-    if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
-      OutputDebugStringA(
-          static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
-      VERIFY_SUCCEEDED(E_FAIL);
-    }
-
-    VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
-  }
-
-
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-  VERIFY_SUCCEEDED(
-      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  VERIFY_SUCCEEDED(pReflection->Load(pNewContainer));
-  VERIFY_SUCCEEDED(
-      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
-}
-
-void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
-    dxc::DxcDllSupport &dllSupport,
-                                        const char *source, wchar_t *profile,
-                                        IDiaDataSource **ppDataSource) {
-  CComPtr<IDxcBlob> pDebugContent;
-  CComPtr<IStream> pStream;
-  CComPtr<IDiaDataSource> pDiaSource;
-  CComPtr<IDxcLibrary> pLib;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-
-  CompileAndRunAnnotationAndGetDebugPart(dllSupport, source, profile,
-                                         &pDebugContent);
-  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pDebugContent, &pStream));
-  VERIFY_SUCCEEDED(
-      dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
-  VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pStream));
-  if (ppDataSource) {
-    *ppDataSource = pDiaSource.Detach();
-  }
-}
-
 TEST_F(PixTest, PixStructAnnotation_Inheritance) {
     if (m_ver.SkipDxilVersion(1, 5)) return;
 
@@ -3319,48 +3448,6 @@ void main()
         // Can't test offsets and sizes until dbg.declare instructions are emitted when floatn is used (https://github.com/microsoft/DirectXShaderCompiler/issues/2920)
         //VERIFY_ARE_EQUAL(20, Testables.AllocaWrites.size());
     }
-}
-
-TEST_F(PixTest, PixStructAnnotation_InheritancePointer) {
-    if (m_ver.SkipDxilVersion(1, 5)) return;
-
-    const char* hlsl = R"(
-struct Base
-{
-    float floatValue;
-};
-typedef Base BaseTypedef;
-
-struct Derived : BaseTypedef
-{
-	int intValue;
-};
-
-RaytracingAccelerationStructure Scene : register(t0, space0);
-
-[shader("raygeneration")]
-void main()
-{
-    RayDesc ray;
-    ray.Origin = float3(0,0,0);
-    ray.Direction = float3(0,0,1);
-    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
-    // TMin should be kept small to prevent missing geometry at close contact areas.
-    ray.TMin = 0.001;
-    ray.TMax = 10000.0;
-    Derived payload;
-    payload.floatValue = 1;
-    payload.intValue = 2;
-    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);}
-
-)";
-
-    CComPtr<IDiaDataSource> pDiaDataSource;
-    CComPtr<IDiaSession> pDiaSession;
-    CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
-                                            &pDiaDataSource);
-    
-    VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
 }
 
 TEST_F(PixTest, PixStructAnnotation_ResourceAsMember) {
