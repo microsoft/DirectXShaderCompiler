@@ -1558,10 +1558,6 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     return S_OK;
   };
 
-      if (CT->getTag() == llvm::dwarf::DW_TAG_structure_type &&
-      CT->getName() == "SamplerState") {
-    CT->getName();
-  }
   IFR(AddType<symbol_factory::UDT>(dwParentID, CT, pNewTypeID, CT->getAlignInBits(), CT, LazyName));
 
   TypeInfo *udtTI;
