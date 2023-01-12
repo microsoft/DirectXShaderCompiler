@@ -607,7 +607,7 @@ public:
     void Embed(const TypeInfo &TI);
 
     void AddBasicType(llvm::DIBasicType *BT);
-    void PrependBaseClassSize(uint64_t baseSize);
+    void AppendSize(uint64_t baseSize);
 
   private:
     DWORD m_dwTypeID;
@@ -1152,7 +1152,7 @@ void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::Embed(const TypeInfo &
   m_dwCurrentSizeInBytes += TI.m_dwCurrentSizeInBytes;
 }
 
-void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::PrependBaseClassSize(
+void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::AppendSize(
     uint64_t baseSize) {
   static constexpr DWORD kNumBitsPerByte = 8;
   m_dwCurrentSizeInBytes += baseSize / kNumBitsPerByte;
@@ -1558,26 +1558,39 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     return S_OK;
   };
 
+      if (CT->getTag() == llvm::dwarf::DW_TAG_structure_type &&
+      CT->getName() == "SamplerState") {
+    CT->getName();
+  }
   IFR(AddType<symbol_factory::UDT>(dwParentID, CT, pNewTypeID, CT->getAlignInBits(), CT, LazyName));
 
   TypeInfo *udtTI;
   IFR(GetTypeInfo(CT, &udtTI));
   auto udtScope = BeginUDTScope(udtTI);
-  for (llvm::DINode *N : CT->getElements()) {
-    if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
-      DWORD dwUnusedFieldID;
-      IFR(CreateType(Field, &dwUnusedFieldID));
-      if (Field->getTag() == llvm::dwarf::DW_TAG_inheritance) {
-        // The base class is a type of its own, so will have contributed to its own TypeInfo.
-        // But we still need to remember the size that it contributed to this type:
-        auto *DerivedType = llvm::dyn_cast<llvm::DIDerivedType>(Field);
-        const llvm::DITypeIdentifierMap EmptyMap;
-        llvm::DIType *BaseType = DerivedType->getBaseType().resolve(EmptyMap);
-        udtTI->PrependBaseClassSize(getBaseClassSize(BaseType));
+  if (CT->getElements().size() == 0) {
+    // "Resources" (textures, samplers, etc.) are composite types without any elements,
+    // but they do have a size.
+    udtTI->AppendSize(CT->getSizeInBits());
+  } else {
+    for (llvm::DINode *N : CT->getElements()) {
+      if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
+        DWORD dwUnusedFieldID;
+        if (Field->getName() == "MaterialTextureBilinearWrapedSampler") {
+          Field->getName();
+        }
+        IFR(CreateType(Field, &dwUnusedFieldID));
+        if (Field->getTag() == llvm::dwarf::DW_TAG_inheritance) {
+          // The base class is a type of its own, so will have contributed to
+          // its own TypeInfo. But we still need to remember the size that it
+          // contributed to this type:
+          auto *DerivedType = llvm::dyn_cast<llvm::DIDerivedType>(Field);
+          const llvm::DITypeIdentifierMap EmptyMap;
+          llvm::DIType *BaseType = DerivedType->getBaseType().resolve(EmptyMap);
+          udtTI->AppendSize(getBaseClassSize(BaseType));
+        }
       }
     }
   }
-
   return S_OK;
 }
 
