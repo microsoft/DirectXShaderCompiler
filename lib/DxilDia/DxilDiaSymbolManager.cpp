@@ -1571,15 +1571,12 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     for (llvm::DINode *N : CT->getElements()) {
       if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
         DWORD dwUnusedFieldID;
-        if (Field->getName() == "MaterialTextureBilinearWrapedSampler") {
-          Field->getName();
-        }
         IFR(CreateType(Field, &dwUnusedFieldID));
         if (Field->getTag() == llvm::dwarf::DW_TAG_inheritance) {
           // The base class is a type of its own, so will have contributed to
           // its own TypeInfo. But we still need to remember the size that it
           // contributed to this type:
-          auto *DerivedType = llvm::dyn_cast<llvm::DIDerivedType>(Field);
+          auto *DerivedType = llvm::cast<llvm::DIDerivedType>(Field);
           const llvm::DITypeIdentifierMap EmptyMap;
           llvm::DIType *BaseType = DerivedType->getBaseType().resolve(EmptyMap);
           udtTI->AppendSize(getBaseClassSize(BaseType));
