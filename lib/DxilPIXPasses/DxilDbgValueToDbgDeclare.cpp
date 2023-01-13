@@ -365,7 +365,8 @@ static OffsetInBits SplitValue(
   else
   {
     assert(VTy->isFloatTy() || VTy->isDoubleTy() || VTy->isHalfTy() ||
-           VTy->isIntegerTy(32) || VTy->isIntegerTy(64) || VTy->isIntegerTy(16));
+           VTy->isIntegerTy(32) || VTy->isIntegerTy(64) || VTy->isIntegerTy(16) ||
+           VTy->isPointerTy());
     Values->emplace_back(ValueAndOffset{V, CurrentOffset});
     CurrentOffset += VTy->getScalarSizeInBits();
   }
