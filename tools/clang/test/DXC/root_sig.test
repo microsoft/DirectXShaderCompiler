@@ -26,7 +26,8 @@
 
 // Set root signature when already has one should succeed
 // RUN: %dxc %t.define.cso /dumpbin /setrootsignature %t.rootsig.cso /Fo %t.smoke.rsadded.cso
-// RUN: %dxc -dumpbin %t.smoke.rsadded.cso
+// Make sure %t.smoke.rsadded.cso exist.
+// RUN: cat %t.smoke.rsadded.cso
 
 // Set mismatched root signature when already has one should fail
 // RUN: not %dxc %t.define.cso /dumpbin /setrootsignature %t.NonUniformRootSig.cso /Fo %t.smoke.rsadded.cso

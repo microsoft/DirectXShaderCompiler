@@ -11,12 +11,14 @@
 
 // RUN: %dxc %s /T ps_6_0 /DDX12 /Fo %t.NonUniform.cso
 // RUN: %dxc %t.NonUniform.cso /dumpbin /Qstrip_rootsignature /Fo %t.NonUniformNoRootSig.cso
+// RUN: cat %t.NonUniformNoRootSig.cso
 // RUN:%dxa  -listparts %t.NonUniformNoRootSig.cso | FileCheck %s --check-prefix=NO_RS
 
 // NO_RS:Part count
 // NO_RS-NOT:RTS0
 
 // RUN: %dxc  %t.NonUniform.cso /dumpbin /extractrootsignature /Fo %t.NonUniformRootSig.cso
+// RUN: cat  %t.NonUniformRootSig.cso
 // RUN:%dxa  -listparts %t.NonUniformRootSig.cso | FileCheck %s --check-prefix=RS_PART
 
 // RS_PART:Part count: 1

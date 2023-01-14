@@ -4,6 +4,8 @@
 
 // RUN: %dxc %t.private.smoke.cso /dumpbin /setprivate %t.private.txt /Fo %t.private.cso
 
+// RUN: %dxc %t.private.cso /dumpbin /setprivate %t.private.txt /Fo %t.private.cso
+
 // RUN: %dxc %t.private.cso /dumpbin /Qstrip_priv /Fo %t.noprivate.cso
 
 // RUN: %dxc %t.private.cso /dumpbin /getprivate %t.private1.txt
@@ -20,6 +22,8 @@
 // RUN: not %dxc %t.noprivdebugroot.cso /dumpbin /getprivate %t.private2.txt
 
 // RUN: not %dxc %t.noprivdebugroot.cso /dumpbin /extractrootsignature %t.rootsig1.cso
+// Make sure %t.rootsig1.cso not exist.
+// RUN: not %dxc -dumpbin %t.rootsig1.cso
 
 // RUN: %dxc %t.noprivdebugroot.cso /dumpbin | FileCheck %s --check-prefix=NO_PRIVATE_DBG_ROOT
 // NO_PRIVATE_DBG_ROOT:define void @main()
