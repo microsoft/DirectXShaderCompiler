@@ -226,8 +226,9 @@ public:
   TEST_METHOD(PixTypeManager_InheritancePointerTypedef)
   TEST_METHOD(PixTypeManager_MatricesInBase)
   TEST_METHOD(PixTypeManager_SamplersAndResources)
+  TEST_METHOD(PixTypeManager_XBoxDiaAssert)
 
-      TEST_METHOD(VirtualRegisters_InstructionCounts)
+  TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
 
   TEST_METHOD(RootSignatureUpgrade_SubObjects)
@@ -2082,6 +2083,73 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
+TEST_F(PixTest, PixTypeManager_XBoxDiaAssert) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+// RUN: %xdxc /Ths_6_0 /Zi /Od %s /D__XBOX_INLINE_SOURCE | %FileCheck %s --check-prefixes=HS,CHECK
+// RUN: %xdxc /Ths_6_0 /Zi /Od %s /D__XBOX_INLINE_SOURCE /D__XBOX_DISABLE_PRECOMPILE_HS /D__XBOX_ENABLE_HSOFFCHIP | %FileCheck %s --check-prefixes=HS_OFFCHIP,CHECK
+// RUN: %xdxc /Ths_6_0 /Zi /Od %s /D__XBOX_INLINE_SOURCE /D__XBOX_DISABLE_PRECOMPILE_HS /D__XBOX_ENABLE_HSALWAYSOFFCHIP | %FileCheck %s --check-prefixes=HS_ALWAYSOFFCHIP,CHECK
+struct VSOut
+{
+    float4 vPosition : SV_POSITION;
+    float4 vLightAndFog : COLOR0_center;
+    float4 vTexCoords : TEXCOORD1;
+};
+
+struct HSPatchData
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+HSPatchData HSPatchFunc(const InputPatch<VSOut, 3> tri)
+{
+
+    float dist = (tri[0].vPosition.w + tri[1].vPosition.w + tri[2].vPosition.w) / 3;
+
+
+    float tf = max(1, dist / 100.f);
+
+    HSPatchData pd;
+    pd.edges[0] = pd.edges[1] = pd.edges[2] = tf;
+    pd.inside = tf;
+
+    return pd;
+}
+
+[domain("tri")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_cw")]
+[patchconstantfunc("HSPatchFunc")]
+[outputcontrolpoints(3)]
+[RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), " "DescriptorTable(SRV(t0, numDescriptors=2), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(Sampler(s0, numDescriptors=2), visibility=SHADER_VISIBILITY_PIXEL)," "DescriptorTable(CBV(b0, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(CBV(b1, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(CBV(b2, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(SRV(t3, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(UAV(u9, numDescriptors=2), visibility=SHADER_VISIBILITY_ALL),")]
+VSOut main( const uint id : SV_OutputControlPointID,
+              const InputPatch< VSOut, 3 > triIn )
+{
+    return triIn[id];
+}
+
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
+// HS: Shader Hw Stage           : (HS)
+// HS_OFFCHIP: Shader Hw Stage           : (HS_HSOFFCHIP)
+// HS_ALWAYSOFFCHIP: Shader Hw Stage           : (HS_HSALWAYSOFFCHIP)
+// CHECK: triIn[id]; (
+// CHECK-SAME: hs.hlsl Line 41)
+
+)";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"hs_6_0",
                                           &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
