@@ -2093,9 +2093,6 @@ TEST_F(PixTest, PixTypeManager_XBoxDiaAssert) {
     return;
 
   const char *hlsl = R"(
-// RUN: %xdxc /Ths_6_0 /Zi /Od %s /D__XBOX_INLINE_SOURCE | %FileCheck %s --check-prefixes=HS,CHECK
-// RUN: %xdxc /Ths_6_0 /Zi /Od %s /D__XBOX_INLINE_SOURCE /D__XBOX_DISABLE_PRECOMPILE_HS /D__XBOX_ENABLE_HSOFFCHIP | %FileCheck %s --check-prefixes=HS_OFFCHIP,CHECK
-// RUN: %xdxc /Ths_6_0 /Zi /Od %s /D__XBOX_INLINE_SOURCE /D__XBOX_DISABLE_PRECOMPILE_HS /D__XBOX_ENABLE_HSALWAYSOFFCHIP | %FileCheck %s --check-prefixes=HS_ALWAYSOFFCHIP,CHECK
 struct VSOut
 {
     float4 vPosition : SV_POSITION;
@@ -2135,16 +2132,6 @@ VSOut main( const uint id : SV_OutputControlPointID,
 {
     return triIn[id];
 }
-
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
-
-// HS: Shader Hw Stage           : (HS)
-// HS_OFFCHIP: Shader Hw Stage           : (HS_HSOFFCHIP)
-// HS_ALWAYSOFFCHIP: Shader Hw Stage           : (HS_HSALWAYSOFFCHIP)
-// CHECK: triIn[id]; (
-// CHECK-SAME: hs.hlsl Line 41)
-
 )";
 
   CComPtr<IDiaDataSource> pDiaDataSource;
