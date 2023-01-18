@@ -2,8 +2,8 @@
 // RUN: %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /denorm preserve | FileCheck %s
 // CHECK:"fp32-denorm-mode"="preserve"
 
-// RUN: %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /denorm ftz | FileCheck %s --check-prefix=ftz
-// CHECK:"fp32-denorm-mode"="ftz"
+// RUN: %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /denorm ftz | FileCheck %s --check-prefix=FTZ
+// FTZ:"fp32-denorm-mode"="ftz"
 
 // RUN: not %dxc  %S/Inputs/smoke.hlsl /Tps_6_2 /denorm abc
 // RUN: not %dxc  %S/Inputs/smoke.hlsl /Tps_6_1 /denorm any
