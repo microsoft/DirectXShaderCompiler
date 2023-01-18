@@ -1570,6 +1570,11 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
   } else {
     for (llvm::DINode *N : CT->getElements()) {
       if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
+        std::unique_ptr<UDTScope> UDTScopeOverride; 
+        if (Field->isStaticMember()) {
+          // Static members do not contribute to sizes or offsets.
+          UDTScopeOverride.reset(new UDTScope(&m_pCurUDT, nullptr));
+        }
         DWORD dwUnusedFieldID;
         IFR(CreateType(Field, &dwUnusedFieldID));
         if (Field->getTag() == llvm::dwarf::DW_TAG_inheritance) {
