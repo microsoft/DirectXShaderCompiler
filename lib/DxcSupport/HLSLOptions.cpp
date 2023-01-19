@@ -731,6 +731,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   else
     opts.OptLevel = 3;
   opts.OptDump = Args.hasFlag(OPT_Odump, OPT_INVALID, false);
+  opts.FiniteMathOnly =
+      Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
 
   opts.DisableValidation = Args.hasFlag(OPT_VD, OPT_INVALID, false);
 
