@@ -20,6 +20,7 @@ config.clang_examples = @ENABLE_CLANG_EXAMPLES@
 config.enable_shared = @ENABLE_SHARED@
 config.enable_backtrace = "@ENABLE_BACKTRACES@"
 config.host_arch = "@HOST_ARCH@"
+config.spirv = "@ENABLE_SPIRV_CODEGEN@" =="ON"
 
 # Support substitution of the tools and libs dirs with user parameters. This is
 # used when we can't determine the tool dir at configuration time.

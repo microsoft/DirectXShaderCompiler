@@ -39,11 +39,6 @@ The following targets are currently disabled for non-Windows platforms and this
 is an area where further contributions can be made:
 
 * d3dcomp
-* dxa
-* dxopt
-* dxl
-* dxr
-* dxv
 * dxlib-sample
 
 Moreover, since the HLSL CodeGen tests were originally written with Windows in

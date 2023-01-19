@@ -76,7 +76,6 @@ add_llvm_library(LLVMAnalysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   )
 
-target_link_libraries(LLVMAnalysis INTERFACE LLVMDXIL) # HLSL Change
 add_dependencies(LLVMAnalysis intrinsics_gen)
 
 add_subdirectory(IPA)

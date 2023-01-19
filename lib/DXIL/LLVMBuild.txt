@@ -13,4 +13,4 @@
 type = Library
 name = DXIL
 parent = Libraries
-required_libraries = Analysis BitReader Core DxcSupport Support
+required_libraries = BitReader Core DxcSupport Support

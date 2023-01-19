@@ -36,9 +36,9 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
+#include "dxc/DxilContainer/DxilRDATBuilder.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DXIL/DxilCounters.h"
-#include "dxc/DxilRDATBuilder/DxilRDATBuilder.h"
 #include <algorithm>
 #include <functional>
 

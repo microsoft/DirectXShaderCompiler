@@ -23,7 +23,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_)
     return dxc::main(args.size(), args.data());
 #else
 int main(int argc, const char **argv_) {
-    std::vector<const wchar_t *> args;
+    std::vector<const char *> args;
     for (int i=0;i<argc;i++)
       args.emplace_back(argv_[i]);
     args.emplace_back("-link");
