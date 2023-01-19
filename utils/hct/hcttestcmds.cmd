@@ -448,7 +448,7 @@ if %Failed% neq 0 goto :failed
 set testname=Test file with relative path and include
 mkdir subfolder 2>nul
 mkdir inc       2>nul
-copy "%testfiles%\Inputs\include-main.hlsl" subfolder >nul
+copy "%testfiles%\include-main.hlsl" subfolder >nul
 call :check_file subfolder\include-main.hlsl
 copy "%testfiles%\Inputs\inc\include-declarations.h" inc  >nul
 call :check_file inc\include-declarations.h
