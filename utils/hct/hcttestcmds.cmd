@@ -10,7 +10,7 @@ echo Testing command line programs at %1 ...
 setlocal enableextensions enabledelayedexpansion
 
 set script_dir=%~dp0
-set testfiles=%script_dir%cmdtestfiles
+set testfiles=%script_dir%..\..\tools\clang\test\DXC
 set Failed=0
 set FailingCmdWritten=0
 set OutputLog=%1\testcmd.log
@@ -21,7 +21,7 @@ if "%HLSL_TESTCMD_CLEANUP_ON_FAILURE%" == "" set HLSL_TESTCMD_CLEANUP_ON_FAILURE
 pushd %1
 
 set testname=Basic Rewriter Smoke Test
-call :run dxr.exe -remove-unused-globals "%testfiles%\smoke.hlsl" -Emain
+call :run dxr.exe -remove-unused-globals "%testfiles%\Inputs\smoke.hlsl" -Emain
 call :check_file log find-not g_unused
 if %Failed% neq 0 goto :failed
 
@@ -29,12 +29,12 @@ if %Failed% neq 0 goto :failed
 echo Smoke test for dxc command line program ...
 
 set testname=Basic DXC Smoke Test
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fc smoke.hlsl.h
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Fc smoke.hlsl.h
 call :check_file smoke.hlsl.h find "define void @main()" del
 if %Failed% neq 0 goto :failed
 
 set testname=Test extra DXC outputs together
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /DDX12 /Dcheck_warning /Fh smoke.hlsl.h /Vn g_myvar /Fc smoke.ll /Fo smoke.cso /Fre smoke.reflection /Frs smoke.rootsig /Fe smoke.err
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /DDX12 /Dcheck_warning /Fh smoke.hlsl.h /Vn g_myvar /Fc smoke.ll /Fo smoke.cso /Fre smoke.reflection /Frs smoke.rootsig /Fe smoke.err
 call :check_file smoke.hlsl.h find g_myvar find "0x44, 0x58" find "define void @main()" del
 call :check_file smoke.ll find "define void @main()" del
 call :check_file smoke.cso del
@@ -48,7 +48,7 @@ call :run dxc.exe /T ps_6_0 "%testfiles%\binding_table.hlsl" -import-binding-tab
 if %Failed% neq 0 goto :failed
 
 set testname=/Fd implies /Qstrip_debug
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo
 call :check_file smoke.hlsl.d del
 call :check_file smoke.hlsl.Fd.dxo
 if %Failed% neq 0 goto :failed
@@ -58,7 +58,7 @@ call :check_file log find "shader debug name: smoke.hlsl.d" find-not "DICompileU
 if %Failed% neq 0 goto :failed
 
 set testname=/Fd plus /Zs
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zs /Fd smoke.hlsl.pdb /Fo smoke.hlsl.Fd.dxo
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zs /Fd smoke.hlsl.pdb /Fo smoke.hlsl.Fd.dxo
 call :check_file smoke.hlsl.pdb del
 call :check_file smoke.hlsl.Fd.dxo
 if %Failed% neq 0 goto :failed
@@ -67,7 +67,7 @@ rem del .pdb file if exists
 del %CD%\*.pdb 1>nul 2>nul
 
 set testname=/Fd implies /Qstrip_debug ; path with \ produces auto hash-named .pdb file
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd .\ /Fo smoke.hlsl.strip
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Fd .\ /Fo smoke.hlsl.strip
 rem .pdb file should be produced
 call :check_file *.PDB del
 if %Failed% neq 0 goto :failed
@@ -80,7 +80,7 @@ rem del .pdb file if exists
 del %CD%\*.pdb 1>nul 2>nul
 
 set testname=Embed debug info
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.hlsl.embedpdb
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.hlsl.embedpdb
 call :check_file smoke.hlsl.embedpdb
 if %Failed% neq 0 goto :failed
 rem .pdb file should NOT be produced
@@ -92,7 +92,7 @@ call :check_file smoke.hlsl.embedpdb del
 if %Failed% neq 0 goto :failed
 
 set testname=Auto-embed debug info when no debug output, and expect warning signifying that this is the case.
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fo smoke.hlsl.embedpdb /Fe smoke.err.embedpdb
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Fo smoke.hlsl.embedpdb /Fe smoke.err.embedpdb
 call :check_file smoke.hlsl.embedpdb
 rem Search for warning:
 call :check_file smoke.err.embedpdb find "warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning." del
@@ -106,7 +106,7 @@ call :check_file smoke.hlsl.embedpdb del
 if %Failed% neq 0 goto :failed
 
 set testname=/Zi with /Qstrip_debug and no output should not embed
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qstrip_debug /Fo smoke.hlsl.strip
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Qstrip_debug /Fo smoke.hlsl.strip
 call :check_file smoke.hlsl.strip
 if %Failed% neq 0 goto :failed
 call :run dxc.exe -dumpbin smoke.hlsl.strip
@@ -115,7 +115,7 @@ call :check_file smoke.hlsl.strip del
 if %Failed% neq 0 goto :failed
 
 set testname=/Qstrip_reflect strips reflection
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -D DX12 /Qstrip_reflect /Fo smoke.hlsl.strip
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" -D DX12 /Qstrip_reflect /Fo smoke.hlsl.strip
 call :check_file smoke.hlsl.strip
 if %Failed% neq 0 goto :failed
 call :run dxc.exe -dumpbin smoke.hlsl.strip
@@ -124,50 +124,50 @@ call :check_file smoke.hlsl.strip del
 if %Failed% neq 0 goto :failed
 
 set testname=Dump dependency files
-call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /M
+call :run dxc.exe /T ps_6_0 -I"%testfiles%\Inputs" "%testfiles%\dump_dependency.hlsl" /M
 call :check_file log find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
-call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /MFdeps
+call :run dxc.exe /T ps_6_0 -I"%testfiles%\Inputs" "%testfiles%\dump_dependency.hlsl" /MFdeps
 call :check_file deps find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
-call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /MD
+call :run dxc.exe /T ps_6_0 -I"%testfiles%\Inputs" "%testfiles%\dump_dependency.hlsl" /MD
 call :check_file "%testfiles%\dump_dependency.d" find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
 if %Failed% neq 0 goto :failed
 
 set testname=ast-dump
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /ast-dump
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /ast-dump
 call :check_file log find TranslationUnitDecl
 if %Failed% neq 0 goto :failed
 
 set testname=time-report
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -ftime-report
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" -ftime-report
 call :check_file log find "Pass execution timing report"
 if %Failed% neq 0 goto :failed
 
 set testname=time-report
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -ftime-trace
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" -ftime-trace
 call :check_file log find "traceEvents"
 if %Failed% neq 0 goto :failed
 
 set testname=Check Warning
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Dcheck_warning
 call :check_file log find warning:
 if %Failed% neq 0 goto :failed
 
 set testname=/no-warnings
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning /no-warnings
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Dcheck_warning /no-warnings
 call :check_file log find-not warning:
 if %Failed% neq 0 goto :failed
 
 set testname=Preprocess
-call :run dxc.exe "%testfiles%\smoke.hlsl" /P preprocessed.hlsl
+call :run dxc.exe "%testfiles%\Inputs\smoke.hlsl" /P preprocessed.hlsl
 call :check_file preprocessed.hlsl find "float4 main"
 if %Failed% neq 0 goto :failed
 
 set testname=-force_rootsig_ver
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_1_0
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" -force_rootsig_ver rootsig_1_0
 if %Failed% neq 0 goto :failed
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_1_1
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" -force_rootsig_ver rootsig_1_1
 if %Failed% neq 0 goto :failed
-call :run-fail dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_2_0
+call :run-fail dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" -force_rootsig_ver rootsig_2_0
 if %Failed% neq 0 goto :failed
 
 set testname=Root Signature target
@@ -183,19 +183,19 @@ call :check_file test-local-rs.cso del
 if %Failed% neq 0 goto :failed
 
 set testname=HLSL Version
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /HV 2016
-call :run-fail dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /HV 2015
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /HV 2016
+call :run-fail dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /HV 2015
 if %Failed% neq 0 goto :failed
 
 set testname=Embed Debug, Recompile
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso 1> nul
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso 1> nul
 call :check_file smoke.cso
 if %Failed% neq 0 goto :failed
 call :run dxc.exe -dumpbin smoke.cso
 call :check_file log find "DICompileUnit"
 call :check_file smoke.cso del
 if %Failed% neq 0 goto :failed
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso /Cc /Ni /No /Lx
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso /Cc /Ni /No /Lx
 call :check_file smoke.cso
 if %Failed% neq 0 goto :failed
 call :run dxc.exe -dumpbin smoke.cso
@@ -207,7 +207,7 @@ call :run dxc.exe smoke.cso /recompile /T ps_6_0 /E main
 if %Failed% neq 0 goto :failed
 
 set testname=Strip Debug, Recompile PDB
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.pdb 1> nul
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Zi /Fd smoke.pdb 1> nul
 call :check_file smoke.pdb
 if %Failed% neq 0 goto :failed
 call :run dxc.exe -dumpbin smoke.pdb
@@ -221,7 +221,7 @@ call :check_file smoke.pdb del
 
 rem Note: this smoke.cso is used for a lot of other tests, and they rely on options set here
 set testname=Command-line Defines, Recompile
-call :run dxc.exe "%testfiles%\smoke.hlsl" /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo smoke.cso
+call :run dxc.exe "%testfiles%\Inputs\smoke.hlsl" /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo smoke.cso
 call :check_file smoke.cso
 if %Failed% neq 0 goto :failed
 call :run dxc.exe smoke.cso /recompile
@@ -294,7 +294,7 @@ call :check_file_not smoke.rsadded.cso del
 if %Failed% neq 0 goto :failed
 
 set testname=Compile TextVS.hlsl
-call :run dxc.exe "%testfiles%\TextVS.hlsl" /Tvs_6_0 /Zi /Qembed_debug /Fo TextVS.cso
+call :run dxc.exe "%testfiles%\TextVS.hlsl" -I"%testfiles%\Inputs" /Tvs_6_0 /Zi /Qembed_debug /Fo TextVS.cso
 call :check_file TextVS.cso
 if %Failed% neq 0 goto :failed
 call :run dxc.exe smoke.cso /dumpbin /verifyrootsignature TextVS.cso
@@ -346,10 +346,10 @@ if %Failed% neq 0 goto :failed
 
 set testname=dxc.exe shader model version promtion warning
 rem shader model version promotion warning prints to stderr, so not captured in /Fe
-dxc.exe "%testfiles%\smoke.hlsl" /Emain /Tps_5_0 2>smoke.err
+dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Emain /Tps_5_0 2>smoke.err
 call :check_file smoke.err find "warning: Promoting older shader model profile to 6.0 version."
 if %Failed% neq 0 goto :failed
-dxc.exe "%testfiles%\smoke.hlsl" /Emain /Tps_5_1 2>smoke.err
+dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Emain /Tps_5_1 2>smoke.err
 call :check_file smoke.err find "warning: Promoting older shader model profile to 6.0 version."
 if %Failed% neq 0 goto :failed
 
@@ -394,11 +394,11 @@ call :check_file smoke.rebuilt-container2.cso del
 if %Failed% neq 0 goto :failed
 
 set testname=Smoke test for dxopt command line
-call :run-nolog dxc /Odump /T ps_6_0 "%testfiles%\smoke.hlsl" > passes.txt
+call :run-nolog dxc /Odump /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" > passes.txt
 call :check_file passes.txt find emit
 if %Failed% neq 0 goto :failed
 echo -print-module >> passes.txt
-call :run dxc /T ps_6_0 "%testfiles%\smoke.hlsl" /fcgl -Fc smoke.hl.ll
+call :run dxc /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /fcgl -Fc smoke.hl.ll
 call :check_file smoke.hl.ll
 if %Failed% neq 0 goto :failed
 call :run-nolog dxopt -pf passes.txt -o=smoke.opt.bc smoke.hl.ll > smoke.opt.prn.txt
@@ -407,18 +407,18 @@ call :check_file smoke.opt.prn.txt find MODULE-PRINT del
 if %Failed% neq 0 goto :failed
 
 set testname=Smoke test for dxc_batch command line
-call :run dxc_batch.exe -lib-link -multi-thread "%testfiles%\batch_cmds2.txt"
+call :run dxc_batch.exe -lib-link -multi-thread "%testfiles%\Inputs\batch_cmds2.txt"
 if %Failed% neq 0 goto :failed
-call :run dxc_batch.exe -lib-link -multi-thread "%testfiles%\batch_cmds.txt"
+call :run dxc_batch.exe -lib-link -multi-thread "%testfiles%\Inputs\batch_cmds.txt"
 if %Failed% neq 0 goto :failed
-call :run dxc_batch.exe -multi-thread "%testfiles%\batch_cmds.txt"
+call :run dxc_batch.exe -multi-thread "%testfiles%\Inputs\batch_cmds.txt"
 if %Failed% neq 0 goto :failed
 
 set testname=Smoke test for dxl command line
 call :run dxc.exe -T lib_6_x "%testfiles%\lib_entry4.hlsl" -Fo lib_entry4.dxbc
 call :check_file lib_entry4.dxbc
 if %Failed% neq 0 goto :failed
-call :run dxc.exe -T lib_6_x "%testfiles%\lib_res_match.hlsl" -Fo lib_res_match.dxbc
+call :run dxc.exe -T lib_6_x "%testfiles%\Inputs\lib_res_match.hlsl" -Fo lib_res_match.dxbc
 call :check_file lib_res_match.dxbc
 if %Failed% neq 0 goto :failed
 call :run dxl.exe -T ps_6_0 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc
@@ -428,21 +428,21 @@ call :check_file res_match_entry.dxbc del
 if %Failed% neq 0 goto :failed
 
 set testname=Test for denorm options
-call :run dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm preserve
+call :run dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Tps_6_2 /denorm preserve
 if %Failed% neq 0 goto :failed
-call :run dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm ftz
+call :run dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Tps_6_2 /denorm ftz
 if %Failed% neq 0 goto :failed
-call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm abc
+call :run-fail dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Tps_6_2 /denorm abc
 if %Failed% neq 0 goto :failed
-call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_1 /denorm any
+call :run-fail dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Tps_6_1 /denorm any
 if %Failed% neq 0 goto :failed
 
 set testname=Test /enable-16bit-types
-call :run dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /enable-16bit-types
+call :run dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Tps_6_2 /enable-16bit-types
 if %Failed% neq 0 goto :failed
-call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_1 /enable-16bit-types
+call :run-fail dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Tps_6_1 /enable-16bit-types
 if %Failed% neq 0 goto :failed
-call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /enable-16bit-types /HV 2017
+call :run-fail dxc.exe "%testfiles%\Inputs\smoke.hlsl" /Tps_6_2 /enable-16bit-types /HV 2017
 if %Failed% neq 0 goto :failed
 
 set testname=Test file with relative path and include
@@ -450,7 +450,7 @@ mkdir subfolder 2>nul
 mkdir inc       2>nul
 copy "%testfiles%\include-main.hlsl" subfolder >nul
 call :check_file subfolder\include-main.hlsl
-copy "%testfiles%\include-declarations.h" inc  >nul
+copy "%testfiles%\Inputs\inc\include-declarations.h" inc  >nul
 call :check_file inc\include-declarations.h
 call :run dxc.exe -Tps_6_0 -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
@@ -495,15 +495,15 @@ for %%p in (vs ps gs hs ds cs lib) do (
 )
 
 set testname=Byte Order Markers
-call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-ascii.hlsl"
-call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf8.hlsl"
-call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf16le.hlsl"
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\bom-main-ascii.hlsl"
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\bom-main-utf8.hlsl"
+call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\bom-main-utf16le.hlsl"
 if %Failed% neq 0 goto :failed
 
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0
-dxc.exe "%testfiles%\smoke.hlsl" /T ps_6_0 -spirv 1>%CD%\smoke.spirv.log 2>&1
+dxc.exe "%testfiles%\Inputs\smoke.hlsl" /T ps_6_0 -spirv 1>%CD%\smoke.spirv.log 2>&1
 if %errorlevel% equ 0 set spirv_smoke_success=1
 findstr /c:"SPIR-V CodeGen not available" %CD%\smoke.spirv.log >nul
 if %errorlevel% equ 0 set spirv_smoke_success=1
