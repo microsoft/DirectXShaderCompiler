@@ -34,11 +34,13 @@
 // RUN: %dxc %t.smoke.define.cso /dumpbin /Qstrip_rootsignature /Fo %t.norootsignature.cso
 // RUN: %dxc %t.smoke.define.cso /dumpbin /extractrootsignature /Fo %t.rootsig.cso
 
-// RUN: not %dxc %t.NonUniformNoRootSig.cso /dumpbin /verifyrootsignature %t.rootsig.cso > %t 2>&1 && FileCheck --input-file=%t %s --check-prefix=RS_MISMATCH
+// RUN: not %dxc %t.NonUniformNoRootSig.cso /dumpbin /verifyrootsignature %t.rootsig.cso > %t 2>&1
+// RUN: FileCheck --input-file=%t %s --check-prefix=RS_MISMATCH
 
 // RS_MISMATCH:Shader sampler descriptor range (RegisterSpace=0, NumDescriptors=3, BaseShaderRegister=2) is not fully bound in root signature.
 
-// RUN: not %dxc %t.norootsignature.cso /dumpbin /verifyrootsignature %t.NonUniformRootSig.cso > %t.mismatch2 2>&1 && FileCheck --input-file=%t.mismatch2 %s --check-prefix=RS_MISMATCH2
+// RUN: not %dxc %t.norootsignature.cso /dumpbin /verifyrootsignature %t.NonUniformRootSig.cso > %t.mismatch2 2>&1
+// RUN: FileCheck --input-file=%t.mismatch2 %s --check-prefix=RS_MISMATCH2
 
 // RS_MISMATCH2:Shader CBV descriptor range (RegisterSpace=0, NumDescriptors=1, BaseShaderRegister=0) is not fully bound in root signature
 
