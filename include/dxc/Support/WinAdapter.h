@@ -184,7 +184,7 @@
 #define _strdup strdup
 #define _strnicmp strnicmp
 
-#define vsprintf_s vsprintf
+#define vsnprintf_s vsnprintf
 #define strcat_s strcat
 #define strcpy_s(dst, n, src) strncpy(dst, src, n)
 #define _vscwprintf vwprintf
