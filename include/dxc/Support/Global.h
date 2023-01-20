@@ -167,7 +167,7 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
   va_list argList;
   va_start(argList, pszFormat);
-  int count = vsprintf_s(buffer, _countof(buffer), pszFormat, argList);
+  int count = vsnprintf_s(buffer, _countof(buffer), pszFormat, argList);
   va_end(argList);
 
   OutputDebugStringA(buffer);
