@@ -1,6 +1,13 @@
-// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -I %S/Inputs %s | FileCheck %s
 
 // CHECK: SV_VertexID
+
+// RUN: %dxc %s /Tvs_6_0 /Zi /Qembed_debug -I %S/Inputs /Fo %t.TextVS.cso
+
+// RUN: %dxc %S/Inputs/smoke.hlsl /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo %t.test.vs.cso
+
+// RUN: %dxc %t.test.vs.cso /dumpbin /verifyrootsignature %t.TextVS.cso
+
 
 //
 // Copyright (c) Microsoft. All rights reserved.

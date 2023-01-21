@@ -1,5 +1,5 @@
 // Make sure include works for lib share compile.
 
-cbuffer C {
-  float c;
+cbuffer A {
+  float a;
 }
