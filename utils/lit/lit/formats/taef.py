@@ -8,10 +8,9 @@ import lit.util
 from .base import TestFormat
 
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll, hlsl_data_dir, test_path, extra_params):
+    def __init__(self, te_path, test_dll, test_path, extra_params):
         self.te = te_path
         self.test_dll = test_dll
-        self.hlsl_data_dir = hlsl_data_dir
         self.test_path = test_path
         self.extra_params = extra_params
         # NOTE: when search test, always running on test_dll,
@@ -86,9 +85,7 @@ class TaefTest(TestFormat):
 
         testPath,testName = os.path.split(test.getSourcePath())
 
-        param_hlsl_data_dir = str.format('/p:HlslDataDir={}', self.hlsl_data_dir)
         cmd = [self.te, test_dll, '/inproc',
-                param_hlsl_data_dir,
                 '/miniDumpOnCrash', '/unicodeOutput:false',
                 '/logOutput:LowWithConsoleBuffering',
                 str.format('/outputFolder:{}', self.test_path),
