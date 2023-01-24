@@ -8,11 +8,12 @@ import lit.util
 from .base import TestFormat
 
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll, hlsl_data_dir, test_path):
+    def __init__(self, te_path, test_dll, hlsl_data_dir, test_path, extra_params):
         self.te = te_path
         self.test_dll = test_dll
         self.hlsl_data_dir = hlsl_data_dir
         self.test_path = test_path
+        self.extra_params = extra_params
         # NOTE: when search test, always running on test_dll,
         #       use test_searched to make sure only add test once.
         #       If TaeftTest is created in directory with sub directory,
@@ -92,6 +93,7 @@ class TaefTest(TestFormat):
                 '/logOutput:LowWithConsoleBuffering',
                 str.format('/outputFolder:{}', self.test_path),
                 str.format('/name:{}', testName)]
+        cmd.extend(self.extra_params)
 
         if litConfig.useValgrind:
             cmd = litConfig.valgrindArgs + cmd
