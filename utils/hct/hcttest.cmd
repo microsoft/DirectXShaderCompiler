@@ -369,7 +369,7 @@ if "%TEST_EXEC%"=="1" (
   call :copyagility
 )
 
-set EXEC_COMMON_ARGS=/p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\unittests\HLSLExec" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
+set EXEC_COMMON_ARGS=/p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\unittests\HLSLExec" /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
   call :runte exec-hlsl-tests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS% 
@@ -420,7 +420,7 @@ if exist "%HCT_EXTRAS%\hcttest-after.cmd" (
 )
 
 if "%TEST_MANUAL_FILE_CHECK%"=="1" (
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::ManualFileCheckTest /runIgnoredTests /p:"InputPath=%MANUAL_FILE_CHECK_PATH%"
+  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::ManualFileCheckTest /p:"InputPath=%MANUAL_FILE_CHECK_PATH%"
   set RES_EXEC=!ERRORLEVEL!
 )
 
