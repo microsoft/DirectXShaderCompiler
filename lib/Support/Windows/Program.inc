@@ -71,7 +71,7 @@ ErrorOr<std::string> sys::findProgramByName(StringRef Name,
   DWORD Len = MAX_PATH;
   for (StringRef Ext : PathExts) {
     do {
-      U16Result.resize(Len);
+      U16Result.reserve(Len);
       // Lets attach the extension manually. That is needed for files
       // with a point in name like aaa.bbb. SearchPathW will not add extension
       // from its argument to such files because it thinks they already had one.
