@@ -102,6 +102,9 @@ class TaefTest(TestFormat):
             cmd, env=test.config.environment)
 
         if exitCode:
+            skipped = 'Failed=0, Blocked=0, Not Run=0, Skipped=1'
+            if skipped in out:
+                return lit.Test.UNSUPPORTED, ''
             return lit.Test.FAIL, out + err
 
         summary = 'Summary: Total='
