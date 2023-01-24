@@ -23,7 +23,9 @@
 #define NOATOM 1
 #define NOGDICAPMASKS 1
 #define NOMETAFILE 1
+#ifndef NOMINMAX
 #define NOMINMAX 1
+#endif
 #define NOOPENFILE 1
 #define NORASTEROPS 1
 #define NOSCROLL 1

@@ -84,12 +84,10 @@ static void WriteOutputFile(const Module *M) {
 }
 
 // HLSL Change Starts
+#define NOMINMAX
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
 // HLSL Change Ends
 
 // HLSL Change: changed calling convention to __cdecl
