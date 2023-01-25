@@ -150,6 +150,7 @@ public:
   TEST_METHOD(CompileThenSetRootSignatureThenValidate)
   TEST_METHOD(CompileSetPrivateThenWithStripPrivate)
   TEST_METHOD(CompileWithMultiplePrivateOptionsThenFail)
+  TEST_METHOD(TestPdbUtilsWithEmptyDefine)
 
   void CompileThenTestReflectionThreadSize(const char *source, const WCHAR *target, UINT expectedX, UINT expectedY, UINT expectedZ);
 
@@ -2007,6 +2008,26 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
   VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&pEntryName));
 
   VERIFY_ARE_EQUAL(pEntryName, L"main");
+}
+
+TEST_F(CompilerTest, TestPdbUtilsWithEmptyDefine) {
+#include "TestHeaders/TestDxilWithEmptyDefine.h"
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcBlobEncoding> pBlob;
+  VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(g_TestDxilWithEmptyDefine, sizeof(g_TestDxilWithEmptyDefine), CP_ACP, &pBlob));
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
+
+  UINT32 uCount = 0;
+  VERIFY_SUCCEEDED(pPdbUtils->GetDefineCount(&uCount));
+  for (UINT i = 0; i < uCount; i++) {
+    CComBSTR pDefine;
+    VERIFY_SUCCEEDED(pPdbUtils->GetDefine(i, &pDefine));
+  }
 }
 
 #endif //  _WIN32 - No PDBUtil support
