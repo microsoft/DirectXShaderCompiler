@@ -87,7 +87,6 @@ class TaefTest(TestFormat):
 
         cmd = [self.te, test_dll, '/inproc',
                 '/miniDumpOnCrash', '/unicodeOutput:false',
-                '/logOutput:LowWithConsoleBuffering',
                 str.format('/outputFolder:{}', self.test_path),
                 str.format('/name:{}', testName)]
         cmd.extend(self.extra_params)

@@ -55,6 +55,16 @@ else()
   message(ERROR "Unable to find TAEF binaries.")
 endif()
 
+set(TAEF_ARCH "x86")
+if ((CMAKE_GENERATOR_PLATFORM STREQUAL "x64") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "x64"))
+  set(TAEF_ARCH "x64")
+elseif ((CMAKE_GENERATOR_PLATFORM MATCHES "ARM64.*") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" MATCHES "ARM64.*"))
+  set(TAEF_ARCH "arm64")
+elseif ((CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" MATCHES "ARM.*"))
+  set(TAEF_ARCH "arm")
+endif((CMAKE_GENERATOR_PLATFORM STREQUAL "x64") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "x64"))
+
+
 include(FindPackageHandleStandardArgs)
 # handle the QUIETLY and REQUIRED arguments and set TAEF_FOUND to TRUE
 # if all listed variables are TRUE
