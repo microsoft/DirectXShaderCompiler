@@ -209,4 +209,12 @@ def err_missing_vfs_overlay_file : Error<
   "virtual filesystem overlay file '%0' not found">, DefaultFatal;
 def err_invalid_vfs_overlay : Error<
   "invalid virtual filesystem overlay file '%0'">, DefaultFatal;
+
+// HLSL Change - Start
+
+// This is really more of a driver warning, but since dxcompilerobj doesn't
+// build off the driver or have its own warnings this gets lumped here.
+def warn_hlsl_flag_unsupported_in_profile : Warning<"%0 is unsupported in %1 profile, only supported in %2">,
+  InGroup<InvalidCommandLineArgument>;
+// HLSL Change - End
 }
