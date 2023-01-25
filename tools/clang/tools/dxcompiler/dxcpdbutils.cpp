@@ -716,6 +716,10 @@ private:
   HRESULT AddArgPair(StringRef name, StringRef value) {
     const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
 
+    // If the value for define is somehow empty, do not add it.
+    if (name == "D" && value.empty())
+      return S_OK;
+
     SmallVector<char, 32> fusedArgStorage;
     if (name.size() && value.size()) {
       // Handling case where old positional arguments used to have
