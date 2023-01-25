@@ -612,6 +612,15 @@ HRESULT DxcCreateBlob(
 
   // Handle empty blob
   if (emptyString) {
+    // Free the passed in pointer if we are supposed to be taking
+    // ownership of it. It is a bit strange to have allocated a zero-sized
+    // buffer, but the IMalloc docs explicitly allow it:
+    //
+    // "If cb is zero, Alloc allocates a zero-length item and returns a valid pointer to that item"
+    //
+    if (!bPinned && !bCopy && pPtr)
+      pMalloc->Free((LPVOID)pPtr);
+
     if (encodingKnown && TryCreateEmptyBlobUtf(codePage, pMalloc, ppBlobEncoding))
       return S_OK;
     InternalDxcBlobEncoding *pInternalEncoding;
