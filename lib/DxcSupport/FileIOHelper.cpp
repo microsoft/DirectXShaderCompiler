@@ -619,7 +619,7 @@ HRESULT DxcCreateBlob(
     // "If cb is zero, Alloc allocates a zero-length item and returns a valid pointer to that item"
     //
     if (!bPinned && !bCopy && pPtr)
-      pMalloc->Free((LPVOID)pPtr);
+      pMalloc->Free(const_cast<LPVOID>(pPtr));
 
     if (encodingKnown && TryCreateEmptyBlobUtf(codePage, pMalloc, ppBlobEncoding))
       return S_OK;
