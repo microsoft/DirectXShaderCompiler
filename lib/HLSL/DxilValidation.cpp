@@ -5563,7 +5563,7 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
 
   // Verify no errors when runtime reflection from RDAT:
-  RDAT::DxilRuntimeReflection *pReflection = RDAT::CreateDxilRuntimeReflection();
+  unique_ptr<RDAT::DxilRuntimeReflection> pReflection(RDAT::CreateDxilRuntimeReflection());
   if (!pReflection->InitFromRDAT(pRDATData, RDATSize)) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, { PartName });
     return;
