@@ -587,8 +587,13 @@ HRESULT DxcCreateBlob(
   unsigned bomSize = (encodingKnown && codePage != CP_ACP)
                          ? GetBomLengthFromBytes((const char *)pPtr, size)
                          : 0;
+
+  // pContents may point into buffer, past the BOM.
+  LPCVOID pContents = pPtr;
+  SIZE_T contentSize = size;
+
   if (bomSize) {
-    // Adjust pPtr and size to skip BOM.
+    // Adjust pContents and contentSize to skip BOM.
     // When !encodingKnown or codePage == CP_ACP, BOM will be skipped when
     // interpreting as text and translating to unicode, since at this point,
     // the buffer could be an arbitrary binary blob.
@@ -598,13 +603,13 @@ HRESULT DxcCreateBlob(
     // as an empty null-terminated UTF-16 LE buffer with a BOM.
     // This won't matter in the end, since both cases are empty buffers, and
     // will map to the empty buffer case with the desired codePage setting.
-    pPtr = (const char *)pPtr + bomSize;
-    size -= bomSize;
+    pContents = (const char *)pPtr + bomSize;
+    contentSize -= bomSize;
   }
-  bool emptyString = !pPtr || !size;
-  if (bNullTerminated) {
-    DXASSERT_NOMSG(pPtr && size && encodingKnown);
-    emptyString = size == CharSizeFromCodePage(codePage);
+
+  bool emptyString = !pPtr || !contentSize;
+  if (!emptyString && bNullTerminated) {
+    emptyString = contentSize == CharSizeFromCodePage(codePage);
   }
 
   if (!pMalloc)
@@ -612,6 +617,10 @@ HRESULT DxcCreateBlob(
 
   // Handle empty blob
   if (emptyString) {
+    // Free the passed in pointer if we are taking ownership of it.
+    if (!bPinned && !bCopy && pPtr)
+      pMalloc->Free(const_cast<LPVOID>(pPtr));
+
     if (encodingKnown && TryCreateEmptyBlobUtf(codePage, pMalloc, ppBlobEncoding))
       return S_OK;
     InternalDxcBlobEncoding *pInternalEncoding;
@@ -626,14 +635,14 @@ HRESULT DxcCreateBlob(
         if (codePage == CP_UTF8) {
           InternalDxcBlobUtf8 *internalUtf8;
           IFR(InternalDxcBlobUtf8::CreateFromMalloc(
-              pPtr, pMalloc, size, true, codePage, &internalUtf8));
+              pContents, pMalloc, contentSize, true, codePage, &internalUtf8));
           *ppBlobEncoding = internalUtf8;
           internalUtf8->ClearFreeFlag();
           return S_OK;
         } else if (codePage == DXC_CP_WIDE) {
           InternalDxcBlobWide *internalWide;
           IFR(InternalDxcBlobWide::CreateFromMalloc(
-              pPtr, pMalloc, size, true, codePage, &internalWide));
+              pContents, pMalloc, contentSize, true, codePage, &internalWide));
           *ppBlobEncoding = internalWide;
           internalWide->ClearFreeFlag();
           return S_OK;
@@ -642,7 +651,7 @@ HRESULT DxcCreateBlob(
     }
     InternalDxcBlobEncoding *internalEncoding;
     IFR(InternalDxcBlobEncoding::CreateFromMalloc(
-        pPtr, pMalloc, size, encodingKnown, codePage, &internalEncoding));
+        pContents, pMalloc, contentSize, encodingKnown, codePage, &internalEncoding));
     *ppBlobEncoding = internalEncoding;
     internalEncoding->ClearFreeFlag();
     return S_OK;
@@ -653,6 +662,7 @@ HRESULT DxcCreateBlob(
 
   CDxcMallocHeapPtr<char> heapCopy(pMalloc);
   if (bCopy) {
+    newSize = contentSize;
     if (encodingKnown) {
       if (!bNullTerminated) {
         if (codePage == CP_UTF8) {
@@ -668,34 +678,50 @@ HRESULT DxcCreateBlob(
     pData = heapCopy.m_pData;
     if (pData == nullptr)
       return E_OUTOFMEMORY;
-    if (pPtr)
-      memcpy(pData, pPtr, size);
-    else
-      memset(pData, 0, size);
+    DXASSERT_NOMSG(pContents && contentSize);
+    memcpy(pData, pContents, contentSize);
+
+    // Guarantee null-termination
+    if (bNullTerminated && newSize > contentSize) {
+      if (codePage == CP_UTF8)
+        ((char*)pData)[newSize - 1] = 0;
+      else if (codePage == DXC_CP_WIDE)
+        ((wchar_t*)pData)[(newSize / sizeof(wchar_t)) - 1] = 0;
+    }
   }
 
+  CComPtr<IDxcBlobEncoding> pNewBlob;
   if (bNullTerminated && codePage == CP_UTF8) {
-    if (bCopy && newSize > size)
-      ((char*)pData)[newSize - 1] = 0;
     InternalDxcBlobUtf8 *internalUtf8;
     IFR(InternalDxcBlobUtf8::CreateFromMalloc(
         pData, pMalloc, newSize, true, codePage, &internalUtf8));
-    *ppBlobEncoding = internalUtf8;
+    pNewBlob = internalUtf8;
   } else if (bNullTerminated && codePage == DXC_CP_WIDE) {
-    if (bCopy && newSize > size)
-      ((wchar_t*)pData)[(newSize / sizeof(wchar_t)) - 1] = 0;
     InternalDxcBlobWide *internalWide;
     IFR(InternalDxcBlobWide::CreateFromMalloc(
         pData, pMalloc, newSize, true, codePage, &internalWide));
-    *ppBlobEncoding = internalWide;
+    pNewBlob = internalWide;
   } else {
     InternalDxcBlobEncoding *internalEncoding;
     IFR(InternalDxcBlobEncoding::CreateFromMalloc(
         pData, pMalloc, newSize, encodingKnown, codePage, &internalEncoding));
-    *ppBlobEncoding = internalEncoding;
+    pNewBlob = internalEncoding;
   }
-  if (bCopy)
+  if (bCopy) {
     heapCopy.Detach();
+  } else if (bomSize) {
+    // If we are here and not copying, we are taking ownership of caller's
+    // memory.  In that case, if there is a BOM, the original blob needs to
+    // be wrapped with a blob that offsets past the BOM.
+    // pOwner owns the first ref and will release it when we return.
+    // DxcCreateBlobEncodingFromBlob will create a blob that calls AddRef
+    // on the passed-in blob - a reference owned by the returned blob
+    // that points into into the first.
+    return DxcCreateBlobEncodingFromBlob(pNewBlob, bomSize, contentSize,
+                                         encodingKnown, codePage, pMalloc,
+                                         ppBlobEncoding);
+  }
+  *ppBlobEncoding = pNewBlob.Detach();
   return S_OK;
 }
 
