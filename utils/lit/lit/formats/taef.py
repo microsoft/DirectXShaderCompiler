@@ -8,11 +8,11 @@ import lit.util
 from .base import TestFormat
 
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll, hlsl_data_dir, test_path):
+    def __init__(self, te_path, test_dll, test_path, extra_params):
         self.te = te_path
         self.test_dll = test_dll
-        self.hlsl_data_dir = hlsl_data_dir
         self.test_path = test_path
+        self.extra_params = extra_params
         # NOTE: when search test, always running on test_dll,
         #       use test_searched to make sure only add test once.
         #       If TaeftTest is created in directory with sub directory,
@@ -85,13 +85,11 @@ class TaefTest(TestFormat):
 
         testPath,testName = os.path.split(test.getSourcePath())
 
-        param_hlsl_data_dir = str.format('/p:HlslDataDir={}', self.hlsl_data_dir)
         cmd = [self.te, test_dll, '/inproc',
-                param_hlsl_data_dir,
                 '/miniDumpOnCrash', '/unicodeOutput:false',
-                '/logOutput:LowWithConsoleBuffering',
                 str.format('/outputFolder:{}', self.test_path),
                 str.format('/name:{}', testName)]
+        cmd.extend(self.extra_params)
 
         if litConfig.useValgrind:
             cmd = litConfig.valgrindArgs + cmd
@@ -103,6 +101,9 @@ class TaefTest(TestFormat):
             cmd, env=test.config.environment)
 
         if exitCode:
+            skipped = 'Failed=0, Blocked=0, Not Run=0, Skipped=1'
+            if skipped in out:
+                return lit.Test.UNSUPPORTED, ''
             return lit.Test.FAIL, out + err
 
         summary = 'Summary: Total='
