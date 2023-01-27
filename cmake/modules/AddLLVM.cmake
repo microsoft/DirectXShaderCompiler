@@ -845,7 +845,7 @@ function(configure_lit_site_cfg input output)
   if (CMAKE_CFG_INTDIR STREQUAL ".")
     set(LLVM_BUILD_MODE ".")
   else ()
-    set(LLVM_BUILD_MODE ${CMAKE_BUILD_TYPE})
+    set(LLVM_BUILD_MODE "%(build_mode)s")
   endif ()
 
   # They below might not be the build tree but provided binary tree.
