@@ -1044,7 +1044,7 @@ bool DxilDebugInstrumentation::RunOnFunction(
 
   values.UAVHandle = PIXPassHelpers::CreateUAV(
       DM, Builder, static_cast<unsigned int>(m_FunctionToValues.size()),
-      "PIX_CountUAV_Handle");
+      "PIX_DebugUAV_Handle");
   values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
 
   auto SystemValues = addRequiredSystemValues(BC, shaderKind);
