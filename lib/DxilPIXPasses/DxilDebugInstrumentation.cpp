@@ -214,27 +214,28 @@ private:
   };
 
   uint64_t m_UAVSize = 1024 * 1024;
-  Value *m_SelectionCriterion = nullptr;
-  CallInst *m_HandleForUAV = nullptr;
-  Value *m_InvocationId = nullptr;
-
-  // Together these two values allow branchless writing to the UAV. An
-  // invocation of the shader is either of interest or not (e.g. it writes to
-  // the pixel the user selected for debugging or it doesn't). If not of
-  // interest, debugging output will still occur, but it will be relegated to
-  // the very top few bytes of the UAV. Invocations of interest, by contrast,
-  // will be written to the UAV at sequentially increasing offsets.
-
-  // This value will either be one or zero (one if the invocation is of
-  // interest, zero otherwise)
-  Value *m_OffsetMultiplicand = nullptr;
-  // This will either be zero (if the invocation is of interest) or
-  // (UAVSize)-(SmallValue) if not.
-  Value *m_OffsetAddend = nullptr;
-
-  Constant *m_OffsetMask = nullptr;
-
-  Constant *m_CounterOffset = nullptr;
+  struct PerFunctionValues
+  {
+    CallInst *UAVHandle;
+    Constant *CounterOffset;
+    Value *InvocationId;
+    // Together these two values allow branchless writing to the UAV. An
+    // invocation of the shader is either of interest or not (e.g. it writes to
+    // the pixel the user selected for debugging or it doesn't). If not of
+    // interest, debugging output will still occur, but it will be relegated to
+    // the very top few bytes of the UAV. Invocations of interest, by contrast,
+    // will be written to the UAV at sequentially increasing offsets.
+    // This value will either be one or zero (one if the invocation is of
+    // interest, zero otherwise)
+    Value *OffsetMultiplicand;
+    // This will either be zero (if the invocation is of interest) or
+    // (UAVSize)-(SmallValue) if not.
+    Value *OffsetAddend;
+    Constant *OffsetMask;
+    Value *SelectionCriterion = nullptr;
+    Value *CurrentIndex = nullptr;
+  };
+  std::map<llvm::Function *, PerFunctionValues> m_FunctionToValues;
 
   struct BuilderContext {
     Module &M;
@@ -245,7 +246,6 @@ private:
   };
 
   uint32_t m_RemainingReservedSpaceInBytes = 0;
-  Value *m_CurrentIndex = nullptr;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -651,25 +651,25 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
 
   // This is a convenient place to calculate the values that modify the UAV
   // offset for invocations of interest and for UAV size.
-  m_OffsetMultiplicand =
+  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+  values.OffsetMultiplicand =
       BC.Builder.CreateCast(Instruction::CastOps::ZExt, ParameterTestResult,
                             Type::getInt32Ty(BC.Ctx), "OffsetMultiplicand");
   auto InverseOffsetMultiplicand =
-      BC.Builder.CreateSub(BC.HlslOP->GetU32Const(1), m_OffsetMultiplicand,
+      BC.Builder.CreateSub(BC.HlslOP->GetU32Const(1), values.OffsetMultiplicand,
                            "ComplementOfMultiplicand");
-  m_OffsetAddend =
+  values.OffsetAddend =
       BC.Builder.CreateMul(BC.HlslOP->GetU32Const(UAVDumpingGroundOffset()),
                            InverseOffsetMultiplicand, "OffsetAddend");
-  m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
+  values.OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
-  m_CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
-
-  m_SelectionCriterion = ParameterTestResult;
+  values.SelectionCriterion = ParameterTestResult;
 }
 
 void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
                                                       uint32_t SpaceInBytes) {
-  assert(m_CurrentIndex == nullptr);
+  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+  assert(values.CurrentIndex == nullptr);
   assert(m_RemainingReservedSpaceInBytes == 0);
 
   m_RemainingReservedSpaceInBytes = SpaceInBytes;
@@ -686,36 +686,36 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
   // so inc will be zero for uninteresting invocations:
   Constant *Increment = BC.HlslOP->GetU32Const(SpaceInBytes);
   Value *IncrementForThisInvocation = BC.Builder.CreateMul(
-      Increment, m_OffsetMultiplicand, "IncrementForThisInvocation");
+      Increment, values.OffsetMultiplicand, "IncrementForThisInvocation");
 
   auto PreviousValue = BC.Builder.CreateCall(
       AtomicOpFunc,
       {
           AtomicBinOpcode,  // i32, ; opcode
-          m_HandleForUAV,   // %dx.types.Handle, ; resource handle
+          values.UAVHandle, // %dx.types.Handle, ; resource handle
           AtomicAdd,        // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
                             // XOR, IMIN, IMAX, UMIN, UMAX
-          m_CounterOffset,  // i32, ; coordinate c0: index in bytes
+          values.CounterOffset,     // i32, ; coordinate c0: index in bytes
           UndefArg,         // i32, ; coordinate c1 (unused)
           UndefArg,         // i32, ; coordinate c2 (unused)
           IncrementForThisInvocation, // i32); increment value
       },
       "UAVIncResult");
 
-  if (m_InvocationId == nullptr) {
-    m_InvocationId = PreviousValue;
+  if (values.InvocationId == nullptr) {
+    values.InvocationId = PreviousValue;
   }
 
   auto MaskedForLimit =
-      BC.Builder.CreateAnd(PreviousValue, m_OffsetMask, "MaskedForUAVLimit");
+      BC.Builder.CreateAnd(PreviousValue, values.OffsetMask, "MaskedForUAVLimit");
   // The return value will either end up being itself (multiplied by one and
   // added with zero) or the "dump uninteresting things here" value of (UAVSize
   // - a bit).
   auto MultipliedForInterest = BC.Builder.CreateMul(
-      MaskedForLimit, m_OffsetMultiplicand, "MultipliedForInterest");
+      MaskedForLimit, values.OffsetMultiplicand, "MultipliedForInterest");
   auto AddedForInterest = BC.Builder.CreateAdd(
-      MultipliedForInterest, m_OffsetAddend, "AddedForInterest");
-  m_CurrentIndex = AddedForInterest;
+      MultipliedForInterest, values.OffsetAddend, "AddedForInterest");
+  values.CurrentIndex = AddedForInterest;
 }
 
 void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
@@ -774,10 +774,13 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
       assert(false);
     }
     Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
+
+    auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+
     (void)BC.Builder.CreateCall(
         StoreValue, {StoreValueOpcode, // i32 opcode
-                     m_HandleForUAV,   // %dx.types.Handle, ; resource handle
-                     m_CurrentIndex,   // i32 c0: index in bytes into UAV
+                     values.UAVHandle, // %dx.types.Handle, ; resource handle
+                     values.CurrentIndex,   // i32 c0: index in bytes into UAV
                      Undef32Arg,       // i32 c1: unused
                      TheValue,
                      UndefArg, // unused values
@@ -789,10 +792,10 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     assert(m_RemainingReservedSpaceInBytes < 1024); // check for underflow
 
     if (m_RemainingReservedSpaceInBytes != 0) {
-      m_CurrentIndex =
-          BC.Builder.CreateAdd(m_CurrentIndex, BC.HlslOP->GetU32Const(4));
+      values.CurrentIndex =
+          BC.Builder.CreateAdd(values.CurrentIndex, BC.HlslOP->GetU32Const(4));
     } else {
-      m_CurrentIndex = nullptr;
+      values.CurrentIndex = nullptr;
     }
   }
 }
@@ -808,7 +811,8 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
   marker.Header.Details.Type =
       DebugShaderModifierRecordTypeInvocationStartMarker;
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(marker.Header.u32Header));
-  addDebugEntryValue(BC, m_InvocationId);
+  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+  addDebugEntryValue(BC, values.InvocationId);
 }
 
 template <typename ReturnType>
@@ -819,11 +823,13 @@ void DxilDebugInstrumentation::addStepEntryForType(
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
   reserveDebugEntrySpace(BC, sizeof(step));
 
+  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+
   step.Header.Details.SizeDwords =
       DebugShaderModifierRecordPayloadSizeDwords(sizeof(step));
   step.Header.Details.Type = static_cast<uint8_t>(RecordType);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(step.Header.u32Header));
-  addDebugEntryValue(BC, m_InvocationId);
+  addDebugEntryValue(BC, values.InvocationId);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(InstNum));
 
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid) {
@@ -1034,8 +1040,12 @@ bool DxilDebugInstrumentation::RunOnFunction(
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
 
-  m_HandleForUAV =
-      PIXPassHelpers::CreateUAV(BC.DM, BC.Builder, 0, "PIX_DebugUAV_Handle");
+  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+
+  values.UAVHandle = PIXPassHelpers::CreateUAV(
+      DM, Builder, static_cast<unsigned int>(m_FunctionToValues.size()),
+      "PIX_DebugUAV_Handle");
+  values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
 
   auto SystemValues = addRequiredSystemValues(BC, shaderKind);
   addInvocationSelectionProlog(BC, SystemValues, shaderKind);
