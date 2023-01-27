@@ -23,7 +23,7 @@ set TEST_DXILCONV_FILTER=
 set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
-set TEST_USE_LIT=0
+set TEST_USE_LIT=1
 set TEST_CLANG_FILTER=
 set TEST_EXEC_FILTER=ExecutionTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
@@ -144,8 +144,8 @@ if "%1"=="-clean" (
   set TEST_EXTRAS=1
 ) else if "%1"=="-ninja" (
   set GENERATOR_NINJA=1
-) else if "%1"=="-enable-lit" (
-  set TEST_USE_LIT=1
+) else if "%1"=="-no-lit" (
+  set TEST_USE_LIT=0
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Release" (
@@ -260,6 +260,9 @@ if "%TEST_USE_LIT%"=="1" (
   if "%TEST_EXEC%"=="1" (
     set TEST_CLANG=1
   )
+  if "%TEST_CMD%"=="1" (
+    set TEST_CLANG=1
+  )
   if "%TEST_SPIRV%"=="1" (
     set TEST_CLANG=1
   )
@@ -269,6 +272,7 @@ if "%TEST_USE_LIT%"=="1" (
     set RES_CLANG=!ERRORLEVEL!
     set RES_DXILCONV=%RES_CLANG%
     set RES_EXEC=%RES_CLANG%
+    set RES_CMD=%RES_CLANG%
   ) else (
     if "%TEST_DXILCONV%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
@@ -278,12 +282,14 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
       set RES_EXEC=%RES_CLANG%
+      set RES_CMD=%RES_CLANG%
     )
   )
   set TEST_CLANG=0
   set TEST_DXILCONV=0
   set TEST_SPIRV=0
   set TEST_EXEC=0
+  set TEST_CMD=0
 )
 
 if not exist %TEST_DIR% (mkdir %TEST_DIR%)
@@ -372,7 +378,7 @@ if "%TEST_EXEC%"=="1" (
 set EXEC_COMMON_ARGS=/p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\unittests\HLSLExec" /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
-  call :runte exec-hlsl-tests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS% 
+  call :runte exec-hlsl-tests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%
   set RES_EXEC=!ERRORLEVEL!
   if errorlevel 1 (
     if not "%TEST_EXEC_REQUIRED%"=="1" (
