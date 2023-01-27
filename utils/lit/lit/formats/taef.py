@@ -1,18 +1,45 @@
 from __future__ import absolute_import
 import os
 import sys
+import platform
 
 import lit.Test
 import lit.TestRunner
 import lit.util
 from .base import TestFormat
 
+def strip_dxil_validator_path(env_path):
+    ext = "dll"
+    separator = ';'
+
+    if platform.system() != 'Windows':
+        ext = "so"
+        separator = ':'
+
+
+    dxil_name = str.format("dxil.{}", ext)
+
+    path_list = env_path.split(separator)
+
+    env_path = ""
+
+    for p in path_list:
+        full_name = os.path.join(p, dxil_name)
+        if os.path.isfile(full_name):
+            continue
+        if env_path != "":
+            env_path += str.format("{}{}",separator, p)
+        else:
+            env_path = p
+    return env_path
+
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll, test_path, extra_params):
+    def __init__(self, te_path, test_dll, test_path, extra_params, need_dxil_validator):
         self.te = te_path
         self.test_dll = test_dll
         self.test_path = test_path
         self.extra_params = extra_params
+        self.need_dxil_validator = need_dxil_validator
         # NOTE: when search test, always running on test_dll,
         #       use test_searched to make sure only add test once.
         #       If TaeftTest is created in directory with sub directory,
@@ -41,6 +68,9 @@ class TaefTest(TestFormat):
             # this is for windows
             lines = lines.replace('\r', '')
             lines = lines.split('\n')
+            if self.need_dxil_validator == False:
+                localConfig.environment["PATH"] = strip_dxil_validator_path(localConfig.environment["PATH"])
+
         except:
             litConfig.error("unable to discover taef tests in %r, using %s" % (dll_path, self.te))
             raise StopIteration
@@ -98,7 +128,7 @@ class TaefTest(TestFormat):
             return lit.Test.PASS, ''
 
         out, err, exitCode = lit.util.executeCommand(
-            cmd, env=test.config.environment)
+            cmd, env = test.config.environment)
 
         if exitCode:
             skipped = 'Failed=0, Blocked=0, Not Run=0, Skipped=1'
