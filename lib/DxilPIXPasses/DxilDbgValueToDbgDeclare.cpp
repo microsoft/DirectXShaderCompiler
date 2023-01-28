@@ -365,7 +365,8 @@ static OffsetInBits SplitValue(
   else
   {
     assert(VTy->isFloatTy() || VTy->isDoubleTy() || VTy->isHalfTy() ||
-           VTy->isIntegerTy(32) || VTy->isIntegerTy(64) || VTy->isIntegerTy(16));
+           VTy->isIntegerTy(32) || VTy->isIntegerTy(64) || VTy->isIntegerTy(16) ||
+           VTy->isPointerTy());
     Values->emplace_back(ValueAndOffset{V, CurrentOffset});
     CurrentOffset += VTy->getScalarSizeInBits();
   }
@@ -864,8 +865,11 @@ VariableRegisters::VariableRegisters(
 {
   PopulateAllocaMap(Ty);
   m_Offsets.AlignTo(Ty); // For padding.
+
+  // (min16* types can occupy 16 or 32 bits depending on whether or not they are natively supported.
+  // If non-native, the alignment will be 32, but the claimed size will still be 16, hence the "max" here)
   assert(m_Offsets.GetCurrentAlignedOffset() ==
-         DITypePeelTypeAlias(Ty)->getSizeInBits());
+         std::max<uint64_t>(DITypePeelTypeAlias(Ty)->getSizeInBits(), DITypePeelTypeAlias(Ty)->getAlignInBits()));
 }
 
 void VariableRegisters::PopulateAllocaMap(
