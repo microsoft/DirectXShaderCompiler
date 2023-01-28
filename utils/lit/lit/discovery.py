@@ -5,6 +5,7 @@ Test discovery functions.
 import copy
 import os
 import sys
+import platform
 
 import lit.run
 from lit.TestingConfig import TestingConfig
@@ -74,6 +75,32 @@ def getTestSuite(item, litConfig, cache):
     return ts, tuple(relative + tuple(components))
 
 def getLocalConfig(ts, path_in_suite, litConfig, cache):
+
+    def strip_dxil_validator_path(env_path):
+        ext = "dll"
+        separator = ';'
+
+        if platform.system() != 'Windows':
+            ext = "so"
+            separator = ':'
+
+
+        dxil_name = str.format("dxil.{}", ext)
+
+        path_list = env_path.split(separator)
+
+        env_path = ""
+
+        for p in path_list:
+            full_name = os.path.join(p, dxil_name)
+            if os.path.isfile(full_name):
+                continue
+            if env_path != "":
+                env_path += str.format("{}{}",separator, p)
+            else:
+                env_path = p
+        return env_path
+
     def search1(path_in_suite):
         # Get the parent config.
         if not path_in_suite:
@@ -95,6 +122,11 @@ def getLocalConfig(ts, path_in_suite, litConfig, cache):
         if litConfig.debug:
             litConfig.note('loading local config %r' % cfgpath)
         config.load_from_path(cfgpath, litConfig)
+
+        need_dxil_validator = litConfig.params.get('need_dxil_validator', None)
+        if need_dxil_validator == None:
+            config.environment["PATH"] = strip_dxil_validator_path(config.environment["PATH"])
+
         return config
 
     def search(path_in_suite):

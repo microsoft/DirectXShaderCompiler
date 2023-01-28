@@ -1,37 +1,11 @@
 from __future__ import absolute_import
 import os
 import sys
-import platform
 
 import lit.Test
 import lit.TestRunner
 import lit.util
 from .base import TestFormat
-
-def strip_dxil_validator_path(env_path):
-    ext = "dll"
-    separator = ';'
-
-    if platform.system() != 'Windows':
-        ext = "so"
-        separator = ':'
-
-
-    dxil_name = str.format("dxil.{}", ext)
-
-    path_list = env_path.split(separator)
-
-    env_path = ""
-
-    for p in path_list:
-        full_name = os.path.join(p, dxil_name)
-        if os.path.isfile(full_name):
-            continue
-        if env_path != "":
-            env_path += str.format("{}{}",separator, p)
-        else:
-            env_path = p
-    return env_path
 
 class TaefTest(TestFormat):
     def __init__(self, te_path, test_dll, test_path, extra_params, need_dxil_validator):
@@ -68,8 +42,6 @@ class TaefTest(TestFormat):
             # this is for windows
             lines = lines.replace('\r', '')
             lines = lines.split('\n')
-            if self.need_dxil_validator == False:
-                localConfig.environment["PATH"] = strip_dxil_validator_path(localConfig.environment["PATH"])
 
         except:
             litConfig.error("unable to discover taef tests in %r, using %s" % (dll_path, self.te))
