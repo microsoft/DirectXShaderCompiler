@@ -1,5 +1,5 @@
 // RUN: %dxc -T lib_6_3 -fcgl %s | FileCheck %s -check-prefixes=ALWAYS,CHECK
-// RUN: %dxc -T lib_6_3 -fdisable-always-inline -fcgl %s | FileCheck %s -check-prefixes=NORMAL,CHECK
+// RUN: %dxc -T lib_6_3 -fnew-inlining-behavior -fcgl %s | FileCheck %s -check-prefixes=NORMAL,CHECK
 
 // CHECK: define internal void @"\01?fn1@@YAXXZ"() [[Fn1:#[0-9]+]]
 void fn1() {}

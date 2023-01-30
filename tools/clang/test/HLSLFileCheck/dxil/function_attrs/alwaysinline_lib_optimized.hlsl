@@ -1,5 +1,5 @@
-// RUN: %dxc -T lib_6_3 -fdisable-always-inline %s | FileCheck %s -check-prefixes=NORMAL,CHECK
-// RUN: %dxc -T lib_6_3 -fdisable-always-inline -DNOINLINE %s | FileCheck %s -check-prefixes=NOINLINE,CHECK
+// RUN: %dxc -T lib_6_3 -fnew-inlining-behavior %s | FileCheck %s -check-prefixes=NORMAL,CHECK
+// RUN: %dxc -T lib_6_3 -fnew-inlining-behavior -DNOINLINE %s | FileCheck %s -check-prefixes=NOINLINE,CHECK
 
 // This test verifies a trivial case for disabling the always-inline behavior
 // under optimzations. It tests both that a trivial call gets inlined and that

@@ -172,9 +172,9 @@ def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Disable source location tracking in IR. This will break diagnostic generation for late validation. (Ignored if /Zi is passed)">;
 
-def fdisable_always_inline : Flag<["-"], "fdisable-always-inline">,
+def fnew_inlining_behavior : Flag<["-"], "fnew-inlining-behavior">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  HelpText<"Experimental option for library shaders to disable forcing inlining calls under entry functions.">;
+  HelpText<"Experimental option to use heuristics-driven late inlining and disable alwaysinline annotation for library shaders">;
 
 
 def ftime_report : Flag<["-"], "ftime-report">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Print time report">;

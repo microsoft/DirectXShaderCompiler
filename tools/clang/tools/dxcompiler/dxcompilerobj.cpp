@@ -1565,15 +1565,8 @@ public:
 
     clang::CodeGenOptions::InliningMethod Inlining =
         clang::CodeGenOptions::OnlyAlwaysInlining;
-    if (Opts.DisableAlwaysInline) {
-      if (!Opts.IsLibraryProfile()) {
-        compiler.getDiagnostics().Report(diag::warn_hlsl_flag_unsupported_in_profile)
-            << "-fdisable-always-inline"
-            << Opts.TargetProfile
-            << "library shaders";
-      } else
-        Inlining = clang::CodeGenOptions::NormalInlining;
-    }
+    if (Opts.NewInlining)
+      Inlining = clang::CodeGenOptions::NormalInlining;
     compiler.getCodeGenOpts().setInlining(Inlining);
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
