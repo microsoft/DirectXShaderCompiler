@@ -420,7 +420,7 @@ if exist "%HCT_EXTRAS%\hcttest-after.cmd" (
 )
 
 if "%TEST_MANUAL_FILE_CHECK%"=="1" (
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::ManualFileCheckTest /p:"InputPath=%MANUAL_FILE_CHECK_PATH%"
+  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::ManualFileCheckTest /runIgnoredTests /p:"InputPath=%MANUAL_FILE_CHECK_PATH%"
   set RES_EXEC=!ERRORLEVEL!
 )
 
