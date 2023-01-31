@@ -5,28 +5,12 @@ import platform
 OldPy = sys.version_info[0] == 2 and sys.version_info[1] < 7
 
 def strip_dxil_validator_path(env_path):
-    ext = "dll"
-    separator = ';'
+    dxil_name, separator = ('dxil.dll', ';') if platform.system() == 'Windows' else ('dxil.so', ';')
+    return separator.join([
+        p for p in env_path.split(separator)
+        if not os.path.isfile(os.path.join(p, dxil_name))
+        ])
 
-    if platform.system() != 'Windows':
-        ext = "so"
-        separator = ':'
-
-    dxil_name = str.format("dxil.{}", ext)
-
-    path_list = env_path.split(separator)
-
-    env_path = ""
-
-    for p in path_list:
-        full_name = os.path.join(p, dxil_name)
-        if os.path.isfile(full_name):
-            continue
-        if env_path != "":
-            env_path += str.format("{}{}",separator, p)
-        else:
-            env_path = p
-    return env_path
 
 class TestingConfig:
     """"
