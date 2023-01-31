@@ -5,7 +5,11 @@ import zipfile
 
 url = "https://github.com/Microsoft/WinObjC/raw/develop/deps/prebuilt/nuget/taef.redist.wlk.1.0.170206001-nativetargets.nupkg"
 zipfile_name = os.path.join(os.environ['TEMP'], "taef.redist.wlk.1.0.170206001-nativetargets.nupkg.zip")
-src_dir = os.environ['HLSL_SRC_DIR']
+if os.environ.__contains__('HLSL_SRC_DIR'):
+    src_dir = os.environ['HLSL_SRC_DIR']
+else:
+    src_dir = os.path.join(os.path.dirname(__file__), '../../')
+
 taef_dir = os.path.join(src_dir, "external", "taef")
 
 if not os.path.isdir(taef_dir):
