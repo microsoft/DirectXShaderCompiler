@@ -123,9 +123,8 @@ if (WIN32)
   add_lit_target("check-clang-taef-exec" "Running lit suite hlsl execution test"
             ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
             PARAMS ${CLANG_TEST_PARAMS}
-                  need_dxil_validator=True
                   clang_taef_exec_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
-            DEPENDS ExecHLSLTests
+            DEPENDS ExecHLSLTests dxexp
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )
 endif()

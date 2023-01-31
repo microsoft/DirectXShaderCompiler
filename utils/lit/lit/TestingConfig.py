@@ -46,9 +46,8 @@ class TestingConfig:
         # strip dxil validator dir if not need it.
         all_path = os.pathsep.join(litConfig.path +
                                      [os.environ.get('PATH','')])
-        need_dxil_validator = litConfig.params.get('need_dxil_validator', None)
-        if need_dxil_validator == None:
-            all_path = strip_dxil_validator_path(all_path)
+
+        all_path = strip_dxil_validator_path(all_path)
 
         environment = {
             'PATH' : all_path,
