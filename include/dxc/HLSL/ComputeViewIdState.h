@@ -109,4 +109,7 @@ namespace llvm {
 void initializeComputeViewIdStatePass(llvm::PassRegistry &);
 llvm::ModulePass *createComputeViewIdStatePass();
 
+void initializeViewIdStatePrinterPass(llvm::PassRegistry &);
+llvm::ModulePass *createViewIdStatePrinterPass();
+
 } // end of llvm namespace

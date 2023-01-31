@@ -285,6 +285,8 @@ void DxilViewIdStateBuilder::ComputeReachableFunctionsRec(CallGraph &CG, CallGra
   Function *F = pNode->getFunction();
   // Accumulate only functions with bodies.
   if (F->empty()) return;
+  if (FuncSet.count(F))
+    return;
   auto itIns = FuncSet.emplace(F);
   DXASSERT_NOMSG(itIns.second);
   (void)itIns;
@@ -922,6 +924,50 @@ namespace llvm {
 
 ModulePass *createComputeViewIdStatePass() {
   return new ComputeViewIdState();
+}
+
+} // end of namespace llvm
+
+namespace {
+class ViewIdStatePrinter : public ModulePass {
+public:
+  static char ID; // Pass ID, replacement for typeid
+
+  ViewIdStatePrinter::ViewIdStatePrinter() : ModulePass(ID) {}
+
+  bool runOnModule(Module &M) override {
+    DxilModule &DxilModule = M.GetOrCreateDxilModule();
+    const ShaderModel *pSM = DxilModule.GetShaderModel();
+    if (pSM->IsCS() || pSM->IsLib())
+      return false;
+
+    auto &SerializedViewIdState = DxilModule.GetSerializedViewIdState();
+    DxilViewIdState ViewIdState(&DxilModule);
+    ViewIdState.Deserialize(SerializedViewIdState.data(),
+                            SerializedViewIdState.size());
+    ViewIdState.PrintSets(dbgs());
+    return false;
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<ComputeViewIdState>();
+  }
+};
+} // namespace
+
+char ViewIdStatePrinter::ID = 0;
+
+INITIALIZE_PASS_BEGIN(ViewIdStatePrinter, "viewid-state-printer",
+                      "Print information related to ViewID", true, true)
+INITIALIZE_PASS_DEPENDENCY(ComputeViewIdState)
+INITIALIZE_PASS_END(ViewIdStatePrinter,
+                    "viewid-state-printer",
+                    "Print information related to ViewID", true, true)
+
+namespace llvm {
+
+ModulePass *createViewIdStatePrinterPass() {
+  return new ViewIdStatePrinter();
 }
 
 } // end of namespace llvm
