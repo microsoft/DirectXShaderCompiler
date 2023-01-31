@@ -1,11 +1,40 @@
 from __future__ import absolute_import
 import os
 import sys
+import signal
+import subprocess
 
 import lit.Test
 import lit.TestRunner
 import lit.util
 from .base import TestFormat
+
+# TAEF must be run with custom command line string and shell=True
+# because of the way it manually processes quoted arguments in a
+# non-standard way.
+def executeCommandForTaef(command, cwd=None, env=None):
+    command = ' '.join(command)
+    p = subprocess.Popen(command, cwd=cwd,
+                        shell=True,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        env=env,
+                        # Close extra file handles on UNIX (on Windows this cannot be done while
+                        # also redirecting input). Taef only run on windows.
+                        close_fds=False)
+    out,err = p.communicate()
+    exitCode = p.wait()
+
+    # Detect Ctrl-C in subprocess.
+    if exitCode == -signal.SIGINT:
+        raise KeyboardInterrupt
+
+    # Ensure the resulting output is always of string type.
+    out = lit.util.convert_string(out)
+    err = lit.util.convert_string(err)
+
+    return out, err, exitCode
 
 class TaefTest(TestFormat):
     def __init__(self, te_path, test_dll, test_path, select_filter, extra_params):
@@ -82,7 +111,6 @@ class TaefTest(TestFormat):
                 litConfig, localConfig):
             yield test
 
-
     def execute(self, test, litConfig):
         test_dll = test.getFilePath()
 
@@ -90,11 +118,10 @@ class TaefTest(TestFormat):
 
         select_filter = str.format("@Name='{}'", testName)
 
-        # FIXME: enable mix filter.
-        #if self.select_filter != "":
-        #    select_filter = str.format("{} AND {}", select_filter, self.select_filter)
+        if self.select_filter != "":
+            select_filter = str.format("{} AND {}", select_filter, self.select_filter)
 
-        select_filter = str.format('/select:{}', select_filter)
+        select_filter = str.format('/select:"{}"', select_filter)
 
         cmd = [self.te, test_dll, '/inproc',
                 select_filter,
@@ -108,15 +135,18 @@ class TaefTest(TestFormat):
         if litConfig.noExecute:
             return lit.Test.PASS, ''
 
-        print(cmd)
-
-        out, err, exitCode = lit.util.executeCommand(
+        out, err, exitCode = executeCommandForTaef(
             cmd, env = test.config.environment)
 
         if exitCode:
             skipped = 'Failed=0, Blocked=0, Not Run=0, Skipped=1'
             if skipped in out:
                 return lit.Test.UNSUPPORTED, ''
+
+            unselected = 'The selection criteria did not match any tests.'
+            if unselected in out:
+                return lit.Test.UNSUPPORTED, ''
+
             return lit.Test.FAIL, out + err
 
         summary = 'Summary: Total='
