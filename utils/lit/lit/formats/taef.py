@@ -8,10 +8,11 @@ import lit.util
 from .base import TestFormat
 
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll, test_path, extra_params):
+    def __init__(self, te_path, test_dll, test_path, select_filter, extra_params):
         self.te = te_path
         self.test_dll = test_dll
         self.test_path = test_path
+        self.select_filter = select_filter
         self.extra_params = extra_params
         # NOTE: when search test, always running on test_dll,
         #       use test_searched to make sure only add test once.
@@ -81,15 +82,24 @@ class TaefTest(TestFormat):
                 litConfig, localConfig):
             yield test
 
+
     def execute(self, test, litConfig):
         test_dll = test.getFilePath()
 
         testPath,testName = os.path.split(test.getSourcePath())
 
+        select_filter = str.format("@Name='{}'", testName)
+
+        # FIXME: enable mix filter.
+        #if self.select_filter != "":
+        #    select_filter = str.format("{} AND {}", select_filter, self.select_filter)
+
+        select_filter = str.format('/select:{}', select_filter)
+
         cmd = [self.te, test_dll, '/inproc',
+                select_filter,
                 '/miniDumpOnCrash', '/unicodeOutput:false',
-                str.format('/outputFolder:{}', self.test_path),
-                str.format('/name:{}', testName)]
+                str.format('/outputFolder:{}', self.test_path)]
         cmd.extend(self.extra_params)
 
         if litConfig.useValgrind:
@@ -97,6 +107,8 @@ class TaefTest(TestFormat):
 
         if litConfig.noExecute:
             return lit.Test.PASS, ''
+
+        print(cmd)
 
         out, err, exitCode = lit.util.executeCommand(
             cmd, env = test.config.environment)
