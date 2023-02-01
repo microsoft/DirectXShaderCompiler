@@ -285,6 +285,8 @@ void DxilViewIdStateBuilder::ComputeReachableFunctionsRec(CallGraph &CG, CallGra
   Function *F = pNode->getFunction();
   // Accumulate only functions with bodies.
   if (F->empty()) return;
+  if (FuncSet.count(F))
+    return;
   auto itIns = FuncSet.emplace(F);
   DXASSERT_NOMSG(itIns.second);
   (void)itIns;

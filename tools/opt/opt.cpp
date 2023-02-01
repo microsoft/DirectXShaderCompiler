@@ -55,6 +55,7 @@
 // HLSL Change Starts
 #include "dxc/Support/Global.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
 // HLSL Change Ends
@@ -360,6 +361,7 @@ int __cdecl main(int argc, char **argv) {
   //initializeSjLjEHPreparePass(Registry);  // HLSL Change: remove EH passes
   // HLSL Change Starts
   initializeReducibilityAnalysisPass(Registry);
+  initializeComputeViewIdStatePass(Registry);
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
