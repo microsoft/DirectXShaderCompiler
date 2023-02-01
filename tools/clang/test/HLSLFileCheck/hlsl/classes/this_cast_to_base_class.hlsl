@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -HV 2021 -fcgl %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 -HV 2021 -disable-lifetime-markers -fcgl %s | FileCheck %s
 
 // CHECK-LABLE: define linkonce_odr void @"\01?foo@Child@@QAAXXZ"(%class.Child* %this)
 // CHECK: %[[OutArg:.+]] = alloca %class.Parent
@@ -12,10 +12,6 @@
 // CHECK-LABLE: define linkonce_odr void @"\01?bar@Child@@QAAXXZ"(%class.Child* %this)
 // CHECK: %[[InOutArg:.+]] = alloca %class.Parent
 // CHECK: %[[InOutThisPtr:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0
-
-// Skip lifetime marker
-// CHECK: %[[InOutArgPtrForMarker:.+]] = bitcast %class.Parent* %[[InOutArg]] to i8*
-// CHECK: call void @llvm.lifetime.start(i64 8, i8* %[[InOutArgPtrForMarker]])
 
 // Make sure copy-in.
 // CHECK: %[[InOutArgCpyPtr:.+]] = bitcast %class.Parent* %[[InOutArg]] to i8*
@@ -45,17 +41,13 @@
 // CHECK: store i32 %[[I]], i32* %[[TmpPtrI]]
 // CHECK: store float %[[J]], float* %[[TmpPtrJ]]
 
-// Skip lifetime marker
-// CHECK: %[[ArgPtrForMarker:.+]] = bitcast %class.Parent* %[[Arg]] to i8*
-// CHECK: call void @llvm.lifetime.start(i64 8, i8* %[[ArgPtrForMarker]])
-
 // Make sure Tmp copy to Arg.
 // CHECK: %[[ArgPtr:.+]] = bitcast %class.Parent* %[[Arg]] to i8*
 // CHECK: %[[TmpPtr:.+]] = bitcast %class.Parent* %[[Tmp]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[ArgPtr]], i8* %[[TmpPtr]], i64 8, i32 1, i1 false)
 
 // Use Arg to call lib_func.
-// CHECK: call i32 @"\01?lib_func@@YAHVParent@@HH@Z"(%class.Parent* %[[Arg]], i32 %11, i32 %10)
+// CHECK: call i32 @"\01?lib_func@@YAHVParent@@HH@Z"(%class.Parent* %[[Arg]], i32 %{{.*}}, i32 %{{.*}})
 
 class Parent
 {
@@ -79,6 +71,7 @@ class Child : Parent
     void bar() {
         lib_func3(this);
     }
+    double d;
 };
 
 #define RS \
