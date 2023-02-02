@@ -66,10 +66,10 @@ class Child : Parent
         return lib_func(this, a, b);
     }
     void foo() {
-        lib_func2(this);
+        lib_func2((Parent)this);
     }
     void bar() {
-        lib_func3(this);
+        lib_func3((Parent)this);
     }
     double d;
 };
