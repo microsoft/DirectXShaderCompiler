@@ -74,6 +74,7 @@ def getTestSuite(item, litConfig, cache):
     return ts, tuple(relative + tuple(components))
 
 def getLocalConfig(ts, path_in_suite, litConfig, cache):
+
     def search1(path_in_suite):
         # Get the parent config.
         if not path_in_suite:
@@ -95,6 +96,7 @@ def getLocalConfig(ts, path_in_suite, litConfig, cache):
         if litConfig.debug:
             litConfig.note('loading local config %r' % cfgpath)
         config.load_from_path(cfgpath, litConfig)
+
         return config
 
     def search(path_in_suite):

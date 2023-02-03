@@ -1,12 +1,22 @@
 import os
 import sys
+import platform
 
 OldPy = sys.version_info[0] == 2 and sys.version_info[1] < 7
+
+def strip_dxil_validator_path(env_path):
+    dxil_name, separator = ('dxil.dll', ';') if platform.system() == 'Windows' else ('dxil.so', ';')
+    return separator.join([
+        p for p in env_path.split(separator)
+        if not os.path.isfile(os.path.join(p, dxil_name))
+        ])
+
 
 class TestingConfig:
     """"
     TestingConfig - Information on the tests inside a suite.
     """
+
 
     @staticmethod
     def fromdefaults(litConfig):
@@ -16,9 +26,15 @@ class TestingConfig:
         Create a TestingConfig object with default values.
         """
         # Set the environment based on the command line arguments.
+
+        # strip dxil validator dir if not need it.
+        all_path = os.pathsep.join(litConfig.path +
+                                     [os.environ.get('PATH','')])
+
+        all_path = strip_dxil_validator_path(all_path)
+
         environment = {
-            'PATH' : os.pathsep.join(litConfig.path +
-                                     [os.environ.get('PATH','')]),
+            'PATH' : all_path,
             'LLVM_DISABLE_CRASH_REPORT' : '1',
             }
 
