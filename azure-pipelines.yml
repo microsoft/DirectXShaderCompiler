@@ -127,6 +127,6 @@ stages:
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'XUnit'
-        testREsultsFiles: '**/testresults.xunit.xml'
+        testResultsFiles: '**/testresults.xunit.xml'
       condition: succeededOrFailed()
 
