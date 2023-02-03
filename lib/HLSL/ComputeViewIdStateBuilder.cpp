@@ -933,7 +933,7 @@ class ViewIdStatePrinter : public ModulePass {
 public:
   static char ID; // Pass ID, replacement for typeid
 
-  ViewIdStatePrinter::ViewIdStatePrinter() : ModulePass(ID) {}
+  ViewIdStatePrinter() : ModulePass(ID) {}
 
   bool runOnModule(Module &M) override {
     DxilModule &DxilModule = M.GetOrCreateDxilModule();
