@@ -4966,8 +4966,7 @@ InitCallParamConversions(Sema &S, const FunctionProtoType *Proto,
     }
     Expr *OutFrom = DeclRefExpr::Create(
         S.getASTContext(), NestedNameSpecifierLoc(), SourceLocation(), Param,
-        true, Param->getLocation(), ParamType.getNonReferenceType(), VK_RValue,
-        nullptr);
+        true, Param->getLocation(), ParamType.getNonReferenceType(), VK_RValue, nullptr);
     OutConversion = TryCopyInitialization(
         S, OutFrom, Arg->getType(), SuppressUserConversions,
         InOverloadResolution, false, AllowExplicit);
