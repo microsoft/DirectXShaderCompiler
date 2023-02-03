@@ -260,6 +260,7 @@ if "%TEST_USE_LIT%"=="1" (
   if "%TEST_EXEC%"=="1" (
     set TEST_CLANG=1
   )
+  rem LIT does not separate cmd tests from other clang hlsl tests.
   if "%TEST_CMD%"=="1" (
     set TEST_CLANG=1
   )
