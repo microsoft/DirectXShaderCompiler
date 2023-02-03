@@ -128,4 +128,5 @@ stages:
       inputs:
         testResultsFormat: 'XUnit'
         testREsultsFiles: '**/testresults.xunit.xml'
+      condition: succeededOrFailed()
 
