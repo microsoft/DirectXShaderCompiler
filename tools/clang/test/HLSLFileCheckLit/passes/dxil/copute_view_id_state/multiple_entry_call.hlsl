@@ -1,6 +1,5 @@
 // RUN: %dxc -Tps_6_0 %s | FileCheck %s
 
-// FIXME: check view id.
 // Just make sure it not crash.
 // CHECK: define void @main()
 // CHECK: call fastcc float @"\01?foo@@YAMM@Z"(float %{{.+}})

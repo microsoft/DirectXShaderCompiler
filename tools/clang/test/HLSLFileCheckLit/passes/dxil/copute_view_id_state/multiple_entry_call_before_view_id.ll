@@ -1,4 +1,4 @@
-; RUN: %opt -viewid-state-printer -S %s | FileCheck %s
+; RUN: opt -viewid-state-printer -S %s 2>&1 | FileCheck %s
 
 ; CHECK: ViewId state:
 ; CHECK: Number of inputs: 2, outputs: 1, patchconst: 0
