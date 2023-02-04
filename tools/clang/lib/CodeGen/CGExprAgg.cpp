@@ -745,6 +745,8 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
           LV = CGF.EmitLValue(ArraySubExpr);
         else if (ParenExpr *parenExpr = dyn_cast<ParenExpr>(Src))
           LV = CGF.EmitLValue(parenExpr->getSubExpr());
+        else if (isa<CXXThisExpr>(Src))
+          LV = CGF.EmitLValue(Src);
         else
           LV = CGF.EmitAggExprToLValue(Src);
 
