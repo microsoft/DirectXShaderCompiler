@@ -23,7 +23,7 @@ set TEST_DXILCONV_FILTER=
 set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
-set TEST_USE_LIT=1
+set TEST_USE_LIT=0
 set TEST_CLANG_FILTER=
 set TEST_EXEC_FILTER=ExecutionTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
@@ -146,6 +146,8 @@ if "%1"=="-clean" (
   set GENERATOR_NINJA=1
 ) else if "%1"=="-disable-lit" (
   set TEST_USE_LIT=0
+) else if "%1"=="-enable-lit" (
+  set TEST_USE_LIT=1
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Release" (
