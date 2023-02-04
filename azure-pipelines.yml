@@ -126,6 +126,7 @@ stages:
       displayName: 'DXC tests'
     - task: PublishTestResults@2
       inputs:
-        testResultsFormat: 'XUnit'
-        testREsultsFiles: '**/testresults.xunit.xml'
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/testresults.xunit.xml'
+      condition: succeededOrFailed()
 
