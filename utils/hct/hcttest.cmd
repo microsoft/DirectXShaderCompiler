@@ -2,7 +2,7 @@
 setlocal ENABLEDELAYEDEXPANSION ENABLEEXTENSIONS
 
 rem Remove entries from PATH that lead to DXIL.dll, otherwise DxCompiler.dll
-rem may load an undesired version some random location (like an SDK path).
+rem may load an undesired version from some random location (like an SDK path).
 call :removepathsto dxil.dll
 
 rem Default build config is Debug
