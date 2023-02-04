@@ -1447,10 +1447,11 @@ void StmtDslPrinter::VisitCompoundAssignOperator(CompoundAssignOperator *Node) {
 }
 void StmtDslPrinter::VisitConditionalOperator(ConditionalOperator *Node) {
   PrintExpr(Node->getCond());
-  OS << " ? ";
+  OS << " ? (";
   PrintExpr(Node->getLHS());
-  OS << " : ";
+  OS << ") : (";
   PrintExpr(Node->getRHS());
+  OS << ")";
 }
 
 // GNU extensions.
