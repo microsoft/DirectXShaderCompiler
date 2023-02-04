@@ -15,9 +15,9 @@
 #ifndef LLVM_SUPPORT_WINFUNCTIONS_H
 #define LLVM_SUPPORT_WINFUNCTIONS_H
 
-#ifndef _WIN32
-
 #include "dxc/Support/WinAdapter.h"
+
+#ifndef _WIN32
 
 HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
                         LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags);

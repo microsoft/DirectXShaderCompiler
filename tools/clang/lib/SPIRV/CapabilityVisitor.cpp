@@ -307,7 +307,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     case spv::BuiltIn::PrimitiveId: {
       // PrimitiveID can be used as PSIn or MSPOut.
       if (shaderModel == spv::ExecutionModel::Fragment ||
-          shaderModel == spv::ExecutionModel::MeshNV)
+          shaderModel == spv::ExecutionModel::MeshNV   ||
+          shaderModel == spv::ExecutionModel::MeshEXT)
         addCapability(spv::Capability::Geometry);
       break;
     }
@@ -324,7 +325,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::MeshNV) {
+                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
         addCapability(spv::Capability::Geometry);
       }
@@ -343,7 +345,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry ||
-                 shaderModel == spv::ExecutionModel::MeshNV) {
+                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
         addCapability(spv::Capability::MultiViewport);
       }
@@ -429,6 +432,22 @@ bool CapabilityVisitor::visit(SpirvImageSparseTexelsResident *instr) {
   return true;
 }
 
+namespace {
+bool isImageOpOnUnknownFormat(const SpirvImageOp *instruction) {
+  if (!instruction->getImage() || !instruction->getImage()->getResultType()) {
+    return false;
+  }
+
+  const ImageType *imageType =
+      dyn_cast<ImageType>(instruction->getImage()->getResultType());
+  if (!imageType || imageType->getImageFormat() != spv::ImageFormat::Unknown) {
+    return false;
+  }
+
+  return imageType->getImageFormat() == spv::ImageFormat::Unknown;
+}
+} // namespace
+
 bool CapabilityVisitor::visit(SpirvImageOp *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
@@ -438,6 +457,12 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
     addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
+
+  if (isImageOpOnUnknownFormat(instr)) {
+    addCapability(instr->isImageWrite()
+                      ? spv::Capability::StorageImageWriteWithoutFormat
+                      : spv::Capability::StorageImageReadWithoutFormat);
+  }
 
   return true;
 }
@@ -556,6 +581,18 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
       addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
+    break;
+  }
+
+  case spv::Op::OpSetMeshOutputsEXT:
+  case spv::Op::OpEmitMeshTasksEXT: {
+    if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader",
+                                     {});
+      addCapability(spv::Capability::MeshShadingEXT);
+      addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
+    }
+    break;
   }
 
   default:
@@ -602,6 +639,11 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::TaskNV:
     addCapability(spv::Capability::MeshShadingNV);
     addExtension(Extension::NV_mesh_shader, "SPV_NV_mesh_shader", {});
+    break;
+  case spv::ExecutionModel::MeshEXT:
+  case spv::ExecutionModel::TaskEXT:
+    addCapability(spv::Capability::MeshShadingEXT);
+    addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
     break;
   default:
     llvm_unreachable("found unknown shader model");
@@ -706,6 +748,7 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
     case GLSLstd450::GLSLstd450InterpolateAtOffset:
       addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
                    instr->getSourceLocation());
+      break;
     default:
       break;
     }

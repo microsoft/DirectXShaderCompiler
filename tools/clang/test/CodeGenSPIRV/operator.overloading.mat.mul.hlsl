@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -enable-operator-overloading
+// RUN: %dxc -T ps_6_0 -E main -HV 2021
 
 struct GLFloat3x2 {
     float3x2 m;

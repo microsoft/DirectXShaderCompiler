@@ -19,12 +19,12 @@
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilConstants.h"
 
+#include "llvm/IR/Instructions.h"
+
 namespace llvm {
 class Type;
 class LLVMContext;
 class Value;
-class AtomicRMWInst;
-enum AtomicRMWInst::BinOp;
 }
 
 #define DXASSERT_DXBC(__exp) DXASSERT(__exp, "otherwise incorrect assumption about DXBC")

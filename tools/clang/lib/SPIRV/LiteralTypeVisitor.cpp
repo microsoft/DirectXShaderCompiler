@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LiteralTypeVisitor.h"
+#include "LowerTypeVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvFunction.h"
 
@@ -389,6 +390,11 @@ bool LiteralTypeVisitor::updateTypeForCompositeMembers(
       const auto *decl = structType->getDecl();
       size_t i = 0;
       for (const auto *field : decl->fields()) {
+        // If the field is a bitfield, it might be squashed later when building
+        // the SPIR-V type depending on context. This means indices starting
+        // from this bitfield are not guaranteed, and we shouldn't touch them.
+        if (field->isBitField())
+          break;
         tryToUpdateInstLitType(constituents[i], field->getType());
         ++i;
       }

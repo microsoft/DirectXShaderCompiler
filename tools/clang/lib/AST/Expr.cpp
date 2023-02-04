@@ -1517,6 +1517,7 @@ bool CastExpr::CastConsistency() const {
     assert(getSubExpr()->getType()->isPointerType());
     assert(getType()->getPointeeType().getAddressSpace() !=
            getSubExpr()->getType()->getPointeeType().getAddressSpace());
+    goto CheckNoBasePath;
   // These should not have an inheritance path.
   case CK_Dynamic:
   case CK_ToUnion:
@@ -2189,6 +2190,7 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     }
 
     // Fallthrough for generic call handling.
+    LLVM_FALLTHROUGH; // HLSL Change
   }
   case CallExprClass:
   case CXXMemberCallExprClass:
@@ -3110,7 +3112,7 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
     if (DCE->getTypeAsWritten()->isReferenceType() &&
         DCE->getCastKind() == CK_Dynamic)
       return true;
-  } // Fall through.
+  } LLVM_FALLTHROUGH; // HLSL Change.
   case ImplicitCastExprClass:
   case CStyleCastExprClass:
   case CXXStaticCastExprClass:

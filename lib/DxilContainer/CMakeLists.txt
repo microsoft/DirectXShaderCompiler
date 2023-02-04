@@ -5,6 +5,7 @@ add_llvm_library(LLVMDxilContainer
   DxilContainerAssembler.cpp
   DxilContainerReader.cpp
   DxcContainerBuilder.cpp
+  DxilRDATBuilder.cpp
   DxilRuntimeReflection.cpp
   RDATDxilSubobjects.cpp
 

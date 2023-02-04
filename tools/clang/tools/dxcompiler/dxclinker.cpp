@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/Global.h"
@@ -87,7 +88,7 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcLinker>(this, riid, ppvObject);
   }
 
@@ -300,7 +301,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       }
     }
     DiagStream.flush();
-    CComPtr<IStream> pStream = pDiagStream;
+    CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
     dxcutil::CreateOperationResultFromOutputs(pOutputBlob, pStream, warnings,
                                               hasErrorOccurred, ppResult);
   }

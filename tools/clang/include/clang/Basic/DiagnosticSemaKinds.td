@@ -7457,6 +7457,8 @@ def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
+def err_hlsl_bitfields_with_annotation: Error<
+  "bitfields are not allowed with HLSL annotations">;
 def err_hlsl_cannot_convert: Error<
   "cannot %select{implicitly |}0convert %select{|output parameter }1from %2 to %3">;
 def err_hlsl_half_load_store: Error<
@@ -7752,6 +7754,9 @@ def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
    "condition for short-circuiting ternary operator must be scalar, for non-scalar types use 'select'">;
+def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
+   "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
+  InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
 // HLSL Change Ends
 
 // SPIRV Change Starts

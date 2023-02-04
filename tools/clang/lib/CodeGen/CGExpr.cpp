@@ -484,9 +484,9 @@ static llvm::Value *emitHash16Bytes(CGBuilderTy &Builder, llvm::Value *Low,
 }
 
 bool CodeGenFunction::sanitizePerformTypeCheck() const {
-  return SanOpts.has(SanitizerKind::Null) |
-         SanOpts.has(SanitizerKind::Alignment) |
-         SanOpts.has(SanitizerKind::ObjectSize) |
+  return SanOpts.has(SanitizerKind::Null) ||
+         SanOpts.has(SanitizerKind::Alignment) ||
+         SanOpts.has(SanitizerKind::ObjectSize) ||
          SanOpts.has(SanitizerKind::Vptr);
 }
 

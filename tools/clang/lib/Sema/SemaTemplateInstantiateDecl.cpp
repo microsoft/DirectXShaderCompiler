@@ -22,7 +22,9 @@
 #include "clang/AST/TypeLoc.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
+#include "clang/Sema/SemaHLSL.h" // HLSL Change
 #include "clang/Sema/Template.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 
 using namespace clang;
 
@@ -265,6 +267,10 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                                                *CUDALaunchBounds, New);
       continue;
     }
+
+    // HLSL Change Begin - Validate post-instantiation attributes
+    DiagnoseHLSLDeclAttr(New, TmplAttr);
+    // HLSL Change End
 
     // Existing DLL attribute on the instantiation takes precedence.
     if (TmplAttr->getKind() == attr::DLLExport ||
@@ -3347,6 +3353,12 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
   if (Function->isInvalidDecl() || Function->isDefined())
     return;
 
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope TimeScope("InstantiateFunction", [&]() {
+    return Function->getQualifiedNameAsString();
+  });
+  // HLSL Change End - Support hierarchial time tracing.
+
   // Never instantiate an explicit specialization except if it is a class scope
   // explicit specialization.
   if (Function->getTemplateSpecializationKind() == TSK_ExplicitSpecialization &&
@@ -4708,6 +4720,7 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
       // We only need an instantiation if the pending instantiation *is* the
       // explicit instantiation.
       if (Var != Var->getMostRecentDecl()) continue;
+      break;
     case TSK_ImplicitInstantiation:
       break;
     }

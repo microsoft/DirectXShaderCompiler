@@ -145,7 +145,7 @@ void ParseCommandPartsFromFile(LPCWSTR fileName, std::vector<FileRunCommandPart>
 class FileRunTestResult {
 public:
   std::string ErrorMessage;
-  int RunResult;
+  int RunResult = -1;
   static FileRunTestResult RunHashTestFromFileCommands(LPCWSTR fileName);
   static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
                                                PluginToolsPaths *pPluginToolsPaths = nullptr,
@@ -175,17 +175,6 @@ std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgra
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
 void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlob **ppBlob);
 void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlobEncoding **ppBlob);
-void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
-                            llvm::ArrayRef<LPCSTR> pReplacements, bool bRegex,
-                            std::string &disassembly);
-void ReplaceDisassemblyText(llvm::ArrayRef<LPCSTR> pLookFors,
-                            llvm::ArrayRef<LPCSTR> pReplacements,
-                            _Outptr_ IDxcBlob **pBlob, bool bRegex,
-                            std::string &disassembly,
-                            dxc::DxcDllSupport &dllSupport);
-void ReplaceDisassemblyTextWithRegex(llvm::ArrayRef<LPCSTR> pLookFors,
-                                     llvm::ArrayRef<LPCSTR> pReplacements,
-                                     std::string &disassembly);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);

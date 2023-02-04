@@ -407,12 +407,9 @@ protected:
     };
     vector<pair<unsigned, BasicBlock*> > SwitchCases;  // Switch
 
-    Scope() : Kind(Kind::Function), pPreScopeBB(nullptr), pPostScopeBB(nullptr), NameIndex(0), 
-              pThenBB(nullptr), pElseBB(nullptr), pCond(nullptr),
-              pLoopBB(nullptr), ContinueIndex(0), LoopBreakIndex(0),
-              pDefaultBB(nullptr), pSelector(nullptr), CaseGroupIndex(0), SwitchBreakIndex(0),
-              LabelIdx(0), CallIdx(0), ReturnTokenOffset(0), ReturnIndex(0), bEntryFunc(false),
-              pHullLoopBB(nullptr), HullLoopBreakIndex(0), pInductionVar(nullptr), HullLoopTripCount(0) {}
+    Scope() : Kind(Kind::Function), pPreScopeBB(nullptr), pPostScopeBB(nullptr), NameIndex(0) {
+      memset(reinterpret_cast<char*>(&pThenBB), '\0', reinterpret_cast<char*>(&SwitchCases) - reinterpret_cast<char*>(&pThenBB));
+    }
 
     void SetEntry(bool b = true) { DXASSERT_NOMSG(Kind==Function); bEntryFunc = b; }
     bool IsEntry() const { DXASSERT_NOMSG(Kind==Function); return bEntryFunc; }

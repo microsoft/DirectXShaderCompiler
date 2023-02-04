@@ -29,6 +29,7 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
+#include "clang/Sema/SemaDiagnostic.h"
 #include "CodeGenFunction.h"
 
 #include "dxc/DXIL/DxilConstants.h"
@@ -648,26 +649,8 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
           cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
 
       DxilFieldAnnotation &fieldAnno = Anno->GetFieldAnnotation(Index);
-      if (fieldAnno.HasResourceAttribute()) {
-        MDNode *resAttrib = fieldAnno.GetResourceAttribute();
-        DxilResourceBase R(DXIL::ResourceClass::Invalid);
-        HLM.LoadDxilResourceBaseFromMDNode(resAttrib, R);
-        switch (R.GetClass()) {
-        case DXIL::ResourceClass::SRV:
-        case DXIL::ResourceClass::UAV: {
-          DxilResource Res;
-          HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
-          RP = resource_helper::loadPropsFromResourceBase(&Res);
-        } break;
-        case DXIL::ResourceClass::Sampler: {
-          DxilSampler Sampler;
-          HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
-          RP = resource_helper::loadPropsFromResourceBase(&Sampler);
-        } break;
-        default:
-          DXASSERT(0, "invalid resource attribute in filed annotation");
-          break;
-        }
+      if (fieldAnno.HasResourceProperties()) {
+        RP = fieldAnno.GetResourceProperties();
         break;
       }
     }
@@ -1809,27 +1792,6 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
       if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(CE)) {
         SimplifyBitCast(BCO, deadInsts);
       }
-    }
-  } break;
-  case Instruction::LShr:
-  case Instruction::AShr:
-  case Instruction::Shl: {
-    llvm::BinaryOperator *BO = cast<llvm::BinaryOperator>(I);
-    Value *op2 = BO->getOperand(1);
-    IntegerType *Ty = cast<IntegerType>(BO->getType()->getScalarType());
-    unsigned bitWidth = Ty->getBitWidth();
-    // Clamp op2 to 0 ~ bitWidth-1
-    if (ConstantInt *cOp2 = dyn_cast<ConstantInt>(op2)) {
-      unsigned iOp2 = cOp2->getLimitedValue();
-      unsigned clampedOp2 = iOp2 & (bitWidth - 1);
-      if (iOp2 != clampedOp2) {
-        BO->setOperand(1, ConstantInt::get(op2->getType(), clampedOp2));
-      }
-    } else {
-      Value *mask = ConstantInt::get(op2->getType(), bitWidth - 1);
-      IRBuilder<> Builder(I);
-      op2 = Builder.CreateAnd(op2, mask);
-      BO->setOperand(1, op2);
     }
   } break;
   }
@@ -3327,7 +3289,7 @@ void AddDxBreak(Module &M,
 
 namespace CGHLSLMSHelper {
 
-ScopeInfo::ScopeInfo(Function *F) : maxRetLevel(0), bAllReturnsInIf(true) {
+ScopeInfo::ScopeInfo(Function *F, clang::SourceLocation loc) : maxRetLevel(0), bAllReturnsInIf(true), sourceLoc(loc) {
   Scope FuncScope;
   FuncScope.kind = Scope::ScopeKind::FunctionScope;
   FuncScope.EndScopeBB = nullptr;
@@ -3567,12 +3529,21 @@ static void ChangePredBranch(BasicBlock *BB, BasicBlock *NewBB) {
 //   }
 //   return vRet;
 // }
-void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
+void StructurizeMultiRetFunction(Function *F, clang::DiagnosticsEngine &Diags, ScopeInfo &ScopeInfo,
                                  bool bWaveEnabledStage,
                                  SmallVector<BranchInst *, 16> &DxBreaks) {
 
   if (ScopeInfo.CanSkipStructurize())
     return;
+
+  // If there are cleanup blocks generated for lifetime markers, do
+  // not structurize returns. The scope info recorded is no longer correct.
+  if (ScopeInfo.HasCleanupBlocks()) {
+    Diags.Report(ScopeInfo.GetSourceLocation(), clang::diag::warn_hlsl_structurize_exits_lifetime_markers_conflict)
+      << F->getName();
+    return;
+  }
+
   // Get bbWithRets.
   auto &rets = ScopeInfo.GetRetScopes();
 
@@ -3740,7 +3711,8 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
     auto it = ScopeMap.find(&F);
     if (it == ScopeMap.end())
       continue;
-    StructurizeMultiRetFunction(&F, it->second, bWaveEnabledStage, DxBreaks);
+
+    StructurizeMultiRetFunction(&F, CGM.getDiags(), it->second, bWaveEnabledStage, DxBreaks);
   }
 }
 

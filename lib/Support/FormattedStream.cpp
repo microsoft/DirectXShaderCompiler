@@ -32,6 +32,7 @@ static void UpdatePosition(std::pair<unsigned, unsigned> &Position, const char *
     switch (*Ptr) {
     case '\n':
       Line += 1;
+      LLVM_FALLTHROUGH; // HLSL Change
     case '\r':
       Column = 0;
       break;

@@ -418,13 +418,13 @@ TEST_F(SpirvContextTest, StructTypeUnique1) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   EXPECT_EQ(type1, type2);
@@ -437,13 +437,13 @@ TEST_F(SpirvContextTest, StructTypeUnique2) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct2", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   EXPECT_NE(type1, type2);
@@ -456,13 +456,13 @@ TEST_F(SpirvContextTest, StructTypeUnique3) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ true, StructInterfaceType::InternalStorage);
 
   EXPECT_NE(type1, type2);
@@ -475,13 +475,13 @@ TEST_F(SpirvContextTest, StructTypeUnique4) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
 
   EXPECT_NE(type1, type2);
@@ -494,13 +494,13 @@ TEST_F(SpirvContextTest, StructTypeUnique5) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field"),
-       StructType::FieldInfo(uint32, "field")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(uint32, "field"),
-       StructType::FieldInfo(int32, "field")},
+      {StructType::FieldInfo(uint32, /* fieldIndex */ 0, "field"),
+       StructType::FieldInfo(int32, /* fieldIndex */ 1, "field")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   EXPECT_NE(type1, type2);
@@ -513,13 +513,13 @@ TEST_F(SpirvContextTest, StructTypeUnique6) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "sine"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "sine"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "cosine"),
-       StructType::FieldInfo(uint32, "field2")},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "cosine"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2")},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   EXPECT_NE(type1, type2);
@@ -532,13 +532,15 @@ TEST_F(SpirvContextTest, StructTypeUnique7) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2", /*offset*/ 8)},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2",
+                             /*offset*/ 8)},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2", /*offset*/ 4)},
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2",
+                             /*offset*/ 4)},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   EXPECT_NE(type1, type2);
@@ -551,14 +553,14 @@ TEST_F(SpirvContextTest, StructTypeUnique8) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2", /*offset*/ 4,
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2", /*offset*/ 4,
                              /*matrixStride*/ 16)},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2", /*offset*/ 4,
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2", /*offset*/ 4,
                              /*matrixStride*/ 32)},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
@@ -572,14 +574,14 @@ TEST_F(SpirvContextTest, StructTypeUnique9) {
   const auto *uint32 = spvContext.getUIntType(32);
 
   const auto *type1 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2", /*offset*/ 4,
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2", /*offset*/ 4,
                              /*matrixStride*/ 16, /*isRowMajor*/ false)},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 
   const auto *type2 = spvContext.getStructType(
-      {StructType::FieldInfo(int32, "field1"),
-       StructType::FieldInfo(uint32, "field2", /*offset*/ 4,
+      {StructType::FieldInfo(int32, /* fieldIndex */ 0, "field1"),
+       StructType::FieldInfo(uint32, /* fieldIndex */ 1, "field2", /*offset*/ 4,
                              /*matrixStride*/ 16, /*isRowMajor*/ true)},
       "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
 

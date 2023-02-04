@@ -20,6 +20,8 @@
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilSubobject.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -86,7 +88,6 @@ const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.prec
 const char DxilMDHelper::kDxilVariableDebugLayoutMDName[]             = "dx.dbg.varlayout";
 const char DxilMDHelper::kDxilTempAllocaMDName[]                      = "dx.temp";
 const char DxilMDHelper::kDxilNonUniformAttributeMDName[]             = "dx.nonuniform";
-const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
 const char DxilMDHelper::kDxilDxrPayloadAnnotationsMDName[]           = "dx.dxrPayloadAnnotations";
 
@@ -1205,6 +1206,14 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationCBUsedTag));
     MDVals.emplace_back(BoolToConstMD(true));
   }
+  if (FA.HasResourceProperties() &&
+    DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationResPropTag));
+    MDVals.emplace_back(ValueAsMetadata::get(resource_helper::getAsConstant(
+        FA.GetResourceProperties(),
+        m_pModule->GetDxilModule().GetOP()->GetResourcePropertiesType(),
+        *m_pSM)));
+  }
 
   return MDNode::get(m_Ctx, MDVals);
 }
@@ -1252,6 +1261,11 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       break;
     case kDxilFieldAnnotationCBUsedTag:
       FA.SetCBVarUsed(ConstMDToBool(MDO));
+      break;
+    case kDxilFieldAnnotationResPropTag:
+      if (Constant *C = dyn_cast_or_null<Constant>(
+              dyn_cast<ValueAsMetadata>(MDO)->getValue()))
+        FA.SetResourceProperties(resource_helper::loadPropsFromConstant(*C));
       break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");
@@ -1334,6 +1348,7 @@ const Function *DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
+    LLVM_FALLTHROUGH;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
@@ -1697,6 +1712,7 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
+    LLVM_FALLTHROUGH;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
@@ -1845,7 +1861,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const char * Text;
     const void * Data;
@@ -1892,7 +1908,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   case DXIL::SubobjectKind::HitGroup: {
     llvm::StringRef Intersection, AnyHit, ClosestHit;
     DXIL::HitGroupType hgType;
-    IFTBOOL(obj.GetHitGroup(hgType, Intersection, AnyHit, ClosestHit),
+    IFTBOOL(obj.GetHitGroup(hgType, AnyHit, ClosestHit, Intersection),
       DXC_E_INCORRECT_DXIL_METADATA);
     Args.emplace_back(Uint32ToConstMD((uint32_t)hgType));
     Args.emplace_back(MDString::get(m_Ctx, Intersection));
@@ -1933,7 +1949,7 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const MDNode *pDataMDWrapper = dyn_cast<MDNode>(MD.getOperand(i++));
     IFTBOOL(pDataMDWrapper != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -2032,76 +2048,6 @@ void DxilMDHelper::LoadDxilSampler(const MDOperand &MDO, DxilSampler &S) {
   m_bExtraMetadata |= m_ExtraPropertyHelper->m_bExtraMetadata;
 }
 
-const MDOperand &DxilMDHelper::GetResourceClass(llvm::MDNode *MD,
-                                                DXIL::ResourceClass &RC) {
-  IFTBOOL(MD->getNumOperands() >=
-              DxilMDHelper::kHLDxilResourceAttributeNumFields,
-          DXC_E_INCORRECT_DXIL_METADATA);
-  RC = static_cast<DxilResource::Class>(ConstMDToUint32(
-      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
-  return MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
-}
-
-void DxilMDHelper::LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD,
-                                                  DxilResourceBase &R) {
-  DxilResource::Class RC = DxilResource::Class::Invalid;
-  const MDOperand &Meta = GetResourceClass(MD, RC);
-
-  switch (RC) {
-  case DxilResource::Class::CBuffer: {
-    DxilCBuffer CB;
-    LoadDxilCBuffer(Meta, CB);
-    R = CB;
-  } break;
-  case DxilResource::Class::Sampler: {
-    DxilSampler S;
-    LoadDxilSampler(Meta, S);
-    R = S;
-  } break;
-  case DxilResource::Class::SRV: {
-    DxilResource Res;
-    LoadDxilSRV(Meta, Res);
-    R = Res;
-  } break;
-  case DxilResource::Class::UAV: {
-    DxilResource Res;
-    LoadDxilUAV(Meta, Res);
-    R = Res;
-  } break;
-  default:
-    DXASSERT(0, "Invalid metadata");
-  }
-}
-
-void DxilMDHelper::LoadDxilResourceFromMDNode(llvm::MDNode *MD,
-                                              DxilResource &R) {
-  DxilResource::Class RC = DxilResource::Class::Invalid;
-  const MDOperand &Meta = GetResourceClass(MD, RC);
-
-  switch (RC) {
-  case DxilResource::Class::SRV: {
-    LoadDxilSRV(Meta, R);
-  } break;
-  case DxilResource::Class::UAV: {
-    LoadDxilUAV(Meta, R);
-  } break;
-  default:
-    DXASSERT(0, "Invalid metadata");
-  }
-}
-
-void DxilMDHelper::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
-  DxilResource::Class RC = DxilResource::Class::Invalid;
-  const MDOperand &Meta = GetResourceClass(MD, RC);
-
-  switch (RC) {
-  case DxilResource::Class::Sampler: {
-    LoadDxilSampler(Meta, S);
-  } break;
-  default:
-    DXASSERT(0, "Invalid metadata");
-  }
-}
 
 //
 // DxilExtraPropertyHelper shader-specific methods.

@@ -18,14 +18,13 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/test/RDATDumper.h"
+#include "dxc/Test/RDATDumper.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support//MSFileSystem.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include <dia2.h>
-#include <intsafe.h>
+
 
 using namespace llvm;
 using namespace llvm::opt;
@@ -149,7 +148,7 @@ HRESULT DxaContext::FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcL
   }
   if (fourCC == pDxilPartHeader->PartFourCC) {
     UINT32 pBlobSize;
-    hlsl::DxilProgramHeader *pDxilProgramHeader = (hlsl::DxilProgramHeader*)(pDxilPartHeader + 1);
+    const hlsl::DxilProgramHeader *pDxilProgramHeader = (const hlsl::DxilProgramHeader *)(pDxilPartHeader + 1);
     hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &pBlobSize);
     UINT32 offset = (UINT32)(pBitcode - (const char *)pSource->GetBufferPointer());
     pLibrary->CreateBlobFromBlob(pSource, offset, pBlobSize, ppTargetBlob);
@@ -282,7 +281,7 @@ bool DxaContext::ExtractPart(const char *pName) {
 
   WriteBlobToFile(pContent, StringRefWide(OutputFilename),
                   DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
-  printf("%Iu bytes written to %s\n", pContent->GetBufferSize(),
+  printf("%zu bytes written to %s\n", pContent->GetBufferSize(),
          OutputFilename.c_str());
   return true;
 }
@@ -381,7 +380,11 @@ void DxaContext::DumpRDAT() {
 
 using namespace hlsl::options;
 
+#ifdef _WIN32
 int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
+#else
+int main(int argc, const char **argv) {
+#endif
   if (llvm::sys::fs::SetupPerThreadFileSystem())
     return 1;
   llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;

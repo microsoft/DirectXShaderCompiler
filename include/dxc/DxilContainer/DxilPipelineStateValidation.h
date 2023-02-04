@@ -668,7 +668,8 @@ DxilPipelineStateValidation::CheckedReaderWriter::IncrementPos(size_t size) {
 template <typename _T> inline bool
 DxilPipelineStateValidation::CheckedReaderWriter::Cast(_T **ppPtr, size_t size) {
   PSV_RETB(CheckBounds(size));
-  *ppPtr = reinterpret_cast<_T*>(Ptr + Offset);
+  if (Mode != RWMode::CalcSize)
+    *ppPtr = reinterpret_cast<_T*>(Ptr + Offset);
   return true;
 }
 template <typename _T>

@@ -1863,7 +1863,7 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     }
     case bitc::METADATA_DISTINCT_NODE:
       IsDistinct = true;
-      // fallthrough...
+      LLVM_FALLTHROUGH; // HLSL Change
     case bitc::METADATA_NODE: {
       SmallVector<Metadata *, 8> Elts;
       Elts.reserve(Record.size());
@@ -2066,7 +2066,7 @@ std::error_code BitcodeReader::parseMetadata() {
     }
     case bitc::METADATA_DISTINCT_NODE:
       IsDistinct = true;
-      // fallthrough...
+      LLVM_FALLTHROUGH; // HLSL Change
     case bitc::METADATA_NODE: {
       SmallVector<Metadata *, 8> Elts;
       Elts.reserve(Record.size());
@@ -2987,7 +2987,7 @@ std::error_code BitcodeReader::parseUseLists() {
       break;
     case bitc::USELIST_CODE_BB:
       IsBB = true;
-      // fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
     case bitc::USELIST_CODE_DEFAULT: {
       unsigned RecordLength = Record.size();
       if (RecordLength < 3)

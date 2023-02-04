@@ -18,7 +18,7 @@ namespace clang {
 namespace spirv {
 namespace testOptions {
 
-std::string inputDataDir = "";
+std::string inputDataDir = DEFAULT_TEST_DIR;
 
 } // namespace testOptions
 } // namespace spirv

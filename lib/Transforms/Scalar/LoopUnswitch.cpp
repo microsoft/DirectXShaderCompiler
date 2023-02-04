@@ -747,7 +747,7 @@ static void copyMetadata(Instruction *DstInst, const Instruction *SrcInst,
           MD.second = NewMD;
         }
       }
-      // fallthrough.
+      LLVM_FALLTHROUGH; // HLSL Change
     case LLVMContext::MD_dbg:
       DstInst->setMetadata(MD.first, MD.second);
     }

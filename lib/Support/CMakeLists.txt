@@ -131,6 +131,7 @@ add_llvm_library(LLVMSupport
   TargetRegistry.cpp
   ThreadLocal.cpp
   Threading.cpp
+  TimeProfiler.cpp # HLSL Change - Support hierarchial time tracing.
   TimeValue.cpp
   Valgrind.cpp
   Watchdog.cpp

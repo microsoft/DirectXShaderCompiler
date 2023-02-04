@@ -13,5 +13,5 @@
 type = Library
 name = DxilPdbInfo
 parent = Libraries
-required_libraries = DxilRDATBuilder Core Support
+required_libraries = Core Support DxcSupport DxilContainer
 

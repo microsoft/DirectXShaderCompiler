@@ -1,5 +1,5 @@
-// RUN: %dxc -E main -fcgl -opt-enable structurize-returns -T ps_6_0  -enable-short-circuit %s | FileCheck %s
-// RUN: %dxc -E main -opt-enable structurize-returns -T ps_6_0  -enable-short-circuit %s | FileCheck %s -check-prefix=FULL
+// RUN: %dxc -E main -fcgl -opt-enable structurize-returns -T ps_6_0  -HV 2021 %s | FileCheck %s
+// RUN: %dxc -E main -opt-enable structurize-returns -T ps_6_0  -HV 2021 %s | FileCheck %s -check-prefix=FULL
 
 // FULL: @main
 

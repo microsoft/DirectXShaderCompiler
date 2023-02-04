@@ -22,8 +22,8 @@ if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
 
-set BUILD_GENERATOR=Visual Studio 16 2019
-set BUILD_VS_VER=2019
+set BUILD_GENERATOR=Visual Studio 17 2022
+set BUILD_VS_VER=2022
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
@@ -125,17 +125,12 @@ if /i "%1"=="-Release" (
   set BUILD_CONFIG=Release
   shift /1 & goto :parse_args
 )
-if "%1"=="-vs2017" (
-  set BUILD_GENERATOR=Visual Studio 15 2017
-  set BUILD_VS_VER=2017
-  shift /1 & goto :parse_args
-)
 if "%1"=="-vs2019" (
+  set BUILD_GENERATOR=Visual Studio 16 2019
+  set BUILD_VS_VER=2019
   shift /1 & goto :parse_args
 )
 if "%1"=="-vs2022" (
-  set BUILD_GENERATOR=Visual Studio 17 2022
-  set BUILD_VS_VER=2022
   shift /1 & goto :parse_args
 )
 if "%1"=="-tblgen" (
@@ -211,6 +206,11 @@ if "%1"=="-spirvtest" (
 rem End SPIRV change
 if "%1"=="-ninja" (
   set BUILD_GENERATOR=Ninja
+  set PARALLEL_OPT=
+  shift /1 & goto :parse_args
+)
+if "%1"=="-clang" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
   shift /1 & goto :parse_args
 )
 if "%1"=="-update-generated-sources" (
@@ -251,43 +251,29 @@ if "%ENV_SDK_VERSION:~-1%"=="\" (
 set BUILD_ARM_CROSSCOMPILING=0
 
 if /i "%BUILD_ARCH%"=="Win32" (
-  if "%BUILD_VS_VER%" NEQ "2017" (
-    set VS2019ARCH=-AWin32
-  )
+  set VS_ARCH=-AWin32
 )
 
 if /i "%BUILD_ARCH%"=="x64" (
-  set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
-  if "%BUILD_VS_VER%" NEQ "2017" (
-    set BUILD_GENERATOR=%BUILD_GENERATOR%
-    set VS2019ARCH=-Ax64
-  )
+  set VS_ARCH=-Ax64
 )
 
 if /i "%BUILD_ARCH%"=="arm" (
   set BUILD_GENERATOR_PLATFORM=ARM
   set BUILD_ARM_CROSSCOMPILING=1
-  if "%BUILD_VS_VER%" NEQ "2017" (
-    set VS2019ARCH=-AARM
-  )
+  set VS_ARCH=-AARM
 )
 
 if /i "%BUILD_ARCH%"=="arm64" (
   set BUILD_GENERATOR_PLATFORM=ARM64
   set BUILD_ARM_CROSSCOMPILING=1
-  if "%BUILD_VS_VER%" NEQ "2017" (
-    set VS2019ARCH=-AARM64
-  )
+  set VS_ARCH=-AARM64
 )
 
 if /i "%BUILD_ARCH%"=="arm64ec" (
-  if "%BUILD_VS_VER%"=="2017" (
-    echo "ARM64EC platform is not supported on VS2017."    
-    exit /b 1
-  )
   set BUILD_GENERATOR_PLATFORM=ARM64EC
   set BUILD_ARM_CROSSCOMPILING=1
-  set VS2019ARCH=-AARM64EC
+  set VS_ARCH=-AARM64EC
   set WINSDK_MIN_VERSION=10.0.21330.0
   set CMAKE_OPTS=%CMAKE_OPTS% -DMSVC_BUILD_AS_X=1
 )
@@ -322,7 +308,6 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_INCLUDE_DOCS:BOOL=OFF -DLLVM_INCLUDE_EXAMPLES
 set CMAKE_OPTS=%CMAKE_OPTS% -DLIBCLANG_BUILD_STATIC:BOOL=ON
 rem set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_OPTIMIZED_TABLEGEN:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_EH:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_APPEND_VC_REV:BOOL=ON
 
 rem Enable exception handling (which requires RTTI).
@@ -333,10 +318,8 @@ rem Setup a specific, stable triple for HLSL.
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_DEFAULT_TARGET_TRIPLE:STRING=dxil-ms-dx
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_RTTI:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
-set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_BUILD_ARCH=%BUILD_ARCH%
 
 rem ARM cross-compile setup
 if %BUILD_ARM_CROSSCOMPILING% == 0 goto :after-cross-compile
@@ -372,7 +355,7 @@ if /i "%BUILD_ARCH%"=="Win32" (
   set BUILD_TOOLS=amd64_arm64
 )
 
-call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%" "%VS2019ARCH%"
+call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%" "%VS_ARCH%"
 if errorlevel 1 exit /b 1
 
 if "%BUILD_GENERATOR%"=="Ninja" (
@@ -387,7 +370,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-sources]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-sources]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -401,7 +384,6 @@ echo   -rel           builds release rather than debug
 echo   -speak-up      enables audible build confirmation
 echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
-echo   -vs2017        uses Visual Studio 2017 to build
 echo   -vs2019        uses Visual Studio 2019 to build
 echo   -vs2022        uses Visual Studio 2022 to build
 echo
@@ -453,7 +435,8 @@ if "%DO_SETUP%"=="1" (
     "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    echo Running "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    rem but need CMAKE_BUILD_TYPE to generate lit cfg.
+    echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1  %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
     "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if %SHOW_CMAKE_LOG%==1 (
