@@ -77,7 +77,7 @@ endif()
 set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
 if (WIN32)
 list(APPEND CLANG_TEST_DEPS
-     ExecHLSLTests
+     dxc_batch ExecHLSLTests
     )
 endif()
 add_custom_target(clang-test-depends DEPENDS ${CLANG_TEST_DEPS})
@@ -89,6 +89,7 @@ add_lit_testsuite(check-clang "Running the Clang regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   #LIT ${LLVM_LIT}
   PARAMS ${CLANG_TEST_PARAMS}
+    skip_taef_exec=True
   DEPENDS ${CLANG_TEST_DEPS}
   ARGS ${CLANG_TEST_EXTRA_ARGS}
   )
@@ -123,7 +124,7 @@ if (WIN32)
             ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
             PARAMS ${CLANG_TEST_PARAMS}
                   clang_taef_exec_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
-            DEPENDS ExecHLSLTests
+            DEPENDS ExecHLSLTests dxexp
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )
 endif()
