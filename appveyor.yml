@@ -38,14 +38,14 @@ before_build:
 - cmd: call utils\hct\hctstart %HLSL_SRC_DIR% %HLSL_BLD_DIR%
 
 build_script:
-- cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -show-cmake-log -spirvtest
+- cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -show-cmake-log -spirvtest -disable-lit
 - sh: mkdir build && cd build
 - sh: cmake .. -GNinja -C ../cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS=-Werror
 - sh: ninja
 
 test_script:
 - ps:  utils\appveyor\appveyor_test.ps1
-- cmd: call utils\hct\hcttest -rel spirv_only
+- cmd: call utils\hct\hcttest -rel spirv_only -disable-lit
 - sh: ./bin/dxc --help
 - sh: ./bin/dxc -T ps_6_0 ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv

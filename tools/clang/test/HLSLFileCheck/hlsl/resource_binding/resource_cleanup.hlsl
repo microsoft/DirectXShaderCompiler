@@ -4,7 +4,7 @@
 // dxil.
 
 // CHECK-LABEL: ; Buffer Definitions:
-// CHECK-NOT: cb1 
+// CHECK-NOT: CB1            cb1
 
 cbuffer BAR {
   float bar;

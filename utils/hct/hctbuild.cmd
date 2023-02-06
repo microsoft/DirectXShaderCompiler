@@ -42,6 +42,7 @@ set SPV_TEST=OFF
 set DXILCONV=ON
 set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
+set ENABLE_LIT=OFF
 set WINSDK_MIN_VERSION=10.0.17763.0
 
 :parse_args
@@ -187,9 +188,14 @@ if "%1"=="-show-cmake-log" (
   set SHOW_CMAKE_LOG=1
   shift /1 & goto :parse_args
 )  
+if "%1"=="-disable-lit" (
+  echo Disable LIT testing
+  set ENABLE_LIT=OFF
+  shift /1 & goto :parse_args
+)
 if "%1"=="-enable-lit" (
   echo Enable LIT testing
-  set ENABLE_LIT=On
+  set ENABLE_LIT=ON
   shift /1 & goto :parse_args
 )
 rem Begin SPIRV change
@@ -284,10 +290,6 @@ if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
   ) else (
     set DXC_CMAKE_SYSTEM_VERSION=%ENV_SDK_VERSION%
   )
-)
-
-if "%ENABLE_LIT%"=="" (
-  set ENABLE_LIT=Off
 )
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
