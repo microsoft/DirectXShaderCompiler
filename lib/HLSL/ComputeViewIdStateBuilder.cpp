@@ -945,7 +945,7 @@ public:
     DxilViewIdState ViewIdState(&DxilModule);
     ViewIdState.Deserialize(SerializedViewIdState.data(),
                             SerializedViewIdState.size());
-    ViewIdState.PrintSets(outs());
+    ViewIdState.PrintSets(errs());
     return false;
   }
 
