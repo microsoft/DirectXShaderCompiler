@@ -882,6 +882,19 @@ public:
   bool runOnModule(Module &M) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  void print(raw_ostream &o, const Module *M) const override {
+    DxilModule &DxilModule = M->GetDxilModule();
+    const ShaderModel *pSM = DxilModule.GetShaderModel();
+    if (pSM->IsCS() || pSM->IsLib())
+      return;
+
+    auto &SerializedViewIdState = DxilModule.GetSerializedViewIdState();
+    DxilViewIdState ViewIdState(&DxilModule);
+    ViewIdState.Deserialize(SerializedViewIdState.data(),
+                            SerializedViewIdState.size());
+    ViewIdState.PrintSets(errs());
+  }
 };
 } // namespace
 
@@ -924,50 +937,6 @@ namespace llvm {
 
 ModulePass *createComputeViewIdStatePass() {
   return new ComputeViewIdState();
-}
-
-} // end of namespace llvm
-
-namespace {
-class ViewIdStatePrinter : public ModulePass {
-public:
-  static char ID; // Pass ID, replacement for typeid
-
-  ViewIdStatePrinter() : ModulePass(ID) {}
-
-  bool runOnModule(Module &M) override {
-    DxilModule &DxilModule = M.GetOrCreateDxilModule();
-    const ShaderModel *pSM = DxilModule.GetShaderModel();
-    if (pSM->IsCS() || pSM->IsLib())
-      return false;
-
-    auto &SerializedViewIdState = DxilModule.GetSerializedViewIdState();
-    DxilViewIdState ViewIdState(&DxilModule);
-    ViewIdState.Deserialize(SerializedViewIdState.data(),
-                            SerializedViewIdState.size());
-    ViewIdState.PrintSets(errs());
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ComputeViewIdState>();
-  }
-};
-} // namespace
-
-char ViewIdStatePrinter::ID = 0;
-
-INITIALIZE_PASS_BEGIN(ViewIdStatePrinter, "viewid-state-printer",
-                      "Print information related to ViewID", true, true)
-INITIALIZE_PASS_DEPENDENCY(ComputeViewIdState)
-INITIALIZE_PASS_END(ViewIdStatePrinter,
-                    "viewid-state-printer",
-                    "Print information related to ViewID", true, true)
-
-namespace llvm {
-
-ModulePass *createViewIdStatePrinterPass() {
-  return new ViewIdStatePrinter();
 }
 
 } // end of namespace llvm
