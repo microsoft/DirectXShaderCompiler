@@ -2191,7 +2191,6 @@ class db_dxil(object):
         add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])
         add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
         add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
-        add_pass('viewid-state-printer', 'ViewIdStatePrinter', 'Print information related to ViewID', [])
         add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
         add_pass('hlsl-dxil-cleanup-addrspacecast', 'DxilCleanupAddrSpaceCast', 'HLSL DXIL Cleanup Address Space Cast (part of hlsl-dxilfinalize)', [])
         add_pass('dxil-fix-array-init', 'DxilFixConstArrayInitializer', 'Dxil Fix Array Initializer', [])
