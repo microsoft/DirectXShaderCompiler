@@ -301,10 +301,6 @@ struct SemanticDecl : public UnusualAnnotation
 ParameterModifier
 ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
 
-/// Returns a ParameterModifier initialized as per the attribute list.
-ParameterModifier
-ParamModFromAttrs(llvm::ArrayRef<clang::InheritableAttr *> attributes);
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AST manipulation functions.
 
