@@ -110,6 +110,7 @@ namespace {
     }
 
     bool shouldWalkTypesOfTypeLocs() const { return false; }
+    bool shouldVisitImplicitCode() const { return true; }
 
     bool VisitNamedDecl(NamedDecl *D) {
       D->printQualifiedName(Out);
