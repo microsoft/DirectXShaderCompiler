@@ -97,86 +97,6 @@ static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
   return false;
 }
 
-struct CompilerVersionPartWriter {
-  hlsl::DxilCompilerVersion m_Header = {};
-  CComHeapPtr<char> m_CommitShaStorage;
-  llvm::StringRef m_CommitSha = "";
-  CComHeapPtr<char> m_CustomStringStorage;
-  llvm::StringRef m_CustomString = "";
-
-  void Init(IDxcVersionInfo *pVersionInfo) {
-    m_Header = {};
-
-    UINT32 Major = 0, Minor = 0;
-    UINT32 Flags = 0;
-    IFT(pVersionInfo->GetVersion(&Major, &Minor));
-    IFT(pVersionInfo->GetFlags(&Flags));
-
-    m_Header.Major = Major;
-    m_Header.Minor = Minor;
-    m_Header.VersionFlags = Flags;
-    CComPtr<IDxcVersionInfo2> pVersionInfo2;
-    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
-      UINT32 CommitCount = 0;
-      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
-      m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
-      m_Header.CommitCount = CommitCount;
-      m_Header.VersionStringListSizeInBytes += m_CommitSha.size();
-    }
-    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
-
-    CComPtr<IDxcVersionInfo3> pVersionInfo3;
-    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
-      IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
-      m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
-      m_Header.VersionStringListSizeInBytes += m_CustomString.size();
-    }
-    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
-  }
-
-  static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
-    uint32_t rem = size % 4;
-    if (rem) {
-      uint32_t padding = (4 - rem);
-      if (outNumPadding)
-        *outNumPadding = padding;
-      return size + padding;
-    }
-    if (outNumPadding)
-      *outNumPadding = 0;
-    return size;
-  }
-
-  UINT32 GetSize(UINT32 *pPadding = nullptr) const {
-    return PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes, pPadding);
-  }
-
-  void Write(IStream *pStream) {
-    const uint8_t padByte = 0;
-    UINT32 uPadding = 0;
-    UINT32 uSize = GetSize(&uPadding);
-    (void)uSize;
-
-    ULONG cbWritten = 0;
-    IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
-
-    // Write a null terminator even if the string is empty
-    IFT(pStream->Write(m_CommitSha.data(), m_CommitSha.size(), &cbWritten));
-    // Null terminator for the commit sha
-    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
-
-    // Write the custom version string.
-    IFT(pStream->Write(m_CustomString.data(), m_CustomString.size(), &cbWritten));
-    // Null terminator for the custom version string.
-    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
-
-    // Write padding
-    for (unsigned i = 0; i < uPadding; i++) {
-      IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
-    }
-  }
-};
-
 static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   IDxcBlob *pOldContainer,
   IDxcBlob *pDebugBlob, IDxcVersionInfo *pVersionInfo,
@@ -191,25 +111,12 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer();
   hlsl::DxilProgramHeader *ProgramHeader = nullptr;
 
-  struct Part {
-    typedef std::function<HRESULT(IStream *)> WriteProc;
-    UINT32 uFourCC = 0;
-    UINT32 uSize = 0;
-    WriteProc Writer;
-
-    Part(UINT32 uFourCC, UINT32 uSize, WriteProc Writer) :
-      uFourCC(uFourCC),
-      uSize(uSize),
-      Writer(Writer)
-    {}
-  };
-
   // Compute offset table.
   SmallVector<UINT32, 4> OffsetTable;
-  SmallVector<Part, 4> PartWriters;
+  SmallVector<DXIL::Part, 4> PartWriters;
   UINT32 uTotalPartsSize = 0;
 
-  auto AddPart = [&PartWriters, &OffsetTable, &uTotalPartsSize](Part NewPart, UINT32 uSize) {
+  auto AddPart = [&PartWriters, &OffsetTable, &uTotalPartsSize](DXIL::Part NewPart, UINT32 uSize) {
     OffsetTable.push_back(uTotalPartsSize);
     uTotalPartsSize += uSize + sizeof(hlsl::DxilPartHeader);
     PartWriters.push_back(NewPart);
@@ -220,7 +127,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
     if (ShouldBeCopiedIntoPDB(PartHeader->PartFourCC)) {
       UINT32 uSize = PartHeader->PartSize;
       const void *pPartData = PartHeader+1;
-      Part NewPart(
+      DXIL::Part NewPart(
         PartHeader->PartFourCC,
         uSize,
         [pPartData, uSize](IStream *pStream) {
@@ -246,7 +153,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   if (pSourceInfo) {
     const UINT32 uPartSize = pSourceInfo->AlignedSizeInBytes;
 
-    Part NewPart(
+    DXIL::Part NewPart(
       hlsl::DFCC_ShaderSourceInfo,
       uPartSize,
       [pSourceInfo](IStream *pStream) {
@@ -262,7 +169,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   if (pReflectionStream) {
     const hlsl::DxilPartHeader *pReflectionPartHeader =
       (const hlsl::DxilPartHeader *)pReflectionStream->GetPtr();
-    Part NewPart(
+    DXIL::Part NewPart(
       hlsl::DFCC_ShaderStatistics,
       pReflectionPartHeader->PartSize,
       [pReflectionPartHeader](IStream *pStream) {
@@ -274,11 +181,11 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
     AddPart(NewPart, pReflectionPartHeader->PartSize);
   }
 
-  CompilerVersionPartWriter versionWriter;
+  DXIL::CompilerVersionPartWriter versionWriter;
   if (pVersionInfo) {
     versionWriter.Init(pVersionInfo);
 
-    Part NewPart(
+    DXIL::Part NewPart(
       hlsl::DFCC_CompilerVersion,
       versionWriter.GetSize(),
       [&versionWriter](IStream *pStream) {
@@ -300,7 +207,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
     UINT32 uPaddingSize = 0;
     UINT32 uPartSize = AlignByDword(sizeof(hlsl::DxilProgramHeader) + pDebugBlob->GetBufferSize(), &uPaddingSize);
     
-    Part NewPart(
+    DXIL::Part NewPart(
       hlsl::DFCC_ShaderDebugInfoDXIL,
       uPartSize,
       [uPartSize, ProgramHeader, pDebugBlob, uPaddingSize](IStream *pStream) {

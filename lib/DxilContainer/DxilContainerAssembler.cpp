@@ -33,7 +33,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/dxcapi.impl.h"
+#include "dxc/dxcapi.h"
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRDATBuilder.h"
@@ -1875,9 +1875,21 @@ void hlsl::SerializeDxilContainerForModule(
                      });
     }
   }
-  std::unique_ptr<DxilVERSWriter> pVERSWriter = nullptr;
+  CompilerVersionPartWriter versionWriter;
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
+  
+  // Compute offset table.
+  SmallVector<UINT32, 4> OffsetTable;
+  SmallVector<DXIL::Part, 4> PartWriters;
+  UINT32 uTotalPartsSize = 0;
+
+  auto AddPart = [&PartWriters, &OffsetTable, &uTotalPartsSize](DXIL::Part NewPart, UINT32 uSize) {
+    OffsetTable.push_back(uTotalPartsSize);
+    uTotalPartsSize += uSize + sizeof(hlsl::DxilPartHeader);
+    PartWriters.push_back(NewPart);
+  };
+
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
   RootSignatureWriter rootSigWriter(std::move(pModule->GetSerializedRootSignature())); // Grab RS here
@@ -1891,10 +1903,21 @@ void hlsl::SerializeDxilContainerForModule(
     // Write the DxilCompilerVersion (VERS) part.        
     
     if (pSM->GetMajor() >= 6 && pSM->GetMinor() >= 8) {
-      writer.AddPart(
-        DFCC_CompilerVersion, pVERSWriter->size(),
-        [&](AbstractMemoryStream* pStream) { pVERSWriter->write(pStream); });
+      if (DXCVersionInfo) {
+        versionWriter.Init(DXCVersionInfo);
+
+        Part NewPart(
+          hlsl::DFCC_CompilerVersion,
+          versionWriter.GetSize(),
+          [&versionWriter](IStream *pStream) {
+            versionWriter.Write(pStream);
+            return S_OK;
+          }
+        );
+        AddPart(NewPart, versionWriter.GetSize());
+      }
     }
+
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(
