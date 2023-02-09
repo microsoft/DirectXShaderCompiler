@@ -1,5 +1,5 @@
-// RUN: %dxc -T cs_6_0 -ast-dump %s | FileCheck %s --check-prefixes=CHECK,NO-IMPLICIT
-// RUN: %dxc -T cs_6_0 -ast-dump-implicit %s | FileCheck %s --check-prefixes=CHECK,IMPLICIT
+// RUN: %dxc -T cs_6_0 -ast-dump %s | FileCheck %s -check-prefixes=CHECK,NO-IMPLICIT
+// RUN: %dxc -T cs_6_0 -ast-dump-implicit %s | FileCheck %s -check-prefixes=CHECK,IMPLICIT
 RWBuffer<float3> In;
 RWBuffer<float3> Out;
 
