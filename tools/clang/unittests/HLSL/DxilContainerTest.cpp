@@ -111,6 +111,7 @@ public:
   TEST_METHOD(DisassemblyWhenValidThenOK)
   TEST_METHOD(ValidateFromLL_Abs2)
   TEST_METHOD(DxilContainerUnitTest)
+  TEST_METHOD(DxilContainerCompilerVersionTest)
   TEST_METHOD(ContainerBuilder_AddPrivateForceLast)
 
   TEST_METHOD(ReflectionMatchesDXBC_CheckIn)
@@ -2082,6 +2083,116 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");
+}
+
+// Test to see if the Compiler Version (VERS) part gets added to library shaders
+// with SM >= 6.8
+TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("export float4 main() : SV_Target { return 0; }",
+                     &pSource);
+  // Test DxilContainer with ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_7", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(
+      hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NULL(
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+
+  pResult.Release();
+  pProgram.Release();
+
+  // Test DxilContainer without ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_8", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(),
+                                      pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(
+      hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+  const hlsl::DxilPartHeader *pVersionHeader =
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
+
+  // ensure the version info has the expected contents by
+  // querying IDxcVersion interface from pCompiler and comparing
+  // against the contents inside of pProgram
+
+  // Gather "true" information
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  CComPtr<IDxcVersionInfo2> pVersionInfo2;
+  CComPtr<IDxcVersionInfo3> pVersionInfo3;
+  pCompiler.QueryInterface(&pVersionInfo);
+  UINT major;
+  UINT minor;
+  UINT flags;
+  UINT commit_count;
+  CComHeapPtr<char> pCommitHashRef;
+  CComHeapPtr<char> pCustomVersionStrRef;
+  VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&major, &minor));
+  VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&flags));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pVersionInfo2));
+  VERIFY_SUCCEEDED(
+      pVersionInfo2->GetCommitInfo(&commit_count, &pCommitHashRef));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pVersionInfo3));
+  VERIFY_SUCCEEDED(
+      pVersionInfo3->GetCustomVersionString(&pCustomVersionStrRef));
+
+  // test the "true" information against what's in the blob
+
+  VERIFY_IS_TRUE(pVersionHeader->PartFourCC ==
+                 hlsl::DxilFourCC::DFCC_CompilerVersion);
+  // test the rest of the contents (major, minor, etc.)
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                  &containerReflection));
+  IFT(containerReflection->Load(pProgram));
+  IFT(containerReflection->GetPartCount(&partCount));
+  UINT part_index;
+  VERIFY_SUCCEEDED(containerReflection->FindFirstPartKind(
+      hlsl::DFCC_CompilerVersion, &part_index));
+
+  CComPtr<IDxcBlob> pBlob;
+  IFT(containerReflection->GetPartContent(part_index, &pBlob));
+  void *pBlobPtr = pBlob->GetBufferPointer();
+  hlsl::DxilCompilerVersion *pDCV = (hlsl::DxilCompilerVersion *)pBlobPtr;
+  VERIFY_ARE_EQUAL(major, pDCV->Major);
+  VERIFY_ARE_EQUAL(minor, pDCV->Minor);
+  VERIFY_ARE_EQUAL(flags, pDCV->VersionFlags);
+  VERIFY_ARE_EQUAL(commit_count, pDCV->CommitCount);
+
+  if (pDCV->VersionStringListSizeInBytes != 0) {
+    LPCSTR pCommitHashStr = (LPCSTR)pDCV + sizeof(hlsl::DxilCompilerVersion);
+    uint32_t uCommitHashLen = (uint32_t)strlen(pCommitHashStr);
+    VERIFY_ARE_EQUAL_STR(pCommitHashStr, pCommitHashRef);
+
+    // + 2 for the two null terminators that are included in this size:
+    if (pDCV->VersionStringListSizeInBytes > uCommitHashLen + 2) {
+      LPCSTR pCustomVersionString = pCommitHashStr + uCommitHashLen + 1;
+      VERIFY_ARE_EQUAL_STR(pCustomVersionString, pCustomVersionStrRef)
+    }
+  }
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {
