@@ -608,6 +608,7 @@ endif()
 
 include_directories( ${LLVM_INCLUDE_DIR} ${LLVM_MAIN_INCLUDE_DIR})
 
+include_directories( ${LLVM_MAIN_INCLUDE_DIR}/dxc/Support) # HLSL Change
 include_directories( ${LLVM_INCLUDE_DIR}/dxc/Tracing) # HLSL Change
 
 # when crosscompiling import the executable targets from a file
