@@ -14,9 +14,11 @@ add_clang_executable(dxv
   dxv.cpp
   )
 
+if (WIN32)
 target_link_libraries(dxv
   dxcompiler
   )
+endif (WIN32)
 
 set_target_properties(dxv PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 

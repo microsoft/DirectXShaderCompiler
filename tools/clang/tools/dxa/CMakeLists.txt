@@ -21,10 +21,16 @@ add_clang_executable(dxa
   dxa.cpp
   )
 
+if (WIN32)
 target_link_libraries(dxa
   dxcompiler
   HLSLTestLib
   )
+else(WIN32)
+target_link_libraries(dxa
+  HLSLTestLib
+  )
+endif(WIN32)
 
 set_target_properties(dxa PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 

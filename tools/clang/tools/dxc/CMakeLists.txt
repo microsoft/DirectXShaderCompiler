@@ -21,11 +21,16 @@ add_clang_executable(dxc
 #  dxr.rc
   )
 
+if (WIN32)
 target_link_libraries(dxc
   dxclib
   dxcompiler
+  )
+else (WIN32)
+target_link_libraries(dxc
   dxclib
   )
+endif (WIN32)
 
 if(ENABLE_SPIRV_CODEGEN)
   target_link_libraries(dxc SPIRV-Tools)

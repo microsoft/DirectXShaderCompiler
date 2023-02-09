@@ -14,10 +14,18 @@ add_clang_executable(dxr
 #  dxr.rc
   )
 
+
+if (WIN32)
 target_link_libraries(dxr
   dxclib
   dxcompiler
   )
+else(WIN32)
+target_link_libraries(dxr
+  dxclib
+  )
+endif(WIN32)
+
 
 set_target_properties(dxr PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 # set_target_properties(dxr PROPERTIES ENABLE_EXPORTS 1)

@@ -12,9 +12,11 @@ add_clang_executable(dxopt
   dxopt.cpp
   )
 
+if (WIN32)
 target_link_libraries(dxopt
   dxcompiler
   )
+endif (WIN32)
 
 set_target_properties(dxopt PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 

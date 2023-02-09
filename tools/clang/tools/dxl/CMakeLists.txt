@@ -19,10 +19,16 @@ add_clang_executable(dxl
   dxl.cpp
   )
 
+if (WIN32)
 target_link_libraries(dxl
   dxclib
   dxcompiler
   )
+else (WIN32)
+target_link_libraries(dxl
+  dxclib
+  )
+endif (WIN32)
 
 set_target_properties(dxl PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 

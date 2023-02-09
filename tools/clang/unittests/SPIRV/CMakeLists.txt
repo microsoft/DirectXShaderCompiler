@@ -21,6 +21,7 @@ add_clang_unittest(ClangSPIRVTests
   WholeFileTestFixture.cpp
   )
 
+if (WIN32)
 target_link_libraries(ClangSPIRVTests
   clangAST
   clangBasic
@@ -32,6 +33,18 @@ target_link_libraries(ClangSPIRVTests
   effcee
   SPIRV-Tools
   )
+else (WIN32)
+target_link_libraries(ClangSPIRVTests
+  clangAST
+  clangBasic
+  clangCodeGen
+  clangFrontend
+  clangSPIRV
+  clangTooling
+  effcee
+  SPIRV-Tools
+  )
+endif (WIN32)
 
 # This is necessary so that the linked dxcompiler is loaded into memory space
 # first, and in case dxcompiler.so is loaded via 'dlopen', it resolves to the
