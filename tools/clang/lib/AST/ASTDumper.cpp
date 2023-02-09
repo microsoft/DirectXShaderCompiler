@@ -118,6 +118,8 @@ namespace  {
 
     bool ShowColors;
 
+    bool DumpImplicitTopLevelDecls = true; // HLSL Change
+
     /// Dump a child of the current node.
     template<typename Fn> void dumpChild(Fn doDumpChild) {
       // If we're at the top level, there's nothing interesting to do; just
@@ -209,6 +211,10 @@ namespace  {
       : OS(OS), Traits(Traits), SM(SM), TopLevel(true), FirstChild(true),
         LastLocFilename(""), LastLocLine(~0U),
         ShowColors(ShowColors) { }
+
+    // HLSL Change Start - filter implicit decls.
+    void setDumpImplicitTopLevelDecls(bool B) { DumpImplicitTopLevelDecls = B; }
+    // HLSL Change End - filter implicit decls.
 
     void dumpDecl(const Decl *D);
     void dumpStmt(const Stmt *S);
@@ -1072,12 +1078,10 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
 
 void ASTDumper::dumpDecl(const Decl *D) {
   // HLSL Change Starts: Don't display decls with invalid SourceLocations.
-  if (D && D->getDeclContext() &&
+  if (!DumpImplicitTopLevelDecls && D->getDeclContext() &&
       D->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
-      D->getSourceRange().isInvalid())
-  {
+      D->isImplicit())
     return;
-  }
   // HLSL Change Ends
 
   dumpChild([=] {
@@ -2447,6 +2451,8 @@ LLVM_DUMP_METHOD void Decl::dump() const { dump(llvm::errs()); }
 LLVM_DUMP_METHOD void Decl::dump(raw_ostream &OS) const {
   ASTDumper P(OS, &getASTContext().getCommentCommandTraits(),
               &getASTContext().getSourceManager());
+  // HLSL Change - Support suppressing dumping implicit decls.
+  P.setDumpImplicitTopLevelDecls(getASTContext().getLangOpts().DumpImplicitTopLevelDecls);
   P.dumpDecl(this);
 }
 
