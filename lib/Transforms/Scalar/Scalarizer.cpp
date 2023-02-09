@@ -633,7 +633,7 @@ bool Scalarizer::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
       // instruction is processed, it will be replaced without updating our
       // Gather entry.  This dead instruction will be accessed by finish(),
       // causing assert or crash.
-      Res[I] = IRBuilder<>(SVI.getNextNode()).Insert(EA->clone());
+      Res[I] = IRBuilder<>(&SVI).Insert(EA->clone());
     }
     // HLSL Change Ends
   }
