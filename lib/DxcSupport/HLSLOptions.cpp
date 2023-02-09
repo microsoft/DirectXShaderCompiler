@@ -731,9 +731,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   else
     opts.OptLevel = 3;
   opts.OptDump = Args.hasFlag(OPT_Odump, OPT_INVALID, false);
-  opts.FiniteMathOnly =
-      Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
-
   opts.DisableValidation = Args.hasFlag(OPT_VD, OPT_INVALID, false);
 
   opts.AllResourcesBound = Args.hasFlag(OPT_all_resources_bound, OPT_INVALID, false);
@@ -979,6 +976,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.fixFuncCallArguments =
       Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false);
   opts.SpirvOptions.autoShiftBindings = Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false);
+  opts.SpirvOptions.finiteMathOnly =
+      Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
+
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||

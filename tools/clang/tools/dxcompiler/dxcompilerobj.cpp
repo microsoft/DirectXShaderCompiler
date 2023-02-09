@@ -1019,7 +1019,6 @@ public:
         // structure, we need to copy a few non-spirv-specific options into the
         // structure.
         opts.SpirvOptions.enable16BitTypes = opts.Enable16BitTypes;
-        opts.SpirvOptions.finiteMathOnly = opts.FiniteMathOnly;
         opts.SpirvOptions.codeGenHighLevel = opts.CodeGenHighLevel;
         opts.SpirvOptions.defaultRowMajor = opts.DefaultRowMajor;
         opts.SpirvOptions.disableValidation = opts.DisableValidation;
