@@ -143,8 +143,10 @@ def fno_associative_math : Flag<["-"], "fno-associative-math">, Group<hlsloptz_G
 //  Flag<["-"], "freciprocal-math">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
 //  HelpText<"Allow division operations to be reassociated">;
 def fno_reciprocal_math : Flag<["-"], "fno-reciprocal-math">, Group<hlsloptz_Group>;
-def ffinite_math_only : Flag<["-"], "ffinite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>;
-def fno_finite_math_only : Flag<["-"], "fno-finite-math-only">, Group<hlsloptz_Group>;
+def ffinite_math_only: Flag<["-"], "ffinite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+  HelpText<"Allow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs.">;
+def fno_finite_math_only: Flag<["-"], "fno-finite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+  HelpText<"Disallow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs.">;
 def fsigned_zeros : Flag<["-"], "fsigned-zeros">, Group<hlsloptz_Group>;
 //def fno_signed_zeros :
 //  Flag<["-"], "fno-signed-zeros">, Group<hlsloptz_Group>, Flags<[CoreOption]>,

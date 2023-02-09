@@ -49,6 +49,7 @@ struct SpirvCodeGenOptions {
   bool defaultRowMajor;
   bool disableValidation;
   bool enable16BitTypes;
+  bool finiteMathOnly;
   bool enableReflect;
   bool invertY; // Additive inverse
   bool invertW; // Multiplicative inverse
