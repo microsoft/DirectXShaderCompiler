@@ -2095,7 +2095,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // If alphabetical ordering was requested, sort by semantic string.
   if (spirvOptions.stageIoOrder == "alpha") {
     // Sort stage input/output variables alphabetically
-    std::sort(vars.begin(), vars.end(),
+    std::stable_sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
                 return a->getSemanticStr() < b->getSemanticStr();
               });
@@ -2117,7 +2117,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // alphabetical ordering.
   if ((!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
     // Sort stage input/output variables alphabetically
-    std::sort(vars.begin(), vars.end(),
+    std::stable_sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
                 return a->getSemanticStr() < b->getSemanticStr();
               });
