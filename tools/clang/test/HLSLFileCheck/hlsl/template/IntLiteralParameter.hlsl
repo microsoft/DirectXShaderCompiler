@@ -35,9 +35,9 @@ void main() {
 // literal types in, because we can constant fold them as with higher precision.
 
 // Verify that the abs call is still `literal float`
-// AST: DeclRefExpr 0x{{[0-9a-zA-Z]+}} <col:15> 'literal int (literal int)' lvalue Function 0x{{[0-9a-zA-Z]+}} 'abs'
+// AST: DeclRefExpr 0x{{[0-9a-zA-Z]+}} <col:15> 'literal int (literal int)' lvalue Function [[abs:0x[0-9a-zA-Z]+]] 'abs'
 
-// AST:      FunctionDecl 0x{{[0-9a-zA-Z]+}} <<invalid sloc>> <invalid sloc> implicit used abs 'literal int (literal int)' extern
+// AST:      FunctionDecl [[abs]] <<invalid sloc>> <invalid sloc> implicit used abs 'literal int (literal int)' extern
 // AST-NEXT: ParmVarDecl 0x{{[0-9a-zA-Z]+}} <<invalid sloc>> <invalid sloc> x 'literal int'
 
 // Since template expansion can also fail in IRGen, we should make sure we have
