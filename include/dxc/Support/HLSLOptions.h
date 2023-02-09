@@ -165,7 +165,7 @@ public:
   bool EnableDX9CompatMode = false;     // OPT_Gec
   bool EnableFXCCompatMode = false;     // internal flag
   LangStd HLSLVersion = LangStd::vUnset; // OPT_hlsl_version (2015-2021)
-  bool Enable16BitTypes = false;         // OPT_enable_16bit_types
+  bool Enable16BitTypes = false; // OPT_enable_16bit_types
   bool OptDump = false; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
