@@ -980,7 +980,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.finiteMathOnly =
       Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
 
-
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_s_shift, "s", &opts.SpirvOptions.sShift, errors) ||
