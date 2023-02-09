@@ -19,6 +19,17 @@
 namespace dxc {
 
 #ifdef _WIN32
+  const char* kDxCompilerLib = "dxcompiler.dll";
+  const char* kDxilLib = "dxil.dll";
+#elif __APPLE__
+  const char* kDxCompilerLib = "libdxcompiler.dylib";
+  const char* kDxilLib = "libdxil.dylib";
+#else
+  const char* kDxCompilerLib = "libdxcompiler.so";
+  const char* kDxilLib = "libdxil.so";
+#endif
+
+#ifdef _WIN32
 static void TrimEOL(_Inout_z_ char *pMsg) {
   char *pEnd = pMsg + strlen(pMsg);
   --pEnd;

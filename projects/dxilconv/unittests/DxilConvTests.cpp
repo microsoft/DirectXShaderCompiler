@@ -166,7 +166,7 @@ private:
 
 bool DxilConvTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllSupport.InitializeForDll(L"dxilconv.dll", "DxcCreateInstance"));
+    VERIFY_SUCCEEDED(m_dllSupport.InitializeForDll("dxilconv.dll", "DxcCreateInstance"));
   }
 
   if (!FindToolInBinDir("%dxbc2dxil", "dxbc2dxil.exe")) {
