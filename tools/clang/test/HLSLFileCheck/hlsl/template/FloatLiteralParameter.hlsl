@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_5 -HV 2021 -ast-dump %s | FileCheck -check-prefix=AST %s
+// RUN: %dxc -T cs_6_5 -HV 2021 -ast-dump-implicit %s | FileCheck -check-prefix=AST %s
 // RUN: %dxc -T cs_6_5 -HV 2021 %s | FileCheck %s
 RWStructuredBuffer<float> Output;
 

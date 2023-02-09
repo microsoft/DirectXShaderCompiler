@@ -740,8 +740,12 @@ void ASTDumper::dumpDeclContext(const DeclContext *DC) {
   if (!DC)
     return;
 
+  // HLSL Change Starts: Don't dump implicit decls unless requested.
+  bool ShouldDumpImplicit = DumpImplicitTopLevelDecls || !DC->isTranslationUnit();
   for (auto *D : DC->noload_decls())
-    dumpDecl(D);
+    if (ShouldDumpImplicit || !D->isImplicit())
+      dumpDecl(D);
+  // HLSL Change Ends
 
   if (DC->hasExternalLexicalStorage()) {
     dumpChild([=]{
@@ -1077,13 +1081,6 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
 // HLSL Change Ends
 
 void ASTDumper::dumpDecl(const Decl *D) {
-  // HLSL Change Starts: Don't display decls with invalid SourceLocations.
-  if (!DumpImplicitTopLevelDecls && D->getDeclContext() &&
-      D->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
-      D->isImplicit())
-    return;
-  // HLSL Change Ends
-
   dumpChild([=] {
     if (!D) {
       ColorScope Color(*this, NullColor);
