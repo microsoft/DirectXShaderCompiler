@@ -18,6 +18,7 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -1562,9 +1563,11 @@ public:
     if (Opts.AvoidFlowControl)
       compiler.getCodeGenOpts().UnrollLoops = true;
 
-    // always inline for hlsl
-    compiler.getCodeGenOpts().setInlining(
-        clang::CodeGenOptions::OnlyAlwaysInlining);
+    clang::CodeGenOptions::InliningMethod Inlining =
+        clang::CodeGenOptions::OnlyAlwaysInlining;
+    if (Opts.NewInlining)
+      Inlining = clang::CodeGenOptions::NormalInlining;
+    compiler.getCodeGenOpts().setInlining(Inlining);
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
 

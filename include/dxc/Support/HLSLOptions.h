@@ -206,6 +206,7 @@ public:
   bool ForceZeroStoreLifetimes = false; // OPT_force_zero_store_lifetimes
   bool EnableLifetimeMarkers = false; // OPT_enable_lifetime_markers
   bool ForceDisableLocTracking = false; // OPT_fdisable_loc_tracking
+  bool NewInlining = false; // OPT_fnew_inlining_behavior
   bool TimeReport = false; // OPT_ftime_report
   std::string TimeTrace = ""; // OPT_ftime_trace[EQ]
 
