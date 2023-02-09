@@ -1010,6 +1010,42 @@ public:
 
 using namespace DXIL;
 
+//////////////////////////////////////////////////////////
+// DxilVERSWriter - Writes VERS part
+class DxilVERSWriter : public DxilPartWriter {
+private:
+  const char* m_pCompilerVersionString;
+  std::string m_paddedCompilerVersionString;
+  unsigned int m_size;
+
+public:
+  DxilVERSWriter(const char* pCompilerVersionString)
+    : m_pCompilerVersionString(pCompilerVersionString)
+  {
+      m_size = strlen(pCompilerVersionString);
+      // make sure the string that is being written
+      // aligns with a 4 byte padding
+      m_paddedCompilerVersionString = m_pCompilerVersionString;
+      while (m_paddedCompilerVersionString.size() % 4 != 0)
+      {
+        m_paddedCompilerVersionString += '\0';
+      }
+  }
+
+  uint32_t unpadded_size() const {
+      return m_size;
+  }
+
+  uint32_t size() const override {
+    return m_paddedCompilerVersionString.size();
+  }
+  
+  void write(AbstractMemoryStream* pStream) {
+    ULONG cbWritten;    
+    IFT(pStream->Write(m_paddedCompilerVersionString.c_str(), size(), &cbWritten));
+  }
+};
+
 class DxilRDATWriter : public DxilPartWriter {
 private:
   DxilRDATBuilder Builder;
@@ -1767,6 +1803,7 @@ void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pRefle
 
 void hlsl::SerializeDxilContainerForModule(
     DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    IDxcVersionInfo *DXCVersionInfo,
     AbstractMemoryStream *pFinalStream, llvm::StringRef DebugName,
     SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut,
     AbstractMemoryStream *pReflectionStreamOut,
@@ -1838,6 +1875,7 @@ void hlsl::SerializeDxilContainerForModule(
                      });
     }
   }
+  std::unique_ptr<DxilVERSWriter> pVERSWriter = nullptr;
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
   unsigned int major, minor;
@@ -1846,9 +1884,17 @@ void hlsl::SerializeDxilContainerForModule(
   DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
-  if (pModule->GetShaderModel()->IsLib()) {
+  const hlsl::ShaderModel *pSM = pModule->GetShaderModel();
+  if (pSM->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
+    // Write the DxilCompilerVersion (VERS) part.        
+    
+    if (pSM->GetMajor() >= 6 && pSM->GetMinor() >= 8) {
+      writer.AddPart(
+        DFCC_CompilerVersion, pVERSWriter->size(),
+        [&](AbstractMemoryStream* pStream) { pVERSWriter->write(pStream); });
+    }
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(

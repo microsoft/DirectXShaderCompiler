@@ -13,6 +13,11 @@
 
 #include <functional>
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/Support/Global.h"        // |
+#include "dxc/Support/Unicode.h"       // |
+#include "dxc/Support/WinIncludes.h"   // |
+#include "dxc/Support/FileIOHelper.h"  // | - to allow dxcapi.impl.h to be included
+#include "dxc/Support/dxcapi.impl.h" // to identify the 'IDxcVersionInfo' identifier
 #include "llvm/ADT/StringRef.h"
 
 struct IStream;
@@ -77,6 +82,7 @@ void WriteProgramPart(const hlsl::ShaderModel *pModel,
 
 void SerializeDxilContainerForModule(
     hlsl::DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    IDxcVersionInfo *DXCVersionInfo,
     AbstractMemoryStream *pStream, llvm::StringRef DebugName,
     SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut = nullptr,
     AbstractMemoryStream *pReflectionStreamOut = nullptr,

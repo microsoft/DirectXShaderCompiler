@@ -58,6 +58,7 @@ struct AssembleInputs {
                      hlsl::options::ValidatorSelection::Auto);
   std::unique_ptr<llvm::Module> pM;
   CComPtr<IDxcBlob> &pOutputContainerBlob;
+  IDxcVersionInfo *DXCVersionInfo;
   IMalloc *pMalloc;
   hlsl::SerializeDxilFlags SerializeFlags;
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
