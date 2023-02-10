@@ -12283,10 +12283,6 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLRayPayloadAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
-  /*case AttributeList::AT_HLSLCXXOverload:
-    declAttr = ::new (S.Context) HLSLCXXOverloadAttr(
-        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
-    break;*/
   // SPIRV Change Starts
   case AttributeList::AT_VKDecorateIdExt: {
     if (A.getNumArgs() == 0 || !A.getArg(0).is<clang::Expr *>()) {
