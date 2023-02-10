@@ -40,7 +40,22 @@ function Invoke-AppveyorTestsRestMethod($appveyorTests) {
 
 function Invoke-TE($logfile) {
     $testdll = "$env:HLSL_BLD_DIR\Release\bin\clang-hlsl-tests.dll"
-    $p = Start-Process "te.exe" -Args "$testdll /logOutput:Low /logFile:$logfile /enableWttLogging /p:HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL /labMode /miniDumpOnCrash" -Wait -NoNewWindow -PassThru
+    #$p = Start-Process "te.exe" -Args "$testdll /logOutput:Low /logFile:$logfile /enableWttLogging /p:HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL /labMode /miniDumpOnCrash" -Wait -NoNewWindow -PassThru
+    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+    $pinfo.FileName = "te.exe"
+    $pinfo.RedirectStandardError = $true
+    $pinfo.RedirectStandardOutput = $true
+    $pinfo.UseShellExecute = $false
+    $pinfo.Arguments = "$testdll /logOutput:Low /logFile:$logfile /enableWttLogging /p:HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL /labMode /miniDumpOnCrash"
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $pinfo
+    $p.Start() | Out-Null
+    $p.WaitForExit()
+    $stdout = $p.StandardOutput.ReadToEnd()
+    $stderr = $p.StandardError.ReadToEnd()
+    Write-Host "stdout: $stdout"
+    Write-Host "stderr: $stderr"
+    Write-Host "exit code: " + $p.ExitCode
     return $p.ExitCode
 }
 
