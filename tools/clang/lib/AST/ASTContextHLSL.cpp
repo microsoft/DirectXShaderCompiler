@@ -853,7 +853,7 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
 
   // If this is going to be part of a template function decl, don't add it to
   // the record because the template function decl will be added instead.
-  if (!isTisTemplateFunctionemplate)
+  if (!isTemplateFunction)
     recordDecl->addDecl(functionDecl);
 
   return functionDecl;
