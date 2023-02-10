@@ -43,7 +43,7 @@ if (${ENABLE_SPIRV_CODEGEN})
       # This add_compile_options() will only affect the current directory and its subdirectories.
       if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-Wno-implicit-fallthrough)
-      endif(NOT WIN32)
+      endif()
       # We only need the library from SPIRV-Tools.
       set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip building SPIRV-Tools executables")
       if (NOT HLSL_ENABLE_DEBUG_ITERATORS)

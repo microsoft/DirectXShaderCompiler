@@ -441,6 +441,7 @@ void EmitAssemblyHelper::CreatePasses() {
   switch (Inlining) {
   case CodeGenOptions::NoInlining: break;
   case CodeGenOptions::NormalInlining: {
+    PMBuilder.HLSLEarlyInlining = false; // HLSL Change
     PMBuilder.Inliner =
         createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
     break;
@@ -451,7 +452,7 @@ void EmitAssemblyHelper::CreatePasses() {
       // Do not insert lifetime intrinsics at -O0.
       PMBuilder.Inliner = createAlwaysInlinerPass(false);
     else
-      PMBuilder.Inliner = createAlwaysInlinerPass();
+      PMBuilder.Inliner = createAlwaysInlinerPass(PMBuilder.HLSLEnableLifetimeMarkers); // HLSL Change
     break;
   }
 
