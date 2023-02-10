@@ -573,7 +573,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       }
     }
   }
-  opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
+  opts.AstDumpImplicit = Args.hasFlag(OPT_ast_dump_implicit, OPT_INVALID, false);
+  // -ast-dump-implicit should imply -ast-dump.
+  opts.AstDump =
+      Args.hasFlag(OPT_ast_dump, OPT_INVALID, false) || opts.AstDumpImplicit;
   opts.WriteDependencies =
       Args.hasFlag(OPT_write_dependencies, OPT_INVALID, false);
   opts.OutputFileForDependencies =
