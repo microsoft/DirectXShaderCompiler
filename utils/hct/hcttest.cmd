@@ -303,9 +303,7 @@ if not exist %TEST_DIR% (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
 if "%CUSTOM_BIN_SET%"=="" (
-  if not "%TEST_USE_LIT%"=="1" (
-    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% clang-hlsl-tests.dll exec-hlsl-tests.dll
-  )
+  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% clang-hlsl-tests.dll exec-hlsl-tests.dll
   call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
   if errorlevel 1 exit /b 1
   if "%TEST_DXILCONV%"=="1" (
