@@ -16,6 +16,9 @@
 
 namespace dxc {
 
+  extern const char* kDxCompilerLib;
+  extern const char* kDxilLib;
+
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
 class DxcDllSupport {
 protected:
@@ -23,15 +26,13 @@ protected:
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
 
-  HRESULT InitializeInternal(LPCWSTR dllName, LPCSTR fnName) {
+  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr) return S_OK;
 
 #ifdef _WIN32
-    m_dll = LoadLibraryW(dllName);
+    m_dll = LoadLibraryA(dllName);
 #else
-    char nameStr[256];
-    std::wcstombs(nameStr, dllName, 256);
-    m_dll = ::dlopen(nameStr, RTLD_LAZY);
+    m_dll = ::dlopen(dllName, RTLD_LAZY);
 #endif
 
     if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
@@ -86,16 +87,10 @@ public:
   }
 
   HRESULT Initialize() {
-    #ifdef _WIN32
-    return InitializeInternal(L"dxcompiler.dll", "DxcCreateInstance");
-    #elif __APPLE__
-    return InitializeInternal(L"libdxcompiler.dylib", "DxcCreateInstance");
-    #else
-    return InitializeInternal(L"libdxcompiler.so", "DxcCreateInstance");
-    #endif
+    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT InitializeForDll(_In_z_ const wchar_t* dll, _In_z_ const char* entryPoint) {
+  HRESULT InitializeForDll(_In_z_ LPCSTR dll, _In_z_ LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
