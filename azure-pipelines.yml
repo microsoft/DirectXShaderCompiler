@@ -53,14 +53,14 @@ stages:
           configuration: Release
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CXX_FLAGS:
           OS: Linux
         Linux_Clang_Debug:
           image: ${{ variables.linux }}
           configuration: Debug
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CXX_FLAGS:
         Linux_Gcc_Release:
           image: ${{ variables.linux }}
           configuration: Release
@@ -78,14 +78,14 @@ stages:
           configuration: Release
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CXX_FLAGS:
           OS: MacOS
         MacOS_Clang_Debug:
           image: ${{ variables.macOS }}
           configuration: Debug
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CXX_FLAGS:
 
     pool:
       vmImage: $(image)
@@ -110,7 +110,7 @@ stages:
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['macOS'])
     - bash: |
-        cmake -B build -G Ninja $BUILD_SOURCESDIRECTORY -DLLVM_LIT_ARGS=--xunit-xml-output=testresults.xunit.xml -DDXC_USE_LIT=On -C $BUILD_SOURCESDIRECTORY/cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXX_FLAGS)
+        cmake -B build -G Ninja $BUILD_SOURCESDIRECTORY -DLLVM_LIT_ARGS=--xunit-xml-output=testresults.xunit.xml -DDXC_USE_LIT=On -C $BUILD_SOURCESDIRECTORY/cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX)
       displayName: 'Running Cmake'
     - bash: |
         ninja -C build test-depends

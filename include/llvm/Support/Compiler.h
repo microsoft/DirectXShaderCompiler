@@ -230,6 +230,12 @@
 #define LLVM_FALLTHROUGH [[gnu::fallthrough]]
 #endif
 
+#if defined(_MSC_VER)
+#define LLVM_C_FALLTHROUGH __fallthrough
+#else
+#define LLVM_C_FALLTHROUGH  __attribute__((fallthrough));
+#endif
+
 
 /// LLVM_EXTENSION - Support compilers where we have a keyword to suppress
 /// pedantic diagnostics.
