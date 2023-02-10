@@ -15,19 +15,12 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/WinFunctions.h"
+#include "SharedLibAffix.h"
 
 namespace dxc {
 
-#ifdef _WIN32
-  const char* kDxCompilerLib = "dxcompiler.dll";
-  const char* kDxilLib = "dxil.dll";
-#elif __APPLE__
-  const char* kDxCompilerLib = "libdxcompiler.dylib";
-  const char* kDxilLib = "libdxil.dylib";
-#else
-  const char* kDxCompilerLib = "libdxcompiler.so";
-  const char* kDxilLib = "libdxil.so";
-#endif
+const char* kDxCompilerLib = CMAKE_SHARED_LIBRARY_PREFIX "dxcompiler" CMAKE_SHARED_LIBRARY_SUFFIX;
+const char* kDxilLib = CMAKE_SHARED_LIBRARY_PREFIX "dxil" CMAKE_SHARED_LIBRARY_SUFFIX;
 
 #ifdef _WIN32
 static void TrimEOL(_Inout_z_ char *pMsg) {
