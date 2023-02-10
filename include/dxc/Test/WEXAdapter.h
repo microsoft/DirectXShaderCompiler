@@ -173,10 +173,12 @@ inline void EndGroup(const wchar_t *name) { wprintf(L"END TEST(S): <%ls>\n", nam
 inline void Comment(const wchar_t *msg) {
   fputws(msg, stdout);
   fputwc(L'\n', stdout);
+  fflush(stdout);
 }
 inline void Error(const wchar_t *msg) {
   fputws(msg, stderr);
   fputwc(L'\n', stderr);
+  fflush(stderr);
   ADD_FAILURE();
 }
 } // namespace Log
