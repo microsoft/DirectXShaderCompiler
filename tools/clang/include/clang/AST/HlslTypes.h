@@ -462,7 +462,8 @@ clang::CXXMethodDecl* CreateObjectFunctionDeclarationWithParams(
   llvm::ArrayRef<clang::QualType> paramTypes,
   llvm::ArrayRef<clang::StringRef> paramNames,
   clang::DeclarationName declarationName,
-  bool isConst);
+  bool isConst,
+  bool isTemplate = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,
                                             clang::QualType Ty);

@@ -40,7 +40,7 @@ void main() {
 // IMPLICIT-NEXT: CXXRecordDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit class RWBuffer definition
 // IMPLICIT-NEXT: FinalAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit final
 // IMPLICIT-NEXT: FieldDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit h 'element'
-// IMPLICIT-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> operator[] 'element &(unsigned int) const'
+// IMPLICIT-NEXT: FunctionTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> operator[]
 
 // CHECK: VarDecl {{0x[0-9a-fA-F]+}} <{{.*}}ast-dumping.hlsl:3:1, col:18> col:18 used In 'RWBuffer<float3>':'RWBuffer<vector<float, 3> >'
 // CHECK-NEXT: VarDecl {{0x[0-9a-fA-F]+}} <line:4:1, col:18> col:18 used Out 'RWBuffer<float3>':'RWBuffer<vector<float, 3> >'

@@ -3262,9 +3262,11 @@ private:
     // Create the declaration.
     IdentifierInfo* ii = &m_context->Idents.get(StringRef(intrinsic->pArgs[0].pName));
     DeclarationName declarationName = DeclarationName(ii);
-    CXXMethodDecl* functionDecl = CreateObjectFunctionDeclarationWithParams(*m_context, recordDecl,
-      functionResultQT, ArrayRef<QualType>(argsQTs, numParams), ArrayRef<StringRef>(argNames, numParams),
-      declarationName, true);
+    CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
+        *m_context, recordDecl, functionResultQT,
+        ArrayRef<QualType>(argsQTs, numParams),
+        ArrayRef<StringRef>(argNames, numParams), declarationName, true,
+        templateParamNamedDeclsCount > 0);
     functionDecl->setImplicit(true);
 
     // If the function is a template function, create the declaration and cross-reference.
@@ -3452,7 +3454,8 @@ private:
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, resultType, ArrayRef<QualType>(indexType),
         ArrayRef<StringRef>(StringRef("index")),
-        m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true);
+        m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true,
+        true);
     hlsl::CreateFunctionTemplateDecl(
         *m_context, recordDecl, functionDecl,
         reinterpret_cast<NamedDecl **>(&templateTypeParmDecl), 1);
