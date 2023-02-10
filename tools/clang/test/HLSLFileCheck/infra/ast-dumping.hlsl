@@ -22,11 +22,8 @@ void main() {
 // incomplete by looking at the `Buffer` type which is unused in this code and
 // verifying it doesn't have any methods.
 
-// IMPLICIT: CXXRecordDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit class Buffer
-// IMPLICIT-NEXT: FinalAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit final
-// IMPLICIT-NEXT: FieldDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit h 'element'
-// IMPLICIT-NOT: CXXMethodDecl
-// IMPLICIT-NEXT: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit Buffer
+// IMPLICIT-NOT: CXXRecordDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit class Buffer
+// IMPLICIT: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit Buffer
 // IMPLICIT-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> class element
 // IMPLICIT-NEXT: TemplateArgument type 'vector<float, 4>':'vector<float, 4>'
 // IMPLICIT-NEXT: CXXRecordDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit class Buffer
