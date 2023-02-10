@@ -1481,6 +1481,11 @@ public:
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
+    // Enable dumping implicit top level decls either if it was specifically
+    // requested or if we are not dumping the ast from the command line. That
+    // allows us to dump implicit AST nodes in the debugger.
+    compiler.getLangOpts().DumpImplicitTopLevelDecls =
+        Opts.AstDumpImplicit || !Opts.AstDump;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN

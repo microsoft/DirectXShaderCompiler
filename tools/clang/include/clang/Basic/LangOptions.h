@@ -160,6 +160,7 @@ public:
   bool EnableDX9CompatMode = false;
   bool EnableFXCCompatMode = false;
   bool EnablePayloadAccessQualifiers = false;
+  bool DumpImplicitTopLevelDecls = true;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change
