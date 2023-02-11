@@ -365,6 +365,7 @@ int __cdecl main(int argc, char **argv) {
   initializeComputeViewIdStatePass(Registry);
   initializeDxilFinalizeModulePass(Registry);
   initializeDxilModuleInitPass(Registry);
+  initializeSROA_Parameter_HLSLPass(Registry);
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
