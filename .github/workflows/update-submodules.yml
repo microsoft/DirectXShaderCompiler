@@ -1,0 +1,39 @@
+name: Submodule Updater
+
+on:
+  schedule:
+    - cron: 39 4 * * 2 # 4:39 AM every Tuesday; selected random numbers to reduce load on scheduler
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    if: github.repository == 'microsoft/DirectXShaderCompiler'
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Create a branch and update submodules
+        run: |
+          cd external
+          git -C SPIRV-Headers switch main
+          git -C SPIRV-Headers pull --ff-only
+          git -C SPIRV-Tools switch main
+          git -C SPIRV-Tools pull --ff-only
+
+          git -C effcee switch main
+          git -C effcee pull --ff-only
+          git -C re2 switch main
+          git -C re2 pull --ff-only
+
+          git add SPIRV-Headers SPIRV-Tools effcee re2
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          commit-message: Update submodules
+          title: Update submodules
+          branch: update-submodules
+          delete-branch: true
+          reviewers: |
+            cassiebeckley
+            Keenuts
