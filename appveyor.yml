@@ -45,7 +45,7 @@ build_script:
 
 test_script:
 - ps:  utils\appveyor\appveyor_test.ps1
-- cmd: call utils\hct\hcttest -rel spirv_only -enable-lit
+- cmd: call utils\hct\hcttest -rel spirv_only -disable-lit
 - sh: ./bin/dxc --help
 - sh: ./bin/dxc -T ps_6_0 ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
