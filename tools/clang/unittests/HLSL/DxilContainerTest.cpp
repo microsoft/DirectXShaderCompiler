@@ -810,10 +810,10 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       "; COLOR                    0   xyzw        1     NONE   float   xyzw\n"; // should read '1' in register
     if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) < 0) {
       std::string start(s.c_str(), strlen(expected_1_4));
-      VERIFY_ARE_EQUAL_STR(expected_1_4, start.c_str());
+      EXPECT_STREQ(expected_1_4, start.c_str());
     } else {
       std::string start(s.c_str(), strlen(expected));
-      VERIFY_ARE_EQUAL_STR(expected, start.c_str());
+      EXPECT_STREQ(expected, start.c_str());
     }
   }
 
