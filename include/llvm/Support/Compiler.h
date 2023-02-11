@@ -231,7 +231,11 @@
 #endif
 
 #if defined(_MSC_VER)
-#define LLVM_C_FALLTHROUGH __fallthrough
+#if __cplusplus > 201402L
+#define LLVM_C_FALLTHROUGH [[fallthrough]]
+#else
+#define LLVM_C_FALLTHROUGH 
+#endif
 #else
 #define LLVM_C_FALLTHROUGH  __attribute__((fallthrough));
 #endif
