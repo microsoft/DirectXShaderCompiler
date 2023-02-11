@@ -48,7 +48,7 @@ bool DxilLibIsEnabled() {
   EnterCriticalSection(&cs);
   if (SUCCEEDED(g_DllLibResult)) {
     if (!g_DllSupport.IsEnabled()) {
-      g_DllLibResult = g_DllSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+      g_DllLibResult = g_DllSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
     }
   }
   LeaveCriticalSection(&cs);

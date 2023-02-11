@@ -573,7 +573,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       }
     }
   }
-  opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
+  opts.AstDumpImplicit = Args.hasFlag(OPT_ast_dump_implicit, OPT_INVALID, false);
+  // -ast-dump-implicit should imply -ast-dump.
+  opts.AstDump =
+      Args.hasFlag(OPT_ast_dump, OPT_INVALID, false) || opts.AstDumpImplicit;
   opts.WriteDependencies =
       Args.hasFlag(OPT_write_dependencies, OPT_INVALID, false);
   opts.OutputFileForDependencies =
@@ -1202,9 +1205,8 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
                        llvm::raw_ostream &errors) {
   if (!opts.ExternalLib.empty()) {
     DXASSERT(!opts.ExternalFn.empty(), "else ReadDxcOpts should have failed");
-    StringRefWide externalLib(opts.ExternalLib);
     HRESULT hrLoad =
-        dxcSupport.InitializeForDll(externalLib, opts.ExternalFn.data());
+      dxcSupport.InitializeForDll(opts.ExternalLib.data(), opts.ExternalFn.data());
     if (DXC_FAILED(hrLoad)) {
       errors << "Unable to load support for external DLL " << opts.ExternalLib
              << " with function " << opts.ExternalFn << " - error 0x";

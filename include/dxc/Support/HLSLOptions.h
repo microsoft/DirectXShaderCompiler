@@ -147,6 +147,7 @@ public:
   bool AllResourcesBound = false; // OPT_all_resources_bound
   bool IgnoreOptSemDefs = false; // OPT_ignore_opt_semdefs
   bool AstDump = false; // OPT_ast_dump
+  bool AstDumpImplicit = false; // OPT_ast_dump_implicit
   bool ColorCodeAssembly = false; // OPT_Cc
   bool CodeGenHighLevel = false; // OPT_fcgl
   bool AllowPreserveValues = false; // OPT_preserve_intermediate_values
