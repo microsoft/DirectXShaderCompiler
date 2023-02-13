@@ -42,7 +42,6 @@ public:
   TEST_METHOD(RunLinkResource);
   TEST_METHOD(RunLinkResourceWithBinding);
   TEST_METHOD(RunLinkAllProfiles);
-  //TEST_METHOD(RunLinkModulesDifferentVersions);
   TEST_METHOD(RunLinkFailNoDefine);
   TEST_METHOD(RunLinkFailReDefine);
   TEST_METHOD(RunLinkGlobalInit);
@@ -273,25 +272,6 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   RegisterDxcModule(libResName, pResLib, pLinker);
   Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {},{});
 }
-
-/*
-TEST_F(LinkerTest, RunLinkModulesDifferentVersions) {
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
-
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib, option);
-  RegisterDxcModule(libName, pEntryLib, pLinker);
-
-  Link(L"vs_main", L"vs_6_0", pLinker, { libName }, {}, {});
-  LinkCheckMsg(L"hs_main", L"hs_6_1", pLinker, { libName },
-    { "Linking two modules with different versions:" });
-  
-}
-*/
 
 TEST_F(LinkerTest, RunLinkFailNoDefine) {
   CComPtr<IDxcBlob> pEntryLib;
