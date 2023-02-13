@@ -31,11 +31,11 @@ protected:
 
 #ifdef _WIN32
     m_dll = LoadLibraryA(dllName);
+    if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
 #else
     m_dll = ::dlopen(dllName, RTLD_LAZY);
+    if (m_dll == nullptr) return E_FAIL;
 #endif
-
-    if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
 
 #ifdef _WIN32
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
