@@ -4869,16 +4869,20 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
 
   // First check the qualifiers.
   QualType FromTypeCanon = S.Context.getCanonicalType(FromType);
-  // HLSL Change Starts - for calls other than subscript overloads, disregard const
+  // HLSL Change Starts
+  // HLSL Note: For calls that aren't compiler-generated C++ overloads, we 
+  // disregard const qualifiers so that member functions can be called on
+  // `const` objects from constant buffer types. This should change in the
+  // future if we support const instance methods.
   FromTypeCanon.removeLocalRestrict(); // HLSL Change - disregard restrict.
   if (!S.getLangOpts().HLSL ||
-     (Method != nullptr && Method->getDeclName() == S.Context.DeclarationNames.getCXXOperatorName(OO_Subscript))) {
-  // HLSL Change Ends
-    if (ImplicitParamType.getCVRQualifiers()
-                                      != FromTypeCanon.getLocalCVRQualifiers() &&
+      (Method != nullptr && Method->hasAttr<HLSLCXXOverloadAttr>())) {
+    // HLSL Change Ends
+    if (ImplicitParamType.getCVRQualifiers() !=
+            FromTypeCanon.getLocalCVRQualifiers() &&
         !ImplicitParamType.isAtLeastAsQualifiedAs(FromTypeCanon)) {
-      ICS.setBad(BadConversionSequence::bad_qualifiers,
-                 FromType, ImplicitParamType);
+      ICS.setBad(BadConversionSequence::bad_qualifiers, FromType,
+                 ImplicitParamType);
       return ICS;
     }
   } // HLSL Change - end branch
@@ -8664,12 +8668,12 @@ OverloadCandidateSet::BestViableFunction(Sema &S, SourceLocation Loc,
                                          iterator &Best,
                                          bool UserDefinedConversion) {
   // HLSL Change Starts
-  // Function calls should use HLSL-style overloading. operator[] overloads
-  // (used for const support) aren't supported by the defined rules, so
-  // use C++ overload resolution for those.
+  // Function calls should use HLSL-style overloading. Except for compiler
+  // generated functions which are annotated as requiring C++ overload
+  // resolution like operator[] overloads where `const` methods are aren't
+  // supported by HLSL's defined rules.
   if (S.getLangOpts().HLSL && !empty() && begin()->Function != nullptr &&
-      (begin()->Function->getDeclName() !=
-            S.Context.DeclarationNames.getCXXOperatorName(OO_Subscript))) {
+      !begin()->Function->hasAttr<HLSLCXXOverloadAttr>()) {
     return ::hlsl::GetBestViableFunction(S, Loc, *this, Best);
   }
   // HLSL Change Ends

@@ -2686,9 +2686,12 @@ public:
   }
 };
 
-static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context, HLSubscriptOpcode opcode) {
+static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context,
+                                 HLSubscriptOpcode opcode) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
-  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(opcode)));
+  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "",
+                                               static_cast<unsigned>(opcode)));
+  D->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 static void CreateSimpleField(clang::ASTContext &context, CXXRecordDecl *recordDecl, StringRef Name,
@@ -3459,6 +3462,7 @@ private:
     hlsl::CreateFunctionTemplateDecl(
         *m_context, recordDecl, functionDecl,
         reinterpret_cast<NamedDecl **>(&templateTypeParmDecl), 1);
+    functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(*m_context));
 
     // Add a .mips member if necessary.
     QualType uintType = m_context->UnsignedIntTy;
