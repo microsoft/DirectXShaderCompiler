@@ -32,14 +32,10 @@ protected:
 #ifdef _WIN32
     m_dll = LoadLibraryA(dllName);
     if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
+    m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
 #else
     m_dll = ::dlopen(dllName, RTLD_LAZY);
     if (m_dll == nullptr) return E_FAIL;
-#endif
-
-#ifdef _WIN32
-    m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
-#else
     m_createFn = (DxcCreateInstanceProc)::dlsym(m_dll, fnName);
 #endif
 
