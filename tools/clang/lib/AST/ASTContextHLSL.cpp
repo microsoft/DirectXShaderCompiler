@@ -291,10 +291,11 @@ void AddSubscriptOperator(
     vectorType = context.getConstType(vectorType);
 
   QualType indexType = intType;
-  CreateObjectFunctionDeclarationWithParams(
-    context, templateRecordDecl, vectorType,
-    ArrayRef<QualType>(indexType), ArrayRef<StringRef>(StringRef("index")),
-    context.DeclarationNames.getCXXOperatorName(OO_Subscript), forConst);
+  auto methodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, templateRecordDecl, vectorType, ArrayRef<QualType>(indexType),
+      ArrayRef<StringRef>(StringRef("index")),
+      context.DeclarationNames.getCXXOperatorName(OO_Subscript), forConst);
+  methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 /// <summary>Adds up-front support for HLSL matrix types (just the template declaration).</summary>
@@ -351,7 +352,10 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
 
 static void AddHLSLVectorSubscriptAttr(Decl *D, ASTContext &context) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
-  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
+  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, group, "",
+      static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
+  D->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 /// <summary>Adds up-front support for HLSL vector types (just the template declaration).</summary>
@@ -941,6 +945,7 @@ CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
   functionDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
       context, "op", "",
       static_cast<int>(hlsl::IntrinsicOp::IOP_CreateResourceFromHeap)));
+  functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
   return recordDecl;
 }
 
