@@ -7946,6 +7946,11 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
                                    srcRange);
   }
 
+  if (fromType->isSpecificBuiltinType(BuiltinType::LitInt)) {
+    return spvBuilder.createUnaryOp(spv::Op::OpBitcast, toIntType, fromVal,
+                                    srcLoc, srcRange);
+  }
+
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
     QualType convertedType = {};
