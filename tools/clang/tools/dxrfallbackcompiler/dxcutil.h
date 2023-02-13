@@ -58,7 +58,6 @@ struct AssembleInputs {
   IMalloc *pMalloc;
   hlsl::SerializeDxilFlags SerializeFlags;
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
-  IDxcVersionInfo *DXCVersionInfo;
   bool bDebugInfo;
   llvm::StringRef DebugName = llvm::StringRef();
   clang::DiagnosticsEngine *pDiag;
