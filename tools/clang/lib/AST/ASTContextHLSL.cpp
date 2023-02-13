@@ -819,7 +819,8 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
   ArrayRef<QualType> paramTypes,
   ArrayRef<StringRef> paramNames,
   DeclarationName declarationName,
-  bool isConst)
+  bool isConst,
+  bool isTemplateFunction)
 {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(!resultType.isNull());
@@ -850,7 +851,10 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
                                            parmVarDecls.size());
   }
 
-  recordDecl->addDecl(functionDecl);
+  // If this is going to be part of a template function decl, don't add it to
+  // the record because the template function decl will be added instead.
+  if (!isTemplateFunction)
+    recordDecl->addDecl(functionDecl);
 
   return functionDecl;
 }
