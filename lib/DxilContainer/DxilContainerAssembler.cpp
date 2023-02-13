@@ -1906,7 +1906,7 @@ void hlsl::SerializeDxilContainerForModule(
       if (DXCVersionInfo) {
         versionWriter.Init(DXCVersionInfo);
 
-        Part NewPart(
+        writer.AddPart(
           hlsl::DFCC_CompilerVersion,
           versionWriter.GetSize(),
           [&versionWriter](IStream *pStream) {
@@ -1914,7 +1914,6 @@ void hlsl::SerializeDxilContainerForModule(
             return S_OK;
           }
         );
-        AddPart(NewPart, versionWriter.GetSize());
       }
     }
 

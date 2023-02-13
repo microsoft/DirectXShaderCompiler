@@ -5657,6 +5657,11 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     case DFCC_FeatureInfo:
       VerifyFeatureInfoMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       break;
+    case DFCC_CompilerVersion:
+      // Either this blob is a PDB, or it is a library with shader model at least 6.8
+      if (pDxilModule->GetShaderModel()->IsSM68Plus() && ValCtx.isLibProfile) {
+        break;
+      }
     case DFCC_RootSignature:
       pRootSignaturePart = pPart;
       if (ValCtx.isLibProfile) {

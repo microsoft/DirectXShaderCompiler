@@ -160,6 +160,9 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     dxcutil::AssembleInputs inputs(std::move(M), pResultBlob,
                                    TM.GetInstalledAllocator(), flags,
                                    pOutputStream);
+    
+    // No access to compiler, make sure DXCVersionInfo is null
+    inputs.DXCVersionInfo = nullptr;
     dxcutil::AssembleToContainer(inputs);
 
     IFT(DxcResult::Create(S_OK, DXC_OUT_OBJECT, {
