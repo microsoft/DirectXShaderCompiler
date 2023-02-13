@@ -84,5 +84,5 @@ llvm::getDataFileStreamer(const std::string &Filename, std::string *StrError) {
         e.message() + "\n";
     return nullptr;
   }
-  return s; // HLSL Change: Silence warning about redundant move
+  return s; // HLSL Change - Fix redundant move warning.
 }
