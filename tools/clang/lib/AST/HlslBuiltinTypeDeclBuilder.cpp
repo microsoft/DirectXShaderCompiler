@@ -26,7 +26,6 @@ BuiltinTypeDeclBuilder::BuiltinTypeDeclBuilder(DeclContext* declContext, StringR
   IdentifierInfo& nameId = astContext.Idents.get(name, tok::TokenKind::identifier);
   m_recordDecl = CXXRecordDecl::Create(astContext, tagKind, declContext, NoLoc, NoLoc, &nameId, nullptr, /* DelayTypeCreation */ true);
   m_recordDecl->setImplicit(true);
-  declContext->addDecl(m_recordDecl);
 }
 
 TemplateTypeParmDecl* BuiltinTypeDeclBuilder::addTypeTemplateParam(StringRef name, TypeSourceInfo* defaultValue) {
@@ -87,6 +86,8 @@ void BuiltinTypeDeclBuilder::startDefinition() {
     QualType T = m_templateDecl->getInjectedClassNameSpecialization();
     T = astContext.getInjectedClassNameType(m_recordDecl, T);
     assert(T->isDependentType() && "Class template type is not dependent?");
+  } else {
+    declContext->addDecl(m_recordDecl);
   }
 
   m_recordDecl->setLexicalDeclContext(declContext);

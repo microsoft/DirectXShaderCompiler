@@ -917,6 +917,14 @@ def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// This attribute has no spelling, it is attached to methods by the compiler for
+// methods that require C++ lookup rules.
+def HLSLCXXOverload : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[CXXMethod]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
