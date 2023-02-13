@@ -544,6 +544,10 @@ TEST_F(FileTest, CastLiteralTypeForTernary) {
   runFileTest("cast.literal-type.ternary.hlsl");
 }
 
+TEST_F(FileTest, CastLiteralTypeForTernary2021) {
+  runFileTest("cast.literal-type.ternary.2021.hlsl");
+}
+
 // For vector/matrix splatting and trunction
 TEST_F(FileTest, CastTruncateVector) { runFileTest("cast.vector.trunc.hlsl"); }
 TEST_F(FileTest, CastTruncateMatrix) { runFileTest("cast.matrix.trunc.hlsl"); }
