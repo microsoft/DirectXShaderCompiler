@@ -1882,11 +1882,11 @@ void hlsl::SerializeDxilContainerForModule(
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  DxilContainerWriter *writer = NewDxilContainerWriter(bUnaligned);
+  DxilContainerWriter_impl writer(bUnaligned);
 
   // Write the feature part.
   DxilFeatureInfoWriter featureInfoWriter(*pModule);
-  writer->AddPart(DFCC_FeatureInfo, featureInfoWriter.size(), [&](AbstractMemoryStream *pStream) {
+  writer.AddPart(DFCC_FeatureInfo, featureInfoWriter.size(), [&](AbstractMemoryStream *pStream) {
     featureInfoWriter.write(pStream);
   });
 
@@ -1908,11 +1908,11 @@ void hlsl::SerializeDxilContainerForModule(
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
         bCompat_1_4, bUnaligned);
     // Write the input and output signature parts.
-    writer->AddPart(DFCC_InputSignature, pInputSigWriter->size(),
+    writer.AddPart(DFCC_InputSignature, pInputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
                      pInputSigWriter->write(pStream);
                    });
-    writer->AddPart(DFCC_OutputSignature, pOutputSigWriter->size(),
+    writer.AddPart(DFCC_OutputSignature, pOutputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
                      pOutputSigWriter->write(pStream);
                    });
@@ -1923,7 +1923,7 @@ void hlsl::SerializeDxilContainerForModule(
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
         bCompat_1_4, bUnaligned);
     if (pModule->GetPatchConstOrPrimSignature().GetElements().size()) {
-      writer->AddPart(DFCC_PatchConstantSignature,
+      writer.AddPart(DFCC_PatchConstantSignature,
                      pPatchConstOrPrimSigWriter->size(),
                      [&](AbstractMemoryStream *pStream) {
                        pPatchConstOrPrimSigWriter->write(pStream);
@@ -1951,7 +1951,7 @@ void hlsl::SerializeDxilContainerForModule(
 
         pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
 
-        writer->AddPart(
+        writer.AddPart(
           hlsl::DFCC_CompilerVersion,
           pVERSWriter->size(),
           [&pVERSWriter](AbstractMemoryStream *pStream) {
@@ -1964,7 +1964,7 @@ void hlsl::SerializeDxilContainerForModule(
 
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
-    writer->AddPart(
+    writer.AddPart(
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
     bMetadataStripped |= pModule->StripSubobjectsFromMetadata();
@@ -1972,7 +1972,7 @@ void hlsl::SerializeDxilContainerForModule(
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
     pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
-    writer->AddPart(
+    writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
 
@@ -1989,7 +1989,7 @@ void hlsl::SerializeDxilContainerForModule(
       }
       if ((Flags & SerializeDxilFlags::StripRootSignature) == 0) {
         // Write embedded root signature
-        writer->AddPart(
+        writer.AddPart(
           DFCC_RootSignature, rootSigWriter.size(),
           [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
       }
@@ -2013,7 +2013,7 @@ void hlsl::SerializeDxilContainerForModule(
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      writer->AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
+      writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
         hlsl::WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });
     }
@@ -2054,7 +2054,7 @@ void hlsl::SerializeDxilContainerForModule(
   }
 
   if (Flags & SerializeDxilFlags::IncludeReflectionPart) {
-    writer->AddPart(DFCC_ShaderStatistics, reflectPartSizeInBytes,
+    writer.AddPart(DFCC_ShaderStatistics, reflectPartSizeInBytes,
       [pModule, pReflectionBitcodeStream](AbstractMemoryStream *pStream) {
         WriteProgramPart(pModule->GetShaderModel(), pReflectionBitcodeStream, pStream);
       });
@@ -2107,7 +2107,7 @@ void hlsl::SerializeDxilContainerForModule(
     const uint32_t DebugInfoContentLen = PSVALIGN4(
         sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
 
-    writer->AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+    writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
       [DebugName]
       (AbstractMemoryStream *pStream)
     {
@@ -2127,7 +2127,7 @@ void hlsl::SerializeDxilContainerForModule(
 
   // Add hash to container if supported by validator version.
   if (bSupportsShaderHash) {
-    writer->AddPart(DFCC_ShaderHash, sizeof(HashContent),
+    writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
       [HashContent]
       (AbstractMemoryStream *pStream)
     {
@@ -2145,13 +2145,13 @@ void hlsl::SerializeDxilContainerForModule(
   GetPaddedProgramPartSize(pProgramStream, programInUInt32, programPaddingBytes);
 
   // Write the program part.
-  writer->AddPart(DFCC_DXIL, programInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
+  writer.AddPart(DFCC_DXIL, programInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
     WriteProgramPart(pModule->GetShaderModel(), pProgramStream, pStream);
   });
 
   // Private data part should be added last when assembling the container becasue there is no garuntee of aligned size
   if (pPrivateData) {
-    writer->AddPart(
+    writer.AddPart(
         hlsl::DFCC_PrivateData, PrivateDataSize,
         [&](AbstractMemoryStream *pStream) {
           ULONG cbWritten;
@@ -2159,7 +2159,7 @@ void hlsl::SerializeDxilContainerForModule(
         });
   }
 
-  writer->write(pFinalStream);
+  writer.write(pFinalStream);
 }
 
 void hlsl::SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
