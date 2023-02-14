@@ -33,7 +33,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
-#include "dxc/dxcapi.h"
+#include "dxc/Support/dxcapi.impl.h"
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRDATBuilder.h"
@@ -1008,43 +1008,96 @@ public:
   }
 };
 
-using namespace DXIL;
-
 //////////////////////////////////////////////////////////
-// DxilVERSWriter - Writes VERS part
-class DxilVERSWriter : public DxilPartWriter {
-private:
-  const char* m_pCompilerVersionString;
-  std::string m_paddedCompilerVersionString;
-  unsigned int m_size;
-
+// DxilVersionWriter - Writes VERS part
+class DxilVersionWriter : public DxilPartWriter {
+  hlsl::DxilCompilerVersion m_Header = {};
+  CComHeapPtr<char> m_CommitShaStorage;
+  llvm::StringRef m_CommitSha = "";
+  CComHeapPtr<char> m_CustomStringStorage;
+  llvm::StringRef m_CustomString = "";
+  IDxcVersionInfo *m_VersionInfo = nullptr;
 public:
-  DxilVERSWriter(const char* pCompilerVersionString)
-    : m_pCompilerVersionString(pCompilerVersionString)
+  DxilVersionWriter(IDxcVersionInfo *pVersion)
+  : m_VersionInfo(pVersion)
   {
-      m_size = strlen(pCompilerVersionString);
-      // make sure the string that is being written
-      // aligns with a 4 byte padding
-      m_paddedCompilerVersionString = m_pCompilerVersionString;
-      while (m_paddedCompilerVersionString.size() % 4 != 0)
-      {
-        m_paddedCompilerVersionString += '\0';
-      }
+    Init(pVersion);
   }
 
-  uint32_t unpadded_size() const {
-      return m_size;
+  void Init(IDxcVersionInfo *pVersionInfo) {
+    m_Header = {};
+
+    UINT32 Major = 0, Minor = 0;
+    UINT32 Flags = 0;
+    IFT(pVersionInfo->GetVersion(&Major, &Minor));
+    IFT(pVersionInfo->GetFlags(&Flags));
+
+    m_Header.Major = Major;
+    m_Header.Minor = Minor;
+    m_Header.VersionFlags = Flags;
+    CComPtr<IDxcVersionInfo2> pVersionInfo2;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
+      UINT32 CommitCount = 0;
+      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
+      m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
+      m_Header.CommitCount = CommitCount;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size();
+    }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
+
+    CComPtr<IDxcVersionInfo3> pVersionInfo3;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
+      IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
+      m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size();
+    }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
   }
 
-  uint32_t size() const override {
-    return m_paddedCompilerVersionString.size();
+  static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
+    uint32_t rem = size % 4;
+    if (rem) {
+      uint32_t padding = (4 - rem);
+      if (outNumPadding)
+        *outNumPadding = padding;
+      return size + padding;
+    }
+    if (outNumPadding)
+      *outNumPadding = 0;
+    return size;
   }
-  
-  void write(AbstractMemoryStream* pStream) {
-    ULONG cbWritten;    
-    IFT(pStream->Write(m_paddedCompilerVersionString.c_str(), size(), &cbWritten));
+
+  UINT32 size() const override {
+    return PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes);
+  }
+
+  void write(AbstractMemoryStream *pStream) override {
+    const uint8_t padByte = 0;
+    UINT32 uPadding = 0;
+    UINT32 uSize = PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes, &uPadding);
+    (void)uSize;
+
+    ULONG cbWritten = 0;
+    IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
+
+    // Write a null terminator even if the string is empty
+    IFT(pStream->Write(m_CommitSha.data(), m_CommitSha.size(), &cbWritten));
+    // Null terminator for the commit sha
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write the custom version string.
+    IFT(pStream->Write(m_CustomString.data(), m_CustomString.size(), &cbWritten));
+    // Null terminator for the custom version string.
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write padding
+    for (unsigned i = 0; i < uPadding; i++) {
+      IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+    }
   }
 };
+
+using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
 private:
@@ -1626,6 +1679,10 @@ DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
   return new DxilRDATWriter(M);
 }
 
+DxilPartWriter *hlsl::NewVersionWriter(IDxcVersionInfo *&DXCVersionInfo) {
+  return new DxilVersionWriter(DXCVersionInfo);
+}
+
 class DxilContainerWriter_impl : public DxilContainerWriter  {
 private:
   class DxilPart {
@@ -1639,6 +1696,7 @@ private:
   };
 
   llvm::SmallVector<DxilPart, 8> m_Parts;
+  SmallVector<UINT32, 4> OffsetTable;
   bool m_bUnaligned;
   bool m_bHasPrivateData;
 
@@ -1827,11 +1885,11 @@ void hlsl::SerializeDxilContainerForModule(
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  DxilContainerWriter_impl writer(bUnaligned);
+  DxilContainerWriter *writer = NewDxilContainerWriter(false);
 
   // Write the feature part.
   DxilFeatureInfoWriter featureInfoWriter(*pModule);
-  writer.AddPart(DFCC_FeatureInfo, featureInfoWriter.size(), [&](AbstractMemoryStream *pStream) {
+  writer->AddPart(DFCC_FeatureInfo, featureInfoWriter.size(), [&](AbstractMemoryStream *pStream) {
     featureInfoWriter.write(pStream);
   });
 
@@ -1853,11 +1911,11 @@ void hlsl::SerializeDxilContainerForModule(
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
         bCompat_1_4, bUnaligned);
     // Write the input and output signature parts.
-    writer.AddPart(DFCC_InputSignature, pInputSigWriter->size(),
+    writer->AddPart(DFCC_InputSignature, pInputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
                      pInputSigWriter->write(pStream);
                    });
-    writer.AddPart(DFCC_OutputSignature, pOutputSigWriter->size(),
+    writer->AddPart(DFCC_OutputSignature, pOutputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
                      pOutputSigWriter->write(pStream);
                    });
@@ -1868,27 +1926,16 @@ void hlsl::SerializeDxilContainerForModule(
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
         bCompat_1_4, bUnaligned);
     if (pModule->GetPatchConstOrPrimSignature().GetElements().size()) {
-      writer.AddPart(DFCC_PatchConstantSignature,
+      writer->AddPart(DFCC_PatchConstantSignature,
                      pPatchConstOrPrimSigWriter->size(),
                      [&](AbstractMemoryStream *pStream) {
                        pPatchConstOrPrimSigWriter->write(pStream);
                      });
     }
   }
-  CompilerVersionPartWriter versionWriter;
+  std::unique_ptr<DxilVersionWriter> pVERSWriter = nullptr;
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
-  
-  // Compute offset table.
-  SmallVector<UINT32, 4> OffsetTable;
-  SmallVector<DXIL::Part, 4> PartWriters;
-  UINT32 uTotalPartsSize = 0;
-
-  auto AddPart = [&PartWriters, &OffsetTable, &uTotalPartsSize](DXIL::Part NewPart, UINT32 uSize) {
-    OffsetTable.push_back(uTotalPartsSize);
-    uTotalPartsSize += uSize + sizeof(hlsl::DxilPartHeader);
-    PartWriters.push_back(NewPart);
-  };
 
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
@@ -1904,13 +1951,13 @@ void hlsl::SerializeDxilContainerForModule(
     
     if (pSM->GetMajor() >= 6 && pSM->GetMinor() >= 8) {
       if (DXCVersionInfo) {
-        versionWriter.Init(DXCVersionInfo);
+        pVERSWriter->Init(DXCVersionInfo);
 
-        writer.AddPart(
+        writer->AddPart(
           hlsl::DFCC_CompilerVersion,
-          versionWriter.GetSize(),
-          [&versionWriter](IStream *pStream) {
-            versionWriter.Write(pStream);
+          pVERSWriter->size(),
+          [&pVERSWriter](AbstractMemoryStream *pStream) {
+            pVERSWriter->write(pStream);
             return S_OK;
           }
         );
@@ -1919,7 +1966,7 @@ void hlsl::SerializeDxilContainerForModule(
 
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
-    writer.AddPart(
+    writer->AddPart(
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
     bMetadataStripped |= pModule->StripSubobjectsFromMetadata();
@@ -1927,7 +1974,7 @@ void hlsl::SerializeDxilContainerForModule(
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
     pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
-    writer.AddPart(
+    writer->AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
 
@@ -1944,7 +1991,7 @@ void hlsl::SerializeDxilContainerForModule(
       }
       if ((Flags & SerializeDxilFlags::StripRootSignature) == 0) {
         // Write embedded root signature
-        writer.AddPart(
+        writer->AddPart(
           DFCC_RootSignature, rootSigWriter.size(),
           [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
       }
@@ -1968,7 +2015,7 @@ void hlsl::SerializeDxilContainerForModule(
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
+      writer->AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
         hlsl::WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });
     }
@@ -2009,7 +2056,7 @@ void hlsl::SerializeDxilContainerForModule(
   }
 
   if (Flags & SerializeDxilFlags::IncludeReflectionPart) {
-    writer.AddPart(DFCC_ShaderStatistics, reflectPartSizeInBytes,
+    writer->AddPart(DFCC_ShaderStatistics, reflectPartSizeInBytes,
       [pModule, pReflectionBitcodeStream](AbstractMemoryStream *pStream) {
         WriteProgramPart(pModule->GetShaderModel(), pReflectionBitcodeStream, pStream);
       });
@@ -2062,7 +2109,7 @@ void hlsl::SerializeDxilContainerForModule(
     const uint32_t DebugInfoContentLen = PSVALIGN4(
         sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
 
-    writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+    writer->AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
       [DebugName]
       (AbstractMemoryStream *pStream)
     {
@@ -2082,7 +2129,7 @@ void hlsl::SerializeDxilContainerForModule(
 
   // Add hash to container if supported by validator version.
   if (bSupportsShaderHash) {
-    writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
+    writer->AddPart(DFCC_ShaderHash, sizeof(HashContent),
       [HashContent]
       (AbstractMemoryStream *pStream)
     {
@@ -2100,13 +2147,13 @@ void hlsl::SerializeDxilContainerForModule(
   GetPaddedProgramPartSize(pProgramStream, programInUInt32, programPaddingBytes);
 
   // Write the program part.
-  writer.AddPart(DFCC_DXIL, programInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
+  writer->AddPart(DFCC_DXIL, programInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
     WriteProgramPart(pModule->GetShaderModel(), pProgramStream, pStream);
   });
 
   // Private data part should be added last when assembling the container becasue there is no garuntee of aligned size
   if (pPrivateData) {
-    writer.AddPart(
+    writer->AddPart(
         hlsl::DFCC_PrivateData, PrivateDataSize,
         [&](AbstractMemoryStream *pStream) {
           ULONG cbWritten;
@@ -2114,7 +2161,7 @@ void hlsl::SerializeDxilContainerForModule(
         });
   }
 
-  writer.write(pFinalStream);
+  writer->write(pFinalStream);
 }
 
 void hlsl::SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
