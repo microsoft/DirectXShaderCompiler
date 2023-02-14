@@ -1016,10 +1016,8 @@ class DxilVersionWriter : public DxilPartWriter {
   llvm::StringRef m_CommitSha = "";
   CComHeapPtr<char> m_CustomStringStorage;
   llvm::StringRef m_CustomString = "";
-  IDxcVersionInfo *m_VersionInfo = nullptr;
 public:
   DxilVersionWriter(IDxcVersionInfo *pVersion)
-  : m_VersionInfo(pVersion)
   {
     Init(pVersion);
   }
