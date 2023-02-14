@@ -6,9 +6,8 @@
 ; CHECK:  %[[C_X:.+]] = load float, float* @c.0
 ; CHECK:  store float %[[C_X]], float* %[[TMP_X_PTR]]
 ; CHECK:  %call = call float @"\01?foo@C@@QAAMUS@@@Z"(%class.C* %[[TMP]], %struct.S* %s)
-; CHECK:  %[[TMP_X_PTR2:.+]] = getelementptr inbounds %class.C, %class.C* %[[TMP]], i32 0, i32 0
-; CHECK:  %[[TMP_X:.+]] = load float, float* %[[TMP_X_PTR2]]
-; CHECK:  store float %[[TMP_X]], float* @c.0
+; Make sure no copy out on constant global.
+; CHECK-NEXT: ret float %call
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -17,7 +16,7 @@ target triple = "dxil-ms-dx"
 %ConstantBuffer = type opaque
 %struct.S = type { float }
 
-@c = internal global %class.C zeroinitializer, align 4
+@c = internal constant %class.C zeroinitializer, align 4
 @"$Globals" = external constant %ConstantBuffer
 
 ; Function Attrs: nounwind
