@@ -1679,7 +1679,7 @@ DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
   return new DxilRDATWriter(M);
 }
 
-DxilPartWriter *hlsl::NewVersionWriter(IDxcVersionInfo *&DXCVersionInfo) {
+DxilPartWriter *hlsl::NewVersionWriter(IDxcVersionInfo *DXCVersionInfo) {
   return new DxilVersionWriter(DXCVersionInfo);
 }
 
