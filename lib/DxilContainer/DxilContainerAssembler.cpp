@@ -1882,7 +1882,7 @@ void hlsl::SerializeDxilContainerForModule(
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  DxilContainerWriter *writer = NewDxilContainerWriter(false);
+  DxilContainerWriter *writer = NewDxilContainerWriter(bUnaligned);
 
   // Write the feature part.
   DxilFeatureInfoWriter featureInfoWriter(*pModule);
