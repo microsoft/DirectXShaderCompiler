@@ -111,19 +111,6 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer();
   hlsl::DxilProgramHeader *ProgramHeader = nullptr;
 
-  struct Part {
-    typedef std::function<HRESULT(IStream *)> WriteProc;
-    UINT32 uFourCC = 0;
-    UINT32 uSize = 0;
-    WriteProc Writer;
-
-    Part(UINT32 uFourCC, UINT32 uSize, WriteProc Writer) :
-      uFourCC(uFourCC),
-      uSize(uSize),
-      Writer(Writer)
-    {}
-  };
-
   DxilContainerWriter *containerWriter = NewDxilContainerWriter(false);
 
   for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
@@ -133,7 +120,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
       const void *pPartData = PartHeader+1;
       containerWriter->AddPart(PartHeader->PartFourCC,
         uSize,
-        [pPartData, uSize](IStream *pStream) {
+        [pPartData, uSize](AbstractMemoryStream *pStream) {
           ULONG uBytesWritten = 0;
           IFR(pStream->Write(pPartData, uSize, &uBytesWritten));
           return S_OK;
