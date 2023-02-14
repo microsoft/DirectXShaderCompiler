@@ -1694,7 +1694,6 @@ private:
   };
 
   llvm::SmallVector<DxilPart, 8> m_Parts;
-  SmallVector<UINT32, 4> OffsetTable;
   bool m_bUnaligned;
   bool m_bHasPrivateData;
 
