@@ -111,7 +111,8 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer();
   hlsl::DxilProgramHeader *ProgramHeader = nullptr;
 
-  DxilContainerWriter *containerWriter = NewDxilContainerWriter(false);
+  std::unique_ptr<DxilContainerWriter> containerWriter(NewDxilContainerWriter(false));
+  std::unique_ptr<DxilPartWriter> pDxilVersionWriter(NewVersionWriter(pVersionInfo));
 
   for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
     hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
@@ -167,11 +168,9 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   }  
   
   if (pVersionInfo) {
-    DxilPartWriter *pDxilVersionWriter = NewVersionWriter(pVersionInfo);    
-
     containerWriter->AddPart(hlsl::DFCC_CompilerVersion,
       pDxilVersionWriter->size(),
-      [pDxilVersionWriter](AbstractMemoryStream *pStream) {
+      [&pDxilVersionWriter](AbstractMemoryStream *pStream) {
         ULONG uBytesWritten = 0;
         pDxilVersionWriter->write(pStream);
         return S_OK;
