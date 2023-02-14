@@ -1949,9 +1949,10 @@ void hlsl::SerializeDxilContainerForModule(
              "otherwise, library has root signature outside subobject definitions");
     // Write the DxilCompilerVersion (VERS) part.        
     
-    if (pSM->GetMajor() >= 6 && pSM->GetMinor() >= 8) {
+    if (pSM->IsSM68Plus()) {
       if (DXCVersionInfo) {
-        pVERSWriter->Init(DXCVersionInfo);
+
+        pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
 
         writer->AddPart(
           hlsl::DFCC_CompilerVersion,

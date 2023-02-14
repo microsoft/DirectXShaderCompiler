@@ -110,6 +110,7 @@ public:
   TEST_METHOD(DisassemblyWhenValidThenOK)
   TEST_METHOD(ValidateFromLL_Abs2)
   TEST_METHOD(DxilContainerUnitTest)
+  TEST_METHOD(DxilContainerCompilerVersionTest)
   TEST_METHOD(ContainerBuilder_AddPrivateForceLast)
 
   TEST_METHOD(ReflectionMatchesDXBC_CheckIn)
@@ -1971,6 +1972,42 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");
+}
+
+// Test to see if the Compiler Version (VERS) part gets added to library shaders with SM >= 6.8
+TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+  std::vector<LPCWSTR> arguments;
+  arguments.emplace_back(L"/Zi");
+  arguments.emplace_back(L"/Qembed_debug");
+  
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
+  // Test DxilContainer with ShaderDebugInfoDXIL  
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"lib_6_7", arguments.data(), arguments.size(), nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  
+  const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));  
+  VERIFY_IS_NULL(hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+  
+  pResult.Release();
+  pProgram.Release();
+
+  // Test DxilContainer without ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"lib_6_8", nullptr, 0, nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  
+  pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));  
+  VERIFY_IS_NOT_NULL(hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {
