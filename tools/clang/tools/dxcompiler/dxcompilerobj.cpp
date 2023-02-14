@@ -1022,7 +1022,7 @@ public:
               pRootSigStream, pRootSignatureBlob, pPrivateBlob,
               opts.SelectValidator);
 
-          inputs.DXCVersionInfo = static_cast<IDxcVersionInfo *>(this);
+          inputs.pVersionInfo = static_cast<IDxcVersionInfo *>(this);
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);

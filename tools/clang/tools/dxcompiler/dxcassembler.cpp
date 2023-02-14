@@ -162,7 +162,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
                                    pOutputStream);
     
     // No access to compiler, make sure DXCVersionInfo is null
-    inputs.DXCVersionInfo = nullptr;
+    inputs.pVersionInfo = nullptr;
     dxcutil::AssembleToContainer(inputs);
 
     IFT(DxcResult::Create(S_OK, DXC_OUT_OBJECT, {
