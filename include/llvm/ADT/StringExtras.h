@@ -41,7 +41,7 @@ static inline unsigned hexDigitValue(char C) {
   if (C >= '0' && C <= '9') return C-'0';
   if (C >= 'a' && C <= 'f') return C-'a'+10U;
   if (C >= 'A' && C <= 'F') return C-'A'+10U;
-  return -1U;
+  return UINT_MAX;
 }
 
 /// utohex_buffer - Emit the specified number into the buffer specified by

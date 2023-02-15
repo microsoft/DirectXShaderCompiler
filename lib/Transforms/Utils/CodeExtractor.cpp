@@ -332,7 +332,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
     DEBUG(dbgs() << **i << ", ");
   DEBUG(dbgs() << ")\n");
 
-  StructType *StructTy;
+  StructType *StructTy = nullptr;
   if (AggregateArgs && (inputs.size() + outputs.size() > 0)) {
     StructTy = StructType::get(M->getContext(), paramTy);
     paramTy.clear();

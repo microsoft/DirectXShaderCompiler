@@ -49,9 +49,9 @@ public:
     bool isBaseAddressSelectionEntry(uint8_t AddressSize) const {
       assert(AddressSize == 4 || AddressSize == 8);
       if (AddressSize == 4)
-        return StartAddress == -1U;
+        return StartAddress == UINT_MAX;
       else
-        return StartAddress == -1ULL;
+        return StartAddress == UINT64_MAX;
     }
   };
 

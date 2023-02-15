@@ -135,8 +135,7 @@ raw_ostream &raw_ostream::operator<<(unsigned long N) {
 raw_ostream &raw_ostream::operator<<(long N) {
   if (N < 0 && writeBase == 10) {
     *this << '-';
-    // Avoid undefined behavior on LONG_MIN with a cast.
-    N = -(unsigned long)N;
+    N = SafeNegate<long>(N);
   }
 
   return this->operator<<(static_cast<unsigned long>(N));
@@ -170,8 +169,8 @@ raw_ostream &raw_ostream::operator<<(unsigned long long N) {
 raw_ostream &raw_ostream::operator<<(long long N) {
   if (N < 0 && writeBase == 10) {
     *this << '-';
-    // Avoid undefined behavior on INT64_MIN with a cast.
-    N = -(unsigned long long)N;
+    // Avoid undefined behavior of -LLONG_MIN
+    N = SafeNegate<long long>(N);
   }
 
   return this->operator<<(static_cast<unsigned long long>(N));
@@ -469,7 +468,7 @@ raw_ostream &raw_ostream::operator<<(const FormattedNumber &FN) {
     char *EndPtr = NumberBuffer+sizeof(NumberBuffer);
     char *CurPtr = EndPtr;
     bool Neg = (FN.DecValue < 0);
-    uint64_t N = Neg ? -static_cast<uint64_t>(FN.DecValue) : FN.DecValue;
+    uint64_t N = Neg ? SafeNegate<int64_t>(FN.DecValue) : FN.DecValue;
     while (N) {
       *--CurPtr = '0' + char(N % 10);
       N /= 10;

@@ -666,7 +666,7 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
 
     LoopHintAttr::OptionType Option = LH->getOption();
     LoopHintAttr::LoopHintState State = LH->getState();
-    const char *MetadataName;
+    const char *MetadataName = nullptr;
     switch (Option) {
     case LoopHintAttr::Vectorize:
     case LoopHintAttr::VectorizeWidth:
@@ -694,8 +694,8 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
       ValueInt = static_cast<int>(ValueAPS.getSExtValue());
     }
 
-    llvm::Constant *Value;
-    llvm::MDString *Name;
+    llvm::Constant *Value = nullptr;
+    llvm::MDString *Name = nullptr;
     switch (Option) {
     case LoopHintAttr::Vectorize:
     case LoopHintAttr::Interleave:

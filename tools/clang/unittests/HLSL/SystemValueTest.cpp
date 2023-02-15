@@ -101,7 +101,7 @@ public:
       IFT(library->CreateBlobFromFile(path.c_str(), nullptr, &m_pSource));
     }
 
-    LPCWSTR entry, profile;
+    LPCWSTR entry = nullptr, profile = nullptr;
     wchar_t profile_buf[] = L"vs_6_1";
     switch(shaderKind) {
       case DXIL::ShaderKind::Vertex:    entry = L"VSMain"; profile = L"vs_6_1"; break;

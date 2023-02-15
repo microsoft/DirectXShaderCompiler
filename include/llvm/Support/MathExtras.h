@@ -643,6 +643,11 @@ inline int64_t SignExtend64(uint64_t X, unsigned B) {
 }
 
 extern const float huge_valf;
+
+template <typename T> inline T SafeNegate(T value) {
+  return (value == std::numeric_limits<T>::min()) ? std::numeric_limits<T>::min() : -value;
+}
+
 } // End llvm namespace
 
 #endif

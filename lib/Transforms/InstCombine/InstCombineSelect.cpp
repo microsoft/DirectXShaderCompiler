@@ -541,8 +541,8 @@ Instruction *InstCombiner::visitSelectInstWithICmp(SelectInst &SI,
   {
     unsigned BitWidth = DL.getTypeSizeInBits(TrueVal->getType());
     APInt MinSignedValue = APInt::getSignBit(BitWidth);
-    Value *X;
-    const APInt *Y, *C;
+    Value *X = nullptr;
+    const APInt *Y = nullptr, *C;
     bool TrueWhenUnset;
     bool IsBitTest = false;
     if (ICmpInst::isEquality(Pred) &&

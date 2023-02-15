@@ -394,12 +394,11 @@ bool llvm::getAsSignedInteger(StringRef Str, unsigned Radix,
   // Get the positive part of the value.
   if (getAsUnsignedInteger(Str.substr(1), Radix, ULLVal) ||
       // Reject values so large they'd overflow as negative signed, but allow
-      // "-0".  This negates the unsigned so that the negative isn't undefined
-      // on signed overflow.
-      (long long)-ULLVal > 0)
+      // "-0".
+      SafeNegate<long long>(ULLVal) > 0)
     return true;
 
-  Result = -ULLVal;
+  Result = SafeNegate<long long>(ULLVal);
   return false;
 }
 

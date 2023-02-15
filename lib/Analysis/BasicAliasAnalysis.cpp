@@ -1117,7 +1117,7 @@ AliasResult BasicAliasAnalysis::aliasGEP(
       // stripped a gep with negative index ('gep <ptr>, -1, ...).
       if (V1Size != MemoryLocation::UnknownSize &&
           V2Size != MemoryLocation::UnknownSize) {
-        if (-(uint64_t)GEP1BaseOffset < V1Size)
+        if ((uint64_t)SafeNegate<int64_t>(GEP1BaseOffset) < V1Size)
           return PartialAlias;
         return NoAlias;
       }

@@ -5924,8 +5924,8 @@ void DxbcConverter::LoadOperand(OperandValue &SrcVal,
   case D3D11_SB_OPERAND_TYPE_INPUT_CONTROL_POINT: {
     OP::OpCode OpCode = OP::OpCode::LoadInput;
     unsigned Register;        // Starting index of the register range.
-    Value *pUnitIndexValue;   // Vertex/point index expression.
-    Value *pRowIndexValue;    // Row index expression.
+    Value *pUnitIndexValue = nullptr;   // Vertex/point index expression.
+    Value *pRowIndexValue = nullptr;    // Row index expression.
 
     switch (O.m_IndexDimension) {
     case D3D10_SB_OPERAND_INDEX_1D:

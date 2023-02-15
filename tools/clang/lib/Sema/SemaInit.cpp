@@ -3476,7 +3476,7 @@ static void TryConstructorInitialization(Sema &S,
   DeclContext::lookup_result Ctors = S.LookupConstructors(DestRecordDecl);
 
   OverloadingResult Result = OR_No_Viable_Function;
-  OverloadCandidateSet::iterator Best;
+  OverloadCandidateSet::iterator Best = nullptr;
   bool AsInitializerList = false;
 
   // C++11 [over.match.list]p1, per DR1467:

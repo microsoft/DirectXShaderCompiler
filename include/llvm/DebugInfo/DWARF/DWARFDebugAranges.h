@@ -32,12 +32,12 @@ private:
   void construct();
 
   struct Range {
-    explicit Range(uint64_t LowPC = -1ULL, uint64_t HighPC = -1ULL,
-                   uint32_t CUOffset = -1U)
+    explicit Range(uint64_t LowPC = UINT64_MAX, uint64_t HighPC = UINT64_MAX,
+                   uint32_t CUOffset = UINT_MAX)
       : LowPC(LowPC), Length(HighPC - LowPC), CUOffset(CUOffset) {}
 
     void setHighPC(uint64_t HighPC) {
-      if (HighPC == -1ULL || HighPC <= LowPC)
+      if (HighPC == UINT64_MAX || HighPC <= LowPC)
         Length = 0;
       else
         Length = HighPC - LowPC;
@@ -45,7 +45,7 @@ private:
     uint64_t HighPC() const {
       if (Length)
         return LowPC + Length;
-      return -1ULL;
+      return UINT64_MAX;
     }
 
     bool containsAddress(uint64_t Address) const {

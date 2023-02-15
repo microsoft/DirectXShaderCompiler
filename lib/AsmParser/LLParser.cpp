@@ -2842,7 +2842,7 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
     unsigned Opc = Lex.getUIntVal();
     SmallVector<Constant*, 16> Elts;
     bool InBounds = false;
-    Type *Ty;
+    Type *Ty = nullptr;
     Lex.Lex();
 
     if (Opc == Instruction::GetElementPtr)

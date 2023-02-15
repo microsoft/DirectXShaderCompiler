@@ -1049,7 +1049,7 @@ private:
     FormatTok = new (Allocator.Allocate()) FormatToken;
     readRawToken(*FormatTok);
     SourceLocation WhitespaceStart =
-        FormatTok->Tok.getLocation().getLocWithOffset(-TrailingWhitespace);
+        FormatTok->Tok.getLocation().getLocWithOffset(-(signed)TrailingWhitespace);
     FormatTok->IsFirst = IsFirstToken;
     IsFirstToken = false;
 

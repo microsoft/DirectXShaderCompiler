@@ -6555,7 +6555,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
     // handle all cases where the expression has side-effects.
     if (E->getArg(0)->HasSideEffects(Info.Ctx)) {
       if (E->getArg(1)->EvaluateKnownConstInt(Info.Ctx).getZExtValue() <= 1)
-        return Success(-1ULL, E);
+        return Success(UINT64_MAX, E);
       return Success(0, E);
     }
 
@@ -6570,7 +6570,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
       return Error(E);
     case EvalInfo::EM_ConstantExpressionUnevaluated:
     case EvalInfo::EM_PotentialConstantExpressionUnevaluated:
-      return Success(-1ULL, E);
+      return Success(UINT64_MAX, E);
     }
     llvm_unreachable("Invalid EvalMode!");
   }

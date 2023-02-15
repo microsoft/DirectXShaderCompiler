@@ -1868,7 +1868,7 @@ static Value *SimplifyOrInst(Value *Op0, Value *Op1, const Query &Q,
       // If we have: ((V + N) & C1) | (V & C2)
       // .. and C2 = ~C1 and C2 is 0+1+ and (N & C2) == 0
       // replace with V+N.
-      Value *V1, *V2;
+      Value* V1 = nullptr, *V2 = nullptr;
       if ((C2->getValue() & (C2->getValue() + 1)) == 0 && // C2 == 0+1+
           match(A, m_Add(m_Value(V1), m_Value(V2)))) {
         // Add commutes, try both ways.
@@ -3348,8 +3348,8 @@ static Value *SimplifySelectInst(Value *CondVal, Value *TrueVal,
     Value *CmpLHS = ICI->getOperand(0);
     Value *CmpRHS = ICI->getOperand(1);
     APInt MinSignedValue = APInt::getSignBit(BitWidth);
-    Value *X;
-    const APInt *Y;
+    Value *X = nullptr;
+    const APInt *Y = nullptr;
     bool TrueWhenUnset;
     bool IsBitTest = false;
     if (ICmpInst::isEquality(Pred) &&
@@ -4109,7 +4109,7 @@ Constant *FoldBitCast(Constant *C, Type *DestTy, const DataLayout &DL) {
         // Shift it to the right place, depending on endianness.
         Src = ConstantExpr::getShl(Src,
                                    ConstantInt::get(Src->getType(), ShiftAmt));
-        ShiftAmt += isLittleEndian ? SrcBitSize : -SrcBitSize;
+        ShiftAmt += isLittleEndian ? SrcBitSize : -(signed)SrcBitSize;
 
         // Mix it in.
         Elt = ConstantExpr::getOr(Elt, Src);
@@ -4146,7 +4146,7 @@ Constant *FoldBitCast(Constant *C, Type *DestTy, const DataLayout &DL) {
       // endianness.
       Constant *Elt = ConstantExpr::getLShr(Src,
                                   ConstantInt::get(Src->getType(), ShiftAmt));
-      ShiftAmt += isLittleEndian ? DstBitSize : -DstBitSize;
+      ShiftAmt += isLittleEndian ? DstBitSize : -(signed)DstBitSize;
 
       // Truncate the element to an integer with the same pointer size and
       // convert the element back to a pointer using a inttoptr.

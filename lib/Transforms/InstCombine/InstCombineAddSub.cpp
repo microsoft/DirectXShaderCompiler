@@ -1171,8 +1171,8 @@ Instruction *InstCombiner::visitAdd(BinaryOperator &I) {
 
   if (ConstantInt *CRHS = dyn_cast<ConstantInt>(RHS)) {
     // (X & FF00) + xx00  -> (X+xx00) & FF00
-    Value *X;
-    ConstantInt *C2;
+    Value *X = nullptr;
+    ConstantInt *C2 = nullptr;
     if (LHS->hasOneUse() &&
         match(LHS, m_And(m_Value(X), m_ConstantInt(C2))) &&
         CRHS->getValue() == (CRHS->getValue() & C2->getValue())) {
@@ -1390,12 +1390,12 @@ Instruction *InstCombiner::visitFAdd(BinaryOperator &I) {
 
   // select C, 0, B + select C, A, 0 -> select C, A, B
   {
-    Value *A1, *B1, *C1, *A2, *B2, *C2;
+    Value *A1 = nullptr, *B1 = nullptr, *C1 = nullptr, *A2 = nullptr, *B2 = nullptr, *C2 = nullptr;
     if (match(LHS, m_Select(m_Value(C1), m_Value(A1), m_Value(B1))) &&
         match(RHS, m_Select(m_Value(C2), m_Value(A2), m_Value(B2)))) {
       if (C1 == C2) {
         Constant *Z1=nullptr, *Z2=nullptr;
-        Value *A, *B, *C=C1;
+        Value *A = nullptr, *B = nullptr, *C = C1;
         if (match(A1, m_AnyZero()) && match(B2, m_AnyZero())) {
             Z1 = dyn_cast<Constant>(A1); A = A2;
             Z2 = dyn_cast<Constant>(B2); B = B1;

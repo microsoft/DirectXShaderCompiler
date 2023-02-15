@@ -29,7 +29,7 @@ static SourceLocation getStandardSelLoc(unsigned Index,
       return SourceLocation();
     IdentifierInfo *II = Sel.getIdentifierInfoForSlot(0);
     unsigned Len = II ? II->getLength() : 0;
-    return EndLoc.getLocWithOffset(-Len);
+    return EndLoc.getLocWithOffset(-(signed)Len);
   }
 
   assert(Index < NumSelArgs);
@@ -39,7 +39,7 @@ static SourceLocation getStandardSelLoc(unsigned Index,
   unsigned Len = /* selector id */ (II ? II->getLength() : 0) + /* ':' */ 1;
   if (WithArgSpace)
     ++Len;
-  return ArgLoc.getLocWithOffset(-Len);
+  return ArgLoc.getLocWithOffset(-(signed)Len);
 }
 
 namespace {

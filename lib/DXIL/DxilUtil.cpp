@@ -178,11 +178,11 @@ void PrintUnescapedString(StringRef Name, raw_ostream &Out) {
     if (C == '\\') {
       C = Name[++i];
       unsigned value = hexDigitValue(C);
-      if (value != -1U) {
+      if (value != UINT_MAX) {
         C = (unsigned char)value;
         unsigned value2 = hexDigitValue(Name[i+1]);
-        assert(value2 != -1U && "otherwise, not a two digit hex escape");
-        if (value2 != -1U) {
+        assert(value2 != UINT_MAX && "otherwise, not a two digit hex escape");
+        if (value2 != UINT_MAX) {
           C = (C << 4) + (unsigned char)value2;
           ++i;
         }

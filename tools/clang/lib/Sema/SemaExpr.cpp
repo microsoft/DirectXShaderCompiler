@@ -1466,7 +1466,7 @@ Sema::CreateGenericSelectionExpr(SourceLocation KeyLoc,
         ContainsUnexpandedParameterPack);
 
   SmallVector<unsigned, 1> CompatIndices;
-  unsigned DefaultIndex = -1U;
+  unsigned DefaultIndex = UINT_MAX;
   for (unsigned i = 0; i < NumAssocs; ++i) {
     if (!Types[i])
       DefaultIndex = i;
@@ -1498,7 +1498,7 @@ Sema::CreateGenericSelectionExpr(SourceLocation KeyLoc,
   // C11 6.5.1.1p2 "If a generic selection has no default generic association,
   // its controlling expression shall have type compatible with exactly one of
   // the types named in its generic association list."
-  if (DefaultIndex == -1U && CompatIndices.size() == 0) {
+  if (DefaultIndex == UINT_MAX && CompatIndices.size() == 0) {
     // We strip parens here because the controlling expression is typically
     // parenthesized in macro definitions.
     ControllingExpr = ControllingExpr->IgnoreParens();

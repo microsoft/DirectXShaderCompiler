@@ -791,7 +791,7 @@ void DependenceAnalysis::collectCommonLoops(const SCEV *Expression,
 void DependenceAnalysis::unifySubscriptType(ArrayRef<Subscript *> Pairs) {
 
   unsigned widestWidthSeen = 0;
-  Type *widestType;
+  Type *widestType = nullptr;
 
   // Go through each pair and find the widest bit to which we need
   // to extend all of them.

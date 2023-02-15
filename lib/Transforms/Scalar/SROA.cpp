@@ -1780,7 +1780,7 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
   // never are able to compute one directly that has the correct type, we'll
   // fall back to it, so keep it and the base it was computed from around here.
   Value *OffsetPtr = nullptr;
-  Value *OffsetBasePtr;
+  Value *OffsetBasePtr = nullptr;
 
   // Remember any i8 pointer we come across to re-use if we need to do a raw
   // byte offset.

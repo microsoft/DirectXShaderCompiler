@@ -245,7 +245,7 @@ void clang::expandUCNs(SmallVectorImpl<char> &Buf, StringRef Input) {
     uint32_t CodePoint = 0;
     for (++I; NumHexDigits != 0; ++I, --NumHexDigits) {
       unsigned Value = llvm::hexDigitValue(*I);
-      assert(Value != -1U);
+      assert(Value != UINT_MAX);
 
       CodePoint <<= 4;
       CodePoint += Value;
