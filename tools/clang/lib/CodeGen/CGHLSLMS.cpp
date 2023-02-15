@@ -6007,7 +6007,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
 
-      bool mustCopy = bAnnotResource;
+      // Always copy for external user function or noinline function, so the
+      // argument will be always be alloca for noinline functions.
+      // This will avoid to add more code path to support case argument is
+      // input/output signature or static globals.
+      bool mustCopy = bAnnotResource || FD->hasAttr<NoInlineAttr>() ||
+                      (!FD->hasBody() && !FD->hasAttr<HLSLIntrinsicAttr>());
 
       // If matrix orientation changes, we must copy here
       // TODO: A high level intrinsic for matrix array copy with orientation
