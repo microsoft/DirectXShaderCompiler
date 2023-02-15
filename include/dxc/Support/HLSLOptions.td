@@ -143,8 +143,10 @@ def fno_associative_math : Flag<["-"], "fno-associative-math">, Group<hlsloptz_G
 //  Flag<["-"], "freciprocal-math">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
 //  HelpText<"Allow division operations to be reassociated">;
 def fno_reciprocal_math : Flag<["-"], "fno-reciprocal-math">, Group<hlsloptz_Group>;
-def ffinite_math_only : Flag<["-"], "ffinite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>;
-def fno_finite_math_only : Flag<["-"], "fno-finite-math-only">, Group<hlsloptz_Group>;
+def ffinite_math_only: Flag<["-"], "ffinite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+  HelpText<"Allow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs.">;
+def fno_finite_math_only: Flag<["-"], "fno-finite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+  HelpText<"Disallow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs.">;
 def fsigned_zeros : Flag<["-"], "fsigned-zeros">, Group<hlsloptz_Group>;
 //def fno_signed_zeros :
 //  Flag<["-"], "fno-signed-zeros">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
@@ -171,6 +173,10 @@ def opt_select : MultiArg<["-", "/"], "opt-select", 2>, MetaVarName<"<opt> <vari
 def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Disable source location tracking in IR. This will break diagnostic generation for late validation. (Ignored if /Zi is passed)">;
+
+def fnew_inlining_behavior : Flag<["-"], "fnew-inlining-behavior">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Experimental option to use heuristics-driven late inlining and disable alwaysinline annotation for library shaders">;
 
 
 def ftime_report : Flag<["-"], "ftime-report">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Print time report">;
@@ -242,6 +248,8 @@ def _version : Flag<["--"], "version">, Group<hlslcore_Group>, Flags<[DriverOpti
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
+def ast_dump_implicit : Flag<["-", "/"], "ast-dump-implicit">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Dumps the parsed Abstract Syntax Tree, including implicit top-level decls.">; 
 def dump_dependencies : Flag<["-", "/"], "M">, Flags<[CoreOption, DriverOption]>,
   HelpText<"Dumps the list of the compilation target dependencies.">;
 def write_dependencies : Flag<["-", "/"], "MD">, Flags<[CoreOption, DriverOption]>,

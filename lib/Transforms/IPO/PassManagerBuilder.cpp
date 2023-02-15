@@ -410,9 +410,8 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
   MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
-  MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/this->HLSLEnableLifetimeMarkers));
-  if (Inliner) {
-    delete Inliner;
+  if (HLSLEarlyInlining && Inliner) {
+    MPM.add(Inliner);
     Inliner = nullptr;
   }
   addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, this->HLSLEnableLifetimeMarkers, HLSLExtensionsCodeGen, MPM); // HLSL Change

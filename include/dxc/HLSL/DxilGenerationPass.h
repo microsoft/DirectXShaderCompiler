@@ -140,4 +140,7 @@ void initializeDxilDeleteRedundantDebugValuesPass(llvm::PassRegistry&);
 FunctionPass *createDxilSimpleGVNEliminateRegionPass();
 void initializeDxilSimpleGVNEliminateRegionPass(llvm::PassRegistry&);
 
+ModulePass *createDxilModuleInitPass();
+void initializeDxilModuleInitPass(llvm::PassRegistry &);
+
 }

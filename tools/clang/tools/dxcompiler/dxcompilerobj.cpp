@@ -18,6 +18,7 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -1480,6 +1481,11 @@ public:
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
+    // Enable dumping implicit top level decls either if it was specifically
+    // requested or if we are not dumping the ast from the command line. That
+    // allows us to dump implicit AST nodes in the debugger.
+    compiler.getLangOpts().DumpImplicitTopLevelDecls =
+        Opts.AstDumpImplicit || !Opts.AstDump;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1562,9 +1568,11 @@ public:
     if (Opts.AvoidFlowControl)
       compiler.getCodeGenOpts().UnrollLoops = true;
 
-    // always inline for hlsl
-    compiler.getCodeGenOpts().setInlining(
-        clang::CodeGenOptions::OnlyAlwaysInlining);
+    clang::CodeGenOptions::InliningMethod Inlining =
+        clang::CodeGenOptions::OnlyAlwaysInlining;
+    if (Opts.NewInlining)
+      Inlining = clang::CodeGenOptions::NormalInlining;
+    compiler.getCodeGenOpts().setInlining(Inlining);
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
 

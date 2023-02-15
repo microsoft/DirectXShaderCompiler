@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_5 -HV 2021 -ast-dump %s | FileCheck -check-prefix=AST %s
+// RUN: %dxc -T cs_6_5 -HV 2021 -ast-dump-implicit %s | FileCheck -check-prefix=AST %s
 // RUN: %dxc -T cs_6_5 -HV 2021 %s | FileCheck %s
 RWStructuredBuffer<float> Output;
 
@@ -35,9 +35,9 @@ void main() {
 // literal types in, because we can constant fold them as with higher precision.
 
 // Verify that the abs call is still `literal float`
-// AST: DeclRefExpr 0x{{[0-9a-zA-Z]+}} <col:15> 'literal float (literal float)' lvalue Function 0x{{[0-9a-zA-Z]+}} 'abs'
+// AST: DeclRefExpr 0x{{[0-9a-zA-Z]+}} <col:15> 'literal float (literal float)' lvalue Function [[abs:0x[0-9a-zA-Z]+]] 'abs'
 
-// AST:      FunctionDecl 0x{{[0-9a-zA-Z]+}} <<invalid sloc>> <invalid sloc> implicit used abs 'literal float (literal float)' extern
+// AST:      FunctionDecl [[abs]] <<invalid sloc>> <invalid sloc> implicit used abs 'literal float (literal float)' extern
 // AST-NEXT: ParmVarDecl 0x{{[0-9a-zA-Z]+}} <<invalid sloc>> <invalid sloc> x 'literal float'
 
 

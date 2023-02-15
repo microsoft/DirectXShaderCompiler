@@ -301,10 +301,6 @@ struct SemanticDecl : public UnusualAnnotation
 ParameterModifier
 ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
 
-/// Returns a ParameterModifier initialized as per the attribute list.
-ParameterModifier
-ParamModFromAttrs(llvm::ArrayRef<clang::InheritableAttr *> attributes);
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AST manipulation functions.
 
@@ -466,7 +462,8 @@ clang::CXXMethodDecl* CreateObjectFunctionDeclarationWithParams(
   llvm::ArrayRef<clang::QualType> paramTypes,
   llvm::ArrayRef<clang::StringRef> paramNames,
   clang::DeclarationName declarationName,
-  bool isConst);
+  bool isConst,
+  bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,
                                             clang::QualType Ty);

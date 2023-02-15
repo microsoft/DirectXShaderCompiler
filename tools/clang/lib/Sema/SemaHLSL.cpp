@@ -2686,9 +2686,12 @@ public:
   }
 };
 
-static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context, HLSubscriptOpcode opcode) {
+static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context,
+                                 HLSubscriptOpcode opcode) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
-  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(opcode)));
+  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "",
+                                               static_cast<unsigned>(opcode)));
+  D->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 static void CreateSimpleField(clang::ASTContext &context, CXXRecordDecl *recordDecl, StringRef Name,
@@ -3262,9 +3265,11 @@ private:
     // Create the declaration.
     IdentifierInfo* ii = &m_context->Idents.get(StringRef(intrinsic->pArgs[0].pName));
     DeclarationName declarationName = DeclarationName(ii);
-    CXXMethodDecl* functionDecl = CreateObjectFunctionDeclarationWithParams(*m_context, recordDecl,
-      functionResultQT, ArrayRef<QualType>(argsQTs, numParams), ArrayRef<StringRef>(argNames, numParams),
-      declarationName, true);
+    CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
+        *m_context, recordDecl, functionResultQT,
+        ArrayRef<QualType>(argsQTs, numParams),
+        ArrayRef<StringRef>(argNames, numParams), declarationName, true,
+        templateParamNamedDeclsCount > 0);
     functionDecl->setImplicit(true);
 
     // If the function is a template function, create the declaration and cross-reference.
@@ -3452,10 +3457,12 @@ private:
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, resultType, ArrayRef<QualType>(indexType),
         ArrayRef<StringRef>(StringRef("index")),
-        m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true);
+        m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true,
+        true);
     hlsl::CreateFunctionTemplateDecl(
         *m_context, recordDecl, functionDecl,
         reinterpret_cast<NamedDecl **>(&templateTypeParmDecl), 1);
+    functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(*m_context));
 
     // Add a .mips member if necessary.
     QualType uintType = m_context->UnsignedIntTy;

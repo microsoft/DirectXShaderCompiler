@@ -3121,8 +3121,11 @@ void UpdateLinkage(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM,
         f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
       }
     }
-    // Skip no inline functions.
-    if (f.hasFnAttribute(llvm::Attribute::NoInline))
+    // Skip no inline functions, or all functions if we're not in the
+    // AlwaysInline mode.
+    if (f.hasFnAttribute(llvm::Attribute::NoInline) ||
+        (CGM.getCodeGenOpts().getInlining() !=
+            clang::CodeGenOptions::OnlyAlwaysInlining && bIsLib))
       continue;
     // Always inline for used functions.
     if (!f.user_empty() && !f.isDeclaration())

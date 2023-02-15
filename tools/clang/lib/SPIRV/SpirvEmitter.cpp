@@ -1129,6 +1129,9 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
       result = curThis;
   } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {
     result = doUnaryExprOrTypeTraitExpr(unaryExpr);
+  } else if (const auto *tmplParamExpr =
+                 dyn_cast<SubstNonTypeTemplateParmExpr>(expr)) {
+    result = doExpr(tmplParamExpr->getReplacement());
   } else {
     emitError("expression class '%0' unimplemented", expr->getExprLoc())
         << expr->getStmtClassName() << expr->getSourceRange();
@@ -7946,6 +7949,11 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
                                    srcRange);
   }
 
+  if (fromType->isSpecificBuiltinType(BuiltinType::LitInt)) {
+    return spvBuilder.createUnaryOp(spv::Op::OpBitcast, toIntType, fromVal,
+                                    srcLoc, srcRange);
+  }
+
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
     QualType convertedType = {};
@@ -8569,6 +8577,26 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = doConditional(callExpr, cond, falseExpr, trueExpr);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_min: {
+    glslOpcode =
+        isFloatType  ? (spirvOptions.finiteMathOnly ? GLSLstd450::GLSLstd450FMin
+                                                    : GLSLstd450::GLSLstd450NMin)
+        : isSintType ? GLSLstd450::GLSLstd450SMin
+                     : GLSLstd450::GLSLstd450UMin;
+    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, true, srcLoc,
+                                           srcRange);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_max: {
+    glslOpcode =
+        isFloatType  ? (spirvOptions.finiteMathOnly ? GLSLstd450::GLSLstd450FMax
+                                                    : GLSLstd450::GLSLstd450NMax)
+        : isSintType ? GLSLstd450::GLSLstd450SMax
+                     : GLSLstd450::GLSLstd450UMax;
+    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, true, srcLoc,
+                                           srcRange);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
     INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
@@ -8610,9 +8638,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(lerp, FMix, true);
     INTRINSIC_OP_CASE(log, Log, true);
     INTRINSIC_OP_CASE(log2, Log2, true);
-    INTRINSIC_OP_CASE_SINT_UINT_FLOAT(max, SMax, UMax, NMax, true);
     INTRINSIC_OP_CASE(umax, UMax, true);
-    INTRINSIC_OP_CASE_SINT_UINT_FLOAT(min, SMin, UMin, NMin, true);
     INTRINSIC_OP_CASE(umin, UMin, true);
     INTRINSIC_OP_CASE(normalize, Normalize, false);
     INTRINSIC_OP_CASE(pow, Pow, true);

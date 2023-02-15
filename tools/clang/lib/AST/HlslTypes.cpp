@@ -870,23 +870,6 @@ hlsl::ParameterModifier ParamModFromAttributeList(clang::AttributeList *pAttribu
   return ParameterModifier::FromInOut(isIn, isOut);
 }
 
-hlsl::ParameterModifier ParamModFromAttrs(llvm::ArrayRef<InheritableAttr *> attributes) {
-  bool isIn = false, isOut = false;
-  for (InheritableAttr * attr : attributes) {
-    if (isa<HLSLInAttr>(attr))
-      isIn = true;
-    else if (isa<HLSLOutAttr>(attr))
-      isOut = true;
-    else if (isa<HLSLInOutAttr>(attr))
-      isIn = isOut = true;
-  }
-  // Without any specifications, default to in.
-  if (!isIn && !isOut) {
-    isIn = true;
-  }
-  return ParameterModifier::FromInOut(isIn, isOut);
-}
-
 HLSLScalarType MakeUnsigned(HLSLScalarType T) {
     switch (T) {
     case HLSLScalarType_int:

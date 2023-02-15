@@ -446,10 +446,20 @@ function(llvm_add_library name)
         )
     endif()
 
+    # HLSL Change Begin - Don't generate so versioned files.
     set_target_properties(${name}
       PROPERTIES
       SOVERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}
-      VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}${LLVM_VERSION_SUFFIX})
+      VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}${LLVM_VERSION_SUFFIX}
+      NO_SONAME On)
+    if (APPLE)
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+                   LINK_FLAGS " -Wl,-install_name,@rpath/${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    elseif(UNIX)
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+                   LINK_FLAGS " -Wl,-soname,${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    endif()
+    # HLSL Change End - Don't generate so versioned files.
   endif()
 
   if(ARG_MODULE OR ARG_SHARED)
