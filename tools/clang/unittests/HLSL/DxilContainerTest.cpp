@@ -1981,14 +1981,11 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
   CComPtr<IDxcBlob> pProgram;
   CComPtr<IDxcBlobEncoding> pDisassembly;
   CComPtr<IDxcOperationResult> pResult;
-  std::vector<LPCWSTR> arguments;
-  arguments.emplace_back(L"/Zi");
-  arguments.emplace_back(L"/Qembed_debug");
   
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
+  CreateBlobFromText("export float4 main() : SV_Target { return 0; }", &pSource);
   // Test DxilContainer with ShaderDebugInfoDXIL  
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"lib_6_7", arguments.data(), arguments.size(), nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"lib_6_7", nullptr, 0, nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   
   const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
@@ -2007,7 +2004,19 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
   VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
   VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));  
   VERIFY_IS_NOT_NULL(hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+  const hlsl::DxilPartHeader *pVersionHeader = hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
 
+  // TODO: ensure the version info has the expected contents by 
+  // querying IDxcVersion interface from pCompiler and comparing
+  // against the contents inside of 
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  pCompiler.QueryInterface(&pVersionInfo);
+  UINT major;
+  UINT minor;
+  pVersionInfo->GetVersion(&major, &minor);
+  VERIFY_IS_TRUE(pVersionHeader->PartFourCC == hlsl::DxilFourCC::DFCC_CompilerVersion);
+  // test the rest of the contents (major, minor, etc.)
+  
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {
