@@ -288,7 +288,6 @@ if( MSVC )
 
   set(msvc_warning_flags
     # Disabled warnings.
-    -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
     -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
     -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
     -wd4258 # Suppress ''var' : definition from the for loop is ignored; the definition from the enclosing scope is used'
@@ -316,7 +315,6 @@ if( MSVC )
     -wd4706 # Suppress 'assignment within conditional expression'
     -wd4310 # Suppress 'cast truncates constant value'
     -wd4701 # Suppress 'potentially uninitialized local variable'
-    -wd4703 # Suppress 'potentially uninitialized local pointer variable'
     -wd4389 # Suppress 'signed/unsigned mismatch'
     -wd4611 # Suppress 'interaction between '_setjmp' and C++ object destruction is non-portable'
     -wd4805 # Suppress 'unsafe mix of type <type> and type <type> in operation'

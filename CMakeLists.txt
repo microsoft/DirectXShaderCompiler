@@ -112,6 +112,11 @@ add_compile_options(/guard:cf)
 add_link_options(/guard:cf)
 endif(WIN32)
 
+# enable additional security checks
+if(WIN32)
+add_compile_options(/sdl)
+endif(WIN32)
+
 # HLSL Change Ends
 
 # HLSL Change Starts - set flag for Appveyor CI
