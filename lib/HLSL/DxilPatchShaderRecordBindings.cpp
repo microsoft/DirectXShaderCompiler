@@ -252,7 +252,7 @@ unsigned int DxilPatchShaderRecordBindings::AddHandle(Module &M, unsigned int ba
   std::unique_ptr<DxilResource> pHandle;
   std::unique_ptr<DxilCBuffer> pCBuf;
   std::unique_ptr<DxilSampler> pSampler;
-  DxilResourceBase *pBaseHandle;
+  DxilResourceBase *pBaseHandle = nullptr;
   switch (resClass) {
   case DXIL::ResourceClass::SRV:
     resourceHandle = static_cast<unsigned int>(DM.GetSRVs().size());
