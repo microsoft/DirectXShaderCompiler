@@ -2763,7 +2763,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   bool isOperatorOverloading = false;
   QualType objectType = {};             // Type of the object (if exists)
   SpirvInstruction *objInstr = nullptr; // EvalInfo for the object (if exists)
-  const Expr *object;
+  const Expr *object = nullptr;
 
   llvm::SmallVector<SpirvInstruction *, 4> vars; // Variables for function call
   llvm::SmallVector<bool, 4> isTempVar;          // Temporary variable or not
