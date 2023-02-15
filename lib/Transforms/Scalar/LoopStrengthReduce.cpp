@@ -1397,7 +1397,6 @@ static bool isAMCompletelyFolded(const TargetTransformInfo &TTI,
       if (Scale == 0)
         // Avoid undefined behavior of -INT64_MIN
         BaseOffset = SafeNegate<int64_t>(BaseOffset);
-
       return TTI.isLegalICmpImmediate(BaseOffset);
     }
 

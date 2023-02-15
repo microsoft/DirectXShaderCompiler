@@ -644,6 +644,8 @@ inline int64_t SignExtend64(uint64_t X, unsigned B) {
 
 extern const float huge_valf;
 
+/// \brief Negate number while avoiding undefined behavior of negating
+/// min signed int value (result of -INT_MIN is undefined)
 template <typename T> inline T SafeNegate(T value) {
   return (value == std::numeric_limits<T>::min()) ? std::numeric_limits<T>::min() : -value;
 }
