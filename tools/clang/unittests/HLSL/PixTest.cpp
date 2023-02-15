@@ -203,6 +203,7 @@ public:
   TEST_METHOD(AddToASPayload)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
+  TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
 
   TEST_METHOD(PixStructAnnotation_Simple)
   TEST_METHOD(PixStructAnnotation_CopiedStruct)
@@ -2735,6 +2736,99 @@ void Raygen1()
       CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
       RunAnnotationPasses(pDxil);
   }
+}
+
+TEST_F(PixTest, PixStructAnnotation_Lib_RaygenAllocaStructAlignment) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
+  const char* hlsl = R"(
+
+RaytracingAccelerationStructure Scene : register(t0, space0);
+RWTexture2D<float4> RenderTarget : register(u0);
+
+struct SceneConstantBuffer
+{
+    float4x4 projectionToWorld;
+    float4 cameraPosition;
+    float4 lightPosition;
+    float4 lightAmbientColor;
+    float4 lightDiffuseColor;
+};
+
+ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
+
+struct RayPayload
+{
+    float4 color;
+};
+
+inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
+{
+    float2 xy = index + 0.5f; // center in the middle of the pixel.
+    float2 screenPos = xy;// / DispatchRaysDimensions().xy * 2.0 - 1.0;
+
+    // Invert Y for DirectX-style coordinates.
+    screenPos.y = -screenPos.y;
+
+    // Unproject the pixel coordinate into a ray.
+    float4 world = /*mul(*/float4(screenPos, 0, 1)/*, g_sceneCB.projectionToWorld)*/;
+
+    //world.xyz /= world.w;
+    origin = world.xyz; //g_sceneCB.cameraPosition.xyz;
+    direction = float3(1,0,0);//normalize(world.xyz - origin);
+}
+
+void RaygenCommon()
+{
+    float3 rayDir;
+    float3 origin;
+    
+    // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
+    GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
+
+    // Trace the ray.
+    // Set the ray's extents.
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = rayDir;
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    RayPayload payload = { float4(0, 0, 0, 0) };
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+
+    // Write the raytraced color to the output texture.
+   // RenderTarget[DispatchRaysIndex().xy] = payload.color;
+}
+
+[shader("raygeneration")]
+void Raygen()
+{
+    RaygenCommon();
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl, L"-Od", true, L"lib_6_6");
+
+  // Built-in type "RayDesc" has this structure: struct { float3 Origin; float
+  // TMin; float3 Direction; float TMax; } This is 8 floats, with members at
+  // offsets 0,3,4,7 respectively.
+
+  auto FindAtLeastOneOf = [=](char const *name, uint32_t index) {
+    VERIFY_IS_TRUE(std::find_if(Testables.AllocaWrites.begin(),
+                                Testables.AllocaWrites.end(),
+                                [&name, &index](AllocaWrite const &aw) {
+                                  return 0 == strcmp(aw.memberName.c_str(),
+                                                     name) &&
+                                         aw.index == index;
+                                }) != Testables.AllocaWrites.end());
+  };
+
+  FindAtLeastOneOf("Origin.x", 0);
+  FindAtLeastOneOf("TMin", 3);
+  FindAtLeastOneOf("Direction.x", 4);
+  FindAtLeastOneOf("TMax", 7);
 }
 
 TEST_F(PixTest, PixStructAnnotation_Simple) {

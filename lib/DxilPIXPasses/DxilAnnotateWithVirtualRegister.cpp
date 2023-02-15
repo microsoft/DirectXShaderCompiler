@@ -44,8 +44,8 @@
 uint32_t CountStructMembers(llvm::Type const *pType) {
   uint32_t Count = 0;
   if (auto *VT = llvm::dyn_cast<llvm::VectorType>(pType)) {
-    Count = CountStructMembers(VT->getVectorElementType()) *
-                    VT->getVectorNumElements();
+    // Vector types can only contain scalars:
+    Count = VT->getVectorNumElements();
   } else if (auto *ST = llvm::dyn_cast<llvm::StructType>(pType)) {
     for (auto &El : ST->elements()) {
       Count += CountStructMembers(El);
