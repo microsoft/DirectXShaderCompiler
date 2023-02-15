@@ -1008,6 +1008,93 @@ public:
   }
 };
 
+//////////////////////////////////////////////////////////
+// DxilVersionWriter - Writes VERS part
+class DxilVersionWriter : public DxilPartWriter {
+  hlsl::DxilCompilerVersion m_Header = {};
+  CComHeapPtr<char> m_CommitShaStorage;
+  llvm::StringRef m_CommitSha = "";
+  CComHeapPtr<char> m_CustomStringStorage;
+  llvm::StringRef m_CustomString = "";
+public:
+  DxilVersionWriter(IDxcVersionInfo *pVersion)
+  {
+    Init(pVersion);
+  }
+
+  void Init(IDxcVersionInfo *pVersionInfo) {
+    m_Header = {};
+
+    UINT32 Major = 0, Minor = 0;
+    UINT32 Flags = 0;
+    IFT(pVersionInfo->GetVersion(&Major, &Minor));
+    IFT(pVersionInfo->GetFlags(&Flags));
+
+    m_Header.Major = Major;
+    m_Header.Minor = Minor;
+    m_Header.VersionFlags = Flags;
+    CComPtr<IDxcVersionInfo2> pVersionInfo2;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
+      UINT32 CommitCount = 0;
+      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
+      m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
+      m_Header.CommitCount = CommitCount;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size();
+    }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
+
+    CComPtr<IDxcVersionInfo3> pVersionInfo3;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
+      IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
+      m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size();
+    }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
+  }
+
+  static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
+    uint32_t rem = size % 4;
+    if (rem) {
+      uint32_t padding = (4 - rem);
+      if (outNumPadding)
+        *outNumPadding = padding;
+      return size + padding;
+    }
+    if (outNumPadding)
+      *outNumPadding = 0;
+    return size;
+  }
+
+  UINT32 size() const override {
+    return PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes);
+  }
+
+  void write(AbstractMemoryStream *pStream) override {
+    const uint8_t padByte = 0;
+    UINT32 uPadding = 0;
+    UINT32 uSize = PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes, &uPadding);
+    (void)uSize;
+
+    ULONG cbWritten = 0;
+    IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
+
+    // Write a null terminator even if the string is empty
+    IFT(pStream->Write(m_CommitSha.data(), m_CommitSha.size(), &cbWritten));
+    // Null terminator for the commit sha
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write the custom version string.
+    IFT(pStream->Write(m_CustomString.data(), m_CustomString.size(), &cbWritten));
+    // Null terminator for the custom version string.
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write padding
+    for (unsigned i = 0; i < uPadding; i++) {
+      IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+    }
+  }
+};
+
 using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
@@ -1590,6 +1677,10 @@ DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
   return new DxilRDATWriter(M);
 }
 
+DxilPartWriter *hlsl::NewVersionWriter(IDxcVersionInfo *DXCVersionInfo) {
+  return new DxilVersionWriter(DXCVersionInfo);
+}
+
 class DxilContainerWriter_impl : public DxilContainerWriter  {
 private:
   class DxilPart {
@@ -1767,6 +1858,7 @@ void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pRefle
 
 void hlsl::SerializeDxilContainerForModule(
     DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    IDxcVersionInfo *DXCVersionInfo,
     AbstractMemoryStream *pFinalStream, llvm::StringRef DebugName,
     SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut,
     AbstractMemoryStream *pReflectionStreamOut,
@@ -1838,17 +1930,38 @@ void hlsl::SerializeDxilContainerForModule(
                      });
     }
   }
+  std::unique_ptr<DxilVersionWriter> pVERSWriter = nullptr;
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
+
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
   RootSignatureWriter rootSigWriter(std::move(pModule->GetSerializedRootSignature())); // Grab RS here
   DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
-  if (pModule->GetShaderModel()->IsLib()) {
+  const hlsl::ShaderModel *pSM = pModule->GetShaderModel();
+  if (pSM->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
+    // Write the DxilCompilerVersion (VERS) part.        
+    
+    if (pSM->IsSM68Plus()) {
+      if (DXCVersionInfo) {
+
+        pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
+
+        writer.AddPart(
+          hlsl::DFCC_CompilerVersion,
+          pVERSWriter->size(),
+          [&pVERSWriter](AbstractMemoryStream *pStream) {
+            pVERSWriter->write(pStream);
+            return S_OK;
+          }
+        );
+      }
+    }
+
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(

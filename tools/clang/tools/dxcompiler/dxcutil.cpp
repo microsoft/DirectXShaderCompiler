@@ -127,12 +127,14 @@ void AssembleToContainer(AssembleInputs &inputs) {
   if (inputs.pPrivateBlob) {
     SerializeDxilContainerForModule(
         &inputs.pM->GetOrCreateDxilModule(), inputs.pModuleBitcode,
+        inputs.pVersionInfo,
         pContainerStream, inputs.DebugName, inputs.SerializeFlags,
         inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut,
         inputs.pPrivateBlob->GetBufferPointer(), inputs.pPrivateBlob->GetBufferSize());
   } else {
     SerializeDxilContainerForModule(
         &inputs.pM->GetOrCreateDxilModule(), inputs.pModuleBitcode,
+        inputs.pVersionInfo,
         pContainerStream, inputs.DebugName, inputs.SerializeFlags,
         inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
   }
