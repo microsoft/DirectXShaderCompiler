@@ -316,7 +316,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
   }
 
   // Text output.
-  if (m_Opts.AstDump || m_Opts.OptDump) {
+  if (m_Opts.AstDump || m_Opts.OptDump || m_Opts.VerifyDiagnostics) {
     WriteBlobToConsole(pBlob);
     return retVal;
   }
