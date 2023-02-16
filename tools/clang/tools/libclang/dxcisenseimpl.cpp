@@ -115,47 +115,6 @@ HRESULT AnsiToBSTR(_In_opt_z_ const char* text, _Outptr_result_maybenull_ BSTR* 
 }
 
 static
-HRESULT ConcatPartsReversed(_In_count_(count) CXString* first, int count, _COM_Outptr_ LPSTR* pResult) throw()
-{
-  HRESULT hr = S_OK;
-  size_t total = 0;
-  char* writeCursor;
-
-  // Count how big the result should be.
-  for (int i = 0; i < count; i++)
-  {
-    if (i != 0)
-    {
-      total += 2;
-    }
-    total += strlen(clang_getCString(first[i]));
-  }
-
-  total++; // null terminator
-
-  *pResult = new (std::nothrow) char[total];
-  writeCursor = *pResult;
-  for (int i = 0; i < count; i++)
-  {
-    if (i != 0)
-    {
-      hr = StringCchCopyEx(writeCursor, total, "::", &writeCursor, &total, 0);
-      if (FAILED(hr)) break;
-    }
-    hr = StringCchCopyEx(writeCursor, total, clang_getCString(first[count - 1 - i]), &writeCursor, &total, 0);
-    if (FAILED(hr)) break;
-  }
-
-  if (FAILED(hr))
-  {
-    delete[] *pResult;
-    *pResult = nullptr;
-  }
-
-  return hr;
-}
-
-static
 _Ret_opt_ _Post_readable_byte_size_(cb)  __drv_allocatesMem(Mem)
 LPVOID CoTaskMemAllocZero(SIZE_T cb) throw()
 {
@@ -242,69 +201,31 @@ HRESULT CoTaskMemAllocString(_In_z_ const char* src, _Outptr_ LPSTR* pResult) th
   return S_OK;
 }
 
-static
-HRESULT GetCursorQualifiedName(CXCursor cursor, bool includeTemplateArgs, BSTR* pResult) throw()
-{
-  HRESULT hr = S_OK;
-  CSimpleArray<CXString> nameParts;
-  char* concatParts = nullptr;
-  const CXCursorFormatting DefaultFormatting = (CXCursorFormatting)
-    (CXCursorFormatting_SuppressTagKeyword);
-  const CXCursorFormatting VariableFormatting = (CXCursorFormatting)
-    (CXCursorFormatting_SuppressTagKeyword | CXCursorFormatting_SuppressSpecifiers);
-
+static HRESULT GetCursorQualifiedName(CXCursor cursor, bool includeTemplateArgs,
+                                      BSTR *pResult) throw() {
   *pResult = nullptr;
 
-  // To construct the qualifeid name, walk up the semantic parents until we are
-  // in the translation unit.
-  while (IsCursorKindQualifiedByParent(clang_getCursorKind(cursor)))
-  {
-    CXCursor parent;
+  if (IsCursorKindQualifiedByParent(clang_getCursorKind(cursor))) {
     CXString text;
-    text = clang_getCursorSpellingWithFormatting(cursor, DefaultFormatting);
-    nameParts.Add(text);
-    parent = clang_getCursorSemanticParent(cursor);
-    cursor = parent;
+    text = clang_getCursorSpellingWithFormatting(
+        cursor, CXCursorFormatting_SuppressTagKeyword);
+    return CXStringToBSTRAndDispose(text, pResult);
   }
 
-  if (nameParts.GetSize() == 0)
-  {
-    if (clang_getCursorKind(cursor) == CXCursor_VarDecl ||
-        (clang_getCursorKind(cursor) == CXCursor_DeclRefExpr &&
-         clang_getCursorKind(clang_getCursorReferenced(cursor)) == CXCursor_VarDecl))
-    {
-      hr = CXStringToBSTRAndDispose(clang_getCursorSpellingWithFormatting(cursor, VariableFormatting), pResult);
-    }
-    else
-    {
-      hr = CXStringToBSTRAndDispose(clang_getCursorSpellingWithFormatting(cursor, DefaultFormatting), pResult);
-    }
+  if (clang_getCursorKind(cursor) == CXCursor_VarDecl ||
+      (clang_getCursorKind(cursor) == CXCursor_DeclRefExpr &&
+       clang_getCursorKind(clang_getCursorReferenced(cursor)) ==
+           CXCursor_VarDecl)) {
+    return CXStringToBSTRAndDispose(
+        clang_getCursorSpellingWithFormatting(
+            cursor, CXCursorFormatting_SuppressTagKeyword |
+                        CXCursorFormatting_SuppressSpecifiers),
+        pResult);
   }
-  else if (nameParts.GetSize() == 1)
-  {
-    hr = CXStringToBSTRAndDispose(nameParts[0], pResult);
-    nameParts.RemoveAll();
-  }
-  else
-  {
-    hr = ConcatPartsReversed(nameParts.GetData(), nameParts.GetSize(), &concatParts);
-    if (SUCCEEDED(hr))
-    {
-      hr = AnsiToBSTR(concatParts, pResult);
-    }
-  }
-
-  for (int i = 0; i < nameParts.GetSize(); i++)
-  {
-    clang_disposeString(nameParts[i]);
-  }
-
-  if (concatParts)
-  {
-    delete[] concatParts;
-  }
-
-  return hr;
+  return CXStringToBSTRAndDispose(
+      clang_getCursorSpellingWithFormatting(
+          cursor, CXCursorFormatting_SuppressTagKeyword),
+      pResult);
 }
 
 static
