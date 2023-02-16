@@ -4035,15 +4035,23 @@ TEST_F(ValidationTest, AtomicsInvalidDests) {
   std::vector<LPCWSTR> pArguments = { L"-HV", L"2021", L"-Zi" };
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "lib_6_3",
     pArguments.data(), 2, nullptr, 0,
-    {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
-    {"atomicrmw add i32* %res"},
+    {
+    "%([a-zA-Z0-9]+) = atomicrmw add i32 addrspace\\(3\\)\\* @\"\\\\01\\?gs_var@@3IA\""
+    },
+    {
+      "%non_groupshared = alloca i32, align 4\n%\\1 = atomicrmw add i32* %non_groupshared"
+    },
     "Non-groupshared destination to atomic operation.",
-    false);
+    true);
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\atomics.hlsl", "lib_6_3",
     pArguments.data(), 2, nullptr, 0,
-    {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
-    {"cmpxchg i32* %res"},
+    {
+      "%([a-zA-Z0-9]+) = cmpxchg i32 addrspace\\(3\\)\\* @\"\\\\01\\?gs_var@@3IA\""
+    },
+    {
+      "%non_groupshared = alloca i32, align 4\n%\\1 = cmpxchg i32* %non_groupshared"
+    },
     "Non-groupshared destination to atomic operation.",
-    false);
+    true);
 
 }
