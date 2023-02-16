@@ -187,6 +187,10 @@ def ftime_trace_EQ : Joined<["-"], "ftime-trace=">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Print hierchial time tracing to file">;
 
+def verify : Joined<["-"], "verify">,
+  Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Verify diagnostic output using comment directives">;
+
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
  Flags<[CoreOption]>;
