@@ -25,7 +25,7 @@
 // CHECK: call void @{{.*}}useArray{{.*}}([2 x [2 x %dx.types.Handle]]* nonnull %[[buffers]])
 
 // CHECK: %[[CMP1:.+]] = icmp eq i32 %{{.+}}, 1
-// CHECK: %[[h10_SEL:.+]] = select i1 %[[CMP1]], %dx.types.Handle %[[h1]], %dx.types.Handle %[[h2]]
+// CHECK: %[[h10_SEL:.+]] = select i1 %[[CMP1]], %dx.types.Handle %[[h2]], %dx.types.Handle %[[h1]]
 // CHECK: store %dx.types.Handle %[[h10_SEL]], %dx.types.Handle* %[[gep1]], align 8
 // CHECK: call void @{{.*}}useArray{{.*}}([2 x [2 x %dx.types.Handle]]* nonnull %[[buffers]])
 
