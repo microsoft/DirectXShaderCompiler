@@ -11584,7 +11584,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("IsNormal");
-  vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
   D3D_SHADER_MODEL sm = D3D_SHADER_MODEL_6_0;
   LogCommentFmt(L"\r\nVerifying isNormal in shader "
