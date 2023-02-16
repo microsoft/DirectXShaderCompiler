@@ -73,7 +73,7 @@ TYPED_TEST(BitVectorTest, TrivialOperation) {
   Vec.resize(33, true);
   Vec.resize(57, false);
   unsigned Count = 0;
-  for (unsigned i = Vec.find_first(); i != -1u; i = Vec.find_next(i)) {
+  for (unsigned i = Vec.find_first(); i != UINT_MAX; i = Vec.find_next(i)) {
     ++Count;
     EXPECT_TRUE(Vec[i]);
     EXPECT_TRUE(Vec.test(i));
@@ -103,7 +103,7 @@ TYPED_TEST(BitVectorTest, TrivialOperation) {
   Vec.resize(91, true);
   Vec.resize(130, false);
   Count = 0;
-  for (unsigned i = Vec.find_first(); i != -1u; i = Vec.find_next(i)) {
+  for (unsigned i = Vec.find_first(); i != UINT_MAX; i = Vec.find_next(i)) {
     ++Count;
     EXPECT_TRUE(Vec[i]);
     EXPECT_TRUE(Vec.test(i));

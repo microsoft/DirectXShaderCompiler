@@ -753,7 +753,7 @@ TEST(APIntTest, StringDeath) {
 #endif
 
 TEST(APIntTest, mul_clear) {
-  APInt ValA(65, -1ULL);
+  APInt ValA(65, UINT64_MAX);
   APInt ValB(65, 4);
   APInt ValC(65, 0);
   ValC = ValA * ValB;
