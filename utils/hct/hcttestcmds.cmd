@@ -500,6 +500,11 @@ call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\bom-main-utf8.hlsl"
 call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\bom-main-utf16le.hlsl"
 if %Failed% neq 0 goto :failed
 
+set testname=DXC Diagnostic Verifier
+call :run dxc.exe /T lib_6_3 "%testfiles%\diagnostic-verifier.hlsl" -verify
+call :run-fail dxc.exe /T lib_6_3 -DEXTRA_ERROR "%testfiles%\diagnostic-verifier.hlsl" -verify
+if %Failed% neq 0 goto :failed
+
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0
