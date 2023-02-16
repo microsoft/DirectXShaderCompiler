@@ -867,7 +867,7 @@ int DxcContext::Compile() {
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
   if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
-      m_Opts.DumpDependencies) {
+      m_Opts.DumpDependencies || m_Opts.VerifyDiagnostics) {
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {
