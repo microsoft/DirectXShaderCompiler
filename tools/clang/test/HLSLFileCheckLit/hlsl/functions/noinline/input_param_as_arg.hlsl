@@ -3,10 +3,10 @@
 // Make sure noinline argument is copy-in/copy-out.
 // CHECK-LABEL: define float @main
 // CHECK:%[[TMP:.+]] = alloca float
-// CHECK-NEXT:  %call = call float @"\01?foo@@YAMAIAM@Z"(float* dereferenceable(4) %[[TMP]])
+// CHECK-NEXT:  %[[call:.+]] = call float @"\01?foo@@YAMAIAM@Z"(float* dereferenceable(4) %[[TMP]])
 // CHECK-NEXT: %[[RESULT:.+]] = load float, float* %[[TMP]]
 // CHECK-NEXT: store float %[[RESULT]], float* %depth, align 4
-// CHECK-NEXT: ret float %call
+// CHECK-NEXT: ret float %[[call]]
 
 float d;
 
