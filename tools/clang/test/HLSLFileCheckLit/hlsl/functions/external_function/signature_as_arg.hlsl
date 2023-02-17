@@ -20,8 +20,8 @@
 // CHECK: %[[RET:.+]] = fadd fast float %[[ADD1]], %[[ReadScalar]]
 // CHECK: %[[TmpOA_A:.+]] = getelementptr{{.*}} %struct.A, %struct.A* %[[TmpOA]], i32 0, i32 0
 // CHECK: %[[OA_A:.+]] = load float, float* %[[TmpOA_A]], align 8
+// CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 0, float %[[OA_A]])
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %[[RET]])
-// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 0, float %[[OA_A]])
 // CHECK: %[[Depth:.+]] = load float, float* %[[TmpDepth]], align 4
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 2, i32 0, i8 0, float %[[Depth]])
 // CHECK: ret void
