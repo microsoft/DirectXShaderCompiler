@@ -43,6 +43,13 @@ int main(int argc, const char **argv) {
   int Result = sys::ExecuteAndWait(*Program, argv, nullptr, nullptr, 0, 0,
                                    &ErrMsg);
 #ifdef _WIN32
+  // HLSL Change Start
+  // DXC returns HRESULT values as return codes, which on Windows means the
+  // process status is always negative for failures.
+  if (Result == 0)
+    return 1;
+  return 0;
+  // HLSL Change End
   // Handle abort() in msvcrt -- It has exit code as 3.  abort(), aka
   // unreachable, should be recognized as a crash.  However, some binaries use
   // exit code 3 on non-crash failure paths, so only do this if we expect a

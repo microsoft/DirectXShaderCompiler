@@ -621,7 +621,8 @@ public:
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       primaryOutput.kind = DXC_OUT_OBJECT;
-      if (opts.AstDump || opts.OptDump || opts.DumpDependencies)
+      if (opts.AstDump || opts.OptDump || opts.DumpDependencies ||
+          opts.VerifyDiagnostics)
         primaryOutput.kind = DXC_OUT_TEXT;
       else if (isPreprocessing)
         primaryOutput.kind = DXC_OUT_HLSL;
@@ -780,7 +781,8 @@ public:
         // validator can be used as a fallback.
         produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
                                !opts.OptDump && rootSigMajor == 0 &&
-                               !opts.DumpDependencies;
+                               !opts.DumpDependencies &&
+                               !opts.VerifyDiagnostics;
         needsValidation = produceFullContainer && !opts.DisableValidation;
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
@@ -874,6 +876,13 @@ public:
               pOutputBlob, &compiler.getDiagnostics(),
               opts.SelectValidator);
           }
+        }
+      } else if (opts.VerifyDiagnostics) {
+        SyntaxOnlyAction action;
+        FrontendInputFile file(pUtf8SourceName, IK_HLSL);
+        if (action.BeginSourceFile(compiler, file)) {
+          action.Execute();
+          action.EndSourceFile();
         }
       }
       // SPIRV change starts
@@ -1157,7 +1166,15 @@ public:
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));
-      IFT(pResult->SetStatusAndPrimaryResult(hasErrorOccurred ? E_FAIL : S_OK, primaryOutput.kind));
+      
+      // It is possible for errors to occur, but the diagnostic or AST consumers
+      // can recover from them, or translate them to mean something different.
+      // This happens with the `-verify` flag where an error may be expected.
+      // The correct way to identify errors in this case is to query the
+      // DiagnosticClient for the number of errors.
+      unsigned NumErrors = compiler.getDiagnostics().getClient()->getNumErrors();
+      IFT(pResult->SetStatusAndPrimaryResult(NumErrors > 0 ? E_FAIL : S_OK,
+                                             primaryOutput.kind));
       IFT(pResult->QueryInterface(riid, ppResult));
 
       hr = S_OK;
@@ -1276,6 +1293,7 @@ public:
     compiler.HlslLangExtensions = helper;
     compiler.getDiagnosticOpts().ShowOptionNames = Opts.ShowOptionNames ? 1 : 0;
     compiler.getDiagnosticOpts().Warnings = std::move(Opts.Warnings);
+    compiler.getDiagnosticOpts().VerifyDiagnostics = Opts.VerifyDiagnostics;
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
