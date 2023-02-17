@@ -43,8 +43,10 @@
 
 uint32_t CountStructMembers(llvm::Type const *pType) {
   uint32_t Count = 0;
-
-  if (auto *ST = llvm::dyn_cast<llvm::StructType>(pType)) {
+  if (auto *VT = llvm::dyn_cast<llvm::VectorType>(pType)) {
+    // Vector types can only contain scalars:
+    Count = VT->getVectorNumElements();
+  } else if (auto *ST = llvm::dyn_cast<llvm::StructType>(pType)) {
     for (auto &El : ST->elements()) {
       Count += CountStructMembers(El);
     }
@@ -385,11 +387,26 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
             llvm::dyn_cast<llvm::ConstantInt>(GEP->getOperand(2));
         if (OffsetAsInt != nullptr)
         {
-          std::uint32_t Offset = static_cast<std::uint32_t>(
+          std::uint32_t OffsetInElementsFromStructureStart = static_cast<std::uint32_t>(
             OffsetAsInt->getValue().getLimitedValue());
-          DXASSERT(Offset < regSize,
+          DXASSERT(OffsetInElementsFromStructureStart < regSize,
             "Structure member offset out of expected range");
-          PixDxilReg::AddMD(m_DM->GetCtx(), pI, baseStructRegNum + Offset);
+          std::uint32_t OffsetInValuesFromStructureStart =
+              OffsetInElementsFromStructureStart; 
+          if (auto *ST = llvm::dyn_cast<llvm::StructType>(GEP->getPointerOperandType()
+                                                       ->getPointerElementType())) {
+            DXASSERT(OffsetInElementsFromStructureStart < ST->getNumElements(),
+                     "Offset into struct is bigger than struct");
+            OffsetInValuesFromStructureStart = 0;
+            for (std::uint32_t Element = 0;
+                 Element < OffsetInElementsFromStructureStart; ++Element) {
+              OffsetInValuesFromStructureStart +=
+                  CountStructMembers(ST->getElementType(Element));
+            }
+          }
+          PixDxilReg::AddMD(m_DM->GetCtx(), pI,
+                            baseStructRegNum +
+                                OffsetInValuesFromStructureStart);
         }
       }
     }
