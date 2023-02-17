@@ -4038,7 +4038,8 @@ static void DeleteOutOfScopeDebugInfo(Function &F) {
 static void LegalizeDxilInputOutputs(Function *F,
                                      DxilFunctionAnnotation *EntryAnnotation,
                                      const DataLayout &DL,
-                                     DxilTypeSystem &typeSys);
+                                     DxilTypeSystem &typeSys,
+                                     bool UsesSignature);
 static void InjectReturnAfterNoReturnPreserveOutput(HLModule &HLM);
 
 namespace {
@@ -4096,7 +4097,8 @@ public:
           !m_pHLModule->IsEntryThatUsesSignatures(&F)) {
         if (!F.isDeclaration())
           LegalizeDxilInputOutputs(&F, m_pHLModule->GetFunctionAnnotation(&F),
-                                   DL, m_pHLModule->GetTypeSystem());
+                                   DL, m_pHLModule->GetTypeSystem(),
+                                   false);
         continue;
       }
 
@@ -5607,11 +5609,36 @@ static void InjectReturnAfterNoReturnPreserveOutput(HLModule &HLM) {
   }
 }
 
+// Used by noinline function or external user define function call.
+static bool UsedByRealFunctionCall(const Value *V) {
+  for (const User *U : V->users()) {
+    if (isa<GEPOperator>(U))
+      if (UsedByRealFunctionCall(U))
+        return true;
+    const CallInst *CI = dyn_cast<CallInst>(U);
+    if (!CI)
+      continue;
+    const Function *F = CI->getCalledFunction();
+    if (!F)
+      continue;
+    // Noinline function.
+    if (F->hasFnAttribute(llvm::Attribute::NoInline))
+      return true;
+    if (!F->hasExternalLinkage())
+      continue;
+    // User define external function.
+    if (hlsl::GetHLOpcodeGroupByName(F) == HLOpcodeGroup::NotHL)
+      return true;
+  }
+  return false;
+}
+
 // Support store to input and load from output.
 static void LegalizeDxilInputOutputs(Function *F,
                                      DxilFunctionAnnotation *EntryAnnotation,
                                      const DataLayout &DL,
-                                     DxilTypeSystem &typeSys) {
+                                     DxilTypeSystem &typeSys,
+                                     bool UsesSignature) {
   BasicBlock &EntryBlk = F->getEntryBlock();
   Module *M = F->getParent();
   // Map from output to the temp created for it.
@@ -5691,6 +5718,10 @@ static void LegalizeDxilInputOutputs(Function *F,
         bLoadOutputFromTemp = true;
       }
     }
+
+    // Always create temp for output signature so user function will not use
+    // output signature directly to avoid generate copy in signature lowering.
+    bLoadOutputFromTemp |= (UsesSignature && UsedByRealFunctionCall(&arg));
 
     if (bStoreInputToTemp || bLoadOutputFromTemp) {
       IRBuilder<> Builder(EntryBlk.getFirstInsertionPt());
@@ -5915,6 +5946,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
 
   FunctionType *flatFuncTy = FunctionType::get(retType, FinalTypeList, false);
+  bool UsesSignature = F == m_pHLModule->GetEntryFunction() ||
+                       m_pHLModule->IsEntryThatUsesSignatures(F);
   // Return if nothing changed.
   if (flatFuncTy == F->getFunctionType()) {
     // Copy semantic allocation.
@@ -5930,7 +5963,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     }
     if (!F->isDeclaration()) {
       // Support store to input and load from output.
-      LegalizeDxilInputOutputs(F, funcAnnotation, DL, typeSys);
+      LegalizeDxilInputOutputs(F, funcAnnotation, DL, typeSys, UsesSignature);
     }
     return;
   }
@@ -6080,7 +6113,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       }
     }
     // Support store to input and load from output.
-    LegalizeDxilInputOutputs(flatF, flatFuncAnnotation, DL, typeSys);
+    LegalizeDxilInputOutputs(flatF, flatFuncAnnotation, DL, typeSys,
+                             UsesSignature);
   }
 }
 
