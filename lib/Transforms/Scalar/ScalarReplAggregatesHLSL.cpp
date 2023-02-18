@@ -5678,6 +5678,9 @@ static void LegalizeDxilInputOutputs(Function *F,
 
     Ty = Ty->getPointerElementType();
 
+    // Always create temp for signature so user function will not use
+    // signature directly to avoid generate copy in signature lowering.
+    bool NeedTmpForFunctionCall = UsesSignature && UsedByRealFunctionCall(&arg);
     bool bLoad = false;
     bool bStore = false;
     CheckArgUsage(&arg, bLoad, bStore);
@@ -5685,9 +5688,10 @@ static void LegalizeDxilInputOutputs(Function *F,
     bool bStoreInputToTemp = false;
     bool bLoadOutputFromTemp = false;
 
-    if (qual == DxilParamInputQual::In && bStore) {
+    if (qual == DxilParamInputQual::In && (bStore || NeedTmpForFunctionCall)) {
       bStoreInputToTemp = true;
-    } else if (qual == DxilParamInputQual::Out && bLoad) {
+    } else if (qual == DxilParamInputQual::Out &&
+               (bLoad || NeedTmpForFunctionCall)) {
       bLoadOutputFromTemp = true;
     } else if (bLoad && bStore) {
       switch (qual) {
@@ -5718,10 +5722,6 @@ static void LegalizeDxilInputOutputs(Function *F,
         bLoadOutputFromTemp = true;
       }
     }
-
-    // Always create temp for output signature so user function will not use
-    // output signature directly to avoid generate copy in signature lowering.
-    bLoadOutputFromTemp |= (UsesSignature && UsedByRealFunctionCall(&arg));
 
     if (bStoreInputToTemp || bLoadOutputFromTemp) {
       IRBuilder<> Builder(EntryBlk.getFirstInsertionPt());
