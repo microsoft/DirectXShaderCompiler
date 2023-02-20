@@ -58,6 +58,12 @@ void DxcCleanupThreadMalloc() throw() {
 
 IMalloc *DxcGetThreadMallocNoRef() throw() {
   if (g_ThreadMallocTls == nullptr) {
+    // Some genious didn't take into account that when CRT starts up,
+    // a static std::ferr is initialized whichg calls `new locale`.
+    // And if you're overriding the `new`&`delete` operators globally,
+    // its nice to not have them depend on global state or deference nullptrs.
+    if (!g_pDefaultMalloc)
+      CoGetMalloc(1, &g_pDefaultMalloc);
     return g_pDefaultMalloc;
   }
 
