@@ -441,6 +441,7 @@ TEST(Error, StringError) {
 }
 
 // Test that the ExitOnError utility works as expected.
+#ifdef GTEST_HAS_DEATH_TEST // HLSL Change - Death tests
 TEST(Error, ExitOnError) {
   ExitOnError ExitOnErr;
   ExitOnErr.setBanner("Error in tool:");
@@ -468,6 +469,7 @@ TEST(Error, ExitOnError) {
               ::testing::ExitedWithCode(2), "Error in tool:")
       << "exitOnError returned an unexpected error result";
 }
+#endif // HLSL Change - Death tests
 
 // Test Checked Expected<T> in success mode.
 TEST(Error, CheckedExpectedInSuccessMode) {
