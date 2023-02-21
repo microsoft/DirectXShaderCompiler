@@ -108,6 +108,7 @@ TEST(Error, CheckSuccess) {
 
 // Test unchecked success.
 // Test runs in debug mode only.
+#ifdef GTEST_HAS_DEATH_TEST
 #ifndef NDEBUG
   {
     auto DropUncheckedSuccess = []() { Error E; };
@@ -115,6 +116,7 @@ TEST(Error, CheckSuccess) {
                  "Program aborted due to an unhandled Error:")
         << "Unchecked Error Succes value did not cause abort()";
   }
+#endif
 #endif
 }
 
@@ -133,6 +135,7 @@ TEST(Error, CheckCustomErrors) {
 // Check that we abort on unhandled failure cases. (Force conversion to bool
 // to make sure that we don't accidentally treat checked errors as handled).
 // Test runs in debug mode only.
+#ifdef GTEST_HAS_DEATH_TEST
 #ifndef NDEBUG
   {
     auto DropUnhandledError = []() {
@@ -143,6 +146,7 @@ TEST(Error, CheckCustomErrors) {
                  "Program aborted due to an unhandled Error:")
         << "Unhandled Error failure value did not cause abort()";
   }
+#endif
 #endif
 
   // Check 'isA' handling.
@@ -324,6 +328,7 @@ TEST(Error, CheckErrorUtilities) {
 
 // Test that handleAllUnhandledErrors crashes if an error is not caught.
 // Test runs in debug mode only.
+#ifdef GTEST_HAS_DEATH_TEST
 #ifndef NDEBUG
   {
     auto FailToHandle = []() {
@@ -339,10 +344,12 @@ TEST(Error, CheckErrorUtilities) {
            "abort()";
   }
 #endif
+#endif
 
 // Test that handleAllUnhandledErrors crashes if an error is returned from a
 // handler.
 // Test runs in debug mode only.
+#ifdef GTEST_HAS_DEATH_TEST
 #ifndef NDEBUG
   {
     auto ReturnErrorFromHandler = []() {
@@ -357,6 +364,7 @@ TEST(Error, CheckErrorUtilities) {
         << " Error returned from handler in handleAllErrors call did not "
            "cause abort()";
   }
+#endif
 #endif
 
   // Test that we can return values from handleErrors.
@@ -409,6 +417,7 @@ TEST(Error, CheckExpected) {
 // Check that an Expected instance with an error value doesn't allow access to
 // operator*.
 // Test runs in debug mode only.
+#ifdef GTEST_HAS_DEATH_TEST
 #ifndef NDEBUG
   {
     Expected<int> A = make_error<CustomError>(42);
@@ -418,14 +427,17 @@ TEST(Error, CheckExpected) {
     consumeError(A.takeError());
   }
 #endif
+#endif
 
 // Check that an Expected instance with an error triggers an abort if
 // unhandled.
 // Test runs in debug mode only.
+#ifdef GTEST_HAS_DEATH_TEST
 #ifndef NDEBUG
   EXPECT_DEATH({ Expected<int> A = make_error<CustomError>(42); },
                "Program aborted due to an unhandled Error:")
       << "Unchecked Expected<T> failure value did not cause an abort()";
+#endif
 #endif
 
   // Test covariance of Expected.
