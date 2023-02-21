@@ -32,6 +32,7 @@ add_llvm_unittest(SupportTests
   DwarfTest.cpp
   EndianStreamTest.cpp
   EndianTest.cpp
+  ErrorTest.cpp
   ErrorOrTest.cpp
   #FileOutputBufferTest.cpp # HLSL Change
   IteratorTest.cpp
