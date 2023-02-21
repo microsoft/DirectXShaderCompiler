@@ -80,30 +80,6 @@ protected:
   int ExtraInfo;
 };
 
-// Verify that success values that are checked (i.e. cast to 'bool') are
-// destructed without error, and that unchecked success values cause an
-// abort.
-TEST(Error, CheckSuccess) {
-  // Test checked success.
-  {
-    Error E;
-    EXPECT_FALSE(E) << "Unexpected error while testing Error 'Success'";
-  }
-
-// Test unchecked success.
-// Test runs in debug mode only.
-#ifdef GTEST_HAS_DEATH_TEST
-#ifndef NDEBUG
-  {
-    auto DropUncheckedSuccess = []() { Error E; };
-    EXPECT_DEATH(DropUncheckedSuccess(),
-                 "Program aborted due to an unhandled Error:")
-        << "Unchecked Error Succes value did not cause abort()";
-  }
-#endif
-#endif
-}
-
 char CustomSubError::ID = 0;
 
 static Error handleCustomError(const CustomError &CE) {
@@ -126,7 +102,7 @@ TEST(Error, CheckedSuccess) {
 }
 
 // Test that unchecked succes values cause an abort.
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, UncheckedSuccess) {
   EXPECT_DEATH({ Error E = Error::success(); },
                "Program aborted due to an unhandled Error:")
@@ -152,7 +128,7 @@ TEST(Error, ErrorAsOutParameterChecked) {
 }
 
 // Test that ErrorAsOutParameter clears the checked flag on destruction.
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, ErrorAsOutParameterUnchecked) {
   EXPECT_DEATH({ Error E = Error::success(); errAsOutParamHelper(E); },
                "Program aborted due to an unhandled Error:")
@@ -163,8 +139,7 @@ TEST(Error, ErrorAsOutParameterUnchecked) {
 // Check that we abort on unhandled failure cases. (Force conversion to bool
 // to make sure that we don't accidentally treat checked errors as handled).
 // Test runs in debug mode only.
-#ifdef GTEST_HAS_DEATH_TEST
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, UncheckedError) {
   auto DropUnhandledError = []() {
     Error E = make_error<CustomError>(42);
@@ -174,7 +149,6 @@ TEST(Error, UncheckedError) {
                "Program aborted due to an unhandled Error:")
       << "Unhandled Error failure value did not cause abort()";
 }
-#endif
 #endif
 
 // Check 'Error::isA<T>' method handling.
@@ -312,7 +286,7 @@ TEST(Error, HandlerShadowing) {
         DummyExtraInfo = SE.getExtraInfo();
       });
 
-  EXPECT_TRUE(CaughtErrorInfo = 42 && DummyInfo == 0 && DummyExtraInfo == 0)
+  EXPECT_TRUE(CaughtErrorInfo == 42 && DummyInfo == 0 && DummyExtraInfo == 0)
       << "General Error handler did not shadow specific handler";
 }
 
@@ -403,8 +377,7 @@ TEST(Error, ConsumeError) {
 
 // Test that handleAllUnhandledErrors crashes if an error is not caught.
 // Test runs in debug mode only.
-#ifdef GTEST_HAS_DEATH_TEST
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, FailureToHandle) {
   auto FailToHandle = []() {
     handleAllErrors(make_error<CustomError>(7), [&](const CustomSubError &SE) {
@@ -418,13 +391,11 @@ TEST(Error, FailureToHandle) {
          "abort()";
 }
 #endif
-#endif
 
 // Test that handleAllUnhandledErrors crashes if an error is returned from a
 // handler.
 // Test runs in debug mode only.
-#ifdef GTEST_HAS_DEATH_TEST
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, FailureFromHandler) {
   auto ReturnErrorFromHandler = []() {
     handleAllErrors(make_error<CustomError>(7),
@@ -438,7 +409,6 @@ TEST(Error, FailureFromHandler) {
       << " Error returned from handler in handleAllErrors call did not "
          "cause abort()";
 }
-#endif
 #endif
 
 // Test that we can return values from handleErrors.
@@ -520,7 +490,7 @@ TEST(Error, ExpectedWithReferenceType) {
 // Test Unchecked Expected<T> in success mode.
 // We expect this to blow up the same way Error would.
 // Test runs in debug mode only.
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, UncheckedExpectedInSuccessModeDestruction) {
   EXPECT_DEATH({ Expected<int> A = 7; },
                "Expected<T> must be checked before access or destruction.")
@@ -531,7 +501,7 @@ TEST(Error, UncheckedExpectedInSuccessModeDestruction) {
 // Test Unchecked Expected<T> in success mode.
 // We expect this to blow up the same way Error would.
 // Test runs in debug mode only.
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, UncheckedExpectedInSuccessModeAccess) {
   EXPECT_DEATH({ Expected<int> A = 7; *A; },
                "Expected<T> must be checked before access or destruction.")
@@ -542,7 +512,7 @@ TEST(Error, UncheckedExpectedInSuccessModeAccess) {
 // Test Unchecked Expected<T> in success mode.
 // We expect this to blow up the same way Error would.
 // Test runs in debug mode only.
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, UncheckedExpectedInSuccessModeAssignment) {
   EXPECT_DEATH({ Expected<int> A = 7; A = 7; },
                "Expected<T> must be checked before access or destruction.")
@@ -562,8 +532,7 @@ TEST(Error, ExpectedInFailureMode) {
 // Check that an Expected instance with an error value doesn't allow access to
 // operator*.
 // Test runs in debug mode only.
-#ifdef GTEST_HAS_DEATH_TEST
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, AccessExpectedInFailureMode) {
   Expected<int> A = make_error<CustomError>(42);
   EXPECT_DEATH(*A, "Expected<T> must be checked before access or destruction.")
@@ -571,19 +540,16 @@ TEST(Error, AccessExpectedInFailureMode) {
   consumeError(A.takeError());
 }
 #endif
-#endif
 
 // Check that an Expected instance with an error triggers an abort if
 // unhandled.
 // Test runs in debug mode only.
-#ifdef GTEST_HAS_DEATH_TEST
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(GTEST_HAS_DEATH_TEST) // HLSL Change
 TEST(Error, UnhandledExpectedInFailureMode) {
   EXPECT_DEATH({ Expected<int> A = make_error<CustomError>(42); },
                "Expected<T> must be checked before access or destruction.")
       << "Unchecked Expected<T> failure value did not cause an abort()";
 }
-#endif
 #endif
 
 // Test covariance of Expected.
