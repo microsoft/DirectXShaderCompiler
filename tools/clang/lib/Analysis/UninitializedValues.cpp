@@ -34,6 +34,10 @@ using namespace clang;
 #define DEBUG_LOGGING 0
 
 static bool isTrackedVar(const VarDecl *vd, const DeclContext *dc) {
+  // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+  if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
+    return true;
+  // HLSL Change End - Treat `out` parameters as uninitialized values.
   if (vd->isLocalVarDecl() && !vd->hasGlobalStorage() &&
       !vd->isExceptionVariable() && !vd->isInitCapture() &&
       !vd->isImplicit() && vd->getDeclContext() == dc) {
@@ -50,6 +54,10 @@ static bool isTrackedVar(const VarDecl *vd, const DeclContext *dc) {
 namespace {
 class DeclToIndex {
   llvm::DenseMap<const VarDecl *, unsigned> map;
+  
+  // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+  llvm::SmallVector<const VarDecl *, 4> hlslOutParams;
+  // HLSL Change End - Treat `out` parameters as uninitialized values.
 public:
   DeclToIndex() {}
   
@@ -61,6 +69,12 @@ public:
   
   /// Returns the bit vector index for a given declaration.
   Optional<unsigned> getValueIndex(const VarDecl *d) const;
+
+  // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+  const llvm::SmallVector<const VarDecl *, 4> &getHLSLOutParams() {
+    return hlslOutParams;
+  }
+  // HLSL Change End - Treat `out` parameters as uninitialized values.
 };
 }
 
@@ -72,6 +86,11 @@ void DeclToIndex::computeMap(const DeclContext &dc) {
     const VarDecl *vd = *I;
     if (isTrackedVar(vd, &dc))
       map[vd] = count++;
+    // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+    // Keep HLSL parameters in a separate index.
+    if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
+      hlslOutParams.push_back(vd);
+    // HLSL Change End - Treat `out` parameters as uninitialized values.
   }
 }
 
@@ -137,6 +156,12 @@ public:
     assert(idx.hasValue());
     return getValueVector(block)[idx.getValue()];
   }
+
+  // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+  const llvm::SmallVector<const VarDecl *, 4> &getHLSLOutParams() {
+    return declToIndex.getHLSLOutParams();
+  }
+  // HLSL Change End - Treat `out` parameters as uninitialized values.
 };  
 } // end anonymous namespace
 
@@ -454,8 +479,23 @@ void ClassifyRefs::VisitCallExpr(CallExpr *CE) {
   // If a value is passed by const pointer or by const reference to a function,
   // we should not assume that it is initialized by the call, and we
   // conservatively do not assume that it is used.
+  unsigned ParamIdx = 0; // HLSL Change
   for (CallExpr::arg_iterator I = CE->arg_begin(), E = CE->arg_end();
-       I != E; ++I) {
+       I != E; ++I, ++ParamIdx) { // HLSL Change - add ParamIdx
+    // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+    if (auto FD = CE->getDirectCallee()) {
+      if (FD->getNumParams() > ParamIdx) {
+        ParmVarDecl *PD = FD->getParamDecl(ParamIdx);
+        bool HasIn = PD->hasAttr<HLSLInAttr>();
+        bool HasOut = PD->hasAttr<HLSLOutAttr>();
+        bool HasInOut = PD->hasAttr<HLSLInOutAttr>();
+        // If we have an in annotation or no annotation (implcit in), this is a
+        // use not an initialization.
+        if(HasIn || HasInOut || (!HasIn && !HasOut && !HasInOut))
+          classify(*I, Use);
+      }
+    }
+    // HLSL Change End - Treat `out` parameters as uninitialized values.
     if ((*I)->isGLValue()) {
       if ((*I)->getType().isConstQualified())
         classify((*I), Ignore);
@@ -514,6 +554,7 @@ public:
   void VisitDeclStmt(DeclStmt *ds);
   void VisitObjCForCollectionStmt(ObjCForCollectionStmt *FS);
   void VisitObjCMessageExpr(ObjCMessageExpr *ME);
+  void VisitReturnStmt(ReturnStmt *RS); // HLSL Change
 
   bool isTrackedVar(const VarDecl *vd) {
     return ::isTrackedVar(vd, cast<DeclContext>(ac.getDecl()));
@@ -794,6 +835,25 @@ void TransferFunctions::VisitObjCMessageExpr(ObjCMessageExpr *ME) {
   }
 }
 
+// HLSL Change Begin - Treat `out` parameters as uninitialized values.
+void TransferFunctions::VisitReturnStmt(ReturnStmt *RS) {
+  // Visit the statment normally first so that it's expression can be processed.
+  VisitStmt(RS);
+  // Create a dummy use DeclRefExpr for all the `out` params.
+  for (auto *P : vals.getHLSLOutParams()) {
+    Value v = vals[P];
+    if (!isUninitialized(v))
+      continue;
+    auto *DRE = DeclRefExpr::Create(
+        P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),
+        const_cast<VarDecl *>(P), false,
+        DeclarationNameInfo(P->getDeclName(), RS->getLocStart()),
+        P->getASTContext().VoidTy, ExprValueKind::VK_RValue);
+    reportUse(DRE, P);
+  }
+}
+// HLSL Change End - Treat `out` parameters as uninitialized values.
+
 //------------------------------------------------------------------------====//
 // High-level "driver" logic for uninitialized values analysis.
 //====------------------------------------------------------------------------//
@@ -802,7 +862,8 @@ static bool runOnBlock(const CFGBlock *block, const CFG &cfg,
                        AnalysisDeclContext &ac, CFGBlockValues &vals,
                        const ClassifyRefs &classification,
                        llvm::BitVector &wasAnalyzed,
-                       UninitVariablesHandler &handler) {
+                       UninitVariablesHandler &handler,
+                       const DeclContext &dc) { // HLSL Change - Add dc
   wasAnalyzed[block->getBlockID()] = true;
   vals.resetScratch();
   // Merge in values of predecessor blocks.
@@ -824,6 +885,37 @@ static bool runOnBlock(const CFGBlock *block, const CFG &cfg,
     if (Optional<CFGStmt> cs = I->getAs<CFGStmt>())
       tf.Visit(const_cast<Stmt*>(cs->getStmt()));
   }
+
+  // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+  // If this block has no successors and does not have a terminator stmt which
+  // we would have handled above.
+  if (block->succ_size() == 0 && !block->getTerminator()) {
+    bool AllHandled = true;
+    for (auto P = block->pred_begin(); P != block->pred_end(); ++P) {
+      if (auto Term = (*P)->getTerminator()) {
+        if (isa<ReturnStmt>(*Term))
+          continue;
+      }
+      AllHandled = false;
+      break;
+    }
+    if (!AllHandled) {
+      // Create a dummy use DeclRefExpr for all the `out` params.
+      for (auto *P : vals.getHLSLOutParams()) {
+        Value v = vals[P];
+        if (!isUninitialized(v))
+          continue;
+        auto *DRE = DeclRefExpr::Create(
+            P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),
+            const_cast<VarDecl *>(P), false,
+            DeclarationNameInfo(P->getDeclName(),
+                                cast<Decl>(&dc)->getBody()->getLocEnd()),
+            P->getASTContext().VoidTy, ExprValueKind::VK_RValue);
+        tf.reportUse(DRE, P);
+      }
+    }
+  }
+  // HLSL Change End - Treat `out` parameters as uninitialized values.
   return vals.updateValueVectorWithScratch(block);
 }
 
@@ -901,8 +993,10 @@ void clang::runUninitializedVariablesAnalysis(
     PBH.currentBlock = block->getBlockID();
 
     // Did the block change?
-    bool changed = runOnBlock(block, cfg, ac, vals,
-                              classification, wasAnalyzed, PBH);
+    // HLSL Change Begin - Add dc
+    bool changed = runOnBlock(block, cfg, ac, vals, classification, wasAnalyzed,
+                              PBH, dc);
+    // HLSL Change End - Add dc
     ++stats.NumBlockVisits;
     if (changed || !previouslyVisited[block->getBlockID()])
       worklist.enqueueSuccessors(block);    
@@ -916,10 +1010,44 @@ void clang::runUninitializedVariablesAnalysis(
   for (CFG::const_iterator BI = cfg.begin(), BE = cfg.end(); BI != BE; ++BI) {
     const CFGBlock *block = *BI;
     if (PBH.hadUse[block->getBlockID()]) {
-      runOnBlock(block, cfg, ac, vals, classification, wasAnalyzed, handler);
+      // HLSL Change Begin - Add dc
+      runOnBlock(block, cfg, ac, vals, classification, wasAnalyzed, handler,
+                 dc);
+      // HLSL Change End - Add dc
       ++stats.NumBlockVisits;
     }
   }
+
+  // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+  // If this block has no successors and does not have a terminator stmt which
+  // we would have handled above.
+  auto ExitBlock = cfg.getExit();
+  bool AllHandled = true;
+  TransferFunctions tf(vals, cfg, &ExitBlock, ac, classification, handler);
+  for (auto P = ExitBlock.pred_begin() ; P != ExitBlock.pred_end(); ++P) {
+    if (auto Term = (*P)->getTerminator()) {
+      if (isa<ReturnStmt>(*Term))
+        continue;
+    }
+    AllHandled = false;
+    break;
+  }
+  if (!AllHandled) {
+    // Create a dummy use DeclRefExpr for all the `out` params.
+    for (auto *P : vals.getHLSLOutParams()) {
+      Value v = vals[P];
+      if (!isUninitialized(v))
+        continue;
+      auto *DRE = DeclRefExpr::Create(
+          P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),
+          const_cast<VarDecl *>(P), false,
+          DeclarationNameInfo(P->getDeclName(),
+                              cast<Decl>(&dc)->getBody()->getLocEnd()),
+          P->getASTContext().VoidTy, ExprValueKind::VK_RValue);
+      tf.reportUse(DRE, P);
+    }
+  }
+  // HLSL Change End - Treat `out` parameters as uninitialized values.
 }
 
 UninitVariablesHandler::~UninitVariablesHandler() {}

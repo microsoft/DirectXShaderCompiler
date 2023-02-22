@@ -1574,6 +1574,22 @@ def warn_sometimes_uninit_var : Warning<
   "its declaration is reached|"
   "%3 is called}2">,
   InGroup<UninitializedSometimes>, DefaultIgnore;
+// HLSL Change Begin - Add warning for uninitialized out param
+// These errors must match the format of the errors above.
+def warn_hlsl_uninit_out_param : Warning<
+  "parameter %0 is uninitialized when %select{used here|returned}1">,
+  InGroup<HLSLParameterUsage>;
+
+def warn_hlsl_sometimes_uninit_out_param : Warning<
+  "parameter %0 is %select{used|returned}1 uninitialized whenever "
+  "%select{'%3' condition is %select{true|false}4|"
+  "'%3' loop %select{is entered|exits because its condition is false}4|"
+  "'%3' loop %select{condition is true|exits because its condition is false}4|"
+  "switch %3 is taken|"
+  "its declaration is reached|"
+  "%3 is called}2">,
+  InGroup<HLSLParameterUsage>;
+// HLSL Change End - Add warning for uninitialized out param
 def warn_maybe_uninit_var : Warning<
   "variable %0 may be uninitialized when "
   "%select{used here|captured by block}1">,
