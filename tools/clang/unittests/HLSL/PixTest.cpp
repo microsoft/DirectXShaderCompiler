@@ -227,6 +227,9 @@ public:
   TEST_METHOD(PixTypeManager_InheritancePointerTypedef)
   TEST_METHOD(PixTypeManager_MatricesInBase)
   TEST_METHOD(PixTypeManager_SamplersAndResources)
+  TEST_METHOD(PixTypeManager_XBoxDiaAssert)
+
+  TEST_METHOD(DxcPixDxilDebugInfo_InstructionOffsets)
 
       TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -1802,6 +1805,8 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
 }
 
+static LPCWSTR defaultFilename = L"source.hlsl";
+
 static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      _Outptr_ IDxcBlob **ppResult) {
@@ -1812,7 +1817,7 @@ static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   *ppResult = nullptr;
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
   Utf8ToBlob(dllSupport, pText, &pSource);
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, defaultFilename, L"main",
                                       pTargetProfile, args.data(), args.size(),
                                       nullptr, 0, nullptr, &pResult));
 
@@ -2086,6 +2091,233 @@ void main()
                                           &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
+
+TEST_F(PixTest, PixTypeManager_XBoxDiaAssert) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct VSOut
+{
+    float4 vPosition : SV_POSITION;
+    float4 vLightAndFog : COLOR0_center;
+    float4 vTexCoords : TEXCOORD1;
+};
+
+struct HSPatchData
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+HSPatchData HSPatchFunc(const InputPatch<VSOut, 3> tri)
+{
+
+    float dist = (tri[0].vPosition.w + tri[1].vPosition.w + tri[2].vPosition.w) / 3;
+
+
+    float tf = max(1, dist / 100.f);
+
+    HSPatchData pd;
+    pd.edges[0] = pd.edges[1] = pd.edges[2] = tf;
+    pd.inside = tf;
+
+    return pd;
+}
+
+[domain("tri")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_cw")]
+[patchconstantfunc("HSPatchFunc")]
+[outputcontrolpoints(3)]
+[RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), " "DescriptorTable(SRV(t0, numDescriptors=2), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(Sampler(s0, numDescriptors=2), visibility=SHADER_VISIBILITY_PIXEL)," "DescriptorTable(CBV(b0, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(CBV(b1, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(CBV(b2, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(SRV(t3, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(UAV(u9, numDescriptors=2), visibility=SHADER_VISIBILITY_ALL),")]
+VSOut main( const uint id : SV_OutputControlPointID,
+              const InputPatch< VSOut, 3 > triIn )
+{
+    return triIn[id];
+}
+)";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"hs_6_0",
+                                          &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
+std::vector<std::string> SplitAndPreserveEmptyLines(std::string const & str, char delimeter) {
+  std::vector<std::string> lines;
+
+  auto const *p = str.data();
+  auto const *justPastPreviousDelimiter = p;
+  while (p < str.data() + str.length()) {
+    if (*p == delimeter) {
+      lines.emplace_back(justPastPreviousDelimiter, p - justPastPreviousDelimiter);
+      justPastPreviousDelimiter = p + 1;
+      p = justPastPreviousDelimiter;
+    } else {
+      p++;
+    }
+  }
+
+  lines.emplace_back(std::string(justPastPreviousDelimiter,
+                                      p - justPastPreviousDelimiter));
+
+  return lines;
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_InstructionOffsets) {
+
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(RaytracingAccelerationStructure Scene : register(t0, space0);
+RWTexture2D<float4> RenderTarget : register(u0);
+
+struct SceneConstantBuffer
+{
+    float4x4 projectionToWorld;
+    float4 cameraPosition;
+    float4 lightPosition;
+    float4 lightAmbientColor;
+    float4 lightDiffuseColor;
+};
+
+ConstantBuffer<SceneConstantBuffer> g_sceneCB : register(b0);
+
+struct RayPayload
+{
+    float4 color;
+};
+
+inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
+{
+    float2 xy = index + 0.5f; // center in the middle of the pixel.
+    float2 screenPos = xy;// / DispatchRaysDimensions().xy * 2.0 - 1.0;
+
+    // Invert Y for DirectX-style coordinates.
+    screenPos.y = -screenPos.y;
+
+    // Unproject the pixel coordinate into a ray.
+    float4 world = /*mul(*/float4(screenPos, 0, 1)/*, g_sceneCB.projectionToWorld)*/;
+
+    //world.xyz /= world.w;
+    origin = world.xyz; //g_sceneCB.cameraPosition.xyz;
+    direction = float3(1,0,0);//normalize(world.xyz - origin);
+}
+
+void RaygenCommon()
+{
+    float3 rayDir;
+    float3 origin;
+    
+    // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
+    GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
+
+    // Trace the ray.
+    // Set the ray's extents.
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = rayDir;
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    RayPayload payload = { float4(0, 0, 0, 0) };
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+
+    // Write the raytraced color to the output texture.
+   // RenderTarget[DispatchRaysIndex().xy] = payload.color;
+}
+
+[shader("raygeneration")]
+void Raygen()
+{
+    RaygenCommon();
+}
+
+typedef BuiltInTriangleIntersectionAttributes MyAttributes;
+
+[shader("closesthit")]
+void InnerClosestHitShader(inout RayPayload payload, in MyAttributes attr)
+{
+    payload.color = float4(0,1,0,0);
+}
+
+
+[shader("miss")]
+void MyMissShader(inout RayPayload payload)
+{
+    payload.color = float4(1, 0, 0, 0);
+})";
+
+  auto lines = SplitAndPreserveEmptyLines(std::string(hlsl), '\n');
+  DWORD countOfSourceLines = static_cast<DWORD>(lines.size());
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          &pDiaDataSource);
+
+  CComPtr<IDiaSession> session;
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
+
+  CComPtr<IDxcPixDxilDebugInfoFactory> Factory;
+  VERIFY_SUCCEEDED(session->QueryInterface(IID_PPV_ARGS(&Factory)));
+
+  CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
+  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
+
+  // Quick crash test for wrong filename:
+  CComPtr<IDxcPixDxilInstructionOffsets> garbageOffsets;
+  dxilDebugger->InstructionOffsetsFromSourceLocation(L"garbage", 0, 0,
+                                                     &garbageOffsets);
+
+  // Since the API offers both source-from-instruction and
+  // instruction-from-source, we'll compare them against each other:
+  for (size_t line = 0; line < lines.size(); ++line) {
+
+    auto lineNumber = static_cast<DWORD>(line);
+
+    constexpr DWORD sourceLocationReaderOnlySupportsColumnZero = 0;
+    CComPtr<IDxcPixDxilInstructionOffsets> offsets;
+    dxilDebugger->InstructionOffsetsFromSourceLocation(
+        defaultFilename, lineNumber, sourceLocationReaderOnlySupportsColumnZero,
+        &offsets);
+
+    auto offsetCount = offsets->GetCount();
+    for (DWORD offsetOrdinal = 0; offsetOrdinal < offsetCount;
+         ++offsetOrdinal) {
+
+      DWORD instructionOffsetFromSource =
+          offsets->GetOffsetByIndex(offsetOrdinal);
+
+      CComPtr<IDxcPixDxilSourceLocations> sourceLocations;
+      VERIFY_SUCCEEDED(dxilDebugger->SourceLocationsFromInstructionOffset(
+          instructionOffsetFromSource, &sourceLocations));
+
+      auto count = sourceLocations->GetCount();
+      for (DWORD sourceLocationOrdinal = 0; sourceLocationOrdinal < count;
+           ++sourceLocationOrdinal) {
+        DWORD lineNumber =
+            sourceLocations->GetLineNumberByIndex(sourceLocationOrdinal);
+        DWORD column = sourceLocations->GetColumnByIndex(sourceLocationOrdinal);
+        CComBSTR filename;
+        VERIFY_SUCCEEDED(sourceLocations->GetFileNameByIndex(
+            sourceLocationOrdinal, &filename));
+
+        VERIFY_IS_TRUE(lineNumber < countOfSourceLines);
+
+        constexpr DWORD lineNumbersAndColumnsStartAtOne = 1;
+        VERIFY_IS_TRUE(
+            column - lineNumbersAndColumnsStartAtOne  <=
+            static_cast<DWORD>(lines.at(lineNumber - lineNumbersAndColumnsStartAtOne).size()));
+        VERIFY_IS_TRUE(0 == wcscmp(filename, defaultFilename));
+      }
+    }
+  }
 }
 
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
