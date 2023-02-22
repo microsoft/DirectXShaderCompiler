@@ -300,7 +300,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
 
     if (externalLib) {
       CW2A externalFnA(externalFn, CP_UTF8);
-      CW2A externalLibA(externalFn, CP_UTF8);
+      CW2A externalLibA(externalLib, CP_UTF8);
       IFT(g_DxcSupport.InitializeForDll(externalLibA, externalFnA));
     }
     else {
