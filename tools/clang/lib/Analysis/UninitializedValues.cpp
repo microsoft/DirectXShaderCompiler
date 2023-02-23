@@ -35,7 +35,8 @@ using namespace clang;
 
 static bool isTrackedVar(const VarDecl *vd, const DeclContext *dc) {
   // HLSL Change Begin - Treat `out` parameters as uninitialized values.
-  if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
+  if (!vd->hasAttr<HLSLMaybeUnusedOutAttr>() && vd->hasAttr<HLSLOutAttr>() &&
+      !vd->hasAttr<HLSLInAttr>())
     return true;
   // HLSL Change End - Treat `out` parameters as uninitialized values.
   if (vd->isLocalVarDecl() && !vd->hasGlobalStorage() &&

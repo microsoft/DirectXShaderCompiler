@@ -917,6 +917,12 @@ def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLMaybeUnusedOut : InheritableAttr {
+  let Spellings = [CXX11<"", "maybe_unused_out", 2017>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
 // This attribute has no spelling, it is attached to methods by the compiler for
 // methods that require C++ lookup rules.
 def HLSLCXXOverload : InheritableAttr {

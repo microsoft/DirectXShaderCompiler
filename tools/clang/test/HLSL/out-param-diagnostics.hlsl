@@ -102,3 +102,6 @@ int Something3(out int Num) { // expected-note {{variable 'Num' is declared here
 void fn_uint_oload3(uint u) { }
 void fn_uint_oload3(inout uint u) { }
 void fn_uint_oload3(out uint u) { } // expected-warning {{parameter 'u' is uninitialized when used here}} expected-note{{variable 'u' is declared here}}
+
+// Verify attribute annotation to opt out of uninitialized parameter analysis.
+void UnusedOutput([maybe_unused_out] out int Val) {}
