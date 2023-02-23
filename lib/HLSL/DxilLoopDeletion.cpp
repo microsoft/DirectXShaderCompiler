@@ -22,11 +22,16 @@ using namespace llvm;
 namespace {
   class DxilLoopDeletion : public FunctionPass {
   public:
+    bool m_HLSLNoSink = false;
     static char ID; // Pass ID, replacement for typeid
-    DxilLoopDeletion() : FunctionPass(ID) {
+    DxilLoopDeletion(bool NoSink=false) : FunctionPass(ID), m_HLSLNoSink(NoSink) {
     }
 
     bool runOnFunction(Function &F) override;
+
+    void applyOptions(PassOptions O) override {
+      GetPassOptionBool(O, "NoSink", &m_HLSLNoSink, /*defaultValue*/false);
+    }
 
   };
 }
@@ -35,7 +40,7 @@ char DxilLoopDeletion::ID = 0;
 INITIALIZE_PASS(DxilLoopDeletion, "dxil-loop-deletion",
                 "Delete dead loops", false, false)
 
-FunctionPass *llvm::createDxilLoopDeletionPass() { return new DxilLoopDeletion(); }
+FunctionPass *llvm::createDxilLoopDeletionPass(bool NoSink) { return new DxilLoopDeletion(NoSink); }
 
 bool DxilLoopDeletion::runOnFunction(Function &F) {
   // Run loop simplify first to make sure loop invariant is moved so loop
@@ -48,7 +53,7 @@ bool DxilLoopDeletion::runOnFunction(Function &F) {
   legacy::FunctionPassManager SimplifyPM(F.getParent());
   SimplifyPM.add(createCFGSimplificationPass());
   SimplifyPM.add(createDeadCodeEliminationPass());
-  SimplifyPM.add(createInstructionCombiningPass());
+  SimplifyPM.add(createInstructionCombiningPass(/*HLSL No sink*/m_HLSLNoSink));
 
   const unsigned kMaxIteration = 3;
   unsigned i=0;
