@@ -552,10 +552,6 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
           auto* MultipliedOutOfBoundsValue = Builder.CreateMul(OneIfOutOfBounds, HlslOP->GetU32Const(EncodedInstructionNumber));
           auto* CombinedFlagOrInstructionValue = Builder.CreateAdd(MultipliedEncodedFlags, MultipliedOutOfBoundsValue);
 
-          // If we failed to find an instruction value, just return the access flags:
-          if (InstructionNumber == 0) {
-            CombinedFlagOrInstructionValue = EncodedFlags;
-          }
           Constant *ElementMask = HlslOP->GetI8Const(1);
           Function *StoreFunc = HlslOP->GetOpFunc(OP::OpCode::BufferStore,
                                                   Type::getInt32Ty(Ctx));
