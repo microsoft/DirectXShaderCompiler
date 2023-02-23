@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // Make sure out param has no-alias.
-// CHECK: float @"\01?test@@YAMMUT@@AIAV?$matrix@M$01$01@@M@Z"(float %a, %struct.T* noalias nocapture %t, %class.matrix.float.2.2* noalias nocapture dereferenceable(16) %m, float %b)
+// CHECK: float @"\01?test{{[@$?.A-Za-z0-9_]+}}"(float %a, %struct.T* noalias nocapture %t, %class.matrix.float.2.2* noalias nocapture dereferenceable(16) %m, float %b)
 
 struct T {
   float a;

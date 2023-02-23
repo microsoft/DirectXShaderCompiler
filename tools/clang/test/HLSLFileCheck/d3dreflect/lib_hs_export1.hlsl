@@ -2,7 +2,7 @@
 
 // This version of HSPerPatchFunc1 should not be exported
 // CHECK: ID3D12FunctionReflection:
-// CHECK-NOT: D3D12_FUNCTION_DESC: Name: \01?HSPerPatchFunc1@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$0BA@@@@Z
+// CHECK-NOT: D3D12_FUNCTION_DESC: Name: \01?HSPerPatchFunc1{{[@$?.A-Za-z0-9_]+InputPatch[@$?.A-Za-z0-9_]+}}
 // CHECK-NOT: D3D_SRV_DIMENSION_BUFFER
 
 Buffer<float> T_unused;

@@ -2,7 +2,7 @@
 
 // Make sure function call on external function has correct type.
 
-// CHECK: call float @"\01?test_extern@@YAMUFoo@@@Z"(%struct.Foo* {{.*}})
+// CHECK: call float @"\01?test_extern{{[@$?.A-Za-z0-9_]+}}"(%struct.Foo* {{.*}})
 
 struct Foo {
   float a;

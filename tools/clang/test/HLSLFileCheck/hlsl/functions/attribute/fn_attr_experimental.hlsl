@@ -2,7 +2,7 @@
 
 // CHECK: define <4 x float>
 // CHECK: fn1
-// @"\01?fn1@@YA?AV?$vector@M$03@@V1@@Z"
+// @"\01?fn1{{[@$?.A-Za-z0-9_]+}}"
 // CHECK: #0
 // CHECK: attributes #0
 // CHECK: "exp-foo"="bar"
