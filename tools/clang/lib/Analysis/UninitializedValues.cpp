@@ -1017,37 +1017,6 @@ void clang::runUninitializedVariablesAnalysis(
       ++stats.NumBlockVisits;
     }
   }
-
-  // HLSL Change Begin - Treat `out` parameters as uninitialized values.
-  // If this block has no successors and does not have a terminator stmt which
-  // we would have handled above.
-  auto ExitBlock = cfg.getExit();
-  bool AllHandled = true;
-  TransferFunctions tf(vals, cfg, &ExitBlock, ac, classification, handler);
-  for (auto P = ExitBlock.pred_begin() ; P != ExitBlock.pred_end(); ++P) {
-    if (auto Term = (*P)->getTerminator()) {
-      if (isa<ReturnStmt>(*Term))
-        continue;
-    }
-    AllHandled = false;
-    break;
-  }
-  if (!AllHandled) {
-    // Create a dummy use DeclRefExpr for all the `out` params.
-    for (auto *P : vals.getHLSLOutParams()) {
-      Value v = vals[P];
-      if (!isUninitialized(v))
-        continue;
-      auto *DRE = DeclRefExpr::Create(
-          P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),
-          const_cast<VarDecl *>(P), false,
-          DeclarationNameInfo(P->getDeclName(),
-                              cast<Decl>(&dc)->getBody()->getLocEnd()),
-          P->getASTContext().VoidTy, ExprValueKind::VK_RValue);
-      tf.reportUse(DRE, P);
-    }
-  }
-  // HLSL Change End - Treat `out` parameters as uninitialized values.
 }
 
 UninitVariablesHandler::~UninitVariablesHandler() {}
