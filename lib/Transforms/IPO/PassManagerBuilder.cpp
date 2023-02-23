@@ -210,7 +210,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 void PassManagerBuilder::addHLSLPasses(legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
-  if (this->HLSLHighLevel) {
+  if (HLSLHighLevel) {
     MPM.add(createHLEmitMetadataPass());
     return;
   }

@@ -3030,7 +3030,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *LI = AM->getCachedResult<LoopAnalysis>(F);
 
   // FIXME: The AliasAnalysis is not yet supported in the new pass manager
-  if (!combineInstructionsOverFunction(F, Worklist, false, nullptr, AC, TLI, DT, LI))
+  if (!combineInstructionsOverFunction(F, Worklist, false /*HLSL Change*/, nullptr, AC, TLI, DT, LI))
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3097,7 +3097,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
-  return combineInstructionsOverFunction(F, Worklist, m_HLSLNoSink, AA, AC, TLI, DT, LI);
+  return combineInstructionsOverFunction(F, Worklist, m_HLSLNoSink /*HLSL Change*/, AA, AC, TLI, DT, LI);
 }
 
 char InstructionCombiningPass::ID = 0;
