@@ -25,7 +25,7 @@ void RayGenShader()
 // CHECK: ID3D12LibraryReflection:
 // CHECK:     FunctionCount: 1
 // CHECK-NEXT:   ID3D12FunctionReflection:
-// CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: \01?RayGenShader@@YAXXZ
+// CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: \01?RayGenShader{{[@$?.A-Za-z0-9_]+}}
 // CHECK-NEXT:       Shader Version: RayGeneration
 // CHECK:       ConstantBuffers: 1
 // CHECK-NEXT:       BoundResources: 2

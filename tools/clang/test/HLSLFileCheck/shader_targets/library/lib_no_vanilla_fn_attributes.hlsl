@@ -2,7 +2,7 @@
 
 // Make sure a bunch of vanilla function attributes are not added to the functions which are not inlined. 
 
-// CHECK: define float @"\01?foo@@YAMM@Z"(float %a)
+// CHECK: define float @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(float %a)
 // CHECK: nounwind
 // CHECK: readnone
 // CHECK-NOT: disable-tail-calls

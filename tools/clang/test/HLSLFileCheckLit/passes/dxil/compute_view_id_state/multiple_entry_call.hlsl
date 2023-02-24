@@ -2,8 +2,8 @@
 
 // Just make sure it not crash.
 // CHECK: define void @main()
-// CHECK: call fastcc float @"\01?foo@@YAMM@Z"(float %{{.+}})
-// CHECK: call fastcc float @"\01?foo@@YAMM@Z"(float %{{.+}})
+// CHECK: call fastcc float @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(float %{{.+}})
+// CHECK: call fastcc float @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(float %{{.+}})
 
 [noinline]
 float foo(float a) {
