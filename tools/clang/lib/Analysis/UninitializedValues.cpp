@@ -555,6 +555,7 @@ public:
   void VisitObjCForCollectionStmt(ObjCForCollectionStmt *FS);
   void VisitObjCMessageExpr(ObjCMessageExpr *ME);
   void VisitReturnStmt(ReturnStmt *RS); // HLSL Change
+  void HandleHLSLImplicitUse(SourceLocation Loc); // HLSL Change
 
   bool isTrackedVar(const VarDecl *vd) {
     return ::isTrackedVar(vd, cast<DeclContext>(ac.getDecl()));
@@ -839,6 +840,10 @@ void TransferFunctions::VisitObjCMessageExpr(ObjCMessageExpr *ME) {
 void TransferFunctions::VisitReturnStmt(ReturnStmt *RS) {
   // Visit the statment normally first so that it's expression can be processed.
   VisitStmt(RS);
+  HandleHLSLImplicitUse(RS->getLocStart());
+}
+
+void TransferFunctions::HandleHLSLImplicitUse(SourceLocation Loc) {
   // Create a dummy use DeclRefExpr for all the `out` params.
   for (auto *P : vals.getHLSLOutParams()) {
     Value v = vals[P];
@@ -852,7 +857,7 @@ void TransferFunctions::VisitReturnStmt(ReturnStmt *RS) {
     auto *DRE = DeclRefExpr::Create(
         P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),
         const_cast<VarDecl *>(P), false,
-        DeclarationNameInfo(P->getDeclName(), RS->getLocStart()),
+        DeclarationNameInfo(P->getDeclName(), Loc),
         P->getASTContext().VoidTy, ExprValueKind::VK_RValue);
     reportUse(DRE, P);
   }
@@ -904,23 +909,8 @@ static bool runOnBlock(const CFGBlock *block, const CFG &cfg,
       AllHandled = false;
       break;
     }
-    if (!AllHandled) {
-      // Create a dummy use DeclRefExpr for all the `out` params.
-      for (auto *P : vals.getHLSLOutParams()) {
-        Value v = vals[P];
-        if (!isUninitialized(v))
-          continue;
-        if (P->hasAttr<HLSLMaybeUnusedAttr>() && isAlwaysUninit(v))
-          continue;
-        auto *DRE = DeclRefExpr::Create(
-            P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),
-            const_cast<VarDecl *>(P), false,
-            DeclarationNameInfo(P->getDeclName(),
-                                cast<Decl>(&dc)->getBody()->getLocEnd()),
-            P->getASTContext().VoidTy, ExprValueKind::VK_RValue);
-        tf.reportUse(DRE, P);
-      }
-    }
+    if (!AllHandled)
+      tf.HandleHLSLImplicitUse(cast<Decl>(&dc)->getBody()->getLocEnd());
   }
   // HLSL Change End - Treat `out` parameters as uninitialized values.
   return vals.updateValueVectorWithScratch(block);
