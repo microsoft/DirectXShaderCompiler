@@ -28,7 +28,7 @@ float4 main(uint i:I) : SV_Target {
 // multiple checks on the same line of text.
 
 // FCGL: [[Buffer:%.+]] = load %"class.Buffer<vector<float, 4> >",
-// FCGL-SAME: %"class.Buffer<vector<float, 4> >"* @"\01?buf@@3V?$Buffer@V?$vector@M$03@@@@A"
+// FCGL-SAME: %"class.Buffer<vector<float, 4> >"* @"\01?buf{{[@$?.A-Za-z0-9_]+}}"
 
 // FCGL: [[Handle:%.+]] = call %dx.types.Handle
 // FCGL-SAME: @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.Buffer<vector<float, 4> >\22)"

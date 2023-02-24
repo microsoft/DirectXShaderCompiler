@@ -9,8 +9,8 @@ RWBuffer<int> Out;
 
 // CHECK: target datalayout
 
-// NOINLINE: define internal {{.*}} i32 @"\01?add@@YAHHH@Z"(i32 %X, i32 %Y) [[Attr:#[0-9]+]]
-// NORMAL-NOT: define {{.*}} i32 @"\01?add@@YAHHH@Z"(i32 %X, i32 %Y)
+// NOINLINE: define internal {{.*}} i32 @"\01?add{{[@$?.A-Za-z0-9_]+}}"(i32 %X, i32 %Y) [[Attr:#[0-9]+]]
+// NORMAL-NOT: define {{.*}} i32 @"\01?add{{[@$?.A-Za-z0-9_]+}}"(i32 %X, i32 %Y)
 #ifdef NOINLINE
 [noinline]
 #endif
@@ -19,8 +19,8 @@ int add(int X, int Y) {
 }
 
 // CHECK: define void @CSMain()
-// NOINLINE: call {{.*}}i32 @"\01?add@@YAHHH@Z"(i32 
-// NORMAL-NOT: call {{.*}}i32 @"\01?add@@YAHHH@Z"(i32
+// NOINLINE: call {{.*}}i32 @"\01?add{{[@$?.A-Za-z0-9_]+}}"(i32 
+// NORMAL-NOT: call {{.*}}i32 @"\01?add{{[@$?.A-Za-z0-9_]+}}"(i32
 [shader("compute")]
 [numthreads(1,1,1)]
 void CSMain(uint GI : SV_GroupIndex) {
