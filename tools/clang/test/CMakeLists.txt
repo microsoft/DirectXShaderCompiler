@@ -129,3 +129,12 @@ if (WIN32)
           )
 endif()
 # HLSL Change End
+
+# HLSL Change Begin - Add hlsl cmds tests
+add_lit_target("check-hlsl-cmds" "Running hlsl cmds tests"
+  ${CMAKE_CURRENT_SOURCE_DIR}/DXC
+  PARAMS ${CLANG_TEST_PARAMS}
+  DEPENDS ${CLANG_TEST_DEPS}
+  ARGS ${CLANG_TEST_EXTRA_ARGS}
+)
+# HLSL Change End
