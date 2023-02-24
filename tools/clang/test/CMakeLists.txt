@@ -111,6 +111,19 @@ add_lit_target("check-clang-unit" "Running lit suite clang-unit"
         )
 # HLSL Change End - Add a separate target for clang unit tests
 
+# HLSL Change Begin - Add a separate target for spirv unit tests
+if (SPIRV_BUILD_TESTS)
+add_lit_target("check-spirv-unit" "Running lit suite spirv-unit"
+          ${CMAKE_CURRENT_SOURCE_DIR}/Unit
+          PARAMS ${CLANG_TEST_PARAMS}
+                 clang_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
+                 spirv_only=True
+          DEPENDS ClangUnitTests
+          ARGS ${CLANG_TEST_EXTRA_ARGS}
+        )
+endif (SPIRV_BUILD_TESTS)
+# HLSL Change End - Add a separate target for spirv unit tests
+
 # HLSL Change Begin - Add taef tests
 if (WIN32)
   add_lit_target("check-clang-taef" "Running lit suite hlsl"
