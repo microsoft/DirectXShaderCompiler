@@ -10347,7 +10347,7 @@ void Sema::DiagnoseUnusedParameters(ParmVarDecl * const *Param,
     if (!(*Param)->isReferenced() && (*Param)->getDeclName() &&
         !(*Param)->hasAttr<UnusedAttr>()) {
       Diag((*Param)->getLocation(), diag::warn_unused_parameter)
-          << (*Param)->getDeclName();
+        << (*Param)->getDeclName();
     }
   }
 }
