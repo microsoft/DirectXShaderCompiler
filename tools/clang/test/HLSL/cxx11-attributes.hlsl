@@ -13,7 +13,7 @@ struct S {
 [[vk::binding(5, 3)]] // expected-warning {{'binding' attribute ignored}}
 ConstantBuffer<S> myConstantBuffer;
 
-[[maybe_unused]] // expected-warning {{unknown attribute 'maybe_unused' ignored}}
+[[maybe_unused]] // expected-warning {{'maybe_unused' attribute only applies to parameters}}
 float main([[scope::attr(0, "str")]] // expected-warning {{unknown attribute 'attr' ignored}}
            float m: B,
            S s) : C {
