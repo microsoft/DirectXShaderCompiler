@@ -104,4 +104,13 @@ void fn_uint_oload3(inout uint u) { }
 void fn_uint_oload3(out uint u) { } // expected-warning {{parameter 'u' is uninitialized when used here}} expected-note{{variable 'u' is declared here}}
 
 // Verify attribute annotation to opt out of uninitialized parameter analysis.
-void UnusedOutput([maybe_unused_out] out int Val) {}
+void UnusedOutput([maybe_unused] out int Val) {}
+
+void UsedMaybeOutput([maybe_unused] out int Val) { // expected-note{{variable 'Val' is declared here}}
+  Val += Val; // expected-warning{{parameter 'Val' is uninitialized when used here}}
+}
+
+void MaybeUsedMaybeUnused([maybe_unused] out int Val, int Cnt) { // expected-note{{variable 'Val' is declared here}}
+  if (Cnt % 2) // expected-warning{{parameter 'Val' is used uninitialized whenever 'if' condition is fals}} expected-note{{remove the 'if' if its condition is always true}}
+    Val = 1;
+} // expected-note{{uninitialized use occurs here}}

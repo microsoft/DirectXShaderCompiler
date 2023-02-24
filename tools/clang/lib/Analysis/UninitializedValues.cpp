@@ -35,8 +35,7 @@ using namespace clang;
 
 static bool isTrackedVar(const VarDecl *vd, const DeclContext *dc) {
   // HLSL Change Begin - Treat `out` parameters as uninitialized values.
-  if (!vd->hasAttr<HLSLMaybeUnusedOutAttr>() && vd->hasAttr<HLSLOutAttr>() &&
-      !vd->hasAttr<HLSLInAttr>())
+  if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
     return true;
   // HLSL Change End - Treat `out` parameters as uninitialized values.
   if (vd->isLocalVarDecl() && !vd->hasGlobalStorage() &&
@@ -845,6 +844,11 @@ void TransferFunctions::VisitReturnStmt(ReturnStmt *RS) {
     Value v = vals[P];
     if (!isUninitialized(v))
       continue;
+    // Skip diagnostics for always uninitialized values if they are marked maybe
+    // unused. This allows us to continue emitting diagnostics for sometimes
+    // uninitialized values.
+    if (P->hasAttr<HLSLMaybeUnusedAttr>() && isAlwaysUninit(v))
+      continue;
     auto *DRE = DeclRefExpr::Create(
         P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),
         const_cast<VarDecl *>(P), false,
@@ -905,6 +909,8 @@ static bool runOnBlock(const CFGBlock *block, const CFG &cfg,
       for (auto *P : vals.getHLSLOutParams()) {
         Value v = vals[P];
         if (!isUninitialized(v))
+          continue;
+        if (P->hasAttr<HLSLMaybeUnusedAttr>() && isAlwaysUninit(v))
           continue;
         auto *DRE = DeclRefExpr::Create(
             P->getASTContext(), NestedNameSpecifierLoc(), SourceLocation(),

@@ -12181,8 +12181,8 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLInOutAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
     break;
-  case AttributeList::AT_HLSLMaybeUnusedOut:
-    declAttr = ::new (S.Context) HLSLMaybeUnusedOutAttr(A.getRange(), S.Context,
+  case AttributeList::AT_HLSLMaybeUnused:
+    declAttr = ::new (S.Context) HLSLMaybeUnusedAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
     break;
 
