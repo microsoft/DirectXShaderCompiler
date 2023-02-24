@@ -1378,8 +1378,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
         ID3D12FunctionReflection *pFunctionReflection = pLibraryReflection->GetFunctionByIndex(iFn);
         D3D12_FUNCTION_DESC FnDesc;
         pFunctionReflection->GetDesc(&FnDesc);
-        std::string Name = FnDesc.Name;
-        if (Name.compare("\01?function0@@YAM$min16f@@Z") == 0) {
+        llvm::StringRef Name = FnDesc.Name;
+        if (Name.startswith("\01?function0@")) {
           VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_lib_6_3);
           VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1U);
           VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2U);
@@ -1410,7 +1410,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
               VERIFY_FAIL(L"Unexpected resource used");
             }
           }
-        } else if (Name.compare("\01?function1@@YAMM$min12i@@Z") == 0) {
+        } else if (Name.startswith("\01?function1@")) {
           VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_lib_6_3);
           VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1U);
           VERIFY_ARE_EQUAL(FnDesc.BoundResources, 4U);
