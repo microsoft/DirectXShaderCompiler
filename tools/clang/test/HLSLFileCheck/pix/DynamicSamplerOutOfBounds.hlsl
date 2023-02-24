@@ -21,4 +21,4 @@ float4 Main() : SV_Target
 
 // Out of bounds sampler access should be at offset 512
 // CHECK: call void @dx.op.bufferStore.i32(
-// CHECK:i32 512, i32 undef, i32 16777216
+// CHECK:i32 512, i32 undef, i32 134217728
