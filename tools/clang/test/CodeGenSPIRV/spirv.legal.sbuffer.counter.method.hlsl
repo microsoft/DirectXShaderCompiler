@@ -52,7 +52,7 @@ ConsumeStructuredBuffer<float> globalCSBuffer;
 AppendStructuredBuffer<float> globalASBuffer;
 RWStructuredBuffer<float> globalRWSBuffer;
 
-// CHECK-LABLE: %src_main = OpFunction
+// CHECK-LABEL: %src_main = OpFunction
 float main() : VVV {
     TwoBundle localBundle;
     Wrapper   localWrapper;

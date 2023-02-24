@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_6 -HV 2021 -disable-lifetime-markers -fcgl %s | FileCheck %s
 
-// CHECK-LABLE: define linkonce_odr void @"\01?foo@Child@@QAAXXZ"(%class.Child* %this)
+// CHECK-LABEL: define linkonce_odr void @"\01?foo@Child@@QAAXXZ"(%class.Child* %this)
 // CHECK: %[[OutArg:.+]] = alloca %class.Parent
 // CHECK: %[[OutThisPtr:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0
 // CHECK: call void @"\01?lib_func2@@YAXVParent@@@Z"(%class.Parent* %[[OutArg]])
@@ -9,7 +9,7 @@
 // CHECK: %[[OutArgCpyPtr:.+]] = bitcast %class.Parent* %[[OutArg]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[OutThisCpyPtr]], i8* %[[OutArgCpyPtr]], i64 8, i32 1, i1 false)
 
-// CHECK-LABLE: define linkonce_odr void @"\01?bar@Child@@QAAXXZ"(%class.Child* %this)
+// CHECK-LABEL: define linkonce_odr void @"\01?bar@Child@@QAAXXZ"(%class.Child* %this)
 // CHECK: %[[InOutArg:.+]] = alloca %class.Parent
 // CHECK: %[[InOutThisPtr:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0
 
@@ -27,7 +27,7 @@
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[InOutThisCpyOutPtr]], i8* %[[InOutArgCpyOutPtr]], i64 8, i32 1, i1 false)
 
 
-// CHECK-LABLE: define linkonce_odr i32 @"\01?foo@Child@@QAAHHH@Z"(%class.Child* %this, i32 %a, i32 %b)
+// CHECK-LABEL: define linkonce_odr i32 @"\01?foo@Child@@QAAHHH@Z"(%class.Child* %this, i32 %a, i32 %b)
 // CHECK: %[[Arg:.+]] = alloca %class.Parent
 // CHECK: %[[Tmp:.+]] = alloca %class.Parent, align 4
 
