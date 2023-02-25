@@ -5,7 +5,7 @@
 
 // CHECK:      OpEntryPoint Vertex %main "main"
 // CHECK-SAME: %in_var_SV_ViewportArrayIndex
-// CHECK-SMAE: %gl_ViewportIndex
+// CHECK-SAME: %gl_ViewportIndex
 
 // CHECK:      OpDecorate %gl_ViewportIndex BuiltIn ViewportIndex
 // CHECK:      OpDecorate %in_var_SV_ViewportArrayIndex Location 0
