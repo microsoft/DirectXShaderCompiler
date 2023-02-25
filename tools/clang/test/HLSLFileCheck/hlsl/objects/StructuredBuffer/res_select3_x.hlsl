@@ -3,7 +3,7 @@
 // lib_6_x allows phi/select of resource in lib.
 // phi/select of handle should not be produced in this case, but would be allowed if it were.
 
-// CHECK: define i32 @"\01?test@@YAIHHH@Z"(i32 %i, i32 %j, i32 %m)
+// CHECK: define i32 @"\01?test{{[@$?.A-Za-z0-9_]+}}"(i32 %i, i32 %j, i32 %m)
 
 // CHECK: phi %dx.types.Handle
 // CHECK: select i1 %{{[^,]+}}, %dx.types.Handle

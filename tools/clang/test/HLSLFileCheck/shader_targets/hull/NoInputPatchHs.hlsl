@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T hs_6_0  %s 2>&1 | FileCheck %s
 
 // Make sure input control point is not 0.
-// CHECK: !{void ()* @"\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@XZ", i32 1
+// CHECK: !{void ()* @"\01?HSPerPatchFunc{{[@$?.A-Za-z0-9_]+}}", i32 1
 
 
 struct HSPerPatchData

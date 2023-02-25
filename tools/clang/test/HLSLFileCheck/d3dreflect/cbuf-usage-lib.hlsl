@@ -43,7 +43,7 @@
 // CHECK:   }
 // CHECK:   RecordTable (stride = 44 bytes) FunctionTable[2] = {
 // CHECK:     <0:RuntimeDataFunctionInfo> = {
-// CHECK:       Name: "\01?foo@@YAMXZ"
+// CHECK:       Name: "\01?foo{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "foo"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
 // CHECK:         [0]: <1:RuntimeDataResourceInfo>

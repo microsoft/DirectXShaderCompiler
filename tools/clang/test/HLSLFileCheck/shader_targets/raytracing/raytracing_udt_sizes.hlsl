@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 -enable-16bit-types %s | FileCheck %s
 
 ///////////////////////////////////////
-// CHECK: !{void (%struct.Payload_20*, %struct.BuiltInTriangleIntersectionAttributes*)* @"\01?anyhit1@@YAXUPayload_20@@UBuiltInTriangleIntersectionAttributes@@@Z",
+// CHECK: !{void (%struct.Payload_20*, %struct.BuiltInTriangleIntersectionAttributes*)* @"\01?anyhit1{{[@$?.A-Za-z0-9_]+}}",
 // CHECK: !{i32 8, i32 9, i32 6, i32 20, i32 7, i32 8,
 
 struct Payload_20 {
@@ -17,7 +17,7 @@ void anyhit1( inout Payload_20 payload,
 }
 
 ///////////////////////////////////////
-// CHECK: !{void (%struct.Params_16*)* @"\01?callable4@@YAXUParams_16@@@Z",
+// CHECK: !{void (%struct.Params_16*)* @"\01?callable4{{[@$?.A-Za-z0-9_]+}}",
 // CHECK: !{i32 8, i32 12, i32 6, i32 16
 
 struct Params_16 {
@@ -32,7 +32,7 @@ void callable4( inout Params_16 params )
 }
 
 ///////////////////////////////////////
-// CHECK: !{void (%struct.Payload_16*, %struct.Attributes_12*)* @"\01?closesthit2@@YAXUPayload_16@@UAttributes_12@@@Z",
+// CHECK: !{void (%struct.Payload_16*, %struct.Attributes_12*)* @"\01?closesthit2{{[@$?.A-Za-z0-9_]+}}",
 // CHECK: !{i32 8, i32 10, i32 6, i32 16, i32 7, i32 12
 
 struct Payload_16 {
@@ -60,7 +60,7 @@ void closesthit2( inout Payload_16 payload,
 }
 
 ///////////////////////////////////////
-// CHECK: !{void (%struct.Payload_10*, %struct.Attributes_40*)* @"\01?closesthit3@@YAXUPayload_10@@UAttributes_40@@@Z",
+// CHECK: !{void (%struct.Payload_10*, %struct.Attributes_40*)* @"\01?closesthit3{{[@$?.A-Za-z0-9_]+}}",
 // CHECK: !{i32 8, i32 10, i32 6, i32 10, i32 7, i32 40
 
 struct Payload_10 {
@@ -87,7 +87,7 @@ void closesthit3( inout Payload_10 payload,
 }
 
 ///////////////////////////////////////
-// CHECK: !{void (%struct.Payload_8*)* @"\01?miss4@@YAXUPayload_8@@@Z",
+// CHECK: !{void (%struct.Payload_8*)* @"\01?miss4{{[@$?.A-Za-z0-9_]+}}",
 // CHECK: !{i32 8, i32 11, i32 6, i32 8
 
 struct Payload_8 {

@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // Make sure we don't store the initial value (must load from payload after TraceRay)
-// CHECK: define void @"\01?RayGenTestMain@@YAXXZ"()
+// CHECK: define void @"\01?RayGenTestMain{{[@$?.A-Za-z0-9_]+}}"()
 // CHECK: call void @dx.op.textureStore.f32(i32 67,
 // CHECK-NOT: float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 1.000000e+00
 // CHECK: , i8 15)

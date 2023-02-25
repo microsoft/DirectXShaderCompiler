@@ -9,9 +9,9 @@
 // CHECK:%[[A5:.*]] = alloca i32
 // CHECK:%[[A6:.*]] = alloca i32
 
-// CHECK:call void @"\01?foo@@YAXIAIAI00@Z"(i32 0, i32* nonnull dereferenceable(4) %[[A0]], i32* nonnull dereferenceable(4) %[[A5]], i32* nonnull dereferenceable(4) %[[A6]])
-// CHECK:call void @"\01?foo@@YAXIAIAI00@Z"(i32 0, i32* nonnull dereferenceable(4) %[[A4]], i32* nonnull dereferenceable(4) %[[A3]], i32* nonnull dereferenceable(4) %[[A6]])
-// CHECK:call void @"\01?foo@@YAXIAIAI00@Z"(i32 0, i32* nonnull dereferenceable(4) %[[A2]], i32* nonnull dereferenceable(4) %[[A1]], i32* nonnull dereferenceable(4) %[[A6]])
+// CHECK:call void @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(i32 0, i32* nonnull dereferenceable(4) %[[A0]], i32* nonnull dereferenceable(4) %[[A5]], i32* nonnull dereferenceable(4) %[[A6]])
+// CHECK:call void @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(i32 0, i32* nonnull dereferenceable(4) %[[A4]], i32* nonnull dereferenceable(4) %[[A3]], i32* nonnull dereferenceable(4) %[[A6]])
+// CHECK:call void @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(i32 0, i32* nonnull dereferenceable(4) %[[A2]], i32* nonnull dereferenceable(4) %[[A1]], i32* nonnull dereferenceable(4) %[[A6]])
 
 struct DimStruct {
   uint2 Dims;

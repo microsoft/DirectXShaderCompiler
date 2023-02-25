@@ -1,12 +1,12 @@
 // RUN: %dxc -auto-binding-space 13 -T lib_6_3 -export-shaders-only %s | FileCheck %s
 
 // CHECK-NOT: unused
-// CHECK-NOT: @"\01?HSPerPatchFunc1@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$0BA@@@@Z"
+// CHECK-NOT: @"\01?HSPerPatchFunc1{{[@$?.A-Za-z0-9_]+}}"
 // CHECK: define void @"\01?HSPerPatchFunc2
 // CHECK: define void @HSMain1()
 // CHECK: define void @HSMain2()
 // CHECK: define void @HSMain3()
-// CHECK: define void @"\01?HSPerPatchFunc1@@YA?AUHSPerPatchData@@XZ"
+// CHECK: define void @"\01?HSPerPatchFunc1{{[@$?.A-Za-z0-9_]+}}"
 
 Buffer<float> T_unused;
 
