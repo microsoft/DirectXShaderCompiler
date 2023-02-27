@@ -14,9 +14,9 @@ add_llvm_library(LLVMDxcSupport
 #generate header with platform-specific library name
 configure_file(
 ${LLVM_MAIN_SRC_DIR}/lib/DxcSupport/SharedLibAffix.inc
-SharedLibAffix.h
+${LLVM_INCLUDE_DIR}/dxc/Support/SharedLibAffix.h
 )
 
-include_directories( ${LLVM_INCLUDE_DIR}/DxcSupport) #needed to find the generated header
+include_directories( ${LLVM_INCLUDE_DIR}/dxc/Support) #needed to find the generated header
 
 add_dependencies(LLVMDxcSupport TablegenHLSLOptions)
