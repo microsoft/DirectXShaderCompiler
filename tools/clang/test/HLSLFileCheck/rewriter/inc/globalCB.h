@@ -8,5 +8,5 @@ struct C {
   int4 c;
 };
 
-}
-}
+} // namespace N
+} // namespace NN

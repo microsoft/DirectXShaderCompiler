@@ -933,7 +933,8 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
     return true;
   }
   // Try both input and output even if input location assignment failed
-  return (int) finalizeStageIOLocations(true) & (int) finalizeStageIOLocations(false);
+  return (int)finalizeStageIOLocations(true) &
+         (int)finalizeStageIOLocations(false);
 }
 
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {

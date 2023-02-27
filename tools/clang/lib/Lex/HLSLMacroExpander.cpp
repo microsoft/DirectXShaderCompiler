@@ -16,9 +16,9 @@
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/ModuleMap.h"
 #include "clang/Lex/PPCallbacks.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PTHLexer.h"
 #include "clang/Lex/PTHManager.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/Token.h"
 #include "clang/Lex/TokenLexer.h"
 #include "llvm/ADT/StringRef.h"
@@ -29,17 +29,15 @@ using namespace llvm;
 using namespace hlsl;
 
 MacroExpander::MacroExpander(Preprocessor &PP_, unsigned options)
-  : PP(PP_)
-  , m_expansionFileId()
-  , m_stripQuotes(false)
-{
+    : PP(PP_), m_expansionFileId(), m_stripQuotes(false) {
   if (options & STRIP_QUOTES)
     m_stripQuotes = true;
 
   // The preprocess requires a file to be on the lexing stack when we
   // call ExpandMacro. We add an empty in-memory buffer that we use
   // just for expanding macros.
-  std::unique_ptr<llvm::MemoryBuffer> SB = llvm::MemoryBuffer::getMemBuffer("", "<hlsl-semantic-defines>");
+  std::unique_ptr<llvm::MemoryBuffer> SB =
+      llvm::MemoryBuffer::getMemBuffer("", "<hlsl-semantic-defines>");
   if (!SB) {
     DXASSERT(false, "Cannot create macro expansion source buffer");
     throw hlsl::Exception(DXC_E_MACRO_EXPANSION_FAILURE);
@@ -71,17 +69,33 @@ struct LiteralData {
 // returned.
 static LiteralData GetLiteralData(const Token &Tok, bool stripQuotes) {
   if (!tok::isStringLiteral(Tok.getKind()))
-    return LiteralData{ Tok.getLiteralData(), Tok.getLength() };
+    return LiteralData{Tok.getLiteralData(), Tok.getLength()};
 
   unsigned start_offset = 0;
   unsigned end_offset = 0;
   switch (Tok.getKind()) {
-  case tok::string_literal:       start_offset = 1; end_offset = 1;  break; // "foo"
-  case tok::wide_string_literal:  start_offset = 2; end_offset = 1;  break; // L"foo"
-  case tok::utf8_string_literal:  start_offset = 3; end_offset = 1;  break; // u8"foo"
-  case tok::utf16_string_literal: start_offset = 2; end_offset = 1;  break; // u"foo"
-  case tok::utf32_string_literal: start_offset = 2; end_offset = 1;  break; // U"foo"
-  default: break;
+  case tok::string_literal:
+    start_offset = 1;
+    end_offset = 1;
+    break; // "foo"
+  case tok::wide_string_literal:
+    start_offset = 2;
+    end_offset = 1;
+    break; // L"foo"
+  case tok::utf8_string_literal:
+    start_offset = 3;
+    end_offset = 1;
+    break; // u8"foo"
+  case tok::utf16_string_literal:
+    start_offset = 2;
+    end_offset = 1;
+    break; // u"foo"
+  case tok::utf32_string_literal:
+    start_offset = 2;
+    end_offset = 1;
+    break; // U"foo"
+  default:
+    break;
   }
 
   unsigned length = Tok.getLength() - (start_offset + end_offset);
@@ -91,13 +105,14 @@ static LiteralData GetLiteralData(const Token &Tok, bool stripQuotes) {
     length = Tok.getLength();
   }
 
-  return LiteralData {Tok.getLiteralData() + start_offset, length};
+  return LiteralData{Tok.getLiteralData() + start_offset, length};
 }
 
 // Print leading spaces if needed by the token.
 // Take care when stripping string literal quoates that we do not add extra
 // spaces to the output.
-static bool ShouldPrintLeadingSpace(const Token &Tok, const Token &PrevTok, bool stripQuotes) {
+static bool ShouldPrintLeadingSpace(const Token &Tok, const Token &PrevTok,
+                                    bool stripQuotes) {
   if (!Tok.hasLeadingSpace())
     return false;
 
@@ -124,7 +139,9 @@ bool MacroExpander::ExpandMacro(MacroInfo *pMacro, std::string *out) {
     return false;
 
   // Start the lexing process. Use an outer file to make the preprocessor happy.
-  PP.EnterSourceFile(m_expansionFileId, nullptr, PP.getSourceManager().getLocForStartOfFile(m_expansionFileId));
+  PP.EnterSourceFile(
+      m_expansionFileId, nullptr,
+      PP.getSourceManager().getLocForStartOfFile(m_expansionFileId));
   PP.EnterMacro(Tok, macro.getDefinitionEndLoc(), &macro, nullptr);
   PP.Lex(Tok);
   llvm::raw_string_ostream OS(*out);
@@ -140,13 +157,11 @@ bool MacroExpander::ExpandMacro(MacroInfo *pMacro, std::string *out) {
     }
     if (IdentifierInfo *II = Tok.getIdentifierInfo()) {
       OS << II->getName();
-    }
-    else if (Tok.isLiteral() && !Tok.needsCleaning() &&
-      Tok.getLiteralData()) {
+    } else if (Tok.isLiteral() && !Tok.needsCleaning() &&
+               Tok.getLiteralData()) {
       LiteralData literalData = GetLiteralData(Tok, m_stripQuotes);
       OS.write(literalData.Data, literalData.Length);
-    }
-    else {
+    } else {
       std::string S = PP.getSpelling(Tok);
       OS.write(&S[0], S.size());
     }
@@ -158,7 +173,8 @@ bool MacroExpander::ExpandMacro(MacroInfo *pMacro, std::string *out) {
 }
 
 // Search for the macro info by the given name.
-MacroInfo *MacroExpander::FindMacroInfo(clang::Preprocessor &PP, StringRef macroName) {
+MacroInfo *MacroExpander::FindMacroInfo(clang::Preprocessor &PP,
+                                        StringRef macroName) {
   // Lookup macro identifier.
   IdentifierInfo *ii = PP.getIdentifierInfo(macroName);
   if (!ii)

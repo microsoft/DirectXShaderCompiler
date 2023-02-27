@@ -9,12 +9,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-
-#include "dxc/Support/Global.h"
+#include "dxc/HLSL/DxilPackSignatureElement.h"
+#include "dxc/DXIL/DxilSigPoint.h"
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
-#include "dxc/DXIL/DxilSigPoint.h"
-#include "dxc/HLSL/DxilPackSignatureElement.h"
+#include "dxc/Support/Global.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -37,7 +36,7 @@ unsigned PackDxilSignature(DxilSignature &sig, DXIL::PackingStrategy packing) {
                                        {32, bUseMinPrecision},
                                        {32, bUseMinPrecision},
                                        {32, bUseMinPrecision}};
-    std::vector<DxilSignatureAllocator::PackElement*> elements[4];
+    std::vector<DxilSignatureAllocator::PackElement *> elements[4];
     for (auto &SE : packElements) {
       elements[SE.Get()->GetOutputStream()].push_back(&SE);
     }
@@ -71,7 +70,8 @@ unsigned PackDxilSignature(DxilSignature &sig, DXIL::PackingStrategy packing) {
     break;
 
   case DXIL::PackingKind::InputAssembler:
-    // incrementally assign each element that belongs in the signature to the start of the next free row
+    // incrementally assign each element that belongs in the signature to the
+    // start of the next free row
     for (auto &SE : packElements) {
       SE.SetLocation(rowsUsed, 0);
       rowsUsed += SE.GetRows();
@@ -80,34 +80,36 @@ unsigned PackDxilSignature(DxilSignature &sig, DXIL::PackingStrategy packing) {
 
   case DXIL::PackingKind::Vertex:
   case DXIL::PackingKind::PatchConstant: {
-      DxilSignatureAllocator alloc(32, bUseMinPrecision);
-      std::vector<DxilSignatureAllocator::PackElement*> elements;
-      elements.reserve(packElements.size());
-      for (auto &SE : packElements){
-        elements.push_back(&SE);
-      }
-      switch (packing) {
-      case DXIL::PackingStrategy::PrefixStable:
-        rowsUsed = alloc.PackPrefixStable(elements, 0, 32);
-        break;
-      case DXIL::PackingStrategy::Optimized:
-        rowsUsed = alloc.PackOptimized(elements, 0, 32);
-        break;
-      default:
-        DXASSERT(false, "otherwise, invalid packing strategy supplied");
-      }
+    DxilSignatureAllocator alloc(32, bUseMinPrecision);
+    std::vector<DxilSignatureAllocator::PackElement *> elements;
+    elements.reserve(packElements.size());
+    for (auto &SE : packElements) {
+      elements.push_back(&SE);
     }
-    break;
+    switch (packing) {
+    case DXIL::PackingStrategy::PrefixStable:
+      rowsUsed = alloc.PackPrefixStable(elements, 0, 32);
+      break;
+    case DXIL::PackingStrategy::Optimized:
+      rowsUsed = alloc.PackOptimized(elements, 0, 32);
+      break;
+    default:
+      DXASSERT(false, "otherwise, invalid packing strategy supplied");
+    }
+  } break;
 
   case DXIL::PackingKind::Target:
-    // for SV_Target, assign rows according to semantic index, the rest are unassigned (-1)
-    // Note: Overlapping semantic indices should be checked elsewhere
+    // for SV_Target, assign rows according to semantic index, the rest are
+    // unassigned (-1) Note: Overlapping semantic indices should be checked
+    // elsewhere
     for (auto &SE : packElements) {
       if (SE.GetKind() != DXIL::SemanticKind::Target)
         continue;
       unsigned row = SE.Get()->GetSemanticStartIndex();
       SE.SetLocation(row, 0);
-      DXASSERT(SE.GetRows() == 1, "otherwise, SV_Target output not broken into separate rows earlier");
+      DXASSERT(
+          SE.GetRows() == 1,
+          "otherwise, SV_Target output not broken into separate rows earlier");
       row += SE.GetRows();
       if (rowsUsed < row)
         rowsUsed = row;
@@ -121,7 +123,7 @@ unsigned PackDxilSignature(DxilSignature &sig, DXIL::PackingStrategy packing) {
 
   return rowsUsed;
 }
-}
+} // namespace hlsl
 
-#include <algorithm>
 #include "dxc/HLSL/DxilSignatureAllocator.inl"
+#include <algorithm>

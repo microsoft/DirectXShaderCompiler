@@ -14,17 +14,17 @@
 #ifdef _WIN32
 #define DXC_API_IMPORT __declspec(dllexport)
 #else
-#define DXC_API_IMPORT __attribute__ ((visibility ("default")))
+#define DXC_API_IMPORT __attribute__((visibility("default")))
 #endif
 
+#include "dxc/Support/Global.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
-#include "dxc/Support/Global.h"
 #ifdef _WIN32
 #include "dxcetw.h"
 #endif
-#include "dxillib.h"
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
+#include "dxillib.h"
 #include <memory>
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -43,15 +43,14 @@ HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv);
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 void CreateDxcLinker(IDxcContainerReflection **ppResult);
-}
+} // namespace hlsl
 
 HRESULT CreateDxcContainerReflection(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   try {
     CComPtr<IDxcContainerReflection> pReflection;
     hlsl::CreateDxcContainerReflection(&pReflection);
     return pReflection->QueryInterface(riid, ppv);
-  }
-  catch (const std::bad_alloc&) {
+  } catch (const std::bad_alloc &) {
     return E_OUTOFMEMORY;
   }
 }
@@ -60,64 +59,54 @@ HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   // Call dxil.dll's containerbuilder
   *ppv = nullptr;
   const char *warning;
-  HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder, (IDxcContainerBuilder**)ppv);
+  HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder,
+                                     (IDxcContainerBuilder **)ppv);
   if (FAILED(hr)) {
-    warning = "Unable to create container builder from dxil.dll. Resulting container will not be signed.\n";
-  }
-  else {
+    warning = "Unable to create container builder from dxil.dll. Resulting "
+              "container will not be signed.\n";
+  } else {
     return hr;
   }
 
-  CComPtr<DxcContainerBuilder> Result = DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef());
+  CComPtr<DxcContainerBuilder> Result =
+      DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(Result.p);
   Result->Init(warning);
   return Result->QueryInterface(riid, ppv);
 }
 
-static HRESULT ThreadMallocDxcCreateInstance(
-  _In_ REFCLSID   rclsid,
-                  _In_ REFIID     riid,
-                  _Out_ LPVOID   *ppv) {
+static HRESULT ThreadMallocDxcCreateInstance(_In_ REFCLSID rclsid,
+                                             _In_ REFIID riid,
+                                             _Out_ LPVOID *ppv) {
   HRESULT hr = S_OK;
   *ppv = nullptr;
   if (IsEqualCLSID(rclsid, CLSID_DxcCompiler)) {
     hr = CreateDxcCompiler(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcCompilerArgs)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcCompilerArgs)) {
     hr = CreateDxcCompilerArgs(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcUtils)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcUtils)) {
     hr = CreateDxcUtils(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcValidator)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcValidator)) {
     if (DxilLibIsEnabled()) {
-      hr = DxilLibCreateInstance(rclsid, riid, (IUnknown**)ppv);
+      hr = DxilLibCreateInstance(rclsid, riid, (IUnknown **)ppv);
     } else {
       hr = CreateDxcValidator(riid, ppv);
     }
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcAssembler)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcAssembler)) {
     hr = CreateDxcAssembler(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcOptimizer)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcOptimizer)) {
     hr = CreateDxcOptimizer(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
     hr = CreateDxcIntelliSense(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
     hr = CreateDxcContainerBuilder(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcContainerReflection)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcContainerReflection)) {
     hr = CreateDxcContainerReflection(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcPdbUtils)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcPdbUtils)) {
     hr = CreateDxcPdbUtils(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
     hr = CreateDxcRewriter(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcLinker)) {
+  } else if (IsEqualCLSID(rclsid, CLSID_DxcLinker)) {
     hr = CreateDxcLinker(riid, ppv);
   }
 // Note: The following targets are not yet enabled for non-Windows platforms.
@@ -132,11 +121,9 @@ static HRESULT ThreadMallocDxcCreateInstance(
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateInstance(
-  _In_ REFCLSID   rclsid,
-  _In_ REFIID     riid,
-  _Out_ LPVOID   *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(_In_ REFCLSID rclsid,
+                                                   _In_ REFIID riid,
+                                                   _Out_ LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }
@@ -149,12 +136,10 @@ DxcCreateInstance(
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateInstance2(
-  _In_ IMalloc    *pMalloc,
-  _In_ REFCLSID   rclsid,
-  _In_ REFIID     riid,
-  _Out_ LPVOID   *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(_In_ IMalloc *pMalloc,
+                                                    _In_ REFCLSID rclsid,
+                                                    _In_ REFIID riid,
+                                                    _Out_ LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }

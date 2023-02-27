@@ -13,15 +13,14 @@
 
 #include "dxc/DXIL/DxilResource.h"
 
-
 namespace hlsl {
 
 /// Use this class to represent an HLSL resource (SRV/UAV) in HLDXIR.
 class HLResource : public DxilResource {
 public:
-  //QQQ
+  // QQQ
   // TODO: this does not belong here. QQQ
-  //static Kind KeywordToKind(const std::string &keyword);
+  // static Kind KeywordToKind(const std::string &keyword);
 
   HLResource();
 };

@@ -8,33 +8,32 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <memory>
-#include <vector>
-#include <string>
-#include "llvm/ADT/ArrayRef.h"
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HLSLTestData.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/ManagedStatic.h"
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <fstream>
 
 #include "WexTestClass.h"
-#include "dxc/Test/HlslTestUtils.h"
-#include "dxc/Test/DxcTestUtils.h"
-#include "dxc/dxcapi.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/Test/DxcTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/dxcapi.h"
 
 using namespace std;
 using namespace hlsl;
 using namespace llvm;
 
 // The test fixture.
-class LinkerTest
-{
+class LinkerTest {
 public:
   BEGIN_TEST_CLASS(LinkerTest)
-    TEST_CLASS_PROPERTY(L"Parallel", L"true")
-    TEST_METHOD_PROPERTY(L"Priority", L"0")
+  TEST_CLASS_PROPERTY(L"Parallel", L"true")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(InitSupport);
@@ -71,7 +70,6 @@ public:
   TEST_METHOD(LinkSm63ToSm66);
   TEST_METHOD(RunLinkWithRootSig);
 
-
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -100,10 +98,10 @@ public:
 
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, fullPath.c_str(), pEntry, pShaderTarget,
-                                        const_cast<LPCWSTR*>(pArguments.data()), pArguments.size(),
-                                        nullptr, 0,
-                                        pIncludeHandler, &pResult));
+    VERIFY_SUCCEEDED(pCompiler->Compile(
+        pSource, fullPath.c_str(), pEntry, pShaderTarget,
+        const_cast<LPCWSTR *>(pArguments.data()), pArguments.size(), nullptr, 0,
+        pIncludeHandler, &pResult));
     CheckOperationSucceeded(pResult, pResultBlob);
   }
 
@@ -118,9 +116,11 @@ public:
     CComPtr<IDxcLibrary> pLibrary;
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     CComPtr<IDxcBlobEncoding> pSource;
-    VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
+    VERIFY_SUCCEEDED(
+        pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
     CComPtr<IDxcAssembler> pAssembler;
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     CComPtr<IDxcOperationResult> pResult;
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pSource, &pResult));
     CheckOperationSucceeded(pResult, pResultBlob);
@@ -134,13 +134,11 @@ public:
   void Link(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
             ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pCheckMsgs,
             llvm::ArrayRef<LPCSTR> pCheckNotMsgs,
-            llvm::ArrayRef<LPCWSTR> pArguments = {},
-            bool bRegEx = false) {
+            llvm::ArrayRef<LPCWSTR> pArguments = {}, bool bRegEx = false) {
     CComPtr<IDxcOperationResult> pResult;
     VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames.data(),
-                                   libNames.size(),
-                                   pArguments.data(), pArguments.size(),
-                                   &pResult));
+                                   libNames.size(), pArguments.data(),
+                                   pArguments.size(), &pResult));
     CComPtr<IDxcBlob> pProgram;
     CheckOperationSucceeded(pResult, &pProgram);
 
@@ -151,18 +149,20 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
     std::string IR = BlobToUtf8(pDisassembly);
-    CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(), bRegEx);
-    CheckNotMsgs(IR.c_str(), IR.size(), pCheckNotMsgs.data(), pCheckNotMsgs.size(), bRegEx);
+    CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(),
+              bRegEx);
+    CheckNotMsgs(IR.c_str(), IR.size(), pCheckNotMsgs.data(),
+                 pCheckNotMsgs.size(), bRegEx);
   }
 
-  void LinkCheckMsg(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
-            ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pErrorMsgs,
-            llvm::ArrayRef<LPCWSTR> pArguments = {}) {
+  void LinkCheckMsg(LPCWSTR pEntryName, LPCWSTR pShaderModel,
+                    IDxcLinker *pLinker, ArrayRef<LPCWSTR> libNames,
+                    llvm::ArrayRef<LPCSTR> pErrorMsgs,
+                    llvm::ArrayRef<LPCWSTR> pArguments = {}) {
     CComPtr<IDxcOperationResult> pResult;
-    VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel,
-                                   libNames.data(), libNames.size(),
-                                   pArguments.data(), pArguments.size(),
-                                   &pResult));
+    VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames.data(),
+                                   libNames.size(), pArguments.data(),
+                                   pArguments.size(), &pResult));
     CheckOperationResultMsgs(pResult, pErrorMsgs.data(), pErrorMsgs.size(),
                              false, false);
   }
@@ -190,14 +190,14 @@ TEST_F(LinkerTest, RunLinkResource) {
   LPCWSTR libResName = L"res";
   RegisterDxcModule(libResName, pResLib, pLinker);
 
-  Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {} ,{});
+  Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {}, {});
 }
 
 TEST_F(LinkerTest, RunLinkResourceWithBinding) {
   // These two libraries both have a ConstantBuffer resource named g_buf.
   // These are explicitly bound to different slots, and the types don't match.
-  // This test runs a pass to rename resources to prevent merging of resource globals.
-  // Then tests linking these, which requires dxil op overload renaming
+  // This test runs a pass to rename resources to prevent merging of resource
+  // globals. Then tests linking these, which requires dxil op overload renaming
   // because of a typename collision between the two libraries.
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\lib_res_bound1.hlsl", &pLib1);
@@ -205,34 +205,40 @@ TEST_F(LinkerTest, RunLinkResourceWithBinding) {
   CompileLib(L"..\\CodeGenHLSL\\lib_res_bound2.hlsl", &pLib2);
 
   LPCWSTR optOptions[] = {
-    L"-dxil-rename-resources,prefix=lib1",
-    L"-dxil-rename-resources,prefix=lib2",
+      L"-dxil-rename-resources,prefix=lib1",
+      L"-dxil-rename-resources,prefix=lib2",
   };
 
   CComPtr<IDxcOptimizer> pOptimizer;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
 
   CComPtr<IDxcContainerReflection> pContainerReflection;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainerReflection));
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                               &pContainerReflection));
   UINT32 partIdx = 0;
   VERIFY_SUCCEEDED(pContainerReflection->Load(pLib1));
-  VERIFY_SUCCEEDED(pContainerReflection->FindFirstPartKind(DXC_PART_DXIL, &partIdx));
+  VERIFY_SUCCEEDED(
+      pContainerReflection->FindFirstPartKind(DXC_PART_DXIL, &partIdx));
   CComPtr<IDxcBlob> pLib1Module;
   VERIFY_SUCCEEDED(pContainerReflection->GetPartContent(partIdx, &pLib1Module));
 
   CComPtr<IDxcBlob> pLib1ModuleRenamed;
-  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pLib1Module, &optOptions[0], 1, &pLib1ModuleRenamed, nullptr));
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pLib1Module, &optOptions[0], 1,
+                                            &pLib1ModuleRenamed, nullptr));
   pLib1Module.Release();
   pLib1.Release();
   AssembleToContainer(m_dllSupport, pLib1ModuleRenamed, &pLib1);
 
   VERIFY_SUCCEEDED(pContainerReflection->Load(pLib2));
-  VERIFY_SUCCEEDED(pContainerReflection->FindFirstPartKind(DXC_PART_DXIL, &partIdx));
+  VERIFY_SUCCEEDED(
+      pContainerReflection->FindFirstPartKind(DXC_PART_DXIL, &partIdx));
   CComPtr<IDxcBlob> pLib2Module;
   VERIFY_SUCCEEDED(pContainerReflection->GetPartContent(partIdx, &pLib2Module));
 
   CComPtr<IDxcBlob> pLib2ModuleRenamed;
-  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pLib2Module, &optOptions[1], 1, &pLib2ModuleRenamed, nullptr));
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pLib2Module, &optOptions[1], 1,
+                                            &pLib2ModuleRenamed, nullptr));
   pLib2Module.Release();
   pLib2.Release();
   AssembleToContainer(m_dllSupport, pLib2ModuleRenamed, &pLib2);
@@ -245,7 +251,7 @@ TEST_F(LinkerTest, RunLinkResourceWithBinding) {
   LPCWSTR lib2Name = L"lib2";
   RegisterDxcModule(lib2Name, pLib2, pLinker);
 
-  Link(L"main", L"cs_6_0", pLinker, {lib1Name, lib2Name}, {} ,{});
+  Link(L"main", L"cs_6_0", pLinker, {lib1Name, lib2Name}, {}, {});
 }
 
 TEST_F(LinkerTest, RunLinkAllProfiles) {
@@ -253,24 +259,24 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pEntryLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib, option);
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
-  Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {},{});
-  Link(L"hs_main", L"hs_6_0", pLinker, {libName}, {},{});
-  Link(L"ds_main", L"ds_6_0", pLinker, {libName}, {},{});
-  Link(L"gs_main", L"gs_6_0", pLinker, {libName}, {},{});
-  Link(L"ps_main", L"ps_6_0", pLinker, {libName}, {},{});
+  Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {}, {});
+  Link(L"hs_main", L"hs_6_0", pLinker, {libName}, {}, {});
+  Link(L"ds_main", L"ds_6_0", pLinker, {libName}, {}, {});
+  Link(L"gs_main", L"gs_6_0", pLinker, {libName}, {}, {});
+  Link(L"ps_main", L"ps_6_0", pLinker, {libName}, {}, {});
 
   CComPtr<IDxcBlob> pResLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
 
   LPCWSTR libResName = L"res";
   RegisterDxcModule(libResName, pResLib, pLinker);
-  Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {},{});
+  Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {}, {});
 }
 
 TEST_F(LinkerTest, RunLinkFailNoDefine) {
@@ -313,13 +319,14 @@ TEST_F(LinkerTest, RunLinkGlobalInit) {
 
   Link(L"test", L"ps_6_0", pLinker, {libName},
        // Make sure cbuffer load is generated.
-       {"dx.op.cbufferLoad"},{});
+       {"dx.op.cbufferLoad"}, {});
 }
 
 TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
-  LPCWSTR option[] = { L"-default-linkage", L"external" };
+  LPCWSTR option[] = {L"-default-linkage", L"external"};
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global2.hlsl", &pEntryLib, option, L"lib_6_3");
+  CompileLib(L"..\\CodeGenHLSL\\lib_global2.hlsl", &pEntryLib, option,
+             L"lib_6_3");
 
   CComPtr<IDxcBlob> pLib0;
   CompileLib(L"..\\CodeGenHLSL\\lib_global3.hlsl", &pLib0, option, L"lib_6_3");
@@ -340,7 +347,8 @@ TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
   RegisterDxcModule(libName2, pLib1, pLinker);
 
   LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName, libName1, libName2},
-               {"Definition already exists for global variable", "Resource already exists"});
+               {"Definition already exists for global variable",
+                "Resource already exists"});
 }
 
 TEST_F(LinkerTest, RunLinkFailProfileMismatch) {
@@ -423,8 +431,7 @@ TEST_F(LinkerTest, RunLinkMatParam) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"main", L"ps_6_0", pLinker, {libName, libName2},
-       {"alloca [12 x float]"},
-       {});
+       {"alloca [12 x float]"}, {});
 }
 
 TEST_F(LinkerTest, RunLinkMatParamToLib) {
@@ -440,7 +447,8 @@ TEST_F(LinkerTest, RunLinkMatParamToLib) {
   Link(L"", L"lib_6_3", pLinker, {libName},
        // The bitcast cannot be removed because user function call use it as
        // argument.
-       {"bitcast <12 x float>\\* %.* to %class\\.matrix\\.float\\.4\\.3\\*"}, {}, {}, true);
+       {"bitcast <12 x float>\\* %.* to %class\\.matrix\\.float\\.4\\.3\\*"},
+       {}, {}, true);
 }
 
 TEST_F(LinkerTest, RunLinkResRet) {
@@ -465,12 +473,10 @@ TEST_F(LinkerTest, RunLinkToLib) {
   LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib,
+             option);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(
-      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-      &pLib, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl", &pLib, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -481,16 +487,15 @@ TEST_F(LinkerTest, RunLinkToLib) {
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
 
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {}, option);
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {},
+       option);
 }
 
 TEST_F(LinkerTest, RunLinkToLibExport) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-             &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl", &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -501,18 +506,17 @@ TEST_F(LinkerTest, RunLinkToLibExport) {
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
   Link(L"", L"lib_6_3", pLinker, {libName, libName2},
-    { "@\"\\01?renamed_test@@","@\"\\01?cloned_test@@","@main" },
-    { "@\"\\01?mat_test", "@renamed_test", "@cloned_test" },
-    {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z;main"});
+       {"@\"\\01?renamed_test@@", "@\"\\01?cloned_test@@", "@main"},
+       {"@\"\\01?mat_test", "@renamed_test", "@cloned_test"},
+       {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$"
+                     L"02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z;main"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-             &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl", &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -522,14 +526,13 @@ TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
 
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
-    { "@main" },
-    { "@\"\\01?mat_test" },
-    {L"-export-shaders-only"});
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"@main"},
+       {"@\"\\01?mat_test"}, {L"-export-shaders-only"});
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
-  if (m_ver.SkipDxilVersion(1, 3)) return;
+  if (m_ver.SkipDxilVersion(1, 3))
+    return;
   CComPtr<IDxcBlob> pEntryLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_select_res_entry.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
@@ -544,19 +547,20 @@ TEST_F(LinkerTest, RunLinkFailSelectRes) {
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
 
-  LinkCheckMsg(L"main", L"ps_6_0", pLinker, {libName, libName2},
-               {"local resource not guaranteed to map to unique global resource"});
+  LinkCheckMsg(
+      L"main", L"ps_6_0", pLinker, {libName, libName2},
+      {"local resource not guaranteed to map to unique global resource"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-             &pLib1, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl", &pLib1,
+             option);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-             &pLib2, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl", &pLib2,
+             option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -567,26 +571,27 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 }, {
-    "declare float @\"\\01?external_fn1@@YAMXZ\"()",
-    "declare float @\"\\01?external_fn2@@YAMXZ\"()",
-    "declare float @\"\\01?external_fn@@YAMXZ\"()",
-    "define float @\"\\01?lib1_fn@@YAMXZ\"()",
-    "define float @\"\\01?lib2_fn@@YAMXZ\"()",
-    "define float @\"\\01?call_lib1@@YAMXZ\"()",
-    "define float @\"\\01?call_lib2@@YAMXZ\"()"
-    }, {"declare float @\"\\01?unused_fn1", "declare float @\"\\01?unused_fn2"});
+  Link(
+      L"", L"lib_6_3", pLinker, {libName1, libName2},
+      {"declare float @\"\\01?external_fn1@@YAMXZ\"()",
+       "declare float @\"\\01?external_fn2@@YAMXZ\"()",
+       "declare float @\"\\01?external_fn@@YAMXZ\"()",
+       "define float @\"\\01?lib1_fn@@YAMXZ\"()",
+       "define float @\"\\01?lib2_fn@@YAMXZ\"()",
+       "define float @\"\\01?call_lib1@@YAMXZ\"()",
+       "define float @\"\\01?call_lib2@@YAMXZ\"()"},
+      {"declare float @\"\\01?unused_fn1", "declare float @\"\\01?unused_fn2"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl", &pLib1,
+             option);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl", &pLib2,
+             option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -597,31 +602,27 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 },
-    { "declare float @\"\\01?external_fn1@@YAMXZ\"()",
-      "declare float @\"\\01?external_fn2@@YAMXZ\"()",
-      "declare float @\"\\01?external_fn@@YAMXZ\"()",
-      "define float @\"\\01?renamed_lib1@@YAMXZ\"()",
-      "define float @\"\\01?call_lib2@@YAMXZ\"()"
-    },
-    { "float @\"\\01?unused_fn1", "float @\"\\01?unused_fn2",
-      "float @\"\\01?lib1_fn", "float @\"\\01?lib2_fn",
-      "float @\"\\01?call_lib1"
-    },
-    { L"-exports", L"renamed_lib1=call_lib1",
-      L"-exports", L"call_lib2"
-    });
+  Link(L"", L"lib_6_3", pLinker, {libName1, libName2},
+       {"declare float @\"\\01?external_fn1@@YAMXZ\"()",
+        "declare float @\"\\01?external_fn2@@YAMXZ\"()",
+        "declare float @\"\\01?external_fn@@YAMXZ\"()",
+        "define float @\"\\01?renamed_lib1@@YAMXZ\"()",
+        "define float @\"\\01?call_lib2@@YAMXZ\"()"},
+       {"float @\"\\01?unused_fn1", "float @\"\\01?unused_fn2",
+        "float @\"\\01?lib1_fn", "float @\"\\01?lib2_fn",
+        "float @\"\\01?call_lib1"},
+       {L"-exports", L"renamed_lib1=call_lib1", L"-exports", L"call_lib2"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithExportNamesSwapped) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl", &pLib1,
+             option);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl", &pLib2,
+             option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -632,28 +633,26 @@ TEST_F(LinkerTest, RunLinkToLibWithExportNamesSwapped) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 },
-    { "declare float @\"\\01?external_fn1@@YAMXZ\"()",
-      "declare float @\"\\01?external_fn2@@YAMXZ\"()",
-      "declare float @\"\\01?external_fn@@YAMXZ\"()",
-      "define float @\"\\01?call_lib1@@YAMXZ\"()",
-      "define float @\"\\01?call_lib2@@YAMXZ\"()"
-    },
-    { "float @\"\\01?unused_fn1", "float @\"\\01?unused_fn2",
-      "float @\"\\01?lib1_fn", "float @\"\\01?lib2_fn"
-    },
-    { L"-exports", L"call_lib2=call_lib1;call_lib1=call_lib2" });
+  Link(L"", L"lib_6_3", pLinker, {libName1, libName2},
+       {"declare float @\"\\01?external_fn1@@YAMXZ\"()",
+        "declare float @\"\\01?external_fn2@@YAMXZ\"()",
+        "declare float @\"\\01?external_fn@@YAMXZ\"()",
+        "define float @\"\\01?call_lib1@@YAMXZ\"()",
+        "define float @\"\\01?call_lib2@@YAMXZ\"()"},
+       {"float @\"\\01?unused_fn1", "float @\"\\01?unused_fn2",
+        "float @\"\\01?lib1_fn", "float @\"\\01?lib2_fn"},
+       {L"-exports", L"call_lib2=call_lib1;call_lib1=call_lib2"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithExportCollision) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl", &pLib1,
+             option);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl", &pLib2,
+             option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -664,21 +663,21 @@ TEST_F(LinkerTest, RunLinkToLibWithExportCollision) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  LinkCheckMsg(L"", L"lib_6_3", pLinker, { libName1, libName2 },
-    { "Export name collides with another export: \\01?call_lib2@@YAMXZ"
-    },
-    { L"-exports", L"call_lib2=call_lib1;call_lib2" });
+  LinkCheckMsg(
+      L"", L"lib_6_3", pLinker, {libName1, libName2},
+      {"Export name collides with another export: \\01?call_lib2@@YAMXZ"},
+      {L"-exports", L"call_lib2=call_lib1;call_lib2"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithUnusedExport) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl", &pLib1,
+             option);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl", &pLib2,
+             option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -689,21 +688,20 @@ TEST_F(LinkerTest, RunLinkToLibWithUnusedExport) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  LinkCheckMsg(L"", L"lib_6_3", pLinker, { libName1, libName2 },
-    { "Could not find target for export: call_lib"
-    },
-    { L"-exports", L"call_lib2=call_lib;call_lib1" });
+  LinkCheckMsg(L"", L"lib_6_3", pLinker, {libName1, libName2},
+               {"Could not find target for export: call_lib"},
+               {L"-exports", L"call_lib2=call_lib;call_lib1"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl", &pLib1,
+             option);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl", &pLib2,
+             option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -714,21 +712,21 @@ TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  LinkCheckMsg(L"", L"lib_6_3", pLinker, { libName1, libName2 },
-    { "Library has no functions to export"
-    },
-    { L"-exports", L"call_lib2=call_lib" });
+  LinkCheckMsg(L"", L"lib_6_3", pLinker, {libName1, libName2},
+               {"Library has no functions to export"},
+               {L"-exports", L"call_lib2=call_lib"});
 }
 
 TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug", L"-default-linkage", L"external" };
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug", L"-default-linkage",
+                      L"external"};
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi.hlsl",
-    &pLib1, option, L"lib_6_3");
+  CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi.hlsl", &pLib1,
+             option, L"lib_6_3");
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi2.hlsl",
-    &pLib2, option, L"lib_6_3");
+  CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi2.hlsl", &pLib2,
+             option, L"lib_6_3");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -739,22 +737,24 @@ TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 }, {
-    "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<vector<float, 4> >\"(i32, %\"class.Texture2D<vector<float, 4> >\")",
-    "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<float>\"(i32, %\"class.Texture2D<float>\")"
-  }, { });
+  Link(L"", L"lib_6_3", pLinker, {libName1, libName2},
+       {"declare %dx.types.Handle "
+        "@\"dx.op.createHandleForLib.class.Texture2D<vector<float, 4> >\"(i32, "
+        "%\"class.Texture2D<vector<float, 4> >\")",
+        "declare %dx.types.Handle "
+        "@\"dx.op.createHandleForLib.class.Texture2D<float>\"(i32, "
+        "%\"class.Texture2D<float>\")"},
+       {});
 }
 
 TEST_F(LinkerTest, RunLinkWithValidatorVersion) {
-  if (m_ver.SkipDxilVersion(1, 4)) return;
+  if (m_ver.SkipDxilVersion(1, 4))
+    return;
 
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib, {});
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib, {});
   CComPtr<IDxcBlob> pLib;
-  CompileLib(
-      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-      &pLib, {});
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl", &pLib, {});
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -766,8 +766,8 @@ TEST_F(LinkerTest, RunLinkWithValidatorVersion) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"", L"lib_6_3", pLinker, {libName, libName2},
-       {"!dx.valver = !{(![0-9]+)}.*\n\\1 = !{i32 1, i32 3}"},
-       {}, {L"-validator-version", L"1.3"}, /*regex*/ true);
+       {"!dx.valver = !{(![0-9]+)}.*\n\\1 = !{i32 1, i32 3}"}, {},
+       {L"-validator-version", L"1.3"}, /*regex*/ true);
 }
 
 TEST_F(LinkerTest, RunLinkWithInvalidValidatorVersion) {
@@ -796,10 +796,10 @@ TEST_F(LinkerTest, RunLinkWithInvalidValidatorVersion) {
 TEST_F(LinkerTest, RunLinkWithTempReg) {
   // TempRegLoad/TempRegStore not normally usable from HLSL.
   // This assembly library exposes these through overloaded wrapper functions
-  // void sreg(uint index, <type> value) to store register, overloaded for uint, int, and float
-  // uint ureg(uint index) to load register as uint
-  // int ireg(int index) to load register as int
-  // float freg(uint index) to load register as float
+  // void sreg(uint index, <type> value) to store register, overloaded for uint,
+  // int, and float uint ureg(uint index) to load register as uint int ireg(int
+  // index) to load register as int float freg(uint index) to load register as
+  // float
 
   // This test verifies this scenario works, by assembling this library,
   // compiling a library with an entry point that uses sreg/ureg,
@@ -808,7 +808,8 @@ TEST_F(LinkerTest, RunLinkWithTempReg) {
   CComPtr<IDxcBlob> pTempRegLib;
   AssembleLib(L"..\\HLSLFileCheck\\dxil\\linker\\TempReg.ll", &pTempRegLib);
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\HLSLFileCheck\\dxil\\linker\\use-TempReg.hlsl", &pEntryLib, {}, L"lib_6_3");
+  CompileLib(L"..\\HLSLFileCheck\\dxil\\linker\\use-TempReg.hlsl", &pEntryLib,
+             {}, L"lib_6_3");
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
   LPCWSTR libName = L"entry";
@@ -817,10 +818,9 @@ TEST_F(LinkerTest, RunLinkWithTempReg) {
   LPCWSTR libResName = L"TempReg";
   RegisterDxcModule(libResName, pTempRegLib, pLinker);
 
-  Link(L"main", L"vs_6_0", pLinker, {libResName, libName}, {
-    "call void @dx.op.tempRegStore.i32",
-    "call i32 @dx.op.tempRegLoad.i32"
-    } ,{});
+  Link(L"main", L"vs_6_0", pLinker, {libResName, libName},
+       {"call void @dx.op.tempRegStore.i32", "call i32 @dx.op.tempRegLoad.i32"},
+       {});
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
@@ -843,14 +843,15 @@ TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
        {"@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ "
         "i32, void ()*, i8* } { i32 65535, void ()* "
         "@foo._GLOBAL__sub_I_lib_static_cb_init.hlsl, i8* null }]"},
-       {},
-       {});
+       {}, {});
 }
 
 TEST_F(LinkerTest, LinkSm63ToSm66) {
-  if (m_ver.SkipDxilVersion(1, 6)) return;
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
   CComPtr<IDxcBlob> pLib0;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\link_to_sm66.hlsl", &pLib0, {}, L"lib_6_3");
+  CompileLib(L"..\\CodeGenHLSL\\linker\\link_to_sm66.hlsl", &pLib0, {},
+             L"lib_6_3");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -859,7 +860,8 @@ TEST_F(LinkerTest, LinkSm63ToSm66) {
   RegisterDxcModule(libName, pLib0, pLinker);
   // Make sure add annotateHandle when link lib_6_3 to ps_6_6.
   Link(L"ps_main", L"ps_6_6", pLinker, {libName},
-       {"call %dx.types.Handle @dx.op.annotateHandle\\(i32 216, %dx.types.Handle "
+       {"call %dx.types.Handle @dx.op.annotateHandle\\(i32 216, "
+        "%dx.types.Handle "
         "%(.*), %dx.types.ResourceProperties { i32 13, i32 4 }\\)"},
        {}, {}, true);
 }
@@ -867,7 +869,7 @@ TEST_F(LinkerTest, LinkSm63ToSm66) {
 TEST_F(LinkerTest, RunLinkWithRootSig) {
   CComPtr<IDxcBlob> pLib0;
   CompileLib(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pLib0,
-            {L"-HV", L"2018"}, L"lib_6_x");
+             {L"-HV", L"2018"}, L"lib_6_x");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -881,8 +883,8 @@ TEST_F(LinkerTest, RunLinkWithRootSig) {
   LPCWSTR libNames[] = {libName};
   CComPtr<IDxcOperationResult> pResult;
 
-  VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames,
-                                 1, {}, 0, &pResult));
+  VERIFY_SUCCEEDED(
+      pLinker->Link(pEntryName, pShaderModel, libNames, 1, {}, 0, &pResult));
   CComPtr<IDxcBlob> pLinkedProgram;
   CheckOperationSucceeded(pResult, &pLinkedProgram);
   VERIFY_IS_TRUE(pLinkedProgram);

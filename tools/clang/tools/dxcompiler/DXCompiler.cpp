@@ -9,11 +9,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/FileSystem.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/WinIncludes.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/ManagedStatic.h"
 #ifdef LLVM_ON_WIN32
 #include "dxcetw.h"
 #endif
@@ -24,25 +24,27 @@ HRESULT SetupRegistryPassForHLSL();
 HRESULT SetupRegistryPassForPIX();
 } // namespace hlsl
 
-// C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
-#pragma warning( disable : 4290 )
+// C++ exception specification ignored except to indicate a function is not
+// __declspec(nothrow)
+#pragma warning(disable : 4290)
 
 #ifdef LLVM_ON_WIN32
 // operator new and friends.
-void *  __CRTDECL operator new(std::size_t size) noexcept(false) {
-  void * ptr = DxcGetThreadMallocNoRef()->Alloc(size);
+void *__CRTDECL operator new(std::size_t size) noexcept(false) {
+  void *ptr = DxcGetThreadMallocNoRef()->Alloc(size);
   if (ptr == nullptr)
     throw std::bad_alloc();
   return ptr;
 }
-void * __CRTDECL operator new(std::size_t size,
-  const std::nothrow_t &nothrow_value) throw() {
+void *__CRTDECL operator new(std::size_t size,
+                             const std::nothrow_t &nothrow_value) throw() {
   return DxcGetThreadMallocNoRef()->Alloc(size);
 }
-void  __CRTDECL operator delete (void* ptr) throw() {
+void __CRTDECL operator delete(void *ptr) throw() {
   DxcGetThreadMallocNoRef()->Free(ptr);
 }
-void  __CRTDECL operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
+void __CRTDECL operator delete(void *ptr,
+                               const std::nothrow_t &nothrow_constant) throw() {
   DxcGetThreadMallocNoRef()->Free(ptr);
 }
 #endif
@@ -74,18 +76,15 @@ Cleanup:
       DxcClearThreadMalloc();
       DxcCleanupThreadMalloc();
     }
-  }
-  else {
+  } else {
     DxcClearThreadMalloc();
   }
   return hr;
 }
 #if defined(LLVM_ON_UNIX)
-HRESULT __attribute__ ((constructor)) DllMain() {
-  return InitMaybeFail();
-}
+HRESULT __attribute__((constructor)) DllMain() { return InitMaybeFail(); }
 
-void __attribute__ ((destructor)) DllShutdown() {
+void __attribute__((destructor)) DllShutdown() {
   DxcSetThreadMallocToDefault();
   ::hlsl::options::cleanupHlslOptTable();
   ::llvm::sys::fs::CleanupPerThreadFileSystem();
@@ -108,10 +107,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
     ::hlsl::options::cleanupHlslOptTable();
     ::llvm::sys::fs::CleanupPerThreadFileSystem();
     ::llvm::llvm_shutdown();
-    if (reserved == NULL) { // FreeLibrary has been called or the DLL load failed
+    if (reserved ==
+        NULL) { // FreeLibrary has been called or the DLL load failed
       DxilLibCleanup(DxilLibCleanUpType::UnloadLibrary);
-    }
-    else { // Process termination. We should not call FreeLibrary()
+    } else { // Process termination. We should not call FreeLibrary()
       DxilLibCleanup(DxilLibCleanUpType::ProcessTermination);
     }
     DxcClearThreadMalloc();

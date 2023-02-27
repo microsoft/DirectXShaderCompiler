@@ -95,7 +95,8 @@ using namespace hlsl;
 constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
 // The actual max size per record is much smaller than this, but it never
 // hurts to be generous.
-constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 2;
+constexpr size_t CounterOffsetBeyondUsefulData =
+    DebugBufferDumpingGroundSize / 2;
 
 // These definitions echo those in the debugger application's
 // debugshaderrecord.h file
@@ -214,8 +215,7 @@ private:
   };
 
   uint64_t m_UAVSize = 1024 * 1024;
-  struct PerFunctionValues
-  {
+  struct PerFunctionValues {
     CallInst *UAVHandle;
     Constant *CounterOffset;
     Value *InvocationId;
@@ -256,28 +256,27 @@ public:
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 
-  bool RunOnFunction(Module& M, DxilModule& DM, 
-    llvm::Function *function);
+  bool RunOnFunction(Module &M, DxilModule &DM, llvm::Function *function);
 
 private:
-  SystemValueIndices addRequiredSystemValues(BuilderContext &BC, DXIL::ShaderKind shaderKind);
+  SystemValueIndices addRequiredSystemValues(BuilderContext &BC,
+                                             DXIL::ShaderKind shaderKind);
   void addInvocationSelectionProlog(BuilderContext &BC,
                                     SystemValueIndices SVIndices,
                                     DXIL::ShaderKind shaderKind);
   Value *addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   Value *addGeometryShaderProlog(BuilderContext &BC);
   Value *addDispatchedShaderProlog(BuilderContext &BC);
-  Value* addRaygenShaderProlog(BuilderContext& BC);
-  Value* addVertexShaderProlog(BuilderContext& BC,
+  Value *addRaygenShaderProlog(BuilderContext &BC);
+  Value *addVertexShaderProlog(BuilderContext &BC,
                                SystemValueIndices SVIndices);
   Value *addHullhaderProlog(BuilderContext &BC);
-  Value *addComparePrimitiveIdProlog(BuilderContext &BC,
-                               unsigned SVIndices);
+  Value *addComparePrimitiveIdProlog(BuilderContext &BC, unsigned SVIndices);
   void addDebugEntryValue(BuilderContext &BC, Value *TheValue);
   void addInvocationStartMarker(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
   void addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst);
-  void addStepDebugEntry(BuilderContext& BC, Instruction* Inst);
+  void addStepDebugEntry(BuilderContext &BC, Instruction *Inst);
   void addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum,
                               Value *V, std::uint32_t ValueOrdinal,
                               Value *ValueOrdinalIndex);
@@ -300,11 +299,9 @@ uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
-static unsigned
-FindOrAddInputSignatureElement(hlsl::DxilSignature &InputSignature,
-    const char * name,
-    DXIL::SigPointKind sigPointKind,
-                               hlsl::DXIL::SemanticKind semanticKind) {
+static unsigned FindOrAddInputSignatureElement(
+    hlsl::DxilSignature &InputSignature, const char *name,
+    DXIL::SigPointKind sigPointKind, hlsl::DXIL::SemanticKind semanticKind) {
 
   auto &InputElements = InputSignature.GetElements();
 
@@ -315,11 +312,9 @@ FindOrAddInputSignatureElement(hlsl::DxilSignature &InputSignature,
                    });
 
   if (ExistingElement == InputElements.end()) {
-    auto AddedElement =
-        llvm::make_unique<DxilSignatureElement>(sigPointKind);
+    auto AddedElement = llvm::make_unique<DxilSignatureElement>(sigPointKind);
     AddedElement->Initialize(name, hlsl::CompType::getF32(),
-                                  hlsl::DXIL::InterpolationMode::Undefined, 1,
-                                  1);
+                             hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
     AddedElement->AppendSemanticIndex(0);
     AddedElement->SetSigPointKind(sigPointKind);
     AddedElement->SetKind(semanticKind);
@@ -332,8 +327,8 @@ FindOrAddInputSignatureElement(hlsl::DxilSignature &InputSignature,
 }
 
 DxilDebugInstrumentation::SystemValueIndices
-  DxilDebugInstrumentation::addRequiredSystemValues(
-      BuilderContext & BC, DXIL::ShaderKind shaderKind) {
+DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
+                                                  DXIL::ShaderKind shaderKind) {
   SystemValueIndices SVIndices{};
 
   switch (shaderKind) {
@@ -341,15 +336,15 @@ DxilDebugInstrumentation::SystemValueIndices
   case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::RayGeneration:
-  //case DXIL::ShaderKind::Intersection:
-  //case DXIL::ShaderKind::AnyHit:
-  //case DXIL::ShaderKind::ClosestHit:
-  //case DXIL::ShaderKind::Miss:
+    // case DXIL::ShaderKind::Intersection:
+    // case DXIL::ShaderKind::AnyHit:
+    // case DXIL::ShaderKind::ClosestHit:
+    // case DXIL::ShaderKind::Miss:
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
-      hlsl::DxilSignature& InputSignature = BC.DM.GetInputSignature();
-      SVIndices.VertexShader.VertexId = FindOrAddInputSignatureElement(
+    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
+    SVIndices.VertexShader.VertexId = FindOrAddInputSignatureElement(
         InputSignature, "VertexId", DXIL::SigPointKind::VSIn,
         hlsl::DXIL::SemanticKind::VertexID);
     SVIndices.VertexShader.InstanceId = FindOrAddInputSignatureElement(
@@ -359,7 +354,8 @@ DxilDebugInstrumentation::SystemValueIndices
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
-    // GS, HS, DS Primitive id, HS control point id, and GS Instance id are not in the input signature
+    // GS, HS, DS Primitive id, HS control point id, and GS Instance id are not
+    // in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
@@ -434,16 +430,19 @@ Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
 }
 
 Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
-  auto DispatchRaysIndexOpFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(BC.Ctx));
+  auto DispatchRaysIndexOpFunc = BC.HlslOP->GetOpFunc(
+      DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(BC.Ctx));
   Constant *DispatchRaysIndexOpcode =
       BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::DispatchRaysIndex);
-  auto RayX =
-      BC.Builder.CreateCall(DispatchRaysIndexOpFunc, {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(0) }, "RayX");
-  auto RayY =
-      BC.Builder.CreateCall(DispatchRaysIndexOpFunc, {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(1) }, "RayY");
-  auto RayZ =
-      BC.Builder.CreateCall(DispatchRaysIndexOpFunc, {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(2) }, "RayZ");
+  auto RayX = BC.Builder.CreateCall(
+      DispatchRaysIndexOpFunc,
+      {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(0)}, "RayX");
+  auto RayY = BC.Builder.CreateCall(
+      DispatchRaysIndexOpFunc,
+      {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(1)}, "RayY");
+  auto RayZ = BC.Builder.CreateCall(
+      DispatchRaysIndexOpFunc,
+      {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(2)}, "RayZ");
 
   auto CompareToX = BC.Builder.CreateICmpEQ(
       RayX, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdX),
@@ -503,15 +502,13 @@ DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext &BC,
   return CompareBoth;
 }
 
-Value * DxilDebugInstrumentation::addHullhaderProlog(BuilderContext &BC) {
+Value *DxilDebugInstrumentation::addHullhaderProlog(BuilderContext &BC) {
   auto LoadControlPointFunction = BC.HlslOP->GetOpFunc(
       DXIL::OpCode::OutputControlPointID, Type::getInt32Ty(BC.Ctx));
   Constant *LoadControlPointOpcode =
       BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::OutputControlPointID);
-  auto ControlPointId =
-      BC.Builder.CreateCall(LoadControlPointFunction,
-                            {LoadControlPointOpcode},
-                            "ControlPointId");
+  auto ControlPointId = BC.Builder.CreateCall(
+      LoadControlPointFunction, {LoadControlPointOpcode}, "ControlPointId");
 
   auto *CompareToPrimId =
       addComparePrimitiveIdProlog(BC, m_Parameters.HullShader.PrimitiveId);
@@ -521,29 +518,26 @@ Value * DxilDebugInstrumentation::addHullhaderProlog(BuilderContext &BC) {
       BC.HlslOP->GetU32Const(m_Parameters.HullShader.ControlPointId),
       "CompareToControlPointId");
 
-  auto CompareBoth =
-      BC.Builder.CreateAnd(CompareToControlPoint, CompareToPrimId, "CompareBoth");
+  auto CompareBoth = BC.Builder.CreateAnd(CompareToControlPoint,
+                                          CompareToPrimId, "CompareBoth");
 
   return CompareBoth;
 }
 
-Value * DxilDebugInstrumentation::addComparePrimitiveIdProlog(BuilderContext &BC,
-                                                unsigned primId) {
+Value *DxilDebugInstrumentation::addComparePrimitiveIdProlog(BuilderContext &BC,
+                                                             unsigned primId) {
   auto PrimitiveIdFunction =
       BC.HlslOP->GetOpFunc(DXIL::OpCode::PrimitiveID, Type::getInt32Ty(BC.Ctx));
   Constant *PrimitiveIdOpcode =
       BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::PrimitiveID);
   auto PrimId =
-      BC.Builder.CreateCall(PrimitiveIdFunction,
-                            {PrimitiveIdOpcode},
-                            "PrimId");
+      BC.Builder.CreateCall(PrimitiveIdFunction, {PrimitiveIdOpcode}, "PrimId");
 
   return BC.Builder.CreateICmpEQ(PrimId, BC.HlslOP->GetU32Const(primId),
                                  "CompareToPrimId");
 }
 
-Value * DxilDebugInstrumentation::addGeometryShaderProlog(
-    BuilderContext &BC) {
+Value *DxilDebugInstrumentation::addGeometryShaderProlog(BuilderContext &BC) {
   auto CompareToPrim =
       addComparePrimitiveIdProlog(BC, m_Parameters.GeometryShader.PrimitiveId);
 
@@ -615,7 +609,8 @@ DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext &BC,
 }
 
 void DxilDebugInstrumentation::addInvocationSelectionProlog(
-    BuilderContext &BC, SystemValueIndices SVIndices, DXIL::ShaderKind shaderKind) {
+    BuilderContext &BC, SystemValueIndices SVIndices,
+    DXIL::ShaderKind shaderKind) {
   Value *ParameterTestResult = nullptr;
   switch (shaderKind) {
   case DXIL::ShaderKind::RayGeneration:
@@ -624,10 +619,10 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
-  //case DXIL::ShaderKind::Intersection:
-  //case DXIL::ShaderKind::AnyHit:
-  //case DXIL::ShaderKind::ClosestHit:
-  //case DXIL::ShaderKind::Miss:
+    // case DXIL::ShaderKind::Intersection:
+    // case DXIL::ShaderKind::AnyHit:
+    // case DXIL::ShaderKind::ClosestHit:
+    // case DXIL::ShaderKind::Miss:
     ParameterTestResult = addDispatchedShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Geometry:
@@ -640,7 +635,8 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
     ParameterTestResult = addHullhaderProlog(BC);
     break;
   case DXIL::ShaderKind::Domain:
-    ParameterTestResult = addComparePrimitiveIdProlog(BC, m_Parameters.DomainShader.PrimitiveId);
+    ParameterTestResult =
+        addComparePrimitiveIdProlog(BC, m_Parameters.DomainShader.PrimitiveId);
     break;
   case DXIL::ShaderKind::Pixel:
     ParameterTestResult = addPixelShaderProlog(BC, SVIndices);
@@ -693,11 +689,11 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
       {
           AtomicBinOpcode,  // i32, ; opcode
           values.UAVHandle, // %dx.types.Handle, ; resource handle
-          AtomicAdd,        // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
-                            // XOR, IMIN, IMAX, UMIN, UMAX
-          values.CounterOffset,     // i32, ; coordinate c0: index in bytes
-          UndefArg,         // i32, ; coordinate c1 (unused)
-          UndefArg,         // i32, ; coordinate c2 (unused)
+          AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
+                     // XOR, IMIN, IMAX, UMIN, UMAX
+          values.CounterOffset,       // i32, ; coordinate c0: index in bytes
+          UndefArg,                   // i32, ; coordinate c1 (unused)
+          UndefArg,                   // i32, ; coordinate c2 (unused)
           IncrementForThisInvocation, // i32); increment value
       },
       "UAVIncResult");
@@ -706,8 +702,8 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
     values.InvocationId = PreviousValue;
   }
 
-  auto MaskedForLimit =
-      BC.Builder.CreateAnd(PreviousValue, values.OffsetMask, "MaskedForUAVLimit");
+  auto MaskedForLimit = BC.Builder.CreateAnd(PreviousValue, values.OffsetMask,
+                                             "MaskedForUAVLimit");
   // The return value will either end up being itself (multiplied by one and
   // added with zero) or the "dump uninteresting things here" value of (UAVSize
   // - a bit).
@@ -778,10 +774,10 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
 
     (void)BC.Builder.CreateCall(
-        StoreValue, {StoreValueOpcode, // i32 opcode
-                     values.UAVHandle, // %dx.types.Handle, ; resource handle
-                     values.CurrentIndex,   // i32 c0: index in bytes into UAV
-                     Undef32Arg,       // i32 c1: unused
+        StoreValue, {StoreValueOpcode,    // i32 opcode
+                     values.UAVHandle,    // %dx.types.Handle, ; resource handle
+                     values.CurrentIndex, // i32 c0: index in bytes into UAV
+                     Undef32Arg,          // i32 c1: unused
                      TheValue,
                      UndefArg, // unused values
                      UndefArg, // unused values
@@ -846,28 +842,28 @@ void DxilDebugInstrumentation::addStepEntryForType(
   }
 }
 
-void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext& BC,
-    StoreInst* Inst) {
-    std::uint32_t ValueOrdinalBase;
-    std::uint32_t UnusedValueOrdinalSize;
-    llvm::Value* ValueOrdinalIndex;
-    if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
-        &UnusedValueOrdinalSize,
-        &ValueOrdinalIndex)) {
-        return;
-    }
+void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext &BC,
+                                                      StoreInst *Inst) {
+  std::uint32_t ValueOrdinalBase;
+  std::uint32_t UnusedValueOrdinalSize;
+  llvm::Value *ValueOrdinalIndex;
+  if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
+                                             &UnusedValueOrdinalSize,
+                                             &ValueOrdinalIndex)) {
+    return;
+  }
 
-    std::uint32_t InstNum;
-    if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
-        return;
-    }
+  std::uint32_t InstNum;
+  if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
+    return;
+  }
 
-    if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
-        return;
-    }
+  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
+    return;
+  }
 
-    addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase,
-        ValueOrdinalIndex);
+  addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase,
+                         ValueOrdinalIndex);
 }
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
@@ -876,7 +872,7 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
     return;
   }
   if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst)) {
-      return;
+    return;
   }
 
   if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
@@ -970,16 +966,13 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
     }
   } else {
     llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
-    modified = RunOnFunction(M, DM, entryFunction);  
+    modified = RunOnFunction(M, DM, entryFunction);
   }
   return modified;
 }
 
-bool DxilDebugInstrumentation::RunOnFunction(
-  Module &M, 
-  DxilModule &DM,
-  llvm::Function * entryFunction) 
-{
+bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
+                                             llvm::Function *entryFunction) {
   DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
   if (!DM.HasDxilFunctionProps(entryFunction)) {
     auto ShaderModel = DM.GetShaderModel();
@@ -1001,7 +994,7 @@ bool DxilDebugInstrumentation::RunOnFunction(
   case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
     break;
-    //todo:
+    // todo:
   case DXIL::ShaderKind::Intersection:
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
@@ -1012,8 +1005,7 @@ bool DxilDebugInstrumentation::RunOnFunction(
 
   // First record pointers to all instructions in the function:
   std::vector<Instruction *> AllInstructions;
-  for (inst_iterator I = inst_begin(entryFunction),
-                     E = inst_end(entryFunction);
+  for (inst_iterator I = inst_begin(entryFunction), E = inst_end(entryFunction);
        I != E; ++I) {
     AllInstructions.push_back(&*I);
   }
@@ -1045,7 +1037,8 @@ bool DxilDebugInstrumentation::RunOnFunction(
   values.UAVHandle = PIXPassHelpers::CreateUAV(
       DM, Builder, static_cast<unsigned int>(m_FunctionToValues.size()),
       "PIX_DebugUAV_Handle");
-  values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
+  values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() +
+                                                CounterOffsetBeyondUsefulData);
 
   auto SystemValues = addRequiredSystemValues(BC, shaderKind);
   addInvocationSelectionProlog(BC, SystemValues, shaderKind);

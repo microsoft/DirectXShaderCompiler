@@ -1,6 +1,5 @@
 
 
-
 #ifndef AA
 float foo(float a) {
   return sin(a);

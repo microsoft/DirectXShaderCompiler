@@ -3,4 +3,4 @@
 
 #include "dependency5.h"
 
-#endif  // DEPENDENCY4_H_
+#endif // DEPENDENCY4_H_

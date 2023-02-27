@@ -11,8 +11,8 @@
 
 #pragma once
 
-#include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/Support/Global.h"
 #include "dxc/Support/WinAdapter.h"
 #include <memory>
 
@@ -22,7 +22,7 @@ class LLVMContext;
 class raw_ostream;
 class DiagnosticPrinter;
 class DiagnosticInfo;
-}
+} // namespace llvm
 
 namespace hlsl {
 
@@ -51,14 +51,17 @@ bool VerifyRDATMatches(_In_ llvm::Module *pModule,
                        _In_ uint32_t RDATSize);
 
 bool VerifyFeatureInfoMatches(_In_ llvm::Module *pModule,
-                              _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
+                              _In_reads_bytes_(FeatureInfoSize)
+                                  const void *pFeatureInfoData,
                               _In_ uint32_t FeatureInfoSize);
 
-// Validate the container parts, assuming supplied module is valid, loaded from the container provided
+// Validate the container parts, assuming supplied module is valid, loaded from
+// the container provided
 struct DxilContainerHeader;
 HRESULT ValidateDxilContainerParts(_In_ llvm::Module *pModule,
                                    _In_opt_ llvm::Module *pDebugModule,
-                                   _In_reads_bytes_(ContainerSize) const DxilContainerHeader *pContainer,
+                                   _In_reads_bytes_(ContainerSize)
+                                       const DxilContainerHeader *pContainer,
                                    _In_ uint32_t ContainerSize);
 
 // Loads module, validating load, but not module.
@@ -90,12 +93,14 @@ HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,
                             _In_ llvm::raw_ostream &DiagStream);
 
 // Full container validation, including ValidateDxilModule
-HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
+HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize)
+                                  const void *pContainer,
                               _In_ uint32_t ContainerSize,
                               _In_ llvm::raw_ostream &DiagStream);
 
 // Full container validation, including ValidateDxilModule, with debug module
-HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
+HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize)
+                                  const void *pContainer,
                               _In_ uint32_t ContainerSize,
                               const void *pOptDebugBitcode,
                               uint32_t OptDebugBitcodeSize,
@@ -117,4 +122,4 @@ public:
   static void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI,
                                      void *Context);
 };
-}
+} // namespace hlsl

@@ -14,9 +14,9 @@
 
 namespace hlsl {
 
- // This Updates to this enum must be reflected in HLSLOptions.td and Options.td
- // for the hlsl_version option.
-enum class LangStd : unsigned long  {
+// This Updates to this enum must be reflected in HLSLOptions.td and Options.td
+// for the hlsl_version option.
+enum class LangStd : unsigned long {
   vUnset = 0,
   vError = 1,
   v2015 = 2015,

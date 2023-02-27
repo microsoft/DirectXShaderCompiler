@@ -15,13 +15,13 @@
 #include "dxc/Test/HlslTestUtils.h"
 
 #include "dxc/HLSL/DxilSpanAllocator.h"
-#include <cstdlib>
-#include <random>
 #include <algorithm>
+#include <cstdlib>
 #include <iterator>
-#include <vector>
-#include <set>
 #include <map>
+#include <random>
+#include <set>
+#include <vector>
 
 using namespace hlsl;
 
@@ -41,17 +41,17 @@ Dimensions:
     - UINT_MAX, UINT_MAX - 1
   2. Span scenarios
     Generate some legal spans first:
-      - randomly choose whether to reserve space at end for unbounded, reduce range by this value
+      - randomly choose whether to reserve space at end for unbounded, reduce
+range by this value
       - few:
         set num = 5;
-        add spans in order with random offsets from previous begin/end until full or num reached:
-          offset = rand(1, space left)
+        add spans in order with random offsets from previous begin/end until
+full or num reached: offset = rand(1, space left)
       - lots:
         set num = min(range, 1000)
-        add spans in order with random offsets from previous begin/end until full or num reached:
-          offset = rand(1, min(space left, max(1, range / num)))
-    Copy and shuffle spans
-    Add spans to allocator, expect all success
+        add spans in order with random offsets from previous begin/end until
+full or num reached: offset = rand(1, min(space left, max(1, range / num))) Copy
+and shuffle spans Add spans to allocator, expect all success
       - randomly choose whether to attempt to add unbounded
         Should pass if space avail, fail if space filled
     Select starting and ending spans (one and two):
@@ -103,19 +103,19 @@ bool Align(unsigned &pos, unsigned end, unsigned align) {
 
 struct Element {
   Element() = default;
-  Element(const Element&) = default;
-  Element(unsigned id, unsigned start, unsigned end) : id(id), start(start), end(end) {}
+  Element(const Element &) = default;
+  Element(unsigned id, unsigned start, unsigned end)
+      : id(id), start(start), end(end) {}
   bool operator<(const Element &other) { return id < other.id; }
-  unsigned id;  // index in original ordered vector
+  unsigned id; // index in original ordered vector
   unsigned start, end;
 };
 typedef std::vector<Element> ElementVector;
 typedef SpanAllocator<unsigned, Element> Allocator;
 
-struct IntersectionTestCase
-{
+struct IntersectionTestCase {
   IntersectionTestCase(unsigned one, unsigned two, unsigned start, unsigned end)
-    : idOne(one), idTwo(two), element(UINT_MAX, start, end) {
+      : idOne(one), idTwo(two), element(UINT_MAX, start, end) {
     DXASSERT_NOMSG(one <= two && start <= end);
   }
   unsigned idOne, idTwo;
@@ -135,21 +135,22 @@ struct IntersectionTestCase
 typedef std::set<IntersectionTestCase> IntersectionSet;
 
 struct Gap {
-  Gap(unsigned start, unsigned end, const Element *eBefore, const Element *eAfter)
-    : start(start), end(end), sizeLess1(end-start), eBefore(eBefore), eAfter(eAfter) {
-  }
+  Gap(unsigned start, unsigned end, const Element *eBefore,
+      const Element *eAfter)
+      : start(start), end(end), sizeLess1(end - start), eBefore(eBefore),
+        eAfter(eAfter) {}
   unsigned start, end;
   unsigned sizeLess1;
   const Element *eBefore = nullptr;
   const Element *eAfter = nullptr;
 };
 typedef std::vector<Gap> GapVector;
-const Gap* GetGapBeforeFirst(const GapVector &G) {
+const Gap *GetGapBeforeFirst(const GapVector &G) {
   if (!G.empty() && !G.front().eBefore)
     return &G.front();
   return nullptr;
 }
-const Gap* GetGapBetweenFirstAndSecond(const GapVector &G) {
+const Gap *GetGapBetweenFirstAndSecond(const GapVector &G) {
   for (auto &gap : G) {
     if (gap.eBefore) {
       if (gap.eAfter)
@@ -159,7 +160,7 @@ const Gap* GetGapBetweenFirstAndSecond(const GapVector &G) {
   }
   return nullptr;
 }
-const Gap* GetGapBetweenLastAndSecondLast(const GapVector &G) {
+const Gap *GetGapBetweenLastAndSecondLast(const GapVector &G) {
   if (!G.empty()) {
     auto it = G.end();
     for (--it; it != G.begin(); --it) {
@@ -173,13 +174,14 @@ const Gap* GetGapBetweenLastAndSecondLast(const GapVector &G) {
   }
   return nullptr;
 }
-const Gap* GetGapAfterLast(const GapVector &G) {
+const Gap *GetGapAfterLast(const GapVector &G) {
   if (!G.empty() && !G.back().eAfter)
     return &G.back();
   return nullptr;
 }
 
-void GatherGaps(GapVector &gaps, const ElementVector &spans, unsigned Min, unsigned Max, unsigned alignment = 1) {
+void GatherGaps(GapVector &gaps, const ElementVector &spans, unsigned Min,
+                unsigned Max, unsigned alignment = 1) {
   unsigned start, end;
   const Element *eBefore = nullptr;
   const Element *eAfter = nullptr;
@@ -191,7 +193,8 @@ void GatherGaps(GapVector &gaps, const ElementVector &spans, unsigned Min, unsig
     if (!eBefore) {
       start = Min;
       if (start < span.start) {
-        end = span.start - 1; // can underflow, this is the first span, so guarded by if
+        end = span.start -
+              1; // can underflow, this is the first span, so guarded by if
         if (Align(start, end, alignment))
           gaps.emplace_back(start, end, eBefore, eAfter);
       }
@@ -206,7 +209,8 @@ void GatherGaps(GapVector &gaps, const ElementVector &spans, unsigned Min, unsig
   eAfter = nullptr;
   if (!eBefore) {
     // No spans
-    start = Min; end = Max;
+    start = Min;
+    end = Max;
     if (Align(start, end, alignment))
       gaps.emplace_back(start, end, eBefore, eAfter);
   } else if (eBefore->end < Max) {
@@ -220,8 +224,8 @@ void GatherGaps(GapVector &gaps, const ElementVector &spans, unsigned Min, unsig
   }
 }
 
-void GetGapExtremes(const GapVector &gaps, const Gap *&largest, const Gap *&smallest)
-{
+void GetGapExtremes(const GapVector &gaps, const Gap *&largest,
+                    const Gap *&smallest) {
   largest = nullptr;
   smallest = nullptr;
   for (auto &gap : gaps) {
@@ -256,11 +260,12 @@ const Gap *NextGap(const GapVector &gaps, unsigned pos) {
 }
 
 // if rand() only uses 15 bits:
-//unsigned rand32() { return (rand() << 30) ^ (rand() << 15) ^ rand(); }
+// unsigned rand32() { return (rand() << 30) ^ (rand() << 15) ^ rand(); }
 
 struct Scenario {
-  Scenario(unsigned Min, unsigned Max, unsigned MaxSpans, bool SpaceAtEnd, unsigned Seed)
-    : Min(Min), Max(Max), randGen(Seed) {
+  Scenario(unsigned Min, unsigned Max, unsigned MaxSpans, bool SpaceAtEnd,
+           unsigned Seed)
+      : Min(Min), Max(Max), randGen(Seed) {
 
     if (!MaxSpans || (SpaceAtEnd && Min == Max))
       return;
@@ -269,7 +274,8 @@ struct Scenario {
     {
       unsigned last = SpaceAtEnd ? Max - 1 : Max;
       unsigned next = Min;
-      unsigned max_size = std::max((unsigned)(((int64_t)(last - next) + 1) / MaxSpans), (unsigned)1);
+      unsigned max_size = std::max(
+          (unsigned)(((int64_t)(last - next) + 1) / MaxSpans), (unsigned)1);
       unsigned offset;
 
       while (spans.size() < MaxSpans && next <= last) {
@@ -375,7 +381,8 @@ struct Scenario {
       pairs.insert(Test(1, maxIdx));
     }
 
-    // These are start/end pairs that represent the intersecting spans that we will construct
+    // These are start/end pairs that represent the intersecting spans that we
+    // will construct
     for (auto &&test : pairs) {
       // prev -> one -> ... -> two -> next
       // Where one and two are indexes into spans where one <= two
@@ -383,7 +390,8 @@ struct Scenario {
       const Element *prev = test.first ? &spans[test.first - 1] : nullptr;
       const Element *one = &spans[test.first];
       const Element *two = &spans[test.second];
-      const Element *next = (test.second < spans.size() - 1) ? &spans[test.second + 1] : nullptr;
+      const Element *next =
+          (test.second < spans.size() - 1) ? &spans[test.second + 1] : nullptr;
       unsigned start = 0;
       unsigned space = 0;
 
@@ -463,7 +471,8 @@ struct Scenario {
   }
 
   bool InsertSpans(Allocator &alloc) {
-    WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     for (auto &it : shuffledSpans) {
       const Element *e = &it;
       const Element *conflict = alloc.Insert(e, e->start, e->end);
@@ -473,14 +482,16 @@ struct Scenario {
   }
 
   bool VerifySpans(Allocator &alloc) {
-    WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     unsigned index = 0;
     unsigned last = Min;
     bool first = true;
     bool full = !alloc.GetSpans().empty();
     unsigned firstFree = Min;
     for (auto &span : alloc.GetSpans()) {
-      VERIFY_IS_TRUE(Min <= span.start && span.start <= span.end && span.end <= Max);
+      VERIFY_IS_TRUE(Min <= span.start && span.start <= span.end &&
+                     span.end <= Max);
 
       if (!first)
         ++last;
@@ -524,9 +535,9 @@ struct Scenario {
   // Gaps by alignment
   std::map<unsigned, GapVector> gaps;
   // Smallest gap by alignment
-  std::map<unsigned, const Gap*> gapSmallest;
+  std::map<unsigned, const Gap *> gapSmallest;
   // Largest gap by alignment
-  std::map<unsigned, const Gap*> gapLargest;
+  std::map<unsigned, const Gap *> gapLargest;
   std::mt19937 randGen;
 };
 
@@ -538,10 +549,11 @@ class AllocatorTest : public ::testing::Test {
 protected:
 #endif
   std::vector<Scenario> m_Scenarios;
+
 public:
   BEGIN_TEST_CLASS(AllocatorTest)
-    TEST_CLASS_PROPERTY(L"Parallel", L"true")
-    TEST_METHOD_PROPERTY(L"Priority", L"0")
+  TEST_CLASS_PROPERTY(L"Parallel", L"true")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(AllocatorTestSetup);
@@ -557,35 +569,35 @@ public:
       unsigned SeedOffset;
     };
     static const P params[] = {
-      // Min, Max, MaxSpans, SpaceAtEnd, Seed
-      // - 0, 0
-      {0, 0, 1, false, 0},
-      {0, 0, 1, true, 0},
-      // - UINT_MAX, UINT_MAX
-      {UINT_MAX, UINT_MAX, 1, false, 0},
-      {UINT_MAX, UINT_MAX, 1, true, 0},
-      // - small, small
-      {0, 20, 5, false, 0},
-      {0, 20, 5, true, 0},
-      {21, 96, 5, false, 0},
-      {21, 96, 5, true, 0},
-      // - 0, UINT_MAX
-      {0, UINT_MAX, 0, false, 0},
-      {0, UINT_MAX, 10, false, 0},
-      {0, UINT_MAX, 10, true, 0},
-      {0, UINT_MAX, 100, false, 0},
-      {0, UINT_MAX, 100, true, 0},
+        // Min, Max, MaxSpans, SpaceAtEnd, Seed
+        // - 0, 0
+        {0, 0, 1, false, 0},
+        {0, 0, 1, true, 0},
+        // - UINT_MAX, UINT_MAX
+        {UINT_MAX, UINT_MAX, 1, false, 0},
+        {UINT_MAX, UINT_MAX, 1, true, 0},
+        // - small, small
+        {0, 20, 5, false, 0},
+        {0, 20, 5, true, 0},
+        {21, 96, 5, false, 0},
+        {21, 96, 5, true, 0},
+        // - 0, UINT_MAX
+        {0, UINT_MAX, 0, false, 0},
+        {0, UINT_MAX, 10, false, 0},
+        {0, UINT_MAX, 10, true, 0},
+        {0, UINT_MAX, 100, false, 0},
+        {0, UINT_MAX, 100, true, 0},
     };
     static const unsigned count = _countof(params);
 
     m_Scenarios.reserve(count);
     for (unsigned i = 0; i < count; ++i) {
       const P &p = params[i];
-      m_Scenarios.emplace_back(p.Min, p.Max, p.MaxSpans, p.SpaceAtEnd, i + p.SeedOffset);
+      m_Scenarios.emplace_back(p.Min, p.Max, p.MaxSpans, p.SpaceAtEnd,
+                               i + p.SeedOffset);
       m_Scenarios.back().CreateGaps();
     }
   }
-
 };
 
 bool AllocatorTest::AllocatorTestSetup() {
@@ -594,7 +606,8 @@ bool AllocatorTest::AllocatorTestSetup() {
 }
 
 TEST_F(AllocatorTest, Intersections) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (auto &&scenario : m_Scenarios) {
     Allocator alloc(scenario.Min, scenario.Max);
     VERIFY_IS_TRUE(scenario.InsertSpans(alloc));
@@ -614,12 +627,15 @@ TEST_F(AllocatorTest, Intersections) {
 }
 
 TEST_F(AllocatorTest, GapFilling) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (auto &&scenario : m_Scenarios) {
 
-    // Fill all gaps with Insert, no alignment, verify first free advances and container is full at the end
+    // Fill all gaps with Insert, no alignment, verify first free advances and
+    // container is full at the end
     {
-      //WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      // WEX::TestExecution::SetVerifyOutput
+      // verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
       Allocator alloc(scenario.Min, scenario.Max);
       VERIFY_IS_TRUE(scenario.InsertSpans(alloc));
       GapVector &gaps = scenario.gaps[1];
@@ -634,9 +650,11 @@ TEST_F(AllocatorTest, GapFilling) {
     bool InsertSucceeded = true;
     VERIFY_IS_TRUE(InsertSucceeded);
 
-    // Fill all gaps with Allocate, no alignment, verify first free advances and container is full at the end
+    // Fill all gaps with Allocate, no alignment, verify first free advances and
+    // container is full at the end
     {
-      //WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+      // WEX::TestExecution::SetVerifyOutput
+      // verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
       Allocator alloc(scenario.Min, scenario.Max);
       VERIFY_IS_TRUE(scenario.InsertSpans(alloc));
       GapVector &gaps = scenario.gaps[1];
@@ -664,7 +682,8 @@ TEST_F(AllocatorTest, GapFilling) {
 }
 
 TEST_F(AllocatorTest, Allocate) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (auto &scenario : m_Scenarios) {
 
     // Test for alignment 1 (no alignment), then alignment 4
@@ -674,18 +693,20 @@ TEST_F(AllocatorTest, Allocate) {
     const Gap *smallestGap = scenario.gapSmallest[alignment];
 
     // Test a particular allocation size with some alignment
-    auto TestFn = [&](unsigned sizeLess1){
+    auto TestFn = [&](unsigned sizeLess1) {
       DXASSERT_NOMSG(pGaps);
-      const Gap* pEndGap = GetGapAfterLast(*pGaps);
+      const Gap *pEndGap = GetGapAfterLast(*pGaps);
       Allocator alloc(scenario.Min, scenario.Max);
       VERIFY_IS_TRUE(scenario.InsertSpans(alloc));
 
       // This needs to be allocated outside the control flow because we need the
       // stack allocation to remain valid until the spans are verified.
       Element e;
-      if (!largestGap ||  // no gaps
-          (sizeLess1 < UINT_MAX && sizeLess1 > largestGap->sizeLess1) ||  // not unbounded and size too large
-          (sizeLess1 == UINT_MAX && !pEndGap)) {  // unbounded and no end gap
+      if (!largestGap || // no gaps
+          (sizeLess1 < UINT_MAX &&
+           sizeLess1 >
+               largestGap->sizeLess1) || // not unbounded and size too large
+          (sizeLess1 == UINT_MAX && !pEndGap)) { // unbounded and no end gap
         // no large enough gap, should fail to allocate
         e = Element(UINT_MAX, 0, 0);
         unsigned pos = 0xFEFEFEFE;
@@ -726,8 +747,8 @@ TEST_F(AllocatorTest, Allocate) {
 
     auto TestSizesFn = [&] {
       DXASSERT_NOMSG(pGaps);
-      const Gap* pStartGap = GetGapBeforeFirst(*pGaps);
-      const Gap* pGap1 = GetGapBetweenFirstAndSecond(*pGaps);
+      const Gap *pStartGap = GetGapBeforeFirst(*pGaps);
+      const Gap *pGap1 = GetGapBetweenFirstAndSecond(*pGaps);
 
       // pass/fail based on fit
       // allocate different sizes (in sizeLess1, UINT_MAX means unbounded):
@@ -750,9 +771,10 @@ TEST_F(AllocatorTest, Allocate) {
       //  - size > gap before first span if largest gap is large enough
       if (pStartGap && pStartGap->sizeLess1 < largestGap->sizeLess1)
         sizes.insert(pStartGap->sizeLess1 + 1);
-      //  - size > gap before first span and size > first gap between spans if largest gap is large enough
-      if (pStartGap && pStartGap->sizeLess1 < largestGap->sizeLess1 &&
-          pGap1 && pGap1->sizeLess1 < largestGap->sizeLess1)
+      //  - size > gap before first span and size > first gap between spans if
+      //  largest gap is large enough
+      if (pStartGap && pStartGap->sizeLess1 < largestGap->sizeLess1 && pGap1 &&
+          pGap1->sizeLess1 < largestGap->sizeLess1)
         sizes.insert(std::max(pStartGap->sizeLess1, pGap1->sizeLess1) + 1);
 
       for (auto &size : sizes) {

@@ -1,4 +1,5 @@
-//===- DxilRemoveUnstructuredLoopExits.h - Make unrolled loops structured ---===//
+//===- DxilRemoveUnstructuredLoopExits.h - Make unrolled loops structured
+//---===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -10,15 +11,17 @@
 #include <unordered_set>
 
 namespace llvm {
-  class Loop;
-  class LoopInfo;
-  class DominatorTree;
-  class BasicBlock;
-}
+class Loop;
+class LoopInfo;
+class DominatorTree;
+class BasicBlock;
+} // namespace llvm
 
 namespace hlsl {
 
-  // exclude_set is a list of *EXIT BLOCKS* to exclude (NOTE: not *exiting* blocks)
-  bool RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::DominatorTree *DT, std::unordered_set<llvm::BasicBlock *> *exclude_set = nullptr);
-}
-
+// exclude_set is a list of *EXIT BLOCKS* to exclude (NOTE: not *exiting*
+// blocks)
+bool RemoveUnstructuredLoopExits(
+    llvm::Loop *L, llvm::LoopInfo *LI, llvm::DominatorTree *DT,
+    std::unordered_set<llvm::BasicBlock *> *exclude_set = nullptr);
+} // namespace hlsl

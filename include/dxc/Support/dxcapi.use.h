@@ -16,8 +16,8 @@
 
 namespace dxc {
 
-  extern const char* kDxCompilerLib;
-  extern const char* kDxilLib;
+extern const char *kDxCompilerLib;
+extern const char *kDxilLib;
 
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
 class DxcDllSupport {
@@ -27,13 +27,15 @@ protected:
   DxcCreateInstance2Proc m_createFn2;
 
   HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
-    if (m_dll != nullptr) return S_OK;
+    if (m_dll != nullptr)
+      return S_OK;
 
 #ifdef _WIN32
     m_dll = LoadLibraryA(dllName);
-    if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
+    if (m_dll == nullptr)
+      return HRESULT_FROM_WIN32(GetLastError());
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
-    
+
     if (m_createFn == nullptr) {
       HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
       FreeLibrary(m_dll);
@@ -42,9 +44,10 @@ protected:
     }
 #else
     m_dll = ::dlopen(dllName, RTLD_LAZY);
-    if (m_dll == nullptr) return E_FAIL;
+    if (m_dll == nullptr)
+      return E_FAIL;
     m_createFn = (DxcCreateInstanceProc)::dlsym(m_dll, fnName);
-    
+
     if (m_createFn == nullptr) {
       ::dlclose(m_dll);
       m_dll = nullptr;
@@ -71,18 +74,18 @@ protected:
   }
 
 public:
-  DxcDllSupport() : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {
+  DxcDllSupport() : m_dll(nullptr), m_createFn(nullptr), m_createFn2(nullptr) {}
+
+  DxcDllSupport(DxcDllSupport &&other) {
+    m_dll = other.m_dll;
+    other.m_dll = nullptr;
+    m_createFn = other.m_createFn;
+    other.m_createFn = nullptr;
+    m_createFn2 = other.m_createFn2;
+    other.m_createFn2 = nullptr;
   }
 
-  DxcDllSupport(DxcDllSupport&& other) {
-    m_dll = other.m_dll; other.m_dll = nullptr;
-    m_createFn = other.m_createFn; other.m_createFn = nullptr;
-    m_createFn2 = other.m_createFn2; other.m_createFn2 = nullptr;
-  }
-
-  ~DxcDllSupport() {
-    Cleanup();
-  }
+  ~DxcDllSupport() { Cleanup(); }
 
   HRESULT Initialize() {
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
@@ -93,37 +96,42 @@ public:
   }
 
   template <typename TInterface>
-  HRESULT CreateInstance(REFCLSID clsid, _Outptr_ TInterface** pResult) {
-    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown**)pResult);
+  HRESULT CreateInstance(REFCLSID clsid, _Outptr_ TInterface **pResult) {
+    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown **)pResult);
   }
 
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, _Outptr_ IUnknown **pResult) {
-    if (pResult == nullptr) return E_POINTER;
-    if (m_dll == nullptr) return E_FAIL;
-    HRESULT hr = m_createFn(clsid, riid, (LPVOID*)pResult);
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid,
+                         _Outptr_ IUnknown **pResult) {
+    if (pResult == nullptr)
+      return E_POINTER;
+    if (m_dll == nullptr)
+      return E_FAIL;
+    HRESULT hr = m_createFn(clsid, riid, (LPVOID *)pResult);
     return hr;
   }
 
   template <typename TInterface>
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, _Outptr_ TInterface** pResult) {
-    return CreateInstance2(pMalloc, clsid, __uuidof(TInterface), (IUnknown**)pResult);
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid,
+                          _Outptr_ TInterface **pResult) {
+    return CreateInstance2(pMalloc, clsid, __uuidof(TInterface),
+                           (IUnknown **)pResult);
   }
 
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid, _Outptr_ IUnknown **pResult) {
-    if (pResult == nullptr) return E_POINTER;
-    if (m_dll == nullptr) return E_FAIL;
-    if (m_createFn2 == nullptr) return E_FAIL;
-    HRESULT hr = m_createFn2(pMalloc, clsid, riid, (LPVOID*)pResult);
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                          _Outptr_ IUnknown **pResult) {
+    if (pResult == nullptr)
+      return E_POINTER;
+    if (m_dll == nullptr)
+      return E_FAIL;
+    if (m_createFn2 == nullptr)
+      return E_FAIL;
+    HRESULT hr = m_createFn2(pMalloc, clsid, riid, (LPVOID *)pResult);
     return hr;
   }
 
-  bool HasCreateWithMalloc() const {
-    return m_createFn2 != nullptr;
-  }
+  bool HasCreateWithMalloc() const { return m_createFn2 != nullptr; }
 
-  bool IsEnabled() const {
-    return m_dll != nullptr;
-  }
+  bool IsEnabled() const { return m_dll != nullptr; }
 
   void Cleanup() {
     if (m_dll != nullptr) {
@@ -158,13 +166,17 @@ void IFT_Data(HRESULT hr, _In_opt_ LPCWSTR data);
 void EnsureEnabled(DxcDllSupport &dxcSupport);
 void ReadFileIntoBlob(DxcDllSupport &dxcSupport, _In_ LPCWSTR pFileName,
                       _Outptr_ IDxcBlobEncoding **ppBlobEncoding);
-void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
-void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName, _In_ UINT32 textCodePage);
-void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile, _In_opt_ LPCWSTR pFileName, _In_ UINT32 textCodePage);
+void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob,
+                        DWORD streamType = STD_OUTPUT_HANDLE);
+void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName,
+                     _In_ UINT32 textCodePage);
+void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile,
+                       _In_opt_ LPCWSTR pFileName, _In_ UINT32 textCodePage);
 void WriteUtf8ToConsole(_In_opt_count_(charCount) const char *pText,
                         int charCount, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteUtf8ToConsoleSizeT(_In_opt_count_(charCount) const char *pText,
-                             size_t charCount, DWORD streamType = STD_OUTPUT_HANDLE);
+                             size_t charCount,
+                             DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteOperationErrorsToConsole(_In_ IDxcOperationResult *pResult,
                                    bool outputWarnings);
 void WriteOperationResultToConsole(_In_ IDxcOperationResult *pRewriteResult,

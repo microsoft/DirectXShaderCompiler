@@ -9,12 +9,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinFunctions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
-#include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -25,18 +25,18 @@
 
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/HLSL/DxilValidation.h"
+#include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxcutil.h"
 #include "clang/Basic/Diagnostic.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
-#include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "dxc/Support/HLSLOptions.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -50,10 +50,9 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcLinker)
 
   // Register a library with name to ref it later.
-  HRESULT RegisterLibrary(
-      _In_opt_ LPCWSTR pLibName, // Name of the library.
-      _In_ IDxcBlob *pLib        // Library to add.
-  ) override;
+  HRESULT RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
+                          _In_ IDxcBlob *pLib        // Library to add.
+                          ) override;
 
   // Links the shader and produces a shader blob that the Direct3D runtime can
   // use.
@@ -68,7 +67,7 @@ public:
       _In_ UINT32 argCount,          // Number of arguments
       _COM_Outptr_ IDxcOperationResult *
           *ppResult // Linker output status, buffer, and errors
-  ) override;
+      ) override;
 
   HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
@@ -88,7 +87,8 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcLinker>(this, riid, ppvObject);
   }
 
@@ -206,7 +206,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     }
 
     std::string warnings;
-    //llvm::raw_string_ostream w(warnings);
+    // llvm::raw_string_ostream w(warnings);
     IFT(CreateMemoryStream(pMalloc, &pDiagStream));
     raw_stream_ostream DiagStream(pDiagStream);
     llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
@@ -221,8 +221,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     bool needsValidation = !opts.DisableValidation;
     // Disable validation if ValVerMajor is 0 (offline target, never validate),
     // or pre-release library targets lib_6_1/lib_6_2.
-    if (opts.ValVerMajor == 0 ||
-        opts.TargetProfile == "lib_6_1" ||
+    if (opts.ValVerMajor == 0 || opts.TargetProfile == "lib_6_1" ||
         opts.TargetProfile == "lib_6_2") {
       needsValidation = false;
     }
@@ -242,8 +241,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     bool hasErrorOccurred = !bSuccess;
     if (bSuccess) {
-      std::unique_ptr<Module> pM = m_pLinker->Link(
-          opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
+      std::unique_ptr<Module> pM =
+          m_pLinker->Link(opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
       if (pM) {
         const IntrusiveRefCntPtr<clang::DiagnosticIDs> Diags(
             new clang::DiagnosticIDs);
@@ -272,10 +271,9 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         }
         // Validation.
         HRESULT valHR = S_OK;
-        dxcutil::AssembleInputs inputs(
-          std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
-          pOutputStream,
-          opts.DebugFile, &Diag);
+        dxcutil::AssembleInputs inputs(std::move(pM), pOutputBlob, pMalloc,
+                                       SerializeFlags, pOutputStream,
+                                       opts.DebugFile, &Diag);
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {

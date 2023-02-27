@@ -26,18 +26,19 @@ namespace hlsl {
 namespace testOptions {
 
 /// \brief Command line option that specifies the path to the directory that
-/// contains files that have the HLSL source code (used for the CodeGen test flow).
+/// contains files that have the HLSL source code (used for the CodeGen test
+/// flow).
 #define ARG_DECLARE(argname) extern std::string argname;
 
-#define ARG_LIST(ARGOP)\
-    ARGOP(HlslDataDir)\
-    ARGOP(TestName)\
-    ARGOP(DXBC)\
-    ARGOP(SaveImages)\
-    ARGOP(ExperimentalShaders)\
-    ARGOP(DebugLayer)\
-    ARGOP(SuitePath)\
-    ARGOP(InputPath)
+#define ARG_LIST(ARGOP)                                                        \
+  ARGOP(HlslDataDir)                                                           \
+  ARGOP(TestName)                                                              \
+  ARGOP(DXBC)                                                                  \
+  ARGOP(SaveImages)                                                            \
+  ARGOP(ExperimentalShaders)                                                   \
+  ARGOP(DebugLayer)                                                            \
+  ARGOP(SuitePath)                                                             \
+  ARGOP(InputPath)
 
 ARG_LIST(ARG_DECLARE)
 

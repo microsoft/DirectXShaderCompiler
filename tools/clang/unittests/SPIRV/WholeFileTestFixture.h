@@ -10,9 +10,9 @@
 #ifndef LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILETESTFIXTURE_H
 #define LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILETESTFIXTURE_H
 
-#include "gtest/gtest.h"
-#include "llvm/ADT/StringRef.h"
 #include "spirv-tools/libspirv.h"
+#include "llvm/ADT/StringRef.h"
+#include "gtest/gtest.h"
 
 namespace clang {
 namespace spirv {

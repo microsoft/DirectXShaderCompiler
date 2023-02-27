@@ -67,8 +67,9 @@ struct AssembleInputs {
   CComPtr<IDxcBlob> pPrivateBlob = nullptr;
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
-HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr);
+HRESULT
+ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
+                                 clang::DiagnosticsEngine *pDiag = nullptr);
 HRESULT SetRootSignature(hlsl::DxilModule *pModule, CComPtr<IDxcBlob> pSource);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
 void AssembleToContainer(AssembleInputs &inputs);
@@ -79,10 +80,9 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                          _COM_Outptr_ IDxcOperationResult **ppResult,
                          bool &finished);
 void CreateOperationResultFromOutputs(
-    DXC_OUT_KIND resultKind, UINT32 textEncoding,
-    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
-    const std::string &warnings, bool hasErrorOccurred,
-    _COM_Outptr_ IDxcOperationResult **ppResult);
+    DXC_OUT_KIND resultKind, UINT32 textEncoding, IDxcBlob *pResultBlob,
+    CComPtr<IStream> &pErrorStream, const std::string &warnings,
+    bool hasErrorOccurred, _COM_Outptr_ IDxcOperationResult **ppResult);
 void CreateOperationResultFromOutputs(
     IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
     const std::string &warnings, bool hasErrorOccurred,

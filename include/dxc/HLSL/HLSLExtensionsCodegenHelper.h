@@ -11,8 +11,8 @@
 
 #pragma once
 #include "dxc/DXIL/DxilOperations.h"
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace clang {
 class CodeGenOptions;
@@ -22,7 +22,7 @@ namespace llvm {
 class CallInst;
 class Value;
 class Module;
-}
+} // namespace llvm
 
 namespace hlsl {
 
@@ -36,7 +36,7 @@ namespace hlsl {
 //
 // This class provides an interface for generating the DXIL bitcode
 // needed for the types of extensions above.
-//  
+//
 class HLSLExtensionsCodegenHelper {
 public:
   // Used to indicate a semantic define was used incorrectly.
@@ -47,18 +47,17 @@ public:
   class SemanticDefineError {
   public:
     enum class Level { Warning, Error };
-    SemanticDefineError(unsigned location, Level level, const std::string &message)
-    :  m_location(location)
-    ,  m_level(level)
-    ,  m_message(message)
-    { }
+    SemanticDefineError(unsigned location, Level level,
+                        const std::string &message)
+        : m_location(location), m_level(level), m_message(message) {}
 
     unsigned Location() const { return m_location; }
     bool IsWarning() const { return m_level == Level::Warning; }
     const std::string &Message() const { return m_message; }
 
   private:
-    unsigned m_location; // Use an encoded clang::SourceLocation to avoid a clang include dependency.
+    unsigned m_location; // Use an encoded clang::SourceLocation to avoid a
+                         // clang include dependency.
     Level m_level;
     std::string m_message;
   };
@@ -83,14 +82,15 @@ public:
   // Struct to hold a root signature that is read from a define.
   struct CustomRootSignature {
     std::string RootSignature;
-    unsigned  EncodedSourceLocation;
+    unsigned EncodedSourceLocation;
     enum Status { NOT_FOUND = 0, FOUND };
   };
 
   // Get custom defined root signature.
-  virtual CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) = 0;
+  virtual CustomRootSignature::Status
+  GetCustomRootSignature(CustomRootSignature *out) = 0;
 
   // Virtual destructor.
-  virtual ~HLSLExtensionsCodegenHelper() {};
+  virtual ~HLSLExtensionsCodegenHelper(){};
 };
-}
+} // namespace hlsl

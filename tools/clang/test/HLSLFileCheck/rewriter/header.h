@@ -6,7 +6,7 @@ struct B : A {
   float b;
 };
 struct X {
-float a;
+  float a;
 };
 // test macro
 #ifdef TEST

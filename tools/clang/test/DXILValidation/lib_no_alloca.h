@@ -4,6 +4,3 @@ float2 test(float2 a) {
   b.y = sin(a.y);
   return b;
 }
-
-
-

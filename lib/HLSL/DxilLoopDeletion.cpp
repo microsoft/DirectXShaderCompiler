@@ -12,30 +12,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/IR/Function.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
 
 namespace {
-  class DxilLoopDeletion : public FunctionPass {
-  public:
-    static char ID; // Pass ID, replacement for typeid
-    DxilLoopDeletion() : FunctionPass(ID) {
-    }
+class DxilLoopDeletion : public FunctionPass {
+public:
+  static char ID; // Pass ID, replacement for typeid
+  DxilLoopDeletion() : FunctionPass(ID) {}
 
-    bool runOnFunction(Function &F) override;
-
-  };
-}
+  bool runOnFunction(Function &F) override;
+};
+} // namespace
 
 char DxilLoopDeletion::ID = 0;
-INITIALIZE_PASS(DxilLoopDeletion, "dxil-loop-deletion",
-                "Delete dead loops", false, false)
+INITIALIZE_PASS(DxilLoopDeletion, "dxil-loop-deletion", "Delete dead loops",
+                false, false)
 
-FunctionPass *llvm::createDxilLoopDeletionPass() { return new DxilLoopDeletion(); }
+FunctionPass *llvm::createDxilLoopDeletionPass() {
+  return new DxilLoopDeletion();
+}
 
 bool DxilLoopDeletion::runOnFunction(Function &F) {
   // Run loop simplify first to make sure loop invariant is moved so loop
@@ -51,8 +51,8 @@ bool DxilLoopDeletion::runOnFunction(Function &F) {
   SimplifyPM.add(createInstructionCombiningPass());
 
   const unsigned kMaxIteration = 3;
-  unsigned i=0;
-  while (i<kMaxIteration) {
+  unsigned i = 0;
+  while (i < kMaxIteration) {
     if (!DeleteLoopPM.run(F))
       break;
 

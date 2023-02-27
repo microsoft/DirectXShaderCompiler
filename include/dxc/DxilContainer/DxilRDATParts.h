@@ -9,18 +9,18 @@
 
 #pragma once
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/raw_ostream.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/Support/WinIncludes.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include <vector>
 #include <set>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace hlsl {
 
@@ -28,7 +28,9 @@ class RDATPart {
 public:
   virtual uint32_t GetPartSize() const { return 0; }
   virtual void Write(void *ptr) {}
-  virtual RDAT::RuntimeDataPartType GetType() const { return RDAT::RuntimeDataPartType::Invalid; }
+  virtual RDAT::RuntimeDataPartType GetType() const {
+    return RDAT::RuntimeDataPartType::Invalid;
+  }
   virtual ~RDATPart() {}
 };
 
@@ -40,16 +42,18 @@ private:
 
 public:
   StringBufferPart() {
-    // Always start string table with null so empty/null strings have offset of zero
+    // Always start string table with null so empty/null strings have offset of
+    // zero
     Insert("");
   }
   // returns the offset of the name inserted
   uint32_t Insert(llvm::StringRef str);
-  RDAT::RuntimeDataPartType GetType() const { return RDAT::RuntimeDataPartType::StringBuffer; }
+  RDAT::RuntimeDataPartType GetType() const {
+    return RDAT::RuntimeDataPartType::StringBuffer;
+  }
   uint32_t GetPartSize() const { return m_Size; }
   void Write(void *ptr);
 };
-
 
 class IndexArraysPart : public RDATPart {
 private:
@@ -66,7 +70,8 @@ private:
         return (*pLeft < *pRight);
       uint32_t count = *pLeft;
       for (unsigned i = 0; i < count; i++) {
-        ++pLeft; ++pRight;
+        ++pLeft;
+        ++pRight;
         if (*pLeft != *pRight)
           return (*pLeft < *pRight);
       }
@@ -77,8 +82,7 @@ private:
 
 public:
   IndexArraysPart() : m_IndexBuffer(), m_IndexSet(*this) {}
-  template <class iterator>
-  uint32_t AddIndex(iterator begin, iterator end) {
+  template <class iterator> uint32_t AddIndex(iterator begin, iterator end) {
     uint32_t newOffset = m_IndexBuffer.size();
     m_IndexBuffer.push_back(0); // Size: update after insertion
     m_IndexBuffer.insert(m_IndexBuffer.end(), begin, end);
@@ -87,12 +91,15 @@ public:
     auto insertResult = m_IndexSet.insert(newOffset);
     if (insertResult.second)
       return newOffset;
-    // Otherwise it was a duplicate, so chop off the size and return the original
+    // Otherwise it was a duplicate, so chop off the size and return the
+    // original
     m_IndexBuffer.resize(newOffset);
     return *insertResult.first;
   }
 
-  RDAT::RuntimeDataPartType GetType() const { return RDAT::RuntimeDataPartType::IndexArrays; }
+  RDAT::RuntimeDataPartType GetType() const {
+    return RDAT::RuntimeDataPartType::IndexArrays;
+  }
   uint32_t GetPartSize() const {
     return sizeof(uint32_t) * m_IndexBuffer.size();
   }
@@ -107,6 +114,7 @@ private:
   std::unordered_map<std::string, uint32_t> m_Map;
   std::vector<llvm::StringRef> m_List;
   size_t m_Size = 0;
+
 public:
   RawBytesPart() {}
   uint32_t Insert(const void *pData, size_t dataSize);
@@ -117,7 +125,9 @@ public:
     return ret;
   }
 
-  RDAT::RuntimeDataPartType GetType() const { return RDAT::RuntimeDataPartType::RawBytes; }
+  RDAT::RuntimeDataPartType GetType() const {
+    return RDAT::RuntimeDataPartType::RawBytes;
+  }
   uint32_t GetPartSize() const { return m_Size; }
   void Write(void *ptr);
 };
@@ -132,6 +142,7 @@ protected:
   bool m_bDeduplicationEnabled = false;
   RDAT::RuntimeDataPartType m_Type = RDAT::RuntimeDataPartType::Invalid;
   uint32_t InsertImpl(const void *ptr, size_t size);
+
 public:
   virtual ~RDATTable() {}
 
@@ -139,15 +150,16 @@ public:
   RDAT::RuntimeDataPartType GetType() const { return m_Type; }
   void SetRecordStride(size_t RecordStride);
   size_t GetRecordStride() const { return m_RecordStride; }
-  void SetDeduplication(bool bEnabled = true) { m_bDeduplicationEnabled = bEnabled; }
+  void SetDeduplication(bool bEnabled = true) {
+    m_bDeduplicationEnabled = bEnabled;
+  }
 
   uint32_t Count() {
     size_t count = m_rows.size();
     return (count < UINT32_MAX) ? count : 0;
   }
 
-  template<typename RecordType>
-  uint32_t Insert(const RecordType &data) {
+  template <typename RecordType> uint32_t Insert(const RecordType &data) {
     return InsertImpl(&data, sizeof(RecordType));
   }
 
@@ -156,4 +168,3 @@ public:
 };
 
 } // namespace hlsl
-

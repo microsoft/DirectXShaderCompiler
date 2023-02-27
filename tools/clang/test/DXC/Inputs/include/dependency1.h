@@ -3,4 +3,4 @@
 
 // Empty
 
-#endif  // DEPENDENCY1_H_
+#endif // DEPENDENCY1_H_

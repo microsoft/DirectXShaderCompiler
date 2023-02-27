@@ -6,7 +6,7 @@
 // compatible with DXIL.
 
 // runtime.c
-#if 0 
+#if 0
 #include <stddef.h>
 
 static const int STACK_SIZE_IN_BYTES = 1024;
@@ -94,10 +94,10 @@ typedef struct TraceRaySpills_Miss
   unsigned ShaderRecordOffset;
 } TraceRaySpills_Miss;
 
-
 #define REF(x) (runtimeData->x)
 #define REF_FLT(x) (runtimeData->x)
-#define REF_STACK(offset) ((*runtimeData->Stack)[runtimeData->StackOffset + offset])
+#define REF_STACK(offset)                                                      \
+  ((*runtimeData->Stack)[runtimeData->StackOffset + offset])
 #define REF_FLT_OFS(x, offset) (runtimeData->x[offset])
 
 // Return next stateID
@@ -667,7 +667,7 @@ void fb_Fallback_SetAnyHitStateId(RuntimeDataType runtimeData, int id)
 
 #endif
 
-static const char* runtimeString[] = { R"AAA(
+static const char *runtimeString[] = {R"AAA(
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f:64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -847,7 +847,7 @@ entry:
   store float %4, float* %arrayidx9, align 4
   %WorldRayOrigin10 = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 5
 )AAA",
-R"AAA(
+                                      R"AAA(
   %arrayidx11 = getelementptr inbounds [3 x float], [3 x float]* %WorldRayOrigin10, i32 0, i32 2
   %5 = load float, float* %arrayidx11, align 4
   %WorldRayOrigin12 = getelementptr inbounds %struct.TraceRaySpills_ClosestHit, %struct.TraceRaySpills_ClosestHit* %spills, i32 0, i32 3
@@ -965,7 +965,7 @@ entry:
   store float %5, float* %arrayidx13, align 4
   %WorldRayDirection = getelementptr inbounds %struct.TraceRaySpills_ClosestHit, %struct.TraceRaySpills_ClosestHit* %spills, i32 0, i32 4
 )AAA",
-R"AAA(
+                                      R"AAA(
   %arrayidx14 = getelementptr inbounds [3 x float], [3 x float]* %WorldRayDirection, i32 0, i32 0
   %6 = load float, float* %arrayidx14, align 4
   %WorldRayDirection15 = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 6
@@ -1084,7 +1084,7 @@ entry:
   %WorldRayDirection17 = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 6
   %arrayidx18 = getelementptr inbounds [3 x float], [3 x float]* %WorldRayDirection17, i32 0, i32 1
 )AAA",
-R"AAA(
+                                      R"AAA(
   %7 = load float, float* %arrayidx18, align 4
   %WorldRayDirection19 = getelementptr inbounds %struct.TraceRaySpills_Miss, %struct.TraceRaySpills_Miss* %spills, i32 0, i32 4
   %arrayidx20 = getelementptr inbounds [3 x float], [3 x float]* %WorldRayDirection19, i32 0, i32 1
@@ -1232,7 +1232,7 @@ entry:
   %DispatchRaysDimensions4 = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 1
   %arrayidx5 = getelementptr inbounds [2 x i32], [2 x i32]* %DispatchRaysDimensions4, i32 0, i32 1
 )AAA",
-R"AAA(
+                                      R"AAA(
   store i32 %dimy, i32* %arrayidx5, align 4
   %GroupIndex = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 22
   store i32 %groupIndex, i32* %GroupIndex, align 4
@@ -1384,7 +1384,7 @@ entry:
 ; Function Attrs: nounwind
 define i32 @fb_dxop_dispatchRaysDimensions(%struct.RuntimeDataStruct* %runtimeData, i8 zeroext %i) #0 {
 )AAA",
-R"AAA(
+                                      R"AAA(
 entry:
   %idxprom = zext i8 %i to i32
   %DispatchRaysDimensions = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 1
@@ -1599,7 +1599,7 @@ entry:
   %ObjectRayDirection1 = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 8
   %arrayidx2 = getelementptr inbounds [3 x float], [3 x float]* %ObjectRayDirection1, i32 0, i32 1
 )AAA",
-R"AAA(
+                                      R"AAA(
   store float %y, float* %arrayidx2, align 4
   %ObjectRayDirection3 = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 8
   %arrayidx4 = getelementptr inbounds [3 x float], [3 x float]* %ObjectRayDirection3, i32 0, i32 2
@@ -1758,7 +1758,7 @@ entry:
 ; Function Attrs: nounwind
 define void @fb_Fallback_SetPrimitiveIndex(%struct.RuntimeDataStruct* %runtimeData, i32 %i) #0 {
 )AAA",
-R"AAA(
+                                      R"AAA(
 entry:
   %PrimitiveIndex = getelementptr inbounds %struct.RuntimeDataStruct, %struct.RuntimeDataStruct* %runtimeData, i32 0, i32 11
   store i32 %i, i32* %PrimitiveIndex, align 4
@@ -1960,14 +1960,12 @@ entry:
 
 attributes #0 = { nounwind }
 attributes #1 = { nounwind }
-)AAA"
-};
+)AAA"};
 
 #include <sstream>
-static std::string getRuntimeString()
-{
+static std::string getRuntimeString() {
   std::ostringstream out;
-  for( size_t i=0; i < _countof(runtimeString); ++i)
+  for (size_t i = 0; i < _countof(runtimeString); ++i)
     out << runtimeString[i];
 
   return out.str();

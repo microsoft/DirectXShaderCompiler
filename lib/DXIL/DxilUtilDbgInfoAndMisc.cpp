@@ -9,29 +9,28 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-
-#include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -101,8 +100,7 @@ Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
   return newGEP;
 }
 
-}
-
+} // namespace
 
 namespace hlsl {
 
@@ -143,8 +141,7 @@ bool MergeGepUse(Value *V) {
           if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP)) {
             cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
           }
-        }
-        else {
+        } else {
           addUsersToWorklist(GEP);
         }
       } else {
@@ -330,9 +327,7 @@ void EmitNoteOnContext(LLVMContext &Ctx, Twine Msg) {
   EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Note);
 }
 
-Value::user_iterator mdv_users_end(Value *V) {
-  return Value::user_iterator();
-}
+Value::user_iterator mdv_users_end(Value *V) { return Value::user_iterator(); }
 Value::user_iterator mdv_users_begin(Value *V) {
   if (auto *L = LocalAsMetadata::getIfExists(V)) {
     if (auto *MDV = MetadataAsValue::getIfExists(L->getContext(), L)) {
@@ -343,7 +338,8 @@ Value::user_iterator mdv_users_begin(Value *V) {
 }
 
 static DbgValueInst *FindDbgValueInst(Value *Val) {
-  for (auto it = mdv_users_begin(Val), end = mdv_users_end(Val); it != end; it++) {
+  for (auto it = mdv_users_begin(Val), end = mdv_users_end(Val); it != end;
+       it++) {
     if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(*it))
       return DbgValInst;
   }
@@ -426,9 +422,11 @@ namespace {
 class DxilLoadMetadata : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilLoadMetadata () : ModulePass(ID) {}
+  explicit DxilLoadMetadata() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "HLSL load DxilModule from metadata"; }
+  StringRef getPassName() const override {
+    return "HLSL load DxilModule from metadata";
+  }
 
   bool runOnModule(Module &M) override {
     if (!M.HasDxilModule()) {
@@ -439,7 +437,7 @@ public:
     return false;
   }
 };
-}
+} // namespace
 
 char DxilLoadMetadata::ID = 0;
 
@@ -447,4 +445,5 @@ ModulePass *llvm::createDxilLoadMetadataPass() {
   return new DxilLoadMetadata();
 }
 
-INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
+INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload",
+                "HLSL load DxilModule from metadata", false, false)

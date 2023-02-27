@@ -68,10 +68,9 @@
 #define STDMETHODCALLTYPE
 #define STDMETHODIMP_(type) type STDMETHODCALLTYPE
 #define STDMETHODIMP STDMETHODIMP_(HRESULT)
-#define STDMETHOD_(type,name) virtual STDMETHODIMP_(type) name
+#define STDMETHOD_(type, name) virtual STDMETHODIMP_(type) name
 #define STDMETHOD(name) STDMETHOD_(HRESULT, name)
 #define EXTERN_C extern "C"
-
 
 #define UNREFERENCED_PARAMETER(P) (void)(P)
 
@@ -430,7 +429,7 @@ typedef void *HMODULE;
 
 #ifdef __EMULATE_UUID
 struct GUID
-#else  // __EMULATE_UUID
+#else // __EMULATE_UUID
 // These specific definitions are required by clang -fms-extensions.
 typedef struct _GUID
 #endif // __EMULATE_UUID
@@ -442,7 +441,7 @@ typedef struct _GUID
 }
 #ifdef __EMULATE_UUID
 ;
-#else  // __EMULATE_UUID
+#else // __EMULATE_UUID
 GUID;
 #endif // __EMULATE_UUID
 typedef GUID CLSID;
@@ -620,17 +619,18 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 #endif // __EMULATE_UUID
 
 // Needed for d3d headers, but fail to create actual interfaces
-#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) const GUID name = { l, w1, w2, { b1, b2,  b3,  b4,  b5,  b6,  b7,  b8 } }
+#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8)           \
+  const GUID name = {l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8}}
 #define DECLSPEC_UUID(x)
 #define MIDL_INTERFACE(x) struct DECLSPEC_UUID(x)
-#define DECLARE_INTERFACE(iface)                struct iface
-#define DECLARE_INTERFACE_(iface, parent)       DECLARE_INTERFACE(iface) : parent
+#define DECLARE_INTERFACE(iface) struct iface
+#define DECLARE_INTERFACE_(iface, parent) DECLARE_INTERFACE(iface) : parent
 
 //===--------------------- COM Interfaces ---------------------------------===//
 
 CROSS_PLATFORM_UUIDOF(IUnknown, "00000000-0000-0000-C000-000000000046")
 struct IUnknown {
-  IUnknown() {};
+  IUnknown(){};
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
   virtual ULONG AddRef() = 0;
   virtual ULONG Release() = 0;
@@ -684,8 +684,10 @@ struct IStream : public ISequentialStream {
 
 // These don't need stub implementations as they come from the DirectX Headers
 // They still need the __uuidof() though
-CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection, "8E349D19-54DB-4A56-9DC9-119D87BDB804")
-CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection, "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
+CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
+                      "8E349D19-54DB-4A56-9DC9-119D87BDB804")
+CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,
+                      "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
 
 //===--------------------- COM Pointer Types ------------------------------===//
 
@@ -1040,41 +1042,28 @@ private:
   HANDLE m_h;
 };
 
-
 /////////////////////////////////////////////////////////////////////////////
 // CComBSTR
 
-class CComBSTR
-{
+class CComBSTR {
 public:
-    BSTR m_str;
-    CComBSTR() : m_str(nullptr) {};
-    CComBSTR(_In_ int nSize, LPCWSTR sz);
-    ~CComBSTR() throw() {
-      SysFreeString(m_str);
-    }
+  BSTR m_str;
+  CComBSTR() : m_str(nullptr){};
+  CComBSTR(_In_ int nSize, LPCWSTR sz);
+  ~CComBSTR() throw() { SysFreeString(m_str); }
 
-    operator BSTR() const throw()
-    {
-        return m_str;
-    }
+  operator BSTR() const throw() { return m_str; }
 
-    bool operator==(_In_ const CComBSTR& bstrSrc) const throw();
+  bool operator==(_In_ const CComBSTR &bstrSrc) const throw();
 
-    BSTR* operator&() throw()
-    {
-        return &m_str;
-    }
+  BSTR *operator&() throw() { return &m_str; }
 
-    BSTR Detach() throw()
-    {
-        BSTR s = m_str;
-        m_str = NULL;
-        return s;
-    }
-
+  BSTR Detach() throw() {
+    BSTR s = m_str;
+    m_str = NULL;
+    return s;
+  }
 };
-
 
 #endif // __cplusplus
 
@@ -1092,7 +1081,7 @@ class WArgV {
 public:
   WArgV(int argc, const char **argv);
   WArgV(int argc, const wchar_t **argv);
-  const wchar_t **argv() { return WCharPtrVector.data();}
+  const wchar_t **argv() { return WCharPtrVector.data(); }
 };
 #endif
 
