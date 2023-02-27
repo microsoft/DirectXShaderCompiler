@@ -3066,6 +3066,10 @@ public:
   void applyOptions(PassOptions O) override {
     GetPassOptionBool(O, "NoSink", &m_HLSLNoSink, /*defaultValue*/false);
   }
+  void dumpConfig(raw_ostream &OS) override {
+    FunctionPass::dumpConfig(OS);
+    OS << ",NoSink=" << m_HLSLNoSink;
+  }
   // HLSL Change - end
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;

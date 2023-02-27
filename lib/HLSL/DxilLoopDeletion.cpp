@@ -16,6 +16,7 @@
 #include "llvm/IR/Function.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -32,13 +33,17 @@ namespace {
     void applyOptions(PassOptions O) override {
       GetPassOptionBool(O, "NoSink", &m_HLSLNoSink, /*defaultValue*/false);
     }
+    void dumpConfig(raw_ostream &OS) override {
+      FunctionPass::dumpConfig(OS);
+      OS << ",NoSink=" << m_HLSLNoSink;
+    }
 
   };
 }
 
 char DxilLoopDeletion::ID = 0;
 INITIALIZE_PASS(DxilLoopDeletion, "dxil-loop-deletion",
-                "Delete dead loops", false, false)
+                "Dxil Delete dead loops", false, false)
 
 FunctionPass *llvm::createDxilLoopDeletionPass(bool NoSink) { return new DxilLoopDeletion(NoSink); }
 
