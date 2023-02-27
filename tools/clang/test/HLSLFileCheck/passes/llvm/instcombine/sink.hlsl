@@ -1,4 +1,5 @@
 // RUN: %dxc %s /T ps_6_0 -opt-enable sink | FileCheck %s
+// RUN: %dxc %s /T ps_6_0                  | FileCheck %s
 
 // Make sure the selects are sunk into a single block
 
