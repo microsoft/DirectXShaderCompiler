@@ -1046,8 +1046,8 @@ TEST_F(ValidationTest, SimpleHs1Fail) {
           "Constant data",
           // TODO: enable this after support pass thru hull shader.
           //"For pass thru hull shader, input control point count must match
-          //output control point count", "Total number of scalars across all HS
-          //output control points must not exceed",
+          // output control point count", "Total number of scalars across all HS
+          // output control points must not exceed",
       });
 }
 TEST_F(ValidationTest, SimpleHs3Fail) {
@@ -1948,7 +1948,7 @@ float4 main(uint vid : SV_VertexID, uint iid : SV_InstanceID) : SV_Position { \
                           "vs_6_0", "!{i32 1, !\"SV_InstanceID\", i8 5, i8 2,",
                           "!{i32 1, !\"\", i8 5, i8 1,",
                           //"System value SV_VertexID appears more than once in
-                          //the same signature.");
+                          // the same signature.");
                           "Semantic 'SV_VertexID' overlap at 0");
 }
 
@@ -2333,7 +2333,7 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
     ",
       "hs_6_0",
       //!{i32 0, !"SV_TessFactor", i8 9, i8 25, !23, i8 0, i32 4, i8 1, i32 0,
-      //!i8 3, null}
+      //! i8 3, null}
       {"!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 "
        "2, i8 1, i32 4, i8 3, (.*)}",
        "?!dx.viewIdState ="},

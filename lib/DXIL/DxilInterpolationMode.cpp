@@ -57,9 +57,9 @@ static const DXIL::InterpolationMode interpModeTab[] = {
                                                         //  , True        , True
     DXIL::InterpolationMode::Linear, //  8        , False       , True         ,
                                      //  False        , False        , False
-    DXIL::InterpolationMode::LinearSample, //  9        , False       , True ,
-                                           //  False        , False        ,
-                                           //  True
+    DXIL::InterpolationMode::LinearSample,   //  9        , False       , True ,
+                                             //  False        , False        ,
+                                             //  True
     DXIL::InterpolationMode::LinearCentroid, // 10        , False       , True
                                              // , False        , True        ,
                                              // False

@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "dxc/Support/WinIncludes.h"
+
 #ifndef _WIN32
 // need to disable this as it is voilated by this header
 #pragma GCC diagnostic push

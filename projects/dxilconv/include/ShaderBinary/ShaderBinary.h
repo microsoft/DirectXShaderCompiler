@@ -1420,12 +1420,12 @@ public:
   UINT m_ExtendedOpCodeCount;
   UINT m_PreciseMask;
   D3D10_SB_EXTENDED_OPCODE_TYPE
-      m_OpCodeEx[D3D11_SB_MAX_SIMULTANEOUS_EXTENDED_OPCODES];
+  m_OpCodeEx[D3D11_SB_MAX_SIMULTANEOUS_EXTENDED_OPCODES];
   INT8 m_TexelOffset[3];                       // for extended opcode only
   D3D10_SB_RESOURCE_DIMENSION m_ResourceDimEx; // for extended opcode only
   UINT m_ResourceDimStructureStrideEx;         // for extended opcode only
   D3D10_SB_RESOURCE_RETURN_TYPE
-      m_ResourceReturnTypeEx[4];   // for extended opcode only
+  m_ResourceReturnTypeEx[4];       // for extended opcode only
   BOOL m_bNonuniformResourceIndex; // for extended opcode only
   BOOL m_bNonuniformSamplerIndex;  // for extended opcode only
   UINT m_PrivateData[MAX_PRIVATE_DATA_COUNT];

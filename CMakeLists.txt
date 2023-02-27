@@ -747,7 +747,7 @@ if (LLVM_INCLUDE_DOCS)
   add_subdirectory(docs)
 endif()
 
-add_hlsl_hctgen(DxilDocs OUTPUT docs/DXIL.rst CODE_TAG) # HLSL Change
+add_hlsl_hctgen(DxilDocs OUTPUT docs/DXIL.rst CODE_TAG NO_FORMAT) # HLSL Change
 
 add_subdirectory(cmake/modules)
 

@@ -706,13 +706,9 @@ class CInvalidFunction final : public ID3D12FunctionReflection {
   STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_FUNCTION_DESC *pDesc) { return E_FAIL; }
 
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
-  (THIS_ _In_ UINT BufferIndex) {
-    return &g_InvalidSRConstantBuffer;
-  }
+  (THIS_ _In_ UINT BufferIndex) { return &g_InvalidSRConstantBuffer; }
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByName)
-  (THIS_ _In_ LPCSTR Name) {
-    return &g_InvalidSRConstantBuffer;
-  }
+  (THIS_ _In_ LPCSTR Name) { return &g_InvalidSRConstantBuffer; }
 
   STDMETHOD(GetResourceBindingDesc)
   (THIS_ _In_ UINT ResourceIndex, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
@@ -720,9 +716,7 @@ class CInvalidFunction final : public ID3D12FunctionReflection {
   }
 
   STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByName)
-  (THIS_ _In_ LPCSTR Name) {
-    return nullptr;
-  }
+  (THIS_ _In_ LPCSTR Name) { return nullptr; }
 
   STDMETHOD(GetResourceBindingDescByName)
   (THIS_ _In_ LPCSTR Name, _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
@@ -731,9 +725,7 @@ class CInvalidFunction final : public ID3D12FunctionReflection {
 
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
-  (THIS_ _In_ INT ParameterIndex) {
-    return &g_InvalidFunctionParameter;
-  }
+  (THIS_ _In_ INT ParameterIndex) { return &g_InvalidFunctionParameter; }
 };
 CInvalidFunction g_InvalidFunction;
 
@@ -2750,9 +2742,7 @@ public:
 
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
-  (THIS_ _In_ INT ParameterIndex) {
-    return &g_InvalidFunctionParameter;
-  }
+  (THIS_ _In_ INT ParameterIndex) { return &g_InvalidFunctionParameter; }
 };
 
 _Use_decl_annotations_ HRESULT
@@ -2777,16 +2767,17 @@ CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
 
   // Unset:  UINT                    InstructionCount;            // Number of
   // emitted instructions Unset:  UINT                    TempRegisterCount; //
-  // Number of temporary registers used Unset:  UINT TempArrayCount; // Number of
-  // temporary arrays used Unset:  UINT                    DefCount; // Number of
-  // constant defines Unset:  UINT                    DclCount; // Number of
-  // declarations (input + output) Unset:  UINT TextureNormalInstructions;   //
-  // Number of non-categorized texture instructions Unset:  UINT
-  // TextureLoadInstructions;     // Number of texture load instructions Unset:
-  // UINT                    TextureCompInstructions;     // Number of texture
-  // comparison instructions Unset:  UINT TextureBiasInstructions;     // Number
-  // of texture bias instructions Unset:  UINT TextureGradientInstructions; //
-  // Number of texture gradient instructions Unset:  UINT FloatInstructionCount;
+  // Number of temporary registers used Unset:  UINT TempArrayCount; // Number
+  // of temporary arrays used Unset:  UINT                    DefCount; //
+  // Number of constant defines Unset:  UINT                    DclCount; //
+  // Number of declarations (input + output) Unset:  UINT
+  // TextureNormalInstructions;   // Number of non-categorized texture
+  // instructions Unset:  UINT TextureLoadInstructions;     // Number of texture
+  // load instructions Unset: UINT                    TextureCompInstructions;
+  // // Number of texture comparison instructions Unset:  UINT
+  // TextureBiasInstructions;     // Number of texture bias instructions Unset:
+  // UINT TextureGradientInstructions; // Number of texture gradient
+  // instructions Unset:  UINT FloatInstructionCount;
   // // Number of floating point arithmetic instructions used Unset:  UINT
   // IntInstructionCount;         // Number of signed integer arithmetic
   // instructions used Unset:  UINT                    UintInstructionCount; //
@@ -2797,9 +2788,9 @@ CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   // MacroInstructionCount;       // Number of macro instructions used Unset:
   // UINT                    ArrayInstructionCount;       // Number of array
   // instructions used Unset:  UINT                    MovInstructionCount; //
-  // Number of mov instructions used Unset:  UINT MovcInstructionCount;        //
-  // Number of movc instructions used Unset:  UINT ConversionInstructionCount; //
-  // Number of type conversion instructions used Unset:  UINT
+  // Number of mov instructions used Unset:  UINT MovcInstructionCount; //
+  // Number of movc instructions used Unset:  UINT ConversionInstructionCount;
+  // // Number of type conversion instructions used Unset:  UINT
   // BitwiseInstructionCount;     // Number of bitwise arithmetic instructions
   // used Unset:  D3D_FEATURE_LEVEL       MinFeatureLevel;             // Min
   // target of the function byte code
@@ -2817,8 +2808,8 @@ CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   // logical parameters in the function signature (not including return) Unset:
   // BOOL                    HasReturn;                   // TRUE, if function
   // returns a value, false - it is a subroutine Unset:  BOOL
-  // Has10Level9VertexShader;     // TRUE, if there is a 10L9 VS blob Unset: BOOL
-  // Has10Level9PixelShader;      // TRUE, if there is a 10L9 PS blob
+  // Has10Level9VertexShader;     // TRUE, if there is a 10L9 VS blob Unset:
+  // BOOL Has10Level9PixelShader;      // TRUE, if there is a 10L9 PS blob
   return S_OK;
 }
 

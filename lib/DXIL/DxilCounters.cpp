@@ -237,8 +237,8 @@ bool CountLlvmOp_uints(unsigned op) {
 // OPCODE-COUNTERS:END
 
 void CountDxilOp(unsigned op, DxilCounters &counters) {
-  // <py::lines('COUNT-DXIL-OPS')>['if (CountDxilOp_%s(op)) ++counters.%s;' %
-  // (c,c) for c in hctdb_instrhelp.get_dxil_op_counters()]</py>
+  /* <py::lines('COUNT-DXIL-OPS')>['if (CountDxilOp_%s(op)) ++counters.%s;' %
+   (c,c) for c in hctdb_instrhelp.get_dxil_op_counters()]</py> */
   // COUNT-DXIL-OPS:BEGIN
   if (CountDxilOp_atomic(op))
     ++counters.atomic;
@@ -274,8 +274,8 @@ void CountDxilOp(unsigned op, DxilCounters &counters) {
 }
 
 void CountLlvmOp(unsigned op, DxilCounters &counters) {
-  // <py::lines('COUNT-LLVM-OPS')>['if (CountLlvmOp_%s(op)) ++counters.%s;' %
-  // (c,c) for c in hctdb_instrhelp.get_llvm_op_counters()]</py>
+  /* <py::lines('COUNT-LLVM-OPS')>['if (CountLlvmOp_%s(op)) ++counters.%s;' %
+   (c,c) for c in hctdb_instrhelp.get_llvm_op_counters()]</py> */
   // COUNT-LLVM-OPS:BEGIN
   if (CountLlvmOp_atomic(op))
     ++counters.atomic;
@@ -380,8 +380,8 @@ struct CounterOffsetByName {
 
 // Must be sorted case-sensitive:
 static const CounterOffsetByName CountersByName[] = {
-    // <py::lines('COUNTER-MEMBER-PTRS')>['{ "%s", &DxilCounters::%s },' % (c,c)
-    // for c in hctdb_instrhelp.get_counters()]</py>
+    /* <py::lines('COUNTER-MEMBER-PTRS')>['{ "%s", &DxilCounters::%s },' % (c,c)
+     for c in hctdb_instrhelp.get_counters()]</py> */
     // COUNTER-MEMBER-PTRS:BEGIN
     {"array_local_bytes", &DxilCounters::array_local_bytes},
     {"array_local_ldst", &DxilCounters::array_local_ldst},

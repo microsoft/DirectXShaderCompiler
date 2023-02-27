@@ -120,7 +120,7 @@ static const BYTE IA_SPECIAL_SLOTS = 4;
 
 struct HLSL_INTRINSIC_ARGUMENT {
   LPCSTR
-      pName; // Name of the argument; the first argument has the function name.
+  pName; // Name of the argument; the first argument has the function name.
   UINT64 qwUsage; // A combination of
                   // AR_QUAL_IN|AR_QUAL_OUT|AR_QUAL_COLMAJOR|AR_QUAL_ROWMAJOR in
                   // parameter tables; other values possible elsewhere.

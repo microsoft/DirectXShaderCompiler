@@ -837,54 +837,54 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
     std::string s = DisassembleProgram(program, L"VSMain", L"vs_6_0");
     // NOTE: this will change when proper packing is done, and when
     // 'always-reads' is accurately implemented.
-    const char
-        expected_1_4[] = ";\n"
-                         "; Input signature:\n"
-                         ";\n"
-                         "; Name                 Index   Mask Register "
-                         "SysValue  Format   Used\n"
-                         "; -------------------- ----- ------ -------- "
-                         "-------- ------- ------\n"
-                         "; POSITION                 0   xyzw        0     "
-                         "NONE   float       \n" // should read 'xyzw' in Used
-                         "; COLOR                    0   xyzw        1     "
-                         "NONE   float       \n" // should read '1' in register
-                         ";\n"
-                         ";\n"
-                         "; Output signature:\n"
-                         ";\n"
-                         "; Name                 Index   Mask Register "
-                         "SysValue  Format   Used\n"
-                         "; -------------------- ----- ------ -------- "
-                         "-------- ------- ------\n"
-                         "; SV_Position              0   xyzw        0      "
-                         "POS   float   xyzw\n" // could read SV_POSITION
-                         "; COLOR                    0   xyzw        1     "
-                         "NONE   float   xyzw\n"; // should read '1' in register
-    const char
-        expected[] = ";\n"
-                     "; Input signature:\n"
-                     ";\n"
-                     "; Name                 Index   Mask Register SysValue  "
-                     "Format   Used\n"
-                     "; -------------------- ----- ------ -------- -------- "
-                     "------- ------\n"
-                     "; POSITION                 0   xyzw        0     NONE   "
-                     "float   xyzw\n" // should read 'xyzw' in Used
-                     "; COLOR                    0   xyzw        1     NONE   "
-                     "float   xyzw\n" // should read '1' in register
-                     ";\n"
-                     ";\n"
-                     "; Output signature:\n"
-                     ";\n"
-                     "; Name                 Index   Mask Register SysValue  "
-                     "Format   Used\n"
-                     "; -------------------- ----- ------ -------- -------- "
-                     "------- ------\n"
-                     "; SV_Position              0   xyzw        0      POS   "
-                     "float   xyzw\n" // could read SV_POSITION
-                     "; COLOR                    0   xyzw        1     NONE   "
-                     "float   xyzw\n"; // should read '1' in register
+    const char expected_1_4[] =
+        ";\n"
+        "; Input signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register "
+        "SysValue  Format   Used\n"
+        "; -------------------- ----- ------ -------- "
+        "-------- ------- ------\n"
+        "; POSITION                 0   xyzw        0     "
+        "NONE   float       \n" // should read 'xyzw' in Used
+        "; COLOR                    0   xyzw        1     "
+        "NONE   float       \n" // should read '1' in register
+        ";\n"
+        ";\n"
+        "; Output signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register "
+        "SysValue  Format   Used\n"
+        "; -------------------- ----- ------ -------- "
+        "-------- ------- ------\n"
+        "; SV_Position              0   xyzw        0      "
+        "POS   float   xyzw\n" // could read SV_POSITION
+        "; COLOR                    0   xyzw        1     "
+        "NONE   float   xyzw\n"; // should read '1' in register
+    const char expected[] =
+        ";\n"
+        "; Input signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register SysValue  "
+        "Format   Used\n"
+        "; -------------------- ----- ------ -------- -------- "
+        "------- ------\n"
+        "; POSITION                 0   xyzw        0     NONE   "
+        "float   xyzw\n" // should read 'xyzw' in Used
+        "; COLOR                    0   xyzw        1     NONE   "
+        "float   xyzw\n" // should read '1' in register
+        ";\n"
+        ";\n"
+        "; Output signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register SysValue  "
+        "Format   Used\n"
+        "; -------------------- ----- ------ -------- -------- "
+        "------- ------\n"
+        "; SV_Position              0   xyzw        0      POS   "
+        "float   xyzw\n" // could read SV_POSITION
+        "; COLOR                    0   xyzw        1     NONE   "
+        "float   xyzw\n"; // should read '1' in register
     if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) <
         0) {
       std::string start(s.c_str(), strlen(expected_1_4));
@@ -899,52 +899,50 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
     std::string s = DisassembleProgram(program, L"PSMain", L"ps_6_0");
     // NOTE: this will change when proper packing is done, and when
     // 'always-reads' is accurately implemented.
-    const char
-        expected_1_4[] =
-            ";\n"
-            "; Input signature:\n"
-            ";\n"
-            "; Name                 Index   Mask Register SysValue  Format   "
-            "Used\n"
-            "; -------------------- ----- ------ -------- -------- ------- "
-            "------\n"
-            "; SV_Position              0   xyzw        0      POS   float     "
-            "  \n" // could read SV_POSITION
-            "; COLOR                    0   xyzw        1     NONE   float     "
-            "  \n" // should read '1' in register, xyzw in Used
-            ";\n"
-            ";\n"
-            "; Output signature:\n"
-            ";\n"
-            "; Name                 Index   Mask Register SysValue  Format   "
-            "Used\n"
-            "; -------------------- ----- ------ -------- -------- ------- "
-            "------\n"
-            "; SV_Target                0   xyzw        0   TARGET   float   "
-            "xyzw\n"; // could read SV_TARGET
-    const char
-        expected[] =
-            ";\n"
-            "; Input signature:\n"
-            ";\n"
-            "; Name                 Index   Mask Register SysValue  Format   "
-            "Used\n"
-            "; -------------------- ----- ------ -------- -------- ------- "
-            "------\n"
-            "; SV_Position              0   xyzw        0      POS   float     "
-            "  \n" // could read SV_POSITION
-            "; COLOR                    0   xyzw        1     NONE   float   "
-            "xyzw\n" // should read '1' in register, xyzw in Used
-            ";\n"
-            ";\n"
-            "; Output signature:\n"
-            ";\n"
-            "; Name                 Index   Mask Register SysValue  Format   "
-            "Used\n"
-            "; -------------------- ----- ------ -------- -------- ------- "
-            "------\n"
-            "; SV_Target                0   xyzw        0   TARGET   float   "
-            "xyzw\n"; // could read SV_TARGET
+    const char expected_1_4[] =
+        ";\n"
+        "; Input signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register SysValue  Format   "
+        "Used\n"
+        "; -------------------- ----- ------ -------- -------- ------- "
+        "------\n"
+        "; SV_Position              0   xyzw        0      POS   float     "
+        "  \n" // could read SV_POSITION
+        "; COLOR                    0   xyzw        1     NONE   float     "
+        "  \n" // should read '1' in register, xyzw in Used
+        ";\n"
+        ";\n"
+        "; Output signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register SysValue  Format   "
+        "Used\n"
+        "; -------------------- ----- ------ -------- -------- ------- "
+        "------\n"
+        "; SV_Target                0   xyzw        0   TARGET   float   "
+        "xyzw\n"; // could read SV_TARGET
+    const char expected[] =
+        ";\n"
+        "; Input signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register SysValue  Format   "
+        "Used\n"
+        "; -------------------- ----- ------ -------- -------- ------- "
+        "------\n"
+        "; SV_Position              0   xyzw        0      POS   float     "
+        "  \n" // could read SV_POSITION
+        "; COLOR                    0   xyzw        1     NONE   float   "
+        "xyzw\n" // should read '1' in register, xyzw in Used
+        ";\n"
+        ";\n"
+        "; Output signature:\n"
+        ";\n"
+        "; Name                 Index   Mask Register SysValue  Format   "
+        "Used\n"
+        "; -------------------- ----- ------ -------- -------- ------- "
+        "------\n"
+        "; SV_Target                0   xyzw        0   TARGET   float   "
+        "xyzw\n"; // could read SV_TARGET
     if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) <
         0) {
       std::string start(s.c_str(), strlen(expected_1_4));

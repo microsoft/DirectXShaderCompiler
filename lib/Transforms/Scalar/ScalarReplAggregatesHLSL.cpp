@@ -6438,8 +6438,8 @@ static void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F,
 // Collect instructions using GV and the value used by the instruction.
 // For direct use, the value == GV
 // For constant operator like GEP/Bitcast, the value is the operator used by the
-// instruction. This requires recursion to unwrap nested constant operators using
-// the GV.
+// instruction. This requires recursion to unwrap nested constant operators
+// using the GV.
 static void collectGVInstUsers(Value *V,
                                DenseMap<Instruction *, Value *> &InstUserMap) {
   for (User *U : V->users()) {

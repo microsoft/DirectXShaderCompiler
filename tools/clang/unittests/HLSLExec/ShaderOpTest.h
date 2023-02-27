@@ -147,8 +147,8 @@ public:
   D3D12_RESOURCE_DESC Desc;             // Resource description.
   D3D12_RESOURCE_STATES InitialResourceState; // Initial state.
   D3D12_RESOURCE_STATES
-      TransitionTo; // State to transition before running shader.
-  BOOL ReadBack;    // TRUE to read back to CPU after operations are done.
+  TransitionTo;  // State to transition before running shader.
+  BOOL ReadBack; // TRUE to read back to CPU after operations are done.
   std::vector<BYTE> InitBytes;              // Byte payload for initialization.
   D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology; // Primitive topology.
 };
@@ -180,7 +180,7 @@ class ShaderOpRenderTarget {
 public:
   LPCSTR Name; // Render target name
   D3D12_VIEWPORT
-      Viewport; // Viewport to use; if Width == 0 use the full render target
+  Viewport; // Viewport to use; if Width == 0 use the full render target
 };
 
 // Use this class to hold all information needed for a Draw/Dispatch call.

@@ -12,6 +12,8 @@
 #ifndef LLVM_HLSL_HLSLVERSION_H
 #define LLVM_HLSL_HLSLVERSION_H
 
+#include "llvm/ADT/StringRef.h"
+
 namespace hlsl {
 
 // This Updates to this enum must be reflected in HLSLOptions.td and Options.td

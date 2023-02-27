@@ -24,9 +24,11 @@ if (WIN32 AND NOT DEFINED HLSL_AUTOCRLF)
   endif()
 endif()
 
+find_program(clang_format NAMES clang-format)
+
 function(add_hlsl_hctgen mode)
   cmake_parse_arguments(ARG
-    "BUILD_DIR;CODE_TAG"
+    "BUILD_DIR;CODE_TAG;NO_FORMAT"
     "OUTPUT"
     ""
     ${ARGN})
@@ -83,10 +85,15 @@ function(add_hlsl_hctgen mode)
     set(force_lf "--force-lf")
   endif()
 
+  if (clang_format AND NOT ARG_NO_FORMAT)
+    set(CLANG_FORMAT_COMMAND COMMAND ${clang_format} -i ${temp_output})
+  endif()
+
   add_custom_command(OUTPUT ${temp_output}
                      COMMAND ${PYTHON_EXECUTABLE}
                              ${hctgen} ${force_lf}
                              ${mode} --output ${temp_output} ${input_flag}
+                     COMMAND ${CLANG_FORMAT_COMMAND}
                      COMMENT "Building ${ARG_OUTPUT}..."
                      DEPENDS ${hct_dependencies}
                      )

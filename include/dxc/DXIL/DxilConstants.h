@@ -206,8 +206,8 @@ enum class ShaderKind {
   Invalid,
 };
 
-/* <py::lines('SemanticKind-ENUM')>hctdb_instrhelp.get_enum_decl("SemanticKind",
- * hide_val=True, sort_val=False)</py>*/
+/* <py::lines('SemanticKind-ENUM')>hctdb_instrhelp.get_enum_decl(
+  "SemanticKind", hide_val=True, sort_val=False)</py>*/
 // SemanticKind-ENUM:BEGIN
 // Semantic kind; Arbitrary or specific system value.
 enum class SemanticKind : unsigned {
@@ -246,8 +246,8 @@ enum class SemanticKind : unsigned {
 };
 // SemanticKind-ENUM:END
 
-/* <py::lines('SigPointKind-ENUM')>hctdb_instrhelp.get_enum_decl("SigPointKind",
- * hide_val=True, sort_val=False)</py>*/
+/* <py::lines('SigPointKind-ENUM')>hctdb_instrhelp.get_enum_decl(
+  "SigPointKind", hide_val=True, sort_val=False)</py>*/
 // SigPointKind-ENUM:BEGIN
 // Signature Point is more specific than shader stage or signature as it is
 // unique in both stage and item dimensionality or frequency.
@@ -277,8 +277,8 @@ enum class SigPointKind : unsigned {
 };
 // SigPointKind-ENUM:END
 
-/* <py::lines('SemanticInterpretationKind-ENUM')>hctdb_instrhelp.get_enum_decl("SemanticInterpretationKind",
- * hide_val=True, sort_val=False)</py>*/
+/* <py::lines('SemanticInterpretationKind-ENUM')>hctdb_instrhelp.get_enum_decl(
+  "SemanticInterpretationKind", hide_val=True, sort_val=False)</py>*/
 // SemanticInterpretationKind-ENUM:BEGIN
 // Defines how a semantic is interpreted at a particular SignaturePoint
 enum class SemanticInterpretationKind : unsigned {
@@ -296,8 +296,8 @@ enum class SemanticInterpretationKind : unsigned {
 };
 // SemanticInterpretationKind-ENUM:END
 
-/* <py::lines('PackingKind-ENUM')>hctdb_instrhelp.get_enum_decl("PackingKind",
- * hide_val=True, sort_val=False)</py>*/
+/* <py::lines('PackingKind-ENUM')>hctdb_instrhelp.get_enum_decl(
+  "PackingKind", hide_val=True, sort_val=False)</py>*/
 // PackingKind-ENUM:BEGIN
 // Kind of signature point
 enum class PackingKind : unsigned {
@@ -310,8 +310,8 @@ enum class PackingKind : unsigned {
 };
 // PackingKind-ENUM:END
 
-/* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl("Float32DenormMode",
- * hide_val=False, sort_val=False)</py>*/
+/* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl(
+  "Float32DenormMode", hide_val=False, sort_val=False)</py>*/
 // FPDenormMode-ENUM:BEGIN
 // float32 denorm behavior
 enum class Float32DenormMode : unsigned {
@@ -890,7 +890,8 @@ enum class OpCode : unsigned {
 };
 // OPCODE-ENUM:END
 
-/* <py::lines('OPCODECLASS-ENUM')>hctdb_instrhelp.get_enum_decl("OpCodeClass")</py>*/
+/* <py::lines('OPCODECLASS-ENUM')>hctdb_instrhelp.get_enum_decl(
+  "OpCodeClass")</py>*/
 // OPCODECLASS-ENUM:BEGIN
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
@@ -1455,7 +1456,9 @@ enum class QuadOpKind {
                           // horizontal and vertical direction
 };
 
-/* <py::lines('WAVEBITOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("WaveBitOpKind")</py>*/
+/* <py::lines('WAVEBITOPKIND-ENUM')>
+hctdb_instrhelp.get_enum_decl("WaveBitOpKind")
+</py>*/
 // WAVEBITOPKIND-ENUM:BEGIN
 // Kind of bitwise cross-lane operation
 enum class WaveBitOpKind : unsigned {
@@ -1465,7 +1468,9 @@ enum class WaveBitOpKind : unsigned {
 };
 // WAVEBITOPKIND-ENUM:END
 
-/* <py::lines('WAVEOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("WaveOpKind")</py>*/
+/* <py::lines('WAVEOPKIND-ENUM')>
+hctdb_instrhelp.get_enum_decl("WaveOpKind")
+</py>*/
 // WAVEOPKIND-ENUM:BEGIN
 // Kind of cross-lane operation
 enum class WaveOpKind : unsigned {
@@ -1476,7 +1481,9 @@ enum class WaveOpKind : unsigned {
 };
 // WAVEOPKIND-ENUM:END
 
-/* <py::lines('WAVEMULTIPREFIXOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("WaveMultiPrefixOpKind")</py>*/
+/* <py::lines('WAVEMULTIPREFIXOPKIND-ENUM')>
+hctdb_instrhelp.get_enum_decl("WaveMultiPrefixOpKind")
+</py>*/
 // WAVEMULTIPREFIXOPKIND-ENUM:BEGIN
 // Kind of cross-lane for multi-prefix operation
 enum class WaveMultiPrefixOpKind : unsigned {

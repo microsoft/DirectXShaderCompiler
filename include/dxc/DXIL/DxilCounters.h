@@ -21,8 +21,9 @@ class StringRef;
 namespace hlsl {
 
 struct DxilCounters {
-  // <py::lines('OPCODE-COUNTERS')>['uint32_t %s = 0;' % c for c in
-  // hctdb_instrhelp.get_counters()]</py> OPCODE-COUNTERS:BEGIN
+  /* <py::lines('OPCODE-COUNTERS')>['uint32_t %s = 0;' % c for c in
+    hctdb_instrhelp.get_counters()]</py> */
+  // OPCODE-COUNTERS:BEGIN
   uint32_t array_local_bytes = 0;
   uint32_t array_local_ldst = 0;
   uint32_t array_static_bytes = 0;

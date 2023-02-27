@@ -1201,9 +1201,9 @@ TEST_F(PixTest, CompileWhenDebugThenDIPresent) {
 
   // Very basic tests - we have basic symbols, line numbers, and files with
   // sources.
-  VERIFY_IS_NOT_NULL(
-      wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, "
-                              L"lexicalParent: id=2, value: ps_6_0"));
+  VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(),
+                            L"symIndexId: 5, CompilandEnv, name: hlslTarget, "
+                            L"lexicalParent: id=2, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(
       wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));

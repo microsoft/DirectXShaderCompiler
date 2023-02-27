@@ -18,6 +18,7 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/WinAdapter.h"
+#include "clang/AST/DeclarationName.h" // needs DeclarationName
 #include "clang/AST/Type.h" // needs QualType
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
@@ -40,6 +41,7 @@ class NamedDecl;
 class Sema;
 class TypeSourceInfo;
 class TypedefDecl;
+class VarDecl;
 } // namespace clang
 
 namespace hlsl {

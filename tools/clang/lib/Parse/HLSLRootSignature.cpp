@@ -723,7 +723,7 @@ Cleanup:
 
 HRESULT RootSignatureParser::ParseRootConstants(DxilRootParameter1 &P) {
   //"RootConstants(num32BitConstants=3, b2 [, space=1,
-  //visibility=SHADER_VISIBILITY_ALL ] ), "
+  // visibility=SHADER_VISIBILITY_ALL ] ), "
   HRESULT hr = S_OK;
   TokenType Token;
   memset(&P, 0, sizeof(P));
