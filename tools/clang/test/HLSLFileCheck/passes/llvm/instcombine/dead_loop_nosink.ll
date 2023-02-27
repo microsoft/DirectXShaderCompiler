@@ -8,7 +8,6 @@
 ; Make sure loop is deleted.
 ; CHECK-NOT: loop:
 
-; CHECK: if.0:
 ; CHECK: %sel0 =
 
 ; CHECK: if.1:
@@ -30,7 +29,7 @@
 ; CHECK: %sel6 =
 
 define float @main(
-  float %a0, float %a1, float %a2, float %a3, float %a4, float %a5, float %a6,
+  float %a0_, float %a0, float %a1, float %a2, float %a3, float %a4, float %a5, float %a6,
   i1 %cond0, i1 %cond1, i1 %cond2, i1 %cond3, i1 %cond4, i1 %cond5, i1 %cond6,
   i1 %br0, i1 %br1, i1 %br2, i1 %br3, i1 %br4, i1 %br5, i1 %br6,
   i32 %loop_bound)
@@ -42,10 +41,7 @@ loop:
   %i = phi i32 [ 0, %entry ], [ %i.inc, %loop ]
   %loop_cond = icmp slt i32 %i, %loop_bound
   %i.inc = add i32 %i, 1
-  br i1 %loop_cond, label %loop, label %loop.end
-
-loop.end:
-  br i1 %br0, label %if.0, label %if.end
+  br i1 %loop_cond, label %loop, label %if.0
 
 if.0:
   %sel0 = select i1 %cond0, float 0.0, float %a0
@@ -76,6 +72,6 @@ if.6:
   br label %if.end
 
 if.end:
-  %val = phi float [ %sel6, %if.6 ], [ 0.0, %if.0 ], [ 0.0, %if.1 ], [ 0.0, %if.2 ], [ 0.0, %if.3 ], [ 0.0, %if.4 ], [ 0.0, %if.5 ], [ 0.0, %loop.end ]
+  %val = phi float [ %sel6, %if.6 ], [ 0.0, %if.0 ], [ 0.0, %if.1 ], [ 0.0, %if.2 ], [ 0.0, %if.3 ], [ 0.0, %if.4 ], [ 0.0, %if.5 ]
   ret float %val
 }
