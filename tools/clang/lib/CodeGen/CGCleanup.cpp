@@ -19,6 +19,7 @@
 
 #include "CGCleanup.h"
 #include "CodeGenFunction.h"
+#include "CGHLSLRuntime.h"    // HLSL Change
 
 using namespace clang;
 using namespace CodeGen;
@@ -435,6 +436,7 @@ static llvm::BasicBlock *CreateNormalEntry(CodeGenFunction &CGF,
   if (!Entry) {
     Entry = CGF.createBasicBlock("cleanup");
     Scope.setNormalBlock(Entry);
+    CGF.CGM.getHLSLRuntime().MarkCleanupBlock(CGF, Entry); // HLSL Change
   }
   return Entry;
 }
