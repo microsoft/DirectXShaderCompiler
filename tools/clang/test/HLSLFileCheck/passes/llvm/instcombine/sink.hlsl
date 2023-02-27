@@ -1,6 +1,6 @@
-// RUN: %dxc %s /T ps_6_0 -opt-disable sink | FileCheck %s
+// RUN: %dxc %s /T ps_6_0 -opt-enable sink | FileCheck %s
 
-// Make sure the selects are NOT sunk into a single block
+// Make sure the selects are sunk into a single block
 
 cbuffer cb {
     bool cond[6];
@@ -13,18 +13,18 @@ float main() : SV_Target {
     float ret = 0;
     // CHECK: br
     if (br[0]) {
-        // CHECK: select
         val = cond[0] ? 0 : a[0];
         // CHECK: br
         if (br[1]) {
-            // CHECK: select
             val = cond[1] ? val : a[1];
             // CHECK: br
             if (br[2]) {
-                // CHECK: select
                 val = cond[2] ? val : a[2];
                 // CHECK: br
                 if (br[3]) {
+                    // CHECK: select
+                    // CHECK: select
+                    // CHECK: select
                     // CHECK: select
                     val = cond[3] ? val : a[3];
                     ret = val;
