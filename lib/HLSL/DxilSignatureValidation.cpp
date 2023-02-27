@@ -14,10 +14,11 @@
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include "dxc/Support/Global.h"
 
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
+#include <functional>
+
 using namespace hlsl;
 using namespace llvm;
 
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/ViewIDPipelineValidation.inl"
-#include <assert.h> // Needed for DxilPipelineStateValidation.h
-#include <functional>
