@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.3 | %dxv %s | FileCheck %s
 
 ; Test based on IR generated from the following HLSL:
 ; struct Payload { float f; };
@@ -94,7 +94,7 @@ attributes #1 = { nounwind }
 !dx.entryPoints = !{!3, !4, !7, !9, !11, !13, !15}
 
 !0 = !{i32 1, i32 3}
-!1 = !{i32 1, i32 7}
+!1 = !{i32 1, i32 3}
 !2 = !{!"lib", i32 6, i32 3}
 !3 = !{null, !"", null, null, null}
 !4 = !{void (%struct.BadPayload*, %struct.BadAttributes*)* @AnyHit, !"AnyHit", null, null, !5}

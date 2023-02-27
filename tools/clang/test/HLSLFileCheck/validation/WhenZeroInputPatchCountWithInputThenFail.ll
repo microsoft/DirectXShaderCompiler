@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.0 | %dxv %s | FileCheck %s
 
 ; Test based on IR generated from the DXILValidation/SimpleHs1.hlsl test file.
 ; CHECK: When HS input control point count is 0, no input signature should exist
@@ -21,7 +21,7 @@ define void @main() {
 !dx.entryPoints = !{!4}
 
 !0 = !{i32 1, i32 0}
-!1 = !{i32 1, i32 7}
+!1 = !{i32 1, i32 0}
 !2 = !{!"hs", i32 6, i32 0}
 !3 = !{[29 x i32] [i32 13, i32 13, i32 1, i32 2, i32 4, i32 8, i32 16, i32 32, i32 0, i32 0, i32 256, i32 512, i32 1024, i32 0, i32 4096, i32 13, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0]}
 !4 = !{void ()* @main, !"main", !5, null, !20}

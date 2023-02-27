@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.3 | %dxv %s | FileCheck %s
 
 ; CHECK: Function: BadCallable: error: Argument 'f' must be a struct type for callable shader function 'BadCallable'.
 
@@ -25,7 +25,7 @@ attributes #0 = { nounwind }
 !dx.entryPoints = !{!3, !4}
 
 !0 = !{i32 1, i32 3}
-!1 = !{i32 1, i32 7}
+!1 = !{i32 1, i32 3}
 !2 = !{!"lib", i32 6, i32 3}
 !3 = !{null, !"", null, null, null}
 !4 = !{void (float*)* @BadCallable, !"BadCallable", null, null, !5}
