@@ -15,7 +15,7 @@
 #ifndef LLVM_SUPPORT_WINFUNCTIONS_H
 #define LLVM_SUPPORT_WINFUNCTIONS_H
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 #ifndef _WIN32
 
