@@ -270,10 +270,6 @@ public:
                                    llvm::Value *DestPtr,
                                    clang::QualType Ty) override;
 
-  void EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *Val,
-                                   llvm::Value *DestPtr,
-                                   clang::QualType Ty) override;
-
   void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *Val,
                               Value *DestPtr,
                               QualType Ty,
@@ -5691,9 +5687,9 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     }
   }
 
-  // It is possible to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
-  // the same way. But split value to scalar will generate many instruction when
-  // src type is same as dest type.
+  // It is possible to implement EmitHLSLAggregateCopy, the same way. But split
+  // value to scalar will generate many instruction when src type is same as
+  // dest type.
   SmallVector<Value *, 4> GEPIdxStack;
   SmallVector<Value *, 4> SrcPtrs;
   SmallVector<QualType, 4> SrcQualTys;
@@ -5710,12 +5706,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
                                DestPtr->getType(), DstPtrs, DstQualTys);
 
   ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
-}
-
-void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,
-    llvm::Value *DestPtr,
-    clang::QualType Ty) {
-    DXASSERT(0, "aggregate return type will use SRet, no aggregate store should exist");
 }
 
 // Either copies a scalar to a scalar, a scalar to a vector, or splats a scalar to a vector

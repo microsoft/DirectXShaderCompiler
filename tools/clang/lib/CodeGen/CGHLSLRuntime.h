@@ -114,9 +114,6 @@ public:
   virtual void EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
                                    llvm::Value *DestPtr,
                                    clang::QualType Ty) = 0;
-  virtual void EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *Val,
-                                   llvm::Value *DestPtr,
-                                   clang::QualType Ty) = 0;
   virtual void EmitHLSLFlatConversion(CodeGenFunction &CGF, llvm::Value *Val,
                                    llvm::Value *DestPtr,
                                    clang::QualType Ty, clang::QualType SrcTy) = 0;
