@@ -9,7 +9,7 @@ void main() {
 }
 
 // CHECK: define void @main() [[MainAttr:#[0-9]+]]
-// CHECK: define internal void @"\01?fn1@@YAXXZ"() [[FnAttr:#[0-9]+]]
+// CHECK: define internal void @"\01?fn1{{[@$?.A-Za-z0-9_]+}}"() [[FnAttr:#[0-9]+]]
 
 // CHECK: attributes [[MainAttr]] = { nounwind }
 // CHECK: attributes [[FnAttr]] = { alwaysinline nounwind }

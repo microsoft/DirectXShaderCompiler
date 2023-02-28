@@ -1,15 +1,15 @@
 // RUN: %dxc -T lib_6_6 -HV 2021 -disable-lifetime-markers -fcgl %s | FileCheck %s
 
-// CHECK-LABLE: define linkonce_odr void @"\01?foo@Child@@QAAXXZ"(%class.Child* %this)
+// CHECK-LABEL: define linkonce_odr void @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(%class.Child* %this)
 // CHECK: %[[OutArg:.+]] = alloca %class.Parent
 // CHECK: %[[OutThisPtr:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0
-// CHECK: call void @"\01?lib_func2@@YAXVParent@@@Z"(%class.Parent* %[[OutArg]])
+// CHECK: call void @"\01?lib_func2{{[@$?.A-Za-z0-9_]+}}"(%class.Parent* %[[OutArg]])
 // Make sure copy-out.
 // CHECK: %[[OutThisCpyPtr:.+]] = bitcast %class.Parent* %[[OutThisPtr]] to i8*
 // CHECK: %[[OutArgCpyPtr:.+]] = bitcast %class.Parent* %[[OutArg]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[OutThisCpyPtr]], i8* %[[OutArgCpyPtr]], i64 8, i32 1, i1 false)
 
-// CHECK-LABLE: define linkonce_odr void @"\01?bar@Child@@QAAXXZ"(%class.Child* %this)
+// CHECK-LABEL: define linkonce_odr void @"\01?bar{{[@$?.A-Za-z0-9_]+}}"(%class.Child* %this)
 // CHECK: %[[InOutArg:.+]] = alloca %class.Parent
 // CHECK: %[[InOutThisPtr:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0
 
@@ -19,15 +19,14 @@
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[InOutArgCpyPtr]], i8* %[[InOutThisCpyPtr]], i64 8, i32 1, i1 false)
 
 // The call.
-// CHECK: call void @"\01?lib_func3@@YAXVParent@@@Z"(%class.Parent* %[[InOutArg]])
+// CHECK: call void @"\01?lib_func3{{[@$?.A-Za-z0-9_]+}}"(%class.Parent* %[[InOutArg]])
 
 // Make sure copy-out.
 // CHECK: %[[InOutThisCpyOutPtr:.+]] = bitcast %class.Parent* %[[InOutThisPtr]] to i8*
 // CHECK: %[[InOutArgCpyOutPtr:.+]] = bitcast %class.Parent* %[[InOutArg]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[InOutThisCpyOutPtr]], i8* %[[InOutArgCpyOutPtr]], i64 8, i32 1, i1 false)
 
-
-// CHECK-LABLE: define linkonce_odr i32 @"\01?foo@Child@@QAAHHH@Z"(%class.Child* %this, i32 %a, i32 %b)
+// CHECK-LABEL: define linkonce_odr i32 @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(%class.Child* %this, i32 %a, i32 %b)
 // CHECK: %[[Arg:.+]] = alloca %class.Parent
 // CHECK: %[[Tmp:.+]] = alloca %class.Parent, align 4
 
@@ -47,7 +46,7 @@
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[ArgPtr]], i8* %[[TmpPtr]], i64 8, i32 1, i1 false)
 
 // Use Arg to call lib_func.
-// CHECK: call i32 @"\01?lib_func@@YAHVParent@@HH@Z"(%class.Parent* %[[Arg]], i32 %{{.*}}, i32 %{{.*}})
+// CHECK: call i32 @"\01?lib_func{{[@$?.A-Za-z0-9_]+}}"(%class.Parent* %[[Arg]], i32 %{{.*}}, i32 %{{.*}})
 
 class Parent
 {

@@ -37,7 +37,7 @@ void RayGenTestMain()
 // CHECK:     Flags: 0
 // CHECK:     FunctionCount: 1
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGenTestMain@@YAXXZ
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGenTestMain{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: RayGeneration 6.3
 // CHECK:       Flags: 0
 // CHECK:       ConstantBuffers: 1
