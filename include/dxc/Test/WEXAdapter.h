@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <wchar.h>
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
 #include "gtest/gtest.h"
 

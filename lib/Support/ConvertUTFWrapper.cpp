@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dxc/Support/WinAdapter.h" // HLSL Change
+#include "dxc/WinAdapter.h" // HLSL Change
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/SwapByteOrder.h"
 #include <string>

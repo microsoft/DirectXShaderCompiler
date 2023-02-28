@@ -36,7 +36,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"

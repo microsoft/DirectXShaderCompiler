@@ -16,7 +16,7 @@
 
 #include <stdint.h>
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "dxc/DXIL/DxilConstants.h"
 
 struct IDxcBlob;
