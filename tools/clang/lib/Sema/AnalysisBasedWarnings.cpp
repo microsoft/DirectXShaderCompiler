@@ -2018,10 +2018,11 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
   }
 
   // HLSL Change Start - Generate warnings for uninitialized out params.
-  if (S.getLangOpts().HLSL ||
-      !Diags.isIgnored(diag::warn_uninit_var, D->getLocStart()) ||
+  if (!Diags.isIgnored(diag::warn_uninit_var, D->getLocStart()) ||
       !Diags.isIgnored(diag::warn_sometimes_uninit_var, D->getLocStart()) ||
-      !Diags.isIgnored(diag::warn_maybe_uninit_var, D->getLocStart())) {
+      !Diags.isIgnored(diag::warn_maybe_uninit_var, D->getLocStart()) ||
+      !Diags.isIgnored(diag::warn_hlsl_uninit_out_param, D->getLocStart()) ||
+      !Diags.isIgnored(diag::warn_hlsl_sometimes_uninit_out_param, D->getLocStart())) {
     // HLSL Change End  - Generate warnings for uninitialized out params.
     if (CFG *cfg = AC.getCFG()) {
       UninitValsDiagReporter reporter(S);
