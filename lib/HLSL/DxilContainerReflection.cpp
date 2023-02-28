@@ -42,7 +42,7 @@
 #else
 // Dummy D3D11 struct to allow nix-dead code to compile
 struct D3D11_SHADER_INPUT_BIND_DESC {int dummy;};
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #endif
 
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"

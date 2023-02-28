@@ -17,7 +17,7 @@
 
 #ifndef _WIN32
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
                         LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags);

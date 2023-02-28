@@ -14,7 +14,7 @@
 
 #include "HLSLTestOptions.h"
 #include "dxc/Test/WEXAdapter.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 namespace clang {
 namespace hlsl {
