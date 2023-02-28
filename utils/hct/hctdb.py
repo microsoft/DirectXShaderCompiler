@@ -2218,7 +2218,9 @@ class db_dxil(object):
         add_pass('deadargelim', 'DAE', 'Dead Argument Elimination', [])
         # Should we get rid of this, or invest in bugpoint support?
         add_pass('deadarghaX0r', 'DAH', 'Dead Argument Hacking (BUGPOINT USE ONLY; DO NOT USE)', [])
-        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [])
+        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [
+            {'n':'NoSink', 't':'bool', 'c':1},
+        ])
         add_pass('prune-eh', 'PruneEH', 'Remove unused exception handling info', [])
         add_pass('functionattrs', 'FunctionAttrs', 'Deduce function attributes', [])
         # add_pass('argpromotion', 'ArgPromotion', "Promote 'by reference' arguments to scalars", [
@@ -2248,6 +2250,9 @@ class db_dxil(object):
         add_pass('dxil-remove-dead-blocks', 'DxilRemoveDeadBlocks', 'DxilRemoveDeadBlocks', [])
         add_pass('dxil-o0-legalize', 'DxilNoOptLegalize', 'DXIL No-Opt Legalize', [])
         add_pass('dxil-o0-simplify-inst', 'DxilNoOptSimplifyInstructions', 'DXIL No-Opt Simplify Inst', [])
+        add_pass('dxil-loop-deletion', 'DxilLoopDeletion', "Dxil Delete dead loops", [
+            {'n':'NoSink', 't':'bool', 'c':1},
+        ])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
         add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [
