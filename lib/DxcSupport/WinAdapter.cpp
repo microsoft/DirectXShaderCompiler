@@ -9,7 +9,7 @@
 
 #ifndef _WIN32
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
 
 //===--------------------------- CAllocator -------------------------------===//
