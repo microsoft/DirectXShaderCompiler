@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <iterator>
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 struct IDxcContainerReflection;
 
