@@ -26,7 +26,7 @@
 #include <new>
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "llvm/Support/MSFileSystem.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

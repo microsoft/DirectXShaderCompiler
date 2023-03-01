@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 #include <cstring>
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 // Don't include assert.h here.
 // Since this header is included from multiple environments,

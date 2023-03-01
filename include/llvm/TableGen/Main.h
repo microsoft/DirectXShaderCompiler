@@ -18,7 +18,7 @@
 #ifdef _WIN32
 #include <sal.h>
 #else
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #endif
 // HLSL Change Ends
 

@@ -2738,6 +2738,7 @@ bool InstCombiner::run() {
         // only has us as a predecessors (we'd have to split the critical edge
         // otherwise), we can keep going.
         if (UserIsSuccessor && UserParent->getSinglePredecessor()) {
+          if (!m_HLSLNoSinks) // HLSL Change
           // Okay, the CFG is simple enough, try to sink this instruction.
           if (TryToSinkInstruction(I, UserParent)) {
             MadeIRChange = true;
@@ -2979,7 +2980,7 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
 }
 
 static bool
-combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
+combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist, bool HLSLNoSink/*HLSL Change*/,
                                 AliasAnalysis *AA, AssumptionCache &AC,
                                 TargetLibraryInfo &TLI, DominatorTree &DT,
                                 LoopInfo *LI = nullptr) {
@@ -3009,6 +3010,7 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
 
     InstCombiner IC(Worklist, &Builder, MinimizeSize,
                     AA, &AC, &TLI, &DT, DL, LI);
+    IC.m_HLSLNoSinks = HLSLNoSink;
     if (IC.run())
       Changed = true;
 
@@ -3028,7 +3030,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *LI = AM->getCachedResult<LoopAnalysis>(F);
 
   // FIXME: The AliasAnalysis is not yet supported in the new pass manager
-  if (!combineInstructionsOverFunction(F, Worklist, nullptr, AC, TLI, DT, LI))
+  if (!combineInstructionsOverFunction(F, Worklist, /*HLSLNoSink*/false, nullptr, AC, TLI, DT, LI))
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3054,8 +3056,25 @@ public:
     initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
   }
 
+  // HLSL Change - begin
+  bool m_HLSLNoSink = false;
+  InstructionCombiningPass(bool HLSLNoSink) : FunctionPass(ID) {
+    initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
+    m_HLSLNoSink = HLSLNoSink;
+  }
+
+  void applyOptions(PassOptions O) override {
+    GetPassOptionBool(O, "NoSink", &m_HLSLNoSink, /*defaultValue*/false);
+  }
+  void dumpConfig(raw_ostream &OS) override {
+    FunctionPass::dumpConfig(OS);
+    OS << ",NoSink=" << m_HLSLNoSink;
+  }
+  // HLSL Change - end
+
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;
+
 };
 }
 
@@ -3082,7 +3101,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, LI);
+  return combineInstructionsOverFunction(F, Worklist, m_HLSLNoSink /*HLSL Change*/, AA, AC, TLI, DT, LI);
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -3107,3 +3126,8 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 FunctionPass *llvm::createInstructionCombiningPass() {
   return new InstructionCombiningPass();
 }
+// HLSL Change - begin
+FunctionPass *llvm::createInstructionCombiningPass(bool HLSLNoSink) {
+  return new InstructionCombiningPass(HLSLNoSink);
+}
+// HLSL Change - end
