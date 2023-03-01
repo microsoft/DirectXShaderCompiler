@@ -491,7 +491,7 @@ void ClassifyRefs::VisitCallExpr(CallExpr *CE) {
         bool HasInOut = PD->hasAttr<HLSLInOutAttr>();
         // If we have an in annotation or no annotation (implcit in), this is a
         // use not an initialization.
-        if(HasIn || HasInOut || (!HasIn && !HasOut && !HasInOut))
+        if(!HasOut || HasIn || HasInOut)
           classify(*I, Use);
       }
     }
@@ -850,8 +850,8 @@ void TransferFunctions::HandleHLSLImplicitUse(SourceLocation Loc) {
     if (!isUninitialized(v))
       continue;
     // Skip diagnostics for always uninitialized values if they are marked maybe
-    // unused. This allows us to continue emitting diagnostics for sometimes
-    // uninitialized values.
+    // unused. This allows us to continue emitting other diagnostics for
+    // sometimes uninitialized values.
     if (P->hasAttr<HLSLMaybeUnusedAttr>() && isAlwaysUninit(v))
       continue;
     auto *DRE = DeclRefExpr::Create(
@@ -899,19 +899,8 @@ static bool runOnBlock(const CFGBlock *block, const CFG &cfg,
   // HLSL Change Begin - Treat `out` parameters as uninitialized values.
   // If this block has no successors and does not have a terminator stmt which
   // we would have handled above.
-  if (block->succ_size() == 0 && !block->getTerminator()) {
-    bool AllHandled = true;
-    for (auto P = block->pred_begin(); P != block->pred_end(); ++P) {
-      if (auto Term = (*P)->getTerminator()) {
-        if (isa<ReturnStmt>(*Term))
-          continue;
-      }
-      AllHandled = false;
-      break;
-    }
-    if (!AllHandled)
-      tf.HandleHLSLImplicitUse(cast<Decl>(&dc)->getBody()->getLocEnd());
-  }
+  if (block->succ_size() == 0 && !block->getTerminator())
+    tf.HandleHLSLImplicitUse(cast<Decl>(&dc)->getBody()->getLocEnd());
   // HLSL Change End - Treat `out` parameters as uninitialized values.
   return vals.updateValueVectorWithScratch(block);
 }

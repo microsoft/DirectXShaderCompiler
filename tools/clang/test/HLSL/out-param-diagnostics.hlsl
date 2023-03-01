@@ -19,12 +19,58 @@ int ReturnedPassthrough(int Cond, out int Val) { // expected-note{{variable 'Val
   return Val; // expected-warning{{parameter 'Val' is uninitialized when used here}}
 }
 
+// No disagnostic expected here because all paths to the exit return, and they
+// all initialize Val.
+int AllPathsReturn(int Cond, out int Val) {
+  if (Cond % 3)
+    return Returned(Val);
+  else
+    return Returned(Val);
+}
+
+void AllPathsReturnSwitch(int Cond, out int Val) {
+  switch(Cond % 3) {
+    case 0:
+      Val = 0;
+      return;
+    case 1:
+      Val = 1;
+      return;
+    case 2:
+      Val = 2;
+      return;
+  }
+}
+
 int ReturnedMaybePassthrough(int Cond, out int Val) { // expected-note{{variable 'Val' is declared here}}
   if (Cond % 3)
     UnusedEmpty(Val);
   else if (Cond % 2) // expected-warning{{parameter 'Val' is used uninitialized whenever 'if' condition is false}} expected-note{{remove the 'if' if its condition is always true}}
     UnusedEmpty(Val);
   return Val; // expected-note{{uninitialized use occurs here}}
+}
+
+void SomePathsReturnSwitch(int Cond, out int Val) { // expected-note{{variable 'Val' is declared here}}
+  switch(Cond) {
+    case 0:
+      Val = 0;
+      return;
+    default: // expected-warning{{parameter 'Val' is used uninitialized whenever switch default is taken}}
+      break;
+  }
+}  // expected-note{{uninitialized use occurs here}}
+
+void SomePathsReturnSwitch2(int Cond, out int Val) { // expected-note{{variable 'Val' is declared here}}
+  switch(Cond) {
+    case 0:
+      Val = 0;
+      return;
+    case 1:
+      return; // expected-warning{{parameter 'Val' is uninitialized when used here}}
+    default:
+      Val = 0;
+      break;
+  }
 }
 
 int Dbl(int V) {
