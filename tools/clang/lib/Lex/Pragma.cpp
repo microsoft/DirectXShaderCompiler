@@ -1437,6 +1437,8 @@ void Preprocessor::RegisterBuiltinPragmas() {
     AddPragmaHandler(new PragmaMarkHandler());
     AddPragmaHandler("dxc", new PragmaDiagnosticHandler("dxc"));
     AddPragmaHandler(new PragmaMessageHandler(PPCallbacks::PMK_Message));
+    AddPragmaHandler(new PragmaRegionHandler("region"));
+    AddPragmaHandler(new PragmaRegionHandler("endregion"));
     return;
   }
   // HLSL Change Ends
