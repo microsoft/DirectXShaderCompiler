@@ -60,6 +60,7 @@ public:
   TEST_METHOD(RunMintypesPromotionWarnings)
   TEST_METHOD(RunMoreOperators)
   TEST_METHOD(RunObjectOperators)
+  TEST_METHOD(RunOutParamDiags)
   TEST_METHOD(RunPackReg)
   TEST_METHOD(RunRayTracings)
   TEST_METHOD(RunScalarAssignments)
@@ -276,6 +277,10 @@ TEST_F(VerifierTest, RunMoreOperators) {
 
 TEST_F(VerifierTest, RunObjectOperators) {
   CheckVerifiesHLSL(L"object-operators.hlsl");
+}
+
+TEST_F(VerifierTest, RunOutParamDiags) {
+  CheckVerifiesHLSL(L"out-param-diagnostics.hlsl");
 }
 
 TEST_F(VerifierTest, RunPackReg) {
