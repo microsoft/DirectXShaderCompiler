@@ -109,8 +109,9 @@ void EarlyOut(int Cond, out int Val) { // expected-note{{variable 'Val' is decla
   Val = 1;
 }
 
-// In parameters a read from, so they should be treated as uninitialized values.
-// Out parameters are written to but not read from, so they are initializers.
+// In parameters are read from, so they should be treated as uninitialized
+// values. Out parameters are written to but not read from, so they are
+// initializers.
 
 void SomethingCalledOut(out int V) {
   V = 1;
@@ -139,6 +140,19 @@ void SomethingCalledInOut(inout int V) {
 int Something3(out int Num) { // expected-note {{variable 'Num' is declared here}}
   SomethingCalledInOut(Num); // expected-warning {{parameter 'Num' is uninitialized when used here}}
   return Num;
+}
+
+struct SomeObj {
+  int Integer;
+  int Float;
+};
+
+void UnusedObjectOut(out SomeObj V) {} // expected-warning {{parameter 'V' is uninitialized when used here}} expected-note {{initialize the variable 'V' to silence this warning}}
+
+// We don't have per-field analysis, so this will count as an initialization if
+// any field is initiailzed.
+void SomethingObjectOut(out SomeObj V) {
+  V.Integer = 1;
 }
 
 // This test case is copied from tools/clang/test/HLSL/functions.hlsl to verify
