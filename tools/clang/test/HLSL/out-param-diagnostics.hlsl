@@ -147,16 +147,8 @@ struct SomeObj {
   int Float;
 };
 
-// This case also verifies that we don't suggest initialization of the
-// parameter. Default initialization of `out` parameters doesn't work (but maybe
-// should?).
-void UnusedObjectOut(out SomeObj V) {} // expected-warning {{parameter 'V' is uninitialized when used here}} // expected-note {{variable 'V' is declared here}}
-
-// We don't have per-field analysis, so this will count as an initialization if
-// any field is initiailzed.
-void SomethingObjectOut(out SomeObj V) {
-  V.Integer = 1;
-}
+// No errors are generated for struct types :(
+void UnusedObjectOut(out SomeObj V) {}
 
 // This test case is copied from tools/clang/test/HLSL/functions.hlsl to verify
 // that the analysis does produce a diagnostic for this case. Because
@@ -181,3 +173,15 @@ void MaybeUsedMaybeUnused([maybe_unused] out int Val, int Cnt) { // expected-not
 // Neither of these will warn because we don't support element-based tracking.
 void UnusedSizedArray(out uint u[2]) { }
 void UnusedUnsizedArray(out uint u[]) { }
+
+// Warnings for struct types are not supported yet.
+struct S { uint a; uint b; };
+
+void Initializes(out S a) {
+  a.a = 1;
+  a.b = 1;
+}
+
+void InitializesIndirectly(out S a) {
+  Initializes(a);
+}
