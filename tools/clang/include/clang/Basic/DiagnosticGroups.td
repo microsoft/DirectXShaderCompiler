@@ -799,4 +799,5 @@ def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier", [
   ]>;
 def HLSLSemanticIdentifierCollision : DiagGroup<"semantic-identifier-collision">;
 def HLSLStructurizeExitsLifetimeMarkersConflict: DiagGroup<"structurize-exits-lifetime-markers-conflict">;
+def HLSLParameterUsage : DiagGroup<"parameter-usage">;
 // HLSL Change Ends
