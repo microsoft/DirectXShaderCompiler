@@ -42,7 +42,7 @@ float  i11_to_float(int1x1 v) { return v; }
 void into_out_i(out int i) { i = g_i11; }
 void into_out_i3(out int3 i3) { i3 = int3(1, 2, 3); } // expected-note {{candidate function}} expected-note {{passing argument to parameter 'i3' here}} fxc-pass {{}}
 void into_out_f(out float i) { i = g_i11; }
-void into_out_f3_s(out f3_s i) { } // expected-warning{{parameter 'i' is uninitialized when used here}} expected-note{{initialize the variable 'i' to silence this warning}}
+void into_out_f3_s(out f3_s i) { } // expected-warning{{parameter 'i' is uninitialized when used here}}  expected-note{{variable 'i' is declared here}}
 void into_out_ss(out SamplerState ss) { ss = g_SamplerState; }
 
 float4 plain(float4 param4 /* : FOO */) /*: FOO */{

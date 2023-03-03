@@ -35,8 +35,10 @@ using namespace clang;
 
 static bool isTrackedVar(const VarDecl *vd, const DeclContext *dc) {
   // HLSL Change Begin - Treat `out` parameters as uninitialized values.
-  if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
-    return true;
+  if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>()) {
+    QualType ty = vd->getType().getNonReferenceType();
+    return ty->isScalarType() || ty->isVectorType() || ty->isRecordType();
+  }
   // HLSL Change End - Treat `out` parameters as uninitialized values.
   if (vd->isLocalVarDecl() && !vd->hasGlobalStorage() &&
       !vd->isExceptionVariable() && !vd->isInitCapture() &&
@@ -87,6 +89,8 @@ void DeclToIndex::computeMap(const DeclContext &dc) {
     if (isTrackedVar(vd, &dc))
       map[vd] = count++;
     // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+    else
+      continue;
     // Keep HLSL parameters in a separate index.
     if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
       hlslOutParams.push_back(vd);

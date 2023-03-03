@@ -147,7 +147,10 @@ struct SomeObj {
   int Float;
 };
 
-void UnusedObjectOut(out SomeObj V) {} // expected-warning {{parameter 'V' is uninitialized when used here}} expected-note {{initialize the variable 'V' to silence this warning}}
+// This case also verifies that we don't suggest initialization of the
+// parameter. Default initialization of `out` parameters doesn't work (but maybe
+// should?).
+void UnusedObjectOut(out SomeObj V) {} // expected-warning {{parameter 'V' is uninitialized when used here}} // expected-note {{variable 'V' is declared here}}
 
 // We don't have per-field analysis, so this will count as an initialization if
 // any field is initiailzed.
@@ -174,3 +177,7 @@ void MaybeUsedMaybeUnused([maybe_unused] out int Val, int Cnt) { // expected-not
   if (Cnt % 2) // expected-warning{{parameter 'Val' is used uninitialized whenever 'if' condition is fals}} expected-note{{remove the 'if' if its condition is always true}}
     Val = 1;
 } // expected-note{{uninitialized use occurs here}}
+
+// Neither of these will warn because we don't support element-based tracking.
+void UnusedSizedArray(out uint u[2]) { }
+void UnusedUnsizedArray(out uint u[]) { }
