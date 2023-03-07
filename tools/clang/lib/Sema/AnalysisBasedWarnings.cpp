@@ -612,6 +612,11 @@ static bool SuggestInitializationFixit(Sema &S, const VarDecl *VD) {
     return true;
   }
 
+  // HLSL Change Start - Don't issue fixit for out parameters
+  if (VD->hasAttr<HLSLOutAttr>())
+    return false;
+  // HLSL Change End
+
   // Don't issue a fixit if there is already an initializer.
   if (VD->getInit())
     return false;
