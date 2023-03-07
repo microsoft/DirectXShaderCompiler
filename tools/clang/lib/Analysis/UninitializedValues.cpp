@@ -35,8 +35,15 @@ using namespace clang;
 
 static bool isTrackedVar(const VarDecl *vd, const DeclContext *dc) {
   // HLSL Change Begin - Treat `out` parameters as uninitialized values.
-  if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
-    return true;
+  if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>()) {
+    QualType ty = vd->getType().getNonReferenceType();
+    // FIXME: HLSL doesn't model parameter passing of structs correctly in the
+    // AST. Struct types are passed by value in the AST regardless of whether
+    // they are out or inout, which results in LValueToRValue casts in the AST
+    // which look like uses (because they are). For now this analysis can
+    // generate too many false positives for structs.
+    return ty->isScalarType();
+  }
   // HLSL Change End - Treat `out` parameters as uninitialized values.
   if (vd->isLocalVarDecl() && !vd->hasGlobalStorage() &&
       !vd->isExceptionVariable() && !vd->isInitCapture() &&
@@ -87,6 +94,8 @@ void DeclToIndex::computeMap(const DeclContext &dc) {
     if (isTrackedVar(vd, &dc))
       map[vd] = count++;
     // HLSL Change Begin - Treat `out` parameters as uninitialized values.
+    else
+      continue;
     // Keep HLSL parameters in a separate index.
     if (vd->hasAttr<HLSLOutAttr>() && !vd->hasAttr<HLSLInAttr>())
       hlslOutParams.push_back(vd);
