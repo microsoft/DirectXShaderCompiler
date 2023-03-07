@@ -147,13 +147,8 @@ struct SomeObj {
   int Float;
 };
 
-void UnusedObjectOut(out SomeObj V) {} // expected-warning {{parameter 'V' is uninitialized when used here}} expected-note {{initialize the variable 'V' to silence this warning}}
-
-// We don't have per-field analysis, so this will count as an initialization if
-// any field is initiailzed.
-void SomethingObjectOut(out SomeObj V) {
-  V.Integer = 1;
-}
+// No errors are generated for struct types :(
+void UnusedObjectOut(out SomeObj V) {}
 
 // This test case is copied from tools/clang/test/HLSL/functions.hlsl to verify
 // that the analysis does produce a diagnostic for this case. Because
@@ -174,3 +169,19 @@ void MaybeUsedMaybeUnused([maybe_unused] out int Val, int Cnt) { // expected-not
   if (Cnt % 2) // expected-warning{{parameter 'Val' is used uninitialized whenever 'if' condition is fals}} expected-note{{remove the 'if' if its condition is always true}}
     Val = 1;
 } // expected-note{{uninitialized use occurs here}}
+
+// Neither of these will warn because we don't support element-based tracking.
+void UnusedSizedArray(out uint u[2]) { }
+void UnusedUnsizedArray(out uint u[]) { }
+
+// Warnings for struct types are not supported yet.
+struct S { uint a; uint b; };
+
+void Initializes(out S a) {
+  a.a = 1;
+  a.b = 1;
+}
+
+void InitializesIndirectly(out S a) {
+  Initializes(a);
+}
