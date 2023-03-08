@@ -4971,7 +4971,7 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
     return nullptr;
 
   TransferUnusualAttributes(D, New); // HLSL Change
-
+  AddHLSLMatrixAttribute(New); // HLSL Change
   // If this has an identifier and is not an invalid redeclaration or 
   // function template specialization, add it to the scope stack.
   if (New->getDeclName() && AddToScope &&
@@ -10308,6 +10308,7 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
     IdResolver.AddDecl(New);
 
   ProcessDeclAttributes(S, New, D);
+  AddHLSLMatrixAttribute(New); // HLSL Change
 
   if (D.getDeclSpec().isModulePrivateSpecified())
     Diag(New->getLocation(), diag::err_module_private_local)
@@ -12762,6 +12763,7 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
     Record->setInvalidDecl();
 
   TransferUnusualAttributes(D, NewFD); // HLSL Change
+  AddHLSLMatrixAttribute(NewFD);         // HLSL Change
 
   if (D.getDeclSpec().isModulePrivateSpecified())
     NewFD->setModulePrivate();

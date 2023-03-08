@@ -12882,13 +12882,42 @@ const char *HLSLBufferDecl::getDeclKindName() const {
   return HLSLBufferNames[index];
 }
 
-void Sema::TransferUnusualAttributes(Declarator &D, NamedDecl *NewDecl) {
+void Sema::AddHLSLMatrixAttribute(NamedDecl *NewDecl) {
   assert(NewDecl != nullptr);
 
   if (!getLangOpts().HLSL) {
     return;
   }
 
+  if (auto *VDecl = dyn_cast<ValueDecl>(NewDecl)) {
+    QualType Ty = VDecl->getType();
+    // Check function return type.
+    if (auto *FDecl = dyn_cast<FunctionDecl>(VDecl)) {
+      Ty = FDecl->getReturnType();
+    }
+    if (hlsl::IsHLSLMatType(Ty)) {
+      unsigned Row = 0;
+      unsigned Col = 0;
+      hlsl::GetHLSLMatRowColCount(Ty, Row, Col);
+      auto Major = HLSLMatrixTypeAttr::Default;
+      if (NewDecl->hasAttr<HLSLRowMajorAttr>())
+        Major = HLSLMatrixTypeAttr::Row;
+      else if (NewDecl->hasAttr<HLSLColumnMajorAttr>())
+        Major = HLSLMatrixTypeAttr::Column;
+
+      auto *MatAttr = HLSLMatrixTypeAttr::CreateImplicit(this->getASTContext(),
+                                                         Row, Col, Major);
+      VDecl->addAttr(MatAttr);
+    }
+  }
+}
+
+void Sema::TransferUnusualAttributes(Declarator &D, NamedDecl *NewDecl) {
+  assert(NewDecl != nullptr);
+
+  if (!getLangOpts().HLSL) {
+    return;
+  }
   if (!D.UnusualAnnotations.empty()) {
     NewDecl->setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
         getASTContext(), D.UnusualAnnotations.data(),

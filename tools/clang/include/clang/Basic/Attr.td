@@ -104,6 +104,12 @@ def SharedVar : SubsetSubject<Var,
 def GlobalVar : SubsetSubject<Var,
                              [{S->hasGlobalStorage()}]>;
 
+def MatrixVar : SubsetSubject<Var,
+                              [{hlsl::IsHLSLMatType(S->getType())}]>;
+
+def MatrixRetFunction : SubsetSubject<Function,
+                              [{hlsl::IsHLSLMatType(S->getReturnType())}]>;
+
 // FIXME: this hack is needed because DeclNodes.td defines the base Decl node
 // type to be a class, not a definition. This makes it impossible to create an
 // attribute subject which accepts a Decl. Normally, this is not a problem,
@@ -800,6 +806,17 @@ def HLSLColumnMajor : InheritableAttr {
 def HLSLRowMajor : InheritableAttr {
   let Spellings = [CXX11<"", "row_major", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLMatrixType : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[MatrixVar, MatrixRetFunction], ErrorDiag,
+                             "ExpectedMatrixVarOrMatrixRetFunction">;
+  let Args = [IntArgument<"NumRows">, IntArgument<"NumColumns">,
+              EnumArgument<"MatrixMajor", "MatrixMajor",
+                           ["default", "row", "column"],
+                           ["Default", "Row", "Column"]>];
   let Documentation = [Undocumented];
 }
 
