@@ -1344,8 +1344,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueAnyString);
   }
   // Set entry function
+  const ShaderModel *SM = m_pHLModule->GetShaderModel();
   const std::string &entryName = m_pHLModule->GetEntryFunctionName();
-  bool isEntry = FD->getNameAsString() == entryName;
+  bool isEntry =
+      !SM->IsLib() &&
+      FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
+      FD->getNameAsString() == entryName;
   if (isEntry) {
     Entry.Func = F;
     Entry.SL = FD->getLocation();
@@ -1365,97 +1369,105 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool isRay = false;
   bool isMS = false;
   bool isAS = false;
-  if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
-    // Stage is already validate in HandleDeclAttributeForHLSL.
-    // Here just check first letter (or two).
-    switch (Attr->getStage()[0]) {
-    case 'c':
-      switch (Attr->getStage()[1]) {
-      case 'o':
-        isCS = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Compute;
-        break;
-      case 'l':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::ClosestHit;
-        break;
-      case 'a':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Callable;
-        break;
-      default:
-        break;
-      }
-      break;
-    case 'v':
-      isVS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Vertex;
-      break;
-    case 'h':
-      isHS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Hull;
-      break;
-    case 'd':
-      isDS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Domain;
-      break;
-    case 'g':
-      isGS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Geometry;
-      break;
-    case 'p':
-      isPS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Pixel;
-      break;
-    case 'r':
+
+  // SetStageFlag returns true if valid as function attribute
+  auto SetStageFlag = [&](DXIL::ShaderKind shaderKind) -> bool {
+    switch(shaderKind) {
+    case DXIL::ShaderKind::Pixel:         isPS = true; break;
+    case DXIL::ShaderKind::Vertex:        isVS = true; break;
+    case DXIL::ShaderKind::Geometry:      isGS = true; break;
+    case DXIL::ShaderKind::Hull:          isHS = true; break;
+    case DXIL::ShaderKind::Domain:        isDS = true; break;
+    case DXIL::ShaderKind::Compute:       isCS = true; break;
+    case DXIL::ShaderKind::Mesh:          isMS = true; break;
+    case DXIL::ShaderKind::Amplification: isAS = true; break;
+    case DXIL::ShaderKind::ClosestHit:
+    case DXIL::ShaderKind::Callable:
+    case DXIL::ShaderKind::RayGeneration:
+    case DXIL::ShaderKind::Intersection:
+    case DXIL::ShaderKind::AnyHit:
+    case DXIL::ShaderKind::Miss:
       isRay = true;
-      funcProps->shaderKind = DXIL::ShaderKind::RayGeneration;
       break;
-    case 'i':
-      isRay = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Intersection;
-      break;
-    case 'a':
-      switch (Attr->getStage()[1]) {
-      case 'm':
-        isAS = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Amplification;
-        break;
-      case 'n':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::AnyHit;
-        break;
-      default:
-        break;
-      }
-      break;
-    case 'm':
-      switch (Attr->getStage()[1]) {
-      case 'e':
-        isMS = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Mesh;
-        break;
-      case 'i':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Miss;
-        break;
-      default:
-        break;
-      }
-      break;
+    case DXIL::ShaderKind::Library:
     default:
-      break;
+      return false;
     }
-    if (funcProps->shaderKind == DXIL::ShaderKind::Invalid) {
+    return true;
+  };
+
+  clang::SourceLocation priorShaderAttrLoc;
+  enum class ShaderStageSource : unsigned {
+    Attribute,
+    Profile,
+  };
+
+  // Some diagnostic assumptions for shader attribute:
+  // - multiple shader attributes may exist in HLSL
+  // - duplicate attribute of same kind is ok
+  // - all attributes parsed before set from insertion or target shader model
+
+  auto DiagShaderStage = [&priorShaderAttrLoc, &Diags, &entryName](
+                             clang::SourceLocation diagLoc,
+                             llvm::StringRef shaderStage,
+                             ShaderStageSource source, bool bConflict) {
+    bool bFromProfile = source == ShaderStageSource::Profile;
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "%select{Invalid|Conflicting}0 shader %select{profile|attribute}1");
+    Diags.Report(diagLoc, DiagID) << bConflict << bFromProfile;
+    if (priorShaderAttrLoc.isValid()) {
       unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error, "Invalid profile for shader attribute");
-      Diags.Report(Attr->getLocation(), DiagID);
+          DiagnosticsEngine::Note, "See conflicting shader attribute");
+      Diags.Report(priorShaderAttrLoc, DiagID);
+    }
+  };
+
+  auto SetShaderKind = [&](clang::SourceLocation diagLoc,
+                           DXIL::ShaderKind shaderKind,
+                           llvm::StringRef shaderStage,
+                           ShaderStageSource source) {
+    if (!SetStageFlag(shaderKind)) {
+      DiagShaderStage(diagLoc, shaderStage, source, false);
     }
     if (isEntry && isRay) {
       unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "Ray function cannot be used as a global entry point");
-      Diags.Report(Attr->getLocation(), DiagID);
+      Diags.Report(diagLoc, DiagID);
     }
+    if (funcProps->shaderKind != DXIL::ShaderKind::Invalid &&
+        funcProps->shaderKind != shaderKind) {
+      DiagShaderStage(diagLoc, shaderStage, source, true);
+    }
+    // Update shaderKind
+    if (funcProps->shaderKind == DXIL::ShaderKind::Invalid)
+      funcProps->shaderKind = shaderKind;
+  };
+
+  // Used when a function attribute implies a particular stage.
+  // This will emit an error if the stage it implies conflicts with a stage set
+  // from some other source.
+  auto CheckImpliedShaderStageAttr = [&SetShaderKind](clang::SourceLocation diagLoc,
+                                         DXIL::ShaderKind shaderKind) {
+    SetShaderKind(diagLoc, shaderKind, "", ShaderStageSource::Attribute);
+  };
+
+  auto ParseShaderStage = [&SetShaderKind](clang::SourceLocation diagLoc, llvm::StringRef shaderStage, ShaderStageSource source) {
+    if (!shaderStage.empty()) {
+      DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(shaderStage);
+      SetShaderKind(diagLoc, shaderKind, shaderStage, source);
+    }
+  };
+
+  // Parse all shader attributes and report conflicts.
+  for (auto* Attr : FD->specific_attrs<HLSLShaderAttr>()) {
+    ParseShaderStage(Attr->getLocation(), Attr->getStage(), ShaderStageSource::Attribute);
+    priorShaderAttrLoc = Attr->getLocation();
+  }
+
+  if (isEntry) {
+    // Set shaderKind from the shader target profile
+    SetShaderKind(FD->getLocation(), SM->GetKind(), "", ShaderStageSource::Profile);
   }
 
   // Save patch constant function to patchConstantFunctionMap.
@@ -1489,28 +1501,17 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Hull;
   }
 
-  const ShaderModel *SM = m_pHLModule->GetShaderModel();
   if (auto *Attr = FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
     if (SM->IsSM67Plus() &&
         (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
          (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
       F->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
   }
-  if (isEntry) {
-    funcProps->shaderKind = SM->GetKind();
-    if (funcProps->shaderKind == DXIL::ShaderKind::Mesh) {
-      isMS = true;
-    }
-    else if (funcProps->shaderKind == DXIL::ShaderKind::Amplification) {
-      isAS = true;
-    }
-  }
 
   // Geometry shader.
   if (const HLSLMaxVertexCountAttr *Attr =
           FD->getAttr<HLSLMaxVertexCountAttr>()) {
-    isGS = true;
-    funcProps->shaderKind = DXIL::ShaderKind::Geometry;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Geometry);
     funcProps->ShaderProps.GS.maxVertexCount = Attr->getCount();
     funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Undefined;
 
@@ -1523,6 +1524,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
   if (const HLSLInstanceAttr *Attr = FD->getAttr<HLSLInstanceAttr>()) {
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Geometry);
     unsigned instanceCount = Attr->getCount();
     funcProps->ShaderProps.GS.instanceCount = instanceCount;
     if (isEntry && !SM->IsGS()) {
@@ -1538,23 +1540,32 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.GS.instanceCount = 1;
   }
 
-  // Compute shader
+  // Populate numThreads
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
     if (isMS) {
+      // Mesh shader
       funcProps->ShaderProps.MS.numThreads[0] = Attr->getX();
       funcProps->ShaderProps.MS.numThreads[1] = Attr->getY();
       funcProps->ShaderProps.MS.numThreads[2] = Attr->getZ();
     } else if (isAS) {
+      // Amplification shader
       funcProps->ShaderProps.AS.numThreads[0] = Attr->getX();
       funcProps->ShaderProps.AS.numThreads[1] = Attr->getY();
       funcProps->ShaderProps.AS.numThreads[2] = Attr->getZ();
     } else {
+      // Compute shader
+      if (isCS || funcProps->shaderKind == DXIL::ShaderKind::Invalid)
+        funcProps->shaderKind = DXIL::ShaderKind::Compute;
       isCS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Compute;
-
       funcProps->ShaderProps.CS.numThreads[0] = Attr->getX();
       funcProps->ShaderProps.CS.numThreads[1] = Attr->getY();
       funcProps->ShaderProps.CS.numThreads[2] = Attr->getZ();
+      if ((Attr->getX() * Attr->getY() * Attr->getZ()) > 1024) {
+        unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "Thread group size may not exceed 1024");
+        Diags.Report(Attr->getLocation(), DiagID);
+      }
     }
 
     if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
@@ -1576,8 +1587,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isHS = true;
-    funcProps->shaderKind = DXIL::ShaderKind::Hull;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Hull);
     HSEntryPatchConstantFuncAttr[F] = Attr;
   } else {
     // TODO: This is a duplicate check. We also have this check in
@@ -1667,9 +1677,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isDS = !isHS;
-    if (isDS)
-      funcProps->shaderKind = DXIL::ShaderKind::Domain;
+    if (!isHS)
+      CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Domain);
 
     DXIL::TessellatorDomain domain = StringToDomain(Attr->getDomainType());
     if (isHS)
@@ -1687,10 +1696,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isVS = true;
     // The real job is done at EmitHLSLFunctionProlog where debug info is
     // available. Only set shader kind here.
-    funcProps->shaderKind = DXIL::ShaderKind::Vertex;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Vertex);
   }
 
   // Pixel shader.
@@ -1704,9 +1712,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isPS = true;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Pixel);
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
-    funcProps->shaderKind = DXIL::ShaderKind::Pixel;
   }
 
   if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
@@ -2354,7 +2361,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // clear isExportedEntry if not exporting entry
-  bool isExportedEntry = profileAttributes != 0;
+  bool isExportedEntry = SM->IsLib() && profileAttributes != 0;
   if (isExportedEntry) {
     // use unmangled or mangled name depending on which is used for final entry function
     StringRef name = isRay ? F->getName() : FD->getName();
