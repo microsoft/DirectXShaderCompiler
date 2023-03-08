@@ -1,5 +1,5 @@
 // Test of header pre-inclusion with compilation
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /D NO_INCLUDE=1 -include include/inc1.hlsli /Fc %t
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /D NO_INCLUDE=1 -include %S/include/inc1.hlsli /Fc %t
 // RUN: FileCheck --input-file=%t %s --check-prefix=FC
 
 // FC:define void @main()
