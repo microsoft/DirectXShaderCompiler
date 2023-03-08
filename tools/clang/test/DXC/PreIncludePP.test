@@ -1,0 +1,5 @@
+// Test of header pre-inclusion with preprocessing
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /D NO_INCLUDE=1 -include include/inc1.hlsli /P %t
+// RUN: FileCheck --input-file=%t %s --check-prefix=FC
+
+// FC:int f1(int g)
