@@ -17,6 +17,4 @@ ${LLVM_MAIN_SRC_DIR}/lib/DxcSupport/SharedLibAffix.inc
 ${LLVM_INCLUDE_DIR}/dxc/Support/SharedLibAffix.h
 )
 
-include_directories( ${LLVM_INCLUDE_DIR}/dxc/Support) #needed to find the generated header
-
 add_dependencies(LLVMDxcSupport TablegenHLSLOptions)
