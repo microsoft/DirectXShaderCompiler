@@ -136,8 +136,9 @@ public:
   llvm::StringRef DefaultLinkage; // OPT_default_linkage
   llvm::StringRef ImportBindingTable;    // OPT_import_binding_table
   llvm::StringRef BindingTableDefine; // OPT_binding_table_define
-  unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
+  std::vector<std::string> PreIncludeFiles; // OPT_include
 
+  unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
   bool AllResourcesBound = false; // OPT_all_resources_bound
   bool IgnoreOptSemDefs = false; // OPT_ignore_opt_semdefs
   bool AstDump = false; // OPT_ast_dump

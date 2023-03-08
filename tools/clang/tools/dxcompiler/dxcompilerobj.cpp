@@ -1457,6 +1457,8 @@ public:
       PPOpts.addMacroDef(defines[i]);
     }
 
+    PPOpts.Includes = Opts.PreIncludeFiles;
+
     PPOpts.IgnoreLineDirectives = Opts.IgnoreLineDirectives;
     // fxc compatibility: pre-expand operands before performing token-pasting
     PPOpts.ExpandTokPastingArg = Opts.LegacyMacroExpansion;

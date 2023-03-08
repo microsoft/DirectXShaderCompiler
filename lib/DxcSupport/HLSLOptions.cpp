@@ -680,6 +680,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.Exports = Args.getAllArgValues(OPT_exports);
 
+  opts.PreIncludeFiles = Args.getAllArgValues(OPT_include);
+
   opts.DefaultLinkage = Args.getLastArgValue(OPT_default_linkage);
   if (!opts.DefaultLinkage.empty()) {
     if (!(opts.DefaultLinkage.equals_lower("internal") ||

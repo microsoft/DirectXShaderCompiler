@@ -217,11 +217,11 @@ def fno_reroll_loops : Flag<["-"], "fno-reroll-loops">, Group<hlsloptz_Group>,
 */
 def help : Flag<["-", "--", "/"], "help">, Flags<[DriverOption]>, Group<hlslcore_Group>,
   HelpText<"Display available options">;
+def include_ : JoinedOrSeparate<["-", "--"], "include">, Group<hlslcomp_Group>, EnumName<"include">,
+    MetaVarName<"<file>">, HelpText<"Include file before parsing">, Flags<[CoreOption]>;
 /*
 def imacros : JoinedOrSeparate<["-", "--"], "imacros">, Group<clang_i_Group>, Flags<[CoreOption]>,
   HelpText<"Include macros from file before parsing">, MetaVarName<"<file>">;
-def include_ : JoinedOrSeparate<["-", "--"], "include">, Group<clang_i_Group>, EnumName<"include">,
-    MetaVarName<"<file>">, HelpText<"Include file before parsing">, Flags<[CoreOption]>;
 def mllvm : Separate<["-"], "mllvm">, Flags<[CoreOption]>,
   HelpText<"Additional arguments to forward to LLVM's option processing">;
 def mms_bitfields : Flag<["-"], "mms-bitfields">, Group<m_Group>, Flags<[CoreOption]>,

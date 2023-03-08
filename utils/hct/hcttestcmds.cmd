@@ -33,6 +33,11 @@ call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /Fc smoke.hlsl.h
 call :check_file smoke.hlsl.h find "define void @main()" del
 if %Failed% neq 0 goto :failed
 
+set testname=Command-line preincluded header
+call :run dxc.exe "%testfiles%\Inputs\smoke.hlsl" /D "NO_INCLUDE=1" -include "%testfiles%\Inputs\include\inc1.hlsli" /T ps_6_0 /Fc smoke.hlsl.h
+call :check_file smoke.hlsl.h find "define void @main()" del
+if %Failed% neq 0 goto :failed
+
 set testname=Test extra DXC outputs together
 call :run dxc.exe /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" /DDX12 /Dcheck_warning /Fh smoke.hlsl.h /Vn g_myvar /Fc smoke.ll /Fo smoke.cso /Fre smoke.reflection /Frs smoke.rootsig /Fe smoke.err
 call :check_file smoke.hlsl.h find g_myvar find "0x44, 0x58" find "define void @main()" del

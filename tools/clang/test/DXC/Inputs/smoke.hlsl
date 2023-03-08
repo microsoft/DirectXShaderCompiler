@@ -1,5 +1,7 @@
 // Verify that we can successfully process an include
+#ifndef NO_INCLUDE
 #include "include/inc1.hlsli"
+#endif
 
 int g;
 static int g_unused;
