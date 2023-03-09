@@ -54,6 +54,7 @@ public:
   TEST_METHOD(RunIncompleteType)
   TEST_METHOD(RunIndexingOperator)
   TEST_METHOD(RunIntrinsicExamples)
+  TEST_METHOD(RunInvalidDeclTemplateArg)
   TEST_METHOD(RunMatrixAssignments)
   TEST_METHOD(RunMatrixSyntax)
   TEST_METHOD(RunMatrixSyntaxExactPrecision)
@@ -254,6 +255,10 @@ TEST_F(VerifierTest, RunIndexingOperator) {
 
 TEST_F(VerifierTest, RunIntrinsicExamples) {
   CheckVerifiesHLSL(L"intrinsic-examples.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidDeclTemplateArg) {
+  CheckVerifiesHLSL(L"invalid-decl-template-arg.hlsl");
 }
 
 TEST_F(VerifierTest, RunMatrixAssignments) {

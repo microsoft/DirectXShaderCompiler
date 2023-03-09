@@ -4953,6 +4953,8 @@ public:
         case AR_TOBJ_COMPOUND:
           {
             const RecordDecl* recordDecl = recordType->getDecl();
+            if (recordDecl->isInvalidDecl())
+              return false;
             RecordDecl::field_iterator begin = recordDecl->field_begin();
             RecordDecl::field_iterator end = recordDecl->field_end();
             bool result = true;
