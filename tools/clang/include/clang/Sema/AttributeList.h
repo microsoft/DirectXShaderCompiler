@@ -872,7 +872,6 @@ enum AttributeDeclKind {
   ExpectedVariableOrParam,
   ExpectedFunctionOrParamOrField,
   ExpectedFunctionOrVariableOrParamOrFieldOrType,
-  ExpectedMatrixVarOrMatrixRetFunction,
   // HLSL Change Ends
 };
 

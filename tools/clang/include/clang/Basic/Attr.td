@@ -104,12 +104,6 @@ def SharedVar : SubsetSubject<Var,
 def GlobalVar : SubsetSubject<Var,
                              [{S->hasGlobalStorage()}]>;
 
-def MatrixVar : SubsetSubject<Var,
-                              [{hlsl::IsHLSLMatType(S->getType())}]>;
-
-def MatrixRetFunction : SubsetSubject<Function,
-                              [{hlsl::IsHLSLMatType(S->getReturnType())}]>;
-
 // FIXME: this hack is needed because DeclNodes.td defines the base Decl node
 // type to be a class, not a definition. This makes it impossible to create an
 // attribute subject which accepts a Decl. Normally, this is not a problem,
