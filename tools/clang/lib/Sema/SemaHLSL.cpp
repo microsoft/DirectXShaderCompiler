@@ -12879,6 +12879,7 @@ void Sema::TransferUnusualAttributes(Declarator &D, NamedDecl *NewDecl) {
   if (!getLangOpts().HLSL) {
     return;
   }
+
   if (!D.UnusualAnnotations.empty()) {
     NewDecl->setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
         getASTContext(), D.UnusualAnnotations.data(),
