@@ -9084,9 +9084,6 @@ public:
   ClassTemplateSpecializationDecl *
   getHLSLDefaultSpecialization(ClassTemplateDecl *Decl);
   // HLSL Change End - adjust this from T* to T&-like
-  // HLSL Change Begin - add HLSL Matrix Attribute when required.
-  void AddHLSLMatrixAttribute(NamedDecl *NewDecl);
-  // HLSL Change End
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

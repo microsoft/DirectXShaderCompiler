@@ -809,17 +809,6 @@ def HLSLRowMajor : TypeAttr {
   let Documentation = [Undocumented];
 }
 
-def HLSLMatrixType : InheritableAttr {
-  let Spellings = [];
-  let Subjects = SubjectList<[MatrixVar, MatrixRetFunction], ErrorDiag,
-                             "ExpectedMatrixVarOrMatrixRetFunction">;
-  let Args = [IntArgument<"NumRows">, IntArgument<"NumColumns">,
-              EnumArgument<"MatrixMajor", "MatrixMajor",
-                           ["default", "row", "column"],
-                           ["Default", "Row", "Column"]>];
-  let Documentation = [Undocumented];
-}
-
 def HLSLUnorm : InheritableAttr {
   let Spellings = [CXX11<"", "unorm", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;

@@ -12873,36 +12873,6 @@ const char *HLSLBufferDecl::getDeclKindName() const {
   return HLSLBufferNames[index];
 }
 
-void Sema::AddHLSLMatrixAttribute(NamedDecl *NewDecl) {
-  assert(NewDecl != nullptr);
-
-  if (!getLangOpts().HLSL) {
-    return;
-  }
-
-  if (auto *VDecl = dyn_cast<ValueDecl>(NewDecl)) {
-    QualType Ty = VDecl->getType();
-    // Check function return type.
-    if (auto *FDecl = dyn_cast<FunctionDecl>(VDecl)) {
-      Ty = FDecl->getReturnType();
-    }
-    if (hlsl::IsHLSLMatType(Ty)) {
-      unsigned Row = 0;
-      unsigned Col = 0;
-      hlsl::GetHLSLMatRowColCount(Ty, Row, Col);
-      auto Major = HLSLMatrixTypeAttr::Default;
-      bool IsRowMajor = false;
-      if (hlsl::HasHLSLMatOrientation(Ty, &IsRowMajor))
-        Major =
-            IsRowMajor ? HLSLMatrixTypeAttr::Row : HLSLMatrixTypeAttr::Column;
-
-      auto *MatAttr = HLSLMatrixTypeAttr::CreateImplicit(this->getASTContext(),
-                                                         Row, Col, Major);
-      VDecl->addAttr(MatAttr);
-    }
-  }
-}
-
 void Sema::TransferUnusualAttributes(Declarator &D, NamedDecl *NewDecl) {
   assert(NewDecl != nullptr);
 

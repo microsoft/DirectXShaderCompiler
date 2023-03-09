@@ -17,7 +17,7 @@ float3x2 t;
 float3x3 tt;
 
 // CHECK:|-FunctionDecl 0x{{.*}}:20 used foo 'row_major float3x3 ()'
-// CHECK-NEXT:|-CompoundStmt 0x{{.*}} <col:26,
+// CHECK-NEXT:CompoundStmt 0x{{.*}} <col:26,
 // CHECK-NEXT:| `-ReturnStmt 0x{{.*}}, col:10>
 // CHECK-NEXT:|   `-ImplicitCastExpr 0x{{.*}} <col:10> 'float3x3':'matrix<float, 3, 3>' <LValueToRValue>
 // CHECK-NEXT:|     `-DeclRefExpr 0x{{.*}} <col:10> 'const float3x3':'const matrix<float, 3, 3>' lvalue Var 0x{{.*}} 'tt' 'const float3x3':'const matrix<float, 3, 3>'
