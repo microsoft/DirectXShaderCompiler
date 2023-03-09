@@ -12,6 +12,7 @@
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/Support/Global.h"
+#include "llvm/ADT/StringRef.h"
 #include <algorithm>
 
 
@@ -390,6 +391,92 @@ const char *ShaderModel::GetKindName(Kind kind) {
 
 const ShaderModel *ShaderModel::GetInvalid() {
   return &ms_ShaderModels[kNumShaderModels - 1];
+}
+
+DXIL::ShaderKind ShaderModel::KindFromFullName(llvm::StringRef kindName) {
+  switch (kindName[0]) {
+  case 'c':
+    switch (kindName[1]) {
+    case 'o':
+      if (kindName == "compute")
+        return DXIL::ShaderKind::Compute;
+      break;
+    case 'l':
+      if (kindName == "closesthit")
+        return DXIL::ShaderKind::ClosestHit;
+      break;
+    case 'a':
+      if (kindName == "callable")
+        return DXIL::ShaderKind::Callable;
+      break;
+    default:
+      break;
+    }
+    break;
+  case 'v':
+    if (kindName == "vertex")
+      return DXIL::ShaderKind::Vertex;
+    break;
+  case 'h':
+    if (kindName == "hull")
+      return DXIL::ShaderKind::Hull;
+    break;
+  case 'd':
+    if (kindName == "domain")
+      return DXIL::ShaderKind::Domain;
+    break;
+  case 'g':
+    if (kindName == "geometry")
+      return DXIL::ShaderKind::Geometry;
+    break;
+  case 'p':
+    if (kindName == "pixel")
+      return DXIL::ShaderKind::Pixel;
+    break;
+  case 'r':
+    if (kindName == "raygeneration")
+      return DXIL::ShaderKind::RayGeneration;
+    break;
+  case 'i':
+    if (kindName == "intersection")
+      return DXIL::ShaderKind::Intersection;
+    break;
+  case 'a':
+    switch (kindName[1]) {
+    case 'm':
+      if (kindName == "amplification")
+        return DXIL::ShaderKind::Amplification;
+      break;
+    case 'n':
+      if (kindName == "anyhit")
+        return DXIL::ShaderKind::AnyHit;
+      break;
+    default:
+      break;
+    }
+    break;
+  case 'm':
+    switch (kindName[1]) {
+    case 'e':
+      if (kindName == "mesh")
+        return DXIL::ShaderKind::Mesh;
+      break;
+    case 'i':
+      if (kindName == "miss")
+        return DXIL::ShaderKind::Miss;
+      break;
+    default:
+      break;
+    }
+    break;
+  case 'l':
+    if (kindName == "library")
+      return DXIL::ShaderKind::Library;
+    break;
+  default:
+    break;
+  }
+  return DXIL::ShaderKind::Invalid;
 }
 
 typedef ShaderModel SM;
