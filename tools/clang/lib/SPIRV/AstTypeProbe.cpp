@@ -1232,21 +1232,19 @@ bool isFloatOrVecMatOfFloatType(QualType type) {
 bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
                                      const SpirvCodeGenOptions &spirvOptions,
                                      QualType type, const Decl *decl) {
-  const auto isColMajorDecl = [&spirvOptions](const Decl *decl) {
-    return decl->hasAttr<clang::HLSLColumnMajorAttr>() ||
-           (!decl->hasAttr<clang::HLSLRowMajorAttr>() &&
-            !spirvOptions.defaultRowMajor);
+  const auto isColMajorDecl = [&spirvOptions](QualType matTy) {
+    return !hlsl::IsHLSLMatRowMajor(matTy, spirvOptions.defaultRowMajor);
   };
 
   QualType elemType = {};
   if (isMxNMatrix(type, &elemType) && !elemType->isFloatingType()) {
-    return isColMajorDecl(decl);
+    return isColMajorDecl(type);
   }
 
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
     if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
         !elemType->isFloatingType())
-      return isColMajorDecl(decl);
+      return isColMajorDecl(arrayType->getElementType());
     if (const auto *structType =
             arrayType->getElementType()->getAs<RecordType>()) {
       return isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
