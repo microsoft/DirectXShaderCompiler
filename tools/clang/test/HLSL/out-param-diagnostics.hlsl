@@ -170,6 +170,21 @@ void MaybeUsedMaybeUnused([maybe_unused] out int Val, int Cnt) { // expected-not
     Val = 1;
 } // expected-note{{uninitialized use occurs here}}
 
+void Use(int V) {}
+
+void NoAnnotationIsUse(out int V) { // expected-note{{variable 'V' is declared here}}
+  Use(V); // expected-warning{{parameter 'V' is uninitialized when used here}}
+}
+
+RWByteAddressBuffer buffer;
+
+// No expected diagnostic here. InterlockedAdd is not annotated with HLSL
+// parameter annotations, so we fall back to C/C++ rules, which don't treat
+// reference passed parameters as uses.
+void interlockWrapper(out uint original) {
+  buffer.InterlockedAdd(16, 1, original);
+}
+
 // Neither of these will warn because we don't support element-based tracking.
 void UnusedSizedArray(out uint u[2]) { }
 void UnusedUnsizedArray(out uint u[]) { }
