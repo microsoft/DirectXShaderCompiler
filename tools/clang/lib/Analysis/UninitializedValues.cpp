@@ -497,8 +497,8 @@ void ClassifyRefs::VisitCallExpr(CallExpr *CE) {
         ParmVarDecl *PD = FD->getParamDecl(ParamIdx);
         bool HasIn = PD->hasAttr<HLSLInAttr>();
         bool HasInOut = PD->hasAttr<HLSLInOutAttr>();
-        // If we have an in annotation or no annotation (implcit in), this is a
-        // use not an initialization.
+        // If we have an explicit `in` or `inout` annotation we should treat
+        // this as a use, otherwise leave it up to C/C++ rules.
         if(HasIn || HasInOut)
           classify(*I, Use);
       }

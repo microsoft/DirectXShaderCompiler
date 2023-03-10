@@ -179,7 +179,8 @@ void NoAnnotationIsUse(out int V) { // expected-note{{variable 'V' is declared h
 RWByteAddressBuffer buffer;
 
 // No expected diagnostic here. InterlockedAdd is not annotated with HLSL
-// parameter annotations.
+// parameter annotations, so we fall back to C/C++ rules, which don't treat
+// reference passed parameters as uses.
 void interlockWrapper(out uint original) {
   buffer.InterlockedAdd(16, 1, original);
 }
