@@ -161,6 +161,8 @@ public:
   bool EnableFXCCompatMode = false;
   bool EnablePayloadAccessQualifiers = false;
   bool DumpImplicitTopLevelDecls = true;
+  /// Whether use row major as default matrix major.
+  bool HLSLDefaultRowMajor = false;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change
