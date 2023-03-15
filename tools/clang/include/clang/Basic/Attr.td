@@ -791,13 +791,13 @@ def HLSLSemantic : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def HLSLColumnMajor : InheritableAttr {
+def HLSLColumnMajor : TypeAttr {
   let Spellings = [CXX11<"", "column_major", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;
   let Documentation = [Undocumented];
 }
 
-def HLSLRowMajor : InheritableAttr {
+def HLSLRowMajor : TypeAttr {
   let Spellings = [CXX11<"", "row_major", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;
   let Documentation = [Undocumented];

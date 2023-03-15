@@ -12283,15 +12283,6 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       A.getAttributeSpellingListIndex());
     break;
 
-  case AttributeList::AT_HLSLColumnMajor:
-    declAttr = ::new (S.Context) HLSLColumnMajorAttr(A.getRange(), S.Context,
-      A.getAttributeSpellingListIndex());
-    break;
-  case AttributeList::AT_HLSLRowMajor:
-    declAttr = ::new (S.Context) HLSLRowMajorAttr(A.getRange(), S.Context,
-      A.getAttributeSpellingListIndex());
-    break;
-
   case AttributeList::AT_HLSLUnorm:
     declAttr = ::new (S.Context) HLSLUnormAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
@@ -13957,8 +13948,6 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     break;
   
   // These four cases are printed in TypePrinter::printAttributedBefore
-  case clang::attr::HLSLColumnMajor:  
-  case clang::attr::HLSLRowMajor:
   case clang::attr::HLSLSnorm:
   case clang::attr::HLSLUnorm:
     break;
@@ -14016,7 +14005,6 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLCall:
   case clang::attr::HLSLCentroid:
   case clang::attr::HLSLClipPlanes:
-  case clang::attr::HLSLColumnMajor:
   case clang::attr::HLSLDomain:
   case clang::attr::HLSLEarlyDepthStencil:
   case clang::attr::HLSLFastOpt:
@@ -14041,7 +14029,6 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLPatchConstantFunc:
   case clang::attr::HLSLMaxVertexCount:
   case clang::attr::HLSLPrecise:
-  case clang::attr::HLSLRowMajor:
   case clang::attr::HLSLSample:
   case clang::attr::HLSLSemantic:
   case clang::attr::HLSLShader:
