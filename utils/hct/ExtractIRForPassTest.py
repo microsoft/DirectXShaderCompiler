@@ -39,6 +39,9 @@ class Options(object):
 def ParseArgs(args):
   opts = Options()
 
+  if len(args) < 1:
+    Usage()
+
   try:
     opts.instance = int(args[0])
     args = args[1:]
