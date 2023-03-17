@@ -77,6 +77,7 @@ def SplitAtPass(passes, pass_name, instance = 1):
         count += 1
         if count >= instance:
           after = [line]
+          continue
     before.append(line)
   return before, after
 
