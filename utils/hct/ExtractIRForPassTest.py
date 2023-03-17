@@ -1,4 +1,5 @@
-"""ExtractIRForPassTest.py - extract IR just before selected pass would be run
+#! /usr/bin/env python3
+"""ExtractIRForPassTest.py - extract IR just before selected pass would be run.
 
 This script automates some operations to make it easier to write IR tests:
   1. Gets the pass list for an HLSL compilation using -Odump
@@ -9,59 +10,44 @@ This script automates some operations to make it easier to write IR tests:
   5. Disassembles bitcode to .ll file for use as a test
   6. Inserts RUN line with -hlsl-passes-resume and desired pass
 
-Usage:
-  ExtractIRForPassTest.py [<number>] <-desired-pass> <hlsl-file> <output-file>
-                          <compilation options for HLSL>
+Examples:
+  ExtractIRForPassTest.py -p scalarrepl-param-hlsl -o my_test.ll my_test.hlsl -- -T cs_6_0 -Od
+    - stop before 'scalarrepl-param-hlsl' pass; output to my_test.ll
+  ExtractIRForPassTest.py -p simplifycfg -n 2 -o my_test.ll my_test.hlsl -- -T cs_6_0
+    - stop before the second invocation of 'simplifycfg' pass
 
-  <number>        - if a pass appears multiple times in the pass list,
-                    this 1-based number selects the instance on which to stop
-  <-desired-pass> - name of pass to stop at for testing (with leading '-')
-                    Note: stopping at per-function prepass not supported
-  <hlsl-file>     - name of the input HLSL file to compile
-  <output-file>   - name of the output file
-  <compilation options for HLSL>
-                  - set of compilation options needed to compile the HLSL file
+Use dxc with -Odump to dump the pass sequence for reference.
 """
 
 import os
 import sys
 import subprocess
 import tempfile
+import argparse
 
-def Usage():
-  print(__doc__)
-  exit(3)
+def ParseArgs():
+  parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__)
+  parser.add_argument(
+    '-p', dest='desired_pass', metavar='<desired-pass>', required=True,
+    help='stop before this module pass (per-function prepass not supported).')
+  parser.add_argument(
+    '-n', dest='invocation', metavar='<invocation>', type=int, default=1,
+    help='pass invocation number on which to stop (default=1)')
+  parser.add_argument(
+    'hlsl_file', metavar='<hlsl-file>',
+    help='input HLSL file path to compile')
+  parser.add_argument(
+    '-o', dest='output_file', metavar='<output-file>', required=True,
+    help='output file name')
+  parser.add_argument(
+    'compilation_options', nargs='*',
+    metavar='-- <DXC options>',
+    help='set of compilation options needed to compile the HLSL file with DXC')
+  return parser.parse_args()
 
-class Options(object):
-  def __init__(self):
-    self.instance = 1
-
-def ParseArgs(args):
-  opts = Options()
-
-  if len(args) < 1:
-    Usage()
-
-  try:
-    opts.instance = int(args[0])
-    args = args[1:]
-  except ValueError:
-    pass
-
-  # At this point, need at least:
-  # <desired-pass> <hlsl-file> <output-file>
-  # and at least the -T compilation option.
-  if len(args) < 4:
-    Usage()
-
-  opts.desired_pass = args[0]
-  opts.hlsl_file = args[1]
-  opts.fcgl_file = opts.hlsl_file + '.fcgl.ll'
-  opts.output_file = args[2]
-  opts.compilation_options = args[3:]
-  return opts
-
-def SplitAtPass(passes, pass_name, instance = 1):
+def SplitAtPass(passes, pass_name, invocation = 1):
+  pass_name = '-' + pass_name
   before = []
   fn_passes = True
   count = 0
@@ -78,7 +64,7 @@ def SplitAtPass(passes, pass_name, instance = 1):
     if not fn_passes:
       if line == pass_name:
         count += 1
-        if count >= instance:
+        if count >= invocation:
           after = [line]
           continue
     before.append(line)
@@ -90,53 +76,57 @@ def GetTempFilename(*args, **kwargs):
   os.close(fd)
   return name
 
-def main(opts):
-  # 1. Gets the pass list for an HLSL compilation using -Odump
-  cmd = ['dxc', '/Odump', opts.hlsl_file] + opts.compilation_options
-  # print(cmd)
-  all_passes = subprocess.check_output(cmd, text=True)
-  all_passes = all_passes.splitlines()
+def main(args):
+  try:
+    # 1. Gets the pass list for an HLSL compilation using -Odump
+    cmd = ['dxc', '/Odump', args.hlsl_file] + args.compilation_options
+    # print(cmd)
+    all_passes = subprocess.check_output(cmd, text=True)
+    all_passes = all_passes.splitlines()
 
-  # 2. Compiles HLSL with -fcgl and outputs to intermediate IR
-  fcgl_file = GetTempFilename('.ll')
-  cmd = (['dxc', '-fcgl', '-Fc', fcgl_file, opts.hlsl_file]
-         + opts.compilation_options)
-  # print(cmd)
-  subprocess.check_call(cmd)
+    # 2. Compiles HLSL with -fcgl and outputs to intermediate IR
+    fcgl_file = GetTempFilename('.ll')
+    cmd = (['dxc', '-fcgl', '-Fc', fcgl_file, args.hlsl_file]
+           + args.compilation_options)
+    # print(cmd)
+    subprocess.check_call(cmd)
 
-  # 3. Collects list of passes before the desired pass and adds
-  #    -hlsl-passes-pause to write correct metadata
-  passes_before, passes_after = SplitAtPass(
-    all_passes, opts.desired_pass, opts.instance)
-  print('\nPasses before: {}\n\nRemaining passes: {}'
-          .format(' '.join(passes_before), ' '.join(passes_after)))
-  passes_before.append('-hlsl-passes-pause')
+    # 3. Collects list of passes before the desired pass and adds
+    #    -hlsl-passes-pause to write correct metadata
+    passes_before, passes_after = SplitAtPass(
+      all_passes, args.desired_pass, args.invocation)
+    print('\nPasses before: {}\n\nRemaining passes: {}'
+            .format(' '.join(passes_before), ' '.join(passes_after)))
+    passes_before.append('-hlsl-passes-pause')
 
-  # 4. Invokes dxopt to run passes on -fcgl output and write bitcode result
-  bitcode_file = GetTempFilename('.bc')
-  cmd = ['dxopt', '-o=' + bitcode_file, fcgl_file] + passes_before
-  # print(cmd)
-  subprocess.check_call(cmd)
+    # 4. Invokes dxopt to run passes on -fcgl output and write bitcode result
+    bitcode_file = GetTempFilename('.bc')
+    cmd = ['dxopt', '-o=' + bitcode_file, fcgl_file] + passes_before
+    # print(cmd)
+    subprocess.check_call(cmd)
 
-  # 5. Disassembles bitcode to .ll file for use as a test
-  temp_out = GetTempFilename('.ll')
-  cmd = ['dxc', '/dumpbin', '-Fc', temp_out, bitcode_file]
-  # print(cmd)
-  subprocess.check_call(cmd)
+    # 5. Disassembles bitcode to .ll file for use as a test
+    temp_out = GetTempFilename('.ll')
+    cmd = ['dxc', '/dumpbin', '-Fc', temp_out, bitcode_file]
+    # print(cmd)
+    subprocess.check_call(cmd)
 
-  # 6. Inserts RUN line with -hlsl-passes-resume and desired pass
-  with open(opts.output_file, 'wt') as f:
-    f.write('; RUN: %opt %s -hlsl-passes-resume {} -S | FileCheck %s\n\n'
-              .format(opts.desired_pass))
-    with open(temp_out, 'rt') as f_in:
-      f.write(f_in.read())
+    # 6. Inserts RUN line with -hlsl-passes-resume and desired pass
+    with open(args.output_file, 'wt') as f:
+      f.write('; RUN: %opt %s -hlsl-passes-resume {} -S | FileCheck %s\n\n'
+                .format(args.desired_pass))
+      with open(temp_out, 'rt') as f_in:
+        f.write(f_in.read())
 
-  # Clean up temp files
-  os.unlink(fcgl_file)
-  os.unlink(bitcode_file)
-  os.unlink(temp_out)
+    # Clean up temp files
+    os.unlink(fcgl_file)
+    os.unlink(bitcode_file)
+    os.unlink(temp_out)
+  except:
+    print(f'\nSomething went wrong!\nMost recent command and arguments: {cmd}\n')
+    raise
 
 if __name__=='__main__':
-  opts = ParseArgs(sys.argv[1:])
-  main(opts)
-  print('\nSuccess!  See output file:\n{}'.format(opts.output_file))
+  args = ParseArgs()
+  main(args)
+  print('\nSuccess!  See output file:\n{}'.format(args.output_file))
