@@ -1,5 +1,8 @@
 ; RUN: %opt %s -hlsl-passes-resume -scalarrepl-param-hlsl -S | FileCheck %s
 
+; Check that the global struct is completely gone
+; CHECK-NOT: @"\01?foo@@3UStruct@@A
+
 ; CHECK: @main
 
 ; Regression test for a crash when there's addrspacecast going into a
@@ -8,7 +11,8 @@
 ; ConstExpr, which invalidates the getelementptr ConstExpr (sets the
 ; operand to nullptr).
 
-; Original HLSL:
+; The test was made with the following original HLSL, and then manually
+; reduced to just the lines that cause problems:
 
 ;; void GlobalSet(inout float x, float val) {
 ;;   x = 10;
@@ -59,29 +63,8 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define float @main() #0 {
 entry:
-  %val.addr.i.1.i = alloca float, align 4, !dx.temp !2
-  %val.addr.i.i = alloca float, align 4, !dx.temp !2
-  %0 = alloca float
-  %val.addr.i = alloca float, align 4, !dx.temp !2
-  store float 1.000000e+01, float* %val.addr.i, align 4, !dbg !50, !tbaa !51 ; line:17 col:3
-  call void @llvm.dbg.declare(metadata %struct.Struct* addrspacecast (%struct.Struct addrspace(3)* @"\01?foo@@3UStruct@@A" to %struct.Struct*), metadata !55, metadata !57), !dbg !58 ; var:"this" !DIExpression() func:"Set"
-  %1 = load i32, i32 addrspace(3)* getelementptr inbounds (%struct.Struct, %struct.Struct addrspace(3)* @"\01?foo@@3UStruct@@A", i32 0, i32 0), align 4, !dbg !60, !tbaa !61 ; line:9 col:5
-  %2 = sitofp i32 %1 to float, !dbg !60 ; line:9 col:5
-  store float %2, float* %0, !dbg !60 ; line:9 col:5
-  %3 = load float, float* %val.addr.i, align 4, !dbg !63, !tbaa !51 ; line:9 col:18
-  store float %3, float* %val.addr.i.i, align 4, !dbg !60, !tbaa !51, !noalias !64 ; line:9 col:5
-  store float 1.000000e+01, float* %0, align 4, !dbg !67, !tbaa !51, !alias.scope !64 ; line:3 col:5
-  %4 = load float, float* %0, !dbg !60 ; line:9 col:5
-  %5 = fptosi float %4 to i32, !dbg !60 ; line:9 col:5
-  store i32 %5, i32 addrspace(3)* getelementptr inbounds (%struct.Struct, %struct.Struct addrspace(3)* @"\01?foo@@3UStruct@@A", i32 0, i32 0), align 4, !dbg !60, !tbaa !61 ; line:9 col:5
-  %6 = load float, float* %val.addr.i, align 4, !dbg !69, !tbaa !51 ; line:10 col:18
-  store float %6, float* %val.addr.i.1.i, align 4, !dbg !70, !tbaa !51, !noalias !71 ; line:10 col:5
   call void @llvm.dbg.declare(metadata float* getelementptr (%struct.Struct, %struct.Struct* addrspacecast (%struct.Struct addrspace(3)* @"\01?foo@@3UStruct@@A" to %struct.Struct*), i32 0, i32 1), metadata !74, metadata !57), !dbg !75 ; var:"x" !DIExpression() func:"GlobalSet"
   store float 1.000000e+01, float addrspace(3)* getelementptr inbounds (%struct.Struct, %struct.Struct addrspace(3)* @"\01?foo@@3UStruct@@A", i32 0, i32 1), align 4, !dbg !77, !tbaa !51, !alias.scope !71 ; line:3 col:5
-  call void @llvm.dbg.declare(metadata float* %val.addr.i.1.i, metadata !78, metadata !57), !dbg !79 ; var:"val" !DIExpression() func:"GlobalSet"
-  call void @llvm.dbg.declare(metadata float* %val.addr.i.i, metadata !78, metadata !57), !dbg !80 ; var:"val" !DIExpression() func:"GlobalSet"
-  call void @llvm.dbg.declare(metadata float* %0, metadata !74, metadata !57), !dbg !81 ; var:"x" !DIExpression() func:"GlobalSet"
-  call void @llvm.dbg.declare(metadata float* %val.addr.i, metadata !82, metadata !57), !dbg !83 ; var:"val" !DIExpression() func:"Set"
   ret float 0.000000e+00, !dbg !84 ; line:18 col:3
 }
 
