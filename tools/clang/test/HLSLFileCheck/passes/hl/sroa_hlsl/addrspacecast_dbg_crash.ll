@@ -8,6 +8,28 @@
 ; ConstExpr, which invalidates the getelementptr ConstExpr (sets the
 ; operand to nullptr).
 
+; Original HLSL:
+
+;; void GlobalSet(inout float x, float val) {
+;;   x = 10;
+;; }
+;; struct Struct {
+;;   int x;
+;;   float y;
+;;   void Set(float val) {
+;;     GlobalSet(x, val);
+;;     GlobalSet(y, val);
+;;   }
+;; };
+;;
+;; groupshared Struct foo;
+;;
+;; float main() : SV_Target {
+;;   foo.Set(10);
+;;   return 0;
+;; }
+;;
+
 ;
 ; Buffer Definitions:
 ;
