@@ -184,8 +184,6 @@ public:
   bool HLSLAllowPreserveValues = false;
   /// Whether we fail compilation if loop fails to unroll
   bool HLSLOnlyWarnOnUnrollFail = false;
-  /// Whether use row major as default matrix major.
-  bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
   bool HLSLNotUseLegacyCBufLoad = false;
   /// Whether use legacy resource reservation.
