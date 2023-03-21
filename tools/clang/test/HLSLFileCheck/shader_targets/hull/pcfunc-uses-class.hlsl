@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T hs_6_0  %s | FileCheck %s
 
 // Make sure input control point is not 0.
-// CHECK: !{void ()* @"\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@XZ", i32 1
+// CHECK: !{void ()* @"\01?HSPerPatchFunc@@YA?AVHSPerPatchData@@XZ", i32 1
 
 // Ensure class works when detecting Patch Constant function
 class HSPerPatchData
