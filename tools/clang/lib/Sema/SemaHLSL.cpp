@@ -4933,8 +4933,8 @@ public:
         }
         return valid;
       }
-      else if (qt->isStructureType()) {
-        const RecordType* recordType = qt->getAsStructureType();
+      else if (qt->isStructureOrClassType()) {
+        const RecordType* recordType = qt->getAsStructureOrClassType();
         objectKind = ClassifyRecordType(recordType);
         switch (objectKind)
         {
@@ -5095,7 +5095,7 @@ public:
               llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
                                                TST->getNumArgs()));
         }
-        if (const RecordType* recordType = argType->getAsStructureType()) {
+        if (const RecordType* recordType = argType->getAsStructureOrClassType()) {
           if (!recordType->getDecl()->isCompleteDefinition()) {
             m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)
                 << argType;
@@ -6963,7 +6963,7 @@ QualType HLSLExternalSource::GetNthElementType(QualType type, unsigned index) {
     return (index == 0) ? type : QualType();
   case AR_TOBJ_COMPOUND: {
     // TODO: consider caching this value for perf
-    const RecordType *recordType = type->getAsStructureType();
+    const RecordType *recordType = type->getAsStructureOrClassType();
     RecordDecl::field_iterator fi = recordType->getDecl()->field_begin();
     RecordDecl::field_iterator fend = recordType->getDecl()->field_end();
     while (fi != fend) {
@@ -7744,13 +7744,8 @@ bool HLSLExternalSource::IsConversionToLessOrEqualElements(
   // DerivedFrom is less.
   if (sourceTypeInfo.ShapeKind == AR_TOBJ_COMPOUND ||
       GetTypeObjectKind(sourceType) == AR_TOBJ_COMPOUND) {
-    const RecordType *targetRT = targetType->getAsStructureType();
-    if (!targetRT)
-      targetRT = dyn_cast<RecordType>(targetType);
-
-    const RecordType *sourceRT = sourceType->getAsStructureType();
-    if (!sourceRT)
-      sourceRT = dyn_cast<RecordType>(sourceType);
+    const RecordType *targetRT = targetType->getAsStructureOrClassType();
+    const RecordType *sourceRT = sourceType->getAsStructureOrClassType();
 
     if (targetRT && sourceRT) {
       RecordDecl *targetRD = targetRT->getDecl();
@@ -11584,9 +11579,8 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
     m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(type, 1, expression));
     return true;
   case ArTypeObjectKind::AR_TOBJ_COMPOUND: {
-    recordType = type->getAsStructureType();
-    if (recordType == nullptr)
-      recordType = dyn_cast<RecordType>(type.getTypePtr());
+    recordType = type->getAsStructureOrClassType();
+    DXASSERT(recordType, "compound type is expected to be a RecordType");
 
     fi = recordType->getDecl()->field_begin();
     fe = recordType->getDecl()->field_end();
@@ -11633,7 +11627,7 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
   case ArTypeObjectKind::AR_TOBJ_OBJECT: {
     if (m_source.IsSubobjectType(type)) {
       // subobjects are initialized with initialization lists
-      recordType = type->getAsStructureType();
+      recordType = type->getAsStructureOrClassType();
       fi = recordType->getDecl()->field_begin();
       fe = recordType->getDecl()->field_end();
 
@@ -12804,7 +12798,7 @@ Decl *Sema::ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
   }
   // Check to make that sure only structs are allowed as parameter types for
   // ConstantBuffer and TextureBuffer.
-  if (!declType->isStructureType()) {
+  if (!declType->isStructureOrClassType()) {
     Diag(decl->getLocStart(),
          diag::err_hlsl_typeintemplateargument_requires_struct)
         << declType;
