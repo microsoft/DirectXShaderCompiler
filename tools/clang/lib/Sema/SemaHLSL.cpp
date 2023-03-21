@@ -12775,63 +12775,10 @@ Decl* Sema::getActiveHLSLBuffer() const
   return HLSLBuffers.empty() ? nullptr : HLSLBuffers.back();
 }
 
-Decl *Sema::ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                            DeclGroupPtrTy &dcl, bool iscbuf) {
-  DXASSERT(nullptr == HLSLBuffers.back(), "otherwise push/pop is incorrect");
-  HLSLBuffers.pop_back();
-  DXASSERT(HLSLBuffers.empty(), "otherwise push/pop is incorrect");
-
-  Decl *decl = dcl.get().getSingleDecl();
-  NamedDecl *namedDecl = cast<NamedDecl>(decl);
-  IdentifierInfo *Ident = namedDecl->getIdentifier();
-
-  // No anonymous namespace for ConstantBuffer, take the location of the decl.
-  SourceLocation Loc = decl->getLocation();
-
-  // Prevent array type in template.  The only way to specify an array in the template type
-  // is to use a typedef, so we will strip non-typedef arrays off, since these are the legal
-  // array dimensions for the CBV/TBV, and if any array type remains, that is illegal.
-  QualType declType = cast<VarDecl>(namedDecl)->getType();
-  while (declType->isArrayType() && declType->getTypeClass() != Type::TypeClass::Typedef) {
-    const ArrayType *arrayType = declType->getAsArrayTypeUnsafe();
-    declType = arrayType->getElementType();
-  }
-  // Check to make that sure only structs are allowed as parameter types for
-  // ConstantBuffer and TextureBuffer.
-  if (!declType->isStructureOrClassType()) {
-    Diag(decl->getLocStart(),
-         diag::err_hlsl_typeintemplateargument_requires_struct)
-        << declType;
-    return nullptr;
-  }
-
-  std::vector<hlsl::UnusualAnnotation *> hlslAttrs;
-
-  DeclContext *lexicalParent = getCurLexicalContext();
-  clang::HLSLBufferDecl *result = HLSLBufferDecl::Create(
-      Context, lexicalParent, iscbuf, /*isConstantBufferView*/ true,
-      KwLoc, Ident, Loc, hlslAttrs, Loc);
-
-  // set relation
-  namedDecl->setDeclContext(result);
-  result->addDecl(namedDecl);
-  // move attribute from constant to constant buffer
-  result->setUnusualAnnotations(namedDecl->getUnusualAnnotations());
-  namedDecl->setUnusualAnnotations(hlslAttrs);
-
-  return result;
-}
-
 bool Sema::IsOnHLSLBufferView() {
   // nullptr will not pushed for cbuffer.
   return !HLSLBuffers.empty() && getActiveHLSLBuffer() == nullptr;
 }
-void Sema::ActOnStartHLSLBufferView() {
-  // Push nullptr to mark HLSLBufferView.
-  DXASSERT(HLSLBuffers.empty(), "otherwise push/pop is incorrect");
-  HLSLBuffers.emplace_back(nullptr);
-}
-
 HLSLBufferDecl::HLSLBufferDecl(
     DeclContext *DC, bool cbuffer, bool cbufferView, SourceLocation KwLoc,
     IdentifierInfo *Id, SourceLocation IdLoc,

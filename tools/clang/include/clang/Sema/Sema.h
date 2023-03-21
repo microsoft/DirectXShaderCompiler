@@ -4072,10 +4072,7 @@ public:
     SourceLocation LBrace);
   void ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace);
   Decl* getActiveHLSLBuffer() const;
-  void ActOnStartHLSLBufferView();
   bool IsOnHLSLBufferView();
-  Decl *ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                        DeclGroupPtrTy &dcl, bool iscbuf);
   // HLSL Change Ends
 
   //===---------------------------- C++ Features --------------------------===//
