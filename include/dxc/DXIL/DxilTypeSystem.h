@@ -315,15 +315,19 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
 
 void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKind sigPoint, llvm::LLVMContext &Context);
 
-class DxilStructTypeIterator
-    : public std::iterator<std::input_iterator_tag,
-                           std::pair<llvm::Type *, DxilFieldAnnotation *>> {
+class DxilStructTypeIterator {
 private:
   llvm::StructType *STy;
   DxilStructAnnotation *SAnnotation;
   unsigned index;
 
 public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = std::pair<llvm::Type *, DxilFieldAnnotation *>;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   DxilStructTypeIterator(llvm::StructType *sTy,
                          DxilStructAnnotation *sAnnotation, unsigned idx = 0);
   // prefix
