@@ -1785,7 +1785,6 @@ public:
   // specified type, ignoring typedefs and qualifiers, and return a pointer to
   // the best type we can.
   const RecordType *getAsStructureType() const;
-  const RecordType *getAsStructureOrClassType() const;
   /// NOTE: getAs*ArrayType are methods on ASTContext.
   const RecordType *getAsUnionType() const;
   const ComplexType *getAsComplexIntegerType() const; // GCC complex int type.

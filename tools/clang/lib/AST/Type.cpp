@@ -446,27 +446,6 @@ const RecordType *Type::getAsStructureType() const {
   return nullptr;
 }
 
-const RecordType *Type::getAsStructureOrClassType() const {
-  // If this is directly a structure type, return it.
-  if (const RecordType *RT = dyn_cast<RecordType>(this)) {
-    RecordDecl *RD = RT->getDecl();
-    if (RD->isStruct() || RD->isClass() || RD->isInterface())
-      return RT;
-  }
-
-  // If the canonical form of this type isn't the right kind, reject it.
-  if (const RecordType *RT = dyn_cast<RecordType>(CanonicalType)) {
-    RecordDecl *RD = RT->getDecl();
-    if (!(RD->isStruct() || RD->isClass() || RD->isInterface()))
-      return nullptr;
-
-    // If this is a typedef for a structure type, strip the typedef off without
-    // losing all typedef information.
-    return cast<RecordType>(getUnqualifiedDesugaredType());
-  }
-  return nullptr;
-}
-
 const RecordType *Type::getAsUnionType() const {
   // If this is directly a union type, return it.
   if (const RecordType *RT = dyn_cast<RecordType>(this)) {
