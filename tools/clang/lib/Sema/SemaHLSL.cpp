@@ -4933,8 +4933,8 @@ public:
         }
         return valid;
       }
-      else if (qt->isStructureType()) {
-        const RecordType* recordType = qt->getAsStructureType();
+      else if (qt->isStructureOrClassType()) {
+        const RecordType* recordType = qt->getAs<RecordType>();
         objectKind = ClassifyRecordType(recordType);
         switch (objectKind)
         {
@@ -5095,7 +5095,7 @@ public:
               llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
                                                TST->getNumArgs()));
         }
-        if (const RecordType* recordType = argType->getAsStructureType()) {
+        if (const RecordType* recordType = argType->getAs<RecordType>()) {
           if (!recordType->getDecl()->isCompleteDefinition()) {
             m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)
                 << argType;
@@ -6963,7 +6963,7 @@ QualType HLSLExternalSource::GetNthElementType(QualType type, unsigned index) {
     return (index == 0) ? type : QualType();
   case AR_TOBJ_COMPOUND: {
     // TODO: consider caching this value for perf
-    const RecordType *recordType = type->getAsStructureType();
+    const RecordType *recordType = type->getAs<RecordType>();
     RecordDecl::field_iterator fi = recordType->getDecl()->field_begin();
     RecordDecl::field_iterator fend = recordType->getDecl()->field_end();
     while (fi != fend) {
@@ -7744,13 +7744,8 @@ bool HLSLExternalSource::IsConversionToLessOrEqualElements(
   // DerivedFrom is less.
   if (sourceTypeInfo.ShapeKind == AR_TOBJ_COMPOUND ||
       GetTypeObjectKind(sourceType) == AR_TOBJ_COMPOUND) {
-    const RecordType *targetRT = targetType->getAsStructureType();
-    if (!targetRT)
-      targetRT = dyn_cast<RecordType>(targetType);
-
-    const RecordType *sourceRT = sourceType->getAsStructureType();
-    if (!sourceRT)
-      sourceRT = dyn_cast<RecordType>(sourceType);
+    const RecordType *targetRT = targetType->getAs<RecordType>();
+    const RecordType *sourceRT = sourceType->getAs<RecordType>();
 
     if (targetRT && sourceRT) {
       RecordDecl *targetRD = targetRT->getDecl();
@@ -11584,9 +11579,8 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
     m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(type, 1, expression));
     return true;
   case ArTypeObjectKind::AR_TOBJ_COMPOUND: {
-    recordType = type->getAsStructureType();
-    if (recordType == nullptr)
-      recordType = dyn_cast<RecordType>(type.getTypePtr());
+    recordType = type->getAs<RecordType>();
+    DXASSERT(recordType, "compound type is expected to be a RecordType");
 
     fi = recordType->getDecl()->field_begin();
     fe = recordType->getDecl()->field_end();
@@ -11633,7 +11627,7 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
   case ArTypeObjectKind::AR_TOBJ_OBJECT: {
     if (m_source.IsSubobjectType(type)) {
       // subobjects are initialized with initialization lists
-      recordType = type->getAsStructureType();
+      recordType = type->getAs<RecordType>();
       fi = recordType->getDecl()->field_begin();
       fe = recordType->getDecl()->field_end();
 
@@ -12781,63 +12775,10 @@ Decl* Sema::getActiveHLSLBuffer() const
   return HLSLBuffers.empty() ? nullptr : HLSLBuffers.back();
 }
 
-Decl *Sema::ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                            DeclGroupPtrTy &dcl, bool iscbuf) {
-  DXASSERT(nullptr == HLSLBuffers.back(), "otherwise push/pop is incorrect");
-  HLSLBuffers.pop_back();
-  DXASSERT(HLSLBuffers.empty(), "otherwise push/pop is incorrect");
-
-  Decl *decl = dcl.get().getSingleDecl();
-  NamedDecl *namedDecl = cast<NamedDecl>(decl);
-  IdentifierInfo *Ident = namedDecl->getIdentifier();
-
-  // No anonymous namespace for ConstantBuffer, take the location of the decl.
-  SourceLocation Loc = decl->getLocation();
-
-  // Prevent array type in template.  The only way to specify an array in the template type
-  // is to use a typedef, so we will strip non-typedef arrays off, since these are the legal
-  // array dimensions for the CBV/TBV, and if any array type remains, that is illegal.
-  QualType declType = cast<VarDecl>(namedDecl)->getType();
-  while (declType->isArrayType() && declType->getTypeClass() != Type::TypeClass::Typedef) {
-    const ArrayType *arrayType = declType->getAsArrayTypeUnsafe();
-    declType = arrayType->getElementType();
-  }
-  // Check to make that sure only structs are allowed as parameter types for
-  // ConstantBuffer and TextureBuffer.
-  if (!declType->isStructureType()) {
-    Diag(decl->getLocStart(),
-         diag::err_hlsl_typeintemplateargument_requires_struct)
-        << declType;
-    return nullptr;
-  }
-
-  std::vector<hlsl::UnusualAnnotation *> hlslAttrs;
-
-  DeclContext *lexicalParent = getCurLexicalContext();
-  clang::HLSLBufferDecl *result = HLSLBufferDecl::Create(
-      Context, lexicalParent, iscbuf, /*isConstantBufferView*/ true,
-      KwLoc, Ident, Loc, hlslAttrs, Loc);
-
-  // set relation
-  namedDecl->setDeclContext(result);
-  result->addDecl(namedDecl);
-  // move attribute from constant to constant buffer
-  result->setUnusualAnnotations(namedDecl->getUnusualAnnotations());
-  namedDecl->setUnusualAnnotations(hlslAttrs);
-
-  return result;
-}
-
 bool Sema::IsOnHLSLBufferView() {
   // nullptr will not pushed for cbuffer.
   return !HLSLBuffers.empty() && getActiveHLSLBuffer() == nullptr;
 }
-void Sema::ActOnStartHLSLBufferView() {
-  // Push nullptr to mark HLSLBufferView.
-  DXASSERT(HLSLBuffers.empty(), "otherwise push/pop is incorrect");
-  HLSLBuffers.emplace_back(nullptr);
-}
-
 HLSLBufferDecl::HLSLBufferDecl(
     DeclContext *DC, bool cbuffer, bool cbufferView, SourceLocation KwLoc,
     IdentifierInfo *Id, SourceLocation IdLoc,
