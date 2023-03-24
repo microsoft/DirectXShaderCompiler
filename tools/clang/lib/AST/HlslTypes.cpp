@@ -631,7 +631,7 @@ static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
   if (Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty))
     return false;
 
-  if (const RecordType *RT = Ty->getAsStructureType()) {
+  if (const RecordType *RT = Ty->getAs<RecordType>()) {
     RecordDecl *RD = RT->getDecl();
     for (FieldDecl *fieldDecl : RD->fields()) {
       if (HasTessFactorSemanticRecurse(fieldDecl, fieldDecl->getType()))
