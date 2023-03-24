@@ -14134,7 +14134,6 @@ clang::QualType ApplyTypeSpecSignToParsedType(
 
 QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   if (Decl->getTemplateParameters()->getMinRequiredArguments() == 0) {
-    void *InsertPos = nullptr;
     TemplateArgumentListInfo EmptyArgs;
     EmptyArgs.setLAngleLoc(Decl->getSourceRange().getEnd());
     EmptyArgs.setRAngleLoc(Decl->getSourceRange().getEnd());
