@@ -25,7 +25,7 @@ void main()
   sizeof 42; // expected-error {{invalid application of 'sizeof' to literal type 'literal int'}}
   sizeof 42.0; // expected-error {{invalid application of 'sizeof' to literal type 'literal float'}}
   sizeof ""; // expected-error {{invalid application of 'sizeof' to non-numeric type 'literal string'}}
-  sizeof(Buffer); // expected-error {{invalid application of 'sizeof' to non-numeric type 'Buffer<vector<float, 4> >'}}
+  sizeof(Buffer); // expected-error {{invalid application of 'sizeof' to non-numeric type 'Buffer'}}
   sizeof(StructWithResource); // expected-error {{invalid application of 'sizeof' to non-numeric type 'StructWithResource'}}
   sizeof(main); // expected-error {{invalid application of 'sizeof' to non-numeric type 'void ()'}}
 }
