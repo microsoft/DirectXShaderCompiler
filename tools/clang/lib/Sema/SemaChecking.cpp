@@ -48,6 +48,19 @@ SourceLocation Sema::getLocationOfStringLiteralByte(const StringLiteral *SL,
                                Context.getTargetInfo());
 }
 
+// HLSL Change begin
+static void CheckGloballyCoherentMismatch(Sema &S, Expr *SrcExpr,
+                                          QualType DstTy, SourceLocation CC) {
+  if(!hlsl::IsHLSLResourceType(SrcExpr->getType()))
+    return;
+  bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcExpr->getType());
+  bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
+  if (SrcGL != DstGL)
+    S.Diag(CC, diag::warn_hlsl_impcast_gl_mismatch)
+        << SrcExpr->getType() << DstTy << /*loses|adds*/ DstGL;
+}
+// HLSL Change end
+
 /// Checks that a call expression's argument count is the desired number.
 /// This is useful when doing custom type-checking.  Returns true on error.
 static bool checkArgCount(Sema &S, CallExpr *call, unsigned desiredArgCount) {
@@ -6872,6 +6885,22 @@ static bool IsImplicitBoolFloatConversion(Sema &S, Expr *Ex, bool ToBool) {
 
 void CheckImplicitArgumentConversions(Sema &S, CallExpr *TheCall,
                                       SourceLocation CC) {
+  // HLSL Change Begin
+  if (FunctionDecl *FD = TheCall->getDirectCallee()) {
+    CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
+    unsigned ArgIdx = 0;
+    unsigned ParmIdx = 0;
+    if (MD && MD->isInstance())
+      ++ParmIdx;
+    for (; ArgIdx < TheCall->getNumArgs() && ParmIdx < FD->getNumParams();
+         ++ArgIdx, ++ParmIdx) {
+      ParmVarDecl *PD = FD->getParamDecl(ParmIdx);
+      Expr *CurrA = TheCall->getArg(ArgIdx);
+      CheckGloballyCoherentMismatch(S, CurrA, PD->getType(), CC);
+    }
+  }
+  // HLSL CHange End
+
   unsigned NumArgs = TheCall->getNumArgs();
   for (unsigned i = 0; i < NumArgs; ++i) {
     Expr *CurrA = TheCall->getArg(i);

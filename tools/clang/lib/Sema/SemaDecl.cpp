@@ -9153,6 +9153,20 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   // Get the decls type and save a reference for later, since
   // CheckInitializerTypes may change it.
   QualType DclT = VDecl->getType(), SavT = DclT;
+
+  // HLSL Change begin
+  // When initializing an HLSL resource type we should diagnose mismatches in
+  // globally coherent annotations _unless_ the source is a dynamic resource
+  // placeholder type where we safely infer the globallycoherent annotaiton.
+  if (getLangOpts().HLSL && hlsl::IsHLSLResourceType(DclT) &&
+      !hlsl::IsHLSLDynamicResourceType(Init->getType())) {
+    bool SrcGL = hlsl::HasHLSLGloballyCoherent(Init->getType());
+    bool DstGL = hlsl::HasHLSLGloballyCoherent(DclT);
+    if (SrcGL != DstGL)
+      Diag(Init->getExprLoc(), diag::warn_hlsl_impcast_gl_mismatch)
+        << Init->getType() << DclT << /*loses|adds*/ DstGL;
+  }
+  // HLSL Change end
   
   // Expressions default to 'id' when we're in a debugger
   // and we are assigning it to a variable of Objective-C pointer type.

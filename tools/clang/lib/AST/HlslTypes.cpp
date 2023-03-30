@@ -571,6 +571,14 @@ bool IsHLSLResourceType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLDynamicResourceType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    return name == ".Resource";
+  }
+  return false;
+}
+
 bool IsHLSLBufferViewType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();

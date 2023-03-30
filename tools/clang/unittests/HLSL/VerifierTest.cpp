@@ -104,6 +104,7 @@ public:
   TEST_METHOD(RunAtomicsOnBitfields)
   TEST_METHOD(RunUnboundedResourceArrays)
   TEST_METHOD(GloballyCoherentErrors)
+  TEST_METHOD(GloballyCoherentMismatch)
   TEST_METHOD(GloballyCoherentTemplateErrors)
   TEST_METHOD(RunBitFieldAnnotations)
   TEST_METHOD(RunUDTByteAddressBufferLoad)
@@ -455,6 +456,10 @@ TEST_F(VerifierTest, RunUnboundedResourceArrays) {
 
 TEST_F(VerifierTest, GloballyCoherentErrors) {
   CheckVerifiesHLSL(L"globallycoherent-errors.hlsl");
+}
+
+TEST_F(VerifierTest, GloballyCoherentMismatch) {
+  CheckVerifiesHLSL(L"globallycoherent-mismatch.hlsl");
 }
 
 TEST_F(VerifierTest, GloballyCoherentTemplateErrors) {

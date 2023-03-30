@@ -847,7 +847,7 @@ def HLSLTriangleAdj : InheritableAttr {
 
 def HLSLGloballyCoherent : InheritableAttr {
   let Spellings = [CXX11<"", "globallycoherent", 2015>];
-  let Subjects = SubjectList<[Var]>;
+  let Subjects = SubjectList<[Var, Function]>;
   let Documentation = [Undocumented];
 }
 

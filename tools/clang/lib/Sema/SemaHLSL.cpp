@@ -12142,16 +12142,18 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
           dyn_cast<HLSLGloballyCoherentAttr>(A)) {
     const ValueDecl *TD = cast<ValueDecl>(D);
-    if (!TD->getType()->isDependentType()) {
-      QualType DeclType = TD->getType();
-      while (DeclType->isArrayType())
-        DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
-      if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
-          hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
-              hlsl::DXIL::ResourceClass::UAV) {
-        Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
-            << A << "non-UAV type";
-      }
+    if (TD->getType()->isDependentType())
+      return;
+    QualType DeclType = TD->getType();
+    if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(TD))
+      DeclType = FD->getReturnType();
+    while (DeclType->isArrayType())
+      DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+    if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
+        hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
+            hlsl::DXIL::ResourceClass::UAV) {
+      Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
+          << A << "non-UAV type";
     }
     return;
   }

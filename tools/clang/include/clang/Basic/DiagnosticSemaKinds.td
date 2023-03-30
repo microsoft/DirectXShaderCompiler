@@ -7676,6 +7676,9 @@ def err_hlsl_incorrect_bind_semantic: Error< // Is an error in fxc in some cases
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
   InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_impcast_gl_mismatch : Warning<
+  "implicit conversion from %0 to %1 %select{loses|adds}2 globallycoherent annotation">,
+  InGroup<Conversion>, DefaultWarn;
 def warn_hlsl_narrowing : Warning<
   "conversion from larger type %0 to smaller type %1, possible loss of data">,
   InGroup<Conversion>, DefaultWarn;

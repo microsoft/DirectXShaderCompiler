@@ -3182,6 +3182,14 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     }
   }
 
+  if (getLangOpts().HLSL && hlsl::IsHLSLResourceType(FnRetType)) {
+    bool SrcGL = hlsl::HasHLSLGloballyCoherent(RetValExp->getType());
+    bool DstGL = hlsl::HasHLSLGloballyCoherent(FnRetType);
+    if (SrcGL != DstGL)
+      Diag(ReturnLoc, diag::warn_hlsl_impcast_gl_mismatch)
+          << RetValExp->getType() << FnRetType << /*loses|adds*/ DstGL;
+  }
+
   bool HasDependentReturnType = FnRetType->isDependentType();
 
   ReturnStmt *Result = nullptr;

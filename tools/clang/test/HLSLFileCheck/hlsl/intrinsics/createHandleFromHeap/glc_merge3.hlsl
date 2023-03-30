@@ -1,9 +1,4 @@
 // RUN: %dxc -T ps_6_6 %s | %FileCheck %s
-// RUN: %dxc -T ps_6_6 %s | %FileCheck -input-file=stderr -check-prefix=CHK-WARNING %s
-
-// Make sure got warning.
-// CHK-WARNING:warning: global coherent mismatch
-// CHK-WARNING:return get(buf, i);
 
 // Make sure only 1 annotate handle and mark glc.
 // Make sure glc is set.
