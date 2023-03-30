@@ -9078,8 +9078,7 @@ public:
   // HLSL Change Begin - adjust this from T* to T&-like
   CXXThisExpr *genereateHLSLThis(SourceLocation Loc, QualType ThisType,
                                 bool isImplicit);
-  ClassTemplateSpecializationDecl *
-  getHLSLDefaultSpecialization(ClassTemplateDecl *Decl);
+  QualType getHLSLDefaultSpecialization(TemplateDecl *Decl);
   // HLSL Change End - adjust this from T* to T&-like
 };
 
