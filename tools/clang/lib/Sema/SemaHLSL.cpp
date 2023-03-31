@@ -4347,8 +4347,8 @@ public:
                  "otherwise object template decl is not set to implicit");
         return AR_TOBJ_OBJECT;
       } else if (auto *TAT = dyn_cast<TypeAliasTemplateDecl>(typeRecordDecl)) {
-        if (TAT->getCanonicalDecl() == +m_defaultMatDecl->getCanonicalDecl() ||
-            TAT->getCanonicalDecl() == +m_rowMajorMatDecl->getCanonicalDecl() ||
+        if (TAT->getCanonicalDecl() == m_defaultMatDecl->getCanonicalDecl() ||
+            TAT->getCanonicalDecl() == m_rowMajorMatDecl->getCanonicalDecl() ||
             TAT->getCanonicalDecl() == m_columnMajorMatDecl->getCanonicalDecl())
           return AR_TOBJ_MATRIX;
       }
