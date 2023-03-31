@@ -503,7 +503,7 @@ TEST_F(LinkerTest, RunLinkToLibExport) {
   Link(L"", L"lib_6_3", pLinker, {libName, libName2},
     { "@\"\\01?renamed_test@@","@\"\\01?cloned_test@@","@main" },
     { "@\"\\01?mat_test", "@renamed_test", "@cloned_test" },
-    {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z;main"});
+    {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02$0A@@@@Z;main"});
 }
 
 TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {

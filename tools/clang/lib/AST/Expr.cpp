@@ -1716,6 +1716,10 @@ const char *CastExpr::getCastKindName() const {
     return "HLSLCC_FloatingToBoolean";
   case CK_HLSLCC_FloatingCast:
     return "HLSLCC_FloatingCast";
+  case CK_HLSLRowMajorToColMajor:
+    return "HLSLRowMajorToColMajor";
+  case CK_HLSLColMajorToRowMajor:
+    return "HLSLColMajorToRowMajor";
   // HLSL Change Ends
   }
 

@@ -142,6 +142,8 @@ ImplicitConversionRank clang::GetConversionRank(ImplicitConversionKind Kind) {
     ICR_Conversion,
     ICR_Conversion,
     ICR_Conversion,
+    ICR_Conversion,
+    ICR_Conversion,
     // HLSL Change Ends
   };
   static_assert(_countof(Rank) == ICK_Num_Conversion_Kinds,
@@ -187,6 +189,9 @@ static const char* GetImplicitConversionName(ImplicitConversionKind Kind) {
     "HLSLVector/Matrix splat",
     "HLSLVector/Matrix truncation",
     "HLSL derived to base",
+    "HLSL row major to column major",
+    "HLSL column major to row major",
+
     // HLSL Change Ends
   };
   static_assert(_countof(Name) == ICK_Num_Conversion_Kinds,
@@ -223,6 +228,8 @@ ImplicitConversionRank StandardConversionSequence::getRank() const {
     Rank = GetConversionRank(Second);
   if  (GetConversionRank(ComponentConversion) > Rank) // HLSL Change
     Rank = GetConversionRank(ComponentConversion);
+  if (GetConversionRank(MatrixMajorConversion) > Rank) // HLSL Change
+    Rank = GetConversionRank(MatrixMajorConversion);
   if  (GetConversionRank(Third) > Rank)
     Rank = GetConversionRank(Third);
   return Rank;
@@ -484,6 +491,13 @@ void StandardConversionSequence::dump() const {
       OS << " -> ";
     }
     OS << GetImplicitConversionName(ComponentConversion);
+    PrintedSomething = true;
+  }
+  if (MatrixMajorConversion != ICK_Identity) {
+    if (PrintedSomething) {
+      OS << " -> ";
+    }
+    OS << GetImplicitConversionName(MatrixMajorConversion);
     PrintedSomething = true;
   }
   // HLSL Change Ends
@@ -4940,6 +4954,7 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
   ICS.Standard.BindsImplicitObjectArgumentWithoutRefQualifier
     = (Method->getRefQualifier() == RQ_None);
   ICS.Standard.ComponentConversion = ICK_Identity;
+  ICS.Standard.MatrixMajorConversion = ICK_Identity;
   return ICS;
 }
 

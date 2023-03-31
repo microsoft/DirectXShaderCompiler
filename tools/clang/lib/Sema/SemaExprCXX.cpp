@@ -3453,6 +3453,8 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   case ICK_HLSLVector_Scalar:
   case ICK_HLSLVector_Truncation:
   case ICK_HLSLVector_Conversion:
+  case ICK_HLSLColMajorToRowMajor:
+  case ICK_HLSLRowMajorToColMajor:
     From = hlsl::PerformHLSLConversion(this, From, ToType.getUnqualifiedType(), SCS, CCK).get();
     break;
   // HLSL Change Ends
@@ -3511,6 +3513,23 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   default:
     llvm_unreachable("Improper third standard conversion");
   }
+
+  // HLSL Change Starts
+  switch (SCS.MatrixMajorConversion) {
+  default:
+    break;
+  case ICK_HLSLColMajorToRowMajor: {
+    From = ImpCastExprToType(From, ToType, CK_HLSLColMajorToRowMajor,
+                             From->getValueKind())
+               .get();
+  } break;
+  case ICK_HLSLRowMajorToColMajor: {
+    From = ImpCastExprToType(From, ToType, CK_HLSLRowMajorToColMajor,
+                             From->getValueKind())
+               .get();
+  } break;
+  }
+  // HLSL Change Ends
 
   // If this conversion sequence involved a scalar -> atomic conversion, perform
   // that conversion now.

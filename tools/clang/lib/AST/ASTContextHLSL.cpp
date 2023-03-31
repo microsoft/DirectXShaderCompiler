@@ -19,6 +19,7 @@
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/HlslBuiltinTypeDeclBuilder.h"
 #include "clang/AST/TypeLoc.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/Overload.h"
@@ -298,21 +299,29 @@ void AddSubscriptOperator(
   methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
-/// <summary>Adds up-front support for HLSL matrix types (just the template declaration).</summary>
-void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorTemplateDecl, ClassTemplateDecl** matrixTemplateDecl)
-{
-  DXASSERT_NOMSG(matrixTemplateDecl != nullptr);
-  DXASSERT_NOMSG(vectorTemplateDecl != nullptr);
+static ClassTemplateDecl *
+CreateHLSLMatrixInternalTemplate(ASTContext &context, DeclContext *DC,
+                                 ClassTemplateDecl *vectorTemplateDecl) {
+  // Create internal matrix template declaration in translation unit scope.
+  // template<typename element, int row_count, int col_count, int orientation>
+  // matrix.internal::matrix { ... }
+  BuiltinTypeDeclBuilder typeDeclBuilder(DC, "matrix");
+  TemplateTypeParmDecl *elementTemplateParamDecl =
+      typeDeclBuilder.addTypeTemplateParam("element",
+                                           (QualType)context.FloatTy);
+  NonTypeTemplateParmDecl *rowCountTemplateParamDecl =
+      typeDeclBuilder.addIntegerTemplateParam("row_count", context.IntTy, 4);
+  NonTypeTemplateParmDecl *colCountTemplateParamDecl =
+      typeDeclBuilder.addIntegerTemplateParam("col_count", context.IntTy, 4);
+  // hlsl::HLSLMatrixOrientation, 0 is col major, 2 is row major.
+  // Set default based on HLSLDefaultRowMajor option. This will avoid create col
+  // major by default then convert to row major when HLSLDefaultRowMajor is
+  // true.
+  typeDeclBuilder.addIntegerTemplateParam("orientation", context.IntTy);
 
-  // Create a matrix template declaration in translation unit scope.
-  // template<typename element, int row_count, int col_count> matrix { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), "matrix");
-  TemplateTypeParmDecl* elementTemplateParamDecl = typeDeclBuilder.addTypeTemplateParam("element", (QualType)context.FloatTy);
-  NonTypeTemplateParmDecl* rowCountTemplateParamDecl = typeDeclBuilder.addIntegerTemplateParam("row_count", context.IntTy, 4);
-  NonTypeTemplateParmDecl* colCountTemplateParamDecl = typeDeclBuilder.addIntegerTemplateParam("col_count", context.IntTy, 4);
   typeDeclBuilder.startDefinition();
-  CXXRecordDecl* templateRecordDecl = typeDeclBuilder.getRecordDecl();
-  ClassTemplateDecl* classTemplateDecl = typeDeclBuilder.getTemplateDecl();
+  CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();
+  ClassTemplateDecl *classTemplateDecl = typeDeclBuilder.getTemplateDecl();
 
   // Add an 'h' field to hold the handle.
   // The type is vector<element, col>[row].
@@ -328,7 +337,7 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
       context, NestedNameSpecifierLoc(), NoLoc, colCountTemplateParamDecl,
       false,
       DeclarationNameInfo(colCountTemplateParamDecl->getDeclName(), NoLoc),
-    context.IntTy, ExprValueKind::VK_RValue);
+      context.IntTy, ExprValueKind::VK_RValue);
 
   QualType vectorType = context.getDependentSizedExtVectorType(
       elementType, rowSizeExpr, SourceLocation());
@@ -337,7 +346,8 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
 
   typeDeclBuilder.addField("h", vectorArrayType);
 
-  // Add an operator[]. The operator ranges from zero to rowcount-1, and returns a vector of colcount elements.
+  // Add an operator[]. The operator ranges from zero to rowcount-1, and returns
+  // a vector of colcount elements.
   const unsigned int templateDepth = 0;
   AddSubscriptOperator(context, templateDepth, elementTemplateParamDecl,
                        colCountTemplateParamDecl, context.UnsignedIntTy,
@@ -347,7 +357,151 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
                        templateRecordDecl, vectorTemplateDecl, ForConstTrue);
 
   typeDeclBuilder.completeDefinition();
-  *matrixTemplateDecl = classTemplateDecl;
+  return classTemplateDecl;
+}
+
+static TypeAliasTemplateDecl *
+CreateHLSLMatrixTemplate(ASTContext &context,
+                         ClassTemplateDecl *internalMatrixDecl, DeclContext *DC,
+                         int Orientation) {
+  // Create a matrix template declaration in translation unit scope.
+  // template<typename element, int row_count, int col_count> matrix { ... }
+  BuiltinTypeDeclBuilder typeDeclBuilder(DC, "matrix");
+  TemplateTypeParmDecl *elementTemplateParamDecl =
+      typeDeclBuilder.addTypeTemplateParam("element",
+                                           (QualType)context.FloatTy);
+  NonTypeTemplateParmDecl *rowCountTemplateParamDecl =
+      typeDeclBuilder.addIntegerTemplateParam("row_count", context.IntTy, 4);
+  NonTypeTemplateParmDecl *colCountTemplateParamDecl =
+      typeDeclBuilder.addIntegerTemplateParam("col_count", context.IntTy, 4);
+
+  TypeAliasDecl *TypeDefInternalMat = nullptr;
+
+  {
+    Expr *rowCountE = new (context) DeclRefExpr(
+        rowCountTemplateParamDecl, /*enclosing*/ false,
+        rowCountTemplateParamDecl->getType().getNonLValueExprType(context),
+        Expr::getValueKindForType(rowCountTemplateParamDecl->getType()),
+        rowCountTemplateParamDecl->getLocation());
+
+    Expr *colCountE = new (context) DeclRefExpr(
+        colCountTemplateParamDecl, /*enclosing*/ false,
+        colCountTemplateParamDecl->getType().getNonLValueExprType(context),
+        Expr::getValueKindForType(colCountTemplateParamDecl->getType()),
+        colCountTemplateParamDecl->getLocation());
+
+    Expr *oritationE =
+        IntegerLiteral::Create(context, llvm::APSInt(
+                llvm::APInt(context.getIntWidth(context.IntTy), Orientation),
+            false),
+        context.IntTy, NoLoc);
+
+    TemplateArgument templateArgs[4] = {
+        TemplateArgument(context.getTypeDeclType(elementTemplateParamDecl)),
+        TemplateArgument(rowCountE),
+        TemplateArgument(colCountE),
+        TemplateArgument(
+            oritationE),
+    };
+
+    SmallVector<TemplateArgument, 3> templateArgsForDecl;
+    for (const TemplateArgument &Arg : templateArgs) {
+      if (Arg.getKind() == TemplateArgument::Type) {
+        // the class template need to use CanonicalType
+        templateArgsForDecl.emplace_back(
+            TemplateArgument(Arg.getAsType().getCanonicalType()));
+      } else
+        templateArgsForDecl.emplace_back(Arg);
+    }
+
+    QualType canonType =
+        context.getTypeDeclType(internalMatrixDecl->getTemplatedDecl());
+    TemplateArgumentListInfo templateArgumentList(NoLoc, NoLoc);
+    TemplateArgumentLocInfo NoTemplateArgumentLocInfo;
+    for (unsigned i = 0; i < 4; i++) {
+      templateArgumentList.addArgument(
+          TemplateArgumentLoc(templateArgs[i], NoTemplateArgumentLocInfo));
+    }
+    QualType SpecializationType = context.getTemplateSpecializationType(
+        TemplateName(internalMatrixDecl), templateArgumentList, canonType);
+
+    IdentifierInfo &typedefId =
+        context.Idents.get("matrix", tok::TokenKind::identifier);
+
+    TypeDefInternalMat = TypeAliasDecl::Create(
+        context, DC, NoLoc, NoLoc, &typedefId,
+        context.getTrivialTypeSourceInfo(SpecializationType, NoLoc));
+    TypeDefInternalMat->setImplicit(true);
+  }
+
+  NamedDecl *matParams[] = {elementTemplateParamDecl, rowCountTemplateParamDecl,
+                            colCountTemplateParamDecl};
+
+  auto *ParamList =
+      TemplateParameterList::Create(context, NoLoc, NoLoc, matParams, 3, NoLoc);
+  IdentifierInfo &typedefId =
+      context.Idents.get("matrix", tok::TokenKind::identifier);
+  auto *AliasDecl = TypeAliasTemplateDecl::Create(
+      context, DC, NoLoc, &typedefId, ParamList,
+      TypeDefInternalMat);
+  AliasDecl->setImplicit(true);
+  TypeDefInternalMat->setDescribedAliasTemplate(AliasDecl);
+  DC->addDecl(AliasDecl);
+  return AliasDecl;
+}
+
+static NamespaceDecl *CreateImplicitNamespace(ASTContext &context,
+                                              StringRef Name) {
+  NamespaceDecl *NSDecl =
+      NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                            /*Inline*/ false, SourceLocation(),
+                            SourceLocation(), &context.Idents.get(Name),
+                            /*PrevDecl*/ nullptr);
+  NSDecl->setImplicit();
+  context.getTranslationUnitDecl()->addDecl(NSDecl);
+  return NSDecl;
+}
+
+/// <summary>Adds up-front support for HLSL matrix types (just the template declaration).</summary>
+void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorTemplateDecl, ClassTemplateDecl** matrixTemplateDecl,
+    TypeAliasTemplateDecl **defaultMatrixAliasDecl,
+    TypeAliasTemplateDecl **rowMajorMatrixAliasDecl,
+    TypeAliasTemplateDecl **columnMajorMatrixAliasDecl) {
+  DXASSERT_NOMSG(matrixTemplateDecl != nullptr);
+  DXASSERT_NOMSG(vectorTemplateDecl != nullptr);
+
+  NamespaceDecl *internalNSDecl = CreateImplicitNamespace(context, "matrix.internal");
+
+  ClassTemplateDecl *matrixInternalCTD = CreateHLSLMatrixInternalTemplate(
+      context, internalNSDecl, vectorTemplateDecl);
+
+  *matrixTemplateDecl = matrixInternalCTD;
+
+  // Explicit row major and col major is defined in its own namespace while
+  // default matrix is in translation unit.
+  NamespaceDecl *rowMajorNSDecl = CreateImplicitNamespace(context, "row.major");
+  NamespaceDecl *colMajorNSDecl = CreateImplicitNamespace(context, "column.major");
+
+  TypeAliasTemplateDecl *colMajorMatDecl = CreateHLSLMatrixTemplate(
+      context, matrixInternalCTD, colMajorNSDecl,
+                           hlsl::HLSLMatrixOrientation::ColumnMajor);
+  *columnMajorMatrixAliasDecl = colMajorMatDecl;
+
+  TypeAliasTemplateDecl *rowMajorMatDecl =
+      CreateHLSLMatrixTemplate(context, matrixInternalCTD, rowMajorNSDecl,
+                           hlsl::HLSLMatrixOrientation::RowMajor);
+  *rowMajorMatrixAliasDecl = rowMajorMatDecl;
+
+  // The default will not in namespace, but in translation unit.
+  // By set correct major for default matrix, clang codeGen will just work when
+  // cast between explicit major and default major matches.
+  TypeAliasTemplateDecl *defaultMatDecl = CreateHLSLMatrixTemplate(
+      context, matrixInternalCTD,
+                           context.getTranslationUnitDecl(),
+                           context.getLangOpts().HLSLDefaultRowMajor
+                               ? hlsl::HLSLMatrixOrientation::RowMajor
+                               : hlsl::HLSLMatrixOrientation::ColumnMajor);
+  *defaultMatrixAliasDecl = defaultMatDecl;
 }
 
 static void AddHLSLVectorSubscriptAttr(Decl *D, ASTContext &context) {

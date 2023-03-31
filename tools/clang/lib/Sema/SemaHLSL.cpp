@@ -714,6 +714,7 @@ struct ArTypeInfo {
   UINT uRows;
   UINT uCols;
   UINT uTotalElts;
+  bool bIsRowMajor;
 };
 
 using namespace clang;
@@ -801,14 +802,14 @@ QualType GetOrCreateTemplateSpecialization(
 }
 
 /// <summary>Instantiates a new matrix type specialization or gets an existing one from the AST.</summary>
-static
-QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
-  _In_ ClassTemplateDecl* matrixTemplateDecl,
-  QualType elementType, uint64_t rowCount, uint64_t colCount)
-{
+static QualType
+GetOrCreateMatrixSpecialization(ASTContext &context, Sema *sema,
+                                _In_ ClassTemplateDecl *matrixTemplateDecl,
+                                QualType elementType, uint64_t rowCount,
+                                uint64_t colCount, bool isRowMajor) {
   DXASSERT_NOMSG(sema);
 
-  TemplateArgument templateArgs[3] = {
+  TemplateArgument templateArgs[4] = {
       TemplateArgument(elementType),
       TemplateArgument(
           context,
@@ -819,7 +820,13 @@ QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
           context,
           llvm::APSInt(
               llvm::APInt(context.getIntWidth(context.IntTy), colCount), false),
-          context.IntTy)};
+          context.IntTy),
+      TemplateArgument(
+          context,
+          llvm::APSInt(
+              llvm::APInt(context.getIntWidth(context.IntTy), isRowMajor?1:0), false),
+          context.IntTy),
+  };
 
   QualType matrixSpecializationType = GetOrCreateTemplateSpecialization(context, *sema, matrixTemplateDecl, ArrayRef<TemplateArgument>(templateArgs));
 
@@ -3068,6 +3075,10 @@ private:
 
   // Declaration for matrix and vector templates.
   ClassTemplateDecl* m_matrixTemplateDecl;
+  TypeAliasTemplateDecl *m_rowMajorMatDecl;
+  TypeAliasTemplateDecl *m_columnMajorMatDecl;
+  TypeAliasTemplateDecl *m_defaultMatDecl;
+
   ClassTemplateDecl* m_vectorTemplateDecl;
   // Namespace decl for hlsl intrinsic functions
   NamespaceDecl*     m_hlslNSDecl;
@@ -3091,10 +3102,13 @@ private:
   TypedefDecl* m_scalarTypeDefs[HLSLScalarTypeCount];
 
   // Matrix types already built indexed by type, row-count, col-count. Should probably move to a sparse map. Instrument to figure out best initial size.
-  QualType m_matrixTypes[HLSLScalarTypeCount][4][4];
+  QualType m_matrixTypes[HLSLScalarTypeCount][4][4][2];
 
   // Matrix types already built, in shorthand form.
-  TypedefDecl* m_matrixShorthandTypes[HLSLScalarTypeCount][4][4];
+  // The last dimension is for orientation, default is 0, column is 1, row is 2.
+  // m_matrixShorthandTypes types are alias so it need to save default orientation for check after attributed types removed.
+  // m_matrixTypes is the final template specialization, it only save column/row major, no default orientation.
+  TypedefDecl* m_matrixShorthandTypes[HLSLScalarTypeCount][4][4][3];
 
   // Vector types already built.
   QualType m_vectorTypes[HLSLScalarTypeCount][4];
@@ -3881,20 +3895,6 @@ private:
                             ImplicitConversionKind &convKind = ImplicitConversionKindUnused,
                             TYPE_CONVERSION_REMARKS &Remarks = RemarksUnused);
 
-  clang::TypedefDecl *LookupMatrixShorthandType(HLSLScalarType scalarType, UINT rowCount, UINT colCount) {
-    DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
-                   rowCount <= 4 && colCount <= 4);
-    TypedefDecl *qts =
-        m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1];
-    if (qts == nullptr) {
-      QualType type = LookupMatrixType(scalarType, rowCount, colCount);
-      qts = CreateMatrixSpecializationShorthand(*m_context, type, scalarType,
-                                                rowCount, colCount);
-      m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1] = qts;
-    }
-    return qts;
-  }
-
   clang::TypedefDecl *LookupVectorShorthandType(HLSLScalarType scalarType, UINT colCount) {
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
                    colCount <= 4);
@@ -3993,18 +3993,91 @@ public:
     return m_scalarTypeDefs[scalarType];
   }
 
-  QualType LookupMatrixType(HLSLScalarType scalarType, unsigned int rowCount, unsigned int colCount)
+  QualType LookupScalarType(HLSLScalarType scalarType) {
+    // lazy initialization of scalar types
+    if (m_scalarTypes[scalarType].isNull()) {
+      LookupScalarTypeDef(scalarType);
+    }
+    return m_scalarTypes[scalarType];
+  }
+
+  QualType CreateAliasMatrixType(QualType rawMatTy, QualType eltTy,
+                                 UINT rowCount, UINT colCount, bool isRowMajor,
+                                 bool isDefault) {
+    auto *matDecl = m_defaultMatDecl;
+    if (!isDefault)
+      matDecl = isRowMajor ? m_rowMajorMatDecl : m_columnMajorMatDecl;
+    auto &context = *m_context;
+    TemplateArgument templateArgs[3] = {
+        TemplateArgument(eltTy),
+        TemplateArgument(
+            context,
+            llvm::APSInt(
+                llvm::APInt(m_context->getIntWidth(m_context->IntTy), rowCount),
+                false),
+            context.IntTy),
+        TemplateArgument(
+            context,
+            llvm::APSInt(
+                llvm::APInt(m_context->getIntWidth(context.IntTy), colCount),
+                false),
+            context.IntTy),
+    };
+    return m_context->getTemplateSpecializationType(TemplateName(matDecl),
+                                                    templateArgs, 3, rawMatTy);
+  }
+
+  clang::TypedefDecl *LookupMatrixShorthandType(HLSLScalarType scalarType,
+                                                UINT rowCount, UINT colCount,
+                                                bool isRowMajor, bool isDefault) {
+    DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
+                   rowCount <= 4 && colCount <= 4);
+    auto *matDecl = m_defaultMatDecl;
+    int orientation = 0;
+    if (!isDefault) {
+      matDecl = isRowMajor ? m_rowMajorMatDecl : m_columnMajorMatDecl;
+      orientation = isRowMajor ? 2 : 1;
+    }
+
+    TypedefDecl *qts = m_matrixShorthandTypes[scalarType][rowCount - 1]
+                                             [colCount - 1][orientation];
+    if (qts == nullptr) {
+      QualType type =
+          LookupMatrixType(scalarType, rowCount, colCount, isRowMajor);
+      type = CreateAliasMatrixType(type, LookupScalarType(scalarType), rowCount,
+                                   colCount,
+                                   isRowMajor, isDefault);
+      qts = CreateMatrixSpecializationShorthand(*m_context, type, scalarType,
+                                                rowCount, colCount);
+      m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1]
+                            [orientation] = qts;
+    }
+    return qts;
+  }
+
+  QualType LookupMatrixType(HLSLScalarType scalarType, unsigned int rowCount, unsigned int colCount, bool isRowMajor)
   {
-    QualType qt = m_matrixTypes[scalarType][rowCount - 1][colCount - 1];
+    QualType qt = m_matrixTypes[scalarType][rowCount - 1][colCount - 1][isRowMajor?1:0];
     if (qt.isNull()) {
       // lazy initialization of scalar types 
       if (m_scalarTypes[scalarType].isNull()) {
         LookupScalarTypeDef(scalarType);
       }
-      qt = GetOrCreateMatrixSpecialization(*m_context, m_sema, m_matrixTemplateDecl, m_scalarTypes[scalarType], rowCount, colCount);
-      m_matrixTypes[scalarType][rowCount - 1][colCount - 1] = qt;
+      qt = ::GetOrCreateMatrixSpecialization(
+          *m_context, m_sema, m_matrixTemplateDecl, m_scalarTypes[scalarType],
+          rowCount, colCount, isRowMajor);
+      m_matrixTypes[scalarType][rowCount - 1][colCount - 1]
+                   [isRowMajor ? 1 : 0] = qt;
     }
     return qt;
+  }
+
+  QualType GetOrCreateMatrixSpecialization(QualType elementType,
+                                           uint64_t rowCount, uint64_t colCount,
+                                           bool isRowMajor) {
+    return ::GetOrCreateMatrixSpecialization(*m_context, m_sema,
+                                             m_matrixTemplateDecl, elementType,
+                                             rowCount, colCount, isRowMajor);
   }
 
   QualType LookupVectorType(HLSLScalarType scalarType, unsigned int colCount)
@@ -4132,7 +4205,6 @@ public:
     HLSLScalarType parsedType;
     int rowCount;
     int colCount;
-
     // Try parsing hlsl scalar types that is not initialized at AST time.
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
@@ -4147,7 +4219,9 @@ public:
         TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
         R.addDecl(qts);
       } else { // matrix
-        TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
+        TypedefDecl *qts = LookupMatrixShorthandType(
+            parsedType, rowCount, colCount,
+            getSema()->getLangOpts().HLSLDefaultRowMajor, true);
         R.addDecl(qts);
       }
       return true;
@@ -4178,6 +4252,13 @@ public:
       else if (!decl->isImplicit())
         return AR_TOBJ_COMPOUND;
       return AR_TOBJ_OBJECT;
+    } else if (auto *TAT = dyn_cast<TypeAliasTemplateDecl>(typeRecordDecl)) {
+      if (TAT->getCanonicalDecl() ==
+                          m_defaultMatDecl->getCanonicalDecl() ||
+          TAT->getCanonicalDecl() ==
+                          m_rowMajorMatDecl->getCanonicalDecl() ||
+          TAT->getCanonicalDecl() == m_columnMajorMatDecl->getCanonicalDecl())
+        return AR_TOBJ_MATRIX;
     }
 
     if (typeRecordDecl && typeRecordDecl->isImplicit()) {
@@ -4265,6 +4346,11 @@ public:
         DXASSERT(decl->isImplicit(),
                  "otherwise object template decl is not set to implicit");
         return AR_TOBJ_OBJECT;
+      } else if (auto *TAT = dyn_cast<TypeAliasTemplateDecl>(typeRecordDecl)) {
+        if (TAT->getCanonicalDecl() == +m_defaultMatDecl->getCanonicalDecl() ||
+            TAT->getCanonicalDecl() == +m_rowMajorMatDecl->getCanonicalDecl() ||
+            TAT->getCanonicalDecl() == m_columnMajorMatDecl->getCanonicalDecl())
+          return AR_TOBJ_MATRIX;
       }
 
       if (typeRecordDecl && typeRecordDecl->isImplicit()) {
@@ -4290,6 +4376,7 @@ public:
 
     const CXXRecordDecl* typeRecordDecl = type->getAsCXXRecordDecl();
     DXASSERT_NOMSG(typeRecordDecl);
+
     const ClassTemplateSpecializationDecl* templateSpecializationDecl = dyn_cast<ClassTemplateSpecializationDecl>(typeRecordDecl);
     DXASSERT_NOMSG(templateSpecializationDecl);
     DXASSERT_NOMSG(templateSpecializationDecl->getSpecializedTemplate() == m_matrixTemplateDecl ||
@@ -4650,7 +4737,8 @@ public:
       }
       else
       {
-        pType = LookupMatrixType(scalarType, uRows, uCols);
+        bool isRowMajor = (qwQual & AR_QUAL_ROWMAJOR);
+        pType = LookupMatrixType(scalarType, uRows, uCols, isRowMajor);
       }
 
       // TODO: handle colmajor/rowmajor
@@ -4849,7 +4937,9 @@ public:
 
     AddHLSLVectorTemplate(*m_context, &m_vectorTemplateDecl);
     DXASSERT(m_vectorTemplateDecl != nullptr, "AddHLSLVectorTypes failed to return the vector template declaration");
-    AddHLSLMatrixTemplate(*m_context, m_vectorTemplateDecl, &m_matrixTemplateDecl);
+    AddHLSLMatrixTemplate(*m_context, m_vectorTemplateDecl,
+                          &m_matrixTemplateDecl, &m_defaultMatDecl,
+                          &m_rowMajorMatDecl, &m_columnMajorMatDecl);
     DXASSERT(m_matrixTemplateDecl != nullptr, "AddHLSLMatrixTypes failed to return the matrix template declaration");
 
     // Initializing built in integers for ray tracing
@@ -5103,8 +5193,13 @@ public:
       return false;
     }
 
-    bool isMatrix = Template->getCanonicalDecl() ==
-                    m_matrixTemplateDecl->getCanonicalDecl();
+    bool isMatrix =
+        Template->getCanonicalDecl() ==
+            m_matrixTemplateDecl->getCanonicalDecl() ||
+        Template->getCanonicalDecl() == m_defaultMatDecl->getCanonicalDecl() ||
+        Template->getCanonicalDecl() == m_rowMajorMatDecl->getCanonicalDecl() ||
+        Template->getCanonicalDecl() ==
+            m_columnMajorMatDecl->getCanonicalDecl();
     bool isVector = Template->getCanonicalDecl() ==
                     m_vectorTemplateDecl->getCanonicalDecl();
     bool requireScalar = isMatrix || isVector;
@@ -5129,7 +5224,7 @@ public:
           Expr *expr = arg.getAsExpr();
           llvm::APSInt constantResult;
           if (expr != nullptr &&
-              expr->isIntegerConstantExpr(constantResult, *m_context)) {
+              expr->isIntegerConstantExpr(constantResult, *m_context) && i < 3) {
             if (CheckRangedTemplateArgument(argSrcLoc, constantResult)) {
               return true;
             }
@@ -6798,6 +6893,7 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
   GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
   pTypeInfo->uTotalElts = pTypeInfo->uRows * pTypeInfo->uCols;
+  pTypeInfo->bIsRowMajor = hlsl::IsRowMajorMatrixTemplate(type);
 }
 
 // Highest possible score (i.e., worst possible score).
@@ -8552,6 +8648,20 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
       }
       break;
     }
+    case ICK_HLSLColMajorToRowMajor: {
+      From = m_sema
+                 ->ImpCastExprToType(From, targetType,
+                                     clang::CK_HLSLColMajorToRowMajor,
+                                     From->getValueKind(), /*BasePath=*/0, CCK)
+                 .get();
+    } break;
+    case ICK_HLSLRowMajorToColMajor: {
+      From = m_sema
+                 ->ImpCastExprToType(From, targetType,
+                                     clang::CK_HLSLRowMajorToColMajor,
+                                     From->getValueKind(), /*BasePath=*/0, CCK)
+                 .get();
+    } break;
     case ICK_Identity:
       // Nothing to do.
       break;
@@ -8932,6 +9042,23 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
   return true;
 }
 
+static bool ConvertMatrixMajor(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
+                             ImplicitConversionKind &MatrixMajorConversion) {
+  if (TargetInfo.bIsRowMajor == SourceInfo.bIsRowMajor)
+    return true;
+  // Conversion to/from mismatched size not supported.
+  if (TargetInfo.uRows != SourceInfo.uRows ||
+      TargetInfo.uCols != SourceInfo.uCols)
+    return true;
+
+  MatrixMajorConversion =
+      SourceInfo.bIsRowMajor
+          ? ImplicitConversionKind::ICK_HLSLRowMajorToColMajor
+          : ImplicitConversionKind::ICK_HLSLColMajorToRowMajor;
+  return true;
+}
+
+
 _Use_decl_annotations_
 bool HLSLExternalSource::CanConvert(
   SourceLocation loc,
@@ -8981,6 +9108,7 @@ bool HLSLExternalSource::CanConvert(
   // Temporary conversion kind tracking which will be used/fixed up at the end
   ImplicitConversionKind Second = ICK_Identity;
   ImplicitConversionKind ComponentConversion = ICK_Identity;
+  ImplicitConversionKind MatrixMajorConversion = ICK_Identity;
 
   // Identical types require no conversion.
   if (source == target) {
@@ -9135,6 +9263,9 @@ bool HLSLExternalSource::CanConvert(
   if (!ConvertComponent(TargetInfo, SourceInfo, ComponentConversion, Remarks))
     return false;
 
+  if (!ConvertMatrixMajor(TargetInfo, SourceInfo, MatrixMajorConversion))
+    return false;
+
 lSuccess:
   if (standard)
   {
@@ -9201,7 +9332,10 @@ lSuccess:
       }
     }
 
+    standard->MatrixMajorConversion = MatrixMajorConversion;
+
     standard->Second = Second;
+
     standard->ComponentConversion = ComponentConversion;
 
     // For conversion which change to RValue but targeting reference type
@@ -9209,6 +9343,13 @@ lSuccess:
     if (targetRef && standard->First == ICK_Lvalue_To_Rvalue) {
       standard->First = ICK_Identity;
       standard->Second = ICK_Identity;
+    }
+    // When there's only matrix major cast, set it to be second cast so implicit
+    // conversion can be called.
+    if (standard->First == ICK_Identity && standard->Second == ICK_Identity &&
+        MatrixMajorConversion != ICK_Identity) {
+      standard->MatrixMajorConversion = ICK_Identity;
+      standard->Second = MatrixMajorConversion;
     }
   }
 
@@ -9602,7 +9743,9 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     } else if (IsMatrixType(m_sema, ResultTy)) {
       UINT rowCount, colCount;
       GetRowsAndColsForAny(ResultTy, rowCount, colCount);
-      ResultTy = LookupMatrixType(HLSLScalarType::HLSLScalarType_bool, rowCount, colCount);
+      bool isRowMajor = hlsl::IsRowMajorMatrixTemplate(ResultTy);
+      ResultTy = LookupMatrixType(HLSLScalarType::HLSLScalarType_bool, rowCount,
+                                  colCount, isRowMajor);
     } else
       ResultTy = m_context->BoolTy.withConst();
   }
@@ -9950,7 +10093,10 @@ clang::QualType HLSLExternalSource::ApplyTypeSpecSignToParsedType(
     } else if (objKind == AR_TOBJ_MATRIX) {
       UINT rowCount, colCount;
       GetRowsAndCols(type, rowCount, colCount);
-      TypedefDecl *qts = LookupMatrixShorthandType(newScalarType, rowCount, colCount);
+      bool isRowMajor = hlsl::IsRowMajorMatrixTemplate(type);
+      bool isDefault = hlsl::IsDefaultMajorMatrixTemplate(type);
+      TypedefDecl *qts =
+          LookupMatrixShorthandType(newScalarType, rowCount, colCount, isRowMajor, isDefault);
       return m_context->getTypeDeclType(qts);
     } else {
       DXASSERT_NOMSG(objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY);
@@ -14080,4 +14226,72 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
                                Decl->getSourceRange().getEnd(), EmptyArgs);
   }
   return QualType();
+}
+
+QualType hlsl::GetHLSLMatrixTypeWithMajor(QualType matType, bool isRowMajor,
+                                          clang::Sema &sema) {
+  bool isDefault = hlsl::IsDefaultMajorMatrixTemplate(matType);
+  // Default major has correct major set, only check major match is not enough.
+  if (!isDefault && hlsl::IsRowMajorMatrixTemplate(matType) == isRowMajor)
+    return matType;
+
+  llvm::Optional<AttributedType::Kind> Attr;
+
+  if (const AttributedType *AT = matType->getAs<AttributedType>()) {
+    while (AT) {
+          AttributedType::Kind kind = AT->getAttrKind();
+          switch (kind) {
+          case AttributedType::attr_hlsl_snorm:
+          case AttributedType::attr_hlsl_unorm:
+              Attr = kind;
+          }
+          matType = AT->getModifiedType();
+          AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()
+                   ->getAs<AttributedType>();
+
+    }
+  }
+
+  unsigned int row = 0;
+  unsigned int col = 0;
+  hlsl::GetHLSLMatRowColCount(matType, row, col);
+  QualType eltType = hlsl::GetHLSLMatElementType(matType);
+
+  HLSLExternalSource *HLSLSrc = HLSLExternalSource::FromSema(&sema);
+
+  HLSLScalarType scalarType =
+      HLSLSrc->ScalarTypeForBasic(HLSLSrc->GetTypeElementKind(eltType));
+  bool isShortHandTy = false;
+  bool isTypedef = false;
+  if (const TypedefType *TD = matType->getAs<TypedefType>()) {
+    isShortHandTy = TD->getDecl()->isImplicit();
+    isTypedef = true;
+  }
+
+  auto *TST = matType->getAs<TemplateSpecializationType>();
+  QualType OriginEltTy = eltType;
+  if (TST->getNumArgs())
+    OriginEltTy = TST->getArg(0).getAsType();
+
+  ASTContext &context = sema.getASTContext();
+  QualType Result;
+  if (isShortHandTy) {
+    Result =
+        sema.getASTContext().getTypeDeclType(HLSLSrc->LookupMatrixShorthandType(
+            scalarType, row, col, isRowMajor, false));
+  } else if (isTypedef || OriginEltTy != eltType) {
+    QualType NewMatTy = HLSLSrc->GetOrCreateMatrixSpecialization(
+        OriginEltTy, row, col, isRowMajor);
+    Result = HLSLSrc->CreateAliasMatrixType(NewMatTy, OriginEltTy, row, col,
+                                            isRowMajor, false);
+  } else {
+    Result = HLSLSrc->LookupMatrixType(scalarType, row, col, isRowMajor);
+
+    Result = HLSLSrc->CreateAliasMatrixType(Result, eltType, row, col,
+                                            isRowMajor, false);
+  }
+
+  if (Attr)
+    Result = context.getAttributedType(Attr.getValue(), Result, Result);
+  return Result;
 }
