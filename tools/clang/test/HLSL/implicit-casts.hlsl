@@ -573,7 +573,7 @@ float4 test(): SV_Target {
           `-ImplicitCastExpr <col:17> 'min16float':'min16float' <LValueToRValue>
             `-DeclRefExpr <col:17> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
   */
-  m16f4x4 = i4x4 * (m16f + 1);                  /* expected-warning {{conversion from larger type 'int4x4' to smaller type 'matrix<min16float, 4, 4>', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
+  m16f4x4 = i4x4 * (m16f + 1);                  /* expected-warning {{conversion from larger type 'int4x4' to smaller type 'matrix<min16float, 4, 4, 0>', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   /*verify-ast
     BinaryOperator <col:3, col:29> 'min16float4x4':'matrix<min16float, 4, 4>' '='
     |-DeclRefExpr <col:3> 'min16float4x4':'matrix<min16float, 4, 4>' lvalue Var 'm16f4x4' 'min16float4x4':'matrix<min16float, 4, 4>'
@@ -636,7 +636,7 @@ float4 test(): SV_Target {
               `-DeclRefExpr <col:30> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
   */
 
-  f4 = i3x1 * f4;                               /* expected-error {{cannot convert from 'matrix<float, 3, 1>' to 'float4'}} expected-warning {{implicit truncation of vector type}} fxc-error {{X3017: cannot implicitly convert from 'const float3x1' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
+  f4 = i3x1 * f4;                               /* expected-error {{cannot convert from 'matrix<float, 3, 1, 0>' to 'float4'}} expected-warning {{implicit truncation of vector type}} fxc-error {{X3017: cannot implicitly convert from 'const float3x1' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f3 = i3x1 * f4;                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   /*verify-ast
     BinaryOperator <col:3, col:15> 'float3':'vector<float, 3>' '='

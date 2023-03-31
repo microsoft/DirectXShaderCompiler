@@ -32,6 +32,7 @@ namespace clang {
   class CXXMethodDecl;
   class CXXRecordDecl;
   class ClassTemplateDecl;
+  class TypeAliasTemplateDecl;
   class ExtVectorType;
   class FunctionDecl;
   class FunctionTemplateDecl;
@@ -78,6 +79,11 @@ enum HLSLScalarType {
   HLSLScalarType_float64,
   HLSLScalarType_int8_4packed,
   HLSLScalarType_uint8_4packed
+};
+
+enum HLSLMatrixOrientation {
+  ColumnMajor = 0,
+  RowMajor,
 };
 
 HLSLScalarType MakeUnsigned(HLSLScalarType T);
@@ -307,7 +313,10 @@ ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
 void AddHLSLMatrixTemplate(
   clang::ASTContext& context,
   _In_ clang::ClassTemplateDecl* vectorTemplateDecl,
-  _Outptr_ clang::ClassTemplateDecl** matrixTemplateDecl);
+  _Outptr_ clang::ClassTemplateDecl** matrixTemplateDecl,
+  _Outptr_ clang::TypeAliasTemplateDecl **defaultMatrixAliasDecl,
+  _Outptr_ clang::TypeAliasTemplateDecl **rowMajorMatrixAliasDecl,
+  _Outptr_ clang::TypeAliasTemplateDecl **columnMajorMatrixAliasDecl);
 
 void AddHLSLVectorTemplate(
   clang::ASTContext& context, 
@@ -414,6 +423,10 @@ clang::QualType GetHLSLInputPatchElementType(clang::QualType type);
 unsigned GetHLSLInputPatchCount(clang::QualType type);
 clang::QualType GetHLSLOutputPatchElementType(clang::QualType type);
 unsigned GetHLSLOutputPatchCount(clang::QualType type);
+clang::QualType GetHLSLMatrixTypeWithMajor(clang::QualType matType,
+                                           bool isRowMajor, clang::Sema &sema);
+bool IsRowMajorMatrixTemplate(clang::QualType matType);
+bool IsDefaultMajorMatrixTemplate(clang::QualType matType);
 
 bool IsHLSLSubobjectType(clang::QualType type);
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, 

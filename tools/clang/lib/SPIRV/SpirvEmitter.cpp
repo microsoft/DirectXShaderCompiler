@@ -3341,6 +3341,11 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
       return 0;
     }
   }
+  case CastKind::CK_HLSLColMajorToRowMajor:
+  case CastKind::CK_HLSLRowMajorToColMajor: {
+    // FIXME: support major cast.
+    return doExpr(subExpr, range);
+  }
   default:
     emitError("implicit cast kind '%0' unimplemented", expr->getExprLoc())
         << expr->getCastKindName() << expr->getSourceRange();

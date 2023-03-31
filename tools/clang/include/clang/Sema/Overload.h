@@ -97,6 +97,8 @@ namespace clang {
     ICK_HLSLVector_Splat,      ///< HLSLVector/Matrix splat
     ICK_HLSLVector_Truncation, ///< HLSLVector/Matrix truncation
     ICK_HLSL_Derived_To_Base,  ///< HLSL Derived-to-base
+    ICK_HLSLRowMajorToColMajor,///< HLSL row major to column major
+    ICK_HLSLColMajorToRowMajor,///< HLSL column major to row major
     // HLSL Change Ends
 
     ICK_Num_Conversion_Kinds   ///< The number of conversion kinds
@@ -160,6 +162,9 @@ namespace clang {
     /// vector or matrix type.  If used, Second must be one of the 
     /// ICK_HLSLVector_* implicit conversion kinds.
     ImplicitConversionKind ComponentConversion : 8;
+    /// ComponentConversion - If this is not ICK_Identity, this describes
+    /// the type of conversion to apply to matrix major.
+    ImplicitConversionKind MatrixMajorConversion : 8;
     // HLSL Change Ends
 
     /// Third - The third conversion can be a qualification conversion.
