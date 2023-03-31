@@ -138,7 +138,7 @@ class CodeGenTypes {
 
   /// Maps clang struct type with corresponding record layout info.
   llvm::DenseMap<const Type*, CGRecordLayout *> CGRecordLayouts;
-
+  llvm::DenseSet<const Type *> dupMatTys;
   /// Contains the LLVM IR type for any converted RecordDecl.
   llvm::DenseMap<const Type*, llvm::StructType *> RecordDeclTypes;
   
@@ -289,7 +289,8 @@ public:
 
   /// addRecordTypeName - Compute a name from the given record decl with an
   /// optional suffix and name the given LLVM type using it.
-  void addRecordTypeName(const RecordDecl *RD, llvm::StructType *Ty,
+  /// HLSL Change - return true when name conflict.
+  bool addRecordTypeName(const RecordDecl *RD, llvm::StructType *Ty,
                          StringRef suffix);
   
 

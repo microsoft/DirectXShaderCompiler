@@ -572,23 +572,23 @@ float3 foo_col_missing_in_def(column_major float2x3 val);
 float3 foo_col_missing_in_def(float2x3 val) {
     return val[0];
 }
-float3 foo_col_in_decl_row_in_def(column_major float2x3 val);
-float3 foo_col_in_decl_row_in_def(row_major float2x3 val) {
+float3 foo_col_in_decl_row_in_def(column_major float2x3 val); /* expected-note {{candidate function}} */ /* expected-note {{candidate function}} */ /* expected-note {{candidate function}} */
+float3 foo_col_in_decl_row_in_def(row_major float2x3 val) { /* expected-note {{candidate function}} */ /* expected-note {{candidate function}} */ /* expected-note {{candidate function}} */
     return val[0];
 }
 float3 use_conflicting_column_row(float2x3 val, column_major float2x3 val_column, row_major float2x3 val_row) {
     float3 res = (float3) 0;
     res += foo_col_missing_in_decl(val);                 /* fxc-error {{X3067: 'foo_col_missing_in_decl': ambiguous function call}} */
     res += foo_col_missing_in_def(val);                  /* fxc-error {{X3067: 'foo_col_missing_in_def': ambiguous function call}} */
-    res += foo_col_in_decl_row_in_def(val);              /* fxc-error {{X3067: 'foo_col_in_decl_row_in_def': ambiguous function call}} */
+    res += foo_col_in_decl_row_in_def(val);              /* expected-error {{call to 'foo_col_in_decl_row_in_def' is ambiguous}} fxc-error {{X3067: 'foo_col_in_decl_row_in_def': ambiguous function call}} */
     res += foo_col(val);
     res += foo_col_missing_in_decl(val_column);          /* fxc-error {{X3067: 'foo_col_missing_in_decl': ambiguous function call}} */
     res += foo_col_missing_in_def(val_column);           /* fxc-error {{X3067: 'foo_col_missing_in_def': ambiguous function call}} */
-    res += foo_col_in_decl_row_in_def(val_column);       /* fxc-error {{X3067: 'foo_col_in_decl_row_in_def': ambiguous function call}} */
+    res += foo_col_in_decl_row_in_def(val_column);       /* expected-error {{call to 'foo_col_in_decl_row_in_def' is ambiguous}} fxc-error {{X3067: 'foo_col_in_decl_row_in_def': ambiguous function call}} */
     res += foo_col(val_column);
     res += foo_col_missing_in_decl(val_row);             /* fxc-error {{X3067: 'foo_col_missing_in_decl': ambiguous function call}} */
     res += foo_col_missing_in_def(val_row);              /* fxc-error {{X3067: 'foo_col_missing_in_def': ambiguous function call}} */
-    res += foo_col_in_decl_row_in_def(val_row);          /* fxc-error {{X3067: 'foo_col_in_decl_row_in_def': ambiguous function call}} */
+    res += foo_col_in_decl_row_in_def(val_row);          /* expected-error {{call to 'foo_col_in_decl_row_in_def' is ambiguous}} fxc-error {{X3067: 'foo_col_in_decl_row_in_def': ambiguous function call}} */
     res += foo_col(val_row);
     return res;
 }

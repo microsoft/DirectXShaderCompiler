@@ -1566,6 +1566,12 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   if (AttributeList *attrs = DS.getAttributes().getList())
     processTypeAttrs(state, Result, TAL_DeclSpec, attrs);
 
+  // Apply major on default major.
+  if (hlsl::IsMatrixType(&S, Result) &&
+      Result->getAs<AttributedType>() == nullptr)
+    Result = hlsl::GetHLSLMatrixTypeWithMajor(
+        Result, S.getLangOpts().HLSLDefaultRowMajor, S);
+
   // Apply const/volatile/restrict qualifiers to T.
   if (unsigned TypeQuals = DS.getTypeQualifiers()) {
     // Warn about CV qualifiers on function types.
@@ -4333,12 +4339,17 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
   // For codegen, it'd be nice to annotate everything here, but it causes error
   // messages to have pack orientation added to types, so we handle it through
   // the codegen option's default packing orientation flag.
-  bool defaultRowMajor;
-  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T) && !hlsl::HasHLSLMatOrientation(T)
-    && D.getDeclSpec().TryGetDefaultMatrixPackRowMajor(defaultRowMajor)) {
-    AttributedType::Kind AttributeKind = defaultRowMajor
-      ? AttributedType::attr_hlsl_row_major : AttributedType::attr_hlsl_column_major;
-    T = Context.getAttributedType(AttributeKind, T, T);
+  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T)) {
+    bool defaultRowMajor;
+    if (!hlsl::HasHLSLMatOrientation(T) &&
+        D.getDeclSpec().TryGetDefaultMatrixPackRowMajor(defaultRowMajor)) {
+      AttributedType::Kind AttributeKind =
+          defaultRowMajor ? AttributedType::attr_hlsl_row_major
+                          : AttributedType::attr_hlsl_column_major;
+      // update major for case default matrix major not match pragma.
+      T = hlsl::GetHLSLMatrixTypeWithMajor(T, defaultRowMajor, *this);
+      T = Context.getAttributedType(AttributeKind, T, T);
+    }
   }
   // HLSL changes end
 
@@ -4538,9 +4549,12 @@ static void fillAttributedTypeLoc(AttributedTypeLoc TL,
                                   const AttributeList *DeclAttrs = nullptr) {
 
   // HLSL changes begin
-  // Don't fill the location info for matrix orientation attributes
+  // Don't fill the location info for matrix orientation attributes and
+  // snorm/unorm attributes.
   if (TL.getAttrKind() == AttributedType::attr_hlsl_row_major ||
-      TL.getAttrKind() == AttributedType::attr_hlsl_column_major)
+      TL.getAttrKind() == AttributedType::attr_hlsl_column_major ||
+      TL.getAttrKind() == AttributedType::attr_hlsl_snorm ||
+      TL.getAttrKind() == AttributedType::attr_hlsl_unorm)
     return;
   // HLSL changes end
 
@@ -5847,8 +5861,14 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
   AttributedType::Kind TAK;
   switch (Kind) {
   default: llvm_unreachable("Unknown attribute kind");
-  case AttributeList::AT_HLSLRowMajor:    TAK = AttributedType::attr_hlsl_row_major; break;
-  case AttributeList::AT_HLSLColumnMajor: TAK = AttributedType::attr_hlsl_column_major; break;
+  case AttributeList::AT_HLSLRowMajor: {
+    Type = hlsl::GetHLSLMatrixTypeWithMajor(Type, /*isRowMajor*/ true, S);
+    TAK = AttributedType::attr_hlsl_row_major;
+  } break;
+  case AttributeList::AT_HLSLColumnMajor: {
+    Type = hlsl::GetHLSLMatrixTypeWithMajor(Type, /*isRowMajor*/ false, S);
+    TAK = AttributedType::attr_hlsl_column_major;
+  } break;
   case AttributeList::AT_HLSLUnorm:       TAK = AttributedType::attr_hlsl_unorm; break;
   case AttributeList::AT_HLSLSnorm:       TAK = AttributedType::attr_hlsl_snorm; break;
   case AttributeList::AT_HLSLGloballyCoherent:

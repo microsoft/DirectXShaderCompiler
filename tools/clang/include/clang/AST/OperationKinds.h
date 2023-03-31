@@ -314,6 +314,8 @@ enum CastKind {
   CK_HLSLVectorToMatrixCast,
   CK_HLSLMatrixToVectorCast,
   CK_HLSLDerivedToBase,
+  CK_HLSLRowMajorToColMajor,
+  CK_HLSLColMajorToRowMajor,
   // HLSL ComponentConversion (HLSLCC) Casts:
   CK_HLSLCC_IntegralCast,
   CK_HLSLCC_IntegralToBoolean,
