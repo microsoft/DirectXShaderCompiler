@@ -401,6 +401,48 @@ void GetHLSLMatRowColCount(clang::QualType type, unsigned int &row,
                            unsigned int &col) {
   GetRowsAndColsForAny(type, row, col);
 }
+
+bool IsRowMajorMatrixTemplate(clang::QualType matType) {
+  QualType type = GetStructuralForm(matType);
+  const Type *Ty = type.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(
+                RT->getAsCXXRecordDecl())) {
+      if (templateDecl->getName() == "matrix") {
+        const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+        const TemplateArgument &arg3 = argList[3];
+        return arg3.getAsIntegral().getLimitedValue();
+      }
+    }
+  }
+  return false;
+}
+
+bool IsDefaultMajorMatrixTemplate(clang::QualType matType) {
+  QualType type = (matType);
+  // Strip AttributedType.
+  {
+    const ReferenceType *RefType = nullptr;
+    const AttributedType *AttrType = nullptr;
+    while ((RefType = dyn_cast<ReferenceType>(type)) ||
+           (AttrType = dyn_cast<AttributedType>(type))) {
+      type =
+          RefType ? RefType->getPointeeType() : AttrType->getEquivalentType();
+    }
+  }
+  if (const auto *TST =
+          type->getAs<TemplateSpecializationType>()) {
+    TemplateName Template = TST->getTemplateName();
+    if (TypeAliasTemplateDecl *TAT = dyn_cast_or_null<TypeAliasTemplateDecl>(
+            Template.getAsTemplateDecl())) {
+      return isa<NamespaceDecl>(TAT->getDeclContext());
+    }
+  }
+
+  return false;
+}
+
 clang::QualType GetHLSLVecElementType(clang::QualType type) {
   type = GetStructuralForm(type);
 
