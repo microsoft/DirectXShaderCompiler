@@ -94,12 +94,6 @@ bool CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
     OS  << ".";   CompType.print(OS, policy);
     OS  << "." << templateDecl->getTemplateArgs().get(1).getAsIntegral().toString(10)
         << "." << templateDecl->getTemplateArgs().get(2).getAsIntegral().toString(10);
-        //;
-        //<< "."
-        //<< ((templateDecl->getTemplateArgs()
-        //        .get(3)
-        //        .getAsIntegral()
-        //        .getLimitedValue() == 0) ? "Col" : "Row");
   } else if (const ClassTemplateSpecializationDecl *Spec = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
     const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
     TemplateSpecializationType::PrintTemplateArgumentList(OS,
