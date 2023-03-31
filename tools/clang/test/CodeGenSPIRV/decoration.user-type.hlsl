@@ -47,9 +47,9 @@ RWBuffer<float> t;
 Texture2DMSArray<float4, 64> u;
 // CHECK: OpDecorateString %v UserTypeGOOGLE "texture2dmsarray:<float4,64>"
 const Texture2DMSArray<float4, 64> v;
-// CHECK: OpDecorateString %t1 UserTypeGOOGLE "texture1d:<vector<float,4> >"
+// CHECK: OpDecorateString %t1 UserTypeGOOGLE "texture1d"
 Texture1D t1;
-// CHECK: OpDecorateString %t2 UserTypeGOOGLE "texture2d:<vector<float,4> >"
+// CHECK: OpDecorateString %t2 UserTypeGOOGLE "texture2d"
 Texture2D t2;
 
 // CHECK: OpDecorateString %eArr UserTypeGOOGLE "texture1d:<float>"

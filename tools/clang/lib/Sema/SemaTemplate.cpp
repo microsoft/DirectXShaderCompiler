@@ -3056,12 +3056,9 @@ bool Sema::CheckTemplateTypeArgument(TemplateTypeParmDecl *Param,
     // HLSL allows omiting empty template argument lists
     TemplateDecl *Decl = Name.getAsTemplateDecl();
     if (getLangOpts().HLSL && Decl) {
-      if (ClassTemplateDecl *TD = dyn_cast<ClassTemplateDecl>(Decl)) {
-        if (TypeDecl *DefaultSpec = getHLSLDefaultSpecialization(TD)) {
-          SourceRange SR = Decl->getSourceRange();
-          TemplateArgumentListInfo TemplateArgs(SR.getEnd(), SR.getEnd());
-          ArgType = CheckTemplateIdType(TemplateName(Decl), SR.getBegin(),
-                                        TemplateArgs);
+      if (TemplateDecl *TD = dyn_cast<TemplateDecl>(Decl)) {
+        ArgType = getHLSLDefaultSpecialization(TD);
+        if (!ArgType.isNull()) {
           CXXScopeSpec SS;
           TypeLocBuilder TLB;
           TemplateSpecializationTypeLoc TL =

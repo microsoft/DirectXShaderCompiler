@@ -7887,6 +7887,7 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     *count = GetElementCount(type);
     return IsBasicKindNumeric(GetTypeElementKind(type));
   case AR_TOBJ_OBJECT:
+  case AR_TOBJ_DEPENDENT:
   case AR_TOBJ_STRING:
     return false;
   }
@@ -14125,29 +14126,13 @@ clang::QualType ApplyTypeSpecSignToParsedType(
     return HLSLExternalSource::FromSema(self)->ApplyTypeSpecSignToParsedType(type, TSS, Loc);
 }
 
-ClassTemplateSpecializationDecl *
-Sema::getHLSLDefaultSpecialization(ClassTemplateDecl *Decl) {
+QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   if (Decl->getTemplateParameters()->getMinRequiredArguments() == 0) {
-    void *InsertPos = nullptr;
     TemplateArgumentListInfo EmptyArgs;
     EmptyArgs.setLAngleLoc(Decl->getSourceRange().getEnd());
     EmptyArgs.setRAngleLoc(Decl->getSourceRange().getEnd());
-    SmallVector<TemplateArgument, 2> Converted;
-    if (!CheckTemplateArgumentList(Decl, Decl->getSourceRange().getEnd(), EmptyArgs,
-                                   false, Converted)) {
-      ClassTemplateSpecializationDecl *DefaultSpec =
-          Decl->findSpecialization(Converted, InsertPos);
-      if (!DefaultSpec) {
-        DefaultSpec = ClassTemplateSpecializationDecl::Create(
-            getASTContext(), TagDecl::TagKind::TTK_Class,
-            getASTContext().getTranslationUnitDecl(), SourceLocation(),
-            SourceLocation(), Decl, Converted.data(), Converted.size(),
-            DefaultSpec);
-        Decl->AddSpecialization(DefaultSpec, InsertPos);
-        DefaultSpec->setImplicit(true);
-      }
-      return DefaultSpec;
-    }
+    return CheckTemplateIdType(TemplateName(Decl),
+                               Decl->getSourceRange().getEnd(), EmptyArgs);
   }
-  return nullptr;
+  return QualType();
 }
