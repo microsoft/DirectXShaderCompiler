@@ -436,7 +436,9 @@ bool IsDefaultMajorMatrixTemplate(clang::QualType matType) {
     TemplateName Template = TST->getTemplateName();
     if (TypeAliasTemplateDecl *TAT = dyn_cast_or_null<TypeAliasTemplateDecl>(
             Template.getAsTemplateDecl())) {
-      return isa<NamespaceDecl>(TAT->getDeclContext());
+      // Default matrix alias use TU as decl context.
+      auto *ND = dyn_cast<NamespaceDecl>(TAT->getDeclContext());
+      return ND == nullptr;
     }
   }
 
