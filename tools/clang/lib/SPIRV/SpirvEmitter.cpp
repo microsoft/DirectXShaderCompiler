@@ -5833,6 +5833,10 @@ SpirvInstruction *SpirvEmitter::doInitListExpr(const InitListExpr *expr,
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
   auto *result = InitListHandler(astContext, *this).processInit(expr, range);
+  if (result == nullptr) {
+    return nullptr;
+  }
+
   result->setRValue();
   return result;
 }
