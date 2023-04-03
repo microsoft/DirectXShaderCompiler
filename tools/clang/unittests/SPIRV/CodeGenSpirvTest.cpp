@@ -108,6 +108,10 @@ TEST_F(FileTest, BindlessConstantBufferArrayType) {
 TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
+TEST_F(FileTest, RasterizerOrderedTexture2DType) {
+  runFileTest("type.rasterizer-ordered-texture-2d.unimplemented.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
