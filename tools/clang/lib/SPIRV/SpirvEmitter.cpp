@@ -556,7 +556,7 @@ uint32_t getFieldIndexInStruct(const StructType *spirvStructType,
       getNumBaseClasses(astStructType) + fieldDecl->getFieldIndex();
 
   const auto &fields = spirvStructType->getFields();
-  assert(indexAST <= fields.size());
+  assert(indexAST < fields.size());
   return fields[indexAST].fieldIndex;
 }
 
