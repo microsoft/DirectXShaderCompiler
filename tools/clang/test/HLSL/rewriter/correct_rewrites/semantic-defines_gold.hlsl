@@ -1,9 +1,12 @@
 // Rewrite unchanged result:
-int func(int a) {
+
+
+
+
+int func(int a)
+{
   return a;
 }
-
-
 
 // Macros:
 #define SD_FOO 1

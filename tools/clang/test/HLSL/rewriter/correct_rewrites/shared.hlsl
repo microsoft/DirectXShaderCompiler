@@ -1,22 +1,22 @@
 // Rewrite unchanged result:
-cbuffer cb0 {
-  const float X;
-}
-;
-tbuffer tb0 {
-  const float Y;
-}
-;
-Buffer<int> g_intBuffer;
-RWByteAddressBuffer g_byteBuffer;
-Texture1D<double> g_tex1d;
-Texture1DArray<int> g_tex1dArray;
-Texture2D<float> g_tex2d;
-Texture2DArray<float> g_tex2dArray;
-Texture2DMS<half> g_texture2dms;
-Texture2DMSArray<float> g_texture2dmsArray;
+shared cbuffer cb0 {
+    float X;
+};
+
+shared tbuffer tb0 {
+    float Y;
+};
+
+shared Buffer<int> g_intBuffer;
+shared RWByteAddressBuffer g_byteBuffer;
+
+shared Texture1D<double> g_tex1d;
+shared Texture1DArray<int> g_tex1dArray;
+shared Texture2D<float> g_tex2d;
+shared Texture2DArray<float> g_tex2dArray;
+shared Texture2DMS<half> g_texture2dms;
+shared Texture2DMSArray<float> g_texture2dmsArray;
+
 float main() : SV_Target {
-  return -X + Y;
+    return -X + Y;
 }
-
-

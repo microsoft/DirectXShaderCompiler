@@ -449,7 +449,7 @@ TEST_F(RewriterTest, RunWideOneByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\x69\x3b\n") == 0); // const added by default
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\x69\x3b\n") == 0);
 }
 
 TEST_F(RewriterTest, RunWideTwoByte) {
@@ -467,7 +467,7 @@ TEST_F(RewriterTest, RunWideTwoByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xc3\xad\xc3\xb1\xc5\xa7\x3b\n") == 0); // const added by default
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xc3\xad\xc3\xb1\xc5\xa7\x3b\n") == 0);
 }
 
 TEST_F(RewriterTest, RunWideThreeByteBadChar) {
@@ -485,7 +485,7 @@ TEST_F(RewriterTest, RunWideThreeByteBadChar) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\x41\x3b\n") == 0); //"const int A;" -> should remove the weird characters
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\x41\xe2\x99\x95\xe2\x99\x9a\x3b\n") == 0); //"const int A♕♚;" -> the weird characters is not removed.
 }
 
 TEST_F(RewriterTest, RunWideThreeByte) {
@@ -503,7 +503,7 @@ TEST_F(RewriterTest, RunWideThreeByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xe1\xba\x8b\x3b\n") == 0); // const added by default
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xe1\xba\x8b\x3b\n") == 0);
 }
 
 TEST_F(RewriterTest, RunNonUnicode) {
@@ -521,7 +521,7 @@ TEST_F(RewriterTest, RunNonUnicode) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xce\xb1\xce\xb2\xce\xb3\x3b\n") == 0); // const added by default
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xce\xb1\xce\xb2\xce\xb3\x3b\n") == 0);
 }
 
 TEST_F(RewriterTest, RunEffect) {
@@ -558,10 +558,12 @@ TEST_F(RewriterTest, RunNoFunctionBody) {
 
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
-  // Function decl only.
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
-                        "// Rewrite unchanged result:\nfloat pick_one(float2 "
-                        "f2);\nvoid main();\n") == 0);
+
+  std::string firstPass = BlobToUtf8(result);
+  VERIFY_IS_TRUE(CompareGold(
+      firstPass, GetPathToHlslDataFile(
+                      L"rewriter\\correct_rewrites\\vector-assignments_noerr_no_function_body_gold.hlsl")
+                          .c_str()));
 }
 
 TEST_F(RewriterTest, RunNoStatic) {
@@ -643,18 +645,11 @@ TEST_F(RewriterTest, RunForceExtern) {  CComPtr<IDxcRewriter> pRewriter;
 
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
-  // Function decl only.
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
-      "// Rewrite unchanged result:\n\
-extern const float a;\n\
-namespace b {\n\
-  extern const float c;\n\
-  namespace d {\n\
-    extern const float e;\n\
-  }\n\
-}\n\
-static int f;\n\
-float4 main() : SV_Target;\n") == 0);
+  std::string firstPass = BlobToUtf8(result);
+  VERIFY_IS_TRUE(CompareGold(
+      firstPass, GetPathToHlslDataFile(
+                     L"rewriter\\correct_rewrites\\force_extern_gold.hlsl")
+                     .c_str()));
 }
 
 TEST_F(RewriterTest, RunKeepUserMacro) {  CComPtr<IDxcRewriter> pRewriter;
@@ -680,18 +675,11 @@ TEST_F(RewriterTest, RunKeepUserMacro) {  CComPtr<IDxcRewriter> pRewriter;
 
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
-  // Function decl only.
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
-      "// Rewrite unchanged result:\n\
-const float x = 1;\n\
-float test(float a, float b) {\n\
-  return ((a) + (b));\n\
-}\n\
-\n\n\n\
-// Macros:\n\
-#define X 1\n\
-#define Y(A, B)  ( ( A ) + ( B ) )\n\
-") == 0);
+  std::string firstPass = BlobToUtf8(result);
+  VERIFY_IS_TRUE(CompareGold(
+      firstPass, GetPathToHlslDataFile(
+                     L"rewriter\\correct_rewrites\\KeepUserMacro_gold.hlsl")
+                     .c_str()));
 }
 
 TEST_F(RewriterTest, RunExtractUniforms) {
@@ -718,26 +706,11 @@ TEST_F(RewriterTest, RunExtractUniforms) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
-"// Rewrite unchanged result:\n\
-[RootSignature(\"RootFlags(0),DescriptorTable(UAV(u0, numDescriptors = 1), CBV(b0, numDescriptors = 1))\")]\n\
-[numthreads(4, 8, 16)]\n\
-void IntFunc(uint3 id : SV_DispatchThreadID, uniform RWStructuredBuffer<int> buf, uniform uint ui) {\n\
-  buf[id.x + id.y + id.z] = id.x + ui;\n\
-}\n\
-\n\
-\n\
-uniform RWStructuredBuffer<float> buf;\n\
-cbuffer _Params {\n\
-uniform uint ui;\n\
-}\n\
-[RootSignature(\"RootFlags(0),DescriptorTable(UAV(u0, numDescriptors = 1), CBV(b0, numDescriptors = 1))\")]\n\
-[numthreads(4, 8, 16)]\n\
-void FloatFunc(uint3 id : SV_DispatchThreadID) {\n\
-  buf[id.x + id.y + id.z] = id.x;\n\
-}\n\
-\n\
-") == 0);
+  std::string firstPass = BlobToUtf8(result);
+  VERIFY_IS_TRUE(CompareGold(
+      firstPass, GetPathToHlslDataFile(
+                     L"rewriter\\correct_rewrites\\ExtractUniforms_gold.hlsl")
+                     .c_str()));
 }
 
 TEST_F(RewriterTest, RunRewriterFails) {
