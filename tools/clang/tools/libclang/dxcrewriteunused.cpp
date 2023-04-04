@@ -889,24 +889,6 @@ void WriteUniformParamsAsGlobals(FunctionDecl *FD,
   }
 }
 
-static
-void PrintTranslationUnitWithTranslatedUniformParams(
-    TranslationUnitDecl *tu,
-    FunctionDecl *entryFnDecl,
-    raw_ostream &o,
-    PrintingPolicy &p) {
-  // Print without the entry function
-  entryFnDecl->setImplicit(true); // Prevent printing of this decl
-  tu->print(o, p);
-  entryFnDecl->setImplicit(false);
-
-  WriteUniformParamsAsGlobals(entryFnDecl, o, p);
-
-  PrintingPolicy SubPolicy(p);
-  SubPolicy.HLSLSuppressUniformParameters = true;
-  entryFnDecl->print(o, SubPolicy);
-}
-
 static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
                                 LPCSTR pEntryPoint,
                                 bool bRemoveGlobals,
