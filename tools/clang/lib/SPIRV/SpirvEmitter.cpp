@@ -556,7 +556,7 @@ uint32_t getFieldIndexInStruct(const StructType *spirvStructType,
       getNumBaseClasses(astStructType) + fieldDecl->getFieldIndex();
 
   const auto &fields = spirvStructType->getFields();
-  assert(indexAST <= fields.size());
+  assert(indexAST < fields.size());
   return fields[indexAST].fieldIndex;
 }
 
@@ -5833,6 +5833,10 @@ SpirvInstruction *SpirvEmitter::doInitListExpr(const InitListExpr *expr,
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
   auto *result = InitListHandler(astContext, *this).processInit(expr, range);
+  if (result == nullptr) {
+    return nullptr;
+  }
+
   result->setRValue();
   return result;
 }
