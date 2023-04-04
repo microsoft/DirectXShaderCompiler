@@ -103,7 +103,7 @@ const DxilPartHeader *GetDxilPartByType(const DxilContainerHeader *pHeader, Dxil
     return nullptr;
   }
   const DxilPartIterator partIter =
-      find_if(begin(pHeader), end(pHeader), DxilPartIsType(fourCC));
+      std::find_if(begin(pHeader), end(pHeader), DxilPartIsType(fourCC));
   if (partIter == end(pHeader)) {
     return nullptr;
   }
