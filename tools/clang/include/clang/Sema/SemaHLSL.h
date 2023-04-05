@@ -96,6 +96,8 @@ void DiagnoseRaytracingPayloadAccess(
   clang::Sema &S,
   clang::TranslationUnitDecl* TU);
 
+void DiagnoseRaytracingEntry(clang::Sema &S, clang::FunctionDecl *FD);
+
 /// <summary>Finds the best viable function on this overload set, if it exists.</summary>
 clang::OverloadingResult GetBestViableFunction(
   clang::Sema &S,

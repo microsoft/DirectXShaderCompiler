@@ -7591,6 +7591,10 @@ def err_not_all_payload_fields_qualified : Error<
   "payload type '%0' requires that all fields carry payload access qualifiers.">;
 def err_payload_requires_attribute : Error<
   "type '%0' used as payload requires that it is annotated with the [raypayload] attribute">;
+def err_payload_requires_inout : Error<
+  "payload parameter %0 must be 'inout'">;
+def err_payload_attrs_must_be_udt : Error<
+  "%select{payload|attributes}0 parameter %1 must be a user-defined type composed of only numeric types">;
 def err_payload_fields_not_qualified : Error<
   "payload field '%0' has no payload access qualifiers.">;
 def err_payload_fields_is_payload_and_overqualified : Error<

@@ -1137,4 +1137,33 @@ void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
   visitor.diagnose(TU);
 }
 
+void DiagnoseRaytracingEntry(Sema &S, FunctionDecl *FD) {
+  auto Attr = FD->getAttr<HLSLShaderAttr>();
+  if (!Attr)
+    return;
+  DXIL::PayloadAccessShaderStage Stage =
+      llvm::StringSwitch<DXIL::PayloadAccessShaderStage>(Attr->getStage())
+          .Case("closesthit", DXIL::PayloadAccessShaderStage::Closesthit)
+          .Case("miss", DXIL::PayloadAccessShaderStage::Miss)
+          .Case("anyhit", DXIL::PayloadAccessShaderStage::Anyhit)
+          .Default(DXIL::PayloadAccessShaderStage::Invalid);
+  if (Stage == DXIL::PayloadAccessShaderStage::Invalid)
+    return;
+
+  ParmVarDecl *Param = FD->getParamDecl(0);
+  if (!Param->getAttr<HLSLInOutAttr>())
+    S.Diag(Param->getLocation(), diag::err_payload_requires_inout) << Param;
+
+  for (unsigned Idx = 0; Idx < 2 && Idx < FD->getNumParams(); ++Idx) {
+    Param = FD->getParamDecl(Idx);
+
+    QualType Ty = Param->getType().getNonReferenceType();
+
+    if (!(hlsl::IsHLSLNumericUserDefinedType(Ty) ||
+          IsHLSLBuiltinRayAttributeStruct(Ty)))
+      S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
+          << /*payload|attributes*/ Idx << Param;
+  }
+}
+
 } // namespace hlsl
