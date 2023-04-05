@@ -14261,8 +14261,15 @@ QualType hlsl::GetHLSLMatrixTypeWithMajor(QualType matType, bool isRowMajor,
 
   HLSLExternalSource *HLSLSrc = HLSLExternalSource::FromSema(&sema);
 
+  ArBasicKind eltKind = HLSLSrc->GetTypeElementKind(eltType);
+  // Keep half as half for AST, clang code gen will generate float if
+  // enable-16bit-types is not enabled.
+  if (const BuiltinType *BT = dyn_cast<BuiltinType>(eltType))
+    if (BT->getKind() == BuiltinType::HalfFloat)
+      eltKind = AR_BASIC_FLOAT16;
+
   HLSLScalarType scalarType =
-      HLSLSrc->ScalarTypeForBasic(HLSLSrc->GetTypeElementKind(eltType));
+      HLSLSrc->ScalarTypeForBasic(eltKind);
   bool isShortHandTy = false;
   bool isTypedef = false;
   if (const TypedefType *TD = matType->getAs<TypedefType>()) {
