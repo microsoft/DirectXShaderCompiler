@@ -1,4 +1,5 @@
-; RUN: %opt -viewid-state -analyze -S %s 2>&1 | FileCheck %s
+; FIXME: remove XFAIL when switch to lit.
+; XFAIL: %opt -viewid-state -analyze -S %s 2>&1 | FileCheck %s
 
 ; CHECK: ViewId state:
 ; CHECK: Number of inputs: 2, outputs: 1, patchconst: 0

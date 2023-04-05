@@ -1,4 +1,4 @@
-; RUN: %opt -hlsl-dxil-module-init -hlsl-dxilfinalize %s -S | FileCheck %s
+; RUN: %opt -hlsl-dxil-module-init -hlsl-dxilfinalize -S %s | FileCheck %s
 
 ; Make sure !dx.temp is removed.
 
