@@ -1667,7 +1667,8 @@ MDTuple *
 DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
                                     const Function *F) {
   bool bRayAttributes = false;
-  std::vector<Metadata *> MDVals;
+  SmallVector<Metadata *, 35> MDVals;
+  
 
   MDVals.push_back(ValueAsMetadata::get(const_cast<Function *>(F)));
   MDVals.push_back(Uint32ToConstMD(static_cast<unsigned>(props->shaderKind)));
