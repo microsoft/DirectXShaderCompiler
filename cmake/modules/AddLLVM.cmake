@@ -953,26 +953,39 @@ endfunction()
 
 function(add_lit_testsuites project directory)
   if (NOT CMAKE_CONFIGURATION_TYPES)
-    cmake_parse_arguments(ARG "" "" "PARAMS;DEPENDS;ARGS" ${ARGN})
-    file(GLOB_RECURSE litCfg ${directory}/lit*.cfg)
-    set(lit_suites)
-    foreach(f ${litCfg})
-      get_filename_component(dir ${f} DIRECTORY)
-      set(lit_suites ${lit_suites} ${dir})
-    endforeach()
-    list(REMOVE_DUPLICATES lit_suites)
-    foreach(dir ${lit_suites})
-      string(REPLACE ${directory} "" name_slash ${dir})
+    cmake_parse_arguments(ARG "EXCLUDE_FROM_CHECK_ALL" "FOLDER" "PARAMS;DEPENDS;ARGS" ${ARGN})
+
+    if (NOT ARG_FOLDER)
+      set(ARG_FOLDER "Test Subdirectories")
+    endif()
+
+    # Search recursively for test directories by assuming anything not
+    # in a directory called Inputs contains tests.
+    file(GLOB_RECURSE to_process LIST_DIRECTORIES true ${directory}/*)
+    foreach(lit_suite ${to_process})
+      if(NOT IS_DIRECTORY ${lit_suite})
+        continue()
+      endif()
+      string(FIND ${lit_suite} Inputs is_inputs)
+      string(FIND ${lit_suite} Output is_output)
+      if (NOT (is_inputs EQUAL -1 AND is_output EQUAL -1))
+        continue()
+      endif()
+
+      # Create a check- target for the directory.
+      string(REPLACE ${directory} "" name_slash ${lit_suite})
       if (name_slash)
         string(REPLACE "/" "-" name_slash ${name_slash})
         string(REPLACE "\\" "-" name_dashes ${name_slash})
         string(TOLOWER "${project}${name_dashes}" name_var)
-        add_lit_target("check-${name_var}" "Running lit suite ${dir}"
-          ${dir}
+        add_lit_target("check-${name_var}" "Running lit suite ${lit_suite}"
+          ${lit_suite}
+          ${EXCLUDE_FROM_CHECK_ALL}
           PARAMS ${ARG_PARAMS}
           DEPENDS ${ARG_DEPENDS}
           ARGS ${ARG_ARGS}
         )
+        set_target_properties(check-${name_var} PROPERTIES FOLDER ${ARG_FOLDER})
       endif()
     endforeach()
   endif()
