@@ -3,6 +3,9 @@
 RWByteAddressBuffer NonGCBuf;
 globallycoherent RWByteAddressBuffer GCBuf;
 
+RWByteAddressBuffer NonGCBufArr[2];
+globallycoherent RWByteAddressBuffer GCBufArr[2];
+
 RWByteAddressBuffer getNonGCBuf() {
   return NonGCBuf;
 }
@@ -11,12 +14,28 @@ globallycoherent RWByteAddressBuffer getGCBuf() {
   return GCBuf;
 }
 
+RWByteAddressBuffer getNonGCBufArr() {
+  return NonGCBufArr[0];
+}
+
+globallycoherent RWByteAddressBuffer getGCBufArr() { 
+  return GCBufArr[0];
+}
+
 RWByteAddressBuffer getNonGCGCBuf() {
   return GCBuf; // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'RWByteAddressBuffer' loses globallycoherent annotation}}
 }
 
 globallycoherent RWByteAddressBuffer getGCNonGCBuf() {
   return NonGCBuf; // expected-warning{{implicit conversion from 'RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' adds globallycoherent annotation}}
+}
+
+RWByteAddressBuffer getNonGCGCBufArr() {
+  return GCBufArr[0]; // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'RWByteAddressBuffer' loses globallycoherent annotation}}
+}
+
+globallycoherent RWByteAddressBuffer getGCNonGCBufArr() {
+  return NonGCBufArr[0]; // expected-warning{{implicit conversion from 'RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' adds globallycoherent annotation}}
 }
 
 void NonGCStore(RWByteAddressBuffer Buf) {
@@ -43,5 +62,11 @@ void main()
 
   globallycoherent RWByteAddressBuffer GCCopyNonGCReturn = getNonGCBuf(); // expected-warning{{implicit conversion from 'RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' adds globallycoherent annotation}}
 
-   RWByteAddressBuffer NonGCCopyGCReturn = getGCBuf(); // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'RWByteAddressBuffer' loses globallycoherent annotation}}
+  RWByteAddressBuffer NonGCCopyGCReturn = getGCBuf(); // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'RWByteAddressBuffer' loses globallycoherent annotation}}
+
+  RWByteAddressBuffer NonGCCopyNonGC0 = NonGCBufArr[0]; // No diagnostic
+  RWByteAddressBuffer NonGCCopyGC0 = GCBufArr[0]; // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'RWByteAddressBuffer' loses globallycoherent annotation}}
+
+  globallycoherent RWByteAddressBuffer GCCopyNonGC0 = NonGCBufArr[0]; // expected-warning{{implicit conversion from 'RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' adds globallycoherent annotation}}
+  globallycoherent RWByteAddressBuffer GCCopyGC0 = GCBufArr[0]; // No diagnostic
 }
