@@ -1141,28 +1141,87 @@ void DiagnoseRaytracingEntry(Sema &S, FunctionDecl *FD) {
   auto Attr = FD->getAttr<HLSLShaderAttr>();
   if (!Attr)
     return;
-  DXIL::PayloadAccessShaderStage Stage =
-      llvm::StringSwitch<DXIL::PayloadAccessShaderStage>(Attr->getStage())
-          .Case("closesthit", DXIL::PayloadAccessShaderStage::Closesthit)
-          .Case("miss", DXIL::PayloadAccessShaderStage::Miss)
-          .Case("anyhit", DXIL::PayloadAccessShaderStage::Anyhit)
-          .Default(DXIL::PayloadAccessShaderStage::Invalid);
-  if (Stage == DXIL::PayloadAccessShaderStage::Invalid)
+
+  DXIL::ShaderKind Stage =
+      llvm::StringSwitch<DXIL::ShaderKind>(Attr->getStage())
+          .Case("pixel", DXIL::ShaderKind::Pixel)
+          .Case("vertex", DXIL::ShaderKind::Vertex)
+          .Case("geometry", DXIL::ShaderKind::Geometry)
+          .Case("hull", DXIL::ShaderKind::Hull)
+          .Case("domain", DXIL::ShaderKind::Domain)
+          .Case("compute", DXIL::ShaderKind::Compute)
+          .Case("raygeneration", DXIL::ShaderKind::RayGeneration)
+          .Case("intersection", DXIL::ShaderKind::Intersection)
+          .Case("anyhit", DXIL::ShaderKind::AnyHit)
+          .Case("closesthit", DXIL::ShaderKind::ClosestHit)
+          .Case("miss", DXIL::ShaderKind::Miss)
+          .Case("callable", DXIL::ShaderKind::Callable)
+          .Case("mesh", DXIL::ShaderKind::Mesh)
+          .Case("amplification", DXIL::ShaderKind::Amplification)
+          .Default(DXIL::ShaderKind::Invalid);
+  if (Stage <= DXIL::ShaderKind::Library || Stage >= DXIL::ShaderKind::Mesh)
+    return;
+
+  if (!FD->getReturnType()->isVoidType())
+    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+
+  if (Stage == DXIL::ShaderKind::Callable) {
+    if (FD->getNumParams() != 1)
+      S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
+          << Attr->getStage() << FD->getNumParams()
+          << /*Special message for callable.*/ 3;
+    else {
+      ParmVarDecl *Param = FD->getParamDecl(0);
+      if (!(Param->getAttr<HLSLInOutAttr>() ||
+            (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>())))
+        S.Diag(Param->getLocation(), diag::err_payload_requires_inout)
+            << /*payload|callable*/ 1 << Param;
+      QualType Ty = Param->getType().getNonReferenceType();
+
+      if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
+        S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
+            << /*payload|attributes|callable*/ 2 << Param;
+    }
+    return;
+  }
+
+  unsigned ExpectedParams = 0;
+  if (Stage == DXIL::ShaderKind::Miss)
+    ExpectedParams = 1;
+  else if (Stage >= DXIL::ShaderKind::AnyHit)
+    ExpectedParams = 2;
+
+  if (ExpectedParams != FD->getNumParams())
+    S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
+        << Attr->getStage() << FD->getNumParams() << ExpectedParams;
+
+  if (FD->getNumParams() == 0)
+    return;
+
+  if (Stage < DXIL::ShaderKind::AnyHit || Stage > DXIL::ShaderKind::Miss)
     return;
 
   ParmVarDecl *Param = FD->getParamDecl(0);
-  if (!Param->getAttr<HLSLInOutAttr>())
-    S.Diag(Param->getLocation(), diag::err_payload_requires_inout) << Param;
+  if (!(Param->getAttr<HLSLInOutAttr>() ||
+        (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>())))
+    S.Diag(Param->getLocation(), diag::err_payload_requires_inout)
+        << /*payload|callable*/ 0 << Param;
 
-  for (unsigned Idx = 0; Idx < 2 && Idx < FD->getNumParams(); ++Idx) {
+  if (FD->getNumParams() > 1) {
+    Param = FD->getParamDecl(1);
+    if (Param->getAttr<HLSLInOutAttr>() || Param->getAttr<HLSLOutAttr>())
+      S.Diag(Param->getLocation(), diag::err_attributes_requiers_in) << Param;
+  }
+
+  for (unsigned Idx = 0; Idx < ExpectedParams && Idx < FD->getNumParams();
+       ++Idx) {
     Param = FD->getParamDecl(Idx);
 
     QualType Ty = Param->getType().getNonReferenceType();
 
-    if (!(hlsl::IsHLSLNumericUserDefinedType(Ty) ||
-          IsHLSLBuiltinRayAttributeStruct(Ty)))
+    if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
       S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
-          << /*payload|attributes*/ Idx << Param;
+          << /*payload|attributes|callable*/ Idx << Param;
   }
 }
 
