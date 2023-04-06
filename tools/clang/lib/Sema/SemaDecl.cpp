@@ -9158,13 +9158,21 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   // When initializing an HLSL resource type we should diagnose mismatches in
   // globally coherent annotations _unless_ the source is a dynamic resource
   // placeholder type where we safely infer the globallycoherent annotaiton.
-  if (getLangOpts().HLSL && hlsl::IsHLSLResourceType(DclT) &&
-      !hlsl::IsHLSLDynamicResourceType(Init->getType())) {
-    bool SrcGL = hlsl::HasHLSLGloballyCoherent(Init->getType());
-    bool DstGL = hlsl::HasHLSLGloballyCoherent(DclT);
-    if (SrcGL != DstGL)
-      Diag(Init->getExprLoc(), diag::warn_hlsl_impcast_gl_mismatch)
-        << Init->getType() << DclT << /*loses|adds*/ DstGL;
+  if (getLangOpts().HLSL) {
+    QualType SrcTy = Init->getType();
+    QualType DstTy = DclT;
+    if (SrcTy->isArrayType() && DstTy->isArrayType()) {
+      SrcTy = SrcTy->getAsArrayTypeUnsafe()->getElementType();
+      DstTy = DstTy->getAsArrayTypeUnsafe()->getElementType();
+    }
+    if (hlsl::IsHLSLResourceType(DstTy) &&
+        !hlsl::IsHLSLDynamicResourceType(SrcTy)) {
+      bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
+      bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
+      if (SrcGL != DstGL)
+        Diag(Init->getExprLoc(), diag::warn_hlsl_impcast_gl_mismatch)
+            << Init->getType() << DclT << /*loses|adds*/ DstGL;
+    }
   }
   // HLSL Change end
   

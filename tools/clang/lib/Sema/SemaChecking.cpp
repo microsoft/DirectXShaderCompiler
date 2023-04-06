@@ -51,9 +51,14 @@ SourceLocation Sema::getLocationOfStringLiteralByte(const StringLiteral *SL,
 // HLSL Change begin
 static void CheckGloballyCoherentMismatch(Sema &S, Expr *SrcExpr,
                                           QualType DstTy, SourceLocation CC) {
-  if(!hlsl::IsHLSLResourceType(SrcExpr->getType()))
+  QualType SrcTy = SrcExpr->getType();
+  if (SrcTy->isArrayType() && DstTy->isArrayType()) {
+    SrcTy = SrcTy->getAsArrayTypeUnsafe()->getElementType();
+    DstTy = DstTy->getAsArrayTypeUnsafe()->getElementType();
+  }
+  if(!hlsl::IsHLSLResourceType(SrcTy))
     return;
-  bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcExpr->getType());
+  bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
   bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
   if (SrcGL != DstGL)
     S.Diag(CC, diag::warn_hlsl_impcast_gl_mismatch)
@@ -6783,6 +6788,9 @@ static bool AnalyzeBitFieldAssignment(Sema &S, FieldDecl *Bitfield, Expr *Init,
 static void AnalyzeAssignment(Sema &S, BinaryOperator *E) {
   // Just recurse on the LHS.
   AnalyzeImplicitConversions(S, E->getLHS(), E->getOperatorLoc());
+
+  CheckGloballyCoherentMismatch(S, E->getRHS(), E->getLHS()->getType(),
+                                E->getOperatorLoc());
 
   // We want to recurse on the RHS as normal unless we're assigning to
   // a bitfield.
