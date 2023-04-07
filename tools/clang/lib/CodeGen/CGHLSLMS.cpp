@@ -3558,9 +3558,63 @@ HLCBuffer &CGMSHLSLRuntime::GetOrCreateCBuffer(HLSLBufferDecl *D) {
   return *static_cast<HLCBuffer*>(&(m_pHLModule->GetCBuffer(cbID)));
 }
 
+template <typename BuilderTy>
+static Value *
+EmitHLSLMatrixOperationCallImp(BuilderTy &Builder, HLOpcodeGroup group,
+                               unsigned opcode, llvm::Type *RetType,
+                               ArrayRef<Value *> paramList, llvm::Module &M) {
+  SmallVector<llvm::Type *, 4> paramTyList;
+  // Add the opcode param
+  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
+  paramTyList.emplace_back(opcodeTy);
+  for (Value *param : paramList) {
+    paramTyList.emplace_back(param->getType());
+  }
+
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(RetType, paramTyList, false);
+
+  Function *opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+
+  SmallVector<Value *, 4> opcodeParamList;
+  Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
+  opcodeParamList.emplace_back(opcodeConst);
+  opcodeParamList.append(paramList.begin(), paramList.end());
+
+  return Builder.CreateCall(opFunc, opcodeParamList);
+}
+
+static void patchMatrixRetFns(llvm::Module &M) {
+  for (auto &F : M.functions()) {
+    llvm::Type *RetTy = F.getReturnType();
+    if (!HLMatrixType::isa(RetTy))
+      continue;
+
+    HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
+    if (group != HLOpcodeGroup::NotHL)
+      continue;
+
+    // Cast type for return.
+    for (auto &BB : F) {
+      ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator());
+      if (!RI)
+        continue;
+      Value *RV = RI->getReturnValue();
+      if (RV->getType() == RetTy)
+        continue;
+      IRBuilder<> B(RI);
+      Value *Cast = EmitHLSLMatrixOperationCallImp(B, HLOpcodeGroup::HLCast,
+                                     (unsigned)HLCastOpcode::DefaultCast, RetTy, {RV}, M);
+      RI->setOperand(0, Cast);
+    }
+  }
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   HLModule &HLM = *m_pHLModule;
   llvm::Module &M = TheModule;
+  // FIXME: remove this after matrix type has real layout.
+  patchMatrixRetFns(M);
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
   FinishIntrinsics(HLM, m_IntrinsicMap, objectProperties);
@@ -3792,30 +3846,6 @@ static unsigned GetHLOpcode(const Expr *E) {
   }
 }
 
-static Value *
-EmitHLSLMatrixOperationCallImp(CGBuilderTy &Builder, HLOpcodeGroup group,
-                               unsigned opcode, llvm::Type *RetType,
-                               ArrayRef<Value *> paramList, llvm::Module &M) {
-  SmallVector<llvm::Type *, 4> paramTyList;
-  // Add the opcode param
-  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
-  paramTyList.emplace_back(opcodeTy);
-  for (Value *param : paramList) {
-    paramTyList.emplace_back(param->getType());
-  }
-
-  llvm::FunctionType *funcTy =
-      llvm::FunctionType::get(RetType, paramTyList, false);
-
-  Function *opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
-
-  SmallVector<Value *, 4> opcodeParamList;
-  Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
-  opcodeParamList.emplace_back(opcodeConst);
-  opcodeParamList.append(paramList.begin(), paramList.end());
-
-  return Builder.CreateCall(opFunc, opcodeParamList);
-}
 
 static Value *EmitHLSLArrayInit(CGBuilderTy &Builder, HLOpcodeGroup group,
                                 unsigned opcode, llvm::Type *RetType,
@@ -5050,6 +5080,15 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixElement(CodeGenFunction &CGF,
                                         opcode, RetType, args, TheModule);
 }
 
+static llvm::Type *getMatrixValueType(llvm::Type *MatTy) {
+  StructType *ST = cast<StructType>(MatTy);
+  std::string Name = ST->getName().rtrim(".Col").rtrim(".Row");
+  StructType *MatValST = MatTy->getContext().getTypeByName(Name);
+  if (!MatValST)
+    MatValST = StructType::create(ST->elements(), Name);
+  return MatValST;
+}
+
 Value *CGMSHLSLRuntime::EmitHLSLMatrixLoad(CGBuilderTy &Builder, Value *Ptr,
                                            QualType Ty) {
   bool isRowMajor =
@@ -5058,10 +5097,13 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixLoad(CGBuilderTy &Builder, Value *Ptr,
       isRowMajor
           ? static_cast<unsigned>(HLMatLoadStoreOpcode::RowMatLoad)
           : static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatLoad);
+  // FIXME: keep original type after the type has real layout.
+  llvm::Type *MatValTy =
+      getMatrixValueType(Ptr->getType()->getPointerElementType());
 
-  Value *matVal = EmitHLSLMatrixOperationCallImp(
-      Builder, HLOpcodeGroup::HLMatLoadStore, opcode,
-      Ptr->getType()->getPointerElementType(), {Ptr}, TheModule);
+  Value *matVal =
+      EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLMatLoadStore,
+                                     opcode, MatValTy, {Ptr}, TheModule);
   if (!isRowMajor) {
     // ColMatLoad will return a col major matrix.
     // All matrix Value should be row major.
@@ -5940,6 +5982,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       if (!mustCopy && isMatrix) {
         mustCopy = !AreMatrixArrayOrientationMatching(
           CGF.getContext(), *m_pHLModule, argType, ParamTy);
+        if (auto *CE = dyn_cast<ImplicitCastExpr>(Arg)) {
+          mustCopy |= CE->getCastKind() == CK_HLSLRowMajorToColMajor ||
+                      CE->getCastKind() == CK_HLSLColMajorToRowMajor;
+        }
       }
 
       if (!mustCopy) {
@@ -6055,8 +6101,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
         if (HLMatrixType::isa(ToTy)) {
-          Value *castVal = CGF.Builder.CreateBitCast(outVal, ToTy);
-          EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
+          // FIXME: cast when matrix type has real layout.
+          EmitHLSLMatrixStore(CGF, outVal, tmpArgAddr, ParamTy);
         }
         else {
           if (outVal->getType()->isVectorTy()) {
@@ -6128,6 +6174,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
             castVal =
                 CGF.Builder.CreateInsertElement(castVal, outVal, (uint64_t)0);
           }
+        } else if (HLMatrixType::isa(FromTy) && HLMatrixType::isa(ToTy)) {
+          // FIXME: cast when matrix type has real layout.
         } else {
           castVal = ConvertScalarOrVector(CGF,
             outVal, tmpLV.getType(), argLV.getType());

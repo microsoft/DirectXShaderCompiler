@@ -3333,6 +3333,12 @@ EmitConditionalOperatorLValue(const AbstractConditionalOperator *expr) {
 /// cast from scalar to union.
 LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   // HLSL Change Begins
+  if (E->getCastKind() == CK_HLSLRowMajorToColMajor ||
+      E->getCastKind() == CK_HLSLColMajorToRowMajor) {
+    // Orientation cast on LValue.
+    // Do the cast in copyin/out.
+    return EmitLValue(E->getSubExpr());
+  }
   if (hlsl::IsHLSLMatType(E->getType()) || hlsl::IsHLSLMatType(E->getSubExpr()->getType())) {
     LValue LV = EmitLValue(E->getSubExpr());
     QualType ToType = getContext().getLValueReferenceType(E->getType());
