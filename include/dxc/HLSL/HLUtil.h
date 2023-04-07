@@ -12,10 +12,13 @@
 #pragma once
 
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/DenseMap.h"
 
 namespace llvm {
 class Function;
 class Value;
+class Module;
+class Type;
 class MemCpyInst;
 } // namespace llvm
 
@@ -88,6 +91,9 @@ struct PointerStatus {
   bool HasStored();
   bool HasLoaded();
 };
+
+using MutateTypeFunction = llvm::Type* (*)(llvm::Type*);
+bool mutateType(llvm::Module &M, MutateTypeFunction MutateTyFn);
 
 } // namespace hlutil
 

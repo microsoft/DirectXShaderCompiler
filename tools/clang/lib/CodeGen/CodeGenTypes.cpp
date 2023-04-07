@@ -41,17 +41,13 @@ CodeGenTypes::CodeGenTypes(CodeGenModule &cgm)
 }
 
 CodeGenTypes::~CodeGenTypes() {
-  for (auto *Key : dupMatTys) {
-    RecordDeclTypes.erase(Key);
-    CGRecordLayouts.erase(Key);
-  }
   llvm::DeleteContainerSeconds(CGRecordLayouts);
   for (llvm::FoldingSet<CGFunctionInfo>::iterator
        I = FunctionInfos.begin(), E = FunctionInfos.end(); I != E; )
     delete &*I++;
 }
 
-bool CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
+void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
                                      llvm::StructType *Ty,
                                      StringRef suffix) {
   SmallString<256> TypeName;
@@ -93,7 +89,10 @@ bool CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
     QualType CompType = templateDecl->getTemplateArgs().get(0).getAsType();
     OS  << ".";   CompType.print(OS, policy);
     OS  << "." << templateDecl->getTemplateArgs().get(1).getAsIntegral().toString(10)
-        << "." << templateDecl->getTemplateArgs().get(2).getAsIntegral().toString(10);
+        << "." << templateDecl->getTemplateArgs().get(2).getAsIntegral().toString(10)
+        << "." << ((templateDecl->getTemplateArgs().get(3)
+            .getAsIntegral()
+            .getLimitedValue() == 0) ? "Col" : "Row");
   } else if (const ClassTemplateSpecializationDecl *Spec = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
     const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
     TemplateSpecializationType::PrintTemplateArgumentList(OS,
@@ -105,7 +104,6 @@ bool CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   // HLSL Change Ends
 
   Ty->setName(OS.str());
-  return Ty->getName() != OS.str();
 }
 
 /// ConvertTypeForMem - Convert type T into a llvm::Type.  This differs from
@@ -726,29 +724,10 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
 
   llvm::StructType *&Entry = RecordDeclTypes[Key];
 
-  bool bNameConflict = false;
   // If we don't have a StructType at all yet, create the forward declaration.
   if (!Entry) {
     Entry = llvm::StructType::create(getLLVMContext());
-    bNameConflict = addRecordTypeName(RD, Entry, "");
-  }
-  bool isMatrix =
-      RD->getIdentifier() == &(getContext().Idents.get(StringRef("matrix")));
-  // Hack: force matrix with different major generate same IR type.
-  if (isMatrix && bNameConflict) {
-    StringRef Name = Entry->getName();
-    Name = Name.substr(0, Name.find_last_of('.'));
-    llvm::StructType *MatST = TheModule.getTypeByName(Name);
-    CGRecordLayout *Layout = nullptr;
-    for (auto &It : RecordDeclTypes) {
-      if (It.second == MatST) {
-        Layout = CGRecordLayouts[It.first];
-        break;
-      }
-    }
-    dupMatTys.insert(Key);
-    CGRecordLayouts[Key] = Layout;
-    Entry = MatST;
+    addRecordTypeName(RD, Entry, "");
   }
   llvm::StructType *Ty = Entry;
 

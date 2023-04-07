@@ -1276,8 +1276,12 @@ Value *HLMatrixLowerPass::lowerHLLoad(CallInst *Call, Value *MatPtr, bool RowMaj
 
 Value *HLMatrixLowerPass::lowerHLStore(CallInst *Call, Value *MatVal, Value *MatPtr,
                                        bool RowMajor, bool Return, IRBuilder<> &Builder) {
-  DXASSERT(MatVal->getType() == MatPtr->getType()->getPointerElementType(),
-    "Matrix store value/pointer type mismatch.");
+  DXASSERT(MatVal->getType() == MatPtr->getType()->getPointerElementType() ||
+               // FIXME: remove this after matrix type has real layout.
+               HLMatrixType::dyn_cast(MatVal->getType()) ==
+                   HLMatrixType::dyn_cast(
+                       MatPtr->getType()->getPointerElementType()),
+           "Matrix store value/pointer type mismatch.");
 
   Value *LoweredPtr = tryGetLoweredPtrOperand(MatPtr, Builder);
   Value *LoweredVal = getLoweredByValOperand(MatVal, Builder);

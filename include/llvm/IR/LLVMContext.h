@@ -31,6 +31,7 @@ class SMDiagnostic;
 class DiagnosticInfo;
 template <typename T> class SmallVectorImpl;
 class Function;
+class StructType;
 class DebugLoc;
 
 /// This is an important class for using LLVM in a threaded context.  It
@@ -71,6 +72,12 @@ public:
   /// Return a unique non-zero ID for the specified metadata kind if it exists.
   bool findMDKindID(StringRef Name, unsigned *ID) const;
   // HLSL Change - End
+
+  // HLSL Change Begin
+  /// Return the type with the specified name, or null if there is none by that
+  /// name.
+  StructType *getTypeByName(StringRef Name) const;
+  // HLSL Change End
 
   /// getMDKindNames - Populate client supplied SmallVector with the name for
   /// custom metadata IDs registered in this LLVMContext.
