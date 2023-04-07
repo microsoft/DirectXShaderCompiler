@@ -337,17 +337,21 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
                   static_cast<int>(Mat.getColumnMajorIndex(RowIdx, ColIdx)));
             val = Builder.CreateShuffleVector(val, val, ShuffleIndices);
           }
+          Type *TargetTy = Ty;
+          // FIXME: remove this after matrix value has real layout.
+          if (TargetTy != CI->getType())
+            TargetTy = CI->getType();
           // lower mem to reg type
           val = Mat.emitLoweredMemToReg(val, Builder);
           // cast vector back to matrix value (DefaultCast expects row major)
           unsigned newOpcode = (unsigned)HLCastOpcode::DefaultCast;
-          val = callHLFunction(*F->getParent(), HLOpcodeGroup::HLCast, newOpcode,
-                               Ty, { Builder.getInt32(newOpcode), val }, Builder);
+          val = callHLFunction(*F->getParent(), HLOpcodeGroup::HLCast, newOpcode, TargetTy,
+                               {Builder.getInt32(newOpcode), val}, Builder);
           if (bColMajor) {
             // emit cast row to col to match original result
             newOpcode = (unsigned)HLCastOpcode::RowMatrixToColMatrix;
-            val = callHLFunction(*F->getParent(), HLOpcodeGroup::HLCast, newOpcode,
-              Ty, { Builder.getInt32(newOpcode), val }, Builder);
+            val = callHLFunction(*F->getParent(), HLOpcodeGroup::HLCast, newOpcode, TargetTy,
+                                 {Builder.getInt32(newOpcode), val}, Builder);
           }
           // replace use of HLMatLoadStore with loaded vector
           CI->replaceAllUsesWith(val);
