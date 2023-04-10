@@ -1,4 +1,4 @@
-// RUN: %dxc /T vs_6_0 /E main %s | FileCheck %s | XFail GitHub #1788
+// RUN: %dxc /T vs_6_0 /E main %s | FileCheck %s
 
 // Test writing matrices to structured buffers
 // with every combination of source/dest orientations.
