@@ -450,28 +450,6 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           bool isRowMajor = MatAnnotation->GetMatrixAnnotation().Orientation == MatrixOrientation::RowMajor;
           Value* matStoreVal = valArg;
 
-          // The in-reg matrix orientation is always row-major.
-          // If the in-memory matrix orientation is col-major, then we
-          // need to change the orientation to col-major before storing
-          // to memory
-          if (!isRowMajor) {
-            unsigned castOpCode = (unsigned)HLCastOpcode::RowMatrixToColMatrix;
-
-            // Construct signature of the function that is used for converting
-            // orientation of a matrix from row-major to col-major.
-            FunctionType* MatCastFnType = FunctionType::get(
-              matStoreVal->getType(), { Builder.getInt32Ty(), matStoreVal->getType() },
-              /* isVarArg */ false);
-
-            // Create the conversion function.
-            Function* MatCastFn = GetOrCreateHLFunction(
-              M, MatCastFnType, HLOpcodeGroup::HLCast, castOpCode);
-            Value* MatCastOpCode = ConstantInt::get(Builder.getInt32Ty(), castOpCode);
-
-            // Insert call to the conversion function.
-            matStoreVal = Builder.CreateCall(MatCastFn, { MatCastOpCode, matStoreVal });
-          }
-
           unsigned storeOpCode = isRowMajor ? (unsigned) HLMatLoadStoreOpcode::RowMatStore
             : (unsigned) HLMatLoadStoreOpcode::ColMatStore;
 
@@ -523,28 +501,6 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           // Insert call to the matrix load function.
           Value *matLdVal = Builder.CreateCall(MatLdFn, { MatStOpCode, subscript });
 
-          // The in-reg matrix orientation is always row-major.
-          // If the in-memory matrix orientation is col-major, then we
-          // need to change the orientation to row-major after loading
-          // from memory.
-          if (!isRowMajor) {
-            unsigned castOpCode = (unsigned)HLCastOpcode::ColMatrixToRowMatrix;
-
-            // Construct signature of the function that is used for converting
-            // orientation of a matrix from col-major to row-major.
-            FunctionType* MatCastFnType = FunctionType::get(
-              matLdVal->getType(), { Builder.getInt32Ty(), matLdVal->getType() },
-              /* isVarArg */ false);
-
-            // Create the conversion function.
-            Function* MatCastFn = GetOrCreateHLFunction(
-              M, MatCastFnType, HLOpcodeGroup::HLCast, castOpCode);
-            Value* MatCastOpCode = ConstantInt::get(Builder.getInt32Ty(), castOpCode);
-
-            // Insert call to the conversion function.
-            matLdVal = Builder.CreateCall(MatCastFn, { MatCastOpCode, matLdVal });
-
-          }
           Builder.CreateRet(matLdVal);
         }
         else {

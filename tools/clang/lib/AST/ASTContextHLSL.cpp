@@ -1295,16 +1295,14 @@ TypedefDecl* hlsl::CreateMatrixSpecializationShorthand(
   ASTContext& context,
   QualType matrixSpecialization,
   HLSLScalarType scalarType,
-  size_t rowCount,
-  size_t colCount)
-{
+  size_t rowCount, size_t colCount,
+    DeclContext *currentDeclContext) {
   DXASSERT(rowCount <= 4, "else caller didn't validate rowCount");
   DXASSERT(colCount <= 4, "else caller didn't validate colCount");
   char typeName[64];
   sprintf_s(typeName, _countof(typeName), "%s%ux%u",
     HLSLScalarTypeNames[scalarType], (unsigned)rowCount, (unsigned)colCount);
   IdentifierInfo& typedefId = context.Idents.get(StringRef(typeName), tok::TokenKind::identifier);
-  DeclContext* currentDeclContext = context.getTranslationUnitDecl();
   TypedefDecl* decl = TypedefDecl::Create(context, currentDeclContext, NoLoc, NoLoc, &typedefId,
     context.getTrivialTypeSourceInfo(matrixSpecialization, NoLoc));
   decl->setImplicit(true);

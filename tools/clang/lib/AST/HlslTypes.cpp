@@ -188,8 +188,7 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
 }
 
 bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue) {
-  bool result = defaultValue;
-  HasHLSLMatOrientation(type, &result);
+  bool result = IsRowMajorMatrixTemplate(type);
   return result;
 }
 

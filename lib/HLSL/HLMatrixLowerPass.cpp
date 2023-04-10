@@ -155,7 +155,7 @@ private:
   void lowerPreciseCall(CallInst *Call, IRBuilder<> Builder);
   Value *lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeGroup);
   Value *lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode);
-  Value *lowerHLMulIntrinsic(Value* Lhs, Value *Rhs, bool Unsigned, IRBuilder<> &Builder);
+  Value *lowerHLMulIntrinsic(Value* Lhs, Value *Rhs, bool Unsigned, Type *ResultTy, IRBuilder<> &Builder);
   Value *lowerHLTransposeIntrinsic(Value *MatVal, IRBuilder<> &Builder);
   Value *lowerHLDeterminantIntrinsic(Value *MatVal, IRBuilder<> &Builder);
   Value *lowerHLUnaryOperation(Value *MatVal, HLUnaryOpcode Opcode, IRBuilder<> &Builder);
@@ -833,9 +833,10 @@ Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode) {
   case IntrinsicOp::IOP_umul:
   case IntrinsicOp::IOP_mul:
     return lowerHLMulIntrinsic(
-      Call->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx),
-      Call->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx),
-      /* Unsigned */ Opcode == IntrinsicOp::IOP_umul, Builder);
+        Call->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx),
+        Call->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx),
+        /* Unsigned */ Opcode == IntrinsicOp::IOP_umul, Call->getType(),
+        Builder);
   case IntrinsicOp::IOP_transpose:
     return lowerHLTransposeIntrinsic(Call->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx), Builder);
   case IntrinsicOp::IOP_determinant:
@@ -895,9 +896,12 @@ Value *HLMatrixLowerPass::translateScalarMatMul(Value *Lhs, Value *Rhs, IRBuilde
 }
 
 Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
-    bool Unsigned, IRBuilder<> &Builder) {
+                                              bool Unsigned, Type *ResultTy,
+                                              IRBuilder<> &Builder) {
   HLMatrixType LhsMatTy = HLMatrixType::dyn_cast(Lhs->getType());
   HLMatrixType RhsMatTy = HLMatrixType::dyn_cast(Rhs->getType());
+  bool LhsIsRowMajor = true;
+  bool RhsIsRowMajor = true;
   Value* LoweredLhs = getLoweredByValOperand(Lhs, Builder);
   Value* LoweredRhs = getLoweredByValOperand(Rhs, Builder);
 
@@ -922,6 +926,8 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
     LhsNumCols = LhsMatTy.getNumColumns();
     RhsNumRows = RhsMatTy.getNumRows();
     RhsNumCols = RhsMatTy.getNumColumns();
+    LhsIsRowMajor = LhsMatTy.getIsRowMajor();
+    RhsIsRowMajor = RhsMatTy.getIsRowMajor();
   }
   else if (LhsMatTy) {
     LhsNumRows = LhsMatTy.getNumRows();
@@ -929,6 +935,7 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
     FixedVectorType *VT = dyn_cast<FixedVectorType>(LoweredRhs->getType());
     RhsNumRows = VT->getNumElements();
     RhsNumCols = 1;
+    LhsIsRowMajor = LhsMatTy.getIsRowMajor();
   }
   else if (RhsMatTy) {
     LhsNumRows = 1;
@@ -936,13 +943,17 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
     LhsNumCols = VT->getNumElements();
     RhsNumRows = RhsMatTy.getNumRows();
     RhsNumCols = RhsMatTy.getNumColumns();
+    RhsIsRowMajor = RhsMatTy.getIsRowMajor();
   }
   else {
     llvm_unreachable("mul intrinsic was identified as a matrix operation but neither operand is a matrix.");
   }
 
+  HLMatrixType OriginResultMatTy = HLMatrixType::dyn_cast(ResultTy);
+  bool ResultIsRowMajor =
+      OriginResultMatTy ? OriginResultMatTy.getIsRowMajor() : LhsIsRowMajor;
   DXASSERT(LhsNumCols == RhsNumRows, "Matrix mul intrinsic operands dimensions mismatch.");
-  HLMatrixType ResultMatTy(ElemTy, LhsNumRows, RhsNumCols);
+  HLMatrixType ResultMatTy(ElemTy, LhsNumRows, RhsNumCols, ResultIsRowMajor);
   unsigned AccCount = LhsNumCols;
 
   // Get the multiply-and-add intrinsic function, we'll need it
@@ -955,12 +966,25 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
   Value *Result = UndefValue::get(VectorType::get(ElemTy, LhsNumRows * RhsNumCols));
   for (unsigned ResultRowIdx = 0; ResultRowIdx < ResultMatTy.getNumRows(); ++ResultRowIdx) {
     for (unsigned ResultColIdx = 0; ResultColIdx < ResultMatTy.getNumColumns(); ++ResultColIdx) {
-      unsigned ResultElemIdx = ResultMatTy.getRowMajorIndex(ResultRowIdx, ResultColIdx);
+      unsigned ResultElemIdx =
+          ResultIsRowMajor
+              ? ResultMatTy.getRowMajorIndex(ResultRowIdx, ResultColIdx)
+              : ResultMatTy.getColumnMajorIndex(ResultRowIdx, ResultColIdx);
       Value *ResultElem = nullptr;
 
       for (unsigned AccIdx = 0; AccIdx < AccCount; ++AccIdx) {
-        unsigned LhsElemIdx = HLMatrixType::getRowMajorIndex(ResultRowIdx, AccIdx, LhsNumRows, LhsNumCols);
-        unsigned RhsElemIdx = HLMatrixType::getRowMajorIndex(AccIdx, ResultColIdx, RhsNumRows, RhsNumCols);
+        unsigned LhsElemIdx =
+            LhsIsRowMajor
+                ? HLMatrixType::getRowMajorIndex(ResultRowIdx, AccIdx,
+                                                 LhsNumRows, LhsNumCols)
+                : HLMatrixType::getColumnMajorIndex(ResultRowIdx, AccIdx,
+                                                    LhsNumRows, LhsNumCols);
+        unsigned RhsElemIdx =
+            RhsIsRowMajor
+                ? HLMatrixType::getRowMajorIndex(AccIdx, ResultColIdx,
+                                                 RhsNumRows, RhsNumCols)
+                : HLMatrixType::getColumnMajorIndex(AccIdx, ResultColIdx,
+                                                    RhsNumRows, RhsNumCols);
         Value* LhsElem = Builder.CreateExtractElement(LoweredLhs, static_cast<uint64_t>(LhsElemIdx));
         Value* RhsElem = Builder.CreateExtractElement(LoweredRhs, static_cast<uint64_t>(RhsElemIdx));
         if (ResultElem == nullptr) {
@@ -1355,13 +1379,27 @@ Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, Value *Src, Type *DstTy,
     // Vector to matrix
     HLMatrixType MatDstTy = HLMatrixType::cast(DstTy);
     Value *Result = Src;
+    if (MatDstTy.getIsRowMajor()) {
+      // We might need to truncate
+      if (MatDstTy.getNumElements() < SrcVecTy->getNumElements()) {
+        SmallVector<int, 4> ShuffleIndices;
+        for (unsigned Idx = 0; Idx < MatDstTy.getNumElements(); ++Idx)
+          ShuffleIndices.emplace_back(static_cast<int>(Idx));
+        Result = Builder.CreateShuffleVector(Src, Src, ShuffleIndices);
+      }
 
-    // We might need to truncate
-    if (MatDstTy.getNumElements() < SrcVecTy->getNumElements()) {
-      SmallVector<int, 4> ShuffleIndices;
-      for (unsigned Idx = 0; Idx < MatDstTy.getNumElements(); ++Idx)
-        ShuffleIndices.emplace_back(static_cast<int>(Idx));
-      Result = Builder.CreateShuffleVector(Src, Src, ShuffleIndices);
+    } else {
+      SmallVector<int, 16> ShuffleIndices(MatDstTy.getNumElements());
+      for (unsigned RowIdx = 0; RowIdx < MatDstTy.getNumRows(); ++RowIdx)
+        for (unsigned ColIdx = 0; ColIdx < MatDstTy.getNumColumns(); ++ColIdx) {
+          // Vec in row major.
+          unsigned SrcIdx = MatDstTy.getRowMajorIndex(RowIdx, ColIdx);
+          unsigned DstIdx = MatDstTy.getIsRowMajor()
+                                ? MatDstTy.getRowMajorIndex(RowIdx, ColIdx)
+                                : MatDstTy.getColumnMajorIndex(RowIdx, ColIdx);
+          ShuffleIndices[DstIdx] = static_cast<int>(SrcIdx);
+        }
+      Result = Builder.CreateShuffleVector(Result, Result, ShuffleIndices);
     }
 
     // Apply element conversion
@@ -1423,10 +1461,17 @@ Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, Value *Src, Type *DstTy,
       DXASSERT(MatDstTy.getNumRows() <= MatSrcTy.getNumRows()
         && MatDstTy.getNumColumns() <= MatSrcTy.getNumColumns(),
         "Unexpected matrix cast between incompatible dimensions.");
-      SmallVector<int, 16> ShuffleIndices;
+      SmallVector<int, 16> ShuffleIndices(MatDstTy.getNumElements());
       for (unsigned RowIdx = 0; RowIdx < MatDstTy.getNumRows(); ++RowIdx)
-        for (unsigned ColIdx = 0; ColIdx < MatDstTy.getNumColumns(); ++ColIdx)
-          ShuffleIndices.emplace_back(static_cast<int>(MatSrcTy.getRowMajorIndex(RowIdx, ColIdx)));
+        for (unsigned ColIdx = 0; ColIdx < MatDstTy.getNumColumns(); ++ColIdx) {
+          unsigned SrcIdx = MatSrcTy.getIsRowMajor()
+                                ? MatSrcTy.getRowMajorIndex(RowIdx, ColIdx)
+                                : MatSrcTy.getColumnMajorIndex(RowIdx, ColIdx);
+          unsigned DstIdx = MatDstTy.getIsRowMajor()
+                                ? MatDstTy.getRowMajorIndex(RowIdx, ColIdx)
+                                : MatDstTy.getColumnMajorIndex(RowIdx, ColIdx);
+          ShuffleIndices[DstIdx] = static_cast<int>(SrcIdx);
+        }
       Result = Builder.CreateShuffleVector(Result, Result, ShuffleIndices);
     }
 

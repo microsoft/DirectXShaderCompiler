@@ -3606,17 +3606,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
   llvm::CallSite CS;
   if (!InvokeDest) {
-    // HLSL changes begin
-    // When storing a matrix to memory, make sure to change its orientation to match in-memory
-    // orientation.
-    if (getLangOpts().HLSL && CGM.getHLSLRuntime().NeedHLSLMartrixCastForStoreOp(TargetDecl, IRCallArgs)) {
-      llvm::SmallVector<clang::QualType, 16> tyList;
-      for (CallArgList::const_iterator I = CallArgs.begin(), E = CallArgs.end(); I != E; ++I) {
-        tyList.emplace_back(I->Ty);
-      }
-      CGM.getHLSLRuntime().EmitHLSLMartrixCastForStoreOp(*this, IRCallArgs, tyList);
-    }
-    // HLSL changes end
     CS = Builder.CreateCall(Callee, IRCallArgs);
   } else {
     llvm::BasicBlock *Cont = createBasicBlock("invoke.cont");

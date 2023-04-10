@@ -18,8 +18,9 @@
 using namespace llvm;
 using namespace hlsl;
 
-HLMatrixType::HLMatrixType(Type *RegReprElemTy, unsigned NumRows, unsigned NumColumns)
-  : RegReprElemTy(RegReprElemTy), NumRows(NumRows), NumColumns(NumColumns) {
+HLMatrixType::HLMatrixType(Type *RegReprElemTy, unsigned NumRows, unsigned NumColumns, bool IsRowMajor)
+    : RegReprElemTy(RegReprElemTy), NumRows(NumRows),
+      NumColumns(NumColumns), IsRowMajor(IsRowMajor) {
   DXASSERT(RegReprElemTy != nullptr && (RegReprElemTy->isIntegerTy() || RegReprElemTy->isFloatingPointTy()),
     "Invalid matrix element type.");
   DXASSERT(NumRows >= 1 && NumRows <= 4 && NumColumns >= 1 && NumColumns <= 4,
@@ -171,7 +172,11 @@ HLMatrixType HLMatrixType::cast(Type *Ty) {
   DXASSERT_NOMSG(RowArrayTy->getNumElements() >= 1 && RowArrayTy->getNumElements() <= 4);
   VectorType *RowTy = llvm::cast<VectorType>(RowArrayTy->getElementType());
   DXASSERT_NOMSG(RowTy->getNumElements() >= 1 && RowTy->getNumElements() <= 4);
-  return HLMatrixType(RowTy->getElementType(), RowArrayTy->getNumElements(), RowTy->getNumElements());
+  bool IsRowMajor = StructTy->getName().endswith(".Row");
+  assert(IsRowMajor ||
+         StructTy->getName().endswith(".Col") && "invalid matrix type");
+  return HLMatrixType(RowTy->getElementType(), RowArrayTy->getNumElements(),
+                      RowTy->getNumElements(), IsRowMajor);
 }
 
 HLMatrixType HLMatrixType::dyn_cast(Type *Ty) {
