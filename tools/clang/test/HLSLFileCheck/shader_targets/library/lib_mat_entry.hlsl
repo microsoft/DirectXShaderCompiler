@@ -10,8 +10,8 @@
 // CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle [[H]], i32 7)
 
 
-// CHECK: [[BCI:%.*]] = bitcast [24 x float]* {{.*}} to [2 x %class.matrix.float.4.3]*
-// CHECK: call float @"\01?mat_array_test{{[@$?.A-Za-z0-9_]+}}"(<4 x float> {{.*}}, <4 x float> {{.*}}, [2 x %class.matrix.float.4.3]* [[BCI]]
+// CHECK: [[BCI:%.*]] = bitcast [24 x float]* {{.*}} to [2 x %class.matrix.float.4.3.Col]*
+// CHECK: call float @"\01?mat_array_test{{[@$?.A-Za-z0-9_]+}}"(<4 x float> {{.*}}, <4 x float> {{.*}}, [2 x %class.matrix.float.4.3.Col]* [[BCI]]
 
 float mat_array_test(in float4 inGBuffer0,
                                   in float4 inGBuffer1,

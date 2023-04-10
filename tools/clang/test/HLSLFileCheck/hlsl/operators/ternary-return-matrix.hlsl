@@ -18,5 +18,5 @@ float2x2 crashingFunction(bool b) {
 // CHECK: preds = {{%[0-9a-z]+}}
 // CHECK: call %class.matrix.float.2.2.Col @"dx.hl.matldst.colStore.%class.matrix.float.2.2.Col (i32, %class.matrix.float.2.2.Col*, %class.matrix.float.2.2.Col)"(i32 1, %class.matrix.float.2.2.Col* [[ALLOCA]], %class.matrix.float.2.2.Col %{{[0-9]+}})
 // CHECK: preds = {{%[0-9a-z.]+}}, {{%[0-9a-z.]+}}
-// CHECK: call %class.matrix.float.2.2 @"dx.hl.matldst.colLoad.%class.matrix.float.2.2 (i32, %class.matrix.float.2.2.Col*)"(i32 0, %class.matrix.float.2.2.Col* [[ALLOCA]])
+// CHECK: call %class.matrix.float.2.2.Col @"dx.hl.matldst.colLoad.%class.matrix.float.2.2.Col (i32, %class.matrix.float.2.2.Col*)"(i32 0, %class.matrix.float.2.2.Col* [[ALLOCA]])
 
