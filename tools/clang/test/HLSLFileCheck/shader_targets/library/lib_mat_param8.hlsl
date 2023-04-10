@@ -1,10 +1,10 @@
 // RUN: %dxc -T lib_6_3 -default-linkage external %s | FileCheck %s
 
 // Make sure return matrix struct works.
-// CHECK-DAG: bitcast %class.matrix.float.3.2* {{.*}} to <6 x float>*
-// CHECK-DAG: bitcast %class.matrix.float.2.3* {{.*}} to <6 x float>*
-// CHECK-DAG: bitcast %class.matrix.float.3.2* {{.*}} to <6 x float>*
-// CHECK-DAG: bitcast %class.matrix.float.2.3* {{.*}} to <6 x float>*
+// CHECK-DAG: bitcast %class.matrix.float.3.2.Col* {{.*}} to <6 x float>*
+// CHECK-DAG: bitcast %class.matrix.float.2.3.Col* {{.*}} to <6 x float>*
+// CHECK-DAG: bitcast %class.matrix.float.3.2.Col* {{.*}} to <6 x float>*
+// CHECK-DAG: bitcast %class.matrix.float.2.3.Col* {{.*}} to <6 x float>*
 
 struct MA {
   float2x3 ma[2];

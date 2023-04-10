@@ -5,10 +5,10 @@
 // CHECK: dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 16, i8 15, i32 4)
 // CHECK: dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 32, i8 15, i32 4)
 
-// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.3.4*
-// CHECK: [[RET:%.*]] = call %class.matrix.float.4.3 @"\01?mat_test
-// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.4.3*
-// CHECK: store %class.matrix.float.4.3 [[RET]], %class.matrix.float.4.3* 
+// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.3.4.Col*
+// CHECK: [[RET:%.*]] = call %class.matrix.float.4.3.Col @"\01?mat_test
+// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.4.3.Col*
+// CHECK: store %class.matrix.float.4.3.Col [[RET]], %class.matrix.float.4.3.Col*
 
 // CHECK: dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 0, float {{.*}}, float {{.*}}, float {{.*}}, float {{.*}}, i8 15, i32 4)
 // CHECK: dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 16, float {{.*}}, float {{.*}}, float {{.*}}, float {{.*}}, i8 15, i32 4)
@@ -18,10 +18,10 @@
 // CHECK: dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 64, i8 15, i32 4)
 // CHECK: dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 80, i8 15, i32 4)
 
-// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.3.4*
-// CHECK: [[RET2:%.*]] = call %class.matrix.float.4.3 @"\01?mat_test
-// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.4.3*
-// CHECK: store %class.matrix.float.4.3 [[RET2]], %class.matrix.float.4.3* 
+// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.3.4.Col*
+// CHECK: [[RET2:%.*]] = call %class.matrix.float.4.3.Col @"\01?mat_test
+// CHECK: bitcast <12 x float>* {{.*}} to %class.matrix.float.4.3.Col*
+// CHECK: store %class.matrix.float.4.3.Col [[RET2]], %class.matrix.float.4.3.Col*
 
 // CHECK: dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 48, float {{.*}}, float {{.*}}, float {{.*}}, float {{.*}}, i8 15, i32 4)
 // CHECK: dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 64, float {{.*}}, float {{.*}}, float {{.*}}, float {{.*}}, i8 15, i32 4)
