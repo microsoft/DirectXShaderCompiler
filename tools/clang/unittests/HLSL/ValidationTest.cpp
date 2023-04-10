@@ -744,17 +744,17 @@ TEST_F(ValidationTest, BarrierFail) {
       {"dx.op.barrier(i32 80, i32 8)",
         "dx.op.barrier(i32 80, i32 9)",
         "dx.op.barrier(i32 80, i32 11)",
-        "%\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2, 0> >\" = type { [2 x <2 x float>] }\n",
+        "%\"hostlayout.class.RWStructuredBuffer<matrix.internal::matrix<float, 2, 2, 0> >\" = type { [2 x <2 x float>] }\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)",
       },
       {"dx.op.barrier(i32 80, i32 15)",
         "dx.op.barrier(i32 80, i32 0)",
         "dx.op.barrier(i32 80, i32 %rem)",
-        "%\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2, 0> >\" = type { [2 x <2 x float>] }\n"
-        "@dx.typevar.8 = external addrspace(1) constant %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2, 0> >\"\n"
+        "%\"hostlayout.class.RWStructuredBuffer<matrix.internal::matrix<float, 2, 2, 0> >\" = type { [2 x <2 x float>] }\n"
+        "@dx.typevar.8 = external addrspace(1) constant %\"hostlayout.class.RWStructuredBuffer<matrix.internal::matrix<float, 2, 2, 0> >\"\n"
         "@\"internalGV\" = internal global [64 x <4 x float>] undef\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
-        "%load = load %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2, 0> >\", %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2, 0> >\" addrspace(1)* @dx.typevar.8",
+        "%load = load %\"hostlayout.class.RWStructuredBuffer<matrix.internal::matrix<float, 2, 2, 0> >\", %\"hostlayout.class.RWStructuredBuffer<matrix.internal::matrix<float, 2, 2, 0> >\" addrspace(1)* @dx.typevar.8",
       },
       {"Internal declaration 'internalGV' is unused",
        "External declaration 'dx.typevar.8' is unused",

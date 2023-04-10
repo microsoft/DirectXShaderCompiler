@@ -148,13 +148,6 @@ public:
                              llvm::BasicBlock *loopExit) = 0;
 
   virtual CGHLSLMSHelper::Scope *MarkScopeEnd(CodeGenFunction &CGF) = 0;
-
-  virtual bool NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
-                              llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) = 0;
-
-  virtual void EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
-                              llvm::SmallVector<llvm::Value*, 16>& IRCallArgs,
-                              llvm::SmallVector<clang::QualType, 16>& ArgTys) = 0;
 };
 
 /// Create an instance of a HLSL runtime class.

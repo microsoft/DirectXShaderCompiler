@@ -41,7 +41,8 @@ namespace clang {
   class Sema;
   class TypeSourceInfo;
   class TypedefDecl;
-}
+  class DeclContext;
+  }
 
 namespace hlsl {
 
@@ -376,12 +377,10 @@ clang::FunctionTemplateDecl* CreateFunctionTemplateDecl(
   _In_count_(templateParamNamedDeclsCount) clang::NamedDecl** templateParamNamedDecls,
   size_t templateParamNamedDeclsCount);
 
-clang::TypedefDecl* CreateMatrixSpecializationShorthand(
-  clang::ASTContext& context,
-  clang::QualType matrixSpecialization,
-  HLSLScalarType scalarType,
-  size_t rowCount,
-  size_t colCount);
+clang::TypedefDecl *CreateMatrixSpecializationShorthand(
+    clang::ASTContext &context, clang::QualType matrixSpecialization,
+    HLSLScalarType scalarType, size_t rowCount, size_t colCount,
+    clang::DeclContext *currentDeclContext);
 
 clang::TypedefDecl* CreateVectorSpecializationShorthand(
   clang::ASTContext& context,

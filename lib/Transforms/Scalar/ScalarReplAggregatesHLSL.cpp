@@ -5017,7 +5017,6 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
     IRBuilder<> &Builder,
     DxilTypeSystem &TypeSys) {
-  Module &M = *m_pHLModule->GetModule();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
   if (inputQual == DxilParamInputQual::InPayload) {
@@ -5055,63 +5054,6 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
 
   V = castResourceArgIfRequired(V, Ty, bOut, inputQual, Builder);
 
-  // Entry function matrix value parameter has major.
-  // Make sure its user use row major matrix value.
-  bool updateToColMajor = annotation.HasMatrixAnnotation() &&
-                          annotation.GetMatrixAnnotation().Orientation ==
-                              MatrixOrientation::ColumnMajor;
-  if (updateToColMajor) {
-    if (V->getType()->isPointerTy()) {
-      for (User *user : V->users()) {
-        CallInst *CI = dyn_cast<CallInst>(user);
-        if (!CI)
-          continue;
-
-        HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-        if (group != HLOpcodeGroup::HLMatLoadStore)
-          continue;
-        HLMatLoadStoreOpcode opcode =
-            static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(CI));
-        Type *opcodeTy = Builder.getInt32Ty();
-        switch (opcode) {
-        case HLMatLoadStoreOpcode::RowMatLoad: {
-          // Update matrix function opcode to col major version.
-          Value *rowOpArg = ConstantInt::get(
-              opcodeTy,
-              static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatLoad));
-          CI->setOperand(HLOperandIndex::kOpcodeIdx, rowOpArg);
-          // Cast it to row major.
-          CallInst *RowMat = HLModule::EmitHLOperationCall(
-              Builder, HLOpcodeGroup::HLCast,
-              (unsigned)HLCastOpcode::ColMatrixToRowMatrix, Ty, {CI}, M);
-          CI->replaceAllUsesWith(RowMat);
-          // Set arg to CI again.
-          RowMat->setArgOperand(HLOperandIndex::kUnaryOpSrc0Idx, CI);
-        } break;
-        case HLMatLoadStoreOpcode::RowMatStore:
-          // Update matrix function opcode to col major version.
-          Value *rowOpArg = ConstantInt::get(
-              opcodeTy,
-              static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore));
-          CI->setOperand(HLOperandIndex::kOpcodeIdx, rowOpArg);
-          Value *Mat = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-          // Cast it to col major.
-          CallInst *RowMat = HLModule::EmitHLOperationCall(
-              Builder, HLOpcodeGroup::HLCast,
-              (unsigned)HLCastOpcode::RowMatrixToColMatrix, Ty, {Mat}, M);
-          CI->setArgOperand(HLOperandIndex::kMatStoreValOpIdx, RowMat);
-          break;
-        }
-      }
-    } else {
-      CallInst *RowMat = HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLCast,
-          (unsigned)HLCastOpcode::ColMatrixToRowMatrix, Ty, {V}, M);
-      V->replaceAllUsesWith(RowMat);
-      // Set arg to V again.
-      RowMat->setArgOperand(HLOperandIndex::kUnaryOpSrc0Idx, V);
-    }
-  }
   return V;
 }
 

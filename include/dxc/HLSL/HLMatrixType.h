@@ -47,8 +47,10 @@ class HLMatrixType
 public:
   static constexpr const char* StructNamePrefix = "class.matrix.";
 
-  HLMatrixType() : RegReprElemTy(nullptr), NumRows(0), NumColumns(0) {}
-  HLMatrixType(llvm::Type *RegReprElemTy, unsigned NumRows, unsigned NumColumns);
+  HLMatrixType()
+      : RegReprElemTy(nullptr), NumRows(0), NumColumns(0), IsRowMajor(true) {}
+  HLMatrixType(llvm::Type *RegReprElemTy, unsigned NumRows, unsigned NumColumns,
+               bool IsRowMajor);
 
   // We allow default construction to an invalid state to support the dynCast pattern.
   // This tests whether we have a legit object.
@@ -59,6 +61,7 @@ public:
   llvm::Type *getElementTypeForMem() const { return getElementType(true); }
   unsigned getNumRows() const { return NumRows; }
   unsigned getNumColumns() const { return NumColumns; }
+  bool getIsRowMajor() const { return IsRowMajor; }
   unsigned getNumElements() const { return NumRows * NumColumns; }
   unsigned getRowMajorIndex(unsigned RowIdx, unsigned ColIdx) const;
   unsigned getColumnMajorIndex(unsigned RowIdx, unsigned ColIdx) const;
@@ -92,6 +95,7 @@ public:
 private:
   llvm::Type *RegReprElemTy;
   unsigned NumRows, NumColumns;
+  bool IsRowMajor;
 };
 
 } // namespace hlsl

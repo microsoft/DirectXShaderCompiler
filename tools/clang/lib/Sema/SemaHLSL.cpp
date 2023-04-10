@@ -752,7 +752,7 @@ QualType GetOrCreateTemplateSpecialization(
   )
 {
   DXASSERT_NOMSG(templateDecl);
-  DeclContext* currentDeclContext = context.getTranslationUnitDecl();
+  DeclContext* currentDeclContext = templateDecl->getDeclContext();
   SmallVector<TemplateArgument, 3> templateArgsForDecl;
   for (const TemplateArgument& Arg : templateArgs) {
     if (Arg.getKind() == TemplateArgument::Type) {
@@ -4048,7 +4048,7 @@ public:
                                    colCount,
                                    isRowMajor, isDefault);
       qts = CreateMatrixSpecializationShorthand(*m_context, type, scalarType,
-                                                rowCount, colCount);
+                                                rowCount, colCount, matDecl->getDeclContext());
       m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1]
                             [orientation] = qts;
     }
@@ -4891,6 +4891,12 @@ public:
       bool insertedNewValue = insertResult.second;
       if (insertedNewValue)
       {
+
+        if (hlsl::IsHLSLMatType(functionArgTypes[0]) && functionArgTypes.size() == 1) {
+          // for mat return type to be row major.
+          functionArgTypes[0] =
+              GetHLSLMatrixTypeWithMajor(functionArgTypes[0], true, *m_sema);
+        }
         DXASSERT(tableName, "otherwise IDxcIntrinsicTable::GetTableName() failed");
         intrinsicFuncDecl = AddHLSLIntrinsicFunction(
             *m_context, isVkNamespace ? m_vkNSDecl : m_hlslNSDecl, tableName,
@@ -8617,6 +8623,17 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
         switch (TargetInfo.ShapeKind) {
         case AR_TOBJ_VECTOR:
           DXASSERT(AR_TOBJ_MATRIX == SourceInfo.ShapeKind, "otherwise, invalid casting sequence");
+          if (!SourceInfo.bIsRowMajor) {
+            // For col matrix to vector, cast to row major first, because hlsl
+            // assume row major on matrix value.
+            From = m_sema->ImpCastExprToType(From,
+                                             hlsl::GetHLSLMatrixTypeWithMajor(
+                                             From->getType(),
+                                             /*isRowMajor*/ true, *m_sema),
+                                             CK_HLSLColMajorToRowMajor,
+                                             From->getValueKind(),
+                                             /*BasePath=*/0, CCK).get();
+          }
           From = m_sema->ImpCastExprToType(From, 
             NewSimpleAggregateType(AR_TOBJ_VECTOR, SourceInfo.EltKind, 0, TargetInfo.uRows, TargetInfo.uCols), 
             CK_HLSLMatrixToVectorCast, From->getValueKind(), /*BasePath=*/0, CCK).get();
@@ -14277,7 +14294,10 @@ QualType hlsl::GetHLSLMatrixTypeWithMajor(QualType matType, bool isRowMajor,
 
   auto *TST = matType->getAs<TemplateSpecializationType>();
   QualType OriginEltTy = eltType;
-  if (TST->getNumArgs())
+  // When matType is argType of a template like float2x2 in
+  // StructuredBuffer<float2x2> mats2, TST will be null because it is already
+  // desugared.
+  if (TST && TST->getNumArgs())
     OriginEltTy = TST->getArg(0).getAsType();
 
   ASTContext &context = sema.getASTContext();
