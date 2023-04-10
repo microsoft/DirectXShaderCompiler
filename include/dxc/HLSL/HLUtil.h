@@ -92,9 +92,6 @@ struct PointerStatus {
   bool HasLoaded();
 };
 
-using MutateTypeFunction = llvm::Type* (*)(llvm::Type*);
-bool mutateType(llvm::Module &M, MutateTypeFunction MutateTyFn);
-
 } // namespace hlutil
 
 } // namespace hlsl

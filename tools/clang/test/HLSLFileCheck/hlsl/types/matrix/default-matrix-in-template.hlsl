@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T cs_6_0 -fcgl %s  | FileCheck %s
 
 // Check unlowered type
-// CHECK: %"class.StructuredBuffer<matrix.internal::matrix<float, 4, 4, 0> >" = type { %"class.matrix.internal::matrix.float.4.4.Col" }
+// CHECK: %"class.StructuredBuffer<matrix.internal::matrix<float, 4, 4, 0> >" = type { %class.matrix.float.4.4.Col }
 
 StructuredBuffer<matrix> buf1;
 // Should be equivalent to:

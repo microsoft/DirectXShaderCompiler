@@ -22,8 +22,6 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/DxilPoisonValues.h"
-#include "dxc/HLSL/HLMatrixType.h"
-#include "dxc/HLSL/HLUtil.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -510,28 +508,6 @@ public:
     return GV;
   }
 
-  // Mutate matrix type.
-  void MutateMatrixType(DxilModule &DM) {
-    if (DM.GetShaderModel()->IsLib()) {
-      // Mutate matrix type to remove .Col/.Row suffix.
-      auto mutateFn = [](Type *Ty) -> Type * {
-        if (!HLMatrixType::isa(Ty))
-          return nullptr;
-        auto *ST = cast<StructType>(Ty);
-        StringRef Name = ST->getName();
-        if (!Name.endswith(".Col") && !Name.endswith(".Row"))
-          return nullptr;
-
-        StringRef SharedName = Name.substr(0, Name.size() - 4);
-        if (StructType *SharedST = Ty->getContext().getTypeByName(SharedName))
-          return SharedST;
-        return StructType::create(ST->elements(), SharedName, false);
-      };
-      Module &M = *DM.GetModule();
-      hlsl::hlutil::mutateType(M, mutateFn);
-    }
-  }
-
   // Replace IsHelperLane() with false (for non-lib, non-PS SM)
   void ReplaceIsHelperWithConstFalse(hlsl::OP *hlslOP) {
     Constant *False = hlslOP->GetI1Const(0);
@@ -866,8 +842,6 @@ public:
 
       // Strip parameters of entry function.
       StripEntryParameters(M, DM, IsLib);
-
-      MutateMatrixType(DM);
 
       // Remove unused types from type annotations
       DM.RemoveUnusedTypeAnnotations();
