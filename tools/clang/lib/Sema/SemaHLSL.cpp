@@ -5121,9 +5121,11 @@ public:
       const TemplateArgument &arg = argLoc.getArgument();
       if (arg.getKind() == TemplateArgument::ArgKind::Type) {
         QualType argType = arg.getAsType();
-        if (!IsValidTemplateArgumentType(argSrcLoc, argType, requireScalar)) {
-          // NOTE: IsValidTemplateArgumentType emits its own diagnostics
-          return true;
+        if (!argType->isDependentType()) {
+          if (!IsValidTemplateArgumentType(argSrcLoc, argType, requireScalar)) {
+            // NOTE: IsValidTemplateArgumentType emits its own diagnostics
+            return true;
+          }
         }
       }
       else if (arg.getKind() == TemplateArgument::ArgKind::Expression) {
