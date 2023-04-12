@@ -958,8 +958,11 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       RecordDecl::field_iterator End = Field;
       for (++End; End != FieldEnd && End->isBitField(); ++End);
 
+      std::vector<DxilFieldAnnotation> BitFields;
+
       RecordDecl::field_iterator Run = End;
-      uint64_t StartBitOffset, Tail = 0;
+      uint64_t StartBitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+      uint64_t Tail = 0;
       for (; Field != End; ++Field) {
         uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
         // Zero-width bitfields end runs.
@@ -967,6 +970,19 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           Run = End;
           continue;
         }
+
+        DxilFieldAnnotation bitfieldAnnotation;
+
+        bitfieldAnnotation.SetBitWidth(Field->getBitWidthValue(Context));
+        const BuiltinType *BTy = Field->getType()->getAs<BuiltinType>();
+        CompType::Kind kind =
+            BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);
+        bitfieldAnnotation.SetCompType(kind);
+        bitfieldAnnotation.SetFieldName(Field->getName());
+        bitfieldAnnotation.SetCBufferOffset((unsigned)(BitOffset - StartBitOffset));
+        // TODO: more information for bitfield.
+        BitFields.emplace_back(bitfieldAnnotation);
+
         llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
         // If we don't have a run yet, or don't live within the previous run's
         // allocated storage then we allocate some storage and start a new run.
@@ -985,6 +1001,12 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
                                              bDefaultRowMajor);
           fieldAnnotation.SetCBufferOffset(CBufferOffset);
+          if (StartBitOffset > 0) {
+            DxilFieldAnnotation &prevFieldAnnotation =
+                annotation->GetFieldAnnotation(fieldIdx - 1);
+            prevFieldAnnotation.SetBitFields(BitFields);
+            BitFields.clear();
+          }
 
           unsigned arrayEltSize = 0;
           // Process field to make sure the size of field is ready.
@@ -995,7 +1017,15 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         }
       }
 
+      if (!BitFields.empty()) {
+        DxilFieldAnnotation &prevFieldAnnotation =
+            annotation->GetFieldAnnotation(fieldIdx - 1);
+        prevFieldAnnotation.SetBitFields(BitFields);
+        BitFields.clear();
+      }
+
       CBufferSize = CBufferOffset;
+
       continue;  // Field has already been advanced past bitfields
     }
 

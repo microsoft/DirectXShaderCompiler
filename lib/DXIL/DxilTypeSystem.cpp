@@ -45,6 +45,7 @@ DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
 , m_CBufferOffset(UINT_MAX)
 , m_bCBufferVarUsed(false)
+, m_BitWidth(0)
 {}
 
 bool DxilFieldAnnotation::IsPrecise() const { return m_bPrecise; }
@@ -79,6 +80,20 @@ const std::string &DxilFieldAnnotation::GetFieldName() const { return m_FieldNam
 void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
 bool DxilFieldAnnotation::IsCBVarUsed() const { return m_bCBufferVarUsed; }
 void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
+bool DxilFieldAnnotation::HasBitFields() const { return !m_BitFields.empty(); }
+const std::vector<DxilFieldAnnotation> &
+DxilFieldAnnotation::GetBitFields() const {
+  return m_BitFields;
+}
+void DxilFieldAnnotation::SetBitFields(
+    const std::vector<DxilFieldAnnotation> &Fields) {
+  m_BitFields = Fields;
+}
+bool DxilFieldAnnotation::HasBitWidth() const { return m_BitWidth != 0; }
+const unsigned DxilFieldAnnotation::GetBitWidth() const { return m_BitWidth; }
+void DxilFieldAnnotation::SetBitWidth(const unsigned BitWidth) {
+  m_BitWidth = BitWidth;
+}
 
 //------------------------------------------------------------------------------
 //

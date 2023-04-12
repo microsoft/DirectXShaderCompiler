@@ -1214,6 +1214,20 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
         m_pModule->GetDxilModule().GetOP()->GetResourcePropertiesType(),
         *m_pSM)));
   }
+  if (FA.HasBitFields()) {
+    const std::vector<DxilFieldAnnotation> &BitFields = FA.GetBitFields();
+    vector<Metadata *> MDBitFieldVals;
+    for (const DxilFieldAnnotation &BitField : BitFields) {
+      MDBitFieldVals.emplace_back(EmitDxilFieldAnnotation(BitField));
+    }
+    auto *BitFieldsMD = MDNode::get(m_Ctx, MDBitFieldVals);
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldsTag));
+    MDVals.emplace_back(BitFieldsMD);
+  }
+  if (FA.HasBitWidth()) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitWidthTag));
+    MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetBitWidth()));
+  }
 
   return MDNode::get(m_Ctx, MDVals);
 }
@@ -1266,6 +1280,17 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       if (Constant *C = dyn_cast_or_null<Constant>(
               dyn_cast<ValueAsMetadata>(MDO)->getValue()))
         FA.SetResourceProperties(resource_helper::loadPropsFromConstant(*C));
+      break;
+    case kDxilFieldAnnotationBitFieldsTag: {
+      const MDTuple *pBitFieldsTupleMD = dyn_cast<MDTuple>(MDO.get());
+      std::vector<DxilFieldAnnotation> BitFields(pBitFieldsTupleMD->getNumOperands());
+      for (unsigned i = 0; i < pBitFieldsTupleMD->getNumOperands(); ++i) {
+        LoadDxilFieldAnnotation(pBitFieldsTupleMD->getOperand(i), BitFields[i]);
+      }
+      FA.SetBitFields(BitFields);
+    } break;
+    case kDxilFieldAnnotationBitWidthTag:
+      FA.SetBitWidth(ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");

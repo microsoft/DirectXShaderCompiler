@@ -86,6 +86,14 @@ public:
   bool IsCBVarUsed() const;
   void SetCBVarUsed(bool used);
 
+  bool HasBitFields() const;
+  const std::vector<DxilFieldAnnotation> &GetBitFields() const;
+  void SetBitFields(const std::vector<DxilFieldAnnotation> &Fields);
+
+  bool HasBitWidth() const;
+  const unsigned GetBitWidth() const;
+  void SetBitWidth(const unsigned BitWidth);
+
 private:
   bool m_bPrecise;
   CompType m_CompType;
@@ -95,6 +103,8 @@ private:
   std::string m_Semantic;
   InterpolationMode m_InterpMode;
   std::string m_FieldName;
+  std::vector<DxilFieldAnnotation> m_BitFields;
+  unsigned m_BitWidth; // For bit field. 0 means not bitfiled.
   bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
 };
 
