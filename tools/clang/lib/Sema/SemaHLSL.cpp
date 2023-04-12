@@ -4887,10 +4887,6 @@ public:
       return false;
     }
 
-    // TemplateTypeParm here will be construction of vector return template in matrix operator[]
-    if (type->getTypeClass() == Type::TemplateTypeParm)
-      return true;
-
     QualType qt = GetStructuralForm(type);
 
     if (requireScalar) {
@@ -5113,14 +5109,14 @@ public:
                     m_vectorTemplateDecl->getCanonicalDecl();
     bool requireScalar = isMatrix || isVector;
     
-    // Check constraints on the type. Right now we only check that template
-    // types are primitive types.
+    // Check constraints on the type.
     for (unsigned int i = 0; i < TemplateArgList.size(); i++) {
       const TemplateArgumentLoc &argLoc = TemplateArgList[i];
       SourceLocation argSrcLoc = argLoc.getLocation();
       const TemplateArgument &arg = argLoc.getArgument();
       if (arg.getKind() == TemplateArgument::ArgKind::Type) {
         QualType argType = arg.getAsType();
+        // Skip dependent types.  Types will be checked later, when concrete.
         if (!argType->isDependentType()) {
           if (!IsValidTemplateArgumentType(argSrcLoc, argType, requireScalar)) {
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics

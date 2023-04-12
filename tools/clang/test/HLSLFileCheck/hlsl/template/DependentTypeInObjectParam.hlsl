@@ -17,9 +17,9 @@ T foo(Texture2D<vector<T, 4> > tex) {
   return tex[uint2(0,0)].x;
 }
 
-Texture2D<float4> T;
-Texture2D<vector<float16_t, 4> > T2;
+Texture2D<float4> Tex;
+Texture2D<vector<float16_t, 4> > Tex2;
 
 float main() : OUT {
-  return foo(T) + foo(T2);
+  return foo(Tex) + foo(Tex2);
 }
