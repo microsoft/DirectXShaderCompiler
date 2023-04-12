@@ -190,9 +190,9 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<float, __decltype(-float_l)>::value, "");
     _Static_assert(std::is_same<double, __decltype(-double_l)>::value, "");
     _Static_assert(std::is_same<min16float, __decltype(-min16float_l)>::value, "");
-    _Static_assert(std::is_same<min10float, __decltype(-min10float_l)>::value, "");  // fxc-pass {{}}
+    _Static_assert(std::is_same<min10float, __decltype(-min10float_l)>::value, "");
     _Static_assert(std::is_same<min16int, __decltype(-min16int_l)>::value, "");
-    _Static_assert(std::is_same<min12int, __decltype(-min12int_l)>::value, "");    // fxc-pass {{}}
+    _Static_assert(std::is_same<min12int, __decltype(-min12int_l)>::value, "");
     _Static_assert(std::is_same<min16uint, __decltype(-min16uint_l)>::value, "");
     (-SamplerState_l); // expected-error {{scalar, vector, or matrix expected}} fxc-error {{X3022: scalar, vector, or matrix expected}}
     (-f3_s_l); // expected-error {{scalar, vector, or matrix expected}} fxc-error {{X3022: scalar, vector, or matrix expected}}
@@ -201,7 +201,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<int2, __decltype(-bool2_l)>::value, "");
     _Static_assert(std::is_same<float3, __decltype(-float3_l)>::value, "");
     _Static_assert(std::is_same<double4, __decltype(-double4_l)>::value, "");
-    _Static_assert(std::is_same<min10float1x2, __decltype(-min10float1x2_l)>::value, "");      /* fxc-pass {{}} */
+    _Static_assert(std::is_same<min10float1x2, __decltype(-min10float1x2_l)>::value, "");
     _Static_assert(std::is_same<uint2x3, __decltype(-uint2x3_l)>::value, "");
     _Static_assert(std::is_same<min16uint4x4, __decltype(-min16uint4x4_l)>::value, "");
     _Static_assert(std::is_same<int3x2, __decltype(-int3x2_l)>::value, "");
@@ -212,9 +212,9 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<float, __decltype(+float_l)>::value, "");
     _Static_assert(std::is_same<double, __decltype(+double_l)>::value, "");
     _Static_assert(std::is_same<min16float, __decltype(+min16float_l)>::value, "");
-    _Static_assert(std::is_same<min10float, __decltype(+min10float_l)>::value, "");  // fxc-pass {{}}
+    _Static_assert(std::is_same<min10float, __decltype(+min10float_l)>::value, "");
     _Static_assert(std::is_same<min16int, __decltype(+min16int_l)>::value, "");
-    _Static_assert(std::is_same<min12int, __decltype(+min12int_l)>::value, "");    // fxc-pass {{}}
+    _Static_assert(std::is_same<min12int, __decltype(+min12int_l)>::value, "");
     _Static_assert(std::is_same<min16uint, __decltype(+min16uint_l)>::value, "");
     (+SamplerState_l); // expected-error {{scalar, vector, or matrix expected}} fxc-error {{X3022: scalar, vector, or matrix expected}}
     (+f3_s_l); // expected-error {{scalar, vector, or matrix expected}} fxc-error {{X3022: scalar, vector, or matrix expected}}
@@ -223,7 +223,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<int2, __decltype(+bool2_l)>::value, "");
     _Static_assert(std::is_same<float3, __decltype(+float3_l)>::value, "");
     _Static_assert(std::is_same<double4, __decltype(+double4_l)>::value, "");
-    _Static_assert(std::is_same<min10float1x2, __decltype(+min10float1x2_l)>::value, "");      /* fxc-pass {{}} */
+    _Static_assert(std::is_same<min10float1x2, __decltype(+min10float1x2_l)>::value, "");
     _Static_assert(std::is_same<uint2x3, __decltype(+uint2x3_l)>::value, "");
     _Static_assert(std::is_same<min16uint4x4, __decltype(+min16uint4x4_l)>::value, "");
     _Static_assert(std::is_same<int3x2, __decltype(+int3x2_l)>::value, "");
@@ -236,7 +236,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     (~min16float_l); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
     (~min10float_l); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
     _Static_assert(std::is_same<min16int, __decltype(~min16int_l)>::value, "");
-    _Static_assert(std::is_same<min12int, __decltype(~min12int_l)>::value, "");    // fxc-pass {{}}
+    _Static_assert(std::is_same<min12int, __decltype(~min12int_l)>::value, "");
     _Static_assert(std::is_same<min16uint, __decltype(~min16uint_l)>::value, "");
     (~SamplerState_l); // expected-error {{scalar, vector, or matrix expected}} fxc-error {{X3082: int or unsigned int type required}}
     (~f3_s_l); // expected-error {{scalar, vector, or matrix expected}} fxc-error {{X3082: int or unsigned int type required}}
@@ -288,11 +288,11 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<min16float&, __decltype(--min16float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16float, __decltype(min16float_l--)>::value, "");
     _Static_assert(std::is_same<min10float&, __decltype(--min10float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min10float, __decltype(min10float_l--)>::value, "");  // fxc-pass {{}}
+    _Static_assert(std::is_same<min10float, __decltype(min10float_l--)>::value, "");
     _Static_assert(std::is_same<min16int&, __decltype(--min16int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16int, __decltype(min16int_l--)>::value, "");
     _Static_assert(std::is_same<min12int&, __decltype(--min12int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min12int, __decltype(min12int_l--)>::value, "");  // fxc-pass {{}}
+    _Static_assert(std::is_same<min12int, __decltype(min12int_l--)>::value, "");
     _Static_assert(std::is_same<min16uint&, __decltype(--min16uint_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16uint, __decltype(min16uint_l--)>::value, "");
     (--SamplerState_l); // expected-error {{scalar, vector, or matrix expected}} fxc-pass {{}}
@@ -310,7 +310,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<double4&, __decltype(--double4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<double4, __decltype(double4_l--)>::value, "");
     _Static_assert(std::is_same<min10float1x2&, __decltype(--min10float1x2_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l--)>::value, "");      /* fxc-pass {{}} */
+    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l--)>::value, "");
     _Static_assert(std::is_same<uint2x3&, __decltype(--uint2x3_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<uint2x3, __decltype(uint2x3_l--)>::value, "");
     _Static_assert(std::is_same<min16uint4x4&, __decltype(--min16uint4x4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
@@ -332,11 +332,11 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<min16float&, __decltype(++min16float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16float, __decltype(min16float_l++)>::value, "");
     _Static_assert(std::is_same<min10float&, __decltype(++min10float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min10float, __decltype(min10float_l++)>::value, "");  // fxc-pass {{}}
+    _Static_assert(std::is_same<min10float, __decltype(min10float_l++)>::value, "");
     _Static_assert(std::is_same<min16int&, __decltype(++min16int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16int, __decltype(min16int_l++)>::value, "");
     _Static_assert(std::is_same<min12int&, __decltype(++min12int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min12int, __decltype(min12int_l++)>::value, "");  // fxc-pass {{}}
+    _Static_assert(std::is_same<min12int, __decltype(min12int_l++)>::value, "");
     _Static_assert(std::is_same<min16uint&, __decltype(++min16uint_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16uint, __decltype(min16uint_l++)>::value, "");
     (++SamplerState_l); // expected-error {{scalar, vector, or matrix expected}} fxc-pass {{}}
@@ -354,7 +354,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<double4&, __decltype(++double4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<double4, __decltype(double4_l++)>::value, "");
     _Static_assert(std::is_same<min10float1x2&, __decltype(++min10float1x2_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l++)>::value, "");  /* fxc-pass {{}} */
+    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l++)>::value, "");
     _Static_assert(std::is_same<uint2x3&, __decltype(++uint2x3_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<uint2x3, __decltype(uint2x3_l++)>::value, "");
     _Static_assert(std::is_same<min16uint4x4&, __decltype(++min16uint4x4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
