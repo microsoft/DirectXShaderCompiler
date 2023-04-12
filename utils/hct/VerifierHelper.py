@@ -49,12 +49,16 @@ HlslVerifierTestCpp = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\unittests
 HlslDataDir = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\test\HLSL')
 HlslBinDir = os.path.expandvars(r'${HLSL_BLD_DIR}\Debug\bin')
 VerifierTests = {
+    'GloballyCoherentErrors':                    'globallycoherent-errors.hlsl',
+    'GloballyCoherentTemplateErrors':            'globallycoherent-template-errors.hlsl',
     'RunArrayConstAssign':                       'array-const-assign.hlsl',
     'RunArrayIndexOutOfBounds':                  'array-index-out-of-bounds-HV-2016.hlsl',
     'RunArrayLength':                            'array-length.hlsl',
+    'RunAtomicsOnBitfields':                     'atomics-on-bitfields.hlsl',
     'RunAttributes':                             'attributes.hlsl',
     'RunBadInclude':                             'bad-include.hlsl',
     'RunBinopDims':                              'binop-dims.hlsl',
+    'RunBitFieldAnnotations':                    'bitfields-and-annotations.hlsl',
     'RunBitfields':                              'bitfields.hlsl',
     'RunBuiltinTypesNoInheritance':              'builtin-types-no-inheritance.hlsl',
     'RunCXX11Attributes':                        'cxx11-attributes.hlsl',
@@ -76,6 +80,7 @@ VerifierTests = {
     'RunIndexingOperator':                       'indexing-operator.hlsl',
     'RunInputPatchConst':                        'InputPatch-const.hlsl',
     'RunIntrinsicExamples':                      'intrinsic-examples.hlsl',
+    'RunInvalidDeclTemplateArg':                 'invalid-decl-template-arg.hlsl',
     'RunLiterals':                               'literals.hlsl',
     'RunMatrixAssignments':                      'matrix-assignments.hlsl',
     'RunMatrixSyntax':                           'matrix-syntax.hlsl',
@@ -85,7 +90,9 @@ VerifierTests = {
     'RunObjectOperators':                        'object-operators.hlsl',
     'RunOperatorOverloadingForNewDelete':        'overloading-new-delete-errors.hlsl',
     'RunOperatorOverloadingNotDefinedBinaryOp':  'use-undefined-overloaded-operator.hlsl',
+    'RunOutParamDiags':                          'out-param-diagnostics.hlsl',
     'RunPackReg':                                'packreg.hlsl',
+    'RunPragmaRegion':                           'pragma-region.hlsl',
     'RunRayTracings':                            'raytracings.hlsl',
     'RunScalarAssignments':                      'scalar-assignments.hlsl',
     'RunScalarAssignmentsExactPrecision':        'scalar-assignments-exact-precision.hlsl',
@@ -101,7 +108,9 @@ VerifierTests = {
     'RunTemplateChecks':                         'template-checks.hlsl',
     'RunTemplateLiteralSubstitutionFailure':     'template-literal-substitution-failure.hlsl',
     'RunTypemodsSyntax':                         'typemods-syntax.hlsl',
+    'RunUDTByteAddressBufferLoad':               'template-udt-load.hlsl',
     'RunUint4Add3':                              'uint4_add3.hlsl',
+    'RunUnboundedResourceArrays':                'invalid-unbounded-resource-arrays.hlsl',
     'RunVarmodsSyntax':                          'varmods-syntax.hlsl',
     'RunVectorAnd':                              'vector-and.hlsl',
     'RunVectorAssignments':                      'vector-assignments.hlsl',
@@ -113,14 +122,14 @@ VerifierTests = {
     'RunVectorSyntaxMix':                        'vector-syntax-mix.hlsl',
     'RunWave':                                   'wave.hlsl',
     'RunWriteConstArrays':                       'write-const-arrays.hlsl',
-    'RunAtomicsOnBitfields':                     'atomics-on-bitfields.hlsl',
-    'RunUnboundedResourceArrays':                'invalid-unbounded-resource-arrays.hlsl',
 }
 
 # The following test(s) do not work in fxc mode:
 fxcExcludedTests = [
+    'GloballyCoherentTemplateErrors',
     'RunArrayLength',
     'RunBitfields',
+    'RunBitFieldAnnotations',
     'RunCppErrors',
     'RunCppErrorsHV2015',
     'RunCXX11Attributes',
@@ -131,6 +140,7 @@ fxcExcludedTests = [
     'RunMatrixSyntaxExactPrecision',
     'RunOperatorOverloadingForNewDelete',
     'RunOperatorOverloadingNotDefinedBinaryOp',
+    'RunPragmaRegion',
     'RunRayTracings',
     'RunScalarAssignmentsExactPrecision',
     'RunScalarOperatorsAssignExactPrecision',
@@ -142,6 +152,7 @@ fxcExcludedTests = [
     'RunVectorSyntaxExactPrecision',
     'RunWave',
     'RunAtomicsOnBitfields',
+    'RunUDTByteAddressBufferLoad',
 ]
 
 # rxRUN = re.compile(r'[ RUN      ] VerifierTest.(\w+)')	# gtest syntax
@@ -540,6 +551,9 @@ class File(object):
                 if line[-1] == '\n':
                     line = line[:-1]
                 inlines.append(line)
+        # Remove extra lines at end, we will ensure we have exactly one newline on last line.
+        while inlines and not inlines[-1].strip():
+            del inlines[-1]
         verify_arguments = None
         for line in inlines:
             m = rxVerifyArguments.search(line)
@@ -616,6 +630,7 @@ class File(object):
 
         with open(result_filename, 'wt') as f:
             f.write('\n'.join(map((lambda res: res[0]), result)))
+            f.write('\n')
 
     def TryAst(self, result_filename=None):
         temp_filename = os.path.expandvars(r'${TEMP}\%s' % os.path.split(self.filename)[1])
@@ -646,6 +661,9 @@ class File(object):
                 if line[-1] == '\n':
                     line = line[:-1]
                 inlines.append(line)
+        # Remove extra lines at end, we will ensure we have exactly one newline on last line.
+        while inlines and not inlines[-1].strip():
+            del inlines[-1]
         outlines = []
         i = 0
         while i < len(inlines):
@@ -668,6 +686,7 @@ class File(object):
 
         with open(result_filename, 'wt') as f:
             f.write('\n'.join(outlines))
+            f.write('\n')
 
 def ProcessVerifierOutput(lines):
     files = {}

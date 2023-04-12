@@ -59,7 +59,7 @@ float fn_f_f(float r)
         | |-ImplicitCastExpr <col:17> 'vector<float, 2> (*)(vector<float, 2>, matrix<float, 2, 2>)' <FunctionToPointerDecay>
         | | `-DeclRefExpr <col:17> 'vector<float, 2> (vector<float, 2>, matrix<float, 2, 2>)' lvalue Function 'mul' 'vector<float, 2> (vector<float, 2>, matrix<float, 2, 2>)'
         | |-ImplicitCastExpr <col:21, col:33> 'float2':'vector<float, 2>' <LValueToRValue>
-        | | `-ArraySubscriptExpr <col:21, col:33> 'float2':'vector<float, 2>' lvalue
+        | | `-ArraySubscriptExpr <col:21, col:33> 'const float2':'const vector<float, 2>' lvalue
         | |   |-ImplicitCastExpr <col:21> 'const float2 [8]' <LValueToRValue>
         | |   | `-DeclRefExpr <col:21> 'const float2 [8]' lvalue Var 'g_f2_arr' 'const float2 [8]'
         | |   `-ImplicitCastExpr <col:30> 'int' <LValueToRValue>
