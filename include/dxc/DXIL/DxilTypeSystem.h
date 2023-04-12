@@ -103,9 +103,9 @@ private:
   std::string m_Semantic;
   InterpolationMode m_InterpMode;
   std::string m_FieldName;
+  bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
   std::vector<DxilFieldAnnotation> m_BitFields;
   unsigned m_BitWidth; // For bit field. 0 means not bitfiled.
-  bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
 };
 
 class DxilTemplateArgAnnotation {
