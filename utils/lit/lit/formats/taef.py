@@ -38,6 +38,10 @@ def executeCommandForTaef(command, cwd=None, env=None):
 
 class TaefTest(TestFormat):
     def __init__(self, te_path, test_dll, test_path, select_filter, extra_params):
+        # Try to find te in %PATH% if not exist.
+        if not os.path.exists(te_path):
+            te_path = lit.util.which('TE')
+
         self.te = te_path
         self.test_dll = test_dll
         self.test_path = test_path
