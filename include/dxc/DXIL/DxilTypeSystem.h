@@ -91,7 +91,7 @@ public:
   void SetBitFields(const std::vector<DxilFieldAnnotation> &Fields);
 
   bool HasBitWidth() const;
-  const unsigned GetBitWidth() const;
+  unsigned GetBitWidth() const;
   void SetBitWidth(const unsigned BitWidth);
 
 private:

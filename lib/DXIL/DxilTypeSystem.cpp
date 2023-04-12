@@ -90,7 +90,7 @@ void DxilFieldAnnotation::SetBitFields(
   m_BitFields = Fields;
 }
 bool DxilFieldAnnotation::HasBitWidth() const { return m_BitWidth != 0; }
-const unsigned DxilFieldAnnotation::GetBitWidth() const { return m_BitWidth; }
+unsigned DxilFieldAnnotation::GetBitWidth() const { return m_BitWidth; }
 void DxilFieldAnnotation::SetBitWidth(const unsigned BitWidth) {
   m_BitWidth = BitWidth;
 }
