@@ -27,6 +27,7 @@
 #include "llvm/ADT/BitVector.h"
 
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 
 using namespace clang;
 using namespace sema;
@@ -1142,23 +1143,7 @@ void DiagnoseRaytracingEntry(Sema &S, FunctionDecl *FD) {
   if (!Attr)
     return;
 
-  DXIL::ShaderKind Stage =
-      llvm::StringSwitch<DXIL::ShaderKind>(Attr->getStage())
-          .Case("pixel", DXIL::ShaderKind::Pixel)
-          .Case("vertex", DXIL::ShaderKind::Vertex)
-          .Case("geometry", DXIL::ShaderKind::Geometry)
-          .Case("hull", DXIL::ShaderKind::Hull)
-          .Case("domain", DXIL::ShaderKind::Domain)
-          .Case("compute", DXIL::ShaderKind::Compute)
-          .Case("raygeneration", DXIL::ShaderKind::RayGeneration)
-          .Case("intersection", DXIL::ShaderKind::Intersection)
-          .Case("anyhit", DXIL::ShaderKind::AnyHit)
-          .Case("closesthit", DXIL::ShaderKind::ClosestHit)
-          .Case("miss", DXIL::ShaderKind::Miss)
-          .Case("callable", DXIL::ShaderKind::Callable)
-          .Case("mesh", DXIL::ShaderKind::Mesh)
-          .Case("amplification", DXIL::ShaderKind::Amplification)
-          .Default(DXIL::ShaderKind::Invalid);
+  DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
   if (Stage <= DXIL::ShaderKind::Library || Stage >= DXIL::ShaderKind::Mesh)
     return;
 
