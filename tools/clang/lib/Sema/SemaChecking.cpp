@@ -48,24 +48,6 @@ SourceLocation Sema::getLocationOfStringLiteralByte(const StringLiteral *SL,
                                Context.getTargetInfo());
 }
 
-// HLSL Change begin
-static void CheckGloballyCoherentMismatch(Sema &S, Expr *SrcExpr,
-                                          QualType DstTy, SourceLocation CC) {
-  QualType SrcTy = SrcExpr->getType();
-  if (SrcTy->isArrayType() && DstTy->isArrayType()) {
-    SrcTy = SrcTy->getAsArrayTypeUnsafe()->getElementType();
-    DstTy = DstTy->getAsArrayTypeUnsafe()->getElementType();
-  }
-  if(!hlsl::IsHLSLResourceType(SrcTy))
-    return;
-  bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
-  bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
-  if (SrcGL != DstGL)
-    S.Diag(CC, diag::warn_hlsl_impcast_gl_mismatch)
-        << SrcExpr->getType() << DstTy << /*loses|adds*/ DstGL;
-}
-// HLSL Change end
-
 /// Checks that a call expression's argument count is the desired number.
 /// This is useful when doing custom type-checking.  Returns true on error.
 static bool checkArgCount(Sema &S, CallExpr *call, unsigned desiredArgCount) {
@@ -6789,8 +6771,8 @@ static void AnalyzeAssignment(Sema &S, BinaryOperator *E) {
   // Just recurse on the LHS.
   AnalyzeImplicitConversions(S, E->getLHS(), E->getOperatorLoc());
 
-  CheckGloballyCoherentMismatch(S, E->getRHS(), E->getLHS()->getType(),
-                                E->getOperatorLoc());
+  S.DiagnoseGloballyCoherentMismatch(E->getRHS(), E->getLHS()->getType(),
+                                     E->getOperatorLoc());
 
   // We want to recurse on the RHS as normal unless we're assigning to
   // a bitfield.
@@ -6904,7 +6886,7 @@ void CheckImplicitArgumentConversions(Sema &S, CallExpr *TheCall,
          ++ArgIdx, ++ParmIdx) {
       ParmVarDecl *PD = FD->getParamDecl(ParmIdx);
       Expr *CurrA = TheCall->getArg(ArgIdx);
-      CheckGloballyCoherentMismatch(S, CurrA, PD->getType(), CC);
+      S.DiagnoseGloballyCoherentMismatch(CurrA, PD->getType(), CC);
     }
   }
   // HLSL CHange End

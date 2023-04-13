@@ -3794,6 +3794,9 @@ public:
   bool CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
                                             UnaryExprOrTypeTrait ExprKind);
   void DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A);
+  void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
+                                        QualType TargetType,
+                                        SourceLocation Loc);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);

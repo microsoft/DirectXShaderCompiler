@@ -12159,6 +12159,25 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   }
 }
 
+void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
+                                            QualType TargetType,
+                                            SourceLocation Loc) {
+  QualType SrcTy = SrcExpr->getType();
+  QualType DstTy = TargetType;
+  if (SrcTy->isArrayType() && DstTy->isArrayType()) {
+    SrcTy = SrcTy->getAsArrayTypeUnsafe()->getElementType();
+    DstTy = DstTy->getAsArrayTypeUnsafe()->getElementType();
+  }
+  if (hlsl::IsHLSLResourceType(DstTy) &&
+      !hlsl::IsHLSLDynamicResourceType(SrcTy)) {
+    bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
+    bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
+    if (SrcGL != DstGL)
+      Diag(Loc, diag::warn_hlsl_impcast_gl_mismatch)
+          << SrcExpr->getType() << TargetType << /*loses|adds*/ DstGL;
+  }
+}
+
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, bool& Handled)
 {
   DXASSERT_NOMSG(D != nullptr);

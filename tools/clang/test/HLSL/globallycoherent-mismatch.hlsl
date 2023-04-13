@@ -54,7 +54,7 @@ void getNonGCBufPAram(inout globallycoherent RWByteAddressBuffer PGCBuf) {
 static globallycoherent RWByteAddressBuffer SGCBufArr[2] = NonGCBufArr; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2]' to 'globallycoherent RWByteAddressBuffer [2]' adds globallycoherent annotation}}
 
 void getNonGCBufArrParam(inout globallycoherent RWByteAddressBuffer PGCBufArr[2]) {
-  PGCBufArr = NonGCBufArr; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2]' to 'globallycoherent RWByteAddressBuffer' adds globallycoherent annotation}}
+  PGCBufArr = NonGCBufArr; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2]' to 'globallycoherent RWByteAddressBuffer __restrict[2]' adds globallycoherent annotation}}
 }
 
 [numthreads(1, 1, 1)]
