@@ -27,15 +27,15 @@ void anyhit_param5( out RayDesc D1, RayDesc D2 ) { }
 [shader("anyhit")]
 void anyhit_param6( in out RayDesc D1, RayDesc D2 ) { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'anyhit': 0 parameter(s) provided, expected two parameters for payload and attributes}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'anyhit': 0 parameter(s) provided, expected two parameters for payload and attributes}}
 [shader("anyhit")]
 void anyhit_param7() { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'anyhit': 1 parameter(s) provided, expected two parameters for payload and attributes}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'anyhit': 1 parameter(s) provided, expected two parameters for payload and attributes}}
 [shader("anyhit")]
 void anyhit_param8( inout RayDesc D1) { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'anyhit': 3 parameter(s) provided, expected two parameters for payload and attributes}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'anyhit': 3 parameter(s) provided, expected two parameters for payload and attributes}}
 [shader("anyhit")]
 void anyhit_param9( inout RayDesc D1, RayDesc D2, float f) { }
 
@@ -73,15 +73,15 @@ void closesthit_payload4( in out RayDesc payload, RayDesc attr ) {}
 [shader("closesthit")]
 void closesthit_payload5( inout float f1, float f2 ) { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'closesthit': 0 parameter(s) provided, expected two parameters for payload and attributes}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'closesthit': 0 parameter(s) provided, expected two parameters for payload and attributes}}
 [shader("closesthit")]
 void closesthit_payload6() { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'closesthit': 1 parameter(s) provided, expected two parameters for payload and attributes}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'closesthit': 1 parameter(s) provided, expected two parameters for payload and attributes}}
 [shader("closesthit")]
 void closesthit_payload7( inout RayDesc D1) { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'closesthit': 3 parameter(s) provided, expected two parameters for payload and attributes}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'closesthit': 3 parameter(s) provided, expected two parameters for payload and attributes}}
 [shader("closesthit")]
 void closesthit_payload8( inout RayDesc D1, RayDesc attr, float f) { }
 
@@ -118,25 +118,25 @@ void miss_payload4( in out RayDesc payload){}
 [shader("miss")]
 void miss_payload5( inout float f1 ) { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'miss': 0 parameter(s) provided, expected one payload parameter}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'miss': 0 parameter(s) provided, expected one payload parameter}}
 [shader("miss")]
 void miss_payload6( ) { }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'miss': 3 parameter(s) provided, expected one payload parameter}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'miss': 3 parameter(s) provided, expected one payload parameter}}
 [shader("miss")]
 void miss_payload7(inout RayDesc payload, float f1, float f2 ) { }
 
 [shader("miss")]
 float miss_payload8( inout RayDesc payload) { } // expected-error{{return type for ray tracing shaders must be void}}
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'intersection': 1 parameter(s) provided, expected no parameters}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'intersection': 1 parameter(s) provided, expected no parameters}}
 [shader("intersection")]
 float intersection_param(float4 extra) // expected-error{{return type for ray tracing shaders must be void}}
 {
   return extra.x;
 }
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'raygeneration': 1 parameter(s) provided, expected no parameters}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'raygeneration': 1 parameter(s) provided, expected no parameters}}
 [shader("raygeneration")]
 float raygen_param(float4 extra) // expected-error{{return type for ray tracing shaders must be void}}
 {
@@ -152,7 +152,7 @@ struct MyPayload {
 [shader("miss")]
 void miss_udt( inout PointStream<MyPayload> payload ) {}
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'callable': 0 parameter(s) provided, expected one argument parameter}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'callable': 0 parameter(s) provided, expected one argument parameter}}
 [shader("callable")]
 void callable0() {}
 
@@ -175,7 +175,7 @@ void callable5(in out MyPayload payload) {}
 [shader("callable")]
 void callable6(inout MyPayload payload) {}
 
-// expected-error@+2{{incorrect number of parameters for entry for raytracing stage 'callable': 2 parameter(s) provided, expected one argument parameter}}
+// expected-error@+2{{incorrect number of entry parameters for raytracing stage 'callable': 2 parameter(s) provided, expected one argument parameter}}
 [shader("callable")]
 void callable7(inout MyPayload payload, float F) {}
 

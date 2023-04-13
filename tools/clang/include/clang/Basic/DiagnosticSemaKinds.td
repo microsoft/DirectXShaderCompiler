@@ -7600,7 +7600,7 @@ def err_payload_attrs_must_be_udt : Error<
 def err_raytracing_must_return_void : Error<
   "return type for ray tracing shaders must be void">;
 def err_raytracing_entry_param_count : Error<
-  "incorrect number of parameters for entry for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
+  "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
 def err_payload_fields_not_qualified : Error<
   "payload field '%0' has no payload access qualifiers.">;
 def err_payload_fields_is_payload_and_overqualified : Error<
