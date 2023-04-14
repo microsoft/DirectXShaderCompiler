@@ -305,7 +305,8 @@ public:
   TEST_METHOD(AtomicsConsts)
   TEST_METHOD(AtomicsInvalidDests)
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxcDllSupport m_compiler;
+  dxc::DxcDllSupport m_validator;
   VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
@@ -331,7 +332,7 @@ public:
       Flags |= DxcValidatorFlags_ModuleOnly;
     }
 
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+    VERIFY_SUCCEEDED(m_validator.CreateInstance(CLSID_DxcValidator, &pValidator));
     VERIFY_SUCCEEDED(pValidator->Validate(pBlob, Flags, &pResult));
 
     CheckOperationResultMsgs(pResult, pErrorMsgs, false, bRegex);
@@ -340,7 +341,7 @@ public:
   void CheckValidationMsgs(const char *pBlob, size_t blobSize, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false, UINT32 Flags = DxcValidatorFlags_Default) {
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(m_compiler.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pBlob, blobSize, DXC_CP_ACP, &pBlobEncoding));
     CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex, Flags);
   }
@@ -374,7 +375,7 @@ public:
     args.emplace_back(L"-Qkeep_reflect_in_dxil");
 
     VERIFY_SUCCEEDED(
-        m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+        m_compiler.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", pEntryName, shWide,
                                         args.data(), (UINT32)args.size(), pDefines,
                                         defineCount, nullptr, &pResult));
@@ -391,12 +392,12 @@ public:
   bool CompileSource(LPCSTR pSource, LPCSTR pShaderModel,
                      IDxcBlob **pResultBlob) {
     CComPtr<IDxcBlobEncoding> pSourceBlob;
-    Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+    Utf8ToBlob(m_compiler, pSource, &pSourceBlob);
     return CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0, pResultBlob);
   }
 
   void DisassembleProgram(IDxcBlob *pProgram, std::string *text) {
-    *text = ::DisassembleProgram(m_dllSupport, pProgram);
+    *text = ::DisassembleProgram(m_compiler, pProgram);
   }
 
   bool RewriteAssemblyCheckMsg(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
@@ -412,7 +413,7 @@ public:
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
     VERIFY_SUCCEEDED(
-        m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+        m_compiler.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
 
     if (!CheckOperationResultMsgs(pAssembleResult, pErrorMsgs, true, bRegex)) {
@@ -432,7 +433,7 @@ public:
                                llvm::ArrayRef<LPCSTR> pErrorMsgs,
                                bool bRegex = false) {
     CComPtr<IDxcBlobEncoding> pSourceBlob;
-    Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+    Utf8ToBlob(m_compiler, pSource, &pSourceBlob);
     RewriteAssemblyCheckMsg(pSourceBlob, pShaderModel, pArguments, argCount,
                             pDefines, defineCount, pLookFors, pReplacements,
                             pErrorMsgs, bRegex);
@@ -454,7 +455,7 @@ public:
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pSource;
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(m_compiler.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(
       pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
     RewriteAssemblyCheckMsg(pSource, pShaderModel,
@@ -539,7 +540,7 @@ public:
         }
       }
     }
-    Utf8ToBlob(m_dllSupport, disassembly.c_str(), pBlob);
+    Utf8ToBlob(m_compiler, disassembly.c_str(), pBlob);
     return true;
   }
 
@@ -612,9 +613,10 @@ public:
 };
 
 bool ValidationTest::InitSupport() {
-  if (!m_dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    m_ver.Initialize(m_dllSupport);
+  if (!m_compiler.IsEnabled() || !m_validator.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_compiler.Initialize());
+    VERIFY_SUCCEEDED(m_validator.InitializeForDll(dxc::kDxilLib, "DxcCreateInstance"));
+    m_ver.Initialize(m_compiler, m_validator);
   }
   return true;
 }
@@ -3188,15 +3190,11 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 
 // Regression test for a double-delete when failing to parse bitcode.
 TEST_F(ValidationTest, WhenDisassembleInvalidBlobThenFail) {
-  if (!m_dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-  }
-
   CComPtr<IDxcBlobEncoding> pInvalidBitcode;
-  Utf8ToBlob(m_dllSupport, "This text is certainly not bitcode", &pInvalidBitcode);
+  Utf8ToBlob(m_compiler, "This text is certainly not bitcode", &pInvalidBitcode);
 
   CComPtr<IDxcCompiler> pCompiler;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  VERIFY_SUCCEEDED(m_compiler.CreateInstance(CLSID_DxcCompiler, &pCompiler));
 
   CComPtr<IDxcBlobEncoding> pDisassembly;
   VERIFY_FAILED(pCompiler->Disassemble(pInvalidBitcode, &pDisassembly));

@@ -412,7 +412,12 @@ VersionSupportInfo::VersionSupportInfo()
       m_DxilMinor(0), m_ValMajor(0), m_ValMinor(0) {}
 
 void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
-  VERIFY_IS_TRUE(dllSupport.IsEnabled());
+  Initialize(dllSupport, dllSupport);
+}
+
+void VersionSupportInfo::Initialize(dxc::DxcDllSupport &compiler, dxc::DxcDllSupport &validator) {
+  VERIFY_IS_TRUE(compiler.IsEnabled());
+  VERIFY_IS_TRUE(validator.IsEnabled());
 
   // Default to Dxil 1.0 and internal Val 1.0
   m_DxilMajor = m_ValMajor = 1;
@@ -422,7 +427,7 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   UINT32 VersionFlags = 0;
 
   // If the following fails, we have Dxil 1.0 compiler
-  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
+  if (SUCCEEDED(compiler.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_DxilMajor, &m_DxilMinor));
     VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
     m_CompilerIsDebugBuild =
@@ -430,7 +435,7 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
     pVersionInfo.Release();
   }
 
-  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo))) {
+  if (SUCCEEDED(validator.CreateInstance(CLSID_DxcValidator, &pVersionInfo))) {
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_ValMajor, &m_ValMinor));
     VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
     if (m_ValMinor > 0) {

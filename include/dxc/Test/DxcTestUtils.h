@@ -199,8 +199,9 @@ public:
   unsigned m_ValMajor, m_ValMinor;
 
   VersionSupportInfo();
-  // Initialize version info structure.  TODO: add device shader model support
-  void Initialize(dxc::DxcDllSupport &dllSupport);
+  // Initialize version info structure(s).  TODO: add device shader model support
+  void Initialize(dxc::DxcDllSupport &dxcompiler);
+  void Initialize(dxc::DxcDllSupport &dxcompiler, dxc::DxcDllSupport &validator);
   // Return true if IR sensitive test should be skipped, and log comment
   bool SkipIRSensitiveTest();
   // Return true if test requiring DXIL of given version should be skipped, and log comment
