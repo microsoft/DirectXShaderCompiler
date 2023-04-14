@@ -27,6 +27,7 @@
 #include "llvm/ADT/BitVector.h"
 
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 
 using namespace clang;
 using namespace sema;
@@ -1135,6 +1136,78 @@ void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
                                      clang::TranslationUnitDecl *TU) {
   DXRShaderVisitor visitor(S);
   visitor.diagnose(TU);
+}
+
+void DiagnoseRaytracingEntry(Sema &S, FunctionDecl *FD) {
+  auto Attr = FD->getAttr<HLSLShaderAttr>();
+  if (!Attr)
+    return;
+
+  DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
+  if (Stage <= DXIL::ShaderKind::Library || Stage >= DXIL::ShaderKind::Mesh)
+    return;
+
+  if (!FD->getReturnType()->isVoidType())
+    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+
+  if (Stage == DXIL::ShaderKind::Callable) {
+    if (FD->getNumParams() != 1)
+      S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
+          << Attr->getStage() << FD->getNumParams()
+          << /*Special message for callable.*/ 3;
+    else {
+      ParmVarDecl *Param = FD->getParamDecl(0);
+      if (!(Param->getAttr<HLSLInOutAttr>() ||
+            (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>())))
+        S.Diag(Param->getLocation(), diag::err_payload_requires_inout)
+            << /*payload|callable*/ 1 << Param;
+      QualType Ty = Param->getType().getNonReferenceType();
+
+      if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
+        S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
+            << /*payload|attributes|callable*/ 2 << Param;
+    }
+    return;
+  }
+
+  unsigned ExpectedParams = 0;
+  if (Stage == DXIL::ShaderKind::Miss)
+    ExpectedParams = 1;
+  else if (Stage >= DXIL::ShaderKind::AnyHit)
+    ExpectedParams = 2;
+
+  if (ExpectedParams != FD->getNumParams())
+    S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
+        << Attr->getStage() << FD->getNumParams() << ExpectedParams;
+
+  if (FD->getNumParams() == 0)
+    return;
+
+  if (Stage < DXIL::ShaderKind::AnyHit || Stage > DXIL::ShaderKind::Miss)
+    return;
+
+  ParmVarDecl *Param = FD->getParamDecl(0);
+  if (!(Param->getAttr<HLSLInOutAttr>() ||
+        (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>())))
+    S.Diag(Param->getLocation(), diag::err_payload_requires_inout)
+        << /*payload|callable*/ 0 << Param;
+
+  if (FD->getNumParams() > 1) {
+    Param = FD->getParamDecl(1);
+    if (Param->getAttr<HLSLInOutAttr>() || Param->getAttr<HLSLOutAttr>())
+      S.Diag(Param->getLocation(), diag::err_attributes_requiers_in) << Param;
+  }
+
+  for (unsigned Idx = 0; Idx < ExpectedParams && Idx < FD->getNumParams();
+       ++Idx) {
+    Param = FD->getParamDecl(Idx);
+
+    QualType Ty = Param->getType().getNonReferenceType();
+
+    if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
+      S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
+          << /*payload|attributes|callable*/ Idx << Param;
+  }
 }
 
 } // namespace hlsl
