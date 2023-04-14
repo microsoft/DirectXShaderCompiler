@@ -24,7 +24,7 @@
 // CHECK-NEXT:                 {
 // CHECK-NEXT:                   ID3D12ShaderReflectionType:
 // CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
 // CHECK-NEXT:                       Rows: 0
@@ -33,7 +33,7 @@
 // CHECK-NEXT:                       Offset: 0
 // CHECK-NEXT:                   ID3D12ShaderReflectionType:
 // CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
 // CHECK-NEXT:                       Rows: 0
@@ -42,7 +42,7 @@
 // CHECK-NEXT:                       Offset: 8
 // CHECK-NEXT:                   ID3D12ShaderReflectionType:
 // CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
 // CHECK-NEXT:                       Rows: 0
@@ -51,7 +51,7 @@
 // CHECK-NEXT:                       Offset: 16
 // CHECK-NEXT:                   ID3D12ShaderReflectionType:
 // CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
 // CHECK-NEXT:                       Rows: 0

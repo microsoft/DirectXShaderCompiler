@@ -102,6 +102,10 @@ enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2 };
 #define D3D_SVT_UINT64  ((D3D_SHADER_VARIABLE_TYPE)62)
 #endif // ADD_16_64_BIT_TYPES
 
+// FIXME: remove the define once D3D_SVC_BIT_FIELD added into
+// D3D_SHADER_VARIABLE_CLASS.
+#define D3D_SVC_BIT_FIELD (D3D_SVC_INTERFACE_POINTER + 1)
+
 class DxilModuleReflection {
 public:
   hlsl::RDAT::DxilRuntimeData m_RDAT;
@@ -1202,7 +1206,8 @@ HRESULT CShaderReflectionType::Initialize(
 
             bitFieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
                                             elementOffset, allTypes, isCBuffer);
-
+            // FIXME: remove the cast once D3D_SVC_BIT_FIELD added into D3D_SHADER_VARIABLE_CLASS.
+            bitFieldReflectionType->m_Desc.Class = (D3D_SHADER_VARIABLE_CLASS)D3D_SVC_BIT_FIELD;
             // Set rows = 0 to mark bitfield.
             bitFieldReflectionType->m_Desc.Rows = 0;
             // Save bit size to columns.

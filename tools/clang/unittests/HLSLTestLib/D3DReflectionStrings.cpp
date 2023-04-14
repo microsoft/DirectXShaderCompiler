@@ -198,7 +198,18 @@ LPCSTR ToString(D3D_TESSELLATOR_DOMAIN TessellatorDomain) {
   default: return nullptr;
   }
 }
+
+// FIXME: remove this once D3D_SVC_BIT_FIELD added into
+// D3D_SHADER_VARIABLE_CLASS.
+const D3D_SHADER_VARIABLE_CLASS D3D_SVC_BIT_FIELD =
+    (D3D_SHADER_VARIABLE_CLASS)(D3D_SVC_INTERFACE_POINTER + 1);
+
 LPCSTR ToString(D3D_SHADER_VARIABLE_CLASS Class) {
+  // FIXME: move into switch once D3D_SVC_BIT_FIELD added into
+  // D3D_SHADER_VARIABLE_CLASS.
+  if (Class == D3D_SVC_BIT_FIELD)
+    return "D3D_SVC_BIT_FIELD";
+
   switch (Class) {
   case D3D_SVC_SCALAR: return "D3D_SVC_SCALAR";
   case D3D_SVC_VECTOR: return "D3D_SVC_VECTOR";
