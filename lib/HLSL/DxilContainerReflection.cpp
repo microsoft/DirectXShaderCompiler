@@ -1151,71 +1151,71 @@ HRESULT CShaderReflectionType::Initialize(
           continue;
         }
 
+        fieldReflectionType = new CShaderReflectionType();
+        allTypes.push_back(
+            std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
+
+        unsigned int elementOffset =
+            structLayout ? (unsigned int)structLayout->getElementOffset(ff) : 0;
+
+        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
+                                        elementOffset, allTypes, isCBuffer);
+
+        // Treat bit fields as member inside the integer.
+        if (fieldAnnotation.HasBitFields())
+          fieldReflectionType->m_Desc.Members =
+              fieldAnnotation.GetBitFields().size();
+
+        m_MemberTypes.push_back(fieldReflectionType);
+        m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
+
+        // Skip structures fields with no real contents, otherwise we expand
+        // the size of this struct by 1 when we treat a zero column size as 1.
+        if (isa<StructType>(fieldType) &&
+            fieldReflectionType->m_Desc.Columns == 0) {
+          continue;
+        }
+
+        // Effectively, we want to add one to `Columns` for every scalar
+        // nested recursively inside this `struct` type (ignoring objects,
+        // which we filtered above). We should be able to compute this as the
+        // product of the `Columns`, `Rows` and `Elements` of each field, with
+        // the caveat that some of these may be zero, but shoud be treated as
+        // one.
+        columnCounter +=
+            (fieldReflectionType->m_Desc.Columns
+                 ? fieldReflectionType->m_Desc.Columns
+                 : 1) *
+            (fieldReflectionType->m_Desc.Rows ? fieldReflectionType->m_Desc.Rows
+                                              : 1) *
+            (fieldReflectionType->m_Desc.Elements
+                 ? fieldReflectionType->m_Desc.Elements
+                 : 1);
+
         if (fieldAnnotation.HasBitFields()) {
-          unsigned int elementOffset =
-              structLayout ? (unsigned int)structLayout->getElementOffset(ff)
-                           : 0;
           unsigned bitOffset = 0;
+          CShaderReflectionType *bitFieldReflectionType = nullptr;
           for (auto &bitfiledAnnotation : fieldAnnotation.GetBitFields()) {
-            fieldReflectionType = new CShaderReflectionType();
+            bitFieldReflectionType = new CShaderReflectionType();
             allTypes.push_back(
-                std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
+                std::unique_ptr<CShaderReflectionType>(bitFieldReflectionType));
 
-
-            fieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
+            bitFieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
                                             elementOffset, allTypes, isCBuffer);
 
             // Set rows = 0 to mark bitfield.
-            fieldReflectionType->m_Desc.Rows = 0;
+            bitFieldReflectionType->m_Desc.Rows = 0;
             // Save bit size to columns.
-            fieldReflectionType->m_Desc.Columns = bitfiledAnnotation.GetBitWidth();
-            // Save bit offset to Elements.
-            fieldReflectionType->m_Desc.Elements = bitOffset;
-            bitOffset += bitfiledAnnotation.GetBitWidth();
+            bitFieldReflectionType->m_Desc.Columns =
+                bitfiledAnnotation.GetBitFieldWidth();
+            // Save bit offset to Offset.
+            bitFieldReflectionType->m_Desc.Offset = bitOffset;
+            bitOffset += bitfiledAnnotation.GetBitFieldWidth();
 
-            m_MemberTypes.push_back(fieldReflectionType);
-            m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
+            fieldReflectionType->m_MemberTypes.push_back(bitFieldReflectionType);
+            fieldReflectionType->m_MemberNames.push_back(
+                bitfiledAnnotation.GetFieldName().c_str());
           }
-          // Add column counter for the whole bitfields.
-          columnCounter += ((bitOffset - 1) / 32) + 1;
-        } else {
-
-          fieldReflectionType = new CShaderReflectionType();
-          allTypes.push_back(
-              std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
-
-          unsigned int elementOffset =
-              structLayout ? (unsigned int)structLayout->getElementOffset(ff)
-                           : 0;
-
-          fieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
-                                          elementOffset, allTypes, isCBuffer);
-
-          m_MemberTypes.push_back(fieldReflectionType);
-          m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
-
-          // Skip structures fields with no real contents, otherwise we expand
-          // the size of this struct by 1 when we treat a zero column size as 1.
-          if (isa<StructType>(fieldType) &&
-              fieldReflectionType->m_Desc.Columns == 0) {
-            continue;
-          }
-
-          // Effectively, we want to add one to `Columns` for every scalar
-          // nested recursively inside this `struct` type (ignoring objects,
-          // which we filtered above). We should be able to compute this as the
-          // product of the `Columns`, `Rows` and `Elements` of each field, with
-          // the caveat that some of these may be zero, but shoud be treated as
-          // one.
-          columnCounter += (fieldReflectionType->m_Desc.Columns
-                                ? fieldReflectionType->m_Desc.Columns
-                                : 1) *
-                           (fieldReflectionType->m_Desc.Rows
-                                ? fieldReflectionType->m_Desc.Rows
-                                : 1) *
-                           (fieldReflectionType->m_Desc.Elements
-                                ? fieldReflectionType->m_Desc.Elements
-                                : 1);
         }
       }
 

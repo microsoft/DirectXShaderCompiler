@@ -3,54 +3,64 @@
 // Make sure bitfiled info is saved.
 // TODO - make better dump. Now, Rows = 0 means bitfield. Columns is bit width. Elements is bit offset.
 
-// CHECK: ID3D12ShaderReflectionType:
-// CHECK:   D3D12_SHADER_TYPE_DESC: Name: BF
-// CHECK:     Class: D3D_SVC_STRUCT
-// CHECK:     Type: D3D_SVT_VOID
-// CHECK:     Elements: 0
-// CHECK:     Rows: 1
-// CHECK:     Columns: 1
-// CHECK:     Members: 4
-// CHECK:     Offset: 0
-// CHECK:   {
-// CHECK:     ID3D12ShaderReflectionType:
-// CHECK:       D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK:         Class: D3D_SVC_SCALAR
-// CHECK:         Type: D3D_SVT_INT
-// CHECK:         Elements: 0
-// CHECK:         Rows: 0
-// CHECK:         Columns: 8
-// CHECK:         Members: 0
-// CHECK:         Offset: 0
-// CHECK:     ID3D12ShaderReflectionType:
-// CHECK:       D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK:         Class: D3D_SVC_SCALAR
-// CHECK:         Type: D3D_SVT_INT
-// CHECK:         Elements: 8
-// CHECK:         Rows: 0
-// CHECK:         Columns: 8
-// CHECK:         Members: 0
-// CHECK:         Offset: 0
-// CHECK:     ID3D12ShaderReflectionType:
-// CHECK:       D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK:         Class: D3D_SVC_SCALAR
-// CHECK:         Type: D3D_SVT_INT
-// CHECK:         Elements: 16
-// CHECK:         Rows: 0
-// CHECK:         Columns: 8
-// CHECK:         Members: 0
-// CHECK:         Offset: 0
-// CHECK:     ID3D12ShaderReflectionType:
-// CHECK:       D3D12_SHADER_TYPE_DESC: Name: int
-// CHECK:         Class: D3D_SVC_SCALAR
-// CHECK:         Type: D3D_SVT_INT
-// CHECK:         Elements: 24
-// CHECK:         Rows: 0
-// CHECK:         Columns: 8
-// CHECK:         Members: 0
-// CHECK:         Offset: 0
-// CHECK:   }
-// CHECK: CBuffer: B
+// CHECK: D3D12_SHADER_TYPE_DESC: Name: BF
+// CHECK-NEXT:               Class: D3D_SVC_STRUCT
+// CHECK-NEXT:               Type: D3D_SVT_VOID
+// CHECK-NEXT:               Elements: 0
+// CHECK-NEXT:               Rows: 1
+// CHECK-NEXT:               Columns: 1
+// CHECK-NEXT:               Members: 1
+// CHECK-NEXT:               Offset: 0
+// CHECK-NEXT:             {
+// CHECK-NEXT:               ID3D12ShaderReflectionType:
+// CHECK-NEXT:                 D3D12_SHADER_TYPE_DESC: Name: int
+// CHECK-NEXT:                   Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                   Type: D3D_SVT_INT
+// CHECK-NEXT:                   Elements: 0
+// CHECK-NEXT:                   Rows: 1
+// CHECK-NEXT:                   Columns: 1
+// CHECK-NEXT:                   Members: 4
+// CHECK-NEXT:                   Offset: 0
+// CHECK-NEXT:                 {
+// CHECK-NEXT:                   ID3D12ShaderReflectionType:
+// CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
+// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Type: D3D_SVT_INT
+// CHECK-NEXT:                       Elements: 0
+// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Columns: 8
+// CHECK-NEXT:                       Members: 0
+// CHECK-NEXT:                       Offset: 0
+// CHECK-NEXT:                   ID3D12ShaderReflectionType:
+// CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
+// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Type: D3D_SVT_INT
+// CHECK-NEXT:                       Elements: 0
+// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Columns: 8
+// CHECK-NEXT:                       Members: 0
+// CHECK-NEXT:                       Offset: 8
+// CHECK-NEXT:                   ID3D12ShaderReflectionType:
+// CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
+// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Type: D3D_SVT_INT
+// CHECK-NEXT:                       Elements: 0
+// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Columns: 8
+// CHECK-NEXT:                       Members: 0
+// CHECK-NEXT:                       Offset: 16
+// CHECK-NEXT:                   ID3D12ShaderReflectionType:
+// CHECK-NEXT:                     D3D12_SHADER_TYPE_DESC: Name: int
+// CHECK-NEXT:                       Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                       Type: D3D_SVT_INT
+// CHECK-NEXT:                       Elements: 0
+// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Columns: 8
+// CHECK-NEXT:                       Members: 0
+// CHECK-NEXT:                       Offset: 24
+// CHECK-NEXT:                 }
+// CHECK-NEXT:             }
+// CHECK-NEXT: CBuffer: B
 
 struct BF {
    int i0 : 8;

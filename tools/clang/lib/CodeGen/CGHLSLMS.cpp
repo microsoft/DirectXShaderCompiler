@@ -973,7 +973,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
         DxilFieldAnnotation bitfieldAnnotation;
 
-        bitfieldAnnotation.SetBitWidth(Field->getBitWidthValue(Context));
+        bitfieldAnnotation.SetBitFieldWidth(Field->getBitWidthValue(Context));
         const BuiltinType *BTy = Field->getType()->getAs<BuiltinType>();
         CompType::Kind kind =
             BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);

@@ -1224,9 +1224,9 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldsTag));
     MDVals.emplace_back(BitFieldsMD);
   }
-  if (FA.HasBitWidth()) {
+  if (FA.HasBitFieldWidth()) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitWidthTag));
-    MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetBitWidth()));
+    MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetBitFieldWidth()));
   }
 
   return MDNode::get(m_Ctx, MDVals);
@@ -1290,7 +1290,7 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       FA.SetBitFields(BitFields);
     } break;
     case kDxilFieldAnnotationBitWidthTag:
-      FA.SetBitWidth(ConstMDToUint32(MDO));
+      FA.SetBitFieldWidth(ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");

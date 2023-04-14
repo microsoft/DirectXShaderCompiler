@@ -45,7 +45,7 @@ DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
 , m_CBufferOffset(UINT_MAX)
 , m_bCBufferVarUsed(false)
-, m_BitWidth(0)
+, m_BitFieldWidth(0)
 {}
 
 bool DxilFieldAnnotation::IsPrecise() const { return m_bPrecise; }
@@ -89,10 +89,10 @@ void DxilFieldAnnotation::SetBitFields(
     const std::vector<DxilFieldAnnotation> &Fields) {
   m_BitFields = Fields;
 }
-bool DxilFieldAnnotation::HasBitWidth() const { return m_BitWidth != 0; }
-unsigned DxilFieldAnnotation::GetBitWidth() const { return m_BitWidth; }
-void DxilFieldAnnotation::SetBitWidth(const unsigned BitWidth) {
-  m_BitWidth = BitWidth;
+bool DxilFieldAnnotation::HasBitFieldWidth() const { return m_BitFieldWidth != 0; }
+unsigned DxilFieldAnnotation::GetBitFieldWidth() const { return m_BitFieldWidth; }
+void DxilFieldAnnotation::SetBitFieldWidth(const unsigned BitWidth) {
+  m_BitFieldWidth = BitWidth;
 }
 
 //------------------------------------------------------------------------------

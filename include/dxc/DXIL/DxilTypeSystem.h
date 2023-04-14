@@ -90,9 +90,9 @@ public:
   const std::vector<DxilFieldAnnotation> &GetBitFields() const;
   void SetBitFields(const std::vector<DxilFieldAnnotation> &Fields);
 
-  bool HasBitWidth() const;
-  unsigned GetBitWidth() const;
-  void SetBitWidth(const unsigned BitWidth);
+  bool HasBitFieldWidth() const;
+  unsigned GetBitFieldWidth() const;
+  void SetBitFieldWidth(const unsigned BitWidth);
 
 private:
   bool m_bPrecise;
@@ -105,7 +105,7 @@ private:
   std::string m_FieldName;
   bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
   std::vector<DxilFieldAnnotation> m_BitFields;
-  unsigned m_BitWidth; // For bit field. 0 means not bitfiled.
+  unsigned m_BitFieldWidth; // For bit field. 0 means not bitfiled.
 };
 
 class DxilTemplateArgAnnotation {
