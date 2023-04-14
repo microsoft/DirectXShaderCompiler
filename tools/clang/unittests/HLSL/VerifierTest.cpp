@@ -64,6 +64,7 @@ public:
   TEST_METHOD(RunOutParamDiags)
   TEST_METHOD(RunPackReg)
   TEST_METHOD(RunPragmaRegion)
+  TEST_METHOD(RunRayTracingEntryDiags)
   TEST_METHOD(RunRayTracings)
   TEST_METHOD(RunScalarAssignments)
   TEST_METHOD(RunScalarAssignmentsExactPrecision)
@@ -295,6 +296,10 @@ TEST_F(VerifierTest, RunPackReg) {
 
 TEST_F(VerifierTest, RunPragmaRegion) {
   CheckVerifiesHLSL(L"pragma-region.hlsl");
+}
+
+TEST_F(VerifierTest, RunRayTracingEntryDiags) {
+  CheckVerifiesHLSL(L"raytracing-entry-diags.hlsl");
 }
 
 TEST_F(VerifierTest, RunRayTracings) {

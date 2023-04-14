@@ -1831,10 +1831,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
   }
-  if (isRay && !retTy->isVoidType()) {
-    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
-      DiagnosticsEngine::Error, "return type for ray tracing shaders must be void"));
-  }
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
   if (FD->hasAttr<HLSLPreciseAttr>())
@@ -2185,97 +2181,35 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       switch (funcProps->shaderKind) {
       case DXIL::ShaderKind::RayGeneration:
       case DXIL::ShaderKind::Intersection:
-        // RayGeneration and Intersection shaders are not allowed to have any input parameters
-        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "parameters are not allowed for %0 shader"))
-            << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
-                "raygeneration" : "intersection");
-        rayShaderHaveErrors = true;
         break;
       case DXIL::ShaderKind::AnyHit:
-      case DXIL::ShaderKind::ClosestHit:
-        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be inout"));
-          rayShaderHaveErrors = true;
-        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "intersection attributes parameter must be in"));
-          rayShaderHaveErrors = true;
-        } else if (ArgNo > 1) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "too many parameters, expected payload and attributes parameters only."));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 2) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "payload and attribute structures must be user defined types with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            if (0 == ArgNo)
-              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-            else
-              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
-          }
-        }
+      case DXIL::ShaderKind::ClosestHit: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        if (0 == ArgNo)
+          funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+        else
+          funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Miss:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter (ray payload) allowed for miss shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "ray payload parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Miss: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Callable:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter allowed for callable shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "callable parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "callable parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Callable: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.paramSizeInBytes = size;
         break;
+      }
       }
     }
 
