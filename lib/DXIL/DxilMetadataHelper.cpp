@@ -1225,7 +1225,7 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(BitFieldsMD);
   }
   if (FA.HasBitFieldWidth()) {
-    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitWidthTag));
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldWidthTag));
     MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetBitFieldWidth()));
   }
 
@@ -1289,7 +1289,7 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       }
       FA.SetBitFields(BitFields);
     } break;
-    case kDxilFieldAnnotationBitWidthTag:
+    case kDxilFieldAnnotationBitFieldWidthTag:
       FA.SetBitFieldWidth(ConstMDToUint32(MDO));
       break;
     default:
