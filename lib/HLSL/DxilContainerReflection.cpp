@@ -1199,7 +1199,7 @@ HRESULT CShaderReflectionType::Initialize(
         if (fieldAnnotation.HasBitFields()) {
           unsigned bitOffset = 0;
           CShaderReflectionType *bitFieldReflectionType = nullptr;
-          for (auto &bitfiledAnnotation : fieldAnnotation.GetBitFields()) {
+          for (auto &bitfieldAnnotation : fieldAnnotation.GetBitFields()) {
             bitFieldReflectionType = new CShaderReflectionType();
             allTypes.push_back(
                 std::unique_ptr<CShaderReflectionType>(bitFieldReflectionType));
@@ -1212,14 +1212,14 @@ HRESULT CShaderReflectionType::Initialize(
             bitFieldReflectionType->m_Desc.Rows = 0;
             // Save bit size to columns.
             bitFieldReflectionType->m_Desc.Columns =
-                bitfiledAnnotation.GetBitFieldWidth();
+                bitfieldAnnotation.GetBitFieldWidth();
             // Save bit offset to Offset.
             bitFieldReflectionType->m_Desc.Offset = bitOffset;
-            bitOffset += bitfiledAnnotation.GetBitFieldWidth();
+            bitOffset += bitfieldAnnotation.GetBitFieldWidth();
 
             fieldReflectionType->m_MemberTypes.push_back(bitFieldReflectionType);
             fieldReflectionType->m_MemberNames.push_back(
-                bitfiledAnnotation.GetFieldName().c_str());
+                bitfieldAnnotation.GetFieldName().c_str());
           }
         }
       }

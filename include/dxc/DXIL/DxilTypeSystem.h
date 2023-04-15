@@ -105,7 +105,7 @@ private:
   std::string m_FieldName;
   bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
   std::vector<DxilFieldAnnotation> m_BitFields;
-  unsigned m_BitFieldWidth; // For bit field. 0 means not bitfiled.
+  unsigned m_BitFieldWidth; // For bit field. 0 means not bitfield.
 };
 
 class DxilTemplateArgAnnotation {
