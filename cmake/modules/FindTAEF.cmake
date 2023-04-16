@@ -70,7 +70,7 @@ find_program(TAEF_EXECUTABLE te.exe PATHS
 if (TAEF_EXECUTABLE)
   get_filename_component(TAEF_BIN_DIR ${TAEF_EXECUTABLE} DIRECTORY)
 else()
-  message(ERROR "Unable to find TAEF binaries.")
+  message(FATAL_ERROR "Unable to find TAEF binaries.")
 endif()
 
 
