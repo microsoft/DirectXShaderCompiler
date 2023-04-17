@@ -25,7 +25,7 @@ if (NOT WIN32)
   set(DXC_PLATFORM_PUBLIC_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/WinAdapter.h)
 endif()
 
-# This target just needs to exist for the distribuiton build, it doesn't need to
+# This target just needs to exist for the distribution build, it doesn't need to
 # actually build anything since the headers are static.
 add_custom_target(dxc-headers)
 
