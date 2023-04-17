@@ -49,6 +49,7 @@ struct D3D11_SHADER_INPUT_BIND_DESC {int dummy;};
 
 // Remove this workaround once newer version of d3dcommon.h can be compiled against
 #define ADD_16_64_BIT_TYPES
+#define ADD_SVC_BIT_FIELD
 
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
@@ -102,8 +103,9 @@ enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2 };
 #define D3D_SVT_UINT64  ((D3D_SHADER_VARIABLE_TYPE)62)
 #endif // ADD_16_64_BIT_TYPES
 
-#define ADD_SVC_BIT_FIELD
 #ifdef ADD_SVC_BIT_FIELD
+// Disable warning about value not being valid in enum
+#pragma warning(disable : 4063)
 // FIXME: remove the define once D3D_SVC_BIT_FIELD added into
 // D3D_SHADER_VARIABLE_CLASS.
 #define D3D_SVC_BIT_FIELD (D3D_SVC_INTERFACE_POINTER + 1)
@@ -1209,10 +1211,8 @@ HRESULT CShaderReflectionType::Initialize(
 
             bitFieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
                                             elementOffset, allTypes, isCBuffer);
-#ifdef ADD_SVC_BIT_FIELD
             // FIXME: remove the cast once D3D_SVC_BIT_FIELD added into D3D_SHADER_VARIABLE_CLASS.
-            bitFieldReflectionType->m_Desc.Class = (D3D_SHADER_VARIABLE_CLASS)D3D_SVC_BIT_FIELD;
-#endif
+            bitFieldReflectionType->m_Desc.Class = D3D_SVC_BIT_FIELD;
             // Set rows = 0 to mark bitfield.
             bitFieldReflectionType->m_Desc.Rows = 0;
             // Save bit size to columns.

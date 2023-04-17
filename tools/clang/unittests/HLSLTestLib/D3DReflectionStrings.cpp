@@ -15,6 +15,7 @@
 
 // Remove this workaround once newer version of d3dcommon.h can be compiled against
 #define ADD_16_64_BIT_TYPES
+#define ADD_SVC_BIT_FIELD
 
 namespace hlsl {
 namespace dump {
@@ -199,22 +200,15 @@ LPCSTR ToString(D3D_TESSELLATOR_DOMAIN TessellatorDomain) {
   }
 }
 
-#define ADD_SVC_BIT_FIELD
 #ifdef ADD_SVC_BIT_FIELD
-// FIXME: remove this once D3D_SVC_BIT_FIELD added into
+// Disable warning about value not being valid in enum
+#pragma warning(disable : 4063)
+// FIXME: remove the define once D3D_SVC_BIT_FIELD added into
 // D3D_SHADER_VARIABLE_CLASS.
-const D3D_SHADER_VARIABLE_CLASS D3D_SVC_BIT_FIELD =
-    (D3D_SHADER_VARIABLE_CLASS)(D3D_SVC_INTERFACE_POINTER + 1);
+#define D3D_SVC_BIT_FIELD (D3D_SVC_INTERFACE_POINTER + 1)
 #endif
 
 LPCSTR ToString(D3D_SHADER_VARIABLE_CLASS Class) {
-#ifdef ADD_SVC_BIT_FIELD
-  // FIXME: move into switch once D3D_SVC_BIT_FIELD added into
-  // D3D_SHADER_VARIABLE_CLASS.
-  if (Class == D3D_SVC_BIT_FIELD)
-    return "D3D_SVC_BIT_FIELD";
-#endif
-
   switch (Class) {
   case D3D_SVC_SCALAR: return "D3D_SVC_SCALAR";
   case D3D_SVC_VECTOR: return "D3D_SVC_VECTOR";
@@ -224,6 +218,7 @@ LPCSTR ToString(D3D_SHADER_VARIABLE_CLASS Class) {
   case D3D_SVC_STRUCT: return "D3D_SVC_STRUCT";
   case D3D_SVC_INTERFACE_CLASS: return "D3D_SVC_INTERFACE_CLASS";
   case D3D_SVC_INTERFACE_POINTER: return "D3D_SVC_INTERFACE_POINTER";
+  case D3D_SVC_BIT_FIELD: return "D3D_SVC_BIT_FIELD";
   default: return nullptr;
   }
 }
