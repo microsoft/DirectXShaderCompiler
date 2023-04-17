@@ -1,0 +1,41 @@
+steps:
+  - name: 'gcr.io/shaderc-build/shader-compiler-team:kokoro-dxc-builder'
+    args:
+      - git
+      - submodule
+      - update
+      - '--init'
+  - name: 'gcr.io/shaderc-build/shader-compiler-team:kokoro-dxc-builder'
+    args:
+      - cmake
+      - '-Bbuild'
+      - '-GNinja'
+      - '-DCMAKE_BUILD_TYPE=Release'
+      - '-C'
+      - cmake/caches/PredefinedParams.cmake
+      - '-DSPIRV_BUILD_TESTS=ON'
+      - '-DCMAKE_C_COMPILER=clang'
+      - '-DCMAKE_CXX_COMPILER=clang++'
+      - '-DENABLE_SPIRV_CODEGEN=ON'
+  - name: 'gcr.io/shaderc-build/shader-compiler-team:kokoro-dxc-builder'
+    args:
+      - ninja
+      - '-C'
+      - build
+  - name: 'gcr.io/shaderc-build/shader-compiler-team:kokoro-dxc-builder'
+    args:
+      - ninja
+      - '-C'
+      - build
+      - check-all
+logsBucket: 'gs://public-github-building-logs'
+options:
+  logging: LEGACY
+  pool:
+    name: projects/shaderc-build/locations/europe-west1/workerPools/dxc
+artifacts:
+  objects:
+    location: 'gs://public-directx-shader-compiler/$COMMIT_SHA'
+    paths:
+      - build/bin/dxc-*
+      - build/lib/libdxcompiler.so.*
