@@ -788,6 +788,23 @@ endif()
 
 include(CoverageReport)
 
+# This must be at the end of the LLVM root CMakeLists file because it must run
+# after all targets are created.
+if(LLVM_DISTRIBUTION_COMPONENTS)
+  if(CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR "LLVM_DISTRIBUTION_COMPONENTS cannot be specified with multi-configuration generators (i.e. Xcode or Visual Studio)")
+  endif()
+  
+  add_custom_target(install-distribution)
+  foreach(target ${LLVM_DISTRIBUTION_COMPONENTS})
+    if(TARGET install-${target})
+      add_dependencies(install-distribution install-${target})
+    else()
+      message(FATAL_ERROR "Specified distribution component '${target}' doesn't have an install target")
+    endif()
+  endforeach()
+endif()
+
 # Disable regeneration target for official builds as they always fun a full clean build.
 # This should eliminate the race-condition issue with "Cannot restore timestamp".
 if (HLSL_OFFICIAL_BUILD)
