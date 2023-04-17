@@ -788,6 +788,12 @@ endif()
 
 include(CoverageReport)
 
+# HLSL Change begin - Set default distribution value.
+if (NOT CMAKE_CONFIGURATION_TYPES)
+  set(LLVM_DISTRIBUTION_COMPONENTS "dxc;dxcompiler;dxc-headers" CACHE STRING "")
+endif ()
+# HLSL Change end - Set default distribution value.
+
 # This must be at the end of the LLVM root CMakeLists file because it must run
 # after all targets are created.
 if(LLVM_DISTRIBUTION_COMPONENTS)
