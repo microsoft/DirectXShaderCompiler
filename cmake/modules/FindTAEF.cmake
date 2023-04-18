@@ -58,6 +58,7 @@ endif((CMAKE_GENERATOR_PLATFORM STREQUAL "x64") OR ("${CMAKE_C_COMPILER_ARCHITEC
 set (TAEF_ARCH ${TAEF_ARCH} CACHE INTERNAL "arch for taef test")
 
 find_program(TAEF_EXECUTABLE te.exe PATHS
+  $ENV{TAEF_PATH}
   ${CMAKE_SOURCE_DIR}/external/taef/build/Binaries/${TAEF_BIN_ARCH}
   $ENV{HLSL_TAEF_DIR}/${TAEF_BIN_ARCH}
   ${TAEF_NUGET_BIN}/${TAEF_BIN_ARCH}
@@ -69,7 +70,7 @@ find_program(TAEF_EXECUTABLE te.exe PATHS
 if (TAEF_EXECUTABLE)
   get_filename_component(TAEF_BIN_DIR ${TAEF_EXECUTABLE} DIRECTORY)
 else()
-  message(ERROR "Unable to find TAEF binaries.")
+  message(FATAL_ERROR "Unable to find TAEF binaries.")
 endif()
 
 
