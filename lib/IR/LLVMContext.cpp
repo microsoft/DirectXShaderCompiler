@@ -262,9 +262,6 @@ bool LLVMContext::findMDKindID(StringRef Name, unsigned *ID) const {
   }
   return false;
 }
-StructType *llvm::LLVMContext::getTypeByName(StringRef Name) const {
-  return pImpl->NamedStructTypes.lookup(Name);
-}
 // HLSL Change - End
 
 /// Return a unique non-zero ID for the specified metadata kind.

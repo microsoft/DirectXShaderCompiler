@@ -313,7 +313,7 @@ CreateHLSLMatrixInternalTemplate(ASTContext &context, DeclContext *DC,
       typeDeclBuilder.addIntegerTemplateParam("row_count", context.IntTy, 4);
   NonTypeTemplateParmDecl *colCountTemplateParamDecl =
       typeDeclBuilder.addIntegerTemplateParam("col_count", context.IntTy, 4);
-  // hlsl::HLSLMatrixOrientation, 0 is col major, 2 is row major.
+  // hlsl::HLSLMatrixOrientation, 0 is col major, 1 is row major.
   // Set default based on HLSLDefaultRowMajor option. This will avoid create col
   // major by default then convert to row major when HLSLDefaultRowMajor is
   // true.
@@ -1291,11 +1291,9 @@ bool hlsl::TryParseMatrixOrVectorDimension(
 }
 
 /// <summary>Creates a typedef for a matrix shorthand (eg, float3x2).</summary>
-TypedefDecl* hlsl::CreateMatrixSpecializationShorthand(
-  ASTContext& context,
-  QualType matrixSpecialization,
-  HLSLScalarType scalarType,
-  size_t rowCount, size_t colCount,
+TypedefDecl *hlsl::CreateMatrixSpecializationShorthand(
+    ASTContext &context, QualType matrixSpecialization,
+    HLSLScalarType scalarType, size_t rowCount, size_t colCount,
     DeclContext *currentDeclContext) {
   DXASSERT(rowCount <= 4, "else caller didn't validate rowCount");
   DXASSERT(colCount <= 4, "else caller didn't validate colCount");
