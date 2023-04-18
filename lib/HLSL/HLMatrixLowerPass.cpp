@@ -1301,7 +1301,7 @@ Value *HLMatrixLowerPass::lowerHLLoad(CallInst *Call, Value *MatPtr, bool RowMaj
 Value *HLMatrixLowerPass::lowerHLStore(CallInst *Call, Value *MatVal, Value *MatPtr,
                                        bool RowMajor, bool Return, IRBuilder<> &Builder) {
   DXASSERT(MatVal->getType() == MatPtr->getType()->getPointerElementType() ||
-               // FIXME: remove this after matrix type has real layout.
+               // FIXME: remove this, the type should match.
                HLMatrixType::dyn_cast(MatVal->getType()) ==
                    HLMatrixType::dyn_cast(
                        MatPtr->getType()->getPointerElementType()),

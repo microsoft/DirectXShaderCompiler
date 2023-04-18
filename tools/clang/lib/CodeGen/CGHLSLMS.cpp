@@ -5987,7 +5987,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
         if (HLMatrixType::isa(ToTy)) {
-          // FIXME: cast when matrix type has real layout.
+          // FIXME: cast when matrix type mismatch.
           EmitHLSLMatrixStore(CGF, outVal, tmpArgAddr, ParamTy);
         }
         else {
@@ -6061,7 +6061,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
                 CGF.Builder.CreateInsertElement(castVal, outVal, (uint64_t)0);
           }
         } else if (HLMatrixType::isa(FromTy) && HLMatrixType::isa(ToTy)) {
-          // FIXME: cast when matrix type has real layout.
+          // FIXME: cast when matrix type mismatch.
         } else {
           castVal = ConvertScalarOrVector(CGF,
             outVal, tmpLV.getType(), argLV.getType());
