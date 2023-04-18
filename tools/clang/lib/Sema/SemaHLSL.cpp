@@ -8601,15 +8601,44 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
           NewSimpleAggregateType(AR_TOBJ_VECTOR, SourceInfo.EltKind, 0, 1, TargetInfo.uTotalElts), 
           CK_HLSLVectorTruncationCast, From->getValueKind(), /*BasePath=*/0, CCK).get();
       } else if (SourceInfo.ShapeKind == AR_TOBJ_MATRIX) {
+        if (TargetInfo.ShapeKind == AR_TOBJ_MATRIX &&
+            SourceInfo.bIsRowMajor != TargetInfo.bIsRowMajor) {
+          // For col matrix to vector, cast to row major first, because hlsl
+          // assume row major on matrix value.
+          From = m_sema
+                     ->ImpCastExprToType(
+                         From,
+                         hlsl::GetHLSLMatrixTypeWithMajor(From->getType(),
+                                                          /*isRowMajor*/ true,
+                                                          *m_sema),
+                         TargetInfo.bIsRowMajor ? CK_HLSLColMajorToRowMajor
+                                                : CK_HLSLRowMajorToColMajor,
+                         From->getValueKind(),
+                         /*BasePath=*/0, CCK)
+                     .get();
+        }
+        UINT64 qwQual = TargetInfo.bIsRowMajor ? AR_QUAL_ROWMAJOR : 0;
         if (TargetInfo.ShapeKind == AR_TOBJ_VECTOR && 1 == SourceInfo.uCols) {
           // Handle the column to vector case
-          From = m_sema->ImpCastExprToType(From, 
-            NewSimpleAggregateType(AR_TOBJ_MATRIX, SourceInfo.EltKind, 0, TargetInfo.uCols, 1), 
-            CK_HLSLMatrixTruncationCast, From->getValueKind(), /*BasePath=*/0, CCK).get();
+          From =
+              m_sema
+                  ->ImpCastExprToType(
+                      From,
+                      NewSimpleAggregateType(AR_TOBJ_MATRIX, SourceInfo.EltKind,
+                                             qwQual, TargetInfo.uCols, 1),
+                      CK_HLSLMatrixTruncationCast, From->getValueKind(),
+                      /*BasePath=*/0, CCK)
+                  .get();
         } else {
-          From = m_sema->ImpCastExprToType(From, 
-            NewSimpleAggregateType(AR_TOBJ_MATRIX, SourceInfo.EltKind, 0, TargetInfo.uRows, TargetInfo.uCols), 
-            CK_HLSLMatrixTruncationCast, From->getValueKind(), /*BasePath=*/0, CCK).get();
+          From = m_sema
+                     ->ImpCastExprToType(
+                         From,
+                         NewSimpleAggregateType(
+                             AR_TOBJ_MATRIX, SourceInfo.EltKind, qwQual,
+                             TargetInfo.uRows, TargetInfo.uCols),
+                         CK_HLSLMatrixTruncationCast, From->getValueKind(),
+                         /*BasePath=*/0, CCK)
+                     .get();
         }
       } else {
         DXASSERT(false, "PerformHLSLConversion: Invalid source type for truncation cast");
@@ -8625,7 +8654,7 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
           DXASSERT(AR_TOBJ_MATRIX == SourceInfo.ShapeKind, "otherwise, invalid casting sequence");
           if (!SourceInfo.bIsRowMajor) {
             // For col matrix to vector, cast to row major first, because hlsl
-            // assume row major on matrix value.
+            // assume row major value when cast matrix to vector.
             From = m_sema->ImpCastExprToType(From,
                                              hlsl::GetHLSLMatrixTypeWithMajor(
                                              From->getType(),
