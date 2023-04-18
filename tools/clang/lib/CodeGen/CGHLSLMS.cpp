@@ -3553,36 +3553,9 @@ HLCBuffer &CGMSHLSLRuntime::GetOrCreateCBuffer(HLSLBufferDecl *D) {
   return *static_cast<HLCBuffer*>(&(m_pHLModule->GetCBuffer(cbID)));
 }
 
-template <typename BuilderTy>
-static Value *
-EmitHLSLMatrixOperationCallImp(BuilderTy &Builder, HLOpcodeGroup group,
-                               unsigned opcode, llvm::Type *RetType,
-                               ArrayRef<Value *> paramList, llvm::Module &M) {
-  SmallVector<llvm::Type *, 4> paramTyList;
-  // Add the opcode param
-  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
-  paramTyList.emplace_back(opcodeTy);
-  for (Value *param : paramList) {
-    paramTyList.emplace_back(param->getType());
-  }
-
-  llvm::FunctionType *funcTy =
-      llvm::FunctionType::get(RetType, paramTyList, false);
-
-  Function *opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
-
-  SmallVector<Value *, 4> opcodeParamList;
-  Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
-  opcodeParamList.emplace_back(opcodeConst);
-  opcodeParamList.append(paramList.begin(), paramList.end());
-
-  return Builder.CreateCall(opFunc, opcodeParamList);
-}
-
 void CGMSHLSLRuntime::FinishCodeGen() {
   HLModule &HLM = *m_pHLModule;
   llvm::Module &M = TheModule;
-
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
   FinishIntrinsics(HLM, m_IntrinsicMap, objectProperties);
@@ -3818,6 +3791,31 @@ static unsigned GetHLOpcode(const Expr *E) {
   }
 }
 
+template <typename BuilderTy>
+static Value *
+EmitHLSLMatrixOperationCallImp(BuilderTy &Builder, HLOpcodeGroup group,
+                               unsigned opcode, llvm::Type *RetType,
+                               ArrayRef<Value *> paramList, llvm::Module &M) {
+  SmallVector<llvm::Type *, 4> paramTyList;
+  // Add the opcode param
+  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
+  paramTyList.emplace_back(opcodeTy);
+  for (Value *param : paramList) {
+    paramTyList.emplace_back(param->getType());
+  }
+
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(RetType, paramTyList, false);
+
+  Function *opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+
+  SmallVector<Value *, 4> opcodeParamList;
+  Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
+  opcodeParamList.emplace_back(opcodeConst);
+  opcodeParamList.append(paramList.begin(), paramList.end());
+
+  return Builder.CreateCall(opFunc, opcodeParamList);
+}
 
 static Value *EmitHLSLArrayInit(CGBuilderTy &Builder, HLOpcodeGroup group,
                                 unsigned opcode, llvm::Type *RetType,

@@ -12,13 +12,10 @@
 #pragma once
 
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/DenseMap.h"
 
 namespace llvm {
 class Function;
 class Value;
-class Module;
-class Type;
 class MemCpyInst;
 } // namespace llvm
 
