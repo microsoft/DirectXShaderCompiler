@@ -108,6 +108,7 @@ public:
   TEST_METHOD(GloballyCoherentTemplateErrors)
   TEST_METHOD(RunBitFieldAnnotations)
   TEST_METHOD(RunUDTByteAddressBufferLoad)
+  TEST_METHOD(RunObjectTemplateDiagDeferred)
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
@@ -472,4 +473,8 @@ TEST_F(VerifierTest, RunBitFieldAnnotations) {
 
 TEST_F(VerifierTest, RunUDTByteAddressBufferLoad) {
   CheckVerifiesHLSL(L"template-udt-load.hlsl");
+}
+
+TEST_F(VerifierTest, RunObjectTemplateDiagDeferred) {
+  CheckVerifiesHLSL(L"object-template-diag-deferred.hlsl");
 }
