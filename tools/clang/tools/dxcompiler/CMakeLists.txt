@@ -141,3 +141,19 @@ set_target_properties(dxcompiler
   OUTPUT_NAME "dxcompiler"
   VERSION ${LIBCLANG_LIBRARY_VERSION}
   DEFINE_SYMBOL _CINDEX_LIB_)
+
+if (WIN32)
+  set(install_dest RUNTIME DESTINATION bin)
+else()
+  set(install_dest LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+endif()
+
+install(TARGETS dxcompiler
+  ${install_dest}
+  COMPONENT dxcompiler)
+
+add_custom_target(install-dxcompiler
+  DEPENDS dxcompiler
+  COMMAND "${CMAKE_COMMAND}"
+          -DCMAKE_INSTALL_COMPONENT=dxcompiler
+          -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
