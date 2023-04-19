@@ -2,15 +2,15 @@ steps:
   - name: 'gcr.io/shaderc-build/shader-compiler-team:dxc-win-builder'
     env:
       - BUILD_ID=$BUILD_ID
-      - SOURCE_IMAGE=dxc-windows-vs22
+      - SOURCE_IMAGE=dxc-builder-windows-vs22
+      - COMMIT_SHA=$COMMIT_SHA
 logsBucket: 'gs://public-github-building-logs'
 options:
   logging: LEGACY
   pool:
-    name: projects/shaderc-build/locations/europe-west1/workerPools/dxc
+    name: projects/shaderc-build/locations/us-central1/workerPools/dxc
 artifacts:
   objects:
     location: 'gs://public-directx-shader-compiler/$COMMIT_SHA'
     paths:
-      - bin/dxc.exe
-      - bin/dxcompiler.dll
+      - dxc-artifacts.zip
