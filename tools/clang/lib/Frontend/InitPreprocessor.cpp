@@ -373,6 +373,20 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__DXC_VERSION_MINOR", STRINGIFY(RC_VERSION_FIELD_2));
     Builder.defineMacro("__DXC_VERSION_RELEASE", STRINGIFY(RC_VERSION_FIELD_3));
     Builder.defineMacro("__DXC_VERSION_COMMITS", STRINGIFY(RC_VERSION_FIELD_4));
+
+    // Those can be updated, but not often. Bumping version can be legitimate.
+    static_assert(RC_VERSION_FIELD_1 == 1, "Major version too different. This and target_version test needs fixing.");
+    static_assert(RC_VERSION_FIELD_2 >= 0 && RC_VERSION_FIELD_2 < 50, "Minor version too different. This and target_version test needs fixing.");
+
+    // Release version is either 0 for dev builds, or based on the year/month.
+    static_assert(RC_VERSION_FIELD_3 == 0 || RC_VERSION_FIELD_3 > 1900, "Bad release version number.");
+
+    // The version commit relies on the git tree being complete when building. We don't want to completely block
+    // builds on shallow clones, but tests will fail if they are built on such clones.
+#if defined(LLVM_BUILD_TESTS)
+    static_assert(RC_VERSION_FIELD_4 > 1000, "Is this a shallow clone? This will make the version test fail.");
+#endif
+
     // HLSL Version
     Builder.defineMacro("__HLSL_VERSION",
                         Twine((unsigned int)LangOpts.HLSLVersion));
