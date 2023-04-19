@@ -44,7 +44,6 @@ struct IDxcIncludeHandler;
 /// \brief Typedef for DxcCreateInstance function pointer.
 ///
 /// This can be used with GetProcAddress to get the DxcCreateInstance function.
-/// </remarks>
 typedef HRESULT (__stdcall *DxcCreateInstanceProc)(
     _In_ REFCLSID   rclsid,
     _In_ REFIID     riid,
@@ -54,7 +53,6 @@ typedef HRESULT (__stdcall *DxcCreateInstanceProc)(
 /// \brief Typedef for DxcCreateInstance2 function pointer.
 ///
 /// This can be used with GetProcAddress to get the DxcCreateInstance2 function.
-/// </remarks>
 typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(
   _In_ IMalloc    *pMalloc,
   _In_ REFCLSID   rclsid,
@@ -62,24 +60,21 @@ typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(
   _Out_ LPVOID*   ppv
   );
 
-/// <summary>
-/// Creates a single uninitialized object of the class associated with a specified CLSID.
-/// </summary>
-/// <param name="rclsid">
-/// The CLSID associated with the data and code that will be used to create the object.
-/// </param>
-/// <param name="riid">
-/// A reference to the identifier of the interface to be used to communicate
-/// with the object.
-/// </param>
-/// <param name="ppv">
-/// Address of pointer variable that receives the interface pointer requested
-/// in riid. Upon successful return, *ppv contains the requested interface
-/// pointer. Upon failure, *ppv contains NULL.</param>
-/// <remarks>
-/// While this function is similar to CoCreateInstance, there is no COM involvement.
-/// </remarks>
-
+/// \brief Creates a single uninitialized object of the class associated with a
+/// specified CLSID.
+///
+/// \param rclsid The CLSID associated with the data and code that will be used
+/// to create the object.
+///
+/// \param riid A reference to the identifier of the interface to be used to
+/// communicate with the object.
+///
+/// \param ppv Address of pointer variable that receives the interface pointer
+/// requested in riid.  Upon successful return, *ppv contains the requested
+/// interface pointer. Upon failure, *ppv contains NULL.
+///
+/// While this function is similar to CoCreateInstance, there is no COM
+/// involvement.
 extern "C"
 DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(
   _In_ REFCLSID   rclsid,
@@ -87,12 +82,9 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(
   _Out_ LPVOID*   ppv
   );
 
-/// <summary>
-/// Version of DxcCreateInstance that takes an IMalloc interface.
-/// </summary>
-/// <remarks>
+/// \brief Version of DxcCreateInstance that takes an IMalloc interface.
+///
 /// This can be used to create an instance of the compiler with a custom memory allocator.
-/// </remarks>
 extern "C"
 DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(
   _In_ IMalloc    *pMalloc,
@@ -589,10 +581,10 @@ struct IDxcUtils : public IUnknown {
   /// \param pFileName The name of the file to load from.
   ///
   /// \param pCodePage Optional code page to use if the blob contains text. Pass
-  /// NULL for binary data.</param>
+  /// NULL for binary data.
   ///
   /// \param ppBlobEncoding Address of the pointer that receives a pointer to
-  /// the newly created blob.</param>
+  /// the newly created blob.
   ///
   /// The new blob and its contents are allocated with the current allocator.
   /// This replaces IDxcLibrary::CreateBlobFromFile.
