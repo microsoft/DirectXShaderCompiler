@@ -38,6 +38,14 @@
 // when it's fused.
 #include "gtest/gtest.h"
 
+// Alias deprecated functions for UCRT.
+#ifdef _UCRT
+#define close _close
+#define creat _creat
+#define dup2  _dup2
+#define dup   _dup
+#endif
+
 // The following lines pull in the real gtest *.cc files.
 #include "src/gtest.cc"
 #include "src/gtest-death-test.cc"
