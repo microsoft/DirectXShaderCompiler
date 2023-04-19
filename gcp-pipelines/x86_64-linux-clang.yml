@@ -51,4 +51,4 @@ artifacts:
   objects:
     location: 'gs://public-directx-shader-compiler/$COMMIT_SHA'
     paths:
-      - artifacts.zip
+      - dxc-artifacts.zip
