@@ -36,6 +36,7 @@ public:
 
   TEST_METHOD(RunArrayIndexOutOfBounds)
   TEST_METHOD(RunArrayLength)
+  TEST_METHOD(RunAtomicFloatErrors)
   TEST_METHOD(RunAttributes)
   TEST_METHOD(RunBuiltinTypesNoInheritance)
   TEST_METHOD(RunConstExpr)
@@ -185,6 +186,10 @@ TEST_F(VerifierTest, RunArrayIndexOutOfBounds) {
 
 TEST_F(VerifierTest, RunArrayLength) {
   CheckVerifiesHLSL(L"array-length.hlsl");
+}
+
+TEST_F(VerifierTest, RunAtomicFloatErrors) {
+  CheckVerifiesHLSL(L"atomic-float-errors.hlsl");
 }
 
 TEST_F(VerifierTest, RunAttributes) {
