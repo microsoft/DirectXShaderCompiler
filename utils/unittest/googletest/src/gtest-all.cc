@@ -38,7 +38,8 @@
 // when it's fused.
 #include "gtest/gtest.h"
 
-// Alias deprecated functions for UCRT.
+// Alias deprecated functions for UCRT due to these obsolete function have been
+// removed in the newer UCRT libraries.
 #ifdef _UCRT
 #define close _close
 #define creat _creat
