@@ -1,7 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Make sure bitfiled info is saved.
-// TODO - make better dump. Now, Rows = 0 means bitfield. Columns is bit width. Elements is bit offset.
 
 // CHECK: D3D12_SHADER_TYPE_DESC: Name: BF
 // CHECK-NEXT:               Class: D3D_SVC_STRUCT
@@ -27,7 +26,7 @@
 // CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
-// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Rows: 1
 // CHECK-NEXT:                       Columns: 8
 // CHECK-NEXT:                       Members: 0
 // CHECK-NEXT:                       Offset: 0
@@ -36,7 +35,7 @@
 // CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
-// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Rows: 1
 // CHECK-NEXT:                       Columns: 8
 // CHECK-NEXT:                       Members: 0
 // CHECK-NEXT:                       Offset: 8
@@ -45,7 +44,7 @@
 // CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
-// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Rows: 1
 // CHECK-NEXT:                       Columns: 8
 // CHECK-NEXT:                       Members: 0
 // CHECK-NEXT:                       Offset: 16
@@ -54,7 +53,7 @@
 // CHECK-NEXT:                       Class: D3D_SVC_BIT_FIELD
 // CHECK-NEXT:                       Type: D3D_SVT_INT
 // CHECK-NEXT:                       Elements: 0
-// CHECK-NEXT:                       Rows: 0
+// CHECK-NEXT:                       Rows: 1
 // CHECK-NEXT:                       Columns: 8
 // CHECK-NEXT:                       Members: 0
 // CHECK-NEXT:                       Offset: 24
