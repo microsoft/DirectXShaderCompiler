@@ -27,8 +27,8 @@ include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
 
 add_dependencies(ExecHLSLTests dxcompiler)
 
+set_target_properties(ExecHLSLTests PROPERTIES OUTPUT_NAME exec-hlsl-tests)
 if (NOT CLANG_INCLUDE_TESTS)
-  set_target_properties(ExecHLSLTests PROPERTIES OUTPUT_NAME exec-hlsl-tests)
   set_output_directory(ExecHLSLTests
     ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
 endif()
