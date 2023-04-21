@@ -51,7 +51,7 @@ test_script:
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
 - sh: ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
-- sh: ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
+- sh: ./bin/ClangHLSLTests --HlslDataDir $PWD/../tools/clang/test/HLSL/
 
 after_test:
 # Collect artifacts for Windows
