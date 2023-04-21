@@ -285,7 +285,7 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
       set RES_DXILCONV=!ERRORLEVEL!
     )
-    if "%TEST_CLANG%"=="1" (
+    if "!TEST_CLANG!"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
       set RES_EXEC=%RES_CLANG%
