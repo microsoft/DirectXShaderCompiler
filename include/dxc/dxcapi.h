@@ -417,7 +417,7 @@ struct IDxcCompiler : public IUnknown {
 
   /// \brief Preprocess source text
   ///
-  /// \todo Is IDxcCompiler::Preprocess() deprecated too?
+  /// \deprecated Please use IDxcCompiler3::Compile() with the "-P" argument instead.
   virtual HRESULT STDMETHODCALLTYPE Preprocess(
     _In_ IDxcBlob *pSource,                       // Source text to preprocess
     _In_opt_z_ LPCWSTR pSourceName,               // Optional file name for pSource. Used in errors and include handlers.
