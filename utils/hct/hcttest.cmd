@@ -285,7 +285,7 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
       set RES_DXILCONV=!ERRORLEVEL!
     )
-    if "%TEST_CLANG%"=="1" (
+    if "!TEST_CLANG!"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
       set RES_EXEC=%RES_CLANG%
@@ -304,7 +304,7 @@ if not exist %TEST_DIR% (mkdir %TEST_DIR%)
 echo Copying binaries to test to %TEST_DIR%:
 if "%CUSTOM_BIN_SET%"=="" (
   if not "%TEST_USE_LIT%"=="1" (
-    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% clang-hlsl-tests.dll exec-hlsl-tests.dll
+    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% ClangHLSLTests.dll ExecHLSLTests.dll
   )
   call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
   if errorlevel 1 exit /b 1
@@ -368,7 +368,7 @@ if "%TEST_CLANG%"=="1" (
     set SELECT_FILTER= /select:"@Name='%TEST_CLANG_FILTER%' AND @Architecture='%TEST_ARCH%'"
   )
 
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" !SELECT_FILTER! %ADDITIONAL_OPTS%
+  call :runte ClangHLSLTests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" !SELECT_FILTER! %ADDITIONAL_OPTS%
   set RES_CLANG=!ERRORLEVEL!
 )
 
@@ -385,7 +385,7 @@ if "%TEST_EXEC%"=="1" (
 set EXEC_COMMON_ARGS=/p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\unittests\HLSLExec" /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
-  call :runte exec-hlsl-tests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%
+  call :runte ExecHLSLTests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%
   set RES_EXEC=!ERRORLEVEL!
   if errorlevel 1 (
     if not "%TEST_EXEC_REQUIRED%"=="1" (
@@ -404,7 +404,7 @@ if "%TEST_EXEC%"=="1" (
   ) else (
     set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2 AND @Architecture='%TEST_ARCH%'"
   )
-  call :runte exec-hlsl-tests.dll !SELECT_FILTER! %EXEC_COMMON_ARGS% %ADDITIONAL_OPTS%
+  call :runte ExecHLSLTests.dll !SELECT_FILTER! %EXEC_COMMON_ARGS% %ADDITIONAL_OPTS%
   set RES_EXEC=!ERRORLEVEL!
 )
 
@@ -433,7 +433,7 @@ if exist "%HCT_EXTRAS%\hcttest-after.cmd" (
 )
 
 if "%TEST_MANUAL_FILE_CHECK%"=="1" (
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::ManualFileCheckTest /runIgnoredTests /p:"InputPath=%MANUAL_FILE_CHECK_PATH%"
+  call :runte ClangHLSLTests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::ManualFileCheckTest /runIgnoredTests /p:"InputPath=%MANUAL_FILE_CHECK_PATH%"
   set RES_EXEC=!ERRORLEVEL!
 )
 
@@ -519,7 +519,7 @@ echo.
 echo Delete test directory and do not copy binaries or run tests:
 echo   hcttest clean
 echo.
-call :showtesample clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
+call :showtesample ClangHLSLTests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
 
 goto :eof
 

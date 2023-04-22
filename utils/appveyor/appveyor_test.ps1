@@ -13,7 +13,7 @@ function ConvertTo-AppveyorTest([System.Xml.XmlNode] $endTest) {
     New-Object PSObject -Property @{
         testName = $endTest.Title
         testFramework = "TAEF"
-        fileName = "clang-hlsl-tests.dll"
+        fileName = "ClangHLSLTests.dll"
         outcome = ConvertTo-AppveyorTestOutcome($endTest.Result)
         durationMilliseconds = ""
         ErrorMessage = ""
@@ -39,7 +39,7 @@ function Invoke-AppveyorTestsRestMethod($appveyorTests) {
 }
 
 function Invoke-TE($logfile) {
-    $testdll = "$env:HLSL_BLD_DIR\Release\bin\clang-hlsl-tests.dll"
+    $testdll = "$env:HLSL_BLD_DIR\Release\bin\ClangHLSLTests.dll"
     $p = Start-Process "te.exe" -Args "$testdll /logOutput:Low /logFile:$logfile /enableWttLogging /p:HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL /labMode /miniDumpOnCrash" -Wait -NoNewWindow -PassThru
     return $p.ExitCode
 }
