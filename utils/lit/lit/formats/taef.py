@@ -1,17 +1,47 @@
 from __future__ import absolute_import
 import os
 import sys
+import signal
+import subprocess
 
 import lit.Test
 import lit.TestRunner
 import lit.util
 from .base import TestFormat
 
+# TAEF must be run with custom command line string and shell=True
+# because of the way it manually processes quoted arguments in a
+# non-standard way.
+def executeCommandForTaef(command, cwd=None, env=None):
+    command = ' '.join(command)
+    p = subprocess.Popen(command, cwd=cwd,
+                        shell=True,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        env=env,
+                        # Close extra file handles on UNIX (on Windows this cannot be done while
+                        # also redirecting input). Taef only run on windows.
+                        close_fds=False)
+    out,err = p.communicate()
+    exitCode = p.wait()
+
+    # Detect Ctrl-C in subprocess.
+    if exitCode == -signal.SIGINT:
+        raise KeyboardInterrupt
+
+    # Ensure the resulting output is always of string type.
+    out = lit.util.convert_string(out)
+    err = lit.util.convert_string(err)
+
+    return out, err, exitCode
+
 class TaefTest(TestFormat):
-    def __init__(self, te_path, test_dll, test_path, extra_params):
+    def __init__(self, te_path, test_dll, test_path, select_filter, extra_params):
         self.te = te_path
         self.test_dll = test_dll
         self.test_path = test_path
+        self.select_filter = select_filter
         self.extra_params = extra_params
         # NOTE: when search test, always running on test_dll,
         #       use test_searched to make sure only add test once.
@@ -29,7 +59,7 @@ class TaefTest(TestFormat):
           localConfig: TestingConfig instance"""
 
         # TE:F:\repos\DxcGitHub\hlsl.bin\TAEF\x64\te.exe
-        # test dll : F:\repos\DxcGitHub\hlsl.bin\Debug\test\clang-hlsl-tests.dll
+        # test dll : F:\repos\DxcGitHub\hlsl.bin\Debug\test\ClangHLSLTests.dll
         # /list
 
         if litConfig.debug:
@@ -41,6 +71,7 @@ class TaefTest(TestFormat):
             # this is for windows
             lines = lines.replace('\r', '')
             lines = lines.split('\n')
+
         except:
             litConfig.error("unable to discover taef tests in %r, using %s" % (dll_path, self.te))
             raise StopIteration
@@ -85,10 +116,17 @@ class TaefTest(TestFormat):
 
         testPath,testName = os.path.split(test.getSourcePath())
 
+        select_filter = str.format("@Name='{}'", testName)
+
+        if self.select_filter != "":
+            select_filter = str.format("{} AND {}", select_filter, self.select_filter)
+
+        select_filter = str.format('/select:"{}"', select_filter)
+
         cmd = [self.te, test_dll, '/inproc',
+                select_filter,
                 '/miniDumpOnCrash', '/unicodeOutput:false',
-                str.format('/outputFolder:{}', self.test_path),
-                str.format('/name:{}', testName)]
+                str.format('/outputFolder:{}', self.test_path)]
         cmd.extend(self.extra_params)
 
         if litConfig.useValgrind:
@@ -97,13 +135,18 @@ class TaefTest(TestFormat):
         if litConfig.noExecute:
             return lit.Test.PASS, ''
 
-        out, err, exitCode = lit.util.executeCommand(
-            cmd, env=test.config.environment)
+        out, err, exitCode = executeCommandForTaef(
+            cmd, env = test.config.environment)
 
         if exitCode:
             skipped = 'Failed=0, Blocked=0, Not Run=0, Skipped=1'
             if skipped in out:
                 return lit.Test.UNSUPPORTED, ''
+
+            unselected = 'The selection criteria did not match any tests.'
+            if unselected in out:
+                return lit.Test.UNSUPPORTED, ''
+
             return lit.Test.FAIL, out + err
 
         summary = 'Summary: Total='

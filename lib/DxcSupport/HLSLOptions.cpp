@@ -573,7 +573,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       }
     }
   }
-  opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
+  opts.AstDumpImplicit = Args.hasFlag(OPT_ast_dump_implicit, OPT_INVALID, false);
+  // -ast-dump-implicit should imply -ast-dump.
+  opts.AstDump =
+      Args.hasFlag(OPT_ast_dump, OPT_INVALID, false) || opts.AstDumpImplicit;
   opts.WriteDependencies =
       Args.hasFlag(OPT_write_dependencies, OPT_INVALID, false);
   opts.OutputFileForDependencies =
@@ -781,8 +784,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
   opts.ForceDisableLocTracking =
       Args.hasFlag(OPT_fdisable_loc_tracking, OPT_INVALID, false);
+  opts.NewInlining =
+      Args.hasFlag(OPT_fnew_inlining_behavior, OPT_INVALID, false);
   opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
+  opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
@@ -977,6 +983,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.fixFuncCallArguments =
       Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false);
   opts.SpirvOptions.autoShiftBindings = Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false);
+  opts.SpirvOptions.finiteMathOnly =
+      Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
@@ -1183,9 +1191,8 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
                        llvm::raw_ostream &errors) {
   if (!opts.ExternalLib.empty()) {
     DXASSERT(!opts.ExternalFn.empty(), "else ReadDxcOpts should have failed");
-    StringRefWide externalLib(opts.ExternalLib);
     HRESULT hrLoad =
-        dxcSupport.InitializeForDll(externalLib, opts.ExternalFn.data());
+      dxcSupport.InitializeForDll(opts.ExternalLib.data(), opts.ExternalFn.data());
     if (DXC_FAILED(hrLoad)) {
       errors << "Unable to load support for external DLL " << opts.ExternalLib
              << " with function " << opts.ExternalFn << " - error 0x";

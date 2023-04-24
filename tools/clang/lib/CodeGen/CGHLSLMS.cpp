@@ -270,10 +270,6 @@ public:
                                    llvm::Value *DestPtr,
                                    clang::QualType Ty) override;
 
-  void EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *Val,
-                                   llvm::Value *DestPtr,
-                                   clang::QualType Ty) override;
-
   void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *Val,
                               Value *DestPtr,
                               QualType Ty,
@@ -382,7 +378,6 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // Set Option.
   HLOptions opts;
   opts.bIEEEStrict = CGM.getCodeGenOpts().UnsafeFPMath;
-  opts.bDefaultRowMajor = CGM.getCodeGenOpts().HLSLDefaultRowMajor;
   opts.bDisableOptimizations = CGM.getCodeGenOpts().DisableLLVMOpts;
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
@@ -391,6 +386,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
   opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;
 
+  opts.bDefaultRowMajor = CGM.getLangOpts().HLSLDefaultRowMajor;
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
   opts.bDX9CompatMode = CGM.getLangOpts().EnableDX9CompatMode;
   opts.bFXCCompatMode = CGM.getLangOpts().EnableFXCCompatMode;
@@ -1824,10 +1820,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
   }
-  if (isRay && !retTy->isVoidType()) {
-    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
-      DiagnosticsEngine::Error, "return type for ray tracing shaders must be void"));
-  }
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
   if (FD->hasAttr<HLSLPreciseAttr>())
@@ -2178,97 +2170,35 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       switch (funcProps->shaderKind) {
       case DXIL::ShaderKind::RayGeneration:
       case DXIL::ShaderKind::Intersection:
-        // RayGeneration and Intersection shaders are not allowed to have any input parameters
-        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "parameters are not allowed for %0 shader"))
-            << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
-                "raygeneration" : "intersection");
-        rayShaderHaveErrors = true;
         break;
       case DXIL::ShaderKind::AnyHit:
-      case DXIL::ShaderKind::ClosestHit:
-        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be inout"));
-          rayShaderHaveErrors = true;
-        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "intersection attributes parameter must be in"));
-          rayShaderHaveErrors = true;
-        } else if (ArgNo > 1) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "too many parameters, expected payload and attributes parameters only."));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 2) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "payload and attribute structures must be user defined types with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            if (0 == ArgNo)
-              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-            else
-              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
-          }
-        }
+      case DXIL::ShaderKind::ClosestHit: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        if (0 == ArgNo)
+          funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+        else
+          funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Miss:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter (ray payload) allowed for miss shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "ray payload parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Miss: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Callable:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter allowed for callable shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "callable parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "callable parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Callable: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.paramSizeInBytes = size;
         break;
+      }
       }
     }
 
@@ -5691,9 +5621,9 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     }
   }
 
-  // It is possible to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
-  // the same way. But split value to scalar will generate many instruction when
-  // src type is same as dest type.
+  // It is possible to implement EmitHLSLAggregateCopy, the same way. But split
+  // value to scalar will generate many instruction when src type is same as
+  // dest type.
   SmallVector<Value *, 4> GEPIdxStack;
   SmallVector<Value *, 4> SrcPtrs;
   SmallVector<QualType, 4> SrcQualTys;
@@ -5710,12 +5640,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
                                DestPtr->getType(), DstPtrs, DstQualTys);
 
   ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
-}
-
-void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,
-    llvm::Value *DestPtr,
-    clang::QualType Ty) {
-    DXASSERT(0, "aggregate return type will use SRet, no aggregate store should exist");
 }
 
 // Either copies a scalar to a scalar, a scalar to a vector, or splats a scalar to a vector

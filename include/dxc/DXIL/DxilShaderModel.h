@@ -12,6 +12,9 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
+
+#include "llvm/ADT/StringRef.h"
+
 #include <string>
 
 
@@ -78,6 +81,7 @@ public:
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
   static const char *GetKindName(Kind kind);
+  static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }

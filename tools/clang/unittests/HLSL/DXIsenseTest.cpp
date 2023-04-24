@@ -99,6 +99,7 @@ protected:
   TEST_METHOD(CursorWhenOverloadedResolvedThenDirectSymbol)
   TEST_METHOD(CursorWhenReferenceThenDefinitionAvailable)
   TEST_METHOD(CursorWhenTypeOfVariableDeclThenNamesHaveType)
+  TEST_METHOD(CursorTypeUsedNamespace)
   TEST_METHOD(CursorWhenVariableRefThenSimpleNames)
   TEST_METHOD(CursorWhenVariableUsedThenDeclarationAvailable)
 
@@ -538,6 +539,16 @@ TEST_F(DXIntellisenseTest, CursorWhenTypeOfVariableDeclThenNamesHaveType) {
   
   ExpectQualifiedName(result.TU, 3, 6, L"Ns::TheClass");
   ExpectDeclarationText(result.TU, 3, 6, L"class Ns::TheClass");
+}
+
+TEST_F(DXIntellisenseTest, CursorTypeUsedNamespace) {
+  char program[] =
+    "namespace Ns { class TheClass {\n"
+    "}; }\n"
+    "using namespace Ns;\n"
+    "TheClass C;";
+  CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
+  ExpectQualifiedName(result.TU, 4, 4, L"Ns::TheClass");
 }
 
 TEST_F(DXIntellisenseTest, CursorWhenVariableRefThenSimpleNames) {

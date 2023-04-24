@@ -1674,9 +1674,6 @@ void RemoveUnusedInternalGlobalVariable(Module &M) {
         Value *User = *(UserIt++);
         if (Instruction *I = dyn_cast<Instruction>(User)) {
           I->eraseFromParent();
-        } else {
-          ConstantExpr *CE = cast<ConstantExpr>(User);
-          CE->dropAllReferences();
         }
       }
       GV->eraseFromParent();

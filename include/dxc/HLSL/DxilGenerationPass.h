@@ -117,7 +117,7 @@ void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry&);
 FunctionPass *createCleanupDxBreakPass();
 void initializeCleanupDxBreakPass(llvm::PassRegistry&);
 
-FunctionPass *createDxilLoopDeletionPass();
+FunctionPass *createDxilLoopDeletionPass(bool NoSink);
 void initializeDxilLoopDeletionPass(llvm::PassRegistry &);
 
 ModulePass *createHLLegalizeParameter();
@@ -139,5 +139,8 @@ void initializeDxilDeleteRedundantDebugValuesPass(llvm::PassRegistry&);
 
 FunctionPass *createDxilSimpleGVNEliminateRegionPass();
 void initializeDxilSimpleGVNEliminateRegionPass(llvm::PassRegistry&);
+
+ModulePass *createDxilModuleInitPass();
+void initializeDxilModuleInitPass(llvm::PassRegistry &);
 
 }

@@ -2,8 +2,8 @@
 
 // Make sure different address space arg works.
 
-// CHECK: @"\01?sT@@3PAUT@@A.0" = addrspace(3) global [8 x float]
-// CHECK: @"\01?sT@@3PAUT@@A.1" = addrspace(3) global [8 x i32]
+// CHECK: @"\01?sT{{[@$?.A-Za-z0-9_]+}}" = addrspace(3) global [8 x float]
+// CHECK: @"\01?sT{{[@$?.A-Za-z0-9_]+}}" = addrspace(3) global [8 x i32]
 
 struct T {
   float a;

@@ -18,6 +18,7 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -759,7 +760,8 @@ public:
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       primaryOutput.kind = DXC_OUT_OBJECT;
-      if (opts.AstDump || opts.OptDump || opts.DumpDependencies)
+      if (opts.AstDump || opts.OptDump || opts.DumpDependencies ||
+          opts.VerifyDiagnostics)
         primaryOutput.kind = DXC_OUT_TEXT;
       else if (isPreprocessing)
         primaryOutput.kind = DXC_OUT_HLSL;
@@ -918,7 +920,8 @@ public:
         // validator can be used as a fallback.
         produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
                                !opts.OptDump && rootSigMajor == 0 &&
-                               !opts.DumpDependencies;
+                               !opts.DumpDependencies &&
+                               !opts.VerifyDiagnostics;
         needsValidation = produceFullContainer && !opts.DisableValidation;
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
@@ -1010,6 +1013,13 @@ public:
             dxcutil::ValidateRootSignatureInContainer(
               pOutputBlob, &compiler.getDiagnostics());
           }
+        }
+      } else if (opts.VerifyDiagnostics) {
+        SyntaxOnlyAction action;
+        FrontendInputFile file(pUtf8SourceName, IK_HLSL);
+        if (action.BeginSourceFile(compiler, file)) {
+          action.Execute();
+          action.EndSourceFile();
         }
       }
       // SPIRV change starts
@@ -1288,7 +1298,15 @@ public:
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));
-      IFT(pResult->SetStatusAndPrimaryResult(hasErrorOccurred ? E_FAIL : S_OK, primaryOutput.kind));
+      
+      // It is possible for errors to occur, but the diagnostic or AST consumers
+      // can recover from them, or translate them to mean something different.
+      // This happens with the `-verify` flag where an error may be expected.
+      // The correct way to identify errors in this case is to query the
+      // DiagnosticClient for the number of errors.
+      unsigned NumErrors = compiler.getDiagnostics().getClient()->getNumErrors();
+      IFT(pResult->SetStatusAndPrimaryResult(NumErrors > 0 ? E_FAIL : S_OK,
+                                             primaryOutput.kind));
       IFT(pResult->QueryInterface(riid, ppResult));
 
       hr = S_OK;
@@ -1400,6 +1418,7 @@ public:
     compiler.HlslLangExtensions = helper;
     compiler.getDiagnosticOpts().ShowOptionNames = Opts.ShowOptionNames ? 1 : 0;
     compiler.getDiagnosticOpts().Warnings = std::move(Opts.Warnings);
+    compiler.getDiagnosticOpts().VerifyDiagnostics = Opts.VerifyDiagnostics;
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
@@ -1480,6 +1499,12 @@ public:
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
+    // Enable dumping implicit top level decls either if it was specifically
+    // requested or if we are not dumping the ast from the command line. That
+    // allows us to dump implicit AST nodes in the debugger.
+    compiler.getLangOpts().DumpImplicitTopLevelDecls =
+        Opts.AstDumpImplicit || !Opts.AstDump;
+    compiler.getLangOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1525,7 +1550,6 @@ public:
     compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs = Opts.IgnoreOptSemDefs;
     compiler.getCodeGenOpts().HLSLIgnoreSemDefs = Opts.IgnoreSemDefs;
     compiler.getCodeGenOpts().HLSLOverrideSemDefs = Opts.OverrideSemDefs;
-    compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;
     compiler.getCodeGenOpts().HLSLAvoidControlFlow = Opts.AvoidFlowControl;
     compiler.getCodeGenOpts().HLSLNotUseLegacyCBufLoad = Opts.NotUseLegacyCBufLoad;
@@ -1562,9 +1586,11 @@ public:
     if (Opts.AvoidFlowControl)
       compiler.getCodeGenOpts().UnrollLoops = true;
 
-    // always inline for hlsl
-    compiler.getCodeGenOpts().setInlining(
-        clang::CodeGenOptions::OnlyAlwaysInlining);
+    clang::CodeGenOptions::InliningMethod Inlining =
+        clang::CodeGenOptions::OnlyAlwaysInlining;
+    if (Opts.NewInlining)
+      Inlining = clang::CodeGenOptions::NormalInlining;
+    compiler.getCodeGenOpts().setInlining(Inlining);
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
 

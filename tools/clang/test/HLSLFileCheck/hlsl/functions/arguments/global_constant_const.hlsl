@@ -23,12 +23,12 @@ float4 main() : SV_Target {
 // bar should be called with a copy of st.a.
 // CHECK: define <4 x float> @main()
 // CHECK: [[a:%[0-9A-Z]+]] = getelementptr inbounds %"$Globals", %"$Globals"* {{%[0-9A-Z]+}}, i32 0, i32 0, i32 0
-// CHECK: call <4 x float> @"\01?bar@@YA?AV?$vector@M$03@@Y0CA@$$CBV1@@Z"([32 x <4 x float>]* [[a]])
+// CHECK: call <4 x float> @"\01?bar{{[@$?.A-Za-z0-9_]+}}"([32 x <4 x float>]* [[a]])
 
 // Bug: Because a isn't marked noalias, we are generating copies for it.
-// CHECK: define internal <4 x float> @"\01?bar@@YA?AV?$vector@M$03@@Y0CA@$$CBV1@@Z"([32 x <4 x float>]* [[a:%[0-9a]+]]) #1 {
+// CHECK: define internal <4 x float> @"\01?bar{{[@$?.A-Za-z0-9_]+}}"([32 x <4 x float>]* [[a:%[0-9a]+]]) #1 {
 // CHECK: [[Tmpa:%[0-9A-Z]+]] = alloca [32 x <4 x float>]
 // CHECK: [[TmpaPtr:%[0-9A-Z]+]] = bitcast [32 x <4 x float>]* [[Tmpa]] to i8*
 // CHECK: [[aPtr:%[0-9A-Z]+]] = bitcast [32 x <4 x float>]* [[a]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[TmpaPtr]], i8* [[aPtr]], i64 512, i32 1, i1 false)
-// CHECK: call <4 x float> @"\01?foo@@YA?AV?$vector@M$03@@Y0CA@$$CBV1@H@Z"([32 x <4 x float>]* [[Tmpa]], i32 {{%[0-9A-Z]+}})
+// CHECK: call <4 x float> @"\01?foo{{[@$?.A-Za-z0-9_]+}}"([32 x <4 x float>]* [[Tmpa]], i32 {{%[0-9A-Z]+}})

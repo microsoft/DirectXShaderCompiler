@@ -108,6 +108,10 @@ TEST_F(FileTest, BindlessConstantBufferArrayType) {
 TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
+TEST_F(FileTest, RasterizerOrderedTexture2DType) {
+  runFileTest("type.rasterizer-ordered-texture-2d.unimplemented.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
@@ -542,6 +546,10 @@ TEST_F(FileTest, CastLiteralTypeForArraySubscript) {
 
 TEST_F(FileTest, CastLiteralTypeForTernary) {
   runFileTest("cast.literal-type.ternary.hlsl");
+}
+
+TEST_F(FileTest, CastLiteralTypeForTernary2021) {
+  runFileTest("cast.literal-type.ternary.2021.hlsl");
 }
 
 // For vector/matrix splatting and trunction
@@ -1294,6 +1302,9 @@ TEST_F(FileTest, IntrinsicsLog) { runFileTest("intrinsics.log.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog10) { runFileTest("intrinsics.log10.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
 TEST_F(FileTest, IntrinsicsMin) { runFileTest("intrinsics.min.hlsl"); }
+TEST_F(FileTest, IntrinsicsMinFiniteMathOnly) {
+  runFileTest("intrinsics.min.finitemathonly.hlsl");
+}
 TEST_F(FileTest, IntrinsicsLit) { runFileTest("intrinsics.lit.hlsl"); }
 TEST_F(FileTest, IntrinsicsModf) { runFileTest("intrinsics.modf.hlsl"); }
 TEST_F(FileTest, IntrinsicsModfWithSwizzling) {
@@ -1302,6 +1313,9 @@ TEST_F(FileTest, IntrinsicsModfWithSwizzling) {
 TEST_F(FileTest, IntrinsicsMad) { runFileTest("intrinsics.mad.hlsl"); }
 TEST_F(FileTest, IntrinsicsUMad) { runFileTest("intrinsics.umad.hlsl"); }
 TEST_F(FileTest, IntrinsicsMax) { runFileTest("intrinsics.max.hlsl"); }
+TEST_F(FileTest, IntrinsicsMaxFiniteMathOnly) {
+  runFileTest("intrinsics.max.finitemathonly.hlsl");
+}
 TEST_F(FileTest, IntrinsicsMsad4) { runFileTest("intrinsics.msad4.hlsl"); }
 TEST_F(FileTest, IntrinsicsNormalize) {
   runFileTest("intrinsics.normalize.hlsl");
@@ -1719,6 +1733,9 @@ TEST_F(FileTest, SpirvStageIOInterfacePSMultipleArraySVClipDistance) {
 TEST_F(FileTest, SpirvStageIOInterfaceVSClipDistanceInvalidType) {
   runFileTest("spirv.interface.vs.clip_distance.type.error.hlsl",
               Expect::Failure);
+}
+TEST_F(FileTest, SpirvStageIOInterfacePSInheritanceSVClipDistance) {
+  runFileTest("spirv.interface.ps.inheritance.sv_clipdistance.hlsl");
 }
 
 TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {

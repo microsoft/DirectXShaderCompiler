@@ -11,4 +11,10 @@ add_llvm_library(LLVMDxcSupport
   WinFunctions.cpp
   )
 
+#generate header with platform-specific library name
+configure_file(
+${LLVM_MAIN_SRC_DIR}/lib/DxcSupport/SharedLibAffix.inc
+${LLVM_INCLUDE_DIR}/dxc/Support/SharedLibAffix.h
+)
+
 add_dependencies(LLVMDxcSupport TablegenHLSLOptions)

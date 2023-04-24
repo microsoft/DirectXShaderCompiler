@@ -340,6 +340,9 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.EnableGVN = !CodeGenOpts.HLSLOptimizationToggles.count("gvn") ||
                         CodeGenOpts.HLSLOptimizationToggles.find("gvn")->second;
 
+  PMBuilder.HLSLNoSink = CodeGenOpts.HLSLOptimizationToggles.count("sink") &&
+                         !CodeGenOpts.HLSLOptimizationToggles.find("sink")->second;
+
   PMBuilder.StructurizeLoopExitsForUnroll =
                         !CodeGenOpts.HLSLOptimizationToggles.count("structurize-loop-exits-for-unroll") ||
                         CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
@@ -441,6 +444,7 @@ void EmitAssemblyHelper::CreatePasses() {
   switch (Inlining) {
   case CodeGenOptions::NoInlining: break;
   case CodeGenOptions::NormalInlining: {
+    PMBuilder.HLSLEarlyInlining = false; // HLSL Change
     PMBuilder.Inliner =
         createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
     break;
@@ -451,7 +455,7 @@ void EmitAssemblyHelper::CreatePasses() {
       // Do not insert lifetime intrinsics at -O0.
       PMBuilder.Inliner = createAlwaysInlinerPass(false);
     else
-      PMBuilder.Inliner = createAlwaysInlinerPass();
+      PMBuilder.Inliner = createAlwaysInlinerPass(PMBuilder.HLSLEnableLifetimeMarkers); // HLSL Change
     break;
   }
 

@@ -42,7 +42,9 @@ set SPV_TEST=OFF
 set DXILCONV=ON
 set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
+set ENABLE_LIT=OFF
 set WINSDK_MIN_VERSION=10.0.17763.0
+set INSTALL_DIR=
 
 :parse_args
 if "%1"=="" (
@@ -187,9 +189,14 @@ if "%1"=="-show-cmake-log" (
   set SHOW_CMAKE_LOG=1
   shift /1 & goto :parse_args
 )  
+if "%1"=="-disable-lit" (
+  echo Disable LIT testing
+  set ENABLE_LIT=OFF
+  shift /1 & goto :parse_args
+)
 if "%1"=="-enable-lit" (
   echo Enable LIT testing
-  set ENABLE_LIT=On
+  set ENABLE_LIT=ON
   shift /1 & goto :parse_args
 )
 rem Begin SPIRV change
@@ -221,6 +228,12 @@ if "%1"=="-lto" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_ENABLE_LTO=On
   shift /1 & goto :parse_args
 )
+if "%1"=="-installdir" (
+  echo Build install directory set to %~2
+  set "INSTALL_DIR=%~2"
+  shift /1
+  shift /1 & goto :parse_args
+)
 if "%1" NEQ "" ( 
     echo Unrecognized argument: %1
     exit /b 1
@@ -230,6 +243,10 @@ if "%1" NEQ "" (
 if "%HLSL_BLD_DIR%"=="" (
   echo Missing build directory.
   exit /b 1
+)
+
+if "%INSTALL_DIR%"=="" (
+  set "INSTALL_DIR=%HLSL_BLD_DIR%\install"
 )
 
 if "%CMAKE_PATH%"=="" (
@@ -286,10 +303,6 @@ if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
   )
 )
 
-if "%ENABLE_LIT%"=="" (
-  set ENABLE_LIT=Off
-)
-
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=%ANALYZE%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=%OFFICIAL%
@@ -320,6 +333,7 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_DEFAULT_TARGET_TRIPLE:STRING=dxil-ms-dx
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR%
 
 rem ARM cross-compile setup
 if %BUILD_ARM_CROSSCOMPILING% == 0 goto :after-cross-compile
@@ -435,7 +449,8 @@ if "%DO_SETUP%"=="1" (
     "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    echo Running "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    rem but need CMAKE_BUILD_TYPE to generate lit cfg.
+    echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1  %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
     "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if %SHOW_CMAKE_LOG%==1 (

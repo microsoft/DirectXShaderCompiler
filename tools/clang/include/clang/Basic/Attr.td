@@ -791,13 +791,13 @@ def HLSLSemantic : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def HLSLColumnMajor : InheritableAttr {
+def HLSLColumnMajor : TypeAttr {
   let Spellings = [CXX11<"", "column_major", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;
   let Documentation = [Undocumented];
 }
 
-def HLSLRowMajor : InheritableAttr {
+def HLSLRowMajor : TypeAttr {
   let Spellings = [CXX11<"", "row_major", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;
   let Documentation = [Undocumented];
@@ -914,6 +914,20 @@ def HLSLWaveSize : InheritableAttr {
 
 def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {
   let Spellings = [CXX11<"", "waveopsincludehelperlanes", 2015>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLMaybeUnused : InheritableAttr {
+  let Spellings = [CXX11<"", "maybe_unused", 2017>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+// This attribute has no spelling, it is attached to methods by the compiler for
+// methods that require C++ lookup rules.
+def HLSLCXXOverload : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[CXXMethod]>;
   let Documentation = [Undocumented];
 }
 

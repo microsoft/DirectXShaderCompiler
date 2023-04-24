@@ -612,6 +612,11 @@ static bool SuggestInitializationFixit(Sema &S, const VarDecl *VD) {
     return true;
   }
 
+  // HLSL Change Start - Don't issue fixit for out parameters
+  if (VD->hasAttr<HLSLOutAttr>())
+    return false;
+  // HLSL Change End
+
   // Don't issue a fixit if there is already an initializer.
   if (VD->getInit())
     return false;
@@ -664,21 +669,28 @@ static void CreateIfFixit(Sema &S, const Stmt *If, const Stmt *Then,
 static void DiagUninitUse(Sema &S, const VarDecl *VD, const UninitUse &Use,
                           bool IsCapturedByBlock) {
   bool Diagnosed = false;
+  // HLSL Change Start - Generate warnings for uninitialized out params.
+  bool HLSLOutParam = VD->hasAttr<HLSLOutAttr>();
 
   switch (Use.getKind()) {
   case UninitUse::Always:
-    S.Diag(Use.getUser()->getLocStart(), diag::warn_uninit_var)
+    S.Diag(Use.getUser()->getLocStart(), HLSLOutParam
+                                             ? diag::warn_hlsl_uninit_out_param
+                                             : diag::warn_uninit_var)
         << VD->getDeclName() << IsCapturedByBlock
         << Use.getUser()->getSourceRange();
     return;
 
   case UninitUse::AfterDecl:
   case UninitUse::AfterCall:
-    S.Diag(VD->getLocation(), diag::warn_sometimes_uninit_var)
-      << VD->getDeclName() << IsCapturedByBlock
-      << (Use.getKind() == UninitUse::AfterDecl ? 4 : 5)
-      << const_cast<DeclContext*>(VD->getLexicalDeclContext())
-      << VD->getSourceRange();
+    S.Diag(VD->getLocation(), HLSLOutParam
+                                  ? diag::warn_hlsl_sometimes_uninit_out_param
+                                  : diag::warn_sometimes_uninit_var)
+        << VD->getDeclName() << IsCapturedByBlock
+        << (Use.getKind() == UninitUse::AfterDecl ? 4 : 5)
+        << const_cast<DeclContext *>(VD->getLexicalDeclContext())
+        << VD->getSourceRange();
+    // HLSL Change End - Generate warnings for uninitialized out params.
     S.Diag(Use.getUser()->getLocStart(), diag::note_uninit_var_use)
       << IsCapturedByBlock << Use.getUser()->getSourceRange();
     return;
@@ -810,9 +822,13 @@ static void DiagUninitUse(Sema &S, const VarDecl *VD, const UninitUse &Use,
       break;
     }
 
-    S.Diag(Range.getBegin(), diag::warn_sometimes_uninit_var)
-      << VD->getDeclName() << IsCapturedByBlock << DiagKind
-      << Str << I->Output << Range;
+    // HLSL Change Start - Generate warnings for uninitialized out params.
+    S.Diag(Range.getBegin(), HLSLOutParam
+                                 ? diag::warn_hlsl_sometimes_uninit_out_param
+                                 : diag::warn_sometimes_uninit_var)
+        << VD->getDeclName() << IsCapturedByBlock << DiagKind << Str
+        << I->Output << Range;
+    // HLSL Change End - Generate warnings for uninitialized out params.
     S.Diag(User->getLocStart(), diag::note_uninit_var_use)
       << IsCapturedByBlock << User->getSourceRange();
     if (RemoveDiagKind != -1)
@@ -2006,9 +2022,13 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
     Analyzer.run(AC);
   }
 
+  // HLSL Change Start - Generate warnings for uninitialized out params.
   if (!Diags.isIgnored(diag::warn_uninit_var, D->getLocStart()) ||
       !Diags.isIgnored(diag::warn_sometimes_uninit_var, D->getLocStart()) ||
-      !Diags.isIgnored(diag::warn_maybe_uninit_var, D->getLocStart())) {
+      !Diags.isIgnored(diag::warn_maybe_uninit_var, D->getLocStart()) ||
+      !Diags.isIgnored(diag::warn_hlsl_uninit_out_param, D->getLocStart()) ||
+      !Diags.isIgnored(diag::warn_hlsl_sometimes_uninit_out_param, D->getLocStart())) {
+    // HLSL Change End  - Generate warnings for uninitialized out params.
     if (CFG *cfg = AC.getCFG()) {
       UninitValsDiagReporter reporter(S);
       UninitVariablesAnalysisStats stats;

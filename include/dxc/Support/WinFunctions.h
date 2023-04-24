@@ -15,12 +15,10 @@
 #ifndef LLVM_SUPPORT_WINFUNCTIONS_H
 #define LLVM_SUPPORT_WINFUNCTIONS_H
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 #ifndef _WIN32
 
-HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
-                        LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags);
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...);
 HRESULT UIntAdd(UINT uAugend, UINT uAddend, UINT *puResult);
 HRESULT IntToUInt(int in, UINT *out);

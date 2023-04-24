@@ -26,10 +26,10 @@ namespace spirv {
 struct StringMapInfo {
   static inline std::string getEmptyKey() { return ""; }
   static inline std::string getTombstoneKey() { return ""; }
-  static unsigned getHashValue(const std::string Val) {
+  static unsigned getHashValue(const std::string& Val) {
     return llvm::hash_combine(Val);
   }
-  static bool isEqual(const std::string LHS, const std::string RHS) {
+  static bool isEqual(const std::string& LHS, const std::string& RHS) {
     // Either both are null, or both should have the same underlying type.
     return LHS == RHS;
   }
@@ -851,7 +851,7 @@ private:
   // kept track of separately. This is because the empty string is used
   // as the EmptyKey and TombstoneKey for the map, prohibiting insertion
   // of the empty string as a contained value.
-  llvm::DenseMap<llvm::StringRef, SpirvString *, StringMapInfo> stringLiterals;
+  llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
   SpirvString *emptyString;
 
   /// Mapping of CTBuffers including matrix 1xN with FXC memory layout to their

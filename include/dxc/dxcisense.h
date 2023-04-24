@@ -14,7 +14,7 @@
 
 #include "dxcapi.h"
 #ifndef _WIN32
-#include "Support/WinAdapter.h"
+#include "WinAdapter.h"
 #endif
 
 typedef enum DxcGlobalOptions

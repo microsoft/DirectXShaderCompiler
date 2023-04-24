@@ -440,6 +440,10 @@ void DynamicIndexingVectorToArray::ReplaceVectorArrayWithArray(Value *VA, Value 
       ReplaceVecArrayGEP(GEPOp, idxList, A, Builder);
     } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User)) {
       BCI->setOperand(0, A);
+    } else if (auto *CI = dyn_cast<CallInst>(User)) {
+      IRBuilder<> B(CI);
+      auto *Cast = B.CreateBitCast(A, VA->getType());
+      CI->replaceUsesOfWith(VA, Cast);
     } else {
       DXASSERT(0, "Array pointer should only used by GEP");
     }

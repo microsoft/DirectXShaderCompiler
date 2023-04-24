@@ -4072,10 +4072,7 @@ public:
     SourceLocation LBrace);
   void ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace);
   Decl* getActiveHLSLBuffer() const;
-  void ActOnStartHLSLBufferView();
   bool IsOnHLSLBufferView();
-  Decl *ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                        DeclGroupPtrTy &dcl, bool iscbuf);
   // HLSL Change Ends
 
   //===---------------------------- C++ Features --------------------------===//
@@ -9081,8 +9078,7 @@ public:
   // HLSL Change Begin - adjust this from T* to T&-like
   CXXThisExpr *genereateHLSLThis(SourceLocation Loc, QualType ThisType,
                                 bool isImplicit);
-  ClassTemplateSpecializationDecl *
-  getHLSLDefaultSpecialization(ClassTemplateDecl *Decl);
+  QualType getHLSLDefaultSpecialization(TemplateDecl *Decl);
   // HLSL Change End - adjust this from T* to T&-like
 };
 

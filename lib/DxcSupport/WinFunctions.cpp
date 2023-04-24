@@ -22,22 +22,6 @@
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/microcom.h"
 
-HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
-                        LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags) {
-  assert(dwFlags == 0 && "dwFlag values not supported in StringCchCopyEx");
-  char *zPtr = 0;
-
-  zPtr = stpncpy(pszDest, pszSrc, cchDest);
-
-  if (ppszDestEnd)
-    *ppszDestEnd = zPtr;
-
-  if (pcchRemaining)
-    *pcchRemaining = cchDest - (zPtr - pszDest);
-
-  return S_OK;
-}
-
 
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
   va_list args;

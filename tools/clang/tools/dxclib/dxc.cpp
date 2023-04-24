@@ -316,7 +316,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
   }
 
   // Text output.
-  if (m_Opts.AstDump || m_Opts.OptDump) {
+  if (m_Opts.AstDump || m_Opts.OptDump || m_Opts.VerifyDiagnostics) {
     WriteBlobToConsole(pBlob);
     return retVal;
   }
@@ -867,7 +867,7 @@ int DxcContext::Compile() {
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
   if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
-      m_Opts.DumpDependencies) {
+      m_Opts.DumpDependencies || m_Opts.VerifyDiagnostics) {
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {
@@ -1189,7 +1189,7 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS,
     CComPtr<IDxcVersionInfo2> VerInfo2;
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
-    const char *dllName = !ExternalLib ? "dxcompiler.dll" : ExternalLib;
+    const char *dllName = !ExternalLib ? kDxCompilerLib : ExternalLib;
     std::string compilerName(dllName);
     if (ExternalFn)
       compilerName = compilerName + "!" + ExternalFn;
@@ -1244,17 +1244,17 @@ void WriteDXILVersionInfo(llvm::raw_ostream &OS,
       UINT32 validatorMajor, validatorMinor = 0;
       VerInfo->GetVersion(&validatorMajor, &validatorMinor);
       OS << "; "
-         << "dxil.dll"
+         << kDxilLib
          << ": " << validatorMajor << "." << validatorMinor;
 
     }
     // dxil.dll 1.0 did not support IdxcVersionInfo
     else {
       OS << "; "
-         << "dxil.dll: " << 1 << "." << 0;
+         << kDxilLib << ": " << 1 << "." << 0;
     }
     unsigned int version[4];
-    if (GetDLLFileVersionInfo("dxil.dll", version)) {
+    if (GetDLLFileVersionInfo(kDxilLib, version)) {
       OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
          << version[3] << ")";
     }
@@ -1272,7 +1272,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 
   // Print validator if exists
   DxcDllSupport DxilSupport;
-  DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+  DxilSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
   WriteDXILVersionInfo(OS, DxilSupport);
 }
 

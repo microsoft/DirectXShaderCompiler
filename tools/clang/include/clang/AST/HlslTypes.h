@@ -20,7 +20,7 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
@@ -301,10 +301,6 @@ struct SemanticDecl : public UnusualAnnotation
 ParameterModifier
 ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
 
-/// Returns a ParameterModifier initialized as per the attribute list.
-ParameterModifier
-ParamModFromAttrs(llvm::ArrayRef<clang::InheritableAttr *> attributes);
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AST manipulation functions.
 
@@ -466,7 +462,8 @@ clang::CXXMethodDecl* CreateObjectFunctionDeclarationWithParams(
   llvm::ArrayRef<clang::QualType> paramTypes,
   llvm::ArrayRef<clang::StringRef> paramNames,
   clang::DeclarationName declarationName,
-  bool isConst);
+  bool isConst,
+  bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,
                                             clang::QualType Ty);
