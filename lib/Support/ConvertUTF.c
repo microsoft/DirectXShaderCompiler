@@ -54,12 +54,6 @@
 #endif
 #include <assert.h>
 
-#if !defined(_WIN32) && !defined(__clang__)
-// Disable gcc's warning for fallthrough
-// this file uses it extensively without annotation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#endif
 
 static const int halfShift  = 10; /* used for shifting by 10 bits */
 
