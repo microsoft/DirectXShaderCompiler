@@ -100,7 +100,7 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(
 // Use DXC_CP_ACP for: Binary;  ANSI Text;  Autodetect UTF with BOM
 #define DXC_CP_ACP 0
 
-/// Codepage for "wide" characters - UTF16 on Windows, UTF32 on other platforms
+/// Codepage for "wide" characters - UTF16 on Windows, UTF32 on other platforms.
 #ifdef _WIN32
 #define DXC_CP_WIDE DXC_CP_UTF16
 #else
@@ -108,10 +108,10 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(
 #endif
 
 /// Indicates that the shader hash was computed taking into account source
-/// information (-Zss)
+/// information (-Zss).
 #define DXC_HASHFLAG_INCLUDES_SOURCE 1
 
-/// Hash digest type for ShaderHash
+/// Hash digest type for ShaderHash.
 typedef struct DxcShaderHash {
   UINT32 Flags;        ///< DXC_HASHFLAG_*
   BYTE HashDigest[16]; ///< The hash digest
@@ -133,7 +133,7 @@ typedef struct DxcShaderHash {
 #define DXC_PART_PATCH_CONSTANT_SIGNATURE DXC_FOURCC('P', 'S', 'G', '1')
 
 // Some option arguments are defined here for continuity with D3DCompile
-// interface
+// interface.
 #define DXC_ARG_DEBUG L"-Zi"
 #define DXC_ARG_SKIP_VALIDATION L"-Vd"
 #define DXC_ARG_SKIP_OPTIMIZATIONS L"-Od"
@@ -155,7 +155,7 @@ typedef struct DxcShaderHash {
 #define DXC_ARG_DEBUG_NAME_FOR_BINARY L"-Zsb"
 
 CROSS_PLATFORM_UUIDOF(IDxcBlob, "8BA5FB08-5195-40e2-AC58-0D989C3A0102")
-/// \brief A sized buffer that can be passed in and out of DXC APIs
+/// \brief A sized buffer that can be passed in and out of DXC APIs.
 ///
 /// This is an alias of ID3D10Blob and ID3DBlob.
 struct IDxcBlob : public IUnknown {
@@ -168,7 +168,7 @@ public:
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcBlobEncoding, "7241d424-2646-4191-97c0-98e96e42fc68")
-/// \brief A blob that might have a known encoding
+/// \brief A blob that might have a known encoding.
 struct IDxcBlobEncoding : public IDxcBlob {
 public:
   /// \brief Retrieve the encoding for this blob.
@@ -398,7 +398,7 @@ struct IDxcOperationResult : public IUnknown {
 CROSS_PLATFORM_UUIDOF(IDxcCompiler, "8c210bf3-011f-4422-8d70-6f9acb8db617")
 /// \deprecated Please use IDxcCompiler3 instead.
 struct IDxcCompiler : public IUnknown {
-  /// \brief Compile a single entry point to the target shader model
+  /// \brief Compile a single entry point to the target shader model.
   ///
   /// \deprecated Please use IDxcCompiler3::Compile() instead.
   virtual HRESULT STDMETHODCALLTYPE Compile(
