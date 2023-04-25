@@ -230,6 +230,11 @@ dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
         while (S != nullptr && !llvm::isa<llvm::DIFile>(S))
         {
             S = S->getScope().resolve(EmptyMap);
+            if (auto * CompType = llvm::dyn_cast<llvm::DICompositeType>(S))
+            {
+              S = CompType->getFile();
+              break;
+            }
         }
 
         if (S != nullptr)
