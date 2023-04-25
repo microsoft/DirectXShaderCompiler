@@ -48,17 +48,12 @@
 
 
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_FALLTHROUGH
 #ifdef CVTUTF_DEBUG
 #include <stdio.h>
 #endif
 #include <assert.h>
 
-#if !defined(_WIN32) && !defined(__clang__)
-// Disable gcc's warning for fallthrough
-// this file uses it extensively without annotation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#endif
 
 static const int halfShift  = 10; /* used for shifting by 10 bits */
 
@@ -282,8 +277,11 @@ ConversionResult ConvertUTF16toUTF8 (
         }
         switch (bytesToWrite) { /* note: everything falls through. */
             case 4: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 3: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 2: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 1: *--target =  (UTF8)(ch | firstByteMark[bytesToWrite]);
         }
         target += bytesToWrite;
@@ -335,8 +333,11 @@ ConversionResult ConvertUTF32toUTF8 (
         }
         switch (bytesToWrite) { /* note: everything falls through. */
             case 4: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 3: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 2: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 1: *--target = (UTF8) (ch | firstByteMark[bytesToWrite]);
         }
         target += bytesToWrite;
@@ -366,7 +367,9 @@ static Boolean isLegalUTF8(const UTF8 *source, int length) {
     default: return false;
         /* Everything else falls through when "true"... */
     case 4: if ((a = (*--srcptr)) < 0x80 || a > 0xBF) return false;
+    LLVM_C_FALLTHROUGH; // HLSL Change
     case 3: if ((a = (*--srcptr)) < 0x80 || a > 0xBF) return false;
+    LLVM_C_FALLTHROUGH; // HLSL Change
     case 2: if ((a = (*--srcptr)) < 0x80 || a > 0xBF) return false;
 
         switch (*source) {
@@ -377,7 +380,7 @@ static Boolean isLegalUTF8(const UTF8 *source, int length) {
             case 0xF4: if (a > 0x8F) return false; break;
             default:   if (a < 0x80) return false;
         }
-
+    LLVM_C_FALLTHROUGH; // HLSL Change
     case 1: if (*source >= 0x80 && *source < 0xC2) return false;
     }
     if (*source > 0xF4) return false;
@@ -541,10 +544,15 @@ ConversionResult ConvertUTF8toUTF16 (
          */
         switch (extraBytesToRead) {
             case 5: ch += *source++; ch <<= 6; /* remember, illegal UTF-8 */
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 4: ch += *source++; ch <<= 6; /* remember, illegal UTF-8 */
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 3: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 2: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 1: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 0: ch += *source++;
         }
         ch -= offsetsFromUTF8[extraBytesToRead];
@@ -645,10 +653,15 @@ static ConversionResult ConvertUTF8toUTF32Impl(
          */
         switch (extraBytesToRead) {
             case 5: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 4: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 3: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 2: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 1: ch += *source++; ch <<= 6;
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 0: ch += *source++;
         }
         ch -= offsetsFromUTF8[extraBytesToRead];

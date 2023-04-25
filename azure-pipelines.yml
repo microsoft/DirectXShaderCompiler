@@ -53,39 +53,37 @@ stages:
           configuration: Release
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On
           OS: Linux
         Linux_Clang_Debug:
           image: ${{ variables.linux }}
           configuration: Debug
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On
         Linux_Gcc_Release:
           image: ${{ variables.linux }}
           configuration: Release
           CC: gcc-9
           CXX: g++-9
-          CXX_FLAGS:
         Linux_Gcc_Debug:
           image: ${{ variables.linux }}
           configuration: Debug
           CC: gcc-9
           CXX: g++-9
-          CXX_FLAGS:
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
           configuration: Release
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On
           OS: MacOS
         MacOS_Clang_Debug:
           image: ${{ variables.macOS }}
           configuration: Debug
           CC: clang
           CXX: clang++
-          CXX_FLAGS: -Werror
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On
 
     pool:
       vmImage: $(image)
@@ -110,7 +108,7 @@ stages:
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['macOS'])
     - bash: |
-        cmake -B build -G Ninja $BUILD_SOURCESDIRECTORY -DLLVM_LIT_ARGS=--xunit-xml-output=testresults.xunit.xml -DDXC_USE_LIT=On -C $BUILD_SOURCESDIRECTORY/cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_CXX_FLAGS=$(CXX_FLAGS)
+        cmake -B build -G Ninja $BUILD_SOURCESDIRECTORY -DLLVM_LIT_ARGS=--xunit-xml-output=testresults.xunit.xml -DDXC_USE_LIT=On -C $BUILD_SOURCESDIRECTORY/cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) $(CMAKE_OPTS)
       displayName: 'Running Cmake'
     - bash: |
         ninja -C build test-depends
