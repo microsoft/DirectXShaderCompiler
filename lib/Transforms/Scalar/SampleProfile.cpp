@@ -186,7 +186,7 @@ protected:
 /// \param OS  Stream to emit the output to.
 /// \param E  Edge to print.
 void SampleProfileLoader::printEdgeWeight(raw_ostream &OS, Edge E) {
-  OS << "weight[" << E.first->getName() < "->" << E.second->getName()
+  OS << "weight[" << E.first->getName() << "->" << E.second->getName()
      << "]: " << EdgeWeights[E] << "\n";
 }
 
