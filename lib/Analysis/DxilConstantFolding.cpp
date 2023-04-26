@@ -373,7 +373,7 @@ static Constant *ConstantFoldMakeDouble(Type *Ty, const DxilIntrinsicOperands &I
   uint64_t C1 = Op1->getZExtValue();
   uint64_t C2 = Op2->getZExtValue();
   uint64_t dbits = C2 << 32 | C1;
-  double dval = (double)&dbits;
+  double dval = (double)dbits;
   return ConstantFP::get(Ty, dval);
 }
 

@@ -191,7 +191,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
 
   // HLSL Change Begins
   if (hlsl::IsHLSLMatType(Base->getType())) {
-    if (dyn_cast<CXXOperatorCallExpr>(CE)) {
+    if (const CXXOperatorCallExpr *opCall = dyn_cast<CXXOperatorCallExpr>(CE)) {
       assert(opCall->getOperator() == OverloadedOperatorKind::OO_Subscript &&
              "must be subscript");
 
@@ -213,7 +213,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
     }
   }
   if (hlsl::IsHLSLVecType(Base->getType())) {
-    if (dyn_cast<CXXOperatorCallExpr>(CE)) {
+    if (const CXXOperatorCallExpr *opCall = dyn_cast<CXXOperatorCallExpr>(CE)) {
       assert(opCall->getOperator() == OverloadedOperatorKind::OO_Subscript &&
              "must be subscript");
 
@@ -278,7 +278,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
   }
   if (hlsl::IsHLSLOutputPatchType(Base->getType()) ||
       hlsl::IsHLSLInputPatchType(Base->getType())) {
-    if (dyn_cast<CXXOperatorCallExpr>(CE)) {
+    if (const CXXOperatorCallExpr *opCall = dyn_cast<CXXOperatorCallExpr>(CE)) {
       assert(opCall->getOperator() == OverloadedOperatorKind::OO_Subscript &&
              "must be subscript");
       llvm::Value *This = EmitLValue(Base).getAddress();
