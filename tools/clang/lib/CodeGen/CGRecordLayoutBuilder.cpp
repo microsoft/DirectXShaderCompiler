@@ -526,105 +526,13 @@ bool CGRecordLowering::hasOwnStorage(const CXXRecordDecl *Decl,
   return true;
 }
 
-void CGRecordLowering::calculateZeroInit() {
-  for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
-                                               MemberEnd = Members.end();
-       IsZeroInitializableAsBase && Member != MemberEnd; ++Member) {
-    if (Member->Kind == MemberInfo::Field) {
-      if (!Member->FD || isZeroInitializable(Member->FD))
-        continue;
-      IsZeroInitializable = IsZeroInitializableAsBase = false;
-    } else if (Member->Kind == MemberInfo::Base ||
-               Member->Kind == MemberInfo::VBase) {
-      if (isZeroInitializable(Member->RD))
-        continue;
-      IsZeroInitializable = false;
-      if (Member->Kind == MemberInfo::Base)
-        IsZeroInitializableAsBase = false;
-    }
-  }
-}
+// HLSL Change: Remove unused function;
 
-void CGRecordLowering::clipTailPadding() {
-  std::vector<MemberInfo>::iterator Prior = Members.begin();
-  CharUnits Tail = getSize(Prior->Data);
-  for (std::vector<MemberInfo>::iterator Member = Prior + 1,
-                                         MemberEnd = Members.end();
-       Member != MemberEnd; ++Member) {
-    // Only members with data and the scissor can cut into tail padding.
-    if (!Member->Data && Member->Kind != MemberInfo::Scissor)
-      continue;
-    if (Member->Offset < Tail) {
-      assert(Prior->Kind == MemberInfo::Field && !Prior->FD &&
-             "Only storage fields have tail padding!");
-      Prior->Data = getByteArrayType(bitsToCharUnits(llvm::RoundUpToAlignment(
-          cast<llvm::IntegerType>(Prior->Data)->getIntegerBitWidth(), 8)));
-    }
-    if (Member->Data)
-      Prior = Member;
-    Tail = Prior->Offset + getSize(Prior->Data);
-  }
-}
+// HLSL Change: Remove unused function;
 
-void CGRecordLowering::determinePacked(bool NVBaseType) {
-  if (Packed)
-    return;
-  CharUnits Alignment = CharUnits::One();
-  CharUnits NVAlignment = CharUnits::One();
-  CharUnits NVSize =
-      !NVBaseType && RD ? Layout.getNonVirtualSize() : CharUnits::Zero();
-  for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
-                                               MemberEnd = Members.end();
-       Member != MemberEnd; ++Member) {
-    if (!Member->Data)
-      continue;
-    // If any member falls at an offset that it not a multiple of its alignment,
-    // then the entire record must be packed.
-    if (Member->Offset % getAlignment(Member->Data))
-      Packed = true;
-    if (Member->Offset < NVSize)
-      NVAlignment = std::max(NVAlignment, getAlignment(Member->Data));
-    Alignment = std::max(Alignment, getAlignment(Member->Data));
-  }
-  // If the size of the record (the capstone's offset) is not a multiple of the
-  // record's alignment, it must be packed.
-  if (Members.back().Offset % Alignment)
-    Packed = true;
-  // If the non-virtual sub-object is not a multiple of the non-virtual
-  // sub-object's alignment, it must be packed.  We cannot have a packed
-  // non-virtual sub-object and an unpacked complete object or vise versa.
-  if (NVSize % NVAlignment)
-    Packed = true;
-  // Update the alignment of the sentinal.
-  if (!Packed)
-    Members.back().Data = getIntNType(Context.toBits(Alignment));
-}
+// HLSL Change: Remove unused function;
 
-void CGRecordLowering::insertPadding() {
-  std::vector<std::pair<CharUnits, CharUnits> > Padding;
-  CharUnits Size = CharUnits::Zero();
-  for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
-                                               MemberEnd = Members.end();
-       Member != MemberEnd; ++Member) {
-    if (!Member->Data)
-      continue;
-    CharUnits Offset = Member->Offset;
-    assert(Offset >= Size);
-    // Insert padding if we need to.
-    if (Offset != Size.RoundUpToAlignment(Packed ? CharUnits::One() :
-                                          getAlignment(Member->Data)))
-      Padding.push_back(std::make_pair(Size, Offset - Size));
-    Size = Offset + getSize(Member->Data);
-  }
-  if (Padding.empty())
-    return;
-  // Add the padding to the Members list and sort it.
-  for (std::vector<std::pair<CharUnits, CharUnits> >::const_iterator
-        Pad = Padding.begin(), PadEnd = Padding.end();
-        Pad != PadEnd; ++Pad)
-    Members.push_back(StorageInfo(Pad->first, getByteArrayType(Pad->second)));
-  std::stable_sort(Members.begin(), Members.end());
-}
+// HLSL Change: Remove unused function;
 
 void CGRecordLowering::fillOutputFields() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),

@@ -181,33 +181,11 @@ protected:
 };
 }
 
-/// \brief Print the weight of edge \p E on stream \p OS.
-///
-/// \param OS  Stream to emit the output to.
-/// \param E  Edge to print.
-void SampleProfileLoader::printEdgeWeight(raw_ostream &OS, Edge E) {
-  OS << "weight[" << E.first->getName() << "->" << E.second->getName()
-     << "]: " << EdgeWeights[E] << "\n";
-}
+// HLSL Change: Remove unused function
 
-/// \brief Print the equivalence class of block \p BB on stream \p OS.
-///
-/// \param OS  Stream to emit the output to.
-/// \param BB  Block to print.
-void SampleProfileLoader::printBlockEquivalence(raw_ostream &OS,
-                                                BasicBlock *BB) {
-  BasicBlock *Equiv = EquivalenceClass[BB];
-  OS << "equivalence[" << BB->getName()
-     << "]: " << ((Equiv) ? EquivalenceClass[BB]->getName() : "NONE") << "\n";
-}
+// HLSL Change: remove unused function
 
-/// \brief Print the weight of block \p BB on stream \p OS.
-///
-/// \param OS  Stream to emit the output to.
-/// \param BB  Block to print.
-void SampleProfileLoader::printBlockWeight(raw_ostream &OS, BasicBlock *BB) {
-  OS << "weight[" << BB->getName() << "]: " << BlockWeights[BB] << "\n";
-}
+// HLSL Change: remove unused function
 
 /// \brief Get the weight for an instruction.
 ///

@@ -2413,7 +2413,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // Sampler types
-  else if (const auto *samplerType = dyn_cast<SamplerType>(type)) {
+  else if (dyn_cast<SamplerType>(type)) {
     initTypeInstruction(spv::Op::OpTypeSampler);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
@@ -2550,13 +2550,13 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // Acceleration Structure NV type
-  else if (const auto *accType = dyn_cast<AccelerationStructureTypeNV>(type)) {
+  else if (dyn_cast<AccelerationStructureTypeNV>(type)) {
     initTypeInstruction(spv::Op::OpTypeAccelerationStructureNV);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }
   // RayQueryType KHR type
-  else if (const auto *rayQueryType = dyn_cast<RayQueryTypeKHR>(type)) {
+  else if (dyn_cast<RayQueryTypeKHR>(type)) {
     initTypeInstruction(spv::Op::OpTypeRayQueryKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
@@ -2583,7 +2583,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // Note: The type lowering pass should lower all types to SpirvTypes.
   // Therefore, if we find a hybrid type when going through the emitting pass,
   // that is clearly a bug.
-  else if (const auto *hybridType = dyn_cast<HybridType>(type)) {
+  else if (dyn_cast<HybridType>(type)) {
     llvm_unreachable("found hybrid type when emitting SPIR-V");
   }
   // Unhandled types

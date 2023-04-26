@@ -367,7 +367,7 @@ setupMemoryBuffer(std::string Filename) {
   if (Buffer->getBufferSize() > std::numeric_limits<unsigned>::max())
     return sampleprof_error::too_large;
 
-  return std::move(Buffer);
+  return Buffer;
 }
 
 /// \brief Create a sample profile reader based on the format of the input file.
@@ -395,5 +395,5 @@ SampleProfileReader::create(StringRef Filename, LLVMContext &C) {
   if (std::error_code EC = Reader->readHeader())
     return EC;
 
-  return std::move(Reader);
+  return Reader;
 }

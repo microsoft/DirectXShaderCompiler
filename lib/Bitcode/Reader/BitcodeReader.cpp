@@ -399,10 +399,7 @@ static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
   return EC;
 }
 
-static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
-                             std::error_code EC) {
-  return error(DiagnosticHandler, EC, EC.message());
-}
+// HLSL Change: remove unused function
 
 static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
                              const Twine &Message) {
@@ -418,10 +415,7 @@ std::error_code BitcodeReader::error(const Twine &Message) {
   return ::error(DiagnosticHandler,
                  make_error_code(BitcodeError::CorruptedBitcode), Message);
 }
-
-std::error_code BitcodeReader::error(BitcodeError E) {
-  return ::error(DiagnosticHandler, make_error_code(E));
-}
+// HLSL Change: remove unused function
 
 static DiagnosticHandlerFunction getDiagHandler(DiagnosticHandlerFunction F,
                                                 LLVMContext &C) {
@@ -4818,7 +4812,7 @@ std::error_code BitcodeReader::findFunctionInStream(
 // GVMaterializer implementation
 //===----------------------------------------------------------------------===//
 
-void BitcodeReader::releaseBuffer() { Buffer.release(); }
+// HLSL Change: remove unused function
 
 std::error_code BitcodeReader::materialize(GlobalValue *GV) {
   if (std::error_code EC = materializeMetadata())
@@ -5055,7 +5049,7 @@ getBitcodeModuleImpl(std::unique_ptr<DataStreamer> Streamer, StringRef Name,
     if (std::error_code EC = R->materializeForwardReferencedFunctions())
       return EC; // HLSL Change: Correct memory management of BitcodeReader.buffer
   }
-  return std::move(M);
+  return M;
 }
 
 /// \brief Get a lazy one-at-time loading module from bitcode.

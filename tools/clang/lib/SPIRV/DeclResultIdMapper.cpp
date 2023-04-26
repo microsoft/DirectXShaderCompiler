@@ -4098,7 +4098,7 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
 
 QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
     const DeclaratorDecl *decl, bool *shouldBeAlias) {
-  if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
+  if (dyn_cast<VarDecl>(decl)) {
     // This method is only intended to be used to create SPIR-V variables in the
     // Function or Private storage class.
     assert(!varDecl->isExternallyVisible() || varDecl->isStaticDataMember());

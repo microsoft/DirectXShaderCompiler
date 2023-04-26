@@ -3058,11 +3058,12 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
     case Decl::UnresolvedUsingValue:
     case Decl::UnresolvedUsingTypename: 
       return CXCursor_UsingDeclaration;
-      
-    case Decl::ObjCPropertyImpl:
+    LLVM_C_FALLTHROUGH;  
+    case Decl::ObjCPropertyImpl:    
       switch (cast<ObjCPropertyImplDecl>(D)->getPropertyImplementation()) {
       case ObjCPropertyImplDecl::Dynamic:
         return CXCursor_ObjCDynamicDecl;
+        LLVM_C_FALLTHROUGH;
           
       case ObjCPropertyImplDecl::Synthesize:
         return CXCursor_ObjCSynthesizeDecl;
@@ -3070,8 +3071,10 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
 
       case Decl::Import:
         return CXCursor_ModuleImportDecl;
+        LLVM_C_FALLTHROUGH;
 
     case Decl::ObjCTypeParam:   return CXCursor_TemplateTypeParameter;
+    LLVM_C_FALLTHROUGH;
 
     default:
       if (const TagDecl *TD = dyn_cast<TagDecl>(D)) {

@@ -350,7 +350,7 @@ static unsigned IsPtrUsedByLoweredFn(
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
-    } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
+    } else if (dyn_cast<AddrSpaceCastInst>(user)) { // HLSL Change: remove unused variable
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
@@ -3408,7 +3408,7 @@ void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
 
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
       IRBuilder<> Builder(Context);
-      if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      if (dyn_cast<GEPOperator>(U)) { // HLSL Change: remove unused variable
         // NewGEP must be GEPOperator too.
         // No instruction will be build.
         replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,

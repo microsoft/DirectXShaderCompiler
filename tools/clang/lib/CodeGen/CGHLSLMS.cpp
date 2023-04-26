@@ -1501,7 +1501,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Hull;
   }
 
-  if (auto *Attr = FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+  if (FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
     if (SM->IsSM67Plus() &&
         (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
          (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
@@ -2572,61 +2572,7 @@ hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
   return Interp;
 }
 
-hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
-
-  hlsl::CompType ElementType = hlsl::CompType::getInvalid();
-  switch (BT->getKind()) {
-  case BuiltinType::Bool:
-    ElementType = hlsl::CompType::getI1();
-    break;
-  case BuiltinType::Double:
-    ElementType = hlsl::CompType::getF64();
-    break;
-  case BuiltinType::HalfFloat: // HLSL Change
-  case BuiltinType::Float:
-    ElementType = hlsl::CompType::getF32();
-    break;
-  // HLSL Changes begin
-  case BuiltinType::Min10Float:
-  case BuiltinType::Min16Float:
-  // HLSL Changes end
-  case BuiltinType::Half:
-    ElementType = hlsl::CompType::getF16();
-    break;
-  case BuiltinType::Int:
-    ElementType = hlsl::CompType::getI32();
-    break;
-  case BuiltinType::LongLong:
-    ElementType = hlsl::CompType::getI64();
-    break;
-  // HLSL Changes begin
-  case BuiltinType::Min12Int:
-  case BuiltinType::Min16Int:
-  // HLSL Changes end
-  case BuiltinType::Short:
-    ElementType = hlsl::CompType::getI16();
-    break;
-    // HLSL Changes begin
-  case BuiltinType::Int8_4Packed:
-  case BuiltinType::UInt8_4Packed:
-    // HLSL Changes end
-  case BuiltinType::UInt:
-    ElementType = hlsl::CompType::getU32();
-    break;
-  case BuiltinType::ULongLong:
-    ElementType = hlsl::CompType::getU64();
-    break;
-  case BuiltinType::Min16UInt: // HLSL Change
-  case BuiltinType::UShort:
-    ElementType = hlsl::CompType::getU16();
-    break;
-  default:
-    llvm_unreachable("unsupported type");
-    break;
-  }
-
-  return ElementType;
-}
+// HLSL Change: Remove unused function;
 
 /// Add resource to the program
 void CGMSHLSLRuntime::addResource(Decl *D) {

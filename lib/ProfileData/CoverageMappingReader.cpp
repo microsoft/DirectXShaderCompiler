@@ -536,7 +536,7 @@ BinaryCoverageReader::create(std::unique_ptr<MemoryBuffer> &ObjectBuffer,
     return coveragemap_error::malformed;
   if (EC)
     return EC;
-  return std::move(Reader);
+  return Reader;
 }
 
 std::error_code

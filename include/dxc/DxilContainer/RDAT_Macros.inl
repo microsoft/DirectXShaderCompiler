@@ -130,7 +130,7 @@
       const type *type##_Reader::asRecord() const { return BaseRecordReader::asRecord<type>(); }
   #define RDAT_STRUCT_TABLE(type, table)                RDAT_STRUCT(type)
   #define RDAT_STRUCT_TABLE_DERIVED(type, base, table)  RDAT_STRUCT_DERIVED(type, base)
-  #define RDAT_UNION_IF(name, expr)     bool GLUE(RECORD_TYPE,_Reader)::has##name() const  { if (auto *pRecord = asRecord()) return !!(expr); return false; }
+  #define RDAT_UNION_IF(name, expr)     bool GLUE(RECORD_TYPE,_Reader)::has##name() const  { if (asRecord()) return !!(expr); return false; }
   #define RDAT_UNION_ELIF(name, expr)   RDAT_UNION_IF(name, expr)
   #define RDAT_RECORD_REF(type, name)   type##_Reader GLUE(RECORD_TYPE,_Reader)::get##name() const     { return GetField_RecordRef<type##_Reader>      (&(asRecord()->name)); }
   #define RDAT_RECORD_ARRAY_REF(type, name) \

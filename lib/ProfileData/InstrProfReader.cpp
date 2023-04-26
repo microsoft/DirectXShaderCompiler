@@ -62,7 +62,7 @@ InstrProfReader::create(std::unique_ptr<MemoryBuffer> Buffer) {
   if (std::error_code EC = initializeReader(*Result))
     return EC;
 
-  return std::move(Result);
+  return Result;
 }
 
 ErrorOr<std::unique_ptr<IndexedInstrProfReader>>
@@ -90,7 +90,7 @@ IndexedInstrProfReader::create(std::unique_ptr<MemoryBuffer> Buffer) {
   if (std::error_code EC = initializeReader(*Result))
     return EC;
 
-  return std::move(Result);
+  return Result;
 }
 
 void InstrProfIterator::Increment() {

@@ -122,5 +122,5 @@ SampleProfileWriter::create(StringRef Filename, SampleProfileFormat Format) {
   if (EC)
     return EC;
 
-  return std::move(Writer);
+  return Writer;
 }

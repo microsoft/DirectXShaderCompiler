@@ -1690,7 +1690,7 @@ void DxilModuleReflection::CreateReflectionObjectForResource(DxilResourceBase *R
 static unsigned GetCBOffset(Value *V) {
   if (ConstantInt *Imm = dyn_cast<ConstantInt>(V))
     return Imm->getLimitedValue();
-  else if (UnaryInstruction *UI = dyn_cast<UnaryInstruction>(V)) {
+  else if (dyn_cast<UnaryInstruction>(V)) {
     return 0;
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(V)) {
     switch (BO->getOpcode()) {
