@@ -18,6 +18,7 @@
 
 #include "clang/Basic/Version.inc"
 #include "llvm/ADT/StringRef.h"
+#include <cstdint>
 
 /// \brief Helper macro for CLANG_VERSION_STRING.
 #define CLANG_MAKE_VERSION_STRING2(X) #X
