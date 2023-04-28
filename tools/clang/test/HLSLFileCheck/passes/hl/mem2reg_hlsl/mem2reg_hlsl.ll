@@ -3,8 +3,8 @@
 ; Make sure store is after load.
 ; CHECK: while.body:
 ; CHECK: load i32
+; CHECK: while.body.while.cond_crit_edge:
 ; CHECK: store i32 -1
-; CHECK: switch
 
 ; ModuleID = 'MyModule'
 target triple = "dxil-ms-dx"
