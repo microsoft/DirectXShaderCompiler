@@ -440,7 +440,7 @@ struct IDxcCompiler : public IUnknown {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcCompiler2, "A005A9D9-B8BB-4594-B5C9-0E633BEC4D37")
-/// \deprecated Please use IDxcCompiler3 instead
+/// \deprecated Please use IDxcCompiler3 instead.
 struct IDxcCompiler2 : public IDxcCompiler {
   /// \brief Compile a single entry point to the target shader model with debug information.
   ///
@@ -719,7 +719,7 @@ typedef enum DXC_OUT_KIND {
   DXC_OUT_EXTRA_OUTPUTS  = 10,///< IDxcExtraOutputs - Extra outputs.
   DXC_OUT_REMARKS = 11,       ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout.
   DXC_OUT_TIME_REPORT = 12,   ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout.
-  DXC_OUT_TIME_TRACE = 13,   ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout.
+  DXC_OUT_TIME_TRACE = 13,    ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout.
 
   DXC_OUT_LAST = DXC_OUT_TIME_TRACE, ///< Last value for a counter.
 
@@ -843,7 +843,7 @@ static const UINT32 DxcValidatorFlags_ModuleOnly = 4;
 static const UINT32 DxcValidatorFlags_ValidMask = 0x7;
 
 CROSS_PLATFORM_UUIDOF(IDxcValidator, "A6E82BD2-1FD7-4826-9811-2857E797F49A")
-/// \brief Interface to DXC shader validator
+/// \brief Interface to DXC shader validator.
 ///
 /// Use DxcCreateInstance with CLSID_DxcValidator to obtain an instance of this.
 struct IDxcValidator : public IUnknown {
@@ -899,7 +899,7 @@ struct IDxcContainerBuilder : public IUnknown {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcAssembler, "091f7a26-1c1f-4948-904b-e6e3a8a771d5")
-/// \brief Interface to DxcAssembler
+/// \brief Interface to DxcAssembler.
 ///
 /// Use DxcCreateInstance with CLSID_DxcAssembler to obtain an instance of this.
 struct IDxcAssembler : public IUnknown {
