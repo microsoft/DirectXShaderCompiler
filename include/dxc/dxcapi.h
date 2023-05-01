@@ -185,7 +185,7 @@ public:
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcBlobWide, "A3F84EAB-0FAA-497E-A39C-EE6ED60B2D84")
-/// \brief A blob containing a null-terminated wide string
+/// \brief A blob containing a null-terminated wide string.
 ///
 /// This uses the native wide character encoding (utf16 on Windows, utf32 on
 /// Linux).
@@ -208,7 +208,7 @@ public:
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcBlobUtf8, "3DA636C9-BA71-4024-A301-30CBF125305B")
-/// \brief A blob containing a UTF-8 encoded string
+/// \brief A blob containing a UTF-8 encoded string.
 ///
 /// The value returned by GetBufferSize() is the size of the buffer, in bytes,
 /// including the null-terminator.
@@ -227,23 +227,23 @@ public:
 };
 
 #ifdef _WIN32
-/// IDxcBlobUtf16 is a legacy alias for IDxcBlobWide on Win32
+/// IDxcBlobUtf16 is a legacy alias for IDxcBlobWide on Win32.
 typedef IDxcBlobWide IDxcBlobUtf16;
 #endif
 
 CROSS_PLATFORM_UUIDOF(IDxcIncludeHandler, "7f61fc7d-950d-467f-b3e3-3c02fb49187c")
-/// \brief Interface for handling include directives
+/// \brief Interface for handling include directives.
 ///
 /// This interface can be implemented to customize handling of include
 /// directives.
 ///
 /// Use IDxcUtils::CreateDefaultIncludeHandler to create a default
-/// implementation that reads include files from the filesystem..
+/// implementation that reads include files from the filesystem.
 ///
 struct IDxcIncludeHandler : public IUnknown {
   /// \brief Load a source file to be included by the compiler.
   ///
-  /// \param pFilename candidate filename.
+  /// \param pFilename Candidate filename.
   ///
   /// \param ppIncludeSource Resultant source object for included file, nullptr
   /// if not found.
@@ -255,26 +255,26 @@ struct IDxcIncludeHandler : public IUnknown {
 
 /// \brief Structure for supplying bytes or text input to Dxc APIs.
 typedef struct DxcBuffer {
-  /// \brief pointer to the start of the buffer
+  /// \brief Pointer to the start of the buffer.
   LPCVOID Ptr;
 
-  /// \brief size of the buffer, in bytes
+  /// \brief Size of the buffer in bytes.
   SIZE_T Size;
 
-  /// \brief encoding of the buffer.
+  /// \brief Encoding of the buffer.
   ///
   /// Use Encoding = 0 for non-text bytes, ANSI text, or unknown with BOM.
   UINT Encoding;
 } DxcText;
 
-/// \brief Structure for supplying defines to Dxc APIs
+/// \brief Structure for supplying defines to Dxc APIs.
 struct DxcDefine {
-  LPCWSTR Name;              ///< the define name
-  _Maybenull_ LPCWSTR Value; ///< optional value for the define
+  LPCWSTR Name;              ///< The define name.
+  _Maybenull_ LPCWSTR Value; ///< Optional value for the define.
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcCompilerArgs, "73EFFE2A-70DC-45F8-9690-EFF64C02429D")
-/// \brief Interface for managing arguments passed to DXC
+/// \brief Interface for managing arguments passed to DXC.
 ///
 /// Use IDxcUtils::BuildArguments to create an instance of this interface.
 struct IDxcCompilerArgs : public IUnknown {
@@ -292,21 +292,21 @@ struct IDxcCompilerArgs : public IUnknown {
 
   /// \brief Add additional arguments to this list of compiler arguments.
   virtual HRESULT STDMETHODCALLTYPE AddArguments(
-    _In_opt_count_(argCount) LPCWSTR *pArguments,       ///< Array of pointers to arguments to add
-    _In_ UINT32 argCount                                ///< Number of arguments to add
+    _In_opt_count_(argCount) LPCWSTR *pArguments,       ///< Array of pointers to arguments to add.
+    _In_ UINT32 argCount                                ///< Number of arguments to add.
   ) = 0;
 
   /// \brief Add additional UTF-8 encoded arguments to this list of compiler
   /// arguments.
   virtual HRESULT STDMETHODCALLTYPE AddArgumentsUTF8(
-    _In_opt_count_(argCount)LPCSTR *pArguments,         ///< Array of pointers to UTF-8 arguments to add
-    _In_ UINT32 argCount                                ///< Number of arguments to add
+    _In_opt_count_(argCount)LPCSTR *pArguments,         ///< Array of pointers to UTF-8 arguments to add.
+    _In_ UINT32 argCount                                ///< Number of arguments to add.
   ) = 0;
 
   /// \brief Add additional defines to this list of compiler arguments.
   virtual HRESULT STDMETHODCALLTYPE AddDefines(
-      _In_count_(defineCount) const DxcDefine *pDefines, ///< Array of defines
-      _In_ UINT32 defineCount                            ///< Number of defines
+      _In_count_(defineCount) const DxcDefine *pDefines, ///< Array of defines.
+      _In_ UINT32 defineCount                            ///< Number of defines.
   ) = 0;
 };
 
@@ -402,32 +402,32 @@ struct IDxcCompiler : public IUnknown {
   ///
   /// \deprecated Please use IDxcCompiler3::Compile() instead.
   virtual HRESULT STDMETHODCALLTYPE Compile(
-    _In_ IDxcBlob *pSource,                       // Source text to compile
+    _In_ IDxcBlob *pSource,                       // Source text to compile.
     _In_opt_z_ LPCWSTR pSourceName,               // Optional file name for pSource. Used in errors and include handlers.
-    _In_opt_z_ LPCWSTR pEntryPoint,               // entry point name
-    _In_z_ LPCWSTR pTargetProfile,                // shader profile to compile
-    _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments
-    _In_ UINT32 argCount,                         // Number of arguments
+    _In_opt_z_ LPCWSTR pEntryPoint,               // Entry point name.
+    _In_z_ LPCWSTR pTargetProfile,                // Shader profile to compile.
+    _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments.
+    _In_ UINT32 argCount,                         // Number of arguments.
     _In_count_(defineCount)
-      const DxcDefine *pDefines,                  // Array of defines
-    _In_ UINT32 defineCount,                      // Number of defines
-    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
-    _COM_Outptr_ IDxcOperationResult **ppResult   // Compiler output status, buffer, and errors
+      const DxcDefine *pDefines,                  // Array of defines.
+    _In_ UINT32 defineCount,                      // Number of defines.
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // User-provided interface to handle #include directives (optional).
+    _COM_Outptr_ IDxcOperationResult **ppResult   // Compiler output status, buffer, and errors.
   ) = 0;
 
-  /// \brief Preprocess source text
+  /// \brief Preprocess source text.
   ///
   /// \deprecated Please use IDxcCompiler3::Compile() with the "-P" argument instead.
   virtual HRESULT STDMETHODCALLTYPE Preprocess(
-    _In_ IDxcBlob *pSource,                       // Source text to preprocess
+    _In_ IDxcBlob *pSource,                       // Source text to preprocess.
     _In_opt_z_ LPCWSTR pSourceName,               // Optional file name for pSource. Used in errors and include handlers.
-    _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments
-    _In_ UINT32 argCount,                         // Number of arguments
+    _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments.
+    _In_ UINT32 argCount,                         // Number of arguments.
     _In_count_(defineCount)
-      const DxcDefine *pDefines,                  // Array of defines
-    _In_ UINT32 defineCount,                      // Number of defines
-    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
-    _COM_Outptr_ IDxcOperationResult **ppResult   // Preprocessor output status, buffer, and errors
+      const DxcDefine *pDefines,                  // Array of defines.
+    _In_ UINT32 defineCount,                      // Number of defines.
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional).
+    _COM_Outptr_ IDxcOperationResult **ppResult   // Preprocessor output status, buffer, and errors.
   ) = 0;
 
   /// \brief Disassemble a program.
@@ -446,19 +446,19 @@ struct IDxcCompiler2 : public IDxcCompiler {
   ///
   /// \deprecated Please use IDxcCompiler3::Compile() instead.
   virtual HRESULT STDMETHODCALLTYPE CompileWithDebug(
-    _In_ IDxcBlob *pSource,                       // Source text to compile
+    _In_ IDxcBlob *pSource,                       // Source text to compile.
     _In_opt_z_ LPCWSTR pSourceName,               // Optional file name for pSource. Used in errors and include handlers.
-    _In_opt_z_ LPCWSTR pEntryPoint,               // Entry point name
-    _In_z_ LPCWSTR pTargetProfile,                // Shader profile to compile
-    _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments
-    _In_ UINT32 argCount,                         // Number of arguments
+    _In_opt_z_ LPCWSTR pEntryPoint,               // Entry point name.
+    _In_z_ LPCWSTR pTargetProfile,                // Shader profile to compile.
+    _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments.
+    _In_ UINT32 argCount,                         // Number of arguments.
     _In_count_(defineCount)
-      const DxcDefine *pDefines,                  // Array of defines
-    _In_ UINT32 defineCount,                      // Number of defines
-    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
-    _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
-    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob. (Must be CoTaskMemFree()'d!)
-    _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
+      const DxcDefine *pDefines,                  // Array of defines.
+    _In_ UINT32 defineCount,                      // Number of defines.
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional).
+    _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors.
+    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob. Must be CoTaskMemFree()'d.
+    _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob.
   ) = 0;
 };
 
@@ -478,20 +478,20 @@ public:
   /// \brief Links the shader and produces a shader blob that the Direct3D
   /// runtime can use.
   virtual HRESULT STDMETHODCALLTYPE Link(
-    _In_opt_ LPCWSTR pEntryName,        ///< Entry point name
-    _In_ LPCWSTR pTargetProfile,        ///< shader profile to link
+    _In_opt_ LPCWSTR pEntryName,        ///< Entry point name.
+    _In_ LPCWSTR pTargetProfile,        ///< shader profile to link.
     _In_count_(libCount)
-        const LPCWSTR *pLibNames,       ///< Array of library names to link
-    _In_ UINT32 libCount,               ///< Number of libraries to link
-    _In_opt_count_(argCount) const LPCWSTR *pArguments, ///< Array of pointers to arguments
-    _In_ UINT32 argCount,               ///< Number of arguments
+        const LPCWSTR *pLibNames,       ///< Array of library names to link.
+    _In_ UINT32 libCount,               ///< Number of libraries to link.
+    _In_opt_count_(argCount) const LPCWSTR *pArguments, ///< Array of pointers to arguments.
+    _In_ UINT32 argCount,               ///< Number of arguments.
     _COM_Outptr_
-        IDxcOperationResult **ppResult  ///< Linker output status, buffer, and errors
+        IDxcOperationResult **ppResult  ///< Linker output status, buffer, and errors.
   ) = 0;
 };
 
 /////////////////////////
-// Latest interfaces. Please use these
+// Latest interfaces. Please use these.
 ////////////////////////
 
 CROSS_PLATFORM_UUIDOF(IDxcUtils, "4605C4CB-2019-492A-ADA4-65F20BB7D67F")
@@ -505,9 +505,9 @@ struct IDxcUtils : public IUnknown {
   /// \brief Create a sub-blob that holds a reference to the outer blob and
   /// points to its memory.
   ///
-  /// \param pBlob The outer blob
+  /// \param pBlob The outer blob.
   ///
-  /// \param offset The offset inside the outer blob
+  /// \param offset The offset inside the outer blob.
   ///
   /// \param length The size, in bytes, of the buffer to reference from the
   /// output blob.
@@ -517,7 +517,7 @@ struct IDxcUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE CreateBlobFromBlob(
     _In_ IDxcBlob *pBlob, UINT32 offset, UINT32 length, _COM_Outptr_ IDxcBlob **ppResult) = 0;
 
-  // For codePage, use 0 (or DXC_CP_ACP) for raw binary or ANSI code page
+  // For codePage, use 0 (or DXC_CP_ACP) for raw binary or ANSI code page.
 
   /// \brief Create a blob referencing existing memory, with no copy.
   ///
@@ -553,7 +553,7 @@ struct IDxcUtils : public IUnknown {
   /// \param ppBlobEncoding Address of the pointer that receives a pointer to
   /// the newly created blob.
   ///
-  /// This replaces IDxcLibrary::CreateBlobWithEncodingOnMalloc
+  /// This replaces IDxcLibrary::CreateBlobWithEncodingOnMalloc.
   virtual HRESULT STDMETHODCALLTYPE MoveToBlob(
     _In_bytecount_(size) LPCVOID pData, IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) = 0;
@@ -601,7 +601,7 @@ struct IDxcUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE CreateReadOnlyStreamFromBlob(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IStream **ppStream) = 0;
 
-  /// \brief Create default file-based include handler
+  /// \brief Create default file-based include handler.
   ///
   /// \param ppResult Address of the pointer that receives a pointer to the
   /// newly created include handler.
@@ -641,7 +641,7 @@ struct IDxcUtils : public IUnknown {
   }
 #endif
 
-  /// \brief Retrieve a single part from a DXIL container
+  /// \brief Retrieve a single part from a DXIL container.
   ///
   /// \param pShader The shader to retrieve the part from.
   ///
@@ -677,14 +677,14 @@ struct IDxcUtils : public IUnknown {
   /// \brief Build arguments that can be passed to the Compile method.
   virtual HRESULT STDMETHODCALLTYPE BuildArguments(
     _In_opt_z_ LPCWSTR pSourceName,               ///< Optional file name for pSource. Used in errors and include handlers.
-    _In_opt_z_ LPCWSTR pEntryPoint,               ///< Entry point name. (-E)
-    _In_z_ LPCWSTR pTargetProfile,                ///< Shader profile to compile. (-T)
-    _In_opt_count_(argCount) LPCWSTR *pArguments, ///< Array of pointers to arguments
-    _In_ UINT32 argCount,                         ///< Number of arguments
+    _In_opt_z_ LPCWSTR pEntryPoint,               ///< Entry point name (-E).
+    _In_z_ LPCWSTR pTargetProfile,                ///< Shader profile to compile (-T).
+    _In_opt_count_(argCount) LPCWSTR *pArguments, ///< Array of pointers to arguments.
+    _In_ UINT32 argCount,                         ///< Number of arguments.
     _In_count_(defineCount)
-      const DxcDefine *pDefines,                  ///< Array of defines
-    _In_ UINT32 defineCount,                      ///< Number of defines
-    _COM_Outptr_ IDxcCompilerArgs **ppArgs        ///< Arguments you can use with Compile() method
+      const DxcDefine *pDefines,                  ///< Array of defines.
+    _In_ UINT32 defineCount,                      ///< Number of defines.
+    _COM_Outptr_ IDxcCompilerArgs **ppArgs        ///< Arguments you can use with Compile() method.
   ) = 0;
 
   /// \brief Retrieve the hash and contents of a shader PDB.
@@ -701,27 +701,27 @@ struct IDxcUtils : public IUnknown {
     _In_ IDxcBlob *pPDBBlob, _COM_Outptr_ IDxcBlob **ppHash, _COM_Outptr_ IDxcBlob **ppContainer) = 0;
 };
 
-/// \brief Specifies the kind of output to retrieve from a IDxcResult
+/// \brief Specifies the kind of output to retrieve from a IDxcResult.
 ///
 /// Note: text outputs returned from version 2 APIs are UTF-8 or UTF-16 based on
 /// the -encoding option passed to the compiler.
 typedef enum DXC_OUT_KIND {
-  DXC_OUT_NONE = 0,           ///< No output
-  DXC_OUT_OBJECT = 1,         ///< IDxcBlob - Shader or library object
-  DXC_OUT_ERRORS = 2,         ///< IDxcBlobUtf8 or IDxcBlobWide
-  DXC_OUT_PDB = 3,            ///< IDxcBlob
-  DXC_OUT_SHADER_HASH = 4,    ///< IDxcBlob - DxcShaderHash of shader or shader with source info (-Zsb/-Zss)
-  DXC_OUT_DISASSEMBLY = 5,    ///< IDxcBlobUtf8 or IDxcBlobWide - from Disassemble
-  DXC_OUT_HLSL = 6,           ///< IDxcBlobUtf8 or IDxcBlobWide - from Preprocessor or Rewriter
-  DXC_OUT_TEXT = 7,           ///< IDxcBlobUtf8 or IDxcBlobWide - other text, such as -ast-dump or -Odump
-  DXC_OUT_REFLECTION = 8,     ///< IDxcBlob - RDAT part with reflection data
-  DXC_OUT_ROOT_SIGNATURE = 9, ///< IDxcBlob - Serialized root signature output
-  DXC_OUT_EXTRA_OUTPUTS  = 10,///< IDxcExtraOutputs - Extra outputs
-  DXC_OUT_REMARKS = 11,       ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout
-  DXC_OUT_TIME_REPORT = 12,   ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout
-  DXC_OUT_TIME_TRACE = 13,   ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout
+  DXC_OUT_NONE = 0,           ///< No output.
+  DXC_OUT_OBJECT = 1,         ///< IDxcBlob - Shader or library object.
+  DXC_OUT_ERRORS = 2,         ///< IDxcBlobUtf8 or IDxcBlobWide.
+  DXC_OUT_PDB = 3,            ///< IDxcBlob.
+  DXC_OUT_SHADER_HASH = 4,    ///< IDxcBlob - DxcShaderHash of shader or shader with source info (-Zsb/-Zss).
+  DXC_OUT_DISASSEMBLY = 5,    ///< IDxcBlobUtf8 or IDxcBlobWide - from Disassemble.
+  DXC_OUT_HLSL = 6,           ///< IDxcBlobUtf8 or IDxcBlobWide - from Preprocessor or Rewriter.
+  DXC_OUT_TEXT = 7,           ///< IDxcBlobUtf8 or IDxcBlobWide - other text, such as -ast-dump or -Odump.
+  DXC_OUT_REFLECTION = 8,     ///< IDxcBlob - RDAT part with reflection data.
+  DXC_OUT_ROOT_SIGNATURE = 9, ///< IDxcBlob - Serialized root signature output.
+  DXC_OUT_EXTRA_OUTPUTS  = 10,///< IDxcExtraOutputs - Extra outputs.
+  DXC_OUT_REMARKS = 11,       ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout.
+  DXC_OUT_TIME_REPORT = 12,   ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout.
+  DXC_OUT_TIME_TRACE = 13,   ///< IDxcBlobUtf8 or IDxcBlobWide - text directed at stdout.
 
-  DXC_OUT_LAST = DXC_OUT_TIME_TRACE, ///< Last value for a counter
+  DXC_OUT_LAST = DXC_OUT_TIME_TRACE, ///< Last value for a counter.
 
   DXC_OUT_NUM_ENUMS,
   DXC_OUT_FORCE_DWORD = 0xFFFFFFFF
@@ -731,7 +731,7 @@ static_assert(DXC_OUT_NUM_ENUMS == DXC_OUT_LAST + 1,
               "DXC_OUT_* Enum added and last value not updated.");
 
 CROSS_PLATFORM_UUIDOF(IDxcResult, "58346CDA-DDE7-4497-9461-6F87AF5E0659")
-/// \brief Result of a DXC operation
+/// \brief Result of a DXC operation.
 ///
 /// DXC operations may have multiple outputs, such as a shader object and
 /// errors. This interface provides access to the outputs.
@@ -741,11 +741,11 @@ struct IDxcResult : public IDxcOperationResult {
   /// \param dxcOutKind The kind of output to check for.
   virtual BOOL STDMETHODCALLTYPE HasOutput(_In_ DXC_OUT_KIND dxcOutKind) = 0;
 
-  /// \brief Retrieves the specified output
+  /// \brief Retrieves the specified output.
   ///
-  /// \param dxcOutKind The kind of output to retrieve
+  /// \param dxcOutKind The kind of output to retrieve.
   ///
-  /// \param iid The interface ID of the output interface
+  /// \param iid The interface ID of the output interface.
   ///
   /// \param ppvObject Address of the pointer that receives a pointer to the
   /// output.
@@ -769,12 +769,12 @@ struct IDxcResult : public IDxcOperationResult {
   virtual DXC_OUT_KIND PrimaryOutput() = 0;
 };
 
-// Special names for extra output that should get written to specific streams
+// Special names for extra output that should get written to specific streams.
 #define DXC_EXTRA_OUTPUT_NAME_STDOUT L"*stdout*"
 #define DXC_EXTRA_OUTPUT_NAME_STDERR L"*stderr*"
 
 CROSS_PLATFORM_UUIDOF(IDxcExtraOutputs, "319b37a2-a5c2-494a-a5de-4801b2faf989")
-/// \brief Additional outputs from a DXC operation
+/// \brief Additional outputs from a DXC operation.
 ///
 /// This can be used to obtain outputs that don't have an explicit DXC_OUT_KIND.
 /// Use DXC_OUT_EXTRA_OUTPUTS to obtain instances of this.
@@ -782,11 +782,11 @@ struct IDxcExtraOutputs : public IUnknown {
   /// \brief Retrieves the number of outputs available
   virtual UINT32 STDMETHODCALLTYPE GetOutputCount() = 0;
 
-  /// \brief Retrieves the specified output
+  /// \brief Retrieves the specified output.
   ///
-  /// \param uIndex The index of the output to retrieve
+  /// \param uIndex The index of the output to retrieve.
   ///
-  /// \param iid The interface ID of the output interface
+  /// \param iid The interface ID of the output interface.
   ///
   /// \param ppvObject Optional address of the pointer that receives a pointer
   /// to the output if there is one.
@@ -803,12 +803,12 @@ struct IDxcExtraOutputs : public IUnknown {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcCompiler3, "228B4687-5A6A-4730-900C-9702B2203F54")
-/// \brief Interface to the DirectX Shader Compiler
+/// \brief Interface to the DirectX Shader Compiler.
 ///
 /// Use DxcCreateInstance with CLSID_DxcCompiler to obtain an instance of this
 /// interface.
 struct IDxcCompiler3 : public IUnknown {
-  /// \brief Compile a shader
+  /// \brief Compile a shader.
   ///
   /// IDxcUtils::BuildArguments can be used to assist building the pArguments
   /// and argCount parameters.
@@ -818,21 +818,21 @@ struct IDxcCompiler3 : public IUnknown {
   /// * Compile a single entry point to the target shader model, 
   /// * Compile a library to a library target (-T lib_*)
   /// * Compile a root signature (-T rootsig_*),
-  /// * Preprocess HLSL source (-P)
+  /// * Preprocess HLSL source (-P).
   virtual HRESULT STDMETHODCALLTYPE Compile(
-    _In_ const DxcBuffer *pSource,                ///< Source text to compile
-    _In_opt_count_(argCount) LPCWSTR *pArguments, ///< Array of pointers to arguments
-    _In_ UINT32 argCount,                         ///< Number of arguments
-    _In_opt_ IDxcIncludeHandler *pIncludeHandler, ///< user-provided interface to handle include directives (optional)
-    _In_ REFIID riid,                             ///< Interface ID for the result
-    _Out_ LPVOID *ppResult                        ///< IDxcResult: status, buffer, and errors
+    _In_ const DxcBuffer *pSource,                ///< Source text to compile.
+    _In_opt_count_(argCount) LPCWSTR *pArguments, ///< Array of pointers to arguments.
+    _In_ UINT32 argCount,                         ///< Number of arguments.
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler, ///< user-provided interface to handle include directives (optional).
+    _In_ REFIID riid,                             ///< Interface ID for the result.
+    _Out_ LPVOID *ppResult                        ///< IDxcResult: status, buffer, and errors.
   ) = 0;
 
   /// \brief Disassemble a program.
   virtual HRESULT STDMETHODCALLTYPE Disassemble(
     _In_ const DxcBuffer *pObject,                ///< Program to disassemble: dxil container or bitcode.
-    _In_ REFIID riid,                             ///< Interface ID for the result
-    _Out_ LPVOID *ppResult                        ///< IDxcResult: status, disassembly text, and errors
+    _In_ REFIID riid,                             ///< Interface ID for the result.
+    _Out_ LPVOID *ppResult                        ///< IDxcResult: status, disassembly text, and errors.
     ) = 0;
 };
 
@@ -851,12 +851,12 @@ struct IDxcValidator : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE Validate(
     _In_ IDxcBlob *pShader,                       ///< Shader to validate.
     _In_ UINT32 Flags,                            ///< Validation flags.
-    _COM_Outptr_ IDxcOperationResult **ppResult   ///< Validation output status, buffer, and errors
+    _COM_Outptr_ IDxcOperationResult **ppResult   ///< Validation output status, buffer, and errors.
     ) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcValidator2, "458e1fd1-b1b2-4750-a6e1-9c10f03bed92")
-/// \brief Interface to DXC shader validator
+/// \brief Interface to DXC shader validator.
 ///
 /// Use DxcCreateInstance with CLSID_DxcValidator to obtain an instance of this.
 struct IDxcValidator2 : public IDxcValidator {
@@ -864,37 +864,37 @@ struct IDxcValidator2 : public IDxcValidator {
   virtual HRESULT STDMETHODCALLTYPE ValidateWithDebug(
     _In_ IDxcBlob *pShader,                       ///< Shader to validate.
     _In_ UINT32 Flags,                            ///< Validation flags.
-    _In_opt_ DxcBuffer *pOptDebugBitcode,         ///< Optional debug module bitcode to provide line numbers
-    _COM_Outptr_ IDxcOperationResult **ppResult   ///< Validation output status, buffer, and errors
+    _In_opt_ DxcBuffer *pOptDebugBitcode,         ///< Optional debug module bitcode to provide line numbers.
+    _COM_Outptr_ IDxcOperationResult **ppResult   ///< Validation output status, buffer, and errors.
     ) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcContainerBuilder, "334b1f50-2292-4b35-99a1-25588d8c17fe")
-/// \brief Interface to DXC container builder
+/// \brief Interface to DXC container builder.
 ///
 /// Use DxcCreateInstance with CLSID_DxcContainerBuilder to obtain an instance of this.
 struct IDxcContainerBuilder : public IUnknown {
-  /// \brief Load a DxilContainer to the builder
+  /// \brief Load a DxilContainer to the builder.
   virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader) = 0;
 
-  /// \brief Add a part to the container
+  /// \brief Add a part to the container.
   ///
-  /// \param fourCC The part identifier (eg DXC_PART_PDB)
+  /// \param fourCC The part identifier (eg DXC_PART_PDB).
   ///
-  /// \param pSource The source blob
+  /// \param pSource The source blob.
   virtual HRESULT STDMETHODCALLTYPE AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) = 0;
 
-  /// \brief Remove a part from the container
+  /// \brief Remove a part from the container.
   ///
-  /// \param fourCC The part identifier (eg DXC_PART_PDB)
+  /// \param fourCC The part identifier (eg DXC_PART_PDB).
   ///
   /// \return S_OK on success, DXC_E_MISSING_PART if the part was not found, or
   /// other standard HRESULT error code.
   virtual HRESULT STDMETHODCALLTYPE RemovePart(_In_ UINT32 fourCC) = 0;
 
-  /// \brief Build the container
+  /// \brief Build the container.
   ///
-  /// \param ppResult Pointer to variable to receive the result
+  /// \param ppResult Pointer to variable to receive the result.
   virtual HRESULT STDMETHODCALLTYPE SerializeContainer(_Out_ IDxcOperationResult **ppResult) = 0;
 };
 
@@ -906,12 +906,12 @@ struct IDxcAssembler : public IUnknown {
   /// \brief Assemble DXIL in LL or LLVM bitcode to DXIL container.
   virtual HRESULT STDMETHODCALLTYPE AssembleToContainer(
     _In_ IDxcBlob *pShader,                       ///< Shader to assemble.
-    _COM_Outptr_ IDxcOperationResult **ppResult   ///< Assembly output status, buffer, and errors
+    _COM_Outptr_ IDxcOperationResult **ppResult   ///< Assembly output status, buffer, and errors.
     ) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcContainerReflection, "d2c21b26-8350-4bdc-976a-331ce6f4c54c")
-/// \\brief Interface to DxcContainerReflection
+/// \brief Interface to DxcContainerReflection.
 ///
 /// Use DxcCreateInstance with CLSID_DxcContainerReflection to obtain an
 /// instance of this.
@@ -941,7 +941,7 @@ struct IDxcContainerReflection : public IUnknown {
   /// HRESULT error codes.
   virtual HRESULT STDMETHODCALLTYPE GetPartKind(UINT32 idx, _Out_ UINT32 *pResult) = 0;
 
-  /// \brief Retrieve the content of a specified part
+  /// \brief Retrieve the content of a specified part.
   ///
   /// \param idx The index of the part to retrieve.
   ///
@@ -952,7 +952,7 @@ struct IDxcContainerReflection : public IUnknown {
   /// HRESULT error codes.
   virtual HRESULT STDMETHODCALLTYPE GetPartContent(UINT32 idx, _COM_Outptr_ IDxcBlob **ppResult) = 0;
 
-  /// \brief Retrieve the index of the first part with the specified kind
+  /// \brief Retrieve the index of the first part with the specified kind.
   ///
   /// \param kind The kind to search for.
   ///
@@ -964,7 +964,7 @@ struct IDxcContainerReflection : public IUnknown {
   /// part with the specified kind, or other standard HRESULT error codes.
   virtual HRESULT STDMETHODCALLTYPE FindFirstPartKind(UINT32 kind, _Out_ UINT32 *pResult) = 0;
 
-  /// \brief Retrieve the reflection interface for a specified part
+  /// \brief Retrieve the reflection interface for a specified part.
   ///
   /// \param idx The index of the part to retrieve the reflection interface of.
   ///
@@ -981,7 +981,7 @@ struct IDxcContainerReflection : public IUnknown {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcOptimizerPass, "AE2CD79F-CC22-453F-9B6B-B124E7A5204C")
-/// \brief An optimizer pass
+/// \brief An optimizer pass.
 ///
 /// Instances of this can be obtained via IDxcOptimizer::GetAvailablePass.
 struct IDxcOptimizerPass : public IUnknown {
@@ -993,7 +993,7 @@ struct IDxcOptimizerPass : public IUnknown {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcOptimizer, "25740E2E-9CBA-401B-9119-4FB42F39F270")
-/// \brief Interface to DxcOptimizer
+/// \brief Interface to DxcOptimizer.
 ///
 /// Use DxcCreateInstance with CLSID_DxcOptimizer to obtain an instance of this.
 struct IDxcOptimizer : public IUnknown {
@@ -1010,7 +1010,7 @@ static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
 static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non-signing)
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo, "b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e")
-/// \brief PDB Version information
+/// \brief PDB Version information.
 ///
 /// Use IDxcPdbUtils2::GetVersionInfo to obtain an instance of this.
 struct IDxcVersionInfo : public IUnknown {
@@ -1019,25 +1019,25 @@ struct IDxcVersionInfo : public IUnknown {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2, "fb6904c4-42f0-4b62-9c46-983af7da7c83")
-/// \brief PDB Version Information
+/// \brief PDB Version Information.
 ///
 /// Use IDxcPdbUtils2::GetVersionInfo to obtain a IDxcVersionInfo interface, and
 /// then use QueryInterface to obtain an instance of this interface from it.
 struct IDxcVersionInfo2 : public IDxcVersionInfo {
   virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(
     _Out_ UINT32 *pCommitCount,           ///< The total number commits.
-    _Outptr_result_z_ char **pCommitHash  ///< The SHA of the latest commit. (Must be CoTaskMemFree()'d!)
+    _Outptr_result_z_ char **pCommitHash  ///< The SHA of the latest commit. Must be CoTaskMemFree()'d.
   ) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo3, "5e13e843-9d25-473c-9ad2-03b2d0b44b1e")
-/// \brief PDB Version Information
+/// \brief PDB Version Information.
 ///
 /// Use IDxcPdbUtils2::GetVersionInfo to obtain a IDxcVersionInfo interface, and
 /// then use QueryInterface to obtain an instance of this interface from it.
 struct IDxcVersionInfo3 : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(
-    _Outptr_result_z_ char **pVersionString ///< Custom version string for compiler. (Must be CoTaskMemFree()'d!)
+    _Outptr_result_z_ char **pVersionString ///< Custom version string for compiler. Must be CoTaskMemFree()'d.
   ) = 0;
 };
 
