@@ -1211,7 +1211,6 @@ HRESULT CShaderReflectionType::Initialize(
 
             bitFieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
                                             elementOffset, allTypes, isCBuffer);
-            // FIXME: remove the cast once D3D_SVC_BIT_FIELD added into D3D_SHADER_VARIABLE_CLASS.
             bitFieldReflectionType->m_Desc.Class = D3D_SVC_BIT_FIELD;
 
             // Save bit size to columns.
