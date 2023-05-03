@@ -2580,7 +2580,7 @@ class db_dxil(object):
         self.add_valrule("Instr.ResourceOffsetMiss", "offset uninitialized.")
         self.add_valrule("Instr.ResourceOffsetTooMany", "out of bound offset must be undef.")
         self.add_valrule("Instr.UndefResultForGetDimension", "GetDimensions used undef dimension %0 on %1.")
-        self.add_valrule("Instr.SamplerModeForLOD", "lod instruction requires sampler declared in default mode.")
+        self.add_valrule("Instr.SamplerModeForLOD", "lod instruction requires valid sampler handle.")
         self.add_valrule("Instr.SamplerModeForSample", "sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode.")
         self.add_valrule("Instr.SamplerModeForSampleC", "sample_c_*/gather_c instructions require sampler declared in comparison mode.")
         self.add_valrule("Instr.SampleCompType", "sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.")

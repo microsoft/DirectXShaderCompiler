@@ -3068,7 +3068,7 @@ INSTR.RESOURCEOFFSETTOOMANY               out of bound offset must be undef.
 INSTR.RESOURCEUSER                        Resource should only be used by Load/GEP/Call.
 INSTR.SAMPLECOMPTYPE                      sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
 INSTR.SAMPLEINDEXFORLOAD2DMS              load on Texture2DMS/2DMSArray require sampleIndex.
-INSTR.SAMPLERMODEFORLOD                   lod instruction requires sampler declared in default mode.
+INSTR.SAMPLERMODEFORLOD                   lod instruction requires valid sampler handle.
 INSTR.SAMPLERMODEFORSAMPLE                sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode.
 INSTR.SAMPLERMODEFORSAMPLEC               sample_c_*/gather_c instructions require sampler declared in comparison mode.
 INSTR.SIGNATUREOPERATIONNOTINENTRY        Dxil operation for input output signature must be in entryPoints.
