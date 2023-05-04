@@ -425,7 +425,7 @@ unsigned GetHLSLOutputPatchCount(clang::QualType type);
 clang::QualType GetHLSLMatrixTypeWithMajor(clang::QualType matType,
                                            bool isRowMajor, clang::Sema &sema);
 bool IsRowMajorMatrixTemplate(clang::QualType matType);
-bool IsDefaultMajorMatrixTemplate(clang::QualType matType);
+bool IsDefaultMajorOrientationTemplate(clang::QualType matType);
 
 bool IsHLSLSubobjectType(clang::QualType type);
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, 

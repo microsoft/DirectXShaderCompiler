@@ -3515,7 +3515,7 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   }
 
   // HLSL Change Starts
-  switch (SCS.MatrixMajorConversion) {
+  switch (SCS.MatrixOrientationConversion) {
   default:
     break;
   case ICK_HLSLColMajorToRowMajor: {

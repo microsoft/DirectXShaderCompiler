@@ -400,8 +400,7 @@ CreateHLSLMatrixTemplate(ASTContext &context,
         TemplateArgument(context.getTypeDeclType(elementTemplateParamDecl)),
         TemplateArgument(rowCountE),
         TemplateArgument(colCountE),
-        TemplateArgument(
-            oritationE),
+        TemplateArgument(oritationE),
     };
 
     SmallVector<TemplateArgument, 3> templateArgsForDecl;
@@ -463,7 +462,9 @@ static NamespaceDecl *CreateImplicitNamespace(ASTContext &context,
 }
 
 /// <summary>Adds up-front support for HLSL matrix types (just the template declaration).</summary>
-void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorTemplateDecl, ClassTemplateDecl** matrixTemplateDecl,
+void hlsl::AddHLSLMatrixTemplate(
+    ASTContext &context, ClassTemplateDecl *vectorTemplateDecl,
+    ClassTemplateDecl **matrixTemplateDecl,
     TypeAliasTemplateDecl **defaultMatrixAliasDecl,
     TypeAliasTemplateDecl **rowMajorMatrixAliasDecl,
     TypeAliasTemplateDecl **columnMajorMatrixAliasDecl) {

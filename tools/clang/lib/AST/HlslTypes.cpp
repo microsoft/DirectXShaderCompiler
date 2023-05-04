@@ -418,7 +418,7 @@ bool IsRowMajorMatrixTemplate(clang::QualType matType) {
   return false;
 }
 
-bool IsDefaultMajorMatrixTemplate(clang::QualType matType) {
+bool IsDefaultMajorOrientationTemplate(clang::QualType matType) {
   QualType type = (matType);
   // Strip AttributedType.
   {

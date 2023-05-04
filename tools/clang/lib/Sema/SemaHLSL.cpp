@@ -9088,8 +9088,9 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
   return true;
 }
 
-static bool ConvertMatrixMajor(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
-                             ImplicitConversionKind &MatrixMajorConversion) {
+static bool
+ConvertMatrixMajor(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
+                   ImplicitConversionKind &MatrixOrientationConversion) {
   if (TargetInfo.bIsRowMajor == SourceInfo.bIsRowMajor)
     return true;
   // Conversion to/from mismatched size not supported.
@@ -9097,7 +9098,7 @@ static bool ConvertMatrixMajor(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
       TargetInfo.uCols != SourceInfo.uCols)
     return true;
 
-  MatrixMajorConversion =
+  MatrixOrientationConversion =
       SourceInfo.bIsRowMajor
           ? ImplicitConversionKind::ICK_HLSLRowMajorToColMajor
           : ImplicitConversionKind::ICK_HLSLColMajorToRowMajor;
@@ -9154,7 +9155,7 @@ bool HLSLExternalSource::CanConvert(
   // Temporary conversion kind tracking which will be used/fixed up at the end
   ImplicitConversionKind Second = ICK_Identity;
   ImplicitConversionKind ComponentConversion = ICK_Identity;
-  ImplicitConversionKind MatrixMajorConversion = ICK_Identity;
+  ImplicitConversionKind MatrixOrientationConversion = ICK_Identity;
 
   // Identical types require no conversion.
   if (source == target) {
@@ -9309,7 +9310,7 @@ bool HLSLExternalSource::CanConvert(
   if (!ConvertComponent(TargetInfo, SourceInfo, ComponentConversion, Remarks))
     return false;
 
-  if (!ConvertMatrixMajor(TargetInfo, SourceInfo, MatrixMajorConversion))
+  if (!ConvertMatrixMajor(TargetInfo, SourceInfo, MatrixOrientationConversion))
     return false;
 
 lSuccess:
@@ -9378,7 +9379,7 @@ lSuccess:
       }
     }
 
-    standard->MatrixMajorConversion = MatrixMajorConversion;
+    standard->MatrixOrientationConversion = MatrixOrientationConversion;
 
     standard->Second = Second;
 
@@ -9390,12 +9391,12 @@ lSuccess:
       standard->First = ICK_Identity;
       standard->Second = ICK_Identity;
     }
-    // When there's only matrix major cast, set it to be second cast so implicit
+    // When there's only matrix orientation cast, set it to be second cast so implicit
     // conversion can be called.
     if (standard->First == ICK_Identity && standard->Second == ICK_Identity &&
-        MatrixMajorConversion != ICK_Identity) {
-      standard->MatrixMajorConversion = ICK_Identity;
-      standard->Second = MatrixMajorConversion;
+        MatrixOrientationConversion != ICK_Identity) {
+      standard->MatrixOrientationConversion = ICK_Identity;
+      standard->Second = MatrixOrientationConversion;
     }
   }
 
@@ -10140,7 +10141,7 @@ clang::QualType HLSLExternalSource::ApplyTypeSpecSignToParsedType(
       UINT rowCount, colCount;
       GetRowsAndCols(type, rowCount, colCount);
       bool isRowMajor = hlsl::IsRowMajorMatrixTemplate(type);
-      bool isDefault = hlsl::IsDefaultMajorMatrixTemplate(type);
+      bool isDefault = hlsl::IsDefaultMajorOrientationTemplate(type);
       TypedefDecl *qts =
           LookupMatrixShorthandType(newScalarType, rowCount, colCount, isRowMajor, isDefault);
       return m_context->getTypeDeclType(qts);
@@ -14276,7 +14277,7 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
 
 QualType hlsl::GetHLSLMatrixTypeWithMajor(QualType matType, bool isRowMajor,
                                           clang::Sema &sema) {
-  bool isDefault = hlsl::IsDefaultMajorMatrixTemplate(matType);
+  bool isDefault = hlsl::IsDefaultMajorOrientationTemplate(matType);
   // Default major has correct major set, only check major match is not enough.
   if (!isDefault && hlsl::IsRowMajorMatrixTemplate(matType) == isRowMajor)
     return matType;
