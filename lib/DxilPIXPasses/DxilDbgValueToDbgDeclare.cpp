@@ -19,6 +19,7 @@
 #include "dxc/DXIL/DxilResourceBase.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
+#include "dxc/HLSL/HLModule.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Instructions.h"
@@ -291,6 +292,13 @@ private:
   std::unordered_map<OffsetInBits, llvm::AllocaInst *> m_AlignedOffsetToAlloca;
 };
 
+struct GlobalEmbeddedArrayElementStorage {
+  std::string Name;
+  OffsetInBits Offset;
+  SizeInBits Size;
+};
+using GlobalStorageMap = std::map<llvm::DIGlobalVariable *, std::vector<GlobalEmbeddedArrayElementStorage>>;
+
 class DxilDbgValueToDbgDeclare : public llvm::ModulePass {
 public:
     static char ID;
@@ -307,6 +315,10 @@ private:
       llvm::DbgValueInst *DbgValue);
 
   std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableRegisters>> m_Registers;
+
+  bool handleStoreIfDestIsGlobal(llvm::Module &M,
+                                 GlobalStorageMap &GlobalStorage,
+                                 llvm::StoreInst *Store);
 };
 }  // namespace
 
@@ -399,11 +411,133 @@ static OffsetInBits GetAlignedOffsetFromDIExpression(
   return Exp->getBitPieceOffset();
 }
 
+SizeInBits DescendTypeAndFindEmbeddedArrayElements(
+    std::string VariableName,
+                                 OffsetInBits CurrentOffset, llvm::DIType *Ty,
+    std::vector<GlobalEmbeddedArrayElementStorage> &out) {
+  SizeInBits MySize = 0;
+  const llvm::DITypeIdentifierMap EmptyMap;
+  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+    switch (DerivedTy->getTag()) {
+    default:
+      assert(!"Unhandled DIDerivedType");
+      return Ty->getSizeInBits();
+    case llvm::dwarf::DW_TAG_arg_variable:
+    case llvm::dwarf::DW_TAG_pointer_type:
+    case llvm::dwarf::DW_TAG_restrict_type:
+      return Ty->getSizeInBits();
+    case llvm::dwarf::DW_TAG_reference_type:
+    case llvm::dwarf::DW_TAG_const_type:
+    case llvm::dwarf::DW_TAG_typedef:
+    case llvm::dwarf::DW_TAG_member:
+      return DescendTypeAndFindEmbeddedArrayElements(
+          VariableName, CurrentOffset,
+          DerivedTy->getBaseType().resolve(EmptyMap), out);
+    }
+  } else if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(Ty)) {
+    switch (CompositeTy->getTag()) {
+    default:
+      assert(!"Unhandled DICompositeType");
+      return 0;
+    case llvm::dwarf::DW_TAG_array_type: {
+      for (auto Element : CompositeTy->getElements()) {
+        // First element for an array is DISubrange
+        if (auto Subrange = llvm::dyn_cast<DISubrange>(Element)) {
+          auto ElementType = CompositeTy->getBaseType().resolve(EmptyMap);
+          for (int64_t i = 0; i < Subrange->getCount(); ++i) {
+            auto MemberSize = DescendTypeAndFindEmbeddedArrayElements(
+                VariableName + "." + std::to_string(i), CurrentOffset, ElementType,
+                out);
+            CurrentOffset += MemberSize;
+            MySize += MemberSize;
+          }
+        }
+        break; // Since first element should have been DISubrange.
+      }
+    } break;
+    case llvm::dwarf::DW_TAG_structure_type:
+    case llvm::dwarf::DW_TAG_class_type: {
+      int i = 0;
+      for (auto Element : CompositeTy->getElements()) {
+        if (auto diMember = llvm::dyn_cast<DIType>(Element)) {
+          auto MemberSize = DescendTypeAndFindEmbeddedArrayElements(
+              VariableName + "." + std::to_string(i), CurrentOffset, diMember,
+              out);
+          CurrentOffset += MemberSize;
+          MySize += MemberSize;
+          i++;
+        }
+      }
+    } break;
+    case llvm::dwarf::DW_TAG_subroutine_type:
+    case llvm::dwarf::DW_TAG_enumeration_type:
+      // Size is zero
+      break;
+    }
+  } else if (auto *BasicTy = llvm::dyn_cast<llvm::DIBasicType>(Ty)) {
+    MySize = static_cast<SizeInBits>(Ty->getSizeInBits());
+    out.push_back({VariableName, CurrentOffset,MySize});
+  } else {
+    assert(!"Unrecognized DIType");
+  }
+#if 0
+  if (auto *ArrTy = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
+    for (unsigned i = 0; i < ArrTy->getNumElements(); ++i) {
+      auto ElementSize = DescendTypeAndFindEmbeddedArrayElements(
+          VariableName + "." + std::to_string(i), CurrentOffset, ArrTy->getArrayElementType(), out);
+      CurrentOffset += ElementSize;
+      MySize += ElementSize;
+    }
+  } else if (auto *StTy = llvm::dyn_cast<llvm::StructType>(Ty)) {
+    for (unsigned i = 0; i < StTy->getNumElements(); ++i) {
+      auto MemberSize = DescendTypeAndFindEmbeddedArrayElements(
+          VariableName + "." + std::to_string(i), CurrentOffset, StTy->getStructElementType(i), out);
+      CurrentOffset += MemberSize;
+      MySize += MemberSize;
+    }
+  } else if (auto *VecTy = llvm::dyn_cast<llvm::VectorType>(Ty)) {
+    for (unsigned i = 0; i < VecTy->getNumElements(); ++i) {
+    }
+  } else {
+    assert(Ty->isFloatTy() || Ty->isDoubleTy() || Ty->isHalfTy() ||
+           Ty->isIntegerTy(32) || Ty->isIntegerTy(64) ||
+           Ty->isIntegerTy(16) || Ty->isPointerTy());
+    out.push_back({VariableName, CurrentOffset, Ty->getScalarSizeInBits()});
+    MySize += Ty->getScalarSizeInBits();
+  }
+#endif
+  return MySize;
+}
+
+GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
+  GlobalStorageMap ret;
+  auto &HLModule = M.GetOrCreateHLModule();
+  auto & DebugFinder = HLModule.GetOrCreateDebugInfoFinder();
+  auto GlobalVariables = DebugFinder.global_variables();
+  auto names = M.getIdentifiedStructTypes();
+  for (auto &n : names) {
+    n->dump();
+  }
+
+  for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
+    DIGV->dump();
+    if (DIGV->isLocalToUnit()) {
+      auto &Storage = ret[DIGV];
+      const llvm::DITypeIdentifierMap EmptyMap;
+      DescendTypeAndFindEmbeddedArrayElements(
+              DIGV->getName(), 0, DIGV->getType().resolve(EmptyMap), Storage);
+    }
+  }
+  return ret;
+}
+
 bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
 )
 {
   hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
+
+  auto GlobalEmbeddedArrayStorage = GatherGlobalEmbeddedArrayStorage(M);
 
   bool Changed = false;
 
@@ -432,7 +566,7 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       for (auto &instruction : block) {
         instructions.push_back(&instruction);
       }
-      for (auto & instruction : instructions) {
+      for (auto &instruction : instructions) {
         if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
           llvm::Value *V = DbgValue->getValue();
           if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
@@ -441,6 +575,12 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
           Changed = true;
           handleDbgValue(M, DbgValue);
           DbgValue->eraseFromParent();
+        }
+      }
+      for (auto &instruction : instructions) {
+        if (auto *Store = llvm::dyn_cast<llvm::StoreInst>(instruction)) {
+          Changed =
+              handleStoreIfDestIsGlobal(M, GlobalEmbeddedArrayStorage, Store);
         }
       }
     }
@@ -794,6 +934,57 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
       }
     }
   }
+}
+
+class ScopedInstruction {
+  llvm::Instruction *m_Instruction;
+public:
+  ScopedInstruction(llvm::Instruction* I) : m_Instruction(I) {}
+  ~ScopedInstruction() {
+    delete m_Instruction;
+  }
+  llvm::Instruction* Get() const { return m_Instruction; }
+};
+
+struct GlobalVariableAndStorage
+{
+  llvm::DIGlobalVariable  * DIGV;
+  OffsetInBits Offset;
+};
+
+GlobalVariableAndStorage GetOffsetFromGlobalVariable(
+    llvm::Module &M, llvm::StringRef name,
+    GlobalStorageMap &GlobalEmbeddedArrayStorage) {
+  GlobalVariableAndStorage ret{};
+  for (GlobalVariable &GV : M.globals()) {
+    for (auto &Variable : GlobalEmbeddedArrayStorage) {
+      for (auto &Storage : Variable.second) {
+        if (llvm::StringRef(Storage.Name).startswith(GV.getName())) {
+          ret.DIGV = Variable.first;
+          ret.Offset = Storage.Offset;
+        }
+      }
+    }
+  }
+  return ret;
+}
+
+bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
+    llvm::Module &M, GlobalStorageMap &GlobalEmbeddedArrayStorage,
+    llvm::StoreInst *Store) {
+  llvm::Value *V = Store->getPointerOperand();
+  if (auto *Constant = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
+    ScopedInstruction asInstr(Constant->getAsInstruction());
+    if (auto *asGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
+      auto Storage = GetOffsetFromGlobalVariable(
+          M, asGEP->getPointerOperand()->getName(), GlobalEmbeddedArrayStorage);
+      auto &Register = m_Registers[static_cast<llvm::DIVariable *>(Storage.DIGV)];
+      if (Register == nullptr) {
+        Storage.DIGV->dump();//Register.reset(new VariableRegisters(DbgValue, Storage.DIGV, Ty, &M));
+      }
+    }
+  }
+  return false;
 }
 
 SizeInBits VariableRegisters::GetVariableSizeInbits(DIVariable *Var) {
