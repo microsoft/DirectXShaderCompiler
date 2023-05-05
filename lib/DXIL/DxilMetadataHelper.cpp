@@ -1226,7 +1226,7 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
   }
   if (FA.HasBitFieldWidth()) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldWidthTag));
-    MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetBitFieldWidth()));
+    MDVals.emplace_back(Uint32ToConstMD(FA.GetBitFieldWidth()));
   }
 
   return MDNode::get(m_Ctx, MDVals);
