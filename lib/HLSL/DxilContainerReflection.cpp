@@ -49,6 +49,7 @@ struct D3D11_SHADER_INPUT_BIND_DESC {int dummy;};
 
 // Remove this workaround once newer version of d3dcommon.h can be compiled against
 #define ADD_16_64_BIT_TYPES
+#define ADD_SVC_BIT_FIELD
 
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
@@ -101,6 +102,14 @@ enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2 };
 #define D3D_SVT_INT64   ((D3D_SHADER_VARIABLE_TYPE)61)
 #define D3D_SVT_UINT64  ((D3D_SHADER_VARIABLE_TYPE)62)
 #endif // ADD_16_64_BIT_TYPES
+
+#ifdef ADD_SVC_BIT_FIELD
+// Disable warning about value not being valid in enum
+#pragma warning(disable : 4063)
+// FIXME: remove the define once D3D_SVC_BIT_FIELD added into
+// D3D_SHADER_VARIABLE_CLASS.
+#define D3D_SVC_BIT_FIELD ((D3D_SHADER_VARIABLE_CLASS)(D3D_SVC_INTERFACE_POINTER + 1))
+#endif
 
 class DxilModuleReflection {
 public:
@@ -1140,24 +1149,31 @@ HRESULT CShaderReflectionType::Initialize(
 
       CShaderReflectionType *fieldReflectionType = nullptr;
 
-      for(unsigned int ff = 0; ff < fieldCount; ++ff)
-      {
-        DxilFieldAnnotation& fieldAnnotation = structAnnotation->GetFieldAnnotation(ff);
-        llvm::Type* fieldType = structType->getStructElementType(ff);
+      for (unsigned int ff = 0; ff < fieldCount; ++ff) {
+        DxilFieldAnnotation &fieldAnnotation =
+            structAnnotation->GetFieldAnnotation(ff);
+        llvm::Type *fieldType = structType->getStructElementType(ff);
 
-        // Skip fields with object types, since these are not part of constant buffers,
-        // and are not allowed in other buffer types.
-        if( IsObjectType(fieldType) )
-        {
+        // Skip fields with object types, since these are not part of constant
+        // buffers, and are not allowed in other buffer types.
+        if (IsObjectType(fieldType)) {
           continue;
         }
 
         fieldReflectionType = new CShaderReflectionType();
-        allTypes.push_back(std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
+        allTypes.push_back(
+            std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
 
-        unsigned int elementOffset = structLayout ? (unsigned int)structLayout->getElementOffset(ff) : 0;
+        unsigned int elementOffset =
+            structLayout ? (unsigned int)structLayout->getElementOffset(ff) : 0;
 
-        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, elementOffset, allTypes, isCBuffer);
+        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
+                                        elementOffset, allTypes, isCBuffer);
+
+        // Treat bit fields as member inside the integer.
+        if (fieldAnnotation.HasBitFields())
+          fieldReflectionType->m_Desc.Members =
+              fieldAnnotation.GetBitFields().size();
 
         m_MemberTypes.push_back(fieldReflectionType);
         m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
@@ -1169,15 +1185,46 @@ HRESULT CShaderReflectionType::Initialize(
           continue;
         }
 
-        // Effectively, we want to add one to `Columns` for every scalar nested recursively
-        // inside this `struct` type (ignoring objects, which we filtered above). We should
-        // be able to compute this as the product of the `Columns`, `Rows` and `Elements`
-        // of each field, with the caveat that some of these may be zero, but shoud be
-        // treated as one.
+        // Effectively, we want to add one to `Columns` for every scalar
+        // nested recursively inside this `struct` type (ignoring objects,
+        // which we filtered above). We should be able to compute this as the
+        // product of the `Columns`, `Rows` and `Elements` of each field, with
+        // the caveat that some of these may be zero, but shoud be treated as
+        // one.
         columnCounter +=
-            (fieldReflectionType->m_Desc.Columns  ? fieldReflectionType->m_Desc.Columns  : 1)
-          * (fieldReflectionType->m_Desc.Rows     ? fieldReflectionType->m_Desc.Rows     : 1)
-          * (fieldReflectionType->m_Desc.Elements ? fieldReflectionType->m_Desc.Elements : 1);
+            (fieldReflectionType->m_Desc.Columns
+                 ? fieldReflectionType->m_Desc.Columns
+                 : 1) *
+            (fieldReflectionType->m_Desc.Rows ? fieldReflectionType->m_Desc.Rows
+                                              : 1) *
+            (fieldReflectionType->m_Desc.Elements
+                 ? fieldReflectionType->m_Desc.Elements
+                 : 1);
+
+        if (fieldAnnotation.HasBitFields()) {
+          unsigned bitOffset = 0;
+          CShaderReflectionType *bitFieldReflectionType = nullptr;
+          for (auto &bitfieldAnnotation : fieldAnnotation.GetBitFields()) {
+            bitFieldReflectionType = new CShaderReflectionType();
+            allTypes.push_back(
+                std::unique_ptr<CShaderReflectionType>(bitFieldReflectionType));
+
+            bitFieldReflectionType->Initialize(M, fieldType, fieldAnnotation,
+                                            elementOffset, allTypes, isCBuffer);
+            bitFieldReflectionType->m_Desc.Class = D3D_SVC_BIT_FIELD;
+
+            // Save bit size to columns.
+            bitFieldReflectionType->m_Desc.Columns =
+                bitfieldAnnotation.GetBitFieldWidth();
+            // Save bit offset to Offset.
+            bitFieldReflectionType->m_Desc.Offset = bitOffset;
+            bitOffset += bitfieldAnnotation.GetBitFieldWidth();
+
+            fieldReflectionType->m_MemberTypes.push_back(bitFieldReflectionType);
+            fieldReflectionType->m_MemberNames.push_back(
+                bitfieldAnnotation.GetFieldName().c_str());
+          }
+        }
       }
 
       m_Desc.Columns = columnCounter;
@@ -1253,7 +1300,6 @@ HRESULT CShaderReflectionType::Initialize(
 
   return S_OK;
 }
-
 
 void CShaderReflectionConstantBuffer::Initialize(
   DxilModule &M,
