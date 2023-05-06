@@ -313,12 +313,12 @@ private:
   void handleDbgValue(
       llvm::Module &M,
       llvm::DbgValueInst *DbgValue);
-
-  std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableRegisters>> m_Registers;
-
   bool handleStoreIfDestIsGlobal(llvm::Module &M,
                                  GlobalStorageMap &GlobalStorage,
                                  llvm::StoreInst *Store);
+
+  std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableRegisters>>
+      m_Registers;
 };
 }  // namespace
 
@@ -514,13 +514,7 @@ GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
   auto &HLModule = M.GetOrCreateHLModule();
   auto & DebugFinder = HLModule.GetOrCreateDebugInfoFinder();
   auto GlobalVariables = DebugFinder.global_variables();
-  auto names = M.getIdentifiedStructTypes();
-  for (auto &n : names) {
-    n->dump();
-  }
-
   for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
-    DIGV->dump();
     if (DIGV->isLocalToUnit()) {
       auto &Storage = ret[DIGV];
       const llvm::DITypeIdentifierMap EmptyMap;
@@ -566,6 +560,20 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       for (auto &instruction : block) {
         instructions.push_back(&instruction);
       }
+      // Handle store instructions before handling dbg.value, since the
+      // latter will add store instructions that we don't need to examine.
+      // Why do we handle store instructions? It's for the case of 
+      // non-const global statics that are backed by an llvm global,
+      // rather than an alloca. In the llvm global case, there is no
+      // debug linkage between the store and the HLSL variable being
+      // modified. But we can patch together enough knowledge about those
+      // from the lists of such globals (HLSL and llvm) and comparing the lists.
+      for (auto &instruction : instructions) {
+        if (auto *Store = llvm::dyn_cast<llvm::StoreInst>(instruction)) {
+          Changed =
+              handleStoreIfDestIsGlobal(M, GlobalEmbeddedArrayStorage, Store);
+        }
+      }
       for (auto &instruction : instructions) {
         if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
           llvm::Value *V = DbgValue->getValue();
@@ -575,12 +583,6 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
           Changed = true;
           handleDbgValue(M, DbgValue);
           DbgValue->eraseFromParent();
-        }
-      }
-      for (auto &instruction : instructions) {
-        if (auto *Store = llvm::dyn_cast<llvm::StoreInst>(instruction)) {
-          Changed =
-              handleStoreIfDestIsGlobal(M, GlobalEmbeddedArrayStorage, Store);
         }
       }
     }
@@ -976,11 +978,34 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
   if (auto *Constant = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
     ScopedInstruction asInstr(Constant->getAsInstruction());
     if (auto *asGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
-      auto Storage = GetOffsetFromGlobalVariable(
-          M, asGEP->getPointerOperand()->getName(), GlobalEmbeddedArrayStorage);
-      auto &Register = m_Registers[static_cast<llvm::DIVariable *>(Storage.DIGV)];
-      if (Register == nullptr) {
-        Storage.DIGV->dump();//Register.reset(new VariableRegisters(DbgValue, Storage.DIGV, Ty, &M));
+      if (asGEP->getNumOperands() >= 3) {
+        if (auto *arrayIndexAsConstInt =
+                llvm::dyn_cast<ConstantInt>(asGEP->getOperand(2))) {
+          int MemberIndex = arrayIndexAsConstInt->getLimitedValue();
+          std::string MemberName =
+              std::string(asGEP->getPointerOperand()->getName()) + "." +
+              std::to_string(MemberIndex);
+          auto Storage = GetOffsetFromGlobalVariable(
+              M, MemberName, GlobalEmbeddedArrayStorage);
+          for (auto &Register : m_Registers) {
+            if (Register.first->getName().equals(
+                    std::string("global.") +
+                    std::string(Storage.DIGV->getName()))) {
+              auto *AllocaInst =
+                  Register.second->GetRegisterForAlignedOffset(Storage.Offset);
+              if (AllocaInst == nullptr) {
+                assert(!"Failed to find alloca for var[offset]");
+                break;
+              }
+
+              IRBuilder<> B(Store->getNextNode());
+              auto *Zero = B.getInt32(0);
+              auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+              B.CreateStore(Store->getValueOperand(), GEP);
+              return true;
+            }
+          }
+        }
       }
     }
   }
