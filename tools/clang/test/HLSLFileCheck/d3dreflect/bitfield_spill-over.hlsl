@@ -126,7 +126,7 @@ struct BF {
    int i2 : 8;
    int i3 : 8;
    int i4 : 8; // spill over, start of second primitive
-   int : 4; // what about blank field?  do we support this?
+   int : 4;
    int i5 : 5;
    int : 0; // force next bit field to start at next primitive
    int i6 : 6; // start of third primitive
