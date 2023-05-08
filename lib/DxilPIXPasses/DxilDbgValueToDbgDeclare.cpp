@@ -19,7 +19,7 @@
 #include "dxc/DXIL/DxilResourceBase.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
-#include "dxc/HLSL/HLModule.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Instructions.h"
@@ -412,8 +412,7 @@ static OffsetInBits GetAlignedOffsetFromDIExpression(
 }
 
 SizeInBits DescendTypeAndFindEmbeddedArrayElements(
-    std::string VariableName,
-                                 OffsetInBits CurrentOffset, llvm::DIType *Ty,
+    std::string VariableName, OffsetInBits CurrentOffset, llvm::DIType *Ty,
     std::vector<GlobalEmbeddedArrayElementStorage> &out) {
   SizeInBits MySize = 0;
   const llvm::DITypeIdentifierMap EmptyMap;
@@ -480,40 +479,14 @@ SizeInBits DescendTypeAndFindEmbeddedArrayElements(
   } else {
     assert(!"Unrecognized DIType");
   }
-#if 0
-  if (auto *ArrTy = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
-    for (unsigned i = 0; i < ArrTy->getNumElements(); ++i) {
-      auto ElementSize = DescendTypeAndFindEmbeddedArrayElements(
-          VariableName + "." + std::to_string(i), CurrentOffset, ArrTy->getArrayElementType(), out);
-      CurrentOffset += ElementSize;
-      MySize += ElementSize;
-    }
-  } else if (auto *StTy = llvm::dyn_cast<llvm::StructType>(Ty)) {
-    for (unsigned i = 0; i < StTy->getNumElements(); ++i) {
-      auto MemberSize = DescendTypeAndFindEmbeddedArrayElements(
-          VariableName + "." + std::to_string(i), CurrentOffset, StTy->getStructElementType(i), out);
-      CurrentOffset += MemberSize;
-      MySize += MemberSize;
-    }
-  } else if (auto *VecTy = llvm::dyn_cast<llvm::VectorType>(Ty)) {
-    for (unsigned i = 0; i < VecTy->getNumElements(); ++i) {
-    }
-  } else {
-    assert(Ty->isFloatTy() || Ty->isDoubleTy() || Ty->isHalfTy() ||
-           Ty->isIntegerTy(32) || Ty->isIntegerTy(64) ||
-           Ty->isIntegerTy(16) || Ty->isPointerTy());
-    out.push_back({VariableName, CurrentOffset, Ty->getScalarSizeInBits()});
-    MySize += Ty->getScalarSizeInBits();
-  }
-#endif
   return MySize;
 }
 
 GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
   GlobalStorageMap ret;
-  auto &HLModule = M.GetOrCreateHLModule();
-  auto & DebugFinder = HLModule.GetOrCreateDebugInfoFinder();
-  auto GlobalVariables = DebugFinder.global_variables();
+  auto DebugFinder = llvm::make_unique<llvm::DebugInfoFinder>();
+  DebugFinder->processModule(M);
+  auto GlobalVariables = DebugFinder->global_variables();
   for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
     if (DIGV->isLocalToUnit()) {
       auto &Storage = ret[DIGV];
@@ -978,7 +951,22 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
   if (auto *Constant = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
     ScopedInstruction asInstr(Constant->getAsInstruction());
     if (auto *asGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
-      if (asGEP->getNumOperands() >= 3) {
+      // We are only interested in the case of basic types within an array
+      // because the PIX debug instrumentation operates at that level.
+      // Aggregate members will have been descended through to produce their
+      // own entries in the GlobalStorageMap.
+      // Consequently, we're only interested in the GEP's index into the array.
+      // Any deeper indexing in the GEP will be for embedded aggregates.
+      // The three operands in such a GEP mean:
+      //    0 = the pointer
+      //    1 = dereference the pointer (expected to be constant int zero)
+      //    2 = the index into the array
+      if (asGEP->getNumOperands() == 3 &&
+          llvm::isa<ConstantInt>(asGEP->getOperand(1)) &&
+          llvm::dyn_cast<ConstantInt>(asGEP->getOperand(1))
+                  ->getLimitedValue() == 0) {
+        // TODO: The case where this index is not a constant int
+        // (Needs changes to the allocas generated elsewhere in this pass.)
         if (auto *arrayIndexAsConstInt =
                 llvm::dyn_cast<ConstantInt>(asGEP->getOperand(2))) {
           int MemberIndex = arrayIndexAsConstInt->getLimitedValue();
@@ -1002,14 +990,14 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
               auto *Zero = B.getInt32(0);
               auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
               B.CreateStore(Store->getValueOperand(), GEP);
-              return true;
+              return true; // yes, we modified the module
             }
           }
         }
       }
     }
   }
-  return false;
+  return false; // no we did not modify the module
 }
 
 SizeInBits VariableRegisters::GetVariableSizeInbits(DIVariable *Var) {
