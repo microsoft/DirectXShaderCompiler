@@ -70,7 +70,7 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
     ptrInfoMap[V] = GetPointerInfo(AC->getOperand(0), ptrInfoMap);
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
     if (CE->getOpcode() == LLVMAddrSpaceCast)
-      ptrInfoMap[V] = GetPointerInfo(CE->getOperand(0), ptrInfoMap);
+      llvm_unreachable("address space cast is illegal in DxilCounters.");
   //} else if (PHINode *PN = dyn_cast<PHINode>(V)) {
   //  for (auto it = PN->value_op_begin(), e = PN->value_op_end(); it != e; ++it) {
   //    PI = GetPointerInfo(*it, ptrInfoMap);
