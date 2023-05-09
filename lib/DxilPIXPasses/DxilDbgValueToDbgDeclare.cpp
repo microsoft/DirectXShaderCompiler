@@ -241,7 +241,8 @@ class VariableRegisters
 {
 public:
   VariableRegisters(
-      llvm::DbgValueInst* DbgValue,
+      llvm::DebugLoc const &m_dbgLoc,
+      llvm::BasicBlock::iterator allocaInsertionPoint,
       llvm::DIVariable *Variable,
       llvm::DIType* Ty,
       llvm::Module *M
@@ -297,7 +298,12 @@ struct GlobalEmbeddedArrayElementStorage {
   OffsetInBits Offset;
   SizeInBits Size;
 };
-using GlobalStorageMap = std::map<llvm::DIGlobalVariable *, std::vector<GlobalEmbeddedArrayElementStorage>>;
+struct LocalMirrorsAndStorage 
+{
+  std::vector<GlobalEmbeddedArrayElementStorage> ArrayElementStorage;
+  std::map<llvm::Function const*, llvm::DILocalVariable *> LocalMirrors;
+};
+using GlobalStorageMap = std::map<llvm::DIGlobalVariable *, LocalMirrorsAndStorage>;
 
 class DxilDbgValueToDbgDeclare : public llvm::ModulePass {
 public:
@@ -484,15 +490,38 @@ SizeInBits DescendTypeAndFindEmbeddedArrayElements(
 
 GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
   GlobalStorageMap ret;
+
+  hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
+  auto entryPoints = DM.GetExportedFunctions();
+  auto SubProgramMap = makeSubprogramMap(M);
+
   auto DebugFinder = llvm::make_unique<llvm::DebugInfoFinder>();
   DebugFinder->processModule(M);
   auto GlobalVariables = DebugFinder->global_variables();
   for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
+    DIGV->dump();
     if (DIGV->isLocalToUnit()) {
       auto &Storage = ret[DIGV];
       const llvm::DITypeIdentifierMap EmptyMap;
       DescendTypeAndFindEmbeddedArrayElements(
-              DIGV->getName(), 0, DIGV->getType().resolve(EmptyMap), Storage);
+          DIGV->getName(), 0, DIGV->getType().resolve(EmptyMap), Storage.ArrayElementStorage);
+
+      std::string LocalMirrorOfGlobalName =
+          std::string("global.") + std::string(DIGV->getName());
+
+      for (llvm::Function const *fn : entryPoints) {
+        auto const &DIFn = SubProgramMap[fn];
+        // bool breakout = false;
+        // for (DISubprogram *diFn : DebugFinder->subprograms()) {
+        //  if (diFn->getName() == fn->getName()) {
+        for (DILocalVariable *diLV : DIFn->getVariables()) {
+          if (diLV->getName().compare(LocalMirrorOfGlobalName)) {
+            Storage.LocalMirrors[fn] = diLV;
+            // breakout = true;
+            break;
+          }
+        }
+      }
     }
   }
   return ret;
@@ -849,7 +878,10 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   if (Register == nullptr)
   {
     Register.reset(
-        new VariableRegisters(DbgValue, Variable, Ty, &M));
+        new VariableRegisters(
+          DbgValue->getDebugLoc(),
+          DbgValue->getParent()->getParent()->getEntryBlock().begin(),
+          Variable, Ty, &M));
   }
 
   // Convert the offset from DbgValue's expression to a packed
@@ -933,7 +965,7 @@ GlobalVariableAndStorage GetOffsetFromGlobalVariable(
   GlobalVariableAndStorage ret{};
   for (GlobalVariable &GV : M.globals()) {
     for (auto &Variable : GlobalEmbeddedArrayStorage) {
-      for (auto &Storage : Variable.second) {
+      for (auto &Storage : Variable.second.ArrayElementStorage) {
         if (llvm::StringRef(Storage.Name).startswith(GV.getName())) {
           ret.DIGV = Variable.first;
           ret.Offset = Storage.Offset;
@@ -975,22 +1007,30 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
               std::to_string(MemberIndex);
           auto Storage = GetOffsetFromGlobalVariable(
               M, MemberName, GlobalEmbeddedArrayStorage);
-          for (auto &Register : m_Registers) {
-            if (Register.first->getName().equals(
-                    std::string("global.") +
-                    std::string(Storage.DIGV->getName()))) {
-              auto *AllocaInst =
-                  Register.second->GetRegisterForAlignedOffset(Storage.Offset);
-              if (AllocaInst == nullptr) {
-                assert(!"Failed to find alloca for var[offset]");
-                break;
-              }
 
-              IRBuilder<> B(Store->getNextNode());
-              auto *Zero = B.getInt32(0);
-              auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
-              B.CreateStore(Store->getValueOperand(), GEP);
-              return true; // yes, we modified the module
+          llvm::DILocalVariable *Variable =
+              GlobalEmbeddedArrayStorage[Storage.DIGV]
+                  .LocalMirrors[Store->getParent()->getParent()];
+          if (Variable != nullptr) {
+            const llvm::DITypeIdentifierMap EmptyMap;
+            llvm::DIType *Ty = Variable->getType().resolve(EmptyMap);
+            if (Ty != nullptr) {
+              auto &Register = m_Registers[Variable];
+              if (Register == nullptr) {
+                Register.reset(new VariableRegisters(
+                    Store->getDebugLoc(),
+                    Store->getParent()->getParent()->getEntryBlock().begin(),
+                    Variable, Ty, &M));
+              }
+              auto *AllocaInst =
+                  Register->GetRegisterForAlignedOffset(Storage.Offset);
+              if (AllocaInst == nullptr) {
+                IRBuilder<> B(Store->getNextNode());
+                auto *Zero = B.getInt32(0);
+                auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+                B.CreateStore(Store->getValueOperand(), GEP);
+                return true; // yes, we modified the module
+              }
             }
           }
         }
@@ -1057,13 +1097,14 @@ static llvm::DIType *DITypePeelTypeAlias(
 #endif // NDEBUG
 
 VariableRegisters::VariableRegisters(
-    llvm::DbgValueInst *DbgValue,
+    llvm::DebugLoc const &dbgLoc,
+    llvm::BasicBlock::iterator allocaInsertionPoint,
     llvm::DIVariable *Variable,
     llvm::DIType* Ty,
     llvm::Module *M)
-  : m_dbgLoc(DbgValue->getDebugLoc())
+  : m_dbgLoc(dbgLoc)
   , m_Variable(Variable)
-  , m_B(DbgValue->getParent()->getParent()->getEntryBlock().begin())
+  , m_B(allocaInsertionPoint)
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {
