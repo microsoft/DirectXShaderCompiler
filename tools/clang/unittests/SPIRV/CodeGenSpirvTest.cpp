@@ -1101,6 +1101,9 @@ TEST_F(FileTest, ConsumeStructuredBufferGetDimensions) {
 TEST_F(FileTest, ByteAddressBufferLoad) {
   runFileTest("method.byte-address-buffer.load.hlsl");
 }
+TEST_F(FileTest, ByteAddressBufferLoadLayout) {
+  runFileTest("method.byte-address-buffer.load.layout.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferTemplatedLoadScalar) {
   runFileTest("method.byte-address-buffer.templated-load.scalar.hlsl");
 }
