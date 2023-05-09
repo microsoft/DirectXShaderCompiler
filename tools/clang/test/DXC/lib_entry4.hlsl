@@ -7,9 +7,13 @@
 // CHECK:; cbuffer A
 // CHECK-NEXT:; {
 // CHECK-NEXT:;
-// CHECK-NEXT:[8 x i8] (type annotation not present)
+// CHECK-NEXT:;   struct A
+// CHECK-NEXT:;   {
 // CHECK-NEXT:;
-// CHECK-NEXT:; }
+// CHECK-NEXT:float a;                                      ; Offset:    0
+// CHECK-NEXT:float v;                                      ; Offset:    4
+// CHECK-NEXT:;
+// CHECK-NEXT:;   } A;
 
 // Make sure same cbuffer decalred in different lib works.
 
