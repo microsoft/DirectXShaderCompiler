@@ -664,6 +664,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
 
       if (DxilResourceBase *res = pLib->GetResource(GV)) {
         bSuccess &= AddResource(res, NewGV);
+        typeSys.CopyTypeAnnotation(res->GetHLSLType(), tmpTypeSys);
       }
     }
   }
