@@ -617,6 +617,8 @@ void DxilMDHelper::EmitDxilResourceBase(const DxilResourceBase &R, Metadata *ppM
   Constant *GlobalSymbol = R.GetGlobalSymbol();
   // For sm66+, global symbol will be mutated into handle type.
   // Save hlsl type by generate bitcast on global symbol.
+  // For sm65-, global symbol will be undef value which saves the HLSLTy
+  // directly.
   Type *HLSLTy = R.GetHLSLType();
   if (HLSLTy && HLSLTy != GlobalSymbol->getType()) {
     if (isa<UndefValue>(GlobalSymbol))
