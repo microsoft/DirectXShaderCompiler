@@ -22,6 +22,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -298,10 +299,11 @@ struct GlobalEmbeddedArrayElementStorage {
   OffsetInBits Offset;
   SizeInBits Size;
 };
+using GlobalVariableToLocalMirrorMap = std::map<llvm::Function const*, llvm::DILocalVariable *>;
 struct LocalMirrorsAndStorage 
 {
   std::vector<GlobalEmbeddedArrayElementStorage> ArrayElementStorage;
-  std::map<llvm::Function const*, llvm::DILocalVariable *> LocalMirrors;
+  GlobalVariableToLocalMirrorMap LocalMirrors;
 };
 using GlobalStorageMap = std::map<llvm::DIGlobalVariable *, LocalMirrorsAndStorage>;
 
@@ -488,40 +490,75 @@ SizeInBits DescendTypeAndFindEmbeddedArrayElements(
   return MySize;
 }
 
-GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
-  GlobalStorageMap ret;
+llvm::DISubprogram* GetFunctionDebugInfo(llvm::Module& M, llvm::Function* fn) {
+  auto FnMap = makeSubprogramMap(M);
+  return FnMap[fn];
+}
 
+
+GlobalVariableToLocalMirrorMap
+GenerateGlobalToLocalMirrorMap(llvm::Module &M,
+                                    llvm::DIGlobalVariable *DIGV) {
   hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
   auto entryPoints = DM.GetExportedFunctions();
-  auto SubProgramMap = makeSubprogramMap(M);
 
+  std::string LocalMirrorOfGlobalName =
+      std::string("global.") + std::string(DIGV->getName());
+
+  GlobalVariableToLocalMirrorMap ret;
+  DenseMap<const Function *, DISubprogram *> FnMap;
+
+  for (llvm::Function const *fn : entryPoints) {
+    auto & LocalMirror = ret[fn];
+    auto &blocks = fn->getBasicBlockList();
+    for (auto &block : blocks) {
+      bool breakOut = false;
+      for (auto &instruction : block) {
+        if (auto const *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(&instruction)) {
+          auto *Variable = DbgValue->getVariable();
+          if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
+            LocalMirror = Variable;
+            breakOut = true;
+            break;
+          }
+        }
+      }
+      if (breakOut)
+        break;
+    }
+    if (LocalMirror == nullptr) {
+      // If we didn't find a dbg.value for any member of this DIGlobalVariable, then
+      // no local mirror exists. We must manufacture one.
+      if (FnMap.empty()) {
+        FnMap = makeSubprogramMap(M);
+      }
+      auto DIFn = FnMap[fn];
+      if (DIFn != nullptr) {
+        const llvm::DITypeIdentifierMap EmptyMap;
+        auto DIGVType = DIGV->getType().resolve(EmptyMap);
+        DIBuilder DbgInfoBuilder(M);
+        LocalMirror = DbgInfoBuilder.createLocalVariable(
+            dwarf::DW_TAG_auto_variable, DIFn,
+            LocalMirrorOfGlobalName, DIFn->getFile(), DIFn->getLine(),
+            DIGVType);
+      }
+    }
+  }
+  return ret;
+}
+
+GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
+  GlobalStorageMap ret;
   auto DebugFinder = llvm::make_unique<llvm::DebugInfoFinder>();
   DebugFinder->processModule(M);
   auto GlobalVariables = DebugFinder->global_variables();
   for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
-    DIGV->dump();
     if (DIGV->isLocalToUnit()) {
       auto &Storage = ret[DIGV];
       const llvm::DITypeIdentifierMap EmptyMap;
       DescendTypeAndFindEmbeddedArrayElements(
           DIGV->getName(), 0, DIGV->getType().resolve(EmptyMap), Storage.ArrayElementStorage);
-
-      std::string LocalMirrorOfGlobalName =
-          std::string("global.") + std::string(DIGV->getName());
-
-      for (llvm::Function const *fn : entryPoints) {
-        auto const &DIFn = SubProgramMap[fn];
-        // bool breakout = false;
-        // for (DISubprogram *diFn : DebugFinder->subprograms()) {
-        //  if (diFn->getName() == fn->getName()) {
-        for (DILocalVariable *diLV : DIFn->getVariables()) {
-          if (diLV->getName().compare(LocalMirrorOfGlobalName)) {
-            Storage.LocalMirrors[fn] = diLV;
-            // breakout = true;
-            break;
-          }
-        }
-      }
+      Storage.LocalMirrors = GenerateGlobalToLocalMirrorMap(M, DIGV);
     }
   }
   return ret;
@@ -533,6 +570,9 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
 {
   hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
 
+   for (const NamedMDNode &NMD : M.named_metadata()) {
+    NMD.dump();
+  }
   auto GlobalEmbeddedArrayStorage = GatherGlobalEmbeddedArrayStorage(M);
 
   bool Changed = false;
@@ -960,16 +1000,14 @@ struct GlobalVariableAndStorage
 };
 
 GlobalVariableAndStorage GetOffsetFromGlobalVariable(
-    llvm::Module &M, llvm::StringRef name,
+    llvm::StringRef name,
     GlobalStorageMap &GlobalEmbeddedArrayStorage) {
   GlobalVariableAndStorage ret{};
-  for (GlobalVariable &GV : M.globals()) {
-    for (auto &Variable : GlobalEmbeddedArrayStorage) {
-      for (auto &Storage : Variable.second.ArrayElementStorage) {
-        if (llvm::StringRef(Storage.Name).startswith(GV.getName())) {
-          ret.DIGV = Variable.first;
-          ret.Offset = Storage.Offset;
-        }
+  for (auto &Variable : GlobalEmbeddedArrayStorage) {
+    for (auto &Storage : Variable.second.ArrayElementStorage) {
+      if (llvm::StringRef(Storage.Name).equals(name)) {
+        ret.DIGV = Variable.first;
+        ret.Offset = Storage.Offset;
       }
     }
   }
@@ -1006,9 +1044,9 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
               std::string(asGEP->getPointerOperand()->getName()) + "." +
               std::to_string(MemberIndex);
           auto Storage = GetOffsetFromGlobalVariable(
-              M, MemberName, GlobalEmbeddedArrayStorage);
+              MemberName, GlobalEmbeddedArrayStorage);
 
-          llvm::DILocalVariable *Variable =
+          llvm::DILocalVariable *Variable = 
               GlobalEmbeddedArrayStorage[Storage.DIGV]
                   .LocalMirrors[Store->getParent()->getParent()];
           if (Variable != nullptr) {
@@ -1024,11 +1062,12 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
               }
               auto *AllocaInst =
                   Register->GetRegisterForAlignedOffset(Storage.Offset);
-              if (AllocaInst == nullptr) {
+              if (AllocaInst != nullptr) {
                 IRBuilder<> B(Store->getNextNode());
                 auto *Zero = B.getInt32(0);
                 auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
-                B.CreateStore(Store->getValueOperand(), GEP);
+                auto * STI = B.CreateStore(Store->getValueOperand(), GEP);
+                STI->dump();
                 return true; // yes, we modified the module
               }
             }

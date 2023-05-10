@@ -223,6 +223,8 @@ public:
   TEST_METHOD(PixStructAnnotation_ResourceAsMember)
   TEST_METHOD(PixStructAnnotation_WheresMyDbgValue)
 
+  TEST_METHOD(PixValueToDeclarePass_GlobalBackedGlobalStaticEmbeddedArrays_NoDbgValue)
+
   TEST_METHOD(PixTypeManager_InheritancePointerStruct)
   TEST_METHOD(PixTypeManager_InheritancePointerTypedef)
   TEST_METHOD(PixTypeManager_MatricesInBase)
@@ -876,8 +878,31 @@ static std::string ToString(std::wstring from)
     return ret;
 }
 
-  PassOutput RunAnnotationPasses(IDxcBlob * dxil, int startingLineNumber = 0)
+  PassOutput RunValueToDeclarePass(IDxcBlob * dxil, int startingLineNumber = 0)
   {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText;
+    if (pText->GetBufferSize() != 0)
+    {
+      outputText = reinterpret_cast<const char*>(pText->GetBufferPointer());
+    }
+
+    return {
+        std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  PassOutput RunAnnotationPasses(IDxcBlob *dxil, int startingLineNumber = 0) {
     CComPtr<IDxcOptimizer> pOptimizer;
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
@@ -895,9 +920,8 @@ static std::string ToString(std::wstring from)
         dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
     std::string outputText;
-    if (pText->GetBufferSize() != 0)
-    {
-      outputText = reinterpret_cast<const char*>(pText->GetBufferPointer());
+    if (pText->GetBufferSize() != 0) {
+      outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
     }
 
     auto disasm = ToString(Disassemble(pOptimizedModule));
@@ -906,12 +930,12 @@ static std::string ToString(std::wstring from)
 
     std::vector<ValueLocation> valueLocations;
 
-    for (auto const& r2n : registerToName)
-    {
+    for (auto const &r2n : registerToName) {
       valueLocations.push_back({r2n.first.first, r2n.first.second});
     }
 
-    return { std::move(pOptimizedModule), std::move(valueLocations), Tokenize(outputText.c_str(), "\n") };
+    return {std::move(pOptimizedModule), std::move(valueLocations),
+            Tokenize(outputText.c_str(), "\n")};
   }
 
   std::wstring Disassemble(IDxcBlob * pProgram)
@@ -1141,6 +1165,9 @@ static std::string ToString(std::wstring from)
                                                                  blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob* blob);
   void CompileAndRunAnnotationAndGetDebugPart(
+      dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+      IDxcBlob **ppDebugPart);
+  void CompileAndRunValueToDeclareAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
       IDxcBlob **ppDebugPart);
   void CompileAndRunAnnotationAndLoadDiaSource(dxc::DxcDllSupport &dllSupport,
@@ -1845,6 +1872,52 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
   CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
 
   auto annotated = RunAnnotationPasses(pContainer);
+
+  CComPtr<IDxcBlob> pNewContainer;
+  {
+    CComPtr<IDxcAssembler> pAssembler;
+    IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+    CComPtr<IDxcOperationResult> pAssembleResult;
+    VERIFY_SUCCEEDED(
+        pAssembler->AssembleToContainer(annotated.blob, &pAssembleResult));
+
+    CComPtr<IDxcBlobEncoding> pAssembleErrors;
+    VERIFY_SUCCEEDED(pAssembleResult->GetErrorBuffer(&pAssembleErrors));
+
+    if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
+      OutputDebugStringA(
+          static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
+      VERIFY_SUCCEEDED(E_FAIL);
+    }
+
+    VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
+  }
+
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  VERIFY_SUCCEEDED(
+      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(pNewContainer));
+  VERIFY_SUCCEEDED(
+      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
+}
+
+void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
+    dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+    IDxcBlob **ppDebugPart) {
+  CComPtr<IDxcBlob> pContainer;
+  CComPtr<IDxcLibrary> pLib;
+  CComPtr<IDxcContainerReflection> pReflection;
+  UINT32 index;
+  std::vector<LPCWSTR> args;
+  args.push_back(L"/Zi");
+  args.push_back(L"/Od");
+  args.push_back(L"/Qembed_debug");
+
+  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
+
+  auto annotated = RunValueToDeclarePass(pContainer);
 
   CComPtr<IDxcBlob> pNewContainer;
   {
@@ -3940,6 +4013,55 @@ void main()
         // Can't test offsets and sizes until dbg.declare instructions are emitted when floatn is used (https://github.com/microsoft/DirectXShaderCompiler/issues/2920)
         VERIFY_ARE_EQUAL(3, Testables.AllocaWrites.size());
     }
+}
+
+TEST_F(
+    PixTest,
+    PixValueToDeclarePass_GlobalBackedGlobalStaticEmbeddedArrays_NoDbgValue) {
+    if (m_ver.SkipDxilVersion(1, 5)) return;
+
+        const char* hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+struct GlobalStruct
+{
+    int IntArray[2];
+    float FloatArray[2];
+};
+
+static GlobalStruct globalStruct;
+[numthreads(1, 1, 1)]
+void main()
+{
+    float Accumulator;
+    globalStruct.IntArray[0] = floatRWUAV[0];
+    globalStruct.IntArray[1] = floatRWUAV[1];
+    globalStruct.FloatArray[0] = floatRWUAV[2];
+    globalStruct.FloatArray[1] = floatRWUAV[3];
+    Accumulator = 0;
+
+    uint killSwitch = 0;
+
+    [loop] // do not unroll this
+    while (true)
+    {
+        Accumulator += globalStruct.FloatArray[killSwitch % 2];
+
+        if (killSwitch++ == 4) break;
+    }
+
+    floatRWUAV[0] = Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];
+}
+
+)";
+        // The above HLSL should generate a module that represents the FloatArray member as a global, and
+        // the IntArray as an alloca. Since only embedded arrays are present in GlobalStruct, no
+        // dbg.value will be present for globalStruct. We expect the value-to-declare pass to generate its
+        // own dbg.value for stores into FloatArray.
+      CComPtr<IDxcBlob> ProcessedModule;
+      CompileAndRunValueToDeclareAndGetDebugPart(m_dllSupport, hlsl, L"cs_6_6", &ProcessedModule);
+      auto dis = Disassemble(ProcessedModule);
+      dis;
 }
 
 TEST_F(PixTest, VirtualRegisters_InstructionCounts) {
