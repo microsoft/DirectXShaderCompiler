@@ -97,6 +97,7 @@ public:
 
   TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
   TEST_METHOD(CompileAS_CheckPSV0)
+  TEST_METHOD(CompileGS_CheckPSV0_ViewID)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
@@ -938,6 +939,117 @@ TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
     }
   }
   VERIFY_IS_TRUE(blobFound);
+}
+
+TEST_F(DxilContainerTest, CompileGS_CheckPSV0_ViewID) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+
+  // Verify that ViewID and Input to Output masks are correct for
+  // geometry shader with multiple stream outputs.
+  // This acts as a regression test for issue #5199, where a single pointer was
+  // used for the ViewID dependency mask and a single pointer for input to
+  // output dependencies, when each of these needed a separate pointer per
+  // stream.  The effect was an overlapping and clobbering of data for earlier
+  // streams.
+  // Skip validator versions < 1.7 since they lack the fix.
+
+  const unsigned ARRAY_SIZE = 8;
+  const char gsSource[] =
+    "#define ARRAY_SIZE 8\n"
+    "struct GSOut0 { float4 pos : SV_Position; };\n"
+    "struct GSOut1 { float4 arr[ARRAY_SIZE] : Array; };\n"
+    "[shader(\"geometry\")]\n"
+    "[maxvertexcount(1)]\n"
+    "void main(point float4 input[1] : COORD,\n"
+    "          inout PointStream<GSOut0> out0,\n"
+    "          inout PointStream<GSOut1> out1,\n"
+    "          uint vid : SV_ViewID) {\n"
+    " GSOut0 o0 = (GSOut0)0;\n"
+    " GSOut1 o1 = (GSOut1)0;\n"
+    " o0.pos = input[0];\n"
+    " out0.Append(o0);\n"
+    " out0.RestartStrip();\n"
+    " [unroll]\n"
+    " for (uint i = 0; i < ARRAY_SIZE; i++)\n"
+    "   o1.arr[i] = input[0][i%4] + vid;\n"
+    " out1.Append(o1);\n"
+    " out1.RestartStrip();\n"
+    "}";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pResult;
+
+  // Compile the shader
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(gsSource, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"gs_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  HRESULT hrStatus;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrStatus));
+  VERIFY_SUCCEEDED(hrStatus);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  // Get PSV0 part
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+  VERIFY_SUCCEEDED(containerReflection->Load(pProgram));
+  uint32_t partIdx = 0;
+  VERIFY_SUCCEEDED(containerReflection->FindFirstPartKind((uint32_t)hlsl::DxilFourCC::DFCC_PipelineStateValidation, &partIdx));
+  CComPtr<IDxcBlob> pBlob;
+  VERIFY_SUCCEEDED(containerReflection->GetPartContent(partIdx, &pBlob));
+
+  // Init PSV and verify ViewID masks and Input to Output Masks
+  DxilPipelineStateValidation PSV;
+  PSV.InitFromPSV0(pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+  PSVShaderKind kind = PSV.GetShaderKind();
+  VERIFY_ARE_EQUAL(PSVShaderKind::Geometry, kind);
+  PSVRuntimeInfo0* pInfo = PSV.GetPSVRuntimeInfo0();
+  VERIFY_IS_NOT_NULL(pInfo);
+
+  // Stream 0 should have no direct ViewID dependency:
+  PSVComponentMask viewIDMask0 = PSV.GetViewIDOutputMask(0);
+  VERIFY_IS_TRUE(viewIDMask0.IsValid());
+  VERIFY_ARE_EQUAL(1, viewIDMask0.NumVectors);
+  for (unsigned i = 0; i < 4; i++) {
+    VERIFY_IS_FALSE(viewIDMask0.Get(i));
+  }
+
+  // Everything in stream 1 should be dependent on ViewID:
+  PSVComponentMask viewIDMask1 = PSV.GetViewIDOutputMask(1);
+  VERIFY_IS_TRUE(viewIDMask1.IsValid());
+  VERIFY_ARE_EQUAL(ARRAY_SIZE, viewIDMask1.NumVectors);
+  for (unsigned i = 0; i < ARRAY_SIZE * 4; i++) {
+    VERIFY_IS_TRUE(viewIDMask1.Get(i));
+  }
+
+  // Stream 0 is simple assignment of input vector:
+  PSVDependencyTable ioTable0 = PSV.GetInputToOutputTable(0);
+  VERIFY_IS_TRUE(ioTable0.IsValid());
+  VERIFY_ARE_EQUAL(1, ioTable0.OutputVectors);
+  for (unsigned i = 0; i < 4; i++) {
+    PSVComponentMask ioMask0_i = ioTable0.GetMaskForInput(i);
+    // input 0123 -> output 0123
+    for (unsigned j = 0; j < 4; j++) {
+      VERIFY_ARE_EQUAL(i == j, ioMask0_i.Get(j));
+    }
+  }
+
+  // Each vector in Stream 1 combines one component of input with ViewID:
+  PSVDependencyTable ioTable1 = PSV.GetInputToOutputTable(1);
+  VERIFY_IS_TRUE(ioTable1.IsValid());
+  VERIFY_ARE_EQUAL(ARRAY_SIZE, ioTable1.OutputVectors);
+  for (unsigned i = 0; i < 4; i++) {
+    PSVComponentMask ioMask1_i = ioTable1.GetMaskForInput(i);
+    for (unsigned j = 0; j < ARRAY_SIZE * 4; j++) {
+      // Vector output vector/component dependency by input component:
+      // 0000, 1111, 2222, 3333, 0000, 1111, 2222, 3333, ...
+      VERIFY_ARE_EQUAL(i == (j / 4) % 4, ioMask1_i.Get(j));
+    }
+  }
 }
 
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {

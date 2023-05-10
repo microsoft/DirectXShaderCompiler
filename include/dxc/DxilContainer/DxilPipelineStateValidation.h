@@ -418,9 +418,9 @@ class DxilPipelineStateValidation
   void *m_pSigInputElements = nullptr;
   void *m_pSigOutputElements = nullptr;
   void *m_pSigPatchConstOrPrimElements = nullptr;
-  uint32_t *m_pViewIDOutputMask = nullptr;
+  uint32_t *m_pViewIDOutputMask[4] = {nullptr, nullptr, nullptr, nullptr};
   uint32_t *m_pViewIDPCOrPrimOutputMask = nullptr;
-  uint32_t *m_pInputToOutputTable = nullptr;
+  uint32_t *m_pInputToOutputTable[4] = {nullptr, nullptr, nullptr, nullptr};
   uint32_t *m_pInputToPCOutputTable = nullptr;
   uint32_t *m_pPCInputToOutputTable = nullptr;
 
@@ -599,9 +599,9 @@ public:
 
   // ViewID dependencies
   PSVComponentMask GetViewIDOutputMask(unsigned streamIndex = 0) const {
-    if (!m_pViewIDOutputMask || !m_pPSVRuntimeInfo1 || !m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex])
+    if (streamIndex >= 4 || !m_pViewIDOutputMask[streamIndex] || !m_pPSVRuntimeInfo1 || !m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex])
       return PSVComponentMask();
-    return PSVComponentMask(m_pViewIDOutputMask, m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex]);
+    return PSVComponentMask(m_pViewIDOutputMask[streamIndex], m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex]);
   }
   PSVComponentMask GetViewIDPCOutputMask() const {
     if ((!IsHS() && !IsMS()) || !m_pViewIDPCOrPrimOutputMask || !m_pPSVRuntimeInfo1 || !m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors)
@@ -611,8 +611,8 @@ public:
 
   // Input to Output dependencies
   PSVDependencyTable GetInputToOutputTable(unsigned streamIndex = 0) const {
-    if (m_pInputToOutputTable && m_pPSVRuntimeInfo1) {
-      return PSVDependencyTable(m_pInputToOutputTable, m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex]);
+    if (streamIndex < 4 && m_pInputToOutputTable[streamIndex] && m_pPSVRuntimeInfo1) {
+      return PSVDependencyTable(m_pInputToOutputTable[streamIndex], m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex]);
     }
     return PSVDependencyTable();
   }
@@ -847,7 +847,7 @@ inline bool DxilPipelineStateValidation::ReadOrWrite(
     if (m_pPSVRuntimeInfo1->UsesViewID) {
       for (unsigned i = 0; i < 4; i++) {
         if (m_pPSVRuntimeInfo1->SigOutputVectors[i]) {
-          PSV_RETB(rw.MapArray(&m_pViewIDOutputMask,
+          PSV_RETB(rw.MapArray(&m_pViewIDOutputMask[i],
             PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigOutputVectors[i])));
         }
         if (!IsGS())
@@ -862,7 +862,7 @@ inline bool DxilPipelineStateValidation::ReadOrWrite(
     // Input to Output dependencies
     for (unsigned i = 0; i < 4; i++) {
       if (!IsMS() && m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
-        PSV_RETB(rw.MapArray(&m_pInputToOutputTable,
+        PSV_RETB(rw.MapArray(&m_pInputToOutputTable[i],
           PSVComputeInputOutputTableDwords(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i])));
       }
       if (!IsGS())
