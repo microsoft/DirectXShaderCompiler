@@ -17,6 +17,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/Loads.h"
@@ -1794,6 +1795,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       DominatorTree &DT = domTreeMap[F];
       if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL, &DT,
                                    bAllowReplace)) {
+        if (AI->use_empty())
+          AI->eraseFromParent();
         Changed = true;
         continue;
       }
@@ -3769,6 +3772,110 @@ static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
   return false;
 }
 
+static void collectAllStores(const Value *V, SmallVector<const Instruction *, 4> &Stores) {
+  for (const User *U : V->users()) {
+    if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
+      collectAllStores(BC, Stores);
+    } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
+        if (MC->getRawDest() == V)
+        Stores.emplace_back(MC);
+    } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      collectAllStores(GEP, Stores);
+    } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      Stores.emplace_back(SI);
+    } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *F = CI->getCalledFunction();
+      if (F->isIntrinsic()) {
+        if (F->getIntrinsicID() == Intrinsic::lifetime_start ||
+            F->getIntrinsicID() == Intrinsic::lifetime_end)
+          continue;
+      }
+
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+      switch (group) {
+      case HLOpcodeGroup::HLMatLoadStore: {
+        HLMatLoadStoreOpcode opcode =
+            static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+        switch (opcode) {
+        case HLMatLoadStoreOpcode::ColMatLoad:
+        case HLMatLoadStoreOpcode::RowMatLoad:
+          break;
+        case HLMatLoadStoreOpcode::ColMatStore:
+        case HLMatLoadStoreOpcode::RowMatStore:
+          Stores.emplace_back(CI);
+          break;
+        default:
+          DXASSERT(0, "invalid opcode");
+          Stores.emplace_back(CI);
+          break;
+        }
+      } break;
+      case HLOpcodeGroup::HLSubscript: {
+        HLSubscriptOpcode opcode =
+            static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
+        switch (opcode) {
+        case HLSubscriptOpcode::VectorSubscript:
+        case HLSubscriptOpcode::ColMatElement:
+        case HLSubscriptOpcode::ColMatSubscript:
+        case HLSubscriptOpcode::RowMatElement:
+        case HLSubscriptOpcode::RowMatSubscript:
+          collectAllStores(CI, Stores);
+          break;
+        default:
+          // Rest are resource ptr like buf[i].
+          // Only read of resource handle.
+          break;
+        }
+      } break;
+      default: {
+        // If not sure its out param or not. Take as out param.
+        Stores.emplace_back(CI);
+      }
+      }
+    }
+  }
+}
+
+// return true if A is before B.
+// When A and B in same basic block, before means A will be reach first when
+// iterate the basic block. When A and B is not in same basic block, before
+// means block A will be reach first when doing reverse post order traversal on
+// basic blocks.
+static bool isBefore(const Instruction *A, const Instruction *B,
+                     DenseMap<const BasicBlock *, unsigned> &RPOTOrder) {
+  const BasicBlock *BBA = A->getParent();
+  const BasicBlock *BBB = B->getParent();
+  if (BBA != BBB) {
+    return RPOTOrder[BBA] < RPOTOrder[BBB];
+  }
+  for (const Instruction &I : *BBA) {
+    if (A == &I)
+      return true;
+    if (B == &I)
+      return false;
+  }
+  llvm_unreachable("cannot find A and B in the block");
+  return false;
+}
+
+// Make sure all store on V are before I.
+static bool noUnusedStoreAfter(Value *V, Instruction *I) {
+  SmallVector<const Instruction *, 4> Stores;
+  collectAllStores(V, Stores);
+
+  ReversePostOrderTraversal<Function *> RPOT(I->getParent()->getParent());
+  DenseMap<const BasicBlock *, unsigned> RPOTOrder;
+  unsigned Count = 0;
+  for (BasicBlock *BB : RPOT) {
+    RPOTOrder[BB] = Count++;
+  }
+  for (const Instruction *S : Stores) {
+    if (isBefore(I, S, RPOTOrder))
+      return false;
+  }
+  return true;
+}
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3843,9 +3950,14 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Resource ptr should not be replaced.
           // Need to make sure src not updated after current memcpy.
           // Check Src only have 1 store now.
+          // If Src has more than 1 store but only used once by memcpy, check if
+          // the stores are before memcpy.
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
-          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
+          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored ||
+              (SrcPS.loadedType ==
+                   hlutil::PointerStatus::LoadedType::MemcopySrcOnce &&
+               noUnusedStoreAfter(Src, MC))) {
             if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
               if (V->user_empty())
                 return true;
