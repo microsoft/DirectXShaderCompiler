@@ -994,7 +994,6 @@ TEST_F(DxilContainerTest, CompileGS_CheckPSV0_ViewID) {
 
   // Get PSV0 part
   CComPtr<IDxcContainerReflection> containerReflection;
-  uint32_t partCount;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
   VERIFY_SUCCEEDED(containerReflection->Load(pProgram));
   uint32_t partIdx = 0;
@@ -1013,7 +1012,7 @@ TEST_F(DxilContainerTest, CompileGS_CheckPSV0_ViewID) {
   // Stream 0 should have no direct ViewID dependency:
   PSVComponentMask viewIDMask0 = PSV.GetViewIDOutputMask(0);
   VERIFY_IS_TRUE(viewIDMask0.IsValid());
-  VERIFY_ARE_EQUAL(1, viewIDMask0.NumVectors);
+  VERIFY_ARE_EQUAL(1U, viewIDMask0.NumVectors);
   for (unsigned i = 0; i < 4; i++) {
     VERIFY_IS_FALSE(viewIDMask0.Get(i));
   }
@@ -1029,7 +1028,7 @@ TEST_F(DxilContainerTest, CompileGS_CheckPSV0_ViewID) {
   // Stream 0 is simple assignment of input vector:
   PSVDependencyTable ioTable0 = PSV.GetInputToOutputTable(0);
   VERIFY_IS_TRUE(ioTable0.IsValid());
-  VERIFY_ARE_EQUAL(1, ioTable0.OutputVectors);
+  VERIFY_ARE_EQUAL(1U, ioTable0.OutputVectors);
   for (unsigned i = 0; i < 4; i++) {
     PSVComponentMask ioMask0_i = ioTable0.GetMaskForInput(i);
     // input 0123 -> output 0123
