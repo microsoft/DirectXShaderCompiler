@@ -1208,18 +1208,6 @@ ASTContext::getInstantiatedFromUsingDecl(UsingDecl *UUD) {
   return Pos->second;
 }
 
-// HLSL change start
-bool
-ASTContext::validatePerVertexInput(const NamedDecl *decl) {
-  return GetAttribAtVertCallInputDecl.count(decl);
-}
-
-void
-ASTContext::recordPerVertexInput(const NamedDecl *decl) {
-  GetAttribAtVertCallInputDecl.insert(decl);
-}
-// HLSL change end
-
 void
 ASTContext::setInstantiatedFromUsingDecl(UsingDecl *Inst, NamedDecl *Pattern) {
   assert((isa<UsingDecl>(Pattern) ||

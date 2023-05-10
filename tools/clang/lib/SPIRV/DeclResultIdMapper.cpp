@@ -2488,17 +2488,6 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   return true;
 }
 
-bool DeclResultIdMapper::decoratePerVertexKHR(const NamedDecl *ArgInst, int index)
-{
-  for (const auto &var : stageVars) {
-    auto b = var.getSpirvInstr()->getSourceLocation();
-    if (b == ArgInst->getUnusualAnnotations()[0]->Loc) {
-      spvBuilder.decoratePerVertexKHR(var.getSpirvInstr(), b);
-    }
-  }
-  return true;
-}
-
 bool DeclResultIdMapper::decorateResourceCoherent() {
   for (const auto &var : resourceVars) {
     if (const auto *decl = var.getDeclaration()) {
@@ -2791,10 +2780,10 @@ bool DeclResultIdMapper::createStageVars(
                                 (semanticKind == hlsl::Semantic::Kind::Barycentrics));
 
     if (asInput) {
-      if (astContext.validatePerVertexInput(decl) && !evalType->isArrayType())
-          evalType = astContext.getConstantArrayType(evalType, llvm::APInt(32, 3),
-                     clang::ArrayType::Normal, 0);
-
+      if (decl->getAttr<HLSLNoInterpolationAttr>()) {
+        spvBuilder.decoratePerVertexKHR(varInstr,
+                                        varInstr->getSourceLocation());
+      }
       *value = spvBuilder.createLoad(evalType, varInstr, loc);
       // Fix ups for corner cases
 
@@ -3480,12 +3469,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   const auto sigPoint = stageVar->getSigPoint();
   const auto semanticKind = stageVar->getSemanticInfo().getKind();
   const auto sigPointKind = sigPoint->GetKind();
-  auto type = stageVar->getAstType();
+  const auto type = stageVar->getAstType();
   const auto isPrecise = decl->hasAttr<HLSLPreciseAttr>();
-  // Record fund decl of stage IO according to parameter node in local call
-  if (astContext.validatePerVertexInput(decl) && !type->isArrayType())
-    type = astContext.getConstantArrayType(type, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
-
   spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
   if (sc == spv::StorageClass::Max)
     return 0;

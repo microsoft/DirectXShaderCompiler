@@ -12778,7 +12778,6 @@ bool Sema::IsOnHLSLBufferView() {
   // nullptr will not pushed for cbuffer.
   return !HLSLBuffers.empty() && getActiveHLSLBuffer() == nullptr;
 }
-
 HLSLBufferDecl::HLSLBufferDecl(
     DeclContext *DC, bool cbuffer, bool cbufferView, SourceLocation KwLoc,
     IdentifierInfo *Id, SourceLocation IdLoc,

@@ -733,12 +733,6 @@ Sema::BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
     BaseType = Base->getType();
   }
 
-  // HLSL change starts
-  if (Base && R.getResultKind() == LookupResult::Found &&
-      GetAttributeAtVertexInputDecl == nullptr) {
-    GetAttributeAtVertexInputDecl = R.getFoundDecl();
-  }
-  // HLSL change ends
   return BuildMemberReferenceExpr(Base, BaseType,
                                   OpLoc, IsArrow, SS, TemplateKWLoc,
                                   FirstQualifierInScope, R, TemplateArgs,

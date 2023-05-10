@@ -37,7 +37,6 @@
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/ADT/SmallSet.h"  // HLSL change
 #include "llvm/Support/Allocator.h"
 #include <memory>
 #include <vector>
@@ -365,8 +364,6 @@ private:
     InstantiatedFromUsingShadowDecl;
 
   llvm::DenseMap<FieldDecl *, FieldDecl *> InstantiatedFromUnnamedFieldDecl;
-
-  llvm::SmallSet<const NamedDecl*, 8> GetAttribAtVertCallInputDecl; // HLSL change
 
   /// \brief Mapping that stores the methods overridden by a given C++
   /// member function.
@@ -912,9 +909,6 @@ public:
   // HLSL Change Starts
   /// \brief Retrieve the declaration for HLSL string type.
   TypedefDecl *getHLSLStringTypedef() const;
-  /// \brief Record usage of input in GetAttributeAtVertex and its namedDecl.
-  bool validatePerVertexInput(const NamedDecl *decl);
-  void recordPerVertexInput(const NamedDecl *decl);
   // HSLS CHange Ends
 
   //===--------------------------------------------------------------------===//

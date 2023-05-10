@@ -1254,28 +1254,34 @@ SpirvInstruction *SpirvEmitter::loadIfAliasVarRef(const Expr *expr,
 QualType SpirvEmitter::redeclSpecialVarType(QualType type,
                                             ParmVarDecl* param)
 {
-  QualType resultType;
+  QualType resultType = type;
+
   if (type->isStructureType()) {
     // For structure type inputs.
     const auto *structDecl = type->getAs<RecordType>()->getDecl();
     for (auto *field : structDecl->fields()) {
-      if (astContext.validatePerVertexInput(field) &&
+      if (field->hasAttr<HLSLNoInterpolationAttr>() &&
           !field->getType()->isArrayType()) {
-        QualType qtype = astContext.getConstantArrayType(
-            field->getType(), llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
+        QualType qtype = field->getType();
+        if (isBoolOrVecMatOfBoolType(qtype)) {
+          qtype = getUintTypeForBool(astContext, theCompilerInstance, qtype);
+        }
+        qtype = astContext.getConstantArrayType(qtype, llvm::APInt(32, 3),
+                                                clang::ArrayType::Normal, 0);
         field->setType(qtype);
       }
     }
     resultType = type;
-  } else if (astContext.validatePerVertexInput(param) &&
-             !type->isArrayType()) {
-    QualType qtype = astContext.getConstantArrayType(
-        type, llvm::APInt(32, 3), clang::ArrayType::Normal, 0);
+  } else if (!type->isArrayType()) {
     // Reset parameter type as it will be used in later instrics process.
+    QualType qtype = type;
+    if (isBoolOrVecMatOfBoolType(qtype)) {
+      qtype = getUintTypeForBool(astContext, theCompilerInstance, type);
+    }
+    qtype = astContext.getConstantArrayType(qtype, llvm::APInt(32, 3),
+                                            clang::ArrayType::Normal, 0);
     param->setType(qtype);
     resultType = qtype;
-  } else {
-    resultType = type;
   }
   return resultType;
 }
@@ -5885,16 +5891,18 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   }
 
   QualType elemType = expr->getType();
-  if (astContext.validatePerVertexInput(expr->getMemberDecl()) && !elemType->isArrayType()) {
+  if (expr->getMemberDecl()->hasAttr<HLSLNoInterpolationAttr>() &&
+      !elemType->isArrayType()) {
+    if (isBoolOrVecMatOfBoolType(elemType)) {
+      elemType = getUintTypeForBool(astContext, theCompilerInstance, elemType);
+    }
     elemType = astContext.getConstantArrayType(elemType, llvm::APInt(32, 3),
                                                clang::ArrayType::Normal, 0);
-    return derefOrCreatePointerToValue(base->getType(), instr, elemType, indices,
-                                       base->getExprLoc(), range);
   }
 
   const auto *fieldDecl = dyn_cast<FieldDecl>(expr->getMemberDecl());
   if (!fieldDecl || !fieldDecl->isBitField()) {
-    return derefOrCreatePointerToValue(base->getType(), instr, expr->getType(),
+    return derefOrCreatePointerToValue(base->getType(), instr, elemType,
                                        indices, loc, range);
   }
 
@@ -8618,7 +8626,6 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = doConditional(callExpr, cond, falseExpr, trueExpr);
     break;
   }
-<<<<<<< HEAD
   case hlsl::IntrinsicOp::IOP_min: {
     glslOpcode =
         isFloatType  ? (spirvOptions.finiteMathOnly ? GLSLstd450::GLSLstd450FMin
@@ -11587,33 +11594,58 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   const auto exprRange = expr->getSourceRange();
   QualType arg0Type;
 
-  // arg1
+  // arg1 : vertexId
   const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
   const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
   const auto *vertexId = arg1ConstExpr->getValue().getRawData();
 
-  // arg0
-  const auto *arg0 = expr->getArg(0)->IgnoreParenLValueCasts();
+  // arg0 : <NoInterpolation> decorated input
+  // Tip  : for input with boolean type, we need to ignore implicit cast first,
+  //        to match surrounded workaround cast expr.
+  auto *arg0NoCast = expr->getArg(0)->IgnoreCasts();
+  bool hasImplicitCast = false;
 
-  if ((dyn_cast<DeclRefExpr>(arg0))){
-    const auto *arg0ValDecl = (dyn_cast<DeclRefExpr>(arg0))->getDecl();
-    arg0Type = (dyn_cast<VarDecl>(arg0ValDecl))->getType()->getAsArrayTypeUnsafe()->getElementType();
-    declIdMapper.decoratePerVertexKHR(dyn_cast<NamedDecl>(arg0ValDecl), *vertexId);
-  } else {
-    const auto *arg0NamedDecl = (dyn_cast<MemberExpr>(arg0))->getFoundDecl().getDecl();
+  if (dyn_cast<CastExpr>(expr->getArg(0)->IgnoreParenLValueCasts())) {
+    // If stage inputs is boolean type, it has been cast to uint type.
+    hasImplicitCast = true;
+  }
+
+  if (dyn_cast<MemberExpr>(arg0NoCast)) {
+    // As a structure field
+    const auto *arg0NamedDecl = (dyn_cast<MemberExpr>(arg0NoCast))->getFoundDecl().getDecl();
     arg0Type = dyn_cast<ValueDecl>(arg0NamedDecl)->getType()->getAsArrayTypeUnsafe()->getElementType();
-    declIdMapper.decoratePerVertexKHR(arg0NamedDecl, *vertexId);
+  } else {
+    // Normal type arg0
+    const auto *arg0ValDecl = (dyn_cast<DeclRefExpr>(arg0NoCast))->getDecl();
+    arg0Type = (dyn_cast<VarDecl>(arg0ValDecl))->getType()->getAsArrayTypeUnsafe()->getElementType();
   }
 
   // Change to access chain instr
-  auto *arg0BaseExpr = doExpr(arg0);
-  auto *accessChainPtr = spvBuilder.createAccessChain(
-      arg0Type, arg0BaseExpr,
+  auto *arg0BaseExpr = doExpr(arg0NoCast);
+  auto *accessChainPtr = spvBuilder.createAccessChain( arg0Type, arg0BaseExpr,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, *vertexId)),
       exprLoc, exprRange);
-
   auto *loadPtr = spvBuilder.createLoad(arg0Type, accessChainPtr, exprLoc, exprRange);
-  return loadPtr;
+
+  if (hasImplicitCast) {
+    // For normal types, results will be followed with OpConvertXXX later.
+    // For boolean type, we need to emulate its results with specific result types.
+    // Add 'cast' emulation to get Boolean result.
+    if (arg0Type->isPointerType())
+      arg0Type = arg0Type->getPointeeType();
+    QualType elemType = {};
+    QualType retType = astContext.BoolTy;
+    uint32_t vecSize = 1;
+    if (isVectorType(arg0Type, &elemType, &vecSize)) {
+      retType = astContext.getExtVectorType(retType, vecSize);
+    }
+    auto *eqResult = castToBool(loadPtr, arg0Type, retType, exprLoc, exprRange);
+    QualType selectType = dyn_cast<CastExpr>(expr->getArg(0))->getType();
+    auto *result = castToType(eqResult, retType, selectType, exprLoc, exprRange);
+    return result;
+  } else {
+    return loadPtr;
+  }
 }
 
 SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
@@ -12679,7 +12711,13 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // Create temporary variables for holding function call arguments
   llvm::SmallVector<SpirvInstruction *, 4> params;
   for (auto *param : decl->params()) {
-    const auto paramType = redeclSpecialVarType(param->getType(), param);
+    QualType paramType = param->getType();
+    if (param->hasAttr<HLSLNoInterpolationAttr>() ||
+        paramType->isStructureType()) {
+      // nointerpolation decorated parameter in entry function would be redeclared to an array.
+      // Boolean types would be cast back when return values later in processGetAttributeAt()
+      paramType = redeclSpecialVarType(paramType, param);
+    }
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
         spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,
