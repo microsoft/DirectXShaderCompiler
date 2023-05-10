@@ -200,22 +200,23 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
 
   // Scalar types
   if (isScalarType(targetType)) {
+    SpirvInstruction *scalarResult = nullptr;
     auto loadWidth = getElementSpirvBitwidth(
         astContext, targetType, theEmitter.getSpirvOptions().enable16BitTypes);
     switch (bitOffset) {
     case 0: {
       switch (loadWidth) {
       case 16:
-        return load16BitsAtBitOffset0(buffer, index, targetType, bitOffset,
-                                      range);
+        scalarResult =
+            load16BitsAtBitOffset0(buffer, index, targetType, bitOffset, range);
         break;
       case 32:
-        return load32BitsAtBitOffset0(buffer, index, targetType, bitOffset,
-                                      range);
+        scalarResult =
+            load32BitsAtBitOffset0(buffer, index, targetType, bitOffset, range);
         break;
       case 64:
-        return load64BitsAtBitOffset0(buffer, index, targetType, bitOffset,
-                                      range);
+        scalarResult =
+            load64BitsAtBitOffset0(buffer, index, targetType, bitOffset, range);
         break;
       default:
         theEmitter.emitError(
@@ -229,8 +230,8 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     case 16: {
       switch (loadWidth) {
       case 16:
-        return load16BitsAtBitOffset16(buffer, index, targetType, bitOffset,
-                                       range);
+        scalarResult = load16BitsAtBitOffset16(buffer, index, targetType,
+                                               bitOffset, range);
         break;
       case 32:
       case 64:
@@ -255,6 +256,11 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
           loc);
       return nullptr;
     }
+    assert(scalarResult != nullptr);
+    // We set the layout rule for scalars. Other types are built up from the
+    // scalars, and should inherit this layout rule or default to Void.
+    scalarResult->setLayoutRule(SpirvLayoutRule::Void);
+    return scalarResult;
   }
 
   // Vector types
