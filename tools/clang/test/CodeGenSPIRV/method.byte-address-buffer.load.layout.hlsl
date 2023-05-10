@@ -1,4 +1,4 @@
-// RUN: %dxc -spirv -T lib_6_5 -E AnyHit1 -fspv-target-env=vulkan1.3 -Wno-effects-syntax -fcgl -Vd %s | FileCheck %s
+// RUN: %dxc -spirv -T lib_6_5 -E AnyHit1 -fspv-target-env=vulkan1.3 -Wno-effects-syntax -fcgl %s | FileCheck %s
 
 // CHECK-NOT: error
 struct DataType
