@@ -41,13 +41,6 @@ void dxil_dia::Session::Init(
   m_finder = finder;
   m_dxilModule = llvm::make_unique<hlsl::DxilModule>(mod.get());
 
-  llvm::legacy::PassManager PM;
-  llvm::initializeDxilDbgValueToDbgDeclarePass(*llvm::PassRegistry::getPassRegistry());
-  llvm::initializeDxilAnnotateWithVirtualRegisterPass(*llvm::PassRegistry::getPassRegistry());
-  PM.add(llvm::createDxilDbgValueToDbgDeclarePass());
-  PM.add(llvm::createDxilAnnotateWithVirtualRegisterPass());
-  PM.run(*m_module);
-
   // Extract HLSL metadata.
   m_dxilModule->LoadDxilMetadata();
 
