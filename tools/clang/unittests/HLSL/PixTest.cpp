@@ -603,13 +603,15 @@ public:
       //WEX::Logging::Log::Comment(disTextW);
     }
 
+    auto annotated = WrapInNewContainer(RunAnnotationPasses(pProgram).blob);
+
     // CONSIDER: have the dia data source look for the part if passed a whole container.
     CComPtr<IDiaDataSource> pDiaSource;
     CComPtr<IStream> pProgramStream;
     CComPtr<IDxcLibrary> pLib;
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
     const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
-        pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+        annotated->GetBufferPointer(), annotated->GetBufferSize());
     VERIFY_IS_NOT_NULL(pContainer);
     hlsl::DxilPartIterator partIter =
         std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
@@ -621,7 +623,8 @@ public:
     CComPtr<IDxcBlob> pProgramPdb;
     hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
     VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
-        pProgram, pBitcode - (char *)pProgram->GetBufferPointer(), bitcodeLength,
+        annotated, pBitcode - (char *)annotated->GetBufferPointer(),
+        bitcodeLength,
         &pProgramPdb));
 
     // Disassemble the program with debug information.
@@ -1173,6 +1176,9 @@ static std::string ToString(std::wstring from)
   void CompileAndRunAnnotationAndLoadDiaSource(dxc::DxcDllSupport &dllSupport,
                                    const char *source, wchar_t *profile,
                                    IDiaDataSource **ppDataSource);
+
+private:
+  CComPtr<IDxcBlob> WrapInNewContainer(IDxcBlob * part);
 };
 
 
@@ -1873,26 +1879,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 
   auto annotated = RunAnnotationPasses(pContainer);
 
-  CComPtr<IDxcBlob> pNewContainer;
-  {
-    CComPtr<IDxcAssembler> pAssembler;
-    IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-
-    CComPtr<IDxcOperationResult> pAssembleResult;
-    VERIFY_SUCCEEDED(
-        pAssembler->AssembleToContainer(annotated.blob, &pAssembleResult));
-
-    CComPtr<IDxcBlobEncoding> pAssembleErrors;
-    VERIFY_SUCCEEDED(pAssembleResult->GetErrorBuffer(&pAssembleErrors));
-
-    if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
-      OutputDebugStringA(
-          static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
-      VERIFY_SUCCEEDED(E_FAIL);
-    }
-
-    VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
-  }
+  CComPtr<IDxcBlob> pNewContainer = WrapInNewContainer(annotated.blob);
 
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
   VERIFY_SUCCEEDED(
@@ -1967,6 +1954,28 @@ void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
   if (ppDataSource) {
     *ppDataSource = pDiaSource.Detach();
   }
+}
+
+CComPtr<IDxcBlob> PixTest::WrapInNewContainer(IDxcBlob *part) {
+  CComPtr<IDxcAssembler> pAssembler;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+  CComPtr<IDxcOperationResult> pAssembleResult;
+  VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(part, &pAssembleResult));
+
+  CComPtr<IDxcBlobEncoding> pAssembleErrors;
+  VERIFY_SUCCEEDED(pAssembleResult->GetErrorBuffer(&pAssembleErrors));
+
+  if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
+    OutputDebugStringA(
+        static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
+    VERIFY_SUCCEEDED(E_FAIL);
+  }
+
+  CComPtr<IDxcBlob> pNewContainer;
+  VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
+
+  return pNewContainer;
 }
 
 TEST_F(PixTest, PixTypeManager_InheritancePointerStruct) {
@@ -4562,7 +4571,7 @@ void ASMain()
 
   auto compiled = Compile(code, L"as_6_5", {}, L"ASMain");
 
-  auto debugPart = GetDebugPart(m_dllSupport, compiled);
+  auto debugPart = GetDebugPart(m_dllSupport, WrapInNewContainer(RunAnnotationPasses(compiled).blob));
 
   CComPtr<IDxcLibrary> library;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
@@ -4584,8 +4593,22 @@ void ASMain()
   VERIFY_SUCCEEDED(session->QueryInterface(&Factory));
   CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
   VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
+
+  auto lines = SplitAndPreserveEmptyLines(code, '\n');
+  auto DispatchMeshLineFind =
+      std::find_if(lines.begin(), lines.end(), [](std::string const &line) {
+        return line.find("DispatchMesh") != std::string::npos;
+      });
+  auto DispatchMeshLine =
+      static_cast<DWORD>(DispatchMeshLineFind - lines.begin()) + 2;
+
+  CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
+  VERIFY_SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
+      L"source.hlsl", DispatchMeshLine, 0, &instructionOffsets));
+  VERIFY_IS_TRUE(instructionOffsets->GetCount() > 0);
+  DWORD InstructionOrdinal = instructionOffsets->GetOffsetByIndex(0);
   CComPtr<IDxcPixDxilLiveVariables> liveVariables;
-  VERIFY_SUCCEEDED(dxilDebugger->GetLiveVariablesAt(43, &liveVariables));
+  VERIFY_SUCCEEDED(dxilDebugger->GetLiveVariablesAt(InstructionOrdinal, &liveVariables));
   CComPtr<IDxcPixVariable> variable;
   VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(0, &variable));
   CComBSTR name;
