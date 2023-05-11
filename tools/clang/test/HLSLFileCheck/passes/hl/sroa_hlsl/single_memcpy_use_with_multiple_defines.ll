@@ -1,6 +1,8 @@
 ; RUN: %opt %s -scalarrepl-param-hlsl -S | FileCheck %s
 
-; Make sure the 
+; Make sure memcpy which dst only defined once in the memcpy, src only used once in the memcpy got removed by replacement.
+; As a result, one of the alloca will be removed.
+; Based on tools\clang\test\HLSLFileCheck\shader_targets\library\lib_skip_copy_in.hlsl
 
 ; CHECK: alloca [2 x %class.matrix.float
 ; CHECK: alloca [2 x %class.matrix.float
