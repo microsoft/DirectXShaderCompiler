@@ -15,7 +15,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/WinFunctions.h"
-#include "SharedLibAffix.h"
+#include "dxc/Support/SharedLibAffix.h" // header generated during DXC build
 
 namespace dxc {
 
