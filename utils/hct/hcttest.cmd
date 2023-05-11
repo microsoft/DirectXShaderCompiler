@@ -261,11 +261,11 @@ if "%TEST_CLEAN%"=="1" (
   )
 )
 
+if "%TEST_MANUAL_FILE_CHECK%"=="1" (
+  set TEST_USE_LIT=0
+)
+
 if "%TEST_USE_LIT%"=="1" (
-  rem LIT does not separate exect tests from other taef tests.
-  if "%TEST_EXEC%"=="1" (
-    set TEST_CLANG=1
-  )
   rem LIT does not separate cmd tests from other clang hlsl tests.
   if "%TEST_CMD%"=="1" (
     set TEST_CLANG=1
@@ -288,8 +288,11 @@ if "%TEST_USE_LIT%"=="1" (
     if "!TEST_CLANG!"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
-      set RES_EXEC=%RES_CLANG%
       set RES_CMD=%RES_CLANG%
+    )
+    if "!TEST_EXEC!"=="1" (
+      cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
+      set RES_EXEC=!ERRORLEVEL!
     )
   )
   set TEST_CLANG=0
