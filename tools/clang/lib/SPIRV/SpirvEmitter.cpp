@@ -13775,6 +13775,7 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
 
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
+  options.set_preserve_bindings(spirvOptions.preserveBindings);
 
   if (spirvOptions.optConfig.empty()) {
     // Add performance passes.
