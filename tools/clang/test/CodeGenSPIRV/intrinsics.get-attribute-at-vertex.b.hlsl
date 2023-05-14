@@ -36,9 +36,7 @@ float3 main(PSInput input ) : SV_Target
 
 // CHECK: [[input:%\w+]] = OpFunctionParameter %_ptr_Function_PSInput
 // CHECK: [[color:%\w+]] = OpAccessChain %_ptr_Function__arr_v3float_uint_3 [[input]] %int_1
-// CHECK: [[color0:%\w+]] = OpAccessChain %_ptr_Function_v3float [[color]] %uint_1
 // CHECK: [[color1:%\w+]] = OpAccessChain %_ptr_Function__arr_v3uint_uint_3 [[input]] %int_2
-// CHECK: [[color10:%\w+]] = OpAccessChain %_ptr_Function_v3uint [[color1]] %uint_2
-// CHECK: [[result:%\w+]] = OpLoad %v3uint [[color10]]
+// CHECK: [[result:%\w+]] = OpLoad %v3uint [[color10:%\w+]]
 // CHECK: [[resultEq:%\w+]] = OpINotEqual %v3bool [[result]] [[constZeroUint:%\w+]]
 // CHECK: [[resultSlt:%\w+]] = OpSelect %v3float [[resultEq]] [[constOneDst:%\w+]] [[constZeroDst:%\w+]]

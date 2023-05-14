@@ -38,7 +38,5 @@ float3 main( float3 vBaryWeights : SV_Barycentrics,
 // CHECK: [[c0:%\w+]] = OpAccessChain %_ptr_Function_v3float [[color]] %uint_0
 // CHECK: [[c0l:%\w+]] = OpLoad %v3float [[c0]]
 // CHECK: OpStore [[vC0:%\w+]] [[c0l]]
-// CHECK: [[c1:%\w+]] = OpAccessChain %_ptr_Function_v3uint [[color2]] %uint_2
-// CHECK: [[c1load:%\w+]] = OpLoad %v3uint [[c1]]
-// CHECK: [[c1Ne:%\w+]] = OpINotEqual %v3bool [[c1load]] [[constZeroUint:%\w+]]
+// CHECK: [[c1Ne:%\w+]] = OpINotEqual %v3bool [[c1load:%\w+]] [[constZeroUint:%\w+]]
 // CHECK: [[c1Sel:%\w+]] = OpSelect %v3float [[c1Ne]] [[constOneTarget:%\w+]] [[constZeroTarget:%\w+]]
