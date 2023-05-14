@@ -832,6 +832,8 @@ HRESULT DxcDiagnostic::GetSeverity(_Out_ DxcDiagnosticSeverity* pResult)
 _Use_decl_annotations_
 HRESULT DxcDiagnostic::GetLocation(IDxcSourceLocation** pResult)
 {
+  if (pResult == nullptr) return E_POINTER;
+  DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(clang_getDiagnosticLocation(m_diagnostic), pResult);
 }
 
