@@ -1251,13 +1251,16 @@ SpirvInstruction *SpirvEmitter::loadIfAliasVarRef(const Expr *expr,
   return instr;
 }
 
-QualType SpirvEmitter::redeclSpecialVarType(QualType type,
+QualType SpirvEmitter::expandNoInterpolationParamToArray(QualType type,
                                             ParmVarDecl* param)
 {
+  // Expand nointerpolation decorated parameter in entry function
+  // to be an array. Boolean types would be cast back to dstType
+  // when return values later in processGetAttributeAt()
   QualType resultType = type;
 
   if (type->isStructureType()) {
-    // For structure type inputs.
+    // For structure type inputs, only expand nointerpolation decorated field.
     const auto *structDecl = type->getAs<RecordType>()->getDecl();
     for (auto *field : structDecl->fields()) {
       if (field->hasAttr<HLSLNoInterpolationAttr>() &&
@@ -1272,8 +1275,9 @@ QualType SpirvEmitter::redeclSpecialVarType(QualType type,
       }
     }
     resultType = type;
-  } else if (!type->isArrayType()) {
-    // Reset parameter type as it will be used in later instrics process.
+  } else if (param->hasAttr<HLSLNoInterpolationAttr>() &&
+      !type->isArrayType()) {
+    // Redecl parameter type as it will be used in later instrics process.
     QualType qtype = type;
     if (isBoolOrVecMatOfBoolType(qtype)) {
       qtype = getUintTypeForBool(astContext, theCompilerInstance, type);
@@ -12712,12 +12716,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   llvm::SmallVector<SpirvInstruction *, 4> params;
   for (auto *param : decl->params()) {
     QualType paramType = param->getType();
-    if (param->hasAttr<HLSLNoInterpolationAttr>() ||
-        paramType->isStructureType()) {
-      // nointerpolation decorated parameter in entry function would be redeclared to an array.
-      // Boolean types would be cast back when return values later in processGetAttributeAt()
-      paramType = redeclSpecialVarType(paramType, param);
-    }
+    paramType = expandNoInterpolationParamToArray(paramType, param);
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
         spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,

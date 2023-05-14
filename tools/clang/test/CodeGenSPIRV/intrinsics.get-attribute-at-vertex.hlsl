@@ -35,10 +35,10 @@ float3 main( float3 vBaryWeights : SV_Barycentrics,
 
 // CHECK: [[color:%\w+]] = OpFunctionParameter %_ptr_Function__arr_v3float_uint_3
 // CHECK: [[color2:%\w+]] = OpFunctionParameter %_ptr_Function__arr_v3uint_uint_3
-// CHECK: [[c0:%\d+]] = OpAccessChain %_ptr_Function_v3float [[color]] %uint_0
-// CHECK: [[c0l:%\d+]] = OpLoad %v3float [[c0]]
+// CHECK: [[c0:%\w+]] = OpAccessChain %_ptr_Function_v3float [[color]] %uint_0
+// CHECK: [[c0l:%\w+]] = OpLoad %v3float [[c0]]
 // CHECK: OpStore [[vC0:%\w+]] [[c0l]]
-// CHECK: [[c1:%\d+]] = OpAccessChain %_ptr_Function_v3uint [[color2]] %uint_2
-// CHECK: [[c1load:%\d+]] = OpLoad %v3uint [[c1]]
-// CHECK: [[c1Ne:%\d+]] = OpINotEqual %v3bool [[c1load]] [[constZeroUint:%\d+]]
-// CHECK: [[c1Sel:%\d+]] = OpSelect %v3float [[c1Ne]] [[constOneTarget:%\d+]] [[constZeroTarget:%\d+]]
+// CHECK: [[c1:%\w+]] = OpAccessChain %_ptr_Function_v3uint [[color2]] %uint_2
+// CHECK: [[c1load:%\w+]] = OpLoad %v3uint [[c1]]
+// CHECK: [[c1Ne:%\w+]] = OpINotEqual %v3bool [[c1load]] [[constZeroUint:%\w+]]
+// CHECK: [[c1Sel:%\w+]] = OpSelect %v3float [[c1Ne]] [[constOneTarget:%\w+]] [[constZeroTarget:%\w+]]

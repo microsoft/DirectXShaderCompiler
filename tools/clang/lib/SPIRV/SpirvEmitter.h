@@ -164,7 +164,7 @@ private:
 
   /// Redecl variable type for some special usage like PerVertexKHR decorated input.
   ///
-  QualType redeclSpecialVarType(QualType type, ParmVarDecl *param);
+  QualType expandNoInterpolationParamToArray(QualType type, ParmVarDecl *param);
 
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
