@@ -31,6 +31,7 @@ inline uint32_t PSVComputeInputOutputTableDwords(uint32_t InputVectors, uint32_t
 }
 #define PSVALIGN(ptr, alignbits) (((ptr) + ((1 << (alignbits))-1)) & ~((1 << (alignbits))-1))
 #define PSVALIGN4(ptr) (((ptr) + 3) & ~3)
+#define PSV_GS_MAX_STREAMS 4
 
 #ifndef NDEBUG
 #define PSV_RETB(exp) do { if(!(exp)) { assert(false && #exp); return false; } } while(0)
@@ -55,7 +56,7 @@ struct DSInfo {
 struct GSInfo {
   uint32_t InputPrimitive;              // hlsl::DXIL::InputPrimitive/D3D10_SB_PRIMITIVE
   uint32_t OutputTopology;              // hlsl::DXIL::PrimitiveTopology/D3D10_SB_PRIMITIVE_TOPOLOGY
-  uint32_t OutputStreamMask;            // max streams == 4
+  uint32_t OutputStreamMask;            // max streams == 4 (PSV_GS_MAX_STREAMS)
   char OutputPositionPresent;
 };
 struct PSInfo {
@@ -130,7 +131,7 @@ struct PSVRuntimeInfo1 : public PSVRuntimeInfo0
 
   // Number of packed vectors per signature
   uint8_t SigInputVectors;
-  uint8_t SigOutputVectors[4];      // Array for GS Stream Out Index
+  uint8_t SigOutputVectors[PSV_GS_MAX_STREAMS];      // Array for GS Stream Out Index
 };
 
 struct PSVRuntimeInfo2 : public PSVRuntimeInfo1
@@ -382,7 +383,7 @@ struct PSVInitInfo
   uint8_t SigPatchConstOrPrimElements = 0;
   uint8_t SigInputVectors = 0;
   uint8_t SigPatchConstOrPrimVectors = 0;
-  uint8_t SigOutputVectors[4] = {0, 0, 0, 0};
+  uint8_t SigOutputVectors[PSV_GS_MAX_STREAMS] = {0, 0, 0, 0};
 
   static_assert(MAX_PSV_VERSION == 2, "otherwise this needs updating.");
   uint32_t RuntimeInfoSize() const {
@@ -418,9 +419,9 @@ class DxilPipelineStateValidation
   void *m_pSigInputElements = nullptr;
   void *m_pSigOutputElements = nullptr;
   void *m_pSigPatchConstOrPrimElements = nullptr;
-  uint32_t *m_pViewIDOutputMask[4] = {nullptr, nullptr, nullptr, nullptr};
+  uint32_t *m_pViewIDOutputMask[PSV_GS_MAX_STREAMS] = {nullptr, nullptr, nullptr, nullptr};
   uint32_t *m_pViewIDPCOrPrimOutputMask = nullptr;
-  uint32_t *m_pInputToOutputTable[4] = {nullptr, nullptr, nullptr, nullptr};
+  uint32_t *m_pInputToOutputTable[PSV_GS_MAX_STREAMS] = {nullptr, nullptr, nullptr, nullptr};
   uint32_t *m_pInputToPCOutputTable = nullptr;
   uint32_t *m_pPCInputToOutputTable = nullptr;
 
@@ -599,7 +600,7 @@ public:
 
   // ViewID dependencies
   PSVComponentMask GetViewIDOutputMask(unsigned streamIndex = 0) const {
-    if (streamIndex >= 4 || !m_pViewIDOutputMask[streamIndex] || !m_pPSVRuntimeInfo1 || !m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex])
+    if (streamIndex >= PSV_GS_MAX_STREAMS || !m_pViewIDOutputMask[streamIndex] || !m_pPSVRuntimeInfo1 || !m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex])
       return PSVComponentMask();
     return PSVComponentMask(m_pViewIDOutputMask[streamIndex], m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex]);
   }
@@ -611,7 +612,7 @@ public:
 
   // Input to Output dependencies
   PSVDependencyTable GetInputToOutputTable(unsigned streamIndex = 0) const {
-    if (streamIndex < 4 && m_pInputToOutputTable[streamIndex] && m_pPSVRuntimeInfo1) {
+    if (streamIndex < PSV_GS_MAX_STREAMS && m_pInputToOutputTable[streamIndex] && m_pPSVRuntimeInfo1) {
       return PSVDependencyTable(m_pInputToOutputTable[streamIndex], m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[streamIndex]);
     }
     return PSVDependencyTable();
@@ -802,7 +803,7 @@ inline bool DxilPipelineStateValidation::ReadOrWrite(
       m_pPSVRuntimeInfo1->SigOutputElements = initInfo.SigOutputElements;
       m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements = initInfo.SigPatchConstOrPrimElements;
       m_pPSVRuntimeInfo1->UsesViewID = initInfo.UsesViewID;
-      for (unsigned i = 0; i < 4; i++) {
+      for (unsigned i = 0; i < PSV_GS_MAX_STREAMS; i++) {
         m_pPSVRuntimeInfo1->SigOutputVectors[i] = initInfo.SigOutputVectors[i];
       }
       if (IsHS() || IsDS() || IsMS()) {
@@ -845,7 +846,7 @@ inline bool DxilPipelineStateValidation::ReadOrWrite(
 
     // ViewID dependencies
     if (m_pPSVRuntimeInfo1->UsesViewID) {
-      for (unsigned i = 0; i < 4; i++) {
+      for (unsigned i = 0; i < PSV_GS_MAX_STREAMS; i++) {
         if (m_pPSVRuntimeInfo1->SigOutputVectors[i]) {
           PSV_RETB(rw.MapArray(&m_pViewIDOutputMask[i],
             PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigOutputVectors[i])));
@@ -860,7 +861,7 @@ inline bool DxilPipelineStateValidation::ReadOrWrite(
     }
 
     // Input to Output dependencies
-    for (unsigned i = 0; i < 4; i++) {
+    for (unsigned i = 0; i < PSV_GS_MAX_STREAMS; i++) {
       if (!IsMS() && m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
         PSV_RETB(rw.MapArray(&m_pInputToOutputTable[i],
           PSVComputeInputOutputTableDwords(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i])));
