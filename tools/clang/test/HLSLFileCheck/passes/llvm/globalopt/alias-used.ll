@@ -1,7 +1,5 @@
 ; RUN: %opt %s -globalopt -S | FileCheck %s
 
-; Not in DXC? ; XXCHECK: @main
-
 @c = global i8 42
 
 @i = internal global i8 42
