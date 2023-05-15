@@ -11,7 +11,6 @@
 
 #include "DxilDiaSession.h"
 
-#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Function.h"
@@ -20,8 +19,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/PassRegistry.h"
 
 #include "DxilDia.h"
 #include "DxilDiaEnumTables.h"

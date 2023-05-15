@@ -1,10 +1,10 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 r"""VerifierHelper.py - help with test content used with:
-    clang-hlsl-tests /name:VerifierTest.*
+    ClangHLSLTests /name:VerifierTest.*
 
     This script will produce an HLSL file with expected-error and expected-warning
-    statements corresponding to actual errors/warnings produced from clang-hlsl-tests.
+    statements corresponding to actual errors/warnings produced from ClangHLSLTests.
     The new file will be located in %TEMP%, named after the original file, but with
     the added extension '.result'.
     This can then be compared with the original file (such as varmods-syntax.hlsl)
@@ -20,14 +20,14 @@ r"""VerifierHelper.py - help with test content used with:
     a line containing only: "/*verify-ast", and insert a stripped subtree between this marker
     and a line containing only: "*/".  This relies on clang.exe in the build directory.
 
-    This tool expects clang.exe and clang-hlsl-tests.dll to be in %HLSL_BLD_DIR%\bin\Debug.
+    This tool expects clang.exe and ClangHLSLTests.dll to be in %HLSL_BLD_DIR%\bin\Debug.
 
 Usage:
-    VerifierHelper.py clang <testname>  - run test through clang-hlsl-tests and show differences
+    VerifierHelper.py clang <testname>  - run test through ClangHLSLTests and show differences
     VerifierHelper.py fxc <testname>    - run test through fxc and show differences
     VerifierHelper.py ast <testname>    - run test through ast-dump and show differences
-    VerifierHelper.py all <testname>    - run test through clang-hlsl-tests, ast-dump, and fxc, then show differences
-<testname> - name of verifier test as passed to "te clang-hlsl-tests.dll /name:VerifierTest::<testname>":
+    VerifierHelper.py all <testname>    - run test through ClangHLSLTests, ast-dump, and fxc, then show differences
+<testname> - name of verifier test as passed to "te ClangHLSLTests.dll /name:VerifierTest::<testname>":
     Example: RunVarmodsSyntax
     Can also specify * to run all tests
 
@@ -83,6 +83,7 @@ VerifierTests = {
     'RunMintypesPromotionWarnings':              'mintypes-promotion-warnings.hlsl',
     'RunMoreOperators':                          'more-operators.hlsl',
     'RunObjectOperators':                        'object-operators.hlsl',
+    'RunObjectTemplateDiagDeferred':             'object-template-diag-deferred.hlsl',
     'RunOperatorOverloadingForNewDelete':        'overloading-new-delete-errors.hlsl',
     'RunOperatorOverloadingNotDefinedBinaryOp':  'use-undefined-overloaded-operator.hlsl',
     'RunPackReg':                                'packreg.hlsl',
@@ -129,6 +130,7 @@ fxcExcludedTests = [
     'RunIncompleteType',
     'RunIntrinsicExamples',
     'RunMatrixSyntaxExactPrecision',
+    'RunObjectTemplateDiagDeferred',
     'RunOperatorOverloadingForNewDelete',
     'RunOperatorOverloadingNotDefinedBinaryOp',
     'RunRayTracings',
@@ -743,7 +745,7 @@ def PrintUsage():
 def RunVerifierTest(test, HlslDataDir=HlslDataDir):
     import codecs
     temp_filename = os.path.expandvars(r'${TEMP}\VerifierHelper_temp.txt')
-    cmd = ('te %s\\clang-hlsl-tests.dll /p:"HlslDataDir=%s" /name:VerifierTest::%s > %s' %
+    cmd = ('te %s\\ClangHLSLTests.dll /p:"HlslDataDir=%s" /name:VerifierTest::%s > %s' %
            (HlslBinDir, HlslDataDir, test, temp_filename))
     print(cmd)
     os.system(cmd)      # TAEF test

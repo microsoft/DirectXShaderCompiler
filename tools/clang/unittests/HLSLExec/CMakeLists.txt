@@ -6,7 +6,7 @@ find_package(D3D12 REQUIRED) # Used for ExecutionTest.cpp.
 add_clang_library(ExecHLSLTests SHARED
   ExecutionTest.cpp
   ShaderOpTest.cpp
-  exec-hlsl-tests.rc
+  ExecHLSLTests.rc
   )
 
 add_dependencies(ClangUnitTests ExecHLSLTests)
@@ -28,7 +28,6 @@ include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
 add_dependencies(ExecHLSLTests dxcompiler)
 
 if (NOT CLANG_INCLUDE_TESTS)
-  set_target_properties(ExecHLSLTests PROPERTIES OUTPUT_NAME exec-hlsl-tests)
   set_output_directory(ExecHLSLTests
     ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
 endif()

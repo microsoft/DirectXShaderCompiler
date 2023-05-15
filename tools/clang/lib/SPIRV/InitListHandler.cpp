@@ -366,13 +366,15 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
     while (tryToSplitConstantArray())
       ;
 
-    auto init = initializers.back();
-    // We can only avoid decomposing and reconstructing when the type is
-    // exactly the same.
-    if (type.getCanonicalType() ==
-        init->getAstResultType().getCanonicalType()) {
-      initializers.pop_back();
-      return init;
+    if (!initializers.empty()) {
+      auto init = initializers.back();
+      // We can only avoid decomposing and reconstructing when the type is
+      // exactly the same.
+      if (type.getCanonicalType() ==
+          init->getAstResultType().getCanonicalType()) {
+        initializers.pop_back();
+        return init;
+      }
     }
 
     // Otherwise, if the next initializer is a struct, it is not of the same

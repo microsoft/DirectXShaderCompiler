@@ -59,7 +59,7 @@ class TaefTest(TestFormat):
           localConfig: TestingConfig instance"""
 
         # TE:F:\repos\DxcGitHub\hlsl.bin\TAEF\x64\te.exe
-        # test dll : F:\repos\DxcGitHub\hlsl.bin\Debug\test\clang-hlsl-tests.dll
+        # test dll : F:\repos\DxcGitHub\hlsl.bin\Debug\test\ClangHLSLTests.dll
         # /list
 
         if litConfig.debug:

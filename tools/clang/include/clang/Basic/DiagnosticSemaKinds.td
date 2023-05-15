@@ -7546,7 +7546,7 @@ def err_hlsl_typeintemplateargument : Error<
 def err_hlsl_typeintemplateargument_requires_scalar : Error<
   "%0 cannot be used as a type parameter where a scalar is required">;
 def err_hlsl_typeintemplateargument_requires_struct : Error<
-  "%0 cannot be used as a type parameter where a struct is required">;
+  "%0 cannot be used as a type parameter where a struct/class is required">;
 def err_hlsl_type_mismatch : Error<
   "type mismatch">;
 def err_hlsl_unsupported_array_equality_op: Error<
@@ -7591,6 +7591,16 @@ def err_not_all_payload_fields_qualified : Error<
   "payload type '%0' requires that all fields carry payload access qualifiers.">;
 def err_payload_requires_attribute : Error<
   "type '%0' used as payload requires that it is annotated with the [raypayload] attribute">;
+def err_payload_requires_inout : Error<
+  "%select{payload|callable}0 parameter %1 must be 'inout'">;
+def err_attributes_requiers_in : Error<
+  "intersection attributes parameter %0 must be 'in'">;
+def err_payload_attrs_must_be_udt : Error<
+  "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
+def err_raytracing_must_return_void : Error<
+  "return type for ray tracing shaders must be void">;
+def err_raytracing_entry_param_count : Error<
+  "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
 def err_payload_fields_not_qualified : Error<
   "payload field '%0' has no payload access qualifiers.">;
 def err_payload_fields_is_payload_and_overqualified : Error<

@@ -108,6 +108,10 @@ TEST_F(FileTest, BindlessConstantBufferArrayType) {
 TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
+TEST_F(FileTest, RasterizerOrderedTexture2DType) {
+  runFileTest("type.rasterizer-ordered-texture-2d.unimplemented.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
@@ -1097,6 +1101,9 @@ TEST_F(FileTest, ConsumeStructuredBufferGetDimensions) {
 TEST_F(FileTest, ByteAddressBufferLoad) {
   runFileTest("method.byte-address-buffer.load.hlsl");
 }
+TEST_F(FileTest, ByteAddressBufferLoadLayout) {
+  runFileTest("method.byte-address-buffer.load.layout.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferTemplatedLoadScalar) {
   runFileTest("method.byte-address-buffer.templated-load.scalar.hlsl");
 }
@@ -1729,6 +1736,9 @@ TEST_F(FileTest, SpirvStageIOInterfacePSMultipleArraySVClipDistance) {
 TEST_F(FileTest, SpirvStageIOInterfaceVSClipDistanceInvalidType) {
   runFileTest("spirv.interface.vs.clip_distance.type.error.hlsl",
               Expect::Failure);
+}
+TEST_F(FileTest, SpirvStageIOInterfacePSInheritanceSVClipDistance) {
+  runFileTest("spirv.interface.ps.inheritance.sv_clipdistance.hlsl");
 }
 
 TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {

@@ -40,7 +40,7 @@ before_build:
 build_script:
 - cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -show-cmake-log -spirvtest -disable-lit
 - sh: mkdir build && cd build
-- sh: cmake .. -GNinja -C ../cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS=-Werror
+- sh: cmake .. -GNinja -C ../cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14 -DLLVM_ENABLE_WERROR=On
 - sh: ninja
 
 test_script:
@@ -51,7 +51,7 @@ test_script:
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
 - sh: ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
-- sh: ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
+- sh: ./bin/ClangHLSLTests --HlslDataDir $PWD/../tools/clang/test/HLSL/
 
 after_test:
 # Collect artifacts for Windows

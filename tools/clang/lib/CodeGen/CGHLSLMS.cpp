@@ -958,8 +958,11 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       RecordDecl::field_iterator End = Field;
       for (++End; End != FieldEnd && End->isBitField(); ++End);
 
+      std::vector<DxilFieldAnnotation> BitFields;
+
       RecordDecl::field_iterator Run = End;
-      uint64_t StartBitOffset, Tail = 0;
+      uint64_t StartBitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+      uint64_t Tail = 0;
       for (; Field != End; ++Field) {
         uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
         // Zero-width bitfields end runs.
@@ -967,10 +970,19 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           Run = End;
           continue;
         }
+
         llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
         // If we don't have a run yet, or don't live within the previous run's
         // allocated storage then we allocate some storage and start a new run.
         if (Run == End || BitOffset >= Tail) {
+          // Add BitFields to current field.
+          if (BitOffset >= Tail && BitOffset > 0) {
+            DxilFieldAnnotation &curFieldAnnotation =
+                annotation->GetFieldAnnotation(fieldIdx-1);
+            curFieldAnnotation.SetBitFields(BitFields);
+            BitFields.clear();
+          }
+
           Run = Field;
           StartBitOffset = BitOffset;
           Tail = StartBitOffset + DataLayout.getTypeAllocSizeInBits(Type);
@@ -993,9 +1005,29 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           // Update offset.
           CBufferOffset += size;
         }
+
+        DxilFieldAnnotation bitfieldAnnotation;
+
+        bitfieldAnnotation.SetBitFieldWidth(Field->getBitWidthValue(Context));
+        const BuiltinType *BTy = Field->getType()->getAs<BuiltinType>();
+        CompType::Kind kind =
+            BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);
+        bitfieldAnnotation.SetCompType(kind);
+        bitfieldAnnotation.SetFieldName(Field->getName());
+        bitfieldAnnotation.SetCBufferOffset(
+            (unsigned)(BitOffset - StartBitOffset));
+        BitFields.emplace_back(bitfieldAnnotation);
+      }
+
+      if (!BitFields.empty()) {
+        DxilFieldAnnotation &curFieldAnnotation =
+            annotation->GetFieldAnnotation(fieldIdx - 1);
+        curFieldAnnotation.SetBitFields(BitFields);
+        BitFields.clear();
       }
 
       CBufferSize = CBufferOffset;
+
       continue;  // Field has already been advanced past bitfields
     }
 
@@ -1820,10 +1852,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
   }
-  if (isRay && !retTy->isVoidType()) {
-    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
-      DiagnosticsEngine::Error, "return type for ray tracing shaders must be void"));
-  }
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
   if (FD->hasAttr<HLSLPreciseAttr>())
@@ -2174,97 +2202,35 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       switch (funcProps->shaderKind) {
       case DXIL::ShaderKind::RayGeneration:
       case DXIL::ShaderKind::Intersection:
-        // RayGeneration and Intersection shaders are not allowed to have any input parameters
-        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "parameters are not allowed for %0 shader"))
-            << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
-                "raygeneration" : "intersection");
-        rayShaderHaveErrors = true;
         break;
       case DXIL::ShaderKind::AnyHit:
-      case DXIL::ShaderKind::ClosestHit:
-        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be inout"));
-          rayShaderHaveErrors = true;
-        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "intersection attributes parameter must be in"));
-          rayShaderHaveErrors = true;
-        } else if (ArgNo > 1) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "too many parameters, expected payload and attributes parameters only."));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 2) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "payload and attribute structures must be user defined types with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            if (0 == ArgNo)
-              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-            else
-              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
-          }
-        }
+      case DXIL::ShaderKind::ClosestHit: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        if (0 == ArgNo)
+          funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+        else
+          funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Miss:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter (ray payload) allowed for miss shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "ray payload parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Miss: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Callable:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter allowed for callable shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "callable parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "callable parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Callable: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.paramSizeInBytes = size;
         break;
+      }
       }
     }
 

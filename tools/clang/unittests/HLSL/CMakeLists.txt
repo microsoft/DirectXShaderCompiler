@@ -114,7 +114,6 @@ include_directories(${CLANG_BINARY_DIR}/lib/Sema)
 add_dependencies(ClangHLSLTests dxcompiler)
 
 if (NOT CLANG_INCLUDE_TESTS)
-  set_target_properties(ClangHLSLTests PROPERTIES OUTPUT_NAME clang-hlsl-tests)
   set_output_directory(ClangHLSLTests
     ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
   if (NOT WIN32)

@@ -50,6 +50,7 @@
 #include "regcname.h"
 
 #include "llvm/Config/config.h"
+#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_C_FALLTHROUGH
 #if HAVE_STDINT_H
 #include <stdint.h>
 #else
@@ -411,6 +412,7 @@ p_ere_exp(struct parse *p)
 	case '{':		/* okay as ordinary except if digit follows */
 		REQUIRE(!MORE() || !isdigit((uch)PEEK()), REG_BADRPT);
 		/* FALLTHROUGH */
+		LLVM_C_FALLTHROUGH; // HLSL Change
 	default:
 		ordinary(p, c);
 		break;
@@ -607,6 +609,7 @@ p_simp_re(struct parse *p,
 	case '*':
 		REQUIRE(starordinary, REG_BADRPT);
 		/* FALLTHROUGH */
+		LLVM_C_FALLTHROUGH; // HLSL Change
 	default:
 		ordinary(p, (char)c);
 		break;
@@ -1512,6 +1515,7 @@ findmust(struct parse *p, struct re_guts *g)
 				}
 			} while (OP(s) != O_QUEST && OP(s) != O_CH);
 			/* fallthrough */
+			LLVM_C_FALLTHROUGH; // HLSL Change
 		default:		/* things that break a sequence */
 			if (newlen > g->mlen) {		/* ends one */
 				start = newstart;

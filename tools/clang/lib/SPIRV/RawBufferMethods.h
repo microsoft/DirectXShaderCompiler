@@ -28,7 +28,9 @@ public:
   /// which is a runtime array in SPIR-V. This method works by loading one or
   /// more uints, and performing necessary casts and composite constructions
   /// to build the 'targetType'. The 'offset' parameter can be used for finer
-  /// grained load of bitwidths smaller than 32-bits.
+  /// grained load of bitwidths smaller than 32-bits. The layout rule for the
+  /// result will be `Void` because the value will be built and used internally
+  /// only. It does not have to match `buffer`.
   ///
   /// Example:
   /// targetType = uint16_t, address=0, offset=0

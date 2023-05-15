@@ -1881,51 +1881,6 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 
   CComPtr<IDxcBlob> pNewContainer = WrapInNewContainer(annotated.blob);
 
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-  VERIFY_SUCCEEDED(
-      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  VERIFY_SUCCEEDED(pReflection->Load(pNewContainer));
-  VERIFY_SUCCEEDED(
-      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
-}
-
-void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
-    dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
-    IDxcBlob **ppDebugPart) {
-  CComPtr<IDxcBlob> pContainer;
-  CComPtr<IDxcLibrary> pLib;
-  CComPtr<IDxcContainerReflection> pReflection;
-  UINT32 index;
-  std::vector<LPCWSTR> args;
-  args.push_back(L"/Zi");
-  args.push_back(L"/Od");
-  args.push_back(L"/Qembed_debug");
-
-  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
-
-  auto annotated = RunValueToDeclarePass(pContainer);
-
-  CComPtr<IDxcBlob> pNewContainer;
-  {
-    CComPtr<IDxcAssembler> pAssembler;
-    IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-
-    CComPtr<IDxcOperationResult> pAssembleResult;
-    VERIFY_SUCCEEDED(
-        pAssembler->AssembleToContainer(annotated.blob, &pAssembleResult));
-
-    CComPtr<IDxcBlobEncoding> pAssembleErrors;
-    VERIFY_SUCCEEDED(pAssembleResult->GetErrorBuffer(&pAssembleErrors));
-
-    if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
-      OutputDebugStringA(
-          static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
-      VERIFY_SUCCEEDED(E_FAIL);
-    }
-
-    VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
-  }
 
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
   VERIFY_SUCCEEDED(

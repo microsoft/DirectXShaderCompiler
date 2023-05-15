@@ -33,6 +33,8 @@ namespace {
     }
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
+        AU.addRequiredID(BreakCriticalEdgesID);
+        AU.addPreservedID(BreakCriticalEdgesID);
     }
 
     bool valueEscapes(const Instruction *Inst) const {
@@ -198,6 +200,7 @@ namespace {
 char RegToMemHlsl::ID = 0;
 INITIALIZE_PASS_BEGIN(RegToMemHlsl, "reg2mem_hlsl", "Demote values with phi-node usage to stack slots",
                 false, false)
+INITIALIZE_PASS_DEPENDENCY(BreakCriticalEdges)
 INITIALIZE_PASS_END(RegToMemHlsl,   "reg2mem_hlsl", "Demote values with phi-node usage to stack slots",
                 false, false)
 
