@@ -223,6 +223,7 @@ TEST_F(DXIntellisenseTest, InclusionWhenMissingThenError) {
   CComPtr<IDxcUnsavedFile> unsaved;
   CComPtr<IDxcTranslationUnit> TU;
   CComPtr<IDxcDiagnostic> pDiag;
+  CComPtr<IDxcSourceLocation> location;
   DxcDiagnosticSeverity Severity;
   const char main_text[] = "error\r\n#include \"missing.hlsl\"\r\nfloat3 g_global;";
   unsigned diagCount;
@@ -237,6 +238,16 @@ TEST_F(DXIntellisenseTest, InclusionWhenMissingThenError) {
   VERIFY_SUCCEEDED(pDiag->GetSeverity(&Severity));
   VERIFY_IS_TRUE(Severity == DxcDiagnosticSeverity::DxcDiagnostic_Error ||
     Severity == DxcDiagnosticSeverity::DxcDiagnostic_Fatal);
+  VERIFY_SUCCEEDED(pDiag->GetLocation(&location));
+  uint32_t line;
+  uint32_t column;
+  uint32_t offset;
+  location->GetSpellingLocation(nullptr, &line, &column, &offset);
+  // This location places the diagnostic caret at the opening quotation of "missing.hlsl"
+  // in the include directive
+  VERIFY_IS_TRUE(line == 2);
+  VERIFY_IS_TRUE(column == 10);
+  VERIFY_IS_TRUE(offset == 16);
 }
 
 TEST_F(DXIntellisenseTest, InclusionWhenValidThenAvailable) {
