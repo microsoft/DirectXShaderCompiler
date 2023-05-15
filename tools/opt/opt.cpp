@@ -305,6 +305,9 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 #ifdef HAS_DXILCONV
 void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
 #endif
+namespace hlsl {
+HRESULT SetupRegistryPassForHLSL();
+} // namespace hlsl
 // HLSL Change End
 
 //===----------------------------------------------------------------------===//
@@ -365,6 +368,7 @@ int __cdecl main(int argc, char **argv) {
   initializeComputeViewIdStatePass(Registry);
   initializeDxilFinalizeModulePass(Registry);
   initializeDxilModuleInitPass(Registry);
+  hlsl::SetupRegistryPassForHLSL();
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
