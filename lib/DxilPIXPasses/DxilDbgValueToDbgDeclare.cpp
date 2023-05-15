@@ -538,7 +538,7 @@ GenerateGlobalToLocalMirrorMap(llvm::Module &M,
         auto DIGVType = DIGV->getType().resolve(EmptyMap);
         DIBuilder DbgInfoBuilder(M);
         LocalMirror = DbgInfoBuilder.createLocalVariable(
-            dwarf::DW_TAG_auto_variable, DIFn,
+            dwarf::DW_TAG_arg_variable, DIFn,
             LocalMirrorOfGlobalName, DIFn->getFile(), DIFn->getLine(),
             DIGVType);
       }

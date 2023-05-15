@@ -1864,13 +1864,50 @@ static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   VERIFY_SUCCEEDED(hrCompile);
   VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
 }
+
+static CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
+                                      IDxcBlob *container) {
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  CComPtr<IDxcContainerReflection> pReflection;
+
+  VERIFY_SUCCEEDED(
+      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(container));
+
+  UINT32 index;
+  VERIFY_SUCCEEDED(
+      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+
+  CComPtr<IDxcBlob> debugPart;
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, &debugPart));
+
+  return debugPart;
+}
+
+void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
+    dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+    IDxcBlob **ppDebugPart) {
+  CComPtr<IDxcBlob> pContainer;
+  std::vector<LPCWSTR> args;
+  args.push_back(L"/Zi");
+  args.push_back(L"/Od");
+  args.push_back(L"/Qembed_debug");
+
+  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
+
+  auto annotated = RunValueToDeclarePass(pContainer);
+
+  CComPtr<IDxcBlob> pNewContainer = WrapInNewContainer(annotated.blob);
+
+  *ppDebugPart = GetDebugPart(dllSupport, pNewContainer).Detach();
+}
+
 void PixTest::CompileAndRunAnnotationAndGetDebugPart(
     dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
     IDxcBlob **ppDebugPart) {
   CComPtr<IDxcBlob> pContainer;
-  CComPtr<IDxcLibrary> pLib;
-  CComPtr<IDxcContainerReflection> pReflection;
-  UINT32 index;
   std::vector<LPCWSTR> args;
   args.push_back(L"/Zi");
   args.push_back(L"/Qembed_debug");
@@ -1881,14 +1918,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 
   CComPtr<IDxcBlob> pNewContainer = WrapInNewContainer(annotated.blob);
 
-
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-  VERIFY_SUCCEEDED(
-      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  VERIFY_SUCCEEDED(pReflection->Load(pNewContainer));
-  VERIFY_SUCCEEDED(
-      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
+  *ppDebugPart = GetDebugPart(dllSupport, pNewContainer).Detach();
 }
 
 void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
@@ -4471,28 +4501,6 @@ float4 main(int i : A, float j : B) : SV_TARGET
 
   VERIFY_IS_TRUE(foundGlobalRS);
 }
-
-static CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
-                                      IDxcBlob *container) {
-
-  CComPtr<IDxcLibrary> pLib;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-  CComPtr<IDxcContainerReflection> pReflection;
-
-  VERIFY_SUCCEEDED(
-      dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  VERIFY_SUCCEEDED(pReflection->Load(container));
-
-  UINT32 index;
-  VERIFY_SUCCEEDED(
-      pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
-
-  CComPtr<IDxcBlob> debugPart;
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, &debugPart));
-
-  return debugPart;
-}
-
 
 TEST_F(PixTest, SymbolManager_Embedded2DArray) {
   const char *code = R"x(
