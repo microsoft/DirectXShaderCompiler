@@ -34,7 +34,7 @@ You will need to complete a Contributor License Agreement (CLA) before your pull
 
 You can complete the CLA by going through the steps at the [Contribution License Agreement site](https://cla.microsoft.com). Once we have received the signed CLA, we'll review the request. You will only need to do this once.
 
-Make sure you can build the code. Familiarize yourself with the project workflow and our coding conventions. If you don't know what a pull request is read this article: https://help.github.com/articles/using-pull-requests. The hctcheckin command is your friend.
+Make sure you can build the code. Familiarize yourself with the project workflow and our coding conventions. If you don't know what a pull request is read this article: https://help.github.com/articles/using-pull-requests. The hcttest command is your friend.
 
 Before submitting a feature or substantial code contribution please discuss it with the team and ensure it follows the product roadmap. You might also read these two blogs posts on contributing code: [Open Source Contribution Etiquette](http://tirania.org/blog/archive/2010/Dec-31.html) by Miguel de Icaza and [Don't "Push" Your Pull Requests](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/) by Ilya Grigorik. Note that all code submissions will be rigorously reviewed and tested by the team, and only those that meet an extremely high bar for both quality and design/roadmap appropriateness will be merged into the source.
 
