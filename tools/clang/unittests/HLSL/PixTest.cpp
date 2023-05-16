@@ -231,6 +231,8 @@ public:
 
   TEST_METHOD(DxcPixDxilDebugInfo_InstructionOffsets)
   TEST_METHOD(DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_NoDbgValue)
+  TEST_METHOD(
+      DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_SOAMess)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -1918,6 +1920,9 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 
   auto annotated = RunAnnotationPasses(pContainer);
 
+  auto disText = Disassemble(pContainer);
+  (void)disText.c_str();
+
   CComPtr<IDxcBlob> pNewContainer = WrapInNewContainer(annotated.blob);
 
   *ppDebugPart = GetDebugPart(dllSupport, pNewContainer).Detach();
@@ -2400,7 +2405,7 @@ RWStructuredBuffer<float> floatRWUAV: register(u0);
 struct GlobalStruct
 {
     int IntArray[2];
-    float FloatArray[2];
+    float FloatArray[3];
 };
 
 static GlobalStruct globalStruct;
@@ -2410,8 +2415,8 @@ void main()
     float Accumulator;
     globalStruct.IntArray[0] = floatRWUAV[0];
     globalStruct.IntArray[1] = floatRWUAV[1];
-    globalStruct.FloatArray[0] = floatRWUAV[2];
-    globalStruct.FloatArray[1] = floatRWUAV[3];
+    globalStruct.FloatArray[0] = floatRWUAV[4];
+    globalStruct.FloatArray[1] = floatRWUAV[5];
     Accumulator = 0;
 
     uint killSwitch = 0;
@@ -2421,7 +2426,115 @@ void main()
     {
         Accumulator += globalStruct.FloatArray[killSwitch % 2];
 
-        if (killSwitch++ == 4) break;
+        if (killSwitch++ == 16) break;
+    }
+
+    floatRWUAV[0] = Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];
+}
+
+)";
+  // The above HLSL should generate a module that represents the FloatArray
+  // member as a global, and the IntArray as an alloca. Since only embedded
+  // arrays are present in GlobalStruct, no dbg.value will be present for
+  // globalStruct. We expect the value-to-declare pass to generate its own
+  // dbg.value for stores into FloatArray. We will observe those dbg.value here
+  // via the PIX-specific debug data API:
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          &pDiaDataSource, {L"-Od"});
+
+  CComPtr<IDiaSession> session;
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
+
+  CComPtr<IDxcPixDxilDebugInfoFactory> Factory;
+  VERIFY_SUCCEEDED(session->QueryInterface(IID_PPV_ARGS(&Factory)));
+
+  CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
+  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
+
+  auto lines = SplitAndPreserveEmptyLines(std::string(hlsl), '\n');
+  auto FindInterestingLine =
+      std::find_if(lines.begin(), lines.end(), [](std::string const &line) {
+        return line.find("floatRWUAV[0] = Accumulator") != std::string::npos;
+      });
+  auto InterestingLine =
+      static_cast<DWORD>(FindInterestingLine - lines.begin()) + 2;
+
+  CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
+  VERIFY_SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
+      defaultFilename, InterestingLine, 0, &instructionOffsets));
+
+  auto instructionOffset = instructionOffsets->GetOffsetByIndex(0);
+  CComPtr<IDxcPixDxilLiveVariables> liveVariables;
+  VERIFY_SUCCEEDED(
+      dxilDebugger->GetLiveVariablesAt(instructionOffset, &liveVariables));
+  DWORD count;
+  VERIFY_SUCCEEDED(liveVariables->GetCount(&count));
+  bool FoundGlobal = false;
+  for (DWORD i = 0; i < count; ++i) {
+    CComPtr<IDxcPixVariable> variable;
+    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &variable));
+    CComBSTR name;
+    variable->GetName(&name);
+    if (0 == wcscmp(name, L"global.globalStruct")) {
+      FoundGlobal = true;
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(FoundGlobal);
+}
+
+TEST_F(PixTest,
+       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_SOAMess) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+struct StructOfArrays
+{
+    int IntArray[5];
+    float FloatArray[7];
+};
+
+struct GlobalStruct
+{
+    int IntArray[2];
+    StructOfArrays AOS[3];
+};
+
+static GlobalStruct globalStruct;
+[numthreads(1, 1, 1)]
+void main()
+{
+    float Accumulator;
+    globalStruct.IntArray[0] = floatRWUAV[0];
+    globalStruct.IntArray[1] = floatRWUAV[1];
+    globalStruct.AOS[0].IntArray[0] = floatRWUAV[2];
+    globalStruct.AOS[0].IntArray[1] = floatRWUAV[3];
+    globalStruct.AOS[0].FloatArray[0] = floatRWUAV[4];
+    globalStruct.AOS[0].FloatArray[1] = floatRWUAV[5];
+    globalStruct.AOS[1].IntArray[0] = floatRWUAV[6];
+    globalStruct.AOS[1].IntArray[1] = floatRWUAV[7];
+    globalStruct.AOS[1].FloatArray[0] = floatRWUAV[8];
+    globalStruct.AOS[1].FloatArray[1] = floatRWUAV[9];
+    globalStruct.AOS[2].IntArray[0] = floatRWUAV[10];
+    globalStruct.AOS[2].IntArray[1] = floatRWUAV[11];
+    globalStruct.AOS[2].FloatArray[0] = floatRWUAV[12];
+    globalStruct.AOS[2].FloatArray[1] = floatRWUAV[13];
+    Accumulator = 0;
+
+    uint killSwitch = 0;
+
+    [loop] // do not unroll this
+    while (true)
+    {
+        Accumulator += globalStruct.AOS[killSwitch % 3].FloatArray[killSwitch % 7];
+        Accumulator += globalStruct.AOS[killSwitch % 3].IntArray[killSwitch % 2];
+
+        if (killSwitch++ == 16) break;
     }
 
     floatRWUAV[0] = Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];

@@ -418,7 +418,7 @@ static OffsetInBits GetAlignedOffsetFromDIExpression(
 
   return Exp->getBitPieceOffset();
 }
-
+#if 0
 SizeInBits DescendTypeAndFindEmbeddedArrayElements(
     std::string VariableName, OffsetInBits CurrentOffset, llvm::DIType *Ty,
     std::vector<GlobalEmbeddedArrayElementStorage> &out) {
@@ -489,12 +489,12 @@ SizeInBits DescendTypeAndFindEmbeddedArrayElements(
   }
   return MySize;
 }
+#endif
 
 llvm::DISubprogram* GetFunctionDebugInfo(llvm::Module& M, llvm::Function* fn) {
   auto FnMap = makeSubprogramMap(M);
   return FnMap[fn];
 }
-
 
 GlobalVariableToLocalMirrorMap
 GenerateGlobalToLocalMirrorMap(llvm::Module &M,
@@ -534,11 +534,14 @@ GenerateGlobalToLocalMirrorMap(llvm::Module &M,
       }
       auto DIFn = FnMap[fn];
       if (DIFn != nullptr) {
+        for (auto & ModuleGlobal : M.getGlobalList()) {
+          (void)ModuleGlobal.getName();
+        }
         const llvm::DITypeIdentifierMap EmptyMap;
         auto DIGVType = DIGV->getType().resolve(EmptyMap);
         DIBuilder DbgInfoBuilder(M);
         LocalMirror = DbgInfoBuilder.createLocalVariable(
-            dwarf::DW_TAG_arg_variable, DIFn,
+            dwarf::DW_TAG_auto_variable, DIFn,
             LocalMirrorOfGlobalName, DIFn->getFile(), DIFn->getLine(),
             DIGVType);
       }
@@ -547,22 +550,158 @@ GenerateGlobalToLocalMirrorMap(llvm::Module &M,
   return ret;
 }
 
+std::vector<GlobalEmbeddedArrayElementStorage>
+DescendTypeAndFindEmbeddedArrayElements(llvm::StringRef VariableName,
+                  uint64_t AccumulatedMemberOffset, llvm::DIType *Ty,
+                                        uint64_t OffsetToSeek, uint64_t SizeToSeek) {
+  const llvm::DITypeIdentifierMap EmptyMap;
+  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+    auto BaseTy = DerivedTy->getBaseType().resolve(EmptyMap);
+    auto storage = DescendTypeAndFindEmbeddedArrayElements(
+        VariableName, AccumulatedMemberOffset, BaseTy, OffsetToSeek, SizeToSeek);
+    if (!storage.empty()) {
+      return storage;
+    }
+  } else if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(Ty)) {
+    switch (CompositeTy->getTag()) {
+    case llvm::dwarf::DW_TAG_array_type: {
+      for (auto Element : CompositeTy->getElements()) {
+        // First element for an array is DISubrange
+        if (auto Subrange = llvm::dyn_cast<DISubrange>(Element)) {
+          auto ElementTy = CompositeTy->getBaseType().resolve(EmptyMap);
+          if (auto *BasicTy = llvm::dyn_cast<llvm::DIBasicType>(ElementTy)) {
+            bool CorrectLowerOffset = AccumulatedMemberOffset == OffsetToSeek;
+            bool CorrectUpperOffset =
+                AccumulatedMemberOffset +
+                    Subrange->getCount() * BasicTy->getSizeInBits() ==
+                OffsetToSeek + SizeToSeek;
+            if (BasicTy != nullptr && CorrectLowerOffset &&
+                CorrectUpperOffset) {
+              std::vector<GlobalEmbeddedArrayElementStorage> storage;
+              for (int64_t i = 0; i < Subrange->getCount(); ++i) {
+                auto ElementOffset =
+                    AccumulatedMemberOffset + i * BasicTy->getSizeInBits();
+                GlobalEmbeddedArrayElementStorage element;
+                element.Name = VariableName.str() + "." + std::to_string(i);
+                element.Offset = static_cast<OffsetInBits>(ElementOffset);
+                element.Size =
+                    static_cast<SizeInBits>(BasicTy->getSizeInBits());
+                storage.push_back(std::move(element));
+              }
+              return storage;
+            }
+          } 
+         
+          // If we didn't succeed and return above, then we need to process each element in the array
+          std::vector<GlobalEmbeddedArrayElementStorage> storage;
+          for (int64_t i = 0; i < Subrange->getCount(); ++i) {
+            auto elementStorage = DescendTypeAndFindEmbeddedArrayElements(
+                VariableName, AccumulatedMemberOffset + ElementTy->getSizeInBits() * i, ElementTy, OffsetToSeek, SizeToSeek);
+            std::move(elementStorage.begin(),
+                            elementStorage.end(), std::back_inserter(storage));
+          }
+          if (!storage.empty()) {
+            return storage;
+          }
+        }
+      }
+      for (auto Element : CompositeTy->getElements()) {
+        // First element for an array is DISubrange
+        if (auto Subrange = llvm::dyn_cast<DISubrange>(Element)) {
+          auto ElementType = CompositeTy->getBaseType().resolve(EmptyMap);
+          for (int64_t i = 0; i < Subrange->getCount(); ++i) {
+            auto storage = DescendTypeAndFindEmbeddedArrayElements(
+                VariableName, AccumulatedMemberOffset + ElementType->getSizeInBits() * i,
+                ElementType, OffsetToSeek,
+                SizeToSeek);
+            if (!storage.empty()) {
+              return storage;
+            }
+          }
+        }
+      }
+    } break;
+    case llvm::dwarf::DW_TAG_structure_type:
+    case llvm::dwarf::DW_TAG_class_type: {
+      for (auto Element : CompositeTy->getElements()) {
+        if (auto diMember = llvm::dyn_cast<DIType>(Element)) {
+          auto storage = DescendTypeAndFindEmbeddedArrayElements(
+              VariableName, AccumulatedMemberOffset + diMember->getOffsetInBits(), diMember, OffsetToSeek, SizeToSeek);
+          AccumulatedMemberOffset += diMember->getOffsetInBits();
+          if (!storage.empty()) {
+            return storage;
+          }
+        }
+      }
+    } break;
+    }
+  }
+  return {};
+}
+
 GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
   GlobalStorageMap ret;
   auto DebugFinder = llvm::make_unique<llvm::DebugInfoFinder>();
   DebugFinder->processModule(M);
   auto GlobalVariables = DebugFinder->global_variables();
+
+  // First find the list of global variables that represent HLSL global statics:
+  const llvm::DITypeIdentifierMap EmptyMap;
+  SmallVector<llvm::DIGlobalVariable *, 8> GlobalStaticVariables;
   for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
     if (DIGV->isLocalToUnit()) {
-      auto &Storage = ret[DIGV];
-      const llvm::DITypeIdentifierMap EmptyMap;
-      DescendTypeAndFindEmbeddedArrayElements(
-          DIGV->getName(), 0, DIGV->getType().resolve(EmptyMap), Storage.ArrayElementStorage);
-      Storage.LocalMirrors = GenerateGlobalToLocalMirrorMap(M, DIGV);
+      llvm::DIType *DIGVType = DIGV->getType().resolve(EmptyMap);
+      // We're only interested in aggregates, since only they might have
+      // embedded arrays:
+      if (auto *DIGVCompositeType =
+              llvm::dyn_cast<llvm::DICompositeType>(DIGVType)) {
+        auto LocalMirrors = GenerateGlobalToLocalMirrorMap(M, DIGV);
+        if (!LocalMirrors.empty()) {
+          GlobalStaticVariables.push_back(DIGV);
+          ret[DIGV].LocalMirrors = std::move(LocalMirrors);
+        }
+      }
+    }
+  }
+
+  // Now find any globals that represent embedded arrays inside the global
+  // statics
+  for (auto HLSLStruct : GlobalStaticVariables) {
+    for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
+      if (DIGV != HLSLStruct && !DIGV->isLocalToUnit()) {
+        llvm::DIType *DIGVType = DIGV->getType().resolve(EmptyMap);
+        if (auto *DIGVDerivedType =
+                llvm::dyn_cast<llvm::DIDerivedType>(DIGVType)) {
+          if (DIGVDerivedType->getTag() == llvm::dwarf::DW_TAG_member) {
+            // This type is embedded within the containing DIGSV type
+            const llvm::DITypeIdentifierMap EmptyMap;
+            auto *Ty = HLSLStruct->getType().resolve(EmptyMap);
+            ret[HLSLStruct].ArrayElementStorage =
+                DescendTypeAndFindEmbeddedArrayElements(
+                    DIGV->getName(), 0, Ty, DIGVDerivedType->getOffsetInBits(),
+                    DIGVDerivedType->getSizeInBits());
+          }
+        }
+      }
     }
   }
   return ret;
 }
+
+  #if 0
+    llvm::DIType *Type = DIGV->getType().resolve(EmptyMap);
+    if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Type)) {
+      DIGV->dump();
+      DerivedTy->dump();
+    }
+    if (DIGV->isLocalToUnit()) {
+      auto &Storage = ret[DIGV];
+      DescendTypeAndFindEmbeddedArrayElements(
+          DIGV->getName(), 0, Type, Storage.ArrayElementStorage);
+      Storage.LocalMirrors = GenerateGlobalToLocalMirrorMap(M, DIGV);
+    }
+  }
+#endif
 
 bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
