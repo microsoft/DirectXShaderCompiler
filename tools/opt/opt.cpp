@@ -345,7 +345,6 @@ int __cdecl main(int argc, char **argv) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeScalarOpts(Registry);
-  initializeReducibilityAnalysisPass(Registry); // HLSL Change: add ReducibilityAnalysis pass
   // initializeObjCARCOpts(Registry);    // HLSL Change: remove ObjC ARC passes
   // initializeVectorization(Registry);  // HLSL Change: remove vectorization passes
   initializeIPO(Registry);
