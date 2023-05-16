@@ -364,9 +364,6 @@ int __cdecl main(int argc, char **argv) {
   //initializeDwarfEHPreparePass(Registry); // HLSL Change: remove EH passes
   //initializeSjLjEHPreparePass(Registry);  // HLSL Change: remove EH passes
   // HLSL Change Starts
-  initializeReducibilityAnalysisPass(Registry);
-  initializeComputeViewIdStatePass(Registry);
-  initializeDxilFinalizeModulePass(Registry);
   initializeDxilModuleInitPass(Registry);
   hlsl::SetupRegistryPassForHLSL();
 #ifdef HAS_DXILCONV
