@@ -627,7 +627,6 @@ DescendTypeAndFindEmbeddedArrayElements(llvm::StringRef VariableName,
         if (auto diMember = llvm::dyn_cast<DIType>(Element)) {
           auto storage = DescendTypeAndFindEmbeddedArrayElements(
               VariableName, AccumulatedMemberOffset + diMember->getOffsetInBits(), diMember, OffsetToSeek, SizeToSeek);
-          AccumulatedMemberOffset += diMember->getOffsetInBits();
           if (!storage.empty()) {
             return storage;
           }
@@ -676,10 +675,12 @@ GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
             // This type is embedded within the containing DIGSV type
             const llvm::DITypeIdentifierMap EmptyMap;
             auto *Ty = HLSLStruct->getType().resolve(EmptyMap);
-            ret[HLSLStruct].ArrayElementStorage =
-                DescendTypeAndFindEmbeddedArrayElements(
+            auto Storage = DescendTypeAndFindEmbeddedArrayElements(
                     DIGV->getName(), 0, Ty, DIGVDerivedType->getOffsetInBits(),
                     DIGVDerivedType->getSizeInBits());
+            auto & ArrayStorage = ret[HLSLStruct].ArrayElementStorage;
+            std::move(Storage.begin(), Storage.end(),
+                      std::back_inserter(ArrayStorage));
           }
         }
       }

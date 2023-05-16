@@ -15,7 +15,7 @@
 // and a new local-variable for globalStruct
 // AFTER:dbg.declare{{.*}}!DIExpression(DW_OP_bit_piece, 64, 32)
 // AFTER:dbg.declare{{.*}}!DIExpression(DW_OP_bit_piece, 96, 32)
-// AFTER:!DILocalVariable(tag: DW_TAG_arg_variable, name: "global.globalStruct"
+// AFTER:!DILocalVariable(tag: DW_TAG_auto_variable, name: "global.globalStruct"
 
 RWStructuredBuffer<float> floatRWUAV : register(u0);
 

@@ -1920,7 +1920,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 
   auto annotated = RunAnnotationPasses(pContainer);
 
-  auto disText = Disassemble(pContainer);
+  auto disText = Disassemble(annotated.blob);
   (void)disText.c_str();
 
   CComPtr<IDxcBlob> pNewContainer = WrapInNewContainer(annotated.blob);
