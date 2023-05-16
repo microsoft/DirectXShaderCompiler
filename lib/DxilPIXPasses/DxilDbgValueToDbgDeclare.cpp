@@ -418,78 +418,6 @@ static OffsetInBits GetAlignedOffsetFromDIExpression(
 
   return Exp->getBitPieceOffset();
 }
-#if 0
-SizeInBits DescendTypeAndFindEmbeddedArrayElements(
-    std::string VariableName, OffsetInBits CurrentOffset, llvm::DIType *Ty,
-    std::vector<GlobalEmbeddedArrayElementStorage> &out) {
-  SizeInBits MySize = 0;
-  const llvm::DITypeIdentifierMap EmptyMap;
-  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
-    switch (DerivedTy->getTag()) {
-    default:
-      assert(!"Unhandled DIDerivedType");
-      return Ty->getSizeInBits();
-    case llvm::dwarf::DW_TAG_arg_variable:
-    case llvm::dwarf::DW_TAG_pointer_type:
-    case llvm::dwarf::DW_TAG_restrict_type:
-      return Ty->getSizeInBits();
-    case llvm::dwarf::DW_TAG_reference_type:
-    case llvm::dwarf::DW_TAG_const_type:
-    case llvm::dwarf::DW_TAG_typedef:
-    case llvm::dwarf::DW_TAG_member:
-      return DescendTypeAndFindEmbeddedArrayElements(
-          VariableName, CurrentOffset,
-          DerivedTy->getBaseType().resolve(EmptyMap), out);
-    }
-  } else if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(Ty)) {
-    switch (CompositeTy->getTag()) {
-    default:
-      assert(!"Unhandled DICompositeType");
-      return 0;
-    case llvm::dwarf::DW_TAG_array_type: {
-      for (auto Element : CompositeTy->getElements()) {
-        // First element for an array is DISubrange
-        if (auto Subrange = llvm::dyn_cast<DISubrange>(Element)) {
-          auto ElementType = CompositeTy->getBaseType().resolve(EmptyMap);
-          for (int64_t i = 0; i < Subrange->getCount(); ++i) {
-            auto MemberSize = DescendTypeAndFindEmbeddedArrayElements(
-                VariableName + "." + std::to_string(i), CurrentOffset, ElementType,
-                out);
-            CurrentOffset += MemberSize;
-            MySize += MemberSize;
-          }
-        }
-        break; // Since first element should have been DISubrange.
-      }
-    } break;
-    case llvm::dwarf::DW_TAG_structure_type:
-    case llvm::dwarf::DW_TAG_class_type: {
-      int i = 0;
-      for (auto Element : CompositeTy->getElements()) {
-        if (auto diMember = llvm::dyn_cast<DIType>(Element)) {
-          auto MemberSize = DescendTypeAndFindEmbeddedArrayElements(
-              VariableName + "." + std::to_string(i), CurrentOffset, diMember,
-              out);
-          CurrentOffset += MemberSize;
-          MySize += MemberSize;
-          i++;
-        }
-      }
-    } break;
-    case llvm::dwarf::DW_TAG_subroutine_type:
-    case llvm::dwarf::DW_TAG_enumeration_type:
-      // Size is zero
-      break;
-    }
-  } else if (auto *BasicTy = llvm::dyn_cast<llvm::DIBasicType>(Ty)) {
-    MySize = static_cast<SizeInBits>(Ty->getSizeInBits());
-    out.push_back({VariableName, CurrentOffset,MySize});
-  } else {
-    assert(!"Unrecognized DIType");
-  }
-  return MySize;
-}
-#endif
 
 llvm::DISubprogram* GetFunctionDebugInfo(llvm::Module& M, llvm::Function* fn) {
   auto FnMap = makeSubprogramMap(M);
@@ -688,21 +616,6 @@ GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
   }
   return ret;
 }
-
-  #if 0
-    llvm::DIType *Type = DIGV->getType().resolve(EmptyMap);
-    if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Type)) {
-      DIGV->dump();
-      DerivedTy->dump();
-    }
-    if (DIGV->isLocalToUnit()) {
-      auto &Storage = ret[DIGV];
-      DescendTypeAndFindEmbeddedArrayElements(
-          DIGV->getName(), 0, Type, Storage.ArrayElementStorage);
-      Storage.LocalMirrors = GenerateGlobalToLocalMirrorMap(M, DIGV);
-    }
-  }
-#endif
 
 bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
@@ -1148,6 +1061,7 @@ GlobalVariableAndStorage GetOffsetFromGlobalVariable(
       if (llvm::StringRef(Storage.Name).equals(name)) {
         ret.DIGV = Variable.first;
         ret.Offset = Storage.Offset;
+        return ret;
       }
     }
   }
@@ -1206,8 +1120,7 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
                 IRBuilder<> B(Store->getNextNode());
                 auto *Zero = B.getInt32(0);
                 auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
-                auto * STI = B.CreateStore(Store->getValueOperand(), GEP);
-                STI->dump();
+                B.CreateStore(Store->getValueOperand(), GEP);
                 return true; // yes, we modified the module
               }
             }
