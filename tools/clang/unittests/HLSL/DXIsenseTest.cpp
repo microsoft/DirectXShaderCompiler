@@ -238,6 +238,7 @@ TEST_F(DXIntellisenseTest, InclusionWhenMissingThenError) {
   VERIFY_SUCCEEDED(pDiag->GetSeverity(&Severity));
   VERIFY_IS_TRUE(Severity == DxcDiagnosticSeverity::DxcDiagnostic_Error ||
     Severity == DxcDiagnosticSeverity::DxcDiagnostic_Fatal);
+  VERIFY_FAILED(pDiag->GetLocation(nullptr));
   VERIFY_SUCCEEDED(pDiag->GetLocation(&location));
   uint32_t line;
   uint32_t column;
