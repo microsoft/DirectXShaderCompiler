@@ -450,6 +450,14 @@ GenerateGlobalToLocalMirrorMap(llvm::Module &M,
             break;
           }
         }
+        if (auto const *DbgDeclare = llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction)) {
+          auto *Variable = DbgDeclare->getVariable();
+          if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
+            LocalMirror = Variable;
+            breakOut = true;
+            break;
+          }
+        }
       }
       if (breakOut)
         break;
