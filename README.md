@@ -96,6 +96,7 @@ To run tests, open the HLSL Console and run this command after a successful buil
     hcttest
 
 Some tests will run shaders and verify their behavior. These tests also involve a driver that can execute these shaders. See the next section on how this should be currently set up.
+On Windows, need to add GitInstallPath\user\bin (default is C:\Program Files\Git\usr\bin) to PATH for commands like cmp/file.
 
 ## Running Shaders
 
