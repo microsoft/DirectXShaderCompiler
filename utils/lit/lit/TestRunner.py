@@ -354,7 +354,7 @@ def parseIntegratedTestScriptCommands(source_path):
     # version.
 
     keywords = ['RUN:', 'XFAIL:', 'REQUIRES:', 'UNSUPPORTED:', 'END.'
-                , 'COND_RUN\(.+\):']
+                , 'RUN-IF\(.+\):']
     keywords_re = re.compile(
         to_bytes("(%s)(.*)\n" % ("|".join(k for k in keywords),)))
 
@@ -473,8 +473,8 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
             # END commands are only honored if the rest of the line is empty.
             if not ln.strip():
                 break
-        elif command_type.startswith('COND_RUN('):
-            cond_run_requires_str = command_type[9:len(command_type)-1]
+        elif command_type.startswith('RUN-IF('):
+            cond_run_requires_str = command_type[7:len(command_type)-1]
             cond_run_requires = cond_run_requires_str.split(',')
             # Trim spaces.
             cond_run_requires = [require.strip()
@@ -502,7 +502,7 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
                 ln = prev[1]
                 if missing_required_features:
                     msg = ', '.join(missing_required_features)
-                    print('COND_RUN {} skipped for unsupport {}'.format(ln, msg))
+                    print('RUN-IF {} skipped for unsupport {}'.format(ln, msg))
                     cond_run = (False, ln)
                     cond_script.append(cond_run)
                     continue
@@ -531,7 +531,7 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
     # Verify the script contains a run line.
     if require_script and not script:
         if cond_script:
-            return lit.Test.Result(Test.UNSUPPORTED, "All COND_RUNs are skiped")
+            return lit.Test.Result(Test.UNSUPPORTED, "All RUN-IFs are skiped")
         return lit.Test.Result(Test.UNRESOLVED, "Test has no run line!")
 
     # Check for unterminated run lines.

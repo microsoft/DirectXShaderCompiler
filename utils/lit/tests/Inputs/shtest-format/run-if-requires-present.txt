@@ -1,0 +1,3 @@
+RUN-IF(a-present-feature): true
+RUN-IF(a-present-feature, another-present-feature): \
+RUN-IF(1): true

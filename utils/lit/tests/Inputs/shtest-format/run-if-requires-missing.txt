@@ -1,0 +1,3 @@
+RUN-IF(a-missing-feature): true
+RUN-IF(a-missing-feature, a-present-feature): \
+RUN-IF(1): true
