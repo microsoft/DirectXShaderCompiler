@@ -462,9 +462,6 @@ GenerateGlobalToLocalMirrorMap(llvm::Module &M,
       }
       auto DIFn = FnMap[fn];
       if (DIFn != nullptr) {
-        for (auto & ModuleGlobal : M.getGlobalList()) {
-          (void)ModuleGlobal.getName();
-        }
         const llvm::DITypeIdentifierMap EmptyMap;
         auto DIGVType = DIGV->getType().resolve(EmptyMap);
         DIBuilder DbgInfoBuilder(M);
