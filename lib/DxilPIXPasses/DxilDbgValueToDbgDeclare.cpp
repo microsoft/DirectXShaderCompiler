@@ -620,9 +620,6 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
 {
   hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
 
-   for (const NamedMDNode &NMD : M.named_metadata()) {
-    NMD.dump();
-  }
   auto GlobalEmbeddedArrayStorage = GatherGlobalEmbeddedArrayStorage(M);
 
   bool Changed = false;
@@ -1068,58 +1065,66 @@ GlobalVariableAndStorage GetOffsetFromGlobalVariable(
 bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
     llvm::Module &M, GlobalStorageMap &GlobalEmbeddedArrayStorage,
     llvm::StoreInst *Store) {
-  llvm::Value *V = Store->getPointerOperand();
-  if (auto *Constant = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
-    ScopedInstruction asInstr(Constant->getAsInstruction());
-    if (auto *asGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
-      // We are only interested in the case of basic types within an array
-      // because the PIX debug instrumentation operates at that level.
-      // Aggregate members will have been descended through to produce their
-      // own entries in the GlobalStorageMap.
-      // Consequently, we're only interested in the GEP's index into the array.
-      // Any deeper indexing in the GEP will be for embedded aggregates.
-      // The three operands in such a GEP mean:
-      //    0 = the pointer
-      //    1 = dereference the pointer (expected to be constant int zero)
-      //    2 = the index into the array
-      if (asGEP->getNumOperands() == 3 &&
-          llvm::isa<ConstantInt>(asGEP->getOperand(1)) &&
-          llvm::dyn_cast<ConstantInt>(asGEP->getOperand(1))
-                  ->getLimitedValue() == 0) {
-        // TODO: The case where this index is not a constant int
-        // (Needs changes to the allocas generated elsewhere in this pass.)
-        if (auto *arrayIndexAsConstInt =
-                llvm::dyn_cast<ConstantInt>(asGEP->getOperand(2))) {
-          int MemberIndex = arrayIndexAsConstInt->getLimitedValue();
-          std::string MemberName =
-              std::string(asGEP->getPointerOperand()->getName()) + "." +
-              std::to_string(MemberIndex);
-          auto Storage = GetOffsetFromGlobalVariable(
-              MemberName, GlobalEmbeddedArrayStorage);
-
-          llvm::DILocalVariable *Variable = 
-              GlobalEmbeddedArrayStorage[Storage.DIGV]
-                  .LocalMirrors[Store->getParent()->getParent()];
-          if (Variable != nullptr) {
-            const llvm::DITypeIdentifierMap EmptyMap;
-            llvm::DIType *Ty = Variable->getType().resolve(EmptyMap);
-            if (Ty != nullptr) {
-              auto &Register = m_Registers[Variable];
-              if (Register == nullptr) {
-                Register.reset(new VariableRegisters(
-                    Store->getDebugLoc(),
-                    Store->getParent()->getParent()->getEntryBlock().begin(),
-                    Variable, Ty, &M));
-              }
-              auto *AllocaInst =
-                  Register->GetRegisterForAlignedOffset(Storage.Offset);
-              if (AllocaInst != nullptr) {
-                IRBuilder<> B(Store->getNextNode());
-                auto *Zero = B.getInt32(0);
-                auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
-                B.CreateStore(Store->getValueOperand(), GEP);
-                return true; // yes, we modified the module
-              }
+  if (Store->getDebugLoc()) {
+    llvm::Value *V = Store->getPointerOperand();
+    std::string MemberName;
+    if (auto *Constant = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
+      ScopedInstruction asInstr(Constant->getAsInstruction());
+      if (auto *asGEP =
+              llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
+        // We are only interested in the case of basic types within an array
+        // because the PIX debug instrumentation operates at that level.
+        // Aggregate members will have been descended through to produce their
+        // own entries in the GlobalStorageMap.
+        // Consequently, we're only interested in the GEP's index into the
+        // array. Any deeper indexing in the GEP will be for embedded
+        // aggregates. The three operands in such a GEP mean:
+        //    0 = the pointer
+        //    1 = dereference the pointer (expected to be constant int zero)
+        //    2 = the index into the array
+        if (asGEP->getNumOperands() == 3 &&
+            llvm::isa<ConstantInt>(asGEP->getOperand(1)) &&
+            llvm::dyn_cast<ConstantInt>(asGEP->getOperand(1))
+                    ->getLimitedValue() == 0) {
+          // TODO: The case where this index is not a constant int
+          // (Needs changes to the allocas generated elsewhere in this pass.)
+          if (auto *arrayIndexAsConstInt =
+                  llvm::dyn_cast<ConstantInt>(asGEP->getOperand(2))) {
+            int MemberIndex = arrayIndexAsConstInt->getLimitedValue();
+            MemberName = std::string(asGEP->getPointerOperand()->getName()) +
+                         "." + std::to_string(MemberIndex);
+          }
+        }
+      }
+    } else {
+      MemberName = V->getName();
+    }
+    if (!MemberName.empty()) {
+      auto Storage =
+          GetOffsetFromGlobalVariable(MemberName, GlobalEmbeddedArrayStorage);
+      if (Storage.DIGV != nullptr) {
+        llvm::DILocalVariable *Variable =
+            GlobalEmbeddedArrayStorage[Storage.DIGV]
+                .LocalMirrors[Store->getParent()->getParent()];
+        if (Variable != nullptr) {
+          const llvm::DITypeIdentifierMap EmptyMap;
+          llvm::DIType *Ty = Variable->getType().resolve(EmptyMap);
+          if (Ty != nullptr) {
+            auto &Register = m_Registers[Variable];
+            if (Register == nullptr) {
+              Register.reset(new VariableRegisters(
+                  Store->getDebugLoc(),
+                  Store->getParent()->getParent()->getEntryBlock().begin(),
+                  Variable, Ty, &M));
+            }
+            auto *AllocaInst =
+                Register->GetRegisterForAlignedOffset(Storage.Offset);
+            if (AllocaInst != nullptr) {
+              IRBuilder<> B(Store->getNextNode());
+              auto *Zero = B.getInt32(0);
+              auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+              B.CreateStore(Store->getValueOperand(), GEP);
+              return true; // yes, we modified the module
             }
           }
         }

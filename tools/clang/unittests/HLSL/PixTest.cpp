@@ -231,6 +231,8 @@ public:
 
   TEST_METHOD(DxcPixDxilDebugInfo_InstructionOffsets)
   TEST_METHOD(DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_NoDbgValue)
+  TEST_METHOD(DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_WithDbgValue)
+  TEST_METHOD(DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_ArrayInValues)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -1167,15 +1169,24 @@ static std::string ToString(std::wstring from)
                                                                  blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob* blob);
   void CompileAndRunAnnotationAndGetDebugPart(
-      dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+      dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
       IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs = {});
   void CompileAndRunValueToDeclareAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
       IDxcBlob **ppDebugPart);
   void CompileAndRunAnnotationAndLoadDiaSource(
-      dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+      dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
       IDiaDataSource **ppDataSource,
       std::vector<const wchar_t *> extraArgs = {});
+
+  struct VariableComponentInfo {
+    std::wstring Name;
+    std::wstring Type;
+  };
+  void TestGlobalStaticCase(
+      const char *hlsl, const wchar_t * profile, const char *lineAtWhichToExamineVariables,
+      std::vector<VariableComponentInfo> const &ExpectedVariables);
+
 
 private:
   CComPtr<IDxcBlob> WrapInNewContainer(IDxcBlob * part);
@@ -1841,7 +1852,7 @@ TEST_F(PixTest, PixDebugCompileInfo) {
 static LPCWSTR defaultFilename = L"source.hlsl";
 
 static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
-                     LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+                     LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      _Outptr_ IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1905,7 +1916,7 @@ void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
 }
 
 void PixTest::CompileAndRunAnnotationAndGetDebugPart(
-    dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+    dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
     IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs) {
 
   CComPtr<IDxcBlob> pContainer;
@@ -1927,7 +1938,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 }
 
 void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
-    dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+    dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
     IDiaDataSource **ppDataSource,
     std::vector<const wchar_t *> extraArgs) {
   CComPtr<IDxcBlob> pDebugContent;
@@ -2392,6 +2403,192 @@ void MyMissShader(inout RayPayload payload)
   }
 }
 
+static HRESULT UnAliasType(IDxcPixType *MaybeAlias,
+                           IDxcPixType **OriginalType) {
+  *OriginalType = nullptr;
+  CComPtr<IDxcPixType> Tmp(MaybeAlias);
+
+  do {
+    HRESULT hr;
+
+    CComPtr<IDxcPixType> Alias;
+    hr = Tmp->UnAlias(&Alias);
+    if (FAILED(hr)) {
+      return hr;
+    }
+    if (hr == S_FALSE) {
+      break;
+    }
+    Tmp = Alias;
+  } while (true);
+
+  *OriginalType = Tmp.Detach();
+  return S_OK;
+}
+
+static bool AddStorageComponents(
+    IDxcPixDxilStorage *pStorage, std::wstring Name,
+    std::vector<PixTest::VariableComponentInfo> &VariableComponents) {
+  CComPtr<IDxcPixType> StorageType;
+  if (FAILED(pStorage->GetType(&StorageType))) {
+    return false;
+  }
+
+  CComPtr<IDxcPixType> UnAliasedType;
+  if (FAILED(UnAliasType(StorageType, &UnAliasedType))) {
+    return false;
+  }
+
+  CComPtr<IDxcPixArrayType> ArrayType;
+  CComPtr<IDxcPixScalarType> ScalarType;
+  CComPtr<IDxcPixStructType> StructType;
+
+  if (!FAILED(UnAliasedType->QueryInterface(&ScalarType))) {
+    CComBSTR TypeName;
+    // StorageType is the type that the storage was defined in HLSL, i.e.,
+    // it could be a typedef, const etc.
+    if (FAILED(StorageType->GetName(&TypeName))) {
+      return false;
+    }
+
+    VariableComponents.emplace_back(PixTest::VariableComponentInfo{
+        std::move(Name), std::wstring(TypeName)});
+    return true;
+  } else if (!FAILED(UnAliasedType->QueryInterface(&ArrayType))) {
+    DWORD NumElements;
+    if (FAILED(ArrayType->GetNumElements(&NumElements))) {
+      return false;
+    }
+
+    std::wstring BaseName = Name + L'[';
+    for (DWORD i = 0; i < NumElements; ++i) {
+      CComPtr<IDxcPixDxilStorage> EntryStorage;
+      if (FAILED(pStorage->Index(i, &EntryStorage))) {
+        return false;
+      }
+
+      if (!AddStorageComponents(EntryStorage,
+                                      BaseName + std::to_wstring(i) + L"]",
+                                      VariableComponents)) {
+        return false;
+      }
+    }
+  } else if (!FAILED(UnAliasedType->QueryInterface(&StructType))) {
+    DWORD NumFields;
+    if (FAILED(StructType->GetNumFields(&NumFields))) {
+      return false;
+    }
+
+    std::wstring BaseName = Name + L'.';
+    for (DWORD i = 0; i < NumFields; ++i) {
+      CComPtr<IDxcPixStructField> Field;
+      if (FAILED(StructType->GetFieldByIndex(i, &Field))) {
+        return false;
+      }
+
+      CComBSTR FieldName;
+      if (FAILED(Field->GetName(&FieldName))) {
+        return false;
+      }
+
+      CComPtr<IDxcPixDxilStorage> FieldStorage;
+      if (FAILED(pStorage->AccessField(FieldName, &FieldStorage))) {
+        return false;
+      }
+
+      if (!AddStorageComponents(FieldStorage,
+                                      BaseName + std::wstring(FieldName),
+                                      VariableComponents)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+static bool ContainedBy(std::vector<PixTest::VariableComponentInfo> const &v1,
+                        std::vector<PixTest::VariableComponentInfo> const &v2) {
+  for (auto const &c1 : v1) {
+    bool FoundThis = false;
+    for (auto const &c2 : v2) {
+      if (c1.Name == c2.Name && c1.Type == c2.Type) {
+        FoundThis = true;
+        break;
+      }
+    }
+    if (!FoundThis) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void PixTest::TestGlobalStaticCase(const char *hlsl,
+  const wchar_t * profile,
+  const char *lineAtWhichToExamineVariables,
+  std::vector<VariableComponentInfo> const &ExpectedVariables) {
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, profile,
+                                          &pDiaDataSource, {L"-Od"});
+
+  CComPtr<IDiaSession> session;
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
+
+  CComPtr<IDxcPixDxilDebugInfoFactory> Factory;
+  VERIFY_SUCCEEDED(session->QueryInterface(IID_PPV_ARGS(&Factory)));
+
+  CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
+  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
+
+  auto lines = SplitAndPreserveEmptyLines(std::string(hlsl), '\n');
+  auto FindInterestingLine = std::find_if(
+      lines.begin(), lines.end(),
+      [&lineAtWhichToExamineVariables](std::string const &line) {
+        return line.find(lineAtWhichToExamineVariables) != std::string::npos;
+      });
+  auto InterestingLine =
+      static_cast<DWORD>(FindInterestingLine - lines.begin()) + 1;
+
+  CComPtr<IDxcPixDxilLiveVariables> liveVariables;
+  for (; InterestingLine <= static_cast<DWORD>(lines.size());
+       ++InterestingLine) {
+    CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
+    if (SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
+            defaultFilename, InterestingLine, 0, &instructionOffsets))) {
+      if (instructionOffsets->GetCount() > 0) {
+        auto instructionOffset = instructionOffsets->GetOffsetByIndex(0);
+        if (SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
+                                                       &liveVariables))) {
+          break;
+        }
+      }
+    }
+  }
+  VERIFY_IS_TRUE(liveVariables != nullptr);
+
+  DWORD count;
+  VERIFY_SUCCEEDED(liveVariables->GetCount(&count));
+  bool FoundGlobal = false;
+  for (DWORD i = 0; i < count; ++i) {
+    CComPtr<IDxcPixVariable> variable;
+    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &variable));
+    CComBSTR name;
+    variable->GetName(&name);
+    if (0 == wcscmp(name, L"global.globalStruct")) {
+      FoundGlobal = true;
+      CComPtr<IDxcPixDxilStorage> storage;
+      VERIFY_SUCCEEDED(variable->GetStorage(&storage));
+      std::vector<VariableComponentInfo> ActualVariableComponents;
+      VERIFY_IS_TRUE(AddStorageComponents(storage, L"global.globalStruct",
+                                          ActualVariableComponents));
+      VERIFY_IS_TRUE(ContainedBy(ActualVariableComponents, ExpectedVariables));
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(FoundGlobal);
+}
+
 TEST_F(PixTest,
        DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_NoDbgValue) {
   if (m_ver.SkipDxilVersion(1, 5))
@@ -2403,7 +2600,7 @@ RWStructuredBuffer<float> floatRWUAV: register(u0);
 struct GlobalStruct
 {
     int IntArray[2];
-    float FloatArray[3];
+    float FloatArray[2];
 };
 
 static GlobalStruct globalStruct;
@@ -2424,7 +2621,7 @@ void main()
     {
         Accumulator += globalStruct.FloatArray[killSwitch % 2];
 
-        if (killSwitch++ == 16) break;
+        if (killSwitch++ == 4) break;
     }
 
     floatRWUAV[0] = Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];
@@ -2436,51 +2633,119 @@ void main()
   // arrays are present in GlobalStruct, no dbg.value will be present for
   // globalStruct. We expect the value-to-declare pass to generate its own
   // dbg.value for stores into FloatArray. We will observe those dbg.value here
-  // via the PIX-specific debug data API:
+  // via the PIX-specific debug data API.
 
-  CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
-                                          &pDiaDataSource, {L"-Od"});
+  std::vector<VariableComponentInfo> Expected;
+  Expected.push_back({L"global.globalStruct.IntArray[0]", L"int"});
+  Expected.push_back({L"global.globalStruct.IntArray[1]", L"int"});
+  Expected.push_back({L"global.globalStruct.FloatArray[0]", L"float"});
+  Expected.push_back({L"global.globalStruct.FloatArray[1]", L"float"});
+  TestGlobalStaticCase(hlsl, L"cs_6_6", "float Accumulator", Expected);
+}
 
-  CComPtr<IDiaSession> session;
-  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
+TEST_F(PixTest,
+       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_WithDbgValue) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
 
-  CComPtr<IDxcPixDxilDebugInfoFactory> Factory;
-  VERIFY_SUCCEEDED(session->QueryInterface(IID_PPV_ARGS(&Factory)));
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
 
-  CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
-  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
+struct GlobalStruct
+{
+    float Accumulator;
+    int IntArray[2];
+    float FloatArray[2];
+};
 
-  auto lines = SplitAndPreserveEmptyLines(std::string(hlsl), '\n');
-  auto FindInterestingLine =
-      std::find_if(lines.begin(), lines.end(), [](std::string const &line) {
-        return line.find("floatRWUAV[0] = Accumulator") != std::string::npos;
-      });
-  auto InterestingLine =
-      static_cast<DWORD>(FindInterestingLine - lines.begin()) + 2;
+static GlobalStruct globalStruct;
+[numthreads(1, 1, 1)]
+void main()
+{
+    globalStruct.IntArray[0] = floatRWUAV[0];
+    globalStruct.IntArray[1] = floatRWUAV[1];
+    globalStruct.FloatArray[0] = floatRWUAV[4];
+    globalStruct.FloatArray[1] = floatRWUAV[5];
+    globalStruct.Accumulator = 0;
 
-  CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
-  VERIFY_SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-      defaultFilename, InterestingLine, 0, &instructionOffsets));
+    uint killSwitch = 0;
 
-  auto instructionOffset = instructionOffsets->GetOffsetByIndex(0);
-  CComPtr<IDxcPixDxilLiveVariables> liveVariables;
-  VERIFY_SUCCEEDED(
-      dxilDebugger->GetLiveVariablesAt(instructionOffset, &liveVariables));
-  DWORD count;
-  VERIFY_SUCCEEDED(liveVariables->GetCount(&count));
-  bool FoundGlobal = false;
-  for (DWORD i = 0; i < count; ++i) {
-    CComPtr<IDxcPixVariable> variable;
-    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &variable));
-    CComBSTR name;
-    variable->GetName(&name);
-    if (0 == wcscmp(name, L"global.globalStruct")) {
-      FoundGlobal = true;
-      break;
+    [loop] // do not unroll this
+    while (true)
+    {
+        globalStruct.Accumulator += globalStruct.FloatArray[killSwitch % 2];
+
+        if (killSwitch++ == 4) break;
     }
-  }
-  VERIFY_IS_TRUE(FoundGlobal);
+
+    floatRWUAV[0] = globalStruct.Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];
+}
+
+)";
+  // The above HLSL should generate a module that represents the FloatArray
+  // member as a global, and the IntArray as an alloca. The presence of Accumulator 
+  // in the GlobalStruct will force a dbg.value to be present for
+  // globalStruct. We expect the value-to-declare pass to find that dbg.value.
+
+  std::vector<VariableComponentInfo> Expected;
+  Expected.push_back({L"global.globalStruct.Accumulator", L"float"});
+  Expected.push_back({L"global.globalStruct.IntArray[0]", L"int"});
+  Expected.push_back({L"global.globalStruct.IntArray[1]", L"int"});
+  Expected.push_back({L"global.globalStruct.FloatArray[0]", L"float"});
+  Expected.push_back({L"global.globalStruct.FloatArray[1]", L"float"});
+  TestGlobalStaticCase(hlsl, L"cs_6_6", "float Accumulator", Expected);
+}
+
+
+TEST_F(PixTest,
+    DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_ArrayInValues) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+struct GlobalStruct
+{
+    float Accumulator;
+    int IntArray[2];
+    float FloatArray[2];
+};
+
+static GlobalStruct globalStruct;
+[numthreads(1, 1, 1)]
+void main()
+{
+    globalStruct.IntArray[0] =0;
+    globalStruct.IntArray[1] =1;
+    globalStruct.FloatArray[0] = floatRWUAV[4];
+    globalStruct.FloatArray[1] = floatRWUAV[5];
+    globalStruct.Accumulator = 0;
+
+    uint killSwitch = 0;
+
+    [loop] // do not unroll this
+    while (true)
+    {
+        globalStruct.Accumulator += globalStruct.FloatArray[killSwitch % 2];
+
+        if (killSwitch++ == 4) break;
+    }
+
+    floatRWUAV[0] = globalStruct.Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];
+}
+
+)";
+  // The above HLSL should generate a module that represents the FloatArray
+  // member as a global, and the IntArray as individual values. 
+
+  std::vector<VariableComponentInfo> Expected;
+  Expected.push_back({L"global.globalStruct.Accumulator", L"float"});
+  Expected.push_back({L"global.globalStruct.IntArray[0]", L"int"});
+  Expected.push_back({L"global.globalStruct.IntArray[1]", L"int"});
+  Expected.push_back({L"global.globalStruct.FloatArray[0]", L"float"});
+  Expected.push_back({L"global.globalStruct.FloatArray[1]", L"float"});
+  TestGlobalStaticCase(hlsl, L"lib_6_6", "float Accumulator", Expected);
 }
 
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
