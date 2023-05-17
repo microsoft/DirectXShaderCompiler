@@ -1,2 +1,3 @@
 COND_RUN(a-present-feature): true
-COND_RUN(a-present-feature, another-present-feature): true
+COND_RUN(a-present-feature, another-present-feature): \
+COND_RUN(1): true

@@ -1,2 +1,3 @@
 COND_RUN(a-missing-feature): true
-COND_RUN(a-missing-feature, a-present-feature): true
+COND_RUN(a-missing-feature, a-present-feature): \
+COND_RUN(1): true

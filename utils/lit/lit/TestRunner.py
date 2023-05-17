@@ -479,12 +479,36 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
             # Trim spaces.
             cond_run_requires = [require.strip()
                       for require in cond_run_requires]
+
+            # Trim trailing whitespace.
+            ln = ln.rstrip()
+
             # Collapse lines with trailing '\\'.
             if cond_script and cond_script[-1][1][-1] == '\\':
-                cond_script[-1] = cond_script[-1][1][:-1] + ln
+                prev = cond_script[-1]
+                cond_run = (prev[0], prev[1][:-1] + ln)
+                cond_script[-1] = cond_run
             else:
                 cond_run = (cond_run_requires, ln)
                 cond_script.append(cond_run)
+
+            # No collapse anymore.
+            if ln[-1] != '\\':
+                prev = cond_script[-1]
+                cond_run_requires = prev[0]
+                # Check that we have the required features:
+                missing_required_features = [f for f in cond_run_requires
+                                    if f not in test.config.available_features]
+                ln = prev[1]
+                if missing_required_features:
+                    msg = ', '.join(missing_required_features)
+                    print('COND_RUN {} skipped for unsupport {}'.format(ln, msg))
+                    cond_run = (False, ln)
+                    cond_script.append(cond_run)
+                    continue
+
+                # Feature supported, append to script.
+                script.append(ln)
         else:
             raise ValueError("unknown script command type: %r" % (
                     command_type,))
@@ -504,22 +528,9 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
     script = [processLine(ln)
               for ln in script]
 
-    for cond_run in cond_script:
-        cond_run_requires = cond_run[0]
-        # Check that we have the required features:
-        missing_required_features = [f for f in cond_run_requires
-                                    if f not in test.config.available_features]
-        ln = cond_run[1]
-        if missing_required_features:
-            msg = ', '.join(missing_required_features)
-            print('COND_RUN {} skipped for unsupport {}'.format(ln, msg))
-            continue
-        ln = processLine(ln)
-        script.append(ln)
-
     # Verify the script contains a run line.
     if require_script and not script:
-        if cond_run:
+        if cond_script:
             return lit.Test.Result(Test.UNSUPPORTED, "All COND_RUNs are skiped")
         return lit.Test.Result(Test.UNRESOLVED, "Test has no run line!")
 
