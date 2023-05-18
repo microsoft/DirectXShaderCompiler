@@ -148,8 +148,3 @@ four commonly used option prefixes:
   code coverage reports. With this setting enabled the
   ``generate-coverage-report`` target is added to the build which produces a
   static HTML page with code coverage analysis results.
-
-**DXC_DISABLE_LIT**:BOOL
-  This option must be passed before the ``-C`` flag to set the PredefinedParams
-  cache script because it is handled by the cache script. This option makes
-  building DXC with the LLVM-LIT testing infrastructure disabled.
