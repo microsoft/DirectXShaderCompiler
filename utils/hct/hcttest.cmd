@@ -329,12 +329,12 @@ if not "%DXIL_DLL_LOC%"=="" (
 
 rem Begin SPIRV change
 if "%TEST_SPIRV%"=="1" (
-  if not exist %BIN_DIR%\clang-spirv-tests.exe (
-    echo clang-spirv-tests.exe has not been built. Make sure you run "hctbuild -spirvtest" first.
+  if not exist %BIN_DIR%\ClangSPIRVTests.exe (
+    echo ClangSPIRVTests.exe has not been built. Make sure you run "hctbuild -spirvtest" first.
     exit /b 1
   )
   echo Running SPIRV tests ...
-  %BIN_DIR%\clang-spirv-tests.exe --spirv-test-root %HLSL_SRC_DIR%\tools\clang\test\CodeGenSPIRV
+  %BIN_DIR%\ClangSPIRVTests.exe --spirv-test-root %HLSL_SRC_DIR%\tools\clang\test\CodeGenSPIRV
   if errorlevel 1 (
     echo Failure occured in SPIRV unit tests
     exit /b 1
