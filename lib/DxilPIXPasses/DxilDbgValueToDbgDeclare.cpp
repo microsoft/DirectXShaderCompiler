@@ -427,8 +427,7 @@ llvm::DISubprogram* GetFunctionDebugInfo(llvm::Module& M, llvm::Function* fn) {
 GlobalVariableToLocalMirrorMap
 GenerateGlobalToLocalMirrorMap(llvm::Module &M,
                                     llvm::DIGlobalVariable *DIGV) {
-  hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
-  auto entryPoints = DM.GetExportedFunctions();
+  auto & Functions = M.getFunctionList();
 
   std::string LocalMirrorOfGlobalName =
       std::string("global.") + std::string(DIGV->getName());
@@ -436,47 +435,51 @@ GenerateGlobalToLocalMirrorMap(llvm::Module &M,
   GlobalVariableToLocalMirrorMap ret;
   DenseMap<const Function *, DISubprogram *> FnMap;
 
-  for (llvm::Function const *fn : entryPoints) {
-    auto & LocalMirror = ret[fn];
-    auto &blocks = fn->getBasicBlockList();
-    for (auto &block : blocks) {
-      bool breakOut = false;
-      for (auto &instruction : block) {
-        if (auto const *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(&instruction)) {
-          auto *Variable = DbgValue->getVariable();
-          if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
-            LocalMirror = Variable;
-            breakOut = true;
-            break;
+  for (llvm::Function const & fn : Functions) {
+    auto &blocks = fn.getBasicBlockList();
+    if (!blocks.empty()) {
+      auto &LocalMirror = ret[&fn];
+      for (auto &block : blocks) {
+        bool breakOut = false;
+        for (auto &instruction : block) {
+          if (auto const *DbgValue =
+                  llvm::dyn_cast<llvm::DbgValueInst>(&instruction)) {
+            auto *Variable = DbgValue->getVariable();
+            if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
+              LocalMirror = Variable;
+              breakOut = true;
+              break;
+            }
+          }
+          if (auto const *DbgDeclare =
+                  llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction)) {
+            auto *Variable = DbgDeclare->getVariable();
+            if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
+              LocalMirror = Variable;
+              breakOut = true;
+              break;
+            }
           }
         }
-        if (auto const *DbgDeclare = llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction)) {
-          auto *Variable = DbgDeclare->getVariable();
-          if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
-            LocalMirror = Variable;
-            breakOut = true;
-            break;
-          }
+        if (breakOut)
+          break;
+      }
+      if (LocalMirror == nullptr) {
+        // If we didn't find a dbg.value for any member of this
+        // DIGlobalVariable, then no local mirror exists. We must manufacture
+        // one.
+        if (FnMap.empty()) {
+          FnMap = makeSubprogramMap(M);
         }
-      }
-      if (breakOut)
-        break;
-    }
-    if (LocalMirror == nullptr) {
-      // If we didn't find a dbg.value for any member of this DIGlobalVariable, then
-      // no local mirror exists. We must manufacture one.
-      if (FnMap.empty()) {
-        FnMap = makeSubprogramMap(M);
-      }
-      auto DIFn = FnMap[fn];
-      if (DIFn != nullptr) {
-        const llvm::DITypeIdentifierMap EmptyMap;
-        auto DIGVType = DIGV->getType().resolve(EmptyMap);
-        DIBuilder DbgInfoBuilder(M);
-        LocalMirror = DbgInfoBuilder.createLocalVariable(
-            dwarf::DW_TAG_auto_variable, DIFn,
-            LocalMirrorOfGlobalName, DIFn->getFile(), DIFn->getLine(),
-            DIGVType);
+        auto DIFn = FnMap[&fn];
+        if (DIFn != nullptr) {
+          const llvm::DITypeIdentifierMap EmptyMap;
+          auto DIGVType = DIGV->getType().resolve(EmptyMap);
+          DIBuilder DbgInfoBuilder(M);
+          LocalMirror = DbgInfoBuilder.createLocalVariable(
+              dwarf::DW_TAG_auto_variable, DIFn, LocalMirrorOfGlobalName,
+              DIFn->getFile(), DIFn->getLine(), DIGVType);
+        }
       }
     }
   }
@@ -626,14 +629,12 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
 )
 {
-  hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
-
   auto GlobalEmbeddedArrayStorage = GatherGlobalEmbeddedArrayStorage(M);
 
   bool Changed = false;
 
-  auto entryPoints = DM.GetExportedFunctions();
-  for (auto &fn : entryPoints) {
+  auto & Functions = M.getFunctionList();
+  for (auto &fn : Functions) {
     // #DSLTodo: We probably need to merge the list of variables for each export
     // into one set so that WinPIX shader debugging can follow a thread through
     // any function within a given module. (Unless PIX chooses to launch a new
@@ -651,35 +652,39 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     // Not sure what the right path forward is: might be that we have to tag
     // m_Registers with the exported function, and maybe write out a function
     // identifier during debug instrumentation...
-    auto &blocks = fn->getBasicBlockList();
-    for (auto &block : blocks) {
-      std::vector<Instruction *> instructions;
-      for (auto &instruction : block) {
-        instructions.push_back(&instruction);
-      }
-      // Handle store instructions before handling dbg.value, since the
-      // latter will add store instructions that we don't need to examine.
-      // Why do we handle store instructions? It's for the case of 
-      // non-const global statics that are backed by an llvm global,
-      // rather than an alloca. In the llvm global case, there is no
-      // debug linkage between the store and the HLSL variable being
-      // modified. But we can patch together enough knowledge about those
-      // from the lists of such globals (HLSL and llvm) and comparing the lists.
-      for (auto &instruction : instructions) {
-        if (auto *Store = llvm::dyn_cast<llvm::StoreInst>(instruction)) {
-          Changed =
-              handleStoreIfDestIsGlobal(M, GlobalEmbeddedArrayStorage, Store);
+    auto &blocks = fn.getBasicBlockList();
+    if (!blocks.empty()) {
+      for (auto &block : blocks) {
+        std::vector<Instruction *> instructions;
+        for (auto &instruction : block) {
+          instructions.push_back(&instruction);
         }
-      }
-      for (auto &instruction : instructions) {
-        if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
-          llvm::Value *V = DbgValue->getValue();
-          if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
-            continue;
+        // Handle store instructions before handling dbg.value, since the
+        // latter will add store instructions that we don't need to examine.
+        // Why do we handle store instructions? It's for the case of
+        // non-const global statics that are backed by an llvm global,
+        // rather than an alloca. In the llvm global case, there is no
+        // debug linkage between the store and the HLSL variable being
+        // modified. But we can patch together enough knowledge about those
+        // from the lists of such globals (HLSL and llvm) and comparing the
+        // lists.
+        for (auto &instruction : instructions) {
+          if (auto *Store = llvm::dyn_cast<llvm::StoreInst>(instruction)) {
+            Changed =
+                handleStoreIfDestIsGlobal(M, GlobalEmbeddedArrayStorage, Store);
           }
-          Changed = true;
-          handleDbgValue(M, DbgValue);
-          DbgValue->eraseFromParent();
+        }
+        for (auto &instruction : instructions) {
+          if (auto *DbgValue =
+                  llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
+            llvm::Value *V = DbgValue->getValue();
+            if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
+              continue;
+            }
+            Changed = true;
+            handleDbgValue(M, DbgValue);
+            DbgValue->eraseFromParent();
+          }
         }
       }
     }

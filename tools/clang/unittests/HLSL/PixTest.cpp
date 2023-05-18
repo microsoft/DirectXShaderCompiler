@@ -2601,8 +2601,8 @@ struct GlobalStruct
 };
 
 static GlobalStruct globalStruct;
-[numthreads(1, 1, 1)]
-void main()
+[noinline]
+void fn()
 {
     float Accumulator;
     globalStruct.IntArray[0] = floatRWUAV[0];
@@ -2624,6 +2624,12 @@ void main()
     floatRWUAV[0] = Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];
 }
 
+[numthreads(1, 1, 1)]
+void main()
+{
+  fn();
+}
+
 )";
   // The above HLSL should generate a module that represents the FloatArray
   // member as a global, and the IntArray as an alloca. Since only embedded
@@ -2637,7 +2643,7 @@ void main()
   Expected.push_back({L"global.globalStruct.IntArray[1]", L"int"});
   Expected.push_back({L"global.globalStruct.FloatArray[0]", L"float"});
   Expected.push_back({L"global.globalStruct.FloatArray[1]", L"float"});
-  TestGlobalStaticCase(hlsl, L"cs_6_6", "float Accumulator", Expected);
+  TestGlobalStaticCase(hlsl, L"lib_6_6", "float Accumulator", Expected);
 }
 
 TEST_F(PixTest,
