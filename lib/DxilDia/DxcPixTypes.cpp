@@ -155,7 +155,10 @@ STDMETHODIMP dxil_debug_info::DxcPixScalarType::UnAlias(
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(
     _Outptr_result_z_ BSTR *Name)
 {
-  return E_FAIL;
+  CComBSTR name(CA2W(m_pBaseType->getName().data()));
+  name.Append(L"[]");
+  *Name = name.Detach();
+  return S_OK;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetSizeInBits(
