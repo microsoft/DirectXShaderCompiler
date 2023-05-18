@@ -6,7 +6,7 @@
       "configurationType": "RelWithDebInfo",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_DISABLE_LIT=Off -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ]
@@ -17,7 +17,7 @@
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_DISABLE_LIT=Off -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ]
@@ -28,7 +28,7 @@
       "configurationType": "RelWithDebInfo",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_DISABLE_LIT=Off -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x86_x64" ]
@@ -39,7 +39,7 @@
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_DISABLE_LIT=Off -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x86_x64" ]

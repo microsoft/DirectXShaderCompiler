@@ -40,12 +40,12 @@ before_build:
 build_script:
 - cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -show-cmake-log -spirvtest -enable-lit
 - sh: mkdir build && cd build
-- sh: cmake .. -GNinja -DDXC_DISABLE_LIT=Off  -C ../cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14 -DLLVM_ENABLE_WERROR=On
+- sh: cmake .. -GNinja  -C ../cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14 -DLLVM_ENABLE_WERROR=On
 - sh: ninja
 
 test_script:
 - ps:  utils\appveyor\appveyor_test.ps1
-- cmd: call utils\hct\hcttest -rel spirv_only -enable-lit
+- cmd: call utils\hct\hcttest -rel clang -enable-lit
 - sh: ./bin/dxc --help
 - sh: ./bin/dxc -T ps_6_0 ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv

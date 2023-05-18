@@ -12,6 +12,7 @@ if (DXC_COVERAGE)
   set(LLVM_CODE_COVERAGE_TEST_TARGETS "check-all" CACHE STRING "")
 endif()
 
+# TODO: remove this option after switch to support lit only.
 if (DXC_DISABLE_LIT)
   set(LLVM_TEST_VALUE OFF)
 else()

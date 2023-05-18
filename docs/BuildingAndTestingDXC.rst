@@ -57,7 +57,6 @@ Open a Visual Stuido command prompt and run:
 .. code:: sh
   cmake <Repository Root> \
     -B <Path to Output> \
-    -DDXC_DISABLE_LIT=Off \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
     -G "Visual Studio 17 2022"
@@ -85,7 +84,6 @@ In your preferred terminal run:
 .. code:: sh
   cmake <Repository Root> \
     -B <Path to Output> \
-    -DDXC_DISABLE_LIT=Off \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
     -G Ninja

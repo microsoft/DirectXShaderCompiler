@@ -66,7 +66,7 @@ Note: If you intend to build from sources on Linux/macOS, follow [these instruct
 
 Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 
-* [Git](http://git-scm.com/downloads).
+* [Git](http://git-scm.com/downloads) - On Windows the Git command line tools must be added to the PATH in order to successfully build and test DXC.
 * [Python](https://www.python.org/downloads/) - version 3.x is required
 * [Visual Studio 2019](https://www.visualstudio.com/downloads) - select the following workloads: 
     * Universal Windows Platform Development
@@ -96,7 +96,6 @@ To run tests, open the HLSL Console and run this command after a successful buil
     hcttest
 
 Some tests will run shaders and verify their behavior. These tests also involve a driver that can execute these shaders. See the next section on how this should be currently set up.
-On Windows, need to add GitInstallPath\user\bin (default is C:\Program Files\Git\usr\bin) to PATH for commands like cmp/file.
 
 ## Running Shaders
 
