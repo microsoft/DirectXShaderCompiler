@@ -1,0 +1,5 @@
+RUN: not FileCheck -dump-input=fail --input-file=%S/Input/input.txt %s  2>&1 | FileCheck  %S/Input/check-input.txt 
+
+Make first FileCheck fail to test -dump-input. 
+CHECK-NOT:foo
+CHECK:bar

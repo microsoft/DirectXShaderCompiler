@@ -1,0 +1,6 @@
+CHECK:Input file:
+CHECK:Check file:
+CHECK:foo
+CHECK:bar
+
+Make sure input dump exist.

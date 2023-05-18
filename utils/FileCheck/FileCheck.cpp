@@ -74,6 +74,21 @@ static cl::opt<bool> AllowEmptyInput(
     cl::desc("Allow the input file to be empty. This is useful when making\n"
              "checks that some error message does not occur, for example."));
 
+// HLSL Change Begin - add dump-input option to dump full input.
+enum DumpInputValue {
+  DumpInputNever,
+  DumpInputFail
+};
+
+cl::opt<DumpInputValue>
+DumpInput("dump-input",
+        cl::desc("Dump input to stderr. The default is 'fail'."),
+        cl::init(DumpInputFail),
+        cl::values(clEnumValN(DumpInputNever, "never", "Never dump input"),
+                clEnumValN(DumpInputFail, "fail", "Dump input on failure")
+               ));
+// HLSL Change End.
+
 typedef cl::list<std::string>::const_iterator prefix_iterator;
 
 //===----------------------------------------------------------------------===//
@@ -1409,6 +1424,16 @@ int main(int argc, char **argv) {
     if (j == e)
       break;
   }
+
+  // HLSL Change Begin - dump input when fail.
+  if (hasError && DumpInput == DumpInputFail) {
+    errs() << "\n"
+           << "Input file: " << InputFilename << "\n"
+            << "Check file: " << CheckFilename << "\n"
+           << "\n";
+    errs() << Buffer;
+  }
+  // HLSL Change End
 
   return hasError ? 1 : 0;
 }
