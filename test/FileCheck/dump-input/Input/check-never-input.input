@@ -1,5 +1,0 @@
-CHECK: error: CHECK-NOT: string occurred!
-CHECK-NOT:Input file:
-CHECK-NOT:Check file:
-
-Make sure no input dump.

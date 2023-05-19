@@ -1,6 +1,8 @@
 
-RUN: not FileCheck -dump-input=never --input-file=%S/Input/input.input %s  2>&1 | FileCheck  %S/Input/check-never-input.input 
+RUN: not FileCheck -dump-input=never --input-file=%S/Input/input.input %S/Input/fail.input  2>&1 | FileCheck  %s
 
-Make first FileCheck fail to test -dump-input.
-CHECK-NOT:foo
-CHECK:bar
+CHECK: error: CHECK-NOT: string occurred!
+CHECK-NOT:Input file:
+CHECK-NOT:Check file:
+
+Make sure no input dump.

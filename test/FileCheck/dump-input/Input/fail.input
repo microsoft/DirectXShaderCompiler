@@ -1,0 +1,4 @@
+
+Make FileCheck fail to test -dump-input when input is input.input. 
+CHECK-NOT:foo
+CHECK:bar
