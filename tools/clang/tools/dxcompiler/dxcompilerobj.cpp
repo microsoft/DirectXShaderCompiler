@@ -1571,9 +1571,7 @@ public:
     else
       compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Default;
 
-    // Constructing vector of wide strings to pass in to codegen. Just passing
-    // in pArguments will expose ownership of memory to both CodeGenOptions and
-    // this caller, which can lead to unexpected behavior.
+    // Copy the arg list to HLSLArguments to embed into the module.
     for (const hlsl::options::ArgPair &argPair : Opts.ArgPairs) {
       if (argPair.Name.size())
         compiler.getCodeGenOpts().HLSLArguments.emplace_back("-" + argPair.Name);
