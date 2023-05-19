@@ -60,6 +60,17 @@ const llvm::opt::OptTable *getHlslOptTable();
 std::error_code initHlslOptTable();
 void cleanupHlslOptTable();
 
+// An ArgPair is a simple way to represent HLSL arguments without having to
+// manually parse them every time.
+// 
+// For arguments with a value, it's represented as so:
+//   { .Name="T",  .Value="ps_6_0" }
+//   { .Name="E",  .Value="main" }
+// For arguments with no value:
+//   { .Name="Zi", .Value="" }
+//   { .Name="Od", .Value="" }
+// For positional arguments:
+//   { .Name="",   .Value="my_input_file.hlsl" }
 struct ArgPair {
   std::string Name;
   std::string Value;
@@ -233,7 +244,9 @@ public:
   RewriterOpts RWOpt;
 
   std::vector<std::string> Warnings;
-  std::vector<ArgPair> ArgPairs;
+  std::vector<ArgPair> ArgPairs; // This list is computed when HLSLOptions is created.
+                                 // It does not include the input filename. See the
+                                 // definition of ArgPair to see what it is.
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();

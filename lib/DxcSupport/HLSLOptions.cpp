@@ -79,6 +79,9 @@ static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArg
 
     llvm::StringRef name = arg->getOption().getName();
 
+    // -opt-select can have multiple values. Since arg pair
+    // has no way of representing this, just split it into
+    // multiple -opt-select's.
     if (arg->getOption().matches(OPT_opt_select)) {
       for (const char *value : arg->getValues()) {
         ret.push_back(ArgPair{ name, value });
