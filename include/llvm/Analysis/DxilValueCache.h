@@ -52,7 +52,7 @@ struct DxilValueCache : public ImmutablePass {
 
 private:
 
-  WeakValueMap ValueMap;
+  WeakValueMap Map;
   bool (*ShouldSkipCallback)(Value *V) = nullptr;
 
   void MarkUnreachable(BasicBlock *BB);
@@ -77,8 +77,8 @@ public:
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
   Constant *GetConstValue(Value *V, DominatorTree *DT = nullptr);
   ConstantInt *GetConstInt(Value *V, DominatorTree *DT = nullptr);
-  void ResetUnknowns() { ValueMap.ResetUnknowns(); }
-  void ResetAll() { ValueMap.ResetAll(); }
+  void ResetUnknowns() { Map.ResetUnknowns(); }
+  void ResetAll() { Map.ResetAll(); }
   bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   void SetShouldSkipCallback(bool (*Callback)(Value *V)) { ShouldSkipCallback = Callback; };
 };

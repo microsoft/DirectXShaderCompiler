@@ -57,7 +57,7 @@ bool IsEntryBlock(const BasicBlock *BB) {
 }
 
 void DxilValueCache::MarkUnreachable(BasicBlock *BB) {
-  ValueMap.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 0));
+  Map.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 0));
 }
 
 bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
@@ -93,7 +93,7 @@ bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
 }
 
 bool DxilValueCache::IsUnreachable_(BasicBlock *BB) {
-  if (Value *V = ValueMap.Get(BB))
+  if (Value *V = Map.Get(BB))
     if (IsConstantFalse(V))
       return true;
   return false;
@@ -155,7 +155,7 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   // that were computed previously.
   if (!Simplified) {
     if (SimplifiedNotDominating)
-      if (Value *CachedV = ValueMap.Get(SimplifiedNotDominating))
+      if (Value *CachedV = Map.Get(SimplifiedNotDominating))
         Simplified = CachedV;
   }
 
@@ -379,7 +379,7 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   }
 
   if (Simplified && isa<Constant>(Simplified))
-    ValueMap.Set(I, Simplified);
+    Map.Set(I, Simplified);
 
   return Simplified;
 }
@@ -500,7 +500,7 @@ void DxilValueCache::WeakValueMap::Set(Value *Key, Value *V) {
 // If there's a cached value, return it. Otherwise, return
 // the value itself.
 Value *DxilValueCache::TryGetCachedValue(Value *V) {
-  if (Value *Simplified = ValueMap.Get(V))
+  if (Value *Simplified = Map.Get(V))
     return Simplified;
   return V;
 }
@@ -516,7 +516,7 @@ StringRef DxilValueCache::getPassName() const {
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (dyn_cast<Constant>(V))
     return V;
-  if (Value *NewV = ValueMap.Get(V))
+  if (Value *NewV = Map.Get(V))
     return NewV;
 
   return ProcessValue(V, DT);
@@ -541,7 +541,7 @@ bool DxilValueCache::IsUnreachable(BasicBlock *BB, DominatorTree *DT) {
 
 LLVM_DUMP_METHOD
 void DxilValueCache::dump() const {
-  ValueMap.dump();
+  Map.dump();
 }
 
 void DxilValueCache::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -580,15 +580,15 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
 
     // If we haven't seen this value, go in and push things it depends on
     // into the worklist.
-    if (!ValueMap.Seen(V)) {
-      ValueMap.SetSentinel(V);
+    if (!Map.Seen(V)) {
+      Map.SetSentinel(V);
       if (Instruction *I = dyn_cast<Instruction>(V)) {
 
         for (Use &U : I->operands()) {
           Instruction *UseI = dyn_cast<Instruction>(U.get());
           if (!UseI)
             continue;
-          if (!ValueMap.Seen(UseI))
+          if (!Map.Seen(UseI))
             WorkList.push_back(UseI);
         }
 
@@ -596,9 +596,9 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
           for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
             BasicBlock *BB = PN->getIncomingBlock(i);
             TerminatorInst *Term = BB->getTerminator();
-            if (!ValueMap.Seen(Term))
+            if (!Map.Seen(Term))
               WorkList.push_back(Term);
-            if (!ValueMap.Seen(BB))
+            if (!Map.Seen(BB))
               WorkList.push_back(BB);
           }
         }
@@ -607,9 +607,9 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
         for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; PI++) {
           BasicBlock *PredBB = *PI;
           TerminatorInst *Term = PredBB->getTerminator();
-          if (!ValueMap.Seen(Term))
+          if (!Map.Seen(Term))
             WorkList.push_back(Term);
-          if (!ValueMap.Seen(PredBB))
+          if (!Map.Seen(PredBB))
             WorkList.push_back(PredBB);
         }
       }
