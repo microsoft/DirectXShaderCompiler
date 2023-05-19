@@ -1238,7 +1238,7 @@ public:
           hlsl::SourceInfoWriter debugSourceInfoWriter;
           const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
           if (!opts.SourceInDebugModule) { // If we are using old PDB format where sources are in debug module, do not generate source info at all
-            debugSourceInfoWriter.Write(opts.TargetProfile, opts.EntryPoint, compiler.getCodeGenOpts(), compiler.getSourceManager());
+            debugSourceInfoWriter.Write(compiler.getCodeGenOpts(), opts.ArgPairs, compiler.getSourceManager());
             pSourceInfo = debugSourceInfoWriter.GetPart();
           }
 
@@ -1574,12 +1574,13 @@ public:
     // Constructing vector of wide strings to pass in to codegen. Just passing
     // in pArguments will expose ownership of memory to both CodeGenOptions and
     // this caller, which can lead to unexpected behavior.
-    for (UINT32 i = 0; i != Opts.Args.getNumInputArgStrings(); ++i) {
-      auto arg = Opts.Args.getArgString(i);
-      if (Opts.InputFile.compare(arg) != 0) {
-        compiler.getCodeGenOpts().HLSLArguments.emplace_back(arg);
-      }
+    for (const hlsl::options::ArgPair &argPair : Opts.ArgPairs) {
+      if (argPair.Name.size())
+        compiler.getCodeGenOpts().HLSLArguments.emplace_back("-" + argPair.Name);
+      if (argPair.Value.size())
+        compiler.getCodeGenOpts().HLSLArguments.emplace_back(argPair.Value);
     }
+
     // Overrding default set of loop unroll.
     if (Opts.PreferFlowControl)
       compiler.getCodeGenOpts().UnrollLoops = false;

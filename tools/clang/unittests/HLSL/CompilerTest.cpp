@@ -146,6 +146,7 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
+  TEST_METHOD(CompileSameFilenameAndEntryThenTestPdbUtilsArgs)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
   TEST_METHOD(CompileThenSetRootSignatureThenValidate)
   TEST_METHOD(CompileSetPrivateThenWithStripPrivate)
@@ -1869,6 +1870,54 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
 
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
   TestPdb(pPdbUtils);
+}
+
+TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::wstring shader = LR"x(
+    [RootSignature("")] float PSMain() : SV_Target {
+      return 0;
+    }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils)));
+
+  CComPtr<IDxcOperationResult> pOpResult;
+
+  std::wstring EntryPoint = L"PSMain";
+  CComPtr<IDxcBlobEncoding> pShaderBlob;
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(), shader.size() * sizeof(shader[0]), DXC_CP_UTF16, &pShaderBlob));
+  const WCHAR *args[] = { L"-Od",  L"-Zi", };
+  VERIFY_SUCCEEDED(pCompiler->Compile(pShaderBlob, EntryPoint.c_str(), EntryPoint.c_str(), L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOpResult));
+
+  HRESULT compileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOpResult->GetStatus(&compileStatus));
+  VERIFY_SUCCEEDED(compileStatus);
+
+  CComPtr<IDxcBlob> pDxil;
+  VERIFY_SUCCEEDED(pOpResult->GetResult(&pDxil));
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOpResult.QueryInterface(&pResult));
+  CComPtr<IDxcBlob> pPdb;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+  IDxcBlob *PdbLikes[] = {
+    pDxil, pPdb,
+  };
+
+  for (IDxcBlob *pPdbLike : PdbLikes) {
+    CComPtr<IDxcPdbUtils2> pPdbUtils;
+    VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcPdbUtils, IID_PPV_ARGS(&pPdbUtils)));
+    VERIFY_SUCCEEDED(pPdbUtils->Load(pPdbLike));
+
+    CComPtr<IDxcBlobWide> pEntryPoint;
+    VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&pEntryPoint));
+    VERIFY_IS_NOT_NULL(pEntryPoint);
+    VERIFY_ARE_EQUAL(std::wstring(pEntryPoint->GetStringPointer(), pEntryPoint->GetStringLength()), EntryPoint);
+  }
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbInPrivate) {

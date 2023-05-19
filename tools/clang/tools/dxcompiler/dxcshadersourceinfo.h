@@ -13,6 +13,7 @@
 #include <vector>
 #include <stdint.h>
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 
 namespace clang {
@@ -21,6 +22,10 @@ namespace clang {
 }
 
 namespace hlsl {
+
+  namespace options {
+    struct ArgPair;
+  }
 
 // TODO: Move this type to its own library.
 struct SourceInfoReader {
@@ -32,18 +37,13 @@ struct SourceInfoReader {
     llvm::StringRef Content;
   };
 
-  struct ArgPair {
-    std::string Name;
-    std::string Value;
-  };
-
   std::vector<Source> m_Sources;
-  std::vector<ArgPair> m_ArgPairs;
+  std::vector<options::ArgPair> m_ArgPairs;
 
   Source GetSource(unsigned i) const { return m_Sources[i]; }
   unsigned GetSourcesCount() const { return m_Sources.size(); }
 
-  const ArgPair &GetArgPair(unsigned i) const { return m_ArgPairs[i]; }
+  const options::ArgPair &GetArgPair(unsigned i) const { return m_ArgPairs[i]; }
   unsigned GetArgPairCount() const { return m_ArgPairs.size(); }
 
   // Note: The memory for SourceInfo must outlive this structure.
@@ -56,7 +56,7 @@ struct SourceInfoWriter {
   Buffer m_Buffer;
 
   const hlsl::DxilSourceInfo *GetPart() const;
-  void Write(llvm::StringRef targetProfile, llvm::StringRef entryPoint, clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
+  void Write(clang::CodeGenOptions &cgOpts, llvm::ArrayRef<hlsl::options::ArgPair> ArgPairs, clang::SourceManager &srcMgr);
 };
 
 } // namespace hlsl;

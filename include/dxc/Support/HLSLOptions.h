@@ -60,6 +60,12 @@ const llvm::opt::OptTable *getHlslOptTable();
 std::error_code initHlslOptTable();
 void cleanupHlslOptTable();
 
+struct ArgPair {
+  std::string Name;
+  std::string Value;
+};
+std::vector<ArgPair> ComputeArgPairs(llvm::ArrayRef<const char *> Args);
+
 ///////////////////////////////////////////////////////////////////////////////
 // Helper classes to deal with options.
 
@@ -228,6 +234,7 @@ public:
   RewriterOpts RWOpt;
 
   std::vector<std::string> Warnings;
+  std::vector<ArgPair> ArgPairs;
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();

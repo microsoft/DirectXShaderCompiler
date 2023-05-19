@@ -678,7 +678,7 @@ private:
 
         // Args
         for (unsigned i = 0; i < reader.GetArgPairCount(); i++) {
-          const hlsl::SourceInfoReader::ArgPair &pair = reader.GetArgPair(i);
+          const hlsl::options::ArgPair &pair = reader.GetArgPair(i);
           IFR(AddArgPair(pair.Name, pair.Value));
         }
 

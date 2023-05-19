@@ -69,6 +69,64 @@ const OptTable * hlsl::options::getHlslOptTable() {
   return g_HlslOptTable;
 }
 
+static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArgList &argList) {
+  std::vector<ArgPair> ret;
+  llvm::SmallString<64> argumentStorage;
+
+  for (llvm::opt::Arg *arg : argList) {
+    if (arg->getOption().matches(OPT_INPUT))
+      continue;
+
+    llvm::StringRef name = arg->getOption().getName();
+
+    if (arg->getOption().matches(OPT_opt_select)) {
+      for (const char *value : arg->getValues()) {
+        ret.push_back(ArgPair{ name, value });
+      }
+      continue;
+    }
+
+    llvm::StringRef value;
+    if (arg->getNumValues() > 0) {
+      assert(arg->getNumValues() == 1);
+      value = arg->getValue();
+    }
+
+    // If this is a positional argument, set the name to ""
+    // explicitly.
+    if (arg->getOption().getKind() == llvm::opt::Option::InputClass) {
+      name = "";
+    }
+    // If the argument must be merged (eg. -Wx, where W is the option and x is
+    // the value), merge them right now.
+    else if (arg->getOption().getKind() == llvm::opt::Option::JoinedClass) {
+      argumentStorage.clear();
+      argumentStorage.append(name);
+      argumentStorage.append(value);
+
+      name = argumentStorage;
+      value = "";
+    }
+
+    ArgPair argPair;
+    argPair.Name = name;
+    argPair.Value = value;
+
+    ret.push_back(std::move(argPair));
+  }
+
+  return ret;
+}
+
+std::vector<ArgPair> ComputeArgPairs(llvm::ArrayRef<const char *> Args) {
+  unsigned missingIndex = 0;
+  unsigned missingCount = 0;
+  const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
+  llvm::opt::InputArgList argList = optTable->ParseArgs(Args, missingIndex, missingCount);
+
+  return ComputeArgPairsFromArgList(argList);
+}
+
 void DxcDefines::push_back(llvm::StringRef value) {
   // Skip empty defines.
   if (value.size() > 0) {
@@ -447,8 +505,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
-  // Add macros from the command line.
+  opts.ArgPairs = ComputeArgPairsFromArgList(Args);
 
+  // Add macros from the command line.
   for (const Arg *A : Args.filtered(OPT_D)) {
     opts.Defines.push_back(A->getValue());
     // If supporting OPT_U and included in filter, handle undefs.

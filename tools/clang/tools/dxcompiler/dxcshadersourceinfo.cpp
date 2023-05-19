@@ -88,7 +88,7 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
           argValueLength++;
         }
 
-        ArgPair pair = {};
+        options::ArgPair pair = {};
         assert(argNameLength || argValueLength);
         if (argNameLength || argValueLength) {
           if (argNameLength)
@@ -305,7 +305,7 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts, cl
   return ret;
 }
 
-void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entryPoint, clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr) {
+void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, llvm::ArrayRef<hlsl::options::ArgPair> ArgPairs, clang::SourceManager &srcMgr) {
   m_Buffer.clear();
 
   // Write an empty header first.
@@ -409,49 +409,15 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header)); // Write an empty header first
 
-    llvm::SmallVector<const char *, 32> optPointers;
-    for (const std::string &arg : cgOpts.HLSLArguments) {
-      optPointers.push_back(arg.c_str());
-    }
-    unsigned missingIndex = 0;
-    unsigned missingCount = 0;
-    const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
-    llvm::opt::InputArgList argList = optTable->ParseArgs(optPointers, missingIndex, missingCount);
-
     llvm::SmallString<64> argumentStorage;
     const size_t argumentsOffset = m_Buffer.size();
-    for (llvm::opt::Arg *arg : argList) {
-      llvm::StringRef name = arg->getOption().getName();
-      const char *value = nullptr;
-      if (arg->getNumValues() > 0) {
-        assert(arg->getNumValues() == 1);
-        value = arg->getValue();
-      }
-
-
-      // If this is a positional argument, set the name to ""
-      // explicitly.
-      if (arg->getOption().getKind() == llvm::opt::Option::InputClass) {
-        name = "";
-      }
-      // If the argument must be merged (eg. -Wx, where W is the option and x is
-      // the value), merge them right now.
-      else if (arg->getOption().getKind() == llvm::opt::Option::JoinedClass) {
-        argumentStorage.clear();
-        argumentStorage.append(name);
-        argumentStorage.append(value);
-
-        name = argumentStorage;
-        value = nullptr;
-      }
-
+    for (const options::ArgPair &argPair : ArgPairs) {
       // Name
-      Append(&m_Buffer, name.data(), name.size());
+      Append(&m_Buffer, argPair.Name.data(), argPair.Name.size());
       Append(&m_Buffer, 0); // Null term
 
       // Value
-      if (value)
-        Append(&m_Buffer, value, strlen(value));
+      Append(&m_Buffer, argPair.Value.data(), argPair.Value.size());
       Append(&m_Buffer, 0); // Null term
 
       header.Count++;

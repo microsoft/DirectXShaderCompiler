@@ -1510,10 +1510,10 @@ TEST_F(PixTest, DiaCompileArgs) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
 
   const WCHAR *FlagList[] = {
-    L"/Zi",
+    L"-Zi",
     L"-Zpr",
-    L"/Qembed_debug",
-    L"/Fd", L"F:\\my dir\\",
+    L"-Qembed_debug",
+    L"-Fd", L"F:\\my dir\\",
     L"-Fo", L"F:\\my dir\\file.dxc",
   };
   const WCHAR *DefineList[] = {
@@ -1766,7 +1766,7 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
 
   const WCHAR *FlagList[] = {
-      L"/Zi",          L"-Zpr", L"/Qembed_debug",        L"/Fd",
+      L"-Zi",          L"-Zpr", L"-Qembed_debug",        L"-Fd",
       L"F:\\my dir\\", L"-Fo",  L"F:\\my dir\\file.dxc",
   };
   const WCHAR *DefineList[] = {
@@ -1779,7 +1779,7 @@ TEST_F(PixTest, PixDebugCompileInfo) {
     args.push_back(FlagList[i]);
   }
   for (unsigned i = 0; i < _countof(DefineList); i++) {
-    args.push_back(L"/D");
+    args.push_back(L"-D");
     args.push_back(DefineList[i]);
   }
 
