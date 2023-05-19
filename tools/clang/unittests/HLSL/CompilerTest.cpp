@@ -1873,6 +1873,9 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
 }
 
 TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
+  // This is a regression test for a bug where if entry point has the same
+  // value as the input filename, the entry point gets omitted from the arg
+  // list in debug module and PDB, making them useless for recompilation.
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
 
