@@ -16,6 +16,8 @@
 #ifndef LLVM_CLANG_BASIC_VERSION_H
 #define LLVM_CLANG_BASIC_VERSION_H
 
+#include <cstdint>
+
 #include "clang/Basic/Version.inc"
 #include "llvm/ADT/StringRef.h"
 

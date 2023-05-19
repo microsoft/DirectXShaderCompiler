@@ -30,5 +30,6 @@ DeclGroup* DeclGroup::Create(ASTContext &C, Decl **Decls, unsigned NumDecls) {
 DeclGroup::DeclGroup(unsigned numdecls, Decl** decls) : NumDecls(numdecls) {
   assert(numdecls > 0);
   assert(decls);
-  memcpy(this+1, decls, numdecls * sizeof(*decls));
+  memcpy(reinterpret_cast<void *>(this + 1),
+         reinterpret_cast<const void *>(decls), numdecls * sizeof(*decls));
 }

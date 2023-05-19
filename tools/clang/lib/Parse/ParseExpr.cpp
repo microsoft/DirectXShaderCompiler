@@ -446,24 +446,28 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         // If we're using '>>' as an operator within a template
         // argument list (in C++98), suggest the addition of
         // parentheses so that the code remains well-formed in C++0x.
-        if (!GreaterThanIsOperator && OpToken.is(tok::greatergreater))
+        if (!GreaterThanIsOperator && OpToken.is(tok::greatergreater)) {
           SuggestParentheses(OpToken.getLocation(),
                              diag::warn_cxx11_right_shift_in_template_arg,
                          SourceRange(Actions.getExprRange(LHS.get()).getBegin(),
                                      Actions.getExprRange(RHS.get()).getEnd()));
+        }
 
         LHS = Actions.ActOnBinOp(getCurScope(), OpToken.getLocation(),
                                  OpToken.getKind(), LHS.get(), RHS.get());
-      } else
+      } else {
         LHS = Actions.ActOnConditionalOp(OpToken.getLocation(), ColonLoc,
                                          LHS.get(), TernaryMiddle.get(),
                                          RHS.get());
-    } else
+      }
+    } else {
       // Ensure potential typos in the RHS aren't left undiagnosed.
       Actions.CorrectDelayedTyposInExpr(RHS);
-      // HLSL Change Begin - Take care TernaryMiddle.
-      Actions.CorrectDelayedTyposInExpr(TernaryMiddle);
-      // HLSL Change End.
+    }
+
+    // HLSL Change Begin - Take care TernaryMiddle.
+    Actions.CorrectDelayedTyposInExpr(TernaryMiddle);
+    // HLSL Change End.
   }
 }
 
