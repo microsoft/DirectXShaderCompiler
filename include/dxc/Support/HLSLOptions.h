@@ -64,7 +64,6 @@ struct ArgPair {
   std::string Name;
   std::string Value;
 };
-std::vector<ArgPair> ComputeArgPairs(llvm::ArrayRef<const char *> Args);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helper classes to deal with options.

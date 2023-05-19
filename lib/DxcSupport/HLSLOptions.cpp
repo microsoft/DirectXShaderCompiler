@@ -118,15 +118,6 @@ static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArg
   return ret;
 }
 
-std::vector<ArgPair> ComputeArgPairs(llvm::ArrayRef<const char *> Args) {
-  unsigned missingIndex = 0;
-  unsigned missingCount = 0;
-  const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
-  llvm::opt::InputArgList argList = optTable->ParseArgs(Args, missingIndex, missingCount);
-
-  return ComputeArgPairsFromArgList(argList);
-}
-
 void DxcDefines::push_back(llvm::StringRef value) {
   // Skip empty defines.
   if (value.size() > 0) {
