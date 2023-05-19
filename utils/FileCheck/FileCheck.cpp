@@ -83,9 +83,10 @@ enum DumpInputValue {
 cl::opt<DumpInputValue>
 DumpInput("dump-input",
         cl::desc("Dump input to stderr. The default is 'fail'."),
-        cl::init(DumpInputFail),
+        cl::init(DumpInputNever),
         cl::values(clEnumValN(DumpInputNever, "never", "Never dump input"),
-                clEnumValN(DumpInputFail, "fail", "Dump input on failure")
+                clEnumValN(DumpInputFail, "fail", "Dump input on failure"),
+                clEnumValEnd
                ));
 // HLSL Change End.
 
