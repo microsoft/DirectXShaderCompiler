@@ -13816,6 +13816,7 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
 
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
+  options.set_preserve_bindings(spirvOptions.preserveBindings);
   // Add interface variable SROA if the signature packing is enabled.
   if (spirvOptions.signaturePacking) {
     optimizer.RegisterPass(
