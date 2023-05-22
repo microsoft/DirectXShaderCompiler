@@ -3771,12 +3771,13 @@ static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
   return false;
 }
 
-static void collectAllStores(const Value *V, SmallVector<const Instruction *, 4> &Stores) {
+static void collectAllStores(const Value *V,
+                             SmallVector<const Instruction *, 4> &Stores) {
   for (const User *U : V->users()) {
     if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
       collectAllStores(BC, Stores);
     } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
-        if (MC->getRawDest() == V)
+      if (MC->getRawDest() == V)
         Stores.emplace_back(MC);
     } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       collectAllStores(GEP, Stores);
