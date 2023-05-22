@@ -19,6 +19,7 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Test/RDATDumper.h"
+#include "dxc/Test/D3DReflectionDumper.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support//MSFileSystem.h"
@@ -63,6 +64,10 @@ static cl::opt<bool> DumpRDAT("dumprdat",
                               cl::desc("Dump RDAT"),
                               cl::init(false));
 
+static cl::opt<bool> DumpReflection("dumpreflection",
+                              cl::desc("Dump reflection"),
+                              cl::init(false));
+
 class DxaContext {
 
 private:
@@ -80,6 +85,7 @@ public:
   void ListParts();
   void DumpRS();
   void DumpRDAT();
+  void DumpReflection();
 };
 
 void DxaContext::Assemble() {
@@ -378,6 +384,66 @@ void DxaContext::DumpRDAT() {
   printf("%s", ss.str().c_str());
 }
 
+void DxaContext::DumpReflection() {
+  CComPtr<IDxcBlobEncoding> pSource;
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+
+  CComPtr<IDxcContainerReflection> pReflection;
+  IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(pReflection->Load(pSource));
+
+  UINT32 partCount;
+  IFT(pReflection->GetPartCount(&partCount));
+
+  bool blobFound = false;
+  std::ostringstream ss;
+  hlsl::dump::D3DReflectionDumper dumper(ss);
+
+  CComPtr<ID3D12ShaderReflection> pShaderReflection;
+  CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    IFT(pReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_DXIL) {
+      blobFound = true;
+      CComPtr<IDxcBlob> pPart;
+      IFT(pReflection->GetPartContent(i, &pPart));
+      const hlsl::DxilProgramHeader *pProgramHeader =
+        reinterpret_cast<const hlsl::DxilProgramHeader*>(pPart->GetBufferPointer());
+      IFT(IsValidDxilProgramHeader(pProgramHeader, (uint32_t)pPart->GetBufferSize()));
+      hlsl::DXIL::ShaderKind SK = hlsl::GetVersionShaderType(pProgramHeader->ProgramVersion);
+      if (SK == hlsl::DXIL::ShaderKind::Library) {
+        IFT(pReflection->GetPartReflection(i,
+                                           IID_PPV_ARGS(&pLibraryReflection)));
+
+      } else {
+        IFT(pReflection->GetPartReflection(i,
+                                           IID_PPV_ARGS(&pShaderReflection)));
+      }
+      break;
+    } else if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      CComPtr<IDxcBlob> pPart;
+      IFT(pReflection->GetPartContent(i, &pPart));
+      hlsl::RDAT::DxilRuntimeData rdat(pPart->GetBufferPointer(),
+                                       pPart->GetBufferSize());
+      hlsl::dump::DumpContext d(ss);
+      DumpRuntimeData(rdat, d);
+    }
+  }
+
+  if (!blobFound) {
+    printf("Unable to find DXIL part");
+    return;
+  } else if (pShaderReflection) {
+    dumper.Dump(pShaderReflection);
+  } else if (pLibraryReflection) {
+    dumper.Dump(pLibraryReflection);
+  }
+
+  ss.flush();
+  printf("%s", ss.str().c_str());
+}
+
 using namespace hlsl::options;
 
 #ifdef _WIN32
@@ -439,8 +505,10 @@ int main(int argc, const char **argv) {
     } else if (DumpRDAT) {
       pStage = "Dump RDAT";
       context.DumpRDAT();
-    }
-    else {
+    } else if (DumpReflection) {
+      pStage = "Dump Reflection";
+      context.DumpReflection();
+    } else {
       pStage = "Assembling";
       context.Assemble();
     }
