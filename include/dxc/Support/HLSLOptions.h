@@ -310,6 +310,8 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
 void CopyArgsToWStrings(const llvm::opt::InputArgList &inArgs,
                         unsigned flagsToInclude,
                         std::vector<std::wstring> &outArgs);
+
+std::vector<ArgPair> ComputeArgPairsFromRawArgs(llvm::ArrayRef<const char *> args);
 }
 }
 

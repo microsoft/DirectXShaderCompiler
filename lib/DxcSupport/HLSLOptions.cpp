@@ -71,44 +71,89 @@ const OptTable * hlsl::options::getHlslOptTable() {
 
 static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArgList &argList) {
   std::vector<ArgPair> ret;
-  llvm::SmallString<64> argumentStorage;
 
   for (llvm::opt::Arg *arg : argList) {
     if (arg->getOption().matches(OPT_INPUT))
       continue;
 
     llvm::StringRef name = arg->getOption().getName();
-
-    // -opt-select can have multiple values. Since arg pair
-    // has no way of representing this, just split it into
-    // multiple -opt-select's.
-    if (arg->getOption().matches(OPT_opt_select)) {
-      for (const char *value : arg->getValues()) {
-        ret.push_back(ArgPair{ name, value });
-      }
-      continue;
-    }
-
     llvm::StringRef value;
-    if (arg->getNumValues() > 0) {
-      assert(arg->getNumValues() == 1);
-      value = arg->getValue();
-    }
+
+    llvm::SmallString<64> argumentStorage;
 
     // If this is a positional argument, set the name to ""
     // explicitly.
     if (arg->getOption().getKind() == llvm::opt::Option::InputClass) {
+      assert(arg->getNumValues() == 0);
       name = "";
+      value = arg->getValue();
     }
-    // If the argument must be merged (eg. -Wx, where W is the option and x is
-    // the value), merge them right now.
-    else if (arg->getOption().getKind() == llvm::opt::Option::JoinedClass) {
-      argumentStorage.clear();
-      argumentStorage.append(name);
-      argumentStorage.append(value);
+    // This is a flag without value, like -Zi, or -Od
+    else if (arg->getOption().getKind() == llvm::opt::Option::FlagClass) {
+      assert(arg->getNumValues() == 0);
+    }
+    else if (arg->getNumValues() == 1) {
+      value = arg->getValue();
+      // If the argument must be merged (eg. -Wx, where W is the option and x is
+      // the value), merge them right now.
+      if (arg->getOption().getKind() == llvm::opt::Option::JoinedClass) {
+        argumentStorage.append(name);
+        argumentStorage.append(value);
 
+        name = argumentStorage;
+        value = "";
+      }
+    }
+    //
+    // CommaJoinedClass takes the following form:
+    //  -MyArg=Value0,Value1,Value2,Value3
+    //
+    // Much like JoinedClass, it gets folded into the name.
+    //
+    //  { "MyArg=Value0,Value1,Value2,Value3", "" }
+    else if (arg->getOption().getKind() == Option::CommaJoinedClass) {
+      argumentStorage += name;
+      for (const char *value : arg->getValues()) {
+        if (argumentStorage.size())
+          argumentStorage += ",";
+        argumentStorage += value;
+      }
       name = argumentStorage;
       value = "";
+    }
+
+    // This type of arg takes the following form:
+    //  -arg Value0 Value1 Value2
+    //
+    // To preserve the arg correctly, we must represent it as the following:
+    //   { "arg", "" }
+    //   { "",    "Value0" }
+    //   { "",    "Value1" }
+    //   { "",    "Value2" }
+    // 
+    // ..Which is not ideal, since the whole point of arg pair is to easily break down what arg is part of what.
+    // 
+    // Alternative is to try this:
+    //   { "arg", "Value0 Value1 Value2" }
+    // 
+    // But this causes problem when recompiling
+    //
+    else if (arg->getOption().getKind() == Option::MultiArgClass) {
+      ArgPair namePair;
+      namePair.Name = name;
+      ret.push_back(std::move(namePair));
+
+      for (const char *valuePtr : arg->getValues()) {
+        ArgPair valuePair;
+        valuePair.Value = valuePtr;
+        ret.push_back(std::move(valuePair));
+      }
+      continue; // We've added the arg specially, skip the normal stuff.
+    }
+    else {
+      // This code path is now exercised on every compilation and arg parse with HLSLOptions,
+      // so if we ever add some other types of arg class, we'll hit this.
+      llvm::report_fatal_error(llvm::Twine("Unknown argument type ") + llvm::Twine(arg->getOption().getKind()));
     }
 
     ArgPair argPair;
@@ -119,6 +164,18 @@ static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArg
   }
 
   return ret;
+}
+
+std::vector<ArgPair> hlsl::options::ComputeArgPairsFromRawArgs(llvm::ArrayRef<const char *> args) {
+  const llvm::opt::OptTable *optionTable = hlsl::options::getHlslOptTable();
+  assert(optionTable);
+  if (optionTable) {
+    unsigned missingIndex = 0;
+    unsigned missingCount = 0;
+    llvm::opt::InputArgList argList = optionTable->ParseArgs(args, missingIndex, missingCount);
+    return ComputeArgPairsFromArgList(argList);
+  }
+  return std::vector<ArgPair>();
 }
 
 void DxcDefines::push_back(llvm::StringRef value) {

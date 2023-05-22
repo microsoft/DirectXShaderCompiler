@@ -147,6 +147,7 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
   TEST_METHOD(CompileSameFilenameAndEntryThenTestPdbUtilsArgs)
+  TEST_METHOD(CompileMultiArgClassRecompile)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
   TEST_METHOD(CompileThenSetRootSignatureThenValidate)
   TEST_METHOD(CompileSetPrivateThenWithStripPrivate)
@@ -1872,6 +1873,121 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
   TestPdb(pPdbUtils);
 }
 
+TEST_F(CompilerTest, CompileMultiArgClassRecompile) {
+  // This is a regression test for a bug where if entry point has the same
+  // value as the input filename, the entry point gets omitted from the arg
+  // list in debug module and PDB, making them useless for recompilation.
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::wstring shader = LR"x(
+    [RootSignature("")] float PSMain() : SV_Target {
+      return 0;
+    }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils)));
+
+  CComPtr<IDxcOperationResult> pOpResult;
+
+  CComPtr<IDxcBlobEncoding> pShaderBlob;
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(), shader.size() * sizeof(shader[0]), DXC_CP_UTF16, &pShaderBlob));
+  const WCHAR *args[] = {
+    L"-Od",
+    L"-Zi",
+    L"-opt-select", L"test0", L"test1",
+    L"-opt-select", L"test2", L"test3",
+  };
+  VERIFY_SUCCEEDED(pCompiler->Compile(pShaderBlob, L"MyShader.hlsl", L"PSMain", L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOpResult));
+
+  HRESULT compileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOpResult->GetStatus(&compileStatus));
+  VERIFY_SUCCEEDED(compileStatus);
+
+  CComPtr<IDxcBlob> pDxil;
+  VERIFY_SUCCEEDED(pOpResult->GetResult(&pDxil));
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOpResult.QueryInterface(&pResult));
+  CComPtr<IDxcBlob> pPdb;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+  IDxcBlob *PdbLikes[] = {
+    pDxil, pPdb,
+  };
+
+  auto RenderArgsFromPdbUtils = [this](IDxcPdbUtils2 *pPdbUtils) -> std::vector<std::wstring> {
+    std::vector<std::wstring> Args;
+    UINT uNumArgPairs = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgPairCount(&uNumArgPairs));
+    for (UINT i = 0; i < uNumArgPairs; i++) {
+      CComPtr<IDxcBlobWide> pName;
+      CComPtr<IDxcBlobWide> pValue;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArgPair(i, &pName, &pValue));
+
+      if (pName && pName->GetStringLength()) {
+        Args.push_back(std::wstring(L"-") + std::wstring(pName->GetStringPointer(), pName->GetStringLength()));
+      }
+      if (pValue && pValue->GetStringLength()) {
+        Args.push_back(std::wstring(pValue->GetStringPointer(), pValue->GetStringLength()));
+      }
+    }
+    return Args;
+  };
+
+  for (IDxcBlob *pPdbLike : PdbLikes) {
+    CComPtr<IDxcPdbUtils2> pPdbUtils;
+    VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcPdbUtils, IID_PPV_ARGS(&pPdbUtils)));
+    VERIFY_SUCCEEDED(pPdbUtils->Load(pPdbLike));
+
+    std::vector<std::wstring> Args = RenderArgsFromPdbUtils(pPdbUtils);
+    std::vector<const WCHAR *> ArgPtrs;
+    for (const std::wstring &Arg : Args) {
+      ArgPtrs.push_back(Arg.c_str());
+    }
+
+    CComPtr<IDxcCompiler3> pCompiler3;
+    VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler3));
+
+    DxcBuffer RecompileBuf = {};
+    RecompileBuf.Ptr = shader.c_str();
+    RecompileBuf.Size = shader.size() * sizeof(shader[0]);
+    RecompileBuf.Encoding = DXC_CP_UTF16;
+
+    CComPtr<IDxcResult> pRecompileResult;
+    VERIFY_SUCCEEDED(pCompiler3->Compile(&RecompileBuf, ArgPtrs.data(), ArgPtrs.size(), nullptr, IID_PPV_ARGS(&pRecompileResult)));
+
+    HRESULT recompileStatus = S_OK;
+    VERIFY_SUCCEEDED(pRecompileResult->GetStatus(&recompileStatus));
+    VERIFY_SUCCEEDED(recompileStatus);
+
+    CComPtr<IDxcBlob> pRecompiledDxil;
+    CComPtr<IDxcBlob> pRecompiledPdb;
+    VERIFY_SUCCEEDED(pRecompileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pRecompiledDxil), nullptr));
+    VERIFY_SUCCEEDED(pRecompileResult->GetOutput(DXC_OUT_PDB,    IID_PPV_ARGS(&pRecompiledPdb),  nullptr));
+
+    IDxcBlob *pRecompiledObjectsToVerify[] = {
+      pRecompiledDxil, pRecompiledPdb,
+    };
+
+    for (IDxcBlob *pRecompiledObj : pRecompiledObjectsToVerify) {
+      CComPtr<IDxcPdbUtils2> pRecompiledPdbUtils;
+      VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcPdbUtils, IID_PPV_ARGS(&pRecompiledPdbUtils)));
+      VERIFY_SUCCEEDED(pRecompiledPdbUtils->Load(pRecompiledObj));
+
+      std::vector<std::wstring> RecompiledArgs = RenderArgsFromPdbUtils(pPdbUtils);
+      VERIFY_ARE_EQUAL(Args.size(), RecompiledArgs.size());
+      int OptSelCount = 0;
+      for (unsigned i = 0; i < RecompiledArgs.size(); i++) {
+        if (RecompiledArgs[i] == L"-opt-select")
+          OptSelCount++;
+        VERIFY_ARE_EQUAL(RecompiledArgs[i], Args[i]);
+      }
+      VERIFY_ARE_EQUAL(OptSelCount, 2);
+    }
+  }
+}
+
 TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
   // This is a regression test for a bug where if entry point has the same
   // value as the input filename, the entry point gets omitted from the arg
@@ -1893,7 +2009,10 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
   std::wstring EntryPoint = L"PSMain";
   CComPtr<IDxcBlobEncoding> pShaderBlob;
   VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(), shader.size() * sizeof(shader[0]), DXC_CP_UTF16, &pShaderBlob));
-  const WCHAR *args[] = { L"-Od",  L"-Zi", };
+  const WCHAR *args[] = {
+    L"-Od",
+    L"-Zi",
+  };
   VERIFY_SUCCEEDED(pCompiler->Compile(pShaderBlob, EntryPoint.c_str(), EntryPoint.c_str(), L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOpResult));
 
   HRESULT compileStatus = S_OK;

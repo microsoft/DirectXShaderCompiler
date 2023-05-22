@@ -366,27 +366,6 @@ private:
     return !memcmp(ptr, pattern, _countof(pattern));
   }
 
-  static std::vector<std::pair<std::string, std::string> > ComputeArgPairs(ArrayRef<const char *> args) {
-    std::vector<std::pair<std::string, std::string> > ret;
-
-    const llvm::opt::OptTable *optionTable = hlsl::options::getHlslOptTable();
-    assert(optionTable);
-    if (optionTable) {
-      unsigned missingIndex = 0;
-      unsigned missingCount = 0;
-      llvm::opt::InputArgList argList = optionTable->ParseArgs(args, missingIndex, missingCount);
-      for (llvm::opt::Arg *arg : argList) {
-        std::pair<std::string, std::string> newPair;
-        newPair.first = arg->getOption().getName();
-        if (arg->getNumValues() > 0) {
-          newPair.second = arg->getValue();
-        }
-        ret.push_back(std::move(newPair));
-      }
-    }
-    return ret;
-  }
-
   HRESULT AddSource(StringRef name, StringRef content) {
     Source_File source;
     IFR(Utf8ToBlobWide(name, &source.Name));
@@ -605,9 +584,9 @@ private:
           args.push_back(arg.data());
         }
 
-        std::vector<std::pair<std::string, std::string> > Pairs = ComputeArgPairs(args);
-        for (std::pair<std::string, std::string> &p : Pairs) {
-          IFR(AddArgPair(p.first, p.second));
+        std::vector<hlsl::options::ArgPair> Pairs = hlsl::options::ComputeArgPairsFromRawArgs(args);
+        for (hlsl::options::ArgPair &p : Pairs) {
+          IFR(AddArgPair(p.Name, p.Value));
         }
       }
     }
