@@ -823,8 +823,11 @@ GetOrCreateMatrixSpecialization(ASTContext &context, Sema *sema,
           context.IntTy),
       TemplateArgument(
           context,
-          llvm::APSInt(
-              llvm::APInt(context.getIntWidth(context.IntTy), isRowMajor?1:0), false),
+          llvm::APSInt(llvm::APInt(context.getIntWidth(context.IntTy),
+                                   isRowMajor
+                                       ? HLSLMatrixOrientation::RowMajor
+                                       : HLSLMatrixOrientation::ColumnMajor),
+                       false),
           context.IntTy),
   };
 
@@ -3105,7 +3108,7 @@ private:
   QualType m_matrixTypes[HLSLScalarTypeCount][4][4][2];
 
   // Matrix types already built, in shorthand form.
-  // The last dimension is for orientation, default is 0, column is 1, row is 2.
+  // The last dimension is for orientation, column is 0, row is 1, default is 2.
   // m_matrixShorthandTypes types are alias so it need to save default orientation for check after attributed types removed.
   // m_matrixTypes is the final template specialization, it only save column/row major, no default orientation.
   TypedefDecl* m_matrixShorthandTypes[HLSLScalarTypeCount][4][4][3];
@@ -4033,10 +4036,11 @@ public:
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
                    rowCount <= 4 && colCount <= 4);
     auto *matDecl = m_defaultMatDecl;
-    int orientation = 0;
+    int orientation = HLSLMatrixOrientation::Default;
     if (!isDefault) {
       matDecl = isRowMajor ? m_rowMajorMatDecl : m_columnMajorMatDecl;
-      orientation = isRowMajor ? 2 : 1;
+      orientation = isRowMajor ? HLSLMatrixOrientation::RowMajor
+                               : HLSLMatrixOrientation::ColumnMajor;
     }
 
     TypedefDecl *qts = m_matrixShorthandTypes[scalarType][rowCount - 1]
@@ -4057,7 +4061,10 @@ public:
 
   QualType LookupMatrixType(HLSLScalarType scalarType, unsigned int rowCount, unsigned int colCount, bool isRowMajor)
   {
-    QualType qt = m_matrixTypes[scalarType][rowCount - 1][colCount - 1][isRowMajor?1:0];
+    QualType qt =
+        m_matrixTypes[scalarType][rowCount - 1][colCount - 1]
+                     [isRowMajor ? HLSLMatrixOrientation::RowMajor
+                                 : HLSLMatrixOrientation::ColumnMajor];
     if (qt.isNull()) {
       // lazy initialization of scalar types 
       if (m_scalarTypes[scalarType].isNull()) {
@@ -4067,7 +4074,8 @@ public:
           *m_context, m_sema, m_matrixTemplateDecl, m_scalarTypes[scalarType],
           rowCount, colCount, isRowMajor);
       m_matrixTypes[scalarType][rowCount - 1][colCount - 1]
-                   [isRowMajor ? 1 : 0] = qt;
+                   [isRowMajor ? HLSLMatrixOrientation::RowMajor
+                               : HLSLMatrixOrientation::ColumnMajor] = qt;
     }
     return qt;
   }
@@ -4894,8 +4902,8 @@ public:
 
         if (hlsl::IsHLSLMatType(functionArgTypes[0]) && functionArgTypes.size() == 1) {
           // for mat return type to be row major.
-          functionArgTypes[0] =
-              GetHLSLMatrixTypeWithMajor(functionArgTypes[0], true, *m_sema);
+          functionArgTypes[0] = ApplyOrientationOnHLSLMatrixType(
+              functionArgTypes[0], true, *m_sema);
         }
         DXASSERT(tableName, "otherwise IDxcIntrinsicTable::GetTableName() failed");
         intrinsicFuncDecl = AddHLSLIntrinsicFunction(
@@ -6899,7 +6907,7 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
   GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
   pTypeInfo->uTotalElts = pTypeInfo->uRows * pTypeInfo->uCols;
-  pTypeInfo->bIsRowMajor = hlsl::IsRowMajorMatrixTemplate(type);
+  pTypeInfo->bIsRowMajor = hlsl::IsRowMajorMatrixType(type);
 }
 
 // Highest possible score (i.e., worst possible score).
@@ -8606,11 +8614,10 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
           // For col matrix to vector, cast to row major first, because hlsl
           // assume row major on matrix value.
           From = m_sema
-                     ->ImpCastExprToType(
-                         From,
-                         hlsl::GetHLSLMatrixTypeWithMajor(From->getType(),
-                                                          /*isRowMajor*/ true,
-                                                          *m_sema),
+                     ->ImpCastExprToType(From,
+                                         hlsl::ApplyOrientationOnHLSLMatrixType(
+                                             From->getType(),
+                                             /*isRowMajor*/ true, *m_sema),
                          TargetInfo.bIsRowMajor ? CK_HLSLColMajorToRowMajor
                                                 : CK_HLSLRowMajorToColMajor,
                          From->getValueKind(),
@@ -8656,7 +8663,7 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
             // For col matrix to vector, cast to row major first, because hlsl
             // assume row major value when cast matrix to vector.
             From = m_sema->ImpCastExprToType(From,
-                                             hlsl::GetHLSLMatrixTypeWithMajor(
+                                             hlsl::ApplyOrientationOnHLSLMatrixType(
                                              From->getType(),
                                              /*isRowMajor*/ true, *m_sema),
                                              CK_HLSLColMajorToRowMajor,
@@ -9790,7 +9797,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     } else if (IsMatrixType(m_sema, ResultTy)) {
       UINT rowCount, colCount;
       GetRowsAndColsForAny(ResultTy, rowCount, colCount);
-      bool isRowMajor = hlsl::IsRowMajorMatrixTemplate(ResultTy);
+      bool isRowMajor = hlsl::IsRowMajorMatrixType(ResultTy);
       ResultTy = LookupMatrixType(HLSLScalarType::HLSLScalarType_bool, rowCount,
                                   colCount, isRowMajor);
     } else
@@ -10140,8 +10147,8 @@ clang::QualType HLSLExternalSource::ApplyTypeSpecSignToParsedType(
     } else if (objKind == AR_TOBJ_MATRIX) {
       UINT rowCount, colCount;
       GetRowsAndCols(type, rowCount, colCount);
-      bool isRowMajor = hlsl::IsRowMajorMatrixTemplate(type);
-      bool isDefault = hlsl::IsDefaultMajorOrientationTemplate(type);
+      bool isRowMajor = hlsl::IsRowMajorMatrixType(type);
+      bool isDefault = hlsl::IsDefaultOrientationMatrixType(type);
       TypedefDecl *qts =
           LookupMatrixShorthandType(newScalarType, rowCount, colCount, isRowMajor, isDefault);
       return m_context->getTypeDeclType(qts);
@@ -14275,11 +14282,12 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   return QualType();
 }
 
-QualType hlsl::GetHLSLMatrixTypeWithMajor(QualType matType, bool isRowMajor,
+QualType hlsl::ApplyOrientationOnHLSLMatrixType(QualType matType,
+                                                bool isRowMajor,
                                           clang::Sema &sema) {
-  bool isDefault = hlsl::IsDefaultMajorOrientationTemplate(matType);
+  bool isDefault = hlsl::IsDefaultOrientationMatrixType(matType);
   // Default major has correct major set, only check major match is not enough.
-  if (!isDefault && hlsl::IsRowMajorMatrixTemplate(matType) == isRowMajor)
+  if (!isDefault && hlsl::IsRowMajorMatrixType(matType) == isRowMajor)
     return matType;
 
   llvm::Optional<AttributedType::Kind> Attr;

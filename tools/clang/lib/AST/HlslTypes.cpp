@@ -188,7 +188,7 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
 }
 
 bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue) {
-  bool result = IsRowMajorMatrixTemplate(type);
+  bool result = IsRowMajorMatrixType(type);
   return result;
 }
 
@@ -401,7 +401,7 @@ void GetHLSLMatRowColCount(clang::QualType type, unsigned int &row,
   GetRowsAndColsForAny(type, row, col);
 }
 
-bool IsRowMajorMatrixTemplate(clang::QualType matType) {
+bool IsRowMajorMatrixType(clang::QualType matType) {
   QualType type = GetStructuralForm(matType);
   const Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
@@ -418,7 +418,7 @@ bool IsRowMajorMatrixTemplate(clang::QualType matType) {
   return false;
 }
 
-bool IsDefaultMajorOrientationTemplate(clang::QualType matType) {
+bool IsDefaultOrientationMatrixType(clang::QualType matType) {
   QualType type = (matType);
   // Strip AttributedType.
   {

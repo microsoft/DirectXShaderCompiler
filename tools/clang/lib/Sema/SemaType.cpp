@@ -1569,7 +1569,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   // Apply major on default major.
   if (hlsl::IsMatrixType(&S, Result) &&
       Result->getAs<AttributedType>() == nullptr)
-    Result = hlsl::GetHLSLMatrixTypeWithMajor(
+    Result = hlsl::ApplyOrientationOnHLSLMatrixType(
         Result, S.getLangOpts().HLSLDefaultRowMajor, S);
 
   // Apply const/volatile/restrict qualifiers to T.
@@ -4347,7 +4347,7 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
           defaultRowMajor ? AttributedType::attr_hlsl_row_major
                           : AttributedType::attr_hlsl_column_major;
       // update major for case default matrix major not match pragma.
-      T = hlsl::GetHLSLMatrixTypeWithMajor(T, defaultRowMajor, *this);
+      T = hlsl::ApplyOrientationOnHLSLMatrixType(T, defaultRowMajor, *this);
       T = Context.getAttributedType(AttributeKind, T, T);
     }
   }
@@ -5862,11 +5862,12 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
   switch (Kind) {
   default: llvm_unreachable("Unknown attribute kind");
   case AttributeList::AT_HLSLRowMajor: {
-    Type = hlsl::GetHLSLMatrixTypeWithMajor(Type, /*isRowMajor*/ true, S);
+    Type = hlsl::ApplyOrientationOnHLSLMatrixType(Type, /*isRowMajor*/ true, S);
     TAK = AttributedType::attr_hlsl_row_major;
   } break;
   case AttributeList::AT_HLSLColumnMajor: {
-    Type = hlsl::GetHLSLMatrixTypeWithMajor(Type, /*isRowMajor*/ false, S);
+    Type =
+        hlsl::ApplyOrientationOnHLSLMatrixType(Type, /*isRowMajor*/ false, S);
     TAK = AttributedType::attr_hlsl_column_major;
   } break;
   case AttributeList::AT_HLSLUnorm:       TAK = AttributedType::attr_hlsl_unorm; break;

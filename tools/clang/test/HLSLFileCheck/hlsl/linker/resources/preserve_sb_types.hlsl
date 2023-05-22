@@ -118,7 +118,7 @@
 
 
 // CHECK: %[[ResTy:[^ ]+]] = type { %[[ElTy:.*struct.Element]] }
-// CHECK: %[[ElTy]] = type { {{\[4 x \<4 x float\>\]|\%class\.matrix\.float\.4\.4}}, <4 x float> }
+// CHECK: %[[ElTy]] = type { {{\[4 x \<4 x float\>\]|\%class\.matrix\.float\.4\.4\.Row}}, <4 x float> }
 
 // TBD: Why is resource global sometimes `global` and sometimes `constant`?
 // LIBGV_ORIG: @[[GV:[^ ]+]] = external {{global|constant}} %[[ResTy]]

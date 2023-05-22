@@ -42,7 +42,7 @@ namespace clang {
   class TypeSourceInfo;
   class TypedefDecl;
   class DeclContext;
-  }
+}
 
 namespace hlsl {
 
@@ -85,6 +85,7 @@ enum HLSLScalarType {
 enum HLSLMatrixOrientation {
   ColumnMajor = 0,
   RowMajor,
+  Default,
 };
 
 HLSLScalarType MakeUnsigned(HLSLScalarType T);
@@ -422,10 +423,11 @@ clang::QualType GetHLSLInputPatchElementType(clang::QualType type);
 unsigned GetHLSLInputPatchCount(clang::QualType type);
 clang::QualType GetHLSLOutputPatchElementType(clang::QualType type);
 unsigned GetHLSLOutputPatchCount(clang::QualType type);
-clang::QualType GetHLSLMatrixTypeWithMajor(clang::QualType matType,
+// Apply orientation to matType.
+clang::QualType ApplyOrientationOnHLSLMatrixType(clang::QualType matType,
                                            bool isRowMajor, clang::Sema &sema);
-bool IsRowMajorMatrixTemplate(clang::QualType matType);
-bool IsDefaultMajorOrientationTemplate(clang::QualType matType);
+bool IsRowMajorMatrixType(clang::QualType matType);
+bool IsDefaultOrientationMatrixType(clang::QualType matType);
 
 bool IsHLSLSubobjectType(clang::QualType type);
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, 

@@ -5100,10 +5100,11 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixLoad(CGBuilderTy &Builder, Value *Ptr,
       isRowMajor
           ? static_cast<unsigned>(HLMatLoadStoreOpcode::RowMatLoad)
           : static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatLoad);
-  // FIXME: keep original type after the type has real layout.
   llvm::Type *MatValTy =
       (Ptr->getType()->getPointerElementType());
 
+  DXASSERT(isRowMajor == hlsl::HLMatrixType::cast(MatValTy).getIsRowMajor(),
+           "orientation mismatch");
   Value *matVal =
       EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLMatLoadStore,
                                      opcode, MatValTy, {Ptr}, TheModule);
@@ -5118,7 +5119,9 @@ void CGMSHLSLRuntime::EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val,
       isRowMajor
           ? static_cast<unsigned>(HLMatLoadStoreOpcode::RowMatStore)
           : static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore);
-
+  DXASSERT(isRowMajor == hlsl::HLMatrixType::cast(Val->getType()).getIsRowMajor(),
+           "orientation mismatch");
+  DXASSERT(DestPtr->getType()->getPointerElementType() == Val->getType(), "Orientation mismatch");
   EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLMatLoadStore, opcode,
                                  Val->getType(), {DestPtr, Val}, TheModule);
 }
@@ -6014,7 +6017,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
           outVal = outRVal.getScalarVal();
         } else {
           DXASSERT(argAddr, "should be RV or simple LV");
-          outVal = EmitHLSLMatrixLoad(CGF, argAddr, ArgTy);
+          outVal = EmitHLSLMatrixLoad(CGF, argAddr, argType);
         }
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();

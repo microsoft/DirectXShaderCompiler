@@ -3336,7 +3336,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   if (E->getCastKind() == CK_HLSLRowMajorToColMajor ||
       E->getCastKind() == CK_HLSLColMajorToRowMajor) {
     // Orientation cast on LValue.
-    // Do the cast in copyin/out.
+    // Do the cast when copyin/out by create LValue with target type.
     return EmitLValue(E->getSubExpr());
   }
   if (hlsl::IsHLSLMatType(E->getType()) || hlsl::IsHLSLMatType(E->getSubExpr()->getType())) {
