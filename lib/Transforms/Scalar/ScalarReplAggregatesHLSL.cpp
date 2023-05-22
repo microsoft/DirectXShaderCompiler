@@ -17,7 +17,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/Loads.h"
@@ -3836,41 +3835,15 @@ static void collectAllStores(const Value *V, SmallVector<const Instruction *, 4>
   }
 }
 
-// return true if A is before B.
-// When A and B in same basic block, before means A will be reach first when
-// iterate the basic block. When A and B is not in same basic block, before
-// means block A will be reach first when doing reverse post order traversal on
-// basic blocks.
-static bool isBefore(const Instruction *A, const Instruction *B,
-                     DenseMap<const BasicBlock *, unsigned> &RPOTOrder) {
-  const BasicBlock *BBA = A->getParent();
-  const BasicBlock *BBB = B->getParent();
-  if (BBA != BBB) {
-    return RPOTOrder[BBA] < RPOTOrder[BBB];
-  }
-  for (const Instruction &I : *BBA) {
-    if (A == &I)
-      return true;
-    if (B == &I)
-      return false;
-  }
-  llvm_unreachable("cannot find A and B in the block");
-  return false;
-}
-
-// Make sure all store on V are before I.
-static bool noUnusedStoreAfter(Value *V, Instruction *I) {
+// Make sure all store on V dominate I.
+static bool allStoresDominateInst(Value *V, Instruction *I, DominatorTree *DT) {
+  if (!DT)
+    return false;
   SmallVector<const Instruction *, 4> Stores;
   collectAllStores(V, Stores);
 
-  ReversePostOrderTraversal<Function *> RPOT(I->getParent()->getParent());
-  DenseMap<const BasicBlock *, unsigned> RPOTOrder;
-  unsigned Count = 0;
-  for (BasicBlock *BB : RPOT) {
-    RPOTOrder[BB] = Count++;
-  }
   for (const Instruction *S : Stores) {
-    if (isBefore(I, S, RPOTOrder))
+    if (!DT->dominates(S, I))
       return false;
   }
   return true;
@@ -3951,13 +3924,13 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Need to make sure src not updated after current memcpy.
           // Check Src only have 1 store now.
           // If Src has more than 1 store but only used once by memcpy, check if
-          // the stores are before memcpy.
+          // the stores dominate the memcpy.
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
           if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored ||
               (SrcPS.loadedType ==
                    hlutil::PointerStatus::LoadedType::MemcopySrcOnce &&
-               noUnusedStoreAfter(Src, MC))) {
+               allStoresDominateInst(Src, MC, DT))) {
             if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
               if (V->user_empty())
                 return true;
