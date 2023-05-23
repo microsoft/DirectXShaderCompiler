@@ -12173,7 +12173,7 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
     bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
     bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
     if (SrcGL != DstGL)
-      Diag(Loc, diag::warn_hlsl_impcast_gl_mismatch)
+      Diag(Loc, diag::warn_hlsl_impcast_glc_mismatch)
           << SrcExpr->getType() << TargetType << /*loses|adds*/ DstGL;
   }
 }
