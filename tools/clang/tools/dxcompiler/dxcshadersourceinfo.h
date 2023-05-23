@@ -56,7 +56,7 @@ struct SourceInfoWriter {
   Buffer m_Buffer;
 
   const hlsl::DxilSourceInfo *GetPart() const;
-  void Write(clang::CodeGenOptions &cgOpts, llvm::ArrayRef<hlsl::options::ArgPair> ArgPairs, clang::SourceManager &srcMgr);
+  void Write(clang::CodeGenOptions &cgOpts, llvm::ArrayRef<options::ArgPair> ArgPairs, clang::SourceManager &srcMgr);
 };
 
 } // namespace hlsl;
