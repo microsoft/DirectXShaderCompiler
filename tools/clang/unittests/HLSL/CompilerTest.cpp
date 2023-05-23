@@ -1874,9 +1874,20 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
 }
 
 TEST_F(CompilerTest, CompileMultiArgClassRecompile) {
-  // This is a regression test for a bug where if entry point has the same
-  // value as the input filename, the entry point gets omitted from the arg
-  // list in debug module and PDB, making them useless for recompilation.
+  // This test is to make sure Comma Joined and MultiArg argument class
+  // work with PDBs.
+  // Arguments like:
+  // 
+  //  -opt-select test0 test1 -opt-select test2 test 3
+  // 
+  // and:
+  //  -CommaJoinTest=Value0,Value1,Value2,Value3
+  //  -CommaJoinTestNoEqual=Value0,Value1,Value2,Value3
+  //
+  // Can be stored correctly in PDBs and when used to recompile, can be
+  // verified to still exist in the next PDB.
+
+
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
 
@@ -1889,7 +1900,6 @@ TEST_F(CompilerTest, CompileMultiArgClassRecompile) {
   CComPtr<IDxcUtils> pUtils;
   VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils)));
 
-  CComPtr<IDxcOperationResult> pOpResult;
 
   CComPtr<IDxcBlobEncoding> pShaderBlob;
   VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(), shader.size() * sizeof(shader[0]), DXC_CP_UTF16, &pShaderBlob));
@@ -1905,21 +1915,33 @@ TEST_F(CompilerTest, CompileMultiArgClassRecompile) {
     L"-opt-select", L"test0", L"test1",
     L"-opt-select", L"test2", L"test3",
   };
+
+  CComPtr<IDxcOperationResult> pOpResult;
   VERIFY_SUCCEEDED(pCompiler->Compile(pShaderBlob, L"MyShader.hlsl", L"PSMain", L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOpResult));
 
-  HRESULT compileStatus = S_OK;
-  VERIFY_SUCCEEDED(pOpResult->GetStatus(&compileStatus));
-  VERIFY_SUCCEEDED(compileStatus);
+  auto GetArgPtrs = [this](llvm::ArrayRef<std::wstring> Args) -> std::vector<const WCHAR *> {
+    std::vector<const WCHAR *> ret;
+    for (const std::wstring &Arg : Args)
+      ret.push_back(Arg.c_str());
+    return ret;
+  };
 
-  CComPtr<IDxcBlob> pDxil;
-  VERIFY_SUCCEEDED(pOpResult->GetResult(&pDxil));
-  CComPtr<IDxcResult> pResult;
-  VERIFY_SUCCEEDED(pOpResult.QueryInterface(&pResult));
-  CComPtr<IDxcBlob> pPdb;
-  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+  auto GetPdbLikeResults = [this](IDxcOperationResult *pOpResult) -> std::vector<CComPtr<IDxcBlob> > {
+    HRESULT compileStatus = S_OK;
+    VERIFY_SUCCEEDED(pOpResult->GetStatus(&compileStatus));
+    VERIFY_SUCCEEDED(compileStatus);
 
-  IDxcBlob *PdbLikes[] = {
-    pDxil, pPdb,
+    CComPtr<IDxcResult> pResult;
+    CComPtr<IDxcBlob> pDxil;
+    VERIFY_SUCCEEDED(pOpResult->GetResult(&pDxil));
+    VERIFY_SUCCEEDED(pOpResult->QueryInterface(&pResult));
+    CComPtr<IDxcBlob> pPdb;
+    VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+    std::vector<CComPtr<IDxcBlob> > ret;
+    ret.push_back(pDxil);
+    ret.push_back(pPdb);
+    return ret;
   };
 
   auto RenderArgsFromPdbUtilsArgPairs = [this](IDxcPdbUtils2 *pPdbUtils) -> std::vector<std::wstring> {
@@ -1941,17 +1963,10 @@ TEST_F(CompilerTest, CompileMultiArgClassRecompile) {
     return Args;
   };
 
-  auto GetArgPtrs = [this](llvm::ArrayRef<std::wstring> Args) -> std::vector<const WCHAR *> {
-    std::vector<const WCHAR *> ret;
-    for (const std::wstring &Arg : Args)
-      ret.push_back(Arg.c_str());
-    return ret;
-  };
-
   auto CompileAndVerify =
     [this, pCompiler,
     &shader, &CommaJoinArg0, &CommaJoinArg1,
-    GetArgPtrs, RenderArgsFromPdbUtilsArgPairs]
+    GetArgPtrs, RenderArgsFromPdbUtilsArgPairs, GetPdbLikeResults]
 
   (llvm::ArrayRef<std::wstring> Args) {
     std::vector<const WCHAR *> ArgPtrs = GetArgPtrs(Args);
@@ -1967,20 +1982,8 @@ TEST_F(CompilerTest, CompileMultiArgClassRecompile) {
     CComPtr<IDxcResult> pRecompileResult;
     VERIFY_SUCCEEDED(pCompiler3->Compile(&RecompileBuf, ArgPtrs.data(), ArgPtrs.size(), nullptr, IID_PPV_ARGS(&pRecompileResult)));
 
-    HRESULT recompileStatus = S_OK;
-    VERIFY_SUCCEEDED(pRecompileResult->GetStatus(&recompileStatus));
-    VERIFY_SUCCEEDED(recompileStatus);
-
-    CComPtr<IDxcBlob> pRecompiledDxil;
-    CComPtr<IDxcBlob> pRecompiledPdb;
-    VERIFY_SUCCEEDED(pRecompileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pRecompiledDxil), nullptr));
-    VERIFY_SUCCEEDED(pRecompileResult->GetOutput(DXC_OUT_PDB,    IID_PPV_ARGS(&pRecompiledPdb),  nullptr));
-
-    IDxcBlob *pRecompiledObjectsToVerify[] = {
-      pRecompiledDxil, pRecompiledPdb,
-    };
-
-    for (IDxcBlob *pRecompiledObj : pRecompiledObjectsToVerify) {
+    std::vector<CComPtr<IDxcBlob> > PdbLikes = GetPdbLikeResults(pRecompileResult);
+    for (IDxcBlob *pRecompiledObj : PdbLikes) {
       CComPtr<IDxcPdbUtils2> pRecompiledPdbUtils;
       VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcPdbUtils, IID_PPV_ARGS(&pRecompiledPdbUtils)));
       VERIFY_SUCCEEDED(pRecompiledPdbUtils->Load(pRecompiledObj));
@@ -2007,6 +2010,7 @@ TEST_F(CompilerTest, CompileMultiArgClassRecompile) {
 
   };
 
+  std::vector<CComPtr<IDxcBlob> > PdbLikes = GetPdbLikeResults(pOpResult);
   for (IDxcBlob *pPdbLike : PdbLikes) {
     CComPtr<IDxcPdbUtils2> pPdbUtils;
     VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcPdbUtils, IID_PPV_ARGS(&pPdbUtils)));
