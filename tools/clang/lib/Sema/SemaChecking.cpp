@@ -6771,6 +6771,9 @@ static void AnalyzeAssignment(Sema &S, BinaryOperator *E) {
   // Just recurse on the LHS.
   AnalyzeImplicitConversions(S, E->getLHS(), E->getOperatorLoc());
 
+  S.DiagnoseGloballyCoherentMismatch(E->getRHS(), E->getLHS()->getType(),
+                                     E->getOperatorLoc());
+
   // We want to recurse on the RHS as normal unless we're assigning to
   // a bitfield.
   if (FieldDecl *Bitfield = E->getLHS()->getSourceBitField()) {
@@ -6872,6 +6875,22 @@ static bool IsImplicitBoolFloatConversion(Sema &S, Expr *Ex, bool ToBool) {
 
 void CheckImplicitArgumentConversions(Sema &S, CallExpr *TheCall,
                                       SourceLocation CC) {
+  // HLSL Change Begin
+  if (FunctionDecl *FD = TheCall->getDirectCallee()) {
+    CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
+    unsigned ArgIdx = 0;
+    unsigned ParmIdx = 0;
+    if (MD && MD->isInstance())
+      ++ParmIdx;
+    for (; ArgIdx < TheCall->getNumArgs() && ParmIdx < FD->getNumParams();
+         ++ArgIdx, ++ParmIdx) {
+      ParmVarDecl *PD = FD->getParamDecl(ParmIdx);
+      Expr *CurrA = TheCall->getArg(ArgIdx);
+      S.DiagnoseGloballyCoherentMismatch(CurrA, PD->getType(), CC);
+    }
+  }
+  // HLSL CHange End
+
   unsigned NumArgs = TheCall->getNumArgs();
   for (unsigned i = 0; i < NumArgs; ++i) {
     Expr *CurrA = TheCall->getArg(i);
