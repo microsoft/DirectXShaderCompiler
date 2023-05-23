@@ -1935,6 +1935,10 @@ TEST_F(FileTest, VulkanAttributeImageFormatO3) {
 TEST_F(FileTest, VulkanAttributeImageFormatSimple) {
   runFileTest("vk.attribute.image-format.simple.hlsl", Expect::Success);
 }
+TEST_F(FileTest, VulkanAttributeImageFormatArray) {
+  runFileTest("vk.attribute.image-format.arrays.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
   runFileTest("vk.cloption.invert-y.vs.hlsl");
