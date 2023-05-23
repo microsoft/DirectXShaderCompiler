@@ -73,20 +73,16 @@ static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArg
   std::vector<ArgPair> ret;
 
   for (llvm::opt::Arg *arg : argList) {
-    if (arg->getOption().matches(OPT_INPUT))
-      continue;
-
     llvm::StringRef name = arg->getOption().getName();
     llvm::StringRef value;
 
-    llvm::SmallString<64> argumentStorage;
+    llvm::SmallString<64> argumentStorage; // Buffer for when we need to concatenate things.
 
-    // If this is a positional argument, set the name to ""
-    // explicitly.
+    // The input argument should be excluded from this list. All the uses for
+    // the ArgPair list used to manually filter out the input file. Do it here
+    // in the source instead.
     if (arg->getOption().getKind() == llvm::opt::Option::InputClass) {
-      assert(arg->getNumValues() == 0);
-      name = "";
-      value = arg->getValue();
+      continue;
     }
     // This is a flag without value, like -Zi, or -Od
     else if (arg->getOption().getKind() == llvm::opt::Option::FlagClass) {
