@@ -3221,6 +3221,9 @@ TEST_F(FileTest, ShaderDebugInfoLinePrecedence) {
 TEST_F(FileTest, ShaderDebugInfoLineVariables) {
   runFileTest("shader.debug.line.variables.hlsl");
 }
+TEST_F(FileTest, ShaderDebugInfoForwardReferences) {
+  runFileTest("shader.debug.forwardreferences.hlsl");
+}
 TEST_F(FileTest, RayQueryInitExpr) { runFileTest("rayquery_init_expr.hlsl"); }
 TEST_F(FileTest, RayQueryInitExprError) {
   runFileTest("rayquery_init_expr_error.hlsl", Expect::Failure);

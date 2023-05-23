@@ -120,20 +120,6 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
       break;
     if (!visitor(inst->getDebugInfoNone()))
       break;
-
-    // Note that in OpenCL.DebugInfo.100 DebugTypeComposite always has forward
-    // references to members. Therefore, the edge direction in DAG must be from
-    // DebugTypeMember to DebugTypeComposite. DO NOT visit members here.
-    //
-    // By comparison, NonSemantic.Shader.DebugInfo.100 bans forward references,
-    // leaving only the reference from composite to members and not the
-    // back-reference from member to composite parent. That means we DO want to
-    // visit members here.
-    if (spvOptions.debugInfoVulkan) {
-      for (auto *member : inst->getMembers())
-        if (!visitor(member))
-          break;
-    }
   } break;
   case SpirvInstruction::IK_DebugTypeMember: {
     SpirvDebugTypeMember *inst = dyn_cast<SpirvDebugTypeMember>(di);
