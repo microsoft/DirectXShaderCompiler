@@ -977,6 +977,23 @@ def RWTexture
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RWTexture3D")}]>;
 
+// Global variable of array of "RWTexture" type
+def ArrayOfRWTexture
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture3D")}]>;
+
 // Global variable with "[RW]Buffer" type
 def Buffer
     : SubsetSubject<
@@ -985,6 +1002,17 @@ def Buffer
                  (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "Buffer" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWBuffer")}]>;
+
+// Global variable or array of "[RW]Buffer" type
+def ArrayOfBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "Buffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RWBuffer")}]>;
 
 // Global variable with "Texture" or "SamplerState" type
@@ -1115,7 +1143,7 @@ def VKCombinedImageSampler : InheritableAttr {
 
 def VKImageFormat : InheritableAttr {
   let Spellings = [CXX11<"vk", "image_format">];
-  let Subjects = SubjectList<[RWTexture, Buffer],
+  let Subjects = SubjectList<[RWTexture, ArrayOfRWTexture, Buffer, ArrayOfBuffer],
                              ErrorDiag, "ExpectedRWTextureOrBuffer">;
   let Args = [EnumArgument<"ImageFormat", "ImageFormatType",
                            ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",
