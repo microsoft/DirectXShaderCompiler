@@ -132,8 +132,15 @@ static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArg
     // 
     // Alternative is to try this:
     //   { "arg", "Value0 Value1 Value2" }
-    // 
-    // But this causes problem when recompiling
+    //
+    // But this causes problem when recompiling because the argument parser
+    // does not handle the spaces correctly. When testing with the folling args:
+    //
+    //   "-arg" "Value0 Value1" "-arg" "Value2 Value3"
+    //
+    // The arg parser interpreted it as:
+    //
+    //   "-arg" : { "Value0", "Value1", "-arg", "Value2", "Value3" }
     //
     else if (arg->getOption().getKind() == Option::MultiArgClass) {
       ArgPair namePair;
