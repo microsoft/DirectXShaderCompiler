@@ -1571,15 +1571,23 @@ public:
     else
       compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Default;
 
-    // Constructing vector of wide strings to pass in to codegen. Just passing
+    // Constructing vector of strings to pass in to codegen. Just passing
     // in pArguments will expose ownership of memory to both CodeGenOptions and
     // this caller, which can lead to unexpected behavior.
-    for (UINT32 i = 0; i != Opts.Args.getNumInputArgStrings(); ++i) {
-      auto arg = Opts.Args.getArgString(i);
-      if (Opts.InputFile.compare(arg) != 0) {
-        compiler.getCodeGenOpts().HLSLArguments.emplace_back(arg);
+    {
+      llvm::DenseSet<unsigned> InputArgIndices;
+      for (llvm::opt::Arg *arg : Opts.Args.getArgs()) {
+        if (arg->getOption().getKind() == llvm::opt::Option::InputClass)
+          InputArgIndices.insert(arg->getIndex());
+      }
+      for (unsigned i = 0; i < Opts.Args.getNumInputArgStrings(); ++i) {
+        StringRef argStr = Opts.Args.getArgString(i);
+        if (InputArgIndices.count(i) == 0) {
+          compiler.getCodeGenOpts().HLSLArguments.emplace_back(argStr);
+        }
       }
     }
+
     // Overrding default set of loop unroll.
     if (Opts.PreferFlowControl)
       compiler.getCodeGenOpts().UnrollLoops = false;
