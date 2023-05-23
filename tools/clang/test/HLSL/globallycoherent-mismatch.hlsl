@@ -6,6 +6,9 @@ globallycoherent RWByteAddressBuffer GCBuf;
 RWByteAddressBuffer NonGCBufArr[2];
 globallycoherent RWByteAddressBuffer GCBufArr[2];
 
+RWByteAddressBuffer NonGCBufMultiArr[2][2];
+globallycoherent RWByteAddressBuffer GCBufMultiArr[2][2];
+
 RWByteAddressBuffer getNonGCBuf() {
   return NonGCBuf;
 }
@@ -20,6 +23,14 @@ RWByteAddressBuffer getNonGCBufArr() {
 
 globallycoherent RWByteAddressBuffer getGCBufArr() { 
   return GCBufArr[0];
+}
+
+RWByteAddressBuffer getNonGCBufMultiArr() {
+  return NonGCBufMultiArr[0][0];
+}
+
+globallycoherent RWByteAddressBuffer getGCBufMultiArr() { 
+  return GCBufMultiArr[0][0];
 }
 
 RWByteAddressBuffer getNonGCGCBuf() {
@@ -38,6 +49,14 @@ globallycoherent RWByteAddressBuffer getGCNonGCBufArr() {
   return NonGCBufArr[0]; // expected-warning{{implicit conversion from 'RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' adds globallycoherent annotation}}
 }
 
+RWByteAddressBuffer getNonGCGCBufMultiArr() {
+  return GCBufMultiArr[0][0]; // expected-warning{{implicit conversion from 'globallycoherent RWByteAddressBuffer' to 'RWByteAddressBuffer' loses globallycoherent annotation}}
+}
+
+globallycoherent RWByteAddressBuffer getGCNonGCBufMultiArr() {
+  return NonGCBufMultiArr[0][0]; // expected-warning{{implicit conversion from 'RWByteAddressBuffer' to 'globallycoherent RWByteAddressBuffer' adds globallycoherent annotation}}
+}
+
 void NonGCStore(RWByteAddressBuffer Buf) {
   Buf.Store(0, 0);
 }
@@ -52,6 +71,8 @@ void getNonGCBufPAram(inout globallycoherent RWByteAddressBuffer PGCBuf) {
 }
 
 static globallycoherent RWByteAddressBuffer SGCBufArr[2] = NonGCBufArr; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2]' to 'globallycoherent RWByteAddressBuffer [2]' adds globallycoherent annotation}}
+static globallycoherent RWByteAddressBuffer SGCBufMultiArr0[2] = NonGCBufMultiArr[0]; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2]' to 'globallycoherent RWByteAddressBuffer [2]' adds globallycoherent annotation}}
+static globallycoherent RWByteAddressBuffer SGCBufMultiArr1[2][2] = NonGCBufMultiArr; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2][2]' to 'globallycoherent RWByteAddressBuffer [2][2]' adds globallycoherent annotation}}
 
 void getNonGCBufArrParam(inout globallycoherent RWByteAddressBuffer PGCBufArr[2]) {
   PGCBufArr = NonGCBufArr; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2]' to 'globallycoherent RWByteAddressBuffer __restrict[2]' adds globallycoherent annotation}}

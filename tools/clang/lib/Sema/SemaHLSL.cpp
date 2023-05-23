@@ -12165,8 +12165,8 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
   QualType SrcTy = SrcExpr->getType();
   QualType DstTy = TargetType;
   if (SrcTy->isArrayType() && DstTy->isArrayType()) {
-    SrcTy = SrcTy->getAsArrayTypeUnsafe()->getElementType();
-    DstTy = DstTy->getAsArrayTypeUnsafe()->getElementType();
+    SrcTy = QualType(SrcTy->getBaseElementTypeUnsafe(), 0);
+    DstTy = QualType(DstTy->getBaseElementTypeUnsafe(), 0);
   }
   if (hlsl::IsHLSLResourceType(DstTy) &&
       !hlsl::IsHLSLDynamicResourceType(SrcTy)) {
