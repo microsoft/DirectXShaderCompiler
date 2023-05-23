@@ -104,19 +104,20 @@ static std::vector<ArgPair> ComputeArgPairsFromArgList(const llvm::opt::InputArg
         value = "";
       }
     }
-    //
-    // CommaJoinedClass takes the following form:
-    //  -MyArg=Value0,Value1,Value2,Value3
-    //
-    // Much like JoinedClass, it gets folded into the name.
-    //
-    //  { "MyArg=Value0,Value1,Value2,Value3", "" }
     else if (arg->getOption().getKind() == Option::CommaJoinedClass) {
+      //
+      // CommaJoinedClass takes the following form:
+      //  -MyArg=Value0,Value1,Value2,Value3
+      //
+      // Much like JoinedClass, it gets folded into the name.
+      //
+      //  { "MyArg=Value0,Value1,Value2,Value3", "" }
       argumentStorage += name;
-      for (const char *value : arg->getValues()) {
-        if (argumentStorage.size())
+      for (unsigned i = 0; i < arg->getNumValues(); i++) {
+        const char *valuePtr = arg->getValue(i);
+        if (i > 0)
           argumentStorage += ",";
-        argumentStorage += value;
+        argumentStorage += valuePtr;
       }
       name = argumentStorage;
       value = "";

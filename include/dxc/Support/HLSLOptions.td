@@ -170,6 +170,11 @@ def opt_enable : Separate<["-", "/"], "opt-enable">, Group<hlsloptz_Group>, Flag
 def opt_select : MultiArg<["-", "/"], "opt-select", 2>, MetaVarName<"<opt> <variant>">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Select this optimization variant.">;
 
+def CommaJoinTest : CommaJoined<["-"], "CommaJoinTest=">, Group<spirv_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"A test option intended solely to test round tripping through PDB.">;
+def CommaJoinTestNoEqual : CommaJoined<["-"], "CommaJoinTestNoEqual">, Group<spirv_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"A test option intended solely to test round tripping through PDB.">;
+
 def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Disable source location tracking in IR. This will break diagnostic generation for late validation. (Ignored if /Zi is passed)">;
