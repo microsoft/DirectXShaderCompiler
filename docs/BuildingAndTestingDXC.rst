@@ -12,8 +12,6 @@ Building and Testing DirectXShaderCompiler
    is complete on Linux and Unix platforms, but is incomplete but usable on
    Windows. Instructions for building on Windows are available in the repository
    `readme <https://github.com/microsoft/DirectXShaderCompiler/blob/main/README.md>`_.
-   Instructions for the preexisting Linux and Unix workflow can be found here:
-   :doc:`DxcOnUnix`
 
 Introduction
 ============

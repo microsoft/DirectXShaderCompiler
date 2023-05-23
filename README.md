@@ -62,7 +62,6 @@ Building on windows additionally requires:
 
 > A new experimental simplified build and test workflow is documented [here](docs/BuildingAndTestingDXC.rst).
 
-Note: If you intend to build from sources on Linux/macOS, follow [these instructions](docs/DxcOnUnix.rst).
 
 Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 
