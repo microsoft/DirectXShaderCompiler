@@ -2504,9 +2504,6 @@ static bool isGLCMismatch(QualType Ty0, QualType Ty1, const Expr *SrcExp,
     if (Cast->getCastKind() == CastKind::CK_FlatConversion)
       return false;
   }
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Warning,
-                                          "global coherent mismatch");
-  Diags.Report(Loc, DiagID);
   return true;
 }
 

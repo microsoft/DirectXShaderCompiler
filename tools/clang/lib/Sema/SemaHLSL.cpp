@@ -12140,18 +12140,39 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
           dyn_cast<HLSLGloballyCoherentAttr>(A)) {
     const ValueDecl *TD = cast<ValueDecl>(D);
-    if (!TD->getType()->isDependentType()) {
-      QualType DeclType = TD->getType();
-      while (DeclType->isArrayType())
-        DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
-      if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
-          hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
-              hlsl::DXIL::ResourceClass::UAV) {
-        Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
-            << A << "non-UAV type";
-      }
+    if (TD->getType()->isDependentType())
+      return;
+    QualType DeclType = TD->getType();
+    if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(TD))
+      DeclType = FD->getReturnType();
+    while (DeclType->isArrayType())
+      DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
+    if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
+        hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
+            hlsl::DXIL::ResourceClass::UAV) {
+      Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
+          << A << "non-UAV type";
     }
     return;
+  }
+}
+
+void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
+                                            QualType TargetType,
+                                            SourceLocation Loc) {
+  QualType SrcTy = SrcExpr->getType();
+  QualType DstTy = TargetType;
+  if (SrcTy->isArrayType() && DstTy->isArrayType()) {
+    SrcTy = QualType(SrcTy->getBaseElementTypeUnsafe(), 0);
+    DstTy = QualType(DstTy->getBaseElementTypeUnsafe(), 0);
+  }
+  if (hlsl::IsHLSLResourceType(DstTy) &&
+      !hlsl::IsHLSLDynamicResourceType(SrcTy)) {
+    bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
+    bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
+    if (SrcGL != DstGL)
+      Diag(Loc, diag::warn_hlsl_impcast_glc_mismatch)
+          << SrcExpr->getType() << TargetType << /*loses|adds*/ DstGL;
   }
 }
 
