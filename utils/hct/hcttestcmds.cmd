@@ -393,6 +393,13 @@ call :run dxa.exe smoke.ll -o smoke.rebuilt-container2.cso
 call :check_file smoke.rebuilt-container2.cso del
 if %Failed% neq 0 goto :failed
 
+set testname=dxa dump reflection
+call :run dxa.exe -dumpreflection smoke.cso
+if %Failed% neq 0 goto :failed
+rem Check for expected parts for this container
+call :check_file log find "D3D12_SHADER_INPUT_BIND_DESC: Name: $Globals"
+if %Failed% neq 0 goto :failed
+
 set testname=Smoke test for dxopt command line
 call :run-nolog dxc /Odump /T ps_6_0 "%testfiles%\Inputs\smoke.hlsl" > passes.txt
 call :check_file passes.txt find emit
