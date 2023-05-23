@@ -305,7 +305,7 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts, cl
   return ret;
 }
 
-void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, llvm::ArrayRef<hlsl::options::ArgPair> ArgPairs, clang::SourceManager &srcMgr) {
+void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, llvm::ArrayRef<hlsl::options::ArgPair> argPairs, clang::SourceManager &srcMgr) {
   m_Buffer.clear();
 
   // Write an empty header first.
@@ -411,7 +411,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, llvm::ArrayRef<hlsl:
 
     llvm::SmallString<64> argumentStorage;
     const size_t argumentsOffset = m_Buffer.size();
-    for (const options::ArgPair &argPair : ArgPairs) {
+    for (const options::ArgPair &argPair : argPairs) {
       // Name
       Append(&m_Buffer, argPair.Name.data(), argPair.Name.size());
       Append(&m_Buffer, 0); // Null term
