@@ -1575,14 +1575,18 @@ public:
     // in pArguments will expose ownership of memory to both CodeGenOptions and
     // this caller, which can lead to unexpected behavior.
     {
+      // Find all args that are of Option::InputClass and record their indices
+      // in a set. If there are multiple Option::InputClass arguments, exclude
+      // all of them. We only use the last one and there's no point recording
+      // the rest of them.
       llvm::DenseSet<unsigned> InputArgIndices;
       for (llvm::opt::Arg *arg : Opts.Args.getArgs()) {
         if (arg->getOption().getKind() == llvm::opt::Option::InputClass)
           InputArgIndices.insert(arg->getIndex());
       }
       for (unsigned i = 0; i < Opts.Args.getNumInputArgStrings(); ++i) {
-        StringRef argStr = Opts.Args.getArgString(i);
-        if (InputArgIndices.count(i) == 0) {
+        if (InputArgIndices.count(i) == 0) { // Only include this arg if it's not in the set of Option::InputClass args.
+          StringRef argStr = Opts.Args.getArgString(i);
           compiler.getCodeGenOpts().HLSLArguments.emplace_back(argStr);
         }
       }

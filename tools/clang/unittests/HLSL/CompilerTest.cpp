@@ -2336,14 +2336,18 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
   VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(), shader.size() * sizeof(shader[0]), DXC_CP_UTF16, &pShaderBlob));
 
   const WCHAR *OtherInputs[] = {
-    L"AnotherEntry",
-    L"AnotherEntry2",
+    L"AnotherInput1",
+    L"AnotherInput2",
+    L"AnotherInput3",
+    L"AnotherInput4",
   };
 
   const WCHAR *Args[] = {
     OtherInputs[0], OtherInputs[1],
     L"-Od",
+    OtherInputs[2],
     L"-Zi",
+    OtherInputs[3],
   };
   VERIFY_SUCCEEDED(pCompiler->Compile(pShaderBlob, EntryPoint.c_str(), EntryPoint.c_str(), L"ps_6_0", Args, _countof(Args), nullptr, 0, nullptr, &pOpResult));
 
@@ -2384,6 +2388,8 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
     for (const WCHAR *OtherInputs : OtherInputs) {
       VERIFY_IS_TRUE(0 == ArgSet.count(OtherInputs));
     }
+    VERIFY_IS_TRUE(1 == ArgSet.count(L"-Od"));
+    VERIFY_IS_TRUE(1 == ArgSet.count(L"-Zi"));
   }
 }
 
