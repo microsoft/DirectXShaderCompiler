@@ -4899,11 +4899,25 @@ public:
       bool insertedNewValue = insertResult.second;
       if (insertedNewValue)
       {
-
-        if (hlsl::IsHLSLMatType(functionArgTypes[0]) && functionArgTypes.size() == 1) {
-          // for mat return type to be row major.
+        if (hlsl::IsHLSLMatType(functionArgTypes[0]) &&
+            functionArgTypes.size() == 1) {
+          // For intrinsic like
+          //  float4x3 ObjectToWorld4x3()
+          //  which returns matrix type but parameter type is void, set return
+          //  type to be row major.
           functionArgTypes[0] = ApplyOrientationOnHLSLMatrixType(
               functionArgTypes[0], true, *m_sema);
+        } else {
+          // For other intrinsic with matrix type, change type to default orientation.
+          for (QualType &ArgTy : functionArgTypes) {
+            if (!hlsl::IsHLSLMatType(ArgTy))
+              continue;
+            if (hlsl::IsDefaultOrientationMatrixType(ArgTy))
+              continue;
+            ArgTy = ApplyOrientationOnHLSLMatrixType(
+                ArgTy, getSema()->LangOpts.HLSLDefaultRowMajor ? true : false,
+                *m_sema);
+          }
         }
         DXASSERT(tableName, "otherwise IDxcIntrinsicTable::GetTableName() failed");
         intrinsicFuncDecl = AddHLSLIntrinsicFunction(
