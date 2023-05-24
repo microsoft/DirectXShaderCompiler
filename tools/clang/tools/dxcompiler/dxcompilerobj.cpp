@@ -1579,6 +1579,10 @@ public:
       // in a set. If there are multiple Option::InputClass arguments, exclude
       // all of them. We only use the last one and there's no point recording
       // the rest of them.
+      //
+      // This list is used to populate the argument list in debug module and
+      // PDB, which are for recompiling. The input filenames are not needed for
+      // it and should be excluded.
       llvm::DenseSet<unsigned> InputArgIndices;
       for (llvm::opt::Arg *arg : Opts.Args.getArgs()) {
         if (arg->getOption().getKind() == llvm::opt::Option::InputClass)
