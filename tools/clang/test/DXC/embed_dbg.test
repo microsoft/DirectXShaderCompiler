@@ -1,7 +1,8 @@
 // Embed debug info
 // RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Zi /Qembed_debug /Fo %t.embedpdb
 // RUN: %dxc -dumpbin %t.embedpdb | FileCheck  %s --check-prefix=EMBED_PDB
-// RUN: not file -E *.pdb
+
+// RUN: ls -1 %T | not grep "\\.pdb$"
 
 // Auto-embed debug info when no debug output, and expect warning signifying that this is the case.
 // RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl  /Zi /Fo %t.embedpdb2 /Fe %t.err.embedpdb
