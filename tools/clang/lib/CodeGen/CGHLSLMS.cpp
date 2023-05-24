@@ -2572,8 +2572,6 @@ hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
   return Interp;
 }
 
-// HLSL Change: Remove unused function;
-
 /// Add resource to the program
 void CGMSHLSLRuntime::addResource(Decl *D) {
   if (HLSLBufferDecl *BD = dyn_cast<HLSLBufferDecl>(D))

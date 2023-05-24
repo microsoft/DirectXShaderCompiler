@@ -526,13 +526,13 @@ bool CGRecordLowering::hasOwnStorage(const CXXRecordDecl *Decl,
   return true;
 }
 
-// HLSL Change: Remove unused function;
+// HLSL Change: Remove unused function CGRecordLowering::calculateZeroInit
 
-// HLSL Change: Remove unused function;
+// HLSL Change: Remove unused function CGRecordLowering::clipTailPadding
 
-// HLSL Change: Remove unused function;
+// HLSL Change: Remove unused function CGRecordLowering::determinePacked
 
-// HLSL Change: Remove unused function;
+// HLSL Change: Remove unused function CGRecordLowering::insertPadding
 
 void CGRecordLowering::fillOutputFields() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),

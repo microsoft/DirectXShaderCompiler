@@ -3476,7 +3476,7 @@ bool Type::canHaveNullability() const {
       // Signed, unsigned, and floating-point types cannot have nullability.
 #define SIGNED_TYPE(Id, SingletonId) case BuiltinType::Id: LLVM_C_FALLTHROUGH;
 #define UNSIGNED_TYPE(Id, SingletonId) case BuiltinType::Id: LLVM_C_FALLTHROUGH;
-#define FLOATING_TYPE(Id, SingletonId) case BuiltinType::Id: LLVM_C_FALLTHROUGH;
+#define FLOATING_TYPE(Id, SingletonId) case BuiltinType::Id:
 #define BUILTIN_TYPE(Id, SingletonId)
 #include "clang/AST/BuiltinTypes.def"
       return false;
