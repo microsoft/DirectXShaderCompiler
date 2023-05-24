@@ -23,7 +23,6 @@ add_clang_executable(dxa
 
 target_link_libraries(dxa
   dxcompiler
-  HLSLTestLib
   )
 
 set_target_properties(dxa PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
