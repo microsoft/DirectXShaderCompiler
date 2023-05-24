@@ -1407,7 +1407,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // - duplicate attribute of same kind is ok
   // - all attributes parsed before set from insertion or target shader model
 
-  auto DiagShaderStage = [&priorShaderAttrLoc, &Diags](
+  auto DiagShaderStage = [&priorShaderAttrLoc, &Diags, &entryName](
                              clang::SourceLocation diagLoc,
                              llvm::StringRef shaderStage,
                              ShaderStageSource source, bool bConflict) {

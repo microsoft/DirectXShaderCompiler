@@ -184,13 +184,259 @@ void InitHeaderSearch::AddUnmappedPath(const Twine &Path, IncludeDirGroup Group,
 #endif // HLSL Change Ends - simplify mapping based on actual usage
 }
 
-// HLSL Change: Remove unused function InitHeaderSearch::AddGnuCPlusPlusIncludePaths
+// HLSL Change: Remove unused function;
+#if 0
+void InitHeaderSearch::AddGnuCPlusPlusIncludePaths(StringRef Base,
+                                                   StringRef ArchDir,
+                                                   StringRef Dir32,
+                                                   StringRef Dir64,
+                                                   const llvm::Triple &triple) {
+  // Add the base dir
+  AddPath(Base, CXXSystem, false);
 
-// HLSL Change: Remove unused function InitHeaderSearch::AddMinGWCPlusPlusIncludePath
+  // Add the multilib dirs
+  llvm::Triple::ArchType arch = triple.getArch();
+  bool is64bit = arch == llvm::Triple::ppc64 || arch == llvm::Triple::x86_64;
+  if (is64bit)
+    AddPath(Base + "/" + ArchDir + "/" + Dir64, CXXSystem, false);
+  else
+    AddPath(Base + "/" + ArchDir + "/" + Dir32, CXXSystem, false);
 
-// HLSL Change: Remove unused function InitHeaderSearch::AddDefaultCIncludePaths
+  // Add the backward dir
+  AddPath(Base + "/backward", CXXSystem, false);
+}
 
-// HLSL Change: Remove unused function InitHeaderSearch::AddDefaultCPlusPlusIncludePaths
+void InitHeaderSearch::AddMinGWCPlusPlusIncludePaths(StringRef Base,
+                                                     StringRef Arch,
+                                                     StringRef Version) {
+  AddPath(Base + "/" + Arch + "/" + Version + "/include/c++",
+          CXXSystem, false);
+  AddPath(Base + "/" + Arch + "/" + Version + "/include/c++/" + Arch,
+          CXXSystem, false);
+  AddPath(Base + "/" + Arch + "/" + Version + "/include/c++/backward",
+          CXXSystem, false);
+}
+
+void InitHeaderSearch::AddDefaultCIncludePaths(const llvm::Triple &triple,
+                                            const HeaderSearchOptions &HSOpts) {
+  // HLSL Change Starts - no standard include files for the HLSL/DXIL
+#if 1
+  return;
+#else
+  llvm::Triple::OSType os = triple.getOS();
+
+  if (HSOpts.UseStandardSystemIncludes) {
+    switch (os) {
+    case llvm::Triple::CloudABI:
+    case llvm::Triple::FreeBSD:
+    case llvm::Triple::NetBSD:
+    case llvm::Triple::OpenBSD:
+    case llvm::Triple::Bitrig:
+    case llvm::Triple::NaCl:
+      break;
+    case llvm::Triple::Win32:
+      if (triple.getEnvironment() != llvm::Triple::Cygnus)
+        break;
+    default:
+      // FIXME: temporary hack: hard-coded paths.
+      AddPath("/usr/local/include", System, false);
+      break;
+    }
+  }
+
+  // Builtin includes use #include_next directives and should be positioned
+  // just prior C include dirs.
+  if (HSOpts.UseBuiltinIncludes) {
+    // Ignore the sys root, we *always* look for clang headers relative to
+    // supplied path.
+    SmallString<128> P = StringRef(HSOpts.ResourceDir);
+    llvm::sys::path::append(P, "include");
+    AddUnmappedPath(P, ExternCSystem, false);
+  }
+
+  // All remaining additions are for system include directories, early exit if
+  // we aren't using them.
+  if (!HSOpts.UseStandardSystemIncludes)
+    return;
+
+  // Add dirs specified via 'configure --with-c-include-dirs'.
+  StringRef CIncludeDirs(C_INCLUDE_DIRS);
+  if (CIncludeDirs != "") {
+    SmallVector<StringRef, 5> dirs;
+    CIncludeDirs.split(dirs, ":");
+    for (SmallVectorImpl<StringRef>::iterator i = dirs.begin();
+         i != dirs.end();
+         ++i)
+      AddPath(*i, ExternCSystem, false);
+    return;
+  }
+
+  switch (os) {
+  case llvm::Triple::Linux:
+    llvm_unreachable("Include management is handled in the driver.");
+
+  case llvm::Triple::CloudABI: {
+    // <sysroot>/<triple>/include
+    SmallString<128> P = StringRef(HSOpts.ResourceDir);
+    llvm::sys::path::append(P, "../../..", triple.str(), "include");
+    AddPath(P, System, false);
+    break;
+  }
+
+  case llvm::Triple::Haiku:
+    AddPath("/boot/common/include", System, false);
+    AddPath("/boot/develop/headers/os", System, false);
+    AddPath("/boot/develop/headers/os/app", System, false);
+    AddPath("/boot/develop/headers/os/arch", System, false);
+    AddPath("/boot/develop/headers/os/device", System, false);
+    AddPath("/boot/develop/headers/os/drivers", System, false);
+    AddPath("/boot/develop/headers/os/game", System, false);
+    AddPath("/boot/develop/headers/os/interface", System, false);
+    AddPath("/boot/develop/headers/os/kernel", System, false);
+    AddPath("/boot/develop/headers/os/locale", System, false);
+    AddPath("/boot/develop/headers/os/mail", System, false);
+    AddPath("/boot/develop/headers/os/media", System, false);
+    AddPath("/boot/develop/headers/os/midi", System, false);
+    AddPath("/boot/develop/headers/os/midi2", System, false);
+    AddPath("/boot/develop/headers/os/net", System, false);
+    AddPath("/boot/develop/headers/os/storage", System, false);
+    AddPath("/boot/develop/headers/os/support", System, false);
+    AddPath("/boot/develop/headers/os/translation", System, false);
+    AddPath("/boot/develop/headers/os/add-ons/graphics", System, false);
+    AddPath("/boot/develop/headers/os/add-ons/input_server", System, false);
+    AddPath("/boot/develop/headers/os/add-ons/screen_saver", System, false);
+    AddPath("/boot/develop/headers/os/add-ons/tracker", System, false);
+    AddPath("/boot/develop/headers/os/be_apps/Deskbar", System, false);
+    AddPath("/boot/develop/headers/os/be_apps/NetPositive", System, false);
+    AddPath("/boot/develop/headers/os/be_apps/Tracker", System, false);
+    AddPath("/boot/develop/headers/cpp", System, false);
+    AddPath("/boot/develop/headers/cpp/i586-pc-haiku", System, false);
+    AddPath("/boot/develop/headers/3rdparty", System, false);
+    AddPath("/boot/develop/headers/bsd", System, false);
+    AddPath("/boot/develop/headers/glibc", System, false);
+    AddPath("/boot/develop/headers/posix", System, false);
+    AddPath("/boot/develop/headers",  System, false);
+    break;
+  case llvm::Triple::RTEMS:
+    break;
+  case llvm::Triple::Win32:
+    switch (triple.getEnvironment()) {
+    default: llvm_unreachable("Include management is handled in the driver.");
+    case llvm::Triple::Cygnus:
+      AddPath("/usr/include/w32api", System, false);
+      break;
+    case llvm::Triple::GNU:
+      break;
+    }
+    break;
+  default:
+    break;
+  }
+
+  switch (os) {
+  case llvm::Triple::CloudABI:
+  case llvm::Triple::RTEMS:
+  case llvm::Triple::NaCl:
+    break;
+  default:
+    AddPath("/usr/include", ExternCSystem, false);
+    break;
+  }
+#endif // HLSL Change Ends
+}
+
+void InitHeaderSearch::
+AddDefaultCPlusPlusIncludePaths(const llvm::Triple &triple, const HeaderSearchOptions &HSOpts) {
+  // HLSL Change Starts - no standard include files for the HLSL/DXIL
+#if 1
+  return;
+#else
+  llvm::Triple::OSType os = triple.getOS();
+  // FIXME: temporary hack: hard-coded paths.
+
+  if (triple.isOSDarwin()) {
+    switch (triple.getArch()) {
+    default: break;
+
+    case llvm::Triple::ppc:
+    case llvm::Triple::ppc64:
+      AddGnuCPlusPlusIncludePaths("/usr/include/c++/4.2.1",
+                                  "powerpc-apple-darwin10", "", "ppc64",
+                                  triple);
+      AddGnuCPlusPlusIncludePaths("/usr/include/c++/4.0.0",
+                                  "powerpc-apple-darwin10", "", "ppc64",
+                                  triple);
+      break;
+
+    case llvm::Triple::x86:
+    case llvm::Triple::x86_64:
+      AddGnuCPlusPlusIncludePaths("/usr/include/c++/4.2.1",
+                                  "i686-apple-darwin10", "", "x86_64", triple);
+      AddGnuCPlusPlusIncludePaths("/usr/include/c++/4.0.0",
+                                  "i686-apple-darwin8", "", "", triple);
+      break;
+
+    case llvm::Triple::arm:
+    case llvm::Triple::thumb:
+      AddGnuCPlusPlusIncludePaths("/usr/include/c++/4.2.1",
+                                  "arm-apple-darwin10", "v7", "", triple);
+      AddGnuCPlusPlusIncludePaths("/usr/include/c++/4.2.1",
+                                  "arm-apple-darwin10", "v6", "", triple);
+      break;
+
+    case llvm::Triple::aarch64:
+      AddGnuCPlusPlusIncludePaths("/usr/include/c++/4.2.1",
+                                  "arm64-apple-darwin10", "", "", triple);
+      break;
+    }
+    return;
+  }
+
+  switch (os) {
+  case llvm::Triple::Linux:
+    llvm_unreachable("Include management is handled in the driver.");
+    break;
+  case llvm::Triple::Win32:
+    switch (triple.getEnvironment()) {
+    default: llvm_unreachable("Include management is handled in the driver.");
+    case llvm::Triple::Cygnus:
+      // Cygwin-1.7
+      AddMinGWCPlusPlusIncludePaths("/usr/lib/gcc", "i686-pc-cygwin", "4.7.3");
+      AddMinGWCPlusPlusIncludePaths("/usr/lib/gcc", "i686-pc-cygwin", "4.5.3");
+      AddMinGWCPlusPlusIncludePaths("/usr/lib/gcc", "i686-pc-cygwin", "4.3.4");
+      // g++-4 / Cygwin-1.5
+      AddMinGWCPlusPlusIncludePaths("/usr/lib/gcc", "i686-pc-cygwin", "4.3.2");
+      break;
+    }
+    break;
+  case llvm::Triple::DragonFly:
+    if (llvm::sys::fs::exists("/usr/lib/gcc47"))
+      AddPath("/usr/include/c++/4.7", CXXSystem, false);
+    else
+      AddPath("/usr/include/c++/4.4", CXXSystem, false);
+    break;
+  case llvm::Triple::OpenBSD: {
+    std::string t = triple.getTriple();
+    if (t.substr(0, 6) == "x86_64")
+      t.replace(0, 6, "amd64");
+    AddGnuCPlusPlusIncludePaths("/usr/include/g++",
+                                t, "", "", triple);
+    break;
+  }
+  case llvm::Triple::Minix:
+    AddGnuCPlusPlusIncludePaths("/usr/gnu/include/c++/4.4.3",
+                                "", "", "", triple);
+    break;
+  case llvm::Triple::Solaris:
+    AddGnuCPlusPlusIncludePaths("/usr/gcc/4.5/include/c++/4.5.2/",
+                                "i386-pc-solaris2.11", "", "", triple);
+    break;
+  default:
+    break;
+  }
+#endif // HLSL Change Ends
+}
+#endif
 
 void InitHeaderSearch::AddDefaultIncludePaths(const LangOptions &Lang,
                                               const llvm::Triple &triple,
