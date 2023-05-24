@@ -37,7 +37,8 @@ namespace testOptions {
     ARGOP(ExperimentalShaders)\
     ARGOP(DebugLayer)\
     ARGOP(SuitePath)\
-    ARGOP(InputPath)
+    ARGOP(InputPath)\
+    ARGOP(LoadExternalDxil)
 
 ARG_LIST(ARG_DECLARE)
 

@@ -164,6 +164,7 @@ public:
 };
 namespace RuntimeParameters {
 HRESULT TryGetValue(const wchar_t *param, Common::String &retStr);
+HRESULT TryGetValue(const wchar_t *param, UINT &retUint);
 } // namespace RuntimeParameters
 } // namespace TestExecution
 namespace Logging {

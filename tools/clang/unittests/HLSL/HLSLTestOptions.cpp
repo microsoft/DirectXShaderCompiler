@@ -42,6 +42,13 @@ HRESULT TryGetValue(const wchar_t *param, WEX::Common::String &retStr) {
   ARG_LIST(RETURN_ARG)
   return E_NOTIMPL;
 }
+HRESULT TryGetValue(const wchar_t *param, UINT &retUint) {
+  WEX::Common::String retStr;
+  HRESULT hr = TryGetValue(param, retStr);
+  if (SUCCEEDED(hr))
+    retUint = UINT(std::stoi(retStr));
+  return hr;
+}
 } // namespace RuntimeParameters
 } // namespace TestExecution
 } // namespace WEX
