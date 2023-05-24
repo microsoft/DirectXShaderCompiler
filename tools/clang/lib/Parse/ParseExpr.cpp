@@ -458,13 +458,13 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         LHS = Actions.ActOnConditionalOp(OpToken.getLocation(), ColonLoc,
                                          LHS.get(), TernaryMiddle.get(),
                                          RHS.get());
-    // HLSL Change Begin - Take care TernaryMiddle.
+      // HLSL Change Begin - Take care TernaryMiddle.
     } else {
       // Ensure potential typos in the RHS aren't left undiagnosed.
-      Actions.CorrectDelayedTyposInExpr(RHS);     
-      Actions.CorrectDelayedTyposInExpr(TernaryMiddle);
+      Actions.CorrectDelayedTyposInExpr(RHS);
     }
-      // HLSL Change End.
+    Actions.CorrectDelayedTyposInExpr(TernaryMiddle);
+    // HLSL Change End.
   }
 }
 
