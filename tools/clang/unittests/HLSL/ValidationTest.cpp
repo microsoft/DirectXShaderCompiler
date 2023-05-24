@@ -346,6 +346,13 @@ public:
     CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex, Flags);
   }
 
+  // Determine if external dxil lib is required by: /p:ExternalDxil"=1"
+  bool IsExternalDxilLibRequired() {
+    UINT ExternalDxilValue = 0;
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"LoadExternalDxil", ExternalDxilValue);
+    return ExternalDxilValue != 0;
+  }
+
   bool CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
                      LPCWSTR *pArguments, UINT32 argCount, const DxcDefine *pDefines,
                      UINT32 defineCount, IDxcBlob **pResultBlob) {
@@ -615,7 +622,14 @@ public:
 bool ValidationTest::InitSupport() {
   if (!m_compiler.IsEnabled() || !m_validator.IsEnabled()) {
     VERIFY_SUCCEEDED(m_compiler.Initialize());
-    VERIFY_SUCCEEDED(m_validator.InitializeForDll(dxc::kDxilLib, "DxcCreateInstance"));
+    if (IsExternalDxilLibRequired()) {
+      if(!SUCCEEDED(m_validator.InitializeForDll(dxc::kDxilLib, "DxcCreateInstance"))) {
+        WEX::Logging::Log::Error(L"Failed to load external dxil library");
+        VERIFY_FAIL();
+      }
+    } else {
+      VERIFY_SUCCEEDED(m_validator.Initialize());
+    }
     m_ver.Initialize(m_compiler, m_validator);
   }
   return true;

@@ -187,6 +187,8 @@ if "%1"=="-clean" (
 ) else if "%1"=="-dxil-loc" (
   set DXIL_DLL_LOC=%~2
   shift /1
+) else if "%1"=="-load-external-dxil" (
+  set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"LoadExternalDxil=1"
 ) else if "%1"=="--" (
   shift /1
   goto :done_opt
