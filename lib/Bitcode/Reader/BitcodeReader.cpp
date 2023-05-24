@@ -401,13 +401,6 @@ static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
 
 // HLSL Change: remove unused function
 
-#if 0
-static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
-                             std::error_code EC) {
-  return error(DiagnosticHandler, EC, EC.message());
-}
-#endif
-
 static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
                              const Twine &Message) {
   return error(DiagnosticHandler,
@@ -424,11 +417,6 @@ std::error_code BitcodeReader::error(const Twine &Message) {
 }
 
 // HLSL Change: remove unused function
-#if 0
-std::error_code BitcodeReader::error(BitcodeError E) {
-  return ::error(DiagnosticHandler, make_error_code(E));
-}
-#endif
 
 static DiagnosticHandlerFunction getDiagHandler(DiagnosticHandlerFunction F,
                                                 LLVMContext &C) {
@@ -4826,9 +4814,6 @@ std::error_code BitcodeReader::findFunctionInStream(
 //===----------------------------------------------------------------------===//
 
 // HLSL Change: remove unused function
-#if 0
-void BitcodeReader::releaseBuffer() { Buffer.release(); }
-#endif
 
 std::error_code BitcodeReader::materialize(GlobalValue *GV) {
   if (std::error_code EC = materializeMetadata())
