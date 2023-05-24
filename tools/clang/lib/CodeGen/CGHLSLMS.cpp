@@ -1501,7 +1501,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Hull;
   }
 
-  if (FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+  if (FD->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
     if (SM->IsSM67Plus() &&
         (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
          (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))

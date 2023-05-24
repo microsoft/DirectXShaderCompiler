@@ -3058,7 +3058,6 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
     case Decl::UnresolvedUsingValue:
     case Decl::UnresolvedUsingTypename: 
       return CXCursor_UsingDeclaration;
-    LLVM_C_FALLTHROUGH;  
     case Decl::ObjCPropertyImpl:    
       switch (cast<ObjCPropertyImplDecl>(D)->getPropertyImplementation()) {
       case ObjCPropertyImplDecl::Dynamic:
