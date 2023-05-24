@@ -50,6 +50,7 @@ public:
   TEST_METHOD(RunOperatorOverloadingNotDefinedBinaryOp)
   TEST_METHOD(RunCXX11Attributes)
   TEST_METHOD(RunEnums)
+  TEST_METHOD(RunFunctionTemplateDefault)
   TEST_METHOD(RunFunctions)
   TEST_METHOD(RunIncompleteType)
   TEST_METHOD(RunIndexingOperator)
@@ -242,6 +243,10 @@ TEST_F(VerifierTest, RunCXX11Attributes) {
 
 TEST_F(VerifierTest, RunEnums) {
   CheckVerifiesHLSL(L"enums.hlsl");
+}
+
+TEST_F(VerifierTest, RunFunctionTemplateDefault) {
+  CheckVerifiesHLSL(L"function-template-default.hlsl");
 }
 
 TEST_F(VerifierTest, RunFunctions) {
