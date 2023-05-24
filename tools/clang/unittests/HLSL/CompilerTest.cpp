@@ -2386,10 +2386,10 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
     }
 
     for (const WCHAR *OtherInputs : OtherInputs) {
-      VERIFY_IS_TRUE(0 == ArgSet.count(OtherInputs));
+      VERIFY_ARE_EQUAL(ArgSet.end(), ArgSet.find(OtherInputs));
     }
-    VERIFY_IS_TRUE(1 == ArgSet.count(L"-Od"));
-    VERIFY_IS_TRUE(1 == ArgSet.count(L"-Zi"));
+    VERIFY_ARE_NOT_EQUAL(ArgSet.end(), ArgSet.find(L"-Od"));
+    VERIFY_ARE_NOT_EQUAL(ArgSet.end(), ArgSet.find(L"-Zi"));
   }
 }
 
