@@ -172,7 +172,6 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
     containerWriter->AddPart(hlsl::DFCC_CompilerVersion,
       pDxilVersionWriter->size(),
       [&pDxilVersionWriter](AbstractMemoryStream *pStream) {
-        ULONG uBytesWritten = 0;
         pDxilVersionWriter->write(pStream);
         return S_OK;
       }

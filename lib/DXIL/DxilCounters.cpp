@@ -60,7 +60,7 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
              GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
              GV->getType()->getPointerAddressSpace() == DXIL::kDefaultAddrSpace)
       ptrInfoMap[V].memType = PointerInfo::MemType::Global_Static;
-  } else if (dyn_cast<AllocaInst>(V)) {
+  } else if (isa<AllocaInst>(V)) {
       ptrInfoMap[V].memType = PointerInfo::MemType::Alloca;
   } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
     ptrInfoMap[V] = GetPointerInfo(GEP->getPointerOperand(), ptrInfoMap);

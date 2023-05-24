@@ -930,7 +930,7 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   } else if (const auto *classTemplateDecl =
                  dyn_cast<ClassTemplateDecl>(decl)) {
     doClassTemplateDecl(classTemplateDecl);
-  } else if (dyn_cast<FunctionTemplateDecl>(decl)) {
+  } else if (isa<FunctionTemplateDecl>(decl)) {
     // nothing to do.
   } else {
     emitError("decl type %0 unimplemented", decl->getLocation())

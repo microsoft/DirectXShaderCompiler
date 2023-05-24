@@ -545,7 +545,7 @@ static bool SortMembers(
             return false;
         }
         case llvm::dwarf::DW_TAG_subprogram: {
-            if (llvm::dyn_cast<llvm::DISubprogram>(Element)) {
+            if (llvm::isa<llvm::DISubprogram>(Element)) {
                 continue;
             }
             assert(!"DISubprogram not understood");

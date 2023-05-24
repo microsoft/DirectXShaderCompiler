@@ -235,7 +235,7 @@ struct ValidationContext {
       DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(Res);
       ResPropMap[V] = RP;
       for (User *U : V->users()) {
-        if (dyn_cast<GEPOperator>(U)) {
+        if (isa<GEPOperator>(U)) {
           PropagateResMap(U, Res);
         } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
           // Stop propagate on function call.
@@ -245,7 +245,7 @@ struct ValidationContext {
                 resource_helper::loadPropsFromResourceBase(Res);
             ResPropMap[CI] = RP;
           }
-        } else if (dyn_cast<LoadInst>(U)) {
+        } else if (isa<LoadInst>(U)) {
           PropagateResMap(U, Res);
         } else if (isa<BitCastOperator>(U) && U->user_empty()) {
           // For hlsl type.
@@ -3015,13 +3015,13 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       for (Value *op : I.operands()) {
         if (isa<UndefValue>(op)) {
           bool legalUndef = isa<PHINode>(&I);
-          if (dyn_cast<InsertElementInst>(&I)) {
+          if (isa<InsertElementInst>(&I)) {
             legalUndef = op == I.getOperand(0);
           }
-          if (dyn_cast<ShuffleVectorInst>(&I)) {
+          if (isa<ShuffleVectorInst>(&I)) {
             legalUndef = op == I.getOperand(1);
           }
-          if (dyn_cast<StoreInst>(&I)) {
+          if (isa<StoreInst>(&I)) {
             legalUndef = op == I.getOperand(0);
           }
 
