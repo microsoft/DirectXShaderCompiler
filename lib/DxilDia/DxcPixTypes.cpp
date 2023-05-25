@@ -247,15 +247,14 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::UnAlias(
 STDMETHODIMP dxil_debug_info::DxcPixStructType::GetNumFields(
     _Outptr_result_z_ DWORD *ppNumFields)
 {
-  *ppNumFields = m_pStruct->getElements()->getNumOperands();
+  *ppNumFields = 0;
   // DWARF lists the ancestor class, if any, and member fns
-  // as a member element. If we have any such, 
-  // reduce the reported number of fields by one for each:
+  // as a member element. Don't count those as data members:
   for (auto *Node : m_pStruct->getElements())
   {
-    if (Node->getTag() == llvm::dwarf::DW_TAG_inheritance ||
-        Node->getTag() == llvm::dwarf::DW_TAG_subprogram) {
-      (*ppNumFields)--;
+    if (Node->getTag() != llvm::dwarf::DW_TAG_inheritance &&
+        Node->getTag() != llvm::dwarf::DW_TAG_subprogram) {
+      (*ppNumFields)++;
     }
   }
   return S_OK;
@@ -340,10 +339,10 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetBaseType(
       {
         const llvm::DITypeIdentifierMap EmptyMap;
         auto baseType = pDIField->getBaseType().resolve(EmptyMap);
-        if (auto *CompositType = llvm::dyn_cast<llvm::DICompositeType>(baseType))
+        if (auto *CompositeType = llvm::dyn_cast<llvm::DICompositeType>(baseType))
         {
           return NewDxcPixDxilDebugInfoObjectOrThrow<DxcPixStructType>(
-              ppType, m_pMalloc, m_pDxilDebugInfo, CompositType);
+              ppType, m_pMalloc, m_pDxilDebugInfo, CompositeType);
         } 
         else 
         {
