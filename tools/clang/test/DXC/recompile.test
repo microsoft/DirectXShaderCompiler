@@ -11,11 +11,11 @@
 // RUN: %dxc  %t.recompile.cc.cso /recompile  /T ps_6_0 /E main
 
 // Strip Debug, Recompile PDB
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Zi /Fd %t.recompiled.pdb
-// RUN: %dxc -dumpbin %t.recompiled.pdb | FileCheck %s --check-prefix=RECOMPILE_PDB
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Zi /Fd %t.recompiled.dbg
+// RUN: %dxc -dumpbin %t.recompiled.dbg | FileCheck %s --check-prefix=RECOMPILE_PDB
 // RECOMPILE_PDB:DICompileUnit
-// RUN: %dxc %t.recompiled.pdb  /recompile > %t.recompiled.pdb.ll
-// RUN: %dxc %t.recompiled.pdb /recompile /T ps_6_0 /E main && rm %t.recompiled.pdb
+// RUN: %dxc %t.recompiled.dbg  /recompile > %t.recompiled.dbg.ll
+// RUN: %dxc %t.recompiled.dbg /recompile /T ps_6_0 /E main
 
 
 // Command-line Defines, Recompile
