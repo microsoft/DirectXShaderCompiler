@@ -270,7 +270,6 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetFieldByIndex(
   // as a member element. Skip such fields when enumerating
   // by index.
 
-  constexpr DWORD UnexpectedAncestorValue = static_cast<DWORD>(-1);
   DWORD ElementIndex = 0;
   DWORD ElementSkipCount = 0;
   for (auto *Node : m_pStruct->getElements())
