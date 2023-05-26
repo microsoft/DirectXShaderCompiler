@@ -55,7 +55,7 @@ HRESULT CreateDxcPixStorageImpl(
     IDxcPixDxilStorage** ppStorage)
 {
   CComPtr<IDxcPixArrayType> ArrayTy;
-  CComPtr<IDxcPixStructType> StructTy;
+  CComPtr<IDxcPixStructType2> StructTy;
   CComPtr<IDxcPixScalarType> ScalarTy;
 
   CComPtr<IDxcPixType> UnalisedType;
@@ -165,14 +165,21 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::AccessField(
     _In_ LPCWSTR Name,
     _COM_Outptr_ IDxcPixDxilStorage** ppResult)
 {
-  CComPtr<IDxcPixStructField> Field;
-  IFR(m_pType->GetFieldByName(Name, &Field));
-
+  DWORD FieldOffsetInBits = 0;
   CComPtr<IDxcPixType> FieldType;
-  IFR(Field->GetType(&FieldType));
+  if (*Name != 0)
+  {
+      CComPtr<IDxcPixStructField> Field;
+      IFR(m_pType->GetFieldByName(Name, &Field));
 
-  DWORD FieldOffsetInBits;
-  IFR(Field->GetOffsetInBits(&FieldOffsetInBits));
+      IFR(Field->GetType(&FieldType));
+
+      IFR(Field->GetOffsetInBits(&FieldOffsetInBits));
+  }
+  else 
+  {
+      IFR(m_pType->GetBaseType(&FieldType));
+  }
 
   const unsigned NewOffsetInBits =
       m_OffsetFromStorageStartInBits + FieldOffsetInBits;
