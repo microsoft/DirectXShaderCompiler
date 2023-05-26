@@ -62,6 +62,9 @@ class TestingProgressDisplay(object):
             print(test.result.output)
             print("*" * 20)
 
+        if self.opts.showAllOutput:
+            print(test.result.output)
+
         # Report test metrics, if present.
         if test.result.metrics:
             print("%s TEST '%s' RESULTS %s" % ('*'*10, test.getFullName(),
@@ -163,6 +166,10 @@ def main(builtinParameters = {}):
     group.add_option("-v", "--verbose", dest="showOutput",
                      help="Show all test output",
                      action="store_true", default=False)
+    group.add_option("-a", "--show-all",
+            dest="showAllOutput",
+            help="Display all commandlines and output",
+            action="store_true", default=False)
     group.add_option("-o", "--output", dest="output_path",
                      help="Write test results to the provided path",
                      action="store", type=str, metavar="PATH")
