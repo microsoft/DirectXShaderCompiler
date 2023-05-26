@@ -557,9 +557,9 @@ struct IDxcPixStructFieldEntrypoint : public Entrypoint<IDxcPixStructField>
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixStructField);
 
-struct IDxcPixStructTypeEntrypoint : public Entrypoint<IDxcPixStructType>
+struct IDxcPixStructType2Entrypoint : public Entrypoint<IDxcPixStructType2>
 {
-  DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixStructTypeEntrypoint);
+  DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixStructType2Entrypoint);
 
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
@@ -598,8 +598,14 @@ struct IDxcPixStructTypeEntrypoint : public Entrypoint<IDxcPixStructType>
   {
     return InvokeOnReal(&IInterface::GetFieldByName, CheckNotNull(InParam(lpName)), CheckNotNull(OutParam(ppField)));
   }
+
+  STDMETHODIMP GetBaseType(
+      _Outptr_result_z_ IDxcPixType** ppType) override
+  {
+    return InvokeOnReal(&IInterface::GetBaseType, CheckNotNull(OutParam(ppType)));
+  }
 };
-DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixStructType);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixStructType2);
 
 struct IDxcPixDxilStorageEntrypoint : public Entrypoint<IDxcPixDxilStorage>
 {
@@ -833,28 +839,29 @@ HRESULT CreateEntrypointWrapper(
     REFIID riid,
     void** ppvObject)
 {
-#define HANDLE_INTERFACE(IInterface)                                         \
-    if (__uuidof(IInterface) == riid)                                        \
-    {                                                                        \
-        return NewDxcPixDxilDebugInfoObjectOrThrow<IInterface##Entrypoint>(  \
-            (IInterface **) ppvObject,                                       \
-            pMalloc,                                                         \
-            (IInterface *) pReal);                                           \
+#define HANDLE_INTERFACE(IInterface, ImplInterface)                             \
+    if (__uuidof(IInterface) == riid)                                           \
+    {                                                                           \
+        return NewDxcPixDxilDebugInfoObjectOrThrow<ImplInterface##Entrypoint>(  \
+            (IInterface **) ppvObject,                                          \
+            pMalloc,                                                            \
+            (ImplInterface *)pReal);                                            \
     } (void)0
 
-  HANDLE_INTERFACE(IUnknown);
-  HANDLE_INTERFACE(IDxcPixType);
-  HANDLE_INTERFACE(IDxcPixConstType);
-  HANDLE_INTERFACE(IDxcPixTypedefType);
-  HANDLE_INTERFACE(IDxcPixScalarType);
-  HANDLE_INTERFACE(IDxcPixArrayType);
-  HANDLE_INTERFACE(IDxcPixStructField);
-  HANDLE_INTERFACE(IDxcPixStructType);
-  HANDLE_INTERFACE(IDxcPixDxilStorage);
-  HANDLE_INTERFACE(IDxcPixVariable);
-  HANDLE_INTERFACE(IDxcPixDxilLiveVariables);
-  HANDLE_INTERFACE(IDxcPixDxilDebugInfo);
-  HANDLE_INTERFACE(IDxcPixCompilationInfo);
+  HANDLE_INTERFACE(IUnknown, IUnknown);
+  HANDLE_INTERFACE(IDxcPixType, IDxcPixType);
+  HANDLE_INTERFACE(IDxcPixConstType, IDxcPixConstType);
+  HANDLE_INTERFACE(IDxcPixTypedefType, IDxcPixTypedefType);
+  HANDLE_INTERFACE(IDxcPixScalarType, IDxcPixScalarType);
+  HANDLE_INTERFACE(IDxcPixArrayType, IDxcPixArrayType);
+  HANDLE_INTERFACE(IDxcPixStructField, IDxcPixStructField);
+  HANDLE_INTERFACE(IDxcPixStructType, IDxcPixStructType2);
+  HANDLE_INTERFACE(IDxcPixStructType2, IDxcPixStructType2);
+  HANDLE_INTERFACE(IDxcPixDxilStorage, IDxcPixDxilStorage);
+  HANDLE_INTERFACE(IDxcPixVariable, IDxcPixVariable);
+  HANDLE_INTERFACE(IDxcPixDxilLiveVariables, IDxcPixDxilLiveVariables);
+  HANDLE_INTERFACE(IDxcPixDxilDebugInfo, IDxcPixDxilDebugInfo);
+  HANDLE_INTERFACE(IDxcPixCompilationInfo, IDxcPixCompilationInfo);
 
   return E_FAIL;
 }
