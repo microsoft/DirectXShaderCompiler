@@ -1,9 +1,9 @@
 // /Fd implies /Qstrip_debug ; path with / produces auto hash-named .pdb file
 
-// RUN: mkdir -p %T/pdbdir
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Zi /Fd %T/pdbdir/ /Fo %t.strip
+// RUN: mkdir -p %t_pdbdir
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Zi /Fd %t_pdbdir/ /Fo %t.strip
 // RUN: %dxc -dumpbin %t.strip | FileCheck  %s --check-prefix=STRIP_DBG
-// RUN: ls -A %T/pdbdir | FileCheck %s --check-prefix=PDB_NAME
+// RUN: ls -A %t_pdbdir | FileCheck %s --check-prefix=PDB_NAME
 // Make sure exist .pdb file.
 // PDB_NAME:{{.+}}.pdb
 
