@@ -84,6 +84,13 @@ IDxcPixStructType : public IDxcPixType
       _COM_Outptr_ IDxcPixStructField** ppField) = 0;
 };
 
+struct __declspec(uuid("7409f40c-dccb-41aa-bb42-1c95bbf7562f"))
+IDxcPixStructType2 : public IDxcPixStructType
+{
+  virtual STDMETHODIMP GetBaseType(
+      _COM_Outptr_ IDxcPixType **ppType) = 0;
+};
+
 struct __declspec(uuid("74d522f5-16c4-40cb-867b-4b4149e3db0e"))
 IDxcPixDxilStorage : public IUnknown
 {
