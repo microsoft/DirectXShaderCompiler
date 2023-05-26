@@ -2,7 +2,7 @@
 name: Bug Report
 about: Report an issue with DXC
 title: ''
-labels: ['bug']
+labels: ['bug', 'needs-triage']
 assignees: ''
 
 ---

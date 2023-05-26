@@ -2,7 +2,7 @@
 name: SPIR-V Bug Report
 about: Report an issue with DXC SPIR-V generation
 title: '[SPIR-V]'
-labels: ['bug', 'spirv']
+labels: ['bug', 'spirv', 'needs-triage']
 assignees: ''
 
 ---
