@@ -893,7 +893,7 @@ private:
   /// an additional SPIR-V optimization pass to flatten such structures.
   bool needsFlatteningCompositeResources;
 
-  int perspBaryCentricsIndex, noPerspBaryCentricsIndex;
+  uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
 
 public:
   /// The gl_PerVertex structs for both input and output
@@ -926,7 +926,7 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false), needsFlatteningCompositeResources(false),
-      perspBaryCentricsIndex(-1), noPerspBaryCentricsIndex(-1),
+      perspBaryCentricsIndex(2), noPerspBaryCentricsIndex(2),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

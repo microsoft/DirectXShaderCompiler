@@ -3369,16 +3369,16 @@ void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
     // SV_BaryCentrics could only have two index and apply to different inputs.
     // The index should be 0 or 1, each index should be mapped to different
     // interpolation type.
-    if (semanticIndex > 1 || semanticIndex < 0) {
+    if (semanticIndex > 1) {
       emitError("The index SV_BaryCentrics semantics could only be 1 or 0.",
           decl->getLocation());
     }
-    else if (noPerspBaryCentricsIndex >= 0 && perspBaryCentricsIndex >= 0) {
+    else if (noPerspBaryCentricsIndex < 2 && perspBaryCentricsIndex < 2) {
       emitError("Cannot have more than 2 inputs with SV_BaryCentrics semantics.",
           decl->getLocation());
     }
     else if (decl->getAttr<HLSLNoPerspectiveAttr>()) {
-      if (noPerspBaryCentricsIndex < 0 && perspBaryCentricsIndex != semanticIndex) {
+      if (noPerspBaryCentricsIndex == 2 && perspBaryCentricsIndex != semanticIndex) {
         noPerspBaryCentricsIndex = semanticIndex;
       }
       else {
@@ -3387,7 +3387,7 @@ void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
       }
     }
     else {
-      if (perspBaryCentricsIndex < 0 && noPerspBaryCentricsIndex != semanticIndex) {
+      if (perspBaryCentricsIndex == 2 && noPerspBaryCentricsIndex != semanticIndex) {
         perspBaryCentricsIndex = semanticIndex;
       }
       else{
