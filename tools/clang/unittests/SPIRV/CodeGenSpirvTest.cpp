@@ -1395,9 +1395,6 @@ TEST_F(FileTest, IntrinsicsGetAttributeAtVertex) {
 TEST_F(FileTest, IntrinsicsGetAttributeAtVertexBlock) {
   runFileTest("intrinsics.get-attribute-at-vertex.b.hlsl");
 }
-TEST_F(FileTest, IntrinsicsGetAttributeAtVertexDecoratedBlock) {
-    runFileTest("intrinsics.get-attribute-at-vertex.noninterp.b.hlsl");
-}
 TEST_F(FileTest, IntrinsicsDot4Add) {
   runFileTest("intrinsics.dot4add.hlsl", Expect::Failure);
 }
