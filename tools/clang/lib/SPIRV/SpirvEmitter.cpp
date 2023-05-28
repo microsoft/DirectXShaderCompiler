@@ -1263,8 +1263,9 @@ QualType SpirvEmitter::expandNoInterpolationParamToArray(QualType type,
     // For structure type inputs, only expand nointerpolation decorated field.
     const auto *structDecl = type->getAs<RecordType>()->getDecl();
     for (auto *field : structDecl->fields()) {
-      if (field->hasAttr<HLSLNoInterpolationAttr>() &&
-          !field->getType()->isArrayType()) {
+      if (param->hasAttr<HLSLNoInterpolationAttr>() ||
+          (field->hasAttr<HLSLNoInterpolationAttr>() &&
+          !field->getType()->isArrayType())) {
         QualType qtype = field->getType();
         if (isBoolOrVecMatOfBoolType(qtype)) {
           qtype = getUintTypeForBool(astContext, theCompilerInstance, qtype);
@@ -11617,10 +11618,20 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   if (dyn_cast<MemberExpr>(arg0NoCast)) {
     // As a structure field
     const auto *arg0NamedDecl = (dyn_cast<MemberExpr>(arg0NoCast))->getFoundDecl().getDecl();
+    if (!arg0NamedDecl->hasAttr<HLSLNoInterpolationAttr>()) {
+      emitError("First parameter of GetAttributeAtVertex should be decorated with 'nointerpolation'.",
+            arg0NamedDecl->getLocation());
+      return nullptr;
+    }
     arg0Type = dyn_cast<ValueDecl>(arg0NamedDecl)->getType()->getAsArrayTypeUnsafe()->getElementType();
   } else {
     // Normal type arg0
     const auto *arg0ValDecl = (dyn_cast<DeclRefExpr>(arg0NoCast))->getDecl();
+    if (!arg0ValDecl->hasAttr<HLSLNoInterpolationAttr>()) {
+      emitError("First parameter of GetAttributeAtVertex should be decorated with 'nointerpolation'.",
+            arg0ValDecl->getLocation());
+      return nullptr;
+    }
     arg0Type = (dyn_cast<VarDecl>(arg0ValDecl))->getType()->getAsArrayTypeUnsafe()->getElementType();
   }
 

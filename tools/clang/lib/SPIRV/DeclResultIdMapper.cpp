@@ -2776,8 +2776,7 @@ bool DeclResultIdMapper::createStageVars(
     // or vertex shader output variables.
     if ((spvContext.isPS() && sigPoint->IsInput()) ||
         (spvContext.isVS() && sigPoint->IsOutput()))
-      decorateInterpolationMode(decl, type, varInstr,
-                                (semanticKind == hlsl::Semantic::Kind::Barycentrics));
+      decorateInterpolationMode(decl, type, varInstr);
 
     if (asInput) {
       if (decl->getAttr<HLSLNoInterpolationAttr>()) {
@@ -3351,12 +3350,51 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
 
 void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
                                                    QualType type,
-                                                   SpirvVariable *varInstr,
-                                                   bool isBaryCoord)
+                                                   SpirvVariable *varInstr)
 {
   if (varInstr->getStorageClass() != spv::StorageClass::Input &&
       varInstr->getStorageClass() != spv::StorageClass::Output) {
     return;
+  }
+  auto varSemantic = getStageVarSemantic(decl);
+  const bool isBaryCoord = (varSemantic.getKind() == hlsl::Semantic::Kind::Barycentrics);
+  uint32_t semanticIndex = varSemantic.index;
+
+  if (isBaryCoord) {
+    // BaryCentrics inputs cannot have attrib 'nointerpolation'.
+    if (decl->getAttr<HLSLNoInterpolationAttr>()) {
+      emitError("SV_BaryCentrics inputs cannot have attribute 'nointerpolation'.",
+          decl->getLocation());
+    }
+    // SV_BaryCentrics could only have two index and apply to different inputs.
+    // The index should be 0 or 1, each index should be mapped to different
+    // interpolation type.
+    if (semanticIndex > 1 || semanticIndex < 0) {
+      emitError("The index SV_BaryCentrics semantics could only be 1 or 0.",
+          decl->getLocation());
+    }
+    else if (noPerspBaryCentricsIndex >= 0 && perspBaryCentricsIndex >= 0) {
+      emitError("Cannot have more than 2 inputs with SV_BaryCentrics semantics.",
+          decl->getLocation());
+    }
+    else if (decl->getAttr<HLSLNoPerspectiveAttr>()) {
+      if (noPerspBaryCentricsIndex < 0 && perspBaryCentricsIndex != semanticIndex) {
+        noPerspBaryCentricsIndex = semanticIndex;
+      }
+      else {
+        emitError("Cannot have more than 1 noperspective inputs with SV_BaryCentrics semantics.",
+          decl->getLocation());
+      }
+    }
+    else {
+      if (perspBaryCentricsIndex < 0 && noPerspBaryCentricsIndex != semanticIndex) {
+        perspBaryCentricsIndex = semanticIndex;
+      }
+      else{
+        emitError("Cannot have more than 1 perspective-correct inputs with SV_BaryCentrics semantics.",
+          decl->getLocation());
+      }
+    }
   }
 
   const auto loc = decl->getLocation();
