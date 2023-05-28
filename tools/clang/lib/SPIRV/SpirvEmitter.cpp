@@ -11617,8 +11617,10 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
 
   if (dyn_cast<MemberExpr>(arg0NoCast)) {
     // As a structure field
-    const auto *arg0NamedDecl = (dyn_cast<MemberExpr>(arg0NoCast))->getFoundDecl().getDecl();
-    if (!arg0NamedDecl->hasAttr<HLSLNoInterpolationAttr>()) {
+    auto arg0Expr = (dyn_cast<MemberExpr>(arg0NoCast));
+    const auto *arg0NamedDecl = arg0Expr->getFoundDecl().getDecl();
+    if (!arg0NamedDecl->hasAttr<HLSLNoInterpolationAttr>() &&
+        !(dyn_cast<DeclRefExpr>(arg0Expr->getBase()))->getDecl()->hasAttr<HLSLNoInterpolationAttr>()) {
       emitError("First parameter of GetAttributeAtVertex should be decorated with 'nointerpolation'.",
             arg0NamedDecl->getLocation());
       return nullptr;
