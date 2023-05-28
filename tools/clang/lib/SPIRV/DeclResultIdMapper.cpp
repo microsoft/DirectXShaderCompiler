@@ -2776,7 +2776,7 @@ bool DeclResultIdMapper::createStageVars(
     // or vertex shader output variables.
     if ((spvContext.isPS() && sigPoint->IsInput()) ||
         (spvContext.isVS() && sigPoint->IsOutput()))
-      decorateInterpolationMode(decl, type, varInstr);
+      decorateInterpolationMode(decl, type, varInstr, *semanticToUse);
 
     if (asInput) {
       if (decl->getAttr<HLSLNoInterpolationAttr>()) {
@@ -3350,15 +3350,15 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
 
 void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
                                                    QualType type,
-                                                   SpirvVariable *varInstr)
+                                                   SpirvVariable *varInstr,
+                                                   const SemanticInfo semanticInfo)
 {
   if (varInstr->getStorageClass() != spv::StorageClass::Input &&
       varInstr->getStorageClass() != spv::StorageClass::Output) {
     return;
   }
-  auto varSemantic = getStageVarSemantic(decl);
-  const bool isBaryCoord = (varSemantic.getKind() == hlsl::Semantic::Kind::Barycentrics);
-  uint32_t semanticIndex = varSemantic.index;
+  const bool isBaryCoord = (semanticInfo.getKind() == hlsl::Semantic::Kind::Barycentrics);
+  uint32_t semanticIndex = semanticInfo.index;
 
   if (isBaryCoord) {
     // BaryCentrics inputs cannot have attrib 'nointerpolation'.
