@@ -277,7 +277,7 @@ namespace hlsl {
   /// In/inout/out/uniform parameter modifier.
   class ParameterModifier {
   public:
-    enum Kind { In, InOut, Out, Uniform, Invalid };
+    enum Kind { In, InOut, Out, Uniform, Ref, Invalid };
 
     ParameterModifier() : m_Kind(Kind::In) { }
     ParameterModifier(enum Kind Kind) : m_Kind(Kind) { }
