@@ -3447,15 +3447,23 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   }
       
   // HLSL Change Starts
+  case ICK_HLSLVector_Truncation:
+    if(CCK == CCK_ImplicitConversion)
+      Diag(From->getLocStart(), diag::warn_hlsl_implicit_vector_truncation);
+    LLVM_FALLTHROUGH;
   case ICK_Flat_Conversion:
   case ICK_HLSL_Derived_To_Base:
   case ICK_HLSLVector_Splat:
   case ICK_HLSLVector_Scalar:
-  case ICK_HLSLVector_Truncation:
-  case ICK_HLSLVector_Conversion:
-    From = hlsl::PerformHLSLConversion(this, From, ToType.getUnqualifiedType(), SCS, CCK).get();
+  case ICK_HLSLVector_Conversion: {
+    ExprResult FromRes =
+        hlsl::PerformHLSLConversion(this, From, ToType, SCS, CCK);
+    if (FromRes.isInvalid())
+      return ExprError();
+    From = FromRes.get();
     break;
-  // HLSL Change Ends
+  }
+    // HLSL Change Ends
       
   case ICK_TransparentUnionConversion: {
     ExprResult FromRes = From;

@@ -3079,6 +3079,11 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
       return true;
     break;
 
+  // HLSL Change - Begin
+  case HLSLOutParamExprClass:
+    return true;
+  // HLSL Change - End
+
   case InitListExprClass:
     // FIXME: The children for an InitListExpr doesn't include the array filler.
     if (const Expr *E = cast<InitListExpr>(this)->getArrayFiller())
@@ -4356,6 +4361,20 @@ ObjCSubscriptRefExpr *ObjCSubscriptRefExpr::Create(const ASTContext &C,
                                         OK_ObjCSubscript,
                                         getMethod, setMethod, RB);
 }
+
+// HLSL Change begin
+
+HLSLOutParamExpr *HLSLOutParamExpr::Create(const ASTContext &C, QualType Ty,
+                                           Expr *Base, bool IsInOut,
+                                           bool CanElide) {
+  return new (C) HLSLOutParamExpr(Ty, Base, IsInOut, CanElide);
+}
+
+HLSLArrayTemporaryExpr *
+HLSLArrayTemporaryExpr::Create(const ASTContext &C, Expr *Base) {
+  return new (C) HLSLArrayTemporaryExpr(Base);
+}
+// HLSL Change end
 
 AtomicExpr::AtomicExpr(SourceLocation BLoc, ArrayRef<Expr*> args,
                        QualType t, AtomicOp op, SourceLocation RP)

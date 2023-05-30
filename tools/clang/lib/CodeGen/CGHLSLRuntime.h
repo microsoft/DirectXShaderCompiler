@@ -46,6 +46,7 @@ class ReturnStmt;
 class Attr;
 class VarDecl;
 class HLSLRootSignatureAttr;
+class CastExpr;
 
 namespace CodeGen {
 class CodeGenModule;
@@ -78,15 +79,6 @@ public:
       llvm::Value *DestPtr) = 0;
   virtual llvm::Constant *EmitHLSLConstInitListExpr(CodeGenModule &CGM, InitListExpr *E) = 0;
 
-  virtual void EmitHLSLOutParamConversionInit(
-      CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
-      llvm::SmallVector<LValue, 8> &castArgList,
-      llvm::SmallVector<const Stmt *, 8> &argList,
-      llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
-      const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) = 0;
-  virtual void EmitHLSLOutParamConversionCopyBack(
-      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
-      llvm::SmallVector<LValue, 8> &lifetimeCleanupList) = 0;
   virtual void MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
                                          clang::QualType QaulTy) = 0;
   virtual llvm::Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E, llvm::Type *RetType,
@@ -155,6 +147,7 @@ public:
   virtual void EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
                               llvm::SmallVector<llvm::Value*, 16>& IRCallArgs,
                               llvm::SmallVector<clang::QualType, 16>& ArgTys) = 0;
+  virtual LValue EmitResourceParamAnnotation(CodeGenFunction& CGF, const CastExpr *E) = 0;
 };
 
 /// Create an instance of a HLSL runtime class.

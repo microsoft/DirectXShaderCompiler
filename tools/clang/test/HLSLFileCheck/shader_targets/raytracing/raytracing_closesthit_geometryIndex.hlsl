@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_5 -auto-binding-space 11 %s | FileCheck %s
 
-// CHECK: define void [[closesthit1:@"\\01\?closesthit1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload, %struct.BuiltInTriangleIntersectionAttributes* nocapture readonly %attr) #0 {
+// CHECK: define void [[closesthit1:@"\\01\?closesthit1@[^\"]+"]](
 // CHECK:   [[GeometryIndex:%[^ ]+]] = call i32 @dx.op.geometryIndex.i32(i32 213)
 // CHECK:   icmp eq i32 [[GeometryIndex]], 0
 // CHECK:   call void @dx.op.callShader.struct.MyParam(i32 159, i32 {{.*}}, %struct.MyParam* nonnull {{.*}})

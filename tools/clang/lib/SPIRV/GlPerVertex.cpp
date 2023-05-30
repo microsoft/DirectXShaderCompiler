@@ -112,7 +112,7 @@ llvm::SmallVector<SpirvVariable *, 2> GlPerVertex::getStageOutVars() const {
 
 bool GlPerVertex::recordGlPerVertexDeclFacts(const DeclaratorDecl *decl,
                                              bool asInput) {
-  const QualType type = getTypeOrFnRetType(decl);
+  const QualType type = getTypeOrFnRetType(decl).getNonReferenceType();
 
   if (type->isVoidType())
     return true;

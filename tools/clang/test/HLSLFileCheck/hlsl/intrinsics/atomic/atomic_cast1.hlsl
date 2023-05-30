@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
 // Make sure cast lvalue not work.
-// CHECK: cannot compile this unexpected cast lvalue
+// CHECK: cannot initialize a parameter of type 'int &' with an rvalue of type 'int'
 
 RWBuffer<uint> buffer;
 

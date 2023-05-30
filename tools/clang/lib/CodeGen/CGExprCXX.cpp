@@ -28,9 +28,7 @@ using namespace CodeGen;
 static RequiredArgs commonEmitCXXMemberOrOperatorCall(
     CodeGenFunction &CGF, const CXXMethodDecl *MD, llvm::Value *Callee,
     ReturnValueSlot ReturnValue, llvm::Value *This, llvm::Value *ImplicitParam,
-    QualType ImplicitParamTy, const CallExpr *CE, CallArgList &Args, 
-    ArrayRef<const Stmt *> argList// HLSL Change  - use updated argList for out parameter.
-    ) {
+    QualType ImplicitParamTy, const CallExpr *CE, CallArgList &Args) {
   assert(CE == nullptr || isa<CXXMemberCallExpr>(CE) ||
          isa<CXXOperatorCallExpr>(CE));
   assert(MD->isInstance() &&
@@ -62,9 +60,7 @@ static RequiredArgs commonEmitCXXMemberOrOperatorCall(
   if (CE) {
     // Special case: skip first argument of CXXOperatorCall (it is "this").
     unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(CE) ? 1 : 0;
-    CGF.EmitCallArgs(Args, FPT, 
-        argList.begin() + ArgsToSkip, // HLSL Change  - use updated argList for out parameter.
-        argList.end(),                // HLSL Change  - use updated argList for out parameter.
+    CGF.EmitCallArgs(Args, FPT, CE->arg_begin() + ArgsToSkip, CE->arg_end(),
                      CE->getDirectCallee());
   } else {
     assert(
@@ -80,36 +76,11 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
     const CallExpr *CE) {
   const FunctionProtoType *FPT = MD->getType()->castAs<FunctionProtoType>();
   CallArgList Args;
-
-  // HLSL Change Begins
-  llvm::SmallVector<LValue, 8> castArgList;
-  llvm::SmallVector<LValue, 8> lifetimeCleanupList;
-  // The argList of the CallExpr, may be update for out parameter
-  llvm::SmallVector<const Stmt *, 8> argList(CE->arg_begin(), CE->arg_end());
-  // out param conversion
-  CodeGenFunction::HLSLOutParamScope OutParamScope(*this);
-  auto MapTemp = [&](const VarDecl *LocalVD, llvm::Value *TmpArg) {
-      OutParamScope.addTemp(LocalVD, TmpArg);
-  };
-  if (getLangOpts().HLSL) {
-    if (const FunctionDecl *FD = CE->getDirectCallee())
-      CGM.getHLSLRuntime().EmitHLSLOutParamConversionInit(*this, FD, CE,
-                                                          castArgList, argList, lifetimeCleanupList, MapTemp);
-  }
-  // HLSL Change Ends
-
   RequiredArgs required = commonEmitCXXMemberOrOperatorCall(
       *this, MD, Callee, ReturnValue, This, ImplicitParam, ImplicitParamTy, CE,
-      Args, argList); // HLSL Change - use updated argList.
-  RValue CallVal = EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required),
+      Args);
+  return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required),
                   Callee, ReturnValue, Args, MD);
-  // HLSL Change Begins
-  // out param conversion
-  // conversion and copy back after the call
-  if (getLangOpts().HLSL)
-    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList, lifetimeCleanupList);
-  // HLSL Change Ends
-  return CallVal;
 }
 
 RValue CodeGenFunction::EmitCXXStructorCall(
@@ -117,33 +88,10 @@ RValue CodeGenFunction::EmitCXXStructorCall(
     llvm::Value *This, llvm::Value *ImplicitParam, QualType ImplicitParamTy,
     const CallExpr *CE, StructorType Type) {
   CallArgList Args;
-  // HLSL Change Begins
-  llvm::SmallVector<LValue, 8> castArgList;
-  llvm::SmallVector<LValue, 8> lifetimeCleanupList;
-  // The argList of the CallExpr, may be update for out parameter
-  llvm::SmallVector<const Stmt *, 8> argList(CE->arg_begin(), CE->arg_end());
-  // out param conversion
-  CodeGenFunction::HLSLOutParamScope OutParamScope(*this);
-  auto MapTemp = [&](const VarDecl *LocalVD, llvm::Value *TmpArg) {
-      OutParamScope.addTemp(LocalVD, TmpArg);
-  };
-  if (getLangOpts().HLSL) {
-    if (const FunctionDecl *FD = CE->getDirectCallee())
-      CGM.getHLSLRuntime().EmitHLSLOutParamConversionInit(*this, FD, CE,
-                                                          castArgList, argList, lifetimeCleanupList, MapTemp);
-  }
-  // HLSL Change Ends
   commonEmitCXXMemberOrOperatorCall(*this, MD, Callee, ReturnValue, This,
-                                    ImplicitParam, ImplicitParamTy, CE, Args,
-      argList); // HLSL Change - use updated argList.
+                                    ImplicitParam, ImplicitParamTy, CE, Args);
   RValue CallVal = EmitCall(CGM.getTypes().arrangeCXXStructorDeclaration(MD, Type),
                   Callee, ReturnValue, Args, MD);
-  // HLSL Change Begins
-  // out param conversion
-  // conversion and copy back after the call
-  if (getLangOpts().HLSL)
-    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList, lifetimeCleanupList);
-  // HLSL Change Ends
   return CallVal;
 }
 

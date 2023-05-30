@@ -2,13 +2,9 @@
 
 // CHECK: define <4 x float>
 // CHECK-SAME: main
-// CHECK-NOT: bitcast
-// CHECK-NOT: CallStruct
-// CHECK: ParamStruct
-// CHECK: call void @llvm.lifetime.start
-// CHECK-NOT: bitcast
-// CHECK-NOT: CallStruct
-// CHECK-LABEL: ret <4 x float>
+// CHECK: [[local:%(local)|([0-9]+)]] = alloca %struct.CallStruct
+// CHECK: [[param:%[0-9]+]] = bitcast %struct.CallStruct* [[local]] to %struct.ParamStruct*
+// CHEKC: call void @"\01?modify_ext{{.*}}(%struct.ParamStruct* dereferenceable(8) [[param]])
 
 struct ParamStruct {
   int i;

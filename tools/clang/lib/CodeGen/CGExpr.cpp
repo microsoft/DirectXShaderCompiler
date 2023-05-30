@@ -920,6 +920,8 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
     return EmitExtMatrixElementExpr(cast<ExtMatrixElementExpr>(E));
   case Expr::HLSLVectorElementExprClass:
     return EmitHLSLVectorElementExpr(cast<HLSLVectorElementExpr>(E));
+  case Expr::HLSLOutParamExprClass:
+    return EmitHLSLOutParamExpr(cast<HLSLOutParamExpr>(E));
   case Expr::CXXThisExprClass:
     return MakeAddrLValue(LoadCXXThis(), E->getType());
   // HLSL Change Ends
@@ -2695,12 +2697,6 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
   if (Idx->getType() != IntPtrTy)
     Idx = Builder.CreateIntCast(Idx, IntPtrTy, IdxSigned, "idxprom");
 
-  // HLSL Change Starts
-  const Expr *Array = isSimpleArrayDecayOperand(E->getBase());
-  assert((!getLangOpts().HLSL || nullptr == Array) &&
-         "else array decay snuck in AST for HLSL");
-  // HLSL Change Ends
-
   // We know that the pointer points to a type of the correct size, unless the
   // size is a VLA or Objective-C interface.
   llvm::Value *Address = nullptr;
@@ -2748,7 +2744,7 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     Address = EmitCastToVoidPtr(Base);
     Address = Builder.CreateGEP(Address, Idx, "arrayidx");
     Address = Builder.CreateBitCast(Address, Base->getType());
-  } else if (!getLangOpts().HLSL && Array) { // HLSL Change - No Array to pointer decay for HLSL
+  } else if (const Expr *Array = isSimpleArrayDecayOperand(E->getBase())) {
     // If this is A[i] where A is an array, the frontend will have decayed the
     // base to be a ArrayToPointerDecay implicit cast.  While correct, it is
     // inefficient at -O0 to emit a "gep A, 0, 0" when codegen'ing it, then a
@@ -2774,38 +2770,12 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     else
       Address = Builder.CreateInBoundsGEP(ArrayPtr, Args, "arrayidx");
   } else {
-    // HLSL Change Starts
-    const ArrayType *AT = dyn_cast<ArrayType>(E->getBase()->getType()->getCanonicalTypeUnqualified());
-    if (getContext().getLangOpts().HLSL && AT) {
-      LValue ArrayLV;
-      // For simple multidimensional array indexing, set the 'accessed' flag for
-      // better bounds-checking of the base expression.
-      if (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E->getBase()))
-        ArrayLV = EmitArraySubscriptExpr(ASE, /*Accessed*/ true);
-      else
-        ArrayLV = EmitLValue(E->getBase());
-      llvm::Value *ArrayPtr = ArrayLV.getAddress();
-
-      llvm::Value *Zero = llvm::ConstantInt::get(Int32Ty, 0);
-      llvm::Value *Args[] = { Zero, Idx };
-
-      // Propagate the alignment from the array itself to the result.
-      ArrayAlignment = ArrayLV.getAlignment();
-
-      if (getLangOpts().isSignedOverflowDefined())
-        Address = Builder.CreateGEP(ArrayPtr, Args, "arrayidx");
-      else
-        Address = Builder.CreateInBoundsGEP(ArrayPtr, Args, "arrayidx");
-
-    } else {
-      // HLSL Change Ends
-      // The base must be a pointer, which is not an aggregate.  Emit it.
-      llvm::Value *Base = EmitScalarExpr(E->getBase());
-      if (getLangOpts().isSignedOverflowDefined())
-        Address = Builder.CreateGEP(Base, Idx, "arrayidx");
-      else
-        Address = Builder.CreateInBoundsGEP(Base, Idx, "arrayidx");
-    } // HLSL Change 
+    // The base must be a pointer, which is not an aggregate.  Emit it.
+    llvm::Value *Base = EmitScalarExpr(E->getBase());
+    if (getLangOpts().isSignedOverflowDefined())
+      Address = Builder.CreateGEP(Base, Idx, "arrayidx");
+    else
+      Address = Builder.CreateInBoundsGEP(Base, Idx, "arrayidx");
   }
 
   QualType T = E->getBase()->getType()->getPointeeType();
@@ -2961,6 +2931,40 @@ CodeGenFunction::EmitExtMatrixElementExpr(const ExtMatrixElementExpr *E) {
       *this, ResultTy, {matBase, CV}, E->getBase()->getType());
   return MakeAddrLValue(Result, E->getType());
 }
+
+LValue CodeGenFunction::EmitHLSLOutParamExpr(const HLSLOutParamExpr *E) {
+  if (E->canElide())
+    return EmitLValue(E->getBase());
+  llvm::Type *Ty = ConvertTypeForMem(E->getType());
+  // TODO: Use CreateAggTemp
+  llvm::Value *OutTemp;
+
+  if (E->isInOut()) {
+    RValue InVal = EmitAnyExprToTemp(E->getBase());
+    if (!InVal.isScalar()) {
+      OutTemp = InVal.getAggregateAddr();
+    } else {
+      OutTemp = CreateTempAlloca(Ty, "hlsl.out");
+      if (hlsl::IsHLSLMatType(E->getType())) {
+        // Use matrix store to keep major info.
+        CGM.getHLSLRuntime().EmitHLSLMatrixStore(*this, InVal.getScalarVal(),
+                                                 OutTemp, E->getType());
+      }
+      else {
+        llvm::Value *V = InVal.getScalarVal();
+        if (V->getType()->getScalarType()->isIntegerTy(1))
+          V = Builder.CreateZExt(V, Ty, "frombool");
+        (void)Builder.CreateStore(V, OutTemp);
+      }
+    }
+  } else
+    OutTemp = CreateTempAlloca(Ty, "hlsl.out");
+  LValue Result = MakeAddrLValue(OutTemp, E->getType());
+  if (auto *OpV = E->getOpaqueValue())
+    OpaqueValueMappingData::bind(*this, OpV, Result);
+  return Result;
+}
+
 LValue
 CodeGenFunction::EmitHLSLVectorElementExpr(const HLSLVectorElementExpr *E) {
   // Emit the base vector as an l-value.
@@ -3535,7 +3539,8 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     llvm::Value *bitcast = Builder.CreateBitCast(LV.getAddress(), ResultType);
     return MakeAddrLValue(bitcast, ToType);
   }
-  case CK_FlatConversion: {
+  case CK_FlatConversion:
+  case CK_HLSLDerivedToBase:{
     // Just bitcast.
     QualType ToType = getContext().getLValueReferenceType(E->getType());
 
@@ -3550,34 +3555,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
     Builder.AllowFolding = originAllowFolding;
     return MakeAddrLValue(bitcast, ToType);
-  }
-  case CK_HLSLDerivedToBase: {
-    // HLSL only single inheritance.
-    // Just GEP.
-    QualType ToType = getContext().getLValueReferenceType(E->getType());
-
-    LValue LV = EmitLValue(E->getSubExpr());
-    llvm::Value *This = LV.getAddress();
-
-    // gep to target type
-    llvm::Type *ResultType = ConvertType(ToType);
-    unsigned level = 0;
-    llvm::Type *ToTy = ResultType->getPointerElementType();
-    llvm::Type *FromTy = This->getType()->getPointerElementType();
-    // For empty struct, just bitcast.
-    if (FromTy->getStructNumElements()== 0) {
-      llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
-      return MakeAddrLValue(bitcast, ToType);
-    }
-
-    while (ToTy != FromTy) {
-      FromTy = FromTy->getStructElementType(0);
-      ++level;
-    }
-    llvm::Value *zeroIdx = Builder.getInt32(0);
-    SmallVector<llvm::Value *, 2> IdxList(level + 1, zeroIdx);
-    llvm::Value *GEP = Builder.CreateInBoundsGEP(This, IdxList);
-    return MakeAddrLValue(GEP, ToType);
   }
   case CK_HLSLMatrixSplat:
   case CK_HLSLMatrixToScalarCast:
@@ -3940,28 +3917,16 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   // HLSL Change Begins
   llvm::SmallVector<LValue, 8> castArgList;
   llvm::SmallVector<LValue, 8> lifetimeCleanupList;
-  // The argList of the CallExpr, may be update for out parameter
-  llvm::SmallVector<const Stmt *, 8> argList(E->arg_begin(), E->arg_end());
-  ConstExprIterator argBegin = argList.data();
-  ConstExprIterator argEnd = argList.data() + E->getNumArgs();
   // out param conversion
   CodeGenFunction::HLSLOutParamScope OutParamScope(*this);
-  auto MapTemp = [&](const VarDecl *LocalVD, llvm::Value *TmpArg) {
-      OutParamScope.addTemp(LocalVD, TmpArg);
-  };
-  if (getLangOpts().HLSL) {
-    if (const FunctionDecl *FD = E->getDirectCallee())
-      CGM.getHLSLRuntime().EmitHLSLOutParamConversionInit(*this, FD, E,
-                                                          castArgList, argList, lifetimeCleanupList, MapTemp);
-  }
   // HLSL Change Ends
 
   CallArgList Args;
   if (Chain)
     Args.add(RValue::get(Builder.CreateBitCast(Chain, CGM.VoidPtrTy)),
              CGM.getContext().VoidPtrTy);
-  EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), argBegin, argEnd,  // HLSL Change - use updated argList
-               E->getDirectCallee(), /*ParamsToSkip*/ 0);
+  EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arg_begin(),
+               E->arg_end(), E->getDirectCallee(), /*ParamsToSkip*/ 0);
 
   const CGFunctionInfo &FnInfo = CGM.getTypes().arrangeFreeFunctionCall(
       Args, FnType, /*isChainCall=*/Chain);
@@ -3992,13 +3957,6 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
     Callee = Builder.CreateBitCast(Callee, CalleeTy, "callee.knr.cast");
   }
   RValue CallVal = EmitCall(FnInfo, Callee, ReturnValue, Args, TargetDecl);
-
-  // HLSL Change Begins
-  // out param conversion
-  // conversion and copy back after the call
-  if (getLangOpts().HLSL)
-    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList, lifetimeCleanupList);
-  // HLSL Change Ends
 
   return CallVal;
 }

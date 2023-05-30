@@ -18,11 +18,11 @@ void fn() {
 }
 
 // CHECK: define internal void @"\01?fn{{[@$?.A-Za-z0-9_]+}}"()
-// CHECK: [[Tmp1:%[0-9A-Z]+]] = alloca float
 // CHECK: [[X:%[0-9A-Z]+]] = alloca float, align 4
 // CHECK: [[Z:%[0-9A-Z]+]] = alloca float, align 4
 // CHECK: [[Y:%[0-9A-Z]+]] = alloca i32, align 4
 // CHECK: [[D:%[0-9A-Z]+]] = alloca %struct.Doggo
+// CHECK: [[Tmp1:%[0-9a-z.]+]] = alloca float
 
 // First call has no copy-in/copy out parameters since all parameters are unique.
 // CHECK: call void @"\01??RDoggo{{[@$?.A-Za-z0-9_]+}}"(%struct.Doggo* [[D]], float* dereferenceable(4) [[X]], i32* dereferenceable(4) [[Y]], float* dereferenceable(4) [[Z]])

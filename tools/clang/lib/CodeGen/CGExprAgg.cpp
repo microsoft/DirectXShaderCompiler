@@ -202,6 +202,8 @@ public:
   void VisitAtomicExpr(AtomicExpr *E) {
     CGF.EmitAtomicExpr(E, EnsureSlot(E->getType()).getAddr());
   }
+
+  void VisitHLSLArrayTemporaryExpr(HLSLArrayTemporaryExpr *E); // HLSL Change
 };
 }  // end anonymous namespace.
 
@@ -540,6 +542,12 @@ void AggExprEmitter::EmitArrayInit(llvm::Value *DestPtr, llvm::ArrayType *AType,
 //===----------------------------------------------------------------------===//
 //                            Visitor Methods
 //===----------------------------------------------------------------------===//
+
+// HLSL Change Begin
+void AggExprEmitter::VisitHLSLArrayTemporaryExpr(HLSLArrayTemporaryExpr *E) {
+  Visit(E->getBase());
+}
+// HLSL Change End
 
 void AggExprEmitter::VisitMaterializeTemporaryExpr(MaterializeTemporaryExpr *E){
   Visit(E->GetTemporaryExpr());

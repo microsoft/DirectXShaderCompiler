@@ -80,6 +80,9 @@ namespace {
     void CheckReinterpretCast();
     void CheckStaticCast();
     void CheckDynamicCast();
+    // HLSL Change begin
+    void CheckHLSLCStyleCast(bool FunctionalCast, bool ListInitialization);
+    // HLSL Change end
     void CheckCXXCStyleCast(bool FunctionalCast, bool ListInitialization);
     void CheckCStyleCast();
 
@@ -2058,7 +2061,65 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
   // So we finish by allowing everything that remains - it's got to be two
   // object pointers.
   return TC_Success;
-}                                     
+}
+
+// HLSL Change Begin
+void CastOperation::CheckHLSLCStyleCast(bool FunctionalStyle,
+                                        bool ListInitialization) {
+  if (DestType->isDependentType() || SrcExpr.get()->isTypeDependent() ||
+      SrcExpr.get()->isValueDependent()) {
+    assert(Kind == CK_Dependent);
+    return;
+  }
+
+  QualType SrcType = SrcExpr.get()->getType();
+  if (SrcType.getCanonicalType() == DestType.getCanonicalType()) {
+    ValueKind = VK_LValue;
+    Kind = CK_NoOp;
+    ResultType = DestType;
+    return;
+  }
+  if (isa<RecordType>(*DestType) && isa<RecordType>(*SrcType)) {
+    CXXBasePaths Paths;
+    if (Self.IsDerivedFrom(SrcType, DestType, Paths)) {
+      ResultType = DestType;
+      if (SrcType.getQualifiers().hasAddressSpace()) {
+        Qualifiers Q = DestType.getQualifiers();
+        Q.addAddressSpace(SrcType.getQualifiers().getAddressSpace());
+        ResultType = Self.getASTContext().getQualifiedType(DestType, Q);
+      }
+      Self.BuildBasePathArray(Paths, BasePath);
+      ValueKind = VK_LValue;
+      Kind = CK_HLSLDerivedToBase;
+      return;
+    }
+  }
+
+  bool PossibleFlatConv =
+      hlsl::IsConversionToLessOrEqualElements(&Self, SrcExpr, DestType, true);
+ 
+  // Check for HLSL vector/matrix/array/struct shrinking.
+  if (ValueKind == VK_RValue && 
+      !FunctionalStyle &&
+      !isPlaceholder(BuiltinType::Overload) &&
+      SrcExpr.get()->isLValue() &&
+      // Cannot use casts on basic type l-values
+      !SrcType.getCanonicalType()->isBuiltinType() &&
+      PossibleFlatConv) {
+    ValueKind = VK_LValue;
+    DestType = Self.getASTContext().getLValueReferenceType(DestType);
+  }
+
+  // If the source is an Array and this is a possible flat conversion we should
+  // handle it to prevent array to pointer decay.
+  if (SrcType->isArrayType() && PossibleFlatConv) {
+    Kind = clang::CK_FlatConversion;
+    return;
+  }
+
+  CheckCXXCStyleCast(FunctionalStyle, ListInitialization);
+}
+// HLSL Change End
 
 void CastOperation::CheckCXXCStyleCast(bool FunctionalStyle,
                                        bool ListInitialization) {
@@ -2102,20 +2163,6 @@ void CastOperation::CheckCXXCStyleCast(bool FunctionalStyle,
     assert(Kind == CK_Dependent);
     return;
   }
-
-  // HLSL Change Starts
-  // Check for HLSL vector/matrix/array/struct shrinking.
-  if (ValueKind == VK_RValue && 
-      !FunctionalStyle &&
-      !isPlaceholder(BuiltinType::Overload) &&
-      Self.getLangOpts().HLSL &&
-      SrcExpr.get()->isLValue() &&
-      // Cannot use casts on basic type l-values
-      !SrcExpr.get()->getType().getCanonicalType()->isBuiltinType() &&
-      hlsl::IsConversionToLessOrEqualElements(&Self, SrcExpr, DestType, true)) {
-    ValueKind = VK_LValue;
-  }
-  // HLSL Change Ends
 
   if (ValueKind == VK_RValue && !DestType->isRecordType() &&
       !isPlaceholder(BuiltinType::Overload)) {
@@ -2477,16 +2524,21 @@ ExprResult Sema::BuildCStyleCastExpr(SourceLocation LPLoc,
                                      TypeSourceInfo *CastTypeInfo,
                                      SourceLocation RPLoc,
                                      Expr *CastExpr) {
-  CastOperation Op(*this, CastTypeInfo->getType(), CastExpr);  
+  CastOperation Op(*this, CastTypeInfo->getType(), CastExpr);
   Op.DestRange = CastTypeInfo->getTypeLoc().getSourceRange();
   Op.OpRange = SourceRange(LPLoc, CastExpr->getLocEnd());
 
-  if (getLangOpts().CPlusPlus) {
+  // HLSL Change begin
+  if (getLangOpts().HLSL) {
+    Op.CheckHLSLCStyleCast(/*FunctionalStyle=*/ false,
+                          isa<InitListExpr>(CastExpr));
+  } else if (getLangOpts().CPlusPlus) {
     Op.CheckCXXCStyleCast(/*FunctionalStyle=*/ false,
                           isa<InitListExpr>(CastExpr));
   } else {
     Op.CheckCStyleCast();
   }
+  // HLSL Change
 
   if (Op.SrcExpr.isInvalid())
     return ExprError();

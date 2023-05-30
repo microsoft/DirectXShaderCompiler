@@ -8399,6 +8399,34 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
         Diag(NewFD->getLocation(), diag::warn_return_value_udt) << NewFD << R;
     }
   }
+
+  // HLSL Change begin
+  // This is a hack... it forces that implicit types used as parameters are
+  // always completed. This is needed because some diagnostics that should be
+  // emitted in Sema (probably here-ish), are instead implemented in CodeGen
+  // (see: CGHLSLMS.cpp). This requires that we have a valid enough AST to
+  // CodeGen even to just get correct diagnostics emitted. See the test:
+  //
+  // test/HLSLFileCheck/shader_targets/raytracing/builtin-ray-types-anyhit.hlsl
+  if (getLangOpts().HLSL) {
+    for (auto Param : NewFD->params()) {
+      QualType PT = Param->getType().getNonReferenceType();
+      if (!PT->isRecordType())
+        continue;
+      if (const RecordType *RT = PT->getAs<RecordType>()) {
+        RecordDecl *RD = RT->getDecl();
+        // The diagnostic here doesn't really matter because it should never be
+        // emitted.
+        if (RD->isImplicit() &&
+            RequireCompleteType(Param->getLocStart(), PT,
+                                diag::err_call_incomplete_argument)) {
+          llvm_unreachable("Implicit types should never fail to complete.");
+          NewFD->setInvalidDecl();
+        }
+      }
+    }
+  }
+  // HLSL Change end
   return Redeclaration;
 }
 

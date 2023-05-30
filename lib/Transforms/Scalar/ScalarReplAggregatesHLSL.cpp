@@ -143,6 +143,8 @@ static unsigned getNestedLevelInStruct(const Type *ty) {
   return lvl;
 }
 
+static void removeLifetimeUsers(Value *V);
+
 // After SROA'ing a given value into a series of elements,
 // creates the debug info for the storage of the individual elements.
 static void addDebugInfoForElements(Value *ParentVal,
@@ -1873,6 +1875,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
           }
 
           addDebugInfoForElements(AI, BrokenUpTy, NumInstances, Elts, DL, &DIB);
+          removeLifetimeUsers(AI);
 
           // Push Elts into workList.
           for (unsigned EltIdx = 0; EltIdx < Elts.size(); ++EltIdx) {
@@ -1930,31 +1933,35 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
 
       std::vector<Value *> Elts;
       bool SROAed = false;
-      if (GlobalVariable *NewEltGV = dyn_cast_or_null<GlobalVariable>(
-              TranslatePtrIfUsedByLoweredFn(GV, typeSys))) {
-        GVDbgOffset dbgOffset = GVDbgOffsetMap[GV];
-        // Don't need to update when skip SROA on base GV.
-        if (NewEltGV == dbgOffset.base)
-          continue;
+      // In Library shaders only promote global constants.
+      if (!HLM.GetShaderModel()->IsLib() ||
+          (!dxilutil::IsStaticGlobal(GV) || GV->isConstant())) {
+        if (GlobalVariable *NewEltGV = dyn_cast_or_null<GlobalVariable>(
+                TranslatePtrIfUsedByLoweredFn(GV, typeSys))) {
+          GVDbgOffset dbgOffset = GVDbgOffsetMap[GV];
+          // Don't need to update when skip SROA on base GV.
+          if (NewEltGV == dbgOffset.base)
+            continue;
 
-        if (GV != NewEltGV) {
-          GVDbgOffsetMap[NewEltGV] = dbgOffset;
-          // Remove GV from GVDbgOffsetMap.
-          GVDbgOffsetMap.erase(GV);
-          if (GV != dbgOffset.base) {
-            // Remove GV when it is replaced by NewEltGV and is not a base GV.
-            GV->removeDeadConstantUsers();
-            GV->eraseFromParent();
+          if (GV != NewEltGV) {
+            GVDbgOffsetMap[NewEltGV] = dbgOffset;
+            // Remove GV from GVDbgOffsetMap.
+            GVDbgOffsetMap.erase(GV);
+            if (GV != dbgOffset.base) {
+              // Remove GV when it is replaced by NewEltGV and is not a base GV.
+              GV->removeDeadConstantUsers();
+              GV->eraseFromParent();
+            }
+            GV = NewEltGV;
           }
-          GV = NewEltGV;
+        } else {
+          // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
+          // it'll be generated
+          SROAed = SROA_Helper::DoScalarReplacement(
+              GV, Elts, Builder, bFlatVector,
+              // TODO: set precise.
+              /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
         }
-      } else {
-        // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
-        // it'll be generated
-        SROAed = SROA_Helper::DoScalarReplacement(
-            GV, Elts, Builder, bFlatVector,
-            // TODO: set precise.
-            /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
       }
 
       if (SROAed) {
@@ -2321,9 +2328,8 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
         }
       }
     }
-  } else {
-    llvm_unreachable("other type don't need rewrite");
-  }
+  } // Note: other data types we can just eliminate the store, so we don't need
+    // to rewrite anything here.
 
   // Remove the use so that the caller can keep iterating over its other users
   SI->setOperand(SI->getPointerOperandIndex(), UndefValue::get(SI->getPointerOperand()->getType()));

@@ -2579,7 +2579,6 @@ void CodeGenFunction::EmitDelegateCallArg(CallArgList &args,
   args.add(convertTempToRValue(local, type, loc), type);
 }
 
-#if 0 // HLSL Change - no ObjC support
 static bool isProvablyNull(llvm::Value *addr) {
   return isa<llvm::ConstantPointerNull>(addr);
 }
@@ -2592,6 +2591,39 @@ static bool isProvablyNonNull(llvm::Value *addr) {
 static void emitWriteback(CodeGenFunction &CGF,
                           const CallArgList::Writeback &writeback) {
   const LValue &srcLV = writeback.Source;
+
+  if (CGF.getLangOpts().HLSL) {
+    if (writeback.CastExpr) {
+      RValue TmpVal = CGF.EmitAnyExprToTemp(writeback.CastExpr);
+      if (TmpVal.isScalar())
+        CGF.EmitStoreThroughLValue(TmpVal, srcLV);
+      else
+        CGF.EmitAggregateCopy(srcLV.getAddress(), TmpVal.getAggregateAddr(),
+                              srcLV.getType());
+    } else {
+      if (srcLV.isSimple())
+        CGF.EmitAggregateCopy(srcLV.getAddress(), writeback.Temporary,
+                              srcLV.getType());
+      else {
+        llvm::Value *value;
+        if (hlsl::IsHLSLMatType(srcLV.getType()))
+          value = CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(
+              CGF, writeback.Temporary, srcLV.getType());
+        else
+          value = CGF.Builder.CreateLoad(writeback.Temporary);
+        RValue TmpVal = RValue::get(value);
+        CGF.EmitStoreThroughLValue(TmpVal, srcLV);
+      }
+    }
+    if (CGF.CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers) {
+      uint64_t Sz = CGF.CGM.getDataLayout().getTypeAllocSize(
+          CGF.ConvertTypeForMem(srcLV.getType()));
+      CGF.EmitLifetimeEnd(llvm::ConstantInt::get(CGF.Int64Ty, Sz),
+                          writeback.Temporary);
+    }
+    return;
+  }
+
   llvm::Value *srcAddr = srcLV.getAddress();
   assert(!isProvablyNull(srcAddr) &&
          "shouldn't have writeback for provably null argument");
@@ -2659,7 +2691,6 @@ static void emitWritebacks(CodeGenFunction &CGF,
   for (const auto &I : args.writebacks())
     emitWriteback(CGF, I);
 }
-#endif // HLSL Change - no ObjC support
 
 static void deactivateArgCleanupsBeforeCall(CodeGenFunction &CGF,
                                             const CallArgList &CallArgs) {
@@ -2902,6 +2933,12 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
     // Un-reverse the arguments we just evaluated so they match up with the LLVM
     // IR function.
     std::reverse(Args.begin() + CallArgsStart, Args.end());
+    
+    // HLSL Change Begin
+    // We also need to un-reverse the writebacks so that they are emitted left
+    // to right since the args were emitted right to left.
+    Args.reverseWritebacks();
+    // HLSL Change End
     return;
   }
 
@@ -3000,6 +3037,29 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
         return args.add(RV, type);
       }
     }
+
+    // Add writeback for HLSLOutParamExpr.
+    if (const HLSLOutParamExpr *OE = dyn_cast<HLSLOutParamExpr>(E)) {
+      LValue LV = EmitLValue(E);
+      llvm::Value *Addr, *BaseAddr;
+      if (LV.isExtVectorElt()) {
+        llvm::Constant *VecElts = LV.getExtVectorElts();
+        BaseAddr = LV.getExtVectorAddr();
+        Addr = Builder.CreateGEP(
+            BaseAddr,
+            {Builder.getInt32(0), VecElts->getAggregateElement((unsigned)0)});
+      } else // LV.getAddress() will assert if this is not a simple LValue.
+        Addr = BaseAddr = LV.getAddress();
+
+      if (!OE->canElide()) {
+        uint64_t Sz = CGM.getDataLayout().getTypeAllocSize(
+            ConvertTypeForMem(LV.getType()));
+        EmitLifetimeStart(Sz, BaseAddr);
+        args.addWriteback(EmitLValue(OE->getSrcLV()), Addr, nullptr,
+                          OE->getWriteback());
+      }
+      return args.add(RValue::get(Addr), type);
+    }
     // HLSL Change Ends.
     assert(E->getObjectKind() == OK_Ordinary);
     return args.add(EmitReferenceBindingToExpr(E), type);
@@ -3044,15 +3104,25 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return;
   }
 
+  // HLSL Change begin
+  // This is a bit hacky... Ideally this would be part of the resource type's
+  // copy constructor, but we don't have constructors worked out so instead
+  // performing this on LValueToRValue conversion is the next best thing :(.
+  if (hlsl::IsHLSLResourceType(E->getType()) && isa<ImplicitCastExpr>(E) &&
+      cast<CastExpr>(E)->getCastKind() == CK_LValueToRValue) {
+    LValue Val = CGM.getHLSLRuntime().EmitResourceParamAnnotation(
+        *this, cast<CastExpr>(E));
+    args.add(Val.asAggregateRValue(), type);
+    return;
+  }
+  // HLSL Change end
+
   if (HasAggregateEvalKind && isa<ImplicitCastExpr>(E) &&
       cast<CastExpr>(E)->getCastKind() == CK_LValueToRValue) {
     LValue L = EmitLValue(cast<CastExpr>(E)->getSubExpr());
     assert(L.isSimple());
     if (L.getAlignment() >= getContext().getTypeAlignInChars(type)) {
-      // HLSL Change Begin - don't copy input arg.
-      // Copy for out param is done at CGMSHLSLRuntime::EmitHLSLOutParamConversion*.
-      args.add(L.asAggregateRValue(), type); // /*NeedsCopy*/true);
-      // HLSL Change End
+      args.add(L.asAggregateRValue(), type, /*NeedsCopy*/true);
     } else {
       // We can't represent a misaligned lvalue in the CallArgList, so copy
       // to an aligned temporary now.
@@ -3064,16 +3134,6 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return;
   }
 
-  // HLSL Change Begins.
-  // For DeclRefExpr of aggregate type, don't create temp.
-  if (HasAggregateEvalKind && LangOptions().HLSL &&
-      isa<DeclRefExpr>(E)) {
-    LValue LV = EmitDeclRefLValue(cast<DeclRefExpr>(E));
-    RValue RV = RValue::getAggregate(LV.getAddress());
-    args.add(RV, type);
-    return;
-  }
-  // HLSL Change Ends.
   args.add(EmitAnyExprToTemp(E), type);
 }
 
@@ -3670,14 +3730,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   if (Builder.isNamePreserving() && !CI->getType()->isVoidTy())
     CI->setName("call");
 
-#if 0 // HLSL Change - no ObjC support
   // Emit any writebacks immediately.  Arguably this should happen
   // after any return-value munging.
   if (CallArgs.hasWritebacks())
     emitWritebacks(*this, CallArgs);
-#else
-  assert(!CallArgs.hasWritebacks() && "writebacks are unavailable in HLSL");
-#endif // HLSL Change - no ObjC support
 
   // The stack cleanup for inalloca arguments has to run out of the normal
   // lexical order, so deactivate it and run it manually here.

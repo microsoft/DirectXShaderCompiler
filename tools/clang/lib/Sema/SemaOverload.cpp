@@ -30,6 +30,7 @@
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
 #include "clang/AST/HlslTypes.h" // HLSL Change
+#include "HLSLOutParamBuilder.h" // HLSL Change
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -12255,13 +12256,20 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
   TheCall->setArg(0, Object.get());
 
   // Check the argument types.
+  HLSLOutParamBuilder HLSLBuilder; // HLSL Change
   for (unsigned i = 0; i != NumParams; i++) {
     Expr *Arg;
     if (i < Args.size()) {
       Arg = Args[i];
 
       // Pass the argument.
-
+      // HLSL Change begin - Convert Array parameters.
+      // If this is an array and not an oputput, generate an array temporary
+      // expression here rather than an RValue cast.
+      ParmVarDecl *Param = Method->getParamDecl(i);
+      if (Arg->getType()->isArrayType() && !Param->isModifierOut())
+        Arg = HLSLArrayTemporaryExpr::Create(getASTContext(), Arg);
+      // HLSL Change end - Convert Array parameters.
       ExprResult InputInit
         = PerformCopyInitialization(InitializedEntity::InitializeParameter(
                                                     Context,
@@ -12270,6 +12278,13 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
 
       IsError |= InputInit.isInvalid();
       Arg = InputInit.getAs<Expr>();
+      // HLSL Change Begin
+      if (!IsError && Param->isModifierOut()) {
+          ExprResult ArgE = HLSLBuilder.Create(*this, Param, Arg);
+          IsError |= ArgE.isInvalid();
+          Arg = ArgE.getAs<Expr>();
+      }
+      // HLSL Change End
     } else {
       ExprResult DefArg
         = BuildCXXDefaultArgExpr(LParenLoc, Method, Method->getParamDecl(i));
