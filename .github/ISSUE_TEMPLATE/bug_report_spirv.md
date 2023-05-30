@@ -14,7 +14,9 @@ assignees: ''
 <!--- Provide a description of how to reproduce the error. If possible please 
 provide source and tool command line options. If the issue reproduces on
 Compiler Explorer (https://godbolt.org/) or Shader Playground
-(https://shader-playground.timjones.io/) please provide a link. --->
+(https://shader-playground.timjones.io/) please provide a link. If the source is
+split across multiple files, please preprocess into a single file using DXC's 
+command line `-P -Fi <path>`. --->
 
 
 **Actual Behavior**
