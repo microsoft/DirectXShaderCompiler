@@ -1203,11 +1203,15 @@ static bool DiagnoseDefaultTemplateArgument(Sema &S,
     //   template-argument, that declaration shall be a definition and shall be
     //   the only declaration of the function template in the translation unit.
     // (C++98/03 doesn't have this wording; see DR226).
-    S.Diag(ParamLoc, S.getLangOpts().CPlusPlus11 ?
+    // HLSL Change Begin - Treat HLSL as C++11 here. This hides the C++11
+    // extension warning, and the C++98 compat warning is disabled unless
+    // explicitly enabled.
+    S.Diag(ParamLoc, S.getLangOpts().CPlusPlus11 || S.getLangOpts().HLSL ?
          diag::warn_cxx98_compat_template_parameter_default_in_function_template
            : diag::ext_template_parameter_default_in_function_template)
       << DefArgRange;
     return false;
+    // HLSL Change End
 
   case Sema::TPC_ClassTemplateMember:
     // C++0x [temp.param]p9:

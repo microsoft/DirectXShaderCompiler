@@ -200,7 +200,7 @@ public:
       _Outptr_result_z_ IDxcPixType **ppElementType) override;
 };
 
-class DxcPixStructType : public IDxcPixStructType
+class DxcPixStructType : public IDxcPixStructType2
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -228,7 +228,7 @@ public:
   DXC_MICROCOM_TM_ALLOC(DxcPixStructType)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDxcPixStructType, IDxcPixType>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPixStructType2, IDxcPixStructType, IDxcPixType>(this, iid, ppvObject);
   }
 
   STDMETHODIMP GetName(
@@ -250,6 +250,9 @@ public:
   STDMETHODIMP GetFieldByName(
       _In_ LPCWSTR lpName,
       _Outptr_result_z_ IDxcPixStructField **ppField) override;
+
+  STDMETHODIMP GetBaseType(
+    _COM_Outptr_ IDxcPixType **ppType) override;
 };
 
 class DxcPixStructField : public IDxcPixStructField

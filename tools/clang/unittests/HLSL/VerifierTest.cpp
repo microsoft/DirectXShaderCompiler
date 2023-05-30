@@ -50,6 +50,7 @@ public:
   TEST_METHOD(RunOperatorOverloadingNotDefinedBinaryOp)
   TEST_METHOD(RunCXX11Attributes)
   TEST_METHOD(RunEnums)
+  TEST_METHOD(RunFunctionTemplateDefault)
   TEST_METHOD(RunFunctions)
   TEST_METHOD(RunIncompleteType)
   TEST_METHOD(RunIndexingOperator)
@@ -105,6 +106,7 @@ public:
   TEST_METHOD(RunAtomicsOnBitfields)
   TEST_METHOD(RunUnboundedResourceArrays)
   TEST_METHOD(GloballyCoherentErrors)
+  TEST_METHOD(GloballyCoherentMismatch)
   TEST_METHOD(GloballyCoherentTemplateErrors)
   TEST_METHOD(RunBitFieldAnnotations)
   TEST_METHOD(RunUDTByteAddressBufferLoad)
@@ -241,6 +243,10 @@ TEST_F(VerifierTest, RunCXX11Attributes) {
 
 TEST_F(VerifierTest, RunEnums) {
   CheckVerifiesHLSL(L"enums.hlsl");
+}
+
+TEST_F(VerifierTest, RunFunctionTemplateDefault) {
+  CheckVerifiesHLSL(L"function-template-default.hlsl");
 }
 
 TEST_F(VerifierTest, RunFunctions) {
@@ -461,6 +467,10 @@ TEST_F(VerifierTest, RunUnboundedResourceArrays) {
 
 TEST_F(VerifierTest, GloballyCoherentErrors) {
   CheckVerifiesHLSL(L"globallycoherent-errors.hlsl");
+}
+
+TEST_F(VerifierTest, GloballyCoherentMismatch) {
+  CheckVerifiesHLSL(L"globallycoherent-mismatch.hlsl");
 }
 
 TEST_F(VerifierTest, GloballyCoherentTemplateErrors) {

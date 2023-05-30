@@ -1855,14 +1855,16 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateUDTField(DWORD dwParent
   if (m_pCurUDT != nullptr) {
     TypeInfo *lvTI;
     IFR(GetTypeInfo(FieldTy, &lvTI));
+#ifndef NDEBUG
     const DWORD dwOffsetInBytes =
         (lvTI->GetAlignmentInBytes() == 0)
         ? CurrentUDTInfo().GetCurrentSizeInBytes()
         : llvm::RoundUpToAlignment(CurrentUDTInfo().GetCurrentSizeInBytes(), lvTI->GetAlignmentInBytes());
-    DXASSERT_ARGS(dwOffsetInBytes == Field->getOffsetInBits() / 8,
+    DXASSERT_ARGS(dwOffsetInBytes == (unsigned)(Field->getOffsetInBits() / 8),
       "%d vs %d",
       dwOffsetInBytes,
-      Field->getOffsetInBits() / 8);
+      (unsigned)(Field->getOffsetInBits() / 8));
+#endif
     CurrentUDTInfo().Embed(*lvTI);
   }
 

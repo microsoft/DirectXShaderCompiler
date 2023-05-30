@@ -1571,15 +1571,31 @@ public:
     else
       compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Default;
 
-    // Constructing vector of wide strings to pass in to codegen. Just passing
+    // Constructing vector of strings to pass in to codegen. Just passing
     // in pArguments will expose ownership of memory to both CodeGenOptions and
     // this caller, which can lead to unexpected behavior.
-    for (UINT32 i = 0; i != Opts.Args.getNumInputArgStrings(); ++i) {
-      auto arg = Opts.Args.getArgString(i);
-      if (Opts.InputFile.compare(arg) != 0) {
-        compiler.getCodeGenOpts().HLSLArguments.emplace_back(arg);
+    {
+      // Find all args that are of Option::InputClass and record their indices
+      // in a set. If there are multiple Option::InputClass arguments, exclude
+      // all of them. We only use the last one and there's no point recording
+      // the rest of them.
+      //
+      // This list is used to populate the argument list in debug module and
+      // PDB, which are for recompiling. The input filenames are not needed for
+      // it and should be excluded.
+      llvm::DenseSet<unsigned> InputArgIndices;
+      for (llvm::opt::Arg *arg : Opts.Args.getArgs()) {
+        if (arg->getOption().getKind() == llvm::opt::Option::InputClass)
+          InputArgIndices.insert(arg->getIndex());
+      }
+      for (unsigned i = 0; i < Opts.Args.getNumInputArgStrings(); ++i) {
+        if (InputArgIndices.count(i) == 0) { // Only include this arg if it's not in the set of Option::InputClass args.
+          StringRef argStr = Opts.Args.getArgString(i);
+          compiler.getCodeGenOpts().HLSLArguments.emplace_back(argStr);
+        }
       }
     }
+
     // Overrding default set of loop unroll.
     if (Opts.PreferFlowControl)
       compiler.getCodeGenOpts().UnrollLoops = false;

@@ -878,6 +878,9 @@ TEST_F(ValidationTest, InvalidSigCompTyFail) {
       "A specifies unrecognized or invalid component type");
 }
 TEST_F(ValidationTest, MultiStream2Fail) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+  // dxilver 1.7 because PSV0 data was incorrectly filled in before this point,
+  // making this test fail if running against prior validator versions.
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\multiStreamGS.hlsl", "gs_6_0",
       "i32 1, i32 12, i32 7, i32 1, i32 1",
