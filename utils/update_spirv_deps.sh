@@ -4,7 +4,16 @@ if [ ! -d external -o ! -d .git -o ! -d azure-pipelines ] ; then
   exit 1
 fi
 
-set -ex
-git submodule foreach 'set -x && git switch main && git pull --ff-only'
+# Ignore effcee and re2 updates.  See the discussion at
+# https://github.com/microsoft/DirectXShaderCompiler/pull/5246
+# for details.
+git submodule foreach '                       \
+  n=$(basename $sm_path);                     \
+  if [ "$n" != "re2" -a "$n" != "effcee" ];   \
+  then git switch main && git pull --ff-only; \
+  else echo "Skipping submodule $n";          \
+  fi;                                         \
+  echo                                        \
+  '
 git add external
 exit 0
