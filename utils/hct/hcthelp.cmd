@@ -3,7 +3,6 @@ echo HLSL console tools
 echo.
 echo   hctbld       - sets the current directory to HLSL_BLD_DIR
 echo   hctbuild     - builds the product and test binaries
-echo   hctcheckin   - builds and tests to make sure a checkin is good
 echo   hcthelp      - prints this help message
 echo   hctspeak     - says something - useful to call out after a long command
 echo   hctshortcut  - creates a desktop shortcut

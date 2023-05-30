@@ -82,9 +82,9 @@ To build, run this command on the HLSL Console.
 
     hctbuild
 
-You can also clean, build and run tests with this command.
+You can also run tests with this command.
 
-    hctcheckin
+    hcttest
 
 
 To see a list of additional commands available, run `hcthelp`
