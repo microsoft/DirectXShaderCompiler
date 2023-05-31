@@ -7,6 +7,7 @@
 // RUN: not ls dae4b0d5020646ac43cd4e4924f67eca.pdb
 
 // Make sure dae4b0d5020646ac43cd4e4924f67eca.pdb is the pdb filename.
+// NOTE: Assume the filename is stable because the shader is simple.
 // RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Zi /Qembed_debug /Fd %T/ /Fo %t.embedpdb
 // RUN: ls %T/dae4b0d5020646ac43cd4e4924f67eca.pdb && rm %T/dae4b0d5020646ac43cd4e4924f67eca.pdb
 
