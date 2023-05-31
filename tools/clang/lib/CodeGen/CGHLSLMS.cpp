@@ -3823,9 +3823,8 @@ static unsigned GetHLOpcode(const Expr *E) {
   }
 }
 
-template <typename BuilderTy>
 static Value *
-EmitHLSLMatrixOperationCallImp(BuilderTy &Builder, HLOpcodeGroup group,
+EmitHLSLMatrixOperationCallImp(CGBuilderTy &Builder, HLOpcodeGroup group,
                                unsigned opcode, llvm::Type *RetType,
                                ArrayRef<Value *> paramList, llvm::Module &M) {
   SmallVector<llvm::Type *, 4> paramTyList;
