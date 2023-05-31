@@ -1729,6 +1729,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
 
   DenseMap<GlobalVariable *, GVDbgOffset> GVDbgOffsetMap;
   for (GlobalVariable &GV : M.globals()) {
+    if (GV.user_empty())
+      continue;
     if (dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV)) {
       staticGVs.insert(&GV);
       GVDbgOffset &dbgOffset = GVDbgOffsetMap[&GV];
@@ -1895,6 +1897,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       // Handle dead GVs trivially. These can be formed by RAUWing one GV
       // with another, leaving the original in the worklist
       if (GV->use_empty()) {
+        staticGVs.remove(GV);
         GV->eraseFromParent();
         Changed = true;
         continue;
@@ -1945,6 +1948,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
             // Remove GV when it is replaced by NewEltGV and is not a base GV.
             GV->removeDeadConstantUsers();
             GV->eraseFromParent();
+            staticGVs.remove(GV);
           }
           GV = NewEltGV;
         }
