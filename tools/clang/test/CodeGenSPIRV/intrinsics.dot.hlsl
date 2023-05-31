@@ -164,4 +164,10 @@ void main() {
     // CHECK-NEXT: OpDot %float
     float3 f3;
     float dotProductByLiteral = dot(f3, float3(1.0.xxx));
+   
+    // A dot product using `half` should get promoted to `float`. 
+    // CHECK:      OpCompositeConstruct %v3float %float_1 %float_1 %float_1
+    // CHECK-NEXT: OpDot %float
+    half3 h3;
+    half dotProductWithHalf = dot(h3, half3(1.0.xxx));
 }
