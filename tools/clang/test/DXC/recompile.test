@@ -15,7 +15,7 @@
 // RUN: %dxc -dumpbin %t.recompiled.pdb | FileCheck %s --check-prefix=RECOMPILE_PDB
 // RECOMPILE_PDB:DICompileUnit
 // RUN: %dxc %t.recompiled.pdb  /recompile > %t.recompiled.pdb.ll
-// RUN: %dxc %t.recompiled.pdb /recompile /T ps_6_0 /E main && rm %t.recompiled.pdb
+// RUN: %dxc %t.recompiled.pdb /recompile /T ps_6_0 /E main
 
 
 // Command-line Defines, Recompile
