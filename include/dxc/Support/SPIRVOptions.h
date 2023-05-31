@@ -55,6 +55,7 @@ struct SpirvCodeGenOptions {
   bool invertW; // Multiplicative inverse
   bool noWarnEmulatedFeatures;
   bool noWarnIgnoredFeatures;
+  bool preserveBindings;
   bool useDxLayout;
   bool useGlLayout;
   bool useLegacyBufferMatrixOrder;

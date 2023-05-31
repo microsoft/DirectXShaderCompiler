@@ -392,6 +392,8 @@ def fspv_print_all: Flag<["-"], "fspv-print-all">, Group<spirv_Group>, Flags<[Co
   HelpText<"Print the SPIR-V module before each pass and after the last one. Useful for debugging SPIR-V legalization and optimization passes.">;
 def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOption]>,
   HelpText<"Specify a comma-separated list of SPIRV-Tools passes to customize optimization configuration (see http://khr.io/hlsl2spirv#optimization)">;
+def fspv_preserve_bindings : Flag<["-"], "fspv-preserve-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Preserves all bindings declared within the module, even when those bindings are unused">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////
