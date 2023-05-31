@@ -162,6 +162,10 @@ private:
                          SpirvInstruction **aliasVarInstr,
                          SourceRange rangeOverride = {});
 
+  /// Redecl variable type for some special usage like PerVertexKHR decorated input.
+  ///
+  QualType expandNoInterpolationParamToArray(QualType type, ParmVarDecl *param);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
@@ -621,6 +625,9 @@ private:
 
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
+
+  /// Process GetAttributeAtVertex for barycentrics.
+  SpirvInstruction* processGetAttributeAtVertex(const CallExpr *expr);
 
   /// Process ray query traceinline intrinsics.
   SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);

@@ -714,7 +714,7 @@ private:
   /// Decorates varInstr of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
   void decorateInterpolationMode(const NamedDecl *decl, QualType asType,
-                                 SpirvVariable *varInstr);
+                                 SpirvVariable *varInstr, const SemanticInfo semanticInfo);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
@@ -893,6 +893,8 @@ private:
   /// an additional SPIR-V optimization pass to flatten such structures.
   bool needsFlatteningCompositeResources;
 
+  uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
+
 public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
@@ -924,6 +926,7 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false), needsFlatteningCompositeResources(false),
+      perspBaryCentricsIndex(2), noPerspBaryCentricsIndex(2),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
