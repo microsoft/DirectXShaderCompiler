@@ -53,12 +53,13 @@
 enum SomeEnum { Val1 };
 
 using u32 = uint32_t;
+using SE = SomeEnum;
 
 struct SomeStruct
 {
     // For some reason a uint32_t starting element is needed to allow for conversion from literal 0 in Sema
     u32 m1 : 16;
-    SomeEnum m3 : 3;
+    SE m3 : 3;
 };
 
 SomeStruct ss;
