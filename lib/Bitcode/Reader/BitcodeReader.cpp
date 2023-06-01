@@ -220,7 +220,8 @@ class BitcodeReader : public GVMaterializer {
 
 public:
   std::error_code error(BitcodeError E, const Twine &Message);
-  std::error_code error(BitcodeError E);
+  // HLSL Change: Remove unused function declaration
+  // std::error_code error(BitcodeError E);
   std::error_code error(const Twine &Message);
 
   BitcodeReader(std::unique_ptr<MemoryBuffer> &&Buffer, LLVMContext &Context, // HLSL Change: unique_ptr
@@ -233,7 +234,8 @@ public:
 
   void freeState();
 
-  void releaseBuffer();
+  // HLSL Change: remove unused function declaration
+  // void releaseBuffer();
 
   bool ShouldTrackBitstreamUsage = false; // HLSL Change
   BitstreamUseTracker Tracker; // HLSL Change
