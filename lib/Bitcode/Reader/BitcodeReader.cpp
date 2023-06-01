@@ -401,10 +401,13 @@ static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
   return EC;
 }
 
+// HLSL Change: remove unused function
+#if 0
 static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
                              std::error_code EC) {
   return error(DiagnosticHandler, EC, EC.message());
 }
+#endif
 
 static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
                              const Twine &Message) {
