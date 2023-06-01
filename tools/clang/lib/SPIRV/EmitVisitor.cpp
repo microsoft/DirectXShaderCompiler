@@ -1963,7 +1963,7 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) { 
+bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) {
   initInstruction(inst);
 
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
@@ -2310,7 +2310,8 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
-    initTypeInstruction(spv::Op::OpConstantComposite);
+    initTypeInstruction(isSpecConst ? spv::Op::OpSpecConstantComposite
+                                    : spv::Op::OpConstantComposite);
     curTypeInst.push_back(typeId);
     curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
     for (auto constituent : inst->getConstituents())
