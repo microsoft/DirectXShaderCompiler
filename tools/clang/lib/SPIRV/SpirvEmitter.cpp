@@ -1749,6 +1749,14 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     return;
   }
 
+  if (decl->getAttr<VKInputAttachmentIndexAttr>()) {
+    if (!spvContext.isPS()) {
+      // SubpassInput(MS) variables are only allowed in pixel shaders. In this
+      // case, we avoid create the declaration because it should not be used.
+      return;
+    }
+  }
+
   SpirvVariable *var = nullptr;
 
   // The contents in externally visible variables can be updated via the

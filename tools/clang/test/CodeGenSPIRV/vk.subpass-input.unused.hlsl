@@ -3,8 +3,7 @@
 
 // RUN: %dxc -T cs_6_0 -E CsTest
 
-// The variable is declared, but should not be used.
-// CHECK: %subInput = OpVariable
+// The subpass input variable should not be in the module.
 // CHECK-NOT: %subInput
 
 [[vk::input_attachment_index (0)]] SubpassInput<float4> subInput;
