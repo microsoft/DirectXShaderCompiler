@@ -1009,7 +1009,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         DxilFieldAnnotation bitfieldAnnotation;
 
         bitfieldAnnotation.SetBitFieldWidth(Field->getBitWidthValue(Context));
-        QualType FieldTy = Field->getType();
+        QualType FieldTy = Field->getType().getCanonicalType();
         const BuiltinType *BTy = FieldTy->getAs<BuiltinType>();
         if (!BTy) {
           // Should be enum type.
