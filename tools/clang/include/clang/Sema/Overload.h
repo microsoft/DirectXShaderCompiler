@@ -163,9 +163,6 @@ namespace clang {
     /// ICK_HLSLVector_* implicit conversion kinds.
     ImplicitConversionKind ComponentConversion : 8;
 
-    /// MatrixOrientationConversion - If this is not ICK_Identity, this
-    /// describes the type of conversion to apply to matrix orientation.
-    ImplicitConversionKind MatrixOrientationConversion : 8;
     // HLSL Change Ends
 
     /// Third - The third conversion can be a qualification conversion.

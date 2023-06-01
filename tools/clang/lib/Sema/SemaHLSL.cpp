@@ -9112,13 +9112,17 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
 static bool
 ConvertMatrixMajor(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
                    ImplicitConversionKind &MatrixOrientationConversion) {
+  // Orientation cast only for matrix to matrix.
+  if (TargetInfo.ShapeKind != SourceInfo.ShapeKind)
+    return true;
   if (TargetInfo.bIsRowMajor == SourceInfo.bIsRowMajor)
     return true;
   // Conversion to/from mismatched size not supported.
   if (TargetInfo.uRows != SourceInfo.uRows ||
       TargetInfo.uCols != SourceInfo.uCols)
     return true;
-
+  DXASSERT(MatrixOrientationConversion == ImplicitConversionKind::ICK_Identity,
+           "conflict");
   MatrixOrientationConversion =
       SourceInfo.bIsRowMajor
           ? ImplicitConversionKind::ICK_HLSLRowMajorToColMajor
@@ -9176,7 +9180,6 @@ bool HLSLExternalSource::CanConvert(
   // Temporary conversion kind tracking which will be used/fixed up at the end
   ImplicitConversionKind Second = ICK_Identity;
   ImplicitConversionKind ComponentConversion = ICK_Identity;
-  ImplicitConversionKind MatrixOrientationConversion = ICK_Identity;
 
   // Identical types require no conversion.
   if (source == target) {
@@ -9331,7 +9334,7 @@ bool HLSLExternalSource::CanConvert(
   if (!ConvertComponent(TargetInfo, SourceInfo, ComponentConversion, Remarks))
     return false;
 
-  if (!ConvertMatrixMajor(TargetInfo, SourceInfo, MatrixOrientationConversion))
+  if (!ConvertMatrixMajor(TargetInfo, SourceInfo, Second))
     return false;
 
 lSuccess:
@@ -9400,24 +9403,14 @@ lSuccess:
       }
     }
 
-    standard->MatrixOrientationConversion = MatrixOrientationConversion;
-
     standard->Second = Second;
 
     standard->ComponentConversion = ComponentConversion;
-
     // For conversion which change to RValue but targeting reference type
     // Hold the conversion to codeGen
     if (targetRef && standard->First == ICK_Lvalue_To_Rvalue) {
       standard->First = ICK_Identity;
       standard->Second = ICK_Identity;
-    }
-    // When there's only matrix orientation cast, set it to be second cast so implicit
-    // conversion can be called.
-    if (standard->First == ICK_Identity && standard->Second == ICK_Identity &&
-        MatrixOrientationConversion != ICK_Identity) {
-      standard->MatrixOrientationConversion = ICK_Identity;
-      standard->Second = MatrixOrientationConversion;
     }
   }
 

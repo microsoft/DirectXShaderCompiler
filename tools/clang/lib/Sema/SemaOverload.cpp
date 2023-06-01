@@ -228,8 +228,6 @@ ImplicitConversionRank StandardConversionSequence::getRank() const {
     Rank = GetConversionRank(Second);
   if  (GetConversionRank(ComponentConversion) > Rank) // HLSL Change
     Rank = GetConversionRank(ComponentConversion);
-  if (GetConversionRank(MatrixOrientationConversion) > Rank) // HLSL Change
-    Rank = GetConversionRank(MatrixOrientationConversion);
   if  (GetConversionRank(Third) > Rank)
     Rank = GetConversionRank(Third);
   return Rank;
@@ -491,13 +489,6 @@ void StandardConversionSequence::dump() const {
       OS << " -> ";
     }
     OS << GetImplicitConversionName(ComponentConversion);
-    PrintedSomething = true;
-  }
-  if (MatrixOrientationConversion != ICK_Identity) {
-    if (PrintedSomething) {
-      OS << " -> ";
-    }
-    OS << GetImplicitConversionName(MatrixOrientationConversion);
     PrintedSomething = true;
   }
   // HLSL Change Ends
@@ -4954,7 +4945,6 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
   ICS.Standard.BindsImplicitObjectArgumentWithoutRefQualifier
     = (Method->getRefQualifier() == RQ_None);
   ICS.Standard.ComponentConversion = ICK_Identity;
-  ICS.Standard.MatrixOrientationConversion = ICK_Identity;
   return ICS;
 }
 
