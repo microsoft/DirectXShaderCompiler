@@ -419,9 +419,7 @@ std::error_code BitcodeReader::error(const Twine &Message) {
                  make_error_code(BitcodeError::CorruptedBitcode), Message);
 }
 
-std::error_code BitcodeReader::error(BitcodeError E) {
-  return ::error(DiagnosticHandler, make_error_code(E));
-}
+// HLSL Change: remove unused function
 
 static DiagnosticHandlerFunction getDiagHandler(DiagnosticHandlerFunction F,
                                                 LLVMContext &C) {
@@ -4818,7 +4816,7 @@ std::error_code BitcodeReader::findFunctionInStream(
 // GVMaterializer implementation
 //===----------------------------------------------------------------------===//
 
-void BitcodeReader::releaseBuffer() { Buffer.release(); }
+// HLSL Change: remove unused function
 
 std::error_code BitcodeReader::materialize(GlobalValue *GV) {
   if (std::error_code EC = materializeMetadata())
