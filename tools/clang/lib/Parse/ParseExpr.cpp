@@ -459,8 +459,8 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
                                          LHS.get(), TernaryMiddle.get(),
                                          RHS.get());
       }
+    // HLSL Change Begin - Take care TernaryMiddle.
     } else {
-      // HLSL Change Begin - Take care TernaryMiddle.
       // Ensure potential typos in the RHS aren't left undiagnosed.
       Actions.CorrectDelayedTyposInExpr(RHS);
     }

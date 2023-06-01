@@ -350,7 +350,7 @@ static unsigned IsPtrUsedByLoweredFn(
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
-    } else if (isa<AddrSpaceCastInst>(user)) { // HLSL Change: remove unused variable
+    } else if (isa<AddrSpaceCastInst>(user)) {
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
