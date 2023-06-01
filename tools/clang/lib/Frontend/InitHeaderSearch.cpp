@@ -184,8 +184,8 @@ void InitHeaderSearch::AddUnmappedPath(const Twine &Path, IncludeDirGroup Group,
 #endif // HLSL Change Ends - simplify mapping based on actual usage
 }
 
-// HLSL Change: Remove unused function;
-#if 0
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void InitHeaderSearch::AddGnuCPlusPlusIncludePaths(StringRef Base,
                                                    StringRef ArchDir,
                                                    StringRef Dir32,
@@ -206,6 +206,8 @@ void InitHeaderSearch::AddGnuCPlusPlusIncludePaths(StringRef Base,
   AddPath(Base + "/backward", CXXSystem, false);
 }
 
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void InitHeaderSearch::AddMinGWCPlusPlusIncludePaths(StringRef Base,
                                                      StringRef Arch,
                                                      StringRef Version) {
@@ -217,6 +219,8 @@ void InitHeaderSearch::AddMinGWCPlusPlusIncludePaths(StringRef Base,
           CXXSystem, false);
 }
 
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void InitHeaderSearch::AddDefaultCIncludePaths(const llvm::Triple &triple,
                                             const HeaderSearchOptions &HSOpts) {
   // HLSL Change Starts - no standard include files for the HLSL/DXIL
@@ -345,6 +349,8 @@ void InitHeaderSearch::AddDefaultCIncludePaths(const llvm::Triple &triple,
 #endif // HLSL Change Ends
 }
 
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void InitHeaderSearch::
 AddDefaultCPlusPlusIncludePaths(const llvm::Triple &triple, const HeaderSearchOptions &HSOpts) {
   // HLSL Change Starts - no standard include files for the HLSL/DXIL
@@ -436,7 +442,6 @@ AddDefaultCPlusPlusIncludePaths(const llvm::Triple &triple, const HeaderSearchOp
   }
 #endif // HLSL Change Ends
 }
-#endif
 
 void InitHeaderSearch::AddDefaultIncludePaths(const LangOptions &Lang,
                                               const llvm::Triple &triple,

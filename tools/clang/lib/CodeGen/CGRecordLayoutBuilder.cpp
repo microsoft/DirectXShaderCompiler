@@ -526,8 +526,8 @@ bool CGRecordLowering::hasOwnStorage(const CXXRecordDecl *Decl,
   return true;
 }
 
-// HLSL Change: Remove unused function
-#if 0
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void CGRecordLowering::calculateZeroInit() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
                                                MemberEnd = Members.end();
@@ -547,6 +547,8 @@ void CGRecordLowering::calculateZeroInit() {
   }
 }
 
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void CGRecordLowering::clipTailPadding() {
   std::vector<MemberInfo>::iterator Prior = Members.begin();
   CharUnits Tail = getSize(Prior->Data);
@@ -568,6 +570,8 @@ void CGRecordLowering::clipTailPadding() {
   }
 }
 
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void CGRecordLowering::determinePacked(bool NVBaseType) {
   if (Packed)
     return;
@@ -602,6 +606,8 @@ void CGRecordLowering::determinePacked(bool NVBaseType) {
     Members.back().Data = getIntNType(Context.toBits(Alignment));
 }
 
+// HLSL Change: Annotate unused function
+[[maybe_unused]]
 void CGRecordLowering::insertPadding() {
   std::vector<std::pair<CharUnits, CharUnits> > Padding;
   CharUnits Size = CharUnits::Zero();
@@ -627,7 +633,6 @@ void CGRecordLowering::insertPadding() {
     Members.push_back(StorageInfo(Pad->first, getByteArrayType(Pad->second)));
   std::stable_sort(Members.begin(), Members.end());
 }
-#endif
 
 void CGRecordLowering::fillOutputFields() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
