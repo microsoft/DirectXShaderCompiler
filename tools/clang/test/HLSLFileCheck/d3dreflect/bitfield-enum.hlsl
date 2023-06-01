@@ -25,7 +25,7 @@
 // CHECK-NEXT:                    Elements: 0
 // CHECK-NEXT:                    Rows: 1
 // CHECK-NEXT:                    Columns: 1
-// CHECK-NEXT:                    Members: 2
+// CHECK-NEXT:                    Members: 3
 // CHECK-NEXT:                    Offset: 0
 // CHECK-NEXT:                  {
 // CHECK-NEXT:                    ID3D12ShaderReflectionType:
@@ -46,20 +46,29 @@
 // CHECK-NEXT:                        Columns: 3
 // CHECK-NEXT:                        Members: 0
 // CHECK-NEXT:                        Offset: 16
+// CHECK-NEXT:                    ID3D12ShaderReflectionType:
+// CHECK-NEXT:                      D3D12_SHADER_TYPE_DESC: Name: dword
+// CHECK-NEXT:                        Class: D3D_SVC_BIT_FIELD
+// CHECK-NEXT:                        Type: D3D_SVT_UINT
+// CHECK-NEXT:                        Elements: 0
+// CHECK-NEXT:                        Rows: 1
+// CHECK-NEXT:                        Columns: 2
+// CHECK-NEXT:                        Members: 0
+// CHECK-NEXT:                        Offset: 19
 // CHECK-NEXT:                  }
 // CHECK-NEXT:              }
 // CHECK-NEXT:            CBuffer: $Globals
-
 enum SomeEnum { Val1 };
 
 using u32 = uint32_t;
 using SE = SomeEnum;
+typedef SomeEnum SE2;
 
 struct SomeStruct
 {
-    // For some reason a uint32_t starting element is needed to allow for conversion from literal 0 in Sema
     u32 m1 : 16;
     SE m3 : 3;
+    SE2 m4 : 2;
 };
 
 SomeStruct ss;
