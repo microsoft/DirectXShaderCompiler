@@ -1455,7 +1455,18 @@ void VariableRegisters::PopulateAllocaMap_StructType(
   }
 }
 
-// HLSL Change: remove unused function
+//HLSL Change: remove unused function
+#if 0
+llvm::DILocation *VariableRegisters::GetVariableLocation() const
+{
+  const unsigned DefaultColumn = 1;
+  return llvm::DILocation::get(
+      m_B.getContext(),
+      m_Variable->getLine(),
+      DefaultColumn,
+      m_Variable->getScope());
+}
+#endif
 
 llvm::Value *VariableRegisters::GetMetadataAsValue(
     llvm::Metadata *M
