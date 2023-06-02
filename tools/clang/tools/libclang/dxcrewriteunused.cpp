@@ -125,6 +125,15 @@ static void SaveTypeDecl(TagDecl *tagDecl,
   }
 }
 
+static void MarkUsedType(QualType Ty,
+                         SmallPtrSetImpl<TypeDecl *> &visitedTypes) {
+  if (TagDecl *tagDecl = Ty->getAsTagDecl()) {
+    SaveTypeDecl(tagDecl, visitedTypes);
+  } else if (const clang::Type *EltTy = Ty->getArrayElementTypeNoTypeQual()) {
+    MarkUsedType(QualType(EltTy, 0), visitedTypes);
+  }
+}
+
 class VarReferenceVisitor : public RecursiveASTVisitor<VarReferenceVisitor> {
 private:
   SmallPtrSetImpl<VarDecl*>& m_unusedGlobals;
@@ -132,8 +141,8 @@ private:
   SmallVectorImpl<FunctionDecl*>& m_pendingFunctions;
   SmallPtrSetImpl<TypeDecl *> &m_visitedTypes;
 
-  void AddRecordType(TagDecl *tagDecl) {
-    SaveTypeDecl(tagDecl, m_visitedTypes);
+  void MarkUsedType(QualType Ty) {
+    ::MarkUsedType(Ty, m_visitedTypes);
   }
 
 public:
@@ -166,9 +175,8 @@ public:
     }
     else if (VarDecl* varDecl = dyn_cast_or_null<VarDecl>(valueDecl)) {
       m_unusedGlobals.erase(varDecl);
-      if (TagDecl *tagDecl = varDecl->getType()->getAsTagDecl()) {
-        AddRecordType(tagDecl);
-      }
+      MarkUsedType(varDecl->getType());
+
       if (Expr *initExp = varDecl->getInit()) {
         if (InitListExpr *initList =
                 dyn_cast<InitListExpr>(initExp)) {
@@ -184,9 +192,7 @@ public:
   }
   bool VisitMemberExpr(MemberExpr *expr) {
     // Save nested struct type.
-    if (TagDecl *tagDecl = expr->getType()->getAsTagDecl()) {
-      m_visitedTypes.insert(tagDecl);
-    }
+    MarkUsedType(expr->getType());
     return true;
   }
   bool VisitCXXMemberCallExpr(CXXMemberCallExpr *expr) {
@@ -197,7 +203,7 @@ public:
       }
     }
     if (CXXRecordDecl *recordDecl = expr->getRecordDecl()) {
-      AddRecordType(recordDecl);
+      MarkUsedType(expr->getType());
     }
     return true;
   }
@@ -206,9 +212,7 @@ public:
       return false;
     for (Decl *decl : bufDecl->decls()) {
       if (VarDecl *constDecl = dyn_cast<VarDecl>(decl)) {
-        if (TagDecl *tagDecl = constDecl->getType()->getAsTagDecl()) {
-          AddRecordType(tagDecl);
-        }
+        MarkUsedType(constDecl->getType());
       } else if (isa<EmptyDecl>(decl)) {
         // Nothing to do for this declaration.
       } else if (CXXRecordDecl *recordDecl = dyn_cast<CXXRecordDecl>(decl)) {
@@ -299,6 +303,10 @@ public:
       const clang::Type *TyPtr = Ty.getTypePtr();
       m_typeDepMap[RD].insert(TyPtr->getAsTagDecl());
     }
+    return true;
+  }
+  bool VisitArrayType(const ArrayType *AT) {
+    TraverseType(AT->getElementType());
     return true;
   }
 };
@@ -812,9 +820,7 @@ HRESULT CollectRewriteHelper(TranslationUnitDecl *tu, LPCSTR pEntryPoint,
   w << "//found " << unusedFunctions.size() << " functions to remove\n";
 
   for (VarDecl *varDecl : nonStaticGlobals) {
-    if (TagDecl *tagDecl = varDecl->getType()->getAsTagDecl()) {
-      SaveTypeDecl(tagDecl, visitedTypes);
-    }
+    MarkUsedType(varDecl->getType(), visitedTypes);
   }
   for (TypeDecl *typeDecl : visitedTypes) {
     unusedTypes.erase(typeDecl);
