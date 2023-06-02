@@ -2464,6 +2464,9 @@ TEST_F(FileTest, VulkanLayoutRegisterCError) {
 }
 
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
+TEST_F(FileTest, VulkanSubpassInputUnused) {
+  runFileTest("vk.subpass-input.unused.hlsl");
+}
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");
 }
@@ -2475,6 +2478,9 @@ TEST_F(FileTest, VulkanSubpassInputError2) {
 }
 TEST_F(FileTest, VulkanSubpassInputError3) {
   runFileTest("vk.subpass-input.static.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSubpassInputError4) {
+  runFileTest("vk.subpass-input.shader.type.error.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, NonFpColMajorError) {
