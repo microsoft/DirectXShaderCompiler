@@ -627,7 +627,9 @@ namespace MainNs
                         List<string> args = new List<string>();
                         args.Add("-ast-dump");
                         args.AddRange(tbOptions.Text.Split());
-                        var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, args.ToArray(), args.Count, null, 0, library.CreateIncludeHandler());
+                        var result = compiler.Compile(source, fileName, fileVars.Entry,
+                            fileVars.Target, args.ToArray(), args.Count,
+                            null, 0, library.CreateIncludeHandler());
                         if (result.GetStatus() == 0)
                         {
                             this.ASTDumpBox.Text = GetStringFromBlob(result.GetResult());
