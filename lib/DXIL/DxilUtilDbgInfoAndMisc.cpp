@@ -124,7 +124,7 @@ bool MergeGepUse(Value *V) {
   addUsersToWorklist(V);
   while (worklist.size()) {
     V = worklist.pop_back_val();
-    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+    if (isa<BitCastOperator>(V)) {
       if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
         changed = true;
         worklist.push_back(NewV);
