@@ -680,7 +680,7 @@ QualType RawBufferHandler::serializeToScalarsOrStruct(
   if (isScalarType(valueType))
     return valueType;
 
-  if (const auto *structType = valueType->getAs<RecordType>())
+  if (valueType->getAs<RecordType>())
     return valueType;
 
   llvm_unreachable("unhandled type when serializing an array");
@@ -741,7 +741,7 @@ void RawBufferHandler::processTemplatedStoreToBuffer(
     if (isScalarType(serializedType)) {
       storeArrayOfScalars(elems, buffer, index, serializedType, bitOffset, loc,
                           range);
-    } else if (const auto *structType = serializedType->getAs<RecordType>()) {
+    } else if (serializedType->getAs<RecordType>()) {
       for (auto elem : elems)
         processTemplatedStoreToBuffer(elem, buffer, index, serializedType,
                                       bitOffset, range);

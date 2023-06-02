@@ -98,7 +98,7 @@ void DebugTypeVisitor::addDebugTypeForMemberVariables(
 
     // Get offset (in bits) of this member within the composite.
     uint32_t offsetInBits = field.offset.hasValue()
-                                ? offsetInBits = *field.offset * 8
+                                ? *field.offset * 8
                                 : compositeSizeInBits;
     // Get size (in bits) of this member within the composite.
     uint32_t sizeInBits = field.sizeInBytes.hasValue()

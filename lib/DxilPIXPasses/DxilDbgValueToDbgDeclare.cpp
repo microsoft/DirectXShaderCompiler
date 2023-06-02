@@ -588,8 +588,7 @@ GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
       llvm::DIType *DIGVType = DIGV->getType().resolve(EmptyMap);
       // We're only interested in aggregates, since only they might have
       // embedded arrays:
-      if (auto *DIGVCompositeType =
-              llvm::dyn_cast<llvm::DICompositeType>(DIGVType)) {
+      if (isa<llvm::DICompositeType>(DIGVType)) {
         auto LocalMirrors = GenerateGlobalToLocalMirrorMap(M, DIGV);
         if (!LocalMirrors.empty()) {
           GlobalStaticVariables.push_back(DIGV);
@@ -789,7 +788,7 @@ static bool SortMembers(
             return false;
         }
         case llvm::dwarf::DW_TAG_subprogram: {
-            if (auto* SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
+            if (isa<llvm::DISubprogram>(Element)) {
                 continue;
             }
             assert(!"DISubprogram not understood");
@@ -1456,6 +1455,8 @@ void VariableRegisters::PopulateAllocaMap_StructType(
   }
 }
 
+//HLSL Change: remove unused function
+#if 0
 llvm::DILocation *VariableRegisters::GetVariableLocation() const
 {
   const unsigned DefaultColumn = 1;
@@ -1465,6 +1466,7 @@ llvm::DILocation *VariableRegisters::GetVariableLocation() const
       DefaultColumn,
       m_Variable->getScope());
 }
+#endif
 
 llvm::Value *VariableRegisters::GetMetadataAsValue(
     llvm::Metadata *M
