@@ -1520,12 +1520,6 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
   }
 
   if (decl->getAttr<VKInputAttachmentIndexAttr>()) {
-    if (!spvContext.isPS()) {
-      emitError("SubpassInput(MS) only allowed in pixel shader",
-                decl->getLocation());
-      success = false;
-    }
-
     if (!decl->isExternallyVisible()) {
       emitError("SubpassInput(MS) must be externally visible",
                 decl->getLocation());
@@ -1793,6 +1787,14 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // This is a VarDecl of ConstantBuffer/TextureBuffer type.
     (void)declIdMapper.createCTBuffer(decl);
     return;
+  }
+
+  if (decl->getAttr<VKInputAttachmentIndexAttr>()) {
+    if (!spvContext.isPS()) {
+      // SubpassInput(MS) variables are only allowed in pixel shaders. In this
+      // case, we avoid create the declaration because it should not be used.
+      return;
+    }
   }
 
   SpirvVariable *var = nullptr;
@@ -3860,6 +3862,11 @@ SpirvEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
 
 SpirvInstruction *
 SpirvEmitter::processSubpassLoad(const CXXMemberCallExpr *expr) {
+  if (!spvContext.isPS()) {
+    emitError("SubpassInput(MS) only allowed in pixel shader",
+              expr->getExprLoc());
+    return nullptr;
+  }
   const auto *object = expr->getImplicitObjectArgument()->IgnoreParens();
   SpirvInstruction *sample =
       expr->getNumArgs() == 1 ? doExpr(expr->getArg(0)) : nullptr;
