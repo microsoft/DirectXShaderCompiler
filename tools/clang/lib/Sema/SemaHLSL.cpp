@@ -14291,9 +14291,10 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
 
 QualType hlsl::ApplyOrientationOnHLSLMatrixType(QualType matType,
                                                 bool isRowMajor,
-                                          clang::Sema &sema) {
+                                                clang::Sema &sema) {
   bool isDefault = hlsl::IsDefaultOrientationMatrixType(matType);
-  // Default major has correct major set, only check major match is not enough.
+  // ApplyOrientationOnHLSLMatrixType needs to return none-default matrix type
+  // so cannot skip default matrix type even when orientation matches.
   if (!isDefault && hlsl::IsRowMajorMatrixType(matType) == isRowMajor)
     return matType;
 
