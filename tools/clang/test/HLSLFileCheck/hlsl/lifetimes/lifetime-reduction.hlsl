@@ -104,11 +104,11 @@ void main() {
 
     // CHECK: phi float
     // CHECK: br i1
-    //[branch]
-    //if (conds2[i]) {
+    [branch]
+    if (conds2[i]) {
       output[i+0] = state.x0;
       // CHECK: br label
-    //}
+    }
   }
 }
 
