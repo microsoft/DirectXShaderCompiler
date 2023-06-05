@@ -42,7 +42,6 @@ target_include_directories(ClangSPIRVTests
   PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR} ${DXC_EFFCEE_DIR})
 
 if (NOT CLANG_INCLUDE_TESTS)
-  set_target_properties(ClangSPIRVTests PROPERTIES OUTPUT_NAME clang-spirv-tests)
   set_output_directory(ClangSPIRVTests
     ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
 endif()

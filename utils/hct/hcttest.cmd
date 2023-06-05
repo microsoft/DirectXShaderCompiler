@@ -27,7 +27,7 @@ set TEST_DXILCONV_FILTER=
 set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
-set TEST_USE_LIT=0
+set TEST_USE_LIT=1
 set TEST_CLANG_FILTER=
 set TEST_EXEC_FILTER=ExecutionTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
@@ -332,12 +332,12 @@ if not "%DXIL_DLL_LOC%"=="" (
 
 rem Begin SPIRV change
 if "%TEST_SPIRV%"=="1" (
-  if not exist %BIN_DIR%\clang-spirv-tests.exe (
-    echo clang-spirv-tests.exe has not been built. Make sure you run "hctbuild -spirvtest" first.
+  if not exist %BIN_DIR%\ClangSPIRVTests.exe (
+    echo ClangSPIRVTests.exe has not been built. Make sure you run "hctbuild -spirvtest" first.
     exit /b 1
   )
   echo Running SPIRV tests ...
-  %BIN_DIR%\clang-spirv-tests.exe --spirv-test-root %HLSL_SRC_DIR%\tools\clang\test\CodeGenSPIRV
+  %BIN_DIR%\ClangSPIRVTests.exe --spirv-test-root %HLSL_SRC_DIR%\tools\clang\test\CodeGenSPIRV
   if errorlevel 1 (
     echo Failure occured in SPIRV unit tests
     exit /b 1
