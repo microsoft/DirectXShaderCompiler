@@ -135,6 +135,7 @@ public:
   bool EnableGVN = true; // HLSL Change
   bool StructurizeLoopExitsForUnroll = false; // HLSL Change
   bool HLSLEnableLifetimeMarkers = false; // HLSL Change
+  bool HLSLEnablePartialLifetimeMarkers = false; // HLSL Change
   bool HLSLEnableDebugNops = false; // HLSL Change
   bool HLSLEarlyInlining = true; // HLSL Change
   bool HLSLNoSink = false; // HLSL Change
