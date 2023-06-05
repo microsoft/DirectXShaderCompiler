@@ -699,8 +699,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       return 1;
     }
   }
-  opts.ShaderModelMajorVer = Major;
-  opts.ShaderModelMinorVer = Minor;
 
   if (opts.TargetProfile.empty() || Major < 6 || (Major == 6 && Minor < 2)) {
     if (!opts.FloatDenormalMode.empty()) {
