@@ -877,7 +877,7 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
 
   // HLSL Change Begins
   // Don't emit the intrinsic for hlsl for now unless it is explicitly enabled
-  if (!CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers)
+  if (!CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers && !CGM.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers)
     return nullptr;
   // HLSL Change Ends
 
@@ -891,6 +891,7 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
   llvm::CallInst *C =
       Builder.CreateCall(CGM.getLLVMLifetimeStartFn(), {SizeV, Addr});
   C->setDoesNotThrow();
+  if (CGM.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers) return nullptr; // HLSL Change - Returning this value triggers generating lifetime.end
   return SizeV;
 }
 
