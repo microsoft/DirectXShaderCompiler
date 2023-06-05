@@ -5990,7 +5990,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
     tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(ParamTy));
 
-    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers || CGM.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers) {
+    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers && CGM.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers) {
       const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
       CGF.EmitLifetimeStart(AllocaSize, tmpArgAddr);
     }

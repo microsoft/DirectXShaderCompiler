@@ -224,6 +224,10 @@ public:
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
   bool HandleExceptions = false; // OPT_disable_exception_handling
 
+  // Shader model version numbers
+  unsigned ShaderModelMajorVer = UINT_MAX;
+  unsigned ShaderModelMinorVer = UINT_MAX;
+
   // Rewriter Options
   RewriterOpts RWOpt;
 
