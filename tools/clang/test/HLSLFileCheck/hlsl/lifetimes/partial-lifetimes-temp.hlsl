@@ -6,7 +6,7 @@
 // lifetime markers generated to surround function calls do not modify cfg. Make sure lifetime.end is present.
 
 // Make sure these telltale signs of lifetime marker related cfg changes do not occur
-// CHECK0-NOT: %cleanup.dest.slot
+// CHECK0-NOT: alloca i32
 // CHECK0-NOT: switch i32
 
 // Make sure BOTH lifetime.start and lifetime.end are still generated around the call
@@ -15,7 +15,7 @@
 // CHECK1: call void @llvm.lifetime.end(
 
 // Make sure turning off partial-lifetime-markers make these cfg modifications reappear again
-// NEGATIVE-DAG: %cleanup.dest.slot
+// NEGATIVE-DAG: alloca i32
 // NEGATIVE-DAG: switch i32
 // NEGATIVE-DAG: call void @llvm.lifetime.end(
 

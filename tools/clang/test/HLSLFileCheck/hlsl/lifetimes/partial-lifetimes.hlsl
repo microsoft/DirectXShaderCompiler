@@ -5,7 +5,7 @@
 // This test is to make sure the partial-lifetime-markers optimization switch works as intended.
 
 // Make sure these telltale signs of lifetime marker related cfg changes do not occur
-// CHECK0-NOT: %cleanup.dest.slot
+// CHECK0-NOT: alloca i32
 // CHECK0-NOT: switch i32
 // CHECK0-NOT: call void @llvm.lifetime.end(
 
@@ -13,7 +13,7 @@
 // CHECK1: call void @llvm.lifetime.start(
 
 // Make sure turning off partial-lifetime-markers make these cfg modifications reappear again
-// NEGATIVE-DAG: %cleanup.dest.slot
+// NEGATIVE-DAG: alloca i32
 // NEGATIVE-DAG: switch i32
 // NEGATIVE-DAG: call void @llvm.lifetime.end(
 
