@@ -16,7 +16,6 @@ steps:
       - '-DCMAKE_CXX_COMPILER=clang++'
       - '-DCMAKE_C_COMPILER=clang'
       - '-DCMAKE_INSTALL_PREFIX=artifacts'
-      - '-DDXC_USE_LIT=ON'
       - '-DENABLE_SPIRV_CODEGEN=ON'
       - '-DSPIRV_BUILD_TESTS=ON'
       - '-DLLVM_ENABLE_WERROR=On'
