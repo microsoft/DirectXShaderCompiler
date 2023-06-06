@@ -1499,6 +1499,10 @@ public:
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
+
+    compiler.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers =
+      Opts.DxcOptimizationToggles.count("partial-lifetime-markers") && Opts.DxcOptimizationToggles.find("partial-lifetime-markers")->second;
+
     // Enable dumping implicit top level decls either if it was specifically
     // requested or if we are not dumping the ast from the command line. That
     // allows us to dump implicit AST nodes in the debugger.

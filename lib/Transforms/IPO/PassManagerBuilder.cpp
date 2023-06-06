@@ -268,7 +268,9 @@ void PassManagerBuilder::addHLSLPasses(legacy::PassManagerBase &MPM) {
     // Clean up inefficiencies that can cause unnecessary live values related to
     // lifetime marker cleanup blocks. This is the earliest possible location
     // without interfering with HLSL-specific lowering.
-    if (HLSLEnableLifetimeMarkers) {
+    // Partial lifetime markers don't have cleanup blocks, so these passes are
+    // unnecessary.
+    if (HLSLEnableLifetimeMarkers && !HLSLEnablePartialLifetimeMarkers) {
       MPM.add(createSROAPass());
       MPM.add(createSimplifyInstPass());
       MPM.add(createJumpThreadingPass());
