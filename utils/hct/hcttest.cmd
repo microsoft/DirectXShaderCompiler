@@ -6,12 +6,12 @@ rem may load an undesired version from some random location (like an SDK path).
 call :removepathsto dxil.dll
 
 rem Default build config is Debug
-if "%BUILD_CONFIG%"=="" (
+if not defined BUILD_CONFIG (
   set BUILD_CONFIG=Debug
 )
 
 rem Default build arch is x64
-if "%BUILD_ARCH%"=="" (
+if not defined BUILD_ARCH (
   set BUILD_ARCH=x64
 )
 
@@ -45,7 +45,7 @@ rem End SPIRV change
 
 set HCT_DIR=%~dp0
 
-if "%NUMBER_OF_PROCESSORS%"=="" (
+if not defined NUMBER_OF_PROCESSORS (
   set PARALLEL_OPTION=
 ) else if %NUMBER_OF_PROCESSORS% LEQ 1 (
   set PARALLEL_OPTION=
@@ -58,7 +58,8 @@ if "%NUMBER_OF_PROCESSORS%"=="" (
 )
 
 :opt_loop
-if "%1"=="" (goto :done_opt)
+set "_NEXT_=%1"
+if not defined _NEXT_ (goto :done_opt)
 
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
@@ -199,7 +200,9 @@ goto :opt_loop
 
 rem Collect additional arguments for tests
 :collect_args
-if "%1"=="" goto :done_args
+rem This is the robust way to detect whether %1 is empty:
+set "_NEXT_=%1"
+if not defined _NEXT_ goto :done_args
 set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% %1
 shift /1
 goto :collect_args
@@ -240,7 +243,7 @@ if "%GENERATOR_NINJA%"=="1" (
   set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
 )
 
-if "%DXILCONV_LOC%"=="" ( 
+if not defined DXILCONV_LOC (
   set DXILCONV_LOC=%BIN_DIR%
 )
 if "%TEST_DXILCONV%"=="1" (
@@ -305,7 +308,7 @@ if "%TEST_USE_LIT%"=="1" (
 if not exist %TEST_DIR% (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
-if "%CUSTOM_BIN_SET%"=="" (
+if not defined CUSTOM_BIN_SET (
   if not "%TEST_USE_LIT%"=="1" (
     call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% ClangHLSLTests.dll ExecHLSLTests.dll
   )
@@ -324,7 +327,7 @@ if "%CUSTOM_BIN_SET%"=="" (
 )
 if errorlevel 1 exit /b 1
 
-if not "%DXIL_DLL_LOC%"=="" (
+if defined DXIL_DLL_LOC (
   echo Copying DXIL.dll to %TEST_DIR%:
   call %HCT_DIR%\hctcopy.cmd %DXIL_DLL_LOC% %TEST_DIR% dxil.dll
   if errorlevel 1 exit /b 1
@@ -365,7 +368,7 @@ if exist "%HCT_EXTRAS%\hcttest-before.cmd" (
 
 if "%TEST_CLANG%"=="1" (
   echo Running Clang unit tests ...
-  if "%TEST_CLANG_FILTER%"=="" (
+  if not defined TEST_CLANG_FILTER (
     set SELECT_FILTER= /select:"@Priority<1 AND @Architecture='%TEST_ARCH%'"
   ) else (
     set SELECT_FILTER= /select:"@Name='%TEST_CLANG_FILTER%' AND @Architecture='%TEST_ARCH%'"
@@ -420,7 +423,7 @@ if exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
 )
 
 if "%TEST_DXILCONV%"=="1" (
-  if "%TEST_DXILCONV_FILTER%"=="" (
+  if not defined TEST_DXILCONV_FILTER (
     set SELECT_FILTER= /select:"@Architecture='%TEST_ARCH%'"
   ) else (
     set SELECT_FILTER= /select:"@Name='%TEST_DXILCONV_FILTER%' AND @Architecture='%TEST_ARCH%'"
@@ -533,7 +536,7 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-if "%HLSL_TAEF_DIR%"=="" (
+if not defined HLSL_TAEF_DIR (
   set TE=te
 ) else (
   set TE="%HLSL_TAEF_DIR%\%BUILD_ARCH_DIR%\te"
@@ -551,7 +554,7 @@ goto :eof
 rem %1 - name of binary to demo
 rem %2 - first argument to te
 
-if "%TEST_DIR%"=="" (
+if not defined TEST_DIR (
   set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
 )
 
@@ -565,7 +568,8 @@ echo Use /name:TestClass* or /name:TestClass::MethodName to filter and /breakOnE
 goto :eof
 
 :check_result
-if not "%2"=="" (
+set "_RESULT_=%2"
+if defined _RESULT_ (
   if "%2"=="0" (
     echo [PASSED] %~1
     set /a TESTS_PASSED=%TESTS_PASSED%+1
@@ -577,11 +581,11 @@ if not "%2"=="" (
 goto :eof
 
 :copyagility
-if "%HLSL_AGILITYSDK_DIR%"=="" (
+if not defined HLSL_AGILITYSDK_DIR (
   exit /b 0
 )
 set USE_AGILITY_SDK=/p:D3D12SDKVersion=1
-if "%HLSL_TAEF_DIR%"=="" (
+if not defined HLSL_TAEF_DIR (
   echo HLSL_AGILITYSDK_DIR set, but no HLSL_TAEF_DIR set, no AgilitySDK will be copied
   exit /b 1
 )
