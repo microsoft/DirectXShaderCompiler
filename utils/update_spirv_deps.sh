@@ -4,7 +4,7 @@ if [ ! -d external -o ! -d .git -o ! -d azure-pipelines ] ; then
   exit 1
 fi
 
-# Ignore effcee and re2 updates.  See the discussion at
+# Ignore effcee, re2 and DirectX-Headers updates.  See the discussion at
 # https://github.com/microsoft/DirectXShaderCompiler/pull/5246
 # for details.
 git submodule foreach '                                                   \
