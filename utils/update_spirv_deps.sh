@@ -7,13 +7,13 @@ fi
 # Ignore effcee and re2 updates.  See the discussion at
 # https://github.com/microsoft/DirectXShaderCompiler/pull/5246
 # for details.
-git submodule foreach '                       \
-  n=$(basename $sm_path);                     \
-  if [ "$n" != "re2" -a "$n" != "effcee" ];   \
-  then git switch main && git pull --ff-only; \
-  else echo "Skipping submodule $n";          \
-  fi;                                         \
-  echo                                        \
+git submodule foreach '                                                   \
+  n=$(basename $sm_path);                                                 \
+  if [ "$n" != "re2" -a "$n" != "effcee" -a "$n" != "DirectX-Headers" ];  \
+  then git switch main && git pull --ff-only;                             \
+  else echo "Skipping submodule $n";                                      \
+  fi;                                                                     \
+  echo                                                                    \
   '
 git add external
 exit 0
