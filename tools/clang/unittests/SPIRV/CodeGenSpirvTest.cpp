@@ -1542,7 +1542,7 @@ TEST_F(FileTest, SM6WaveGetLaneIndex) {
   runFileTest("sm6.wave-get-lane-index.hlsl");
 }
 TEST_F(FileTest, SM6WaveGetLaneCountPS) {
-  runFileTest("sm6.wave-get-lane-count.ps.hlsl"); 
+  runFileTest("sm6.wave-get-lane-count.ps.hlsl");
 }
 TEST_F(FileTest, SM6WaveGetLaneIndexPS) {
   runFileTest("sm6.wave-get-lane-index.ps.hlsl");
