@@ -3435,12 +3435,14 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   if (builtInVar != builtinToVarMap.end()) {
     return builtInVar->second;
   }
+  bool mayNeedFlatDecoration = false;
   spv::StorageClass sc = spv::StorageClass::Max;
   // Valid builtins supported
   switch (builtIn) {
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
     needsLegalization = true;
+    mayNeedFlatDecoration = true;
     LLVM_FALLTHROUGH;
   case spv::BuiltIn::HitTNV:
   case spv::BuiltIn::RayTmaxNV:
@@ -3481,6 +3483,9 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   // Create a dummy StageVar for this builtin variable
   auto var = spvBuilder.addStageBuiltinVar(type, sc, builtIn,
                                            /*isPrecise*/ false, loc);
+  if (mayNeedFlatDecoration && spvContext.isPS()) {
+    spvBuilder.decorateFlat(var, loc);
+  }
 
   const hlsl::SigPoint *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
