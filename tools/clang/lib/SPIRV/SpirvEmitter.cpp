@@ -6938,7 +6938,8 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
   // Should find a more meaningful one.
   if (auto *constVal = dyn_cast<SpirvConstant>(scalarVal)) {
     llvm::SmallVector<SpirvConstant *, 4> elements(size_t(size), constVal);
-    auto *value = spvBuilder.getConstantComposite(vecType, elements);
+    const bool isSpecConst = constVal->getopcode() == spv::Op::OpSpecConstant;
+    auto *value = spvBuilder.getConstantComposite(vecType, elements, isSpecConst);
     value->setRValue();
     return value;
   } else {
@@ -12018,7 +12019,7 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk, bool extMeshShadi
     return spv::ExecutionModel::CallableNV;
   case hlsl::ShaderModel::Kind::Mesh:
     return extMeshShading ?
-           spv::ExecutionModel::MeshEXT: 
+           spv::ExecutionModel::MeshEXT:
            spv::ExecutionModel::MeshNV;
   case hlsl::ShaderModel::Kind::Amplification:
     return extMeshShading ?

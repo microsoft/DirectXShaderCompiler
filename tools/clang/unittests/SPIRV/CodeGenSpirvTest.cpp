@@ -2264,6 +2264,9 @@ TEST_F(FileTest, VulkanSpecConstantError5) {
 TEST_F(FileTest, VulkanSpecConstantErrorNotSegfault) {
   runFileTest("vk.spec-constant.error.not.segfault.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, VulkanSpecConstantComposite) {
+  runFileTest("vk.spec-constant.composite.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutCBufferMatrixZpr) {
   runFileTest("vk.layout.cbuffer.zpr.hlsl");
