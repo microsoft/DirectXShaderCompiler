@@ -22,6 +22,7 @@
 #include <map>
 #include <set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
+#include "dxc/Support/DxcOptToggles.h" // HLSL chanhge
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 #include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
 
@@ -230,8 +231,7 @@ public:
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
   // Optimization pass enables, disables and selects
-  std::map<std::string, bool> HLSLOptimizationToggles;
-  std::map<std::string, std::string> HLSLOptimizationSelects;
+  hlsl::options::OptimizationToggles HLSLOptToggles;
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
   /// Debug option to print IR after specific pass

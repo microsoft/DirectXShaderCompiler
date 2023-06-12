@@ -417,8 +417,8 @@ private:
     const std::string disableStr("_DISABLE_");
     const std::string selectStr("_SELECT_");
 
-    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles;
-    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationSelects;
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptToggles.Toggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptToggles.Selects;
 
     const llvm::SmallVector<std::string, 2> &semDefPrefixes =
                              m_langExtensionsHelper.GetSemanticDefines();
@@ -511,13 +511,10 @@ public:
   // Update CodeGenOption based on HLSLOptimizationToggles.
   void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
     auto &CodeGenOpts = m_CI.getCodeGenOpts();
-    CGO.HLSLEnableLifetimeMarkers &=
-        (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
-         CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
+    CGO.HLSLEnableLifetimeMarkers &= !CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_LIFETIME_MARKERS);
   }
   virtual bool IsOptionEnabled(std::string option) override {
-    return m_CI.getCodeGenOpts().HLSLOptimizationToggles.count(option) &&
-      m_CI.getCodeGenOpts().HLSLOptimizationToggles.find(option)->second;
+    return m_CI.getCodeGenOpts().HLSLOptToggles.GetDefaultOn(option);
   }
 
   virtual std::string GetIntrinsicName(UINT opcode) override {
@@ -1547,8 +1544,7 @@ public:
     compiler.getCodeGenOpts().HLSLOnlyWarnOnUnrollFail = Opts.EnableFXCCompatMode;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
-    compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.DxcOptimizationToggles;
-    compiler.getCodeGenOpts().HLSLOptimizationSelects = Opts.DxcOptimizationSelects;
+    compiler.getCodeGenOpts().HLSLOptToggles = Opts.OptToggles;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs = Opts.IgnoreOptSemDefs;
     compiler.getCodeGenOpts().HLSLIgnoreSemDefs = Opts.IgnoreSemDefs;

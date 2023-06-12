@@ -20,6 +20,7 @@
 #include "dxc/dxcapi.h"
 #include "dxc/Support/HLSLVersion.h"
 #include "dxc/Support/SPIRVOptions.h"
+#include "dxc/Support/DxcOptToggles.h"
 #include <map>
 #include <set>
 
@@ -100,46 +101,6 @@ struct RewriterOpts {
   bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
   bool WithLineDirective = false;       // OPT_rw_line_directive
   bool DeclGlobalCB = false;          // OPT_rw_decl_global_cb
-};
-
-static const llvm::StringRef OPT_GVN  = "gvn";
-static const llvm::StringRef OPT_LICM = "licm";
-static const llvm::StringRef OPT_CSE  = "cse";
-static const llvm::StringRef OPT_LIFETIME_MARKERS = "lifetime-markers";
-static const llvm::StringRef OPT_PARTIAL_LIFETIME_MARKERS = "partial-lifetime-markers";
-
-struct OptimizationToggles {
-  // Optimization pass enables, disables and selects
-  std::map<std::string, bool>        Toggles; // OPT_opt_enable & OPT_opt_disable
-  std::map<std::string, std::string> Selects; // OPT_opt_select
-
-  inline void Set(llvm::StringRef Opt, bool Value) {
-    Toggles[Opt] = Value;
-  }
-  inline bool SetAndTrue(llvm::StringRef Opt) const {
-    auto It = Toggles.find(Opt);
-    return It != Toggles.end() && It->second;
-  }
-  inline bool SetAndFalse(llvm::StringRef Opt) const {
-    auto It = Toggles.find(Opt);
-    return It != Toggles.end() && !It->second;
-  }
-  inline bool Get(llvm::StringRef Opt, bool DefaultOn) const {
-    auto It = Toggles.find(Opt);
-    const bool Found = It != Toggles.end();
-    if (DefaultOn) {
-      return !Found || It->second;
-    }
-    else {
-      return Found && It->second;
-    }
-  }
-  inline bool GetDefaultOn(llvm::StringRef Opt) const {
-    return Get(Opt, /*DefaultOn*/true);
-  }
-  inline bool GetDefaultOff(llvm::StringRef Opt) const {
-    return Get(Opt, /*DefaultOn*/false);
-  }
 };
 
 /// Use this class to capture all options.

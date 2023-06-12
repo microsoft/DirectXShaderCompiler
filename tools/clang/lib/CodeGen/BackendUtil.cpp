@@ -337,25 +337,12 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
 
-  PMBuilder.EnableGVN = !CodeGenOpts.HLSLOptimizationToggles.count("gvn") ||
-                        CodeGenOpts.HLSLOptimizationToggles.find("gvn")->second;
-
-  PMBuilder.HLSLNoSink = CodeGenOpts.HLSLOptimizationToggles.count("sink") &&
-                         !CodeGenOpts.HLSLOptimizationToggles.find("sink")->second;
-
-  PMBuilder.StructurizeLoopExitsForUnroll =
-                        !CodeGenOpts.HLSLOptimizationToggles.count("structurize-loop-exits-for-unroll") ||
-                        CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
-
-  PMBuilder.HLSLEnableDebugNops =
-                        !CodeGenOpts.HLSLOptimizationToggles.count("debug-nops") ||
-                        CodeGenOpts.HLSLOptimizationToggles.find("debug-nops")->second;
-
-  PMBuilder.HLSLEnableLifetimeMarkers =
-      CodeGenOpts.HLSLEnableLifetimeMarkers &&
-      (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
-       CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
-
+  PMBuilder.EnableGVN = CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_GVN);
+  PMBuilder.HLSLNoSink = !CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_SINK);
+  PMBuilder.StructurizeLoopExitsForUnroll = CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL);
+  PMBuilder.HLSLEnableDebugNops = CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_DEBUG_NOPS);
+  PMBuilder.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLEnableLifetimeMarkers &&
+    CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_LIFETIME_MARKERS);
   PMBuilder.HLSLEnablePartialLifetimeMarkers = CodeGenOpts.HLSLEnablePartialLifetimeMarkers;
   // HLSL Change - end
 
