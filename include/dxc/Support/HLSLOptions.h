@@ -102,6 +102,46 @@ struct RewriterOpts {
   bool DeclGlobalCB = false;          // OPT_rw_decl_global_cb
 };
 
+static const llvm::StringRef OPT_GVN  = "gvn";
+static const llvm::StringRef OPT_LICM = "licm";
+static const llvm::StringRef OPT_CSE  = "cse";
+static const llvm::StringRef OPT_LIFETIME_MARKERS = "lifetime-markers";
+static const llvm::StringRef OPT_PARTIAL_LIFETIME_MARKERS = "partial-lifetime-markers";
+
+struct OptimizationToggles {
+  // Optimization pass enables, disables and selects
+  std::map<std::string, bool>        Toggles; // OPT_opt_enable & OPT_opt_disable
+  std::map<std::string, std::string> Selects; // OPT_opt_select
+
+  inline void Set(llvm::StringRef Opt, bool Value) {
+    Toggles[Opt] = Value;
+  }
+  inline bool SetAndTrue(llvm::StringRef Opt) const {
+    auto It = Toggles.find(Opt);
+    return It != Toggles.end() && It->second;
+  }
+  inline bool SetAndFalse(llvm::StringRef Opt) const {
+    auto It = Toggles.find(Opt);
+    return It != Toggles.end() && !It->second;
+  }
+  inline bool Get(llvm::StringRef Opt, bool DefaultOn) const {
+    auto It = Toggles.find(Opt);
+    const bool Found = It != Toggles.end();
+    if (DefaultOn) {
+      return !Found || It->second;
+    }
+    else {
+      return Found && It->second;
+    }
+  }
+  inline bool GetDefaultOn(llvm::StringRef Opt) const {
+    return Get(Opt, /*DefaultOn*/true);
+  }
+  inline bool GetDefaultOff(llvm::StringRef Opt) const {
+    return Get(Opt, /*DefaultOn*/false);
+  }
+};
+
 /// Use this class to capture all options.
 class DxcOpts {
 public:
@@ -212,9 +252,7 @@ public:
   std::string TimeTrace = ""; // OPT_ftime_trace[EQ]
   bool VerifyDiagnostics = false; // OPT_verify
 
-  // Optimization pass enables, disables and selects
-  std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
-  std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
+  OptimizationToggles OptToggles;
 
   std::set<std::string> IgnoreSemDefs; // OPT_ignore_semdef
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef

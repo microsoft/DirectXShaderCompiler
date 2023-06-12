@@ -604,17 +604,17 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ScanLimit = std::stoul(std::string(limit));
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_disable))
-    opts.DxcOptimizationToggles[llvm::StringRef(opt).lower()] = false;
+    opts.OptToggles.Toggles[llvm::StringRef(opt).lower()] = false;
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_enable)) {
     std::string optimization = llvm::StringRef(opt).lower();
-    if (opts.DxcOptimizationToggles.count(optimization) &&
-        !opts.DxcOptimizationToggles[optimization]) {
+    if (opts.OptToggles.Toggles.count(optimization) &&
+        !opts.OptToggles.Toggles[optimization]) {
       errors << "Contradictory use of -opt-disable and -opt-enable with \""
              << llvm::StringRef(opt).lower() << "\"";
       return 1;
     }
-    opts.DxcOptimizationToggles[optimization] = true;
+    opts.OptToggles.Toggles[optimization] = true;
   }
 
   std::vector<std::string> ignoreSemDefs = Args.getAllArgValues(OPT_ignore_semdef);
@@ -638,13 +638,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   for (unsigned i = 0; i + 1 < optSelects.size(); i+=2) {
     std::string optimization = llvm::StringRef(optSelects[i]).lower();
     std::string selection = optSelects[i+1];
-    if (opts.DxcOptimizationSelects.count(optimization) &&
-        selection.compare(opts.DxcOptimizationSelects[optimization])) {
+    if (opts.OptToggles.Selects.count(optimization) &&
+        selection.compare(opts.OptToggles.Selects[optimization])) {
       errors << "Contradictory -opt-selects for \""
              << optimization << "\"";
       return 1;
     }
-    opts.DxcOptimizationSelects[optimization] = selection;
+    opts.OptToggles.Selects[optimization] = selection;
   }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&

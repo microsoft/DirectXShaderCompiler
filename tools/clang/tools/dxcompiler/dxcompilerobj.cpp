@@ -1500,8 +1500,7 @@ public:
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
 
-    compiler.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers =
-      Opts.DxcOptimizationToggles.count("partial-lifetime-markers") && Opts.DxcOptimizationToggles.find("partial-lifetime-markers")->second;
+    compiler.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers = Opts.OptToggles.GetDefaultOff("partial-lifetime-markers");
 
     // Enable dumping implicit top level decls either if it was specifically
     // requested or if we are not dumping the ast from the command line. That
