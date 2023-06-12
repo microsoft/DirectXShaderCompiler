@@ -779,9 +779,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
   opts.ForceZeroStoreLifetimes = Args.hasFlag(OPT_force_zero_store_lifetimes, OPT_INVALID, false);
   // Lifetime markers on by default in 6.6 unless disabled explicitly
-  opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
-                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0) &&
-                              !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
+  opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_disable_lifetime_markers,
+                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0);
   opts.ForceDisableLocTracking =
       Args.hasFlag(OPT_fdisable_loc_tracking, OPT_INVALID, false);
   opts.NewInlining =
