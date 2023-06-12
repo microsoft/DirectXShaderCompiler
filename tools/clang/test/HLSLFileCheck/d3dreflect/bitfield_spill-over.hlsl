@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 -HV 2021 -Vd -validator-version 0.0  %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxilver 1.7 | %dxc -E main -T ps_6_0 -HV 2021 -Vd -validator-version 0.0  %s | %D3DReflect %s | FileCheck %s
 
 // Make sure bitfiled info is saved.
 // FIXME: check half as 16bit when enable-16bit-types.
