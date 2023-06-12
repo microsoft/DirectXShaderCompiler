@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -HV 2021 -E main %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxilver 1.7 | %dxc -T lib_6_6 -HV 2021 -E main -Vd -validator-version 0.0   %s | %D3DReflect %s | FileCheck %s
 
 // Make sure bit field on enum works.
 
