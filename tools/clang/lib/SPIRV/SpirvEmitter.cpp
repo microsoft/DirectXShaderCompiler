@@ -5859,10 +5859,14 @@ SpirvEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr,
     originalOrder &= selectors[i] == i;
   }
 
-  if (originalOrder)
-    return doExpr(baseExpr, range);
-
   auto *info = loadIfGLValue(baseExpr, range);
+
+  if (originalOrder) {
+    // If the elements are simply the original vector, then return it without a
+    // vector shuffle.
+    return info;
+  }
+
   // Use base for both vectors. But we are only selecting values from the
   // first one.
   return spvBuilder.createVectorShuffle(expr->getType(), info, info, selectors,
