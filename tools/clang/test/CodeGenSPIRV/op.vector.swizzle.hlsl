@@ -11,6 +11,9 @@
 // * assignment/compound assignment
 // * continuous selection
 
+SamplerState sampler1 : register(s0);
+Texture2D<float4> texture1 : register(t0);
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
     float4 v4f1, v4f2;
@@ -158,4 +161,13 @@ void main() {
 // CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_3
 // CHECK-NEXT:                OpStore [[ptr]] %float_5
     ((((v4f1.xwzy).yxz)).x) = 5.0f;
+
+// CHECK-NEXT: [[texture:%\d+]] = OpLoad %type_2d_image %texture1
+// CHECK-NEXT: [[sampler:%\d+]] = OpLoad %type_sampler %sampler1
+// CHECK-NEXT: [[v2:%\d+]] = OpLoad %v2float %v2f
+// CHECK-NEXT: [[sampled_image:%\d+]] = OpSampledImage %type_sampled_image [[texture]] [[sampler]]
+// CHECK-NEXT: [[res:%\w+]] = OpImageSampleExplicitLod %v4float [[sampled_image]] [[v2]] Lod %float_0
+// CHECK-NEXT: OpStore %v4f1 [[res]]
+    v4f1 = texture1.SampleLevel(sampler1, v2f.xyx.xy, 0);
+
 }
