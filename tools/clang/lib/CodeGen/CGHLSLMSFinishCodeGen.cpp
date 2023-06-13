@@ -757,7 +757,7 @@ void AddOpcodeParamForIntrinsic(
     DXASSERT(resTy, "must find the resource type");
     // Change object type to handle type.
     paramTyList[HLOperandIndex::kSubscriptObjectOpIdx] = HandleTy;
-    // Change RetTy into pointer of resource reture type.
+    // Change RetTy into pointer of resource return type.
     RetTy = cast<StructType>(resTy)->getElementType(0)->getPointerTo();
   }
 
