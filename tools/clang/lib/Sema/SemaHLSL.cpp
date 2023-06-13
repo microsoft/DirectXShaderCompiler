@@ -3068,7 +3068,7 @@ private:
   /// <summary>Adds all supporting declarations to reference scalar types.</summary>
   void AddHLSLScalarTypes();
 
-  /// <summary>Adds string type QualType for HSLS string declarations</summary>
+  /// <summary>Adds string type QualType for HLSL string declarations</summary>
   void AddHLSLStringType();
 
   QualType GetTemplateObjectDataType(_In_ CXXRecordDecl* recordDecl)
