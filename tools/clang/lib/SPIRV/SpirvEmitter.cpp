@@ -3816,14 +3816,20 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
 
   if (isCompareExchange || isCompareStore) {
     auto *comparator = doExpr(expr->getArg(1));
-    auto *originalVal = spvBuilder.createAtomicCompareExchange(
+    SpirvInstruction *originalVal = spvBuilder.createAtomicCompareExchange(
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
         spv::MemorySemanticsMask::MaskNone, spv::MemorySemanticsMask::MaskNone,
         doExpr(expr->getArg(2)), comparator, expr->getCallee()->getExprLoc(),
         range);
-    if (isCompareExchange)
+    if (isCompareExchange) {
+      auto *resultAddress = expr->getArg(3);
+      QualType resultType = resultAddress->getType();
+      if (resultType != astContext.UnsignedIntTy)
+        originalVal = castToInt(originalVal, astContext.UnsignedIntTy,
+                                resultType, expr->getArg(3)->getLocStart());
       spvBuilder.createStore(doExpr(expr->getArg(3)), originalVal,
                              expr->getArg(3)->getLocStart(), range);
+    }
   } else {
     auto *value = doExpr(expr->getArg(1));
     SpirvInstruction *originalVal = spvBuilder.createAtomicOp(
