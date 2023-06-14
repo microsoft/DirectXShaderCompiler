@@ -1218,21 +1218,23 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
         m_pModule->GetDxilModule().GetOP()->GetResourcePropertiesType(),
         *m_pSM)));
   }
-  if (FA.HasBitFields()) {
-    const std::vector<DxilFieldAnnotation> &BitFields = FA.GetBitFields();
-    vector<Metadata *> MDBitFieldVals;
-    for (const DxilFieldAnnotation &BitField : BitFields) {
-      MDBitFieldVals.emplace_back(EmitDxilFieldAnnotation(BitField));
+  if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 7) >= 0) {
+    if (FA.HasBitFields()) {
+      const std::vector<DxilFieldAnnotation> &BitFields = FA.GetBitFields();
+      vector<Metadata *> MDBitFieldVals;
+      for (const DxilFieldAnnotation &BitField : BitFields) {
+        MDBitFieldVals.emplace_back(EmitDxilFieldAnnotation(BitField));
+      }
+      auto *BitFieldsMD = MDNode::get(m_Ctx, MDBitFieldVals);
+      MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldsTag));
+      MDVals.emplace_back(BitFieldsMD);
     }
-    auto *BitFieldsMD = MDNode::get(m_Ctx, MDBitFieldVals);
-    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldsTag));
-    MDVals.emplace_back(BitFieldsMD);
+    if (FA.HasBitFieldWidth()) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(kDxilFieldAnnotationBitFieldWidthTag));
+      MDVals.emplace_back(Uint32ToConstMD(FA.GetBitFieldWidth()));
+    }
   }
-  if (FA.HasBitFieldWidth()) {
-    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldWidthTag));
-    MDVals.emplace_back(Uint32ToConstMD(FA.GetBitFieldWidth()));
-  }
-
   return MDNode::get(m_Ctx, MDVals);
 }
 
@@ -1286,6 +1288,9 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
         FA.SetResourceProperties(resource_helper::loadPropsFromConstant(*C));
       break;
     case kDxilFieldAnnotationBitFieldsTag: {
+      if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 7) < 0) {
+        DXASSERT(false, "bitfields tag emitted for dxil version < 1.7");
+      }
       const MDTuple *pBitFieldsTupleMD = dyn_cast<MDTuple>(MDO.get());
       std::vector<DxilFieldAnnotation> BitFields(pBitFieldsTupleMD->getNumOperands());
       for (unsigned i = 0; i < pBitFieldsTupleMD->getNumOperands(); ++i) {
@@ -1294,6 +1299,9 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       FA.SetBitFields(BitFields);
     } break;
     case kDxilFieldAnnotationBitFieldWidthTag:
+      if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 7) < 0) {
+        DXASSERT(false, "bitfields width tag emitted for dxil version < 1.7");
+      }
       FA.SetBitFieldWidth(ConstMDToUint32(MDO));
       break;
     default:
