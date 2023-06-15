@@ -401,18 +401,10 @@ private:
   CompilerInstance &m_CI;
   DxcLangExtensionsHelper &m_langExtensionsHelper;
   std::string m_rootSigDefine;
+  ParsedSemanticDefineList m_SemanticDefines;
 
-  // The metadata format is a root node that has pointers to metadata
-  // nodes for each define. The metatdata node for a define is a pair
-  // of (name, value) metadata strings.
-  //
-  // Example:
-  // !hlsl.semdefs = {!0, !1}
-  // !0 = !{!"FOO", !"BAR"}
-  // !1 = !{!"BOO", !"HOO"}
-  void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
-    // Create all metadata nodes for each define. Each node is a (name, value) pair.
-    std::vector<MDNode *> mdNodes;
+  // This function populates m_SemanticDefines, and modifies codegen opts based on it.
+  void ComputeSemanticDefines(const ParsedSemanticDefineList &defines) {
     const std::string enableStr("_ENABLE_");
     const std::string disableStr("_DISABLE_");
     const std::string selectStr("_SELECT_");
@@ -423,12 +415,8 @@ private:
     const llvm::SmallVector<std::string, 2> &semDefPrefixes =
                              m_langExtensionsHelper.GetSemanticDefines();
 
-    // Add semantic defines to mdNodes and also to codeGenOpts
+    m_SemanticDefines = defines;
     for (const ParsedSemanticDefine &define : defines) {
-      MDString *name  = MDString::get(M->getContext(), define.Name);
-      MDString *value = MDString::get(M->getContext(), define.Value);
-      mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
-
       // Find index for end of matching semantic define prefix
       size_t prefixPos = 0;
       for (auto prefix : semDefPrefixes) {
@@ -453,6 +441,38 @@ private:
         std::replace(optName.begin(), optName.end(), '_', '-');
         optSelects[StringRef(optName).lower()] = define.Value;
       }
+    }
+  }
+
+  // The metadata format is a root node that has pointers to metadata
+  // nodes for each define. The metatdata node for a define is a pair
+  // of (name, value) metadata strings.
+  //
+  // Example:
+  // !hlsl.semdefs = {!0, !1}
+  // !0 = !{!"FOO", !"BAR"}
+  // !1 = !{!"BOO", !"HOO"}
+  void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
+    if (defines.empty())
+      return;
+
+    // Create all metadata nodes for each define. Each node is a (name, value) pair.
+    std::vector<MDNode *> mdNodes;
+    const std::string enableStr("_ENABLE_");
+    const std::string disableStr("_DISABLE_");
+    const std::string selectStr("_SELECT_");
+
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptToggles.Toggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptToggles.Selects;
+
+    const llvm::SmallVector<std::string, 2> &semDefPrefixes =
+                             m_langExtensionsHelper.GetSemanticDefines();
+
+    // Add semantic defines to mdNodes and also to codeGenOpts
+    for (const ParsedSemanticDefine &define : defines) {
+      MDString *name  = MDString::get(M->getContext(), define.Name);
+      MDString *value = MDString::get(M->getContext(), define.Value);
+      mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
     }
 
     // Add root node with pointers to all define metadata nodes.
@@ -479,22 +499,19 @@ public:
   HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
   : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
   , m_rootSigDefine(rootSigDefine)
-  {}
-
-  // Write semantic defines as metadata in the module.
-  virtual void WriteSemanticDefines(llvm::Module *M) override {
+  {
     // Grab the semantic defines seen by the parser.
     ParsedSemanticDefineList defines =
       CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
 
-    // Nothing to do if we have no defines.
-    SemanticDefineErrorList errors;
     if (!defines.size())
       return;
 
+    SemanticDefineErrorList errors;
     ParsedSemanticDefineList validated;
     GetValidatedSemanticDefines(defines, validated, errors);
-    WriteSemanticDefines(M, validated);
+
+    ComputeSemanticDefines(validated);
 
     auto &Diags = m_CI.getDiagnostics();
     for (const auto &error : errors) {
@@ -506,12 +523,20 @@ public:
                    DiagID)
           << error.Message();
     }
+  }
 
+  // Write semantic defines as metadata in the module.
+  virtual void WriteSemanticDefines(llvm::Module *M) override {
+    WriteSemanticDefines(M, m_SemanticDefines);
   }
   // Update CodeGenOption based on HLSLOptimizationToggles.
   void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
     auto &CodeGenOpts = m_CI.getCodeGenOpts();
-    CGO.HLSLEnableLifetimeMarkers &= !CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_LIFETIME_MARKERS);
+    CGO.HLSLEnableLifetimeMarkers |= CodeGenOpts.HLSLOptToggles.GetDefaultOff(
+        hlsl::options::TOGGLE_LIFETIME_MARKERS);
+    CGO.HLSLEnablePartialLifetimeMarkers =
+        CodeGenOpts.HLSLOptToggles.GetDefaultOff(
+            hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
   }
   virtual bool IsOptionEnabled(std::string option) override {
     return m_CI.getCodeGenOpts().HLSLOptToggles.GetDefaultOn(option);
@@ -1608,6 +1633,7 @@ public:
     compiler.getCodeGenOpts().setInlining(Inlining);
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
+    compiler.getCodeGenOpts().HLSLExtensionsCodegen->UpdateCodeGenOptions(compiler.getCodeGenOpts());
 
     // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
     compiler.getCodeGenOpts().HLSLDefaultSpace = Opts.AutoBindingSpace;

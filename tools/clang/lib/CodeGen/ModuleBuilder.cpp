@@ -220,9 +220,6 @@ namespace {
           if (CodeGenOpts.HLSLExtensionsCodegen) {
             CodeGenOpts.HLSLExtensionsCodegen->WriteSemanticDefines(
                     M.get());
-            // Builder->CodeGenOpts is a copy. So update it for every Builder.
-            CodeGenOpts.HLSLExtensionsCodegen->UpdateCodeGenOptions(
-                CodeGenOpts);
           }
         }
       }
