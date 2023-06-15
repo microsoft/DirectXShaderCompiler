@@ -3464,6 +3464,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::GlobalInvocationId:
   case spv::BuiltIn::WorkgroupId:
   case spv::BuiltIn::LocalInvocationIndex:
+  case spv::BuiltIn::HelperInvocation:
     sc = spv::StorageClass::Input;
     break;
   case spv::BuiltIn::TaskCountNV:

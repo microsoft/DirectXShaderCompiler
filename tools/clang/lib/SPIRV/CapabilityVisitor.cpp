@@ -721,6 +721,12 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
     addExtension(Extension::EXT_shader_stencil_export,
                  "[[vk::stencil_ref_less_equal_back]]", execModeSourceLocation);
     break;
+  case spv::ExecutionMode::QuadDerivatives:	
+  case spv::ExecutionMode::HelperGroupParticipation:
+    addCapability(spv::Capability::QuadScope, entryPointSourceLocation);
+    addExtension(Extension::KHR_shader_quad_scope,
+                 "[[vk::shader_quad_scope]]", execModeSourceLocation); 
+  	break;
   default:
     break;
   }

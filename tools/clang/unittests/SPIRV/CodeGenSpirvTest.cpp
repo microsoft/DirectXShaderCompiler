@@ -1421,6 +1421,10 @@ TEST_F(FileTest, IntrinsicsVkInvocationScope) {
 TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
   runFileTest("intrinsics.vkqueuefamilyscope.hlsl");
 }
+TEST_F(FileTest, IntrinsicsVkQuadScope) {
+  runFileTest("intrinsics.vkquadscope.hlsl");
+}
+
 TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicInstruction.hlsl");
   runFileTest("spv.intrinsic.result_id.hlsl");
@@ -1454,6 +1458,9 @@ TEST_F(FileTest, IntrinsicsSM66PackClampU8S8) {
 }
 TEST_F(FileTest, IntrinsicsSM66Unpack) {
   runFileTest("intrinsics.sm6_6.unpack.hlsl");
+}
+TEST_F(FileTest, SM6IsHelperLane) { 
+  runFileTest("sm6.ishelperlane.hlsl"); 
 }
 
 // For attributes
@@ -1513,6 +1520,9 @@ TEST_F(FileTest, AttributeInstanceGS) {
 }
 TEST_F(FileTest, AttributeInstanceMissingGS) {
   runFileTest("attribute.instance.missing.gs.hlsl");
+}
+TEST_F(FileTest, AttributeWaveOpsIncludeHelperLanes) {
+  runFileTest("attribute.waveopsincludehelperlanes.hlsl");
 }
 
 // For geometry shader primitive types
@@ -1623,6 +1633,13 @@ TEST_F(FileTest, SM6QuadReadAcrossDiagonal) {
 TEST_F(FileTest, SM6QuadReadLaneAt) {
   runFileTest("sm6.quad-read-lane-at.hlsl");
 }
+TEST_F(FileTest, SM6QuadAny) {
+  runFileTest("sm6.quad-any.hlsl"); 
+}
+TEST_F(FileTest, SM6QuadAll) { 
+  runFileTest("sm6.quad-all.hlsl"); 
+}
+
 
 // Test error on using wave ops on Vulkan 1.0 target environment.
 TEST_F(FileTest, WaveOpVulkan1Error) {

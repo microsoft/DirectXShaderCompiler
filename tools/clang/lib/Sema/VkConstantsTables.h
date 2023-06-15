@@ -27,6 +27,8 @@ std::vector<std::pair<std::string, uint32_t>> GetVkIntegerConstants() {
       {"SubgroupScope",    3u},
       {"InvocationScope",  4u},
       {"QueueFamilyScope", 5u},
+      {"ShaderCallKHRScope",    6u},    
+      {"QuadScope",             7u},
   };
 }
 

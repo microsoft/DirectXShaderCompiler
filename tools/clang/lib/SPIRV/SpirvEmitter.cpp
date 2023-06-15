@@ -8509,6 +8509,19 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_QuadReadLaneAt:
     retVal = processWaveQuadWideShuffle(callExpr, hlslOpcode);
     break;
+  case hlsl::IntrinsicOp::IOP_QuadAny:
+    retVal = processQuadAnyAll(callExpr, spv::Op::OpGroupNonUniformAny);
+    break;
+  case hlsl::IntrinsicOp::IOP_QuadAll:
+    retVal = processQuadAnyAll(callExpr, spv::Op::OpGroupNonUniformAll);
+    break;
+  case hlsl::IntrinsicOp::IOP_IsHelperLane: {
+    const QualType retType = callExpr->getCallReturnType(astContext);
+    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::HelperInvocation,
+										  retType, srcLoc);
+    retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
+    needsLegalization = true;
+  } break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
@@ -9313,6 +9326,21 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
   return spvBuilder.createGroupNonUniformBinaryOp(
       opcode, retType, spv::Scope::Subgroup, value, target, srcLoc);
 }
+
+SpirvInstruction *
+SpirvEmitter::processQuadAnyAll(const CallExpr *callExpr, spv::Op opcode) {
+ // Signatures:
+ // bool QuadAny( bool expr )
+ // bool QuadAll( bool expr )
+  assert(callExpr->getNumArgs() == 1);
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Quad Operation",
+                                  callExpr->getExprLoc());
+  auto *predicate = doExpr(callExpr->getArg(0));
+  const QualType retType = callExpr->getCallReturnType(astContext);
+  return spvBuilder.createGroupNonUniformUnaryOp(
+      callExpr->getExprLoc(), opcode, retType, spv::Scope::Quad, predicate);
+}
+
 
 SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   // Signature is: ret modf(x, ip)
@@ -12195,6 +12223,11 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::StencilRefLessBackAMD, {},
                                 decl->getLocation());
+  }
+  if (decl->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::HelperGroupParticipation,
+                                {}, decl->getLocation());
   }
   if (stencilFrontAttrCount > 1) {
     emitError("Shaders must not specify more than one of "

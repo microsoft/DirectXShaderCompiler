@@ -57,6 +57,7 @@ enum class Extension {
   KHR_physical_storage_buffer,
   KHR_vulkan_memory_model,
   KHR_fragment_shader_barycentric,
+  KHR_shader_quad_scope,
   Unknown,
 };
 

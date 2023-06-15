@@ -196,6 +196,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::KHR_physical_storage_buffer)
       .Case("SPV_KHR_vulkan_memory_model", Extension::KHR_vulkan_memory_model)
       .Case("SPV_KHR_fragment_shader_barycentric", Extension::KHR_fragment_shader_barycentric)
+      .Case("SPV_KHR_shader_quad_scope", Extension::KHR_shader_quad_scope) 
       .Default(Extension::Unknown);
 }
 
@@ -257,6 +258,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_vulkan_memory_model";
   case Extension::KHR_fragment_shader_barycentric:
     return "SPV_KHR_fragment_shader_barycentric";
+  case Extension::KHR_shader_quad_scope:
+  	return "SPV_KHR_shader_quad_scope";
   default:
     break;
   }

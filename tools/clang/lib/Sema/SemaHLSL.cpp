@@ -13897,6 +13897,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLExport:
   case clang::attr::HLSLWaveSensitive:
   case clang::attr::HLSLWaveSize:
+  case clang::attr::HLSLWaveOpsIncludeHelperLanes:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:

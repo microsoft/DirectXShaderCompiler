@@ -650,7 +650,7 @@ SpirvNonUniformUnaryOp::SpirvNonUniformUnaryOp(
                              scope),
       arg(argInst), groupOp(group) {
   assert(op == spv::Op::OpGroupNonUniformAll ||
-         op == spv::Op::OpGroupNonUniformAny ||
+         op == spv::Op::OpGroupNonUniformAny || 
          op == spv::Op::OpGroupNonUniformAllEqual ||
          op == spv::Op::OpGroupNonUniformBroadcastFirst ||
          op == spv::Op::OpGroupNonUniformBallot ||

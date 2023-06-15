@@ -600,6 +600,9 @@ private:
   SpirvInstruction *processWaveQuadWideShuffle(const CallExpr *,
                                                hlsl::IntrinsicOp op);
 
+  /// Processes SM6.7 quad-any and quad-all.
+  SpirvInstruction *processQuadAnyAll(const CallExpr *, spv::Op opcode);
+
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
