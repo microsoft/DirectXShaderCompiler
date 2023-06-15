@@ -28,6 +28,7 @@
 #include <ios>
 #include <sys/stat.h>
 #include <system_error>
+#include <float.h> // HLSL Change: add for '_fpclass'
 
 // <fcntl.h> may provide O_BINARY.
 #if defined(HAVE_FCNTL_H)
