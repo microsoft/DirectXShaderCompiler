@@ -101,6 +101,9 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
 endif()
 
+option(DXC_DISABLE_ALLOCATOR_OVERRIDES "Disable usage of allocator overrides" OFF)
+mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32 AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)

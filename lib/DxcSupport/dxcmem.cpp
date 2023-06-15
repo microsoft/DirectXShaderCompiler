@@ -31,7 +31,7 @@ HRESULT DxcInitThreadMalloc() throw() {
   }
   else {
     // We capture the default malloc early to avoid potential failures later on.
-    HRESULT hrMalloc = CoGetMalloc(1, &g_pDefaultMalloc);
+    HRESULT hrMalloc = DxcCoGetMalloc(1, &g_pDefaultMalloc);
     if (FAILED(hrMalloc)) return hrMalloc;
   }
   DXASSERT(g_ThreadMallocTls == nullptr, "else InitThreadMalloc already called");

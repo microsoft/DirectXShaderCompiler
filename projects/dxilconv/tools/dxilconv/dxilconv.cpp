@@ -18,6 +18,7 @@
 
 #define DXC_API_IMPORT
 
+#include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 #include "dxcetw.h"
@@ -67,6 +68,12 @@ DxcCreateInstance2(_In_ IMalloc *pMalloc,
     if (ppv == nullptr) {
         return E_POINTER;
     }
+#ifdef DXC_DISABLE_ALLOCATOR_OVERRIDES
+    if (pMalloc != DxcGetThreadMallocNoRef()) {
+      return E_INVALIDARG;
+    }
+#endif // DXC_DISABLE_ALLOCATOR_OVERRIDES
+
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerCreateInstance_Start();
     DxcThreadMalloc TM(pMalloc);

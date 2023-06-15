@@ -11,6 +11,7 @@
 
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/FileSystem.h"
+#include "dxc/config.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -22,6 +23,7 @@ namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
 // C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
 #pragma warning( disable : 4290 )
 
+#if !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 // operator new and friends.
 void *  __CRTDECL operator new(std::size_t size) noexcept(false) {
   void * ptr = DxcGetThreadMallocNoRef()->Alloc(size);
@@ -39,6 +41,7 @@ void  __CRTDECL operator delete (void* ptr) throw() {
 void  __CRTDECL operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
   DxcGetThreadMallocNoRef()->Free(ptr);
 }
+#endif
 
 static HRESULT InitMaybeFail() throw() {
   HRESULT hr;

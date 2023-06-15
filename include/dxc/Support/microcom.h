@@ -13,6 +13,7 @@
 #define __DXC_MICROCOM__
 
 #include <atomic>
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/Atomic.h"
 
 template <typename TIface>
