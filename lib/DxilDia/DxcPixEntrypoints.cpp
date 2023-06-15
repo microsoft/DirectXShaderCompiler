@@ -351,7 +351,7 @@ protected:
   template <typename F, typename... A>
   HRESULT InvokeOnReal(F pFn, A... Args)
   {
-    return ::SetupAndRun(m_pMalloc, std::mem_fn(pFn), m_pReal, Args...);
+    return SetupAndRun(m_pMalloc, std::mem_fn(pFn), m_pReal, Args...);
   }
 
 public:
@@ -359,7 +359,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override final
   {
-    return ::SetupAndRun(
+    return SetupAndRun(
         m_pMalloc,
         std::mem_fn(&Entrypoint<IInterface>::QueryInterfaceImpl),
         ThisPtr(this),
