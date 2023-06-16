@@ -507,6 +507,7 @@ public:
           << error.Message();
     }
 
+    UpdateCodeGenOptions(m_CI.getCodeGenOpts()); // Update the original one too.
   }
   // Update CodeGenOption based on HLSLOptimizationToggles.
   void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
