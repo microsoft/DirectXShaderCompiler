@@ -7829,14 +7829,16 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
     //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
     if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
-      if (castExpr->getCastKind() == CK_FlatConversion ||
-          castExpr->getCastKind() == CK_ArrayToPointerDecay) {
-        const auto *subExpr = castExpr->getSubExpr();
+      const auto *subExpr = castExpr->getSubExpr();
+      if (castExpr->getCastKind() == CK_FlatConversion) {
         const QualType subExprType = subExpr->getType();
         if (isConstantTextureBuffer(subExprType)) {
           return collectArrayStructIndices(subExpr, rawIndex, rawIndices,
                                            indices, isMSOutAttribute);
         }
+      } else if (castExpr->getCastKind() == CK_ArrayToPointerDecay) {
+        return collectArrayStructIndices(subExpr, rawIndex, rawIndices,
+                                           indices, isMSOutAttribute);
       }
     }
   }
