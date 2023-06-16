@@ -1099,7 +1099,7 @@ TEST_F(ExtensionTest, OptionFromDefineLifetimeMarkers) {
     std::string disassembly = c.Disassemble();
 
     // Make sure lifetime marker not exist with FOO_DISABLE_LIFETIME_MARKERS.
-    VERIFY_IS_TRUE(disassembly.find("call @llvm.lifetime") != std::string::npos);
+    VERIFY_IS_TRUE(disassembly.find("call void @llvm.lifetime") != std::string::npos);
     VERIFY_IS_TRUE(disassembly.find("FOO_ENABLE_LIFETIME_MARKERS\", !\"1\"") !=
                    std::string::npos);
   }
