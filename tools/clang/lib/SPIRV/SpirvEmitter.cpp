@@ -7360,7 +7360,7 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
     assignToMSOutIndices(varDecl, rhs, indices);
   } else {
     assert(isMSOutAttributeBlock);
-    QualType type = varDecl->getType();
+    QualType type = varDecl->getType().getNonReferenceType();
     assert(isa<ConstantArrayType>(type));
     type = astContext.getAsConstantArrayType(type)->getElementType();
     assert(type->isStructureType());
@@ -7425,7 +7425,8 @@ void SpirvEmitter::assignToMSOutIndices(
     vecComponent = indices.back();
   }
   auto *var = declIdMapper.getStageVarInstruction(decl);
-  const auto *varTypeDecl = astContext.getAsConstantArrayType(decl->getType());
+  QualType declType = decl->getType().getNonReferenceType();
+  const auto *varTypeDecl = astContext.getAsConstantArrayType(declType);
   QualType varType = varTypeDecl->getElementType();
   uint32_t numVertices = 1;
   if (!isVectorType(varType, nullptr, &numVertices)) {
