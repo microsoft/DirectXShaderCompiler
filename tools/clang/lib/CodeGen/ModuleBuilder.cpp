@@ -215,14 +215,14 @@ namespace {
       if (&Ctx == this->Ctx) {
         if (Builder) {
           // Add semantic defines for extensions if any are available.
-          auto &CGO =
+          auto &CodeGenOpts =
               const_cast<CodeGenOptions &>(Builder->getCodeGenOpts());
-          if (CGO.HLSLExtensionsCodegen) {
-            CGO.HLSLExtensionsCodegen->WriteSemanticDefines(
+          if (CodeGenOpts.HLSLExtensionsCodegen) {
+            CodeGenOpts.HLSLExtensionsCodegen->WriteSemanticDefines(
                     M.get());
             // Builder->CodeGenOpts is a copy. So update it for every Builder.
-            CGO.HLSLExtensionsCodegen->UpdateCodeGenOptions(
-                CGO);
+            CodeGenOpts.HLSLExtensionsCodegen->UpdateCodeGenOptions(
+                CodeGenOpts);
           }
         }
       }

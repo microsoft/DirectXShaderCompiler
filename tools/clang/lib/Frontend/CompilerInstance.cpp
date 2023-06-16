@@ -105,9 +105,7 @@ void CompilerInstance::setSourceManager(SourceManager *Value) {
   SourceMgr = Value;
 }
 
-void CompilerInstance::setPreprocessor(Preprocessor *Value) {
-  PP = Value;
-}
+void CompilerInstance::setPreprocessor(Preprocessor *Value) { PP = Value; }
 
 void CompilerInstance::setASTContext(ASTContext *Value) { Context = Value; }
 
