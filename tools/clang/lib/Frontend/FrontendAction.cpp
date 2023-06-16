@@ -307,6 +307,7 @@ bool FrontendAction::BeginSourceFile(CompilerInstance &CI,
   // Inform the diagnostic client we are processing a source file.
   CI.getDiagnosticClient().BeginSourceFile(CI.getLangOpts(),
                                            &CI.getPreprocessor());
+
   HasBegunSourceFile = true;
 
   // Initialize the action.

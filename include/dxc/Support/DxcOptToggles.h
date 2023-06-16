@@ -49,6 +49,9 @@ struct OptimizationToggles {
     auto It = Toggles.find(Opt);
     return It != Toggles.end() && !It->second;
   }
+  inline bool Has(llvm::StringRef Opt) const {
+    return Toggles.find(Opt) != Toggles.end();
+  }
   inline bool Get(llvm::StringRef Opt, bool DefaultOn) const {
     auto It = Toggles.find(Opt);
     const bool Found = It != Toggles.end();
