@@ -27,7 +27,7 @@ using namespace hlsl;
 using namespace PIXPassHelpers;
 
 class DxilPIXDXRInvocationsLog : public ModulePass {
-    uint64_t m_MaxNumEntriesInLog = 10;
+    uint64_t m_MaxNumEntriesInLog = 1;
 public:
   static char ID;
   DxilPIXDXRInvocationsLog() : ModulePass(ID) {}
@@ -55,7 +55,7 @@ static DXIL::ShaderKind GetShaderKind(DxilModule const &DM, llvm::Function const
 }
 
 void DxilPIXDXRInvocationsLog::applyOptions(PassOptions O) {
-    GetPassOptionUInt64(O, "maxNumEntriesInLog", &m_MaxNumEntriesInLog, 10); // Use a silly default value. PIX should set a better value here.
+    GetPassOptionUInt64(O, "maxNumEntriesInLog", &m_MaxNumEntriesInLog, 1); // Use a silly default value. PIX should set a better value here.
 }
 
 bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
@@ -82,8 +82,8 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
     IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(entryFunction));
 
     // Add the UAVs that we're going to write to
-    CallInst* HandleForCountUAV = PIXPassHelpers::CreateUAV(DM, Builder, 0, "PIX_CountUAV_Handle");
-    CallInst* HandleForUAV = PIXPassHelpers::CreateUAV(DM, Builder, 1, "PIX_UAV_Handle");
+    CallInst* HandleForCountUAV = PIXPassHelpers::CreateUAV(DM, Builder, /* registerID */ 0, "PIX_CountUAV_Handle");
+    CallInst* HandleForUAV = PIXPassHelpers::CreateUAV(DM, Builder, /* registerID */ 1, "PIX_UAV_Handle");
 
     DM.ReEmitDxilResources();
 
