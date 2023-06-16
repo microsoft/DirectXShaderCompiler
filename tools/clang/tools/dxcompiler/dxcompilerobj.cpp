@@ -513,6 +513,7 @@ public:
   void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
     auto &CodeGenOpts = m_CI.getCodeGenOpts();
 
+    CGO.HLSLOptToggles = CodeGenOpts.HLSLOptToggles;
     if (CodeGenOpts.HLSLOptToggles.Has(
             hlsl::options::TOGGLE_LIFETIME_MARKERS)) {
       CGO.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLOptToggles.GetDefaultOff(
