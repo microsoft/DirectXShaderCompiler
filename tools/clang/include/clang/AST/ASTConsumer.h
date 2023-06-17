@@ -124,6 +124,11 @@ public:
   // variable has been instantiated.
   virtual void HandleCXXStaticMemberVarInstantiation(VarDecl *D) {}
 
+  // HLSL Change - begin
+  // Handle HLSL Semantic defines and opt toggles
+  virtual void UpdateHLSLSemanticDefineAndOptToggles() {}
+  // HLSL Change - end
+
   /// \brief Callback involved at the end of a translation unit to
   /// notify the consumer that a vtable for the given C++ class is
   /// required.

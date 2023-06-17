@@ -552,7 +552,8 @@ void ASTFrontendAction::ExecuteAction() {
     CI.createSema(getTranslationUnitKind(), CompletionConsumer);
 
   ParseAST(CI.getSema(), CI.getFrontendOpts().ShowStats,
-           CI.getFrontendOpts().SkipFunctionBodies);
+           CI.getFrontendOpts().SkipFunctionBodies,
+           CI.getCodeGenOpts().HLSLExtensionsCodegen.get());
 }
 
 void PluginASTAction::anchor() { }

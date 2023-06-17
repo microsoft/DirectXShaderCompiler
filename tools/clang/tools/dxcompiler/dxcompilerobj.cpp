@@ -401,6 +401,8 @@ private:
   CompilerInstance &m_CI;
   DxcLangExtensionsHelper &m_langExtensionsHelper;
   std::string m_rootSigDefine;
+  bool m_optTogglesUpdated = false;
+  ParsedSemanticDefineList m_semanticDefines;
 
   // The metadata format is a root node that has pointers to metadata
   // nodes for each define. The metatdata node for a define is a pair
@@ -411,6 +413,9 @@ private:
   // !0 = !{!"FOO", !"BAR"}
   // !1 = !{!"BOO", !"HOO"}
   void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
+    if (defines.empty())
+      return;
+
     // Create all metadata nodes for each define. Each node is a (name, value) pair.
     std::vector<MDNode *> mdNodes;
     const std::string enableStr("_ENABLE_");
@@ -425,9 +430,11 @@ private:
 
     // Add semantic defines to mdNodes and also to codeGenOpts
     for (const ParsedSemanticDefine &define : defines) {
-      MDString *name  = MDString::get(M->getContext(), define.Name);
-      MDString *value = MDString::get(M->getContext(), define.Value);
-      mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
+      if (M) {
+        MDString *name = MDString::get(M->getContext(), define.Name);
+        MDString *value = MDString::get(M->getContext(), define.Value);
+        mdNodes.push_back(MDNode::get(M->getContext(), {name, value}));
+      }
 
       // Find index for end of matching semantic define prefix
       size_t prefixPos = 0;
@@ -455,10 +462,13 @@ private:
       }
     }
 
-    // Add root node with pointers to all define metadata nodes.
-    NamedMDNode *Root = M->getOrInsertNamedMetadata(m_langExtensionsHelper.GetSemanticDefineMetadataName());
-    for (MDNode *node : mdNodes)
-      Root->addOperand(node);
+    if (M) {
+      // Add root node with pointers to all define metadata nodes.
+      NamedMDNode *Root = M->getOrInsertNamedMetadata(
+          m_langExtensionsHelper.GetSemanticDefineMetadataName());
+      for (MDNode *node : mdNodes)
+        Root->addOperand(node);
+    }
   }
 
   SemanticDefineErrorList GetValidatedSemanticDefines(const ParsedSemanticDefineList &defines, ParsedSemanticDefineList &validated, SemanticDefineErrorList &errors) {
@@ -475,44 +485,9 @@ private:
     return errors;
   }
 
-public:
-  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
-  : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
-  , m_rootSigDefine(rootSigDefine)
-  {}
-
-  // Write semantic defines as metadata in the module.
-  virtual void WriteSemanticDefines(llvm::Module *M) override {
-    // Grab the semantic defines seen by the parser.
-    ParsedSemanticDefineList defines =
-      CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
-
-    // Nothing to do if we have no defines.
-    SemanticDefineErrorList errors;
-    if (!defines.size())
-      return;
-
-    ParsedSemanticDefineList validated;
-    GetValidatedSemanticDefines(defines, validated, errors);
-    WriteSemanticDefines(M, validated);
-
-    auto &Diags = m_CI.getDiagnostics();
-    for (const auto &error : errors) {
-      clang::DiagnosticsEngine::Level level = clang::DiagnosticsEngine::Error;
-      if (error.IsWarning())
-        level = clang::DiagnosticsEngine::Warning;
-      unsigned DiagID = Diags.getCustomDiagID(level, "%0");
-      Diags.Report(clang::SourceLocation::getFromRawEncoding(error.Location()),
-                   DiagID)
-          << error.Message();
-    }
-
-    UpdateCodeGenOptions(m_CI.getCodeGenOpts()); // Update the original one too.
-  }
-  // Update CodeGenOption based on HLSLOptimizationToggles.
-  void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
+  // Copy the opt toggles from the original CodeGenOptions to the new one
+  void UpdateCodeGenOptionsImpl(clang::CodeGenOptions& CGO) {
     auto &CodeGenOpts = m_CI.getCodeGenOpts();
-
     CGO.HLSLOptToggles = CodeGenOpts.HLSLOptToggles;
     if (CodeGenOpts.HLSLOptToggles.Has(
             hlsl::options::TOGGLE_LIFETIME_MARKERS)) {
@@ -522,6 +497,103 @@ public:
     CGO.HLSLEnablePartialLifetimeMarkers =
         CodeGenOpts.HLSLOptToggles.GetDefaultOff(
             hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
+  }
+
+  void ComputeSemanticDefinesAndOptToggles() {
+    if (m_optTogglesUpdated) { // Do not repeatedly read semantic define,
+                               // because it might be expensive.
+      return;
+    }
+    m_optTogglesUpdated = true;
+    // Grab the semantic defines seen by the parser.
+    ParsedSemanticDefineList defines =
+      CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
+
+    // Nothing to do if we have no defines.
+    SemanticDefineErrorList errors;
+    if (defines.size()) {
+      ParsedSemanticDefineList validated;
+      GetValidatedSemanticDefines(defines, validated, errors);
+
+      auto &Diags = m_CI.getDiagnostics();
+      for (const auto &error : errors) {
+      clang::DiagnosticsEngine::Level level =
+          clang::DiagnosticsEngine::Error;
+      if (error.IsWarning())
+        level = clang::DiagnosticsEngine::Warning;
+      unsigned DiagID = Diags.getCustomDiagID(level, "%0");
+      Diags.Report(
+          clang::SourceLocation::getFromRawEncoding(error.Location()),
+          DiagID)
+          << error.Message();
+      }
+
+      // Create all metadata nodes for each define. Each node is a (name,
+      // value) pair.
+      const std::string enableStr("_ENABLE_");
+      const std::string disableStr("_DISABLE_");
+      const std::string selectStr("_SELECT_");
+
+      auto &optToggles = m_CI.getCodeGenOpts().HLSLOptToggles.Toggles;
+      auto &optSelects = m_CI.getCodeGenOpts().HLSLOptToggles.Selects;
+
+      const llvm::SmallVector<std::string, 2> &semDefPrefixes =
+          m_langExtensionsHelper.GetSemanticDefines();
+
+      for (const ParsedSemanticDefine &define : defines) {
+        // Find index for end of matching semantic define prefix
+        size_t prefixPos = 0;
+        for (auto prefix : semDefPrefixes) {
+          if (IsMacroMatch(define.Name, prefix)) {
+            prefixPos = prefix.length() - 1;
+            break;
+          }
+        }
+
+        // Add semantic defines to option flag equivalents
+        // Convert define-style '_' into option-style '-' and lowercase
+        // everything
+        if (!define.Name.compare(prefixPos, enableStr.length(), enableStr)) {
+          std::string optName =
+              define.Name.substr(prefixPos + enableStr.length());
+          std::replace(optName.begin(), optName.end(), '_', '-');
+          optToggles[StringRef(optName).lower()] = true;
+        } else if (!define.Name.compare(prefixPos, disableStr.length(),
+                                        disableStr)) {
+          std::string optName =
+              define.Name.substr(prefixPos + disableStr.length());
+          std::replace(optName.begin(), optName.end(), '_', '-');
+          optToggles[StringRef(optName).lower()] = false;
+        } else if (!define.Name.compare(prefixPos, selectStr.length(),
+                                        selectStr)) {
+          std::string optName =
+              define.Name.substr(prefixPos + selectStr.length());
+          std::replace(optName.begin(), optName.end(), '_', '-');
+          optSelects[StringRef(optName).lower()] = define.Value;
+        }
+      }
+
+      m_semanticDefines = validated;
+    }
+
+    UpdateCodeGenOptionsImpl(
+        m_CI.getCodeGenOpts()); // Update the original codegen options.
+  }
+
+public:
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
+  : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
+  , m_rootSigDefine(rootSigDefine)
+  {}
+
+  // Write semantic defines as metadata in the module.
+  virtual void WriteSemanticDefines(llvm::Module *M) override {
+    WriteSemanticDefines(M, m_semanticDefines);
+  }
+  // Update CodeGenOption based on HLSLOptimizationToggles.
+  void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
+    ComputeSemanticDefinesAndOptToggles();
+    UpdateCodeGenOptionsImpl(CGO);
   }
   virtual bool IsOptionEnabled(std::string option) override {
     return m_CI.getCodeGenOpts().HLSLOptToggles.GetDefaultOff(option);

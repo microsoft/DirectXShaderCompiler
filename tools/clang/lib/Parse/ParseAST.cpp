@@ -23,6 +23,7 @@
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaConsumer.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL Change
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/TimeProfiler.h"
 #include <cstdio>
@@ -98,7 +99,7 @@ void clang::ParseAST(Preprocessor &PP, ASTConsumer *Consumer,
   ParseAST(*S.get(), PrintStats, SkipFunctionBodies);
 }
 
-void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
+void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies, hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodegenHelper) {
 
   // HLSL Change - Support hierarchial time tracing.
   llvm::TimeTraceScope TimeScope("Frontend", StringRef(""));
@@ -125,7 +126,15 @@ void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
     CleanupParser(ParseOP.get());
 
   S.getPreprocessor().EnterMainSourceFile();
+
   P.Initialize();
+
+  // HLSL Change - begin
+  // After parser is initialized, the semantic defines are ready to be processed.
+  if (S.getLangOpts().HLSL) {
+    Consumer->UpdateHLSLSemanticDefineAndOptToggles();
+  }
+  // HLSL Change - end
 
   // C11 6.9p1 says translation units must have at least one top-level
   // declaration. C++ doesn't have this restriction. We also don't want to

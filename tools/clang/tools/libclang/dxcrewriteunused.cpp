@@ -434,6 +434,12 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   std::vector<std::pair<const IdentifierInfo *, MacroInfo *>> macros;
   Preprocessor &pp = compiler.getPreprocessor();
   Preprocessor::macro_iterator end = pp.macro_end();
+
+  //for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
+  //  const IdentifierInfo *ii = i->first;
+  //  fprintf(stderr, "macro: %.*s\n", (int)ii->getName().size(), ii->getName().data());
+  //}
+
   for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
     if (!i->second.getLatest()->isDefined()) {
       continue;
@@ -502,9 +508,17 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   }
 
   if (!macros.empty()) {
-    MacroExpander expander(pp);
+    std::unique_ptr<PreprocessorOptions> Opts(new PreprocessorOptions(pp.getPreprocessorOpts()));
+    clang::LangOptions langOptionsCopy = pp.getLangOpts();
+    std::unique_ptr<Preprocessor> localPp(new Preprocessor(Opts.get(), pp.getDiagnostics(), langOptionsCopy, pp.getSourceManager(),
+      pp.getHeaderSearchInfo(), pp.getModuleLoader(), pp.getIdentifierTable().getExternalIdentifierLookup()));
+    Opts.release();
+
+    MacroExpander expander(*localPp);
     for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
       std::string expandedValue;
+      //fprintf(stderr, "identifier name: %.*s\n", (int)m.first->getName().size(),
+      //        m.first->getName().data());
       expander.ExpandMacro(m.second, &expandedValue);
       parsedDefines.emplace_back(
           ParsedSemanticDefine{m.first->getName(), expandedValue,
