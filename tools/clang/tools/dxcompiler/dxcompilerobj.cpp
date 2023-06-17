@@ -402,7 +402,7 @@ private:
   DxcLangExtensionsHelper &m_langExtensionsHelper;
   std::string m_rootSigDefine;
   hlsl::options::OptimizationToggles m_HLSLOptToggles;
-  bool m_optTogglesUpdated = false;
+  bool m_semanticDefinesUpdated = false;
   bool m_HLSLEnableLifetimeMarkers = false;
   ParsedSemanticDefineList m_semanticDefines;
 
@@ -420,57 +420,19 @@ private:
 
     // Create all metadata nodes for each define. Each node is a (name, value) pair.
     std::vector<MDNode *> mdNodes;
-    const std::string enableStr("_ENABLE_");
-    const std::string disableStr("_DISABLE_");
-    const std::string selectStr("_SELECT_");
-
-    auto &optToggles = m_HLSLOptToggles.Toggles;
-    auto &optSelects = m_HLSLOptToggles.Selects;
-
-    const llvm::SmallVector<std::string, 2> &semDefPrefixes =
-                             m_langExtensionsHelper.GetSemanticDefines();
 
     // Add semantic defines to mdNodes and also to codeGenOpts
     for (const ParsedSemanticDefine &define : defines) {
-      if (M) {
-        MDString *name = MDString::get(M->getContext(), define.Name);
-        MDString *value = MDString::get(M->getContext(), define.Value);
-        mdNodes.push_back(MDNode::get(M->getContext(), {name, value}));
-      }
-
-      // Find index for end of matching semantic define prefix
-      size_t prefixPos = 0;
-      for (auto prefix : semDefPrefixes) {
-        if (IsMacroMatch(define.Name, prefix)) {
-          prefixPos = prefix.length() - 1;
-          break;
-        }
-      }
-
-      // Add semantic defines to option flag equivalents
-      // Convert define-style '_' into option-style '-' and lowercase everything
-      if (!define.Name.compare(prefixPos, enableStr.length(), enableStr)) {
-        std::string optName = define.Name.substr(prefixPos + enableStr.length());
-        std::replace(optName.begin(), optName.end(), '_', '-');
-        optToggles[StringRef(optName).lower()] = true;
-      } else if (!define.Name.compare(prefixPos, disableStr.length(), disableStr)) {
-        std::string optName = define.Name.substr(prefixPos + disableStr.length());
-        std::replace(optName.begin(), optName.end(), '_', '-');
-        optToggles[StringRef(optName).lower()] = false;
-      } else if (!define.Name.compare(prefixPos, selectStr.length(), selectStr)) {
-        std::string optName = define.Name.substr(prefixPos + selectStr.length());
-        std::replace(optName.begin(), optName.end(), '_', '-');
-        optSelects[StringRef(optName).lower()] = define.Value;
-      }
+      MDString *name = MDString::get(M->getContext(), define.Name);
+      MDString *value = MDString::get(M->getContext(), define.Value);
+      mdNodes.push_back(MDNode::get(M->getContext(), {name, value}));
     }
 
-    if (M) {
-      // Add root node with pointers to all define metadata nodes.
-      NamedMDNode *Root = M->getOrInsertNamedMetadata(
-          m_langExtensionsHelper.GetSemanticDefineMetadataName());
-      for (MDNode *node : mdNodes)
-        Root->addOperand(node);
-    }
+    // Add root node with pointers to all define metadata nodes.
+    NamedMDNode *Root = M->getOrInsertNamedMetadata(
+        m_langExtensionsHelper.GetSemanticDefineMetadataName());
+    for (MDNode *node : mdNodes)
+      Root->addOperand(node);
   }
 
   SemanticDefineErrorList GetValidatedSemanticDefines(const ParsedSemanticDefineList &defines, ParsedSemanticDefineList &validated, SemanticDefineErrorList &errors) {
@@ -503,10 +465,10 @@ public:
   void UpdateSemanticDefinesAndOptToggles() override {
     // This shouldn't really be called more than once, but just in case it is,
     // do not repeatedly read semantic defines.
-    if (m_optTogglesUpdated) { 
+    if (m_semanticDefinesUpdated) { 
       return;
     }
-    m_optTogglesUpdated = true;
+    m_semanticDefinesUpdated = true;
 
     // Grab the semantic defines seen by the parser.
     ParsedSemanticDefineList defines =
@@ -1681,8 +1643,6 @@ public:
         std::make_shared<HLSLExtensionsCodegenHelperImpl>(
             compiler, m_langExtensionsHelper, Opts.RootSignatureDefine,
             Opts.OptToggles, Opts.EnableLifetimeMarkers);
-    //compiler.getCodeGenOpts().HLSLExtensionsCodegen->UpdateCodeGenOptions(
-    //    compiler.getCodeGenOpts());
 
     // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
     compiler.getCodeGenOpts().HLSLDefaultSpace = Opts.AutoBindingSpace;

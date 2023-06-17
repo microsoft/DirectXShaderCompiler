@@ -213,7 +213,7 @@ public:
   std::string TimeTrace = ""; // OPT_ftime_trace[EQ]
   bool VerifyDiagnostics = false; // OPT_verify
 
-  OptimizationToggles OptToggles;
+  OptimizationToggles OptToggles; // OPT_opt_enable, OPT_opt_disable, OPT_opt_select
 
   std::set<std::string> IgnoreSemDefs; // OPT_ignore_semdef
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
