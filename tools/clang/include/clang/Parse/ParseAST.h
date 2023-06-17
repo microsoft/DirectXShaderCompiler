@@ -16,10 +16,6 @@
 
 #include "clang/Basic/LangOptions.h"
 
-namespace hlsl {
-class HLSLExtensionsCodegenHelper;
-}
-
 namespace clang {
   class Preprocessor;
   class ASTConsumer;
@@ -46,8 +42,7 @@ namespace clang {
   /// \brief Parse the main file known to the preprocessor, producing an 
   /// abstract syntax tree.
   void ParseAST(Sema &S, bool PrintStats = false,
-                bool SkipFunctionBodies = false,
-                hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodegenHelper=nullptr);
+                bool SkipFunctionBodies = false);
   
 }  // end namespace clang
 

@@ -39,7 +39,7 @@ MacroExpander::MacroExpander(Preprocessor &PP_, unsigned options)
   // The preprocess requires a file to be on the lexing stack when we
   // call ExpandMacro. We add an empty in-memory buffer that we use
   // just for expanding macros.
-  std::unique_ptr<llvm::MemoryBuffer> SB = llvm::MemoryBuffer::getMemBuffer("", "<built-in>");
+  std::unique_ptr<llvm::MemoryBuffer> SB = llvm::MemoryBuffer::getMemBuffer("", "<hlsl-semantic-defines>");
   if (!SB) {
     DXASSERT(false, "Cannot create macro expansion source buffer");
     throw hlsl::Exception(DXC_E_MACRO_EXPANSION_FAILURE);

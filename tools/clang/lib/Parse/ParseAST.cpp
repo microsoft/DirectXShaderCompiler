@@ -23,7 +23,6 @@
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaConsumer.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
-#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL Change
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/TimeProfiler.h"
 #include <cstdio>
@@ -99,7 +98,7 @@ void clang::ParseAST(Preprocessor &PP, ASTConsumer *Consumer,
   ParseAST(*S.get(), PrintStats, SkipFunctionBodies);
 }
 
-void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies, hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodegenHelper) {
+void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
 
   // HLSL Change - Support hierarchial time tracing.
   llvm::TimeTraceScope TimeScope("Frontend", StringRef(""));
