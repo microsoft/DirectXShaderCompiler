@@ -19,7 +19,6 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
@@ -429,19 +428,12 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
 
   std::set<std::string> overridenMacroSemDef;
 
-  Preprocessor &pp = compiler.getPreprocessor();
-
   // This is very inefficient in general, but in practice we either have
   // no semantic defines, or we have a star define for a some reserved prefix.
   // These will be sorted so rewrites are stable.
   std::vector<std::pair<const IdentifierInfo *, MacroInfo *>> macros;
+  Preprocessor &pp = compiler.getPreprocessor();
   Preprocessor::macro_iterator end = pp.macro_end();
-
-  //for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
-  //  const IdentifierInfo *ii = i->first;
-  //  fprintf(stderr, "macro: %.*s\n", (int)ii->getName().size(), ii->getName().data());
-  //}
-
   for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
     if (!i->second.getLatest()->isDefined()) {
       continue;
@@ -510,7 +502,11 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   }
 
   if (!macros.empty()) {
-    // Make a copy of the preprocessor.
+    // Make a copy of the preprocessor. Since MacroExpander does lexing, the
+    // internal state of the preprocessor is modified as a result. Since we're
+    // calling this AFTER we have started parsing, messing with the internal
+    // state of the preprocessor will cause crashes later on, as more things
+    // are being parsed.
     std::unique_ptr<PreprocessorOptions> Opts(
         new PreprocessorOptions(pp.getPreprocessorOpts()));
     clang::LangOptions langOptionsCopy = pp.getLangOpts();
@@ -518,7 +514,7 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
         Opts.get(), compiler.getDiagnostics(), langOptionsCopy, pp.getSourceManager(),
         pp.getHeaderSearchInfo(), pp.getModuleLoader(),
         pp.getIdentifierTable().getExternalIdentifierLookup()));
-    Opts.release();
+    Opts.release(); // Opts are owned by the preprocessor copy now.
 
     MacroExpander expander(*ppCopy);
     for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
