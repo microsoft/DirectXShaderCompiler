@@ -125,7 +125,6 @@ void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
     CleanupParser(ParseOP.get());
 
   S.getPreprocessor().EnterMainSourceFile();
-
   P.Initialize();
 
   // HLSL Change - begin

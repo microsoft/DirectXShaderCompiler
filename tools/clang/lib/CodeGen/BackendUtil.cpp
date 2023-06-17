@@ -319,7 +319,7 @@ void EmitAssemblyHelper::CreatePasses() {
     // HLSL Change Begins.
     // HLSL always inline.
     if (!LangOpts.HLSL || CodeGenOpts.HLSLHighLevel)
-      Inlining = CodeGenOpts.NoInlining;
+    Inlining = CodeGenOpts.NoInlining;
     // HLSL Change Ends.
   }
 

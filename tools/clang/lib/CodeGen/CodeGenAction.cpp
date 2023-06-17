@@ -92,9 +92,9 @@ namespace clang {
 
     // HLSL Change - begin
     void UpdateHLSLSemanticDefineAndOptToggles() override {
-      clang::CodeGenOptions &CGO =
-          const_cast<clang::CodeGenOptions &>(this->CodeGenOpts);
-      CGO.HLSLExtensionsCodegen->UpdateCodeGenOptions(CGO);
+      if (CodeGenOpts.HLSLExtensionsCodegen) {
+        CodeGenOpts.HLSLExtensionsCodegen->UpdateSemanticDefinesAndOptToggles();
+      }
     }
     // HLSL Change - begin
 

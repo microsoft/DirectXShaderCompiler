@@ -67,7 +67,9 @@ public:
 
   // Write semantic defines as metadata in the module.
   virtual void WriteSemanticDefines(llvm::Module *M) = 0;
-  virtual void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) = 0;
+  // Reads semantic defines and translates them into opt-enable/opt-disable toggles. This only
+  // works after parser is initialized.
+  virtual void UpdateSemanticDefinesAndOptToggles() = 0;
   // Query the named option enable
   // Needed because semantic defines may have set it since options were copied
   virtual bool IsOptionEnabled(hlsl::options::Toggle toggle) = 0;

@@ -487,101 +487,6 @@ private:
     return errors;
   }
 
-  // Copy the opt toggles from the original CodeGenOptions to the new one
-  void UpdateCodeGenOptionsImpl(clang::CodeGenOptions& CGO) {
-    //auto &CodeGenOpts = m_CI.getCodeGenOpts();
-    //CGO.HLSLOptToggles = CodeGenOpts.HLSLOptToggles;
-    //if (CodeGenOpts.HLSLOptToggles.Has(
-    //        hlsl::options::TOGGLE_LIFETIME_MARKERS)) {
-    //  CGO.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLOptToggles.GetDefaultOff(
-    //      hlsl::options::TOGGLE_LIFETIME_MARKERS);
-    //}
-    //CGO.HLSLEnablePartialLifetimeMarkers =
-    //    CodeGenOpts.HLSLOptToggles.GetDefaultOff(
-    //        hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
-  }
-
-  void ComputeSemanticDefinesAndOptToggles() {
-    if (m_optTogglesUpdated) { // Do not repeatedly read semantic define,
-                               // because it might be expensive.
-      return;
-    }
-    m_optTogglesUpdated = true;
-    // Grab the semantic defines seen by the parser.
-    ParsedSemanticDefineList defines =
-      CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
-
-    // Nothing to do if we have no defines.
-    SemanticDefineErrorList errors;
-    if (defines.size()) {
-      ParsedSemanticDefineList validated;
-      GetValidatedSemanticDefines(defines, validated, errors);
-
-      auto &Diags = m_CI.getDiagnostics();
-      for (const auto &error : errors) {
-      clang::DiagnosticsEngine::Level level =
-          clang::DiagnosticsEngine::Error;
-      if (error.IsWarning())
-        level = clang::DiagnosticsEngine::Warning;
-      unsigned DiagID = Diags.getCustomDiagID(level, "%0");
-      Diags.Report(
-          clang::SourceLocation::getFromRawEncoding(error.Location()),
-          DiagID)
-          << error.Message();
-      }
-
-      // Create all metadata nodes for each define. Each node is a (name,
-      // value) pair.
-      const std::string enableStr("_ENABLE_");
-      const std::string disableStr("_DISABLE_");
-      const std::string selectStr("_SELECT_");
-
-      auto &optToggles = m_HLSLOptToggles.Toggles;
-      auto &optSelects = m_HLSLOptToggles.Selects;
-
-      const llvm::SmallVector<std::string, 2> &semDefPrefixes =
-          m_langExtensionsHelper.GetSemanticDefines();
-
-      for (const ParsedSemanticDefine &define : defines) {
-        // Find index for end of matching semantic define prefix
-        size_t prefixPos = 0;
-        for (auto prefix : semDefPrefixes) {
-          if (IsMacroMatch(define.Name, prefix)) {
-            prefixPos = prefix.length() - 1;
-            break;
-          }
-        }
-
-        // Add semantic defines to option flag equivalents
-        // Convert define-style '_' into option-style '-' and lowercase
-        // everything
-        if (!define.Name.compare(prefixPos, enableStr.length(), enableStr)) {
-          std::string optName =
-              define.Name.substr(prefixPos + enableStr.length());
-          std::replace(optName.begin(), optName.end(), '_', '-');
-          optToggles[StringRef(optName).lower()] = true;
-        } else if (!define.Name.compare(prefixPos, disableStr.length(),
-                                        disableStr)) {
-          std::string optName =
-              define.Name.substr(prefixPos + disableStr.length());
-          std::replace(optName.begin(), optName.end(), '_', '-');
-          optToggles[StringRef(optName).lower()] = false;
-        } else if (!define.Name.compare(prefixPos, selectStr.length(),
-                                        selectStr)) {
-          std::string optName =
-              define.Name.substr(prefixPos + selectStr.length());
-          std::replace(optName.begin(), optName.end(), '_', '-');
-          optSelects[StringRef(optName).lower()] = define.Value;
-        }
-      }
-
-      m_semanticDefines = validated;
-    }
-
-    UpdateCodeGenOptionsImpl(
-        m_CI.getCodeGenOpts()); // Update the original codegen options.
-  }
-
 public:
   HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine, const hlsl::options::OptimizationToggles &hlslOptToggles, bool HLSLEnableLifetimeMarkers)
   : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
@@ -595,9 +500,86 @@ public:
     WriteSemanticDefines(M, m_semanticDefines);
   }
   // Update CodeGenOption based on HLSLOptimizationToggles.
-  void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
-    ComputeSemanticDefinesAndOptToggles();
-    UpdateCodeGenOptionsImpl(CGO);
+  void UpdateSemanticDefinesAndOptToggles() override {
+    // This shouldn't really be called more than once, but just in case it is,
+    // do not repeatedly read semantic defines.
+    if (m_optTogglesUpdated) { 
+      return;
+    }
+    m_optTogglesUpdated = true;
+
+    // Grab the semantic defines seen by the parser.
+    ParsedSemanticDefineList defines =
+      CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
+
+    // Nothing to do if we have no defines.
+    SemanticDefineErrorList errors;
+    if (defines.empty()) {
+      return;
+    }
+
+    ParsedSemanticDefineList validated;
+    GetValidatedSemanticDefines(defines, validated, errors);
+
+    auto &Diags = m_CI.getDiagnostics();
+    for (const auto &error : errors) {
+    clang::DiagnosticsEngine::Level level =
+        clang::DiagnosticsEngine::Error;
+    if (error.IsWarning())
+      level = clang::DiagnosticsEngine::Warning;
+    unsigned DiagID = Diags.getCustomDiagID(level, "%0");
+    Diags.Report(
+        clang::SourceLocation::getFromRawEncoding(error.Location()),
+        DiagID)
+        << error.Message();
+    }
+
+    m_semanticDefines = validated; // Save the list to write into module later.
+
+    // Create all metadata nodes for each define. Each node is a (name,
+    // value) pair.
+    const std::string enableStr("_ENABLE_");
+    const std::string disableStr("_DISABLE_");
+    const std::string selectStr("_SELECT_");
+
+    auto &optToggles = m_HLSLOptToggles.Toggles;
+    auto &optSelects = m_HLSLOptToggles.Selects;
+
+    const llvm::SmallVector<std::string, 2> &semDefPrefixes =
+        m_langExtensionsHelper.GetSemanticDefines();
+
+    for (const ParsedSemanticDefine &define : defines) {
+      // Find index for end of matching semantic define prefix
+      size_t prefixPos = 0;
+      for (auto prefix : semDefPrefixes) {
+        if (IsMacroMatch(define.Name, prefix)) {
+          prefixPos = prefix.length() - 1;
+          break;
+        }
+      }
+
+      // Add semantic defines to option flag equivalents
+      // Convert define-style '_' into option-style '-' and lowercase
+      // everything
+      if (!define.Name.compare(prefixPos, enableStr.length(), enableStr)) {
+        std::string optName =
+            define.Name.substr(prefixPos + enableStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optToggles[StringRef(optName).lower()] = true;
+      } else if (!define.Name.compare(prefixPos, disableStr.length(),
+                                      disableStr)) {
+        std::string optName =
+            define.Name.substr(prefixPos + disableStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optToggles[StringRef(optName).lower()] = false;
+      } else if (!define.Name.compare(prefixPos, selectStr.length(),
+                                      selectStr)) {
+        std::string optName =
+            define.Name.substr(prefixPos + selectStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optSelects[StringRef(optName).lower()] = define.Value;
+      }
+    }
   }
   virtual bool IsOptionEnabled(hlsl::options::Toggle option) override {
     return m_HLSLOptToggles.Get(option);
