@@ -19,6 +19,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Parse/Parser.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
@@ -428,11 +429,12 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
 
   std::set<std::string> overridenMacroSemDef;
 
+  Preprocessor &pp = compiler.getPreprocessor();
+
   // This is very inefficient in general, but in practice we either have
   // no semantic defines, or we have a star define for a some reserved prefix.
   // These will be sorted so rewrites are stable.
   std::vector<std::pair<const IdentifierInfo *, MacroInfo *>> macros;
-  Preprocessor &pp = compiler.getPreprocessor();
   Preprocessor::macro_iterator end = pp.macro_end();
 
   //for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
@@ -508,17 +510,19 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   }
 
   if (!macros.empty()) {
-    std::unique_ptr<PreprocessorOptions> Opts(new PreprocessorOptions(pp.getPreprocessorOpts()));
+    // Make a copy of the preprocessor.
+    std::unique_ptr<PreprocessorOptions> Opts(
+        new PreprocessorOptions(pp.getPreprocessorOpts()));
     clang::LangOptions langOptionsCopy = pp.getLangOpts();
-    std::unique_ptr<Preprocessor> localPp(new Preprocessor(Opts.get(), pp.getDiagnostics(), langOptionsCopy, pp.getSourceManager(),
-      pp.getHeaderSearchInfo(), pp.getModuleLoader(), pp.getIdentifierTable().getExternalIdentifierLookup()));
+    std::unique_ptr<Preprocessor> ppCopy(new Preprocessor(
+        Opts.get(), compiler.getDiagnostics(), langOptionsCopy, pp.getSourceManager(),
+        pp.getHeaderSearchInfo(), pp.getModuleLoader(),
+        pp.getIdentifierTable().getExternalIdentifierLookup()));
     Opts.release();
 
-    MacroExpander expander(*localPp);
+    MacroExpander expander(*ppCopy);
     for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
       std::string expandedValue;
-      //fprintf(stderr, "identifier name: %.*s\n", (int)m.first->getName().size(),
-      //        m.first->getName().data());
       expander.ExpandMacro(m.second, &expandedValue);
       parsedDefines.emplace_back(
           ParsedSemanticDefine{m.first->getName(), expandedValue,

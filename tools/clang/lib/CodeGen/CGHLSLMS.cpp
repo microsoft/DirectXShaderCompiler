@@ -5990,7 +5990,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
     tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(ParamTy));
 
-    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers) {
+    if (CGM.getCodeGenOpts().HLSLExtensionsCodegen &&
+      CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsLifetimeMarkersEnabled())
+    {
       const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
       CGF.EmitLifetimeStart(AllocaSize, tmpArgAddr);
     }
@@ -6014,7 +6016,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     }
 
     // save to generate lifetime end after call
-    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers)
+    if (CGM.getCodeGenOpts().HLSLExtensionsCodegen &&
+      CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsLifetimeMarkersEnabled())
       lifetimeCleanupList.emplace_back(tmpLV);
 
     // cast before the call

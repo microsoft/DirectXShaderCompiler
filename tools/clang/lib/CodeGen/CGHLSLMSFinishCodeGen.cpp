@@ -43,6 +43,7 @@
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/Support/DxcOptToggles.h"
 #include "dxc/HlslIntrinsicOp.h"
 
 #include <fenv.h>
@@ -3698,9 +3699,6 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
     if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled(
             hlsl::options::TOGGLE_STRUCTURIZE_RETURNS))
-      return;
-  } else {
-    if (!CGM.getCodeGenOpts().HLSLOptToggles.GetDefaultOff(hlsl::options::TOGGLE_STRUCTURIZE_RETURNS))
       return;
   }
 

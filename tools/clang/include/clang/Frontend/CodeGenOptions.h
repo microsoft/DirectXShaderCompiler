@@ -22,7 +22,6 @@
 #include <map>
 #include <set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
-#include "dxc/Support/DxcOptToggles.h" // HLSL chanhge
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 #include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
 
@@ -230,18 +229,12 @@ public:
   bool HLSLResMayAlias = false;
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
-  // Optimization pass enables, disables and selects
-  hlsl::options::OptimizationToggles HLSLOptToggles;
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
   /// Debug option to print IR after specific pass
   std::set<std::string> HLSLPrintAfter;
   /// Force-replace lifetime intrinsics by zeroinitializer stores.
   bool HLSLForceZeroStoreLifetimes = false;
-  /// Enable lifetime marker generation
-  bool HLSLEnableLifetimeMarkers = false;
-  /// Enable lifetime marker generation only for lifetime.start
-  bool HLSLEnablePartialLifetimeMarkers = false;
   /// Put shader sources and options in the module
   bool HLSLEmbedSourcesInModule = false;
   /// Enable generation of payload access qualifier metadata. 

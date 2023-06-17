@@ -24,49 +24,39 @@ namespace hlsl {
 
 namespace options {
 
-static const llvm::StringRef TOGGLE_GVN  = "gvn";
-static const llvm::StringRef TOGGLE_LICM = "licm";
-static const llvm::StringRef TOGGLE_SINK  = "sink";
-static const llvm::StringRef TOGGLE_LIFETIME_MARKERS = "lifetime-markers";
-static const llvm::StringRef TOGGLE_PARTIAL_LIFETIME_MARKERS = "partial-lifetime-markers";
-static const llvm::StringRef TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL = "structurize-loop-exits-for-unroll";
-static const llvm::StringRef TOGGLE_DEBUG_NOPS = "debug-nops";
-static const llvm::StringRef TOGGLE_STRUCTURIZE_RETURNS = "structurize-returns";
+struct Toggle {
+  llvm::StringRef Name;
+  bool Default = false;
+};
+
+static const Toggle TOGGLE_GVN = {"gvn", true};
+static const Toggle TOGGLE_LICM = {"licm", true};
+static const Toggle TOGGLE_SINK = {"sink", true};
+static const Toggle TOGGLE_LIFETIME_MARKERS = {"lifetime-markers", false};
+static const Toggle TOGGLE_PARTIAL_LIFETIME_MARKERS = {
+    "partial-lifetime-markers", false};
+static const Toggle TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL = {
+    "structurize-loop-exits-for-unroll", true};
+static const Toggle TOGGLE_DEBUG_NOPS = {"debug-nops", true};
+static const Toggle TOGGLE_STRUCTURIZE_RETURNS = {"structurize-returns", false};
 
 struct OptimizationToggles {
   // Optimization pass enables, disables and selects
   std::map<std::string, bool>        Toggles; // OPT_opt_enable & OPT_opt_disable
   std::map<std::string, std::string> Selects; // OPT_opt_select
 
-  inline void Set(llvm::StringRef Opt, bool Value) {
-    Toggles[Opt] = Value;
+  inline void Set(Toggle Opt, bool Value) {
+    Toggles[Opt.Name] = Value;
   }
-  inline bool SetAndTrue(llvm::StringRef Opt) const {
-    auto It = Toggles.find(Opt);
-    return It != Toggles.end() && It->second;
+  inline bool Has(Toggle Opt) const {
+    return Toggles.find(Opt.Name) != Toggles.end();
   }
-  inline bool SetAndFalse(llvm::StringRef Opt) const {
-    auto It = Toggles.find(Opt);
-    return It != Toggles.end() && !It->second;
-  }
-  inline bool Has(llvm::StringRef Opt) const {
-    return Toggles.find(Opt) != Toggles.end();
-  }
-  inline bool Get(llvm::StringRef Opt, bool DefaultOn) const {
-    auto It = Toggles.find(Opt);
+  inline bool Get(Toggle Opt) const {
+    auto It = Toggles.find(Opt.Name);
     const bool Found = It != Toggles.end();
-    if (DefaultOn) {
-      return !Found || It->second;
-    }
-    else {
-      return Found && It->second;
-    }
-  }
-  inline bool GetDefaultOn(llvm::StringRef Opt) const {
-    return Get(Opt, /*DefaultOn*/true);
-  }
-  inline bool GetDefaultOff(llvm::StringRef Opt) const {
-    return Get(Opt, /*DefaultOn*/false);
+    if (Found)
+      return It->second;
+    return Opt.Default;
   }
 };
 

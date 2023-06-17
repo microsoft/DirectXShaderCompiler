@@ -401,7 +401,9 @@ private:
   CompilerInstance &m_CI;
   DxcLangExtensionsHelper &m_langExtensionsHelper;
   std::string m_rootSigDefine;
+  hlsl::options::OptimizationToggles m_HLSLOptToggles;
   bool m_optTogglesUpdated = false;
+  bool m_HLSLEnableLifetimeMarkers = false;
   ParsedSemanticDefineList m_semanticDefines;
 
   // The metadata format is a root node that has pointers to metadata
@@ -422,8 +424,8 @@ private:
     const std::string disableStr("_DISABLE_");
     const std::string selectStr("_SELECT_");
 
-    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptToggles.Toggles;
-    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptToggles.Selects;
+    auto &optToggles = m_HLSLOptToggles.Toggles;
+    auto &optSelects = m_HLSLOptToggles.Selects;
 
     const llvm::SmallVector<std::string, 2> &semDefPrefixes =
                              m_langExtensionsHelper.GetSemanticDefines();
@@ -487,16 +489,16 @@ private:
 
   // Copy the opt toggles from the original CodeGenOptions to the new one
   void UpdateCodeGenOptionsImpl(clang::CodeGenOptions& CGO) {
-    auto &CodeGenOpts = m_CI.getCodeGenOpts();
-    CGO.HLSLOptToggles = CodeGenOpts.HLSLOptToggles;
-    if (CodeGenOpts.HLSLOptToggles.Has(
-            hlsl::options::TOGGLE_LIFETIME_MARKERS)) {
-      CGO.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLOptToggles.GetDefaultOff(
-          hlsl::options::TOGGLE_LIFETIME_MARKERS);
-    }
-    CGO.HLSLEnablePartialLifetimeMarkers =
-        CodeGenOpts.HLSLOptToggles.GetDefaultOff(
-            hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
+    //auto &CodeGenOpts = m_CI.getCodeGenOpts();
+    //CGO.HLSLOptToggles = CodeGenOpts.HLSLOptToggles;
+    //if (CodeGenOpts.HLSLOptToggles.Has(
+    //        hlsl::options::TOGGLE_LIFETIME_MARKERS)) {
+    //  CGO.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLOptToggles.GetDefaultOff(
+    //      hlsl::options::TOGGLE_LIFETIME_MARKERS);
+    //}
+    //CGO.HLSLEnablePartialLifetimeMarkers =
+    //    CodeGenOpts.HLSLOptToggles.GetDefaultOff(
+    //        hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
   }
 
   void ComputeSemanticDefinesAndOptToggles() {
@@ -534,8 +536,8 @@ private:
       const std::string disableStr("_DISABLE_");
       const std::string selectStr("_SELECT_");
 
-      auto &optToggles = m_CI.getCodeGenOpts().HLSLOptToggles.Toggles;
-      auto &optSelects = m_CI.getCodeGenOpts().HLSLOptToggles.Selects;
+      auto &optToggles = m_HLSLOptToggles.Toggles;
+      auto &optSelects = m_HLSLOptToggles.Selects;
 
       const llvm::SmallVector<std::string, 2> &semDefPrefixes =
           m_langExtensionsHelper.GetSemanticDefines();
@@ -581,9 +583,11 @@ private:
   }
 
 public:
-  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine, const hlsl::options::OptimizationToggles &hlslOptToggles, bool HLSLEnableLifetimeMarkers)
   : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
   , m_rootSigDefine(rootSigDefine)
+  , m_HLSLOptToggles(hlslOptToggles)
+  , m_HLSLEnableLifetimeMarkers(HLSLEnableLifetimeMarkers)
   {}
 
   // Write semantic defines as metadata in the module.
@@ -595,8 +599,14 @@ public:
     ComputeSemanticDefinesAndOptToggles();
     UpdateCodeGenOptionsImpl(CGO);
   }
-  virtual bool IsOptionEnabled(std::string option) override {
-    return m_CI.getCodeGenOpts().HLSLOptToggles.GetDefaultOff(option);
+  virtual bool IsOptionEnabled(hlsl::options::Toggle option) override {
+    return m_HLSLOptToggles.Get(option);
+  }
+  virtual bool IsLifetimeMarkersEnabled() override {
+    if (m_HLSLOptToggles.Has(options::TOGGLE_LIFETIME_MARKERS)) {
+      return m_HLSLOptToggles.Get(options::TOGGLE_LIFETIME_MARKERS);
+    }
+    return m_HLSLEnableLifetimeMarkers;
   }
 
   virtual std::string GetIntrinsicName(UINT opcode) override {
@@ -1624,7 +1634,6 @@ public:
     compiler.getCodeGenOpts().HLSLOnlyWarnOnUnrollFail = Opts.EnableFXCCompatMode;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
-    compiler.getCodeGenOpts().HLSLOptToggles = Opts.OptToggles;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs = Opts.IgnoreOptSemDefs;
     compiler.getCodeGenOpts().HLSLIgnoreSemDefs = Opts.IgnoreSemDefs;
@@ -1639,7 +1648,6 @@ public:
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
     compiler.getCodeGenOpts().HLSLPrintAfter = Opts.PrintAfter;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
-    compiler.getCodeGenOpts().HLSLEnableLifetimeMarkers = Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
 
     // Translate signature packing options
@@ -1687,7 +1695,12 @@ public:
       Inlining = clang::CodeGenOptions::NormalInlining;
     compiler.getCodeGenOpts().setInlining(Inlining);
 
-    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
+    compiler.getCodeGenOpts().HLSLExtensionsCodegen =
+        std::make_shared<HLSLExtensionsCodegenHelperImpl>(
+            compiler, m_langExtensionsHelper, Opts.RootSignatureDefine,
+            Opts.OptToggles, Opts.EnableLifetimeMarkers);
+    //compiler.getCodeGenOpts().HLSLExtensionsCodegen->UpdateCodeGenOptions(
+    //    compiler.getCodeGenOpts());
 
     // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
     compiler.getCodeGenOpts().HLSLDefaultSpace = Opts.AutoBindingSpace;

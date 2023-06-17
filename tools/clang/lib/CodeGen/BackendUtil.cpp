@@ -45,6 +45,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h"  // HLSL Change
 #include "dxc/Support/Global.h" // HLSL Change
+#include "dxc/Support/DxcOptToggles.h" // HLSL Change
 
 using namespace clang;
 using namespace llvm;
@@ -318,7 +319,7 @@ void EmitAssemblyHelper::CreatePasses() {
     // HLSL Change Begins.
     // HLSL always inline.
     if (!LangOpts.HLSL || CodeGenOpts.HLSLHighLevel)
-    Inlining = CodeGenOpts.NoInlining;
+      Inlining = CodeGenOpts.NoInlining;
     // HLSL Change Ends.
   }
 
@@ -337,12 +338,14 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
 
-  PMBuilder.EnableGVN = CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_GVN);
-  PMBuilder.HLSLNoSink = !CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_SINK);
-  PMBuilder.StructurizeLoopExitsForUnroll = CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL);
-  PMBuilder.HLSLEnableDebugNops = CodeGenOpts.HLSLOptToggles.GetDefaultOn(hlsl::options::TOGGLE_DEBUG_NOPS);
-  PMBuilder.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLEnableLifetimeMarkers;
-  PMBuilder.HLSLEnablePartialLifetimeMarkers = CodeGenOpts.HLSLEnablePartialLifetimeMarkers;
+  if (const std::shared_ptr<hlsl::HLSLExtensionsCodegenHelper> &extHelper = CodeGenOpts.HLSLExtensionsCodegen) {
+    PMBuilder.EnableGVN = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_GVN);
+    PMBuilder.HLSLNoSink = !extHelper->IsOptionEnabled(hlsl::options::TOGGLE_SINK);
+    PMBuilder.StructurizeLoopExitsForUnroll = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL);
+    PMBuilder.HLSLEnableDebugNops = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_DEBUG_NOPS);
+    PMBuilder.HLSLEnableLifetimeMarkers = extHelper->IsLifetimeMarkersEnabled();
+    PMBuilder.HLSLEnablePartialLifetimeMarkers = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
+  }
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
