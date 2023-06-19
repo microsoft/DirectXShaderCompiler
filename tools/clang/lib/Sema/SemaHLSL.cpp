@@ -11399,6 +11399,21 @@ public:
       }
     }
 
+    // NodeDispatchGrid and NodeMaxDispatchGrid may not be used together
+    if (InheritableAttr *nodeMDG = Decl->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
+      if (InheritableAttr *nodeDG = Decl->getAttr<HLSLNodeDispatchGridAttr>()) {
+        S.Diags.Report(nodeMDG->getLocation(), diag::err_hlsl_incompatible_node_attr)
+	  << funcName << nodeMDG->getSpelling() << nodeDG->getSpelling() << nodeMDG->getRange();
+        S.Diags.Report(nodeDG->getLocation(), diag::note_defined_here) << nodeDG->getSpelling();
+      }
+    }
+
+    // Check that a Broadcasting node has one of NodeDispatchGrid and NodeMaxDispatchGrid
+    if (nodeLaunchType.equals_lower("broadcasting") && !Decl->hasAttr<HLSLNodeDispatchGridAttr>() &&
+        !Decl->hasAttr<HLSLNodeMaxDispatchGridAttr>()) {
+          S.Diags.Report(Decl->getLocation(), diag::err_hlsl_missing_dispatchgrid_attr) << funcName;
+    }
+
     return true;
   }
 
@@ -11463,6 +11478,24 @@ public:
                            diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
         }
       }
+    }
+    return true;
+  }
+
+  bool VisitAttr(Attr *A) {
+    switch (A->getKind()) {
+    case attr::HLSLNodeDispatchGrid:
+    case attr::HLSLNodeMaxDispatchGrid:
+      // These attributes are only valid for Broadcasting launch nodes
+      if (!nodeLaunchType.equals_lower("broadcasting")) {
+        S.Diags.Report(A->getLocation(), diag::err_hlsl_launch_type_attr)
+          << A->getSpelling() << "Broadcasting" << A->getRange();
+        // Only output the note if the source location is valid
+        if (nodeLaunchLoc.isValid()) {
+          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here) << "Launch type";
+        }
+      }
+      break;
     }
     return true;
   }

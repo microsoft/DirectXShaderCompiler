@@ -194,11 +194,66 @@ void node4_02(ThreadNodeInputRecord input) /* expected-error {{use of class temp
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
-void node4_01(DispatchNodeInputRecord<Texture2D> input) /* expected-error {{Texture2D cannot be used as a type parameter where a struct/class is required}}  */
+void node4_03(DispatchNodeInputRecord<Texture2D> input) /* expected-error {{Texture2D cannot be used as a type parameter where a struct/class is required}}  */
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
-void node4_01(DispatchNodeInputRecord<RaytracingAccelerationStructure> input) /* expected-error {{'RaytracingAccelerationStructure' cannot be used as a type parameter where a struct/class is required}}  */
+void node4_04(DispatchNodeInputRecord<RaytracingAccelerationStructure> input) /* expected-error {{'RaytracingAccelerationStructure' cannot be used as a type parameter where a struct/class is required}}  */
 { }
+
+
+//==============================================================================
+// Check FinishedCrossGroupSharing only available for RWDispatchNodeInputRecord
+// in Broadcasting launch nodes
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(8,1,1)]
+void node4_01(RWDispatchNodeInputRecord<RECORD> input) {
+  input.FinishedCrossGroupSharing(); // no error 
+}
+
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(8,1,1)]
+void node4_02(DispatchNodeInputRecord<RECORD> input) {
+  input.FinishedCrossGroupSharing(); // expected-error {{no member named 'FinishedCrossGroupSharing' in 'DispatchNodeInputRecord<RECORD>'}}
+}
+
+[Shader("node")]
+[NodeLaunch("Coalescing")]
+[NumThreads(1024,1,1)]
+[NodeIsProgramEntry]
+void node4_03(GroupNodeInputRecords<RECORD> input)
+{
+  bool foo = input.FinishedCrossGroupSharing(); // expected-error {{no member named 'FinishedCrossGroupSharing' in 'GroupNodeInputRecords<RECORD>'}}
+}
+
+[Shader("node")]
+[NodeLaunch("Coalescing")]
+[NumThreads(1024,1,1)]
+[NodeIsProgramEntry]
+void node4_04(RWGroupNodeInputRecords<RECORD> input)
+{
+  bool foo = input.FinishedCrossGroupSharing(); // expected-error {{no member named 'FinishedCrossGroupSharing' in 'RWGroupNodeInputRecords<RECORD>'}}
+}
+
+[Shader("node")]
+[NodeLaunch("Thread")]
+[NodeIsProgramEntry]
+void node4_05(ThreadNodeInputRecord<RECORD> input)
+{
+  input.FinishedCrossGroupSharing(); // expected-error {{no member named 'FinishedCrossGroupSharing' in 'ThreadNodeInputRecord<RECORD>'}}
+}
+
+
+[Shader("node")]
+[NodeLaunch("Thread")]
+[NodeIsProgramEntry]
+void node4_06(RWThreadNodeInputRecord<RECORD> input)
+{
+  input.FinishedCrossGroupSharing(); // expected-error {{no member named 'FinishedCrossGroupSharing' in 'RWThreadNodeInputRecord<RECORD>'}}
+}
 

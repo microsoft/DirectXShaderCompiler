@@ -11,6 +11,7 @@ struct RECORD
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 void node05(RWDispatchNodeInputRecord<RECORD> input) {}
 
 //CHECK: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit RWDispatchNodeInputRecord
@@ -46,7 +47,7 @@ void node05(RWDispatchNodeInputRecord<RECORD> input) {}
 [NumThreads(1024,1,1)]
 void node06(RWGroupNodeInputRecords<RECORD> input) {}
 
-//CHECK: ClssTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit RWGroupNodeInputRecords
+//CHECK: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit RWGroupNodeInputRecords
 //CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> class recordtype
 //CHECK-NEXT: CXXRecordDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit struct RWGroupNodeInputRecords
 //CHECK-NEXT: FinalAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit final
@@ -108,7 +109,7 @@ void node06(RWGroupNodeInputRecords<RECORD> input) {}
 
 [Shader("node")]
 [NodeLaunch("Thread")]
-void node06(RWThreadNodeInputRecord<RECORD> input) {}
+void node07(RWThreadNodeInputRecord<RECORD> input) {}
 
 //CHECK: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit RWThreadNodeInputRecord
 //CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> class recordtype

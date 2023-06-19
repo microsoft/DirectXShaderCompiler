@@ -11,6 +11,7 @@ struct RECORD
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(512,1,1)]
 void node05(DispatchNodeInputRecord<RECORD> input) {}
 
 //CHECK: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit DispatchNodeInputRecord

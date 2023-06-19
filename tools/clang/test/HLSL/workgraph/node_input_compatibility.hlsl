@@ -11,10 +11,12 @@ struct RECORD
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("BrOaDcasting")]                         // expected-note  {{Launch type defined here}}
 void node01(GroupNodeInputRecords<RECORD> input)     // expected-error {{GroupNodeInputRecords may not be used with broadcasting launch nodes}}
 { }
 
+[NodeDispatchGrid(64,1,1)]
 [Shader("node")]
 [NumThreads(1024,1,1)]
 void node02(RWGroupNodeInputRecords<RECORD> input)   // expected-error {{RWGroupNodeInputRecords may not be used with broadcasting launch nodes}}
@@ -22,12 +24,14 @@ void node02(RWGroupNodeInputRecords<RECORD> input)   // expected-error {{RWGroup
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]                         // expected-note  {{Launch type defined here}}
 void node03(ThreadNodeInputRecord<RECORD> input)     // expected-error {{ThreadNodeInputRecord may not be used with broadcasting launch nodes}}
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]                         // expected-note  {{Launch type defined here}}
+[NodeDispatchGrid(64,1,1)]
 [NumThreads(1024,1,1)]
 void node04(RWThreadNodeInputRecord<RECORD> input)   // expected-error {{RWThreadNodeInputRecord may not be used with broadcasting launch nodes}}
 { }
@@ -35,6 +39,7 @@ void node04(RWThreadNodeInputRecord<RECORD> input)   // expected-error {{RWThrea
 [Shader("node")]
 [NodeLaunch("Broadcasting")]                         // expected-note  {{Launch type defined here}}
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 void node05(EmptyNodeInput input)                    // expected-error {{EmptyNodeInput may not be used with broadcasting launch nodes}}
 { }
 

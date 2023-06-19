@@ -7806,6 +7806,12 @@ def err_hlsl_dispatchgrid_product : Error<
    "%0 X * Y * Z product may not exceed 16,777,215 (2^24-1)">;
 def err_hlsl_compute_compatibility : Error<
    "Node shader '%0' with %1 is not compatible with compute">;
+def err_hlsl_launch_type_attr : Error<
+   "'%0' may only be used with %1 nodes">;
+def err_hlsl_incompatible_node_attr : Error<
+   "Node shader '%0' may not use both '%1' and '%2'">;
+def err_hlsl_missing_dispatchgrid_attr : Error<
+   "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

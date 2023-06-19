@@ -39,6 +39,8 @@ struct MY_INPUT_RECORD
 // CHECK-NEXT: HLSLNumThreadsAttr 0x{{.*}} 4 5 6
 // CHECK-NEXT: HLSLNodeLaunchAttr 0x{{.*}} "Broadcasting"
 // CHECK-NEXT: HLSLShaderAttr 0x{{.*}} "node"
+// CHECK-NEXT: HLSLNodeDispatchGridAttr 0x{{.*}} 4 2 1
+    [NodeDispatchGrid(4,2,1)]
     [Shader("node")]
     [NodeLaunch("Broadcasting")]
     [NumThreads(4,5,6)]

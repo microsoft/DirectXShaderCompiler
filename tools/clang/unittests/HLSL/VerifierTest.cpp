@@ -119,6 +119,7 @@ public:
   TEST_METHOD(RunNodeComputeCompatibilityDiags)
   TEST_METHOD(RunNodeInputCompatibilityDiags)
   TEST_METHOD(RunNodeZeroSizedRecordDiags)
+  TEST_METHOD(RunWorkGraphAttributeDiags)
   
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -475,7 +476,7 @@ TEST_F(VerifierTest, RunAtomicsOnBitfields) {
 }
 
 TEST_F(VerifierTest, RunWorkGraphs) {
-  CheckVerifiesHLSL(L"work-graphs.hlsl");
+  CheckVerifiesHLSL(L"workgraph/work-graphs.hlsl");
 }
 
 TEST_F(VerifierTest, RunUnboundedResourceArrays) {
@@ -528,4 +529,8 @@ TEST_F(VerifierTest, RunNodeInputCompatibilityDiags) {
 
 TEST_F(VerifierTest, RunNodeZeroSizedRecordDiags) {
   CheckVerifiesHLSL(L"/workgraph/zero_sized_node_record.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphAttributeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/attribute_diags.hlsl");
 }

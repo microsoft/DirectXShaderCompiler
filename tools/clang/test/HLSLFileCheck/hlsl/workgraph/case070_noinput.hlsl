@@ -7,6 +7,7 @@
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
+[NodeDispatchGrid(4,1,1)]
 void node070_broadcasting() { }
 
 [Shader("node")]
