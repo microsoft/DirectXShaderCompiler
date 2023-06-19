@@ -4,14 +4,14 @@
 // CHECK-SAME:      shader.debug.line.include.hlsl
 // CHECK:           OpString
 // CHECK:           [[file3:%\d+]] = OpString
-// CHECK-SAME:      spirv.debug.opline.include-file-3.hlsl
+// CHECK-SAME:      spirv.debug.opline.include-file-3.hlsli
 // CHECK:           OpString
 // CHECK:           OpString
 // CHECK:           [[file2:%\d+]] = OpString
-// CHECK-SAME:      spirv.debug.opline.include-file-2.hlsl
+// CHECK-SAME:      spirv.debug.opline.include-file-2.hlsli
 // CHECK:           OpString
 // CHECK:           [[file1:%\d+]] = OpString
-// CHECK-SAME:      spirv.debug.opline.include-file-1.hlsl
+// CHECK-SAME:      spirv.debug.opline.include-file-1.hlsli
 // CHECK:      [[src3:%\d+]] = OpExtInst %void %1 DebugSource [[file3]]
 // CHECK:      [[src2:%\d+]] = OpExtInst %void %1 DebugSource [[file2]]
 // CHECK:      [[src1:%\d+]] = OpExtInst %void %1 DebugSource [[file1]]
@@ -20,13 +20,13 @@
 // DebugLine cannot preceed OpFunction
 // CHECK:      %src_main = OpFunction %void None
 
-#include "spirv.debug.opline.include-file-1.hlsl"
+#include "spirv.debug.opline.include-file-1.hlsli"
 
 int callFunction1() {
   return function1();
 }
 
-#include "spirv.debug.opline.include-file-2.hlsl"
+#include "spirv.debug.opline.include-file-2.hlsli"
 
 int callFunction2() {
   // This
@@ -46,7 +46,7 @@ int callFunction2() {
   return function2();
 }
 
-#include "spirv.debug.opline.include-file-3.hlsl"
+#include "spirv.debug.opline.include-file-3.hlsli"
 
 int callFunction3() {
   // This
