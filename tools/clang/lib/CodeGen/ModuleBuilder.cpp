@@ -214,8 +214,6 @@ namespace {
       // HLSL Change Begins.
       if (&Ctx == this->Ctx) {
         if (Builder && Builder->getCodeGenOpts().HLSLExtensionsCodegen) {
-          Builder->getCodeGenOpts()
-              .HLSLExtensionsCodegen->UpdateSemanticDefinesAndOptToggles();
           // Add semantic defines for extensions if any are available.
           Builder->getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(
                   M.get());

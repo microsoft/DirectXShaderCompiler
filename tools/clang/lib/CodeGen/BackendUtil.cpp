@@ -338,14 +338,12 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
 
-  if (const std::shared_ptr<hlsl::HLSLExtensionsCodegenHelper> &extHelper = CodeGenOpts.HLSLExtensionsCodegen) {
-    PMBuilder.EnableGVN = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_GVN);
-    PMBuilder.HLSLNoSink = !extHelper->IsOptionEnabled(hlsl::options::TOGGLE_SINK);
-    PMBuilder.StructurizeLoopExitsForUnroll = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL);
-    PMBuilder.HLSLEnableDebugNops = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_DEBUG_NOPS);
-    PMBuilder.HLSLEnableLifetimeMarkers = extHelper->IsLifetimeMarkersEnabled();
-    PMBuilder.HLSLEnablePartialLifetimeMarkers = extHelper->IsOptionEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
-  }
+  PMBuilder.EnableGVN = CodeGenOpts.HLSLIsOptionEnabled(hlsl::options::TOGGLE_GVN);
+  PMBuilder.HLSLNoSink = !CodeGenOpts.HLSLIsOptionEnabled(hlsl::options::TOGGLE_SINK);
+  PMBuilder.StructurizeLoopExitsForUnroll = CodeGenOpts.HLSLIsOptionEnabled(hlsl::options::TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL);
+  PMBuilder.HLSLEnableDebugNops = CodeGenOpts.HLSLIsOptionEnabled(hlsl::options::TOGGLE_DEBUG_NOPS);
+  PMBuilder.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLIsLifetimeMarkersEnabled();
+  PMBuilder.HLSLEnablePartialLifetimeMarkers = CodeGenOpts.HLSLIsOptionEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;

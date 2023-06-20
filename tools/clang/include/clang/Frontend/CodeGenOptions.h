@@ -212,6 +212,13 @@ public:
   std::vector<std::string> HLSLArguments;
   /// Helper for generating llvm bitcode for hlsl extensions.
   std::shared_ptr<hlsl::HLSLExtensionsCodegenHelper> HLSLExtensionsCodegen;
+  /// Helper function to query HLSL optimization toggle.
+  bool HLSLIsOptionEnabled(hlsl::options::Toggle Option) const {
+    return HLSLExtensionsCodegen && HLSLExtensionsCodegen->IsOptionEnabled(Option);
+  }
+  bool HLSLIsLifetimeMarkersEnabled() const {
+    return HLSLExtensionsCodegen && HLSLExtensionsCodegen->IsLifetimeMarkersEnabled();
+  }
   /// Signature packing mode (0 == default for target)
   unsigned HLSLSignaturePackingStrategy = 0;
   /// denormalized number mode ("ieee" for default)
