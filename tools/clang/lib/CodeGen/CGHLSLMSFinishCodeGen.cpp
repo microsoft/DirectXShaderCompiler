@@ -43,7 +43,6 @@
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
-#include "dxc/Support/DxcOptToggles.h"
 #include "dxc/HlslIntrinsicOp.h"
 
 #include <fenv.h>

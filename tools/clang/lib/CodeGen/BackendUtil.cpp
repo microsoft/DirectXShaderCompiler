@@ -45,7 +45,6 @@
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h"  // HLSL Change
 #include "dxc/Support/Global.h" // HLSL Change
-#include "dxc/Support/DxcOptToggles.h" // HLSL Change
 
 using namespace clang;
 using namespace llvm;

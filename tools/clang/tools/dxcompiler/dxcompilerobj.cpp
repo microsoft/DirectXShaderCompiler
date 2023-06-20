@@ -465,6 +465,7 @@ public:
   void UpdateSemanticDefinesAndOptToggles() override {
     // This shouldn't really be called more than once, but just in case it is,
     // do not repeatedly read semantic defines.
+    assert(!m_semanticDefinesUpdated);
     if (m_semanticDefinesUpdated) { 
       return;
     }
@@ -476,9 +477,8 @@ public:
 
     // Nothing to do if we have no defines.
     SemanticDefineErrorList errors;
-    if (defines.empty()) {
+    if (!defines.size())
       return;
-    }
 
     ParsedSemanticDefineList validated;
     GetValidatedSemanticDefines(defines, validated, errors);

@@ -216,6 +216,7 @@ public:
   bool HLSLIsOptionEnabled(hlsl::options::Toggle Option) const {
     return HLSLExtensionsCodegen && HLSLExtensionsCodegen->IsOptionEnabled(Option);
   }
+  /// Helper function to query whether lifetime-markers are enabled.
   bool HLSLIsLifetimeMarkersEnabled() const {
     return HLSLExtensionsCodegen && HLSLExtensionsCodegen->IsLifetimeMarkersEnabled();
   }
