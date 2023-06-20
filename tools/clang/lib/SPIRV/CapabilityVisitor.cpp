@@ -214,16 +214,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
-  // AccelerationStructureTypeNV 
-  else if (isa<AccelerationStructureTypeNV>(type)) {
-    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
-      addCapability(spv::Capability::RayTracingNV);
-      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
-    } else {
-      addCapability(spv::Capability::RayTracingKHR);
-      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
-    }
-  }
   // RayQueryTypeKHR type
   else if (isa<RayQueryTypeKHR>(type)) {
     addCapability(spv::Capability::RayQueryKHR);
