@@ -1124,7 +1124,8 @@ TEST_F(ExtensionTest, OptionFromDefineLifetimeMarkers) {
     // Test that semantic define can be used to turn on lifetime marker despite disabled with normal flag.
     {
       std::string modifiedShader =
-          std::string("\n#define FOO_ENABLE_LIFETIME_MARKERS 1\n") + shader;
+          std::string("\n#define MY_VAL 1\n") +
+          std::string("\n#define FOO_ENABLE_LIFETIME_MARKERS MY_VAL\n") + shader;
       Compiler c(m_dllSupport);
       c.RegisterSemanticDefine(L"FOO*");
       c.Compile(modifiedShader.data(), {L"/disable-lifetime-markers", L"/Vd", L"/fcgl"},
@@ -1141,7 +1142,8 @@ TEST_F(ExtensionTest, OptionFromDefineLifetimeMarkers) {
     // Test that semantic define can be used to turn off lifetime marker for >= SM6.6
     {
       std::string modifiedShader =
-          std::string("\n#define FOO_DISABLE_LIFETIME_MARKERS 1\n") + shader;
+          std::string("\n#define MY_VAL 1\n") +
+          std::string("\n#define FOO_DISABLE_LIFETIME_MARKERS MY_VAL\n") + shader;
 
       Compiler c(m_dllSupport);
       c.RegisterSemanticDefine(L"FOO*");

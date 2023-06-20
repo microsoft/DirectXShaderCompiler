@@ -502,21 +502,7 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   }
 
   if (!macros.empty()) {
-    // Make a copy of the preprocessor. Since MacroExpander does lexing, the
-    // internal state of the preprocessor is modified as a result. Since we're
-    // calling this AFTER we have started parsing, messing with the internal
-    // state of the preprocessor will cause crashes later on, as more things
-    // are being parsed.
-    std::unique_ptr<PreprocessorOptions> Opts(
-        new PreprocessorOptions(pp.getPreprocessorOpts()));
-    clang::LangOptions langOptionsCopy = pp.getLangOpts();
-    std::unique_ptr<Preprocessor> ppCopy(new Preprocessor(
-        Opts.get(), compiler.getDiagnostics(), langOptionsCopy, pp.getSourceManager(),
-        pp.getHeaderSearchInfo(), pp.getModuleLoader(),
-        pp.getIdentifierTable().getExternalIdentifierLookup()));
-    Opts.release(); // Opts are owned by the preprocessor copy now.
-
-    MacroExpander expander(*ppCopy);
+    MacroExpander expander(pp);
     for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
       std::string expandedValue;
       expander.ExpandMacro(m.second, &expandedValue);
