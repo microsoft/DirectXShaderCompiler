@@ -652,6 +652,12 @@ QualType getTypeWithCustomBitwidth(const ASTContext &ctx, QualType type,
     }
   }
 
+  // It could be a vector of size 1, which is treated as a scalar.
+  if (hlsl::IsHLSLVecType(type)) {
+    assert(hlsl::GetHLSLVecSize(type) == 1);
+    type = hlsl::GetHLSLVecElementType(type);
+  }
+
   // Scalar cases.
   assert(!type->isBooleanType());
   assert(type->isIntegerType() || type->isFloatingType());

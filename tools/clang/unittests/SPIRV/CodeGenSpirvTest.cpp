@@ -288,6 +288,9 @@ TEST_F(FileTest, UnaryOpLogicalNot) {
 // For sizeof()
 TEST_F(FileTest, UnaryOpSizeof) { runFileTest("unary-op.sizeof.hlsl"); }
 
+// For cast of size 1 float vectors
+TEST_F(FileTest, CastSize1Vectors) { runFileTest("cast.float1.half1.hlsl"); }
+
 // For assignments
 TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 TEST_F(FileTest, BinaryOpAssignImage) {
