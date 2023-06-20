@@ -877,7 +877,7 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
 
   // HLSL Change Begins
   // Don't emit the intrinsic for hlsl for now unless it is explicitly enabled
-  if (CGM.getCodeGenOpts().HLSLIsLifetimeMarkersEnabled())
+  if (!CGM.getCodeGenOpts().HLSLIsLifetimeMarkersEnabled())
     return nullptr;
   // HLSL Change Ends
 
