@@ -27,6 +27,7 @@ namespace options {
 struct Toggle {
   llvm::StringRef Name;
   bool Default = false;
+  Toggle(llvm::StringRef Name, bool Default) : Name(Name), Default(Default) {}
 };
 
 static const Toggle TOGGLE_GVN = {"gvn", true};

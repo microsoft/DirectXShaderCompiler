@@ -36,9 +36,21 @@ MacroExpander::MacroExpander(Preprocessor &PP_, unsigned options)
   if (options & STRIP_QUOTES)
     m_stripQuotes = true;
 
-  // The preprocess requires a file to be on the lexing stack when we
-  // call ExpandMacro. We add an empty in-memory buffer that we use
-  // just for expanding macros.
+  // There are two cases where we might use the Macro Expander:
+  // 
+  // 1. When we are not parsing a file:
+  // The preprocess requires a file to be on the lexing stack when we call
+  // ExpandMacro. We add an in-memory buffer that we use just for expanding
+  // macros.
+  // 
+  // 2. When we are in the middle of parsing a file.
+  // When we lex the macro tokens, even as the preprocessor reaches the end of
+  // the macro sequence, it will just pop the macro lexer off the stack and
+  // continue consuming the outer file. To detect reached the end of the macro,
+  // we put a single identifier into the memory buffer. When the tokenizer
+  // returns a token from that file handle, we know for sure we've just reached
+  // the end of the macro and the outer parsing can continue as normal.
+  //
   std::unique_ptr<llvm::MemoryBuffer> SB = llvm::MemoryBuffer::getMemBuffer("my_empty_token", "<hlsl-semantic-defines>");
   if (!SB) {
     DXASSERT(false, "Cannot create macro expansion source buffer");
@@ -46,11 +58,11 @@ MacroExpander::MacroExpander(Preprocessor &PP_, unsigned options)
   }
 
   // Unfortunately, there is no api in the SourceManager to lookup a
-  // previously added file, so we have to add the empty file every time
+  // previously added file, so we have to add the file every time
   // we expand macros. We could modify source manager to get/set the
   // macro file id similar to the one we have for getPreambleFileID.
   // Macros should only be expanded once (if needed for a root signature)
-  // or twice (for semantic defines) so adding an empty file every time
+  // or twice (for semantic defines) so adding a file every time
   // is probably not a big deal.
   m_expansionFileId = PP.getSourceManager().createFileID(std::move(SB));
   if (m_expansionFileId.isInvalid()) {
@@ -135,6 +147,7 @@ bool MacroExpander::ExpandMacro(MacroInfo *pMacro, std::string *out) {
 
   // Lex all the tokens from the macro and add them to the output.
   while (!Tok.is(tok::eof)) {
+    // The token is from the dummy file buffer. We're done.
     if (PP.getSourceManager().isInFileID(Tok.getLocation(),
                                          m_expansionFileId)) {
       break;
