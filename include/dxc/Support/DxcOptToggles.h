@@ -45,13 +45,13 @@ struct OptimizationToggles {
   std::map<std::string, bool>        Toggles; // OPT_opt_enable & OPT_opt_disable
   std::map<std::string, std::string> Selects; // OPT_opt_select
 
-  inline void Set(Toggle Opt, bool Value) {
+  void Set(Toggle Opt, bool Value) {
     Toggles[Opt.Name] = Value;
   }
-  inline bool Has(Toggle Opt) const {
+  bool Has(Toggle Opt) const {
     return Toggles.find(Opt.Name) != Toggles.end();
   }
-  inline bool Get(Toggle Opt) const {
+  bool Get(Toggle Opt) const {
     auto It = Toggles.find(Opt.Name);
     const bool Found = It != Toggles.end();
     if (Found)
