@@ -2110,10 +2110,12 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
 
   if (pDCV->VersionStringListSizeInBytes != 0) {
     LPCSTR pCommitHashStr = (LPCSTR)pDCV + sizeof(hlsl::DxilCompilerVersion);
+    uint32_t uCommitHashLen = (uint32_t)strlen(pCommitHashStr);
 
     VERIFY_ARE_EQUAL_STR(pCommitHashStr, pCommitHashRef);
-    if (pDCV->VersionStringListSizeInBytes > sizeof(pCommitHashStr) + 1) {
-      LPCSTR pCustomVersionString = pCommitHashStr + sizeof(pCommitHashStr) + 1;
+    // + 2 for the two null terminators that are included in this size:
+    if (pDCV->VersionStringListSizeInBytes > uCommitHashLen + 2) {
+      LPCSTR pCustomVersionString = pCommitHashStr + uCommitHashLen + 1;
       VERIFY_ARE_EQUAL_STR(pCustomVersionString, pCustomVersionStrRef)
     }
   }
