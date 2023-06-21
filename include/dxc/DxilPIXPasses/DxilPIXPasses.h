@@ -26,6 +26,7 @@ ModulePass *createDxilForceEarlyZPass();
 ModulePass *createDxilDebugInstrumentationPass();
 ModulePass *createDxilShaderAccessTrackingPass();
 ModulePass *createDxilPIXAddTidToAmplificationShaderPayloadPass();
+ModulePass *createDxilPIXDXRInvocationsLogPass();
 
 void initializeDxilAddPixelHitInstrumentationPass(llvm::PassRegistry&);
 void initializeDxilDbgValueToDbgDeclarePass(llvm::PassRegistry&);
@@ -38,5 +39,6 @@ void initializeDxilForceEarlyZPass(llvm::PassRegistry&);
 void initializeDxilDebugInstrumentationPass(llvm::PassRegistry&);
 void initializeDxilShaderAccessTrackingPass(llvm::PassRegistry&);
 void initializeDxilPIXAddTidToAmplificationShaderPayloadPass(llvm::PassRegistry&);
+void initializeDxilPIXDXRInvocationsLogPass(llvm::PassRegistry&);
 
 }

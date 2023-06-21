@@ -918,7 +918,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
         FOS << "ShouldAssumeDsvAccess";
       }
     }
-    int uavRegId = 0;
+
     for (auto * F : instrumentableFunctions) {
       DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
       if (!DM.HasDxilFunctionProps(F)) {
@@ -935,7 +935,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
       m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
-          DM, Builder, uavRegId++, "PIX_CountUAV_Handle");
+          DM, Builder, 0u, "PIX_CountUAV_Handle");
       //if (shaderKind  == DXIL::ShaderKind::AnyHit) 
       {
         Function *StoreFunc =

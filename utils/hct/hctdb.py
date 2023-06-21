@@ -2142,6 +2142,8 @@ class db_dxil(object):
         add_pass('hlsl-dxil-PIX-add-tid-to-as-payload', 'DxilPIXAddTidToAmplificationShaderPayload', 'HLSL DXIL Add flat thread id to payload from AS to MS', [
             {'n':'dispatchArgY','t':'int','c':1},
             {'n':'dispatchArgZ','t':'int','c':1}])
+        add_pass('hlsl-dxil-pix-dxr-invocations-log', 'DxilPIXDXRInvocationsLog', 'HLSL DXIL Logs all non-RayGen DXR 1.0 invocations into a UAV', [
+            {'n':'maxNumEntriesInLog','t':'int','c':1}])
 
         category_lib="dxil_gen"
 
