@@ -16,6 +16,8 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
+
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/DiagnosticInfo.h"
@@ -520,6 +522,12 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
       return true;
     if (name.startswith("LineStream<"))
       return true;
+
+    if (IsHLSLWaveMatrixType(Ty))
+      return true;
+
+    if (IsHLSLNodeIOType(Ty))
+      return true;
   }
   return false;
 }
@@ -537,20 +545,223 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
   return false;
 }
 
+bool IsHLSLWaveMatrixType(llvm::Type *Ty, DXIL::WaveMatrixKind *pKind) {
+  if (Ty->isPointerTy())
+    Ty = Ty->getPointerElementType();
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+    // TODO: don't check names.
+    ConsumePrefix(name, "class.");
+    if (!ConsumePrefix(name, "WaveMatrix"))
+      return false;
+    DXIL::WaveMatrixKind kind = DXIL::WaveMatrixKind::NumKinds;
+    if (name.startswith("Left<")) kind = DXIL::WaveMatrixKind::Left;
+    if (name.startswith("Right<")) kind = DXIL::WaveMatrixKind::Right;
+    if (name.startswith("LeftColAcc<")) kind = DXIL::WaveMatrixKind::LeftColAcc;
+    if (name.startswith("RightRowAcc<")) kind = DXIL::WaveMatrixKind::RightRowAcc;
+    if (name.startswith("Accumulator<")) kind = DXIL::WaveMatrixKind::Accumulator;
+    if (pKind)
+      *pKind = kind;
+    if (kind != DXIL::WaveMatrixKind::NumKinds)
+      return true;
+  }
+  return false;
+}
+
 bool IsHLSLResourceDescType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
       return false;
     StringRef name = ST->getName();
 
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
     // TODO: don't check names.
-    if (name == ("struct..Resource"))
+    if (name == (".Resource"))
       return true;
 
-    if (name == "struct..Sampler")
+    if (name == ".Sampler")
       return true;
   }
   return false;
+}
+
+bool IsHLSLNodeOutputType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if ( name.startswith("NodeOutput<")
+       || name.equals("EmptyNodeOutput"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLNodeOutputArrayType(llvm::Type* Ty) {
+  if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if (name.startswith("NodeOutputArray<")
+       || name.equals("EmptyNodeOutputArray"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLEmptyNodeOutputType(llvm::Type* Ty) {
+  if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if (name.equals("EmptyNodeOutput"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLEmptyNodeOutputArrayType(llvm::Type* Ty) {
+  if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if (name.equals("EmptyNodeOutputArray"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLNodeInputRecordType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if (name.startswith("DispatchNodeInputRecord<") ||
+      name.startswith("RWDispatchNodeInputRecord<") ||
+      name.startswith("GroupNodeInputRecords<") ||
+      name.startswith("RWGroupNodeInputRecords<") ||
+      name.startswith("ThreadNodeInputRecord<") ||
+      name.startswith("RWThreadNodeInputRecord<") ||
+      name.equals("EmptyNodeInput"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLNodeIOType(llvm::Type* Ty) {
+  return IsHLSLNodeInputRecordType(Ty) || IsHLSLNodeOutputType(Ty);
+}
+
+bool IsHLSLNodeEmptyInputRecordType(llvm::Type* Ty) {
+  if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if (name.equals("EmptyNodeInput"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLNodeEmptyOutputRecordType(llvm::Type* Ty) {
+  if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if (name.equals("EmptyNodeOutput"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLRWNodeInputRecordType(llvm::Type* Ty) {
+  if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    if (name.startswith("RWDispatchNodeInputRecord<") ||
+      name.startswith("RWGroupNodeInputRecords<") ||
+      name.startswith("RWThreadNodeInputRecord<"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLNodeOutputRecordType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
+
+    // TODO: don't check names.
+    if (name.startswith("GroupNodeOutputRecords<") ||
+      name.startswith("ThreadNodeOutputRecords<"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLGSNodeOutputRecordType(llvm::Type* Ty) {
+  if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    if (name.startswith("struct.GroupNodeOutputRecords<"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLNodeRecordType(llvm::Type *Ty) {
+  return IsHLSLNodeOutputRecordType(Ty) ||
+    IsHLSLNodeInputRecordType(Ty);
 }
 
 bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
@@ -610,6 +821,15 @@ llvm::Type* WrapInArrayTypes(llvm::Type *Ty, llvm::ArrayRef<unsigned> OuterToInn
     Ty = ArrayType::get(Ty, *it);
   }
   return Ty;
+}
+
+llvm::Value *MirrorGEP(llvm::GEPOperator *GEP, llvm::Value *NewBasePtr) {
+  IRBuilder<> Builder(GEP->getContext());
+  if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(GEP))
+    Builder.SetInsertPoint(GEPI);
+
+  SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
+  return Builder.CreateGEP(NewBasePtr, idxList);
 }
 
 namespace {
@@ -994,6 +1214,52 @@ Value *TryReplaceBaseCastWithGep(Value *V) {
   return nullptr;
 }
 
+// Calculate Offset
+Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
+  hlsl::OP *OP, const DataLayout &DL) {
+  SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+  Value *addr = nullptr;
+  // update offset
+  if (GEP->hasAllConstantIndices()) {
+    unsigned gepOffset =
+      DL.getIndexedOffset(GEP->getPointerOperandType(), Indices);
+    addr = OP->GetU32Const(gepOffset);
+  } else {
+    Value *offset = OP->GetU32Const(0);
+    gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
+    for (; GEPIt != E; GEPIt++) {
+      Value *idx = GEPIt.getOperand();
+      unsigned immIdx = 0;
+      if (llvm::Constant *constIdx = dyn_cast<llvm::Constant>(idx)) {
+        immIdx = constIdx->getUniqueInteger().getLimitedValue();
+        if (immIdx == 0)
+          continue;
+      }
+
+      if (GEPIt->isPointerTy() || GEPIt->isArrayTy() || GEPIt->isVectorTy()) {
+        unsigned size = DL.getTypeAllocSize(GEPIt->getSequentialElementType());
+        if (immIdx) {
+          unsigned tempOffset = size * immIdx;
+          offset = Builder.CreateAdd(offset, OP->GetU32Const(tempOffset));
+        } else {
+          Value *tempOffset = Builder.CreateMul(idx, OP->GetU32Const(size));
+          offset = Builder.CreateAdd(offset, tempOffset);
+        }
+      } else if (GEPIt->isStructTy()) {
+        const StructLayout *Layout = DL.getStructLayout(cast<StructType>(*GEPIt));
+        unsigned structOffset = Layout->getElementOffset(immIdx);
+        offset = Builder.CreateAdd(offset, OP->GetU32Const(structOffset));
+      } else {
+        gep_type_iterator temp = GEPIt;
+        temp++;
+        DXASSERT(temp == E, "scalar type must be the last");
+      }
+    }
+    addr = offset;
+  }
+  return addr;
+}
+
 struct AllocaDeleter {
   SmallVector<Value *, 10> WorkList;
   std::unordered_set<Value *> Seen;
@@ -1082,5 +1348,5 @@ bool DeleteDeadAllocas(llvm::Function &F) {
   return Changed;
 }
 
-}
-}
+} // namespace dxil util
+} //namespace hlsl

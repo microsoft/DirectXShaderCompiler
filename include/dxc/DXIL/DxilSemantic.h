@@ -54,7 +54,6 @@ private:
   static const Semantic ms_SemanticTable[kNumSemanticRecords];
 
   friend class ShaderModel;
-  friend class SignatureElement;
 };
 
 } // namespace hlsl

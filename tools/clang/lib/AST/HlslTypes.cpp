@@ -15,12 +15,14 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/DXIL/DxilNodeProps.h"
 #include "clang/AST/CanonicalType.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/AttributeList.h" // conceptually ParsedAttributes
 #include "clang/AST/ASTContext.h"
+#include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
 
@@ -150,6 +152,55 @@ bool IsHLSLAggregateType(clang::QualType type) {
   if (isa<clang::ArrayType>(type)) return true;
 
   return IsUserDefinedRecordType(type);
+}
+
+hlsl::NodeFlags GetNodeKind(llvm::StringRef nodekind) {
+  DXIL::NodeIOKind nodeKind =
+      llvm::StringSwitch<DXIL::NodeIOKind>(nodekind)
+          .Case("EmptyNodeInput", DXIL::NodeIOKind::EmptyInput)
+          .Case("DispatchNodeInputRecord",
+                DXIL::NodeIOKind::DispatchNodeInputRecord)
+          .Case("RWDispatchNodeInputRecord",
+                DXIL::NodeIOKind::RWDispatchNodeInputRecord)
+          .Case("GroupNodeInputRecords",
+                DXIL::NodeIOKind::GroupNodeInputRecords)
+          .Case("RWGroupNodeInputRecords",
+                DXIL::NodeIOKind::RWGroupNodeInputRecords)
+          .Case("ThreadNodeInputRecord",
+                DXIL::NodeIOKind::ThreadNodeInputRecord)
+          .Case("RWThreadNodeInputRecord",
+                DXIL::NodeIOKind::RWThreadNodeInputRecord)
+          .Case("NodeOutput", DXIL::NodeIOKind::NodeOutput)
+          .Case("NodeOutputArray", DXIL::NodeIOKind::NodeOutputArray)
+          .Case("EmptyNodeOutput", DXIL::NodeIOKind::EmptyOutput)
+          .Case("EmptyNodeOutputArray", DXIL::NodeIOKind::EmptyOutputArray)
+          .Case("ThreadNodeOutputRecords",
+                DXIL::NodeIOKind::ThreadNodeOutputRecords)
+          .Case("GroupNodeOutputRecords",
+                DXIL::NodeIOKind::GroupNodeOutputRecords)
+          .Default(DXIL::NodeIOKind::Invalid);
+
+  return NodeFlags(nodeKind);
+}
+
+bool GetHLSLNodeIORecordType(const ParmVarDecl *parmDecl, NodeFlags &nodeKind) {
+  clang::QualType paramTy = parmDecl->getType().getCanonicalType();
+
+  if (auto arrayType = dyn_cast<ConstantArrayType>(paramTy))
+    paramTy = arrayType->getElementType();
+
+  llvm::StringRef name;
+  if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
+      name = templateDecl->getName();
+    else
+      name = paramTy->getAsCXXRecordDecl()->getName();
+
+    nodeKind = GetNodeKind(name);
+    return nodeKind.IsValidNodeKind();
+  }
+  return false;
 }
 
 clang::QualType GetElementTypeOrType(clang::QualType type) {
@@ -392,6 +443,17 @@ void GetRowsAndColsForAny(QualType type, uint32_t &rowCount,
         const TemplateArgument &arg1 = argList[1];
         llvm::APSInt rowSize = arg1.getAsIntegral();
         colCount = rowSize.getLimitedValue();
+      } else if (templateDecl->getName().startswith("WaveMatrix")) {
+        auto name = templateDecl->getName();
+        if (name == "WaveMatrixLeft" ||
+            name == "WaveMatrixRight" ||
+            name == "WaveMatrixLeftColAcc" ||
+            name == "WaveMatrixRightRowAcc" ||
+            name == "WaveMatrixAccumulator") {
+          const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+          rowCount = argList[1].getAsIntegral().getLimitedValue();
+          colCount = argList[2].getAsIntegral().getLimitedValue();
+        }
       }
     }
   }
@@ -571,6 +633,18 @@ bool IsHLSLResourceType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLNodeInputType(clang::QualType type) {
+  if (const RecordType* RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "EmptyNodeInput" ||
+      name == "DispatchNodeInputRecord" || name == "RWDispatchNodeInputRecord" ||
+      name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
+      name == "ThreadNodeInputRecord" || name == "RWThreadNodeInputRecord")
+      return true;
+  }
+  return false;
+}
+
 bool IsHLSLDynamicResourceType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
@@ -579,10 +653,69 @@ bool IsHLSLDynamicResourceType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLBufferViewType(clang::QualType type) {
+bool IsHLSLNodeType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "EmptyNodeInput" || name == "DispatchNodeInputRecord" ||
+        name == "RWDispatchNodeInputRecord" ||
+        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
+        name == "ThreadNodeInputRecord" || name == "RWThreadNodeInputRecord")
+      return true;
+
+    if (name == "NodeOutput" || name == "NodeOutputArray" ||
+        name == "EmptyNodeOutput" || name == "EmptyNodeOutputArray")
+      return true;
+
+    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
     if (name == "ConstantBuffer" || name == "TextureBuffer")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    // Read-only records
+    if (name == "ConstantBuffer" || name == "TextureBuffer")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLRWNodeInputRecordType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "RWDispatchNodeInputRecord" ||
+        name == "RWGroupNodeInputRecords" || name == "RWThreadNodeInputRecord")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLRONodeInputRecordType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "DispatchNodeInputRecord" || name == "GroupNodeInputRecords" ||
+        name == "ThreadNodeInputRecord")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLNodeOutputType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "NodeOutput" || name == "NodeOutputArray" ||
+        name == "EmptyNodeOutput" || name == "EmptyNodeOutputArray")
       return true;
   }
   return false;

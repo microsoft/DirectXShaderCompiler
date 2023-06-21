@@ -1008,6 +1008,93 @@ public:
   }
 };
 
+//////////////////////////////////////////////////////////
+// DxilVersionWriter - Writes VERS part
+class DxilVersionWriter : public DxilPartWriter {
+  hlsl::DxilCompilerVersion m_Header = {};
+  CComHeapPtr<char> m_CommitShaStorage;
+  llvm::StringRef m_CommitSha = "";
+  CComHeapPtr<char> m_CustomStringStorage;
+  llvm::StringRef m_CustomString = "";
+public:
+  DxilVersionWriter(IDxcVersionInfo *pVersion)
+  {
+    Init(pVersion);
+  }
+
+  void Init(IDxcVersionInfo *pVersionInfo) {
+    m_Header = {};
+
+    UINT32 Major = 0, Minor = 0;
+    UINT32 Flags = 0;
+    IFT(pVersionInfo->GetVersion(&Major, &Minor));
+    IFT(pVersionInfo->GetFlags(&Flags));
+
+    m_Header.Major = Major;
+    m_Header.Minor = Minor;
+    m_Header.VersionFlags = Flags;
+    CComPtr<IDxcVersionInfo2> pVersionInfo2;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
+      UINT32 CommitCount = 0;
+      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
+      m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
+      m_Header.CommitCount = CommitCount;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size();
+    }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
+
+    CComPtr<IDxcVersionInfo3> pVersionInfo3;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
+      IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
+      m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size();
+    }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
+  }
+
+  static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
+    uint32_t rem = size % 4;
+    if (rem) {
+      uint32_t padding = (4 - rem);
+      if (outNumPadding)
+        *outNumPadding = padding;
+      return size + padding;
+    }
+    if (outNumPadding)
+      *outNumPadding = 0;
+    return size;
+  }
+
+  UINT32 size() const override {
+    return PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes);
+  }
+
+  void write(AbstractMemoryStream *pStream) override {
+    const uint8_t padByte = 0;
+    UINT32 uPadding = 0;
+    UINT32 uSize = PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes, &uPadding);
+    (void)uSize;
+
+    ULONG cbWritten = 0;
+    IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
+
+    // Write a null terminator even if the string is empty
+    IFT(pStream->Write(m_CommitSha.data(), m_CommitSha.size(), &cbWritten));
+    // Null terminator for the commit sha
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write the custom version string.
+    IFT(pStream->Write(m_CustomString.data(), m_CustomString.size(), &cbWritten));
+    // Null terminator for the custom version string.
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write padding
+    for (unsigned i = 0; i < uPadding; i++) {
+      IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+    }
+  }
+};
+
 using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
@@ -1170,6 +1257,312 @@ private:
     }
   }
 
+  uint32_t AddSigElements(const DxilSignature &sig, uint32_t &shaderFlags,
+                          uint8_t *pOutputStreamMask = nullptr) {
+    shaderFlags = 0;  // Fresh flags each call
+    SmallVector<uint32_t, 16> rdatElements;
+    for (auto &&E : sig.GetElements()) {
+      RDAT::SignatureElement e = {};
+      e.SemanticName = Builder.InsertString(E->GetSemanticName());
+      e.SemanticIndices = Builder.InsertArray(
+          E->GetSemanticIndexVec().begin(), E->GetSemanticIndexVec().end());
+      e.SemanticKind = (uint8_t)E->GetKind();
+      e.ComponentType = (uint8_t)E->GetCompType().GetKind();
+      e.InterpolationMode = (uint8_t)E->GetInterpolationMode()->GetKind();
+      e.StartRow = E->IsAllocated() ? E->GetStartRow() : 0xFF;
+      e.SetCols(E->GetCols());
+      e.SetStartCol(E->GetStartCol());
+      e.SetOutputStream(E->GetOutputStream());
+      e.SetUsageMask(E->GetUsageMask());
+      e.SetDynamicIndexMask(E->GetDynIdxCompMask());
+      rdatElements.push_back(Builder.InsertRecord(e));
+
+      if (E->GetKind() == DXIL::SemanticKind::Position)
+        shaderFlags |= (uint32_t)DxilShaderFlags::OutputPositionPresent;
+      if (E->GetInterpolationMode()->IsAnySample() ||
+          E->GetKind() == Semantic::Kind::SampleIndex)
+        shaderFlags |= (uint32_t)DxilShaderFlags::SampleFrequency;
+      if (E->IsAnyDepth())
+        shaderFlags |= (uint32_t)DxilShaderFlags::DepthOutput;
+
+      if (pOutputStreamMask)
+        *pOutputStreamMask |= 1 << E->GetOutputStream();
+    }
+    return Builder.InsertArray(rdatElements.begin(), rdatElements.end());
+  }
+
+  uint32_t AddIONodes(const std::vector<NodeIOProperties> &nodes) {
+    SmallVector<uint32_t, 16> rdatNodes;
+    for (auto &N : nodes) {
+      RDAT::IONode ioNode = {};
+      ioNode.IOFlagsAndKind = N.Flags;
+      SmallVector<uint32_t, 16> nodeAttribs;
+      RDAT::NodeShaderIOAttrib nAttrib = {};
+      if (N.Flags.IsOutputNode()) {
+        nAttrib = {};
+        nAttrib.AttribKind = (uint32_t)NodeAttribKind::OutputID;
+        RDAT::NodeID ID = {};
+        ID.Name = Builder.InsertString(N.OutputID.Name);
+        ID.Index = N.OutputID.Index;
+        nAttrib.OutputID =  Builder.InsertRecord(ID);
+        nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+
+        nAttrib = {};
+        nAttrib.AttribKind = (uint32_t)NodeAttribKind::OutputArraySize;
+        nAttrib.OutputArraySize = N.OutputArraySize;
+        nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+
+        // Only include if these are specified
+        if (N.MaxRecords) {
+          nAttrib = {};
+          nAttrib.AttribKind = (uint32_t)NodeAttribKind::MaxRecords;
+          nAttrib.MaxRecords = N.MaxRecords;
+          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+        } else if (N.MaxRecordsSharedWith >= 0) {
+          nAttrib = {};
+          nAttrib.AttribKind = (uint32_t)RDAT::NodeAttribKind::MaxRecordsSharedWith;
+          nAttrib.MaxRecordsSharedWith = N.MaxRecordsSharedWith;
+          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+        }
+        if (N.AllowSparseNodes) {
+          nAttrib = {};
+          nAttrib.AttribKind = (uint32_t)RDAT::NodeAttribKind::AllowSparseNodes;
+          nAttrib.AllowSparseNodes = N.AllowSparseNodes;
+          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+        }
+      } else if (N.Flags.IsInputRecord()) {
+        if (N.MaxRecords) {
+          nAttrib = {};
+          nAttrib.AttribKind = (uint32_t)NodeAttribKind::MaxRecords;
+          nAttrib.MaxRecords = N.MaxRecords;
+          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+        }
+      }
+
+      // Common attributes
+      if (N.RecordType.size) {
+        nAttrib = {};
+        nAttrib.AttribKind = (uint32_t)NodeAttribKind::RecordSizeInBytes;
+        nAttrib.RecordSizeInBytes = N.RecordType.size;
+        nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+
+        if (N.RecordType.SV_DispatchGrid.ComponentType != DXIL::ComponentType::Invalid) {
+          nAttrib = {};
+          nAttrib.AttribKind = (uint32_t)NodeAttribKind::RecordDispatchGrid;
+          nAttrib.RecordDispatchGrid.ByteOffset = (uint16_t)N.RecordType.SV_DispatchGrid.ByteOffset;
+          nAttrib.RecordDispatchGrid.SetComponentType(N.RecordType.SV_DispatchGrid.ComponentType);
+          nAttrib.RecordDispatchGrid.SetNumComponents(N.RecordType.SV_DispatchGrid.NumComponents);
+          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+        }
+      }
+
+
+      ioNode.Attribs = Builder.InsertArray(nodeAttribs.begin(), nodeAttribs.end());
+      rdatNodes.push_back(Builder.InsertRecord(ioNode));
+    }
+    return Builder.InsertArray(rdatNodes.begin(), rdatNodes.end());
+  }
+
+  uint32_t AddShaderInfo(llvm::Function &function,
+                         const DxilEntryProps &entryProps,
+                         RuntimeDataFunctionInfo2 &funcInfo,
+                         const ShaderFlags &flags,
+                         uint32_t tgsmSizeInBytes) {
+    const DxilFunctionProps &props = entryProps.props;
+    const DxilEntrySignature &sig = entryProps.sig;
+    if (props.waveSize) {
+      funcInfo.MinimumExpectedWaveLaneCount = props.waveSize;
+      funcInfo.MaximumExpectedWaveLaneCount = props.waveSize;
+    }
+    funcInfo.ShaderFlags = 0;
+    if (flags.GetViewID())
+      funcInfo.ShaderFlags |= (uint16_t)DxilShaderFlags::UsesViewID;
+    uint32_t shaderFlags = 0;
+    switch (props.shaderKind) {
+    case ShaderKind::Pixel: {
+      RDAT::PSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::SampleFrequency);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::DepthOutput);
+      return Builder.InsertRecord(info);
+    } break;
+    case ShaderKind::Vertex: {
+      RDAT::VSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      // TODO: Fill in ViewID related masks
+      return Builder.InsertRecord(info);
+    } break;
+    case ShaderKind::Geometry: {
+      RDAT::GSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      shaderFlags = 0;
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags, &info.OutputStreamMask);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      // TODO: Fill in ViewID related masks
+      info.InputPrimitive = (uint8_t)props.ShaderProps.GS.inputPrimitive;
+      info.OutputTopology = (uint8_t)props.ShaderProps.GS.streamPrimitiveTopologies[0];
+      info.MaxVertexCount = (uint8_t)props.ShaderProps.GS.maxVertexCount;
+      return Builder.InsertRecord(info);
+    } break;
+    case ShaderKind::Hull: {
+      RDAT::HSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      info.SigPatchConstOutputElements = AddSigElements(sig.PatchConstOrPrimSignature, shaderFlags);
+      // TODO: Fill in ViewID related masks
+      info.InputControlPointCount = (uint8_t)props.ShaderProps.HS.inputControlPoints;
+      info.OutputControlPointCount = (uint8_t)props.ShaderProps.HS.outputControlPoints;
+      info.TessellatorDomain = (uint8_t)props.ShaderProps.HS.domain;
+      info.TessellatorOutputPrimitive = (uint8_t)props.ShaderProps.HS.outputPrimitive;
+      return Builder.InsertRecord(info);
+    } break;
+    case ShaderKind::Domain: {
+      RDAT::DSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      info.SigPatchConstInputElements = AddSigElements(sig.PatchConstOrPrimSignature, shaderFlags);
+      // TODO: Fill in ViewID related masks
+      info.InputControlPointCount = (uint8_t)props.ShaderProps.DS.inputControlPoints;
+      info.TessellatorDomain = (uint8_t)props.ShaderProps.DS.domain;
+      return Builder.InsertRecord(info);
+    } break;
+    case ShaderKind::Compute: {
+      RDAT::CSInfo info = {};
+      info.NumThreads =
+          Builder.InsertArray(&props.numThreads[0],
+                              &props.numThreads[0] + 3);
+      info.GroupSharedBytesUsed = tgsmSizeInBytes;
+      return Builder.InsertRecord(info);
+    } break;
+    case ShaderKind::Mesh: {
+      RDAT::MSInfo info = {};
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      info.SigPrimOutputElements = AddSigElements(sig.PatchConstOrPrimSignature, shaderFlags);
+      // TODO: Fill in ViewID related masks
+      info.NumThreads =
+          Builder.InsertArray(&props.numThreads[0],
+                              &props.numThreads[0] + 3);
+      info.GroupSharedBytesUsed = tgsmSizeInBytes;
+      info.GroupSharedBytesDependentOnViewID = (uint32_t)0; // TODO: same thing (note: this isn't filled in for PSV!)
+      info.PayloadSizeInBytes = (uint32_t)props.ShaderProps.MS.payloadSizeInBytes;
+      info.MaxOutputVertices = (uint16_t)props.ShaderProps.MS.maxVertexCount;
+      info.MaxOutputPrimitives = (uint16_t)props.ShaderProps.MS.maxPrimitiveCount;
+      info.MeshOutputTopology = (uint8_t)props.ShaderProps.MS.outputTopology;
+      return Builder.InsertRecord(info);
+    } break;
+    case ShaderKind::Amplification: {
+      RDAT::ASInfo info = {};
+      info.NumThreads =
+          Builder.InsertArray(&props.numThreads[0],
+                              &props.numThreads[0] + 3);
+      info.GroupSharedBytesUsed = tgsmSizeInBytes;
+      info.PayloadSizeInBytes = (uint32_t)props.ShaderProps.AS.payloadSizeInBytes;
+      return Builder.InsertRecord(info);
+    } break;
+    }
+    return RDAT_NULL_REF;
+  }
+
+  uint32_t AddShaderNodeInfo(const DxilModule &DM, llvm::Function &function,
+                             const DxilEntryProps &entryProps,
+                             RuntimeDataFunctionInfo3 &funcInfo,
+                             uint32_t tgsmSizeInBytes) {
+    const DxilFunctionProps &props = entryProps.props;
+
+    // Add node info
+    RDAT::NodeShaderInfo nInfo = {};
+
+    RDAT::NodeShaderFuncAttrib nAttrib = {};
+    SmallVector<uint32_t, 16> funcAttribs;
+
+    // LaunchType is technically optional, but less optional
+    nInfo.LaunchType = (uint32_t)props.Node.LaunchType;
+    nInfo.GroupSharedBytesUsed = tgsmSizeInBytes;
+
+    // Add the function attribute fields
+    if (!props.NodeShaderID.Name.empty()) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::ID;
+      RDAT::NodeID ID = {};
+      ID.Name = Builder.InsertString(props.NodeShaderID.Name);
+      ID.Index = props.NodeShaderID.Index;
+      nAttrib.ID =  Builder.InsertRecord(ID);
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    if (props.Node.IsProgramEntry)
+      funcInfo.ShaderFlags |= (uint16_t)DxilShaderFlags::NodeProgramEntry;
+
+    if (props.numThreads[0] || props.numThreads[1] || props.numThreads[2]) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::NumThreads;
+      nAttrib.NumThreads =
+        Builder.InsertArray(&props.numThreads[0],
+                            &props.numThreads[0] + 3);
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    if (props.Node.LocalRootArgumentsTableIndex >= 0) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::LocalRootArgumentsTableIndex;
+      nAttrib.LocalRootArgumentsTableIndex = props.Node.LocalRootArgumentsTableIndex;
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    if (!props.NodeShaderSharedInput.Name.empty()) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::ShareInputOf;
+      RDAT::NodeID ID = {};
+      ID.Name = Builder.InsertString(props.NodeShaderSharedInput.Name);
+      ID.Index = props.NodeShaderSharedInput.Index;
+      nAttrib.ShareInputOf =  Builder.InsertRecord(ID);
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    if (props.Node.DispatchGrid[0] ||
+        props.Node.DispatchGrid[1] ||
+        props.Node.DispatchGrid[2]) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::DispatchGrid;
+      nAttrib.DispatchGrid =
+        Builder.InsertArray(&props.Node.DispatchGrid[0],
+                                     &props.Node.DispatchGrid[0] + 3);
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    if (props.Node.MaxRecursionDepth) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::MaxRecursionDepth;
+      nAttrib.MaxRecursionDepth = props.Node.MaxRecursionDepth;
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    if (props.Node.MaxDispatchGrid[0] ||
+        props.Node.MaxDispatchGrid[1] ||
+        props.Node.MaxDispatchGrid[2]) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::MaxDispatchGrid;
+      nAttrib.MaxDispatchGrid =
+        Builder.InsertArray(&props.Node.MaxDispatchGrid[0],
+                                     &props.Node.MaxDispatchGrid[0] + 3);
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    nInfo.Attribs = Builder.InsertArray(funcAttribs.begin(), funcAttribs.end());
+
+    // Add the input and output nodes
+    nInfo.Inputs = AddIONodes(props.InputNodes);
+    nInfo.Outputs = AddIONodes(props.OutputNodes);
+
+    return Builder.InsertRecord(nInfo);
+
+  }
+
   void UpdateFunctionInfo(const DxilModule &DM) {
     llvm::Module *M = DM.GetModule();
     // We must select the appropriate shader mask for the validator version,
@@ -1191,6 +1584,42 @@ private:
       }
     }
 
+    // Collect total groupshared memory potentially used by every function
+    const DataLayout &DL = M->getDataLayout();
+    ValueMap<const Function *, uint32_t> TGSMInFunc;
+    // Initialize all function TGSM usage to zero
+    for (auto &function : M->getFunctionList()) {
+      TGSMInFunc[&function] = 0;
+    }
+    for (GlobalVariable &GV : M->globals()) {
+      if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+        SmallPtrSet<llvm::Function *, 8> completeFuncs;
+        SmallVector<User *, 16> WorkList;
+        uint32_t gvSize = DL.getTypeAllocSize(GV.getType()->getElementType());
+
+        WorkList.append(GV.user_begin(), GV.user_end());
+
+        while (!WorkList.empty()) {
+          User *U = WorkList.pop_back_val();
+          // If const, keep going until we find something we can use
+          if (isa<Constant>(U)) {
+            WorkList.append(U->user_begin(), U->user_end());
+            continue;
+          }
+
+          if (Instruction *I = dyn_cast<Instruction>(U)) {
+            llvm::Function *F = I->getParent()->getParent();
+            if (completeFuncs.insert(F).second) {
+              // If function is new, process it and its users
+              // Add users to the worklist
+              WorkList.append(F->user_begin(), F->user_end());
+              // Add groupshared size to function's total
+              TGSMInFunc[F] += gvSize;
+            }
+          }
+        }
+      }
+    }
 
     for (auto &function : M->getFunctionList()) {
       if (!function.isDeclaration()) {
@@ -1204,6 +1633,8 @@ private:
         uint32_t payloadSizeInBytes = 0;
         uint32_t attrSizeInBytes = 0;
         uint32_t shaderKind = static_cast<uint32_t>(DXIL::ShaderKind::Library);
+        uint32_t shaderInfo = RDAT_NULL_REF;
+        uint32_t nodeInfo = RDAT_NULL_REF;
 
         if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
           resourceIndex =
@@ -1213,7 +1644,16 @@ private:
           functionDependencies =
               Builder.InsertArray(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
-        RuntimeDataFunctionInfo info = {};
+        RuntimeDataFunctionInfo3 info_latest = {};
+        RuntimeDataFunctionInfo &info = info_latest;
+        RuntimeDataFunctionInfo2 *pInfo2 = (sizeof(RuntimeDataFunctionInfo2) <=
+                                            m_pFunctionTable->GetRecordStride())
+                                               ? &info_latest
+                                               : nullptr;
+        RuntimeDataFunctionInfo3 *pInfo3 = (sizeof(RuntimeDataFunctionInfo3) <=
+                                            m_pFunctionTable->GetRecordStride())
+                                               ? &info_latest
+                                               : nullptr;
         ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
         if (DM.HasDxilFunctionProps(&function)) {
           const auto &props = DM.GetDxilFunctionProps(&function);
@@ -1228,10 +1668,22 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
+          if (pInfo2 && DM.HasDxilEntryProps(&function)) {
+            const auto &entryProps = DM.GetDxilEntryProps(&function);
+            shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags, TGSMInFunc[&function]);
+            if (pInfo3 && (entryProps.props.shaderKind == ShaderKind::Node ||
+                           entryProps.props.IsNode())) {
+              nodeInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo3, TGSMInFunc[&function]);
+            }
+          }
         }
         info.Name = mangledIndex;
         info.UnmangledName = unmangledIndex;
         info.ShaderKind = shaderKind;
+        if (pInfo2)
+          pInfo2->RawShaderRef = shaderInfo;
+        if (pInfo3)
+          pInfo3->Node = nodeInfo;
         info.Resources = resourceIndex;
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
@@ -1264,7 +1716,7 @@ private:
           info.ShaderStageFlag &= compatInfo.mask;
         }
         info.MinShaderTarget = EncodeVersion((DXIL::ShaderKind)shaderKind, minMajor, minMinor);
-        m_pFunctionTable->Insert(info);
+        m_pFunctionTable->Insert(info_latest);
       }
     }
   }
@@ -1360,6 +1812,11 @@ public:
   Builder.GetStringBufferPart();
   m_pResourceTable = Builder.GetOrAddTable<RuntimeDataResourceInfo>();
   m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+    m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo3));
+  } else {
+    m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo));
+  }
   Builder.GetIndexArraysPart();
   Builder.GetRawBytesPart();
   if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::PartType() <= maxAllowedType)
@@ -1367,8 +1824,8 @@ public:
 
 // Once per table.
 #define RDAT_STRUCT_TABLE(type, table) \
-  if (RDAT::RecordTraits<type>::PartType() <= maxAllowedType) \
-    (void)Builder.GetOrAddTable<type>();
+  if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType) \
+    (void)Builder.GetOrAddTable<RDAT::type>();
 
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
@@ -1396,6 +1853,10 @@ DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
 
 DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
   return new DxilRDATWriter(M);
+}
+
+DxilPartWriter *hlsl::NewVersionWriter(IDxcVersionInfo *DXCVersionInfo) {
+  return new DxilVersionWriter(DXCVersionInfo);
 }
 
 class DxilContainerWriter_impl : public DxilContainerWriter  {
@@ -1575,6 +2036,7 @@ void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pRefle
 
 void hlsl::SerializeDxilContainerForModule(
     DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    IDxcVersionInfo *DXCVersionInfo,
     AbstractMemoryStream *pFinalStream, llvm::StringRef DebugName,
     SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut,
     AbstractMemoryStream *pReflectionStreamOut,
@@ -1646,17 +2108,32 @@ void hlsl::SerializeDxilContainerForModule(
                      });
     }
   }
+  std::unique_ptr<DxilVersionWriter> pVERSWriter = nullptr;
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
+
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
   RootSignatureWriter rootSigWriter(std::move(pModule->GetSerializedRootSignature())); // Grab RS here
   DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
-  if (pModule->GetShaderModel()->IsLib()) {
+  const hlsl::ShaderModel *pSM = pModule->GetShaderModel();
+  if (pSM->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
+    // Write the DxilCompilerVersion (VERS) part.
+
+    if (pSM->IsSM68Plus() && DXCVersionInfo) {
+      pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
+
+      writer.AddPart(hlsl::DFCC_CompilerVersion, pVERSWriter->size(),
+                     [&pVERSWriter](AbstractMemoryStream *pStream) {
+                       pVERSWriter->write(pStream);
+                       return S_OK;
+                     });
+    }
+
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(

@@ -407,13 +407,116 @@ void hlsl::AddHLSLVectorTemplate(ASTContext& context, ClassTemplateDecl** vector
   *vectorTemplateDecl = classTemplateDecl;
 }
 
+static void AddRecordAccessMethod(clang::ASTContext &Ctx,
+                                  clang::CXXRecordDecl *RD,
+                                  clang::QualType ReturnTy,
+                                  bool IsGetOrSubscript, bool IsConst,
+                                  bool IsArray) {
+  DeclarationName DeclName =
+      IsGetOrSubscript ? DeclarationName(&Ctx.Idents.get("Get"))
+                       : Ctx.DeclarationNames.getCXXOperatorName(OO_Subscript);
+
+  if (IsConst)
+    ReturnTy.addConst();
+
+  ReturnTy = Ctx.getLValueReferenceType(ReturnTy);
+
+  QualType ArgTypes[] = {Ctx.UnsignedIntTy};
+  ArrayRef<QualType> Types = IsArray ? ArgTypes : ArrayRef<QualType>();
+  StringRef ArgNames[] = {"Index"};
+  ArrayRef<StringRef> Names = IsArray ? ArgNames : ArrayRef<StringRef>();
+
+  CXXMethodDecl *MethodDecl = CreateObjectFunctionDeclarationWithParams(
+      Ctx, RD, ReturnTy, Types, Names, DeclName, IsConst);
+
+  if (IsGetOrSubscript && IsArray) {
+    ParmVarDecl *IndexParam = MethodDecl->getParamDecl(0);
+    Expr *ConstantZero = IntegerLiteral::Create(
+        Ctx, llvm::APInt(Ctx.getIntWidth(Ctx.UnsignedIntTy), 0),
+        Ctx.UnsignedIntTy, NoLoc);
+    IndexParam->setDefaultArg(ConstantZero);
+  }
+
+  StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLIntrinsic);
+  unsigned Opcode =
+      static_cast<unsigned>(IntrinsicOp::IOP_ExtractRecordStructFromArray);
+  MethodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      Ctx, OpcodeGroup, "ExtractRecordStructFromArray", Opcode));
+  MethodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Ctx));
+}
+
+static void AddRecordGetMethods(clang::ASTContext &Ctx,
+                                clang::CXXRecordDecl *RD,
+                                clang::QualType ReturnTy, bool IsConstOnly,
+                                bool IsArray) {
+  if (!IsConstOnly)
+    AddRecordAccessMethod(Ctx, RD, ReturnTy, true, false, IsArray);
+  AddRecordAccessMethod(Ctx, RD, ReturnTy, true, true, IsArray);
+}
+
+static void AddRecordSubscriptAccess(clang::ASTContext &Ctx,
+                                     clang::CXXRecordDecl *RD,
+                                     clang::QualType ReturnTy,
+                                     bool IsConstOnly) {
+  if (!IsConstOnly)
+    AddRecordAccessMethod(Ctx, RD, ReturnTy, false, false, true);
+  AddRecordAccessMethod(Ctx, RD, ReturnTy, false, true, true);
+}
+
+/// <summary>Adds up-front support for HLSL *NodeOutputRecords template
+/// types.</summary>
+void hlsl::AddHLSLNodeOutputRecordTemplate(
+    ASTContext &context, StringRef templateName,
+    ClassTemplateDecl **outputRecordTemplateDecl,
+    bool isCompleteType /*= true*/) {
+  DXASSERT_NOMSG(outputRecordTemplateDecl != nullptr);
+
+  // Create a *NodeOutputRecords template declaration in translation unit scope.
+  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
+                                         templateName,
+                                         TagDecl::TagKind::TTK_Struct);
+  TemplateTypeParmDecl *outputTemplateParamDecl =
+      typeDeclBuilder.addTypeTemplateParam("recordType");
+  typeDeclBuilder.startDefinition();
+  ClassTemplateDecl *classTemplateDecl = typeDeclBuilder.getTemplateDecl();
+
+  // Add an 'h' field to hold the handle.
+  typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
+
+  QualType elementType = context.getTemplateTypeParmType(
+      0, 0, ParameterPackFalse, outputTemplateParamDecl);
+
+  CXXRecordDecl *record = typeDeclBuilder.getRecordDecl();
+
+  // Subscript operator is required for Node Array Types.
+  AddRecordSubscriptAccess(context, record, elementType, false);
+  AddRecordGetMethods(context, record, elementType, false, true);
+
+  if (isCompleteType)
+    typeDeclBuilder.completeDefinition();
+  *outputRecordTemplateDecl = classTemplateDecl;
+}
+
 /// <summary>
 /// Adds a new record type in the specified context with the given name. The record type will have a handle field.
 /// </summary>
-CXXRecordDecl* hlsl::DeclareRecordTypeWithHandle(ASTContext& context, StringRef name) {
+CXXRecordDecl* hlsl::DeclareRecordTypeWithHandleAndNoMemberFunctions(ASTContext& context, StringRef name) {
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name, TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
+  typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
+}
+
+/// <summary>
+/// Adds a new record type in the specified context with the given name. The record type will have a handle field.
+/// </summary>
+CXXRecordDecl* hlsl::DeclareRecordTypeWithHandle(ASTContext& context, StringRef name, bool isCompleteType /*= true */) {
+  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name, TagDecl::TagKind::TTK_Struct);
+  typeDeclBuilder.startDefinition();
+  typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
+  if (isCompleteType)
+    return typeDeclBuilder.completeDefinition();
   return typeDeclBuilder.getRecordDecl();
 }
 
@@ -501,6 +604,23 @@ void hlsl::AddRaytracingConstants(ASTContext& context) {
 void hlsl::AddSamplerFeedbackConstants(ASTContext& context) {
   AddConstUInt(context, StringRef("SAMPLER_FEEDBACK_MIN_MIP"), (unsigned)DXIL::SamplerFeedbackType::MinMip);
   AddConstUInt(context, StringRef("SAMPLER_FEEDBACK_MIP_REGION_USED"), (unsigned)DXIL::SamplerFeedbackType::MipRegionUsed);
+}
+
+/// <summary> Adds all enums for Barrier intrinsic</summary>
+void hlsl::AddBarrierConstants(ASTContext& context) {
+  AddTypedefPseudoEnum(context, "MEMORY_TYPE_FLAG", {
+    { "UAV_MEMORY", (unsigned)DXIL::MemoryTypeFlag::UavMemory },
+    { "GROUP_SHARED_MEMORY", (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory },
+    { "NODE_INPUT_MEMORY", (unsigned)DXIL::MemoryTypeFlag::NodeInputMemory },
+    { "NODE_OUTPUT_MEMORY", (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory }
+  });
+  AddTypedefPseudoEnum(context, "ACCESS_FLAG", {
+    { "DEVICE_VISIBLE", (unsigned)DXIL::AccessFlag::DeviceVisible },
+    { "GROUP_VISIBLE", (unsigned)DXIL::AccessFlag::GroupVisible }
+  });
+  AddTypedefPseudoEnum(context, "SYNC_FLAG", {
+    { "GROUP_SYNC", (unsigned)DXIL::SyncFlag::GroupSync }
+  });
 }
 
 static
@@ -863,20 +983,24 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
   return functionDecl;
 }
 
-CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
-  ASTContext& context, StringRef typeName, StringRef templateParamName) {
+CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandle(
+    ASTContext &context, StringRef typeName, StringRef templateParamName,
+    TagTypeKind tagKind) {
   return DeclareUIntTemplatedTypeWithHandleInDeclContext(
-      context, context.getTranslationUnitDecl(), typeName, templateParamName);
+      context, context.getTranslationUnitDecl(), typeName, templateParamName,
+      tagKind);
 }
 
 CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
     ASTContext &context, DeclContext *declContext, StringRef typeName,
-    StringRef templateParamName) {
+    StringRef templateParamName, TagTypeKind tagKind) {
   // template<uint kind> FeedbackTexture2D[Array] { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName);
-  typeDeclBuilder.addIntegerTemplateParam(templateParamName, context.UnsignedIntTy);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName, tagKind);
+  typeDeclBuilder.addIntegerTemplateParam(templateParamName,
+                                          context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
-  typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+  typeDeclBuilder.addField(
+      "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
   return typeDeclBuilder.getRecordDecl();
 }
 
@@ -921,6 +1045,24 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   return typeDeclBuilder.getRecordDecl();
 }
 
+clang::CXXRecordDecl *hlsl::DeclareWaveMatrixType(clang::ASTContext &context,
+                                                  DXIL::WaveMatrixKind kind) {
+  StringRef Name = GetWaveMatrixName(kind);
+  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
+                                         Name);
+  typeDeclBuilder.addTypeTemplateParam("element");
+  typeDeclBuilder.addIntegerTemplateParam("dimM", context.UnsignedIntTy);
+  typeDeclBuilder.addIntegerTemplateParam("dimN", context.UnsignedIntTy);
+
+  typeDeclBuilder.startDefinition();
+  CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();
+
+  // Add an 'h' field to hold the handle.
+  typeDeclBuilder.addField("h", context.UnsignedIntTy);
+
+  return templateRecordDecl;
+}
+
 CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
   // struct ResourceDescriptor { uint8 desc; }
   StringRef Name = bSampler?".Sampler":".Resource";
@@ -947,6 +1089,92 @@ CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
       static_cast<int>(hlsl::IntrinsicOp::IOP_CreateResourceFromHeap)));
   functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
   return recordDecl;
+}
+
+CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
+    clang::ASTContext &Ctx, StringRef TypeName, bool IsRecordTypeTemplate,
+    bool IsConst, bool HasGetMethods, bool IsArray, bool IsCompleteType) {
+
+  BuiltinTypeDeclBuilder Builder(Ctx.getTranslationUnitDecl(), TypeName,
+                                 TagDecl::TagKind::TTK_Struct);
+  TemplateTypeParmDecl *TyParamDecl = nullptr;
+
+  if (IsRecordTypeTemplate)
+    TyParamDecl = Builder.addTypeTemplateParam("recordtype");
+
+  Builder.startDefinition();
+  Builder.addField("h", GetHLSLObjectHandleType(Ctx));
+
+  if (IsRecordTypeTemplate) {
+    QualType ParamTy = QualType(TyParamDecl->getTypeForDecl(), 0);
+    CXXRecordDecl *Record = Builder.getRecordDecl();
+
+    if (HasGetMethods || IsArray)
+      AddRecordGetMethods(Ctx, Record, ParamTy, IsConst, IsArray);
+
+    if (IsArray)
+      AddRecordSubscriptAccess(Ctx, Record, ParamTy, IsConst);
+  }
+
+  if (IsCompleteType)
+    return Builder.completeDefinition();
+
+  return Builder.getRecordDecl();
+}
+
+CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
+                                            StringRef TypeName,
+                                            CXXRecordDecl *OutputType,
+                                            bool IsRecordTypeTemplate,
+                                            bool IsCompleteType) {
+
+  BuiltinTypeDeclBuilder Builder(Ctx.getTranslationUnitDecl(), TypeName,
+                                 TagDecl::TagKind::TTK_Struct);
+  TemplateTypeParmDecl *elementTemplateParamDecl = nullptr;
+
+  if (IsRecordTypeTemplate)
+    elementTemplateParamDecl = Builder.addTypeTemplateParam("recordtype");
+
+  Builder.startDefinition();
+  Builder.addField("h", GetHLSLObjectHandleType(Ctx));
+  QualType ResultType;
+  if (IsRecordTypeTemplate) {
+    QualType elementType = Ctx.getTemplateTypeParmType(
+        /*templateDepth*/ 0, /*index*/ 0, ParameterPackFalse,
+        elementTemplateParamDecl);
+
+    const clang::Type *nodeOutputTy = OutputType->getTypeForDecl();
+
+    TemplateArgument templateArgs[1] = {TemplateArgument(elementType)};
+
+    TemplateName canonName = Ctx.getCanonicalTemplateName(
+        TemplateName(OutputType->getDescribedClassTemplate()));
+    ResultType = Ctx.getTemplateSpecializationType(canonName, templateArgs,
+                                                   _countof(templateArgs),
+                                                   QualType(nodeOutputTy, 0));
+  } else {
+    // For Non Template types(like EmptyNodeOutput)
+    ResultType = Ctx.getTypeDeclType(OutputType);
+  }
+
+  QualType indexType = Ctx.UnsignedIntTy;
+
+  auto methodDecl = CreateObjectFunctionDeclarationWithParams(
+      Ctx, Builder.getRecordDecl(), ResultType, ArrayRef<QualType>(indexType),
+      ArrayRef<StringRef>(StringRef("index")),
+      Ctx.DeclarationNames.getCXXOperatorName(OO_Subscript), false);
+
+  StringRef OpcodeGroup =
+      GetHLOpcodeGroupName(HLOpcodeGroup::HLIndexNodeHandle);
+  unsigned Opcode = static_cast<unsigned>(HLOpcodeGroup::HLIndexNodeHandle);
+  methodDecl->addAttr(
+      HLSLIntrinsicAttr::CreateImplicit(Ctx, OpcodeGroup, "", Opcode));
+  methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Ctx));
+
+  if (IsCompleteType)
+    return Builder.completeDefinition();
+
+  return Builder.getRecordDecl();
 }
 
 VarDecl *hlsl::DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
@@ -990,6 +1218,19 @@ bool hlsl::GetIntrinsicLowering(const clang::FunctionDecl *FD, llvm::StringRef &
   S = A->getLowering();
   return true;
 }
+
+llvm::StringRef hlsl::GetWaveMatrixName(DXIL::WaveMatrixKind kind) {
+  DXASSERT_NOMSG(kind < DXIL::WaveMatrixKind::NumKinds);
+  static const char *typeNames[(unsigned)DXIL::WaveMatrixKind::NumKinds] = {
+    "WaveMatrixLeft",
+    "WaveMatrixRight",
+    "WaveMatrixLeftColAcc",
+    "WaveMatrixRightRowAcc",
+    "WaveMatrixAccumulator",
+  };
+  return typeNames[(unsigned)kind];
+}
+
 
 /// <summary>Parses a column or row digit.</summary>
 static

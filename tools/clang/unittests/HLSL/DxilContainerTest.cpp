@@ -111,6 +111,7 @@ public:
   TEST_METHOD(DisassemblyWhenValidThenOK)
   TEST_METHOD(ValidateFromLL_Abs2)
   TEST_METHOD(DxilContainerUnitTest)
+  TEST_METHOD(DxilContainerCompilerVersionTest)
   TEST_METHOD(ContainerBuilder_AddPrivateForceLast)
 
   TEST_METHOD(ReflectionMatchesDXBC_CheckIn)
@@ -1171,80 +1172,6 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
         }
       }
       VERIFY_ARE_EQUAL(resTable.Count(), 8U);
-      // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
-      unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
-      VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(), pBlob->GetBufferSize()));
-      DxilLibraryDesc lib_reflection = pReflection->GetLibraryReflection();
-      VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4U);
-      for (uint32_t j = 0; j < 3; ++j) {
-        DxilFunctionDesc function = lib_reflection.pFunction[j];
-        std::string cur_str = str;
-        cur_str.push_back('0' + j);
-        if (cur_str.compare("function0") == 0) {
-          hlsl::ShaderFlags flag;
-          flag.SetUAVLoadAdditionalFormats(true);
-          flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetFeatureInfo();
-          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
-          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
-          VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 1U);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
-          const DxilResourceDesc &resource = *function.Resources[0];
-          VERIFY_ARE_EQUAL(resource.Class, (uint32_t)hlsl::DXIL::ResourceClass::UAV);
-          VERIFY_ARE_EQUAL(resource.Kind, (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
-          std::wstring wName = resource.Name;
-          VERIFY_ARE_EQUAL(wName.compare(L"tex"), 0);
-        }
-        else if (cur_str.compare("function1") == 0) {
-          hlsl::ShaderFlags flag;
-          flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetFeatureInfo();
-          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
-          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
-          VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 3U);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
-          std::unordered_set<std::wstring> stringSet = { L"$Globals", L"b_buf", L"tex2" };
-          for (uint32_t j = 0; j < 3; ++j) {
-            const DxilResourceDesc &resource = *function.Resources[j];
-            std::wstring compareName = resource.Name;
-            VERIFY_IS_TRUE(stringSet.find(compareName) != stringSet.end());
-          }
-        }
-        else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
-          VERIFY_ARE_EQUAL(function.NumResources, 0U);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 1U);
-          std::wstring dependency = function.FunctionDependencies[0];
-          VERIFY_IS_TRUE(dependency.find(L"function_import") != std::wstring::npos);
-        }
-        else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
-          VERIFY_ARE_EQUAL(function.NumResources, numResFlagCheck);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
-          for (unsigned i = 0; i < function.NumResources; ++i) {
-            const DxilResourceDesc *res = function.Resources[i];
-            VERIFY_ARE_EQUAL(res->Class, static_cast<uint32_t>(hlsl::DXIL::ResourceClass::UAV));
-            unsigned j = 0;
-            for (; j < numResFlagCheck; ++j) {
-              CA2W WName(resFlags[j].name.c_str());
-              std::wstring compareName(WName);
-              if (compareName.compare(res->Name) == 0)
-                break;
-            }
-            VERIFY_IS_LESS_THAN(j, numResFlagCheck);
-            VERIFY_ARE_EQUAL(res->Kind, static_cast<uint32_t>(resFlags[j].kind));
-            VERIFY_ARE_EQUAL(res->Flags, static_cast<uint32_t>(resFlags[j].flag));
-          }
-        }
-        else {
-          IFTBOOLMSG(false, E_FAIL, "unknown function name");
-        }
-      }
-      VERIFY_IS_TRUE(lib_reflection.NumResources == 8);
     }
   }
   IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
@@ -2082,6 +2009,114 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");
+}
+
+// Test to see if the Compiler Version (VERS) part gets added to library shaders
+// with SM >= 6.8
+TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("export float4 main() : SV_Target { return 0; }",
+                     &pSource);
+  // Test DxilContainer with ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_7", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(
+      hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NULL(
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+
+  pResult.Release();
+  pProgram.Release();
+
+  // Test DxilContainer without ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_8", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(),
+                                      pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(
+      hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+  const hlsl::DxilPartHeader *pVersionHeader =
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
+
+  // ensure the version info has the expected contents by
+  // querying IDxcVersion interface from pCompiler and comparing
+  // against the contents inside of pProgram
+
+  // Gather "true" information
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  CComPtr<IDxcVersionInfo2> pVersionInfo2;
+  CComPtr<IDxcVersionInfo3> pVersionInfo3;
+  pCompiler.QueryInterface(&pVersionInfo);
+  UINT major;
+  UINT minor;
+  UINT flags;
+  UINT commit_count;
+  CComHeapPtr<char> pCommitHashRef;
+  CComHeapPtr<char> pCustomVersionStrRef;
+  VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&major, &minor));
+  VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&flags));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pVersionInfo2));
+  VERIFY_SUCCEEDED(
+      pVersionInfo2->GetCommitInfo(&commit_count, &pCommitHashRef));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pVersionInfo3));
+  VERIFY_SUCCEEDED(
+      pVersionInfo3->GetCustomVersionString(&pCustomVersionStrRef));
+
+  // test the "true" information against what's in the blob
+
+  VERIFY_IS_TRUE(pVersionHeader->PartFourCC ==
+                 hlsl::DxilFourCC::DFCC_CompilerVersion);
+  // test the rest of the contents (major, minor, etc.)
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                  &containerReflection));
+  IFT(containerReflection->Load(pProgram));
+  IFT(containerReflection->GetPartCount(&partCount));
+  UINT part_index;
+  VERIFY_SUCCEEDED(containerReflection->FindFirstPartKind(
+      hlsl::DFCC_CompilerVersion, &part_index));
+
+  CComPtr<IDxcBlob> pBlob;
+  IFT(containerReflection->GetPartContent(part_index, &pBlob));
+  void *pBlobPtr = pBlob->GetBufferPointer();
+  hlsl::DxilCompilerVersion *pDCV = (hlsl::DxilCompilerVersion *)pBlobPtr;
+  VERIFY_ARE_EQUAL(major, pDCV->Major);
+  VERIFY_ARE_EQUAL(minor, pDCV->Minor);
+  VERIFY_ARE_EQUAL(flags, pDCV->VersionFlags);
+  VERIFY_ARE_EQUAL(commit_count, pDCV->CommitCount);
+
+  if (pDCV->VersionStringListSizeInBytes != 0) {
+    LPCSTR pCommitHashStr = (LPCSTR)pDCV + sizeof(hlsl::DxilCompilerVersion);
+
+    VERIFY_ARE_EQUAL_STR(pCommitHashStr, pCommitHashRef);
+    if (pDCV->VersionStringListSizeInBytes > sizeof(pCommitHashStr) + 1) {
+      LPCSTR pCustomVersionString = pCommitHashStr + sizeof(pCommitHashStr) + 1;
+      VERIFY_ARE_EQUAL_STR(pCustomVersionString, pCustomVersionStrRef)
+    }
+  }
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {

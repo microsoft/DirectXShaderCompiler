@@ -7786,6 +7786,24 @@ def err_hlsl_ternary_scalar : Error<
 def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
    "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
   InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
+def err_hlsl_wg_intrinsic_launch_type : Error<
+   "%0 may only be used by nodes with %1 launch type">;
+def err_hlsl_wg_thread_launch_group_size : Error<
+   "Thread launch nodes must have a thread group size of (1,1,1)">;
+def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
+   "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
+def err_hlsl_wg_input_kind : Error<
+   "%0 may not be used with %1 launch nodes">;
+def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
+   "a RWNodeInputRecord field with SV_DispatchGrid semantic is not assignable">;
+def err_hlsl_maxarraysize_template_arg : Error<
+   "the %0 maxArraySize template argument must be an integer constant expression with value >= 1">;
+def err_hlsl_dispatchgrid_component : Error<
+   "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
+def err_hlsl_dispatchgrid_product : Error<
+   "%0 X * Y * Z product may not exceed 16,777,215 (2^24-1)">;
+def err_hlsl_compute_compatibility : Error<
+   "Node shader '%0' with %1 is not compatible with compute">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

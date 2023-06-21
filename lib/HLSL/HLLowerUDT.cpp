@@ -180,6 +180,26 @@ Constant *hlsl::TranslateInitForLoweredUDT(
   return Init;
 }
 
+static Constant *InsertAddrSpaceCastIfRequired(Constant *C,
+                                               unsigned AddrSpace) {
+  Type *Ty = C->getType();
+  DXASSERT_NOMSG(Ty->isPointerTy());
+  if (AddrSpace != Ty->getPointerAddressSpace())
+    return ConstantExpr::getAddrSpaceCast(
+        C, PointerType::get(Ty->getPointerElementType(), AddrSpace));
+  return C;
+}
+
+static Value *InsertAddrSpaceCastIfRequired(IRBuilder<> &Builder, Value *V,
+                                            unsigned AddrSpace) {
+  Type *Ty = V->getType();
+  DXASSERT_NOMSG(Ty->isPointerTy());
+  if (AddrSpace != Ty->getPointerAddressSpace())
+    return Builder.CreateAddrSpaceCast(
+        V, PointerType::get(Ty->getPointerElementType(), AddrSpace));
+  return V;
+}
+
 void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
   Type *Ty = V->getType();
   Type *NewTy = NewV->getType();
@@ -193,10 +213,11 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
     return;
   }
 
-  if (Ty->isPointerTy())
-    Ty = Ty->getPointerElementType();
-  if (NewTy->isPointerTy())
-    NewTy = NewTy->getPointerElementType();
+  DXASSERT_NOMSG(Ty->isPointerTy() && NewTy->isPointerTy());
+  unsigned OriginalAddrSpace = Ty->getPointerAddressSpace();
+  unsigned NewAddrSpace = NewTy->getPointerAddressSpace();
+  Ty = Ty->getPointerElementType();
+  NewTy = NewTy->getPointerElementType();
 
   while (!V->use_empty()) {
     Use &use = *V->use_begin();
@@ -206,34 +227,44 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
     }
 
     if (LoadInst *LI = dyn_cast<LoadInst>(user)) {
-      // Load for non-matching type should only be vector
-      FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
-      DXASSERT(VT && NewTy->isArrayTy() &&
-        VT->getNumElements() == NewTy->getArrayNumElements(),
-        "unexpected load of non-matching type");
       IRBuilder<> Builder(LI);
       Value *result = UndefValue::get(Ty);
-      for (unsigned i = 0; i < VT->getNumElements(); ++i) {
-        Value *GEP = Builder.CreateInBoundsGEP(NewV,
-          {Builder.getInt32(0), Builder.getInt32(i)});
-        Value *El = Builder.CreateLoad(GEP);
-        result = Builder.CreateInsertElement(result, El, i);
+      if (Ty == NewTy) {
+        // Ptrs differ by addrspace only
+        result = Builder.CreateLoad(NewV);
+      } else {
+        // Load for non-matching type should only be vector
+        FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
+        DXASSERT(VT && NewTy->isArrayTy() &&
+          VT->getNumElements() == NewTy->getArrayNumElements(),
+          "unexpected load of non-matching type");
+        for (unsigned i = 0; i < VT->getNumElements(); ++i) {
+          Value *GEP = Builder.CreateInBoundsGEP(NewV,
+            {Builder.getInt32(0), Builder.getInt32(i)});
+          Value *El = Builder.CreateLoad(GEP);
+          result = Builder.CreateInsertElement(result, El, i);
+        }
       }
       LI->replaceAllUsesWith(result);
       LI->eraseFromParent();
 
     } else if (StoreInst *SI = dyn_cast<StoreInst>(user)) {
-      // Store for non-matching type should only be vector
-      FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
-      DXASSERT(VT && NewTy->isArrayTy() &&
-        VT->getNumElements() == NewTy->getArrayNumElements(),
-        "unexpected load of non-matching type");
       IRBuilder<> Builder(SI);
-      for (unsigned i = 0; i < VT->getNumElements(); ++i) {
-        Value *EE = Builder.CreateExtractElement(SI->getValueOperand(), i);
-        Value *GEP = Builder.CreateInBoundsGEP(
-          NewV, {Builder.getInt32(0), Builder.getInt32(i)});
-        Builder.CreateStore(EE, GEP);
+      if (Ty == NewTy) {
+        // Ptrs differ by addrspace only
+        Builder.CreateStore(SI->getValueOperand(), NewV);
+      } else {
+        // Store for non-matching type should only be vector
+        FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
+        DXASSERT(VT && NewTy->isArrayTy() &&
+          VT->getNumElements() == NewTy->getArrayNumElements(),
+          "unexpected load of non-matching type");
+        for (unsigned i = 0; i < VT->getNumElements(); ++i) {
+          Value *EE = Builder.CreateExtractElement(SI->getValueOperand(), i);
+          Value *GEP = Builder.CreateInBoundsGEP(
+            NewV, {Builder.getInt32(0), Builder.getInt32(i)});
+          Builder.CreateStore(EE, GEP);
+        }
       }
       SI->eraseFromParent();
 
@@ -255,10 +286,9 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
     } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
       // Address space cast
       IRBuilder<> Builder(AC);
-      unsigned AddrSpace = AC->getType()->getPointerAddressSpace();
-      Value *NewAC = Builder.CreateAddrSpaceCast(
-          NewV, PointerType::get(NewTy, AddrSpace));
-      ReplaceUsesForLoweredUDT(user, NewAC);
+      ReplaceUsesForLoweredUDT(
+          user, InsertAddrSpaceCastIfRequired(
+                    Builder, NewV, AC->getType()->getPointerAddressSpace()));
       AC->eraseFromParent();
 
     } else if (BitCastInst *BC = dyn_cast<BitCastInst>(user)) {
@@ -277,10 +307,10 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       // Constant AddrSpaceCast, or BitCast
       if (CE->getOpcode() == Instruction::AddrSpaceCast) {
-        unsigned AddrSpace = CE->getType()->getPointerAddressSpace();
-        ReplaceUsesForLoweredUDT(user,
-          ConstantExpr::getAddrSpaceCast(cast<Constant>(NewV),
-            PointerType::get(NewTy, AddrSpace)));
+        ReplaceUsesForLoweredUDT(
+            user,
+            InsertAddrSpaceCastIfRequired(
+                cast<Constant>(NewV), CE->getType()->getPointerAddressSpace()));
       } else if (CE->getOpcode() == Instruction::BitCast) {
         if (CE->getType()->getPointerElementType() == NewTy) {
           // if alreday bitcast to new type, just replace the bitcast
@@ -327,27 +357,30 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
             Value *elt = Builder.CreateLoad(GEP);
             val = Builder.CreateInsertElement(val, elt, i);
           }
-          if (bColMajor) {
-            // transpose matrix to match expected value orientation for
-            // default cast to matrix type
-            SmallVector<int, 16> ShuffleIndices;
-            for (unsigned RowIdx = 0; RowIdx < Mat.getNumRows(); ++RowIdx)
-              for (unsigned ColIdx = 0; ColIdx < Mat.getNumColumns(); ++ColIdx)
-                ShuffleIndices.emplace_back(
-                  static_cast<int>(Mat.getColumnMajorIndex(RowIdx, ColIdx)));
-            val = Builder.CreateShuffleVector(val, val, ShuffleIndices);
-          }
-          // lower mem to reg type
-          val = Mat.emitLoweredMemToReg(val, Builder);
-          // cast vector back to matrix value (DefaultCast expects row major)
-          unsigned newOpcode = (unsigned)HLCastOpcode::DefaultCast;
-          val = callHLFunction(*F->getParent(), HLOpcodeGroup::HLCast, newOpcode,
-                               Ty, { Builder.getInt32(newOpcode), val }, Builder);
-          if (bColMajor) {
-            // emit cast row to col to match original result
-            newOpcode = (unsigned)HLCastOpcode::RowMatrixToColMatrix;
+          if (!CI->getType()->isVectorTy()) {
+            // Before HLMatrixLower, translate vector back to HL matrix value.
+            if (bColMajor) {
+              // transpose matrix to match expected value orientation for
+              // default cast to matrix type
+              SmallVector<int, 16> ShuffleIndices;
+              for (unsigned RowIdx = 0; RowIdx < Mat.getNumRows(); ++RowIdx)
+                for (unsigned ColIdx = 0; ColIdx < Mat.getNumColumns(); ++ColIdx)
+                  ShuffleIndices.emplace_back(
+                    static_cast<int>(Mat.getColumnMajorIndex(RowIdx, ColIdx)));
+              val = Builder.CreateShuffleVector(val, val, ShuffleIndices);
+            }
+            // lower mem to reg type
+            val = Mat.emitLoweredMemToReg(val, Builder);
+            // cast vector back to matrix value (DefaultCast expects row major)
+            unsigned newOpcode = (unsigned)HLCastOpcode::DefaultCast;
             val = callHLFunction(*F->getParent(), HLOpcodeGroup::HLCast, newOpcode,
-              Ty, { Builder.getInt32(newOpcode), val }, Builder);
+                                 Ty, { Builder.getInt32(newOpcode), val }, Builder);
+            if (bColMajor) {
+              // emit cast row to col to match original result
+              newOpcode = (unsigned)HLCastOpcode::RowMatrixToColMatrix;
+              val = callHLFunction(*F->getParent(), HLOpcodeGroup::HLCast, newOpcode,
+                Ty, { Builder.getInt32(newOpcode), val }, Builder);
+            }
           }
           // replace use of HLMatLoadStore with loaded vector
           CI->replaceAllUsesWith(val);
@@ -425,9 +458,14 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
 
       //case HLOpcodeGroup::NotHL:  // TODO: Support lib functions
       case HLOpcodeGroup::HLIntrinsic: {
-        // Just bitcast for now
+        // Just addrspace cast/bitcast for now
         IRBuilder<> Builder(CI);
-        use.set(Builder.CreateBitCast(NewV, V->getType()));
+        Value *Cast = NewV;
+        if (OriginalAddrSpace != NewAddrSpace)
+          Cast = Builder.CreateAddrSpaceCast(Cast, PointerType::get(NewTy, OriginalAddrSpace));
+        if (V->getType() != Cast->getType())
+          Cast = Builder.CreateBitCast(Cast, V->getType());
+        use.set(Cast);
         continue;
       } break;
 

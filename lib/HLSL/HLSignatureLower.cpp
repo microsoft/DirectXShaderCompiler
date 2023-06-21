@@ -1209,11 +1209,12 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   }
 }
 
-void HLSignatureLower::GenerateDxilCSInputs() {
+void HLSignatureLower::GenerateDxilComputeAndNodeCommonInputs() {
   OP *hlslOP = HLM.GetOP();
 
   DxilFunctionAnnotation *funcAnnotation = HLM.GetFunctionAnnotation(Entry);
   DXASSERT(funcAnnotation, "must find annotation for entry function");
+  auto &funcProps = HLM.GetDxilFunctionProps(Entry);
   IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
 
   for (Argument &arg : Entry->args()) {
@@ -1221,7 +1222,10 @@ void HLSignatureLower::GenerateDxilCSInputs() {
         funcAnnotation->GetParameterAnnotation(arg.getArgNo());
 
     llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
+
     if (semanticStr.empty()) {
+     if (funcProps.IsNode() && paramAnnotation.IsParamInputQualNode())
+        continue;
       dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry, "Semantic must be defined for all "
                                     "parameters of an entry function or patch "
                                     "constant function.");
@@ -1736,10 +1740,10 @@ void HLSignatureLower::Run() {
     if (props.IsMS()) {
       GenerateDxilPrimOutputs();
     }
-  } else if (props.IsCS()) {
-    GenerateDxilCSInputs();
-  }
-
+  } else if (props.IsCS() || props.IsNode()) {
+    GenerateDxilComputeAndNodeCommonInputs();
+  } 
+  
   if (props.IsDS() || props.IsHS())
     GenerateDxilPatchConstantLdSt();
   if (props.IsHS())

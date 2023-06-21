@@ -16,6 +16,7 @@ class LLVMContext;
 class Module;
 class Type;
 class StructType;
+class PointerType;
 class Function;
 class Constant;
 class Value;
@@ -50,7 +51,11 @@ public:
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
+  llvm::Type *GetNodeHandleType() const;
+  llvm::Type *GetNodeRecordHandleType() const;
   llvm::Type *GetResourcePropertiesType() const;
+  llvm::Type *GetNodePropertiesType() const;
+  llvm::Type *GetNodeRecordPropertiesType() const;
   llvm::Type *GetResourceBindingType() const;
   llvm::Type *GetDimensionsType() const;
   llvm::Type *GetSamplePosType() const;
@@ -59,6 +64,8 @@ public:
   llvm::Type *GetSplitDoubleType() const;
   llvm::Type *GetFourI32Type() const;
   llvm::Type *GetFourI16Type() const;
+  llvm::StructType *GetWaveMatrixPropertiesType() const;
+  llvm::PointerType *GetWaveMatPtrType() const;
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
@@ -125,7 +132,11 @@ private:
   llvm::Module *m_pModule;
 
   llvm::Type *m_pHandleType;
+  llvm::Type *m_pNodeHandleType;
+  llvm::Type *m_pNodeRecordHandleType;
   llvm::Type *m_pResourcePropertiesType;
+  llvm::Type *m_pNodePropertiesType;
+  llvm::Type *m_pNodeRecordPropertiesType;
   llvm::Type *m_pResourceBindingType;
   llvm::Type *m_pDimensionsType;
   llvm::Type *m_pSamplePosType;
@@ -134,6 +145,8 @@ private:
   llvm::Type *m_pSplitDoubleType;
   llvm::Type *m_pFourI32Type;
   llvm::Type *m_pFourI16Type;
+  llvm::StructType *m_pWaveMatInfoType;
+  llvm::PointerType *m_pWaveMatPtrType;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 

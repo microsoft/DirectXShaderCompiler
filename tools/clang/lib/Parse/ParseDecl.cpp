@@ -813,6 +813,17 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLNumThreads:
     case AttributeList::AT_HLSLShader:
     case AttributeList::AT_HLSLExperimental:
+    case AttributeList::AT_HLSLNodeLaunch:
+    case AttributeList::AT_HLSLNodeId:
+    case AttributeList::AT_HLSLNodeIsProgramEntry:
+    case AttributeList::AT_HLSLNodeLocalRootArgumentsTableIndex:
+    case AttributeList::AT_HLSLNodeShareInputOf:
+    case AttributeList::AT_HLSLNodeDispatchGrid:
+    case AttributeList::AT_HLSLNodeMaxDispatchGrid:
+    case AttributeList::AT_HLSLNodeMaxRecursionDepth:
+    case AttributeList::AT_HLSLMaxRecordsSharedWith:
+    case AttributeList::AT_HLSLMaxRecords:
+    case AttributeList::AT_HLSLNodeArraySize:
     case AttributeList::AT_HLSLRootSignature:
     case AttributeList::AT_HLSLOutputControlPoints:
     case AttributeList::AT_HLSLOutputTopology:
@@ -846,6 +857,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     //case AttributeList::AT_HLSLVertices:
     //case AttributeList::AT_HLSLPrimitives:
     //case AttributeList::AT_HLSLPayload:
+    //case AttributeList::AT_HLSLAllowSparseNodes:
       goto GenericAttributeParse;
     default:
       Diag(AttrNameLoc, diag::warn_unknown_attribute_ignored) << AttrName;

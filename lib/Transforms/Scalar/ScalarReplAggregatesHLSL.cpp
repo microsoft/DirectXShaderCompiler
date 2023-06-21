@@ -5750,7 +5750,9 @@ static void LegalizeDxilInputOutputs(Function *F,
       case DxilParamInputQual::InPayload:
       case DxilParamInputQual::InputPrimitive:
       case DxilParamInputQual::InputPatch:
-      case DxilParamInputQual::OutputPatch: {
+      case DxilParamInputQual::OutputPatch:
+      case DxilParamInputQual::NodeIO:
+      {
         bStoreInputToTemp = true;
       } break;
       case DxilParamInputQual::Inout:

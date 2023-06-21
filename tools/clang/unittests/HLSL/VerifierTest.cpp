@@ -105,6 +105,7 @@ public:
   TEST_METHOD(RunInputPatchConst)
   TEST_METHOD(RunWriteConstArrays)
   TEST_METHOD(RunAtomicsOnBitfields)
+  TEST_METHOD(RunWorkGraphs)
   TEST_METHOD(RunUnboundedResourceArrays)
   TEST_METHOD(GloballyCoherentErrors)
   TEST_METHOD(GloballyCoherentMismatch)
@@ -112,6 +113,12 @@ public:
   TEST_METHOD(RunBitFieldAnnotations)
   TEST_METHOD(RunUDTByteAddressBufferLoad)
   TEST_METHOD(RunObjectTemplateDiagDeferred)
+  TEST_METHOD(RunWorkGraphMemberWriteDiags)
+  TEST_METHOD(RunWorkGraphNodeSVDispatchGridDiags)
+  TEST_METHOD(RunWorkGraphDispatchGridDiags)
+  TEST_METHOD(RunNodeComputeCompatibilityDiags)
+  TEST_METHOD(RunNodeInputCompatibilityDiags)
+  
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
@@ -466,6 +473,10 @@ TEST_F(VerifierTest, RunAtomicsOnBitfields) {
   CheckVerifiesHLSL(L"atomics-on-bitfields.hlsl");
 }
 
+TEST_F(VerifierTest, RunWorkGraphs) {
+  CheckVerifiesHLSL(L"work-graphs.hlsl");
+}
+
 TEST_F(VerifierTest, RunUnboundedResourceArrays) {
   CheckVerifiesHLSL(L"invalid-unbounded-resource-arrays.hlsl");
 }
@@ -492,4 +503,24 @@ TEST_F(VerifierTest, RunUDTByteAddressBufferLoad) {
 
 TEST_F(VerifierTest, RunObjectTemplateDiagDeferred) {
   CheckVerifiesHLSL(L"object-template-diag-deferred.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphMemberWriteDiags) {
+  CheckVerifiesHLSL(L"/workgraph/member_write_diagnostics.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphNodeSVDispatchGridDiags) {
+  CheckVerifiesHLSL(L"/workgraph/rwnodeinputrecord_sv_dispatchgrid.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphDispatchGridDiags) {
+  CheckVerifiesHLSL(L"/workgraph/dispatchgrid_diags.hlsl");
+}
+
+TEST_F(VerifierTest, RunNodeComputeCompatibilityDiags) {
+  CheckVerifiesHLSL(L"/workgraph/node_compute_compatibility.hlsl");
+}
+
+TEST_F(VerifierTest, RunNodeInputCompatibilityDiags) {
+  CheckVerifiesHLSL(L"/workgraph/node_input_compatibility.hlsl");
 }

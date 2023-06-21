@@ -51,6 +51,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h" // support pause/resume passes
 #include "dxc/HLSL/DxilExportMap.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/DXIL/DxilWaveMatrix.h"
 
 #include "CGHLSLMSHelper.h"
 
@@ -85,12 +86,15 @@ private:
                  llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>, 1>>
       constantRegBindingMap;
 
-  // Map from value to resource properties.
-  // This only collect object variables(global/local/parameter), not object fields inside struct.
-  // Object fields inside struct is saved by TypeAnnotation.
+  // Adds value to DxilObjectProperties if it's resource or wave matrix.
   // Returns true if added to one.
   bool AddValToPropertyMap(Value *V, QualType Ty);
   CGHLSLMSHelper::DxilObjectProperties objectProperties;
+  
+  // Map to value to node properties
+
+  llvm::MapVector<llvm::Argument*, hlsl::NodeInputRecordProps> NodeInputRecordParams;
+  llvm::MapVector<llvm::Argument*, hlsl::NodeProps> NodeOutputParams;
 
   bool  m_bDebugInfo;
   bool  m_bIsLib;
@@ -210,6 +214,7 @@ private:
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
                              unsigned &arrayEltSize);
   DxilResourceProperties BuildResourceProperty(QualType resTy);
+  DxilWaveMatrixProperties BuildWaveMatrixProperties(QualType resTy);
   void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
                                           QualType fieldTy,
                                           bool bDefaultRowMajor);
@@ -282,6 +287,7 @@ public:
                                    llvm::Value *DestPtr,
                                    clang::QualType DestTy) override;
   void AddHLSLFunctionInfo(llvm::Function *, const FunctionDecl *FD) override;
+  void AddHLSLNodeRecordTypeInfo(const clang::ParmVarDecl* parmDecl, hlsl::NodeIOProperties& node);
   void EmitHLSLFunctionProlog(llvm::Function *, const FunctionDecl *FD) override;
 
   void AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
@@ -551,6 +557,19 @@ StringToMeshOutputTopology(StringRef topology) {
   return DXIL::MeshOutputTopology::Undefined;
 }
 
+static DXIL::NodeLaunchType
+StringToNodeLaunchType(StringRef launchType) {
+  if (launchType.equals_lower("broadcasting"))
+    return DXIL::NodeLaunchType::Broadcasting;
+  if (launchType.equals_lower("coalescing"))
+    return DXIL::NodeLaunchType::Coalescing;
+  if (launchType.equals_lower("thread"))
+    return DXIL::NodeLaunchType::Thread;
+
+  DXASSERT(false, "Invalid Node Launch Type");
+  return DXIL::NodeLaunchType::Invalid;
+}
+
 static unsigned GetMatrixSizeInCB(QualType Ty, bool defaultRowMajor,
                                   bool b64Bit) {
   bool bRowMajor;
@@ -754,8 +773,31 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
   return RP;
 }
 
+DxilWaveMatrixProperties
+CGMSHLSLRuntime::BuildWaveMatrixProperties(QualType qualTy) {
+  DxilWaveMatrixProperties props;
+  llvm::Type *Ty = CGM.getTypes().ConvertType(qualTy);
+  if (dxilutil::IsHLSLWaveMatrixType(Ty, &props.kind)) {
+    const CXXRecordDecl *CXXRD =
+        qualTy.getCanonicalType()->getAsCXXRecordDecl();
+    if (const ClassTemplateSpecializationDecl *templateSpecializationDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+      const clang::TemplateArgumentList &args =
+          templateSpecializationDecl->getTemplateInstantiationArgs();
+      DXASSERT(args[0].getAsType()->isBuiltinType(),
+               "otherwise, wrong kind of component type");
+      const BuiltinType *BTy = args[0].getAsType()->getAs<BuiltinType>();
+      props.compType = BuiltinTyToCompTy(BTy, false, false);
+      props.dimM = (unsigned)args[1].getAsIntegral().getExtValue();
+      props.dimN = (unsigned)args[2].getAsIntegral().getExtValue();
+    }
+  }
+  return props;
+}
+
 bool CGMSHLSLRuntime::AddValToPropertyMap(Value *V, QualType Ty) {
-  return objectProperties.AddResource(V, BuildResourceProperty(Ty));
+  return objectProperties.AddResource(V, BuildResourceProperty(Ty)) ||
+         objectProperties.AddWaveMatrix(V, BuildWaveMatrixProperties(Ty));
 }
 
 void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
@@ -779,8 +821,12 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     EltTy = hlsl::GetHLSLMatElementType(Ty);
   }
 
-  if (hlsl::IsHLSLVecType(Ty))
+  if (hlsl::IsHLSLVecType(Ty)) {
+    unsigned rows, cols;
+    hlsl::GetRowsAndColsForAny(Ty, rows, cols);
+    fieldAnnotation.SetVectorSize(cols);
     EltTy = hlsl::GetHLSLVecElementType(Ty);
+  }
 
   if (IsHLSLResourceType(Ty)) {
     fieldAnnotation.SetResourceProperties(BuildResourceProperty(Ty));
@@ -822,7 +868,7 @@ static void ConstructFieldInterpolation(DxilFieldAnnotation &fieldAnnotation,
 static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size, QualType Ty,
                                 bool bDefaultRowMajor) {
   // Do not align if resource, since resource isn't really here.
-  if (IsHLSLResourceType(Ty))
+  if (IsHLSLResourceType(Ty) || IsHLSLNodeType(Ty))
     return baseOffset;
 
   bool needNewAlign = Ty->isArrayType();
@@ -1346,6 +1392,15 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   return DxilResource::Kind::Invalid;
 }
 
+static void ReportMissingNodeDiag(DiagnosticsEngine &Diags,
+                                  const InheritableAttr *a) {
+  SourceLocation loc = a->getLocation();
+  unsigned DiagID = Diags.getCustomDiagID(
+      DiagnosticsEngine::Error, "Attribute %0 only applies to node shaders "
+                                "(indicated with '[shader(\"node\")]')");
+  Diags.Report(loc, DiagID) << a->getSpelling();
+}
+
 void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // Add hlsl intrinsic attr
   unsigned intrinsicOpcode;
@@ -1378,8 +1433,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueAnyString);
   }
   // Set entry function
+  const ShaderModel *SM = m_pHLModule->GetShaderModel();
   const std::string &entryName = m_pHLModule->GetEntryFunctionName();
-  bool isEntry = FD->getNameAsString() == entryName;
+  bool isEntry =
+      !SM->IsLib() &&
+      FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
+      FD->getNameAsString() == entryName;
   if (isEntry) {
     Entry.Func = F;
     Entry.SL = FD->getLocation();
@@ -1390,6 +1449,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   std::unique_ptr<DxilFunctionProps> funcProps =
       llvm::make_unique<DxilFunctionProps>();
   funcProps->shaderKind = DXIL::ShaderKind::Invalid;
+  funcProps->Node.LaunchType = DXIL::NodeLaunchType::Invalid;
   bool isCS = false;
   bool isGS = false;
   bool isHS = false;
@@ -1399,97 +1459,131 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool isRay = false;
   bool isMS = false;
   bool isAS = false;
-  if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
-    // Stage is already validate in HandleDeclAttributeForHLSL.
-    // Here just check first letter (or two).
-    switch (Attr->getStage()[0]) {
-    case 'c':
-      switch (Attr->getStage()[1]) {
-      case 'o':
-        isCS = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Compute;
-        break;
-      case 'l':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::ClosestHit;
-        break;
-      case 'a':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Callable;
-        break;
-      default:
-        break;
-      }
-      break;
-    case 'v':
-      isVS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Vertex;
-      break;
-    case 'h':
-      isHS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Hull;
-      break;
-    case 'd':
-      isDS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Domain;
-      break;
-    case 'g':
-      isGS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Geometry;
-      break;
-    case 'p':
-      isPS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Pixel;
-      break;
-    case 'r':
+  bool isNode = false;
+
+  // SetStageFlag returns true if valid as function attribute
+  auto SetStageFlag = [&](DXIL::ShaderKind shaderKind) -> bool {
+    switch(shaderKind) {
+    case DXIL::ShaderKind::Pixel:         isPS = true; break;
+    case DXIL::ShaderKind::Vertex:        isVS = true; break;
+    case DXIL::ShaderKind::Geometry:      isGS = true; break;
+    case DXIL::ShaderKind::Hull:          isHS = true; break;
+    case DXIL::ShaderKind::Domain:        isDS = true; break;
+    case DXIL::ShaderKind::Compute:       isCS = true; break;
+    case DXIL::ShaderKind::Mesh:          isMS = true; break;
+    case DXIL::ShaderKind::Amplification: isAS = true; break;
+    case DXIL::ShaderKind::Node:          isNode = true; break;
+    case DXIL::ShaderKind::ClosestHit:
+    case DXIL::ShaderKind::Callable:
+    case DXIL::ShaderKind::RayGeneration:
+    case DXIL::ShaderKind::Intersection:
+    case DXIL::ShaderKind::AnyHit:
+    case DXIL::ShaderKind::Miss:
       isRay = true;
-      funcProps->shaderKind = DXIL::ShaderKind::RayGeneration;
       break;
-    case 'i':
-      isRay = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Intersection;
-      break;
-    case 'a':
-      switch (Attr->getStage()[1]) {
-      case 'm':
-        isAS = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Amplification;
-        break;
-      case 'n':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::AnyHit;
-        break;
-      default:
-        break;
-      }
-      break;
-    case 'm':
-      switch (Attr->getStage()[1]) {
-      case 'e':
-        isMS = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Mesh;
-        break;
-      case 'i':
-        isRay = true;
-        funcProps->shaderKind = DXIL::ShaderKind::Miss;
-        break;
-      default:
-        break;
-      }
-      break;
+    case DXIL::ShaderKind::Library:
     default:
-      break;
+      return false;
     }
-    if (funcProps->shaderKind == DXIL::ShaderKind::Invalid) {
+    return true;
+  };
+
+  clang::SourceLocation priorShaderAttrLoc;
+  enum class ShaderStageSource : unsigned {
+    Attribute,
+    Profile,
+  };
+
+  // Some diagnostic assumptions for shader attribute:
+  // - multiple shader attributes may exist in HLSL
+  // - duplicate attribute of same kind is ok
+  // - node attribute only combinable with compute
+  // - all attributes parsed before set from insertion or target shader model
+
+  auto DiagShaderStage = [&priorShaderAttrLoc, &Diags](
+                             clang::SourceLocation diagLoc,
+                             llvm::StringRef shaderStage,
+                             ShaderStageSource source, bool bConflict) {
+    bool bFromProfile = source == ShaderStageSource::Profile;
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "%select{Invalid|Conflicting}0 shader %select{profile|attribute}1");
+    Diags.Report(diagLoc, DiagID) << bConflict << bFromProfile;
+    if (priorShaderAttrLoc.isValid()) {
       unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error, "Invalid profile for shader attribute");
-      Diags.Report(Attr->getLocation(), DiagID);
+          DiagnosticsEngine::Note, "See conflicting shader attribute");
+      Diags.Report(priorShaderAttrLoc, DiagID);
+    }
+  };
+
+  auto SetShaderKind = [&](clang::SourceLocation diagLoc,
+                           DXIL::ShaderKind shaderKind,
+                           llvm::StringRef shaderStage,
+                           ShaderStageSource source) {
+    if (!SetStageFlag(shaderKind)) {
+      DiagShaderStage(diagLoc, shaderStage, source, false);
     }
     if (isEntry && isRay) {
       unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "Ray function cannot be used as a global entry point");
-      Diags.Report(Attr->getLocation(), DiagID);
+      Diags.Report(diagLoc, DiagID);
     }
+    if (isEntry && isNode && !SM->IsCS()) {
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "Node function as global entry point must "
+                                    "be compiled to compute shader target");
+      Diags.Report(diagLoc, DiagID);
+    }
+    if (isNode) {
+      if (isPS || isVS || isGS || isHS || isDS || isMS || isAS || isRay) {
+        DiagShaderStage(diagLoc, shaderStage, source, true);
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Note,
+            "'node' shader attribute is only compatible with 'compute' "
+            "shader attribute");
+        Diags.Report(priorShaderAttrLoc, DiagID);
+      }
+    } else if (funcProps->shaderKind != DXIL::ShaderKind::Invalid &&
+               funcProps->shaderKind != shaderKind) {
+      // Different kinds and not the node case, so it's a conflict.
+      DiagShaderStage(diagLoc, shaderStage, source, true);
+    }
+    // Update shaderKind, unless we would be overriding one with node, so when
+    // node+compute, kind = compute.  Other conflicts are diagnosed above.
+    if (funcProps->shaderKind == DXIL::ShaderKind::Invalid ||
+        shaderKind != DXIL::ShaderKind::Node)
+      funcProps->shaderKind = shaderKind;
+  };
+
+  // Used when a function attribute implies a particular stage.
+  // This will emit an error if the stage it implies conflicts with a stage set
+  // from some other source.
+  auto CheckImpliedShaderStageAttr = [&SetShaderKind](clang::SourceLocation diagLoc,
+                                         DXIL::ShaderKind shaderKind) {
+    SetShaderKind(diagLoc, shaderKind, "", ShaderStageSource::Attribute);
+  };
+
+  auto ParseShaderStage = [&SetShaderKind](clang::SourceLocation diagLoc, llvm::StringRef shaderStage, ShaderStageSource source) {
+    if (!shaderStage.empty()) {
+      DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(shaderStage);
+      SetShaderKind(diagLoc, shaderKind, shaderStage, source);
+    }
+  };
+
+  // Parse all shader attributes and report conflicts.
+  for (auto* Attr : FD->specific_attrs<HLSLShaderAttr>()) {
+    ParseShaderStage(Attr->getLocation(), Attr->getStage(), ShaderStageSource::Attribute);
+    priorShaderAttrLoc = Attr->getLocation();
+  }
+
+  if (isEntry) {
+    // Set shaderKind from the shader target profile
+    SetShaderKind(FD->getLocation(), SM->GetKind(), "", ShaderStageSource::Profile);
+  }
+
+  if (isNode && isCS) {
+    DXASSERT(funcProps->shaderKind == DXIL::ShaderKind::Compute,
+      "If both Compute and Node are set, shaderKind should be set to Compute");
   }
 
   // Save patch constant function to patchConstantFunctionMap.
@@ -1523,28 +1617,17 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Hull;
   }
 
-  const ShaderModel *SM = m_pHLModule->GetShaderModel();
   if (FD->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
     if (SM->IsSM67Plus() &&
         (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
          (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
       F->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
   }
-  if (isEntry) {
-    funcProps->shaderKind = SM->GetKind();
-    if (funcProps->shaderKind == DXIL::ShaderKind::Mesh) {
-      isMS = true;
-    }
-    else if (funcProps->shaderKind == DXIL::ShaderKind::Amplification) {
-      isAS = true;
-    }
-  }
 
   // Geometry shader.
   if (const HLSLMaxVertexCountAttr *Attr =
           FD->getAttr<HLSLMaxVertexCountAttr>()) {
-    isGS = true;
-    funcProps->shaderKind = DXIL::ShaderKind::Geometry;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Geometry);
     funcProps->ShaderProps.GS.maxVertexCount = Attr->getCount();
     funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Undefined;
 
@@ -1557,6 +1640,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
   if (const HLSLInstanceAttr *Attr = FD->getAttr<HLSLInstanceAttr>()) {
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Geometry);
     unsigned instanceCount = Attr->getCount();
     funcProps->ShaderProps.GS.instanceCount = instanceCount;
     if (isEntry && !SM->IsGS()) {
@@ -1572,23 +1656,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.GS.instanceCount = 1;
   }
 
-  // Compute shader
+  // Populate numThreads
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
-    if (isMS) {
-      funcProps->ShaderProps.MS.numThreads[0] = Attr->getX();
-      funcProps->ShaderProps.MS.numThreads[1] = Attr->getY();
-      funcProps->ShaderProps.MS.numThreads[2] = Attr->getZ();
-    } else if (isAS) {
-      funcProps->ShaderProps.AS.numThreads[0] = Attr->getX();
-      funcProps->ShaderProps.AS.numThreads[1] = Attr->getY();
-      funcProps->ShaderProps.AS.numThreads[2] = Attr->getZ();
-    } else {
+    if (!(isMS || isAS)) {
+      // Compute and/or node shader
+      if (isCS || funcProps->shaderKind == DXIL::ShaderKind::Invalid)
+        funcProps->shaderKind = DXIL::ShaderKind::Compute;
       isCS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Compute;
+    }
 
-      funcProps->ShaderProps.CS.numThreads[0] = Attr->getX();
-      funcProps->ShaderProps.CS.numThreads[1] = Attr->getY();
-      funcProps->ShaderProps.CS.numThreads[2] = Attr->getZ();
+    funcProps->numThreads[0] = Attr->getX();
+    funcProps->numThreads[1] = Attr->getY();
+    funcProps->numThreads[2] = Attr->getZ();
+
+    if ((Attr->getX() * Attr->getY() * Attr->getZ()) > 1024) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "Thread group size may not exceed 1024");
+      Diags.Report(Attr->getLocation(), DiagID);
     }
 
     if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
@@ -1610,8 +1695,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isHS = true;
-    funcProps->shaderKind = DXIL::ShaderKind::Hull;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Hull);
     HSEntryPatchConstantFuncAttr[F] = Attr;
   } else {
     // TODO: This is a duplicate check. We also have this check in
@@ -1701,9 +1785,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isDS = !isHS;
-    if (isDS)
-      funcProps->shaderKind = DXIL::ShaderKind::Domain;
+    if (!isHS)
+      CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Domain);
 
     DXIL::TessellatorDomain domain = StringToDomain(Attr->getDomainType());
     if (isHS)
@@ -1721,10 +1804,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isVS = true;
     // The real job is done at EmitHLSLFunctionProlog where debug info is
     // available. Only set shader kind here.
-    funcProps->shaderKind = DXIL::ShaderKind::Vertex;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Vertex);
   }
 
   // Pixel shader.
@@ -1738,9 +1820,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    isPS = true;
+    CheckImpliedShaderStageAttr(Attr->getLocation(), DXIL::ShaderKind::Pixel);
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
-    funcProps->shaderKind = DXIL::ShaderKind::Pixel;
   }
 
   if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
@@ -1751,14 +1832,14 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
-    if (!isCS) {
+    if (!isCS && !isNode) {
       unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error,
         "attribute WaveSize only valid for CS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
-    if (!isEntry) {
+    if (!isEntry && !isNode) {
       unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error,
         "attribute WaveSize only valid on entry point function.");
@@ -1776,10 +1857,129 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->waveSize = Attr->getSize();
   }
 
-  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay + isMS + isAS;
+  // Node shader
+  if (isNode) {
+    // Default launch type is defined to be Broadcasting.
+    funcProps->Node.LaunchType = DXIL::NodeLaunchType::Broadcasting;
+  }
+
+  // Assign function properties for all "node" attributes.
+  if (const auto *pAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
+    if (isNode)
+      funcProps->Node.LaunchType = StringToNodeLaunchType(pAttr->getLaunchType());
+    else
+      ReportMissingNodeDiag(Diags, pAttr);
+  }
+
+  if (const auto *pAttr = FD->getAttr<HLSLNodeIsProgramEntryAttr>()) {
+    if (isNode)
+      funcProps->Node.IsProgramEntry = true;
+    else
+      ReportMissingNodeDiag(Diags, pAttr);
+  }
+
+  if (const auto *pAttr =
+          FD->getAttr<HLSLNodeIdAttr>()) {
+    if (isNode) {
+      funcProps->NodeShaderID.Name = pAttr->getName().str();
+      funcProps->NodeShaderID.Index = pAttr->getArrayIndex();
+    }
+    else {
+      ReportMissingNodeDiag(Diags, pAttr);
+    }
+
+  } else {
+    if (isNode) {
+      funcProps->NodeShaderID.Name = FD->getName().str();
+      funcProps->NodeShaderID.Index = 0;
+    }
+  }
+  if (const auto *pAttr = FD->getAttr<HLSLNodeLocalRootArgumentsTableIndexAttr>()) {
+    if (isNode)
+      funcProps->Node.LocalRootArgumentsTableIndex =
+        pAttr->getIndex();
+    else
+      ReportMissingNodeDiag(Diags, pAttr);
+  }
+  if (const auto *pAttr = FD->getAttr<HLSLNodeShareInputOfAttr>()) {
+    if (isNode) {
+      funcProps->NodeShaderSharedInput.Name = pAttr->getName().str();
+      funcProps->NodeShaderSharedInput.Index = pAttr->getArrayIndex();
+    }
+    else {
+      ReportMissingNodeDiag(Diags, pAttr);
+    }
+  }
+  if (const auto *pAttr =
+    FD->getAttr<HLSLNodeDispatchGridAttr>()) {
+    if (isNode) {
+      funcProps->Node.DispatchGrid[0] = pAttr->getX();
+      funcProps->Node.DispatchGrid[1] = pAttr->getY();
+      funcProps->Node.DispatchGrid[2] = pAttr->getZ();
+      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Broadcasting) {
+        unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "NodeDispatchGrid may only be used with Broadcasting nodes");
+        Diags.Report(pAttr->getLocation(), DiagID);
+      }
+    }
+    else {
+      ReportMissingNodeDiag(Diags, pAttr);
+    }
+  }
+  if (const auto *pAttr = FD->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
+    if (isNode) {
+      funcProps->Node.MaxDispatchGrid[0] = pAttr->getX();
+      funcProps->Node.MaxDispatchGrid[1] = pAttr->getY();
+      funcProps->Node.MaxDispatchGrid[2] = pAttr->getZ();
+      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Broadcasting) {
+        unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "NodeMaxDispatchGrid may only be used with Broadcasting nodes");
+        Diags.Report(pAttr->getLocation(), DiagID);
+      }
+    }
+    else {
+      ReportMissingNodeDiag(Diags, pAttr);
+    }
+  }
+  if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
+    if (isNode) {
+      funcProps->Node.MaxRecursionDepth = pAttr->getCount();
+      if (pAttr->getCount() > 32) {
+        unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "NodeMaxRecursionDepth may not exceed 32");
+        Diags.Report(pAttr->getLocation(), DiagID);
+      }
+    }
+    else {
+      ReportMissingNodeDiag(Diags, pAttr);
+    }
+  }
+  if (!FD->getAttr<HLSLNumThreadsAttr>()) {
+    if (isNode) {
+      // NumThreads wasn't specified.
+      // For a Thread launch node the default is (1,1,1,) which we set here.
+      funcProps->numThreads[0] = 1;
+      funcProps->numThreads[1] = 1;
+      funcProps->numThreads[2] = 1;
+      // Other node launch types require NumThreads to be specified.
+      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Thread) {
+        unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "NumThreads is required, but was not specified");
+        Diags.Report(FD->getLocation(), DiagID);
+      }
+    }
+  }
+
+  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay + isMS + isAS + isNode;
 
   // TODO: check this in front-end and report error.
-  DXASSERT(profileAttributes < 2, "profile attributes are mutual exclusive");
+  if (profileAttributes > 1 && profileAttributes != isNode + isCS)
+    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
+      DiagnosticsEngine::Error,
+      "Invalid shader stage attribute combination"));
 
   if (isEntry) {
     switch (funcProps->shaderKind) {
@@ -1873,6 +2073,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool hasOutPrimitives = false;
   bool hasInPayload = false;
   bool rayShaderHaveErrors = false;
+  unsigned int  NodeInputParamIdx = 0;
+  unsigned int  NodeOutputParamIdx = 0;
+  SmallMapVector<StringRef, const ParmVarDecl *, 8> outputDecls;
   for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx, ++ArgIt) {
     DxilParameterAnnotation &paramAnnotation =
         FuncAnnotation->GetParameterAnnotation(ArgNo);
@@ -2239,6 +2442,68 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       }
       }
     }
+    // Parse the function arguments and fill out the node i/o properties
+    if (isNode) {
+      hlsl::NodeFlags nodeFlags;
+      if (GetHLSLNodeIORecordType(parmDecl, nodeFlags)) {
+        hlsl::NodeIOProperties node(nodeFlags);
+
+        dxilInputQ = DxilParamInputQual::NodeIO;
+        // Add Node Record Type
+        AddHLSLNodeRecordTypeInfo(parmDecl, node);
+        if (nodeFlags.IsInputRecord()) {
+         // Add Node Shader parameter to a ValToProp map
+         // This will be used later to lower the Node parameters
+         // to handles
+          if (NodeInputParamIdx != 0) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(DiagnosticsEngine::Error,
+              "Node Shaders can have only zero or one Input Record parameter"));            
+          }
+          NodeInputRecordParams[ArgIt].MetadataIdx = NodeInputParamIdx++;
+
+          if (parmDecl->hasAttr<HLSLMaxRecordsAttr>()) {
+            node.MaxRecords =
+                parmDecl->getAttr<HLSLMaxRecordsAttr>()->getMaxCount();
+          }
+
+          NodeInputRecordParams[ArgIt].RecordInfo = node.GetNodeRecordInfo();
+          funcProps->InputNodes.push_back(node);
+        }
+        else {
+          DXASSERT(node.Flags.IsOutputNode(), "Invalid NodeIO Kind");
+          // Add Node Shader parameter to a ValToProp map
+          // This will be used later to lower the Node parameters
+          // to handles
+          NodeOutputParams[ArgIt].MetadataIdx = NodeOutputParamIdx++;
+          if (parmDecl->hasAttr<HLSLAllowSparseNodesAttr>())
+            node.AllowSparseNodes = true;
+
+          // OutputArraySize from declared arraysize
+          // FIXME: move to OutputNodeArray.
+          if (parmDecl->hasAttr < HLSLNodeArraySizeAttr>()) {
+            node.OutputArraySize =
+                parmDecl->getAttr<HLSLNodeArraySizeAttr>()->getCount();
+          }
+          else {
+            node.OutputArraySize = 0;
+          }
+          // OutputID from attribute
+          if (const auto *Attr = parmDecl->getAttr<HLSLNodeIdAttr>()) {
+            node.OutputID.Name = Attr->getName().str();
+            node.OutputID.Index = Attr->getArrayIndex();
+          } else {
+            node.OutputID.Name = parmDecl->getName().str();
+            node.OutputID.Index = 0;
+          }
+
+          // Insert output decls for cross referencing once all info is available
+          outputDecls.insert(std::make_pair(parmDecl->getName(), parmDecl));
+
+          NodeOutputParams[ArgIt].Info = node.GetNodeInfo();
+          funcProps->OutputNodes.push_back(node);
+        }
+      }
+    }
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
     if (isEntry) {
@@ -2247,6 +2512,58 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       }
       CheckParameterAnnotation(paramSemanticLoc, paramAnnotation,
                                /*isPatchConstantFunction*/ false);
+    }
+  }
+
+  // If InputNodes is empty, add an implicit input.
+  // - If MaxDispatchGrid is specified, we need a default record type with a
+  // single uint3 field for SV_DispatchGrid.
+  // - Otherwise, we use EmptyNodeInput
+  if (funcProps->InputNodes.size() == 0) {
+    if (funcProps->Node.MaxDispatchGrid[0] > 0) {
+      hlsl::NodeIOProperties defaultInput(DXIL::NodeIOKind::DispatchNodeInputRecord);
+      defaultInput.RecordType.size = 12;
+      defaultInput.RecordType.SV_DispatchGrid.ByteOffset = 0;
+      defaultInput.RecordType.SV_DispatchGrid.ComponentType = DXIL::ComponentType::U32;
+      defaultInput.RecordType.SV_DispatchGrid.NumComponents = 3;
+      funcProps->InputNodes.push_back(defaultInput);
+    } else {
+      hlsl::NodeIOProperties emptyInput(DXIL::NodeIOKind::EmptyInput);
+      funcProps->InputNodes.push_back(emptyInput);
+    }
+  }
+
+  // All output decls and param names are available and errors can be generated
+  // and parameter output array indices that correspond to param names can be added to the properties
+  auto outIt = outputDecls.begin();
+  for (unsigned outputNo = 0; outputNo < funcProps->OutputNodes.size(); outputNo++ ) {
+    const ParmVarDecl *parmDecl = outIt->second;
+    outIt++;
+    hlsl::NodeIOProperties &node = funcProps->OutputNodes[outputNo];
+    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsSharedWithAttr>()) {
+      // Find matching argument name if present
+      StringRef sharedName = Attr->getName()->getName();
+
+      auto snIt = outputDecls.find(sharedName);
+      int ix = snIt - outputDecls.begin();
+      if (snIt == outputDecls.end()) {
+        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "MaxRecordsSharedWith must reference a valid ouput parameter name."));
+      } else if (ix == (int)outputNo) {
+        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "MaxRecordsSharedWith must not reference the same parameter it is applied to."));
+      }
+      node.MaxRecordsSharedWith = ix;
+    }
+    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>()) {
+      if (node.MaxRecordsSharedWith >= 0) {
+        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "Only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter."));
+      }
+      node.MaxRecords = Attr->getMaxCount();
     }
   }
 
@@ -2322,7 +2639,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // clear isExportedEntry if not exporting entry
-  bool isExportedEntry = profileAttributes != 0;
+  bool isExportedEntry = SM->IsLib() && profileAttributes != 0;
   if (isExportedEntry) {
     // use unmangled or mangled name depending on which is used for final entry function
     StringRef name = isRay ? F->getName() : FD->getName();
@@ -2363,6 +2680,101 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   m_ScopeMap[F] = ScopeInfo(F, FD->getLocation());
+}
+
+void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(const clang::ParmVarDecl* parmDecl, hlsl::NodeIOProperties& node) {
+  clang::QualType paramTy = parmDecl->getType().getCanonicalType();
+
+  if (auto arrayType = dyn_cast<ConstantArrayType>(paramTy)) {
+    paramTy = arrayType->getElementType();
+  }
+  if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
+    // Node I/O records are templateTypes
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
+      auto& TemplateArgs = templateDecl->getTemplateArgs();
+
+      if (!node.Flags.IsEmpty()) {
+        DiagnosticsEngine& Diags = CGM.getDiags();
+        auto& Rec = TemplateArgs.get(0);
+        clang::QualType RecType = Rec.getAsType();
+        llvm::Type *Type = CGM.getTypes().ConvertType(RecType);
+        const RecordType *recordtype = RecType->getAsStructureType();
+        RecordDecl *RD = recordtype->getDecl();
+
+        // Get the TrackRWInputSharing flag from the record attribute
+        if (RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
+          if (node.Flags.IsInputRecord() && node.Flags.GetNodeIOKind() != hlsl::DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord"));
+          }
+          node.Flags.SetTrackRWInputSharing();
+        }
+
+        // Ex: For DispatchNodeInputRecord<MY_RECORD>, set size = size(MY_RECORD)
+        node.RecordType.size = CGM.getDataLayout().getTypeAllocSize(Type);
+        if (node.RecordType.size == 0) {
+          // a node input/output record can't have a size of zero
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "record used in %0 may not have zero size");
+          Diags.Report(parmDecl->getSourceRange().getBegin(), DiagID) << templateDecl->getName() << parmDecl->getSourceRange();
+          Diags.Report(RD->getLocation(), diag::note_defined_here) << "zero sized record";
+        }
+        // If we find SV_DispatchGrid we'll remember the location for diagnostics
+        SourceLocation SV_DispatchGridLoc;
+        // Iterate over fields of the MY_RECORD(example) struct
+        for (auto fieldDecl : RD->fields()) {
+          //Check if any of the fields have a semantic annotation = SV_DispatchGrid
+          for (const hlsl::UnusualAnnotation *it : fieldDecl->getUnusualAnnotations()) {
+            if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
+              const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
+              // if we find a field with SV_DispatchGrid, fill out the SV_DispatchGrid
+              // member with byteoffset of the field, NumComponents (3 for uint3 etc)
+              // and U32 vs U16 types, which are the only types allowed
+              if (sd->SemanticName.equals("SV_DispatchGrid")) {
+                clang::QualType FT = fieldDecl->getType();
+                auto &DL = CGM.getDataLayout();
+                auto &SDGRec = node.RecordType.SV_DispatchGrid;
+                if (SDGRec.NumComponents != 0) {
+                  DiagnosticsEngine &Diags = CGM.getDiags();
+                  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "a field with SV_DispatchGrid has already been specified");
+                  Diags.Report(it->Loc, DiagID);
+                  Diags.Report(SV_DispatchGridLoc, diag::note_defined_here) << "previously";
+                } else {
+                 // Set SV_DispatchGridLoc for use in diagnostics ;
+                 SV_DispatchGridLoc = it->Loc;
+                }
+                unsigned fieldIdx = fieldDecl->getFieldIndex();
+                if (StructType* ST = dyn_cast<StructType>(Type)) {
+                  SDGRec.ByteOffset = DL.getStructLayout(ST)->getElementOffset(fieldIdx);
+                }
+                const llvm::Type *lTy = CGM.getTypes().ConvertType(FT);
+                if (const llvm::VectorType *VT = dyn_cast<llvm::VectorType>(lTy)) {
+                  DXASSERT(VT->getElementType()->isIntegerTy(), "invalid type");
+                  SDGRec.NumComponents = VT->getNumElements();
+                  SDGRec.ComponentType = (VT->getElementType()->getIntegerBitWidth() == 16) ? DXIL::ComponentType::U16 :
+                    DXIL::ComponentType::U32;
+                } else if (const llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(lTy)) {
+                  DXASSERT(AT->getElementType()->isIntegerTy(), "invalid type");
+                  DXASSERT_NOMSG(AT->getNumElements() <= 3);
+                  SDGRec.NumComponents = AT->getNumElements();
+                  SDGRec.ComponentType = (AT->getElementType()->getIntegerBitWidth() == 16) ? DXIL::ComponentType::U16 :
+                    DXIL::ComponentType::U32;
+                } else {
+                  // Scalar U16 or U32
+                  DXASSERT(lTy->isIntegerTy(), "invalid type");
+                  SDGRec.NumComponents = 1;
+                  SDGRec.ComponentType = (lTy->getIntegerBitWidth() == 16) ? DXIL::ComponentType::U16 :
+                    DXIL::ComponentType::U32;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 void CGMSHLSLRuntime::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {
@@ -3574,6 +3986,10 @@ void CGMSHLSLRuntime::FinishCodeGen() {
 
   // Translate calls to RayQuery constructor into hl Allocate calls
   TranslateRayQueryConstructor(HLM);
+
+  //Lower Node Input and Output Parameters to Node Handles
+  TranslateInputNodeRecordArgToHandle(HLM, NodeInputRecordParams);
+  TranslateNodeOutputParamToHandle(HLM, NodeOutputParams);
 
   bool bIsLib = HLM.GetShaderModel()->IsLib();
   StringRef GlobalCtorName = "llvm.global_ctors";
@@ -5941,6 +6357,11 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         }
         if (Ptr) {
           if (isa<AllocaInst>(Ptr) && 0 == ArgVals.count(Ptr))
+            SafeToSkip = true;
+          // Safe to skip if groupshared ptr passed to groupshared parameter.
+          else if (Ptr->getType()->getPointerAddressSpace() ==
+                       DXIL::kTGSMAddrSpace &&
+                   ParamTy.getAddressSpace() == DXIL::kTGSMAddrSpace)
             SafeToSkip = true;
           else if (const auto *A = dyn_cast<Argument>(Ptr))
             SafeToSkip = A->hasNoAliasAttr() && 0 == ArgVals.count(Ptr);

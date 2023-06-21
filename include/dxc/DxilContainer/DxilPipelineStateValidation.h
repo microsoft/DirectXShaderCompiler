@@ -111,6 +111,7 @@ enum class PSVShaderKind : uint8_t    // DXIL::ShaderKind
   Callable,
   Mesh,
   Amplification,
+  Node,
   Invalid,
 };
 

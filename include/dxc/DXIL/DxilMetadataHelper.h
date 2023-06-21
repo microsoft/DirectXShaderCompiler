@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "dxc/DXIL/DxilFunctionProps.h"
 
 namespace llvm {
 class LLVMContext;
@@ -229,6 +230,7 @@ public:
   static const unsigned kDxilFieldAnnotationResPropTag            = 10;
   static const unsigned kDxilFieldAnnotationBitFieldsTag          = 11;
   static const unsigned kDxilFieldAnnotationBitFieldWidthTag      = 12;
+  static const unsigned kDxilFieldAnnotationVectorSizeTag         = 13;
 
   // DXR Payload Annotations
   static const unsigned kDxilPayloadAnnotationStructTag           = 0;
@@ -277,6 +279,32 @@ public:
   static const unsigned kDxilASStateTag         = 10;
   static const unsigned kDxilWaveSizeTag        = 11;
   static const unsigned kDxilEntryRootSigTag    = 12;
+
+  // Node Tags ( extension of shader property tags)
+
+  static const unsigned kDxilNodeLaunchTypeTag = 13;
+  static const unsigned kDxilNodeIsProgramEntryTag = 14;
+  static const unsigned kDxilNodeIdTag = 15;
+  static const unsigned kDxilNodeLocalRootArgumentsTableIndexTag = 16;
+  static const unsigned kDxilShareInputOfTag = 17;
+  static const unsigned kDxilNodeDispatchGridTag = 18;
+  static const unsigned kDxilNodeMaxRecursionDepthTag = 19;
+  static const unsigned kDxilNodeInputsTag = 20;
+  static const unsigned kDxilNodeOutputsTag = 21;
+  static const unsigned kDxilNodeMaxDispatchGridTag = 22;
+
+  // Node Input/Output State. 
+  static const unsigned kDxilNodeOutputIDTag = 0;
+  static const unsigned kDxilNodeIOFlagsTag = 1;
+  static const unsigned kDxilNodeRecordTypeTag = 2;
+  static const unsigned kDxilNodeMaxRecordsTag = 3;
+  static const unsigned kDxilNodeMaxRecordsSharedWithTag = 4;
+  static const unsigned kDxilNodeOutputArraySizeTag = 5;
+  static const unsigned kDxilNodeAllowSparseNodesTag = 6;
+
+  // Node Record Type
+  static const unsigned kDxilNodeRecordSizeTag = 0;
+  static const unsigned kDxilNodeSVDispatchGridTag = 1;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
@@ -437,6 +465,10 @@ public:
   void LoadDxrPayloadAccessQualifiers(const llvm::MDOperand &MDO, DxilPayloadFieldAnnotation &FA);
 
   // Function props.
+  void SerializeNodeProps(llvm::SmallVectorImpl<llvm::Metadata *> &MDVals, unsigned &valIdx,
+                          const hlsl::DxilFunctionProps *props);
+  void DeserializeNodeProps(const llvm::MDTuple *pProps, unsigned &idx,
+                            hlsl::DxilFunctionProps *props);
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
                                        const llvm::Function *F);
   const llvm::Function *LoadDxilFunctionProps(const llvm::MDTuple *pProps,
@@ -512,6 +544,12 @@ private:
 
   llvm::MDTuple *EmitDxilASState(const unsigned *NumThreads, unsigned payloadSizeInBytes);
   void LoadDxilASState(const llvm::MDOperand &MDO, unsigned *NumThreads, unsigned &payloadSizeInBytes);
+
+  llvm::MDTuple * EmitDxilNodeIOState(const NodeIOProperties &Node);
+  hlsl::NodeIOProperties LoadDxilNodeIOState(const llvm::MDOperand &MDO);
+
+  void EmitDxilNodeState(std::vector<llvm::Metadata*> &MDVals, 
+                         const DxilFunctionProps &props);
 
   void AddCounterIfNonZero(uint32_t value, llvm::StringRef name, std::vector<llvm::Metadata*> &MDVals);
   void LoadCounterMD(const llvm::MDOperand &MDName, const llvm::MDOperand &MDValue, DxilCounters &counters) const;

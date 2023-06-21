@@ -397,6 +397,9 @@ bool HLModule::IsPatchConstantShader(llvm::Function *F) {
 bool HLModule::IsComputeShader(llvm::Function *F) {
   return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsCS();
 }
+bool HLModule::IsNodeShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsNode();
+}
 bool HLModule::IsEntryThatUsesSignatures(llvm::Function *F) {
   auto propIter = m_DxilFunctionPropsMap.find(F);
   if (propIter != m_DxilFunctionPropsMap.end()) {

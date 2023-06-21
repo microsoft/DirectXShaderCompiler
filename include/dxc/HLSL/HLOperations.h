@@ -41,7 +41,17 @@ enum class HLOpcodeGroup {
   HLMatLoadStore,
   HLSelect,
   HLCreateHandle,
+  // FIXME: Change the way these groups are being proliferated/used for each
+  // new generated op.
+  // Suggestion: Add an opcode and reuse CreateHandle/AnnotateHandle groups, and
+  // add an IndexHandle group.
+  HLCreateNodeOutputHandle,
+  HLIndexNodeHandle,
+  HLCreateNodeInputRecordHandle,
   HLAnnotateHandle,
+  HLWaveMatrix_Annotate,
+  HLAnnotateNodeHandle,
+  HLAnnotateNodeRecordHandle,
   NumOfHLOps
 };
 
@@ -109,6 +119,10 @@ enum class HLCastOpcode {
   ColMatrixToRowMatrix,
   RowMatrixToColMatrix,
   HandleToResCast,
+  HandleToNodeOutputCast,
+  NodeOutputToHandleCast,
+  HandleToNodeRecordCast,
+  NodeRecordToHandleCast,
 };
 
 enum class HLMatLoadStoreOpcode {
@@ -362,10 +376,13 @@ const unsigned kWaveAllEqualValueOpIdx = 1;
 const unsigned kCreateHandleResourceOpIdx = 1;
 const unsigned kCreateHandleIndexOpIdx = 2; // Only for array of cbuffer.
 
-// AnnotateHandle.
-const unsigned kAnnotateHandleHandleOpIdx = 1;
+// Annotate(Node)(Record)Handle.
 const unsigned kAnnotateHandleResourcePropertiesOpIdx = 2;
 const unsigned kAnnotateHandleResourceTypeOpIdx = 3;
+
+// AnnotateWaveMatrix.
+const unsigned kAnnotateWaveMatrixPtrOpIdx = 1;
+const unsigned kAnnotateWaveMatrixPropertiesOpIdx = 2;
 
 // TraceRay.
 const unsigned kTraceRayRayDescOpIdx = 7;
@@ -385,6 +402,38 @@ const unsigned kDispatchMeshOpThreadX = 1;
 const unsigned kDispatchMeshOpThreadY = 2;
 const unsigned kDispatchMeshOpThreadZ = 3;
 const unsigned kDispatchMeshOpPayload = 4;
+
+// WaveMatrix
+const unsigned kWaveMatThisOpIdx = 1;
+const unsigned kWaveMatFillScalarOpIdx = 2;
+const unsigned kWaveMatScalarOpOpIdx = 2;
+const unsigned kWaveMatOther1OpIdx = 2;
+const unsigned kWaveMatOther2OpIdx = 3;
+const unsigned kWaveMatLoadStoreBufOpIdx = 2;
+const unsigned kWaveMatLoadStoreStartOpIdx = 3;
+const unsigned kWaveMatLoadStoreStrideOpIdx = 4;
+// Note: No ColMajor arg for fragments, so align idx is one less.
+const unsigned kWaveMatLoadStoreColMajorOpIdx = 5;
+const unsigned kWaveMatFragLoadStoreAlignmentOpIdx = 5;
+const unsigned kWaveMatLoadStoreAlignmentOpIdx = 6;
+
+// Work Graph
+
+const unsigned kIncrementOutputCountCountIdx = 2;
+
+const unsigned kMemoryTypeFlagsOpIdx = 1;
+const unsigned kAccessFlagsOpIdx = 2;
+const unsigned kSyncFlagsOpIdx = 3;
+
+
+// Node Handles
+const unsigned kAllocateRecordNumRecordsIdx = 2;
+const unsigned kNodeOutputMetadataIDIdx = 1;
+const unsigned kIndexNodeHandleArrayIDIdx = 2;
+const unsigned kNodeInputRecordMetadataIDIdx = 1;
+const unsigned kNodeHandleToResCastOpIdx = 1;
+const unsigned kAnnotateNodeHandleNodePropIdx = 2;
+const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
 
 } // namespace HLOperandIndex
 

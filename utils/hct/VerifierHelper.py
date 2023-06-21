@@ -115,6 +115,7 @@ VerifierTests = {
     'RunWave':                                   'wave.hlsl',
     'RunWriteConstArrays':                       'write-const-arrays.hlsl',
     'RunAtomicsOnBitfields':                     'atomics-on-bitfields.hlsl',
+    'RunWorkGraphs':                             'work-graphs.hlsl',
     'RunUnboundedResourceArrays':                'invalid-unbounded-resource-arrays.hlsl',
 }
 
@@ -144,6 +145,7 @@ fxcExcludedTests = [
     'RunVectorSyntaxExactPrecision',
     'RunWave',
     'RunAtomicsOnBitfields',
+    'RunWorkGraphs',
 ]
 
 # rxRUN = re.compile(r'[ RUN      ] VerifierTest.(\w+)')	# gtest syntax

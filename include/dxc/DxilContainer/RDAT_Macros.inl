@@ -81,6 +81,12 @@
   #define RDAT_FLAGS(sTy, eTy, name)          sTy name;
   #define RDAT_BYTES(name)                    hlsl::RDAT::BytesRef name;
   #define RDAT_ARRAY_VALUE(type, count, type_name, name) type_name name;
+  #define RDAT_STRUCT_TABLE_DERIVED(type, base, table) \
+    template<> constexpr const char *RecordTraits<type>::TypeName();\
+    template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex();\
+    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType();\
+    template<> constexpr size_t RecordTraits<base>::DerivedRecordSize();\
+    RDAT_STRUCT_DERIVED(type, base)
 
 #elif DEF_RDAT_TYPES == DEF_RDAT_READER_DECL
 
@@ -175,14 +181,19 @@
       type##_Reader reader(BaseRecordReader(                                     \
           &ctx, (void *)pRecord, (uint32_t)RecordTraits<type>::RecordSize()));
   #define RDAT_STRUCT_DERIVED(type, base)                                        \
+    template <>                                                                  \
     const char *RecordRefDumper<hlsl::RDAT::base>::TypeNameDerived(              \
         const hlsl::RDAT::RDATContext &ctx) const {                              \
       return TypeName<hlsl::RDAT::type>(ctx);                                    \
     }                                                                            \
+    template <>                                                                  \
     void RecordRefDumper<hlsl::RDAT::base>::DumpDerived(                         \
         const hlsl::RDAT::RDATContext &ctx, DumpContext &d) const {              \
       Dump<hlsl::RDAT::type>(ctx, d);                                            \
     }                                                                            \
+    template <>                                                                  \
+    void RecordDumper<hlsl::RDAT::type>::Dump(                                   \
+        const hlsl::RDAT::RDATContext &ctx, DumpContext &d) const;               \
     template <>                                                                  \
     void DumpWithBase<hlsl::RDAT::type>(const hlsl::RDAT::RDATContext &ctx,      \
                                         DumpContext &d,                          \

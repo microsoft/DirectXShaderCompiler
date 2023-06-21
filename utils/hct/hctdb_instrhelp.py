@@ -377,7 +377,7 @@ class db_oload_gen:
         f = lambda i,c : "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn", "wv" : "None" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "amo": "ArgMemOnly", "nd": "NoDuplicate", "nr": "NoReturn", "wv" : "None" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:
@@ -432,6 +432,13 @@ class db_oload_gen:
             "obj": "A(obj);",
             "resproperty": "A(resProperty);",
             "resbind": "A(resBind);",
+            "waveMat": "A(pWaveMatPtr);",
+            "waveMatProps": "A(pWaveMatProps);",
+            "$gsptr": "A(pGSEltPtrTy);",
+            "nodehandle": "A(pNodeHandle);",
+            "noderecordhandle": "A(pNodeRecordHandle);",
+            "nodeproperty": "A(nodeProperty);",
+            "noderecordproperty": "A(nodeRecordProperty);"
         }
         last_category = None
         for i in self.instrs:
@@ -459,9 +466,11 @@ class db_oload_gen:
         udt_ty = "udt"
         obj_ty = "obj"
         vec_ty = "$vec"
+        gsptr_ty = "$gsptr"
         last_category = None
 
         index_dict = collections.OrderedDict()
+        ptr_index_dict = collections.OrderedDict()
         single_dict = collections.OrderedDict()
         struct_list = []
 
@@ -501,6 +510,15 @@ class db_oload_gen:
                         index_dict[index] = [instr.name]
                     else:
                         index_dict[index].append(instr.name)
+                    in_param_ty = True
+                    break
+                if (op_type == gsptr_ty):
+                    # Skip return op
+                    index = index - 1
+                    if index not in ptr_index_dict:
+                        ptr_index_dict[index] = [instr.name]
+                    else:
+                        ptr_index_dict[index].append(instr.name)
                     in_param_ty = True
                     break
                 if (op_type == udt_ty or op_type == obj_ty):
@@ -547,6 +565,16 @@ class db_oload_gen:
 
             line = line + "  DXASSERT_NOMSG(FT->getNumParams() > " + str(index) + ");\n"
             line = line + "  return FT->getParamType(" + str(index) + ");"
+            print(line)
+
+        # ptr_index_dict for overload based on pointer element type
+        for index, opcodes in ptr_index_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+
+            line = line + "  DXASSERT_NOMSG(FT->getNumParams() > " + str(index) + ");\n"
+            line = line + "  return FT->getParamType(" + str(index) + ")->getPointerElementType();"
             print(line)
 
         for code, opcodes in single_dict.items():
@@ -1019,6 +1047,7 @@ shader_stage_to_ShaderKind = {
     'callable': 'Callable',
     'mesh' : 'Mesh',
     'amplification' : 'Amplification',
+	'node' : 'Node'
 }
 
 def get_min_sm_and_mask_text():
@@ -1082,6 +1111,7 @@ check_pSM_for_shader_stage = {
     'callable': 'SK == DXIL::ShaderKind::Callable',
     'mesh': 'SK == DXIL::ShaderKind::Mesh',
     'amplification': 'SK == DXIL::ShaderKind::Amplification',
+	'node' : 'SK == DXIL::ShaderKind::Node'
 }
 
 def get_valopcode_sm_text():
@@ -1158,7 +1188,7 @@ def get_interpretation_table():
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
 highest_major = 6
-highest_minor = 7
+highest_minor = 8
 highest_shader_models = {4:1, 5:1, 6:highest_minor}
 
 def getShaderModels():

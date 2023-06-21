@@ -59,6 +59,26 @@ enum class RuntimeDataPartType : uint32_t {
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
 
+  // PRERELEASE-TODO: assign values explicitly to all enums before release
+  SignatureElementTable,
+  VSInfoTable,
+  PSInfoTable,
+  HSInfoTable,
+  DSInfoTable,
+  GSInfoTable,
+  CSInfoTable,
+  MSInfoTable,
+  ASInfoTable,
+
+  NodeIDTable,
+  NodeShaderIOAttribTable,
+  NodeShaderFuncAttribTable,
+  IONodeTable,
+  NodeShaderInfoTable,
+
+  Last_1_8 = NodeShaderInfoTable, // PRERELEASE-TODO: change to last necessary 1.8 part before release.
+  // Insert experimental here.
+
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
 
@@ -73,8 +93,10 @@ RuntimeDataPartType MaxPartTypeForValVer(unsigned Major, unsigned Minor) {
              ? RuntimeDataPartType::Invalid // No RDAT before 1.3
          : DXIL::CompareVersions(Major, Minor, 1, 4) < 0
              ? RuntimeDataPartType::Last_1_3
-         : DXIL::CompareVersions(Major, Minor, 1, 7) <= 0
+         : DXIL::CompareVersions(Major, Minor, 1, 8) < 0
              ? RuntimeDataPartType::Last_1_4
+         : DXIL::CompareVersions(Major, Minor, 1, 8) == 0
+             ? RuntimeDataPartType::Last_1_8
              : RuntimeDataPartType::LastExperimental;
 }
 
@@ -82,6 +104,21 @@ enum class RecordTableIndex : unsigned {
   ResourceTable,
   FunctionTable,
   SubobjectTable,
+
+  SignatureElementTable,
+  VSInfoTable,
+  PSInfoTable,
+  HSInfoTable,
+  DSInfoTable,
+  GSInfoTable,
+  CSInfoTable,
+  MSInfoTable,
+  ASInfoTable,
+  NodeIDTable,
+  NodeShaderIOAttribTable,
+  NodeShaderFuncAttribTable,
+  IONodeTable,
+  NodeShaderInfoTable,
 
   DxilPdbInfoTable,
   DxilPdbInfoSourceTable,
@@ -622,106 +659,6 @@ public:
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
 };
-
-
-//////////////////////////////////
-/// structures for library runtime
-
-struct DxilResourceDesc {
-  uint32_t Class; // hlsl::DXIL::ResourceClass
-  uint32_t Kind;  // hlsl::DXIL::ResourceKind
-  uint32_t ID;    // id per class
-  uint32_t Space;
-  uint32_t UpperBound;
-  uint32_t LowerBound;
-  LPCWSTR Name;
-  uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
-};
-
-typedef const DxilResourceDesc *const *DxilResourceDescPtrArray;
-
-struct DxilFunctionDesc {
-  LPCWSTR Name;
-  LPCWSTR UnmangledName;
-  uint32_t NumResources;
-  uint32_t NumFunctionDependencies;
-  DxilResourceDescPtrArray Resources;
-  const LPCWSTR *FunctionDependencies;
-  DXIL::ShaderKind ShaderKind;
-  uint32_t PayloadSizeInBytes;   // 1) hit, miss, or closest shader: payload count
-                                 // 2) call shader: parameter size
-  uint32_t AttributeSizeInBytes; // attribute size for closest hit and any hit
-  uint32_t FeatureInfo1;         // first 32 bits of feature flag
-  uint32_t FeatureInfo2;         // second 32 bits of feature flag
-  uint32_t ShaderStageFlag;      // valid shader stage flag.
-  uint32_t MinShaderTarget;      // minimum shader target.
-};
-
-struct DxilSubobjectDesc {
-  LPCWSTR Name;
-  DXIL::SubobjectKind Kind;         // D3D12_STATE_SUBOBJECT_TYPE
-
-  struct StateObjectConfig_t {
-    uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
-  };
-  struct RootSignature_t {
-    LPCVOID pSerializedSignature;
-    uint32_t SizeInBytes;
-  };    // GlobalRootSignature or LocalRootSignature
-  struct SubobjectToExportsAssociation_t {
-    LPCWSTR Subobject;
-    uint32_t NumExports;
-    const LPCWSTR* Exports;
-  };
-  struct RaytracingShaderConfig_t {
-    uint32_t MaxPayloadSizeInBytes;
-    uint32_t MaxAttributeSizeInBytes;
-  };
-  struct RaytracingPipelineConfig_t {
-    uint32_t MaxTraceRecursionDepth;
-  };
-  struct HitGroup_t {
-    DXIL::HitGroupType Type;        // D3D12_HIT_GROUP_TYPE
-    LPCWSTR AnyHit;
-    LPCWSTR ClosestHit;
-    LPCWSTR Intersection;
-  };
-
-  struct RaytracingPipelineConfig1_t {
-    uint32_t MaxTraceRecursionDepth;
-    uint32_t Flags; // DXIL::RaytracingPipelineFlags / D3D12_RAYTRACING_PIPELINE_FLAGS
-  };
-
-  union {
-    StateObjectConfig_t StateObjectConfig;
-    RootSignature_t RootSignature;    // GlobalRootSignature or LocalRootSignature
-    SubobjectToExportsAssociation_t SubobjectToExportsAssociation;
-    RaytracingShaderConfig_t RaytracingShaderConfig;
-    RaytracingPipelineConfig_t RaytracingPipelineConfig;
-    HitGroup_t HitGroup;
-    RaytracingPipelineConfig1_t RaytracingPipelineConfig1;
-  };
-};
-
-struct DxilLibraryDesc {
-  uint32_t NumFunctions;
-  DxilFunctionDesc *pFunction;
-  uint32_t NumResources;
-  DxilResourceDesc *pResource;
-  uint32_t NumSubobjects;
-  DxilSubobjectDesc *pSubobjects;
-};
-
-class DxilRuntimeReflection {
-public:
-  virtual ~DxilRuntimeReflection() {}
-  // This call will allocate memory for GetLibraryReflection call
-  virtual bool InitFromRDAT(const void *pRDAT, size_t size) = 0;
-  // DxilRuntimeReflection owns the memory pointed to by DxilLibraryDesc
-  virtual const DxilLibraryDesc GetLibraryReflection() = 0;
-};
-
-DxilRuntimeReflection *CreateDxilRuntimeReflection();
 
 } // namespace RDAT
 } // namespace hlsl

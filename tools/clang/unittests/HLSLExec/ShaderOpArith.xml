@@ -1280,6 +1280,71 @@
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="WaveMatrixOp" CS="CS" DispatchX="1" DispatchY="1" DispatchZ="1">
+    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2), UAV(u3), UAV(u4), UAV(u5)</RootSignature>
+    <Resource Name="g_bufIn" Dimension="BUFFER" Width="32768" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufInAccum" Dimension="BUFFER" Width="32768" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufOut" Dimension="BUFFER" Width="1441738" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutRowCol" Dimension="BUFFER" Width="720869" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutAccumulator" Dimension="BUFFER" Width="720869" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutMatrixDepth" Dimension="BUFFER" Width="32" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+      <RootValues>
+      <RootValue Index="0" ResName="g_bufIn" />
+      <RootValue Index="1" ResName="g_bufInAccum" />
+      <RootValue Index="2" ResName="g_bufOut" />
+      <RootValue Index="3" ResName="g_bufOutRowCol" />
+      <RootValue Index="4" ResName="g_bufOutAccumulator" />
+      <RootValue Index="5" ResName="g_bufOutMatrixDepth" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_8">
+      <![CDATA[
+      void main(uint3 groupThreadID : SV_GroupThreadID) {};
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+    <ShaderOp Name="WaveMatrixOpScalar" CS="CS" DispatchX="6" DispatchY="1" DispatchZ="1">
+    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2), UAV(u3), UAV(u4), UAV(u5), UAV(u6)</RootSignature>
+    <Resource Name="g_bufInScalar" Dimension="BUFFER" Width="36" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufInAccumulator" Dimension="BUFFER" Width="1474560" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufInLeftColAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufInRightRowAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutAccumulator" Dimension="BUFFER" Width="1474560" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutLeftColAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutRightRowAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="g_bufInScalar" />
+      <RootValue Index="1" ResName="g_bufInAccumulator" />
+      <RootValue Index="2" ResName="g_bufInLeftColAcc" />
+      <RootValue Index="3" ResName="g_bufInRightRowAcc" />
+      <RootValue Index="4" ResName="g_bufOutAccumulator" />
+      <RootValue Index="5" ResName="g_bufOutLeftColAcc" />
+      <RootValue Index="6" ResName="g_bufOutRightRowAcc" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_8">
+      <![CDATA[
+      void main(uint3 groupThreadID : SV_GroupThreadID, uint3 groupID : SV_GroupID) {};
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+      <ShaderOp Name="WaveMatrixOpMath" CS="CS" DispatchX="1" DispatchY="1" DispatchZ="1">
+    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2)</RootSignature>
+    <Resource Name="g_bufInMatrices" Dimension="BUFFER" Width="49152" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufOutMatrices" Dimension="BUFFER" Width="163840" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutRowCols" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="g_bufInMatrices" />
+      <RootValue Index="1" ResName="g_bufOutMatrices" />
+      <RootValue Index="2" ResName="g_bufOutRowCols" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_8">
+      <![CDATA[
+      void main(uint3 groupThreadID : SV_GroupThreadID) {};
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="Dot2AddHalfOp" CS="CS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
     <Resource Name="SDot2AddHalfOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />

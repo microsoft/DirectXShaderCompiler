@@ -853,7 +853,7 @@ def HLSLGloballyCoherent : InheritableAttr {
 
 def HLSLShader : InheritableAttr {
   let Spellings = [CXX11<"", "shader", 2017>];
-  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geomery
+  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geometry, node
   let Documentation = [Undocumented];
 }
 
@@ -928,6 +928,87 @@ def HLSLMaybeUnused : InheritableAttr {
 def HLSLCXXOverload : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[CXXMethod]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeLaunch : InheritableAttr {
+  let Spellings = [CXX11<"", "nodelaunch", 2017>];
+  let Args = [StringArgument<"LaunchType">]; // one of broadcasting, coalescing, thread
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeIsProgramEntry : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeisprogramentry", 2017>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeId : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeid", 2017>];
+  let Args = [StringArgument<"Name">,DefaultIntArgument<"ArrayIndex", 0>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeLocalRootArgumentsTableIndex : InheritableAttr {
+  let Spellings = [CXX11<"", "nodelocalrootargumentstableindex", 2017>];
+  let Args = [UnsignedArgument<"Index">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeShareInputOf : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeshareinputof", 2017>];
+  let Args = [StringArgument<"Name">,UnsignedArgument<"ArrayIndex", 1>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeDispatchGrid: InheritableAttr {
+  let Spellings = [CXX11<"", "nodedispatchgrid", 2015>];
+  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeMaxDispatchGrid: InheritableAttr {
+  let Spellings = [CXX11<"", "nodemaxdispatchgrid", 2015>];
+  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeMaxRecursionDepth : InheritableAttr {
+  let Spellings = [CXX11<"", "nodemaxrecursiondepth", 2017>];
+  let Args = [UnsignedArgument<"Count">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeTrackRWInputSharing : InheritableAttr {
+  let Spellings = [CXX11<"", "nodetrackrwinputsharing", 2017>];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+
+// HLSL Parameter Attributes
+
+def HLSLMaxRecords : InheritableAttr {
+  let Spellings = [CXX11<"", "MaxRecords", 2015>];
+  let Args = [IntArgument<"maxCount">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLMaxRecordsSharedWith : InheritableParamAttr {
+  let Spellings = [CXX11<"", "maxrecordssharedwith", 2015>];
+  let Args = [IdentifierArgument<"Name">];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLAllowSparseNodes : InheritableParamAttr {
+  let Spellings = [CXX11<"", "allowsparsenodes", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeArraySize : InheritableAttr {
+  let Spellings = [CXX11<"", "NodeArraySize", 2015>];
+  let Args = [IntArgument<"count">];
   let Documentation = [Undocumented];
 }
 

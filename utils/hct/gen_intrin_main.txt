@@ -373,6 +373,15 @@ $match<1, 0> bool<> [[rn]] and(in any<> x, in $type1 y);
 $match<1, 0> bool<> [[rn]] or(in any<> x, in $type1 y);
 $type2 [[rn]] select(in bool<> cond, in $match<1, 2> any<> t, in $type2 f);
 
+// Work Graph intrinsics
+void [[]] Barrier(in uint MemoryTypeFlags, in uint AccessFlags, in uint SyncFlags);
+void [[]] Barrier(in NodeRecordOrUAV o, in uint AccessFlags, in uint SyncFlags);
+
+uint [[]] GetRemainingRecursionLevels();
+
+$match<0,-2> void [[hidden]] ImplicitRecordToStructCast(in AnyNodeOutputRecord output);
+$match<0,-2> void [[hidden]] ExtractRecordStructFromArray(in AnyNodeOutputRecord output);
+
 } namespace
 
 
@@ -1038,6 +1047,161 @@ uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
 
 } namespace
 
+namespace WaveMatrixLeftMethods {
+
+void [[amo]] Fill(in $match<1, -1> numeric value);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+
+// input/output must be an array in groupshared memory
+void [[amo]] Load(in groupshared $match<1, -1> numeric[] input, in uint start, in uint stride, in bool bColMajor);
+void [[amo]] Store(out groupshared $match<1, -1> numeric[] output, in uint start, in uint stride, in bool bColMajor);
+
+uint [[rn]] MatrixDepth();
+
+} namespace
+
+namespace WaveMatrixRightMethods {
+
+void [[amo]] Fill(in $match<1, -1> numeric value);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+
+// input/output must be an array in groupshared memory
+void [[amo]] Load(in groupshared $match<1, -1> numeric[] input, in uint start, in uint stride, in bool bColMajor);
+void [[amo]] Store(out groupshared $match<1, -1> numeric[] output, in uint start, in uint stride, in bool bColMajor);
+
+uint [[rn]] MatrixDepth();
+
+} namespace
+
+namespace WaveMatrixLeftColAccMethods {
+
+void [[amo]] Fill(in $match<1, -1> numeric value);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+
+// input/output must be an array in groupshared memory
+void [[amo]] Load(in groupshared $match<1, -1> numeric[] input, in uint start, in uint elementStride);
+void [[amo]] Store(out groupshared $match<1, -1> numeric[] output, in uint start, in uint elementStride);
+
+void [[amo]] ScalarMultiply(in $match<1, -1> numeric value);
+void [[amo]] ScalarDivide(in $match<1, -1> numeric value);
+void [[amo]] ScalarAdd(in $match<1, -1> numeric value);
+void [[amo]] ScalarSubtract(in $match<1, -1> numeric value);
+
+void [[amo]] SumAccumulate(in WaveMatrixLeft mat);
+
+} namespace
+
+namespace WaveMatrixRightRowAccMethods {
+
+void [[amo]] Fill(in $match<1, -1> numeric value);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint elementStride);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint elementStride, in uint alignment);
+
+// input/output must be an array in groupshared memory
+void [[amo]] Load(in groupshared $match<1, -1> numeric[] input, in uint start, in uint elementStride);
+void [[amo]] Store(out groupshared $match<1, -1> numeric[] output, in uint start, in uint elementStride);
+
+void [[amo]] ScalarMultiply(in $match<1, -1> numeric value);
+void [[amo]] ScalarDivide(in $match<1, -1> numeric value);
+void [[amo]] ScalarAdd(in $match<1, -1> numeric value);
+void [[amo]] ScalarSubtract(in $match<1, -1> numeric value);
+
+void [[amo]] SumAccumulate(in WaveMatrixRight mat);
+
+} namespace
+
+namespace WaveMatrixAccumulatorMethods {
+
+void [[amo]] Fill(in $match<1, -1> numeric value);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Load(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Load(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Store(in ByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor);
+void [[]] Store(in RWByteAddressBuffer buffer, in uint start, in uint stride, in bool bColMajor, in uint alignment);
+
+// input/output must be an array in groupshared memory
+void [[amo]] Load(in groupshared $match<1, -1> numeric[] input, in uint start, in uint stride, in bool bColMajor);
+void [[amo]] Store(out groupshared $match<1, -1> numeric[] output, in uint start, in uint stride, in bool bColMajor);
+
+void [[amo]] ScalarMultiply(in $match<1, -1> numeric value);
+void [[amo]] ScalarDivide(in $match<1, -1> numeric value);
+void [[amo]] ScalarAdd(in $match<1, -1> numeric value);
+void [[amo]] ScalarSubtract(in $match<1, -1> numeric value);
+
+void [[amo]] Multiply(in WaveMatrixLeft matA, in WaveMatrixRight matB);
+void [[amo]] MultiplyAccumulate(in WaveMatrixLeft matA, in WaveMatrixRight matB);
+void [[amo]] Add(in WaveMatrixLeftColAcc broadcastedMatrix);
+void [[amo]] Add(in WaveMatrixRightRowAcc broadcastedMatrix);
+void [[amo]] Add(in WaveMatrixAccumulator fullMatrix);
+
+} namespace
+
+// Work Graphs objects and methods
+
+// EmptyNodeInput
+namespace EmptyNodeInputMethods {
+    uint [[ro]] Count();
+} namespace
+
+// RWDispatchNodeInputRecord methods (in addition to Get)
+namespace RWDispatchNodeInputRecordMethods {
+    bool [[]] FinishedCrossGroupSharing();
+} namespace
+
+// GroupNodeInputRecords methods (in addition to Get and array access subscript)
+namespace GroupNodeInputRecordsMethods {
+  uint [[ro]] Count();
+} namespace
+
+// NodeOutput
+namespace NodeOutputMethods {
+    $match<0,-2> ThreadNodeOutputRecords [[]] GetThreadNodeOutputRecords(in uint numRecords);
+    $match<0,-2> GroupNodeOutputRecords [[]] GetGroupNodeOutputRecords(in uint numRecords);
+    bool [[]] IsValid();
+} namespace
+
+// EmptyNodeOutput
+namespace EmptyNodeOutputMethods {
+    void [[]] GroupIncrementOutputCount(in uint count);
+    void [[]] ThreadIncrementOutputCount(in uint count);
+    bool [[]] IsValid();
+} namespace
+
+// ThreadNodeOutputRecords, GroupNodeOutputRecords
+namespace GroupOrThreadNodeOutputRecordsMethods {
+    void [[]] OutputComplete();
+} namespace
+
 // SPIRV Change Starts
 
 namespace VkSubpassInputMethods {
@@ -1049,3 +1213,4 @@ $classT [[]] SubpassLoad(in int sample) : subpassinputms_load;
 } namespace
 
 // SPIRV Change Ends
+

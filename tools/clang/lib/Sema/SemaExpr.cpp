@@ -9475,43 +9475,63 @@ static bool HLSLCheckForModifiableLValue(
     SourceLocation Loc,
     Sema &S
 ) {
-    assert(isa<CXXOperatorCallExpr>(E));
-    const CXXOperatorCallExpr *expr = cast<CXXOperatorCallExpr>(E);
-    const Expr *LHS = expr->getArg(0);
-    QualType qt = LHS->getType();
-
-    // Check modifying const matrix with double subscript operator calls
-    if (isa<CXXOperatorCallExpr>(expr->getArg(0)))
-        return HLSLCheckForModifiableLValue(const_cast<Expr *>(expr->getArg(0)), Loc, S);
-
-    if (qt.isConstQualified() && (hlsl::IsMatrixType(&S, qt) || hlsl::IsVectorType(&S, qt))) {
-      DiagnoseConstAssignment(S, LHS, Loc);
+  if (E->getType().isConstQualified()) {
+    DiagnoseConstAssignment(S, E, Loc);
+    return true;
+  }
+  if (!isa<ImplicitCastExpr>(E) && !E->isLValue()) {
+    S.Diag(Loc, diag::err_typecheck_expression_not_modifiable_lvalue);
+    return true;
+  }
+  if (auto OC = dyn_cast<CXXOperatorCallExpr>(E)) {
+    QualType qt = OC->getArg(0)->getType();
+    if (hlsl::IsMatrixType(&S, qt) || hlsl::IsVectorType(&S, qt))
+      return HLSLCheckForModifiableLValue(OC->getArg(0), Loc, S);
+  }
+  if (auto M = dyn_cast<MemberExpr>(E)) {
+    // If the return type of the expressin is const, we should respect the const
+    // qualification.
+    if (E->getType().isConstQualified()) {
+      DiagnoseConstAssignment(S, E, Loc);
       return true;
     }
-    if (!LHS->isLValue()) {
-      S.Diag(Loc, diag::err_typecheck_expression_not_modifiable_lvalue);
-      return true;
+    if (auto MemberCall = dyn_cast<CXXMemberCallExpr>(M->getBase())) {
+      CXXRecordDecl *RD = MemberCall->getRecordDecl();
+      QualType Ty = QualType(RD->getTypeForDecl(), 0);
+      // NodeInputRecord and NodeInputRecordArray are not modifiable
+      if (hlsl::IsHLSLRONodeInputRecordType(Ty)) {
+        DiagnoseConstAssignment(S, E, Loc);
+        return true;
+      }
     }
-    return false;
+    return HLSLCheckForModifiableLValue(M->getBase(), Loc, S);
+  }
+  if (auto ICE = dyn_cast<ImplicitCastExpr>(E)) {
+    return HLSLCheckForModifiableLValue(ICE->getSubExpr(), Loc, S);
+  }
+  if (auto AS = dyn_cast<ArraySubscriptExpr>(E)) {
+    return HLSLCheckForModifiableLValue(AS->getBase(), Loc, S);
+  }
+  if (auto SE = dyn_cast<HLSLVectorElementExpr>(E)) {
+    return HLSLCheckForModifiableLValue(SE->getBase(), Loc, S);
+  }
+
+  return false;
 }
 
 /// CheckForModifiableLvalue - Verify that E is a modifiable lvalue.  If not,
 /// emit an error and return true.  If so, return false.
 bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) { // HLSL Change: export this function
   assert(!E->hasPlaceholderType(BuiltinType::PseudoObject));
-  // HLSL Change Starts - check const for array subscript operator for HLSL vector/matrix
-  if (S.Context.getLangOpts().HLSL && E->getStmtClass() == Stmt::CXXOperatorCallExprClass) {
-    // check if it's a vector or matrix
-    const CXXOperatorCallExpr *expr = cast<CXXOperatorCallExpr>(E);
-    QualType qt = expr->getArg(0)->getType();
-    if ((hlsl::IsMatrixType(&S, qt) || hlsl::IsVectorType(&S, qt)))
-      return HLSLCheckForModifiableLValue(E, Loc, S);
-  }
+  SourceLocation OrigLoc = Loc;
+  Expr::isModifiableLvalueResult IsLV = E->isModifiableLvalue(S.Context, &Loc);
+
+  // HLSL Change Starts - HLSL has extra constraints to check
+  if (IsLV == Expr::MLV_Valid && S.Context.getLangOpts().HLSL &&
+      HLSLCheckForModifiableLValue(E, Loc, S))
+    return true;
   // HLSL Change Ends
 
-  SourceLocation OrigLoc = Loc;
-  Expr::isModifiableLvalueResult IsLV = E->isModifiableLvalue(S.Context,
-                                                              &Loc);
   if (IsLV == Expr::MLV_ClassTemporary && IsReadonlyMessage(E, S))
     IsLV = Expr::MLV_InvalidMessageExpression;
   if (IsLV == Expr::MLV_Valid)

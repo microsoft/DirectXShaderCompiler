@@ -41,9 +41,18 @@ static StringRef HLOpcodeGroupNames[]{
     "matldst",     // HLMatLoadStore,
     "select",      // HLSelect,
     "createhandle",// HLCreateHandle,
-    "annotatehandle" // HLAnnotateHandle,
+    "createnodeoutputhandle",  // HLCreateNodeOutputHandle
+    "indexnodehandle", // HLIndexNodeHandle:
+    "createnodeinputrecordhandle", //HLCreateNodeInputRecordHandle
+    "annotatehandle", // HLAnnotateHandle,
+    "wavematrix_annotate", // HLWaveMatrix_Annotate,
+    "annotatenodehandle", //HLAnnotateNodeHandle
+    "annotatenoderecordhandle", //HLAnnotateNodeRecordHandle
     "numOfHLDXIL", // NumOfHLOps
 };
+static_assert(_countof(HLOpcodeGroupNames) ==
+                  1 + (size_t)HLOpcodeGroup::NumOfHLOps,
+              "otherwise, tables out of sync");
 
 static StringRef HLOpcodeGroupFullNames[]{
     "notHLDXIL",       // NotHL,
@@ -57,9 +66,18 @@ static StringRef HLOpcodeGroupFullNames[]{
     "dx.hl.matldst",   // HLMatLoadStore,
     "dx.hl.select",    // HLSelect,
     "dx.hl.createhandle",  // HLCreateHandle,
+    "dx.hl.createnodeoutputhandle",  // HLCreateNodeHandle
+    "dx.hl.indexnodehandle",  // HLIndexNodeHandle
+    "dx.hl.createnodeinputrecordhandle", //HLCreateNodeInputRecordHandle
     "dx.hl.annotatehandle",      // HLAnnotateHandle,
+    "dx.hl.wavematrix_annotate",      // HLWaveMatrix_Annotate,
+    "dx.hl.annotatenodehandle",  // HLAnnotateNodeHandle,
+    "dx.hl.annotatenoderecordhandle", //HLAnnotateNodeRecordHandle
     "numOfHLDXIL",     // NumOfHLOps
 };
+static_assert(_countof(HLOpcodeGroupFullNames) ==
+                  1 + (size_t)HLOpcodeGroup::NumOfHLOps,
+              "otherwise, tables out of sync");
 
 static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
   if (!group.empty()) {
@@ -71,11 +89,27 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
       case 'a': // cast
         return HLOpcodeGroup::HLCast;
       case 'r': // createhandle
-        return HLOpcodeGroup::HLCreateHandle;
+      {
+        if (group.startswith_lower("createnodeoutputhandle"))
+          return HLOpcodeGroup::HLCreateNodeOutputHandle;
+        else if (group.startswith_lower("createnodeinputrecordhandle"))
+          return HLOpcodeGroup::HLCreateNodeInputRecordHandle;
+        else {
+          assert(group.startswith_lower("createhandle"));
+          return HLOpcodeGroup::HLCreateHandle;
+        }
+      }
       }
       llvm_unreachable("unrecognized group code");
     case 'i': // init
-      return HLOpcodeGroup::HLInit;
+    {
+      if (group.startswith_lower("init"))
+        return HLOpcodeGroup::HLInit;
+      else if (group.startswith_lower("indexnodehandle"))
+        return HLOpcodeGroup::HLIndexNodeHandle;
+    }
+    break;
+      
     case 'b': // binaryOp
       return HLOpcodeGroup::HLBinOp;
     case 'u': // unaryOp
@@ -91,7 +125,15 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
     case 'm': // matldst
       return HLOpcodeGroup::HLMatLoadStore;
     case 'a': // annotatehandle
-      return HLOpcodeGroup::HLAnnotateHandle;
+      if (group.startswith_lower("annotatehandle"))
+        return HLOpcodeGroup::HLAnnotateHandle;
+      else if (group.startswith_lower("annotatenodehandle"))
+        return HLOpcodeGroup::HLAnnotateNodeHandle;
+      else if (group.startswith_lower("annotatenoderecordhandle"))
+        return HLOpcodeGroup::HLAnnotateNodeRecordHandle;
+      break;
+    case 'w': // wavematrix_annotate
+      return HLOpcodeGroup::HLWaveMatrix_Annotate;
     }
   }
   return HLOpcodeGroup::NotHL;
@@ -142,7 +184,13 @@ StringRef GetHLOpcodeGroupName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
   case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLCreateNodeOutputHandle:
+  case HLOpcodeGroup::HLIndexNodeHandle:
+  case HLOpcodeGroup::HLCreateNodeInputRecordHandle:
   case HLOpcodeGroup::HLAnnotateHandle:
+  case HLOpcodeGroup::HLWaveMatrix_Annotate:
+  case HLOpcodeGroup::HLAnnotateNodeHandle:
+  case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
     return HLOpcodeGroupNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -161,7 +209,13 @@ StringRef GetHLOpcodeGroupFullName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
   case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLCreateNodeOutputHandle:
+  case HLOpcodeGroup::HLIndexNodeHandle:
+  case HLOpcodeGroup::HLCreateNodeInputRecordHandle:
   case HLOpcodeGroup::HLAnnotateHandle:
+  case HLOpcodeGroup::HLWaveMatrix_Annotate:
+  case HLOpcodeGroup::HLAnnotateNodeHandle:
+  case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
     return HLOpcodeGroupFullNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -449,6 +503,10 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
   } break;
   case HLOpcodeGroup::HLAnnotateHandle: {
     F->addFnAttr(Attribute::ReadNone);
+  } break;
+  case HLOpcodeGroup::HLWaveMatrix_Annotate: {
+    F->addFnAttr(Attribute::ArgMemOnly);
+    F->addFnAttr(Attribute::NoUnwind);
   } break;
   case HLOpcodeGroup::HLIntrinsic: {
     IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);

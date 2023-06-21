@@ -45,6 +45,7 @@
 #include "dxc/DXIL/DxilShaderModel.h"
 #include <array>
 #include <algorithm>
+#include <bitset>
 #include <float.h>
 
 enum ArBasicKind {
@@ -222,6 +223,30 @@ enum ArBasicKind {
   AR_OBJECT_RWTEXTURE2DMS,
   AR_OBJECT_RWTEXTURE2DMS_ARRAY,
 
+  // WaveMatrix
+  AR_OBJECT_WAVE_MATRIX_LEFT,
+  AR_OBJECT_WAVE_MATRIX_RIGHT,
+  AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
+  AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
+  AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
+
+  // Work Graphs
+  AR_OBJECT_EMPTY_NODE_INPUT,
+  AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
+  AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD,
+  AR_OBJECT_GROUP_NODE_INPUT_RECORDS,
+  AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS,
+  AR_OBJECT_THREAD_NODE_INPUT_RECORD,
+  AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD,
+
+  AR_OBJECT_NODE_OUTPUT,
+  AR_OBJECT_EMPTY_NODE_OUTPUT,
+  AR_OBJECT_NODE_OUTPUT_ARRAY,
+  AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY,
+  
+  AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
+  AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
+
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -256,6 +281,15 @@ enum ArBasicKind {
     case AR_OBJECT_RASTERIZER: \
     case AR_OBJECT_DEPTHSTENCIL: \
     case AR_OBJECT_STATEBLOCK
+
+#define AR_BASIC_WAVE_MATRIX_INPUT_CASES \
+    case AR_OBJECT_WAVE_MATRIX_LEFT: \
+    case AR_OBJECT_WAVE_MATRIX_RIGHT
+
+#define AR_BASIC_WAVE_MATRIX_ACC_FRAG_CASES \
+    case AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC: \
+    case AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC: \
+    case AR_OBJECT_WAVE_MATRIX_ACCUMULATOR
 
 //
 // Properties of entries in the ArBasicKind enumeration.
@@ -303,6 +337,8 @@ enum ArBasicKind {
 #define BPROP_ROVBUFFER         0x00400000  // Whether the type is a ROV object.
 #define BPROP_FEEDBACKTEXTURE   0x00800000  // Whether the type is a feedback texture.
 #define BPROP_ENUM              0x01000000  // Whether the type is a enum
+#define BPROP_WAVE_MATRIX_INPUT 0x02000000  // Whether the type is a wave matrix input object (Left/Right)
+#define BPROP_WAVE_MATRIX_ACC   0x04000000  // Whether the type is a wave matrix accum object (Accumulator/LeftColAcc/RightRowAcc)
 
 #define GET_BPROP_PRIM_KIND(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
@@ -350,6 +386,11 @@ enum ArBasicKind {
 
 #define IS_BPROP_ENUM(_Props) \
     (((_Props) & BPROP_ENUM) != 0)
+
+#define IS_BPROP_WAVE_MATRIX_INPUT(_Props) \
+    (((_Props) & BPROP_WAVE_MATRIX_INPUT) != 0)
+#define IS_BPROP_WAVE_MATRIX_ACC(_Props) \
+    (((_Props) & BPROP_WAVE_MATRIX_ACC) != 0)
 
 const UINT g_uBasicKindProps[] =
 {
@@ -511,12 +552,35 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-  0,      //AR_OBJECT_RAY_QUERY,
-  0,      //AR_OBJECT_HEAP_RESOURCE,
-  0,      //AR_OBJECT_HEAP_SAMPLER,
+  BPROP_OBJECT,      //AR_OBJECT_RAY_QUERY,
+  BPROP_OBJECT,      //AR_OBJECT_HEAP_RESOURCE,
+  BPROP_OBJECT,      //AR_OBJECT_HEAP_SAMPLER,
 
   BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS
   BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+
+  BPROP_OBJECT | BPROP_WAVE_MATRIX_INPUT,  //AR_OBJECT_WAVE_MATRIX_LEFT
+  BPROP_OBJECT | BPROP_WAVE_MATRIX_INPUT,  //AR_OBJECT_WAVE_MATRIX_RIGHT
+  BPROP_OBJECT | BPROP_WAVE_MATRIX_ACC,    //AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC
+  BPROP_OBJECT | BPROP_WAVE_MATRIX_ACC,    //AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC
+  BPROP_OBJECT | BPROP_WAVE_MATRIX_ACC,    //AR_OBJECT_WAVE_MATRIX_ACCUMULATOR
+
+  // WorkGraphs
+  BPROP_OBJECT,                   //AR_OBJECT_EMPTY_NODE_INPUT
+  BPROP_OBJECT,                   //AR_OBJECT_DISPATCH_NODE_INPUT_RECORD
+  BPROP_OBJECT | BPROP_RWBUFFER,  //AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD
+  BPROP_OBJECT,                   //AR_OBJECT_GROUP_NODE_INPUT_RECORDS
+  BPROP_OBJECT | BPROP_RWBUFFER,  //AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS
+  BPROP_OBJECT,                   //AR_OBJECT_THREAD_NODE_INPUT_RECORD
+  BPROP_OBJECT | BPROP_RWBUFFER,  //AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD
+
+  BPROP_OBJECT,      //AR_OBJECT_NODE_OUTPUT
+  BPROP_OBJECT,      //AR_OBJECT_EMPTY_NODE_OUTPUT
+  BPROP_OBJECT,      //AR_OBJECT_NODE_OUTPUT_ARRAY
+  BPROP_OBJECT,      //AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY
+
+  BPROP_OBJECT | BPROP_RWBUFFER,      // AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
+  BPROP_OBJECT | BPROP_RWBUFFER,      // AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
 
   // AR_BASIC_MAXIMUM_COUNT
 };
@@ -567,6 +631,13 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 
 #define IS_BASIC_ENUM(_Kind) \
     IS_BPROP_ENUM(GetBasicKindProps(_Kind))
+
+#define IS_BASIC_WAVE_MATRIX_INPUT(_Kind) \
+    IS_BPROP_WAVE_MATRIX_INPUT(GetBasicKindProps(_Kind))
+#define IS_BASIC_WAVE_MATRIX_ACC(_Kind) \
+    IS_BPROP_WAVE_MATRIX_ACC(GetBasicKindProps(_Kind))
+#define IS_BASIC_WAVE_MATRIX(_Kind) \
+    (IS_BASIC_WAVE_MATRIX_INPUT(_Kind) || IS_BASIC_WAVE_MATRIX_ACC(_Kind))
 
 #define BITWISE_ENUM_OPS(_Type)                                         \
 inline _Type operator|(_Type F1, _Type F2)                              \
@@ -866,6 +937,61 @@ QualType GetOrCreateVectorSpecialization(ASTContext& context, Sema* sema,
   return vectorSpecializationType;
 }
 
+// Gets component type, dimM, and dimN from WaveMatrix* instantiated type.
+// Assumes wave matrix type, returns false if anything isn't as expected.
+static bool GetWaveMatrixTemplateValues(QualType objType, QualType *compType,
+                                        unsigned *dimM, unsigned *dimN) {
+  const CXXRecordDecl *CXXRD = objType.getCanonicalType()->getAsCXXRecordDecl();
+  if (const ClassTemplateSpecializationDecl *templateSpecializationDecl =
+          dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+    const clang::TemplateArgumentList &args =
+        templateSpecializationDecl->getTemplateInstantiationArgs();
+    if (args.size() != 3)
+      return false;
+    if (args[0].getKind() != TemplateArgument::Type ||
+        !args[0].getAsType()->isBuiltinType())
+      return false;
+    if (args[1].getKind() != TemplateArgument::Integral ||
+        args[2].getKind() != TemplateArgument::Integral)
+      return false;
+    if (compType)
+      *compType = args[0].getAsType();
+    if (dimM)
+      *dimM = (unsigned)args[1].getAsIntegral().getExtValue();
+    if (dimN)
+      *dimN = (unsigned)args[2].getAsIntegral().getExtValue();
+    return true;
+  }
+  return false;
+}
+
+/// <summary>Instantiates a new *NodeOutputRecords type specialization or gets
+/// an existing one from the AST.</summary>
+static QualType
+GetOrCreateNodeOutputRecordSpecialization(ASTContext &context, Sema *sema,
+                                          _In_ ClassTemplateDecl *templateDecl,
+                                          QualType elementType) {
+  DXASSERT_NOMSG(sema);
+  DXASSERT_NOMSG(templateDecl);
+
+  TemplateArgument templateArgs[1] = {TemplateArgument(elementType)};
+
+  QualType specializationType = GetOrCreateTemplateSpecialization(
+      context, *sema, templateDecl, ArrayRef<TemplateArgument>(templateArgs));
+
+#ifdef DBG
+  // Verify that we can read the field member from the template record.
+  DXASSERT(specializationType->getAsCXXRecordDecl(),
+           "type of non-dependent specialization is not a RecordType");
+  DeclContext::lookup_result lookupResult =
+      specializationType->getAsCXXRecordDecl()->lookup(
+          DeclarationName(&context.Idents.get(StringRef("h"))));
+  DXASSERT(!lookupResult.empty(),
+           "otherwise *NodeOutputRecords handle cannot be looked up");
+#endif
+
+  return specializationType;
+}
 
 // Decls.cpp constants start here - these should be refactored or, better, replaced with clang::Type-based constructs.
 
@@ -909,6 +1035,12 @@ static const ArTypeObjectKind g_NullTT[] =
   AR_TOBJ_UNKNOWN
 };
 
+static const ArTypeObjectKind g_ArrayTT[] =
+{
+  AR_TOBJ_ARRAY,
+  AR_TOBJ_UNKNOWN
+};
+
 const ArTypeObjectKind* g_LegalIntrinsicTemplates[] =
 {
   g_NullTT,
@@ -917,6 +1049,7 @@ const ArTypeObjectKind* g_LegalIntrinsicTemplates[] =
   g_MatrixTT,
   g_AnyTT,
   g_ObjectTT,
+  g_ArrayTT,
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicTemplates) == LITEMPLATE_COUNT);
 
@@ -1293,6 +1426,91 @@ static const ArBasicKind g_SInt16Or32OnlyCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_ByteAddressBufferCT[] =
+{
+  AR_OBJECT_BYTEADDRESS_BUFFER,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_RWByteAddressBufferCT[] =
+{
+  AR_OBJECT_RWBYTEADDRESS_BUFFER,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_WaveMatrixLeftCT[] =
+{
+  AR_OBJECT_WAVE_MATRIX_LEFT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_WaveMatrixRightCT[] =
+{
+  AR_OBJECT_WAVE_MATRIX_RIGHT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_WaveMatrixLeftColAccCT[] =
+{
+  AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_WaveMatrixRightRowAccCT[] =
+{
+  AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_WaveMatrixAccumulatorCT[] =
+{
+  AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_NodeRecordOrUAVCT[] =
+{
+  AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
+  AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD,
+  AR_OBJECT_GROUP_NODE_INPUT_RECORDS,
+  AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS,
+  AR_OBJECT_THREAD_NODE_INPUT_RECORD,
+  AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD,
+  AR_OBJECT_NODE_OUTPUT,
+  AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
+  AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
+
+  AR_OBJECT_RWBUFFER,
+  AR_OBJECT_RWTEXTURE1D,
+  AR_OBJECT_RWTEXTURE1D_ARRAY,
+  AR_OBJECT_RWTEXTURE2D,
+  AR_OBJECT_RWTEXTURE2D_ARRAY,
+  AR_OBJECT_RWTEXTURE3D,
+  AR_OBJECT_RWSTRUCTURED_BUFFER,
+  AR_OBJECT_RWBYTEADDRESS_BUFFER,
+  AR_OBJECT_APPEND_STRUCTURED_BUFFER,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_GroupNodeOutputRecordsCT[] =
+{
+  AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_ThreadNodeOutputRecordsCT[] =
+{
+  AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnyOutputRecordCT[] =
+{
+  AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
+  AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1340,6 +1558,18 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
   g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
   g_SInt16Or32OnlyCT,   // LICOMPTYPE_SINT16_OR_32_ONLY
+
+  g_ByteAddressBufferCT,      // LICOMPTYPE_BYTEADDRESSBUFFER
+  g_RWByteAddressBufferCT,    // LICOMPTYPE_RWBYTEADDRESSBUFFER
+  g_WaveMatrixLeftCT,         // LICOMPTYPE_WAVE_MATRIX_LEFT
+  g_WaveMatrixRightCT,        // LICOMPTYPE_WAVE_MATRIX_RIGHT
+  g_WaveMatrixLeftColAccCT,      // LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC
+  g_WaveMatrixRightRowAccCT,     // LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC
+  g_WaveMatrixAccumulatorCT,  // LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR
+  g_NodeRecordOrUAVCT,  // LICOMPTYPE_NODE_RECORD_OR_UAV
+  g_AnyOutputRecordCT,  // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
+  g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
+  g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -1441,6 +1671,29 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
 
   AR_OBJECT_RWTEXTURE2DMS,        // RWTexture2DMS
   AR_OBJECT_RWTEXTURE2DMS_ARRAY,  // RWTexture2DMSArray
+
+  AR_OBJECT_WAVE_MATRIX_LEFT,
+  AR_OBJECT_WAVE_MATRIX_RIGHT,
+  AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
+  AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
+  AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
+
+  // Work Graphs
+  AR_OBJECT_EMPTY_NODE_INPUT,
+  AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
+  AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD,
+  AR_OBJECT_GROUP_NODE_INPUT_RECORDS,
+  AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS,
+  AR_OBJECT_THREAD_NODE_INPUT_RECORD,
+  AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD,
+
+  AR_OBJECT_NODE_OUTPUT,
+  AR_OBJECT_EMPTY_NODE_OUTPUT,
+  AR_OBJECT_NODE_OUTPUT_ARRAY,
+  AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY,
+
+  AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
+  AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1536,6 +1789,29 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
 
   2, // AR_OBJECT_RWTEXTURE2DMS
   2, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+
+  3, // AR_OBJECT_WAVE_MATRIX_LEFT,
+  3, // AR_OBJECT_WAVE_MATRIX_RIGHT,
+  3, // AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
+  3, // AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
+  3, // AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
+
+  // WorkGraphs
+  0, //AR_OBJECT_EMPTY_NODE_INPUT,
+  1, //AR_OBJECT_DISPATCH_NODE_INPUT_RECORD,
+  1, //AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD,
+  1, //AR_OBJECT_GROUP_NODE_INPUT_RECORDS,
+  1, //AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS,
+  1, //AR_OBJECT_THREAD_NODE_INPUT_RECORD,
+  1, //AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD,
+
+  1, //AR_OBJECT_NODE_OUTPUT,
+  0, //AR_OBJECT_EMPTY_NODE_OUTPUT,
+  1, //AR_OBJECT_NODE_OUTPUT_ARRAY,
+  0, //AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY,
+
+  1, //AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS,
+  1, //AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1641,6 +1917,29 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
 
   { 2, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS (RWTexture2DMS)
   { 3, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS_ARRAY (RWTexture2DMSArray)
+
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE_MATRIX_LEFT,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE_MATRIX_RIGHT,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE_MATRIX_ACCUMULATOR,
+
+  // WorkGraphs
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_EMPTY_NODE_INPUT
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_DISPATCH_NODE_INPUT_RECORD
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD
+  { 1, MipsFalse, SampleFalse },  // AR_OBJECT_GROUP_NODE_INPUT_RECORDS
+  { 1, MipsFalse, SampleFalse },  // AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_GROUP_NODE_INPUT_RECORD
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RWGROUP_NODE_INPUT_RECORD
+
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_NODE_OUTPUT
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_EMPTY_NODE_OUTPUT
+  { 1, MipsFalse, SampleFalse },  // AR_OBJECT_NODE_OUTPUT_ARRAY
+  { 1, MipsFalse, SampleFalse },  // AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY
+
+  { 1, MipsFalse, SampleFalse },  // AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS
+  { 1, MipsFalse, SampleFalse },  // AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1769,6 +2068,29 @@ const char* g_ArBasicTypeNames[] =
 
   "RWTexture2DMS",
   "RWTexture2DMSArray",
+
+  "WaveMatrixLeft",
+  "WaveMatrixRight",
+  "WaveMatrixLeftColAcc",
+  "WaveMatrixRightRowAcc",
+  "WaveMatrixAccumulator",
+
+  //Workgraphs
+  "EmptyNodeInput",
+  "DispatchNodeInputRecord",
+  "RWDispatchNodeInputRecord",
+  "GroupNodeInputRecords",
+  "RWGroupNodeInputRecords",
+  "ThreadNodeInputRecord",
+  "RWThreadNodeInputRecord",
+
+  "NodeOutput",
+  "EmptyNodeOutput",
+  "NodeOutputArray",
+  "EmptyNodeOutputArray",
+
+  "ThreadNodeOutputRecords",
+  "GroupNodeOutputRecords"
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -1827,15 +2149,16 @@ static bool IsVariadicArgument(const HLSL_INTRINSIC_ARGUMENT &arg) {
 
 static hlsl::ParameterModifier
 ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
-  if (pArg->qwUsage == AR_QUAL_IN_OUT) {
+  UINT64 qwUsage = pArg->qwUsage & AR_QUAL_IN_OUT;
+  if (qwUsage == AR_QUAL_IN_OUT) {
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::InOut);
   }
-  if (pArg->qwUsage == AR_QUAL_OUT) {
+  if (qwUsage == AR_QUAL_OUT) {
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Out);
   }
   if (pArg->qwUsage == AR_QUAL_REF)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
-  DXASSERT(pArg->qwUsage & AR_QUAL_IN, "else usage is incorrect");
+  DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
   return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
 }
 
@@ -2368,6 +2691,53 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
     *intrinsics = g_RWTexture2DMSArrayMethods;
     *intrinsicCount = _countof(g_RWTexture2DMSArrayMethods);
     break;
+  case AR_OBJECT_WAVE_MATRIX_LEFT:
+    *intrinsics = g_WaveMatrixLeftMethods;
+    *intrinsicCount = _countof(g_WaveMatrixLeftMethods);
+    break;
+  case AR_OBJECT_WAVE_MATRIX_RIGHT:
+    *intrinsics = g_WaveMatrixRightMethods;
+    *intrinsicCount = _countof(g_WaveMatrixRightMethods);
+    break;
+  case AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC:
+    *intrinsics = g_WaveMatrixLeftColAccMethods;
+    *intrinsicCount = _countof(g_WaveMatrixLeftColAccMethods);
+    break;
+  case AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC:
+    *intrinsics = g_WaveMatrixRightRowAccMethods;
+    *intrinsicCount = _countof(g_WaveMatrixRightRowAccMethods);
+    break;
+  case AR_OBJECT_WAVE_MATRIX_ACCUMULATOR:
+    *intrinsics = g_WaveMatrixAccumulatorMethods;
+    *intrinsicCount = _countof(g_WaveMatrixAccumulatorMethods);
+    break;
+  case AR_OBJECT_EMPTY_NODE_INPUT:
+    *intrinsics = g_EmptyNodeInputMethods;
+    *intrinsicCount = _countof(g_EmptyNodeInputMethods);
+    break;
+  case AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD:
+    *intrinsics = g_RWDispatchNodeInputRecordMethods;
+    *intrinsicCount = _countof(g_RWDispatchNodeInputRecordMethods);
+    break;
+  case AR_OBJECT_GROUP_NODE_INPUT_RECORDS:
+  case AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS:
+    *intrinsics = g_GroupNodeInputRecordsMethods;
+    *intrinsicCount = _countof(g_GroupNodeInputRecordsMethods);
+    break;
+  case AR_OBJECT_NODE_OUTPUT:
+    *intrinsics = g_NodeOutputMethods;
+    *intrinsicCount = _countof(g_NodeOutputMethods);
+    break;
+  case AR_OBJECT_EMPTY_NODE_OUTPUT:
+    *intrinsics = g_EmptyNodeOutputMethods;
+    *intrinsicCount = _countof(g_EmptyNodeOutputMethods);
+    break;
+  case AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS:
+  case AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS:
+    *intrinsics = g_GroupOrThreadNodeOutputRecordsMethods;
+    *intrinsicCount = _countof(g_GroupOrThreadNodeOutputRecordsMethods);
+    break;
+
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   case AR_OBJECT_VK_SUBPASS_INPUT:
@@ -3016,6 +3386,11 @@ private:
   // Declaration for matrix and vector templates.
   ClassTemplateDecl* m_matrixTemplateDecl;
   ClassTemplateDecl* m_vectorTemplateDecl;
+
+  // Declarations for Work Graph Output Record types
+  ClassTemplateDecl* m_GroupNodeOutputRecordsTemplateDecl;
+  ClassTemplateDecl* m_ThreadNodeOutputRecordsTemplateDecl;
+
   // Namespace decl for hlsl intrinsic functions
   NamespaceDecl*     m_hlslNSDecl;
 
@@ -3097,6 +3472,7 @@ private:
       !DoesLegalTemplateAcceptMultipleTypes(templateArg->uLegalTemplates) &&
       componentRef >= 0 &&
       componentRef != INTRIN_COMPTYPE_FROM_TYPE_ELT0 &&
+      componentRef != INTRIN_COMPTYPE_FROM_NODEOUTPUT &&
       componentArg->uComponentTypeId == 0 &&
       !DoesComponentTypeAcceptMultipleTypes(componentArg->uLegalComponentTypes) &&
       !IsRowOrColumnVariable(matrixArg->uCols) &&
@@ -3680,6 +4056,8 @@ private:
     unsigned effectKindIndex = 0;
     const auto *SM =
         hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+    CXXRecordDecl *nodeOutputDecl = nullptr, *emptyNodeOutputDecl = nullptr;
+
     for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++)
     {
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
@@ -3751,20 +4129,94 @@ private:
                                m_context->getRecordType(recordDecl), *m_context);
         }
 
+      } else if (IsWaveMatrixBasicKind(kind)) {
+        recordDecl = DeclareWaveMatrixType(*m_context,
+          (DXIL::WaveMatrixKind)(kind - AR_OBJECT_WAVE_MATRIX_LEFT));
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2D", "kind");
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2DArray", "kind");
+      } else if (kind == AR_OBJECT_EMPTY_NODE_INPUT) {
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, "EmptyNodeInput",
+            /*IsRecordTypeTemplate*/ false, /*IsConst*/ true,
+            /*HasGetMethods*/ false,
+            /*IsArray*/ false, /*IsCompleteType*/ false);
+      } else if (kind == AR_OBJECT_DISPATCH_NODE_INPUT_RECORD) {
+        recordDecl =
+            DeclareNodeOrRecordType(*m_context, "DispatchNodeInputRecord",
+                                    /*IsRecordTypeTemplate*/ true,
+                                    /*IsConst*/ true, /*HasGetMethods*/ true,
+                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+      } else if (kind == AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD) {
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, "RWDispatchNodeInputRecord",
+            /*IsRecordTypeTemplate*/ true, /*IsConst*/ false,
+            /*HasGetMethods*/ true,
+            /*IsArray*/ false, /*IsCompleteType*/ false);
+      } else if (kind == AR_OBJECT_GROUP_NODE_INPUT_RECORDS) {
+        recordDecl =
+            DeclareNodeOrRecordType(*m_context, "GroupNodeInputRecords",
+                                    /*IsRecordTypeTemplate*/ true,
+                                    /*IsConst*/ true, /*HasGetMethods*/ true,
+                                    /*IsArray*/ true, /*IsCompleteType*/ false);
+      } else if (kind == AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS) {
+        recordDecl =
+            DeclareNodeOrRecordType(*m_context, "RWGroupNodeInputRecords",
+                                    /*IsRecordTypeTemplate*/ true,
+                                    /*IsConst*/ false, /*HasGetMethods*/ true,
+                                    /*IsArray*/ true, /*IsCompleteType*/ false);
+      } else if (kind == AR_OBJECT_THREAD_NODE_INPUT_RECORD) {
+        recordDecl =
+            DeclareNodeOrRecordType(*m_context, "ThreadNodeInputRecord",
+                                    /*IsRecordTypeTemplate*/ true,
+                                    /*IsConst*/ true, /*HasGetMethods*/ true,
+                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+      } else if (kind == AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD) {
+        recordDecl =
+            DeclareNodeOrRecordType(*m_context, "RWThreadNodeInputRecord",
+                                    /*IsRecordTypeTemplate*/ true,
+                                    /*IsConst*/ false, /*HasGetMethods*/ true,
+                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+      } else if (kind == AR_OBJECT_NODE_OUTPUT) {
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, "NodeOutput",
+            /*IsRecordTypeTemplate*/ true, /*IsConst*/ true,
+            /*HasGetMethods*/ false,
+            /*IsArray*/ false, /*IsCompleteType*/ false);
+        nodeOutputDecl = recordDecl;
+      } else if (kind == AR_OBJECT_EMPTY_NODE_OUTPUT) {
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, "EmptyNodeOutput",
+            /*IsRecordTypeTemplate*/ false, /*IsConst*/ true,
+            /*HasGetMethods*/ false,
+            /*IsArray*/ false, /*IsCompleteType*/ false);
+        emptyNodeOutputDecl = recordDecl;
+      } else if (kind == AR_OBJECT_NODE_OUTPUT_ARRAY) {
+        assert(nodeOutputDecl != nullptr);
+        recordDecl = DeclareNodeOutputArray(*m_context, "NodeOutputArray",
+                                            /* ItemType */ nodeOutputDecl,
+                                            /*IsRecordTypeTemplate*/ true,
+                                            /*IsCompleteType*/ true);
+      } else if (kind == AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY) {
+        assert(emptyNodeOutputDecl != nullptr);
+        recordDecl = DeclareNodeOutputArray(*m_context, "EmptyNodeOutputArray",
+                                            /* ItemType */ emptyNodeOutputDecl,
+                                            /*IsRecordTypeTemplate*/ false,
+                                            /*IsCompleteType*/ true);
+      } else if (kind == AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS) {
+        recordDecl = m_GroupNodeOutputRecordsTemplateDecl->getTemplatedDecl();
+      } else if (kind == AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS) {
+        recordDecl = m_ThreadNodeOutputRecordsTemplateDecl->getTemplatedDecl();
       }
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
         recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, "id");
         recordDecl->setImplicit(true);
-      }
-      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID && m_vkNSDecl) {
+      } else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID && m_vkNSDecl) {
         recordDecl = DeclareTemplateTypeWithHandleInDeclContext(*m_context,
                                                                 m_vkNSDecl,
                                                                 typeName, 1,
@@ -3773,7 +4225,8 @@ private:
       }
 #endif
       else if (templateArgCount == 0) {
-        recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName);
+        recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName,
+                                                 /*isCompleteType*/ false);
       } else {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2, "otherwise a new case has been added");
 
@@ -3989,6 +4442,14 @@ public:
   }
   bool IsRayQueryType(QualType type) {
     return IsRayQueryBasicKind(GetTypeElementKind(type));
+  }
+
+
+  bool IsWaveMatrixBasicKind(ArBasicKind kind) {
+    return kind >= AR_OBJECT_WAVE_MATRIX_LEFT && kind <= AR_OBJECT_WAVE_MATRIX_ACCUMULATOR;
+  }
+  bool IsWaveMatrixType(QualType type) {
+    return IsWaveMatrixBasicKind(GetTypeElementKind(type));
   }
 
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
@@ -4366,7 +4827,7 @@ public:
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
       const char *typeName = g_ArBasicTypeNames[kind];
       uint8_t templateArgCount = g_ArBasicKindsTemplateCount[i];
-      DXASSERT(templateArgCount <= 2, "otherwise a new case has been added");
+      DXASSERT(templateArgCount <= 3, "otherwise a new case has been added");
       int startDepth = (templateArgCount == 0) ? 0 : 1;
       CXXRecordDecl *recordDecl = m_objectTypeDecls[i];
       if (recordDecl == nullptr) {
@@ -4518,6 +4979,27 @@ public:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
     case AR_OBJECT_RWTEXTURE2DMS:
     case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
+
+    case AR_OBJECT_WAVE_MATRIX_LEFT:
+    case AR_OBJECT_WAVE_MATRIX_RIGHT:
+    case AR_OBJECT_WAVE_MATRIX_LEFT_COL_ACC:
+    case AR_OBJECT_WAVE_MATRIX_RIGHT_ROW_ACC:
+    case AR_OBJECT_WAVE_MATRIX_ACCUMULATOR:
+
+
+    case AR_OBJECT_EMPTY_NODE_INPUT:
+    case AR_OBJECT_DISPATCH_NODE_INPUT_RECORD:
+    case AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD:
+    case AR_OBJECT_GROUP_NODE_INPUT_RECORDS:
+    case AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS:
+    case AR_OBJECT_THREAD_NODE_INPUT_RECORD:
+    case AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD:
+    case AR_OBJECT_NODE_OUTPUT:
+    case AR_OBJECT_EMPTY_NODE_OUTPUT:
+    case AR_OBJECT_NODE_OUTPUT_ARRAY:
+    case AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY:
+    case AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS:
+    case AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS:
     {
         const ArBasicKind* match = std::find(g_ArBasicKindsAsTypes, &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
         DXASSERT(match != &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], "otherwise can't find constant in basic kinds");
@@ -4626,6 +5108,7 @@ public:
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
     const IntrinsicDefIter &cursor,
+    _In_ QualType objectType,
     _In_ QualType objectElement,
     _In_ QualType functionTemplateTypeArg,
     _In_ ArrayRef<Expr *> Args, 
@@ -4739,7 +5222,7 @@ public:
 
       std::vector<QualType> functionArgTypes;
       size_t badArgIdx;
-      bool argsMatch = MatchArguments(cursor, QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
+      bool argsMatch = MatchArguments(cursor, QualType(), QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
       if (!functionArgTypes.size())
         return false;
 
@@ -4802,6 +5285,12 @@ public:
     // Initializing built in integers for ray tracing
     AddRaytracingConstants(*m_context);
     AddSamplerFeedbackConstants(*m_context);
+    AddBarrierConstants(*m_context);
+
+    AddHLSLNodeOutputRecordTemplate(*m_context, "GroupNodeOutputRecords", 
+      &m_GroupNodeOutputRecordsTemplateDecl, /* isCompleteType */ false);
+    AddHLSLNodeOutputRecordTemplate(*m_context, "ThreadNodeOutputRecords", 
+      &m_ThreadNodeOutputRecordsTemplateDecl, /* isCompleteType */ false);
 
     return true;
   }
@@ -5042,10 +5531,49 @@ public:
           if (!recordType->getDecl()->isCompleteDefinition()) {
             m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)
                 << argType;
-
             return true;
           }
         }
+      }
+      return false;
+
+    } else if (templateName == "DispatchNodeInputRecord" ||
+               templateName == "RWDispatchNodeInputRecord" ||
+               templateName == "GroupNodeInputRecords" ||
+               templateName == "RWGroupNodeInputRecords" ||
+               templateName == "ThreadNodeInputRecord" ||
+               templateName == "RWThreadNodeInputRecord" ||
+               templateName == "NodeOutput" ||
+               templateName == "NodeOutputArray" ||
+               templateName == "GroupNodeOutputRecords" ||
+               templateName == "ThreadNodeOutputRecords") {
+
+      DXASSERT(TemplateArgList.size() == 1,
+               "otherwise the template has not been declared properly");
+      // The first argument must be a user defined struct type that does not
+      // contain any HLSL object
+      const TemplateArgumentLoc &argLoc = TemplateArgList[0];
+      const TemplateArgument &arg = argLoc.getArgument();
+
+      if (arg.getKind() == TemplateArgument::ArgKind::Template) {
+        TemplateDecl *templateDecl = arg.getAsTemplate().getAsTemplateDecl();
+        SourceLocation argSrcLoc = argLoc.getLocation();
+        m_sema->Diag(argSrcLoc,
+                     diag::err_hlsl_typeintemplateargument_requires_struct)
+            << templateDecl->getName();
+        return true;
+      }
+      QualType argType = arg.getAsType();
+      UINT count;
+      // We skip the empty struct case here as a more specific diagnostic for
+      // that case is generated later
+      if ((GetTypeObjectKind(argType) != AR_TOBJ_COMPOUND) ||
+          (!IsTypeNumeric(argType, &count) && count > 0)) {
+        SourceLocation argSrcLoc = argLoc.getLocation();
+        m_sema->Diag(argSrcLoc,
+                     diag::err_hlsl_typeintemplateargument_requires_struct)
+            << argType;
+        return true;
       }
       return false;
     }
@@ -5277,8 +5805,7 @@ public:
     int startDepth = 0;
 
     if (templateArgCount > 0) {
-      DXASSERT(templateArgCount == 1 || templateArgCount == 2,
-               "otherwise a new case has been added");
+      DXASSERT(templateArgCount <= 3, "otherwise a new case has been added");
       ClassTemplateDecl *typeDecl = recordDecl->getDescribedClassTemplate();
       AddObjectSubscripts(kind, typeDecl, recordDecl,
                           g_ArBasicKindsSubscripts[idx]);
@@ -5907,9 +6434,50 @@ HLSLExternalSource::IsValidObjectElement(LPCSTR tableName, const IntrinsicOp op,
   }
 }
 
+// Given component type of wave matrix object on which a method is called,
+// and given the component type of an argument passed by the user,
+// return either the user component type, or a valid component type,
+// if the user component type is not valid.
+static ArBasicKind GetValidWaveMatrixComponentTypeForArg(
+    ArBasicKind objKind,      // wave matrix type for this
+    ArBasicKind objEltKind,   // element type for this
+    ArBasicKind argKind,      // wave matrix type for arg
+    ArBasicKind argEltKind) { // element type for arg
+  if (IS_BASIC_WAVE_MATRIX_ACC(objKind) &&
+      IS_BASIC_WAVE_MATRIX_INPUT(argKind)) {
+    switch (objEltKind) {
+    case AR_BASIC_FLOAT32:
+      switch (argEltKind) {
+      case AR_BASIC_FLOAT32:
+      case AR_BASIC_FLOAT16:
+        return argEltKind;
+      default:
+        break;
+      }
+      // return a valid type (this will be used for error message)
+      return AR_BASIC_FLOAT32;
+    case AR_BASIC_INT32:
+      switch (argEltKind) {
+      case AR_BASIC_INT8_4PACKED:
+      case AR_BASIC_UINT8_4PACKED:
+        return argEltKind;
+      default:
+        break;
+      }
+      // return a valid type (this will be used for error message)
+      return AR_BASIC_INT8_4PACKED;
+    default:
+      break;
+    }
+  }
+  // In other cases, we return this element kind.
+  return objEltKind;
+}
+
 _Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
   const IntrinsicDefIter &cursor,
+  QualType objectType,
   QualType objectElement,
   QualType functionTemplateTypeArg,
   ArrayRef<Expr *> Args,
@@ -6053,6 +6621,7 @@ bool HLSLExternalSource::MatchArguments(
     case AR_TOBJ_BASIC:
     case AR_TOBJ_OBJECT:
     case AR_TOBJ_STRING:
+    case AR_TOBJ_ARRAY:
       break;
     default:
       badArgIdx = std::min(badArgIdx, iArg); // no struct, arrays or void
@@ -6082,6 +6651,12 @@ bool HLSLExternalSource::MatchArguments(
         // Outside of simple splats and truncations, templates must match
         badArgIdx = std::min(badArgIdx, iArg);
       }
+    }
+
+    // Process component type from object element after loop
+    if (pIntrinsicArg->uComponentTypeId == INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
+      ++iArg;
+      continue;
     }
 
     DXASSERT(
@@ -6155,9 +6730,11 @@ bool HLSLExternalSource::MatchArguments(
            "otherwise the argument list wasn't fully processed");
 
   // Default template and component type for return value
-  if (pIntrinsic->pArgs[0].qwUsage
-    && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE
-    && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION) {
+  if (pIntrinsic->pArgs[0].qwUsage &&
+      pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE &&
+      pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION &&
+      pIntrinsic->pArgs[0].uComponentTypeId !=
+          INTRIN_COMPTYPE_FROM_NODEOUTPUT) {
     CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs, 0);
     if (AR_TOBJ_UNKNOWN == Template[pIntrinsic->pArgs[0].uTemplateId]) {
       Template[pIntrinsic->pArgs[0].uTemplateId] =
@@ -6374,8 +6951,13 @@ bool HLSLExternalSource::MatchArguments(
     else if (pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2D
       || pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2DARRAY) {
       pNewType = Args[i - 1]->getType().getNonReferenceType();
-    }
-    else {
+    } else if (pArgument->uLegalComponentTypes ==
+               LICOMPTYPE_NODE_RECORD_OR_UAV) {
+      pNewType = Args[i - 1]->getType().getNonReferenceType();
+    } else if (pArgument->uLegalComponentTypes ==
+               LICOMPTYPE_ANY_NODE_OUTPUT_RECORD) {
+      pNewType = Args[i - 1]->getType().getNonReferenceType();
+    } else {
       ArBasicKind pEltType;
 
       // ComponentType, if the Id is special then it gets the
@@ -6393,8 +6975,29 @@ bool HLSLExternalSource::MatchArguments(
           badArgIdx = std::min(badArgIdx, i);
           return false;
         }
-      }
-      else {
+      } else if (pArgument->uComponentTypeId ==
+                 INTRIN_COMPTYPE_FROM_NODEOUTPUT) {
+        ClassTemplateDecl *templateDecl = nullptr;
+        if (pArgument->uLegalComponentTypes ==
+            LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS)
+          templateDecl = m_GroupNodeOutputRecordsTemplateDecl;
+        else if (pArgument->uLegalComponentTypes ==
+                 LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS)
+          templateDecl = m_ThreadNodeOutputRecordsTemplateDecl;
+        else {
+          assert(false && "unexpected comp type");
+        }
+
+        CXXRecordDecl *recordDecl = templateDecl->getTemplatedDecl();
+        if (!recordDecl->isCompleteDefinition()) {
+          CompleteType(recordDecl);
+        }
+
+        pNewType = GetOrCreateNodeOutputRecordSpecialization(
+            *m_context, m_sema, templateDecl, objectElement);
+        argTypes[i] = QualType(pNewType.getTypePtr(), quals);
+        continue;
+      } else {
         pEltType = ComponentType[pArgument->uComponentTypeId];
         DXASSERT_VALIDBASICKIND(pEltType);
       }
@@ -6425,13 +7028,89 @@ bool HLSLExternalSource::MatchArguments(
       CAB(uCols > 0 && uCols <= MaxVectorSize && uRows > 0 && uRows <= MaxVectorSize, i);
 
       // Const
-      UINT64 qwQual = pArgument->qwUsage & (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR);
+      UINT64 qwQual =
+          pArgument->qwUsage &
+          (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR | AR_QUAL_GROUPSHARED);
 
       if ((0 == i) || !(pArgument->qwUsage & AR_QUAL_OUT))
         qwQual |= AR_QUAL_CONST;
 
-      DXASSERT_VALIDBASICKIND(pEltType);
-      pNewType = NewSimpleAggregateType(Template[pArgument->uTemplateId], pEltType, qwQual, uRows, uCols);
+      // If the type is WaveMatrix, construct a template specialization based
+      // on the template arguments of this wave matrix object in a special way.
+      if (IsWaveMatrixBasicKind(pEltType)) {
+        CXXRecordDecl *templateRecordDecl =
+            GetBasicKindType(pEltType)->getAsCXXRecordDecl();
+        if (!templateRecordDecl->isCompleteDefinition()) {
+          // If template definition is not completed, no instantiations exist,
+          // so we can assume this candiate does not apply.
+          badArgIdx = std::min(badArgIdx, i);
+          return false;
+        }
+
+        // read template args of objectType
+        ArTypeInfo objInfo;
+        CollectInfo(objectType, &objInfo);
+        ArTypeInfo argInfo;
+        CollectInfo(Args[i - 1]->getType(), &argInfo);
+        ArBasicKind eltKind = GetValidWaveMatrixComponentTypeForArg(
+            objInfo.ObjKind, objInfo.EltKind, argInfo.ObjKind, argInfo.EltKind);
+        QualType compType = GetBasicKindType(eltKind);
+
+        // Now construct the expected argument specialization
+        TemplateArgument templateArgs[3] = {
+            TemplateArgument(compType),
+            TemplateArgument(*m_context,
+                             llvm::APSInt(llvm::APInt(32, objInfo.uRows)),
+                             m_context->UnsignedIntTy),
+            TemplateArgument(*m_context,
+                             llvm::APSInt(llvm::APInt(32, objInfo.uCols)),
+                             m_context->UnsignedIntTy)};
+        pNewType = GetOrCreateTemplateSpecialization(
+            *m_context, *m_sema,
+            templateRecordDecl->getDescribedClassTemplate(), templateArgs);
+      } else {
+        DXASSERT_VALIDBASICKIND(pEltType);
+        pNewType = NewSimpleAggregateType(Template[pArgument->uTemplateId],
+                                          pEltType, qwQual, uRows, uCols);
+
+        // If array type, wrap in the argument's array type.
+        if (i > 0 && Template[pArgument->uTemplateId] == AR_TOBJ_ARRAY) {
+          QualType arrayElt = Args[i - 1]->getType();
+          SmallVector<UINT, 4> sizes;
+          while (arrayElt->isArrayType()) {
+            UINT size = 0;
+            if (arrayElt->isConstantArrayType()) {
+              const ConstantArrayType *arrayType =
+                  (const ConstantArrayType *)arrayElt->getAsArrayTypeUnsafe();
+              size = arrayType->getSize().getLimitedValue();
+            }
+            arrayElt = QualType(arrayElt->getAsArrayTypeUnsafe()
+                                    ->getArrayElementTypeNoTypeQual(),
+                                0);
+            sizes.push_back(size);
+          }
+          // Wrap element in matching array dimensions:
+          while (sizes.size()) {
+            uint64_t size = sizes.pop_back_val();
+            if (size) {
+              pNewType = m_context->getConstantArrayType(
+                  pNewType, llvm::APInt(32, size, false),
+                  ArrayType::ArraySizeModifier::Normal, 0);
+            } else {
+              pNewType = m_context->getIncompleteArrayType(
+                  pNewType, ArrayType::ArraySizeModifier::Normal, 0);
+            }
+          }
+          if (qwQual & AR_QUAL_CONST)
+            pNewType = QualType(pNewType.getTypePtr(), Qualifiers::Const);
+
+          if (qwQual & AR_QUAL_GROUPSHARED)
+            pNewType =
+                m_context->getAddrSpaceQualType(pNewType, DXIL::kTGSMAddrSpace);
+
+          pNewType = m_context->getLValueReferenceType(pNewType);
+        }
+      }
     }
 
     DXASSERT(!pNewType.isNull(), "otherwise there's a branch in this function that fails to assign this");
@@ -6731,10 +7410,19 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
   //       Try to inline that here, making it cheaper to use this function
   //       when retrieving multiple properties.
   pTypeInfo->ObjKind = GetTypeElementKind(type);
-  pTypeInfo->EltTy = GetTypeElementType(type)->getCanonicalTypeUnqualified()->getTypePtr();
-  pTypeInfo->EltKind = pTypeInfo->ObjKind;
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
-  GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
+  if (IsWaveMatrixBasicKind(pTypeInfo->ObjKind)) {
+    QualType elTy;
+    GetWaveMatrixTemplateValues(type, &elTy, &pTypeInfo->uRows,
+                                &pTypeInfo->uCols);
+    pTypeInfo->EltKind = GetTypeElementKind(elTy);
+    pTypeInfo->EltTy = pTypeInfo->EltTy = GetStructuralForm(elTy).getTypePtr();
+  } else {
+    GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
+    pTypeInfo->EltKind = pTypeInfo->ObjKind;
+    pTypeInfo->EltTy =
+        GetTypeElementType(type)->getCanonicalTypeUnqualified()->getTypePtr();
+  }
   pTypeInfo->uTotalElts = pTypeInfo->uRows * pTypeInfo->uCols;
 }
 
@@ -8259,12 +8947,13 @@ ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
 ExprResult HLSLExternalSource::MaybeConvertMemberAccess(_In_ clang::Expr* E) {
   DXASSERT_NOMSG(E != nullptr);
 
-  if (IsHLSLBufferViewType(E->getType())) {
-    QualType targetType =
-        m_context->getConstType(hlsl::GetHLSLResourceResultType(E->getType()));
+  if (IsHLSLObjectWithImplicitMemberAccess(E->getType())) {
+    QualType targetType = hlsl::GetHLSLResourceResultType(E->getType());
+    if (IsHLSLObjectWithImplicitROMemberAccess(E->getType()))
+      targetType = m_context->getConstType(targetType);
     return ImplicitCastExpr::Create(*m_context, targetType,
-                                    CastKind::CK_FlatConversion, E, nullptr,
-                                    E->getValueKind());
+      CastKind::CK_FlatConversion, E, nullptr,
+      E->getValueKind());
   }
   ArBasicKind basic = GetTypeElementKind(E->getType());
   if (!IS_BASIC_PRIMITIVE(basic)) {
@@ -9914,6 +10603,9 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   DXASSERT(functionParentRecord != nullptr, "otherwise function is orphaned");
   QualType objectElement = GetFirstElementTypeFromDecl(functionParentRecord);
 
+  // Preserve full object type for special cases in method matching
+  QualType objectType = m_context->getTagDeclType(functionParentRecord);
+
   QualType functionTemplateTypeArg {};
   if (ExplicitTemplateArgs != nullptr && ExplicitTemplateArgs->size() == 1) {
     const TemplateArgument &firstTemplateArg = (*ExplicitTemplateArgs)[0].getArgument();
@@ -9986,7 +10678,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   while (cursor != end)
   {
     size_t badArgIdx;
-    if (!MatchArguments(cursor, objectElement, functionTemplateTypeArg, Args, &argTypes, badArgIdx))
+    if (!MatchArguments(cursor, objectType, objectElement, functionTemplateTypeArg, Args, &argTypes, badArgIdx))
     {
       ++cursor;
       continue;
@@ -10172,6 +10864,8 @@ void GetUnsignedLimit(ArBasicKind basicKind, uint64_t* maxValue)
   case AR_BASIC_UINT16: *maxValue = UINT16_MAX; return;
   case AR_BASIC_UINT32: *maxValue = UINT32_MAX; return;
   case AR_BASIC_UINT64: *maxValue = UINT64_MAX; return;
+  case AR_BASIC_UINT8_4PACKED:
+  case AR_BASIC_INT8_4PACKED: *maxValue = UINT32_MAX; return;
   default:
     // No other unsigned int types.
     break;
@@ -10622,6 +11316,158 @@ static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
   return NameLookup{ pFoundDecl, nullptr };
 }
 
+// Work Graph checks:
+// - intrinsics are only called by nodes with appropriate launch types
+class WorkGraphVisitor : public RecursiveASTVisitor<WorkGraphVisitor> {
+private:
+  Sema &S;
+  // Current Launch Node
+  StringRef nodeLaunchType;
+  StringRef funcName;
+  SourceLocation nodeLaunchLoc;
+  SourceLocation computeLoc;
+  SourceLocation nodeLoc;
+
+public:
+  WorkGraphVisitor(Sema &S) : S(S) {}
+
+  void diagnose(TranslationUnitDecl *TU) { TraverseTranslationUnitDecl(TU); }
+
+  bool VisitFunctionDecl(FunctionDecl *Decl) {
+    nodeLaunchType = StringRef();
+    funcName = StringRef();
+    nodeLaunchLoc = SourceLocation();
+    computeLoc = SourceLocation();
+    nodeLoc = SourceLocation();
+
+    // a function may be both compute and work-graph node
+    for (auto *pAttr : Decl->specific_attrs<HLSLShaderAttr>()) {
+      DXIL::ShaderKind shaderKind =
+          ShaderModel::KindFromFullName(pAttr->getStage());
+      if (shaderKind == DXIL::ShaderKind::Node) {
+        nodeLoc = pAttr->getLocation();
+      } else if (shaderKind == DXIL::ShaderKind::Compute) {
+        computeLoc = pAttr->getLocation();
+      }
+    }
+    // if this isn't a work-graph node we can quit now
+    if (!nodeLoc.isValid())
+      return false;
+
+    // nodes will always have a name - we'll save it for use in diagnostics
+    funcName = Decl->getName();
+
+    // save NodeLaunch type for use later
+    if (auto NodeLaunch = Decl->getAttr<HLSLNodeLaunchAttr>()) {
+      nodeLaunchType = NodeLaunch->getLaunchType();
+      nodeLaunchLoc = NodeLaunch->getLocation();
+    } else {
+      nodeLaunchType = "Broadcasting";
+      nodeLaunchLoc = SourceLocation();
+    }
+
+    // If this is both a compute shader and work-graph node, it may only have broadcasting launch mode
+    if (computeLoc.isValid() && !nodeLaunchType.equals_lower("broadcasting")) {
+      S.Diags.Report(nodeLaunchLoc, diag::err_hlsl_compute_compatibility)
+	<< funcName << nodeLaunchType.lower() + " launch type";
+      S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
+      // ignore other compute incompatibilities (i.e. input/output records)
+      computeLoc = SourceLocation();
+    }
+
+    // Check that a Thread node has thread group size (1,1,1)
+    if (nodeLaunchType.equals_lower("thread")) {
+      if (auto NumThreads = Decl->getAttr<HLSLNumThreadsAttr>()) {
+        if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
+            NumThreads->getZ() != 1) {
+          S.Diags.Report(NumThreads->getLocation(),
+                         diag::err_hlsl_wg_thread_launch_group_size);
+          // Only output the note if the source location is valid
+          if (nodeLaunchLoc.isValid())
+            S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
+                << "Launch type";
+        }
+      }
+    }
+
+    return true;
+  }
+
+  bool NodeInputIsCompatible(StringRef& typeName, StringRef& launchName) {
+    return llvm::StringSwitch<bool>(typeName)
+	   .Case("DispatchNodeInputRecord", launchName.equals_lower("broadcasting"))
+	   .Case("RWDispatchNodeInputRecord", launchName.equals_lower("broadcasting"))
+	   .Case("GroupNodeInputRecords", launchName.equals_lower("coalescing"))
+	   .Case("RWGroupNodeInputRecords", launchName.equals_lower("coalescing"))
+	   .Case("EmptyNodeInput", launchName.equals_lower("coalescing"))
+	   .Case("ThreadNodeInputRecord", launchName.equals_lower("thread"))
+	   .Case("RWThreadNodeInputRecord", launchName.equals_lower("thread"))
+	   .Default(false);
+  }
+
+  bool VisitParmVarDecl(ParmVarDecl *P) {
+    // compute is incompatible with node input/output
+    if (computeLoc.isValid() && hlsl::IsHLSLNodeType(P->getType())) {
+      S.Diags.Report(P->getLocation(), diag::err_hlsl_compute_compatibility)
+	<< funcName << "node input/output" << P->getSourceRange();
+      S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
+      // ignore any other errors
+      return true;
+    }
+    // Check any node input is compatible with the node launch type
+    if (hlsl::IsHLSLNodeInputType(P->getType())) {
+      const RecordType* RT = P->getType()->getAs<RecordType>();
+      StringRef typeName = RT->getDecl()->getName();
+      if (!NodeInputIsCompatible(typeName, nodeLaunchType)) {
+        S.Diags.Report(P->getLocation(), diag::err_hlsl_wg_input_kind) << typeName
+          << nodeLaunchType.lower() << P->getSourceRange();
+        if (nodeLaunchLoc.isValid()) {
+          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here) << "Launch type";
+        }
+      }
+    }
+
+    return true;
+  }
+
+  bool VisitCallExpr(CallExpr *C) {
+
+    if (FunctionDecl *FD = C->getDirectCallee()) {
+      if (FD->hasAttr<HLSLIntrinsicAttr>()) {
+        // this is a call to a HLSL intrinsic FinishedCrossGroupSharing
+        hlsl::IntrinsicOp opCode =
+            (IntrinsicOp)FD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
+        if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
+          const CXXMethodDecl *MD = cast<CXXMethodDecl>(FD);
+          const CXXRecordDecl *NodeRecDecl = MD->getParent();
+          // Node I/O records are templateTypes
+          const ClassTemplateSpecializationDecl *templateDecl =
+              cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
+          auto &TemplateArgs = templateDecl->getTemplateArgs();
+          DXASSERT(TemplateArgs.size() == 1,
+                   "Input record types need to have one template argument");
+          auto &Rec = TemplateArgs.get(0);
+          clang::QualType RecType = Rec.getAsType();
+          RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
+          if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
+            S.Diags.Report(C->getLocStart(),
+                           diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
+        }
+      }
+    }
+    return true;
+  }
+};
+
+namespace hlsl {
+
+void DiagnoseWorkGraphConstraints(clang::Sema &S,
+                                  clang::TranslationUnitDecl *TU) {
+  WorkGraphVisitor visitor(S);
+  visitor.diagnose(TU);
+}
+} // namespace hlsl
+
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
 
@@ -10642,6 +11488,9 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       DiagnoseRaytracingPayloadAccess(*self, TU);
     }
   }
+
+  // Check constraints for work graphs
+  DiagnoseWorkGraphConstraints(*self, self->getASTContext().getTranslationUnitDecl());
 
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
@@ -11062,7 +11911,7 @@ bool hlsl::ShouldSkipNRVO(clang::Sema& sema, clang::QualType returnType, clang::
     ArrayEltTy = AT->getElementType();
   }
   // exclude resource for globallycoherent.
-  if (hlsl::IsHLSLResourceType(ArrayEltTy))
+  if (hlsl::IsHLSLResourceType(ArrayEltTy) || hlsl::IsHLSLNodeType(ArrayEltTy))
     return true;
   // exclude precise.
   if (VD->hasAttr<HLSLPreciseAttr>()) {
@@ -11794,7 +12643,8 @@ template <typename AttrType, typename EnumType,
           bool (*ConvertStrToEnumType)(StringRef, EnumType &)>
 static EnumType ValidateAttributeEnumArg(Sema &S, const AttributeList &Attr,
                                          EnumType defaultValue,
-                                         unsigned index = 0) {
+                                         unsigned index = 0,
+                                         bool isCaseSensitive = true) {
   EnumType value(defaultValue);
   StringRef Str = "";
   SourceLocation ArgLoc;
@@ -11803,7 +12653,9 @@ static EnumType ValidateAttributeEnumArg(Sema &S, const AttributeList &Attr,
     if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &ArgLoc))
       return value;
 
-    if (!ConvertStrToEnumType(Str, value)) {
+    std::string str = isCaseSensitive ? Str.str() : Str.lower();
+
+    if (!ConvertStrToEnumType(str, value)) {
       S.Diag(Attr.getLoc(), diag::warn_attribute_type_not_supported)
           << Attr.getName() << Str << ArgLoc;
     }
@@ -11998,8 +12850,10 @@ static void ValidateAttributeOnSwitchOrIf(Sema& S, Stmt* St, const AttributeList
   }
 }
 
-static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In_opt_z_ const char* values, unsigned index = 0)
-{
+static StringRef ValidateAttributeStringArg(Sema &S, const AttributeList &A,
+                                            _In_opt_z_ const char *values,
+                                            unsigned index = 0,
+                                            bool isCaseSensitive = true) {
   // values is an optional comma-separated list of potential values.
   if (A.getNumArgs() <= index)
     return StringRef();
@@ -12014,6 +12868,9 @@ static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In
 
   StringLiteral* sl = cast<StringLiteral>(E);
   StringRef result = sl->getString();
+  std::string cmpstr = sl->getString();
+  if (!isCaseSensitive)
+    cmpstr = sl->getString().lower();
 
   // Return result with no additional validation.
   if (values == nullptr)
@@ -12027,8 +12884,8 @@ static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In
     DXASSERT_NOMSG(*value != ','); // no leading commas in values
 
     // Look for a match.
-    const char* argData = result.data();
-    size_t argDataLen = result.size();
+    const char* argData = cmpstr.c_str();
+    size_t argDataLen = cmpstr.size();
 
     while (argDataLen != 0 && *argData == *value && *value)
     {
@@ -12112,6 +12969,43 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
       Diag(Loc, diag::warn_hlsl_impcast_glc_mismatch)
           << SrcExpr->getType() << TargetType << /*loses|adds*/ DstGL;
   }
+}
+
+void ValidateDispatchGridValues(DiagnosticsEngine &Diags, const AttributeList &A, Attr *declAttr) {
+  unsigned x = 1, y = 1, z = 1;
+  if (HLSLNodeDispatchGridAttr *pA = dyn_cast<HLSLNodeDispatchGridAttr>(declAttr)) {
+    x = pA->getX();
+    y = pA->getY();
+    z = pA->getZ();
+  } else if (HLSLNodeMaxDispatchGridAttr *pA = dyn_cast<HLSLNodeMaxDispatchGridAttr>(declAttr)) {
+    x = pA->getX();
+    y = pA->getY();
+    z = pA->getZ();
+  } else {
+    llvm_unreachable("ValidateDispatchGridValues() called for wrong attribute");
+  }
+  static const unsigned MaxComponentValue = 65535;  // 2^16 - 1
+  static const unsigned MaxProductValue = 16777215; // 2^24 - 1
+  // If a component is out of range, we reset it to 0 to avoid also generating
+  // a secondary error if the product would be out of range
+  if (x < 1 || x > MaxComponentValue) {
+    Diags.Report(A.getArgAsExpr(0)->getExprLoc(), diag::err_hlsl_dispatchgrid_component)
+      << A.getName() << "X" << A.getRange();
+      x = 0;
+  }
+  if (y < 1 || y > MaxComponentValue) {
+    Diags.Report(A.getArgAsExpr(1)->getExprLoc(), diag::err_hlsl_dispatchgrid_component)
+      << A.getName() << "Y" << A.getRange();
+      y = 0;
+  }
+  if(z < 1 || z > MaxComponentValue) {
+    Diags.Report(A.getArgAsExpr(2)->getExprLoc(), diag::err_hlsl_dispatchgrid_component)
+      << A.getName() << "Z" << A.getRange();
+      z = 0;
+  }
+  if (x * y * z > MaxProductValue)
+    Diags.Report(A.getLoc(), diag::err_hlsl_dispatchgrid_product)
+      << A.getName()  << A.getRange();
 }
 
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, bool& Handled)
@@ -12235,6 +13129,44 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLRayPayloadAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLMaxRecords:
+    declAttr = ::new (S.Context) HLSLMaxRecordsAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLMaxRecordsSharedWith: {
+    if (A.isArgIdent(0)) {
+      IdentifierInfo *II = A.getArgAsIdent(0)->Ident;
+      declAttr = ::new (S.Context) HLSLMaxRecordsSharedWithAttr(
+          A.getRange(), S.Context, II, A.getAttributeSpellingListIndex());
+    } else {
+      S.Diag(A.getLoc(), diag::err_attribute_argument_n_type)
+          << A.getName() << 1 << AANT_ArgumentIdentifier;
+      // We return here to avoid falling into the default failure case and
+      // asserting
+      return;
+    }
+    break;
+  }
+  case AttributeList::AT_HLSLNodeArraySize: {
+    declAttr = ::new (S.Context) HLSLNodeArraySizeAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
+  }
+  case AttributeList::AT_HLSLAllowSparseNodes:
+    declAttr = ::new (S.Context) HLSLAllowSparseNodesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeId:
+    declAttr = ::new (S.Context) HLSLNodeIdAttr(
+        A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr, 0),
+        ValidateAttributeIntArg(S, A, 1), A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeTrackRWInputSharing:
+    declAttr = ::new (S.Context) HLSLNodeTrackRWInputSharingAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   // SPIRV Change Starts
   case AttributeList::AT_VKDecorateIdExt: {
     if (A.getNumArgs() == 0 || !A.getArg(0).is<clang::Expr *>()) {
@@ -12353,7 +13285,8 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         ValidateAttributeStringArg(
             S, A,
             "compute,vertex,pixel,hull,domain,geometry,raygeneration,"
-            "intersection,anyhit,closesthit,miss,callable,mesh,amplification"),
+            "intersection,anyhit,closesthit,miss,callable,mesh,amplification,"
+            "node"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
@@ -12380,6 +13313,50 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     break;
   case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
     declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeLaunch:
+    declAttr = ::new (S.Context) HLSLNodeLaunchAttr(
+        A.getRange(), S.Context,
+        ValidateAttributeStringArg(S, A, "broadcasting,coalescing,thread", 0,
+                                   false /*isCaseSensitive*/),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeIsProgramEntry:
+    declAttr = ::new (S.Context) HLSLNodeIsProgramEntryAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeTrackRWInputSharing:
+    declAttr = ::new (S.Context) HLSLNodeTrackRWInputSharingAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeLocalRootArgumentsTableIndex:
+    declAttr = ::new (S.Context) HLSLNodeLocalRootArgumentsTableIndexAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeShareInputOf:
+    declAttr = ::new (S.Context) HLSLNodeShareInputOfAttr(
+        A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr, 0),
+        ValidateAttributeIntArg(S, A, 1), A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNodeDispatchGrid:
+    declAttr = ::new (S.Context) HLSLNodeDispatchGridAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
+        A.getAttributeSpellingListIndex());
+    ValidateDispatchGridValues(S.Diags, A, declAttr);
+    break;
+  case AttributeList::AT_HLSLNodeMaxDispatchGrid:
+    declAttr = ::new (S.Context) HLSLNodeMaxDispatchGridAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
+        A.getAttributeSpellingListIndex());
+    ValidateDispatchGridValues(S.Diags, A, declAttr);
+    break;
+  case AttributeList::AT_HLSLNodeMaxRecursionDepth:
+    declAttr = ::new (S.Context) HLSLNodeMaxRecursionDepthAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -13017,7 +13994,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     *pCenter = nullptr,
     *pAnyLinear = nullptr,                   // first linear attribute found
     *pTopology = nullptr,
-    *pMeshModifier = nullptr;
+    *pMeshModifier = nullptr,
+    *pDispatchGrid = nullptr,
+    *pMaxDispatchGrid = nullptr;
   bool usageIn = false;
   bool usageOut = false;
 
@@ -13186,6 +14165,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       if (!isFunction) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
           << pAttr->getName() << declarationType << pAttr->getRange();
+
         result = false;
       }
       if (isStatic) {
@@ -13217,6 +14197,32 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         }
       }
       pMeshModifier = pAttr;
+      break;
+    case AttributeList::AT_HLSLNodeDispatchGrid:
+      if (pDispatchGrid) {
+        // TODO: it would be nice to diffentiate between an exact duplicate and
+        // conflicting values
+        Diag(pAttr->getLoc(), diag::warn_duplicate_attribute_exact)
+            << pAttr->getName() << pAttr->getRange();
+        result = false;
+      } else {
+        // Note: the NodeDispatchGrid values are validated later in
+        // HandleDeclAttributeForHLSL()
+        pDispatchGrid = pAttr;
+      }
+      break;
+    case AttributeList::AT_HLSLNodeMaxDispatchGrid:
+      if (pMaxDispatchGrid) {
+        // TODO: it would be nice to diffentiate between an exact duplicate and
+        // conflicting values
+        Diag(pAttr->getLoc(), diag::warn_duplicate_attribute_exact)
+          << pAttr->getName() << pAttr->getRange();
+        result = false;
+      } else {
+        // Note: the NodeMaxDispatchGrid values are validated later in
+        // HandleDeclAttributeForHLSL()
+        pMaxDispatchGrid = pAttr;
+      }
       break;
 
     default:
@@ -13838,6 +14844,118 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "payload ";
     break;
 
+  case clang::attr::HLSLNodeLaunch: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNodeLaunchAttr *ACast = static_cast<HLSLNodeLaunchAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[NodeLaunch(\"" << ACast->getLaunchType() << "\")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLNodeIsProgramEntry:
+    Indent(Indentation, Out);
+    Out << "[NodeIsProgramEntry]\n";
+    break;
+
+  case clang::attr::HLSLNodeId: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNodeIdAttr *ACast = static_cast<HLSLNodeIdAttr *>(noconst);
+    Indent(Indentation, Out);
+    if (ACast->getArrayIndex() > 0)
+      Out << "[NodeId(\"" << ACast->getName() << "\"," << ACast->getArrayIndex()
+          << ")]\n";
+    else
+      Out << "[NodeId(\"" << ACast->getName() << "\")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLNodeLocalRootArgumentsTableIndex: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNodeLocalRootArgumentsTableIndexAttr *ACast =
+        static_cast<HLSLNodeLocalRootArgumentsTableIndexAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[NodeLocalRootTableIndex(" << ACast->getIndex() << ")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLNodeShareInputOf: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNodeShareInputOfAttr *ACast =
+        static_cast<HLSLNodeShareInputOfAttr *>(noconst);
+    Indent(Indentation, Out);
+    if (ACast->getArrayIndex() > 0)
+      Out << "[NodeShareInputOf(\"" << ACast->getName() << "\","
+          << ACast->getArrayIndex() << ")]\n";
+    else
+      Out << "[NodeShareInputOf(\"" << ACast->getName() << "\")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLNodeTrackRWInputSharing: {
+    Indent(Indentation, Out);
+    Out << "[HLSLNodeTrackRWInputSharing]\n";
+    break;
+  }
+
+  case clang::attr::HLSLNodeDispatchGrid: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNodeDispatchGridAttr *ACast =
+        static_cast<HLSLNodeDispatchGridAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[NodeDispatchGrid(" << ACast->getX() << ", " << ACast->getY()
+        << ", " << ACast->getZ() << ")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLNodeMaxDispatchGrid: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNodeMaxDispatchGridAttr *ACast =
+        static_cast<HLSLNodeMaxDispatchGridAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[NodeMaxDispatchGrid(" << ACast->getX() << ", " << ACast->getY()
+        << ", " << ACast->getZ() << ")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLNodeMaxRecursionDepth: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLNodeMaxRecursionDepthAttr *ACast =
+        static_cast<HLSLNodeMaxRecursionDepthAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[NodeMaxRecursionDepth(" << ACast->getCount() << ")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLMaxRecords: {
+    Attr *noconst = const_cast<Attr *>(A);
+    auto *ACast = static_cast<HLSLMaxRecordsAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[MaxRecords(" << ACast->getMaxCount() << ")]\n";
+    break;
+  }
+  case clang::attr::HLSLNodeArraySize: {
+    Attr *noconst = const_cast<Attr *>(A);
+    auto *ACast = static_cast<HLSLNodeArraySizeAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[NodeArraySize(" << ACast->getCount() << ")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLMaxRecordsSharedWith: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLMaxRecordsSharedWithAttr *ACast =
+        static_cast<HLSLMaxRecordsSharedWithAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[MaxRecordsSharedWith(\"" << ACast->getName() << "\")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLAllowSparseNodes: {
+    Indent(Indentation, Out);
+    Out << "[AllowSparseNodes]\n";
+    break;
+  }
+
   default:
     A->printPretty(Out, Policy);
     break;
@@ -13897,6 +15015,19 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLExport:
   case clang::attr::HLSLWaveSensitive:
   case clang::attr::HLSLWaveSize:
+  case clang::attr::HLSLMaxRecordsSharedWith:
+  case clang::attr::HLSLMaxRecords:
+  case clang::attr::HLSLNodeArraySize:
+  case clang::attr::HLSLAllowSparseNodes:
+  case clang::attr::HLSLNodeDispatchGrid:
+  case clang::attr::HLSLNodeMaxDispatchGrid:
+  case clang::attr::HLSLNodeMaxRecursionDepth:
+  case clang::attr::HLSLNodeId:
+  case clang::attr::HLSLNodeIsProgramEntry:
+  case clang::attr::HLSLNodeLaunch:
+  case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
+  case clang::attr::HLSLNodeShareInputOf:
+  case clang::attr::HLSLNodeTrackRWInputSharing:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:

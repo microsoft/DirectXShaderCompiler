@@ -62,6 +62,7 @@ ShaderFlags::ShaderFlags():
 , m_bResMayNotAlias(false)
 , m_bAdvancedTextureOps(false)
 , m_bWriteableMSAATextures(false)
+, m_bWaveMMA(false)
 , m_align1(0)
 {
   // Silence unused field warnings
@@ -121,6 +122,8 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
 
   Flags |= m_bAdvancedTextureOps ? hlsl::DXIL::ShaderFeatureInfo_AdvancedTextureOps : 0;
   Flags |= m_bWriteableMSAATextures ? hlsl::DXIL::ShaderFeatureInfo_WriteableMSAATextures : 0;
+
+  Flags |= m_bWaveMMA ? hlsl::DXIL::ShaderFeatureInfo_WaveMMA : 0;
 
   return Flags;
 }
@@ -184,6 +187,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetResMayNotAlias(true);
   Flags.SetAdvancedTextureOps(true);
   Flags.SetWriteableMSAATextures(true);
+  Flags.SetWaveMMA(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -382,6 +386,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
 
   bool hasAdvancedTextureOps = false;
   bool hasWriteableMSAATextures = false;
+
+  bool hasWaveMMA = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
@@ -584,6 +590,20 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::TextureGatherRaw:
           hasAdvancedTextureOps = true;
           break;
+        case DXIL::OpCode::WaveMatrix_Add:
+        case DXIL::OpCode::WaveMatrix_Annotate:
+        case DXIL::OpCode::WaveMatrix_Depth:
+        case DXIL::OpCode::WaveMatrix_Fill:
+        case DXIL::OpCode::WaveMatrix_LoadGroupShared:
+        case DXIL::OpCode::WaveMatrix_LoadRawBuf:
+        case DXIL::OpCode::WaveMatrix_Multiply:
+        case DXIL::OpCode::WaveMatrix_MultiplyAccumulate:
+        case DXIL::OpCode::WaveMatrix_ScalarOp:
+        case DXIL::OpCode::WaveMatrix_StoreGroupShared:
+        case DXIL::OpCode::WaveMatrix_StoreRawBuf:
+        case DXIL::OpCode::WaveMatrix_SumAccumulate:
+          hasWaveMMA = true;
+          break;
         default:
           // Normal opcodes.
           break;
@@ -699,6 +719,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
   flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
   flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
+  flag.SetWaveMMA(hasWaveMMA);
 
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
