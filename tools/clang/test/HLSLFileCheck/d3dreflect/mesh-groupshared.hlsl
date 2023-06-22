@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_7 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxilver 1.8 | %dxc -T lib_6_7 %s | %D3DReflect %s | FileCheck %s
 
 // CHECK:DxilRuntimeData (size = 340 bytes):
 // CHECK:  StringBuffer (size = 32 bytes)
