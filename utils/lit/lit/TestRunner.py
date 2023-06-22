@@ -1,13 +1,22 @@
 from __future__ import absolute_import
+import getopt
 import os, signal, subprocess, sys
 import re
+import stat
 import platform
 import tempfile
 
+from lit.ShCommands import GlobItem
 import lit.ShUtil as ShUtil
 import lit.Test as Test
 import lit.util
-from lit.util import to_bytes, to_string
+from lit.util import to_bytes, to_string, to_unicode
+
+import io
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 class InternalShellError(Exception):
     def __init__(self, command, message):
@@ -32,6 +41,68 @@ class ShellEnvironment(object):
     def __init__(self, cwd, env):
         self.cwd = cwd
         self.env = env
+
+def expand_glob(arg, cwd):
+    if isinstance(arg, GlobItem):
+        return sorted(arg.resolve(cwd))
+    return [arg]
+
+def expand_glob_expressions(args, cwd):
+    result = [args[0]]
+    for arg in args[1:]:
+        result.extend(expand_glob(arg, cwd))
+    return result
+
+def executeBuiltinRm(cmd, cmd_shenv):
+    """executeBuiltinRm - Removes (deletes) files or directories."""
+    args = expand_glob_expressions(cmd.args, cmd_shenv.cwd)[1:]
+    try:
+        opts, args = getopt.gnu_getopt(args, "frR", ["--recursive"])
+    except getopt.GetoptError as err:
+        raise InternalShellError(cmd, "Unsupported: 'rm':  %s" % str(err))
+
+    force = False
+    recursive = False
+    for o, a in opts:
+        if o == "-f":
+            force = True
+        elif o in ("-r", "-R", "--recursive"):
+            recursive = True
+        else:
+            assert False, "unhandled option"
+
+    if len(args) == 0:
+        raise InternalShellError(cmd, "Error: 'rm' is missing an operand")
+
+    def on_rm_error(func, path, exc_info):
+        # path contains the path of the file that couldn't be removed
+        # let's just assume that it's read-only and remove it.
+        os.chmod(path, stat.S_IMODE( os.stat(path).st_mode) | stat.S_IWRITE)
+        os.remove(path)
+
+    stderr = StringIO()
+    exitCode = 0
+    for path in args:
+        cwd = cmd_shenv.cwd
+        path = to_unicode(path) if kIsWindows else to_bytes(path)
+        cwd = to_unicode(cwd) if kIsWindows else to_bytes(cwd)
+        if not os.path.isabs(path):
+            path = os.path.realpath(os.path.join(cwd, path))
+        if force and not os.path.exists(path):
+            continue
+        try:
+            if os.path.isdir(path):
+                stderr.write("Error: %s is a directory\n" % path)
+                exitCode = 1
+            else:
+                if force and not os.access(path, os.W_OK):
+                    os.chmod(path,
+                             stat.S_IMODE(os.stat(path).st_mode) | stat.S_IWRITE)
+                os.remove(path)
+        except OSError as err:
+            stderr.write("Error: 'rm' command failed, %s" % str(err))
+            exitCode = 1
+
 
 def executeShCmd(cmd, shenv, results):
     if isinstance(cmd, ShUtil.Seq):
@@ -157,9 +228,37 @@ def executeShCmd(cmd, shenv, results):
 
         # Resolve the executable path ourselves.
         args = list(j.args)
-        executable = lit.util.which(args[0], shenv.env['PATH'])
-        if not executable:
-            raise InternalShellError(j, '%r: command not found' % j.args[0])
+        # HLSL Change Begin - avoid echo/rm which is lit builtin in upstream.
+        use_shell = False
+        if kIsWindows:
+            if  args[0] == 'rm':
+                executeBuiltinRm(j, shenv)
+                continue
+            if args[0] == 'ls':
+                # FIXME: ls is not a lit builtin in upstream.
+                use_shell = True
+                args = ['dir', '/B', args[-1].replace('/','\\')]
+            if args[0] == 'cat':
+                use_shell = True
+                args = ['type', args[-1].replace('/','\\')]
+            if args[0] == 'diff':
+                use_shell = True
+                args = ['fc', '/B', args[-2], args[-1]]
+            if args[0] == 'echo':
+                use_shell = True
+                args = ['echo', ''.join([f'{arg} ' for arg in args[1:]])[0:-1]]
+            if args[0] == 'mkdir':
+                #if not exist "C:FOLDER_NAME" mkdir C:FOLDER_NAME
+                dir_name = args[-1].replace('/','\\')
+                os.system(f"if not exist {dir_name} mkdir {dir_name}")
+                continue
+        # HLSL Change End
+        if use_shell:
+            executable = None
+        else:
+            executable = lit.util.which(args[0], shenv.env['PATH'])
+            if not executable:
+                raise InternalShellError(j, '%r: command not found' % j.args[0])
 
         # Replace uses of /dev/null with temporary files.
         if kAvoidDevNull:
@@ -173,6 +272,7 @@ def executeShCmd(cmd, shenv, results):
         try:
             procs.append(subprocess.Popen(args, cwd=shenv.cwd,
                                           executable = executable,
+                                          shell=use_shell, # HLSL Change - to avoid ls/rm directly on windows.
                                           stdin = stdin,
                                           stdout = stdout,
                                           stderr = stderr,
@@ -200,6 +300,12 @@ def executeShCmd(cmd, shenv, results):
     # handles have already been transferred so we do not need them anymore.
     for f in opened_files:
         f.close()
+
+    # HLSL Change Begin - just return when procs is empty.
+    # This will happen when run rm by os.remove.
+    if 0 == len(procs):
+        return 0
+    # HLSL Change End
 
     # FIXME: There is probably still deadlock potential here. Yawn.
     procData = [None] * len(procs)

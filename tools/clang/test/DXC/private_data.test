@@ -13,7 +13,7 @@
 // PRIVATE1:private data
 
 // Appending and removing private data blob roundtrip
-// RUN: cmp %t.private.smoke.cso %t.noprivate.cso
+// RUN: diff %t.private.smoke.cso %t.noprivate.cso
 
 // Strip multiple, verify stripping
 

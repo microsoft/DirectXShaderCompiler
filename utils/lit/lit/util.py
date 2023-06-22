@@ -16,6 +16,19 @@ def to_string(bytes):
         return bytes
     return to_bytes(bytes)
 
+def to_unicode(s):
+    """Return the parameter as type which supports unicode, possibly decoding
+    it.
+
+    In Python2, this is the unicode type. In Python3 it's the str type.
+
+    """
+    if isinstance(s, bytes):
+        # In Python2, this branch is taken for both 'str' and 'bytes'.
+        # In Python3, this branch is taken only for 'bytes'.
+        return s.decode('utf-8')
+    return s
+
 def convert_string(bytes):
     try:
         return to_string(bytes.decode('utf-8'))
