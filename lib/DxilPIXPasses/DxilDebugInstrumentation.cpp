@@ -341,10 +341,10 @@ DxilDebugInstrumentation::SystemValueIndices
   case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::RayGeneration:
-  //case DXIL::ShaderKind::Intersection:
-  //case DXIL::ShaderKind::AnyHit:
-  //case DXIL::ShaderKind::ClosestHit:
-  //case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
@@ -619,15 +619,15 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   Value *ParameterTestResult = nullptr;
   switch (shaderKind) {
   case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
     ParameterTestResult = addRaygenShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
-  //case DXIL::ShaderKind::Intersection:
-  //case DXIL::ShaderKind::AnyHit:
-  //case DXIL::ShaderKind::ClosestHit:
-  //case DXIL::ShaderKind::Miss:
     ParameterTestResult = addDispatchedShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Geometry:
@@ -1000,12 +1000,11 @@ bool DxilDebugInstrumentation::RunOnFunction(
   case DXIL::ShaderKind::RayGeneration:
   case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
-    break;
-    //todo:
   case DXIL::ShaderKind::Intersection:
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+    break;
   default:
     return false;
   }
@@ -1043,7 +1042,7 @@ bool DxilDebugInstrumentation::RunOnFunction(
   auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
 
   values.UAVHandle = PIXPassHelpers::CreateUAV(
-      DM, Builder, static_cast<unsigned int>(m_FunctionToValues.size()),
+      DM, Builder, 0,
       "PIX_DebugUAV_Handle");
   values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
 
