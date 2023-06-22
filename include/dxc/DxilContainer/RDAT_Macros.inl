@@ -72,7 +72,7 @@
   #define RDAT_UNION_END()                    };
   #define RDAT_RECORD_REF(type, name)         RecordRef<type> name;
   #define RDAT_RECORD_ARRAY_REF(type, name)   RecordArrayRef<type> name;
-  #define RDAT_RECORD_VALUE(type, name)       type name;
+  #define RDAT_RECORD_VALUE(type, name)       struct type name;
   #define RDAT_STRING(name)                   RDATString name;
   #define RDAT_STRING_ARRAY_REF(name)         RDATStringArray name;
   #define RDAT_VALUE(type, name)              type name;
