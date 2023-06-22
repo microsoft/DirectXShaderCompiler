@@ -1,6 +1,6 @@
 // RUN: %dxc -T hs_6_0 -E SubDToBezierHS
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 // CHECK: OpExecutionMode %SubDToBezierHS Triangle
 

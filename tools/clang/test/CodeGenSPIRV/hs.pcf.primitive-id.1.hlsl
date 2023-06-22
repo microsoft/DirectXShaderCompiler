@@ -1,6 +1,6 @@
 // RUN: %dxc -T hs_6_0 -E main
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 // Test: PCF takes the PrimitiveID
 // Note that in this test, the main entry point has also taken the PrimitiveID as input.
