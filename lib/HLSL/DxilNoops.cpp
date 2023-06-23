@@ -597,15 +597,30 @@ public:
     initializeDxilReinsertNopsPass(*PassRegistry::getPassRegistry());
   }
 
-  static bool IsLegitimateNothingGlobalVar(StringRef Name) {
+  // In various linking scenarios, the dx.nothing.a variable might be prefixed
+  // and/or suffixed with something:
+  //
+  //   <library_name>.dx.nothing.a.<another_thing>
+  //
+  // This routine looks for the "dx.nothing.a" string inside of it, and as long
+  // as it's used in the expected way:
+  // 
+  // %0 = load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.nothing.a, i32 0, i32 0)
+  // 
+  // ...it is deemed a valid nop.
+  //
+  static bool IsLegalNothingVarName(StringRef Name) {
+    // There should be a single instance of the name in this GV.
     if (1 != Name.count(hlsl::kNothingName))
       return false;
     size_t Loc = Name.find(hlsl::kNothingName);
     StringRef Prefix = Name.substr(0, Loc);
     StringRef Suffix = Name.substr(Loc+Name.size());
+    // There should be either no prefix or a prefix that ends with .
     if (!Prefix.empty() && !Prefix.endswith(".")) {
       return false;
     }
+    // There should be either no suffix or a prefix that begins with with .
     if (!Suffix.empty() && !Suffix.startswith(".")) {
       return false;
     }
@@ -615,7 +630,7 @@ public:
   bool runOnModule(Module& M) override {
     bool Changed = false;
     for (GlobalVariable &GV : M.globals()) {
-      if (!IsLegitimateNothingGlobalVar(GV.getName()))
+      if (!IsLegalNothingVarName(GV.getName()))
         continue;
 
       const bool IsValidType = GV.getValueType()->isArrayTy() &&
