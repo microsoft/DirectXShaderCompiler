@@ -51,6 +51,7 @@ public:
   TEST_METHOD(RunLinkMatParamToLib);
   TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
+  TEST_METHOD(RunLinkToLibOdNops);
   TEST_METHOD(RunLinkToLibExport);
   TEST_METHOD(RunLinkToLibExportShadersOnly);
   TEST_METHOD(RunLinkFailReDefineGlobal);
@@ -482,6 +483,29 @@ TEST_F(LinkerTest, RunLinkToLib) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {}, option);
+}
+
+TEST_F(LinkerTest, RunLinkToLibOdNops) {
+  LPCWSTR option[] = {L"-Od"};
+
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
+             &pEntryLib, option);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(
+      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
+      &pLib, option);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.nothing.a, i32 0, i32 0"}, {}, option);
 }
 
 TEST_F(LinkerTest, RunLinkToLibExport) {
