@@ -2200,6 +2200,7 @@ class db_dxil(object):
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
         add_pass('dxil-rewrite-output-arg-debug-info', 'DxilRewriteOutputArgDebugInfo', 'Dxil Rewrite Output Arg Debug Info', [])
         add_pass('dxil-finalize-preserves', 'DxilFinalizePreserves', 'Dxil Finalize Preserves', [])
+        add_pass('dxil-reinsert-nops', 'DxilReinsertNops', 'Dxil Reinsert Nops', [])
         add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [
                 {'n':'AllowPreserves', 't':'bool', 'c':1},
             ])
