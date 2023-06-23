@@ -1237,6 +1237,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   const ShaderModel *pSM = DM.GetShaderModel();
 
   legacy::PassManager PM;
+  PM.add(createDxilReinsertNopsPass());
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
   // Remove unused functions.
@@ -1276,6 +1277,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilDeadFunctionEliminationPass());
   PM.add(createNoPausePassesPass());
   PM.add(createDxilEmitMetadataPass());
+  PM.add(createDxilFinalizePreservesPass());
 
   PM.run(M);
 }
