@@ -4,25 +4,25 @@
 // CHECK-SAME: spirv.debug.opline.include.hlsl
 // CHECK-NEXT: OpSource HLSL 600 [[main]] "// RUN: %dxc -T ps_6_0 -E main -Zi
 // CHECK:      [[file1:%\d+]] = OpString
-// CHECK-SAME: spirv.debug.opline.include-file-1.hlsl
+// CHECK-SAME: spirv.debug.opline.include-file-1.hlsli
 // CHECK-NEXT: OpSource HLSL 600 [[file1]] "int function1() {
 // CHECK:      [[file2:%\d+]] = OpString
-// CHECK-SAME: spirv.debug.opline.include-file-2.hlsl
+// CHECK-SAME: spirv.debug.opline.include-file-2.hlsli
 // CHECK-NEXT: OpSource HLSL 600 [[file2]] "static int a;
 // CHECK:      [[file3:%\d+]] = OpString
-// CHECK-SAME: spirv.debug.opline.include-file-3.hlsl
+// CHECK-SAME: spirv.debug.opline.include-file-3.hlsli
 // CHECK-NEXT: OpSource HLSL 600 [[file3]] "int b;
 
 // CHECK:                  OpLine [[main]] 65 1
 // CHECK-NEXT: %src_main = OpFunction %void None
 
-#include "spirv.debug.opline.include-file-1.hlsl"
+#include "spirv.debug.opline.include-file-1.hlsli"
 
 int callFunction1() {
   return function1();
 }
 
-#include "spirv.debug.opline.include-file-2.hlsl"
+#include "spirv.debug.opline.include-file-2.hlsli"
 
 int callFunction2() {
   // This
@@ -42,7 +42,7 @@ int callFunction2() {
   return function2();
 }
 
-#include "spirv.debug.opline.include-file-3.hlsl"
+#include "spirv.debug.opline.include-file-3.hlsli"
 
 int callFunction3() {
   // This

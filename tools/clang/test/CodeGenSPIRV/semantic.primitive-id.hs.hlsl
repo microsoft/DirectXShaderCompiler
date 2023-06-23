@@ -7,7 +7,7 @@
 
 // CHECK: %gl_PrimitiveID = OpVariable %_ptr_Input_uint Input
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 [domain("quad")]
 [partitioning("fractional_odd")]

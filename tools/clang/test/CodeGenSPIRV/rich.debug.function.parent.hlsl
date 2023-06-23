@@ -3,27 +3,27 @@
 // CHECK:      [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
 // CHECK: rich.debug.function.parent.hlsl
-// CHECK: spirv.debug.opline.include-file-3.hlsl
+// CHECK: spirv.debug.opline.include-file-3.hlsli
 // CHECK: [[f3:%\d+]] = OpString "function3"
-// CHECK: spirv.debug.opline.include-file-2.hlsl
+// CHECK: spirv.debug.opline.include-file-2.hlsli
 // CHECK: [[f2:%\d+]] = OpString "function2"
-// CHECK: spirv.debug.opline.include-file-1.hlsl
+// CHECK: spirv.debug.opline.include-file-1.hlsli
 // CHECK: [[f1:%\d+]] = OpString "function1"
 
 
-#include "spirv.debug.opline.include-file-1.hlsl"
+#include "spirv.debug.opline.include-file-1.hlsli"
 
 int callFunction1() {
   return function1();
 }
 
-#include "spirv.debug.opline.include-file-2.hlsl"
+#include "spirv.debug.opline.include-file-2.hlsli"
 
 int callFunction2() {
   return function2();
 }
 
-#include "spirv.debug.opline.include-file-3.hlsl"
+#include "spirv.debug.opline.include-file-3.hlsli"
 
 int callFunction3() {
   CALL_FUNCTION_3;
