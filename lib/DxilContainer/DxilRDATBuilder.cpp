@@ -217,7 +217,7 @@ StringRef DxilRDATBuilder::FinalizeAndGetData() {
       part->Write(bytes);
     }
   }
-  catch (CheckedWriter::exception e) {
+  catch (CheckedWriter::exception &e) {
     throw hlsl::Exception(DXC_E_GENERAL_INTERNAL_ERROR, e.what());
   }
   return llvm::StringRef(m_RDATBuffer.data(), m_RDATBuffer.size());

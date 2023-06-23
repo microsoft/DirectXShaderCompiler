@@ -53,7 +53,7 @@
   #define RDAT_UNION_END()                    };
   #define RDAT_RECORD_REF(type, name)         uint32_t name;
   #define RDAT_RECORD_ARRAY_REF(type, name)   uint32_t name;
-  #define RDAT_RECORD_VALUE(type, name)       type name;
+  #define RDAT_RECORD_VALUE(type, name)       hlsl::RDAT::type name;
   #define RDAT_STRING(name)                   uint32_t name;
   #define RDAT_STRING_ARRAY_REF(name)         uint32_t name;
   #define RDAT_VALUE(type, name)              type name;
@@ -66,13 +66,13 @@
 #elif DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
 
   #define RDAT_STRUCT(type)                   struct type {
-  #define RDAT_STRUCT_DERIVED(type, base)     struct type : public base {
+  #define RDAT_STRUCT_DERIVED(type, base)     struct type : public hlsl::RDAT::base {
   #define RDAT_STRUCT_END()                   };
   #define RDAT_UNION()                        union {
   #define RDAT_UNION_END()                    };
-  #define RDAT_RECORD_REF(type, name)         RecordRef<type> name;
-  #define RDAT_RECORD_ARRAY_REF(type, name)   RecordArrayRef<type> name;
-  #define RDAT_RECORD_VALUE(type, name)       struct type name;
+  #define RDAT_RECORD_REF(type, name)         RecordRef<hlsl::RDAT::type> name;
+  #define RDAT_RECORD_ARRAY_REF(type, name)   RecordArrayRef<hlsl::RDAT::type> name;
+  #define RDAT_RECORD_VALUE(type, name)       hlsl::RDAT::type name;
   #define RDAT_STRING(name)                   RDATString name;
   #define RDAT_STRING_ARRAY_REF(name)         RDATStringArray name;
   #define RDAT_VALUE(type, name)              type name;
@@ -82,10 +82,10 @@
   #define RDAT_BYTES(name)                    hlsl::RDAT::BytesRef name;
   #define RDAT_ARRAY_VALUE(type, count, type_name, name) type_name name;
   #define RDAT_STRUCT_TABLE_DERIVED(type, base, table) \
-    template<> constexpr const char *RecordTraits<type>::TypeName();\
-    template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex();\
-    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType();\
-    template<> constexpr size_t RecordTraits<base>::DerivedRecordSize();\
+    template<> constexpr const char *RecordTraits<hlsl::RDAT::type>::TypeName();\
+    template<> constexpr RecordTableIndex RecordTraits<hlsl::RDAT::type>::TableIndex();\
+    template<> constexpr RuntimeDataPartType RecordTraits<hlsl::RDAT::type>::PartType();\
+    template<> constexpr size_t RecordTraits<hlsl::RDAT::base>::DerivedRecordSize();\
     RDAT_STRUCT_DERIVED(type, base)
 
 #elif DEF_RDAT_TYPES == DEF_RDAT_READER_DECL
@@ -129,14 +129,14 @@
       const type *type##_Reader::asRecord() const { return BaseRecordReader::asRecord<type>(); }
   #define RDAT_STRUCT_DERIVED(type, base) \
       type##_Reader::type##_Reader(const BaseRecordReader &reader) : base##_Reader(reader) { \
-        if ((m_pContext || m_pRecord) && m_Size < sizeof(type)) \
+        if ((m_pContext || m_pRecord) && m_Size < sizeof(hlsl::RDAT::type)) \
           InvalidateReader(); \
       } \
       type##_Reader::type##_Reader() : base##_Reader() {} \
-      const type *type##_Reader::asRecord() const { return BaseRecordReader::asRecord<type>(); }
+      const hlsl::RDAT::type *type##_Reader::asRecord() const { return BaseRecordReader::asRecord<hlsl::RDAT::type>(); }
   #define RDAT_STRUCT_TABLE(type, table)                RDAT_STRUCT(type)
   #define RDAT_STRUCT_TABLE_DERIVED(type, base, table)  RDAT_STRUCT_DERIVED(type, base)
-  #define RDAT_UNION_IF(name, expr)     bool GLUE(RECORD_TYPE,_Reader)::has##name() const  { if (auto *pRecord = asRecord()) return !!(expr); return false; }
+  #define RDAT_UNION_IF(name, expr)     bool GLUE(RECORD_TYPE,_Reader)::has##name() const  { if (const auto *pRecord = asRecord()) { (void)pRecord; return !!(expr); } return false; }
   #define RDAT_UNION_ELIF(name, expr)   RDAT_UNION_IF(name, expr)
   #define RDAT_RECORD_REF(type, name)   type##_Reader GLUE(RECORD_TYPE,_Reader)::get##name() const     { return GetField_RecordRef<type##_Reader>      (&(asRecord()->name)); }
   #define RDAT_RECORD_ARRAY_REF(type, name) \
@@ -156,16 +156,16 @@
 #elif DEF_RDAT_TYPES == DEF_RDAT_STRUCT_VALIDATION
 
   #define RDAT_STRUCT(type) \
-    template<> bool ValidateRecord<type>(const RDATContext &ctx, const type *pRecord) { \
-      type##_Reader reader(BaseRecordReader(&ctx, (void*)pRecord, (uint32_t)RecordTraits<type>::RecordSize()));
+    template<> bool ValidateRecord<type>(const RDATContext &ctx, const hlsl::RDAT::type *pRecord) { \
+      type##_Reader reader(BaseRecordReader(&ctx, (const void*)pRecord, (uint32_t)RecordTraits<hlsl::RDAT::type>::RecordSize()));
   #define RDAT_STRUCT_DERIVED(type, base) RDAT_STRUCT(type)
   #define RDAT_STRUCT_END()                   return true; }
   #define RDAT_UNION_IF(name, expr)           if (reader.has##name()) {
   #define RDAT_UNION_ELIF(name, expr)         } else if (reader.has##name()) {
   #define RDAT_UNION_ENDIF()                  }
-  #define RDAT_RECORD_REF(type, name)         if (!ValidateRecordRef<type>(ctx, pRecord->name)) return false;
-  #define RDAT_RECORD_ARRAY_REF(type, name)   if (!ValidateRecordArrayRef<type>(ctx, pRecord->name)) return false;
-  #define RDAT_RECORD_VALUE(type, name)       if (!ValidateRecord<type>(ctx, &pRecord->name)) return false;
+  #define RDAT_RECORD_REF(type, name)         if (!ValidateRecordRef<hlsl::RDAT::type>(ctx, pRecord->name)) return false;
+  #define RDAT_RECORD_ARRAY_REF(type, name)   if (!ValidateRecordArrayRef<hlsl::RDAT::type>(ctx, pRecord->name)) return false;
+  #define RDAT_RECORD_VALUE(type, name)       if (!ValidateRecord<hlsl::RDAT::type>(ctx, &pRecord->name)) return false;
   #define RDAT_STRING(name)                   if (!ValidateStringRef(ctx, pRecord->name)) return false;
   #define RDAT_STRING_ARRAY_REF(name)         if (!ValidateStringArrayRef(ctx, pRecord->name)) return false;
   #define RDAT_INDEX_ARRAY_REF(name)          if (!ValidateIndexArrayRef(ctx, pRecord->name)) return false;
@@ -179,7 +179,7 @@
       d.Indent();                                                                \
       const hlsl::RDAT::type *pRecord = this;                                    \
       type##_Reader reader(BaseRecordReader(                                     \
-          &ctx, (void *)pRecord, (uint32_t)RecordTraits<type>::RecordSize()));
+          &ctx, (const void *)pRecord, (uint32_t)RecordTraits<type>::RecordSize()));
   #define RDAT_STRUCT_DERIVED(type, base)                                        \
     template <>                                                                  \
     const char *RecordRefDumper<hlsl::RDAT::base>::TypeNameDerived(              \
@@ -222,17 +222,17 @@
 #elif DEF_RDAT_TYPES == DEF_RDAT_TRAITS
 
   #define RDAT_STRUCT(type) \
-    template<> constexpr const char *RecordTraits<type>::TypeName() { return #type; }
+    template<> constexpr const char *RecordTraits<hlsl::RDAT::type>::TypeName() { return #type; }
   #define RDAT_STRUCT_DERIVED(type, base) RDAT_STRUCT(type)
   #define RDAT_STRUCT_TABLE(type, table) \
     RDAT_STRUCT(type) \
-    template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; } \
-    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType() { return RuntimeDataPartType::table; }
+    template<> constexpr RecordTableIndex RecordTraits<hlsl::RDAT::type>::TableIndex() { return RecordTableIndex::table; } \
+    template<> constexpr RuntimeDataPartType RecordTraits<hlsl::RDAT::type>::PartType() { return RuntimeDataPartType::table; }
   #define RDAT_STRUCT_TABLE_DERIVED(type, base, table) \
     RDAT_STRUCT_DERIVED(type, base) \
-    template<> constexpr RecordTableIndex RecordTraits<type>::TableIndex() { return RecordTableIndex::table; } \
-    template<> constexpr RuntimeDataPartType RecordTraits<type>::PartType() { return RuntimeDataPartType::table; } \
-    template<> constexpr size_t RecordTraits<base>::DerivedRecordSize() { return RecordTraits<type>::MaxRecordSize(); }
+    template<> constexpr RecordTableIndex RecordTraits<hlsl::RDAT::type>::TableIndex() { return RecordTableIndex::table; } \
+    template<> constexpr RuntimeDataPartType RecordTraits<hlsl::RDAT::type>::PartType() { return RuntimeDataPartType::table; } \
+    template<> constexpr size_t RecordTraits<hlsl::RDAT::base>::DerivedRecordSize() { return RecordTraits<type>::MaxRecordSize(); }
 #endif // DEF_RDAT_TYPES cases
 
 // Define any undefined macros to defaults
