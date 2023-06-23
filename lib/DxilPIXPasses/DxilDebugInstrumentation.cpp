@@ -1043,7 +1043,7 @@ bool DxilDebugInstrumentation::RunOnFunction(
   auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
 
   values.UAVHandle = PIXPassHelpers::CreateUAV(
-      DM, Builder, static_cast<unsigned int>(m_FunctionToValues.size()),
+      DM, Builder, 0,
       "PIX_DebugUAV_Handle");
   values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
 
