@@ -1001,7 +1001,7 @@ bool DxilDebugInstrumentation::RunOnFunction(
   case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
     break;
-    // todo:
+    //todo:
   case DXIL::ShaderKind::Intersection:
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
