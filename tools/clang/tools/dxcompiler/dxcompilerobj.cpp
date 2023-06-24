@@ -1641,7 +1641,7 @@ public:
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen =
         std::make_shared<HLSLExtensionsCodegenHelperImpl>(
-            compiler, m_langExtensionsHelper, Opts.RootSignatureDefine,
+            compiler, *helper, Opts.RootSignatureDefine,
             Opts.OptToggles, Opts.EnableLifetimeMarkers);
 
     // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
