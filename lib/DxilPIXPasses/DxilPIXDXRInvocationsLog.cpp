@@ -64,6 +64,8 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
+  bool Modified = false;
+
   for (auto entryFunction : DM.GetExportedFunctions()) {
     
     DXIL::ShaderKind ShaderKind = GetShaderKind(DM, entryFunction);
@@ -78,6 +80,8 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
     default:
       continue;
     }
+
+    Modified = true;
 
     IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(entryFunction));
 
@@ -220,7 +224,7 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
         });
   }
 
-  return true;
+  return Modified;
 }
 
 char DxilPIXDXRInvocationsLog::ID = 0;
