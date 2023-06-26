@@ -245,6 +245,7 @@ public:
   TEST_METHOD(RootSignatureUpgrade_Annotation)
 
   TEST_METHOD(SymbolManager_Embedded2DArray)
+  TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -1172,6 +1173,7 @@ static std::string ToString(std::wstring from)
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *
                                                                  blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob* blob);
+  CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob* blob);
   void CompileAndRunAnnotationAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
       IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs = {});
@@ -3085,6 +3087,28 @@ CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
   }
 
   return pOptimizedModule;
+}
+
+CComPtr<IDxcBlob> PixTest::RunDxilPIXDXRInvocationsLog(IDxcBlob* blob) {
+
+    CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-hlsl-dxil-pix-dxr-invocations-log,maxNumEntriesInLog=24");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText;
+    if (pText->GetBufferSize() != 0) {
+        outputText = reinterpret_cast<const char*>(pText->GetBufferPointer());
+    }
+
+    return pOptimizedModule;
 }
 
 std::string
@@ -5195,6 +5219,40 @@ void ASMain()
   ValidateStructMember(0, L"OneInt", 0);
   ValidateStructMember(1, L"embeddedStruct", 4*8);
   ValidateStructMember(2, L"bigOne", 24*8);
+}
+
+TEST_F(PixTest, DxilPIXDXRInvocationsLog_SanityTest) {
+
+    const char* source = R"x(
+struct MyPayload
+{
+    float4 color;
+};
+
+[shader("raygeneration")]
+void MyRayGen()
+{
+}
+
+[shader("closesthit")]
+void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{  
+}
+
+[shader("anyhit")]
+void MyAnyHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+}
+
+[shader("miss")]
+void MyMiss(inout MyPayload payload)
+{
+}
+
+)x";
+
+    auto compiledLib = Compile(source, L"lib_6_6", {});
+    RunDxilPIXDXRInvocationsLog(compiledLib);
 }
 
 #endif
