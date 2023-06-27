@@ -106,6 +106,7 @@ TEST_F(FileTest, BindlessConstantBufferArrayType) {
               /*legalization*/ false);
 }
 TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
+TEST_F(FileTest, ClassEnumType) { runFileTest("class.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, RasterizerOrderedTexture2DType) {
