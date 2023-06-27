@@ -70,10 +70,6 @@ public:
   // Reads semantic defines and translates them into opt-enable/opt-disable toggles. This only
   // works after parser is initialized.
   virtual void UpdateSemanticDefinesAndOptToggles() = 0;
-  // Query the named option enable
-  // Needed because semantic defines may have set it since options were copied
-  virtual bool IsOptionEnabled(hlsl::options::Toggle toggle) = 0;
-  virtual bool IsLifetimeMarkersEnabled() = 0;
 
   // Get the name to use for the dxil intrinsic function.
   virtual std::string GetIntrinsicName(unsigned opcode) = 0;

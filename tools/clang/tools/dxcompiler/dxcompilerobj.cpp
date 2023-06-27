@@ -401,9 +401,7 @@ private:
   CompilerInstance &m_CI;
   DxcLangExtensionsHelper &m_langExtensionsHelper;
   std::string m_rootSigDefine;
-  hlsl::options::OptimizationToggles m_HLSLOptToggles;
   bool m_semanticDefinesUpdated = false;
-  bool m_HLSLEnableLifetimeMarkers = false;
   ParsedSemanticDefineList m_semanticDefines;
 
   // The metadata format is a root node that has pointers to metadata
@@ -450,11 +448,9 @@ private:
   }
 
 public:
-  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine, const hlsl::options::OptimizationToggles &hlslOptToggles, bool HLSLEnableLifetimeMarkers)
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
   : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
   , m_rootSigDefine(rootSigDefine)
-  , m_HLSLOptToggles(hlslOptToggles)
-  , m_HLSLEnableLifetimeMarkers(HLSLEnableLifetimeMarkers)
   {}
 
   // Write semantic defines as metadata in the module.
@@ -504,8 +500,14 @@ public:
     const std::string disableStr("_DISABLE_");
     const std::string selectStr("_SELECT_");
 
-    auto &optToggles = m_HLSLOptToggles.Toggles;
-    auto &optSelects = m_HLSLOptToggles.Selects;
+    hlsl::options::OptimizationToggles *toggles =
+        m_CI.getCodeGenOpts().HLSLOptToggles.get();
+
+    DXASSERT(toggles, "Optimization toggles should have been setup.");
+    if (!toggles) return;
+
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptToggles->Toggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptToggles->Selects;
 
     const llvm::SmallVector<std::string, 2> &semDefPrefixes =
         m_langExtensionsHelper.GetSemanticDefines();
@@ -542,15 +544,6 @@ public:
         optSelects[StringRef(optName).lower()] = define.Value;
       }
     }
-  }
-  virtual bool IsOptionEnabled(hlsl::options::Toggle option) override {
-    return m_HLSLOptToggles.Get(option);
-  }
-  virtual bool IsLifetimeMarkersEnabled() override {
-    if (m_HLSLOptToggles.Has(options::TOGGLE_LIFETIME_MARKERS)) {
-      return m_HLSLOptToggles.Get(options::TOGGLE_LIFETIME_MARKERS);
-    }
-    return m_HLSLEnableLifetimeMarkers;
   }
 
   virtual std::string GetIntrinsicName(UINT opcode) override {
@@ -1639,10 +1632,14 @@ public:
       Inlining = clang::CodeGenOptions::NormalInlining;
     compiler.getCodeGenOpts().setInlining(Inlining);
 
+    compiler.getCodeGenOpts().HLSLIsLifetimeMarkersEnabledViaCompilerOptions =
+        Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLExtensionsCodegen =
         std::make_shared<HLSLExtensionsCodegenHelperImpl>(
-            compiler, *helper, Opts.RootSignatureDefine,
-            Opts.OptToggles, Opts.EnableLifetimeMarkers);
+            compiler, *helper, Opts.RootSignatureDefine);
+
+    compiler.getCodeGenOpts().HLSLOptToggles =
+        std::make_shared<hlsl::options::OptimizationToggles>(Opts.OptToggles);
 
     // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
     compiler.getCodeGenOpts().HLSLDefaultSpace = Opts.AutoBindingSpace;

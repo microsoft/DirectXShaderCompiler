@@ -24,6 +24,7 @@
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 #include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
+#include "dxc/Support/DxcOptToggles.h" // HLSL Change
 
 namespace clang {
 
@@ -212,14 +213,21 @@ public:
   std::vector<std::string> HLSLArguments;
   /// Helper for generating llvm bitcode for hlsl extensions.
   std::shared_ptr<hlsl::HLSLExtensionsCodegenHelper> HLSLExtensionsCodegen;
+  /// Helper for generating llvm bitcode for hlsl extensions.
+  std::shared_ptr<hlsl::options::OptimizationToggles> HLSLOptToggles;
   /// Helper function to query HLSL optimization toggle.
   bool HLSLIsOptionEnabled(hlsl::options::Toggle Option) const {
-    return HLSLExtensionsCodegen && HLSLExtensionsCodegen->IsOptionEnabled(Option);
+    return HLSLOptToggles && HLSLOptToggles->Get(Option);
   }
   /// Helper function to query whether lifetime-markers are enabled.
   bool HLSLIsLifetimeMarkersEnabled() const {
-    return HLSLExtensionsCodegen && HLSLExtensionsCodegen->IsLifetimeMarkersEnabled();
+    if (HLSLOptToggles && HLSLOptToggles->Has(hlsl::options::TOGGLE_LIFETIME_MARKERS)) {
+      return HLSLOptToggles->Get(hlsl::options::TOGGLE_LIFETIME_MARKERS);
+    }
+    return HLSLIsLifetimeMarkersEnabledViaCompilerOptions;
   }
+  /// Whether lifetime marker is enabled via explicit option (as opposed to -opt-enable/disable).
+  bool HLSLIsLifetimeMarkersEnabledViaCompilerOptions = false;
   /// Signature packing mode (0 == default for target)
   unsigned HLSLSignaturePackingStrategy = 0;
   /// denormalized number mode ("ieee" for default)
