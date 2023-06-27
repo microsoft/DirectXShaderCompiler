@@ -248,20 +248,20 @@ void operator+(ilist_iterator<T>,int) = delete;
 
 // operator!=/operator== - Allow mixed comparisons without dereferencing
 // the iterator, which could very likely be pointing to end().
-template<typename T>
-bool operator!=(const T* LHS, const ilist_iterator<const T> &RHS) {
+template<typename T, typename U>
+bool operator!=(const T* LHS, const ilist_iterator<const U> &RHS) {
   return LHS != RHS.getNodePtrUnchecked();
 }
-template<typename T>
-bool operator==(const T* LHS, const ilist_iterator<const T> &RHS) {
+template<typename T, typename U>
+bool operator==(const T* LHS, const ilist_iterator<const U> &RHS) {
   return LHS == RHS.getNodePtrUnchecked();
 }
-template<typename T>
-bool operator!=(T* LHS, const ilist_iterator<T> &RHS) {
+template<typename T, typename U>
+bool operator!=(T* LHS, const ilist_iterator<U> &RHS) {
   return LHS != RHS.getNodePtrUnchecked();
 }
-template<typename T>
-bool operator==(T* LHS, const ilist_iterator<T> &RHS) {
+template<typename T, typename U>
+bool operator==(T* LHS, const ilist_iterator<U> &RHS) {
   return LHS == RHS.getNodePtrUnchecked();
 }
 
