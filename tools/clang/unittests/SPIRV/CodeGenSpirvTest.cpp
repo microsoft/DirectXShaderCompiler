@@ -551,6 +551,9 @@ TEST_F(FileTest, CastLiteralTypeForTernary) {
   runFileTest("cast.literal-type.ternary.hlsl");
 }
 
+TEST_F(FileTest, SelectLongLit) { runFileTest("select.long.lit.hlsl"); }
+TEST_F(FileTest, SelectShortLit) { runFileTest("select.short.lit.hlsl"); }
+
 TEST_F(FileTest, CastLiteralTypeForTernary2021) {
   runFileTest("cast.literal-type.ternary.2021.hlsl");
 }
