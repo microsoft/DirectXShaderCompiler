@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -O0
+// RUN: %dxc -T ps_6_0 -E main -O0
 
 // CHECK: OpDecorate %_arr__struct_12_uint_2 ArrayStride 16
 
