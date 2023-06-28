@@ -32,6 +32,7 @@ enum class SpirvLayoutRule {
   FxcCTBuffer,       // fxc.exe layout rule for cbuffer/tbuffer
   FxcSBuffer,        // fxc.exe layout rule for structured buffers
   Scalar,            // VK_EXT_scalar_block_layout
+  Physical,          // SPV_EXT_physical_storage_buffer
   Max,               // This is an invalid layout rule
 };
 

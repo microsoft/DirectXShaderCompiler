@@ -656,7 +656,8 @@ private:
                                           SpirvInstruction *value,
                                           QualType bufferType,
                                           uint32_t alignment,
-                                          SourceLocation loc);
+                                          SourceLocation loc,
+                                          SourceRange range);
 
   /// Returns the alignment of `vk::RawBufferLoad()`.
   uint32_t getAlignmentForRawBufferLoad(const CallExpr *callExpr);

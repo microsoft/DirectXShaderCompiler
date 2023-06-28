@@ -560,6 +560,7 @@ uint32_t getFieldIndexInStruct(const StructType *spirvStructType,
   return fields[indexAST].fieldIndex;
 }
 
+// TOTO: not enough info to determine if offset computation is required here.
 // Takes an AST struct type, and lowers is to the equivalent SPIR-V type.
 const StructType *lowerStructType(const SpirvCodeGenOptions &spirvOptions,
                                   LowerTypeVisitor &lowerTypeVisitor,
@@ -6281,7 +6282,10 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     }
 
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
-  } else if (isOpaqueType(lhsValType)) {
+    return;
+  }
+
+  if (isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
     //
@@ -6293,7 +6297,10 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // Note: legalization specific code
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
     needsLegalization = true;
-  } else if (isAKindOfStructuredOrByteBuffer(lhsValType)) {
+    return;
+  }
+
+  if (isAKindOfStructuredOrByteBuffer(lhsValType)) {
     // The rhs should be a pointer and the lhs should be a pointer-to-pointer.
     // Directly store the pointer here and let SPIRV-Tools opt to do the clean
     // up.
@@ -6301,6 +6308,8 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // Note: legalization specific code
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
     needsLegalization = true;
+    return;
+  }
 
     // For ConstantBuffers/TextureBuffers, we decompose and assign each field
     // recursively like normal structs using the following logic.
@@ -6310,7 +6319,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
-  } else if (isOpaqueArrayType(lhsValType)) {
+  if (isOpaqueArrayType(lhsValType)) {
     // SPIRV-Tools can handle legalization of the store in these cases.
     if (!lhsValType->isConstantArrayType() || rhsVal->isRValue()) {
       spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
@@ -6347,21 +6356,71 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
         spvBuilder.createCompositeConstruct(lhsValType, elements,
                                             rhsVal->getSourceLocation(), range),
         loc, range);
-  } else if (lhsPtr->getLayoutRule() == rhsVal->getLayoutRule()) {
+    return;
+  }
+
+  if (lhsPtr->getLayoutRule() == rhsVal->getLayoutRule()) {
     // If lhs and rhs has the same memory layout, we should be safe to load
     // from rhs and directly store into lhs and avoid decomposing rhs.
     // Note: this check should happen after those setting needsLegalization.
     // TODO: is this optimization always correct?
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
-  } else if (lhsValType->isRecordType() || lhsValType->isConstantArrayType() ||
-             lhsIsNonFpMat) {
+    return;
+  }
+
+  if (lhsValType->isRecordType() || lhsValType->isConstantArrayType() ||
+      lhsIsNonFpMat) {
     spvBuilder.createStore(lhsPtr,
                            reconstructValue(rhsVal, lhsValType,
                                             lhsPtr->getLayoutRule(), loc,
                                             range),
                            loc, range);
-  } else {
-    emitError("storing value of type %0 unimplemented", {}) << lhsValType;
+    return;
+  }
+
+  emitError("storing value of type %0 unimplemented", {}) << lhsValType;
+}
+
+void forEachSpirvField(
+    const RecordType *recordType, const StructType *spirvType,
+    std::function<bool(size_t spirvFieldIndex, const QualType &fieldType,
+                       const StructType::FieldInfo &field)>
+        op) {
+  const auto *cxxDecl = recordType->getAsCXXRecordDecl();
+  const auto *recordDecl = recordType->getDecl();
+
+  uint32_t lastConvertedIndex = 0;
+  size_t fieldIndex = 0;
+  for (const auto &base : cxxDecl->bases()) {
+    const size_t astFieldIndex = fieldIndex++;
+    const uint32_t currentFieldIndex =
+        spirvType->getFields()[astFieldIndex].fieldIndex;
+    if (astFieldIndex > 0 && currentFieldIndex == lastConvertedIndex) {
+      continue;
+    }
+    lastConvertedIndex = currentFieldIndex;
+
+    const auto &type = base.getType();
+    const auto &spirvField = spirvType->getFields()[astFieldIndex];
+    if (!op(currentFieldIndex, type, spirvField)) {
+      return;
+    }
+  }
+
+  for (const auto *field : recordDecl->fields()) {
+    const size_t astFieldIndex = fieldIndex++;
+    const uint32_t currentFieldIndex =
+        spirvType->getFields()[astFieldIndex].fieldIndex;
+    if (astFieldIndex > 0 && currentFieldIndex == lastConvertedIndex) {
+      continue;
+    }
+    lastConvertedIndex = currentFieldIndex;
+
+    const auto &type = field->getType();
+    const auto &spirvField = spirvType->getFields()[astFieldIndex];
+    if (!op(currentFieldIndex, type, spirvField)) {
+      return;
+    }
   }
 }
 
@@ -6459,7 +6518,6 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
   // Structs
   if (const auto *recordType = valType->getAs<RecordType>()) {
     assert(recordType->isStructureType());
-
     LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
     const StructType *spirvStructType =
         lowerStructType(spirvOptions, lowerTypeVisitor, recordType->desugar());
@@ -6991,7 +7049,6 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType astStructType,
                                                       SourceLocation loc,
                                                       SourceRange range) {
   assert(astStructType->isStructureType());
-
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
   const StructType *spirvStructType =
       lowerStructType(spirvOptions, lowerTypeVisitor, astStructType);
@@ -13667,12 +13724,15 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   assert(loadInst);
   loadInst->setAlignment(alignment);
   loadInst->setRValue();
+  loadInst->setLayoutRule(SpirvLayoutRule::Physical);
   return loadInst;
 }
 
-SpirvInstruction *SpirvEmitter::storeDataToRawAddress(
-    SpirvInstruction *addressInUInt64, SpirvInstruction *value,
-    QualType bufferType, uint32_t alignment, SourceLocation loc) {
+SpirvInstruction *
+SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
+                                    SpirvInstruction *value,
+                                    QualType bufferType, uint32_t alignment,
+                                    SourceLocation loc, SourceRange range) {
 
   // Summary:
   //   %address = OpBitcast %ptrTobufferType %addressInUInt64
@@ -13684,9 +13744,19 @@ SpirvInstruction *SpirvEmitter::storeDataToRawAddress(
   SpirvUnaryOp *address = spvBuilder.createUnaryOp(
       spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  address->setLayoutRule(SpirvLayoutRule::Physical);
 
-  SpirvStore *storeInst = spvBuilder.createStore(address, value, loc);
+  // If the source value has a different layout, it is not safe to directly
+  // store it. It needs to be component-wise reconstructed to the new layout.
+  SpirvInstruction *source = value;
+  if (value->getLayoutRule() != address->getLayoutRule()) {
+    source = reconstructValue(value, bufferType, SpirvLayoutRule::Physical, loc,
+                              range);
+  }
+
+  SpirvStore *storeInst = spvBuilder.createStore(address, source, loc);
   storeInst->setAlignment(alignment);
+  storeInst->setLayoutRule(SpirvLayoutRule::Physical);
   return nullptr;
 }
 
@@ -13701,7 +13771,8 @@ SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
   QualType bufferType = value->getAstResultType();
   clang::SourceLocation loc = callExpr->getExprLoc();
   if (!isBoolOrVecMatOfBoolType(bufferType)) {
-    return storeDataToRawAddress(address, value, bufferType, alignment, loc);
+    return storeDataToRawAddress(address, value, bufferType, alignment, loc,
+                                 callExpr->getLocStart());
   }
 
   // If callExpr is `vk::RawBufferLoad<bool>(..)`, we have to load 'uint' and
@@ -13717,7 +13788,8 @@ SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
   QualType boolType = bufferType;
   bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
   auto *storeAsInt = castToInt(value, boolType, bufferType, loc);
-  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment, loc);
+  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment, loc,
+                               callExpr->getLocStart());
 }
 
 SpirvInstruction *
