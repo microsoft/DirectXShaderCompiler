@@ -130,36 +130,36 @@ void DxcDefines::BuildDefines() {
   }
 }
 
-bool DxcOpts::IsRootSignatureProfile() {
+bool DxcOpts::IsRootSignatureProfile() const {
   return TargetProfile == "rootsig_1_0" ||
       TargetProfile == "rootsig_1_1";
 }
 
-bool DxcOpts::IsLibraryProfile() {
+bool DxcOpts::IsLibraryProfile() const {
   return TargetProfile.startswith("lib_");
 }
 
-bool DxcOpts::GenerateFullDebugInfo() {
+bool DxcOpts::GenerateFullDebugInfo() const {
   return DebugInfo;
 }
 
-bool DxcOpts::GeneratePDB() {
+bool DxcOpts::GeneratePDB() const {
   return DebugInfo || SourceOnlyDebug;
 }
 
-bool DxcOpts::EmbedDebugInfo() {
+bool DxcOpts::EmbedDebugInfo() const {
   return EmbedDebug;
 }
 
-bool DxcOpts::EmbedPDBName() {
+bool DxcOpts::EmbedPDBName() const {
   return GeneratePDB() || !DebugFile.empty();
 }
 
-bool DxcOpts::DebugFileIsDirectory() {
+bool DxcOpts::DebugFileIsDirectory() const {
   return !DebugFile.empty() && llvm::sys::path::is_separator(DebugFile[DebugFile.size() - 1]);
 }
 
-llvm::StringRef DxcOpts::GetPDBName() {
+llvm::StringRef DxcOpts::GetPDBName() const {
   if (!DebugFileIsDirectory())
     return DebugFile;
   return llvm::StringRef();
