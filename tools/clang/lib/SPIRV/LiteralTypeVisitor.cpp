@@ -298,6 +298,27 @@ bool LiteralTypeVisitor::visit(SpirvNonUniformBinaryOp *inst) {
   return true;
 }
 
+bool LiteralTypeVisitor::visit(SpirvLoad *inst) {
+  auto *pointer = inst->getPointer();
+  if (!pointer->hasAstResultType())
+    return true;
+
+  QualType pointerType = pointer->getAstResultType();
+  if (!isLitTypeOrVecOfLitType(pointerType))
+    return true;
+
+  assert(inst->hasAstResultType());
+  QualType resultType = inst->getAstResultType();
+  assert(!isLitTypeOrVecOfLitType(resultType));
+
+  if (!canDeduceTypeFromLitType(pointerType, resultType))
+    return true;
+
+  QualType newPointerType = astContext.getPointerType(resultType);
+  pointer->setAstResultType(newPointerType);
+  return true;
+}
+
 bool LiteralTypeVisitor::visit(SpirvStore *inst) {
   auto *object = inst->getObject();
   auto *pointer = inst->getPointer();
