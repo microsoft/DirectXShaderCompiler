@@ -134,7 +134,7 @@ void SmallPtrSetImplBase::Grow(unsigned NewSize) {
   }
 
   if (!WasSmall)
-    free(OldBuckets);
+    delete [] OldBuckets;
   NumNonEmpty -= NumTombstones;
   NumTombstones = 0;
 }
