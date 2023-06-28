@@ -1,11 +1,10 @@
 // RUN: %dxc -fcgl -T lib_6_8 %s | FileCheck -check-prefix=CHECK_FCGL %s
 //
-
-// This test will fail if MDVals in DxilMetadataHelper.cpp gets assigned out of bounds.
-// The test is primarily from called_function_arg_nodeoutput.hlsl
-
 // Verify that the correct parameter, the NodeOutputRecord parameter, gets the cast
-// CHECK_FCGL: call %"class.NodeOutput<loadStressRecord>"* @"dx.hl.cast..
+// CHECK_FCGL: %[[outputNodeVal:[0-9]+]] = load %"struct.NodeOutput<loadStressRecord>", %"struct.NodeOutput<loadStressRecord>"* %outputNode,
+// CHECK_FCGL: %[[outputNodeHandle:[0-9]+]] = call %dx.types.NodeHandle @"dx.hl.cast..%dx.types.NodeHandle (i32, %\22struct.NodeOutput<loadStressRecord>\22)"(i32 10, %"struct.NodeOutput<loadStressRecord>" %[[outputNodeVal]])
+// outputNode.GetGroupNodeOutputRecords(13):
+// CHECK_FCGL: call %dx.types.NodeRecordHandle @"dx.hl.op..%dx.types.NodeRecordHandle (i32, %dx.types.NodeHandle, i32)"(i32 {{[0-9]+}}, %dx.types.NodeHandle %[[outputNodeHandle]], i32 13)
 
 struct loadStressRecord
 {
@@ -15,15 +14,15 @@ struct loadStressRecord
 void loadStressWorker(
     NodeOutput<loadStressRecord> outputNode)
 {
-    NodeOutputRecord<loadStressRecord> outRec = GetNodeOutputRecord(outputNode, true);    
-    outRec.Get().grid = uint3(39, 61, 71);
+    GroupNodeOutputRecords<loadStressRecord> outRec = outputNode.GetGroupNodeOutputRecords(13);    
+    outRec.Get(5).grid = uint3(39, 61, 71);
 }
 
 [Shader("node")]
 [NodeMaxDispatchGrid(3, 1, 1)]
 [NumThreads(16, 1, 1)]
 void loadStress_16(    
-    [MaxOutputRecords(16)] NodeOutput<loadStressRecord> loadStressChild
+    [MaxRecords(16)] NodeOutput<loadStressRecord> loadStressChild
 )
 {
     loadStressWorker(loadStressChild);
