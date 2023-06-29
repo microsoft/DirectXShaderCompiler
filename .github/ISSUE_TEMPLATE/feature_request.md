@@ -11,7 +11,7 @@ assignees: ''
 hlsl-specs repository: https://github.com/microsoft/hlsl-specs/issues/new --->
 
 **Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+Describe the problem that led you to request this feature in as much detail as you can.
 
 **Describe the solution you'd like**
 A clear and concise description of what you want to happen.
