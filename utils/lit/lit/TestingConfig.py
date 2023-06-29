@@ -65,8 +65,7 @@ class TestingConfig:
             required_tools = [
                 'cmp.exe', 'grep.exe', 'sed.exe', 'diff.exe', 'echo.exe', 'ls.exe']
             path = _find_git_windows_unix_tools(required_tools)
-            if path:
-                all_path = f"{path};{all_path}"
+            all_path = f"{path};{all_path}"
         environment = {
             'PATH' : all_path,
             'LLVM_DISABLE_CRASH_REPORT' : '1',
