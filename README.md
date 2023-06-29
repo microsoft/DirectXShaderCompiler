@@ -65,7 +65,7 @@ Building on windows additionally requires:
 
 Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 
-* [Git](http://git-scm.com/downloads) - On Windows the Git command line tools must be added to the PATH in order to successfully build and test DXC.
+* [Git](http://git-scm.com/downloads).
 * [Python](https://www.python.org/downloads/) - version 3.x is required
 * [Visual Studio 2019](https://www.visualstudio.com/downloads) - select the following workloads: 
     * Universal Windows Platform Development
