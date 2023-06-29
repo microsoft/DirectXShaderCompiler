@@ -39,8 +39,7 @@ def _find_git_windows_unix_tools(tools_needed):
                 return lit.util.to_string(candidate_path)
         except:
             continue
-
-    return None
+    raise(f"fail to find {tools_needed} which are required for DXC tests")
 
 class TestingConfig:
     """"
@@ -66,7 +65,7 @@ class TestingConfig:
             required_tools = [
                 'cmp.exe', 'grep.exe', 'sed.exe', 'diff.exe', 'echo.exe', 'ls.exe']
             path = _find_git_windows_unix_tools(required_tools)
-            if path is not None:
+            if path:
                 all_path = f"{path};{all_path}"
         environment = {
             'PATH' : all_path,
