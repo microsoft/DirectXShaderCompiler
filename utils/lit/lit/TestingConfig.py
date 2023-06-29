@@ -64,7 +64,7 @@ class TestingConfig:
         all_path = strip_dxil_validator_path(all_path)
         if sys.platform == 'win32':
             required_tools = [
-                'cmp.exe', 'grep.exe', 'sed.exe', 'diff.exe', 'echo.exe']
+                'cmp.exe', 'grep.exe', 'sed.exe', 'diff.exe', 'echo.exe', 'ls.exe']
             path = _find_git_windows_unix_tools(required_tools)
             if path is not None:
                 all_path = f"{path};{all_path}"
