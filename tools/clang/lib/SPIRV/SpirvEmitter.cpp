@@ -560,7 +560,6 @@ uint32_t getFieldIndexInStruct(const StructType *spirvStructType,
   return fields[indexAST].fieldIndex;
 }
 
-// TOTO: not enough info to determine if offset computation is required here.
 // Takes an AST struct type, and lowers is to the equivalent SPIR-V type.
 const StructType *lowerStructType(const SpirvCodeGenOptions &spirvOptions,
                                   LowerTypeVisitor &lowerTypeVisitor,
@@ -6379,49 +6378,6 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
   }
 
   emitError("storing value of type %0 unimplemented", {}) << lhsValType;
-}
-
-void forEachSpirvField(
-    const RecordType *recordType, const StructType *spirvType,
-    std::function<bool(size_t spirvFieldIndex, const QualType &fieldType,
-                       const StructType::FieldInfo &field)>
-        op) {
-  const auto *cxxDecl = recordType->getAsCXXRecordDecl();
-  const auto *recordDecl = recordType->getDecl();
-
-  uint32_t lastConvertedIndex = 0;
-  size_t fieldIndex = 0;
-  for (const auto &base : cxxDecl->bases()) {
-    const size_t astFieldIndex = fieldIndex++;
-    const uint32_t currentFieldIndex =
-        spirvType->getFields()[astFieldIndex].fieldIndex;
-    if (astFieldIndex > 0 && currentFieldIndex == lastConvertedIndex) {
-      continue;
-    }
-    lastConvertedIndex = currentFieldIndex;
-
-    const auto &type = base.getType();
-    const auto &spirvField = spirvType->getFields()[astFieldIndex];
-    if (!op(currentFieldIndex, type, spirvField)) {
-      return;
-    }
-  }
-
-  for (const auto *field : recordDecl->fields()) {
-    const size_t astFieldIndex = fieldIndex++;
-    const uint32_t currentFieldIndex =
-        spirvType->getFields()[astFieldIndex].fieldIndex;
-    if (astFieldIndex > 0 && currentFieldIndex == lastConvertedIndex) {
-      continue;
-    }
-    lastConvertedIndex = currentFieldIndex;
-
-    const auto &type = field->getType();
-    const auto &spirvField = spirvType->getFields()[astFieldIndex];
-    if (!op(currentFieldIndex, type, spirvField)) {
-      return;
-    }
-  }
 }
 
 SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
