@@ -199,6 +199,11 @@ if "%1"=="-enable-lit" (
   set ENABLE_LIT=ON
   shift /1 & goto :parse_args
 )
+if "%1"=="-lit-xml-output-path" (
+  set "CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS=--xunit-xml-output=%~2"
+  shift /1
+  shift /1 & goto :parse_args
+)
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
