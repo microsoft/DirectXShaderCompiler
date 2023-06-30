@@ -1731,21 +1731,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
               loc);
   }
 
-  // Reject arrays of RW/append/consume structured buffers. They have assoicated
-  // counters, which are quite nasty to handle.
-  if (decl->getType()->isArrayType()) {
-    auto type = decl->getType();
-    do {
-      type = type->getAsArrayTypeUnsafe()->getElementType();
-    } while (type->isArrayType());
-
-    if (isRWAppendConsumeSBuffer(type)) {
-      emitError("arrays of RW/append/consume structured buffers unsupported",
-                loc);
-      return;
-    }
-  }
-
   if (decl->hasAttr<VKConstantIdAttr>()) {
     // This is a VarDecl for specialization constant.
     createSpecConstant(decl);

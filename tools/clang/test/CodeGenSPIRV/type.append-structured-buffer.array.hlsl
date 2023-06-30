@@ -5,8 +5,8 @@ struct T {
   float3 b;
 };
 
+// CHECK: %myAppendStructuredBuffer = OpVariable %_ptr_Uniform__runtimearr_type_AppendStructuredBuffer_T Uniform
 AppendStructuredBuffer<T> myAppendStructuredBuffer[];
 
 void main() {}
 
-// CHECK: :8:27: error: arrays of RW/append/consume structured buffers unsupported

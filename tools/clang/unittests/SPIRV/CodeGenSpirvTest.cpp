@@ -140,16 +140,14 @@ TEST_F(FileTest, StructuredByteBufferArray) {
   setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");
 }
-TEST_F(FileTest, StructuredBufferArrayError) {
-  runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
+TEST_F(FileTest, RWStructuredBufferArrayNoCounter) {
+  runFileTest("type.rwstructured-buffer.array.nocounter.hlsl");
 }
 TEST_F(FileTest, AppendStructuredBufferArrayError) {
-  runFileTest("type.append-structured-buffer.array.error.hlsl",
-              Expect::Failure);
+  runFileTest("type.append-structured-buffer.array.hlsl");
 }
 TEST_F(FileTest, ConsumeStructuredBufferArrayError) {
-  runFileTest("type.consume-structured-buffer.array.error.hlsl",
-              Expect::Failure);
+  runFileTest("type.consume-structured-buffer.array.hlsl");
 }
 TEST_F(FileTest, AppendConsumeStructuredBufferTypeCast) {
   runFileTest("type.append.consume-structured-buffer.cast.hlsl");
