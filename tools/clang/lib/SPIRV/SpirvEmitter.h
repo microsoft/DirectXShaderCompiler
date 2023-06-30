@@ -92,6 +92,18 @@ public:
                                QualType toType, SourceLocation,
                                SourceRange range = {});
 
+  /// Returns true if the given VarDecl will be translated into a SPIR-V
+  /// variable not in the Private or Function storage class.
+  static inline bool isExternalVar(const VarDecl *var) {
+    // Class static variables should be put in the Private storage class.
+    // groupshared variables are allowed to be declared as "static". But we
+    // still need to put them in the Workgroup storage class. That is, when
+    // seeing "static groupshared", ignore "static".
+    return var->hasExternalFormalLinkage()
+               ? !var->isStaticDataMember()
+               : (var->getAttr<HLSLGroupSharedAttr>() != nullptr);
+  }
+
 private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);

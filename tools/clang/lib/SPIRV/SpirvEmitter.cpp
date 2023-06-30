@@ -119,18 +119,6 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
   return nullptr;
 }
 
-/// Returns true if the given VarDecl will be translated into a SPIR-V variable
-/// not in the Private or Function storage class.
-inline bool isExternalVar(const VarDecl *var) {
-  // Class static variables should be put in the Private storage class.
-  // groupshared variables are allowed to be declared as "static". But we still
-  // need to put them in the Workgroup storage class. That is, when seeing
-  // "static groupshared", ignore "static".
-  return var->hasExternalFormalLinkage()
-             ? !var->isStaticDataMember()
-             : (var->getAttr<HLSLGroupSharedAttr>() != nullptr);
-}
-
 /// Returns the referenced variable's DeclContext if the given expr is
 /// a DeclRefExpr referencing a ConstantBuffer/TextureBuffer. Otherwise,
 /// returns nullptr.
@@ -159,7 +147,7 @@ bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
     if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
       if (isAKindOfStructuredOrByteBuffer(varDecl->getType()))
-        return isExternalVar(varDecl);
+        return SpirvEmitter::isExternalVar(varDecl);
   } else if (const auto *callExpr = dyn_cast<CallExpr>(expr)) {
     if (isAKindOfStructuredOrByteBuffer(callExpr->getType()))
       return true;

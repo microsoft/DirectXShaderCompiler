@@ -230,6 +230,7 @@ TEST_F(FileTest, VarInitCrossStorageClass) {
 }
 TEST_F(FileTest, VarInitVec1) { runFileTest("var.init.vec.size.1.hlsl"); }
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
+TEST_F(FileTest, TemplateStaticVar) { runFileTest("template.static.var.hlsl"); }
 TEST_F(FileTest, UninitStaticResourceVar) {
   runFileTest("var.static.resource.hlsl");
 }

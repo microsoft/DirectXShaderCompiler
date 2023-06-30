@@ -4135,7 +4135,7 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     // This method is only intended to be used to create SPIR-V variables in the
     // Function or Private storage class.
-    assert(!varDecl->isExternallyVisible() || varDecl->isStaticDataMember());
+    assert(!SpirvEmitter::isExternalVar(varDecl));
   }
 
   const QualType type = getTypeOrFnRetType(decl);
