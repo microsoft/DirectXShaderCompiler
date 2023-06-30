@@ -1689,10 +1689,14 @@ void SpirvEmitter::doRecordDecl(const RecordDecl *recordDecl) {
   // Each static member has a corresponding VarDecl inside the
   // RecordDecl. For those defined in the translation unit,
   // their VarDecls do not have initializer.
-  for (auto *subDecl : recordDecl->decls())
-    if (auto *varDecl = dyn_cast<VarDecl>(subDecl))
+  for (auto *subDecl : recordDecl->decls()) {
+    if (auto *varDecl = dyn_cast<VarDecl>(subDecl)) {
       if (varDecl->isStaticDataMember() && varDecl->hasInit())
         doVarDecl(varDecl);
+    } else if (auto *enumDecl = dyn_cast<EnumDecl>(subDecl)) {
+      doEnumDecl(enumDecl);
+    }
+  }
 }
 
 void SpirvEmitter::doEnumDecl(const EnumDecl *decl) {
