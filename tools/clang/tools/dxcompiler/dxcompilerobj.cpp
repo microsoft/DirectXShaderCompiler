@@ -1012,8 +1012,7 @@ public:
               std::move(serializeModule), pOutputBlob, m_pMalloc,
               SerializeFlags, pOutputStream, opts.GetPDBName(),
               &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
-              pRootSigStream, pRootSignatureBlob, pPrivateBlob,
-              opts.SelectValidator);
+              pRootSigStream, pRootSignatureBlob, pPrivateBlob);
 
           inputs.pVersionInfo = static_cast<IDxcVersionInfo *>(this);
 

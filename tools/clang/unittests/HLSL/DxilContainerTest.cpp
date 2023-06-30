@@ -2111,7 +2111,7 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
       hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
   VERIFY_IS_NOT_NULL(
       hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
-  VERIFY_IS_NULL(
+  VERIFY_IS_NOT_NULL(
       hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
 
   pResult.Release();
@@ -2159,7 +2159,6 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
       pVersionInfo3->GetCustomVersionString(&pCustomVersionStrRef));
 
   // test the "true" information against what's in the blob
-
   VERIFY_IS_TRUE(pVersionHeader->PartFourCC ==
                  hlsl::DxilFourCC::DFCC_CompilerVersion);
   // test the rest of the contents (major, minor, etc.)

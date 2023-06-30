@@ -1749,27 +1749,25 @@ void hlsl::SerializeDxilContainerForModule(
   DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
-  const hlsl::ShaderModel *pSM = pModule->GetShaderModel();
   if (pModule->GetShaderModel()->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
     // Write the DxilCompilerVersion (VERS) part.        
     
-    if (pSM->IsSM68Plus()) {
-      if (DXCVersionInfo) {
+    if (DXCVersionInfo) {
 
-        pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
+      pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
 
-        writer.AddPart(
-          hlsl::DFCC_CompilerVersion,
-          pVERSWriter->size(),
-          [&pVERSWriter](AbstractMemoryStream *pStream) {
-            pVERSWriter->write(pStream);
-            return S_OK;
-          }
-        );
-      }
+      writer.AddPart(
+        hlsl::DFCC_CompilerVersion,
+        pVERSWriter->size(),
+        [&pVERSWriter](AbstractMemoryStream *pStream) {
+          pVERSWriter->write(pStream);
+          return S_OK;
+        }
+      );
     }
+    
 
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
