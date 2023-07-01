@@ -2086,7 +2086,7 @@ TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
 }
 
 // Test to see if the Compiler Version (VERS) part gets added to library shaders
-// with SM >= 6.8
+// with validator version >= 1.8
 TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
   if (m_ver.SkipDxilVersion(1, 8))
     return;
@@ -2101,7 +2101,7 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
                      &pSource);
   // Test DxilContainer with ShaderDebugInfoDXIL
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
-                                      L"lib_6_7", nullptr, 0, nullptr, 0,
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
                                       nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
 

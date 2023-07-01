@@ -1753,8 +1753,10 @@ void hlsl::SerializeDxilContainerForModule(
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
     // Write the DxilCompilerVersion (VERS) part.        
-    
-    if (DXCVersionInfo) {
+    unsigned ValMajor, ValMinor;
+    pModule->GetValidatorVersion(ValMajor, ValMinor);
+    bool bValidatorAtLeast_1_8 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) >= 0;
+    if (DXCVersionInfo && bValidatorAtLeast_1_8) {
 
       pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
 
