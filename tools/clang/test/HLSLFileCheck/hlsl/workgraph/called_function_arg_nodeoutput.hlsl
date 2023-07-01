@@ -10,6 +10,13 @@
 // outputNode.GetGroupNodeOutputRecords(13):
 // CHECK_FCGL: call %dx.types.NodeRecordHandle @"dx.hl.op..%dx.types.NodeRecordHandle (i32, %dx.types.NodeHandle, i32)"(i32 {{[0-9]+}}, %dx.types.NodeHandle %[[outputNodeHandle]], i32 13)
 
+// This test also exercises the path that fills in the maximum amount of entries into MDVals in
+// the EmitDxilFunctionProps function in DxilMetadataHelper.cpp. This specific path can only be 
+// exercised when node shaders are defined. Previously, the data structure would receive
+// too many entries, and be assigned out of bounds due to the method of index assignment.
+// Ever since the insertion method has been changed to push_back, the fact this test passes
+// proves that the switch from index assignment to push_back is fine. 
+
 struct loadStressRecord
 {
     uint3 grid : SV_DispatchGrid;
