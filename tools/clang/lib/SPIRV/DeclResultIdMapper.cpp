@@ -2643,7 +2643,7 @@ bool DeclResultIdMapper::createStageVars(
       evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
+      evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
       break;
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
@@ -2774,16 +2774,15 @@ bool DeclResultIdMapper::createStageVars(
 
     // Decorate with interpolation modes for pixel shader input variables
     // or vertex shader output variables.
-    if ((spvContext.isPS() && sigPoint->IsInput()) ||
-        (spvContext.isVS() && sigPoint->IsOutput()))
-      decorateInterpolationMode(decl, type, varInstr, *semanticToUse);
+    if (((spvContext.isPS() && sigPoint->IsInput()) ||
+         (spvContext.isVS() && sigPoint->IsOutput())) &&
+        // BaryCoord*AMD buitins already encode the interpolation mode.
+        semanticKind != hlsl::Semantic::Kind::Barycentrics)
+      decorateInterpolationMode(decl, type, varInstr);
 
     if (asInput) {
-      if (decl->getAttr<HLSLNoInterpolationAttr>()) {
-        spvBuilder.decoratePerVertexKHR(varInstr,
-                                        varInstr->getSourceLocation());
-      }
       *value = spvBuilder.createLoad(evalType, varInstr, loc);
+
       // Fix ups for corner cases
 
       // Special handling of SV_TessFactor DS patch constant input.
@@ -2858,8 +2857,8 @@ bool DeclResultIdMapper::createStageVars(
                                          constOne, constZero, thisSemantic.loc);
       }
       // Special handling of SV_Barycentrics, which is a float3, but the
-      // The 3 values are NOT guaranteed to add up to floating-point 1.0 exactly.
-      // Calculate the third element here.
+      // underlying stage input variable is a float2 (only provides the first
+      // two components). Calculate the third element.
       else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
         const auto x = spvBuilder.createCompositeExtract(
             astContext.FloatTy, *value, {0}, thisSemantic.loc);
@@ -3350,51 +3349,10 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
 
 void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
                                                    QualType type,
-                                                   SpirvVariable *varInstr,
-                                                   const SemanticInfo semanticInfo)
-{
+                                                   SpirvVariable *varInstr) {
   if (varInstr->getStorageClass() != spv::StorageClass::Input &&
       varInstr->getStorageClass() != spv::StorageClass::Output) {
     return;
-  }
-  const bool isBaryCoord = (semanticInfo.getKind() == hlsl::Semantic::Kind::Barycentrics);
-  uint32_t semanticIndex = semanticInfo.index;
-
-  if (isBaryCoord) {
-    // BaryCentrics inputs cannot have attrib 'nointerpolation'.
-    if (decl->getAttr<HLSLNoInterpolationAttr>()) {
-      emitError("SV_BaryCentrics inputs cannot have attribute 'nointerpolation'.",
-          decl->getLocation());
-    }
-    // SV_BaryCentrics could only have two index and apply to different inputs.
-    // The index should be 0 or 1, each index should be mapped to different
-    // interpolation type.
-    if (semanticIndex > 1) {
-      emitError("The index SV_BaryCentrics semantics could only be 1 or 0.",
-          decl->getLocation());
-    }
-    else if (noPerspBaryCentricsIndex < 2 && perspBaryCentricsIndex < 2) {
-      emitError("Cannot have more than 2 inputs with SV_BaryCentrics semantics.",
-          decl->getLocation());
-    }
-    else if (decl->getAttr<HLSLNoPerspectiveAttr>()) {
-      if (noPerspBaryCentricsIndex == 2 && perspBaryCentricsIndex != semanticIndex) {
-        noPerspBaryCentricsIndex = semanticIndex;
-      }
-      else {
-        emitError("Cannot have more than 1 noperspective inputs with SV_BaryCentrics semantics.",
-          decl->getLocation());
-      }
-    }
-    else {
-      if (perspBaryCentricsIndex == 2 && noPerspBaryCentricsIndex != semanticIndex) {
-        perspBaryCentricsIndex = semanticIndex;
-      }
-      else{
-        emitError("Cannot have more than 1 perspective-correct inputs with SV_BaryCentrics semantics.",
-          decl->getLocation());
-      }
-    }
   }
 
   const auto loc = decl->getLocation();
@@ -3416,9 +3374,9 @@ void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
     // Attributes can be used together. So cannot use else if.
     if (decl->getAttr<HLSLCentroidAttr>())
       spvBuilder.decorateCentroid(varInstr, loc);
-    if (decl->getAttr<HLSLNoInterpolationAttr>() && !isBaryCoord)
+    if (decl->getAttr<HLSLNoInterpolationAttr>())
       spvBuilder.decorateFlat(varInstr, loc);
-    if (decl->getAttr<HLSLNoPerspectiveAttr>() && !isBaryCoord)
+    if (decl->getAttr<HLSLNoPerspectiveAttr>())
       spvBuilder.decorateNoPerspective(varInstr, loc);
     if (decl->getAttr<HLSLSampleAttr>()) {
       spvBuilder.decorateSample(varInstr, loc);
@@ -3514,6 +3472,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   const auto sigPointKind = sigPoint->GetKind();
   const auto type = stageVar->getAstType();
   const auto isPrecise = decl->hasAttr<HLSLPreciseAttr>();
+
   spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
   if (sc == spv::StorageClass::Max)
     return 0;
@@ -3787,9 +3746,21 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     // Selecting the correct builtin according to interpolation mode
     auto bi = BuiltIn::Max;
     if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
-      bi = BuiltIn::BaryCoordNoPerspKHR;
+      if (decl->hasAttr<HLSLCentroidAttr>()) {
+        bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
+      } else if (decl->hasAttr<HLSLSampleAttr>()) {
+        bi = BuiltIn::BaryCoordNoPerspSampleAMD;
+      } else {
+        bi = BuiltIn::BaryCoordNoPerspAMD;
+      }
     } else {
-      bi = BuiltIn::BaryCoordKHR;
+      if (decl->hasAttr<HLSLCentroidAttr>()) {
+        bi = BuiltIn::BaryCoordSmoothCentroidAMD;
+      } else if (decl->hasAttr<HLSLSampleAttr>()) {
+        bi = BuiltIn::BaryCoordSmoothSampleAMD;
+      } else {
+        bi = BuiltIn::BaryCoordSmoothAMD;
+      }
     }
 
     return spvBuilder.addStageBuiltinVar(type, sc, bi, isPrecise, srcLoc);
