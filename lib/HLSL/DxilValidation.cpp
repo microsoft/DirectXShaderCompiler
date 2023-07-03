@@ -5731,12 +5731,15 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
       VerifyFeatureInfoMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       break;
     case DFCC_CompilerVersion:
-      // Either this blob is a PDB, or it is a library with shader model at least 6.8
+      // This blob is either a PDB, or a library profile
       if (ValCtx.isLibProfile) {
         if (!ValidateCompilerVersionPart((void *)GetDxilPartData(pPart), pPart->PartSize))
         {
-            ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+          ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
         }
+      }
+      else {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
       }
       break;
 
