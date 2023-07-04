@@ -1543,13 +1543,6 @@ void SpirvBuilder::decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
   mod->addDecoration(decor);
 }
 
-void SpirvBuilder::decoratePerVertexKHR(SpirvInstruction *target,
-                                          SourceLocation srcLoc) {
-  auto *decor = new (context)
-      SpirvDecoration(srcLoc, target, spv::Decoration::PerVertexKHR);
-  mod->addDecoration(decor);
-}
-
 void SpirvBuilder::decorateCoherent(SpirvInstruction *target,
                                     SourceLocation srcLoc) {
   auto *decor =
