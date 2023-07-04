@@ -10,7 +10,7 @@
 // CHECK: OpStore [[init_var]] %true
 // CHECK: OpBranch [[init_done_bb]]
 // CHECK: [[init_done_bb]] = OpLabel
-// CHECK: OpLoad %int %v
+// CHECK: OpLoad %int [[static_var]]
 
 
 template <typename R> R test(R x) {
