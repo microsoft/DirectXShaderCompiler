@@ -63,10 +63,11 @@ bool IsHLSLVecMatType(clang::QualType type) {
       }
     }
   }
-  return false;
+  return type->isMatrixType();
 }
 
 bool IsHLSLMatType(clang::QualType type) {
+  return type.getCanonicalType()->isMatrixType();
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
@@ -93,6 +94,8 @@ bool IsHLSLVecType(clang::QualType type) {
 }
 
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
+  if (type.getCanonicalType()->isMatrixType())
+    return true;
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
@@ -153,6 +156,8 @@ bool IsHLSLAggregateType(clang::QualType type) {
 }
 
 clang::QualType GetElementTypeOrType(clang::QualType type) {
+  if (type.getCanonicalType()->isMatrixType())
+    return type->getAs<ConstantMatrixType>()->getElementType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
       dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
@@ -319,7 +324,12 @@ uint32_t GetHLSLVecSize(clang::QualType type) {
 void GetRowsAndCols(clang::QualType type, uint32_t &rowCount,
                     uint32_t &colCount) {
   type = GetStructuralForm(type);
-
+  if (type->isMatrixType()) {
+    auto *MT = type->getAs<ConstantMatrixType>();
+    rowCount = MT->getNumRows();
+    colCount = MT->getNumColumns();
+    return;
+  }
   const Type *Ty = type.getCanonicalType().getTypePtr();
   const RecordType *RT = dyn_cast<RecordType>(Ty);
   assert(RT != nullptr && "otherwise caller shouldn't be invoking this");
@@ -364,6 +374,10 @@ void GetRowsAndColsForAny(QualType type, uint32_t &rowCount,
   assert(!type.isNull());
 
   type = GetStructuralForm(type);
+  if (type->isMatrixType()) {
+    GetRowsAndCols(type, rowCount, colCount);
+    return;
+  }
   rowCount = 1;
   colCount = 1;
   const Type *Ty = type.getCanonicalType().getTypePtr();
@@ -421,7 +435,10 @@ clang::QualType GetHLSLVecElementType(clang::QualType type) {
 }
 clang::QualType GetHLSLMatElementType(clang::QualType type) {
   type = GetStructuralForm(type);
-
+  if (type->isMatrixType()) {
+    auto *MT = type->getAs<ConstantMatrixType>();
+    return MT->getElementType();
+  }
   const Type *Ty = type.getCanonicalType().getTypePtr();
   const RecordType *RT = dyn_cast<RecordType>(Ty);
   assert(RT != nullptr && "otherwise caller shouldn't be invoking this");

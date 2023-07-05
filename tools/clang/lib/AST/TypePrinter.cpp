@@ -215,6 +215,8 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::ObjCObject:
     case Type::ObjCInterface:
     case Type::Atomic:
+    case Type::ConstantMatrix: // HLSL Change
+    case Type::DependentSizedMatrix: // HLSL Change
       CanPrefixQualifiers = true;
       break;
       
@@ -605,6 +607,56 @@ void TypePrinter::printExtVectorAfter(const ExtVectorType *T, raw_ostream &OS) {
   OS << " __attribute__((ext_vector_type(";
   OS << T->getNumElements();
   OS << ")))";
+}
+
+void TypePrinter::printMatrixBefore(const MatrixType *T,
+                                            raw_ostream &OS) {
+  if (auto *CMT = dyn_cast<ConstantMatrixType>(T)) {
+    printConstantMatrixBefore(CMT, OS);
+    return;
+  }
+  auto *DMT = cast<DependentSizedMatrixType>(T);
+  printDependentSizedMatrixBefore(DMT, OS);
+}
+
+void TypePrinter::printMatrixAfter(const MatrixType *T,
+                                           raw_ostream &OS) {
+  printAfter(T->getElementType(), OS);
+}
+
+void TypePrinter::printConstantMatrixBefore(const ConstantMatrixType *T,
+                                            raw_ostream &OS) {
+  OS << "matrix<";
+  LangOptions LO;
+  T->getElementType().print(OS, PrintingPolicy(LO));
+  OS << ", ";
+  OS << T->getNumRows() << ", " << T->getNumColumns();
+  OS << ">";
+  spaceBeforePlaceHolder(OS);
+}
+
+void TypePrinter::printConstantMatrixAfter(const ConstantMatrixType *T,
+                                           raw_ostream &OS) {
+  printAfter(T->getElementType(), OS);
+}
+
+void TypePrinter::printDependentSizedMatrixBefore(
+    const DependentSizedMatrixType *T, raw_ostream &OS) {
+  OS << "matrix<";
+  LangOptions LO;
+  PrintingPolicy PP(LO);
+  T->getElementType().print(OS, PP);
+  OS << ", ";
+  T->getRowExpr()->printPretty(OS, nullptr, PP);
+  OS << ", ";
+  T->getColumnExpr()->printPretty(OS, nullptr, PP);
+  OS << ">";
+  spaceBeforePlaceHolder(OS);
+}
+
+void TypePrinter::printDependentSizedMatrixAfter(
+    const DependentSizedMatrixType *T, raw_ostream &OS) {
+  printAfter(T->getElementType(), OS);
 }
 
 void 

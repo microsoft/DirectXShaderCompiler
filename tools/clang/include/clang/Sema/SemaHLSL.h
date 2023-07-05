@@ -47,7 +47,13 @@ bool CheckTemplateArgumentListForHLSL(
   clang::TemplateDecl*, 
   clang::SourceLocation, 
   clang::TemplateArgumentListInfo&);
-  
+
+bool IsHLSLMatrixTemplate(clang::Sema &self, clang::TemplateDecl *);
+clang::QualType CheckHLSLMatrixTemplate(clang::Sema &self,
+                                        clang::TemplateDecl *,
+                                        clang::SourceLocation,
+                                        clang::TemplateArgumentListInfo &);
+
 clang::QualType CheckUnaryOpForHLSL(
   clang::Sema& self,
   clang::SourceLocation OpLoc,
@@ -229,6 +235,9 @@ void GetHLSLAttributedTypes(
     _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
     _Inout_opt_ const clang::AttributedType **ppNorm,
     _Inout_opt_ const clang::AttributedType **ppGLC);
+
+clang::QualType GetHLSLVectorType(clang::Sema &sema, clang::QualType EltTy,
+                                  unsigned int NumElts);
 
 bool IsMatrixType(
   _In_ clang::Sema* self, 

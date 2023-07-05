@@ -1926,6 +1926,60 @@ llvm::DIType *CGDebugInfo::CreateType(const VectorType *Ty,
   return DBuilder.createVectorType(Size, Align, ElementTy, SubscriptArray);
 }
 
+llvm::DIType *CGDebugInfo::CreateType(const ConstantMatrixType *Ty,
+                                      llvm::DIFile *Unit) {
+  // FIXME: Create another debug type for matrices
+  // For the time being, it treats it like a nested ArrayType.
+
+  uint64_t Size = CGM.getContext().getTypeSize(Ty);
+  uint64_t Align = CGM.getContext().getTypeAlign(Ty);
+
+  // Create ranges for both dimensions.
+  llvm::SmallVector<llvm::Metadata *, 2> Subscripts;
+  Subscripts.push_back(DBuilder.getOrCreateSubrange(0,
+      Ty->getNumColumns() /*count*/));
+  Subscripts.push_back(DBuilder.getOrCreateSubrange(0,
+      Ty->getNumRows()));
+  //DICompositeType
+  SmallString<256> MatName;
+  llvm::raw_svector_ostream OS(MatName);
+  LangOptions LO;
+  QualType(Ty, 0).print(OS, PrintingPolicy(LO));
+  llvm::DICompositeType *DITy =
+      DBuilder.createForwardDecl(
+      llvm::dwarf::DW_TAG_class_type, OS.str(), Unit, Unit, 0, 0, Size, Align);
+
+  DITy = cast<llvm::DICompositeType>(DBuilder.createArtificialType(DITy));
+
+  SmallVector<llvm::Metadata *, 4> Elements;
+  // The HLSL matrix type is defined as containing a field 'h' of
+  // array of extended vector type, but logically we want to represent
+  // it as per-element fields.
+  QualType ElemQualTy = Ty->getElementType();
+  uint32_t NumRows = Ty->getNumRows();
+  uint32_t NumCols = Ty->getNumColumns();
+  unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
+  for (unsigned RowIdx = 0; RowIdx < NumRows; ++RowIdx) {
+    for (unsigned ColIdx = 0; ColIdx < NumCols; ++ColIdx) {
+      char FieldName[] = "_11";
+      FieldName[1] += RowIdx;
+      FieldName[2] += ColIdx;
+      unsigned RowMajorIdx = RowIdx * NumCols + ColIdx;
+      unsigned OffsetInBits = ElemSizeInBits * RowMajorIdx;
+      llvm::DIType *FieldType =
+          createFieldType(FieldName, ElemQualTy, 0, SourceLocation(),
+                          AccessSpecifier::AS_public, OffsetInBits,
+                          /* tunit */ nullptr, DITy,
+                          /*RD*/nullptr);
+      Elements.emplace_back(FieldType);
+    }
+  }
+  llvm::DINodeArray DIElements = DBuilder.getOrCreateArray(Elements);
+  DITy->replaceElements(DIElements);
+  return DITy;
+}
+
+
 llvm::DIType *CGDebugInfo::CreateType(const ArrayType *Ty, llvm::DIFile *Unit) {
   uint64_t Size;
   uint64_t Align;
@@ -2223,6 +2277,8 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
   case Type::ExtVector:
   case Type::Vector:
     return CreateType(cast<VectorType>(Ty), Unit);
+  case Type::ConstantMatrix:
+    return CreateType(cast<ConstantMatrixType>(Ty), Unit);
 #if 0 // HLSL Change - no ObjC support
   case Type::ObjCObjectPointer:
     return CreateType(cast<ObjCObjectPointerType>(Ty), Unit);

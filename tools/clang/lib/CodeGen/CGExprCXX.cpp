@@ -190,28 +190,6 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
   assert(isa<CXXMemberCallExpr>(CE) || isa<CXXOperatorCallExpr>(CE));
 
   // HLSL Change Begins
-  if (hlsl::IsHLSLMatType(Base->getType())) {
-    if (const CXXOperatorCallExpr *opCall = dyn_cast<CXXOperatorCallExpr>(CE)) {
-      assert(opCall->getOperator() == OverloadedOperatorKind::OO_Subscript &&
-             "must be subscript");
-
-      llvm::Value *This = nullptr;
-      if (Base->getValueKind() != ExprValueKind::VK_RValue) {
-        This = EmitLValue(Base).getAddress();
-      } else {
-        llvm::Value *Val = EmitScalarExpr(Base);
-        This = CreateTempAlloca(Val->getType());
-        CGM.getHLSLRuntime().EmitHLSLMatrixStore(*this, Val, This, Base->getType());
-      }
-
-      llvm::Value *Idx = EmitScalarExpr(CE->getArg(1));
-      llvm::Type *RetTy =
-          ConvertType(getContext().getLValueReferenceType(CE->getType()));
-      llvm::Value *matSub = CGM.getHLSLRuntime().EmitHLSLMatrixSubscript(
-          *this, RetTy, This, Idx, Base->getType());
-      return RValue::get(matSub);
-    }
-  }
   if (hlsl::IsHLSLVecType(Base->getType())) {
     if (const CXXOperatorCallExpr *opCall = dyn_cast<CXXOperatorCallExpr>(CE)) {
       assert(opCall->getOperator() == OverloadedOperatorKind::OO_Subscript &&

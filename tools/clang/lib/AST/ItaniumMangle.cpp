@@ -404,6 +404,7 @@ private:
                           unsigned NumTemplateArgs);
   void mangleTemplateArgs(const TemplateArgumentList &AL);
   void mangleTemplateArg(TemplateArgument A);
+  void mangleTemplateArgExpr(const Expr *E);
 
   void mangleTemplateParameter(unsigned Index);
 
@@ -2385,6 +2386,46 @@ void CXXNameMangler::mangleType(const DependentSizedExtVectorType *T) {
   mangleType(T->getElementType());
 }
 
+void CXXNameMangler::mangleType(const MatrixType *T) {
+  if (auto *CMT = dyn_cast<ConstantMatrixType>(T))
+    mangleType(CMT);
+  else
+    mangleType(cast<DependentSizedMatrixType>(T));
+}
+
+void CXXNameMangler::mangleType(const ConstantMatrixType *T) {
+  // Mangle matrix types as a vendor extended type:
+  // u<Len>matrix_typeI<Rows><Columns><element type>E
+
+  StringRef VendorQualifier = "matrix_type";
+  Out << "u" << VendorQualifier.size() << VendorQualifier;
+
+  Out << "I";
+  auto &ASTCtx = getASTContext();
+  unsigned BitWidth = ASTCtx.getTypeSize(ASTCtx.getSizeType());
+  llvm::APSInt Rows(BitWidth);
+  Rows = T->getNumRows();
+  mangleIntegerLiteral(ASTCtx.getSizeType(), Rows);
+  llvm::APSInt Columns(BitWidth);
+  Columns = T->getNumColumns();
+  mangleIntegerLiteral(ASTCtx.getSizeType(), Columns);
+  mangleType(T->getElementType());
+  Out << "E";
+}
+
+void CXXNameMangler::mangleType(const DependentSizedMatrixType *T) {
+  // Mangle matrix types as a vendor extended type:
+  // u<Len>matrix_typeI<row expr><column expr><element type>E
+  StringRef VendorQualifier = "matrix_type";
+  Out << "u" << VendorQualifier.size() << VendorQualifier;
+
+  Out << "I";
+  mangleTemplateArgExpr(T->getRowExpr());
+  mangleTemplateArgExpr(T->getColumnExpr());
+  mangleType(T->getElementType());
+  Out << "E";
+}
+
 void CXXNameMangler::mangleType(const PackExpansionType *T) {
   // <type>  ::= Dp <type>          # pack expansion (C++0x)
   Out << "Dp";
@@ -3653,6 +3694,40 @@ void CXXNameMangler::mangleTemplateParameter(unsigned Index) {
   else
     Out << 'T' << (Index - 1) << '_';
 }
+
+void CXXNameMangler::mangleTemplateArgExpr(const Expr *E) {
+  // HLSL Change -Just follow new mangle rule.
+  //ASTContext &Ctx = Context.getASTContext();
+  //if (Ctx.getLangOpts().getClangABICompat() > LangOptions::ClangABI::Ver11) {
+  //  mangleExpression(E, UnknownArity, /*AsTemplateArg=*/true);
+  //  return;
+  //}
+
+  // Prior to Clang 12, we didn't omit the X .. E around <expr-primary>
+  // correctly in cases where the template argument was
+  // constructed from an expression rather than an already-evaluated
+  // literal. In such a case, we would then e.g. emit 'XLi0EE' instead of
+  // 'Li0E'.
+  //
+  // We did special-case DeclRefExpr to attempt to DTRT for that one
+  // expression-kind, but while doing so, unfortunately handled ParmVarDecl
+  // (subtype of VarDecl) _incorrectly_, and emitted 'L_Z .. E' instead of
+  // the proper 'Xfp_E'.
+  E = E->IgnoreParenImpCasts();
+  if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E)) {
+    const ValueDecl *D = DRE->getDecl();
+    if (isa<VarDecl>(D) || isa<FunctionDecl>(D)) {
+      Out << 'L';
+      mangle(D);
+      Out << 'E';
+      return;
+    }
+  }
+  Out << 'X';
+  mangleExpression(E);
+  Out << 'E';
+}
+
 
 void CXXNameMangler::mangleSeqID(unsigned SeqID) {
   if (SeqID == 1)

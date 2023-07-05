@@ -168,6 +168,44 @@ DependentSizedExtVectorType::Profile(llvm::FoldingSetNodeID &ID,
   SizeExpr->Profile(ID, Context, true);
 }
 
+MatrixType::MatrixType(TypeClass tc, QualType matrixType, QualType canonType,
+                       const Expr *RowExpr, const Expr *ColumnExpr)
+    : Type(tc, canonType, /*Dependent=*/tc == ConstantMatrix ? false : true,
+           /*InstantiationDependent=*/tc == ConstantMatrix ? false : true,
+           matrixType->isVariablyModifiedType(),
+           (matrixType->containsUnexpandedParameterPack() ||
+            (RowExpr && RowExpr->containsUnexpandedParameterPack()) ||
+            (ColumnExpr && ColumnExpr->containsUnexpandedParameterPack()))),
+      ElementType(matrixType) {}
+
+ConstantMatrixType::ConstantMatrixType(QualType matrixType, unsigned nRows,
+                                       unsigned nColumns, QualType canonType, bool isRowMajor)
+    : ConstantMatrixType(ConstantMatrix, matrixType, nRows, nColumns,
+                         canonType, isRowMajor) {}
+
+ConstantMatrixType::ConstantMatrixType(TypeClass tc, QualType matrixType,
+                                       unsigned nRows, unsigned nColumns,
+                                       QualType canonType, bool isRowMajor)
+    : MatrixType(tc, matrixType, canonType), NumRows(nRows),
+      NumColumns(nColumns), IsRowMajor(isRowMajor) {}
+
+DependentSizedMatrixType::DependentSizedMatrixType(
+    const ASTContext &CTX, QualType ElementType, QualType CanonicalType,
+    Expr *RowExpr, Expr *ColumnExpr, SourceLocation loc)
+    : MatrixType(DependentSizedMatrix, ElementType, CanonicalType, RowExpr,
+                 ColumnExpr),
+      Context(CTX), RowExpr(RowExpr), ColumnExpr(ColumnExpr), loc(loc) {}
+
+void DependentSizedMatrixType::Profile(llvm::FoldingSetNodeID &ID,
+                                       const ASTContext &CTX,
+                                       QualType ElementType, Expr *RowExpr,
+                                       Expr *ColumnExpr) {
+  ID.AddPointer(ElementType.getAsOpaquePtr());
+  RowExpr->Profile(ID, CTX, true);
+  ColumnExpr->Profile(ID, CTX, true);
+}
+
+
 VectorType::VectorType(QualType vecType, unsigned nElements, QualType canonType,
                        VectorKind vecKind)
     : VectorType(Vector, vecType, nElements, canonType, vecKind) {}
@@ -786,6 +824,17 @@ public:
       return QualType(T, 0);
 
     return Ctx.getExtVectorType(elementType, T->getNumElements());
+  }
+
+  QualType VisitConstantMatrixType(const ConstantMatrixType *T) {
+    QualType elementType = recurse(T->getElementType());
+    if (elementType.isNull())
+      return {};
+    if (elementType.getAsOpaquePtr() == T->getElementType().getAsOpaquePtr())
+      return QualType(T, 0);
+
+    return Ctx.getConstantMatrixType(elementType, T->getNumRows(),
+                                     T->getNumColumns(), T->getIsRowMajor());
   }
 
   QualType VisitFunctionNoProtoType(const FunctionNoProtoType *T) { 
@@ -1555,6 +1604,15 @@ namespace {
     AutoType *VisitVectorType(const VectorType *T) {
       return Visit(T->getElementType());
     }
+
+    AutoType *VisitDependentSizedMatrixType(const DependentSizedMatrixType *T) {
+      return Visit(T->getElementType());
+    }
+
+    AutoType *VisitConstantMatrixType(const ConstantMatrixType *T) {
+      return Visit(T->getElementType());
+    }
+
     AutoType *VisitFunctionType(const FunctionType *T) {
       return Visit(T->getReturnType());
     }
@@ -1989,6 +2047,8 @@ bool QualType::isCXX98PODType(ASTContext &Context) const {
   case Type::MemberPointer:
   case Type::Vector:
   case Type::ExtVector:
+  case Type::Matrix:
+  case Type::ConstantMatrix:
     return true;
 
   case Type::Enum:
@@ -3279,6 +3339,8 @@ static CachedProperties computeCachedProperties(const Type *T) {
   case Type::Vector:
   case Type::ExtVector:
     return Cache::get(cast<VectorType>(T)->getElementType());
+  case Type::ConstantMatrix:
+    return Cache::get(cast<ConstantMatrixType>(T)->getElementType());
   case Type::FunctionNoProto:
     return Cache::get(cast<FunctionType>(T)->getReturnType());
   case Type::FunctionProto: {
@@ -3363,6 +3425,8 @@ static LinkageInfo computeLinkageInfo(const Type *T) {
   case Type::Vector:
   case Type::ExtVector:
     return computeLinkageInfo(cast<VectorType>(T)->getElementType());
+  case Type::ConstantMatrix:
+    return computeLinkageInfo(cast<ConstantMatrixType>(T)->getElementType());
   case Type::FunctionNoProto:
     return computeLinkageInfo(cast<FunctionType>(T)->getReturnType());
   case Type::FunctionProto: {
@@ -3518,6 +3582,9 @@ bool Type::canHaveNullability() const {
   case Type::DependentSizedExtVector:
   case Type::Vector:
   case Type::ExtVector:
+  case Type::Matrix:
+  case Type::ConstantMatrix:
+  case Type::DependentSizedMatrix:
   case Type::FunctionProto:
   case Type::FunctionNoProto:
   case Type::Record:

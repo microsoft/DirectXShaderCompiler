@@ -558,6 +558,23 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                                        VT->getNumElements());
     break;
   }
+  case Type::ConstantMatrix: {
+    const ConstantMatrixType *MT = cast<ConstantMatrixType>(Ty);
+    //"%class.matrix.float.2.2 = type { [2 x <2 x float>] }"
+    llvm::Type *EltTy = ConvertType(MT->getElementType());
+    llvm::Type *RowTy = llvm::VectorType::get(EltTy, MT->getNumColumns());
+    llvm::Type *ArrayTy = llvm::ArrayType::get(RowTy, MT->getNumRows());
+
+    const clang::PrintingPolicy &policy =
+        getContext().getPrintingPolicy();
+    SmallString<256> TypeName;
+    llvm::raw_svector_ostream OS(TypeName);
+    OS << "class.matrix.";
+    MT->getElementType().print(OS, policy);
+    OS << "." << MT->getNumRows() << "." << MT->getNumColumns();
+    ResultType = llvm::StructType::create({ArrayTy}, OS.str(), false);
+    break;
+  }
   case Type::FunctionNoProto:
   case Type::FunctionProto: {
     const FunctionType *FT = cast<FunctionType>(Ty);

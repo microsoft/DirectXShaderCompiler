@@ -2798,6 +2798,29 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
         Address = Builder.CreateInBoundsGEP(ArrayPtr, Args, "arrayidx");
 
     } else {
+      if (E->getBase()->getType()->isMatrixType()) {
+        const Expr *Base = E->getBase();
+        llvm::Value *Mat = nullptr;
+        if (Base->getValueKind() != ExprValueKind::VK_RValue) {
+          Mat = EmitLValue(Base).getAddress();
+        } else {
+          llvm::Value *Val = EmitScalarExpr(Base);
+          Mat = CreateTempAlloca(Val->getType());
+          CGM.getHLSLRuntime().EmitHLSLMatrixStore(*this, Val, Mat,
+                                                       Base->getType());
+        }
+        llvm::Value *Idx = EmitScalarExpr(E->getIdx());
+        // Make sure idx is 32bit for later use it as shuffle index which
+        // require 32 bit for the mask.
+        Idx = Builder.CreateTrunc(Idx, Builder.getInt32Ty());
+        QualType ResultTy = E->getType();
+        llvm::Type *RetTy =
+            ConvertType(getContext().getLValueReferenceType(ResultTy));
+        llvm::Value *matSub = CGM.getHLSLRuntime().EmitHLSLMatrixSubscript(
+            *this, RetTy, Mat, Idx, E->getBase()->getType());
+        CharUnits Align = getContext().getTypeAlignInChars(ResultTy);
+        return LValue::MakeAddr(matSub, ResultTy, Align, getContext());
+      }
       // HLSL Change Ends
       // The base must be a pointer, which is not an aggregate.  Emit it.
       llvm::Value *Base = EmitScalarExpr(E->getBase());

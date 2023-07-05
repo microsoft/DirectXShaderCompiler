@@ -8416,6 +8416,29 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
 
   const Type *EffectiveType = getElementType(BaseExpr);
   BaseExpr = BaseExpr->IgnoreParenCasts();
+  if (BaseExpr->getType()->isMatrixType()) {
+    llvm::APSInt index;
+    if (!IndexExpr->EvaluateAsInt(index, Context))
+      return;
+    if (IndexNegated)
+      index = -index;
+    unsigned NumRows = 4;
+    if (auto *MT = BaseExpr->getType()->getAs<ConstantMatrixType>()) {
+      NumRows = MT->getNumRows();
+    } else {
+      llvm::APSInt Row;
+      auto *DMT = BaseExpr->getType()->getAs<DependentSizedMatrixType>();
+      if (DMT->getRowExpr()->EvaluateAsInt(Row, Context)) {
+        NumRows = Row.getExtValue();
+      }
+    }
+    if (index < 0 || index >= NumRows) {
+      Diag(IndexExpr->getExprLoc(),
+           diag::err_hlsl_matrix_row_index_out_of_bounds)
+          << (int)index.getExtValue();
+    }
+    return;
+  }
   const ConstantArrayType *ArrayTy =
     Context.getAsConstantArrayType(BaseExpr->getType());
   if (!ArrayTy)

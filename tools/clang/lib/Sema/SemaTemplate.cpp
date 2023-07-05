@@ -2058,10 +2058,14 @@ QualType Sema::CheckTemplateIdType(TemplateName Name,
     return QualType();
 
   // HLSL Change Starts - check template values for HLSL object/matrix/vector signatures
-  if (getLangOpts().HLSL && Template->isImplicit() &&
-      hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc,
-                                             TemplateArgs))
-    return QualType();
+  if (getLangOpts().HLSL && Template->isImplicit()) {
+    if (hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc,
+                                               TemplateArgs))
+      return QualType();
+    if (hlsl::IsHLSLMatrixTemplate(*this, Template))
+      return hlsl::CheckHLSLMatrixTemplate(*this, Template, TemplateLoc,
+                                           TemplateArgs);
+  }
   // HLSL Change Ends
 
   QualType CanonType;
@@ -2231,6 +2235,8 @@ Sema::ActOnTemplateIdType(CXXScopeSpec &SS, SourceLocation TemplateKWLoc,
 
   if (Result.isNull())
     return true;
+  if (Result->isMatrixType())
+    return CreateParsedType(Result, nullptr);
 
   // Build type-source information.
   TypeLocBuilder TLB;
@@ -3062,6 +3068,10 @@ bool Sema::CheckTemplateTypeArgument(TemplateTypeParmDecl *Param,
     if (getLangOpts().HLSL && Decl) {
       if (TemplateDecl *TD = dyn_cast<TemplateDecl>(Decl)) {
         ArgType = getHLSLDefaultSpecialization(TD);
+        if (ArgType->isMatrixType()) {
+          Converted.push_back(TemplateArgument(ArgType));
+          return false;
+        }
         if (!ArgType.isNull()) {
           CXXScopeSpec SS;
           TypeLocBuilder TLB;
@@ -4082,6 +4092,19 @@ bool UnnamedLocalNoLinkageFinder::VisitVectorType(const VectorType* T) {
 }
 
 bool UnnamedLocalNoLinkageFinder::VisitExtVectorType(const ExtVectorType* T) {
+  return Visit(T->getElementType());
+}
+
+bool UnnamedLocalNoLinkageFinder::VisitMatrixType(
+    const MatrixType *T) {
+  return Visit(T->getElementType());
+}
+bool UnnamedLocalNoLinkageFinder::VisitConstantMatrixType(
+    const ConstantMatrixType *T) {
+  return Visit(T->getElementType());
+}
+bool UnnamedLocalNoLinkageFinder::VisitDependentSizedMatrixType(
+    const DependentSizedMatrixType *T) {
   return Visit(T->getElementType());
 }
 

@@ -1273,6 +1273,33 @@ Value *ScalarExprEmitter::VisitMemberExpr(MemberExpr *E) {
 Value *ScalarExprEmitter::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   TestAndClearIgnoreResultAssign();
 
+  if (E->getBase()->getType()->isMatrixType()) {
+    Expr *Base = E->getBase();
+    Expr *IdxExpr = E->getIdx();
+    llvm::Value *Mat = nullptr;
+    if (Base->getValueKind() != ExprValueKind::VK_RValue) {
+      Mat = EmitLValue(Base).getAddress();
+    } else {
+      llvm::Value *Val = CGF.EmitScalarExpr(Base);
+      Mat = CGF.CreateTempAlloca(Val->getType());
+      CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, Val, Mat,
+                                               Base->getType());
+    }
+
+    llvm::Value *Idx = CGF.EmitScalarExpr(IdxExpr);
+    // Make sure idx is 32bit for later use it as shuffle index which
+    // require 32 bit for the mask.
+    Idx = Builder.CreateTrunc(Idx, Builder.getInt32Ty());
+    QualType ResultTy = E->getType();
+    llvm::Type *RetTy =
+        ConvertType(CGF.getContext().getLValueReferenceType(ResultTy));
+    llvm::Value *matSub = CGF.CGM.getHLSLRuntime().EmitHLSLMatrixSubscript(
+        CGF, RetTy, Mat, Idx, Base->getType());
+    matSub = Builder.CreateLoad(matSub);
+    matSub = CGF.EmitFromMemory(matSub, ResultTy);
+    return matSub;
+  }
+
   // Emit subscript expressions in rvalue context's.  For most cases, this just
   // loads the lvalue formed by the subscript expr.  However, we have to be
   // careful, because the base of a vector subscript is occasionally an rvalue,
