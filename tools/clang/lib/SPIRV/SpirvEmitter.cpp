@@ -13674,6 +13674,7 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   SpirvUnaryOp *address = spvBuilder.createUnaryOp(
       spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  address->setLayoutRule(SpirvLayoutRule::Physical);
 
   SpirvLoad *loadInst = dyn_cast<SpirvLoad>(
       spvBuilder.createLoad(bufferType, address, loc));

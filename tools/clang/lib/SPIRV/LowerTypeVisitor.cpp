@@ -264,13 +264,8 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
                                              SourceLocation loc) {
   if (const auto *hybridPointer = dyn_cast<HybridPointerType>(type)) {
     const QualType pointeeType = hybridPointer->getPointeeType();
-    SpirvLayoutRule layoutRule =
-        hybridPointer->getStorageClass() ==
-                spv::StorageClass::PhysicalStorageBuffer
-            ? SpirvLayoutRule::Physical
-            : rule;
     const SpirvType *pointeeSpirvType =
-        lowerType(pointeeType, layoutRule, /*isRowMajor*/ llvm::None, loc);
+        lowerType(pointeeType, rule, /*isRowMajor*/ llvm::None, loc);
     return spvContext.getPointerType(pointeeSpirvType,
                                      hybridPointer->getStorageClass());
   } else if (const auto *hybridSampledImage =
