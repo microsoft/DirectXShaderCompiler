@@ -472,6 +472,9 @@ TEST_F(FileTest, OpStructuredBufferAccess) {
 TEST_F(FileTest, OpStructuredBufferAccessBitfield) {
   runFileTest("op.structured-buffer.access.bitfield.hlsl");
 }
+TEST_F(FileTest, OpStructuredBufferReconstructBitfield) {
+  runFileTest("op.structured-buffer.reconstruct.bitfield.hlsl");
+}
 TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
 }
