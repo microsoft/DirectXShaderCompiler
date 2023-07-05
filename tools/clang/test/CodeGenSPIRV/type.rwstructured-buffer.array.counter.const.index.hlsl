@@ -17,8 +17,9 @@ RWStructuredBuffer<uint> g_rwbuffer[5] : register(u0, space2);
 float4 main(PSInput input) : SV_TARGET
 {
 // Correctly increment the counter.
-// CHECK: [[ac:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_g_rwbuffer %int_3 %uint_0
-// CHECK: OpAtomicIAdd %int [[ac]] %uint_1 %uint_0 %int_1
+// CHECK: [[ac1:%\d+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer %int_3
+// CHECK: [[ac2:%\d+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
+// CHECK: OpAtomicIAdd %int [[ac2]] %uint_1 %uint_0 %int_1
     g_rwbuffer[3].IncrementCounter();
 
 // Correctly access the buffer.

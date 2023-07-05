@@ -158,6 +158,9 @@ TEST_F(FileTest, RWStructuredBufferArrayCounterConstIndex) {
 TEST_F(FileTest, RWStructuredBufferArrayCounterFlattened) {
   runFileTest("type.rwstructured-buffer.array.counter.flatten.hlsl");
 }
+TEST_F(FileTest, RWStructuredBufferArrayCounterIndirect) {
+  runFileTest("type.rwstructured-buffer.array.counter.indirect.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferArrayError) {
   runFileTest("type.append-structured-buffer.array.hlsl");
 }

@@ -982,7 +982,8 @@ bool isRWStructuredBuffer(QualType type) {
 }
 
 bool isRWAppendConsumeSBuffer(QualType type) {
-  return isRWStructuredBuffer(type) || isConsumeStructuredBuffer(type) || isAppendStructuredBuffer(type);
+  return isRWStructuredBuffer(type) || isConsumeStructuredBuffer(type) ||
+         isAppendStructuredBuffer(type);
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {
