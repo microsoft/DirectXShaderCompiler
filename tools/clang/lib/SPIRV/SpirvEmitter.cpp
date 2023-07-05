@@ -6281,10 +6281,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     }
 
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
-    return;
-  }
-
-  if (isOpaqueType(lhsValType)) {
+  } else if (isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
     //
@@ -6296,10 +6293,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // Note: legalization specific code
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
     needsLegalization = true;
-    return;
-  }
-
-  if (isAKindOfStructuredOrByteBuffer(lhsValType)) {
+  } else if (isAKindOfStructuredOrByteBuffer(lhsValType)) {
     // The rhs should be a pointer and the lhs should be a pointer-to-pointer.
     // Directly store the pointer here and let SPIRV-Tools opt to do the clean
     // up.
@@ -6307,8 +6301,6 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // Note: legalization specific code
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
     needsLegalization = true;
-    return;
-  }
 
     // For ConstantBuffers/TextureBuffers, we decompose and assign each field
     // recursively like normal structs using the following logic.
@@ -6318,7 +6310,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
-  if (isOpaqueArrayType(lhsValType)) {
+  } else if (isOpaqueArrayType(lhsValType)) {
     // SPIRV-Tools can handle legalization of the store in these cases.
     if (!lhsValType->isConstantArrayType() || rhsVal->isRValue()) {
       spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
@@ -6355,29 +6347,22 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
         spvBuilder.createCompositeConstruct(lhsValType, elements,
                                             rhsVal->getSourceLocation(), range),
         loc, range);
-    return;
-  }
-
-  if (lhsPtr->getLayoutRule() == rhsVal->getLayoutRule()) {
+  } else if (lhsPtr->getLayoutRule() == rhsVal->getLayoutRule()) {
     // If lhs and rhs has the same memory layout, we should be safe to load
     // from rhs and directly store into lhs and avoid decomposing rhs.
     // Note: this check should happen after those setting needsLegalization.
     // TODO: is this optimization always correct?
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
-    return;
-  }
-
-  if (lhsValType->isRecordType() || lhsValType->isConstantArrayType() ||
-      lhsIsNonFpMat) {
+  } else if (lhsValType->isRecordType() || lhsValType->isConstantArrayType() ||
+             lhsIsNonFpMat) {
     spvBuilder.createStore(lhsPtr,
                            reconstructValue(rhsVal, lhsValType,
                                             lhsPtr->getLayoutRule(), loc,
                                             range),
                            loc, range);
-    return;
+  } else {
+    emitError("storing value of type %0 unimplemented", {}) << lhsValType;
   }
-
-  emitError("storing value of type %0 unimplemented", {}) << lhsValType;
 }
 
 SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
