@@ -6470,7 +6470,7 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
         [&](size_t spirvFieldIndex, const QualType &fieldType,
             const auto &field) {
           SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
-              fieldType, srcVal, {spirvFieldIndex}, loc, range);
+              fieldType, srcVal, {static_cast<uint32_t>(spirvFieldIndex)}, loc, range);
           subSrcVal->setLayoutRule(srcVal->getLayoutRule());
           elements.push_back(
               reconstructValue(subSrcVal, fieldType, dstLR, loc, range));
