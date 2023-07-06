@@ -1619,7 +1619,7 @@ DeduceTemplateArgumentsByTypeMatch(Sema &S,
 
       // Try to deduce a matrix dimension.
       auto DeduceMatrixArg =
-          [&S, &Info, &Deduced, &TemplateParams](
+          [&S, &Info, &Deduced](
               Expr *ParamExpr, const MatrixType *A,
               unsigned (ConstantMatrixType::*GetArgDimension)() const,
               Expr *(DependentSizedMatrixType::*GetArgDimensionExpr)() const) {
