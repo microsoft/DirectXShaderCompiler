@@ -265,7 +265,20 @@ if "%TEST_CLEAN%"=="1" (
 )
 
 if "%TEST_MANUAL_FILE_CHECK%"=="1" (
-  set TEST_USE_LIT=0
+  echo %MANUAL_FILE_CHECK_PATH%|find "\HLSLFileCheck\" >nul
+  if errorlevel 1 (
+        echo "run lit file-check"
+        set TEST_MANUAL_FILE_CHECK=0
+        set TEST_CLANG=0
+        set TEST_DXILCONV=0
+        set TEST_SPIRV=0
+        set TEST_EXEC=0
+        set TEST_CMD=0
+        py %BIN_DIR%\llvm-lit.py %MANUAL_FILE_CHECK_PATH% -v
+  ) else (
+        set TEST_USE_LIT=0
+        echo "run taef file-check"
+  )
 )
 
 if "%TEST_USE_LIT%"=="1" (
