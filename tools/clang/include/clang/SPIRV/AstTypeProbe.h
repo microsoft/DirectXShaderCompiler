@@ -348,8 +348,8 @@ QualType getComponentVectorType(const ASTContext &, QualType matrixType);
 
 /// \brief Returns a QualType corresponding to HLSL matrix of given element type
 /// and rows/columns.
-QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
-                           QualType elemType, int rows, int columns);
+QualType getHLSLMatrixType(ASTContext &, Sema &, QualType elemType, int rows,
+                           int columns);
 
 /// Returns true if the given type is a structure or array of structures for
 /// which flattening all of its members recursively results in resources ONLY.

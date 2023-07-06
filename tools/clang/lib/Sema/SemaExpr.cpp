@@ -4313,6 +4313,15 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
   } else if (LHSTy->isMatrixType()) {
     BaseExpr = LHSExp;
     IndexExpr = RHSExp;
+    // Make the idx unsigned to match old behavior of matrix subscript which use unsigned idx.
+    if (IndexExpr->getType()->isSignedIntegerType()) {
+      IndexExpr =
+          ImpCastExprToType(IndexExpr,
+                            getASTContext().getCorrespondingUnsignedType(
+                                IndexExpr->getType()),
+                            CK_IntegralCast)
+              .get();
+    }
     VK = LHSExp->getValueKind();
     if (auto *CMT = LHSTy->getAs<ConstantMatrixType>()) {
       ResultType = hlsl::GetHLSLVectorType(*this, CMT->getElementType(),

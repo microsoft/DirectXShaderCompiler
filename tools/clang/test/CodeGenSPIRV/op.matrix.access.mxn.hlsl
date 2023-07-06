@@ -86,8 +86,8 @@ void main() {
 
     // One level indexing (from rvalue)
 // CHECK:      [[cc4:%\d+]] = OpCompositeConstruct %mat2v3float {{%\d+}} {{%\d+}}
-// CHECK-NEXT: OpStore %temp_var_vector [[cc4]]
-// CHECK-NEXT: [[access11:%\d+]] = OpAccessChain %_ptr_Function_v3float %temp_var_vector %uint_0
+// CHECK-NEXT: OpStore %temp_var_mat2v3float [[cc4]]
+// CHECK-NEXT: [[access11:%\d+]] = OpAccessChain %_ptr_Function_v3float %temp_var_mat2v3float %uint_0
 // CHECK-NEXT: [[load8:%\d+]] = OpLoad %v3float [[access11]]
 // CHECK-NEXT: OpStore %vec3 [[load8]]
     vec3 = (mat + mat)[0];
@@ -95,8 +95,8 @@ void main() {
     // Two level indexing (from rvalue)
 // CHECK-NEXT: [[index3:%\d+]] = OpLoad %uint %index
 // CHECK:      [[cc5:%\d+]] = OpCompositeConstruct %mat2v3float {{%\d+}} {{%\d+}}
-// CHECK-NEXT: OpStore %temp_var_vector_0 [[cc5]]
-// CHECK-NEXT: [[access12:%\d+]] = OpAccessChain %_ptr_Function_float %temp_var_vector_0 %uint_0 [[index3]]
+// CHECK-NEXT: OpStore %temp_var_vector [[cc5]]
+// CHECK-NEXT: [[access12:%\d+]] = OpAccessChain %_ptr_Function_float %temp_var_vector %uint_0 [[index3]]
 // CHECK-NEXT: [[load9:%\d+]] = OpLoad %float [[access12]]
 // CHECK-NEXT: OpStore %scalar [[load9]]
     scalar = (mat + mat)[0][index];
@@ -184,8 +184,8 @@ void main() {
 
     // One level indexing (from rvalue)
 // CHECK:      [[cc4:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 {{%\d+}} {{%\d+}}
-// CHECK-NEXT: OpStore %temp_var_vector_1 [[cc4]]
-// CHECK-NEXT: [[access11:%\d+]] = OpAccessChain %_ptr_Function_v3int %temp_var_vector_1 %uint_0
+// CHECK-NEXT: OpStore %temp_var_mat2v3int [[cc4]]
+// CHECK-NEXT: [[access11:%\d+]] = OpAccessChain %_ptr_Function_v3int %temp_var_mat2v3int %uint_0
 // CHECK-NEXT: [[load8:%\d+]] = OpLoad %v3int [[access11]]
 // CHECK-NEXT: OpStore %intVec3 [[load8]]
     intVec3 = (intMat + intMat)[0];
@@ -193,8 +193,8 @@ void main() {
     // Two level indexing (from rvalue)
 // CHECK-NEXT: [[index3:%\d+]] = OpLoad %uint %index
 // CHECK:      [[cc5:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 {{%\d+}} {{%\d+}}
-// CHECK-NEXT: OpStore %temp_var_vector_2 [[cc5]]
-// CHECK-NEXT: [[access12:%\d+]] = OpAccessChain %_ptr_Function_int %temp_var_vector_2 %uint_0 [[index3]]
+// CHECK-NEXT: OpStore %temp_var_vector_0 [[cc5]]
+// CHECK-NEXT: [[access12:%\d+]] = OpAccessChain %_ptr_Function_int %temp_var_vector_0 %uint_0 [[index3]]
 // CHECK-NEXT: [[load9:%\d+]] = OpLoad %int [[access12]]
 // CHECK-NEXT: OpStore %intScalar [[load9]]
     intScalar = (intMat + intMat)[0][index];

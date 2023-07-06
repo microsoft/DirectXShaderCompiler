@@ -521,15 +521,8 @@ QualType getUintTypeForBool(ASTContext &astContext,
     const bool isMat = isMxNMatrix(boolType, nullptr, &numRows, &numCols);
     assert(isMat);
     (void)isMat;
-
-    const clang::Type *type = boolType.getCanonicalType().getTypePtr();
-    const RecordType *RT = cast<RecordType>(type);
-    const ClassTemplateSpecializationDecl *templateSpecDecl =
-        cast<ClassTemplateSpecializationDecl>(RT->getDecl());
-    ClassTemplateDecl *templateDecl =
-        templateSpecDecl->getSpecializedTemplate();
     return getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
-                             templateDecl, uintType, numRows, numCols);
+                             uintType, numRows, numCols);
   }
   return QualType();
 }
@@ -1219,14 +1212,8 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
         const bool isMat = isMxNMatrix(exprType, nullptr, &numRows, &numCols);
         assert(isMat);
         (void)isMat;
-        const clang::Type *type = exprType.getCanonicalType().getTypePtr();
-        const RecordType *RT = cast<RecordType>(type);
-        const ClassTemplateSpecializationDecl *templateSpecDecl =
-            cast<ClassTemplateSpecializationDecl>(RT->getDecl());
-        ClassTemplateDecl *templateDecl =
-            templateSpecDecl->getSpecializedTemplate();
         const auto fromType = getHLSLMatrixType(
-            astContext, theCompilerInstance.getSema(), templateDecl,
+            astContext, theCompilerInstance.getSema(),
             astContext.UnsignedIntTy, numRows, numCols);
         loadedInstr =
             castToBool(loadedInstr, fromType, exprType, expr->getLocStart());
@@ -7773,6 +7760,15 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     const Expr *thisBase = indexing->getBase()->IgnoreParenLValueCasts();
     const Expr *base = collectArrayStructIndices(thisBase, rawIndex, rawIndices,
                                                  indices, isMSOutAttribute);
+    if (hlsl::IsHLSLMatType(base->getType())) {
+      unsigned row = 0;
+      unsigned col = 0;
+      hlsl::GetHLSLMatRowColCount(base->getType(), row, col);
+      // Matrix only has 1 row is lowered to vector.
+      // No need to add the indices.
+      if (row == 1)
+        return base;
+    }
     // The index into an array must be an integer number.
     const auto *idxExpr = indexing->getIdx();
     const auto idxExprType = idxExpr->getType();
@@ -11214,14 +11210,8 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     // SPIR-V has only non tranposed variant defined as a builtin
     // So perform read of original non transposed builtin and perform transpose.
     assert(hlsl::IsHLSLMatType(builtinType) && "Builtin should be matrix");
-    const clang::Type *type = builtinType.getCanonicalType().getTypePtr();
-    const RecordType *RT = cast<RecordType>(type);
-    const ClassTemplateSpecializationDecl *templateSpecDecl =
-        cast<ClassTemplateSpecializationDecl>(RT->getDecl());
-    ClassTemplateDecl *templateDecl =
-        templateSpecDecl->getSpecializedTemplate();
     builtinType = getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
-                                    templateDecl, astContext.FloatTy, 4, 3);
+                                    astContext.FloatTy, 4, 3);
   }
   SpirvInstruction *retVal =
       declIdMapper.getBuiltinVar(builtin, builtinType, loc);
@@ -13437,14 +13427,8 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
 
   if (transposeMatrix) {
     assert(hlsl::IsHLSLMatType(exprType) && "intrinsic should be matrix");
-    const clang::Type *type = exprType.getCanonicalType().getTypePtr();
-    const RecordType *RT = cast<RecordType>(type);
-    const ClassTemplateSpecializationDecl *templateSpecDecl =
-        cast<ClassTemplateSpecializationDecl>(RT->getDecl());
-    ClassTemplateDecl *templateDecl =
-        templateSpecDecl->getSpecializedTemplate();
     exprType = getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
-                                 templateDecl, astContext.FloatTy, 4, 3);
+                                 astContext.FloatTy, 4, 3);
   }
 
   const auto loc = expr->getExprLoc();
