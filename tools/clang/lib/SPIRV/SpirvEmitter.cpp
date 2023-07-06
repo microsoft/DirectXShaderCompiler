@@ -3067,6 +3067,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
 
     auto *value = castToInt(loadIfGLValue(subExpr), subExprType, toType,
                             subExpr->getLocStart(), range);
+    if (!value)
+      return nullptr;
+
     value->setRValue();
     return value;
   }
@@ -3083,6 +3086,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
 
     auto *value = castToFloat(loadIfGLValue(subExpr), subExprType, toType,
                               subExpr->getLocStart(), range);
+    if (!value)
+      return nullptr;
+
     value->setRValue();
     return value;
   }
@@ -3098,6 +3104,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
 
     auto *value = castToBool(loadIfGLValue(subExpr), subExprType, toType,
                              subExpr->getLocStart(), range);
+    if (!value)
+      return nullptr;
+
     value->setRValue();
     return value;
   }
@@ -3122,6 +3131,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
       value = spvBuilder.createCompositeConstruct(toVecType, elements,
                                                   expr->getExprLoc(), range);
     }
+
+    if (!value)
+      return nullptr;
 
     value->setRValue();
     return value;
@@ -3153,6 +3165,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
                                                    expr->getLocStart(), range);
     auto *mat = spvBuilder.createCompositeConstruct(toType, {subVec1, subVec2},
                                                     expr->getLocStart(), range);
+    if (!mat)
+      return nullptr;
+
     mat->setRValue();
     return mat;
   }
@@ -3176,6 +3191,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
       llvm::SmallVector<SpirvConstant *, 4> vectors(
           size_t(rowCount), cast<SpirvConstant>(vecSplat));
       auto *value = spvBuilder.getConstantComposite(toType, vectors);
+      if (!value)
+        return nullptr;
+
       value->setRValue();
       return value;
     } else {
@@ -3183,6 +3201,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
                                                        vecSplat);
       auto *value = spvBuilder.createCompositeConstruct(
           toType, vectors, expr->getLocEnd(), range);
+      if (!value)
+        return nullptr;
+
       value->setRValue();
       return value;
     }
@@ -3202,6 +3223,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
       if (isVectorType(srcType, nullptr, &srcVecSize) && isScalarType(toType)) {
         auto *val = spvBuilder.createCompositeExtract(
             toType, src, {0}, expr->getLocStart(), range);
+        if (!val)
+          return nullptr;
+
         val->setRValue();
         return val;
       }
@@ -3212,6 +3236,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
           indexes.push_back(i);
         auto *val = spvBuilder.createVectorShuffle(toType, src, src, indexes,
                                                    expr->getLocStart(), range);
+        if (!val)
+          return nullptr;
+
         val->setRValue();
         return val;
       }
@@ -3251,6 +3278,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
       val = spvBuilder.createCompositeConstruct(toType, extractedVecs,
                                                 expr->getExprLoc(), range);
     }
+    if (!val)
+      return nullptr;
+
     val->setRValue();
     return val;
   }
@@ -3286,6 +3316,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
         spvBuilder.createCompositeExtract(vec2Type, mat, {1}, srcLoc, range);
     auto *vec = spvBuilder.createVectorShuffle(toType, row0, row1, {0, 1, 2, 3},
                                                srcLoc, range);
+    if (!vec)
+      return nullptr;
+
     vec->setRValue();
     return vec;
   }
@@ -3631,6 +3664,8 @@ SpirvInstruction *SpirvEmitter::doShortCircuitedConditionalOperator(
   // From now on, emit instructions into the merge block.
   spvBuilder.setInsertPoint(mergeBB);
   SpirvInstruction *result = spvBuilder.createLoad(type, tempVar, loc, range);
+  if (!result)
+    return nullptr;
   result->setRValue();
   return result;
 }
@@ -3684,6 +3719,9 @@ SpirvInstruction *SpirvEmitter::doConditional(const Expr *expr,
       }
       auto *result =
           spvBuilder.createCompositeConstruct(type, rows, loc, range);
+      if (!result)
+        return nullptr;
+
       result->setRValue();
       return result;
     }
@@ -3708,6 +3746,9 @@ SpirvInstruction *SpirvEmitter::doConditional(const Expr *expr,
 
     auto *value = spvBuilder.createSelect(type, condition, trueBranch,
                                           falseBranch, loc, range);
+    if (!value)
+      return nullptr;
+
     value->setRValue();
     return value;
   }
@@ -3746,6 +3787,9 @@ SpirvInstruction *SpirvEmitter::doConditional(const Expr *expr,
   // From now on, emit instructions into the merge block.
   spvBuilder.setInsertPoint(mergeBB);
   auto *result = spvBuilder.createLoad(type, tempVar, expr->getLocEnd(), range);
+  if (!result)
+    return nullptr;
+
   result->setRValue();
   return result;
 }
@@ -4315,6 +4359,9 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
                       : elemType;
     retVal = castToBool(retVal, toType, sampledType, loc);
   }
+  if (!retVal)
+    return nullptr;
+
   retVal->setRValue();
   return retVal;
 }
@@ -4438,6 +4485,9 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
           astContext.getExtVectorType(addressType, numWords);
       result = spvBuilder.createCompositeConstruct(resultType, values,
                                                    expr->getLocStart(), range);
+      if (!result)
+        return nullptr;
+
       result->setRValue();
     }
   }
@@ -5789,6 +5839,8 @@ SpirvEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
                   : astContext.getExtVectorType(astContext.BoolTy, size);
     value = castToBool(value, fromType, toType, expr->getLocStart());
   }
+  if (!value)
+    return nullptr;
   value->setRValue();
   return value;
 }
@@ -5862,6 +5914,9 @@ SpirvEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr,
     llvm::SmallVector<SpirvInstruction *, 4> components(accessorSize, info);
     info = spvBuilder.createCompositeConstruct(type, components,
                                                expr->getLocStart(), range);
+    if (!info)
+      return nullptr;
+
     info->setRValue();
     return info;
   }
@@ -6004,7 +6059,8 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
                                         SpirvInstruction *lhsVec) {
         auto *val = spvBuilder.createBinaryOp(spvOp, vecType, lhsVec, one,
                                               expr->getOperatorLoc(), range);
-        val->setRValue();
+        if (val)
+          val->setRValue();
         return val;
       };
       incValue = processEachVectorInMatrix(subExpr, originValue, actOnEachVec,
@@ -6017,6 +6073,8 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
     // If this is a RWBuffer/RWTexture assignment, OpImageWrite will be used.
     // Otherwise, store using OpStore.
     if (tryToAssignToRWBufferRWTexture(subExpr, incValue, range)) {
+      if (!incValue)
+        return nullptr;
       incValue->setRValue();
       subValue = incValue;
     } else {
@@ -6027,14 +6085,19 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
     // increment/decrement returns a rvalue.
     if (isPre) {
       return subValue;
-    } else {
-      originValue->setRValue();
-      return originValue;
     }
+
+    if (!originValue)
+      return nullptr;
+    originValue->setRValue();
+    return originValue;
   }
   case UO_Not: {
     subValue = spvBuilder.createUnaryOp(spv::Op::OpNot, subType, subValue,
                                         expr->getOperatorLoc(), range);
+    if (!subValue)
+      return nullptr;
+
     subValue->setRValue();
     return subValue;
   }
@@ -6044,6 +6107,9 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
     subValue =
         spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, subType, subValue,
                                  expr->getOperatorLoc(), range);
+    if (!subValue)
+      return nullptr;
+
     subValue->setRValue();
     return subValue;
   }
@@ -6069,6 +6135,9 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
     } else {
       subValue = spvBuilder.createUnaryOp(spvOp, subType, subValue,
                                           expr->getOperatorLoc(), range);
+      if (!subValue)
+        return nullptr;
+
       subValue->setRValue();
       return subValue;
     }
@@ -6569,6 +6638,9 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
     SpirvInstruction *result =
         castToType(tempVar, astContext.BoolTy, resultType, loc, sourceRange);
     result = spvBuilder.createLoad(resultType, tempVar, loc, sourceRange);
+    if (!result)
+      return nullptr;
+
     result->setRValue();
     return result;
   }
@@ -6653,6 +6725,9 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
               rhsValConstant->isSpecConstant()) {
             auto *val = spvBuilder.createSpecConstantBinaryOp(
                 spvOp, resultType, lhsVal, rhsVal, loc);
+            if (!val)
+              return nullptr;
+
             val->setRValue();
             return val;
           }
@@ -6675,6 +6750,8 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
                                       sourceRange);
     }
 
+    if (!val)
+      return nullptr;
     val->setRValue();
 
     // Propagate RelaxedPrecision
@@ -6929,6 +7006,8 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
   // Try to evaluate the element as constant first. If successful, then we
   // can generate constant instructions for this vector splat.
   if ((scalarVal = tryToEvaluateAsConst(scalarExpr))) {
+    if (!scalarVal)
+      return nullptr;
     scalarVal->setRValue();
   } else {
     scalarVal = loadIfGLValue(scalarExpr, range);
@@ -6949,12 +7028,16 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
     llvm::SmallVector<SpirvConstant *, 4> elements(size_t(size), constVal);
     const bool isSpecConst = constVal->getopcode() == spv::Op::OpSpecConstant;
     auto *value = spvBuilder.getConstantComposite(vecType, elements, isSpecConst);
+    if (!value)
+      return nullptr;
     value->setRValue();
     return value;
   } else {
     llvm::SmallVector<SpirvInstruction *, 4> elements(size_t(size), scalarVal);
     auto *value = spvBuilder.createCompositeConstruct(
         vecType, elements, scalarExpr->getLocStart(), range);
+    if (!value)
+      return nullptr;
     value->setRValue();
     return value;
   }
@@ -7611,6 +7694,8 @@ SpirvInstruction *SpirvEmitter::processEachVectorInMatrix(
 
   // Construct the result matrix
   auto *val = spvBuilder.createCompositeConstruct(matType, vectors, loc, range);
+  if (!val)
+    return nullptr;
   val->setRValue();
   return val;
 }
@@ -7723,7 +7808,8 @@ SpirvEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
                                                        rhs->getLocStart());
       auto *val =
           spvBuilder.createBinaryOp(spvOp, vecType, lhsVec, rhsVec, loc, range);
-      val->setRValue();
+      if (val)
+        val->setRValue();
       return val;
     };
     return processEachVectorInMatrix(lhs, lhsVal, actOnEachVec,
@@ -13525,6 +13611,8 @@ SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
 
   SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
       op, retType, spvArgs, extensions, instSet, capbilities, loc);
+  if (!retVal)
+    return nullptr;
 
   // TODO: Revisit this r-value setting when handling vk::ext_result_id<T> ?
   retVal->setRValue();
@@ -13643,6 +13731,8 @@ SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
   SpirvInstruction *load =
       loadDataFromRawAddress(address, bufferType, alignment, loc);
   auto *loadAsBool = castToBool(load, bufferType, boolType, loc);
+  if (!loadAsBool)
+    return nullptr;
   loadAsBool->setRValue();
   return loadAsBool;
 }
