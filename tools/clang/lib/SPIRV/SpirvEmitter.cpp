@@ -13760,23 +13760,39 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   return loadInst;
 }
 
-SpirvInstruction *SpirvEmitter::storeDataToRawAddress(
-    SpirvInstruction *addressInUInt64, SpirvInstruction *value,
-    QualType bufferType, uint32_t alignment, SourceLocation loc) {
-
+SpirvInstruction *
+SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
+                                    SpirvInstruction *value,
+                                    QualType bufferType, uint32_t alignment,
+                                    SourceLocation loc, SourceRange range) {
   // Summary:
   //   %address = OpBitcast %ptrTobufferType %addressInUInt64
   //   %storeInst = OpStore %address %value alignment %alignment
+  if (!value || !addressInUInt64)
+    return nullptr;
 
   const HybridPointerType *bufferPtrType =
       spvBuilder.getPhysicalStorageBufferType(bufferType);
 
   SpirvUnaryOp *address = spvBuilder.createUnaryOp(
       spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
+  if (!address)
+    return nullptr;
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  SpirvStore *storeInst = spvBuilder.createStore(address, value, loc);
+  // If the source value has a different layout, it is not safe to directly
+  // store it. It needs to be component-wise reconstructed to the new layout.
+  SpirvInstruction *source = value;
+  if (value->getStorageClass() != address->getStorageClass()) {
+    source = reconstructValue(value, bufferType, address->getLayoutRule(), loc,
+                              range);
+  }
+  if (!source)
+    return nullptr;
+
+  SpirvStore *storeInst = spvBuilder.createStore(address, source, loc);
   storeInst->setAlignment(alignment);
+  storeInst->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
   return nullptr;
 }
 
@@ -13788,10 +13804,14 @@ SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
 
   SpirvInstruction *address = doExpr(callExpr->getArg(0));
   SpirvInstruction *value = doExpr(callExpr->getArg(1));
+  if (!address || !value)
+    return nullptr;
+
   QualType bufferType = value->getAstResultType();
   clang::SourceLocation loc = callExpr->getExprLoc();
   if (!isBoolOrVecMatOfBoolType(bufferType)) {
-    return storeDataToRawAddress(address, value, bufferType, alignment, loc);
+    return storeDataToRawAddress(address, value, bufferType, alignment, loc,
+                                 callExpr->getLocStart());
   }
 
   // If callExpr is `vk::RawBufferLoad<bool>(..)`, we have to load 'uint' and
@@ -13807,7 +13827,8 @@ SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
   QualType boolType = bufferType;
   bufferType = getUintTypeForBool(astContext, theCompilerInstance, boolType);
   auto *storeAsInt = castToInt(value, boolType, bufferType, loc);
-  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment, loc);
+  return storeDataToRawAddress(address, storeAsInt, bufferType, alignment, loc,
+                               callExpr->getLocStart());
 }
 
 SpirvInstruction *

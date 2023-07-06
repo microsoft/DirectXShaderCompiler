@@ -1461,6 +1461,9 @@ TEST_F(FileTest, IntrinsicsVkRawBufferLoadBitfield) {
 TEST_F(FileTest, IntrinsicsVkRawBufferStore) {
   runFileTest("intrinsics.vkrawbufferstore.hlsl");
 }
+TEST_F(FileTest, IntrinsicsVkRawBufferStoreBitfields) {
+  runFileTest("intrinsics.vkrawbufferstore.bitfields.hlsl");
+}
 // Intrinsics added in SM 6.6
 TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
   runFileTest("intrinsics.sm6_6.pack_s8u8.hlsl");
