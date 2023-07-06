@@ -5130,8 +5130,6 @@ public:
       return expr;
     };
 
-    unsigned Row = 4;
-    unsigned Col = 4;
     Expr * RowExpr = getMatrixArgAsExpr(TemplateArgList, 1);
     Expr * ColExpr = getMatrixArgAsExpr(TemplateArgList, 2);
     Optional<llvm::APSInt> RowImm = RowExpr->getIntegerConstantExpr(Ctx);
