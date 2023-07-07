@@ -2878,17 +2878,13 @@ protected:
   unsigned NumRows;
   unsigned NumColumns;
 
-  bool IsRowMajor;
-
   static constexpr unsigned MaxElementsPerDimension = (1 << 20) - 1;
 
   ConstantMatrixType(QualType MatrixElementType, unsigned NRows,
-                     unsigned NColumns, QualType CanonElementType,
-                     bool isRowMajor);
+                     unsigned NColumns, QualType CanonElementType);
 
   ConstantMatrixType(TypeClass typeClass, QualType MatrixType, unsigned NRows,
-                     unsigned NColumns, QualType CanonElementType,
-                     bool isRowMajor);
+                     unsigned NColumns, QualType CanonElementType);
 
 public:
   /// Returns the number of rows in the matrix.
@@ -2896,8 +2892,6 @@ public:
 
   /// Returns the number of columns in the matrix.
   unsigned getNumColumns() const { return NumColumns; }
-
-  bool getIsRowMajor() const { return IsRowMajor; }
 
   /// Returns the number of elements required to embed the matrix into a vector.
   unsigned getNumElementsFlattened() const {

@@ -3022,8 +3022,7 @@ ASTContext::getDependentSizedExtVectorType(QualType vecType,
 }
 
 QualType ASTContext::getConstantMatrixType(QualType ElementTy, unsigned NumRows,
-                                           unsigned NumColumns,
-                                           bool IsRowMajor) const {
+                                           unsigned NumColumns) const {
   llvm::FoldingSetNodeID ID;
   ConstantMatrixType::Profile(ID, ElementTy, NumRows, NumColumns,
                               Type::ConstantMatrix);
@@ -3040,7 +3039,7 @@ QualType ASTContext::getConstantMatrixType(QualType ElementTy, unsigned NumRows,
   QualType Canonical;
   if (!ElementTy.isCanonical()) {
     Canonical =
-        getConstantMatrixType(getCanonicalType(ElementTy), NumRows, NumColumns, IsRowMajor);
+        getConstantMatrixType(getCanonicalType(ElementTy), NumRows, NumColumns);
 
     ConstantMatrixType *NewIP = MatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
     assert(!NewIP && "Matrix type shouldn't already exist in the map");
@@ -3048,7 +3047,7 @@ QualType ASTContext::getConstantMatrixType(QualType ElementTy, unsigned NumRows,
   }
 
   auto *New = new (*this, TypeAlignment)
-      ConstantMatrixType(ElementTy, NumRows, NumColumns, Canonical, IsRowMajor);
+      ConstantMatrixType(ElementTy, NumRows, NumColumns, Canonical);
   MatrixTypes.InsertNode(New, InsertPos);
   Types.push_back(New);
   return QualType(New, 0);

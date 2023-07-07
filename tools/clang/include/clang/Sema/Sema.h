@@ -1216,7 +1216,7 @@ public:
                           SourceRange Brackets, DeclarationName Entity);
   QualType BuildExtVectorType(QualType T, Expr *ArraySize,
                               SourceLocation AttrLoc);
-  QualType BuildMatrixType(QualType T, Expr *NumRows, Expr *NumColumns, bool IsRowMajor,
+  QualType BuildMatrixType(QualType T, Expr *NumRows, Expr *NumColumns,
                            SourceLocation AttrLoc);
 
   bool CheckFunctionReturnType(QualType T, SourceLocation Loc);

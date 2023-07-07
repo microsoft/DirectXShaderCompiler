@@ -2217,7 +2217,6 @@ QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
 }
 
 QualType Sema::BuildMatrixType(QualType ElementTy, Expr *NumRows, Expr *NumCols,
-                               bool IsRowMajor,
                                SourceLocation AttrLoc) {
 
   // Check element type, if it is not dependent.
@@ -2288,7 +2287,7 @@ QualType Sema::BuildMatrixType(QualType ElementTy, Expr *NumRows, Expr *NumCols,
         << ColRange << "matrix column";
     return QualType();
   }
-  return Context.getConstantMatrixType(ElementTy, MatrixRows, MatrixColumns, IsRowMajor);
+  return Context.getConstantMatrixType(ElementTy, MatrixRows, MatrixColumns);
 }
 
 bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {

@@ -179,15 +179,15 @@ MatrixType::MatrixType(TypeClass tc, QualType matrixType, QualType canonType,
       ElementType(matrixType) {}
 
 ConstantMatrixType::ConstantMatrixType(QualType matrixType, unsigned nRows,
-                                       unsigned nColumns, QualType canonType, bool isRowMajor)
+                                       unsigned nColumns, QualType canonType)
     : ConstantMatrixType(ConstantMatrix, matrixType, nRows, nColumns,
-                         canonType, isRowMajor) {}
+                         canonType) {}
 
 ConstantMatrixType::ConstantMatrixType(TypeClass tc, QualType matrixType,
                                        unsigned nRows, unsigned nColumns,
-                                       QualType canonType, bool isRowMajor)
+                                       QualType canonType)
     : MatrixType(tc, matrixType, canonType), NumRows(nRows),
-      NumColumns(nColumns), IsRowMajor(isRowMajor) {}
+      NumColumns(nColumns) {}
 
 DependentSizedMatrixType::DependentSizedMatrixType(
     const ASTContext &CTX, QualType ElementType, QualType CanonicalType,
@@ -834,7 +834,7 @@ public:
       return QualType(T, 0);
 
     return Ctx.getConstantMatrixType(elementType, T->getNumRows(),
-                                     T->getNumColumns(), T->getIsRowMajor());
+                                     T->getNumColumns());
   }
 
   QualType VisitFunctionNoProtoType(const FunctionNoProtoType *T) { 

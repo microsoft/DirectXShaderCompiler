@@ -812,8 +812,7 @@ QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
       IntegerLiteral::Create(context, llvm::APInt(32, rowCount), I32Ty, NoLoc);
   Expr *colExpr =
       IntegerLiteral::Create(context, llvm::APInt(32, colCount), I32Ty, NoLoc);
-  return sema->BuildMatrixType(elementType, rowExpr, colExpr,
-                               sema->getLangOpts().HLSLDefaultRowMajor, NoLoc);
+  return sema->BuildMatrixType(elementType, rowExpr, colExpr, NoLoc);
 }
 
 /// <summary>Instantiates a new vector type specialization or gets an existing one from the AST.</summary>
@@ -5138,8 +5137,7 @@ public:
     if (RowImm.hasValue() && ColImm.hasValue())
       return m_sema->getASTContext().getConstantMatrixType(
           EltType, RowImm.getValue().getExtValue(),
-          ColImm.getValue().getExtValue(),
-          m_sema->LangOpts.HLSLDefaultRowMajor);
+          ColImm.getValue().getExtValue());
 
     return Ctx.getDependentSizedMatrixType(EltType, RowExpr, ColExpr, NoLoc);
   }

@@ -1118,7 +1118,7 @@ public:
   /// \pre \p ElementType must be a valid matrix element type (see
   /// MatrixType::isValidElementType).
   QualType getConstantMatrixType(QualType ElementType, unsigned NumRows,
-                                 unsigned NumColumns, bool IsRowMajor) const;
+                                 unsigned NumColumns) const;
 
   /// Return the unique reference to the matrix type of the specified element
   /// type and size
