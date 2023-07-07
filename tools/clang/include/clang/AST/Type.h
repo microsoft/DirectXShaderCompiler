@@ -2878,7 +2878,7 @@ protected:
   unsigned NumRows;
   unsigned NumColumns;
 
-  static constexpr unsigned MaxElementsPerDimension = (1 << 20) - 1;
+  static constexpr unsigned MaxElementsPerDimension = 4;
 
   ConstantMatrixType(QualType MatrixElementType, unsigned NRows,
                      unsigned NColumns, QualType CanonElementType);
