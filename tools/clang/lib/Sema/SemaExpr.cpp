@@ -9446,12 +9446,13 @@ static void DiagnoseConstAssignment(Sema &S, const Expr *E,
       }
       break;
     } // End MemberExpr
-    else if (const ArraySubscriptExpr *ASE = dyn_cast<ArraySubscriptExpr>(E)) {
-      const Expr *Base = ASE->getBase();
-      if (Base->getType()->isMatrixType())
-        E = Base;
-    }
     break;
+  }
+
+  if (const ArraySubscriptExpr *ASE = dyn_cast<ArraySubscriptExpr>(E)) {
+    const Expr *Base = ASE->getBase();
+    if (Base->getType()->isMatrixType())
+      E = Base;
   }
 
   if (const CallExpr *CE = dyn_cast<CallExpr>(E)) {

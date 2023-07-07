@@ -5037,11 +5037,9 @@ public:
       return false;
     }
 
-    bool isMatrix = Template->getCanonicalDecl() ==
-                    m_matrixTemplateDecl->getCanonicalDecl();
     bool isVector = Template->getCanonicalDecl() ==
                     m_vectorTemplateDecl->getCanonicalDecl();
-    bool requireScalar = isMatrix || isVector;
+    bool requireScalar = isVector;
     
     // Check constraints on the type.
     for (unsigned int i = 0; i < TemplateArgList.size(); i++) {
@@ -5059,7 +5057,7 @@ public:
         }
       }
       else if (arg.getKind() == TemplateArgument::ArgKind::Expression) {
-        if (isMatrix || isVector) {
+        if (isVector) {
           Expr *expr = arg.getAsExpr();
           llvm::APSInt constantResult;
           if (expr != nullptr &&
@@ -5071,7 +5069,7 @@ public:
         }
       }
       else if (arg.getKind() == TemplateArgument::ArgKind::Integral) {
-        if (isMatrix || isVector) {
+        if (isVector) {
           llvm::APSInt Val = arg.getAsIntegral();
           if (CheckRangedTemplateArgument(argSrcLoc, Val)) {
             return true;
@@ -5095,14 +5093,12 @@ public:
   QualType CheckHLSLMatrixTemplate(_In_ TemplateDecl *Template,
                                    SourceLocation Loc /* TemplateLoc */,
                                    TemplateArgumentListInfo &TemplateArgList) {
-    // Assume CheckTemplateArgumentListForHLSL and IsHLSLMatrixTemplate are
+    // Assume IsHLSLMatrixTemplate are
     // true.
-    DXASSERT_NOMSG(
-        IsHLSLMatrixTemplate(Template) &&
-        !CheckTemplateArgumentListForHLSL(Template, Loc, TemplateArgList));
+    DXASSERT_NOMSG(IsHLSLMatrixTemplate(Template));
 
     QualType EltType = m_sema->getASTContext().FloatTy;
-
+    SourceLocation EltLoc = NoLoc;
     if (TemplateArgList.size() > 0) {
       if (TemplateArgList[0].getArgument().getKind() !=
           TemplateArgument::ArgKind::Type) {
@@ -5111,6 +5107,14 @@ public:
         return QualType();
       }
       EltType = TemplateArgList[0].getArgument().getAsType();
+      EltLoc = TemplateArgList[0].getLocation();
+    }
+
+    if (!EltType->isDependentType()) {
+      if (!IsValidTemplateArgumentType(EltLoc, EltType, true)) {
+        // NOTE: IsValidTemplateArgumentType emits its own diagnostics
+        return QualType();
+      }
     }
 
     ASTContext &Ctx = m_sema->getASTContext();
@@ -5134,10 +5138,15 @@ public:
     Optional<llvm::APSInt> RowImm = RowExpr->getIntegerConstantExpr(Ctx);
     Optional<llvm::APSInt> ColImm = ColExpr->getIntegerConstantExpr(Ctx);
 
-    if (RowImm.hasValue() && ColImm.hasValue())
+    if (RowImm.hasValue() && ColImm.hasValue()) {
+      if (CheckRangedTemplateArgument(RowExpr->getExprLoc(), RowImm.getValue()))
+        return QualType();
+      if (CheckRangedTemplateArgument(ColExpr->getExprLoc(), ColImm.getValue()))
+        return QualType();
+
       return m_sema->getASTContext().getConstantMatrixType(
-          EltType, RowImm.getValue().getExtValue(),
-          ColImm.getValue().getExtValue());
+          EltType, RowImm->getExtValue(), ColImm->getExtValue());
+    }
 
     return Ctx.getDependentSizedMatrixType(EltType, RowExpr, ColExpr, NoLoc);
   }

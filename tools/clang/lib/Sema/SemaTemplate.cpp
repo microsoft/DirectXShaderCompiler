@@ -2059,12 +2059,12 @@ QualType Sema::CheckTemplateIdType(TemplateName Name,
 
   // HLSL Change Starts - check template values for HLSL object/matrix/vector signatures
   if (getLangOpts().HLSL && Template->isImplicit()) {
-    if (hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc,
-                                               TemplateArgs))
-      return QualType();
     if (hlsl::IsHLSLMatrixTemplate(*this, Template))
       return hlsl::CheckHLSLMatrixTemplate(*this, Template, TemplateLoc,
                                            TemplateArgs);
+    if (hlsl::CheckTemplateArgumentListForHLSL(*this, Template, TemplateLoc,
+                                               TemplateArgs))
+      return QualType();
   }
   // HLSL Change Ends
 
