@@ -1165,6 +1165,10 @@ TEST_F(FileTest, SpvUseLegacyMatrixBufferOrder) {
   runFileTest("spv.use-legacy-buffer-matrix-order.hlsl");
 }
 
+TEST_F(FileTest, SpvPreserveInterface) {
+  runFileTest("spv.preserve-interface.hlsl");
+}
+
 TEST_F(FileTest, InitializeListRWByteAddressBuffer) {
   runFileTest("initializelist.rwbyteaddressbuffer.hlsl", Expect::Success,
               /* runValidation */ false);

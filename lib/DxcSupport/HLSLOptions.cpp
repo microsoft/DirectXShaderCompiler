@@ -986,6 +986,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
   opts.SpirvOptions.preserveBindings =
       Args.hasFlag(OPT_fspv_preserve_bindings, OPT_INVALID, false);
+  opts.SpirvOptions.preserveInterface =
+      Args.hasFlag(OPT_fspv_preserve_interface, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
