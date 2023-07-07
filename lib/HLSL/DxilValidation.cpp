@@ -3100,6 +3100,15 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             }
             dispatchMesh = CI;
           }
+
+          for (Value *op : CI->operands()) {
+            if (isa<UndefValue>(op)) {
+              if (dxilOpcode != DXIL::OpCode::OutputComplete) {
+                ValCtx.EmitInstrError(
+                    &I, ValidationRule::InstrNoReadingUninitialized);
+              }
+            }
+          }
         }
         continue;
       }
