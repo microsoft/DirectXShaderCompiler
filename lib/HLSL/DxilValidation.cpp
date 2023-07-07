@@ -2977,7 +2977,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           if (OP::IsDxilOpGradient(dxilOpcode)) {
             gradientOps.push_back(CI);
           }
-
+          
           if (dxilOpcode == DXIL::OpCode::Barrier) {
             barriers.push_back(CI);
           }
@@ -3008,7 +3008,17 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             }
             dispatchMesh = CI;
           }
+
+          for (Value *op : CI->operands()) {
+            if (isa<UndefValue>(op)) {
+              if (dxilOpcode != DXIL::OpCode::OutputComplete) {
+                ValCtx.EmitInstrError(
+                    &I, ValidationRule::InstrNoReadingUninitialized);
+              }
+            }
+          }
         }
+
         continue;
       }
 
@@ -3023,7 +3033,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
           if (isa<StoreInst>(&I)) {
             legalUndef = op == I.getOperand(0);
-          }
+          }                   
 
           if (!legalUndef)
             ValCtx.EmitInstrError(&I,
