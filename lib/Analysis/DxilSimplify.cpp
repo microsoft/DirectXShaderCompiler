@@ -45,9 +45,9 @@ Value *SimplifyDxilDot(hlsl::OP *hlslOP, Instruction *I, ArrayRef<Value *> a,
                        ArrayRef<Value *> b) {
   bool zero[] = {false, false, false, false};
   unsigned zeroCount = 0;
-  int size = a.size();
+  unsigned size = a.size();
 
-  for (int i = 0; i < size; i++) {
+  for (unsigned i = 0; i < size; i++) {
     if (ConstantFP *c = dyn_cast<ConstantFP>(a[i])) {
       if (c->getValueAPF().isZero()) {
         zero[i] = true;
@@ -70,13 +70,13 @@ Value *SimplifyDxilDot(hlsl::OP *hlslOP, Instruction *I, ArrayRef<Value *> a,
     return ConstantFP::get(Ty, 0);
 
   SmallVector<Value *, 4> a2, b2;
-  for (int i = 0; i < size; i++) {
+  for (unsigned i = 0; i < size; i++) {
     if (zero[i])
       continue;
     a2.emplace_back(a[i]);
     b2.emplace_back(b[i]);
   }
-  int leftCount = size - zeroCount;
+  unsigned leftCount = size - zeroCount;
   switch (leftCount) {
   default:
     return nullptr;
