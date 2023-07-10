@@ -219,7 +219,7 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
         pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
     if (pDPH) {
         const hlsl::DxilCompilerVersion *pDCV =
-            (hlsl::DxilCompilerVersion *)(pDPH + 1);
+            (const hlsl::DxilCompilerVersion *)(pDPH + 1);
         // If the compiler version string is non-empty, add the struct to the
         // map
         bool success =
@@ -336,7 +336,26 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       if (result != m_libNameToCompilerVersionPart.end()) {
         cur_version = ((*result).second);
       } else {
-        cur_version = nullptr;
+        UINT32 valMajor, valMinor;
+        dxcutil::GetValidatorVersion(&valMajor, &valMinor);
+        bool bValidatorAtLeast_1_8 =
+            DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
+        if (bValidatorAtLeast_1_8) {
+          std::string errorMsg =
+              "error: Cannot link library with no compiler version part.\n";
+
+          std::string noteStr =
+              "note: library name is \"" + first_lib_name + "\"";
+
+          errorMsg += noteStr;
+          DiagStream << errorMsg;
+          bSuccess = false;
+
+          if (i != 0) {
+            // only one error per library
+            continue;
+          }
+        }
       }
 
       if (i == 0) {
