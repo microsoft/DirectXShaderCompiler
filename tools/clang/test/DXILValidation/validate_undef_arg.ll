@@ -17,21 +17,26 @@ define void @loadStress_16() {
   %2 = call %dx.types.NodeHandle @dx.op.createNodeOutputHandle(i32 247, i32 0)
   %3 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle %2, %dx.types.NodeInfo { i32 6, i32 24 })
   %4 = call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 238, %dx.types.NodeHandle %3, i32 1, i1 true)
-  %5 = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %4, %dx.types.NodeRecordInfo { i32 38, i32 24 })
-  
-  ; CHECK: error: Instructions should not read uninitialized value.
-  ; CHECK: note: at '%6 = call %struct.loadStressRecord.0
-  %6 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle undef, i32 0)  
+  %5 = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %4, %dx.types.NodeRecordInfo { i32 38, i32 24 })  
+
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
+  ; CHECK-DAG: note: at '%6 = call %struct.loadStressRecord.0
+  %6 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer, i32 0)  
+
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
 
-  ; Note that output complete is the only exception among call instructions that may take in an undef as an argument.
-  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle undef)
+  ; at this point, %5 is a handle that contains an undefined value
+  %undefVal = 3 void undef
 
-  ; CHECK: error: Instructions should not read uninitialized value.
-  ; CHECK: note: at '%7 = add i32 3, undef'
-  %7 = add i32 3, undef
-  br label %8 
-; <label>:8                                      ; preds = %0
+  ; Note that output complete is the only exception among call instructions that may take in a zeroinitializer as an argument.
+  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle zeroinitializer)
+  
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
+  ; CHECK-DAG: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
+  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
+
+  br label %7
+; <label>:7                                       ; preds = %0
   ret void  
 }
 
@@ -46,6 +51,15 @@ declare %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32, %dx.typ
 
 ; Function Attrs: nounwind
 declare void @dx.op.outputComplete(i32, %dx.types.NodeRecordHandle) #1
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.unary.f32(i32, float) #0
+
+; Function Attrs: nounwind
+;declare void @dx.op.BufferLoad(i32, i32)
+
+; Function Attrs: nounwind
+;declare void @dx.op.EmitStream(i32, i32)
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32, %dx.types.NodeRecordHandle, %dx.types.NodeRecordInfo) #0

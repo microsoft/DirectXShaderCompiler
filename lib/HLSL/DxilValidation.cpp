@@ -1131,6 +1131,39 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
   return RP.CBufferSizeInBytes;
 }
 
+void ValidateInstructionHasNoUndefArgs(CallInst* CI, ValidationContext &ValCtx)
+{
+  Value *argOpcode = CI->getArgOperand(0);
+  ConstantInt *constOpcode = dyn_cast<ConstantInt>(argOpcode);
+  if (!constOpcode) {
+    // opcode not immediate; function body will validate this error.
+    return;
+  }
+
+  unsigned opcode = constOpcode->getLimitedValue();
+  if (opcode >= (unsigned)DXIL::OpCode::NumOpCodes) {
+    // invalid opcode; function body will validate this error.
+    return;
+  }
+
+  DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
+
+  // make sure none of the arguments are undef / zero-initializer,
+  // The only exception is that a zero-initializer is allowed
+  // as an argument to Output Complete (CAZ == zero-initializer)
+  for (Value *op : CI->operands()) {
+    if (isa<UndefValue>(op) || isa<ConstantAggregateZero>(op)) {
+      if (dxilOpcode == DXIL::OpCode::OutputComplete && isa<ConstantAggregateZero>(op)) {
+        return;
+      }
+      else {
+        ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrNoReadingUninitialized);
+      }
+    }
+  }
+}
+
 static unsigned GetNumVertices(DXIL::InputPrimitive inputPrimitive) {
   const unsigned InputPrimitiveVertexTab[] = {
     0, // Undefined = 0,
@@ -1197,6 +1230,9 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     F = it->second.front();
     bIsPatchConstantFunc = true;
   }
+
+  ValidateInstructionHasNoUndefArgs(CI, ValCtx);
+
   if (!ValCtx.HasEntryStatus(F)) {
     return;
   }
@@ -1497,6 +1533,8 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode opcode,
   default:
     break;
   }
+
+  ValidateInstructionHasNoUndefArgs(CI, ValCtx);
 }
 
 // Validate the type-defined mask compared to the store value mask which indicates which parts were defined
@@ -2076,6 +2114,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
   default:
     break;
   }
+
+  ValidateInstructionHasNoUndefArgs(CI, ValCtx);
 }
 
 static void ValidateBarrierFlagArg(ValidationContext &ValCtx, CallInst *CI,
@@ -2213,6 +2253,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
         ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst, {"inc", "BufferUpdateCounter"});
     }
 
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
+
   } break;
   case DXIL::OpCode::Barrier: {
     DxilInst_Barrier barrier(CI);
@@ -2247,6 +2289,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
       }
     }
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
 
   } break;
   case DXIL::OpCode::BarrierByMemoryType: {
@@ -2261,6 +2304,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     (unsigned)hlsl::DXIL::SyncFlag::ValidMask,
     "sync", "BarrierByMemoryType");
 
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
+
   } break;
   case DXIL::OpCode::BarrierByNodeRecordHandle:
   case DXIL::OpCode::BarrierByMemoryHandle: {
@@ -2274,12 +2319,15 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SyncFlags(),
                            (unsigned)hlsl::DXIL::SyncFlag::ValidMask, "sync",
                            opName);
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
+
   } break;   
   case DXIL::OpCode::CreateHandleForLib:
     if (!ValCtx.isLibProfile) {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"CreateHandleForLib", "Library"});
     }
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
     break;
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
@@ -2291,6 +2339,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     if (!isa<CallInst>(Handle) ||
         ValCtx.GetResourceFromVal(Handle).getResourceClass() != DXIL::ResourceClass::UAV)
       ValCtx.EmitInstrError(CI, ValidationRule::InstrAtomicIntrinNonUAV);
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
   } break;
   case DXIL::OpCode::CreateHandle:
     if (ValCtx.isLibProfile) {
@@ -2302,8 +2351,10 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"CreateHandle", "Shader model 6.5 and below"});
     }
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
     break;
   default:
+    ValidateInstructionHasNoUndefArgs(CI, ValCtx);
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
     break;
@@ -3055,11 +3106,11 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             continue;
           }
 
-          Value *opcodeVal = CI->getOperand(0);
-          ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
+          Value* opcodeVal = CI->getOperand(0);
+          ConstantInt* OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
           if (OpcodeConst == nullptr) {
             ValCtx.EmitInstrFormatError(&I, ValidationRule::InstrOpConst,
-                                        {"Opcode", "DXIL operation"});
+              { "Opcode", "DXIL operation" });
             continue;
           }
 
@@ -3099,15 +3150,6 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
               ValCtx.EmitInstrError(&I, ValidationRule::InstrNotOnceDispatchMesh);
             }
             dispatchMesh = CI;
-          }
-
-          for (Value *op : CI->operands()) {
-            if (isa<UndefValue>(op)) {
-              if (dxilOpcode != DXIL::OpCode::OutputComplete) {
-                ValCtx.EmitInstrError(
-                    &I, ValidationRule::InstrNoReadingUninitialized);
-              }
-            }
           }
         }
         continue;
