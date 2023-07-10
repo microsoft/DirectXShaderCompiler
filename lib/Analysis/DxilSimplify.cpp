@@ -27,6 +27,8 @@
 #include "llvm/Analysis/DxilConstantFolding.h"
 #include "llvm/Analysis/DxilSimplify.h"
 
+#include "llvm/ADT/BitVector.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -43,30 +45,27 @@ DXIL::OpCode GetOpcode(Value *opArg) {
 
 Value *SimplifyDxilDot(hlsl::OP *hlslOP, Instruction *I, ArrayRef<Value *> a,
                        ArrayRef<Value *> b) {
-  bool zero[] = {false, false, false, false};
-  unsigned zeroCount = 0;
   unsigned size = a.size();
+  BitVector zero(size);
 
   for (unsigned i = 0; i < size; i++) {
     if (ConstantFP *c = dyn_cast<ConstantFP>(a[i])) {
       if (c->getValueAPF().isZero()) {
         zero[i] = true;
-        zeroCount++;
         continue;
       }
     }
     if (ConstantFP *c = dyn_cast<ConstantFP>(b[i])) {
       if (c->getValueAPF().isZero()) {
         zero[i] = true;
-        zeroCount++;
       }
     }
   }
-  if (zeroCount == 0)
+  if (zero.none())
     return nullptr;
 
   Type *Ty = I->getType();
-  if (zeroCount == size)
+  if (zero.count() == size)
     return ConstantFP::get(Ty, 0);
 
   SmallVector<Value *, 4> a2, b2;
@@ -76,7 +75,7 @@ Value *SimplifyDxilDot(hlsl::OP *hlslOP, Instruction *I, ArrayRef<Value *> a,
     a2.emplace_back(a[i]);
     b2.emplace_back(b[i]);
   }
-  unsigned leftCount = size - zeroCount;
+  unsigned leftCount = size - zero.count();
   switch (leftCount) {
   default:
     return nullptr;
