@@ -188,16 +188,6 @@ if "%1"=="-dxc-cmake-system-version" (
 if "%1"=="-show-cmake-log" (
   set SHOW_CMAKE_LOG=1
   shift /1 & goto :parse_args
-)  
-if "%1"=="-disable-lit" (
-  echo Disable LIT testing
-  set ENABLE_LIT=OFF
-  shift /1 & goto :parse_args
-)
-if "%1"=="-enable-lit" (
-  echo Enable LIT testing
-  set ENABLE_LIT=ON
-  shift /1 & goto :parse_args
 )
 if "%1"=="-lit-xml-output-path" (
   set "CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS=--xunit-xml-output=%~2"
