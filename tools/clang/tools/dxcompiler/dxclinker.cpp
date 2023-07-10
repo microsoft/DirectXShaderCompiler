@@ -218,7 +218,7 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
     const DxilPartHeader *pDPH = hlsl::GetDxilPartByType(
         pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
     if (pDPH) {
-        hlsl::DxilCompilerVersion *pDCV =
+        const hlsl::DxilCompilerVersion *pDCV =
             (hlsl::DxilCompilerVersion *)(pDPH + 1);
         // If the compiler version string is non-empty, add the struct to the
         // map
