@@ -4,6 +4,8 @@
 // CHECK: struct InstanceDataStructType {
 // CHECK-NEXT:  float4 data;
 // CHECK-NEXT: };
+// Make sure InstanceDataStructTypeNotUsed is removed.
+// CHECK-NOT:InstanceDataStructTypeNotUsed
 
 struct InstanceDataStructType
 {
