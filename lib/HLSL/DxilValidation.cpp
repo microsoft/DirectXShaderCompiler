@@ -1228,6 +1228,7 @@ void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &Va
   case DXIL::OpCode::WriteSamplerFeedbackGrad:
   case DXIL::OpCode::AnnotateNodeHandle:
     ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
+    break;
   default:
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
