@@ -152,12 +152,7 @@ protected:
 
   iterator_adaptor_base() = default;
 
-  // HLSL Change Begins: Fix libc++ build
-  explicit iterator_adaptor_base(WrappedIteratorT u) : I(std::move(u)) {
-    static_assert(std::is_base_of<iterator_adaptor_base, DerivedT>::value,
-                  "Must pass the derived type to this template!");
-  }
-  // HLSL Change Ends
+  explicit iterator_adaptor_base(WrappedIteratorT u) : I(std::move(u)) {}
 
   const WrappedIteratorT &wrapped() const { return I; }
 
