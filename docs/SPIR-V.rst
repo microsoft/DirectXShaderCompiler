@@ -4067,6 +4067,8 @@ codegen for Vulkan:
   to the HLSL entry point name.
 - ``-fspv-use-legacy-buffer-matrix-order``: Assumes the legacy matrix order (row
   major) when accessing raw buffers (e.g., ByteAdddressBuffer).
+- ``-fspv-preserve-interface``: Preserves all interface variables in the entry
+  point, even when those variables are unused.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

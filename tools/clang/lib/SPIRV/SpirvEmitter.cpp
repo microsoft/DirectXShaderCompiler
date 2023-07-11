@@ -13931,7 +13931,7 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
 
   if (spirvOptions.optConfig.empty()) {
     // Add performance passes.
-    optimizer.RegisterPerformancePasses();
+    optimizer.RegisterPerformancePasses(spirvOptions.preserveInterface);
 
     // Add propagation of volatile semantics passes.
     optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
@@ -13974,17 +13974,19 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     optimizer.RegisterPass(
         spvtools::CreateInterfaceVariableScalarReplacementPass());
   }
-  optimizer.RegisterLegalizationPasses();
+  optimizer.RegisterLegalizationPasses(spirvOptions.preserveInterface);
   // Add flattening of resources if needed.
   if (spirvOptions.flattenResourceArrays ||
       declIdMapper.requiresFlatteningCompositeResources()) {
     optimizer.RegisterPass(
         spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass());
-    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(
+        spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
     optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.
-    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(
+        spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
   }
   if (dsetbindingsToCombineImageSampler &&
       !dsetbindingsToCombineImageSampler->empty()) {
@@ -13993,14 +13995,16 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     // ADCE should be run after combining images and samplers in order to
     // remove potentially illegal types such as structures containing opaque
     // types.
-    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(
+        spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
   }
   if (spirvOptions.reduceLoadSize) {
     // The threshold must be bigger than 1.0 to reduce all possible loads.
     optimizer.RegisterPass(spvtools::CreateReduceLoadSizePass(1.1));
     // ADCE should be run after reduce-load-size pass in order to remove
     // dead instructions.
-    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(
+        spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
   }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
