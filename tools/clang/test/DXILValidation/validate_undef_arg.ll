@@ -1,11 +1,16 @@
 ; RUN: %dxv %s | FileCheck %s
 
-; The DXIL was modified from:
-; dxc verify_output_complete.hlsl -T lib_6_8
+; The purpose of this test is to make sure that for various dxil ops that take in one
+; of three handle types: Handle (resource handles), NodeHandle, and NodeRecordHandle
+; when the argument given to these types is zeroinitializer or undef, an
+; error gets emitted, which proves there is validation that handle arguments
+; aren't ill-formed.
+
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
+%dx.types.Handle = type { i8* }
 %dx.types.NodeHandle = type { i8* }
 %dx.types.NodeInfo = type { i32, i32 }
 %dx.types.NodeRecordHandle = type { i8* }
@@ -19,24 +24,40 @@ define void @loadStress_16() {
   %4 = call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 238, %dx.types.NodeHandle %3, i32 1, i1 true)
   %5 = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %4, %dx.types.NodeRecordInfo { i32 38, i32 24 })  
 
+  ; Test a Dxil op with a NodeRecordHandle handle type
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
-  ; CHECK-DAG: note: at '%6 = call %struct.loadStressRecord.0
+  ; CHECK-DAG: note: at '%6 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0
   %6 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer, i32 0)  
 
-  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
-
-  ; at this point, %5 is a handle that contains an undefined value
-  %undefVal = 3 void undef
-
-  ; Note that output complete is the only exception among call instructions that may take in a zeroinitializer as an argument.
+  ; Note that output complete is the only exception among call instructions that may
+  ; take in a zeroinitializer as a handle argument.
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle zeroinitializer)
   
+  ; Test that OutputComplete fails when it receives an undef.
+  ; OutputComplete also serves as a test for NodeRecordHandle handle types.
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
-  ; CHECK-DAG: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
-  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
+  ; CHECK-DAG: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle undef)
+  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle undef)
 
-  br label %7
-; <label>:7                                       ; preds = %0
+  ; Test a Dxil op with a Resource handle type (mixing in undef and zeroinitializer)
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
+  ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef,
+  ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer,
+  ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer, %dx.types.Handle undef
+  call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer, %dx.types.Handle undef, float 2.100000e+01, float 2.200000e+01, float undef, float undef, float 6.000000e+00)  ; WriteSamplerFeedbackLevel(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,lod)
+
+  ; Test a dxil op with a NodeHandle handle type as undef
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
+  ; CHECK-DAG: note: at '%7 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle undef,
+  %7 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle undef, %dx.types.NodeInfo { i32 6, i32 24 })
+
+  ; Test a dxil op with a NodeHandle handle type as zeroinitializer
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
+  ; CHECK-DAG: note: at '%8 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle zeroinitializer, %dx.types.NodeInfo { i32 6, i32 24 })
+  %8 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle zeroinitializer, %dx.types.NodeInfo { i32 6, i32 24 })
+
+  br label %9
+; <label>:9                                        ; preds = %0
   ret void  
 }
 
@@ -47,13 +68,13 @@ declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32) #0
 declare %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32, %dx.types.NodeRecordHandle, i32) #0
 
 ; Function Attrs: nounwind
+declare void @dx.op.writeSamplerFeedbackLevel(i32, %dx.types.Handle, %dx.types.Handle, %dx.types.Handle, float, float, float, float, float) #0
+
+; Function Attrs: nounwind
 declare %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32, %dx.types.NodeHandle, i32, i1) #1
 
 ; Function Attrs: nounwind
 declare void @dx.op.outputComplete(i32, %dx.types.NodeRecordHandle) #1
-
-; Function Attrs: nounwind readnone
-declare float @dx.op.unary.f32(i32, float) #0
 
 ; Function Attrs: nounwind
 ;declare void @dx.op.BufferLoad(i32, i32)

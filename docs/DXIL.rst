@@ -3089,6 +3089,7 @@ INSTR.RESOURCECLASSFORSAMPLERGATHER       sample, lod and gather should be on sr
 INSTR.RESOURCECLASSFORUAVSTORE            store should be on uav resource.
 INSTR.RESOURCECOORDINATEMISS              coord uninitialized.
 INSTR.RESOURCECOORDINATETOOMANY           out of bound coord must be undef.
+INSTR.RESOURCEINVALID                     Resource is invalid.
 INSTR.RESOURCEKINDFORBUFFERLOADSTORE      buffer load/store only works on Raw/Typed/StructuredBuffer.
 INSTR.RESOURCEKINDFORCALCLOD              lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray.
 INSTR.RESOURCEKINDFORGATHER               gather requires resource declared as texture/2D/Cube/2DArray/CubeArray.
