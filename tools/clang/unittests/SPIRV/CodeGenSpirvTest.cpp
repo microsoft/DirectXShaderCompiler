@@ -140,6 +140,9 @@ TEST_F(FileTest, StructuredByteBufferArray) {
   setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");
 }
+TEST_F(FileTest, StructuredBufferArrayError) {
+  runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, RWStructuredBufferArrayNoCounter) {
   runFileTest("type.rwstructured-buffer.array.nocounter.hlsl");
 }

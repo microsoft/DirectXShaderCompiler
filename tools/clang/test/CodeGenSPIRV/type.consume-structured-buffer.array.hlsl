@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fvk-allow-rwstructuredbuffer-arrays
 
 struct T {
   float  a;
