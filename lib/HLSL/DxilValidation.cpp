@@ -1135,6 +1135,7 @@ void ValidateHandleArgsForInstruction(CallInst* CI, DXIL::OpCode opcode, Validat
   // make sure none of the handle arguments are undef / zero-initializer,
   // The only exception is that a zero-initializer is allowed
   // as an argument to Output Complete (CAZ == zero-initializer)
+  // Also, do not accept any resource handles with invalid dxil resource properties
   for (Value *op : CI->operands()) {
     const Type *pHandleTy = ValCtx.HandleTy; // This is a resource handle
     const Type *pNodeHandleTy = ValCtx.DxilMod.GetOP()->GetNodeHandleType();
@@ -1142,22 +1143,21 @@ void ValidateHandleArgsForInstruction(CallInst* CI, DXIL::OpCode opcode, Validat
 
     const Type *argTy = op->getType();
     if (argTy == pNodeHandleTy || argTy == pNodeRecordHandleTy || argTy == pHandleTy) {
-      if (isa<UndefValue>(op) || isa<ConstantAggregateZero>(op)) {
-        if (opcode == DXIL::OpCode::OutputComplete && isa<ConstantAggregateZero>(op)) {
-          continue;
-        }
-        else {
-          ValCtx.EmitInstrError(
-            CI, ValidationRule::InstrNoReadingUninitialized);
-        }
-      }
-      else if (argTy == pHandleTy) {
+      bool bIsUninitialized = isa<UndefValue>(op) || isa<ConstantAggregateZero>(op);
+      if (argTy == pHandleTy) {
         hlsl::DxilResourceProperties pDRP = ValCtx.GetResourceFromVal(op);
         if (!pDRP.isValid()) {
           ValCtx.EmitInstrError(
             CI, ValidationRule::InstrResourceInvalid);
-        }
+        }       
       }
+      if (bIsUninitialized) {
+        if (opcode == DXIL::OpCode::OutputComplete && isa<ConstantAggregateZero>(op)) {
+          continue;
+        }        
+        ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrNoReadingUninitialized);        
+      }      
     }
   }
 }

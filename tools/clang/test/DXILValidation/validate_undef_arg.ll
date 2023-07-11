@@ -40,6 +40,7 @@ define void @loadStress_16() {
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle undef)
 
   ; Test a Dxil op with a Resource handle type (mixing in undef and zeroinitializer)
+  ; (it should be noted that handles with zeroinitialize / undef values are invalid according to DxilResourceProperties)
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
   ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef,
   ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer,

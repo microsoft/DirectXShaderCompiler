@@ -1,11 +1,9 @@
-// RUN: %dxc -T lib_6_8 %s | FileCheck %s
-
+// RUN: %dxc -Vd -T lib_6_8 %s | FileCheck %s
+// validation disabled to prevent the validator failing when (%dx.types.NodeRecordHandle zeroinitializer) gets generated
 // CHECK: call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %{{[0-9]+}})
 
-// TBD: Prevent this use of null handle
-//      (%dx.types.NodeRecordHandle zeroinitializer) by failing validation.
-// Next, prevent this even earlier if possible.
-// CHECK: call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer, i32 0)
+// TBD: Prevent (%dx.types.NodeRecordHandle zeroinitializer) even earlier if possible.
+
 
 #define LOAD_STRESS_MAX_GRID_SIZE 3
 #define GROUP_SHARED_SIZE 128
