@@ -347,12 +347,12 @@ TEST_F(LinkerTest, RunLinkModulesDifferentVersions) {
     *(pVersionStringListPtr + commitHashStr.size() + 1) =
         oldCompilerVersionStr[0];
   } else {
-    // not sure the blob can be changed by adding data, since the
+    // The blob can't be changed by adding data, since the
     // the data after this header could be a subsequent header.
     // The test should announce that it can't make any version string
     // modifications
     WEX::Logging::Log::Warning(
-        "Cannot modify compiler version string for test");
+        L"Cannot modify compiler version string for test");
   }
 
   // finally, test that a difference is detected if a member of the struct, say
