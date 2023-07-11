@@ -62,6 +62,12 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
         createSpirvFunction(returnType, loc, funcName, isPrecise, isNoInline);
   }
 
+  if (isAKindOfStructuredOrByteBuffer(returnType)) {
+    const SpirvType *aliasedType =
+        context.getPointerType(returnType, spv::StorageClass::Uniform);
+    function->setReturnType(aliasedType);
+    function->setAstReturnType(QualType());
+  }
   return function;
 }
 
@@ -77,7 +83,15 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
     param = new (context) SpirvFunctionParameter(
         context.getPointerType(ptrType, spv::StorageClass::UniformConstant),
         isPrecise, loc);
-  } else {
+  } else if (isAKindOfStructuredOrByteBuffer(ptrType)) {
+    // If it is a bindless array of an opaque type, we have to use
+    // a pointer to a pointer of the runtime array.
+    param = new (context) SpirvFunctionParameter(
+        context.getPointerType(ptrType, spv::StorageClass::Uniform),
+        isPrecise, loc);
+    param->setLayoutRule(spirvOptions.sBufferLayoutRule);
+  }
+  else {
     param = new (context) SpirvFunctionParameter(ptrType, isPrecise, loc);
   }
   param->setStorageClass(spv::StorageClass::Function);
@@ -97,10 +111,27 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
     var = new (context) SpirvVariable(
         context.getPointerType(valueType, spv::StorageClass::UniformConstant),
         loc, spv::StorageClass::Function, isPrecise, init);
+  } else if (isAKindOfStructuredOrByteBuffer(valueType)) {
+    var = new (context) SpirvVariable(
+        context.getPointerType(valueType, spv::StorageClass::Uniform),
+        loc, spv::StorageClass::Function, isPrecise, init);
+    var->setLayoutRule(spirvOptions.sBufferLayoutRule);
   } else {
     var = new (context) SpirvVariable(
         valueType, loc, spv::StorageClass::Function, isPrecise, init);
   }
+  var->setDebugName(name);
+  function->addVariable(var);
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addFnVar(const HybridType* valueType, SourceLocation loc,
+                                      llvm::StringRef name, bool isPrecise,
+                                      SpirvInstruction *init) {
+  assert(function && "found detached local variable");
+  SpirvVariable *var = nullptr;
+  var = new (context) SpirvVariable(
+        valueType, loc, spv::StorageClass::Function, isPrecise, init);
   var->setDebugName(name);
   function->addVariable(var);
   return var;
@@ -311,6 +342,9 @@ SpirvBuilder::createFunctionCall(QualType returnType, SpirvFunction *func,
 
   if (func->constainsAliasComponent() &&
       isAKindOfStructuredOrByteBuffer(returnType)) {
+    instruction->setAstResultType(QualType());
+    instruction->setResultType(context.getPointerType(returnType, spv::StorageClass::Uniform));
+    instruction->setLayoutRule(spirvOptions.sBufferLayoutRule);
     instruction->setStorageClass(spv::StorageClass::Uniform);
     // Now it is a pointer to the global resource, which is lvalue.
     instruction->setRValue(false);
@@ -1376,9 +1410,22 @@ SpirvBuilder::addModuleVar(QualType type, spv::StorageClass storageClass,
                            SourceLocation loc) {
   assert(storageClass != spv::StorageClass::Function);
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  auto *var =
+  SpirvVariable *var = nullptr;
+
+  if (isAKindOfStructuredOrByteBuffer(type) && storageClass == spv::StorageClass::Private) {
+    // If it is a bindless array of an opaque type, we have to use
+    // a pointer to a pointer of the runtime array.
+    const SpirvType *spvType =
+        context.getPointerType(type, spv::StorageClass::Uniform);
+    var = new (context)
+        SpirvVariable(spvType, loc, storageClass, isPrecise,
+                      init.hasValue() ? init.getValue() : nullptr);
+    var->setLayoutRule(spirvOptions.sBufferLayoutRule);
+  } else {
+    var =
       new (context) SpirvVariable(type, loc, storageClass, isPrecise,
                                   init.hasValue() ? init.getValue() : nullptr);
+  }
   var->setDebugName(name);
   mod->addVariable(var);
   return var;

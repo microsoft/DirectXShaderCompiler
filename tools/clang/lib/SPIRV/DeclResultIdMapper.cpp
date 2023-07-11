@@ -1013,12 +1013,23 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
 SpirvVariable *
 DeclResultIdMapper::createFnVar(const VarDecl *var,
                                 llvm::Optional<SpirvInstruction *> init) {
-  const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
   const auto name = var->getName();
   const bool isPrecise = var->hasAttr<HLSLPreciseAttr>();
-  SpirvVariable *varInstr = spvBuilder.addFnVar(
+
+  const auto type = getTypeOrFnRetType(var);
+  SpirvVariable *varInstr = nullptr;
+  if (isAKindOfStructuredOrByteBuffer(type)) {
+    // A function scope buffer will be treated as a pointer to the actual buffer. That buffer
+    // will be in the Uniform storage class.
+    const auto* hybridType = spvContext.getPointerType(type, spv::StorageClass::Uniform);
+    varInstr = spvBuilder.addFnVar(
+        hybridType, loc, name, isPrecise, init.hasValue() ? init.getValue() : nullptr);
+    varInstr->setLayoutRule(spirvOptions.sBufferLayoutRule);
+  } else {
+    varInstr = spvBuilder.addFnVar(
       type, loc, name, isPrecise, init.hasValue() ? init.getValue() : nullptr);
+  }
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);

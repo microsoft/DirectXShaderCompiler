@@ -107,10 +107,16 @@ setDefaultFieldOffset(const AlignmentSizeCalculator &alignmentCalc,
 bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
   if (phase == Visitor::Phase::Done) {
     // Lower the function return type.
-    const SpirvType *spirvReturnType =
-        lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
+    const SpirvType *spirvReturnType = fn->getReturnType();
+    if (spirvReturnType) {
+      if (const auto* hybridType = dyn_cast<HybridType>(spirvReturnType)) {
+        spirvReturnType = lowerType(hybridType, getCodeGenOptions().sBufferLayoutRule, {});
+      }
+    } else if (fn->getAstReturnType() != QualType()) {
+       spirvReturnType = lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
                   /*isRowMajor*/ llvm::None,
                   /*SourceLocation*/ {});
+    }
     fn->setReturnType(spirvReturnType);
 
     // Lower the function parameter types.
@@ -706,16 +712,6 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     // StructureBuffer<S> will be translated into an OpTypeStruct with one
     // field, which is an OpTypeRuntimeArray of OpTypeStruct (S).
 
-    // If layout rule is void, it means these resource types are used for
-    // declaring local resources, which should be created as alias variables.
-    // The aliased-to variable should surely be in the Uniform storage class,
-    // which has layout decorations.
-    bool asAlias = false;
-    if (rule == SpirvLayoutRule::Void) {
-      asAlias = true;
-      rule = getCodeGenOptions().sBufferLayoutRule;
-    }
-
     // Get the underlying resource type.
     const auto s = hlsl::GetHLSLResourceResultType(type);
 
@@ -752,11 +748,6 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
         {StructType::FieldInfo(raType, /* fieldIndex*/ 0, /*name*/ "",
                                /*offset*/ 0, matrixStride, isRowMajor)},
         typeName, isReadOnly, StructInterfaceType::StorageBuffer);
-
-    if (asAlias) {
-      // All structured buffers are in the Uniform storage class.
-      return spvContext.getPointerType(valType, spv::StorageClass::Uniform);
-    }
 
     return valType;
   }

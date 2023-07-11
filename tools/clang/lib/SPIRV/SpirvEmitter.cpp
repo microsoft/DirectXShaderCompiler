@@ -1308,8 +1308,11 @@ bool SpirvEmitter::loadIfAliasVarRef(const Expr *varExpr,
     // Load the pointer of the aliased-to-variable if the expression has a
     // pointer to pointer type.
     if (varExpr->isGLValue()) {
-      *instr = spvBuilder.createLoad(varExpr->getType(), *instr,
+      const auto* hybridType = spvContext.getPointerType(varExpr->getType(), spv::StorageClass::Uniform);
+      *instr = spvBuilder.createLoad(hybridType, *instr,
                                      varExpr->getExprLoc(), range);
+      (*instr)->setRValue(false);
+      (*instr)->setStorageClass(spv::StorageClass::Uniform);
     }
     return true;
   }
@@ -1498,8 +1501,11 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         // If the source code does not provide a proper return value for some
         // control flow path, it's undefined behavior. We just return null
         // value here.
-        spvBuilder.createReturnValue(spvBuilder.getConstantNull(retType),
-                                     returnLoc);
+        SpirvInstruction * nullValue = spvBuilder.getConstantNull(retType);
+        if (isOrContainsAKindOfStructuredOrByteBuffer(retType))
+          nullValue->setLayoutRule(spirvOptions.sBufferLayoutRule);
+
+        spvBuilder.createReturnValue(nullValue, returnLoc);
       }
     }
   }
