@@ -1014,16 +1014,9 @@ bool DxilDebugInstrumentation::RunOnFunction(
   DxilModule &DM,
   llvm::Function * entryFunction) 
 {
-  DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
-  if (!DM.HasDxilFunctionProps(entryFunction)) {
-    auto ShaderModel = DM.GetShaderModel();
-    shaderKind = ShaderModel->GetKind();
-  } else {
-    hlsl::DxilFunctionProps const &props =
-        DM.GetDxilFunctionProps(entryFunction);
-    shaderKind = props.shaderKind;
-  }
-
+  DXIL::ShaderKind shaderKind =
+      PIXPassHelpers::GetFunctionShaderKind(DM, entryFunction);
+  
   switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:

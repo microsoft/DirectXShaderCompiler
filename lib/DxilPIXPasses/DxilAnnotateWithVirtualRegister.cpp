@@ -107,6 +107,29 @@ void DxilAnnotateWithVirtualRegister::applyOptions(llvm::PassOptions O) {
 
 char DxilAnnotateWithVirtualRegister::ID = 0;
 
+static const char* ShaderKindName(hlsl::DXIL::ShaderKind kind) {
+  switch (kind) {
+  case hlsl::DXIL::ShaderKind::Pixel:           return "Pixel";
+  case hlsl::DXIL::ShaderKind::Vertex:          return "Vertex";
+  case hlsl::DXIL::ShaderKind::Geometry:        return "Geometry";
+  case hlsl::DXIL::ShaderKind::Hull:            return "Hull";
+  case hlsl::DXIL::ShaderKind::Domain:          return "Domain";
+  case hlsl::DXIL::ShaderKind::Compute:         return "Compute";
+  case hlsl::DXIL::ShaderKind::Library:         return "Library";
+  case hlsl::DXIL::ShaderKind::RayGeneration:   return "RayGeneration";
+  case hlsl::DXIL::ShaderKind::Intersection:    return "Intersection";
+  case hlsl::DXIL::ShaderKind::AnyHit:          return "AnyHit";
+  case hlsl::DXIL::ShaderKind::ClosestHit:      return "ClosestHit";
+  case hlsl::DXIL::ShaderKind::Miss:            return "Miss";
+  case hlsl::DXIL::ShaderKind::Callable:        return "Callable";
+  case hlsl::DXIL::ShaderKind::Mesh:            return "Mesh";
+  case hlsl::DXIL::ShaderKind::Amplification:   return "Amplification";
+  case hlsl::DXIL::ShaderKind::Invalid:
+  default:
+    return "Invalid";
+  }
+}
+
 bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   Init(M);
   if (m_DM == nullptr) {
@@ -125,6 +148,9 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
   for (auto * F : instrumentableFunctions) {
+    auto shaderKind = PIXPassHelpers::GetFunctionShaderKind(*m_DM, F);
+    auto FunctioNamePlusKind =
+        F->getName() + " " + ShaderKindName(shaderKind);
     auto &EndInstruction = InstructionRangeByFunctionName[F->getName()];
     EndInstruction.first = InstNum;
     for (auto &block : F->getBasicBlockList()) {
@@ -151,8 +177,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
                       skipOverLeadingUnprintableCharacters)
                   << "\n";
     }
-
-    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
   for (auto * F : instrumentableFunctions) {
@@ -169,10 +193,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
         AnnotateStore(&I);
       }
     }
-  }
-
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nEnd - dxil values to virtual register mapping\n";
   }
 
   m_DM = nullptr;
