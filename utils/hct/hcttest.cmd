@@ -191,6 +191,7 @@ if "%1"=="-clean" (
   shift /1
 ) else if "%1"=="-file-check-dump" (
   set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"FileCheckDumpDir=%~2\HLSL"
+  set TEST_USE_LIT=0
   shift /1
 ) else if "%1"=="-dxil-loc" (
   set DXIL_DLL_LOC=%~2
@@ -211,6 +212,7 @@ rem This is the robust way to detect whether %1 is empty:
 set "_NEXT_=%1"
 if not defined _NEXT_ goto :done_args
 set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% %1
+set TEST_USE_LIT=0
 shift /1
 goto :collect_args
 :done_args
