@@ -1117,12 +1117,14 @@ public:
   ///
   /// \pre \p ElementType must be a valid matrix element type (see
   /// MatrixType::isValidElementType).
-  QualType getConstantMatrixType(QualType ElementType, unsigned NumRows,
+  QualType getConstantMatrixType(QualType ElementType, bool IsExplicit,
+                                 bool IsRowMajor, unsigned NumRows,
                                  unsigned NumColumns) const;
 
   /// Return the unique reference to the matrix type of the specified element
   /// type and size
-  QualType getDependentSizedMatrixType(QualType ElementType, Expr *RowExpr,
+  QualType getDependentSizedMatrixType(QualType ElementType, bool IsExplicit,
+                                       bool IsRowMajor, Expr *RowExpr,
                                        Expr *ColumnExpr,
                                        SourceLocation AttrLoc) const;
 

@@ -812,7 +812,9 @@ QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
       IntegerLiteral::Create(context, llvm::APInt(32, rowCount), I32Ty, NoLoc);
   Expr *colExpr =
       IntegerLiteral::Create(context, llvm::APInt(32, colCount), I32Ty, NoLoc);
-  return sema->BuildMatrixType(elementType, rowExpr, colExpr, NoLoc);
+  return sema->BuildMatrixType(elementType, false,
+                               sema->getLangOpts().HLSLDefaultRowMajor, rowExpr,
+                               colExpr, NoLoc);
 }
 
 /// <summary>Instantiates a new vector type specialization or gets an existing one from the AST.</summary>
@@ -5145,10 +5147,13 @@ public:
         return QualType();
 
       return m_sema->getASTContext().getConstantMatrixType(
-          EltType, RowImm->getExtValue(), ColImm->getExtValue());
+          EltType, false, m_sema->getLangOpts().HLSLDefaultRowMajor,
+          RowImm->getExtValue(), ColImm->getExtValue());
     }
 
-    return Ctx.getDependentSizedMatrixType(EltType, RowExpr, ColExpr, NoLoc);
+    return Ctx.getDependentSizedMatrixType(
+        EltType, false, m_sema->getLangOpts().HLSLDefaultRowMajor, RowExpr,
+        ColExpr, NoLoc);
   }
 
   FindStructBasicTypeResult FindStructBasicType(_In_ DeclContext* functionDeclContext);

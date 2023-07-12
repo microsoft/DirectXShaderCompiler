@@ -2216,7 +2216,8 @@ QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
   return Context.getDependentSizedExtVectorType(T, ArraySize, AttrLoc);
 }
 
-QualType Sema::BuildMatrixType(QualType ElementTy, Expr *NumRows, Expr *NumCols,
+QualType Sema::BuildMatrixType(QualType ElementTy, bool IsExplicit,
+                               bool IsRowMajor, Expr *NumRows, Expr *NumCols,
                                SourceLocation AttrLoc) {
 
   // Check element type, if it is not dependent.
@@ -2228,8 +2229,8 @@ QualType Sema::BuildMatrixType(QualType ElementTy, Expr *NumRows, Expr *NumCols,
 
   if (NumRows->isTypeDependent() || NumCols->isTypeDependent() ||
       NumRows->isValueDependent() || NumCols->isValueDependent())
-    return Context.getDependentSizedMatrixType(ElementTy, NumRows, NumCols,
-                                               AttrLoc);
+    return Context.getDependentSizedMatrixType(
+        ElementTy, IsExplicit, IsRowMajor, NumRows, NumCols, AttrLoc);
 
   Optional<llvm::APSInt> ValueRows =
       NumRows->getIntegerConstantExpr(Context);
@@ -2287,7 +2288,8 @@ QualType Sema::BuildMatrixType(QualType ElementTy, Expr *NumRows, Expr *NumCols,
         << ColRange << "matrix column";
     return QualType();
   }
-  return Context.getConstantMatrixType(ElementTy, MatrixRows, MatrixColumns);
+  return Context.getConstantMatrixType(ElementTy, IsExplicit, IsRowMajor,
+                                       MatrixRows, MatrixColumns);
 }
 
 bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {

@@ -3021,11 +3021,12 @@ ASTContext::getDependentSizedExtVectorType(QualType vecType,
   return QualType(New, 0);
 }
 
-QualType ASTContext::getConstantMatrixType(QualType ElementTy, unsigned NumRows,
+QualType ASTContext::getConstantMatrixType(QualType ElementTy, bool IsExplicit,
+                                           bool IsRowMajor, unsigned NumRows,
                                            unsigned NumColumns) const {
   llvm::FoldingSetNodeID ID;
-  ConstantMatrixType::Profile(ID, ElementTy, NumRows, NumColumns,
-                              Type::ConstantMatrix);
+  ConstantMatrixType::Profile(ID, ElementTy, IsExplicit, IsRowMajor, NumRows,
+                              NumColumns, Type::ConstantMatrix);
 
   assert(MatrixType::isValidElementType(ElementTy) &&
          "need a valid element type");
@@ -3039,7 +3040,7 @@ QualType ASTContext::getConstantMatrixType(QualType ElementTy, unsigned NumRows,
   QualType Canonical;
   if (!ElementTy.isCanonical()) {
     Canonical =
-        getConstantMatrixType(getCanonicalType(ElementTy), NumRows, NumColumns);
+        getConstantMatrixType(getCanonicalType(ElementTy), IsExplicit, IsRowMajor, NumRows, NumColumns);
 
     ConstantMatrixType *NewIP = MatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
     assert(!NewIP && "Matrix type shouldn't already exist in the map");
@@ -3047,28 +3048,31 @@ QualType ASTContext::getConstantMatrixType(QualType ElementTy, unsigned NumRows,
   }
 
   auto *New = new (*this, TypeAlignment)
-      ConstantMatrixType(ElementTy, NumRows, NumColumns, Canonical);
+      ConstantMatrixType(ElementTy, IsExplicit, IsRowMajor, NumRows, NumColumns, Canonical);
   MatrixTypes.InsertNode(New, InsertPos);
   Types.push_back(New);
   return QualType(New, 0);
 }
 
 QualType ASTContext::getDependentSizedMatrixType(QualType ElementTy,
+                                                 bool IsExplicit,
+                                                 bool IsRowMajor, 
                                                  Expr *RowExpr,
                                                  Expr *ColumnExpr,
                                                  SourceLocation AttrLoc) const {
   QualType CanonElementTy = getCanonicalType(ElementTy);
   llvm::FoldingSetNodeID ID;
-  DependentSizedMatrixType::Profile(ID, *this, CanonElementTy, RowExpr,
-                                    ColumnExpr);
+  DependentSizedMatrixType::Profile(ID, *this, CanonElementTy, IsExplicit,
+                                    IsRowMajor, RowExpr, ColumnExpr);
 
   void *InsertPos = nullptr;
   DependentSizedMatrixType *Canon =
       DependentSizedMatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
 
   if (!Canon) {
-    Canon = new (*this, TypeAlignment) DependentSizedMatrixType(
-        *this, CanonElementTy, QualType(), RowExpr, ColumnExpr, AttrLoc);
+    Canon = new (*this, TypeAlignment)
+        DependentSizedMatrixType(*this, CanonElementTy, QualType(), IsExplicit,
+                                 IsRowMajor, RowExpr, ColumnExpr, AttrLoc);
 #ifndef NDEBUG
     DependentSizedMatrixType *CanonCheck =
         DependentSizedMatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
@@ -3087,8 +3091,8 @@ QualType ASTContext::getDependentSizedMatrixType(QualType ElementTy,
 
   // Use Canon as the canonical type for newly-built type.
   DependentSizedMatrixType *New = new (*this, TypeAlignment)
-      DependentSizedMatrixType(*this, ElementTy, QualType(Canon, 0), RowExpr,
-                               ColumnExpr, AttrLoc);
+      DependentSizedMatrixType(*this, ElementTy, QualType(Canon, 0), IsExplicit,
+                               IsRowMajor, RowExpr, ColumnExpr, AttrLoc);
   Types.push_back(New);
   return QualType(New, 0);
 }

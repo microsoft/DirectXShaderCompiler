@@ -2842,13 +2842,21 @@ protected:
 
   /// The element type of the matrix.
   QualType ElementType;
+  /// If the matrix has orientation decl exlicit.
+  bool IsExplicitOrientation;
+  /// If the matrix is row major.
+  bool IsRowMajor;
 
   MatrixType(TypeClass TypeClass, QualType ElementTy, QualType CanonElementTy,
-             const Expr *RowExpr = nullptr, const Expr *ColumnExpr = nullptr);
+             bool IsExplict, bool IsRowMajor, const Expr *RowExpr = nullptr,
+             const Expr *ColumnExpr = nullptr);
 
 public:
   /// Returns type of the elements being stored in the matrix
   QualType getElementType() const { return ElementType; }
+
+  bool getIsRowMajor() const { return IsRowMajor; }
+  bool getIsExplicitOrientation() const { return IsExplicitOrientation; }
 
   /// Valid elements types are the following:
   /// * an integer type (as in C2x 6.2.5p19), but excluding enumerated types
@@ -2880,11 +2888,13 @@ protected:
 
   static constexpr unsigned MaxElementsPerDimension = 4;
 
-  ConstantMatrixType(QualType MatrixElementType, unsigned NRows,
-                     unsigned NColumns, QualType CanonElementType);
+  ConstantMatrixType(QualType MatrixElementType, bool IsExplicit,
+                     bool IsRowMajor, unsigned NRows, unsigned NColumns,
+                     QualType CanonElementType);
 
-  ConstantMatrixType(TypeClass typeClass, QualType MatrixType, unsigned NRows,
-                     unsigned NColumns, QualType CanonElementType);
+  ConstantMatrixType(TypeClass typeClass, QualType MatrixType, bool IsExplicit,
+                     bool IsRowMajor, unsigned NRows, unsigned NColumns,
+                     QualType CanonElementType);
 
 public:
   /// Returns the number of rows in the matrix.
@@ -2909,14 +2919,17 @@ public:
   }
 
   void Profile(llvm::FoldingSetNodeID &ID) {
-    Profile(ID, getElementType(), getNumRows(), getNumColumns(),
-            getTypeClass());
+    Profile(ID, getElementType(), getIsExplicitOrientation(), getIsRowMajor(),
+            getNumRows(), getNumColumns(), getTypeClass());
   }
 
   static void Profile(llvm::FoldingSetNodeID &ID, QualType ElementType,
+                      bool IsExplicit, bool IsRowMajor,
                       unsigned NumRows, unsigned NumColumns,
                       TypeClass TypeClass) {
     ID.AddPointer(ElementType.getAsOpaquePtr());
+    ID.AddBoolean(IsExplicit);
+    ID.AddBoolean(IsRowMajor);
     ID.AddInteger(NumRows);
     ID.AddInteger(NumColumns);
     ID.AddInteger(TypeClass);
@@ -2939,8 +2952,9 @@ class DependentSizedMatrixType final : public MatrixType {
   SourceLocation loc;
 
   DependentSizedMatrixType(const ASTContext &Context, QualType ElementType,
-                           QualType CanonicalType, Expr *RowExpr,
-                           Expr *ColumnExpr, SourceLocation loc);
+                           QualType CanonicalType, bool IsExplict,
+                           bool IsRowMajor, Expr *RowExpr, Expr *ColumnExpr,
+                           SourceLocation loc);
 
 public:
   Expr *getRowExpr() const { return RowExpr; }
@@ -2952,11 +2966,13 @@ public:
   }
 
   void Profile(llvm::FoldingSetNodeID &ID) {
-    Profile(ID, Context, getElementType(), getRowExpr(), getColumnExpr());
+    Profile(ID, Context, getElementType(), getIsExplicitOrientation(),
+            getIsRowMajor(), getRowExpr(), getColumnExpr());
   }
 
   static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
-                      QualType ElementType, Expr *RowExpr, Expr *ColumnExpr);
+                      QualType ElementType, bool IsExplicit, bool IsRowMajor,
+                      Expr *RowExpr, Expr *ColumnExpr);
 };
 
 

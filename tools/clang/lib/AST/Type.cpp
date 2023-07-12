@@ -169,38 +169,47 @@ DependentSizedExtVectorType::Profile(llvm::FoldingSetNodeID &ID,
 }
 
 MatrixType::MatrixType(TypeClass tc, QualType matrixType, QualType canonType,
-                       const Expr *RowExpr, const Expr *ColumnExpr)
+                       bool IsExplict, bool IsRowMajor, const Expr *RowExpr,
+                       const Expr *ColumnExpr)
     : Type(tc, canonType, /*Dependent=*/tc == ConstantMatrix ? false : true,
            /*InstantiationDependent=*/tc == ConstantMatrix ? false : true,
            matrixType->isVariablyModifiedType(),
            (matrixType->containsUnexpandedParameterPack() ||
             (RowExpr && RowExpr->containsUnexpandedParameterPack()) ||
             (ColumnExpr && ColumnExpr->containsUnexpandedParameterPack()))),
-      ElementType(matrixType) {}
+      ElementType(matrixType), IsExplicitOrientation(IsExplict),
+      IsRowMajor(IsRowMajor) {}
 
-ConstantMatrixType::ConstantMatrixType(QualType matrixType, unsigned nRows,
+ConstantMatrixType::ConstantMatrixType(QualType matrixType, bool IsExplict,
+                                       bool IsRowMajor, unsigned nRows,
                                        unsigned nColumns, QualType canonType)
-    : ConstantMatrixType(ConstantMatrix, matrixType, nRows, nColumns,
-                         canonType) {}
+    : ConstantMatrixType(ConstantMatrix, matrixType, IsExplict, IsRowMajor,
+                         nRows, nColumns, canonType) {}
 
 ConstantMatrixType::ConstantMatrixType(TypeClass tc, QualType matrixType,
+                                       bool IsExplict, bool IsRowMajor,
                                        unsigned nRows, unsigned nColumns,
                                        QualType canonType)
-    : MatrixType(tc, matrixType, canonType), NumRows(nRows),
+    : MatrixType(tc, matrixType, canonType, IsExplict, IsRowMajor),
+      NumRows(nRows),
       NumColumns(nColumns) {}
 
 DependentSizedMatrixType::DependentSizedMatrixType(
     const ASTContext &CTX, QualType ElementType, QualType CanonicalType,
-    Expr *RowExpr, Expr *ColumnExpr, SourceLocation loc)
-    : MatrixType(DependentSizedMatrix, ElementType, CanonicalType, RowExpr,
-                 ColumnExpr),
+    bool IsExplict, bool IsRowMajor, Expr *RowExpr, Expr *ColumnExpr,
+    SourceLocation loc)
+    : MatrixType(DependentSizedMatrix, ElementType, CanonicalType, IsExplict,
+                 IsRowMajor, RowExpr, ColumnExpr),
       Context(CTX), RowExpr(RowExpr), ColumnExpr(ColumnExpr), loc(loc) {}
 
 void DependentSizedMatrixType::Profile(llvm::FoldingSetNodeID &ID,
                                        const ASTContext &CTX,
-                                       QualType ElementType, Expr *RowExpr,
+                                       QualType ElementType, bool IsExplicit,
+                                       bool IsRowMajor, Expr *RowExpr,
                                        Expr *ColumnExpr) {
   ID.AddPointer(ElementType.getAsOpaquePtr());
+  ID.AddBoolean(IsExplicit);
+  ID.AddBoolean(IsRowMajor);
   RowExpr->Profile(ID, CTX, true);
   ColumnExpr->Profile(ID, CTX, true);
 }
@@ -833,7 +842,8 @@ public:
     if (elementType.getAsOpaquePtr() == T->getElementType().getAsOpaquePtr())
       return QualType(T, 0);
 
-    return Ctx.getConstantMatrixType(elementType, T->getNumRows(),
+    return Ctx.getConstantMatrixType(elementType, T->getIsExplicitOrientation(),
+                                     T->getIsRowMajor(), T->getNumRows(),
                                      T->getNumColumns());
   }
 

@@ -790,13 +790,15 @@ public:
                                               SourceLocation AttributeLoc);
 
   /// Build a new matrix type given the element type and dimensions.
-  QualType RebuildConstantMatrixType(QualType ElementType, unsigned NumRows,
+  QualType RebuildConstantMatrixType(QualType ElementType, bool IsExplicit,
+                                     bool IsRowMajor, unsigned NumRows,
                                      unsigned NumColumns);
 
   /// Build a new matrix type given the type and dependently-defined
   /// dimensions.
-  QualType RebuildDependentSizedMatrixType(QualType ElementType, Expr *RowExpr,
-                                           Expr *ColumnExpr,
+  QualType RebuildDependentSizedMatrixType(QualType ElementType,
+                                           bool IsExplicit, bool IsRowMajor,
+                                           Expr *RowExpr, Expr *ColumnExpr,
                                            SourceLocation AttributeLoc);
 
   /// \brief Build a new function type.
@@ -4454,7 +4456,8 @@ TreeTransform<Derived>::TransformConstantMatrixType(TypeLocBuilder &TLB,
   QualType Result = TL.getType();
   if (getDerived().AlwaysRebuild() || ElementType != T->getElementType()) {
     Result = getDerived().RebuildConstantMatrixType(
-        ElementType, T->getNumRows(), T->getNumColumns());
+        ElementType, T->getIsExplicitOrientation(), T->getIsRowMajor(),
+        T->getNumRows(), T->getNumColumns());
     if (Result.isNull())
       return QualType();
   }
@@ -4506,7 +4509,8 @@ QualType TreeTransform<Derived>::TransformDependentSizedMatrixType(
   if (getDerived().AlwaysRebuild() || ElementType != T->getElementType() ||
       rows != origRows || columns != origColumns) {
     Result = getDerived().RebuildDependentSizedMatrixType(
-        ElementType, rows, columns, T->getAttributeLoc());
+        ElementType, T->getIsExplicitOrientation(), T->getIsRowMajor(), rows,
+        columns, T->getAttributeLoc());
 
     if (Result.isNull())
       return QualType();
@@ -10986,17 +10990,18 @@ TreeTransform<Derived>::RebuildDependentSizedExtVectorType(QualType ElementType,
 
 template <typename Derived>
 QualType TreeTransform<Derived>::RebuildConstantMatrixType(
-    QualType ElementType, unsigned NumRows, unsigned NumColumns) {
-  return SemaRef.Context.getConstantMatrixType(ElementType, NumRows,
-                                               NumColumns);
+    QualType ElementType, bool IsExplicit, bool IsRowMajor, unsigned NumRows,
+    unsigned NumColumns) {
+  return SemaRef.Context.getConstantMatrixType(ElementType, IsExplicit,
+                                               IsRowMajor, NumRows, NumColumns);
 }
 
 template <typename Derived>
 QualType TreeTransform<Derived>::RebuildDependentSizedMatrixType(
-    QualType ElementType, Expr *RowExpr, Expr *ColumnExpr,
-    SourceLocation AttributeLoc) {
-  return SemaRef.BuildMatrixType(ElementType, RowExpr, ColumnExpr,
-                                 AttributeLoc);
+    QualType ElementType, bool IsExplicit, bool IsRowMajor, Expr *RowExpr,
+    Expr *ColumnExpr, SourceLocation AttributeLoc) {
+  return SemaRef.BuildMatrixType(ElementType, IsExplicit, IsRowMajor, RowExpr,
+                                 ColumnExpr, AttributeLoc);
 }
 
 // HLSL Change - FIX - We should move param mods to parameter QualTypes

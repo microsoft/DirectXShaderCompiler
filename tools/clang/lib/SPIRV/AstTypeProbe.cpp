@@ -1317,7 +1317,8 @@ QualType getHLSLMatrixType(ASTContext &astContext, Sema &S, QualType elemType,
       IntegerLiteral::Create(astContext, llvm::APInt(32, rows), I32Ty, noLoc);
   Expr *colExpr = IntegerLiteral::Create(astContext, llvm::APInt(32, columns),
                                          I32Ty, noLoc);
-  return S.BuildMatrixType(elemType, rowExpr, colExpr, noLoc);
+  return S.BuildMatrixType(elemType, false, S.getLangOpts().HLSLDefaultRowMajor,
+                           rowExpr, colExpr, noLoc);
 }
 
 bool isResourceOnlyStructure(QualType type) {
