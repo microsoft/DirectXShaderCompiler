@@ -27,17 +27,19 @@ define void @loadStress_16() {
   ; Test a Dxil op with a NodeRecordHandle handle type
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
   ; CHECK-DAG: note: at '%6 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0
-  %6 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer, i32 0)  
-
-  ; Note that output complete is the only exception among call instructions that may
-  ; take in a zeroinitializer as a handle argument.
-  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle zeroinitializer)
+  %6 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer, i32 0)    
   
   ; Test that OutputComplete fails when it receives an undef.
   ; OutputComplete also serves as a test for NodeRecordHandle handle types.
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
   ; CHECK-DAG: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle undef)
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle undef)
+
+
+  ; Test that OutputComplete fails when it receives an undef.
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
+  ; CHECK-DAG: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle zeroinitializer)
+  call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle zeroinitializer)
 
   ; Test a Dxil op with a Resource handle type (mixing in undef and zeroinitializer)
   ; (it should be noted that handles with zeroinitialize / undef values are invalid according to DxilResourceProperties)

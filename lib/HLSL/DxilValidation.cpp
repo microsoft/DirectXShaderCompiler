@@ -1131,33 +1131,34 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
   return RP.CBufferSizeInBytes;
 }
 
-void ValidateHandleArgsForInstruction(CallInst* CI, DXIL::OpCode opcode, ValidationContext &ValCtx) {
-  // make sure none of the handle arguments are undef / zero-initializer,
-  // The only exception is that a zero-initializer is allowed
-  // as an argument to Output Complete (CAZ == zero-initializer)
-  // Also, do not accept any resource handles with invalid dxil resource properties
+// make sure none of the handle arguments are undef / zero-initializer,
+// The only exception is that a zero-initializer is allowed
+// as an argument to Output Complete (CAZ == zero-initializer)
+// Also, do not accept any resource handles with invalid dxil resource
+// properties
+void ValidateHandleArgsForInstruction(CallInst *CI, DXIL::OpCode opcode,
+                                      ValidationContext &ValCtx) {
+
   for (Value *op : CI->operands()) {
     const Type *pHandleTy = ValCtx.HandleTy; // This is a resource handle
     const Type *pNodeHandleTy = ValCtx.DxilMod.GetOP()->GetNodeHandleType();
-    const Type *pNodeRecordHandleTy = ValCtx.DxilMod.GetOP()->GetNodeRecordHandleType();
+    const Type *pNodeRecordHandleTy =
+        ValCtx.DxilMod.GetOP()->GetNodeRecordHandleType();
 
     const Type *argTy = op->getType();
-    if (argTy == pNodeHandleTy || argTy == pNodeRecordHandleTy || argTy == pHandleTy) {
-      bool bIsUninitialized = isa<UndefValue>(op) || isa<ConstantAggregateZero>(op);
+    if (argTy == pNodeHandleTy || argTy == pNodeRecordHandleTy ||
+        argTy == pHandleTy) {
+      bool bIsUninitialized =
+          isa<UndefValue>(op) || isa<ConstantAggregateZero>(op);
       if (argTy == pHandleTy) {
-        hlsl::DxilResourceProperties pDRP = ValCtx.GetResourceFromVal(op);
-        if (!pDRP.isValid()) {
-          ValCtx.EmitInstrError(
-            CI, ValidationRule::InstrResourceInvalid);
-        }       
+        hlsl::DxilResourceProperties DRP = GetResourceFromHandle(op, ValCtx);
+        if (!DRP.isValid()) {
+          ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceInvalid);
+        }
       }
       if (bIsUninitialized) {
-        if (opcode == DXIL::OpCode::OutputComplete && isa<ConstantAggregateZero>(op)) {
-          continue;
-        }        
-        ValCtx.EmitInstrError(
-          CI, ValidationRule::InstrNoReadingUninitialized);        
-      }      
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+      }
     }
   }
 }
@@ -1165,73 +1166,75 @@ void ValidateHandleArgsForInstruction(CallInst* CI, DXIL::OpCode opcode, Validat
 void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &ValCtx) {
 
   switch (opcode) {
-  // Imm input value validation.
-  case DXIL::OpCode::Asin:
-  case DXIL::OpCode::Acos:
-  case DXIL::OpCode::Log:
-  case DXIL::OpCode::DerivFineX:
-  case DXIL::OpCode::DerivFineY:
-  case DXIL::OpCode::DerivCoarseX:
-  case DXIL::OpCode::DerivCoarseY:
-  case DXIL::OpCode::GetDimensions:
-  case DXIL::OpCode::CalculateLOD:
-  case DXIL::OpCode::TextureGather:
-  case DXIL::OpCode::TextureGatherCmp:
-  case DXIL::OpCode::Sample:
-  case DXIL::OpCode::SampleCmp:
-  case DXIL::OpCode::SampleCmpLevel:
-  case DXIL::OpCode::SampleCmpLevelZero:
-  case DXIL::OpCode::SampleBias:
-  case DXIL::OpCode::SampleGrad:
-  case DXIL::OpCode::SampleLevel:
-  case DXIL::OpCode::CheckAccessFullyMapped:
-  case DXIL::OpCode::BufferStore:
-  case DXIL::OpCode::TextureStore:
-  case DXIL::OpCode::BufferLoad:
-  case DXIL::OpCode::TextureLoad:
+  // handle ops
+  case DXIL::OpCode::CreateHandle:
   case DXIL::OpCode::CBufferLoad:
   case DXIL::OpCode::CBufferLoadLegacy:
-  case DXIL::OpCode::RawBufferLoad:
-  case DXIL::OpCode::RawBufferStore:
-  case DXIL::OpCode::LoadInput:
-  case DXIL::OpCode::DomainLocation:
-  case DXIL::OpCode::StoreOutput:
-  case DXIL::OpCode::StoreVertexOutput:
-  case DXIL::OpCode::StorePrimitiveOutput:
-  case DXIL::OpCode::OutputControlPointID:
-  case DXIL::OpCode::LoadOutputControlPoint:
-  case DXIL::OpCode::StorePatchConstant:
-  case DXIL::OpCode::Coverage:
-  case DXIL::OpCode::InnerCoverage:
-  case DXIL::OpCode::ViewID:
-  case DXIL::OpCode::EvalCentroid:
-  case DXIL::OpCode::EvalSampleIndex:
-  case DXIL::OpCode::EvalSnapped:
-  case DXIL::OpCode::AttributeAtVertex:
-  case DXIL::OpCode::EmitStream:
-  case DXIL::OpCode::EmitThenCutStream:
-  case DXIL::OpCode::CutStream:
+  case DXIL::OpCode::Sample:
+  case DXIL::OpCode::SampleBias:
+  case DXIL::OpCode::SampleLevel:
+  case DXIL::OpCode::SampleGrad:
+  case DXIL::OpCode::SampleCmp:
+  case DXIL::OpCode::SampleCmpLevelZero:
+  case DXIL::OpCode::TextureLoad:
+  case DXIL::OpCode::TextureStore:
+  case DXIL::OpCode::BufferLoad:
+  case DXIL::OpCode::BufferStore:
   case DXIL::OpCode::BufferUpdateCounter:
-  case DXIL::OpCode::Barrier:
-  case DXIL::OpCode::BarrierByMemoryType:
-  case DXIL::OpCode::BarrierByNodeRecordHandle:
-  case DXIL::OpCode::BarrierByMemoryHandle:
-  case DXIL::OpCode::CreateHandleForLib:
+  case DXIL::OpCode::GetDimensions:
+  case DXIL::OpCode::TextureGather:
+  case DXIL::OpCode::TextureGatherCmp:
+  case DXIL::OpCode::Texture2DMSGetSamplePosition:
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange:
-  case DXIL::OpCode::CreateHandle:
-  case DXIL::OpCode::GetNodeRecordPtr:
-  case DXIL::OpCode::OutputComplete:
-  case DXIL::OpCode::WriteSamplerFeedbackLevel:
+  case DXIL::OpCode::CalculateLOD:
+  case DXIL::OpCode::RawBufferLoad:
+  case DXIL::OpCode::RawBufferStore:
+  case DXIL::OpCode::TraceRay:
+  case DXIL::OpCode::CreateHandleForLib:
   case DXIL::OpCode::WriteSamplerFeedback:
   case DXIL::OpCode::WriteSamplerFeedbackBias:
+  case DXIL::OpCode::WriteSamplerFeedbackLevel:
   case DXIL::OpCode::WriteSamplerFeedbackGrad:
-  case DXIL::OpCode::AnnotateNodeHandle:
+  case DXIL::OpCode::RayQuery_TraceRayInline:
+  case DXIL::OpCode::CreateHandleFromBinding:
+  case DXIL::OpCode::CreateHandleFromHeap:
+  case DXIL::OpCode::TextureGatherRaw:
+  case DXIL::OpCode::SampleCmpLevel:
+  case DXIL::OpCode::TextureStoreSample:
+  case DXIL::OpCode::WaveMatrix_LoadRawBuf:
+  case DXIL::OpCode::WaveMatrix_StoreRawBuf:
+  case DXIL::OpCode::BarrierByMemoryHandle:
+  // node handle ops
+  case DXIL::OpCode::IncrementOutputCount:
+  case DXIL::OpCode::CreateNodeOutputHandle:
+  case DXIL::OpCode::IndexNodeHandle:
+  case DXIL::OpCode::NodeOutputIsValid:
+  // node record handle ops
+  case DXIL::OpCode::GetNodeRecordPtr:
+  case DXIL::OpCode::OutputComplete:
+  case DXIL::OpCode::GetInputRecordCount:
+  case DXIL::OpCode::FinishedCrossGroupSharing:
+  case DXIL::OpCode::BarrierByNodeRecordHandle:
+  case DXIL::OpCode::CreateNodeInputRecordHandle:
+  // TODO: add case DXIL::OpCode::IndexNodeRecordHandle:
+ 
+  // ops with both nodehandle and noderecordhandle
+  case DXIL::OpCode::AllocateNodeOutputRecords:
     ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
     break;
+
+  // handle annotation intrinsics:
+  case DXIL::OpCode::AnnotateHandle:
+  case DXIL::OpCode::AnnotateNodeHandle:
+  case DXIL::OpCode::AnnotateNodeRecordHandle:
+    // TODO: add more custom validation for the annotation intrinsics
+    ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
+    break;
+    
   default:
     // TODO: make sure every opcode is checked.
-    // Skip opcodes don't need special check.
+    // Add DXAssert if default is ever hit.
     break;
   }
 }
@@ -1302,7 +1305,6 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     F = it->second.front();
     bIsPatchConstantFunc = true;
   }
-
   if (!ValCtx.HasEntryStatus(F)) {
     return;
   }
@@ -2320,6 +2322,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     } else {
         ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst, {"inc", "BufferUpdateCounter"});
     }
+
   } break;
   case DXIL::OpCode::Barrier: {
     DxilInst_Barrier barrier(CI);
@@ -2354,6 +2357,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
       }
     }
+
   } break;
   case DXIL::OpCode::BarrierByMemoryType: {
     DxilInst_BarrierByMemoryType DI(CI);
@@ -2366,6 +2370,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_SyncFlags(), 
     (unsigned)hlsl::DXIL::SyncFlag::ValidMask,
     "sync", "BarrierByMemoryType");
+
   } break;
   case DXIL::OpCode::BarrierByNodeRecordHandle:
   case DXIL::OpCode::BarrierByMemoryHandle: {
@@ -3160,11 +3165,11 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             continue;
           }
 
-          Value* opcodeVal = CI->getOperand(0);
-          ConstantInt* OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
+          Value *opcodeVal = CI->getOperand(0);
+          ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
           if (OpcodeConst == nullptr) {
             ValCtx.EmitInstrFormatError(&I, ValidationRule::InstrOpConst,
-              { "Opcode", "DXIL operation" });
+                                        {"Opcode", "DXIL operation"});
             continue;
           }
 
