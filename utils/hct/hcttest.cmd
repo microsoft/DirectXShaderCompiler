@@ -98,7 +98,7 @@ if "%1"=="-clean" (
 ) else if "%1"=="file-check" (
   set TEST_ALL=0
   set TEST_MANUAL_FILE_CHECK=1
-  set MANUAL_FILE_CHECK_PATH=%~2
+  set MANUAL_FILE_CHECK_PATH=%~f2
   shift /1
 ) else if "%1"=="v" (
   set TEST_ALL=0
