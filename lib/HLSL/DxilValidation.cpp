@@ -1191,7 +1191,6 @@ void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &Va
   case DXIL::OpCode::RawBufferLoad:
   case DXIL::OpCode::RawBufferStore:
   case DXIL::OpCode::TraceRay:
-  case DXIL::OpCode::CreateHandleForLib:
   case DXIL::OpCode::WriteSamplerFeedback:
   case DXIL::OpCode::WriteSamplerFeedbackBias:
   case DXIL::OpCode::WriteSamplerFeedbackLevel:
@@ -1224,12 +1223,14 @@ void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &Va
     ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
     break;
 
-  // handle annotation intrinsics:
+  // handle annotation intrinsics and
+  // other intrinsics that need special validation
+
   case DXIL::OpCode::AnnotateHandle:
   case DXIL::OpCode::AnnotateNodeHandle:
   case DXIL::OpCode::AnnotateNodeRecordHandle:
-    // TODO: add more custom validation for the annotation intrinsics
-    ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
+  case DXIL::OpCode::CreateHandleForLib:
+    // TODO: add more custom validation for these intrinsics
     break;
     
   default:
