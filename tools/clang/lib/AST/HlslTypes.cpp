@@ -176,18 +176,13 @@ clang::QualType GetElementTypeOrType(clang::QualType type) {
 }
 
 bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
-  const AttributedType *AT = type->getAs<AttributedType>();
-  while (AT) {
-    AttributedType::Kind kind = AT->getAttrKind();
-    switch (kind) {
-    case AttributedType::attr_hlsl_row_major:
-      if (pIsRowMajor) *pIsRowMajor = true;
-      return true;
-    case AttributedType::attr_hlsl_column_major:
-      if (pIsRowMajor) *pIsRowMajor = false;
+  if (type.getCanonicalType()->isMatrixType()) {
+    auto *MT = type.getCanonicalType()->getAs<MatrixType>();
+    if (MT->getIsExplicitOrientation()) {
+      if (pIsRowMajor)
+        *pIsRowMajor = MT->getIsRowMajor();
       return true;
     }
-    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
   }
   return false;
 }
@@ -910,6 +905,44 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T) {
         break;
     }
     return T;
+}
+
+// Apply matrix orientation explicitly.
+QualType ApplyOrientationOnHLSLMatrixType(QualType matType, bool isRowMajor,
+                                          ASTContext &Ctx) {
+  // Collect snorm/unorm on typedef if exist.
+  llvm::Optional<AttributedType::Kind> Attr;
+  if (const AttributedType *AT = matType->getAs<AttributedType>()) {
+    while (AT) {
+      AttributedType::Kind kind = AT->getAttrKind();
+      switch (kind) {
+      case AttributedType::attr_hlsl_snorm:
+      case AttributedType::attr_hlsl_unorm:
+        Attr = kind;
+      }
+      matType = AT->getModifiedType();
+      AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()
+              ->getAs<AttributedType>();
+    }
+  }
+  // This is explicit orientation.
+  matType = matType.getDesugaredType(Ctx);
+  DXASSERT(matType->isMatrixType(), "apply orientation on non matrix type");
+
+  QualType EltTy = cast<MatrixType>(matType)->getElementType();
+  // Apply snorm/unorm if exist.
+  if (Attr)
+    EltTy = Ctx.getAttributedType(Attr.getValue(), EltTy, EltTy);
+
+  if (auto *CMT = dyn_cast<ConstantMatrixType>(matType))
+    return Ctx.getConstantMatrixType(EltTy, /*IsExplicit*/ true, isRowMajor,
+                                     CMT->getNumRows(), CMT->getNumColumns());
+
+  auto *DMT = cast<DependentSizedMatrixType>(matType);
+  return Ctx.getDependentSizedMatrixType(
+      EltTy,
+      /*IsExplicit*/ true, isRowMajor, DMT->getRowExpr(), DMT->getColumnExpr(),
+      DMT->getAttributeLoc());
 }
 
 }

@@ -710,6 +710,7 @@ struct ArTypeInfo {
   ArTypeObjectKind ShapeKind;      // The shape of the type (basic, matrix, etc.)
   ArBasicKind EltKind;             // The primitive type of elements in this type.
   const clang::Type *EltTy;        // Canonical element type ptr
+  const clang::Type *ArrayEltTy;   // Canonical array element type ptr
   ArBasicKind ObjKind;             // The object type for this type (textures, buffers, etc.)
   UINT uRows;
   UINT uCols;
@@ -4268,7 +4269,16 @@ public:
     }
     return type;
   }
-
+  /// <summary>Given a Clang type, return the QualType for its array element, drilling
+  /// through array only.</summary>
+  QualType GetArrayElementType(QualType type) {
+    type = GetStructuralForm(type);
+    if (type->isArrayType()) {
+      const ArrayType *arrayType = type->getAsArrayTypeUnsafe();
+      type = GetArrayElementType(arrayType->getElementType());
+    }
+    return type;
+  }
   /// <summary>Given a Clang type, return the ArBasicKind classification for its contents.</summary>
   ArBasicKind GetTypeElementKind(QualType type)
   {
@@ -6796,6 +6806,11 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
   GetRowsAndColsForAny(type, pTypeInfo->uRows, pTypeInfo->uCols);
   pTypeInfo->uTotalElts = pTypeInfo->uRows * pTypeInfo->uCols;
+  if (pTypeInfo->ShapeKind == AR_TOBJ_ARRAY)
+    pTypeInfo->ArrayEltTy =
+        GetArrayElementType(type)->getCanonicalTypeUnqualified()->getTypePtr();
+  else
+    pTypeInfo->ArrayEltTy = nullptr;
 }
 
 // Highest possible score (i.e., worst possible score).
@@ -9030,7 +9045,24 @@ bool HLSLExternalSource::CanConvert(
     {
       return false;
     }
+    // Matrix array cases
+    if (SourceInfo.ShapeKind == AR_TOBJ_ARRAY &&
+        TargetInfo.ShapeKind == AR_TOBJ_ARRAY) {
+      // default and explicit matrix should match.
+      if (SourceInfo.ArrayEltTy->isMatrixType() &&
+          TargetInfo.ArrayEltTy->isMatrixType()) {
+        ArTypeInfo TargetEltInfo, SourceEltInfo;
+        CollectInfo(QualType(TargetInfo.ArrayEltTy, 0), &TargetEltInfo);
+        CollectInfo(QualType(SourceInfo.ArrayEltTy, 0), &SourceEltInfo);
 
+        if (TargetEltInfo.EltTy == SourceEltInfo.EltTy &&
+            TargetEltInfo.uRows == SourceEltInfo.uRows &&
+            TargetEltInfo.uCols == SourceEltInfo.uCols) {
+          Remarks = TYPE_CONVERSION_IDENTICAL;
+          goto lSuccess;
+        }
+      }
+    }
     // Structure to structure cases
     const RecordType *targetRT = dyn_cast<RecordType>(target);
     const RecordType *sourceRT = dyn_cast<RecordType>(source);
@@ -13497,59 +13529,53 @@ static QualType getUnderlyingType(QualType Type)
 /// <param name="ppNorm">Set pointer to snorm/unorm AttributedType if supplied.</param>
 void hlsl::GetHLSLAttributedTypes(
     _In_ clang::Sema *self, clang::QualType type,
-    _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
-    _Inout_opt_ const clang::AttributedType **ppNorm,
-    _Inout_opt_ const clang::AttributedType **ppGLC) {
-  AssignOpt<const clang::AttributedType *>(nullptr, ppMatrixOrientation);
-  AssignOpt<const clang::AttributedType *>(nullptr, ppNorm);
-  AssignOpt<const clang::AttributedType *>(nullptr, ppGLC);
+    _Inout_opt_ llvm::Optional<AttributeList::Kind> &MatrixOrientation,
+    _Inout_opt_ llvm::Optional<AttributeList::Kind> &Norm,
+    _Inout_opt_ llvm::Optional<AttributeList::Kind> &GLC) {
 
   // Note: we clear output pointers once set so we can stop searching
   QualType Desugared = getUnderlyingType(type);
   const AttributedType *AT = dyn_cast<AttributedType>(Desugared);
-  while (AT && (ppMatrixOrientation || ppNorm || ppGLC)) {
+  while (AT) {
     AttributedType::Kind Kind = AT->getAttrKind();
-
-    if (Kind == AttributedType::attr_hlsl_row_major ||
-        Kind == AttributedType::attr_hlsl_column_major)
-    {
-      if (ppMatrixOrientation)
-      {
-        *ppMatrixOrientation = AT;
-        ppMatrixOrientation = nullptr;
-      }
-    }
-    else if (Kind == AttributedType::attr_hlsl_unorm ||
-             Kind == AttributedType::attr_hlsl_snorm)
-    {
-      if (ppNorm)
-      {
-        *ppNorm = AT;
-        ppNorm = nullptr;
-      }
-    }
-    else if (Kind == AttributedType::attr_hlsl_globallycoherent) {
-      if (ppGLC) {
-        *ppGLC = AT;
-        ppGLC = nullptr;
-      }
+    switch (Kind) {
+    case AttributedType::attr_hlsl_unorm:
+      Norm = AttributeList::Kind::AT_HLSLUnorm;
+      break;
+    case AttributedType::attr_hlsl_snorm:
+      Norm = AttributeList::Kind::AT_HLSLSnorm;
+      break;
+    case AttributedType::attr_hlsl_globallycoherent:
+      GLC = AttributeList::Kind::AT_HLSLGloballyCoherent;
+      break;
     }
 
     Desugared = getUnderlyingType(AT->getEquivalentType());
     AT = dyn_cast<AttributedType>(Desugared);
   }
 
+  if (Desugared->isMatrixType()) {
+    auto *MT = Desugared->getAs<MatrixType>();
+    if (MT->getIsExplicitOrientation()) {
+      MatrixOrientation = MT->getIsRowMajor()
+                              ? AttributeList::AT_HLSLRowMajor
+                              : AttributeList::AT_HLSLColumnMajor;
+    }
+  }
+
   // Unwrap component type on vector or matrix and check snorm/unorm
   Desugared = getUnderlyingType(hlsl::GetOriginalElementType(self, Desugared));
   AT = dyn_cast<AttributedType>(Desugared);
-  while (AT && ppNorm) {
+  while (AT) {
     AttributedType::Kind Kind = AT->getAttrKind();
 
-    if (Kind == AttributedType::attr_hlsl_unorm ||
-      Kind == AttributedType::attr_hlsl_snorm)
-    {
-      *ppNorm = AT;
-      ppNorm = nullptr;
+    switch (Kind) {
+    case AttributedType::attr_hlsl_unorm:
+      Norm = AttributeList::Kind::AT_HLSLUnorm;
+      break;
+    case AttributedType::attr_hlsl_snorm:
+      Norm = AttributeList::Kind::AT_HLSLSnorm;
+      break;
     }
 
     Desugared = getUnderlyingType(AT->getEquivalentType());

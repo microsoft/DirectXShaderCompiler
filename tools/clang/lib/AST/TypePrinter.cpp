@@ -626,6 +626,12 @@ void TypePrinter::printMatrixAfter(const MatrixType *T,
 
 void TypePrinter::printConstantMatrixBefore(const ConstantMatrixType *T,
                                             raw_ostream &OS) {
+  if (T->getIsExplicitOrientation()) {
+    if (T->getIsRowMajor())
+      OS << "row_major ";
+    else
+      OS << "column_major ";
+  }
   OS << "matrix<";
   LangOptions LO;
   T->getElementType().print(OS, PrintingPolicy(LO));
@@ -642,6 +648,12 @@ void TypePrinter::printConstantMatrixAfter(const ConstantMatrixType *T,
 
 void TypePrinter::printDependentSizedMatrixBefore(
     const DependentSizedMatrixType *T, raw_ostream &OS) {
+  if (T->getIsExplicitOrientation()) {
+    if (T->getIsRowMajor())
+      OS << "row_major ";
+    else
+      OS << "column_major ";
+  }
   OS << "matrix<";
   LangOptions LO;
   PrintingPolicy PP(LO);

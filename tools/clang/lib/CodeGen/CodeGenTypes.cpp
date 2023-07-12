@@ -572,7 +572,11 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     OS << "class.matrix.";
     MT->getElementType().print(OS, policy);
     OS << "." << MT->getNumRows() << "." << MT->getNumColumns();
-    ResultType = llvm::StructType::create({ArrayTy}, OS.str(), false);
+    StringRef Name = OS.str();
+    if (llvm::StructType *ST = TheModule.getTypeByName(Name))
+      ResultType = ST;
+    else
+      ResultType = llvm::StructType::create({ArrayTy}, OS.str(), false);
     break;
   }
   case Type::FunctionNoProto:

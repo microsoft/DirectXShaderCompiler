@@ -3050,7 +3050,11 @@ public:
                          .getTypePtr() ==
                      getContext()
                          .getCanonicalType(Arg->getType())
-                         .getTypePtr())) &&
+                         .getTypePtr() ||
+                  // HLSL Change - allow matrix type mismatch as long as IR
+                  //  type match.
+                  getTypes().ConvertType((*I).getNonReferenceType()) ==
+                  getTypes().ConvertType(Arg->getType()))) &&
                "type mismatch in call argument!");
         ArgTypes.push_back(*I);
       }

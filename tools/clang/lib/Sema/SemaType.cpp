@@ -4412,9 +4412,7 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
   bool defaultRowMajor;
   if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T) && !hlsl::HasHLSLMatOrientation(T)
     && D.getDeclSpec().TryGetDefaultMatrixPackRowMajor(defaultRowMajor)) {
-    AttributedType::Kind AttributeKind = defaultRowMajor
-      ? AttributedType::attr_hlsl_row_major : AttributedType::attr_hlsl_column_major;
-    T = Context.getAttributedType(AttributeKind, T, T);
+    T = hlsl::ApplyOrientationOnHLSLMatrixType(T, defaultRowMajor, Context);
   }
   // HLSL changes end
 
@@ -5875,46 +5873,43 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
     return true;
   }
 
-  const AttributedType *pMatrixOrientation = nullptr;
-  const AttributedType *pNorm = nullptr;
-  const AttributedType *pGLC = nullptr;
-  hlsl::GetHLSLAttributedTypes(&S, Type, &pMatrixOrientation, &pNorm, &pGLC);
+  llvm::Optional<AttributeList::Kind> MatrixOrientation;
+  llvm::Optional<AttributeList::Kind> Norm;
+  llvm::Optional<AttributeList::Kind> GLC;
 
-  if (pMatrixOrientation &&
-    (Kind == AttributeList::AT_HLSLColumnMajor ||
-    Kind == AttributeList::AT_HLSLRowMajor))
-  {
-    AttributedType::Kind CurAttrKind = pMatrixOrientation->getAttrKind();
-    if (Kind == getAttrListKind(CurAttrKind))
-    {
+  hlsl::GetHLSLAttributedTypes(&S, Type, MatrixOrientation, Norm, GLC);
+
+  if (MatrixOrientation && (Kind == AttributeList::AT_HLSLColumnMajor ||
+                            Kind == AttributeList::AT_HLSLRowMajor)) {
+    AttributeList::Kind CurAttrKind = MatrixOrientation.getValue();
+    if (Kind == CurAttrKind) {
       S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
-        << Attr.getName() << Attr.getRange();
+          << Attr.getName() << Attr.getRange();
     } else {
       S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << "'row_major'" << "'column_major'" << Attr.getRange();
+          << "'row_major'"
+          << "'column_major'" << Attr.getRange();
     }
     return true;
   }
 
-  if (pNorm &&
-    (Kind == AttributeList::AT_HLSLSnorm ||
-    Kind == AttributeList::AT_HLSLUnorm))
-  {
-    AttributedType::Kind CurAttrKind = pNorm->getAttrKind();
-    if (Kind == getAttrListKind(CurAttrKind))
-    {
+  if (Norm && (Kind == AttributeList::AT_HLSLSnorm ||
+               Kind == AttributeList::AT_HLSLUnorm)) {
+    AttributeList::Kind CurAttrKind = Norm.getValue();
+    if (Kind == CurAttrKind) {
       S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
-        << Attr.getName() << Attr.getRange();
+          << Attr.getName() << Attr.getRange();
     } else {
       S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << "'unorm'" << "'snorm'" << Attr.getRange();
+          << "'unorm'"
+          << "'snorm'" << Attr.getRange();
     }
     return true;
   }
 
-  if (pGLC && Kind == AttributeList::AT_HLSLGloballyCoherent) {
-    AttributedType::Kind CurAttrKind = pGLC->getAttrKind();
-    if (Kind == getAttrListKind(CurAttrKind)) {
+  if (GLC && Kind == AttributeList::AT_HLSLGloballyCoherent) {
+    AttributeList::Kind CurAttrKind = GLC.getValue();
+    if (Kind == CurAttrKind) {
       S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
           << Attr.getName() << Attr.getRange();
     }
@@ -5923,8 +5918,16 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
   AttributedType::Kind TAK;
   switch (Kind) {
   default: llvm_unreachable("Unknown attribute kind");
-  case AttributeList::AT_HLSLRowMajor:    TAK = AttributedType::attr_hlsl_row_major; break;
-  case AttributeList::AT_HLSLColumnMajor: TAK = AttributedType::attr_hlsl_column_major; break;
+  case AttributeList::AT_HLSLRowMajor: {
+    Type = hlsl::ApplyOrientationOnHLSLMatrixType(Type, /*IsRowMajor*/ true,
+                                                  S.Context);
+    return false;
+  } break;
+  case AttributeList::AT_HLSLColumnMajor: {
+    Type = hlsl::ApplyOrientationOnHLSLMatrixType(Type, /*IsRowMajor*/ false,
+                                                  S.Context);
+    return false;
+  } break;
   case AttributeList::AT_HLSLUnorm:       TAK = AttributedType::attr_hlsl_unorm; break;
   case AttributeList::AT_HLSLSnorm:       TAK = AttributedType::attr_hlsl_snorm; break;
   case AttributeList::AT_HLSLGloballyCoherent:

@@ -1,6 +1,6 @@
 // RUN: %dxc -ast-dump /Tvs_6_0 /Evs_main  %s | FileCheck %s
 
-// CHECK: GetMatrix 'row_major float2x2 (int)'
+// CHECK: GetMatrix 'row_major matrix<float, 2, 2> (int)'
 
 #pragma pack_matrix (row_major)
 

@@ -232,9 +232,9 @@ void PrintClipPlaneIfPresent(clang::Expr *ClipPlane, llvm::raw_ostream &Out, con
 void Indent(unsigned int Indentation, llvm::raw_ostream &Out);
 void GetHLSLAttributedTypes(
     _In_ clang::Sema *self, clang::QualType type,
-    _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
-    _Inout_opt_ const clang::AttributedType **ppNorm,
-    _Inout_opt_ const clang::AttributedType **ppGLC);
+    _Inout_opt_ llvm::Optional<clang::AttributeList::Kind> &MatrixOrientation,
+    _Inout_opt_ llvm::Optional<clang::AttributeList::Kind> &Norm,
+    _Inout_opt_ llvm::Optional<clang::AttributeList::Kind> &GLC);
 
 clang::QualType GetHLSLVectorType(clang::Sema &sema, clang::QualType EltTy,
                                   unsigned int NumElts);

@@ -415,6 +415,10 @@ clang::QualType GetHLSLInputPatchElementType(clang::QualType type);
 unsigned GetHLSLInputPatchCount(clang::QualType type);
 clang::QualType GetHLSLOutputPatchElementType(clang::QualType type);
 unsigned GetHLSLOutputPatchCount(clang::QualType type);
+// Apply orientation to matType.
+clang::QualType ApplyOrientationOnHLSLMatrixType(clang::QualType matType,
+                                                 bool isRowMajor,
+                                                 clang::ASTContext &Ctx);
 
 bool IsHLSLSubobjectType(clang::QualType type);
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, 
