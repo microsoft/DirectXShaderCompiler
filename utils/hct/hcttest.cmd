@@ -265,7 +265,7 @@ if "%TEST_CLEAN%"=="1" (
 )
 
 if "%TEST_MANUAL_FILE_CHECK%"=="1" (
-  echo %MANUAL_FILE_CHECK_PATH%|find "\HLSLFileCheck\" >nul
+  echo %MANUAL_FILE_CHECK_PATH%|find /i "\HLSLFileCheck\" >nul
   if errorlevel 1 (
         echo "run lit file-check"
         set TEST_MANUAL_FILE_CHECK=0
