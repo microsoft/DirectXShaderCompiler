@@ -2,7 +2,7 @@
 
 // TBD: Prevent (%dx.types.NodeRecordHandle zeroinitializer) even earlier if possible.
 // CHECK: error: Instructions should not read uninitialized value.
-// CHECK: note: at '%15 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer,
+// CHECK-NEXT: call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer,
 #define LOAD_STRESS_MAX_GRID_SIZE 3
 #define GROUP_SHARED_SIZE 128
 
