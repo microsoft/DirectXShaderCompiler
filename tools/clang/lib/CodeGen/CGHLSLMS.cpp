@@ -5949,10 +5949,20 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         if (argAddr && SafeToSkip) {
           ArgVals.insert(Ptr);
           llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
+          QualType argEltTy = argType;
+          while (argEltTy->isArrayType())
+            argEltTy = argEltTy->getAsArrayTypeUnsafe()->getElementType();
+
           if (argAddr->getType()->getPointerElementType() == ToTy &&
               // Check clang Type for case like int cast to unsigned.
-              ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
-                  Arg->getType().getCanonicalType().getTypePtr())
+              (ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
+                   Arg->getType().getCanonicalType().getTypePtr() ||
+               // For matrix, orientation match is already checked, as long as
+               // element type match, the only thing mismatch is IsExplicit
+               // which is safe.
+               (isMatrix &&
+                ParamElTy->getAs<MatrixType>()->getElementType() ==
+                    argEltTy->getAs<MatrixType>()->getElementType())))
             continue;
         }
       }
