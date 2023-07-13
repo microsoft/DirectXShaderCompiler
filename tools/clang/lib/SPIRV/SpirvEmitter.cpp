@@ -1733,7 +1733,8 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
   // Reject arrays of RW/append/consume structured buffers. They have assoicated
   // counters, which are quite nasty to handle.
-  if (decl->getType()->isArrayType()) {
+  if (!spirvOptions.allowRWStructuredBufferArrays &&
+      decl->getType()->isArrayType()) {
     auto type = decl->getType();
     do {
       type = type->getAsArrayTypeUnsafe()->getElementType();

@@ -396,6 +396,8 @@ def fspv_preserve_bindings : Flag<["-"], "fspv-preserve-bindings">, Group<spirv_
   HelpText<"Preserves all bindings declared within the module, even when those bindings are unused">;
 def fspv_preserve_interface : Flag<["-"], "fspv-preserve-interface">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Preserves all interface variables in the entry point, even when those variables are unused">;
+def fvk_allow_rwstructuredbuffer_arrays: Flag<["-"], "fvk-allow-rwstructuredbuffer-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Allow arrays of RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers. This is in development, and the option will be removed when the feature is complete.">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////
