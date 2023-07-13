@@ -43,9 +43,17 @@ define void @loadStress_16() {
 
   ; Test a Dxil op with a Resource handle type (mixing in undef and zeroinitializer)
   ; (it should be noted that handles with zeroinitialize / undef values are invalid according to DxilResourceProperties)
+  ; CHECK-DAG: error: Resource is invalid.
+  ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef,
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
   ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef,
+  ; CHECK-DAG: error: Resource is invalid.
   ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer,
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
+  ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer,
+  ; CHECK-DAG: error: Resource is invalid.
+  ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer, %dx.types.Handle undef
+  ; CHECK-DAG: error: Instructions should not read uninitialized value.
   ; CHECK-DAG: note: at 'call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer, %dx.types.Handle undef
   call void @dx.op.writeSamplerFeedbackLevel(i32 176, %dx.types.Handle undef, %dx.types.Handle zeroinitializer, %dx.types.Handle undef, float 2.100000e+01, float 2.200000e+01, float undef, float undef, float 6.000000e+00)  ; WriteSamplerFeedbackLevel(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,lod)
 
