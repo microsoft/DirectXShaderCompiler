@@ -1,7 +1,7 @@
 ; RUN: %dxv %s | FileCheck %s
 
 ; The purpose of this test is to make sure that for various dxil ops that take in one
-; of three handle types: Handle (resource handles), NodeHandle, and NodeRecordHandle
+; of three handle types: Handle (resource handles), NodeHandle, and NodeRecordHandle,
 ; when the argument given to these types is zeroinitializer or undef, an
 ; error gets emitted, which proves there is validation that handle arguments
 ; aren't ill-formed.
@@ -51,16 +51,16 @@ define void @loadStress_16() {
 
   ; Test a dxil op with a NodeHandle handle type as undef
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
-  ; CHECK-DAG: note: at '%7 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle undef,
-  %7 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle undef, %dx.types.NodeInfo { i32 6, i32 24 })
+  ; CHECK-DAG: note: at 'call void @dx.op.incrementOutputCount(i32 240, %dx.types.NodeHandle undef, i32 1, i1 false)
+  call void @dx.op.incrementOutputCount(i32 240, %dx.types.NodeHandle undef, i32 1, i1 false)
 
   ; Test a dxil op with a NodeHandle handle type as zeroinitializer
   ; CHECK-DAG: error: Instructions should not read uninitialized value.
-  ; CHECK-DAG: note: at '%8 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle zeroinitializer, %dx.types.NodeInfo { i32 6, i32 24 })
-  %8 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle zeroinitializer, %dx.types.NodeInfo { i32 6, i32 24 })
+  ; CHECK-DAG: note: at 'call void @dx.op.incrementOutputCount(i32 240, %dx.types.NodeHandle zeroinitializer, i32 1, i1 false)
+  call void @dx.op.incrementOutputCount(i32 240, %dx.types.NodeHandle zeroinitializer, i32 1, i1 false)
 
-  br label %9
-; <label>:9                                        ; preds = %0
+  br label %7
+; <label>:7                                        ; preds = %0
   ret void  
 }
 
@@ -79,12 +79,6 @@ declare %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32, %dx.typ
 ; Function Attrs: nounwind
 declare void @dx.op.outputComplete(i32, %dx.types.NodeRecordHandle) #1
 
-; Function Attrs: nounwind
-;declare void @dx.op.BufferLoad(i32, i32)
-
-; Function Attrs: nounwind
-;declare void @dx.op.EmitStream(i32, i32)
-
 ; Function Attrs: nounwind readnone
 declare %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32, %dx.types.NodeRecordHandle, %dx.types.NodeRecordInfo) #0
 
@@ -93,6 +87,9 @@ declare %dx.types.NodeHandle @dx.op.createNodeOutputHandle(i32, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32, %dx.types.NodeHandle, %dx.types.NodeInfo) #0
+
+; Function Attrs: nounwind readnone
+declare void @dx.op.incrementOutputCount(i32, %dx.types.NodeHandle, i32, i1) #0
 
 attributes #0 = { nounwind readnone }
 attributes #1 = { nounwind }

@@ -1131,9 +1131,7 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
   return RP.CBufferSizeInBytes;
 }
 
-// make sure none of the handle arguments are undef / zero-initializer,
-// The only exception is that a zero-initializer is allowed
-// as an argument to Output Complete (CAZ == zero-initializer)
+// Make sure none of the handle arguments are undef / zero-initializer,
 // Also, do not accept any resource handles with invalid dxil resource
 // properties
 void ValidateHandleArgsForInstruction(CallInst *CI, DXIL::OpCode opcode,
@@ -1225,12 +1223,11 @@ void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &Va
 
   // handle annotation intrinsics and
   // other intrinsics that need special validation
-
   case DXIL::OpCode::AnnotateHandle:
   case DXIL::OpCode::AnnotateNodeHandle:
   case DXIL::OpCode::AnnotateNodeRecordHandle:
   case DXIL::OpCode::CreateHandleForLib:
-    // TODO: add more custom validation for these intrinsics
+    // TODO: add custom validation for these intrinsics
     break;
     
   default:
