@@ -1,3 +1,5 @@
+set(HLSL_IGNORE_SOURCES cc1as_main.cpp) # HLSL Change
+
 set( LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   Analysis
@@ -30,7 +32,7 @@ endif()
 add_clang_executable(clang
   driver.cpp
   cc1_main.cpp
-  cc1as_main.cpp
+  #cc1as_main.cpp # HLSL Change
   )
 
 target_link_libraries(clang

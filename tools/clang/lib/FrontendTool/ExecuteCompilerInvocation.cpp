@@ -182,14 +182,16 @@ bool clang::ExecuteCompilerInvocation(CompilerInstance *Clang) {
   }
 
   // Load any requested plugins.
-  for (unsigned i = 0,
-         e = Clang->getFrontendOpts().Plugins.size(); i != e; ++i) {
-    const std::string &Path = Clang->getFrontendOpts().Plugins[i];
-    std::string Error;
-    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(Path.c_str(), &Error))
-      Clang->getDiagnostics().Report(diag::err_fe_unable_to_load_plugin)
-        << Path << Error;
-  }
+  // HLSL Change Begin - not support Plugin.
+  //for (unsigned i = 0,
+  //       e = Clang->getFrontendOpts().Plugins.size(); i != e; ++i) {
+  //  const std::string &Path = Clang->getFrontendOpts().Plugins[i];
+  //  std::string Error;
+  //  if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(Path.c_str(), &Error))
+  //    Clang->getDiagnostics().Report(diag::err_fe_unable_to_load_plugin)
+  //      << Path << Error;
+  //}
+  // HLSL Change End
 
   // Honor -mllvm.
   //

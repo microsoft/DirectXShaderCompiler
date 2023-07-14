@@ -74,7 +74,7 @@ endif()
 
 # HLSL Change Begin
 # Explicitly overriding check-clang dependencies for HLSL
-set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
+set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen clang llvm-config opt FileCheck count not ClangUnitTests)
 if (WIN32)
 list(APPEND CLANG_TEST_DEPS
      dxc_batch ExecHLSLTests

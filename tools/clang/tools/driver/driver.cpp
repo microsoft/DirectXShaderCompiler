@@ -362,8 +362,9 @@ static int ExecuteCC1Tool(ArrayRef<const char *> argv, StringRef Tool) {
   void *GetExecutablePathVP = (void *)(intptr_t) GetExecutablePath;
   if (Tool == "")
     return cc1_main(argv.slice(2), argv[0], GetExecutablePathVP);
-  if (Tool == "as")
-    return cc1as_main(argv.slice(2), argv[0], GetExecutablePathVP);
+  // HLSL Change - not support -cc1as
+  //if (Tool == "as")
+  //  return cc1as_main(argv.slice(2), argv[0], GetExecutablePathVP);
 
   // Reject unknown tools.
   llvm::errs() << "error: unknown integrated tool '" << Tool << "'\n";
@@ -423,111 +424,113 @@ int __cdecl main(int argc_, const char **argv_) {
     }
     return ExecuteCC1Tool(argv, argv[1] + 4);
   }
-
-  bool CanonicalPrefixes = true;
-  for (int i = 1, size = argv.size(); i < size; ++i) {
-    // Skip end-of-line response file markers
-    if (argv[i] == nullptr)
-      continue;
-    if (StringRef(argv[i]) == "-no-canonical-prefixes") {
-      CanonicalPrefixes = false;
-      break;
-    }
-  }
-
-  std::set<std::string> SavedStrings;
-  // Handle CCC_OVERRIDE_OPTIONS, used for editing a command line behind the
-  // scenes.
-  if (const char *OverrideStr = ::getenv("CCC_OVERRIDE_OPTIONS")) {
-    // FIXME: Driver shouldn't take extra initial argument.
-    ApplyQAOverride(argv, OverrideStr, SavedStrings);
-  }
-
-  std::string Path = GetExecutablePath(argv[0], CanonicalPrefixes);
-
-  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts =
-      CreateAndPopulateDiagOpts(argv);
-
-  TextDiagnosticPrinter *DiagClient
-    = new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
-  FixupDiagPrefixExeName(DiagClient, Path);
-
-  IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
-
-  DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
-
-  if (!DiagOpts->DiagnosticSerializationFile.empty()) {
-    auto SerializedConsumer =
-        clang::serialized_diags::create(DiagOpts->DiagnosticSerializationFile,
-                                        &*DiagOpts, /*MergeChildRecords=*/true);
-    Diags.setClient(new ChainedDiagnosticConsumer(
-        Diags.takeClient(), std::move(SerializedConsumer)));
-  }
-
-  ProcessWarningOptions(Diags, *DiagOpts, /*ReportDiags=*/false);
-
-  Driver TheDriver(Path, llvm::sys::getDefaultTargetTriple(), Diags);
-  SetInstallDir(argv, TheDriver);
-
-  llvm::InitializeAllTargets();
-  ParseProgName(argv, SavedStrings);
-
-  SetBackdoorDriverOutputsFromEnvVars(TheDriver);
-
-  std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(argv));
-  int Res = 0;
-  SmallVector<std::pair<int, const Command *>, 4> FailingCommands;
-  if (C.get())
-    Res = TheDriver.ExecuteCompilation(*C, FailingCommands);
-
-  // Force a crash to test the diagnostics.
-  if (::getenv("FORCE_CLANG_DIAGNOSTICS_CRASH")) {
-    Diags.Report(diag::err_drv_force_crash) << "FORCE_CLANG_DIAGNOSTICS_CRASH";
-
-    // Pretend that every command failed.
-    FailingCommands.clear();
-    for (const auto &J : C->getJobs())
-      if (const Command *C = dyn_cast<Command>(&J))
-        FailingCommands.push_back(std::make_pair(-1, C));
-  }
-
-  for (const auto &P : FailingCommands) {
-    int CommandRes = P.first;
-    const Command *FailingCommand = P.second;
-    if (!Res)
-      Res = CommandRes;
-
-    // If result status is < 0, then the driver command signalled an error.
-    // If result status is 70, then the driver command reported a fatal error.
-    // On Windows, abort will return an exit code of 3.  In these cases,
-    // generate additional diagnostic information if possible.
-    bool DiagnoseCrash = CommandRes < 0 || CommandRes == 70;
-#ifdef LLVM_ON_WIN32
-    DiagnoseCrash |= CommandRes == 3;
-#endif
-    if (DiagnoseCrash) {
-      TheDriver.generateCompilationDiagnostics(*C, *FailingCommand);
-      break;
-    }
-  }
-
-  Diags.getClient()->finish();
-
-  // If any timers were active but haven't been destroyed yet, print their
-  // results now.  This happens in -disable-free mode.
-  llvm::TimerGroup::printAll(llvm::errs());
-
-  llvm::llvm_shutdown();
-
-#ifdef LLVM_ON_WIN32
-  // Exit status should not be negative on Win32, unless abnormal termination.
-  // Once abnormal termiation was caught, negative status should not be
-  // propagated.
-  if (Res < 0)
-    Res = 1;
-#endif
-
-  // If we have multiple failing commands, we return the result of the first
-  // failing command.
-  return Res;
+  return 1;
+// HLSL Change Begin - only enable cc1.
+//  bool CanonicalPrefixes = true;
+//  for (int i = 1, size = argv.size(); i < size; ++i) {
+//    // Skip end-of-line response file markers
+//    if (argv[i] == nullptr)
+//      continue;
+//    if (StringRef(argv[i]) == "-no-canonical-prefixes") {
+//      CanonicalPrefixes = false;
+//      break;
+//    }
+//  }
+//
+//  std::set<std::string> SavedStrings;
+//  // Handle CCC_OVERRIDE_OPTIONS, used for editing a command line behind the
+//  // scenes.
+//  if (const char *OverrideStr = ::getenv("CCC_OVERRIDE_OPTIONS")) {
+//    // FIXME: Driver shouldn't take extra initial argument.
+//    ApplyQAOverride(argv, OverrideStr, SavedStrings);
+//  }
+//
+//  std::string Path = GetExecutablePath(argv[0], CanonicalPrefixes);
+//
+//  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts =
+//      CreateAndPopulateDiagOpts(argv);
+//
+//  TextDiagnosticPrinter *DiagClient
+//    = new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
+//  FixupDiagPrefixExeName(DiagClient, Path);
+//
+//  IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
+//
+//  DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
+//
+//  if (!DiagOpts->DiagnosticSerializationFile.empty()) {
+//    auto SerializedConsumer =
+//        clang::serialized_diags::create(DiagOpts->DiagnosticSerializationFile,
+//                                        &*DiagOpts, /*MergeChildRecords=*/true);
+//    Diags.setClient(new ChainedDiagnosticConsumer(
+//        Diags.takeClient(), std::move(SerializedConsumer)));
+//  }
+//
+//  ProcessWarningOptions(Diags, *DiagOpts, /*ReportDiags=*/false);
+//
+//  Driver TheDriver(Path, llvm::sys::getDefaultTargetTriple(), Diags);
+//  SetInstallDir(argv, TheDriver);
+//
+//  llvm::InitializeAllTargets();
+//  ParseProgName(argv, SavedStrings);
+//
+//  SetBackdoorDriverOutputsFromEnvVars(TheDriver);
+//
+//  std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(argv));
+//  int Res = 0;
+//  SmallVector<std::pair<int, const Command *>, 4> FailingCommands;
+//  if (C.get())
+//    Res = TheDriver.ExecuteCompilation(*C, FailingCommands);
+//
+//  // Force a crash to test the diagnostics.
+//  if (::getenv("FORCE_CLANG_DIAGNOSTICS_CRASH")) {
+//    Diags.Report(diag::err_drv_force_crash) << "FORCE_CLANG_DIAGNOSTICS_CRASH";
+//
+//    // Pretend that every command failed.
+//    FailingCommands.clear();
+//    for (const auto &J : C->getJobs())
+//      if (const Command *C = dyn_cast<Command>(&J))
+//        FailingCommands.push_back(std::make_pair(-1, C));
+//  }
+//
+//  for (const auto &P : FailingCommands) {
+//    int CommandRes = P.first;
+//    const Command *FailingCommand = P.second;
+//    if (!Res)
+//      Res = CommandRes;
+//
+//    // If result status is < 0, then the driver command signalled an error.
+//    // If result status is 70, then the driver command reported a fatal error.
+//    // On Windows, abort will return an exit code of 3.  In these cases,
+//    // generate additional diagnostic information if possible.
+//    bool DiagnoseCrash = CommandRes < 0 || CommandRes == 70;
+//#ifdef LLVM_ON_WIN32
+//    DiagnoseCrash |= CommandRes == 3;
+//#endif
+//    if (DiagnoseCrash) {
+//      TheDriver.generateCompilationDiagnostics(*C, *FailingCommand);
+//      break;
+//    }
+//  }
+//
+//  Diags.getClient()->finish();
+//
+//  // If any timers were active but haven't been destroyed yet, print their
+//  // results now.  This happens in -disable-free mode.
+//  llvm::TimerGroup::printAll(llvm::errs());
+//
+//  llvm::llvm_shutdown();
+//
+//#ifdef LLVM_ON_WIN32
+//  // Exit status should not be negative on Win32, unless abnormal termination.
+//  // Once abnormal termiation was caught, negative status should not be
+//  // propagated.
+//  if (Res < 0)
+//    Res = 1;
+//#endif
+//
+//  // If we have multiple failing commands, we return the result of the first
+//  // failing command.
+//  return Res;
+// HLSL Change End
 }

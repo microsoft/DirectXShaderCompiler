@@ -69,9 +69,9 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
 
   // Register the support for object-file-wrapped Clang modules.
-  auto PCHOps = Clang->getPCHContainerOperations();
-  PCHOps->registerWriter(llvm::make_unique<ObjectFilePCHContainerWriter>());
-  PCHOps->registerReader(llvm::make_unique<ObjectFilePCHContainerReader>());
+  //auto PCHOps = Clang->getPCHContainerOperations();
+  //PCHOps->registerWriter(llvm::make_unique<ObjectFilePCHContainerWriter>());
+  //PCHOps->registerReader(llvm::make_unique<ObjectFilePCHContainerReader>());
 
   // Initialize targets first, so that --version shows registered targets.
   llvm::InitializeAllTargets();
@@ -102,6 +102,9 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   Clang->createDiagnostics();
   if (!Clang->hasDiagnostics())
     return 1;
+
+  // HLSL Change - set outstream to llvm::outs.
+  Clang->setOutStream(&llvm::outs());
 
   // Set an error handler, so that any LLVM backend diagnostics go through our
   // error handler.
