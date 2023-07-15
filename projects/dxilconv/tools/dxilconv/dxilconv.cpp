@@ -22,7 +22,7 @@
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 #include "dxcetw.h"
-#include "Tracing/DxcRuntimeEtw.h"
+
 #include "DxbcConverter.h"
 
 // Defined in DxbcConverter.lib (projects/dxilconv/lib/DxbcConverter/DxbcConverter.cpp)

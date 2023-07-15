@@ -9,14 +9,15 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/FileSystem.h"
-#include "dxc/config.h"
-#include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+
+#include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/config.h"
 #include "dxcetw.h"
 #include "dxillib.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/ManagedStatic.h"
 
 namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
 

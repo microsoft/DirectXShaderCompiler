@@ -15,12 +15,12 @@
 #include <string>
 #include <algorithm>
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Regex.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/Support/WinIncludes.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Regex.h"
 
 #ifdef _WIN32
 #include <atlbase.h>

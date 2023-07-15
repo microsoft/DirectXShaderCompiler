@@ -9,12 +9,13 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/FileSystem.h"
-#include "dxc/config.h"
-#include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+
+#include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/config.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/ManagedStatic.h"
 #ifdef LLVM_ON_WIN32
 #include "dxcetw.h"
 #endif
