@@ -618,7 +618,7 @@ void SetupCompilerForPreprocess(
     CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper,
     _In_ LPCSTR pMainFile, _In_ TextDiagnosticPrinter *diagPrinter,
     _In_opt_ ASTUnit::RemappedFile *rewrite, _In_ hlsl::options::DxcOpts &opts,
-    _In_ DxcDefine *pDefines, _In_ UINT32 defineCount,
+    _In_ const DxcDefine *pDefines, _In_ UINT32 defineCount,
     _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
 
   SetupCompilerCommon(compiler, helper, pMainFile, diagPrinter, rewrite, opts);
@@ -637,7 +637,7 @@ void SetupCompilerForPreprocess(
 }
 
 
-std::string DefinesToString(_In_count_(defineCount) DxcDefine *pDefines,
+std::string DefinesToString(_In_count_(defineCount) const DxcDefine *pDefines,
                             _In_ UINT32 defineCount) {
   std::string defineStr;
   for (UINT32 i = 0; i < defineCount; i++) {
@@ -654,7 +654,7 @@ std::string DefinesToString(_In_count_(defineCount) DxcDefine *pDefines,
 }
 
 HRESULT GenerateAST(DxcLangExtensionsHelper *pExtHelper, LPCSTR pFileName,
-                    ASTUnit::RemappedFile *pRemap, DxcDefine *pDefines,
+                    ASTUnit::RemappedFile *pRemap, const DxcDefine *pDefines,
                     UINT32 defineCount, ASTHelper &astHelper,
                     hlsl::options::DxcOpts &opts,
                     dxcutil::DxcArgsFileSystem *msfPtr, raw_ostream &w) {
@@ -1055,7 +1055,7 @@ static
 HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
                _In_ ASTUnit::RemappedFile *pRemap,
-                _In_ hlsl::options::DxcOpts &opts, _In_ DxcDefine *pDefines,
+                _In_ hlsl::options::DxcOpts &opts, _In_ const DxcDefine *pDefines,
                 _In_ UINT32 defineCount,
                std::string &warnings,
                std::string &result,
@@ -1231,7 +1231,7 @@ private:
 HRESULT preprocessRewrittenFiles(
     _In_ DxcLangExtensionsHelper *pExtHelper, Rewriter &R,
     _In_ LPCSTR pFileName, _In_ ASTUnit::RemappedFile *pRemap,
-    _In_ hlsl::options::DxcOpts &opts, _In_ DxcDefine *pDefines,
+    _In_ hlsl::options::DxcOpts &opts, _In_ const DxcDefine *pDefines,
     _In_ UINT32 defineCount, raw_string_ostream &w, raw_string_ostream &o,
     _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr, IMalloc *pMalloc) {
 
@@ -1296,7 +1296,7 @@ HRESULT preprocessRewrittenFiles(
 HRESULT DoReWriteWithLineDirective(
     _In_ DxcLangExtensionsHelper *pExtHelper, _In_ LPCSTR pFileName,
     _In_ ASTUnit::RemappedFile *pRemap, _In_ hlsl::options::DxcOpts &opts,
-    _In_ DxcDefine *pDefines, _In_ UINT32 defineCount, std::string &warnings,
+    _In_ const DxcDefine *pDefines, _In_ UINT32 defineCount, std::string &warnings,
     std::string &result, _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr,
     IMalloc *pMalloc) {
   raw_string_ostream o(result);
@@ -1433,7 +1433,7 @@ HRESULT DoRewriteGlobalCB(_In_ DxcLangExtensionsHelper *pExtHelper,
                           _In_ LPCSTR pFileName,
                           _In_ ASTUnit::RemappedFile *pRemap,
                           _In_ hlsl::options::DxcOpts &opts,
-                          _In_ DxcDefine *pDefines, _In_ UINT32 defineCount,
+                          _In_ const DxcDefine *pDefines, _In_ UINT32 defineCount,
                           std::string &warnings, std::string &result,
                           _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr,
                           IMalloc *pMalloc) {
@@ -1774,11 +1774,19 @@ public:
         std::string errors;
         std::string rewrite;
         HRESULT status = S_OK;
-        status = DoRewriteGlobalCB(&m_langExtensionsHelper, fName, pRemap.get(),
-                                   opts, pDefines, defineCount, errors, rewrite,
-                                   msfPtr, m_pMalloc);
+        status =
+            DoRewriteGlobalCB(&m_langExtensionsHelper, fName, pRemap.get(),
+                              opts, opts.Defines.data(), opts.Defines.size(),
+                              errors, rewrite, msfPtr, m_pMalloc);
         if (status != S_OK) {
-          return S_OK;
+          return DxcResult::Create(
+              status, DXC_OUT_HLSL,
+              {DxcOutputObject::StringOutput(DXC_OUT_HLSL,
+                                             opts.DefaultTextCodePage,
+                                             rewrite.c_str(), DxcOutNoName),
+               DxcOutputObject::ErrorOutput(opts.DefaultTextCodePage,
+                                            errors.c_str())},
+              ppResult);
         }
 
         pBuffer = llvm::MemoryBuffer::getMemBufferCopy(rewrite, fName);
@@ -1789,12 +1797,13 @@ public:
       HRESULT status = S_OK;
       if (opts.RWOpt.WithLineDirective) {
         status = DoReWriteWithLineDirective(
-            &m_langExtensionsHelper, fName, pRemap.get(), opts, pDefines,
-            defineCount, errors, rewrite, msfPtr, m_pMalloc);
+            &m_langExtensionsHelper, fName, pRemap.get(), opts,
+            opts.Defines.data(), opts.Defines.size(), errors, rewrite, msfPtr,
+            m_pMalloc);
       } else {
         status = DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(),
-                                 opts, pDefines, defineCount, errors,
-                                 rewrite, msfPtr);
+                                 opts, opts.Defines.data(), opts.Defines.size(),
+                                 errors, rewrite, msfPtr);
       }
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
