@@ -781,6 +781,12 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
+  if (spirvOptions.debugInfoRich) {
+    emitWarning("Debug information for methods won't be linked to their class. "
+                "See https://github.com/KhronosGroup/SPIRV-Registry/issues/203",
+                {});
+  }
+
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
   uint32_t numEntryPoints = 0;
 
