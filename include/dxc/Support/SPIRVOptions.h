@@ -56,6 +56,7 @@ struct SpirvCodeGenOptions {
   bool noWarnEmulatedFeatures;
   bool noWarnIgnoredFeatures;
   bool preserveBindings;
+  bool preserveInterface;
   bool useDxLayout;
   bool useGlLayout;
   bool useLegacyBufferMatrixOrder;
@@ -65,6 +66,7 @@ struct SpirvCodeGenOptions {
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
   bool fixFuncCallArguments;
+  bool allowRWStructuredBufferArrays;
   /// Maximum length in words for the OpString literal containing the shader
   /// source for DebugSource and DebugSourceContinued. If the source code length
   /// is larger than this number, we will use DebugSourceContinued instructions

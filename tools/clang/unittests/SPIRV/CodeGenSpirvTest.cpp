@@ -143,13 +143,14 @@ TEST_F(FileTest, StructuredByteBufferArray) {
 TEST_F(FileTest, StructuredBufferArrayError) {
   runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, RWStructuredBufferArrayNoCounter) {
+  runFileTest("type.rwstructured-buffer.array.nocounter.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferArrayError) {
-  runFileTest("type.append-structured-buffer.array.error.hlsl",
-              Expect::Failure);
+  runFileTest("type.append-structured-buffer.array.hlsl");
 }
 TEST_F(FileTest, ConsumeStructuredBufferArrayError) {
-  runFileTest("type.consume-structured-buffer.array.error.hlsl",
-              Expect::Failure);
+  runFileTest("type.consume-structured-buffer.array.hlsl");
 }
 TEST_F(FileTest, AppendConsumeStructuredBufferTypeCast) {
   runFileTest("type.append.consume-structured-buffer.cast.hlsl");
@@ -230,6 +231,7 @@ TEST_F(FileTest, VarInitCrossStorageClass) {
 }
 TEST_F(FileTest, VarInitVec1) { runFileTest("var.init.vec.size.1.hlsl"); }
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
+TEST_F(FileTest, TemplateStaticVar) { runFileTest("template.static.var.hlsl"); }
 TEST_F(FileTest, UninitStaticResourceVar) {
   runFileTest("var.static.resource.hlsl");
 }
@@ -471,6 +473,9 @@ TEST_F(FileTest, OpStructuredBufferAccess) {
 }
 TEST_F(FileTest, OpStructuredBufferAccessBitfield) {
   runFileTest("op.structured-buffer.access.bitfield.hlsl");
+}
+TEST_F(FileTest, OpStructuredBufferReconstructBitfield) {
+  runFileTest("op.structured-buffer.reconstruct.bitfield.hlsl");
 }
 TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
@@ -1162,6 +1167,10 @@ TEST_F(FileTest, SpvUseLegacyMatrixBufferOrder) {
   runFileTest("spv.use-legacy-buffer-matrix-order.hlsl");
 }
 
+TEST_F(FileTest, SpvPreserveInterface) {
+  runFileTest("spv.preserve-interface.hlsl");
+}
+
 TEST_F(FileTest, InitializeListRWByteAddressBuffer) {
   runFileTest("initializelist.rwbyteaddressbuffer.hlsl", Expect::Success,
               /* runValidation */ false);
@@ -1457,6 +1466,9 @@ TEST_F(FileTest, IntrinsicsVkRawBufferLoadBitfield) {
 }
 TEST_F(FileTest, IntrinsicsVkRawBufferStore) {
   runFileTest("intrinsics.vkrawbufferstore.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkRawBufferStoreBitfields) {
+  runFileTest("intrinsics.vkrawbufferstore.bitfields.hlsl");
 }
 // Intrinsics added in SM 6.6
 TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
@@ -3013,6 +3025,9 @@ TEST_F(FileTest, DISABLED_RichDebugInfoMemberFunctionWithoutCall) {
 }
 TEST_F(FileTest, RichDebugInfoTypeComposite) {
   runFileTest("rich.debug.type.composite.hlsl");
+}
+TEST_F(FileTest, RichDebugInfoTypeCompositeEmitsWarning) {
+  runFileTest("rich.debug.type.composite.warning.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, RichDebugInfoTypeCompositeEmpty) {
   runFileTest("rich.debug.type.composite.empty.hlsl");
