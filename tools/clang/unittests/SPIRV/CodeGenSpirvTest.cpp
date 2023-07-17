@@ -3026,6 +3026,9 @@ TEST_F(FileTest, DISABLED_RichDebugInfoMemberFunctionWithoutCall) {
 TEST_F(FileTest, RichDebugInfoTypeComposite) {
   runFileTest("rich.debug.type.composite.hlsl");
 }
+TEST_F(FileTest, RichDebugInfoTypeCompositeEmitsWarning) {
+  runFileTest("rich.debug.type.composite.warning.hlsl", Expect::Warning);
+}
 TEST_F(FileTest, RichDebugInfoTypeCompositeEmpty) {
   runFileTest("rich.debug.type.composite.empty.hlsl");
 }
