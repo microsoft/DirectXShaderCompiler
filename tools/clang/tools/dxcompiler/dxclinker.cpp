@@ -128,11 +128,8 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
   try {
     std::unique_ptr<llvm::Module> pModule, pDebugModule;
 
-    CComPtr<IMalloc> pMalloc;
     CComPtr<AbstractMemoryStream> pDiagStream;
-
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pDiagStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDiagStream));
 
     raw_stream_ostream DiagStream(pDiagStream);
 
@@ -180,12 +177,10 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
   HRESULT hr = S_OK;
   try {
-    CComPtr<IMalloc> pMalloc;
     CComPtr<IDxcBlob> pOutputBlob;
     CComPtr<AbstractMemoryStream> pDiagStream;
 
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
 
     // Read and validate options.
     int argCountInt;
@@ -207,7 +202,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     std::string warnings;
     //llvm::raw_string_ostream w(warnings);
-    IFT(CreateMemoryStream(pMalloc, &pDiagStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDiagStream));
     raw_stream_ostream DiagStream(pDiagStream);
     llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
     PrintDiagnosticContext DiagContext(DiagPrinter);
@@ -273,9 +268,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         // Validation.
         HRESULT valHR = S_OK;
         dxcutil::AssembleInputs inputs(
-          std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
-          pOutputStream,
-          opts.DebugFile, &Diag);
+            std::move(pM), pOutputBlob, DxcGetThreadMallocNoRef(),
+            SerializeFlags, pOutputStream, opts.DebugFile, &Diag);
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {
