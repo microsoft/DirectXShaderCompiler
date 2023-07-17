@@ -782,7 +782,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   if (spirvOptions.debugInfoRich) {
-    emitWarning("Debug information for methods won't be linked to their class. "
+    emitWarning("Member functions will not be linked to their class in the debug information. "
                 "See https://github.com/KhronosGroup/SPIRV-Registry/issues/203",
                 {});
   }
