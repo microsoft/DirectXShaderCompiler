@@ -608,6 +608,18 @@ private:
   SpirvInstruction *processWaveQuadWideShuffle(const CallExpr *,
                                                hlsl::IntrinsicOp op);
 
+  /// Processes SM6.0 wave vote intrinsic calls.
+  SpirvInstruction *processWaveActiveAllEqual(const CallExpr *);
+  
+  /// Generate an OpGroupNonUnitformAllEqual for a scalar argument.
+  SpirvInstruction *processWaveActiveAllEqualScalar(SpirvInstruction *, clang::SourceLocation srcLoc);
+
+  /// Generate an OpGroupNonUnitformAllEqual for a vector argument.
+  SpirvInstruction *processWaveActiveAllEqualVector(SpirvInstruction *, clang::SourceLocation srcLoc);
+
+  /// Generate an OpGroupNonUnitformAllEqual for a matrix argument.
+  SpirvInstruction *processWaveActiveAllEqualMatrix(SpirvInstruction *, QualType, clang::SourceLocation srcLoc);
+
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
