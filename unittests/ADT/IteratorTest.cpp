@@ -167,4 +167,91 @@ TEST(FilterIteratorTest, InputIterator) {
   EXPECT_EQ((SmallVector<int, 3>{1, 3, 5}), Actual);
 }
 
+TEST(PointerIterator, Basic) {
+  int A[] = {1, 2, 3, 4};
+  pointer_iterator<int *> Begin(std::begin(A)), End(std::end(A));
+  EXPECT_EQ(A, *Begin);
+  ++Begin;
+  EXPECT_EQ(A + 1, *Begin);
+  ++Begin;
+  EXPECT_EQ(A + 2, *Begin);
+  ++Begin;
+  EXPECT_EQ(A + 3, *Begin);
+  ++Begin;
+  EXPECT_EQ(Begin, End);
+}
+
+TEST(PointerIterator, Const) {
+  int A[] = {1, 2, 3, 4};
+  const pointer_iterator<int *> Begin(std::begin(A));
+  EXPECT_EQ(A, *Begin);
+  EXPECT_EQ(A + 1, std::next(*Begin, 1));
+  EXPECT_EQ(A + 2, std::next(*Begin, 2));
+  EXPECT_EQ(A + 3, std::next(*Begin, 3));
+  EXPECT_EQ(A + 4, std::next(*Begin, 4));
+}
+
+TEST(ZipIteratorTest, Basic) {
+  using namespace std;
+  const SmallVector<unsigned, 6> pi{3, 1, 4, 1, 5, 9};
+  SmallVector<bool, 6> odd{1, 1, 0, 1, 1, 1};
+  const char message[] = "yynyyy\0";
+
+  for (auto tup : zip(pi, odd, message)) {
+    EXPECT_EQ(get<0>(tup) & 0x01, get<1>(tup));
+    EXPECT_EQ(get<0>(tup) & 0x01 ? 'y' : 'n', get<2>(tup));
+  }
+
+  // note the rvalue
+  for (auto tup : zip(pi, SmallVector<bool, 0>{1, 1, 0, 1, 1})) {
+    EXPECT_EQ(get<0>(tup) & 0x01, get<1>(tup));
+  }
+}
+
+TEST(ZipIteratorTest, ZipFirstBasic) {
+  using namespace std;
+  const SmallVector<unsigned, 6> pi{3, 1, 4, 1, 5, 9};
+  unsigned iters = 0;
+
+  for (auto tup : zip_first(SmallVector<bool, 0>{1, 1, 0, 1}, pi)) {
+    EXPECT_EQ(get<0>(tup), get<1>(tup) & 0x01);
+    iters += 1;
+  }
+
+  EXPECT_EQ(iters, 4u);
+}
+
+TEST(ZipIteratorTest, Mutability) {
+  using namespace std;
+  const SmallVector<unsigned, 4> pi{3, 1, 4, 1, 5, 9};
+  char message[] = "hello zip\0";
+
+  for (auto tup : zip(pi, message, message)) {
+    EXPECT_EQ(get<1>(tup), get<2>(tup));
+    get<2>(tup) = get<0>(tup) & 0x01 ? 'y' : 'n';
+  }
+
+  // note the rvalue
+  for (auto tup : zip(message, "yynyyyzip\0")) {
+    EXPECT_EQ(get<0>(tup), get<1>(tup));
+  }
+}
+
+TEST(ZipIteratorTest, ZipFirstMutability) {
+  using namespace std;
+  vector<unsigned> pi{3, 1, 4, 1, 5, 9};
+  unsigned iters = 0;
+
+  for (auto tup : zip_first(SmallVector<bool, 0>{1, 1, 0, 1}, pi)) {
+    get<1>(tup) = get<0>(tup);
+    iters += 1;
+  }
+
+  EXPECT_EQ(iters, 4u);
+
+  for (auto tup : zip_first(SmallVector<bool, 0>{1, 1, 0, 1}, pi)) {
+    EXPECT_EQ(get<0>(tup), get<1>(tup));
+  }
+}
+
 } // anonymous namespace
