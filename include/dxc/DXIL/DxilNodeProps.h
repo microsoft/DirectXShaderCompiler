@@ -12,7 +12,7 @@
 #pragma once
 
 #include "DxilConstants.h"
-#include "dxc/Support/Global.h"
+#include <string>
 
 namespace llvm {
 class StringRef;
