@@ -102,6 +102,7 @@ public:
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
   TEST_METHOD(DxcUtils_CreateReflection)
+  TEST_METHOD(CheckReflectionQueryInterface)
   TEST_METHOD(CompileWhenOKThenIncludesFeatureInfo)
   TEST_METHOD(CompileWhenOKThenIncludesSignatures)
   TEST_METHOD(CompileWhenSigSquareThenIncludeSplit)
@@ -1758,6 +1759,162 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
       VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
       VerifyCreateReflectionLibrary(pProgram, false);
       VerifyStripReflection(pProgram, false);
+    }
+  }
+}
+
+TEST_F(DxilContainerTest, CheckReflectionQueryInterface) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  // Check that QueryInterface for shader and library reflection accepts/rejects
+  // interfaces properly
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(Ref1_Shader, &pSource);
+
+  // ID3D12LibraryReflection
+  {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcResult> pResultV2;
+    CComPtr<IDxcBlob> pReflectionPart;
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"", L"lib_6_3",
+                                        nullptr, 0, nullptr, 0, nullptr,
+                                        &pResult));
+    VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
+    VERIFY_SUCCEEDED(pResultV2->GetOutput(
+        DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
+    DxcBuffer buffer = {pReflectionPart->GetBufferPointer(),
+                        pReflectionPart->GetBufferSize(), 0};
+
+    {
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pLibraryReflection)));
+
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection2;
+      VERIFY_SUCCEEDED(pLibraryReflection->QueryInterface(IID_PPV_ARGS(&pLibraryReflection2)));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(pLibraryReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_FAILED(pLibraryReflection->QueryInterface(IID_PPV_ARGS(&pShaderReflection)));
+    }
+
+    {  // Fail to create with invalid interface
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_FAILED(pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
+    }
+  }
+
+  // Supported shader reflection interfaces defined by legacy APIs
+  const GUID IID_ID3D11ShaderReflection_43 = {
+      0x0a233719,
+      0x3960,
+      0x4578,
+      {0x9d, 0x7c, 0x20, 0x3b, 0x8b, 0x1d, 0x9c, 0xc1}};
+  const GUID IID_ID3D11ShaderReflection_47 = {
+      0x8d536ca1,
+      0x0cca,
+      0x4956,
+      {0xa8, 0x37, 0x78, 0x69, 0x63, 0x75, 0x55, 0x84}};
+
+  // Check ShaderReflection interface versions
+  {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcResult> pResultV2;
+    CComPtr<IDxcBlob> pReflectionPart;
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"function2",
+                                        L"vs_6_0", nullptr, 0, nullptr, 0,
+                                        nullptr, &pResult));
+    VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
+    VERIFY_SUCCEEDED(pResultV2->GetOutput(
+        DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
+    DxcBuffer buffer = {pReflectionPart->GetBufferPointer(),
+                        pReflectionPart->GetBufferSize(), 0};
+
+    // The interface version supported for QI should only be the one used for
+    // creating the original reflection interface.
+
+    { // Verify with initial interface ID3D12ShaderReflection
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pShaderReflection)));
+
+      // Verify QI for same interface and IUnknown succeeds:
+      CComPtr<ID3D12ShaderReflection> pShaderReflection2;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pShaderReflection2)));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+
+      // Verify QI for wrong version of interface fails:
+      CComPtr<ID3D11ShaderReflection> pShaderReflection43;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection43));
+      CComPtr<ID3D11ShaderReflection> pShaderReflection47;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection47));
+
+      // Verify QI for wrong interface fails:
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+    }
+
+    { // Verify with initial interface IID_ID3D11ShaderReflection_47
+      CComPtr<ID3D11ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(pUtils->CreateReflection(
+          &buffer, IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection));
+
+      // Verify QI for same interface and IUnknown succeeds:
+      CComPtr<ID3D11ShaderReflection> pShaderReflection2;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection2));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+
+      // Verify QI for wrong version of interface fails:
+      CComPtr<ID3D11ShaderReflection> pShaderReflection43;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection43));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection12;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pShaderReflection12)));
+
+      // Verify QI for wrong interface fails:
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+    }
+
+    { // Verify with initial interface IID_ID3D11ShaderReflection_43
+      CComPtr<ID3D11ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(pUtils->CreateReflection(
+          &buffer, IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection));
+
+      // Verify QI for same interface and IUnknown succeeds:
+      CComPtr<ID3D11ShaderReflection> pShaderReflection2;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection2));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+
+      // Verify QI for wrong version of interface fails:
+      CComPtr<ID3D11ShaderReflection> pShaderReflection47;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection47));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection12;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pShaderReflection12)));
+
+      // Verify QI for wrong interface fails:
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+    }
+
+    { // Fail to create with invalid interface
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_FAILED(pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
     }
   }
 }
