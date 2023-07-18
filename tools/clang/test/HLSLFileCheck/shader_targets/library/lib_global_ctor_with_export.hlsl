@@ -7,7 +7,8 @@
 //   1. There are constructors for global variables
 //   2. There are exports
 //
-// The bug assume
+// The bug assumes that functions not on the export list must have no users. This is not the case when
+// the functions are constructors for global variables.
 
 Texture1D<float> t0 : register(t0);
 static float get_val(int i) {
