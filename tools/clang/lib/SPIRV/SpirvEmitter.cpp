@@ -9384,7 +9384,8 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
       opcode, retType, spv::Scope::Subgroup, value, target, srcLoc);
 }
 
-SpirvInstruction *SpirvEmitter::processWaveActiveAllEqual(const CallExpr * callExpr) {
+SpirvInstruction *
+SpirvEmitter::processWaveActiveAllEqual(const CallExpr *callExpr) {
   assert(callExpr->getNumArgs() == 1);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
@@ -9401,12 +9402,17 @@ SpirvInstruction *SpirvEmitter::processWaveActiveAllEqual(const CallExpr * callE
   return processWaveActiveAllEqualMatrix(arg, retType, callExpr->getExprLoc());
 }
 
-SpirvInstruction *SpirvEmitter::processWaveActiveAllEqualScalar(SpirvInstruction * arg, clang::SourceLocation srcLoc) {
+SpirvInstruction *
+SpirvEmitter::processWaveActiveAllEqualScalar(SpirvInstruction *arg,
+                                              clang::SourceLocation srcLoc) {
   return spvBuilder.createGroupNonUniformUnaryOp(
-      srcLoc, spv::Op::OpGroupNonUniformAllEqual, astContext.BoolTy, spv::Scope::Subgroup, arg);
+      srcLoc, spv::Op::OpGroupNonUniformAllEqual, astContext.BoolTy,
+      spv::Scope::Subgroup, arg);
 }
 
-SpirvInstruction *SpirvEmitter::processWaveActiveAllEqualVector(SpirvInstruction * arg, clang::SourceLocation srcLoc) {
+SpirvInstruction *
+SpirvEmitter::processWaveActiveAllEqualVector(SpirvInstruction *arg,
+                                              clang::SourceLocation srcLoc) {
   uint32_t vectorSize = 0;
   QualType elementType;
   isVectorType(arg->getAstResultType(), &elementType, &vectorSize);
@@ -9414,25 +9420,33 @@ SpirvInstruction *SpirvEmitter::processWaveActiveAllEqualVector(SpirvInstruction
 
   llvm::SmallVector<SpirvInstruction *, 4> elements;
   for (uint32_t i = 0; i < vectorSize; ++i) {
-    SpirvInstruction* element = spvBuilder.createCompositeExtract(elementType, arg, {i}, srcLoc);
+    SpirvInstruction *element =
+        spvBuilder.createCompositeExtract(elementType, arg, {i}, srcLoc);
     elements.push_back(processWaveActiveAllEqualScalar(element, srcLoc));
   }
 
-  QualType booleanVectortype = astContext.getExtVectorType(astContext.BoolTy, vectorSize);
-  return spvBuilder.createCompositeConstruct(booleanVectortype, elements, srcLoc);
+  QualType booleanVectortype =
+      astContext.getExtVectorType(astContext.BoolTy, vectorSize);
+  return spvBuilder.createCompositeConstruct(booleanVectortype, elements,
+                                             srcLoc);
 }
 
-SpirvInstruction *SpirvEmitter::processWaveActiveAllEqualMatrix(SpirvInstruction * arg, QualType booleanMatrixType, clang::SourceLocation srcLoc) {
+SpirvInstruction *
+SpirvEmitter::processWaveActiveAllEqualMatrix(SpirvInstruction *arg,
+                                              QualType booleanMatrixType,
+                                              clang::SourceLocation srcLoc) {
   uint32_t numberOfRows = 0;
   uint32_t numberOfColumns = 0;
   QualType elementType;
-  isMxNMatrix(arg->getAstResultType(), &elementType, &numberOfRows, &numberOfColumns);
+  isMxNMatrix(arg->getAstResultType(), &elementType, &numberOfRows,
+              &numberOfColumns);
   assert(numberOfRows >= 2 && "Vector size in spir-v must be at least 2");
 
   QualType rowType = astContext.getExtVectorType(elementType, numberOfColumns);
   llvm::SmallVector<SpirvInstruction *, 4> rows;
   for (uint32_t i = 0; i < numberOfRows; ++i) {
-    SpirvInstruction* row = spvBuilder.createCompositeExtract(rowType, arg, {i}, srcLoc);
+    SpirvInstruction *row =
+        spvBuilder.createCompositeExtract(rowType, arg, {i}, srcLoc);
     rows.push_back(processWaveActiveAllEqualVector(row, srcLoc));
   }
   return spvBuilder.createCompositeConstruct(booleanMatrixType, rows, srcLoc);
