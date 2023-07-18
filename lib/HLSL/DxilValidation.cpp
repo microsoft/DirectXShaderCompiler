@@ -60,7 +60,9 @@
 #include <deque>
 
 using namespace llvm;
-using namespace std;
+using std::unique_ptr;
+using std::unordered_set;
+using std::vector;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Error messages.
