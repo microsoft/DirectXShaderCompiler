@@ -959,7 +959,11 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
       if (!m_exportMap.ProcessFunction(F, true)) {
         // Remove Function not in exportMap.
         DM.RemoveFunction(F);
-        F->eraseFromParent();
+
+        // Only erase function if user is empty. The function can still be
+        // used by @llvm.global_ctors
+        if (F->user_empty())
+          F->eraseFromParent();
       }
     }
 
