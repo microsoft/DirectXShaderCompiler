@@ -324,39 +324,17 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       bSuccess &= m_pLinker->AttachLib(pUtf8LibName.m_psz);
 
       cur_lib_name = std::string(pUtf8LibName);
+      if (i == 0) {
+        first_lib_name = cur_lib_name;
+        first_version = cur_version;
+      }
 
       // only libraries with compiler version parts are in the map
       auto result = m_libNameToCompilerVersionPart.find(cur_lib_name);
 
       if (result != m_libNameToCompilerVersionPart.end()) {
         cur_version = result->second;
-      } else {
-        UINT32 valMajor, valMinor;
-        dxcutil::GetValidatorVersion(&valMajor, &valMinor);
-        bool bValidatorAtLeast_1_8 =
-            DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
-        if (bValidatorAtLeast_1_8) {
-          std::string errorMsg =
-              "error: Cannot link library with no compiler version part.\n";
-
-          std::string noteStr =
-              "note: library name is \"" + first_lib_name + "\"";
-
-          errorMsg += noteStr;
-          DiagStream << errorMsg;
-          bSuccess = false;
-
-          if (i != 0) {
-            // only one error per library
-            continue;
-          }
-        }
-      }
-
-      if (i == 0) {
-        first_lib_name = cur_lib_name;
-        first_version = cur_version;
-      }
+      } 
 
       if (cur_version != first_version) {
 
