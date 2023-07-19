@@ -608,6 +608,35 @@ private:
   SpirvInstruction *processWaveQuadWideShuffle(const CallExpr *,
                                                hlsl::IntrinsicOp op);
 
+  /// Generates the Spir-V instructions needed to implement the given call to
+  /// WaveActiveAllEqual. Returns a pointer to the instruction that produces the
+  /// final result.
+  SpirvInstruction *processWaveActiveAllEqual(const CallExpr *);
+
+  /// Generates the Spir-V instructions needed to implement WaveActiveAllEqual
+  /// with the scalar input `arg`. Returns a pointer to the instruction that
+  /// produces the final result. srcLoc should be the source location of the
+  /// original call.
+  SpirvInstruction *
+  processWaveActiveAllEqualScalar(SpirvInstruction *arg,
+                                  clang::SourceLocation srcLoc);
+
+  /// Generates the Spir-V instructions needed to implement WaveActiveAllEqual
+  /// with the vector input `arg`. Returns a pointer to the instruction that
+  /// produces the final result. srcLoc should be the source location of the
+  /// original call.
+  SpirvInstruction *
+  processWaveActiveAllEqualVector(SpirvInstruction *arg,
+                                  clang::SourceLocation srcLoc);
+
+  /// Generates the Spir-V instructions needed to implement WaveActiveAllEqual
+  /// with the matrix input `arg`. Returns a pointer to the instruction that
+  /// produces the final result. srcLoc should be the source location of the
+  /// original call.
+  SpirvInstruction *
+  processWaveActiveAllEqualMatrix(SpirvInstruction *arg, QualType,
+                                  clang::SourceLocation srcLoc);
+
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
