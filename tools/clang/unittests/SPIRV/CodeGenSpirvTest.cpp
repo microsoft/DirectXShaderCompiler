@@ -1599,6 +1599,9 @@ TEST_F(FileTest, SM6WaveActiveAllEqualMatrix) {
 TEST_F(FileTest, SM6WaveActiveAllEqualMatrix1x1) {
   runFileTest("sm6.wave-active-all-equal-matrix1x1.hlsl");
 }
+TEST_F(FileTest, SM6WaveActiveAllEqualVulkan1_0) {
+  runFileTest("sm6.wave-active-all-equal.vulkan1.0.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, SM6WaveActiveSum) {
   runFileTest("sm6.wave-active-sum.hlsl");
 }
