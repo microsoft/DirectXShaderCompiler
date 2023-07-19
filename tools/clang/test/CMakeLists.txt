@@ -135,6 +135,7 @@ if (WIN32)
   add_lit_target("check-clang-taef" "Running lit suite hlsl"
             ${CMAKE_CURRENT_SOURCE_DIR}/taef
             PARAMS ${CLANG_TEST_PARAMS}
+              no_priority=True
             DEPENDS ClangHLSLTests
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )
