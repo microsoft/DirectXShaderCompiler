@@ -158,11 +158,8 @@ public:
 
     CW2A pUtf8LibName(libName, CP_UTF8);
     std::string libNameStr = std::string(pUtf8LibName);
-    m_uniqueCompilerVersions.insert(DeserializedDxilCompilerVersion(pDCV));
-    std::set<DeserializedDxilCompilerVersion>::iterator it =
-        m_uniqueCompilerVersions.find(DeserializedDxilCompilerVersion(pDCV));
-
-    m_libNameToCompilerVersionPart[libNameStr] = &(*it);
+    auto result = m_uniqueCompilerVersions.insert(DeserializedDxilCompilerVersion(pDCV));    
+    m_libNameToCompilerVersionPart[libNameStr] = &(*result.first);
 
     return true;
   }
@@ -222,10 +219,8 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
             (const hlsl::DxilCompilerVersion *)(pDPH + 1);
         // If the compiler version string is non-empty, add the struct to the
         // map
-        bool success =
-            AddCompilerVersionMapEntry(pLibName, pDCV, pDPH->PartSize);
-        if (!success) {
-        return E_INVALIDARG;
+        if (!AddCompilerVersionMapEntry(pLibName, pDCV, pDPH->PartSize)) {
+          return E_INVALIDARG;
         }
     }
     
@@ -334,7 +329,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       auto result = m_libNameToCompilerVersionPart.find(cur_lib_name);
 
       if (result != m_libNameToCompilerVersionPart.end()) {
-        cur_version = ((*result).second);
+        cur_version = result->second;
       } else {
         UINT32 valMajor, valMinor;
         dxcutil::GetValidatorVersion(&valMajor, &valMinor);
