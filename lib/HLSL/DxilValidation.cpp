@@ -1164,65 +1164,8 @@ void ValidateHandleArgsForInstruction(CallInst *CI, DXIL::OpCode opcode,
 void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &ValCtx) {
 
   switch (opcode) {
-  // handle ops
-  case DXIL::OpCode::CreateHandle:
-  case DXIL::OpCode::CBufferLoad:
-  case DXIL::OpCode::CBufferLoadLegacy:
-  case DXIL::OpCode::Sample:
-  case DXIL::OpCode::SampleBias:
-  case DXIL::OpCode::SampleLevel:
-  case DXIL::OpCode::SampleGrad:
-  case DXIL::OpCode::SampleCmp:
-  case DXIL::OpCode::SampleCmpLevelZero:
-  case DXIL::OpCode::TextureLoad:
-  case DXIL::OpCode::TextureStore:
-  case DXIL::OpCode::BufferLoad:
-  case DXIL::OpCode::BufferStore:
-  case DXIL::OpCode::BufferUpdateCounter:
-  case DXIL::OpCode::GetDimensions:
-  case DXIL::OpCode::TextureGather:
-  case DXIL::OpCode::TextureGatherCmp:
-  case DXIL::OpCode::Texture2DMSGetSamplePosition:
-  case DXIL::OpCode::AtomicBinOp:
-  case DXIL::OpCode::AtomicCompareExchange:
-  case DXIL::OpCode::CalculateLOD:
-  case DXIL::OpCode::RawBufferLoad:
-  case DXIL::OpCode::RawBufferStore:
-  case DXIL::OpCode::TraceRay:
-  case DXIL::OpCode::WriteSamplerFeedback:
-  case DXIL::OpCode::WriteSamplerFeedbackBias:
-  case DXIL::OpCode::WriteSamplerFeedbackLevel:
-  case DXIL::OpCode::WriteSamplerFeedbackGrad:
-  case DXIL::OpCode::RayQuery_TraceRayInline:
-  case DXIL::OpCode::CreateHandleFromBinding:
-  case DXIL::OpCode::CreateHandleFromHeap:
-  case DXIL::OpCode::TextureGatherRaw:
-  case DXIL::OpCode::SampleCmpLevel:
-  case DXIL::OpCode::TextureStoreSample:
-  case DXIL::OpCode::WaveMatrix_LoadRawBuf:
-  case DXIL::OpCode::WaveMatrix_StoreRawBuf:
-  case DXIL::OpCode::BarrierByMemoryHandle:
-  // node handle ops
-  case DXIL::OpCode::IncrementOutputCount:
-  case DXIL::OpCode::CreateNodeOutputHandle:
-  case DXIL::OpCode::IndexNodeHandle:
-  case DXIL::OpCode::NodeOutputIsValid:
-  // node record handle ops
-  case DXIL::OpCode::GetNodeRecordPtr:
-  case DXIL::OpCode::OutputComplete:
-  case DXIL::OpCode::GetInputRecordCount:
-  case DXIL::OpCode::FinishedCrossGroupSharing:
-  case DXIL::OpCode::BarrierByNodeRecordHandle:
-  case DXIL::OpCode::CreateNodeInputRecordHandle:
   // TODO: add case DXIL::OpCode::IndexNodeRecordHandle:
- 
-  // ops with both nodehandle and noderecordhandle
-  case DXIL::OpCode::AllocateNodeOutputRecords:
-    ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
-    break;
 
-  // handle annotation intrinsics and
-  // other intrinsics that need special validation
   case DXIL::OpCode::AnnotateHandle:
   case DXIL::OpCode::AnnotateNodeHandle:
   case DXIL::OpCode::AnnotateNodeRecordHandle:
@@ -1231,8 +1174,7 @@ void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &Va
     break;
     
   default:
-    // TODO: make sure every opcode is checked.
-    // Add DXAssert if default is ever hit.
+    ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
     break;
   }
 }
