@@ -1146,16 +1146,13 @@ void ValidateHandleArgsForInstruction(CallInst *CI, DXIL::OpCode opcode,
     const Type *argTy = op->getType();
     if (argTy == pNodeHandleTy || argTy == pNodeRecordHandleTy ||
         argTy == pHandleTy) {
-      bool bIsUninitialized =
-          isa<UndefValue>(op) || isa<ConstantAggregateZero>(op);
-      if (argTy == pHandleTy) {
-        hlsl::DxilResourceProperties DRP = GetResourceFromHandle(op, ValCtx);
-        if (!DRP.isValid()) {
-          ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceInvalid);
-        }
-      }
-      if (bIsUninitialized) {
+                
+      if (isa<UndefValue>(op) || isa<ConstantAggregateZero>(op)) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+      }
+      else if (argTy == pHandleTy) {
+        // GetResourceFromHandle will emit an error on an invalid handle
+        hlsl::DxilResourceProperties DRP = GetResourceFromHandle(op, ValCtx);    
       }
     }
   }

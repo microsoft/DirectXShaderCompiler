@@ -2848,7 +2848,6 @@ class db_dxil(object):
         self.add_valrule("Instr.AtomicOpNonGroupsharedOrRecord", "Non-groupshared or node record destination to atomic operation.")
         self.add_valrule("Instr.AtomicIntrinNonUAV", "Non-UAV destination to atomic intrinsic.")
         self.add_valrule("Instr.AtomicConst", "Constant destination to atomic.")
-        self.add_valrule("Instr.ResourceInvalid", "Resource is invalid.")
 
         # Work-Graphs
         self.add_valrule("Instr.NodeRecordHandleUseAfterComplete", "Invalid use of completed record handle.")
