@@ -98,7 +98,7 @@ if "%1"=="-clean" (
 ) else if "%1"=="file-check" (
   set TEST_ALL=0
   set TEST_MANUAL_FILE_CHECK=1
-  set MANUAL_FILE_CHECK_PATH=%~2
+  set MANUAL_FILE_CHECK_PATH=%~f2
   shift /1
 ) else if "%1"=="v" (
   set TEST_ALL=0
@@ -265,7 +265,25 @@ if "%TEST_CLEAN%"=="1" (
 )
 
 if "%TEST_MANUAL_FILE_CHECK%"=="1" (
-  set TEST_USE_LIT=0
+  echo %MANUAL_FILE_CHECK_PATH%|find /i "\HLSLFileCheck\" >nul
+  if errorlevel 1 (
+        if "%MANUAL_FILE_CHECK_PATH:~-14%" == "\HLSLFileCheck" (
+            set TEST_USE_LIT=0
+            echo "run taef file-check"
+        ) else (
+            echo "run lit file-check"
+            set TEST_MANUAL_FILE_CHECK=0
+            set TEST_CLANG=0
+            set TEST_DXILCONV=0
+            set TEST_SPIRV=0
+            set TEST_EXEC=0
+            set TEST_CMD=0
+            py %BIN_DIR%\llvm-lit.py %MANUAL_FILE_CHECK_PATH% -v
+		)
+  ) else (
+        set TEST_USE_LIT=0
+        echo "run taef file-check"
+  )
 )
 
 if "%TEST_USE_LIT%"=="1" (
