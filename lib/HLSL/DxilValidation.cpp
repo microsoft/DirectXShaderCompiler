@@ -1152,7 +1152,7 @@ void ValidateHandleArgsForInstruction(CallInst *CI, DXIL::OpCode opcode,
       }
       else if (argTy == pHandleTy) {
         // GetResourceFromHandle will emit an error on an invalid handle
-        hlsl::DxilResourceProperties DRP = GetResourceFromHandle(op, ValCtx);    
+        GetResourceFromHandle(op, ValCtx);    
       }
     }
   }
