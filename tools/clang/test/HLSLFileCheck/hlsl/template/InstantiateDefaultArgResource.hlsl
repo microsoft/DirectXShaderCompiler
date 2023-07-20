@@ -33,4 +33,4 @@ void main() {
   foo<float>();
 }
 
-// CHECK: call void @"\01??$foo{{.*}}"(%"class.Texture2D<vector<float, 4> >"* %2)
+// CHECK: call void @"\01??$foo{{.*}}"(%"class.Texture2D<vector<float, 4> >"* {{.*}})
