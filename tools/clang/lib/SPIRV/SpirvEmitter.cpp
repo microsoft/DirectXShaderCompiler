@@ -4542,9 +4542,12 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
   llvm::SmallVector<SpirvInstruction *, 2> indexes;
   if(const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(object)) {
-    //TODO: Handle multi-dimensional arrays.
+    // TODO(5440): This codes does not handle multi-dimensional arrays. We need
+    // to look at specific example to determine the best way to do it.
     indexes.push_back(doExpr(arraySubscriptExpr->getIdx()));
   }
+
+  // Add an extra 0 because the counter is wrapped in a struct.
   indexes.push_back(zero);
 
   auto *counterPtr = spvBuilder.createAccessChain(
