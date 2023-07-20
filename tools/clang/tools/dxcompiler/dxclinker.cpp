@@ -323,18 +323,19 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       CW2A pUtf8LibName(pLibNames[i], CP_UTF8);
       bSuccess &= m_pLinker->AttachLib(pUtf8LibName.m_psz);
 
-      cur_lib_name = std::string(pUtf8LibName);
-      if (i == 0) {
-        first_lib_name = cur_lib_name;
-        first_version = cur_version;
-      }
+      cur_lib_name = std::string(pUtf8LibName);      
 
       // only libraries with compiler version parts are in the map
       auto result = m_libNameToCompilerVersionPart.find(cur_lib_name);
 
       if (result != m_libNameToCompilerVersionPart.end()) {
         cur_version = result->second;
-      } 
+      }
+
+      if (i == 0) {
+        first_lib_name = cur_lib_name;
+        first_version = cur_version;
+      }
 
       if (cur_version != first_version) {
 
