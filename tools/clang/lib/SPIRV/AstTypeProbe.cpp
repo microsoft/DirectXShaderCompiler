@@ -946,6 +946,10 @@ bool isRWByteAddressBuffer(QualType type) {
 }
 
 bool isAppendStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
     return false;
@@ -954,6 +958,10 @@ bool isAppendStructuredBuffer(QualType type) {
 }
 
 bool isConsumeStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
     return false;
@@ -962,6 +970,10 @@ bool isConsumeStructuredBuffer(QualType type) {
 }
 
 bool isRWStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     return name == "RWStructuredBuffer";
@@ -970,12 +982,7 @@ bool isRWStructuredBuffer(QualType type) {
 }
 
 bool isRWAppendConsumeSBuffer(QualType type) {
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    return name == "RWStructuredBuffer" || name == "AppendStructuredBuffer" ||
-           name == "ConsumeStructuredBuffer";
-  }
-  return false;
+  return isRWStructuredBuffer(type) || isConsumeStructuredBuffer(type) || isAppendStructuredBuffer(type);
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {

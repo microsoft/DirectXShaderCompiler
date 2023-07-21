@@ -1687,6 +1687,21 @@ void DeclResultIdMapper::createCounterVar(
   }
 
   const SpirvType *counterType = spvContext.getACSBufferCounterType();
+  QualType declType = decl->getType();
+  if (declType->isArrayType()) {
+    // TODO(5440): This codes does not handle multi-dimensional arrays. We need
+    // to look at specific example to determine the best way to do it.
+    uint32_t arrayStride = 4;
+    if (const auto *constArrayType =
+            astContext.getAsConstantArrayType(declType)) {
+      counterType = spvContext.getArrayType(
+          counterType, constArrayType->getSize().getZExtValue(), arrayStride);
+    } else {
+      assert(declType->isIncompleteArrayType());
+      counterType = spvContext.getRuntimeArrayType(counterType, arrayStride);
+    }
+  }
+
   // {RW|Append|Consume}StructuredBuffer are all in Uniform storage class.
   // Alias counter variables should be created into the Private storage class.
   const spv::StorageClass sc =

@@ -146,6 +146,21 @@ TEST_F(FileTest, StructuredBufferArrayError) {
 TEST_F(FileTest, RWStructuredBufferArrayNoCounter) {
   runFileTest("type.rwstructured-buffer.array.nocounter.hlsl");
 }
+TEST_F(FileTest, RWStructuredBufferArrayNoCounterFlattened) {
+  runFileTest("type.rwstructured-buffer.array.nocounter.flatten.hlsl");
+}
+TEST_F(FileTest, RWStructuredBufferArrayCounter) {
+  runFileTest("type.rwstructured-buffer.array.counter.hlsl");
+}
+TEST_F(FileTest, RWStructuredBufferUnboundedArrayCounter) {
+  runFileTest("type.rwstructured-buffer.unbounded.array.counter.hlsl");
+}
+TEST_F(FileTest, RWStructuredBufferArrayCounterConstIndex) {
+  runFileTest("type.rwstructured-buffer.array.counter.const.index.hlsl");
+}
+TEST_F(FileTest, RWStructuredBufferArrayCounterFlattened) {
+  runFileTest("type.rwstructured-buffer.array.counter.flatten.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferArrayError) {
   runFileTest("type.append-structured-buffer.array.hlsl");
 }

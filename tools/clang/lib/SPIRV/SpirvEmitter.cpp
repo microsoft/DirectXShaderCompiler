@@ -323,6 +323,10 @@ const DeclaratorDecl *getReferencedDef(const Expr *expr) {
     return nullptr;
 
   expr = expr->IgnoreParenCasts();
+  while(const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
+    expr = arraySubscriptExpr->getBase();
+    expr = expr->IgnoreParenCasts();
+  }
 
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
     return dyn_cast_or_null<DeclaratorDecl>(declRefExpr->getDecl());
@@ -4542,8 +4546,18 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     return nullptr;
   }
 
+  llvm::SmallVector<SpirvInstruction *, 2> indexes;
+  if(const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(object)) {
+    // TODO(5440): This codes does not handle multi-dimensional arrays. We need
+    // to look at specific example to determine the best way to do it.
+    indexes.push_back(doExpr(arraySubscriptExpr->getIdx()));
+  }
+
+  // Add an extra 0 because the counter is wrapped in a struct.
+  indexes.push_back(zero);
+
   auto *counterPtr = spvBuilder.createAccessChain(
-      astContext.IntTy, counterPair->get(spvBuilder, spvContext), {zero},
+      astContext.IntTy, counterPair->get(spvBuilder, spvContext), indexes,
       srcLoc, srcRange);
 
   SpirvInstruction *index = nullptr;
