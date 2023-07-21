@@ -213,7 +213,9 @@ public:
   std::vector<std::string> HLSLArguments;
   /// Helper for generating llvm bitcode for hlsl extensions.
   std::shared_ptr<hlsl::HLSLExtensionsCodegenHelper> HLSLExtensionsCodegen;
-  /// Helper for generating llvm bitcode for hlsl extensions.
+  /// Helper for generating llvm bitcode for hlsl extensions. This member is a
+  /// shared pointer because CodeGenOptions gets copied around many times and
+  /// we want them all to have the same instance of this object.
   std::shared_ptr<hlsl::options::OptimizationToggles> HLSLOptToggles;
   /// Helper function to query HLSL optimization toggle.
   bool HLSLIsOptionEnabled(hlsl::options::Toggle Option) const {
