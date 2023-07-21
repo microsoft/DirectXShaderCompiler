@@ -1793,7 +1793,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     return;
   }
 
-  if (isConstantTextureBuffer(decl->getType())) {
+  if (isConstantTextureBuffer(decl->getType()) && !decl->hasInit()) {
     // This is a VarDecl of ConstantBuffer/TextureBuffer type.
     (void)declIdMapper.createCTBuffer(decl);
     return;

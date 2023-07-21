@@ -101,6 +101,14 @@ TEST_F(FileTest, TypeCBufferIncludingResource) {
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, ConstantBufferTypeAssign) {
+  runFileTest("type.constant-buffer.assign.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, ConstantBufferTypeReturn) {
+  runFileTest("type.constant-buffer.return.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
 TEST_F(FileTest, ConstantBufferTypeMultiDimensionalArray) {
   runFileTest("type.constant-buffer.multiple-dimensions.hlsl");
 }

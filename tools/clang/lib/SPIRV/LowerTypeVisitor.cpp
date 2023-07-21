@@ -761,6 +761,26 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     return valType;
   }
 
+  if (name == "ConstantBuffer") {
+    // ConstantBuffer<T> is lowered as T
+    if (rule == SpirvLayoutRule::Void) {
+      rule = getCodeGenOptions().sBufferLayoutRule;
+    }
+
+    // Get the underlying resource type.
+    const auto s = hlsl::GetHLSLResourceResultType(type);
+
+    // If the underlying type is a matrix, check majorness.
+    llvm::Optional<bool> isRowMajor = llvm::None;
+    if (isMxNMatrix(s))
+      isRowMajor = isRowMajorMatrix(spvOptions, type);
+
+    // Lower the underlying type.
+    const auto *structType = lowerType(s, rule, isRowMajor, srcLoc);
+
+    return structType;
+  }
+
   // ByteAddressBuffer types.
   if (name == "ByteAddressBuffer") {
     const auto *bufferType =
