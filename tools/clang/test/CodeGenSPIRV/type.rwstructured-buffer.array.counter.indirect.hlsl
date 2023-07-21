@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -O0 -fvk_allow_rwstructuredbuffer_arrays
+// RUN: %dxc -T ps_6_6 -E main -O0 -fvk-allow-rwstructuredbuffer-arrays
 
 struct PSInput
 {
