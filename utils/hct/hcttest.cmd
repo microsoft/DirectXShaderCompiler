@@ -93,6 +93,8 @@ if "%1"=="-clean" (
 ) else if "%1"=="clang-filter" (
   set TEST_ALL=0
   set TEST_CLANG=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=%2
   shift /1
 ) else if "%1"=="file-check" (
@@ -103,6 +105,8 @@ if "%1"=="-clean" (
 ) else if "%1"=="v" (
   set TEST_ALL=0
   set TEST_CLANG=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=VerifierTest::*
 ) else if "%1"=="cmd" (
   set TEST_ALL=0
@@ -113,7 +117,9 @@ if "%1"=="-clean" (
 ) else if "%1" == "dxilconv-filter" (
   set TEST_ALL=0
   set TEST_DXILCONV=1
+  set TEST_USE_LIT=0
   set TEST_DXILCONV_FILTER=%2
+  echo Fallback to taef when use taef only options.
   shift /1
 ) else if "%1"=="noexec" (
   set TEST_ALL=0
@@ -129,17 +135,23 @@ if "%1"=="-clean" (
 ) else if "%1"=="exec-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_EXEC_FILTER=ExecutionTest::%2
   set TEST_EXEC_REQUIRED=1
   shift /1
 ) else if "%1"=="exec-future" (
   set TEST_ALL=0
   set TEST_EXEC=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_EXEC_FUTURE=1
   set TEST_EXEC_REQUIRED=1
 ) else if "%1"=="exec-future-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_EXEC_FUTURE=1
   set TEST_EXEC_FILTER=ExecutionTest::%2
   set TEST_EXEC_REQUIRED=1
@@ -171,6 +183,7 @@ if "%1"=="-clean" (
 ) else if /i "%1"=="-arm64ec" (
   set BUILD_ARCH=ARM64EC
 ) else if "%1"=="-adapter" (
+  set TEST_USE_LIT=0
   set TEST_ADAPTER= /p:"Adapter=%~2"
   shift /1
 ) else if "%1"=="-verbose" (
@@ -184,6 +197,8 @@ if "%1"=="-clean" (
   shift /1
 ) else if "%1"=="-file-check-dump" (
   set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"FileCheckDumpDir=%~2\HLSL"
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   shift /1
 ) else if "%1"=="-dxil-loc" (
   set DXIL_DLL_LOC=%~2
@@ -204,6 +219,8 @@ rem This is the robust way to detect whether %1 is empty:
 set "_NEXT_=%1"
 if not defined _NEXT_ goto :done_args
 set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% %1
+set TEST_USE_LIT=0
+echo Fallback to taef when use taef only options.
 shift /1
 goto :collect_args
 :done_args
