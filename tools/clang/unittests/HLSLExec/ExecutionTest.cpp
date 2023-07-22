@@ -418,21 +418,6 @@ public:
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryUint16OpTable")
   END_TEST_METHOD()
 
-  BEGIN_TEST_METHOD(WaveMatrixLoadStoreTests)
-    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveMatrixTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2")
-  END_TEST_METHOD()
-
-  BEGIN_TEST_METHOD(WaveMatrixScalarTests)
-    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveMatrixTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2")
-  END_TEST_METHOD()
-
-  BEGIN_TEST_METHOD(WaveMatrixMathTests)
-    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveMatrixTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2")
-  END_TEST_METHOD()
-
   BEGIN_TEST_METHOD(DotTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#DotOpTable")
   END_TEST_METHOD()
@@ -484,6 +469,18 @@ public:
 
   BEGIN_TEST_METHOD(PackUnpackTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(WaveMatrixLoadStoreTests)
+    TEST_METHOD_PROPERTY(L"Priority", L"2")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(WaveMatrixScalarTests)
+    TEST_METHOD_PROPERTY(L"Priority", L"2")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(WaveMatrixMathTests)
+    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_support;
@@ -8654,9 +8651,8 @@ template <typename T, typename TYPE_ACC>
 void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
                              CComPtr<ID3D12Device> pDevice,
                              std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
-                             dxc::DxcDllSupport &support, std::string &Target,
-                             CW2A &Text, PCWSTR Validation_type,
-                             double tolerance) {
+                             dxc::DxcDllSupport &support,
+                             PCWSTR Validation_type, double tolerance) {
   using namespace DirectX::PackedVector;
   using namespace WMMA;
   std::string dataTypeInShader = TypeIdToHlsl<T>();
@@ -8850,9 +8846,6 @@ void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
       std::fill(Data.begin(), Data.end(), (BYTE)0);
     }
 
-    pShaderOp->Shaders.at(0).Target = Target.c_str();
-    pShaderOp->Shaders.at(0).Text = Text.m_psz;
-
     argsStream2.str("");
     argsStream2 << initialArgsString;
 
@@ -8994,8 +8987,8 @@ void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
 template<typename T, typename T2, typename TYPE_ACC>
 void WaveMatrixMathTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
                         std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
-                        dxc::DxcDllSupport &support, std::string &Target,
-                        CW2A &Text, PCWSTR Validation_type, double tolerance) {
+                        dxc::DxcDllSupport &support,
+                        PCWSTR Validation_type, double tolerance) {
   using namespace WMMA;
   using namespace DirectX::PackedVector;
   DXASSERT_NOMSG(sizeof(T) == sizeof(T2));
@@ -9237,9 +9230,8 @@ void WaveMatrixMathTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
                  expectedRowCols.size() * expectedRowCols[0].size() *
                      sizeof(expectedRowCols[0][0]));
         }
-        // use shader from data table
-        pShaderOp->Shaders.at(0).Target = Target.c_str();
-        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+
+        // update compilation arguments
         pShaderOp->Shaders.at(0).Arguments = arguments.c_str();
       },
       ShaderOpSet);
@@ -9317,8 +9309,8 @@ void WaveMatrixMathTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
 template <typename T>
 void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
-                          dxc::DxcDllSupport &support, std::string &Target,
-                          CW2A &Text, std::string dataTypeInShader,
+                          dxc::DxcDllSupport &support,
+                          std::string dataTypeInShader,
                           PCWSTR Validation_type, double tolerance,
                           std::vector<float> &floatScalars) {
   using namespace DirectX::PackedVector;
@@ -9520,9 +9512,7 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
           std::fill(Data.begin(), Data.end(), (BYTE)0);
         }
 
-        // use shader from data table
-        pShaderOp->Shaders.at(0).Target = Target.c_str();
-        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+        // update compilation arguments
         pShaderOp->Shaders.at(0).Arguments = arguments.c_str();
       },
       ShaderOpSet);
@@ -9629,19 +9619,13 @@ TEST_F(ExecutionTest, WaveMatrixLoadStoreTests) {
   std::vector<int> dimNs; 
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
 
-  size_t tableSize = sizeof(WaveMatrixOpParameters) / sizeof(TableParameter);
   CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommon(dimMs, dimNs, ShaderOpSet);
   
   if (pDevice == nullptr) {
     return;
   }
 
-  TableParameterHandler handler(WaveMatrixOpParameters, tableSize);
-  std::wstring wTarget = handler.GetTableParamByName(L"ShaderOp.Target")->m_str;
-  std::string Target;
-  std::transform(wTarget.begin(), wTarget.end(), std::back_inserter(Target),
-                 [](wchar_t c) { return char(c); });
-  PCWSTR validationType = handler.GetTableParamByName(L"Validation.Type")->m_str;
+  PCWSTR validationType = L"epsilon";
   double tolerance = 0; // 0 tolerance for load store
   
   std::vector<int> memTypes = {BUFFER, GROUPSHARED};
@@ -9675,26 +9659,24 @@ TEST_F(ExecutionTest, WaveMatrixLoadStoreTests) {
       L"Wmma_DisableLoadStoreTests", disableLoadStoreTests);
 
   if (disableLoadStoreTests == 0) {
-    CW2A LoadStoreText(
-        handler.GetTableParamByName(L"LoadStoreShaderOp.Text")->m_str);
     for (int dimM : dimMs) {
       for (int dimN : dimNs) {
         for (int memType : memTypes) {
           WaveMatrixLoadStoreTest<float, float>(
-              dimM, dimN, memType, pDevice, ShaderOpSet, m_support, Target,
-              LoadStoreText, validationType, tolerance);
+              dimM, dimN, memType, pDevice, ShaderOpSet, m_support,
+              validationType, tolerance);
           WaveMatrixLoadStoreTest<HALF, float>(
-              dimM, dimN, memType, pDevice, ShaderOpSet, m_support, Target,
-              LoadStoreText, validationType, tolerance);
+              dimM, dimN, memType, pDevice, ShaderOpSet, m_support,
+              validationType, tolerance);
           WaveMatrixLoadStoreTest<HALF, HALF>(
-              dimM, dimN, memType, pDevice, ShaderOpSet, m_support, Target,
-              LoadStoreText, validationType, tolerance);
+              dimM, dimN, memType, pDevice, ShaderOpSet, m_support,
+              validationType, tolerance);
           WaveMatrixLoadStoreTest<uint8_t, int32_t>(
-              dimM, dimN, memType, pDevice, ShaderOpSet, m_support, Target,
-              LoadStoreText, validationType, tolerance);
+              dimM, dimN, memType, pDevice, ShaderOpSet, m_support,
+              validationType, tolerance);
           WaveMatrixLoadStoreTest<int8_t, int32_t>(
-              dimM, dimN, memType, pDevice, ShaderOpSet, m_support, Target,
-              LoadStoreText, validationType, tolerance);
+              dimM, dimN, memType, pDevice, ShaderOpSet, m_support,
+              validationType, tolerance);
         }
       }
     }
@@ -9708,20 +9690,14 @@ TEST_F(ExecutionTest, WaveMatrixScalarTests) {
   std::vector<int> dimMs;
   std::vector<int> dimNs; 
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
-  size_t tableSize = sizeof(WaveMatrixOpParameters) / sizeof(TableParameter);
   CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommon(dimMs, dimNs, ShaderOpSet);
   
   if (pDevice == nullptr) {
     return;
   }
 
-  TableParameterHandler handler(WaveMatrixOpParameters, tableSize);
-  std::wstring wTarget = handler.GetTableParamByName(L"ShaderOp.Target")->m_str;
-  std::string Target;
-  std::transform(wTarget.begin(), wTarget.end(), std::back_inserter(Target),
-                 [](wchar_t c) { return char(c); });
-  PCWSTR validationType = handler.GetTableParamByName(L"Validation.Type")->m_str;
-  double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
+  PCWSTR validationType = L"epsilon";
+  double tolerance = 0.008;
 
   //////////
   // SCALAR
@@ -9732,20 +9708,13 @@ TEST_F(ExecutionTest, WaveMatrixScalarTests) {
       L"Wmma_DisableScalarTests", disableScalarTests);
 
   if (disableScalarTests == 0) {
-    CW2A ScalarText{handler.GetTableParamByName(L"ScalarShaderOp.Text")->m_str};
-    std::vector<WEX::Common::String> *Validation_Scalar =
-        &handler.GetTableParamByName(L"ScalarValidation.Scalar")->m_StringTable;
-
-    std::vector<float> scalars(Validation_Scalar->size());
-    for (size_t i = 0; i < Validation_Scalar->size(); ++i) {
-      VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_Scalar)[i], scalars[i]));
-    }
+    std::vector<float> scalars = { -100.0f, 20.0f, -50.0f, -0.0f, 0.0f, 42.0f };
 
     for (uint32_t dimM : dimMs) {
       for (uint32_t dimN : dimNs) {
         std::string hlslType = "float32_t";
         WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
-                                    Target, ScalarText, hlslType,
+                                    hlslType,
                                     validationType, tolerance, scalars);
 
         // hlslType is used for the CheckFeatureSupport query.
@@ -9753,20 +9722,20 @@ TEST_F(ExecutionTest, WaveMatrixScalarTests) {
         // accumulator precision returned by CheckFeatureSupport.
         hlslType = "float16_t";
         WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
-                                    Target, ScalarText, hlslType,
+                                    hlslType,
                                     validationType, tolerance, scalars);
         WaveMatrixScalarTest<HALF>(dimM, dimN, pDevice, ShaderOpSet, m_support,
-                                   Target, ScalarText, hlslType,
+                                   hlslType,
                                    validationType, tolerance, scalars);
 
         hlslType = "uint8_t4_packed";
         WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet,
-                                      m_support, Target, ScalarText, hlslType,
+                                      m_support, hlslType,
                                       validationType, tolerance, scalars);
 
         hlslType = "int8_t4_packed";
         WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet,
-                                      m_support, Target, ScalarText, hlslType,
+                                      m_support, hlslType,
                                       validationType, tolerance, scalars);
       }
     }
@@ -9780,20 +9749,14 @@ TEST_F(ExecutionTest, WaveMatrixMathTests) {
   std::vector<int> dimMs;
   std::vector<int> dimNs;
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
-  size_t tableSize = sizeof(WaveMatrixOpParameters) / sizeof(TableParameter);
   CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommon(dimMs, dimNs, ShaderOpSet);
 
   if (pDevice == nullptr) {
     return;
   }
 
-  TableParameterHandler handler(WaveMatrixOpParameters, tableSize);
-  std::wstring wTarget = handler.GetTableParamByName(L"ShaderOp.Target")->m_str;
-  std::string Target;
-  std::transform(wTarget.begin(), wTarget.end(), std::back_inserter(Target),
-                 [](wchar_t c) { return char(c); });
-  PCWSTR validationType = handler.GetTableParamByName(L"Validation.Type")->m_str;
-  double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
+  PCWSTR validationType = L"epsilon";
+  double tolerance = 0.008;
 
   //////////
   // MATH TEST
@@ -9804,30 +9767,28 @@ TEST_F(ExecutionTest, WaveMatrixMathTests) {
       L"Wmma_DisableMathTests", disableMathTests);
 
   if (disableMathTests == 0) {
-    CW2A MathShaderText{
-        handler.GetTableParamByName(L"MathShaderOp.Text")->m_str};
     for (uint32_t dimM : dimMs) {
       for (uint32_t dimN : dimNs) {
         WaveMatrixMathTest<float, float, float>(
-            dimM, dimN, pDevice, ShaderOpSet, m_support, Target, MathShaderText,
+            dimM, dimN, pDevice, ShaderOpSet, m_support,
             validationType, tolerance);
         WaveMatrixMathTest<HALF, HALF, float>(
-            dimM, dimN, pDevice, ShaderOpSet, m_support, Target, MathShaderText,
+            dimM, dimN, pDevice, ShaderOpSet, m_support,
             validationType, tolerance);
         WaveMatrixMathTest<HALF, HALF, HALF>(
-            dimM, dimN, pDevice, ShaderOpSet, m_support, Target, MathShaderText,
+            dimM, dimN, pDevice, ShaderOpSet, m_support,
             validationType, tolerance);
         WaveMatrixMathTest<uint8_t, uint8_t, int32_t>(
-            dimM, dimN, pDevice, ShaderOpSet, m_support, Target, MathShaderText,
+            dimM, dimN, pDevice, ShaderOpSet, m_support,
             validationType, tolerance);
         WaveMatrixMathTest<uint8_t, int8_t, int32_t>(
-            dimM, dimN, pDevice, ShaderOpSet, m_support, Target, MathShaderText,
+            dimM, dimN, pDevice, ShaderOpSet, m_support,
             validationType, tolerance);
         WaveMatrixMathTest<int8_t, int8_t, int32_t>(
-            dimM, dimN, pDevice, ShaderOpSet, m_support, Target, MathShaderText,
+            dimM, dimN, pDevice, ShaderOpSet, m_support,
             validationType, tolerance);
         WaveMatrixMathTest<int8_t, uint8_t, int32_t>(
-            dimM, dimN, pDevice, ShaderOpSet, m_support, Target, MathShaderText,
+            dimM, dimN, pDevice, ShaderOpSet, m_support,
             validationType, tolerance);
       }
     }
