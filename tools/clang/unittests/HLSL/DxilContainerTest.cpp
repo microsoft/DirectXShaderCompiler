@@ -1852,10 +1852,10 @@ TEST_F(DxilContainerTest, CheckReflectionQueryInterface) {
       VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
 
       // Verify QI for wrong version of interface fails:
-      CComPtr<ID3D11ShaderReflection> pShaderReflection43;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection43;
       VERIFY_FAILED(pShaderReflection->QueryInterface(
           IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection43));
-      CComPtr<ID3D11ShaderReflection> pShaderReflection47;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection47;
       VERIFY_FAILED(pShaderReflection->QueryInterface(
           IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection47));
 
@@ -1865,19 +1865,19 @@ TEST_F(DxilContainerTest, CheckReflectionQueryInterface) {
     }
 
     { // Verify with initial interface IID_ID3D11ShaderReflection_47
-      CComPtr<ID3D11ShaderReflection> pShaderReflection;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
       VERIFY_SUCCEEDED(pUtils->CreateReflection(
           &buffer, IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection));
 
       // Verify QI for same interface and IUnknown succeeds:
-      CComPtr<ID3D11ShaderReflection> pShaderReflection2;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection2;
       VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(
           IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection2));
       CComPtr<IUnknown> pUnknown;
       VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
 
       // Verify QI for wrong version of interface fails:
-      CComPtr<ID3D11ShaderReflection> pShaderReflection43;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection43;
       VERIFY_FAILED(pShaderReflection->QueryInterface(
           IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection43));
       CComPtr<ID3D12ShaderReflection> pShaderReflection12;
@@ -1889,19 +1889,19 @@ TEST_F(DxilContainerTest, CheckReflectionQueryInterface) {
     }
 
     { // Verify with initial interface IID_ID3D11ShaderReflection_43
-      CComPtr<ID3D11ShaderReflection> pShaderReflection;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
       VERIFY_SUCCEEDED(pUtils->CreateReflection(
           &buffer, IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection));
 
       // Verify QI for same interface and IUnknown succeeds:
-      CComPtr<ID3D11ShaderReflection> pShaderReflection2;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection2;
       VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(
           IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection2));
       CComPtr<IUnknown> pUnknown;
       VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
 
       // Verify QI for wrong version of interface fails:
-      CComPtr<ID3D11ShaderReflection> pShaderReflection47;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection47;
       VERIFY_FAILED(pShaderReflection->QueryInterface(
           IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection47));
       CComPtr<ID3D12ShaderReflection> pShaderReflection12;
