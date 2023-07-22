@@ -183,7 +183,6 @@ if "%1"=="-clean" (
 ) else if /i "%1"=="-arm64ec" (
   set BUILD_ARCH=ARM64EC
 ) else if "%1"=="-adapter" (
-  set TEST_USE_LIT=0
   set TEST_ADAPTER= /p:"Adapter=%~2"
   set EXEC_ADAPTER=--param adapter=%~2
   shift /1
@@ -305,16 +304,13 @@ if "%TEST_MANUAL_FILE_CHECK%"=="1" (
 )
 
 if "%TEST_USE_LIT%"=="1" (
-  rem LIT does not separate cmd tests from other clang hlsl tests.
-  if "%TEST_CMD%"=="1" (
-    set TEST_CLANG=1
-  )
+  rem LIT does not separate spirv tests from other clang hlsl tests.
   if "%TEST_SPIRV%"=="1" (
     set TEST_CLANG=1
   )
   if "%TEST_ALL%"=="1" (
-    rem check all includes clang, dxilconv
-	py %HLSL_SRC_DIR%/utils/lit/lit.py -sv --no-progress-bar --param build_mode=%BUILD_CONFIG% --param dxilconv_site_config=%HLSL_BLD_DIR%/projects/dxilconv/test/taef/lit.site.cfg --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param skip_taef_exec=True  --param no_priority=True --param llvm_site_config=%HLSL_BLD_DIR%/test/lit.site.cfg --param llvm_unit_site_config=G:/repos/DXC/hlsl.bin/test/Unit/lit.site.cfg %HLSL_SRC_DIR%/projects/dxilconv/test/taef %HLSL_BLD_DIR%/tools/clang/test %HLSL_BLD_DIR%/test
+    rem check all except exec.
+    cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
     set RES_DXILCONV=%RES_CLANG%
     set RES_EXEC=%RES_CLANG%
@@ -324,13 +320,16 @@ if "%TEST_USE_LIT%"=="1" (
 	  py %HLSL_SRC_DIR%/utils/lit/lit.py -sv --no-progress-bar --param build_mode=%BUILD_CONFIG% --param dxilconv_site_config=%HLSL_BLD_DIR%/projects/dxilconv/test/taef/lit.site.cfg %HLSL_SRC_DIR%/projects/dxilconv/test/taef
       set RES_DXILCONV=!ERRORLEVEL!
     )
+    if "%TEST_CMD%"=="1" (
+      py %BIN_DIR%\llvm-lit.py %HLSL_SRC_DIR%/tools/clang/test/DXC -v
+      set RES_CMD=!ERRORLEVEL!
+    )
     if "!TEST_CLANG!"=="1" (
 	  py %HLSL_SRC_DIR%/utils/lit/lit.py -sv --no-progress-bar --param build_mode=%BUILD_CONFIG% --param no_priority=True --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param skip_taef_exec=True %HLSL_BLD_DIR%/tools/clang/test
       set RES_CLANG=!ERRORLEVEL!
-      set RES_CMD=%RES_CLANG%
     )
     if "!TEST_EXEC!"=="1" (
-      py %HLSL_SRC_DIR%/utils/lit/lit.py -sv --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_unit_site_config=%HLSL_BLD_DIR%/tools/clang/test/Unit/lit.site.cfg --param clang_taef_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
+      py %HLSL_SRC_DIR%/utils/lit/lit.py -sv --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
 
       set RES_EXEC=!ERRORLEVEL!
     )
