@@ -1131,6 +1131,51 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
   return RP.CBufferSizeInBytes;
 }
 
+// Make sure none of the handle arguments are undef / zero-initializer,
+// Also, do not accept any resource handles with invalid dxil resource
+// properties
+void ValidateHandleArgsForInstruction(CallInst *CI, DXIL::OpCode opcode,
+                                      ValidationContext &ValCtx) {
+
+  for (Value *op : CI->operands()) {
+    const Type *pHandleTy = ValCtx.HandleTy; // This is a resource handle
+    const Type *pNodeHandleTy = ValCtx.DxilMod.GetOP()->GetNodeHandleType();
+    const Type *pNodeRecordHandleTy =
+        ValCtx.DxilMod.GetOP()->GetNodeRecordHandleType();
+
+    const Type *argTy = op->getType();
+    if (argTy == pNodeHandleTy || argTy == pNodeRecordHandleTy ||
+        argTy == pHandleTy) {
+                
+      if (isa<UndefValue>(op) || isa<ConstantAggregateZero>(op)) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+      }
+      else if (argTy == pHandleTy) {
+        // GetResourceFromHandle will emit an error on an invalid handle
+        GetResourceFromHandle(op, ValCtx);    
+      }
+    }
+  }
+}
+
+void ValidateHandleArgs(CallInst* CI, DXIL::OpCode opcode, ValidationContext &ValCtx) {
+
+  switch (opcode) {
+  // TODO: add case DXIL::OpCode::IndexNodeRecordHandle:
+
+  case DXIL::OpCode::AnnotateHandle:
+  case DXIL::OpCode::AnnotateNodeHandle:
+  case DXIL::OpCode::AnnotateNodeRecordHandle:
+  case DXIL::OpCode::CreateHandleForLib:
+    // TODO: add custom validation for these intrinsics
+    break;
+    
+  default:
+    ValidateHandleArgsForInstruction(CI, opcode, ValCtx);
+    break;
+  }
+}
+
 static unsigned GetNumVertices(DXIL::InputPrimitive inputPrimitive) {
   const unsigned InputPrimitiveVertexTab[] = {
     0, // Undefined = 0,
@@ -2112,6 +2157,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                   shaderKind == DXIL::ShaderKind::Node;
   // Is called from a library function
   bool isLibFunc = shaderKind == DXIL::ShaderKind::Library;
+
+  ValidateHandleArgs(CI, opcode, ValCtx);
 
   switch (opcode) {
   // Imm input value validation.

@@ -1,12 +1,8 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 
-// CHECK: call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %{{[0-9]+}})
-
-// TBD: Prevent this use of null handle
-//      (%dx.types.NodeRecordHandle zeroinitializer) by failing validation.
-// Next, prevent this even earlier if possible.
-// CHECK: call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer, i32 0)
-
+// TBD: Prevent (%dx.types.NodeRecordHandle zeroinitializer) even earlier if possible.
+// CHECK: error: Instructions should not read uninitialized value.
+// CHECK-NEXT: call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle zeroinitializer,
 #define LOAD_STRESS_MAX_GRID_SIZE 3
 #define GROUP_SHARED_SIZE 128
 
@@ -37,6 +33,7 @@ void loadStressWorker(
     outRec.OutputComplete();
     if (threadIndex % 3) {
         // error: Invalid use of completed record handle.
+        // here is where the zeroinitializer is used as a handle value
         outRec.Get().data[0] = 0;
     }
 }
