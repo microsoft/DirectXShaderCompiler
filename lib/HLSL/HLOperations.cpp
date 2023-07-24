@@ -509,9 +509,15 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
   }
   else {
     mangledNameStr << GetHLFullName(group, opcode);
-    // Need to add wave sensitivity to name to prevent clashes with non-wave intrinsic
-    if(attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
-        mangledNameStr << "wave";
+    // Need to add attributes to name to prevent clashes with intrinsics with
+    // different attributes
+    if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone))
+      mangledNameStr << "rn";
+    else if (attribs.hasAttribute(AttributeSet::FunctionIndex,
+                                  Attribute::ReadOnly))
+      mangledNameStr << "ro";
+    if (attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
+      mangledNameStr << "wave";
     mangledNameStr << '.';
     funcTy->print(mangledNameStr);
   }
