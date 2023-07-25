@@ -5119,7 +5119,6 @@ void Sema::ValidateShaderAttribtues(Scope *S, Decl *D, const AttributeList *A) {
         hasNodeAttr = true;
         attrNum++;
       } else {
-        bool isOtherShaderAttr = false;
         for (auto shaderAttrStr :
              {"vertex", "pixel", "hull", "domain", "geometry", "raygeneration",
               "intersection", "anyhit", "closesthit", "miss", "callable",
