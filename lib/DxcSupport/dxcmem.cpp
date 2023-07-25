@@ -98,3 +98,39 @@ DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
 DxcThreadMalloc::~DxcThreadMalloc() {
     DxcSwapThreadMalloc(pPrior, nullptr);
 }
+
+void* DxcNew(std::size_t size) {
+  void *ptr;
+  IMalloc* iMalloc = DxcGetThreadMallocNoRef();
+  if (iMalloc != nullptr) {
+    ptr = iMalloc->Alloc(size);
+  } else {
+    // DxcGetThreadMallocNoRef() returning null means the operator is called before DllMain
+    // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
+    // static linking is enabled. In that case fallback to the standard allocator
+    // and use CoTaskMemAlloc directly instead of CoGetMalloc, Alloc & Release for better perf.
+#if defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+    ptr = CoTaskMemAlloc(size);
+#else
+    ptr = malloc(size);
+#endif
+  }
+  return ptr;
+}
+
+void DxcDelete(void *ptr) {
+  IMalloc* iMalloc = DxcGetThreadMallocNoRef();
+  if (iMalloc != nullptr) {
+    iMalloc->Free(ptr);
+  } else {
+    // DxcGetThreadMallocNoRef() returning null means the operator is called before DllMain
+    // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
+    // static linking is enabled. In that case fallback to the standard allocator
+    // and use CoTaskMemFree directly instead of CoGetMalloc, Free & Release for better perf.
+#if defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+    CoTaskMemFree(ptr);
+#else
+    free(size);
+#endif
+  }
+}
