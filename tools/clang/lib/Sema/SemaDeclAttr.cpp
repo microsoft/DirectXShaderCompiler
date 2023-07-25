@@ -5097,45 +5097,44 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   }
 }
 
-void Sema::ValidateShaderAttribtues(Scope *S, Decl* D, const AttributeList *A)
-{
+void Sema::ValidateShaderAttribtues(Scope *S, Decl *D, const AttributeList *A) {
   bool hasComputeAttr = false;
   bool hasNodeAttr = false;
   int attrNum = 0;
 
-  for (const AttributeList* l = A; l; l = l->getNext()) {
-    if (l->getKind() == AttributeList::AT_HLSLShader) {      
-      Expr* E = l->getArgAsExpr(0);
-      if (E->isTypeDependent() || E->isValueDependent() || E->getStmtClass() != Stmt::StringLiteralClass)
-      {
+  for (const AttributeList *l = A; l; l = l->getNext()) {
+    if (l->getKind() == AttributeList::AT_HLSLShader) {
+      Expr *E = l->getArgAsExpr(0);
+      if (E->isTypeDependent() || E->isValueDependent() ||
+          E->getStmtClass() != Stmt::StringLiteralClass) {
         break;
       }
 
-      StringLiteral* sl = cast<StringLiteral>(E);
+      StringLiteral *sl = cast<StringLiteral>(E);
       std::string str = sl->getString();
       if (str == "compute") {
         hasComputeAttr = true;
-        attrNum ++;
-      }
-      else if (str == "node") {
+        attrNum++;
+      } else if (str == "node") {
         hasNodeAttr = true;
         attrNum++;
-      }
-      else {
+      } else {
         bool isOtherShaderAttr = false;
-        for (auto shaderAttrStr : { "vertex","pixel","hull","domain","geometry","raygeneration",
-          "intersection","anyhit","closesthit","miss","callable","mesh","amplification" }) {
+        for (auto shaderAttrStr :
+             {"vertex", "pixel", "hull", "domain", "geometry", "raygeneration",
+              "intersection", "anyhit", "closesthit", "miss", "callable",
+              "mesh", "amplification"}) {
           if (str == shaderAttrStr) {
-            attrNum ++;
+            attrNum++;
             break;
           }
         }
       }
     }
   }
-  
+
   if (attrNum > 2) {
-    Diag(A->getLoc(), diag::err_hlsl_attribute_mismatch);   
+    Diag(A->getLoc(), diag::err_hlsl_attribute_mismatch);
   }
 
   if (attrNum == 2) {
@@ -5147,10 +5146,10 @@ void Sema::ValidateShaderAttribtues(Scope *S, Decl* D, const AttributeList *A)
 
 /// ProcessDeclAttributeList - Apply all the decl attributes in the specified
 /// attribute list to the specified decl, ignoring any type attributes.
-void Sema::ProcessDeclAttributeList(Scope* S, Decl* D,
-  const AttributeList* AttrList,
-  bool IncludeCXX11Attributes) {
-  for (const AttributeList* l = AttrList; l; l = l->getNext()) {
+void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+                                    const AttributeList *AttrList,
+                                    bool IncludeCXX11Attributes) {
+  for (const AttributeList *l = AttrList; l; l = l->getNext()) {
     ProcessDeclAttribute(*this, S, D, *l, IncludeCXX11Attributes);
   }
 
