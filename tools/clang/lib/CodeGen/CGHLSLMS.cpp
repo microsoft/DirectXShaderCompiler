@@ -2714,13 +2714,6 @@ void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(const clang::ParmVarDecl* parmDe
 
         // Ex: For DispatchNodeInputRecord<MY_RECORD>, set size = size(MY_RECORD)
         node.RecordType.size = CGM.getDataLayout().getTypeAllocSize(Type);
-        if (node.RecordType.size == 0) {
-          // a node input/output record can't have a size of zero
-          DiagnosticsEngine &Diags = CGM.getDiags();
-          unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "record used in %0 may not have zero size");
-          Diags.Report(parmDecl->getSourceRange().getBegin(), DiagID) << templateDecl->getName() << parmDecl->getSourceRange();
-          Diags.Report(RD->getLocation(), diag::note_defined_here) << "zero sized record";
-        }
         // If we find SV_DispatchGrid we'll remember the location for diagnostics
         SourceLocation SV_DispatchGridLoc;
         // Iterate over fields of the MY_RECORD(example) struct

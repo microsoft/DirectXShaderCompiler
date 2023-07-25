@@ -5575,6 +5575,15 @@ public:
             << argType;
         return true;
       }
+      // a node input/output record can't be empty
+      if (const RecordType *recordType = argType->getAsStructureType()) {
+        RecordDecl *RD = recordType->getDecl();
+        if (RD->field_empty()) {
+          m_sema->Diag(argLoc.getLocation(), diag::err_hlsl_zero_sized_record) << templateName << argLoc.getSourceRange();
+          m_sema->Diag(RD->getLocation(), diag::note_defined_here) << "zero sized record";
+          return true;
+        }
+      }
       return false;
     }
 
@@ -14893,7 +14902,7 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
 
   case clang::attr::HLSLNodeTrackRWInputSharing: {
     Indent(Indentation, Out);
-    Out << "[HLSLNodeTrackRWInputSharing]\n";
+    Out << "[NodeTrackRWInputSharing]\n";
     break;
   }
 

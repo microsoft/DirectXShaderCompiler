@@ -7794,6 +7794,8 @@ def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
 def err_hlsl_wg_input_kind : Error<
    "%0 may not be used with %1 launch nodes">;
+def err_hlsl_zero_sized_record : Error<
+   "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
    "a RWNodeInputRecord field with SV_DispatchGrid semantic is not assignable">;
 def err_hlsl_maxarraysize_template_arg : Error<
