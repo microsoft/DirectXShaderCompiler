@@ -2978,6 +2978,8 @@ public:
                                    ObjCMethodDecl *Overridden,
                                    bool IsProtocolMethodDecl);
 
+  void ValidateShaderAttribtues(Scope *S, Decl* D, const AttributeList *A);
+
   /// WarnExactTypedMethods - This routine issues a warning if method
   /// implementation declaration matches exactly that of its declaration.
   void WarnExactTypedMethods(ObjCMethodDecl *Method,

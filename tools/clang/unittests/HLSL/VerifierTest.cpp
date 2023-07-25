@@ -118,6 +118,7 @@ public:
   TEST_METHOD(RunWorkGraphDispatchGridDiags)
   TEST_METHOD(RunNodeComputeCompatibilityDiags)
   TEST_METHOD(RunNodeInputCompatibilityDiags)
+  TEST_METHOD(RunShaderMismatch)
   
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -191,6 +192,17 @@ public:
 TEST_F(VerifierTest, RunArrayIndexOutOfBounds) {
   CheckVerifiesHLSL(L"array-index-out-of-bounds.hlsl");
   CheckVerifiesHLSL(L"array-index-out-of-bounds-HV-2016.hlsl");
+}
+
+TEST_F(VerifierTest, RunShaderMismatch) {
+  CheckVerifiesHLSL(L"shader_cv_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_vp_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_vn_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_cn_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_mp_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_cvn_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_cvc_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_nvp_mismatch.hlsl");  
 }
 
 TEST_F(VerifierTest, RunArrayLength) {
