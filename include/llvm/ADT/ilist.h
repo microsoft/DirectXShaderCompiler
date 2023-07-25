@@ -248,6 +248,7 @@ void operator+(ilist_iterator<T>,int) = delete;
 
 // operator!=/operator== - Allow mixed comparisons without dereferencing
 // the iterator, which could very likely be pointing to end().
+// HLSL Change Begin: Support for C++20
 template<typename T, typename U>
 bool operator!=(const T* LHS, const ilist_iterator<const U> &RHS) {
   return LHS != RHS.getNodePtrUnchecked();
@@ -264,6 +265,7 @@ template<typename T, typename U>
 bool operator==(T* LHS, const ilist_iterator<U> &RHS) {
   return LHS == RHS.getNodePtrUnchecked();
 }
+// HLSL Change End
 
 
 // Allow ilist_iterators to convert into pointers to a node automatically when
