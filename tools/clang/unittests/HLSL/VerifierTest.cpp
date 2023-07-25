@@ -120,6 +120,7 @@ public:
   TEST_METHOD(RunNodeInputCompatibilityDiags)
   TEST_METHOD(RunNodeZeroSizedRecordDiags)
   TEST_METHOD(RunWorkGraphAttributeDiags)
+  TEST_METHOD(RunInvalidNodeLaunchDiags)
   
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -533,4 +534,8 @@ TEST_F(VerifierTest, RunNodeZeroSizedRecordDiags) {
 
 TEST_F(VerifierTest, RunWorkGraphAttributeDiags) {
   CheckVerifiesHLSL(L"/workgraph/attribute_diags.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_nodelaunch.hlsl");
 }
