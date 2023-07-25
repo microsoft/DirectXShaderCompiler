@@ -1,5 +1,5 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
-cmake_minimum_required(VERSION 3.10) # HLSL Change - Require CMake 3.10.
+cmake_minimum_required(VERSION 3.17.2) # HLSL Change - Require CMake 3.17.2.
 
 if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
   include(${DXC_CMAKE_BEGINS_INCLUDE})
