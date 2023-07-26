@@ -1916,12 +1916,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->Node.DispatchGrid[0] = pAttr->getX();
       funcProps->Node.DispatchGrid[1] = pAttr->getY();
       funcProps->Node.DispatchGrid[2] = pAttr->getZ();
-      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Broadcasting) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "NodeDispatchGrid may only be used with Broadcasting nodes");
-        Diags.Report(pAttr->getLocation(), DiagID);
-      }
     }
     else {
       ReportMissingNodeDiag(Diags, pAttr);
@@ -1932,12 +1926,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->Node.MaxDispatchGrid[0] = pAttr->getX();
       funcProps->Node.MaxDispatchGrid[1] = pAttr->getY();
       funcProps->Node.MaxDispatchGrid[2] = pAttr->getZ();
-      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Broadcasting) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "NodeMaxDispatchGrid may only be used with Broadcasting nodes");
-        Diags.Report(pAttr->getLocation(), DiagID);
-      }
     }
     else {
       ReportMissingNodeDiag(Diags, pAttr);
