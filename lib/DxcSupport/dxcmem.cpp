@@ -99,7 +99,7 @@ DxcThreadMalloc::~DxcThreadMalloc() {
     DxcSwapThreadMalloc(pPrior, nullptr);
 }
 
-void* DxcNew(std::size_t size) {
+void* DxcNew(std::size_t size) throw() {
   void *ptr;
   IMalloc* iMalloc = DxcGetThreadMallocNoRef();
   if (iMalloc != nullptr) {
@@ -118,7 +118,7 @@ void* DxcNew(std::size_t size) {
   return ptr;
 }
 
-void DxcDelete(void *ptr) {
+void DxcDelete(void *ptr) throw() {
   IMalloc* iMalloc = DxcGetThreadMallocNoRef();
   if (iMalloc != nullptr) {
     iMalloc->Free(ptr);
