@@ -45,6 +45,7 @@ set SHOW_CMAKE_LOG=0
 set ENABLE_LIT=ON
 set WINSDK_MIN_VERSION=10.0.17763.0
 set INSTALL_DIR=
+set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=
 
 :parse_args
 if "%1"=="" (
@@ -204,6 +205,11 @@ if "%1"=="-lit-xml-output-path" (
   shift /1
   shift /1 & goto :parse_args
 )
+if "%1"=="-default-adapter" (
+  set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=%~2
+  shift /1
+  shift /1 & goto :parse_args
+)
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
@@ -339,6 +345,9 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR%
+
+rem Setup taef exec adapter.
+set CMAKE_OPTS=%CMAKE_OPTS% %DEFAULT_EXEC_ADAPTER%
 
 rem ARM cross-compile setup
 if %BUILD_ARM_CROSSCOMPILING% == 0 goto :after-cross-compile
