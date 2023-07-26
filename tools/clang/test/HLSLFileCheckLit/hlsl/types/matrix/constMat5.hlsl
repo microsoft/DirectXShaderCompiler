@@ -1,11 +1,16 @@
-// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s | FileCheck %s --check-prefix=CHECK --check-prefix=COL
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types -Zpr %s | FileCheck %s --check-prefix=CHECK --check-prefix=ROW
 
-// CHECK: [9 x half] [half 0xH3C00, half 0xH4400, half 0xH4700, half 0xH4000, half 0xH4500, half 0xH4800, half 0xH4200, half 0xH4600, half 0xH4880]
+// COL: [9 x half] [half 0xH3C00, half 0xH4400, half 0xH4700, half 0xH4000, half 0xH4500, half 0xH4800, half 0xH4200, half 0xH4600, half 0xH4880]
+// ROW: [9 x half] [half 0xH3C00, half 0xH4000, half 0xH4200, half 0xH4400, half 0xH4500, half 0xH4600, half 0xH4700, half 0xH4800, half 0xH4880]
 // CHECK: fptoui float
 // CHECK: getelementptr [9 x half]
 // CHECK: load half
 // CHECK: call half @dx.op.tertiary.f16(i32 46, half 0xH4000,
-// CHECK: lshr i32 411,
+// bmat is 1,1,0,0,1,1,0,1,1 for column major.
+// COL: lshr i32 411,
+// bmat is 1, 0, 0, 1, 1, 1, 0, 1, 1 for row major.
+// ROW: lshr i32 315,
 // CHECK: icmp ne
 // CHECK: %[[all:[^ ]*]] = uitofp i1 %{{.*}} to float
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0,
@@ -27,6 +32,5 @@ Foo fn() {
 
 float4 main(float a : A) : SV_Target {
     Foo foo = fn();
-    float3 v = float3(a, a * a, a + a);
     return float4(mul(foo.hmat, foo.hmat[a]), all(foo.bmat[a]));
 }
