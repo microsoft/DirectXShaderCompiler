@@ -11491,10 +11491,14 @@ public:
         S.Diags.Report(A->getLocation(), diag::err_hlsl_launch_type_attr)
           << A->getSpelling() << "Broadcasting" << A->getRange();
         // Only output the note if the source location is valid
-        if (nodeLaunchLoc.isValid()) {
+        if (nodeLaunchLoc.isValid())
           S.Diags.Report(nodeLaunchLoc, diag::note_defined_here) << "Launch type";
-        }
       }
+      break;
+    case attr::HLSLNodeMaxRecursionDepth:
+      if (cast<HLSLNodeMaxRecursionDepthAttr>(A)->getCount() > 32)
+        S.Diags.Report(A->getLocation(), diag::err_hlsl_maxrecursiondepth_exceeded)
+          << A->getRange();
       break;
     }
     return true;

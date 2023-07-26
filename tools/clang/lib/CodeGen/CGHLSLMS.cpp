@@ -1932,18 +1932,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
   if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
-    if (isNode) {
+    if (isNode)
       funcProps->Node.MaxRecursionDepth = pAttr->getCount();
-      if (pAttr->getCount() > 32) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "NodeMaxRecursionDepth may not exceed 32");
-        Diags.Report(pAttr->getLocation(), DiagID);
-      }
-    }
-    else {
+    else
       ReportMissingNodeDiag(Diags, pAttr);
-    }
   }
   if (!FD->getAttr<HLSLNumThreadsAttr>()) {
     if (isNode) {

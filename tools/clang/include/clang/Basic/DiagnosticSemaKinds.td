@@ -7812,6 +7812,8 @@ def err_hlsl_incompatible_node_attr : Error<
    "Node shader '%0' may not use both '%1' and '%2'">;
 def err_hlsl_missing_dispatchgrid_attr : Error<
    "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
+def err_hlsl_maxrecursiondepth_exceeded : Error<
+   "NodeMaxRecursionDepth may not exceed 32">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

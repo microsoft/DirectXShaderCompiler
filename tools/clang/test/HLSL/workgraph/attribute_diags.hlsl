@@ -88,3 +88,14 @@ void node12(RWDispatchNodeInputRecord<InheritedRecord> input)
 {
   input.FinishedCrossGroupSharing(); // expected-error {{Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type}}
 }
+
+// The chain of nodes may not exceed 32, which includes any recursive nodes.
+// This means NodeMaxRecursionDepth may never be more than 32.
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(32, 1, 1)]
+[NumThreads(32, 1, 1)]
+[NodeMaxRecursionDepth(33)] // expected-error {{NodeMaxRecursionDepth may not exceed 32}}
+void node13(RWDispatchNodeInputRecord<SharedRecord> input)
+{ }
