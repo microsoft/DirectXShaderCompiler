@@ -661,8 +661,14 @@ std::string StageVar::getSemanticStr() const {
   return ss.str();
 }
 
-SpirvInstruction *CounterIdAliasPair::get(SpirvBuilder &builder,
-                                          SpirvContext &spvContext) const {
+SpirvInstruction *CounterIdAliasPair::getAliasAddress() const {
+  assert(isAlias);
+  return counterVar;
+}
+
+SpirvInstruction *
+CounterIdAliasPair::getCounterVariable(SpirvBuilder &builder,
+                                       SpirvContext &spvContext) const {
   if (isAlias) {
     const auto *counterType = spvContext.getACSBufferCounterType();
     const auto *counterVarType =
@@ -689,7 +695,8 @@ bool CounterVarFields::assign(const CounterVarFields &srcFields,
     if (!srcField)
       return false;
 
-    field.counterVar.assign(*srcField, builder, context);
+    field.counterVar.assign(srcField->getCounterVariable(builder, context),
+                            builder);
   }
 
   return true;
@@ -729,7 +736,8 @@ bool CounterVarFields::assign(const CounterVarFields &srcFields,
       if (!srcField)
         return false;
 
-      field.counterVar.assign(*srcField, builder, context);
+      field.counterVar.assign(srcField->getCounterVariable(builder, context),
+                              builder);
       for (uint32_t i = srcPrefix.size(); i < srcIndices.size(); ++i)
         srcIndices.pop_back();
     }

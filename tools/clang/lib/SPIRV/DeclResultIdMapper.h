@@ -71,14 +71,19 @@ public:
   CounterIdAliasPair(SpirvVariable *var, bool alias)
       : counterVar(var), isAlias(alias) {}
 
+  /// Returns the pointer to the counter variable alias. This returns a pointer
+  /// that can be used as the address to a store instruction when storing to an
+  /// alias counter.
+  SpirvInstruction *getAliasAddress() const;
+
   /// Returns the pointer to the counter variable. Dereferences first if this is
   /// an alias to a counter variable.
-  SpirvInstruction *get(SpirvBuilder &builder, SpirvContext &spvContext) const;
+  SpirvInstruction *getCounterVariable(SpirvBuilder &builder,
+                                       SpirvContext &spvContext) const;
 
-  /// Stores the counter variable's pointer in srcPair to the curent counter
+  /// Stores the counter variable pointed to by src to the curent counter
   /// variable. The current counter variable must be an alias.
-  inline void assign(const CounterIdAliasPair &srcPair, SpirvBuilder &,
-                     SpirvContext &) const;
+  inline void assign(SpirvInstruction *src, SpirvBuilder &) const;
 
 private:
   SpirvVariable *counterVar;
@@ -906,12 +911,10 @@ bool SemanticInfo::isTarget() const {
   return semantic && semantic->GetKind() == hlsl::Semantic::Kind::Target;
 }
 
-void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
-                                SpirvBuilder &builder,
-                                SpirvContext &context) const {
+void CounterIdAliasPair::assign(SpirvInstruction *src,
+                                SpirvBuilder &builder) const {
   assert(isAlias);
-  builder.createStore(counterVar, srcPair.get(builder, context),
-                      /* SourceLocation */ {});
+  builder.createStore(counterVar, src, /* SourceLocation */ {});
 }
 
 DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,

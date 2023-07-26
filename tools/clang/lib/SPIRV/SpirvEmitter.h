@@ -1051,6 +1051,21 @@ private:
                              const Expr *srcExpr);
   bool tryToAssignCounterVar(const Expr *dstExpr, const Expr *srcExpr);
 
+  /// Returns an instruction that points to the alias counter variable with the
+  /// entity represented by expr.
+  ///
+  /// This method only handles final alias structured buffers, which means
+  /// AssocCounter#1 and AssocCounter#2.
+  SpirvInstruction *
+  getFinalACSBufferCounterAliasAddressInstruction(const Expr *expr);
+
+  /// Returns an instruction that points to the counter variable with the entity
+  /// represented by expr.
+  ///
+  /// This method only handles final alias structured buffers, which means
+  /// AssocCounter#1 and AssocCounter#2.
+  SpirvInstruction *getFinalACSBufferCounterInstruction(const Expr *expr);
+
   /// Returns the counter variable's information associated with the entity
   /// represented by the given decl.
   ///
