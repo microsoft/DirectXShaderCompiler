@@ -12,12 +12,8 @@ if (DXC_COVERAGE)
   set(LLVM_CODE_COVERAGE_TEST_TARGETS "check-all" CACHE STRING "")
 endif()
 
-# TODO: remove this option after switch to support lit only.
-if (DXC_DISABLE_LIT)
-  set(LLVM_TEST_VALUE OFF)
-else()
-  set(LLVM_TEST_VALUE ON)
-endif()
+# Enable testing by default.
+set(LLVM_TEST_VALUE ON)
 
 set(LLVM_INCLUDE_TESTS ${LLVM_TEST_VALUE} CACHE BOOL "")
 set(CLANG_INCLUDE_TESTS ${LLVM_TEST_VALUE} CACHE BOOL "")
