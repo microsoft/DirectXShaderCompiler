@@ -305,7 +305,10 @@ bool IsHLWaveSensitive(Function *F) {
   return attrSet.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive);
 }
 
-std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
+static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs);
+
+std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode,
+                          const AttributeSet &attribs = AttributeSet()) {
   assert(op != HLOpcodeGroup::HLExtIntrinsic && "else table name should be used");
   std::string opName = GetHLOpcodeGroupFullName(op).str() + ".";
 
@@ -321,7 +324,7 @@ std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
   case HLOpcodeGroup::HLIntrinsic: {
     // intrinsic with same signature will share the funciton now
     // The opcode is in arg0.
-    return opName;
+    return opName + GetHLFunctionAttributeMangling(attribs);
   }
   case HLOpcodeGroup::HLMatLoadStore: {
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
@@ -329,14 +332,18 @@ std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
   }
   case HLOpcodeGroup::HLSubscript: {
     HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
-    return opName + GetHLOpcodeName(subOp).str();
+    return opName + GetHLOpcodeName(subOp).str() + "." +
+           GetHLFunctionAttributeMangling(attribs);
   }
   case HLOpcodeGroup::HLCast: {
     HLCastOpcode castOp = static_cast<HLCastOpcode>(opcode);
     return opName + GetHLOpcodeName(castOp).str();
   }
-  default:
+  case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLAnnotateHandle:
     return opName;
+  default:
+    return opName + GetHLFunctionAttributeMangling(attribs);
   }
 }
 
@@ -417,38 +424,59 @@ HLBinaryOpcode GetUnsignedOpcode(HLBinaryOpcode opcode) {
   }
 }
 
-static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
-                                       unsigned opcode) {
-  F->addFnAttr(Attribute::NoUnwind);
+static AttributeSet
+GetHLFunctionAttributes(LLVMContext &C, FunctionType *funcTy,
+                        const AttributeSet &origAttribs,
+                        HLOpcodeGroup group, unsigned opcode) {
+  // Always add nounwind
+  AttributeSet attribs =
+      AttributeSet::get(C, AttributeSet::FunctionIndex,
+                        ArrayRef<Attribute::AttrKind>({Attribute::NoUnwind}));
+
+  auto addAttr = [&](Attribute::AttrKind Attr) {
+    if (!attribs.hasAttribute(AttributeSet::FunctionIndex, Attr))
+      attribs = attribs.addAttribute(C, AttributeSet::FunctionIndex, Attr);
+  };
+  auto copyAttr = [&](Attribute::AttrKind Attr) {
+    if (origAttribs.hasAttribute(AttributeSet::FunctionIndex, Attr))
+      addAttr(Attr);
+  };
+  auto copyStrAttr = [&](StringRef Kind) {
+    if (origAttribs.hasAttribute(AttributeSet::FunctionIndex, Kind))
+      attribs = attribs.addAttribute(
+          C, AttributeSet::FunctionIndex, Kind,
+          origAttribs.getAttribute(AttributeSet::FunctionIndex, Kind)
+              .getValueAsString());
+  };
+
+  // Copy attributes we preserve from the original function.
+  copyAttr(Attribute::ReadOnly);
+  copyAttr(Attribute::ReadNone);
+  copyStrAttr(HLWaveSensitive);
 
   switch (group) {
   case HLOpcodeGroup::HLUnOp:
   case HLOpcodeGroup::HLBinOp:
   case HLOpcodeGroup::HLCast:
   case HLOpcodeGroup::HLSubscript:
-    if (!F->hasFnAttribute(Attribute::ReadNone)) {
-      F->addFnAttr(Attribute::ReadNone);
-    }
+    addAttr(Attribute::ReadNone);
     break;
   case HLOpcodeGroup::HLInit:
-    if (!F->hasFnAttribute(Attribute::ReadNone))
-      if (!F->getReturnType()->isVoidTy()) {
-        F->addFnAttr(Attribute::ReadNone);
-      }
+    if (!funcTy->getReturnType()->isVoidTy()) {
+      addAttr(Attribute::ReadNone);
+    }
     break;
   case HLOpcodeGroup::HLMatLoadStore: {
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
     if (matOp == HLMatLoadStoreOpcode::ColMatLoad ||
         matOp == HLMatLoadStoreOpcode::RowMatLoad)
-      if (!F->hasFnAttribute(Attribute::ReadOnly)) {
-        F->addFnAttr(Attribute::ReadOnly);
-      }
+      addAttr(Attribute::ReadOnly);
   } break;
   case HLOpcodeGroup::HLCreateHandle: {
-    F->addFnAttr(Attribute::ReadNone);
+    addAttr(Attribute::ReadNone);
   } break;
   case HLOpcodeGroup::HLAnnotateHandle: {
-    F->addFnAttr(Attribute::ReadNone);
+    addAttr(Attribute::ReadNone);
   } break;
   case HLOpcodeGroup::HLIntrinsic: {
     IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);
@@ -461,7 +489,7 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
     case IntrinsicOp::IOP_GroupMemoryBarrier:
     case IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync:
     case IntrinsicOp::IOP_AllMemoryBarrier:
-      F->addFnAttr(Attribute::NoDuplicate);
+      addAttr(Attribute::NoDuplicate);
       break;
     }
   } break;
@@ -472,6 +500,75 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
     // No default attributes for these opcodes.
     break;
   }
+  assert(!(attribs.hasAttribute(AttributeSet::FunctionIndex,
+                                Attribute::ReadNone) &&
+           attribs.hasAttribute(AttributeSet::FunctionIndex,
+                                Attribute::ReadOnly)) &&
+         "conflicting ReadNone and ReadOnly attributes");
+  return attribs;
+}
+
+static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
+  std::string mangledName;
+  raw_string_ostream mangledNameStr(mangledName);
+
+  // Capture for adding in canonical order later.
+  bool ReadNone = false;
+  bool ReadOnly = false;
+  bool NoDuplicate = false;
+  bool WaveSensitive = false;
+
+  // Ensure every function attribute is recognized.
+  for (unsigned Slot = 0; Slot < attribs.getNumSlots(); Slot++) {
+    if (attribs.getSlotIndex(Slot) == AttributeSet::FunctionIndex) {
+      for (auto it = attribs.begin(Slot), e = attribs.end(Slot); it != e;
+           it++) {
+        if (it->isEnumAttribute()) {
+          switch (it->getKindAsEnum()) {
+          case Attribute::ReadNone:
+            ReadNone = true;
+            break;
+          case Attribute::ReadOnly:
+            ReadOnly = true;
+            break;
+          case Attribute::NoDuplicate:
+            NoDuplicate = true;
+            break;
+          case Attribute::NoUnwind:
+            // All intrinsics have this attribute, so mangling is unaffected.
+            break;
+          default:
+            assert(false && "unexpected attribute for HLOperation");
+          }
+        } else if (it->isStringAttribute()) {
+          StringRef Kind = it->getKindAsString();
+          if (Kind == HLWaveSensitive) {
+            assert(it->getValueAsString() == "y" &&
+                   "otherwise, unexpected value for WaveSensitive attribute");
+            WaveSensitive = true;
+          } else {
+            assert(false &&
+                   "unexpected string function attribute for HLOperation");
+          }
+        }
+      }
+    }
+  }
+
+  // Validate attribute combinations.
+  assert(!(ReadNone && ReadOnly) &&
+         "ReadNone and ReadOnly are mutually exclusive");
+
+  // Add mangling in canonical order
+  if (NoDuplicate)
+    mangledNameStr << "nd";
+  if (ReadNone)
+    mangledNameStr << "rn";
+  if (ReadOnly)
+    mangledNameStr << "ro";
+  if (WaveSensitive)
+    mangledNameStr << "wave";
+  return mangledName;
 }
 
 
@@ -497,7 +594,11 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
                                 HLOpcodeGroup group, StringRef *groupName,
                                 StringRef *fnName, unsigned opcode,
-                                const AttributeSet &attribs) {
+                                const AttributeSet &origAttribs) {
+  // Set/transfer all common attributes
+  AttributeSet attribs = GetHLFunctionAttributes(
+      M.getContext(), funcTy, origAttribs, group, opcode);
+
   std::string mangledName;
   raw_string_ostream mangledNameStr(mangledName);
   if (group == HLOpcodeGroup::HLExtIntrinsic) {
@@ -506,38 +607,30 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
     mangledNameStr << *groupName;
     mangledNameStr << '.';
     mangledNameStr << *fnName;
+    attribs = attribs.addAttribute(M.getContext(), AttributeSet::FunctionIndex,
+                         hlsl::HLPrefix, *groupName);
   }
   else {
-    mangledNameStr << GetHLFullName(group, opcode);
-    // Need to add attributes to name to prevent clashes with intrinsics with
-    // different attributes
-    if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone))
-      mangledNameStr << "rn";
-    else if (attribs.hasAttribute(AttributeSet::FunctionIndex,
-                                  Attribute::ReadOnly))
-      mangledNameStr << "ro";
-    if (attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
-      mangledNameStr << "wave";
+    mangledNameStr << GetHLFullName(group, opcode, attribs);
     mangledNameStr << '.';
     funcTy->print(mangledNameStr);
   }
 
   mangledNameStr.flush();
 
-  Function *F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy));
-  if (group == HLOpcodeGroup::HLExtIntrinsic) {
-    F->addFnAttr(hlsl::HLPrefix, *groupName);
+  // Avoid getOrInsertFunction to verify attributes and type without casting.
+  Function *F = cast_or_null<Function>(M.getNamedValue(mangledName));
+  if (F) {
+    assert(F->getFunctionType() == funcTy &&
+           "otherwise, function type mismatch not captured by mangling");
+    // Compare attribute mangling to ensure function attributes are as expected.
+    assert(
+        GetHLFunctionAttributeMangling(F->getAttributes().getFnAttributes()) ==
+            GetHLFunctionAttributeMangling(attribs) &&
+        "otherwise, function attribute mismatch not captured by mangling");
+  } else {
+    F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy, attribs));
   }
-
-  SetHLFunctionAttribute(F, group, opcode);
-
-  // Copy attributes
-  if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone))
-    F->addFnAttr(Attribute::ReadNone);
-  if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadOnly))
-    F->addFnAttr(Attribute::ReadOnly);
-  if (attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
-    F->addFnAttr(HLWaveSensitive, "y");
 
   return F;
 }
@@ -547,15 +640,17 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
 Function *GetOrCreateHLFunctionWithBody(Module &M, FunctionType *funcTy,
                                         HLOpcodeGroup group, unsigned opcode,
                                         StringRef name) {
-  std::string operatorName = GetHLFullName(group, opcode);
+  // Set/transfer all common attributes
+  AttributeSet attribs = GetHLFunctionAttributes(
+      M.getContext(), funcTy, AttributeSet(), group, opcode);
+
+  std::string operatorName = GetHLFullName(group, opcode, attribs);
   std::string mangledName = operatorName + "." + name.str();
   raw_string_ostream mangledNameStr(mangledName);
   funcTy->print(mangledNameStr);
   mangledNameStr.flush();
 
-  Function *F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy));
-
-  SetHLFunctionAttribute(F, group, opcode);
+  Function *F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy, attribs));
 
   F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
 

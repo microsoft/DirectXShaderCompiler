@@ -1517,10 +1517,15 @@ void HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, Value *MatPtr, Small
     HLMatLoadStoreOpcode Opcode = (HLSubscriptOpcode)GetHLOpcode(Call) == HLSubscriptOpcode::RowMatSubscript ?
                                    HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
     HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
+    // Don't pass attributes from subscript (ReadNone) - load is ReadOnly.
+    // Attributes will be set when HL function is created.
+    // FIXME: This seems to indicate a potential bug, since the load should be
+    // placed where pointer users would have loaded from the pointer.
     LoweredMatrix = callHLFunction(
-      *m_pModule, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(Opcode),
-      MatTy.getLoweredVectorTypeForReg(), { CallBuilder.getInt32((uint32_t)Opcode), MatPtr },
-      Call->getCalledFunction()->getAttributes().getFnAttributes(), CallBuilder);
+        *m_pModule, HLOpcodeGroup::HLMatLoadStore,
+        static_cast<unsigned>(Opcode), MatTy.getLoweredVectorTypeForReg(),
+        {CallBuilder.getInt32((uint32_t)Opcode), MatPtr}, AttributeSet(),
+        CallBuilder);
   }
   // For global variables, we can GEP directly into the lowered vector pointer.
   // This is necessary to support group shared memory atomics and the likes.
