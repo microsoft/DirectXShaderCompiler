@@ -130,7 +130,7 @@ void DxcDelete(void *ptr) throw() {
 #if defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
     CoTaskMemFree(ptr);
 #else
-    free(size);
+    free(ptr);
 #endif
   }
 }
