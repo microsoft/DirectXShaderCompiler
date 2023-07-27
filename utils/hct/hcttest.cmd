@@ -161,10 +161,6 @@ if "%1"=="-clean" (
   set TEST_EXTRAS=1
 ) else if "%1"=="-ninja" (
   set GENERATOR_NINJA=1
-) else if "%1"=="-disable-lit" (
-  set TEST_USE_LIT=0
-) else if "%1"=="-enable-lit" (
-  set TEST_USE_LIT=1
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Release" (
@@ -417,11 +413,6 @@ if "%TEST_CLANG%"=="1" (
   set RES_CLANG=!ERRORLEVEL!
 )
 
-if "%TEST_CMD%"=="1" (
-  copy /y %HLSL_SRC_DIR%\utils\hct\cmdtestfiles\smoke.hlsl %TEST_DIR%\smoke.hlsl
-  call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
-  set RES_CMD=!ERRORLEVEL!
-)
 
 if "%TEST_EXEC%"=="1" (
   call :copyagility
