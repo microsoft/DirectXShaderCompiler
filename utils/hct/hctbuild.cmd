@@ -42,9 +42,9 @@ set SPV_TEST=OFF
 set DXILCONV=ON
 set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
-set ENABLE_LIT=ON
 set WINSDK_MIN_VERSION=10.0.17763.0
 set INSTALL_DIR=
+set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=
 
 :parse_args
 if "%1"=="" (
@@ -188,19 +188,14 @@ if "%1"=="-dxc-cmake-system-version" (
 if "%1"=="-show-cmake-log" (
   set SHOW_CMAKE_LOG=1
   shift /1 & goto :parse_args
-)  
-if "%1"=="-disable-lit" (
-  echo Disable LIT testing
-  set ENABLE_LIT=OFF
-  shift /1 & goto :parse_args
-)
-if "%1"=="-enable-lit" (
-  echo Enable LIT testing
-  set ENABLE_LIT=ON
-  shift /1 & goto :parse_args
 )
 if "%1"=="-lit-xml-output-path" (
   set "CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS=--xunit-xml-output=%~2"
+  shift /1
+  shift /1 & goto :parse_args
+)
+if "%1"=="-default-adapter" (
+  set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=%~2
   shift /1
   shift /1 & goto :parse_args
 )
@@ -319,7 +314,6 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=%SPIRV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=%SPV_TEST%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_STATIC_ANALYZER:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_INCLUDE_TESTS:BOOL=%ENABLE_LIT% -DLLVM_INCLUDE_TESTS:BOOL=%ENABLE_LIT%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_INCLUDE_TESTS:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_TARGETS_TO_BUILD:STRING=None
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_INCLUDE_DOCS:BOOL=OFF -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF
@@ -339,6 +333,9 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR%
+
+rem Setup taef exec adapter.
+set CMAKE_OPTS=%CMAKE_OPTS% %DEFAULT_EXEC_ADAPTER%
 
 rem ARM cross-compile setup
 if %BUILD_ARM_CROSSCOMPILING% == 0 goto :after-cross-compile

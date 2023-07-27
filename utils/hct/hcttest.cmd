@@ -161,10 +161,6 @@ if "%1"=="-clean" (
   set TEST_EXTRAS=1
 ) else if "%1"=="-ninja" (
   set GENERATOR_NINJA=1
-) else if "%1"=="-disable-lit" (
-  set TEST_USE_LIT=0
-) else if "%1"=="-enable-lit" (
-  set TEST_USE_LIT=1
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Release" (
@@ -183,8 +179,8 @@ if "%1"=="-clean" (
 ) else if /i "%1"=="-arm64ec" (
   set BUILD_ARCH=ARM64EC
 ) else if "%1"=="-adapter" (
-  set TEST_USE_LIT=0
   set TEST_ADAPTER= /p:"Adapter=%~2"
+  set EXEC_ADAPTER=--param adapter=%~2
   shift /1
 ) else if "%1"=="-verbose" (
   set LOG_FILTER=
@@ -304,15 +300,12 @@ if "%TEST_MANUAL_FILE_CHECK%"=="1" (
 )
 
 if "%TEST_USE_LIT%"=="1" (
-  rem LIT does not separate cmd tests from other clang hlsl tests.
-  if "%TEST_CMD%"=="1" (
-    set TEST_CLANG=1
-  )
+  rem LIT does not separate spirv tests from other clang hlsl tests.
   if "%TEST_SPIRV%"=="1" (
     set TEST_CLANG=1
   )
   if "%TEST_ALL%"=="1" (
-    rem check all includes clang, dxilconv, and exec
+    rem check all except exec.
     cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
     set RES_DXILCONV=%RES_CLANG%
@@ -323,13 +316,20 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
       set RES_DXILCONV=!ERRORLEVEL!
     )
+    if "%TEST_CMD%"=="1" (
+      py %BIN_DIR%\llvm-lit.py %HLSL_SRC_DIR%/tools/clang/test/DXC -v
+      set RES_CMD=!ERRORLEVEL!
+    )
     if "!TEST_CLANG!"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
-      set RES_CMD=%RES_CLANG%
     )
     if "!TEST_EXEC!"=="1" (
-      cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
+      if defined EXEC_ADAPTER (
+        py %HLSL_SRC_DIR%/utils/lit/lit.py -sv --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
+      ) else (
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
+	  )
       set RES_EXEC=!ERRORLEVEL!
     )
   )
@@ -413,11 +413,6 @@ if "%TEST_CLANG%"=="1" (
   set RES_CLANG=!ERRORLEVEL!
 )
 
-if "%TEST_CMD%"=="1" (
-  copy /y %HLSL_SRC_DIR%\utils\hct\cmdtestfiles\smoke.hlsl %TEST_DIR%\smoke.hlsl
-  call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
-  set RES_CMD=!ERRORLEVEL!
-)
 
 if "%TEST_EXEC%"=="1" (
   call :copyagility
