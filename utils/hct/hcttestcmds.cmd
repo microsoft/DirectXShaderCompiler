@@ -485,6 +485,12 @@ if %Failed% neq 0 goto :failed
 call :check_file v202x.hlsl.pp find 2029 del
 if %Failed% neq 0 goto :failed
 
+set testname=Test default version macro
+call :run dxc.exe -P default.hlsl.pp %testfiles%\VersionMacro.hlsl
+if %Failed% neq 0 goto :failed
+call :check_file default.hlsl.pp find 2021 del
+if %Failed% neq 0 goto :failed
+
 set testname=Test shader profile macro
 for %%p in (vs ps gs hs ds cs lib) do (
   for %%v in (5 6) do (
