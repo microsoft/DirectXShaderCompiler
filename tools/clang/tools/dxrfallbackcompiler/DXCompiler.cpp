@@ -26,7 +26,7 @@ namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
 
 #if !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 // operator new and friends.
-void *  __CRTDECL operator new(std::size_t size) noexcept(false) {
+void * __CRTDECL operator new(std::size_t size) noexcept(false) {
   void *ptr = DxcNew(size);
   if (ptr == nullptr)
     throw std::bad_alloc();
