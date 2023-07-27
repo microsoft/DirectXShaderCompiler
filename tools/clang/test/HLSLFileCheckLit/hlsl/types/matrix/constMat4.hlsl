@@ -3,10 +3,8 @@
 
 // COL: [9 x float] [float 1.000000e+00, float 4.000000e+00, float 7.000000e+00, float 2.000000e+00, float 5.000000e+00, float 8.000000e+00, float 3.000000e+00, float 6.000000e+00, float 9.000000e+00]
 // ROW: [9 x float] [float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00, float 9.000000e+00]
-// CHECK: fmul
-// CHECK: 4.000000e+00
-// CHECK: fmul
-// CHECK: 7.000000e+00
+// CHECK: fmul {{.+}}, 4.000000e+00
+// CHECK: fmul {{.+}}, 7.000000e+00
 // CHECK: %[[IDX:[a-z0-9A-Z]+]] = fptoui float %1 to i32
 // COL: add i32 %[[IDX]], 3
 // COL: add i32 %[[IDX]], 6
