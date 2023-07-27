@@ -109,11 +109,7 @@ void* DxcNew(std::size_t size) throw() {
     // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
     // static linking is enabled. In that case fallback to the standard allocator
     // and use CoTaskMemAlloc directly instead of CoGetMalloc, Alloc & Release for better perf.
-#if defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
     ptr = CoTaskMemAlloc(size);
-#else
-    ptr = malloc(size);
-#endif
   }
   return ptr;
 }
@@ -127,10 +123,6 @@ void DxcDelete(void *ptr) throw() {
     // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
     // static linking is enabled. In that case fallback to the standard allocator
     // and use CoTaskMemFree directly instead of CoGetMalloc, Free & Release for better perf.
-#if defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
     CoTaskMemFree(ptr);
-#else
-    free(ptr);
-#endif
   }
 }
