@@ -119,20 +119,6 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
   return nullptr;
 }
 
-/// Returns the referenced variable's DeclContext if the given expr is
-/// a DeclRefExpr referencing a ConstantBuffer/TextureBuffer. Otherwise,
-/// returns nullptr.
-const DeclContext *isConstantTextureBufferDeclRef(const Expr *expr) {
-  if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr->IgnoreParenCasts()))
-    if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
-      if (isConstantTextureBuffer(varDecl->getType()))
-        return hlsl::GetHLSLResourceResultType(varDecl->getType())
-            ->getAs<RecordType>()
-            ->getDecl();
-
-  return nullptr;
-}
-
 /// Returns true if
 /// * the given expr is an DeclRefExpr referencing a kind of structured or byte
 ///   buffer and it is non-alias one, or
@@ -1233,17 +1219,8 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
   }
 
   SpirvInstruction *loadedInstr = nullptr;
-  // TODO: Ouch. Very hacky. We need special path to get the value type if
-  // we are loading a whole ConstantBuffer/TextureBuffer since the normal
-  // type translation path won't work.
-  if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
-    loadedInstr = spvBuilder.createLoad(
-        declIdMapper.getCTBufferPushConstantType(declContext), info,
-        expr->getExprLoc());
-  } else {
-    loadedInstr = spvBuilder.createLoad(exprType, info, expr->getExprLoc(),
-                                        expr->getSourceRange());
-  }
+  loadedInstr = spvBuilder.createLoad(exprType, info, expr->getExprLoc(),
+                                      expr->getSourceRange());
   assert(loadedInstr);
 
   // Special-case: According to the SPIR-V Spec: There is no physical size or
@@ -1790,12 +1767,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
           dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
     // This is a VarDecl of cbuffer/tbuffer type.
     doHLSLBufferDecl(bufferDecl);
-    return;
-  }
-
-  if (isConstantTextureBuffer(decl->getType()) && !decl->hasInit()) {
-    // This is a VarDecl of ConstantBuffer/TextureBuffer type.
-    (void)declIdMapper.createCTBuffer(decl);
     return;
   }
 
@@ -3434,41 +3405,12 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
   }
 }
 
-void SpirvEmitter::updateInstructionType(SpirvInstruction *initInstr,
-                                         QualType type) {
-  if (initInstr == nullptr || type == initInstr->getAstResultType())
-    return;
-  initInstr->setAstResultType(type);
-  if (auto *load = dyn_cast<SpirvLoad>(initInstr)) {
-    updateInstructionType(load->getPointer(), type);
-  }
-}
-
 SpirvInstruction *SpirvEmitter::processFlatConversion(
     const QualType type, const QualType initType, SpirvInstruction *initInstr,
     SourceLocation srcLoc, SourceRange range) {
   if (isConstantTextureBuffer(initType)) {
-    // When we access to a bindless array of ConstantBuffer<T> or
-    // TextureBuffer<T>, the AST result type of ArraySubscriptExpr will be
-    // ConstantBuffer<T> while the result type of FlatConversion must be T.
-    // We have to update the result of ArraySubscriptExpr to match the type:
-    // `-VarDecl 'const T' cinit
-    //   `-ImplicitCastExpr 'T' <FlatConversion>
-    //     `-ImplicitCastExpr 'ConstantBuffer<T>':'ConstantBuffer<T>'
-    //                        <LValueToRValue>
-    //       `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
-    if (initInstr != nullptr && initInstr->getAstResultType() != QualType() &&
-        type != initInstr->getAstResultType()) {
-      updateInstructionType(initInstr, type);
-      needsLegalization = true;
-    }
-    // Otherwise, when translating ConstantBuffer<T> or TextureBuffer<T> types,
-    // we consider the underlying type (T), and therefore we should bypass the
-    // FlatConversion node when accessing these types:
-    // `-MemberExpr
-    //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
-    //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
-    return initInstr;
+    return reconstructValue(initInstr, type, SpirvLayoutRule::Void, srcLoc,
+                            range);
   }
 
   // Try to translate the canonical type first

@@ -1088,6 +1088,10 @@ std::string getHlslResourceTypeName(QualType type) {
       // Get resource type name with template params. Operation is safe because
       // type has already been null checked.
       return type.getLocalUnqualifiedType().getAsString();
+    } else if (name == "ConstantBuffer") {
+      return "cbuffer";
+    } else if (name == "TextureBuffer") {
+      return "tbuffer";
     }
   }
 

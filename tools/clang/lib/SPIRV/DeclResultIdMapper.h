@@ -304,16 +304,6 @@ public:
   /// standing for the whole buffer.
   SpirvVariable *createCTBuffer(const HLSLBufferDecl *decl);
 
-  /// \brief Creates a cbuffer/tbuffer from the given decl.
-  ///
-  /// In the AST, a variable whose type is ConstantBuffer/TextureBuffer is
-  /// represented as a VarDecl whose DeclContext is a HLSLBufferDecl. These
-  /// VarDecl's type is labelled as the struct upon which ConstantBuffer/
-  /// TextureBuffer is parameterized. For a such VarDecl, we need to create
-  /// a corresponding SPIR-V variable for it. Later referencing of such a
-  /// VarDecl does not need an extra OpAccessChain.
-  SpirvVariable *createCTBuffer(const VarDecl *decl);
-
   /// \brief Creates a PushConstant block from the given decl.
   SpirvVariable *createPushConstant(const VarDecl *decl);
 

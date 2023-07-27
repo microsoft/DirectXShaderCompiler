@@ -15,18 +15,17 @@ struct S
 };
 
 // CHECK: %_ptr_Uniform_type_ConstantBuffer_S = OpTypePointer Uniform %type_ConstantBuffer_S
-
-// CHECK: %S = OpTypeStruct %float %float
-// CHECK: %_ptr_Function_S = OpTypePointer Function %S
+// CHECK: %_ptr_Function_type_ConstantBuffer_S = OpTypePointer Function %type_ConstantBuffer_S
 
 // CHECK: %buffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_S Uniform
 ConstantBuffer<S> buffer;
 
 void main()
 {
-// CHECK:           %local = OpVariable %_ptr_Function_S Function
+// CHECK:           %local = OpVariable %_ptr_Function_type_ConstantBuffer_S Function
 
 // CHECK: [[val:%\d+]] = OpLoad %type_ConstantBuffer_S %buffer
 // CHECK:                OpStore %local [[val]]
-  ConstantBuffer<S> local = buffer;
+  ConstantBuffer<S> local;
+  local = buffer;
 }
