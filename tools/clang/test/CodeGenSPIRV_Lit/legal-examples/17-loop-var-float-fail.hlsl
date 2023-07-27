@@ -1,6 +1,6 @@
-// RUN: %dxc -T cs_6_0 -E main -O3
+// RUN: not %dxc -T cs_6_0 -E main -O3  %s -spirv 2>&1 | FileCheck %s
 
-// CHECK: Using pointers with OpPhi requires capability
+// CHECK: Using pointers with OpSelect requires capability
 
 struct S {
   float4 f;
@@ -10,9 +10,6 @@ struct CombinedBuffers {
   StructuredBuffer<S> SBuffer;
   RWStructuredBuffer<S> RWSBuffer;
 };
-
-
-int i;
 
 StructuredBuffer<S> gSBuffer1;
 StructuredBuffer<S> gSBuffer2;
@@ -24,13 +21,14 @@ RWStructuredBuffer<S> gRWSBuffer;
 void main() {
 
   StructuredBuffer<S> lSBuffer;
-  switch(i) {                   // Compiler can't determine which case will run.
-    case 0:                     // Will produce invalid SPIR-V for Vulkan.
+
+  [unroll]
+  for( float j = 0; j < 2; j++ ) {  // Can't infer floating point induction values
+    if (constant > j) {
       lSBuffer = gSBuffer1;
-      break;
-    default:
+    } else {
       lSBuffer = gSBuffer2;
-      break;
+    }
+    gRWSBuffer[j] = lSBuffer[j];
   }
-  gRWSBuffer[i] = lSBuffer[i];
 }

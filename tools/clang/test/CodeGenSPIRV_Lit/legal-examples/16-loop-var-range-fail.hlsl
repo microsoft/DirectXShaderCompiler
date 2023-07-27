@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -O3
+// RUN: not %dxc -T cs_6_0 -E main -O3 %s -spirv 2>&1 | FileCheck %s
 
 // CHECK: Using pointers with OpSelect requires capability
 

@@ -1,11 +1,11 @@
-// RUN: %dxc -T cs_6_0 -E main -O3
+// RUN: %dxc -T cs_6_0 -E main -O3 -Vd %s -spirv | FileCheck %s
 
-// CHECK:      [[src:%\d+]] = OpAccessChain %_ptr_Uniform_S %gSBuffer
-// CHECK-NEXT: [[val:%\d+]] = OpLoad %S [[src]]
-// CHECK-NEXT: [[dst:%\d+]] = OpAccessChain %_ptr_Uniform_S %gRWSBuffer1
+// CHECK:      [[src:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S %gSBuffer
+// CHECK-NEXT: [[val:%[0-9]+]] = OpLoad %S [[src]]
+// CHECK-NEXT: [[dst:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S %gRWSBuffer1
 // CHECK-NEXT:                OpStore [[dst]] [[val]]
-// CHECK-NEXT: [[val:%\d+]] = OpLoad %S [[src]]
-// CHECK-NEXT: [[dst:%\d+]] = OpAccessChain %_ptr_Uniform_S %gRWSBuffer2
+// CHECK-NEXT: [[val:%[0-9]+]] = OpLoad %S [[src]]
+// CHECK-NEXT: [[dst:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S %gRWSBuffer2
 // CHECK-NEXT:                OpStore [[dst]] [[val]]
 
 struct S {
