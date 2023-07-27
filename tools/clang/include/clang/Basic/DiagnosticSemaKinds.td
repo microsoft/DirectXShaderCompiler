@@ -7800,8 +7800,6 @@ def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
    "a RWNodeInputRecord field with SV_DispatchGrid semantic is not assignable">;
-def err_hlsl_maxarraysize_template_arg : Error<
-   "the %0 maxArraySize template argument must be an integer constant expression with value >= 1">;
 def err_hlsl_dispatchgrid_component : Error<
    "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
 def err_hlsl_dispatchgrid_product : Error<
@@ -7818,6 +7816,8 @@ def err_hlsl_missing_dispatchgrid_attr : Error<
    "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
 def err_hlsl_maxrecursiondepth_exceeded : Error<
    "NodeMaxRecursionDepth may not exceed 32">;
+def err_hlsl_too_many_node_inputs : Error<
+   "Node shader '%0' may not have more than one input record">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

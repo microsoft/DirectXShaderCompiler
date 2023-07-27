@@ -2421,13 +2421,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         // Add Node Record Type
         AddHLSLNodeRecordTypeInfo(parmDecl, node);
         if (nodeFlags.IsInputRecord()) {
-         // Add Node Shader parameter to a ValToProp map
-         // This will be used later to lower the Node parameters
-         // to handles
-          if (NodeInputParamIdx != 0) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(DiagnosticsEngine::Error,
-              "Node Shaders can have only zero or one Input Record parameter"));            
-          }
+          // Add Node Shader parameter to a ValToProp map
+          // This will be used later to lower the Node parameters
+          // to handles
+          // Note: there may be a maximum of one input record
           NodeInputRecordParams[ArgIt].MetadataIdx = NodeInputParamIdx++;
 
           if (parmDecl->hasAttr<HLSLMaxRecordsAttr>()) {

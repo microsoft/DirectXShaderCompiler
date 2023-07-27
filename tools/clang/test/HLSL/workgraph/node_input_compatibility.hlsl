@@ -92,3 +92,24 @@ void node13([MaxRecords(32)]
 [NodeLaunch("Thread")]                               // expected-note  {{Launch type defined here}}
 void node14(EmptyNodeInput input)                    // expected-error {{'EmptyNodeInput' may not be used with thread launch nodes}}
 { }
+
+[Shader("node")]
+[NodeDispatchGrid(1,1,1)]
+[NumThreads(1,1,1)]
+void node15(RWDispatchNodeInputRecord<RECORD> input,
+            DispatchNodeInputRecord<RECORD> input2)  // expected-error {{Node shader 'node15' may not have more than one input record}}
+{ }
+
+[Shader("node")]
+[NodeLaunch("coalescing")]
+[NumThreads(1,1,1)]
+void node16([MaxRecords(8)] RWGroupNodeInputRecords<RECORD> input,
+            EmptyNodeInput empty)                    // expected-error {{Node shader 'node16' may not have more than one input record}}
+{ }
+
+[Shader("node")]
+[NodeLaunch("thread")]
+void node17(ThreadNodeInputRecord<RECORD> input,
+            NodeOutput<RECORD> output,
+            RWThreadNodeInputRecord<RECORD> input2)  // expected-error {{Node shader 'node17' may not have more than one input record}}
+{ }

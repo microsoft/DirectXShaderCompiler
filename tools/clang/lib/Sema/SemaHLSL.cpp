@@ -11336,6 +11336,7 @@ private:
   SourceLocation nodeLaunchLoc;
   SourceLocation computeLoc;
   SourceLocation nodeLoc;
+  unsigned inputCount;
 
 public:
   WorkGraphVisitor(Sema &S) : S(S) {}
@@ -11348,6 +11349,7 @@ public:
     nodeLaunchLoc = SourceLocation();
     computeLoc = SourceLocation();
     nodeLoc = SourceLocation();
+    inputCount = 0;
 
     // a function may be both compute and work-graph node
     for (auto *pAttr : Decl->specific_attrs<HLSLShaderAttr>()) {
@@ -11445,6 +11447,7 @@ public:
     }
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(P->getType())) {
+      inputCount++;
       const RecordType* RT = P->getType()->getAs<RecordType>();
       StringRef typeName = RT->getDecl()->getName();
       if (!NodeInputIsCompatible(typeName, nodeLaunchType)) {
@@ -11453,6 +11456,10 @@ public:
         if (nodeLaunchLoc.isValid()) {
           S.Diags.Report(nodeLaunchLoc, diag::note_defined_here) << "Launch type";
         }
+      }
+      if (inputCount > 1) {
+        S.Diags.Report(P->getLocation(), diag::err_hlsl_too_many_node_inputs)
+          << funcName << P->getSourceRange();
       }
     }
 
