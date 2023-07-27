@@ -1669,13 +1669,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->numThreads[1] = Attr->getY();
     funcProps->numThreads[2] = Attr->getZ();
 
-    if ((Attr->getX() * Attr->getY() * Attr->getZ()) > 1024) {
-      unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "Thread group size may not exceed 1024");
-      Diags.Report(Attr->getLocation(), DiagID);
-    }
-
     if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error, "attribute numthreads only valid for CS/MS/AS.");
@@ -1941,15 +1934,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (isNode) {
       // NumThreads wasn't specified.
       // For a Thread launch node the default is (1,1,1,) which we set here.
+      // Other node launch types require NumThreads and an error will have
+      // been generated earlier.
       funcProps->numThreads[0] = 1;
       funcProps->numThreads[1] = 1;
       funcProps->numThreads[2] = 1;
-      // Other node launch types require NumThreads to be specified.
-      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Thread) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "NumThreads is required, but was not specified");
-        Diags.Report(FD->getLocation(), DiagID);
-      }
     }
   }
 

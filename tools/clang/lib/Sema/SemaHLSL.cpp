@@ -11384,7 +11384,8 @@ public:
       computeLoc = SourceLocation();
     }
 
-    // Check that a Thread node has thread group size (1,1,1)
+    // Check that if a Thread launch node has the NumThreads attribute the
+    // thread group size is (1,1,1)
     if (nodeLaunchType.equals_lower("thread")) {
       if (auto NumThreads = Decl->getAttr<HLSLNumThreadsAttr>()) {
         if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
@@ -11397,6 +11398,10 @@ public:
                 << "Launch type";
         }
       }
+    } else if (!Decl->hasAttr<HLSLNumThreadsAttr>()) {
+      // All other launch types require the NumThreads attribute.
+      S.Diags.Report(Decl->getLocation(), diag::err_hlsl_missing_node_attr)
+        << funcName << nodeLaunchType << "numthreads";
     }
 
     // NodeDispatchGrid and NodeMaxDispatchGrid may not be used together
@@ -11498,6 +11503,12 @@ public:
     case attr::HLSLNodeMaxRecursionDepth:
       if (cast<HLSLNodeMaxRecursionDepthAttr>(A)->getCount() > 32)
         S.Diags.Report(A->getLocation(), diag::err_hlsl_maxrecursiondepth_exceeded)
+          << A->getRange();
+      break;
+    case attr::HLSLNumThreads:
+      auto *numThreads = cast<HLSLNumThreadsAttr>(A);
+      if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
+        S.Diags.Report(A->getLocation(), diag::err_hlsl_numthreads_group_size)
           << A->getRange();
       break;
     }

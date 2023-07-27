@@ -7790,10 +7790,12 @@ def err_hlsl_wg_intrinsic_launch_type : Error<
    "%0 may only be used by nodes with %1 launch type">;
 def err_hlsl_wg_thread_launch_group_size : Error<
    "Thread launch nodes must have a thread group size of (1,1,1)">;
+def err_hlsl_numthreads_group_size : Error<
+   "NumThreads group size may not exceed 1024 (x * y * z)">;
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
 def err_hlsl_wg_input_kind : Error<
-   "%0 may not be used with %1 launch nodes">;
+   "'%0' may not be used with %1 launch nodes">;
 def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
@@ -7810,6 +7812,8 @@ def err_hlsl_launch_type_attr : Error<
    "'%0' may only be used with %1 nodes">;
 def err_hlsl_incompatible_node_attr : Error<
    "Node shader '%0' may not use both '%1' and '%2'">;
+def err_hlsl_missing_node_attr : Error<
+   "Node shader '%0' with launch type '%1' requires '%2' attribute">;
 def err_hlsl_missing_dispatchgrid_attr : Error<
    "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
 def err_hlsl_maxrecursiondepth_exceeded : Error<

@@ -99,3 +99,32 @@ void node12(RWDispatchNodeInputRecord<InheritedRecord> input)
 [NodeMaxRecursionDepth(33)] // expected-error {{NodeMaxRecursionDepth may not exceed 32}}
 void node13(RWDispatchNodeInputRecord<SharedRecord> input)
 { }
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(32, 1, 1)]
+void node14() // expected-error {{Node shader 'node14' with launch type 'Broadcasting' requires 'numthreads' attribute}}
+{ }
+
+[Shader("node")]
+[NodeLaunch("coalescing")]
+void node15() // expected-error {{Node shader 'node15' with launch type 'coalescing' requires 'numthreads' attribute}}
+{ }
+
+[Shader("node")]
+[NodeLaunch("Thread")] // expected-note {{Launch type defined here}}
+[NumThreads(1024,1,1)] // expected-error {{Thread launch nodes must have a thread group size of (1,1,1)}}
+void node16()
+{ }
+
+[Shader("node")]
+[NodeLaunch("coalescing")]
+[NumThreads(1025,1,1)] // expected-error {{NumThreads group size may not exceed 1024 (x * y * z)}}
+void node17()
+{ }
+
+[Shader("node")]
+[NumThreads(128,8,2)] // expected-error {{NumThreads group size may not exceed 1024 (x * y * z)}}
+[NodeLaunch("coalescing")]
+void node18()
+{ }
