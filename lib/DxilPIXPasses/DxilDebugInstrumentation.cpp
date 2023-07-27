@@ -268,8 +268,6 @@ private:
   Value *addGeometryShaderProlog(BuilderContext &BC);
   Value *addDispatchedShaderProlog(BuilderContext &BC);
   Value* addRaygenShaderProlog(BuilderContext& BC);
-  Value *addEmptyShaderProlog(BuilderContext &BC);
-  Value *addRaygenShaderPrologJustX(BuilderContext &BC);
   Value* addVertexShaderProlog(BuilderContext& BC,
                                SystemValueIndices SVIndices);
   Value *addHullhaderProlog(BuilderContext &BC);
@@ -435,21 +433,6 @@ Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
   return CompareAll;
 }
 
-Value *
-DxilDebugInstrumentation::addRaygenShaderPrologJustX(BuilderContext &BC) {
-  auto DispatchRaysIndexOpFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(BC.Ctx));
-  Constant *DispatchRaysIndexOpcode =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::DispatchRaysIndex);
-  auto RayX =
-      BC.Builder.CreateCall(DispatchRaysIndexOpFunc, {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(1) }, "RayX");
-
-  auto CompareToX = BC.Builder.CreateICmpEQ(
-      RayX, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdY),
-      "CompareToThreadIdX");
-  return CompareToX;
-}
-
 Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
   auto DispatchRaysIndexOpFunc =
       BC.HlslOP->GetOpFunc(DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(BC.Ctx));
@@ -480,10 +463,6 @@ Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
   auto CompareAll =
       BC.Builder.CreateAnd(CompareXAndY, CompareToZ, "CompareAll");
   return CompareAll;
-}
-
-Value *DxilDebugInstrumentation::addEmptyShaderProlog(BuilderContext &BC) {
-  return BC.HlslOP->GetU32Const(0);
 }
 
 Value *
@@ -1020,7 +999,6 @@ bool DxilDebugInstrumentation::RunOnFunction(
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
     break;
-    //todo:
   default:
     return false;
   }
