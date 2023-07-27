@@ -3,10 +3,10 @@
 // Duplicate MaxRecords info with matching limits
 
 
-// CHECK: 28:68: error: Only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.
-// CHECK: 29:68: error: Only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.
-// CHECK: 30:68: error: Only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.
-// CHECK: 31:68: error: Only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.
+// CHECK: 28:68: error: parameter 'Output2' may not have both 'maxrecordssharedwith' and 'MaxRecords'
+// CHECK: 29:68: error: parameter 'Output3' may not have both 'maxrecordssharedwith' and 'MaxRecords'
+// CHECK: 30:68: error: parameter 'Output4' may not have both 'maxrecordssharedwith' and 'MaxRecords'
+// CHECK: 31:68: error: parameter 'Output5' may not have both 'maxrecordssharedwith' and 'MaxRecords'
 
 struct rec0
 {

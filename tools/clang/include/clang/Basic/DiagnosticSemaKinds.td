@@ -7818,6 +7818,8 @@ def err_hlsl_maxrecursiondepth_exceeded : Error<
    "NodeMaxRecursionDepth may not exceed 32">;
 def err_hlsl_too_many_node_inputs : Error<
    "Node shader '%0' may not have more than one input record">;
+def err_hlsl_incompatible_param_attr : Error<
+   "parameter '%0' may not have both '%1' and '%2'">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

@@ -2523,14 +2523,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       }
       node.MaxRecordsSharedWith = ix;
     }
-    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>()) {
-      if (node.MaxRecordsSharedWith >= 0) {
-        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "Only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter."));
-      }
+    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>())
       node.MaxRecords = Attr->getMaxCount();
-    }
   }
 
   if (inputPatchCount > 1) {
