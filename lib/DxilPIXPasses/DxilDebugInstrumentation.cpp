@@ -824,28 +824,16 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
 }
 
 void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
-
-  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
-  if (values.InvocationId == nullptr) {
-    Function * BarrierValue =
-        BC.HlslOP->GetOpFunc(OP::OpCode::Barrier, Type::getVoidTy(BC.Ctx));
-    Constant *BarrierValueOpcode =
-        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::Barrier);
-    Constant *BarrierMode = BC.HlslOP->GetU32Const(
-        (unsigned)DXIL::BarrierMode::UAVFenceGlobal);
-    BC.Builder.CreateCall(BarrierValue, {BarrierValueOpcode, BarrierMode});
-  }
-
   DebugShaderModifierRecordHeader marker{{{0, 0, 0, 0}}, 0};
   reserveDebugEntrySpace(BC, sizeof(marker));
 
   marker.Header.Details.SizeDwords =
       DebugShaderModifierRecordPayloadSizeDwords(sizeof(marker));
-  ;
   marker.Header.Details.Flags = 0;
   marker.Header.Details.Type =
       DebugShaderModifierRecordTypeInvocationStartMarker;
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(marker.Header.u32Header));
+  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
   addDebugEntryValue(BC, values.InvocationId);
 }
 

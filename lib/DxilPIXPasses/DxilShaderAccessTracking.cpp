@@ -403,7 +403,7 @@ static ResourceAccessStyle AccessStyleFromAccessAndType(
     }
 }
 
-bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule & DM, 
+bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM, 
                                                   DxilResourceAndClass &res,
                                                   Instruction *instruction,
                                                   OP *HlslOP, LLVMContext &Ctx,
@@ -573,24 +573,6 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule & DM,
                   UndefArg,                     // i32, ; value v3
                   ElementMask                   // i8 ; just the first value is used
               });
-          if(shaderKind == DXIL::ShaderKind::AnyHit) {
-            (void)Builder.CreateCall(
-                StoreFunc,
-                {
-                    StoreOpcode, // i32, ; opcode
-                    m_FunctionToUAVHandle.at(
-                        Builder.GetInsertBlock()
-                            ->getParent()), // %dx.types.Handle, ; resource
-                                            // handle
-                    HlslOP->GetU32Const(0),   // i32, ; coordinate c0: byte offset
-                    UndefArg,               // i32, ; coordinate c1 (unused)
-                    HlslOP->GetU32Const(0xdeadbeef), // i32, ; value v0
-                    UndefArg,                // i32, ; value v1
-                    UndefArg,                // i32, ; value v2
-                    UndefArg,                // i32, ; value v3
-                    ElementMask // i8 ; just the first value is used
-                });
-          }
           return true; // did modify
       }
   }
@@ -936,33 +918,6 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
       m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
           DM, Builder, 0u, "PIX_CountUAV_Handle");
-      //if (shaderKind  == DXIL::ShaderKind::AnyHit) 
-      {
-        Function *StoreFunc =
-            HlslOP->GetOpFunc(OP::OpCode::RawBufferStore, Type::getInt32Ty(Ctx));
-        Constant *StoreOpcode =
-            HlslOP->GetU32Const((unsigned)OP::OpCode::RawBufferStore);
-        UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
-        Constant *ElementMask = HlslOP->GetI8Const(1);
-        Constant *Alignment = HlslOP->GetI32Const(4);
-        (void)Builder.CreateCall(
-            StoreFunc,
-            {
-                StoreOpcode, // i32, ; opcode
-                m_FunctionToUAVHandle.at(
-                    Builder.GetInsertBlock()->getParent()), // %dx.types.Handle,
-                                                            // ; resource handle
-                HlslOP->GetU32Const((int)shaderKind*4), // i32, ; coordinate c0: byte offset
-                UndefArg,               // i32, ; coordinate c1 (unused)
-                HlslOP->GetU32Const(0xdeadbeef), // i32, ; value v0
-                UndefArg,                        // i32, ; value v1
-                UndefArg,                        // i32, ; value v2
-                UndefArg,                        // i32, ; value v3
-                ElementMask // i8 ; just the first value is used
-             ,
-             Alignment
-            });
-      }
       OP *HlslOP = DM.GetOP();
       for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
            accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
@@ -974,7 +929,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
     DM.ReEmitDxilResources();
-    #if 0
+
     for (llvm::Function &F : M.functions()) {
       if (!F.isDeclaration() || F.isIntrinsic() || !OP::IsDxilOpFunc(&F))
         continue;
@@ -1054,7 +1009,6 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
         }
       }
     }
-    #endif
     if (OSOverride != nullptr) {
       formatted_raw_ostream FOS(*OSOverride);
       FOS << "DynamicallyIndexedBindPoints=";
