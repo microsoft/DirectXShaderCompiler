@@ -202,7 +202,11 @@ TEST_F(VerifierTest, RunShaderMismatch) {
   CheckVerifiesHLSL(L"shader_mp_mismatch.hlsl");
   CheckVerifiesHLSL(L"shader_cvn_mismatch.hlsl");
   CheckVerifiesHLSL(L"shader_cvc_mismatch.hlsl");
-  CheckVerifiesHLSL(L"shader_nvp_mismatch.hlsl");  
+  CheckVerifiesHLSL(L"shader_nvp_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_cc_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_nn_mismatch.hlsl");
+  CheckVerifiesHLSL(L"shader_ccn_mismatch.hlsl");
+
 }
 
 TEST_F(VerifierTest, RunArrayLength) {

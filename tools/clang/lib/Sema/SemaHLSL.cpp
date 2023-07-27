@@ -12930,6 +12930,40 @@ bool ValidateAttributeTargetIsFunction(Sema& S, Decl* D, const AttributeList &A)
   return false;
 }
 
+void Sema::ValidateShaderAttributes(Decl *D, const AttributeList *A) {
+  std::string lastAttrStr = "";
+  const AttributeList *lastAttr = nullptr;
+
+  for (const AttributeList *l = A; l; l = l->getNext()) {
+    if (l->getKind() == AttributeList::AT_HLSLShader) {
+      Expr *E = l->getArgAsExpr(0);
+      if (E->isTypeDependent() || E->isValueDependent() ||
+          E->getStmtClass() != Stmt::StringLiteralClass) {
+        break;
+      }
+
+      StringLiteral *sl = cast<StringLiteral>(E);
+      StringRef sr = sl->getString();
+
+      if (lastAttrStr == "" || lastAttrStr == sr) {
+        lastAttrStr = sr;
+        lastAttr = l;
+        continue;
+      }
+
+      if ((lastAttrStr == "compute" && sr == "node") ||
+          (lastAttrStr == "node" && sr == "compute")) {
+        continue;
+      }
+
+      Diag(A->getLoc(), diag::err_hlsl_attribute_mismatch);
+      Diag(l->getLoc(), diag::note_conflicting_attribute);
+      Diag(lastAttr->getLoc(), diag::note_conflicting_attribute);
+      break;
+    }
+  }
+}
+
 void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
   if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
@@ -13288,6 +13322,8 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
             "intersection,anyhit,closesthit,miss,callable,mesh,amplification,"
             "node"),
         A.getAttributeSpellingListIndex());
+    S.ValidateShaderAttributes(D, &A);
+      
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
     declAttr = ::new (S.Context) HLSLMaxVertexCountAttr(A.getRange(), S.Context,

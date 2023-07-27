@@ -7472,7 +7472,7 @@ def err_hlsl_attribute_expects_string_literal_from_list: Error<
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_attribute_mismatch: Error<
-  "Invalid shader stage attribute combination">;
+  "invalid shader stage attribute combination">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<

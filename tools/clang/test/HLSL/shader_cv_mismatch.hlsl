@@ -1,8 +1,9 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 
-[shader("compute")]
-[shader("vertex")]
-[ numthreads( 64, 2, 2 ) ] /* expected-error {{Invalid shader stage attribute combination}} */
+[shader("compute")]/* expected-note {{conflicting attribute is here}} */
+[shader("vertex")] /* expected-error {{invalid shader stage attribute combination}} */ /* expected-note {{conflicting attribute is here}} */
+[ numthreads( 64, 2, 2 ) ] 
+
 void CVMain() {
 }
