@@ -409,11 +409,6 @@ if "%TEST_CLANG%"=="1" (
   set RES_CLANG=!ERRORLEVEL!
 )
 
-if "%TEST_CMD%"=="1" (
-  copy /y %HLSL_SRC_DIR%\utils\hct\cmdtestfiles\smoke.hlsl %TEST_DIR%\smoke.hlsl
-  call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
-  set RES_CMD=!ERRORLEVEL!
-)
 
 if "%TEST_EXEC%"=="1" (
   call :copyagility
