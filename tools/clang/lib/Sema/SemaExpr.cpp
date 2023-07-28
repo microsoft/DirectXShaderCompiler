@@ -1910,13 +1910,15 @@ Sema::DiagnoseEmptyLookup(Scope *S, CXXScopeSpec &SS, LookupResult &R,
           
           CXXScopeSpec SS;
           SS.Adopt(ULE->getQualifierLoc());
+          // HLSL Change Begin - This is a reference.
           CXXDependentScopeMemberExpr *DepExpr =
               CXXDependentScopeMemberExpr::Create(
-                  Context, DepThis, DepThisType, true, SourceLocation(),
-                  SS.getWithLocInContext(Context),
-                  ULE->getTemplateKeywordLoc(), nullptr,
-                  R.getLookupNameInfo(),
+                  Context, DepThis, DepThisType,
+                  /*IsArrow*/ !getLangOpts().HLSL, SourceLocation(),
+                  SS.getWithLocInContext(Context), ULE->getTemplateKeywordLoc(),
+                  nullptr, R.getLookupNameInfo(),
                   ULE->hasExplicitTemplateArgs() ? &TList : nullptr);
+          // HLSL Change End - This is a reference.
           CallsUndergoingInstantiation.back()->setCallee(DepExpr);
         } else {
           Diag(R.getNameLoc(), diagnostic) << Name;
@@ -2100,6 +2102,12 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
   DB << NameInfo.getName() << RD;
 
   if (!ThisType.isNull()) {
+    // HLSL Change Begin - This code is broken because `this` is a reference in
+    // HLSL, but this code should also be unreachable.
+    assert(!S.getLangOpts().HLSL &&
+           "This should be unreachable in DXC because we don't enable the "
+           "MSCompat language feature.");
+    // HLSL Change End
     DB << FixItHint::CreateInsertion(Loc, "this->");
     return CXXDependentScopeMemberExpr::Create(
         Context, /*This=*/nullptr, ThisType, /*IsArrow=*/true,
