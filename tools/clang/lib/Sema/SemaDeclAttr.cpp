@@ -5018,82 +5018,82 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleGuardedByAttr(S, D, Attr);
     break;
   case AttributeList::AT_PtGuardedBy:
-      handlePtGuardedByAttr(S, D, Attr);
-      break;
+    handlePtGuardedByAttr(S, D, Attr);
+    break;
   case AttributeList::AT_ExclusiveTrylockFunction:
-      handleExclusiveTrylockFunctionAttr(S, D, Attr);
-      break;
+    handleExclusiveTrylockFunctionAttr(S, D, Attr);
+    break;
   case AttributeList::AT_LockReturned:
-      handleLockReturnedAttr(S, D, Attr);
-      break;
+    handleLockReturnedAttr(S, D, Attr);
+    break;
   case AttributeList::AT_LocksExcluded:
-      handleLocksExcludedAttr(S, D, Attr);
-      break;
+    handleLocksExcludedAttr(S, D, Attr);
+    break;
   case AttributeList::AT_SharedTrylockFunction:
-      handleSharedTrylockFunctionAttr(S, D, Attr);
-      break;
+    handleSharedTrylockFunctionAttr(S, D, Attr);
+    break;
   case AttributeList::AT_AcquiredBefore:
-      handleAcquiredBeforeAttr(S, D, Attr);
-      break;
+    handleAcquiredBeforeAttr(S, D, Attr);
+    break;
   case AttributeList::AT_AcquiredAfter:
-      handleAcquiredAfterAttr(S, D, Attr);
-      break;
+    handleAcquiredAfterAttr(S, D, Attr);
+    break;
 
-      // Capability analysis attributes.
+    // Capability analysis attributes.
   case AttributeList::AT_Capability:
   case AttributeList::AT_Lockable:
-      handleCapabilityAttr(S, D, Attr);
-      break;
+    handleCapabilityAttr(S, D, Attr);
+    break;
   case AttributeList::AT_RequiresCapability:
-      handleRequiresCapabilityAttr(S, D, Attr);
-      break;
+    handleRequiresCapabilityAttr(S, D, Attr);
+    break;
 
   case AttributeList::AT_AssertCapability:
-      handleAssertCapabilityAttr(S, D, Attr);
-      break;
+    handleAssertCapabilityAttr(S, D, Attr);
+    break;
   case AttributeList::AT_AcquireCapability:
-      handleAcquireCapabilityAttr(S, D, Attr);
-      break;
+    handleAcquireCapabilityAttr(S, D, Attr);
+    break;
   case AttributeList::AT_ReleaseCapability:
-      handleReleaseCapabilityAttr(S, D, Attr);
-      break;
+    handleReleaseCapabilityAttr(S, D, Attr);
+    break;
   case AttributeList::AT_TryAcquireCapability:
-      handleTryAcquireCapabilityAttr(S, D, Attr);
-      break;
+    handleTryAcquireCapabilityAttr(S, D, Attr);
+    break;
 
-      // Consumed analysis attributes.
+    // Consumed analysis attributes.
   case AttributeList::AT_Consumable:
-      handleConsumableAttr(S, D, Attr);
-      break;
+    handleConsumableAttr(S, D, Attr);
+    break;
   case AttributeList::AT_ConsumableAutoCast:
-      handleSimpleAttribute<ConsumableAutoCastAttr>(S, D, Attr);
-      break;
+    handleSimpleAttribute<ConsumableAutoCastAttr>(S, D, Attr);
+    break;
   case AttributeList::AT_ConsumableSetOnRead:
-      handleSimpleAttribute<ConsumableSetOnReadAttr>(S, D, Attr);
-      break;
+    handleSimpleAttribute<ConsumableSetOnReadAttr>(S, D, Attr);
+    break;
   case AttributeList::AT_CallableWhen:
-      handleCallableWhenAttr(S, D, Attr);
-      break;
+    handleCallableWhenAttr(S, D, Attr);
+    break;
   case AttributeList::AT_ParamTypestate:
-      handleParamTypestateAttr(S, D, Attr);
-      break;
+    handleParamTypestateAttr(S, D, Attr);
+    break;
   case AttributeList::AT_ReturnTypestate:
-      handleReturnTypestateAttr(S, D, Attr);
-      break;
+    handleReturnTypestateAttr(S, D, Attr);
+    break;
   case AttributeList::AT_SetTypestate:
-      handleSetTypestateAttr(S, D, Attr);
-      break;
+    handleSetTypestateAttr(S, D, Attr);
+    break;
   case AttributeList::AT_TestTypestate:
-      handleTestTypestateAttr(S, D, Attr);
-      break;
+    handleTestTypestateAttr(S, D, Attr);
+    break;
 
-      // Type safety attributes.
+    // Type safety attributes.
   case AttributeList::AT_ArgumentWithTypeTag:
-      handleArgumentWithTypeTagAttr(S, D, Attr);
-      break;
+    handleArgumentWithTypeTagAttr(S, D, Attr);
+    break;
   case AttributeList::AT_TypeTagForDatatype:
-      handleTypeTagForDatatypeAttr(S, D, Attr);
-      break;
+    handleTypeTagForDatatypeAttr(S, D, Attr);
+    break;
   }
 }
 
