@@ -5039,7 +5039,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleAcquiredAfterAttr(S, D, Attr);
     break;
 
-    // Capability analysis attributes.
+  // Capability analysis attributes.
   case AttributeList::AT_Capability:
   case AttributeList::AT_Lockable:
     handleCapabilityAttr(S, D, Attr);
@@ -5061,7 +5061,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleTryAcquireCapabilityAttr(S, D, Attr);
     break;
 
-    // Consumed analysis attributes.
+  // Consumed analysis attributes.
   case AttributeList::AT_Consumable:
     handleConsumableAttr(S, D, Attr);
     break;
@@ -5087,7 +5087,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleTestTypestateAttr(S, D, Attr);
     break;
 
-    // Type safety attributes.
+  // Type safety attributes.
   case AttributeList::AT_ArgumentWithTypeTag:
     handleArgumentWithTypeTagAttr(S, D, Attr);
     break;
@@ -5102,10 +5102,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
                                     const AttributeList *AttrList,
                                     bool IncludeCXX11Attributes) {
-  for (const AttributeList *l = AttrList; l; l = l->getNext()) {
+  for (const AttributeList* l = AttrList; l; l = l->getNext())
     ProcessDeclAttribute(*this, S, D, *l, IncludeCXX11Attributes);
-  }
-  
+
   // FIXME: We should be able to handle these cases in TableGen.
   // GCC accepts
   // static int a9 __attribute__((weakref));
