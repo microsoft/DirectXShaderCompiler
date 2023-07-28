@@ -943,6 +943,19 @@ def CounterStructuredBuffer : SubsetSubject<
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "AppendStructuredBuffer" ||
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "ConsumeStructuredBuffer")}]>;
 
+// Array of StructuredBuffer types that can have associated counters 
+def ArrayOfCounterStructuredBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWStructuredBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "AppendStructuredBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "ConsumeStructuredBuffer")}]>;
+
 // Global variable with "ConstantBuffer" type
 def ConstantBuffer
     : SubsetSubject<
@@ -1067,7 +1080,7 @@ def VKCapabilityExt : InheritableAttr {
 
 def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
-  let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
+  let Subjects = SubjectList<[ArrayOfCounterStructuredBuffer, CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
   let Args = [IntArgument<"Binding">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
