@@ -54,6 +54,10 @@ void DxcClearThreadMalloc() throw();
 // Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
 
+// Common implementation of operators new and delete
+void *DxcNew(std::size_t size) throw();
+void DxcDelete(void* ptr) throw();
+
 class DxcThreadMalloc {
 public:
   explicit DxcThreadMalloc(IMalloc *pMallocOrNull) throw();
