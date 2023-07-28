@@ -36,9 +36,9 @@ template <typename T, uint32_t N> class array_ext : array<T, N> {
 
 // CHECK: define linkonce_odr float @"\01?test@?$array_ext@{{.*}}"(%"class.array_ext<float, 3>"* [[this:%.+]])
 // CHECK: [[basePtr:%[0-9]+]] = bitcast %"class.array_ext<float, 3>"* [[this]] to %"class.array<float, 3>"*
-// CHECK: [[mArr:%[0-9]+]] = getelementptr inbounds %"class.array<float, 3>", %"class.array<float, 3>"* [[basePtr]], i32 0, i32 0
-// CHECK: [[elemPtr:%[0-9]+]] = getelementptr inbounds [3 x float], [3 x float]* [[mArr]], i32 0, i32 0
-// CHECK: [[Val:%[0-9]+]] = load float, float* [[elemPtr]]
+// CHECK: [[mArr:%.+]] = getelementptr inbounds %"class.array<float, 3>", %"class.array<float, 3>"* [[basePtr]], i32 0, i32 0
+// CHECK: [[elemPtr:%.+]] = getelementptr inbounds [3 x float], [3 x float]* [[mArr]], i32 0, i32 0
+// CHECK: [[Val:%.+]] = load float, float* [[elemPtr]]
 // CHECK: ret float [[Val]]
 
 // This function only exists to force instantiation of the template.

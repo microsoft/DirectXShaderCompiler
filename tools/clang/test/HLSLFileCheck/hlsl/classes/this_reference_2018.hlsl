@@ -30,9 +30,9 @@ class array_ext : array {
 
 // CHECK: define linkonce_odr float @"\01?test@array_ext@{{.*}}"(%class.array_ext* [[this:%.+]])
 // CHECK: [[basePtr:%[0-9]+]] = bitcast %class.array_ext* [[this]] to %class.array*
-// CHECK: [[mArr:%[0-9]+]] = getelementptr inbounds %class.array, %class.array* [[basePtr]], i32 0, i32 0
-// CHECK: [[elemPtr:%[0-9]+]] = getelementptr inbounds [4 x float], [4 x float]* [[mArr]], i32 0, i32 0
-// CHECK: [[Val:%[0-9]+]] = load float, float* [[elemPtr]]
+// CHECK: [[mArr:%.+]] = getelementptr inbounds %class.array, %class.array* [[basePtr]], i32 0, i32 0
+// CHECK: [[elemPtr:%.+]] = getelementptr inbounds [4 x float], [4 x float]* [[mArr]], i32 0, i32 0
+// CHECK: [[Val:%.+]] = load float, float* [[elemPtr]]
 // CHECK: ret float [[Val]]
 
 // This function only exists to force generation of the internal methods
