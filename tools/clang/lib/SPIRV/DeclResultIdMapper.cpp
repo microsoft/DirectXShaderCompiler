@@ -407,7 +407,7 @@ spv::StorageClass getStorageClassForExternVar(QualType type,
   if (hasGroupsharedAttr)
     return spv::StorageClass::Workgroup;
 
-  if (isAKindOfStructuredOrByteBuffer(type))
+  if (isAKindOfStructuredOrByteBuffer(type) || isConstantTextureBuffer(type))
     return spv::StorageClass::Uniform;
 
   return spv::StorageClass::UniformConstant;
@@ -419,6 +419,10 @@ SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
                                           const SpirvCodeGenOptions &opts) {
   if (isAKindOfStructuredOrByteBuffer(type))
     return opts.sBufferLayoutRule;
+  if (isConstantBuffer(type))
+    return opts.cBufferLayoutRule;
+  if (isTextureBuffer(type))
+    return opts.tBufferLayoutRule;
   return SpirvLayoutRule::Void;
 }
 
@@ -598,52 +602,6 @@ bool containOnlyVecWithFourFloats(QualType type, bool use16Bit) {
     return false;
   }
   return false;
-}
-
-// Evaluates whether a given QualType is in fact an array and unroll
-// accordingly. Returns the appropriate RecordType for the provided QualType.
-// Will be the actual type of the array element, if it is indeed an array. If
-// the returned QualType is not null and startType was in fact an array, the out
-// parameter arraySizes contains the dimensions of each cascaded array, from
-// right to left order as defined in source. e.g.: float a[2][3] -> arraySizes
-// [3, 2].
-QualType unrollMultiDimensionalArray(const ASTContext &astContext,
-                                     const QualType &startType,
-                                     llvm::SmallVectorImpl<int> *arraySizes) {
-
-  QualType innerQualType = startType;
-
-  // Unroll a multidimensional array.
-  const auto *arrayType = startType->getAsArrayTypeUnsafe();
-
-  while (arrayType) {
-    // If we are here the top level is an array let's grab it's size.
-    if (const auto *caType = astContext.getAsConstantArrayType(innerQualType)) {
-      auto arrayExtend = static_cast<int>(caType->getSize().getZExtValue());
-      arraySizes->push_back(arrayExtend);
-    } else {
-      // It's certainly an array, but we can't make it out it's dimension. So
-      // mark it as runtime array.
-      arraySizes->push_back(-1);
-    }
-
-    // Grab the sub element and see if it's an element or another array.
-    innerQualType = arrayType->getElementType();
-    if (innerQualType->isArrayType()) {
-      arrayType = innerQualType->getAsArrayTypeUnsafe();
-    } else if (innerQualType->isRecordType()) {
-      // If we reached the inner type, bail.
-      break;
-    } else {
-      // In case we encountered anything else than the expected types, bail
-      // and report the error.
-      return QualType{};
-    }
-  }
-
-  std::reverse(arraySizes->begin(), arraySizes->end());
-
-  return innerQualType;
 }
 
 } // anonymous namespace
@@ -1375,72 +1333,6 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     // C/TBuffer needs HLSLBufferDecl for debug type lowering.
     spvContext.registerStructDeclForSpirvType(bufferVar->getResultType(), decl);
   }
-  return bufferVar;
-}
-
-SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
-  // This function handles creation of ConstantBuffer<T> or TextureBuffer<T>.
-  // The way this is represented in the AST is as follows:
-  //
-  // |-VarDecl MyCbuffer 'ConstantBuffer<T>':'ConstantBuffer<T>'
-  // |-CXXRecordDecl referenced struct T definition
-  //   |-CXXRecordDecl implicit struct T
-  //   |-FieldDecl
-  //   |-...
-  //   |-FieldDecl
-
-  const QualType type = decl->getType();
-  assert(isConstantTextureBuffer(type));
-  const RecordType *recordType = nullptr;
-  const RecordType *templatedType = nullptr;
-
-  llvm::SmallVector<int, 2> arraySizes;
-  QualType actualType =
-      unrollMultiDimensionalArray(astContext, type, &arraySizes);
-  if (actualType.isNull()) {
-    emitError("encountered unsupported type while decomposing "
-              "multi-dimensional array",
-              decl->getLocStart())
-        << type;
-    return nullptr;
-  }
-
-  recordType = actualType->getAs<RecordType>();
-  templatedType =
-      hlsl::GetHLSLResourceResultType(actualType)->getAs<RecordType>();
-
-  if (!recordType) {
-    emitError("constant/texture buffer type %0 unimplemented",
-              decl->getLocStart())
-        << type;
-    return nullptr;
-  }
-  if (!templatedType) {
-    emitError(
-        "the underlying type for constant/texture buffer must be a struct",
-        decl->getLocStart())
-        << type;
-    return nullptr;
-  }
-
-  const bool isConstBuffer = isConstantBuffer(type);
-  const auto usageKind =
-      isConstBuffer ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
-
-  const std::string structName = "type." +
-                                 recordType->getDecl()->getName().str() + "." +
-                                 templatedType->getDecl()->getName().str();
-
-  SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      templatedType->getDecl(), arraySizes, usageKind, structName,
-      decl->getName());
-
-  // We register the VarDecl here.
-  astDecls[decl] = createDeclSpirvInfo(bufferVar);
-  resourceVars.emplace_back(
-      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
-
   return bufferVar;
 }
 
@@ -4180,6 +4072,13 @@ bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
       else if (isRWByteAddressBuffer(type) || isRWAppendConsumeSBuffer(type) ||
                isRWBuffer(type) || isRWTexture(type)) {
         *registerTypeOut = 'u';
+        return true;
+      }
+
+      // b - for constant buffer
+      // views (CBV)
+      else if (isConstantBuffer(type)) {
+        *registerTypeOut = 'b';
         return true;
       }
     } else {
