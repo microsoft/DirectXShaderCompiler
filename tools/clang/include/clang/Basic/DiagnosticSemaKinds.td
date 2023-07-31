@@ -7469,6 +7469,8 @@ def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
+def err_hlsl_attribute_mismatch: Error<
+  "invalid shader stage attribute combination">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_bitfields: Error<

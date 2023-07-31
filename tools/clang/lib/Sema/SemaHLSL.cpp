@@ -12930,6 +12930,41 @@ bool ValidateAttributeTargetIsFunction(Sema& S, Decl* D, const AttributeList &A)
   return false;
 }
 
+HLSLShaderAttr* ValidateShaderAttributes(Sema &S, Decl *D,
+                                         const AttributeList &A) {  
+  Expr *ArgExpr = A.getArgAsExpr(0);
+  StringLiteral *Literal = dyn_cast<StringLiteral>(ArgExpr->IgnoreParenCasts());
+  DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal->getString());
+  if (Stage == DXIL::ShaderKind::Invalid) {
+    S.Diag(A.getLoc(),
+           diag::err_hlsl_attribute_expects_string_literal_from_list)
+        << "'shader'"
+        << "compute,vertex,pixel,hull,domain,geometry,raygeneration,"
+           "intersection,anyhit,closesthit,miss,callable,mesh,"
+           "amplification,node";
+    return nullptr; // don't create the attribute
+  }
+
+  HLSLShaderAttr *Existing = D->getAttr<HLSLShaderAttr>();
+  if (Existing) {
+    DXIL::ShaderKind NewStage =
+        ShaderModel::KindFromFullName(Existing->getStage());
+    if (Stage == NewStage)
+      return nullptr; // don't create, but no error.
+    if ((Stage != DXIL::ShaderKind::Compute &&
+         Stage != DXIL::ShaderKind::Node) ||
+        (NewStage != DXIL::ShaderKind::Compute &&
+         NewStage != DXIL::ShaderKind::Node)) {
+      S.Diag(A.getLoc(), diag::err_hlsl_attribute_mismatch);
+      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
+      S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
+      return nullptr;
+    }
+  }
+  return ::new (S.Context)
+      HLSLShaderAttr(A.getRange(), S.Context, Literal->getString(), A.getAttributeSpellingListIndex());
+}
+
 void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
   if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
@@ -13279,15 +13314,12 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLPatchConstantFuncAttr(A.getRange(), S.Context,
       ValidateAttributeStringArg(S, A, nullptr), A.getAttributeSpellingListIndex());
     break;
-  case AttributeList::AT_HLSLShader:
-    declAttr = ::new (S.Context) HLSLShaderAttr(
-        A.getRange(), S.Context,
-        ValidateAttributeStringArg(
-            S, A,
-            "compute,vertex,pixel,hull,domain,geometry,raygeneration,"
-            "intersection,anyhit,closesthit,miss,callable,mesh,amplification,"
-            "node"),
-        A.getAttributeSpellingListIndex());
+  case AttributeList::AT_HLSLShader:    
+    declAttr = ValidateShaderAttributes(S, D, A);
+    if (!declAttr) {
+      Handled = true;
+      return;
+    }
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
     declAttr = ::new (S.Context) HLSLMaxVertexCountAttr(A.getRange(), S.Context,
