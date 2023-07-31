@@ -12931,19 +12931,19 @@ bool ValidateAttributeTargetIsFunction(Sema& S, Decl* D, const AttributeList &A)
 }
 
 HLSLShaderAttr* ValidateShaderAttributes(Sema &S, Decl *D,
-                                         const AttributeList &A) {
-  StringRef sRef = ValidateAttributeStringArg(
-      S, A,
-      "compute,vertex,pixel,hull,domain,geometry,raygeneration,"
-      "intersection,anyhit,closesthit,miss,callable,mesh,amplification,"
-      "node");
-  if (sRef == "") {
-    return nullptr; // don't create the attribute
-  }
-
+                                         const AttributeList &A) {  
   Expr *ArgExpr = A.getArgAsExpr(0);
   StringLiteral *Literal = dyn_cast<StringLiteral>(ArgExpr->IgnoreParenCasts());
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal->getString());
+  if (Stage == DXIL::ShaderKind::Invalid) {
+    S.Diag(A.getLoc(),
+           diag::err_hlsl_attribute_expects_string_literal_from_list)
+        << "'shader'"
+        << "compute,vertex,pixel,hull,domain,geometry,raygeneration,"
+           "intersection,anyhit,closesthit,miss,callable,mesh,"
+           "amplification,node";
+    return nullptr; // don't create the attribute
+  }
 
   HLSLShaderAttr *Existing = D->getAttr<HLSLShaderAttr>();
   if (Existing) {

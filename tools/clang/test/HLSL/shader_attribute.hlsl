@@ -44,3 +44,7 @@ void CVCMain() {
 [shader("pixel")]  /* expected-note {{conflicting attribute is here}} */  /* expected-note {{conflicting attribute is here}} */ 
 void NVPMain() {
 }
+
+[shader("I'm invalid")]   /* expected-error {{attribute 'shader' must have one of these values: compute,vertex,pixel,hull,domain,geometry,raygeneration,intersection,anyhit,closesthit,miss,callable,mesh,amplification,node}} */
+void InvalidMain() {
+}
