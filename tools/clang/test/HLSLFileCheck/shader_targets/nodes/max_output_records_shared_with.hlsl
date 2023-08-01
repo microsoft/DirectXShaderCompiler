@@ -1,7 +1,6 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -T lib_6_8  %s | FileCheck %s
 
 // Test referencing params with MaxOutputRecordsSharedWith before and after
-// copied from  tools/clang/test/HLSLFileCheck/shader_targets/nodes/max_output_records_shared_with.hlsl
 
 // CHECK: define void {{.*}}BackwardRef
 // CHECK: define void {{.*}}ForwardRef
