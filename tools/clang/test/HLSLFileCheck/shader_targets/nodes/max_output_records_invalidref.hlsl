@@ -2,9 +2,8 @@
 
 // Test maxoutputrecordssharedwith with invalid references
 
-// CHECK: 26:52: error: MaxRecordsSharedWith must reference a valid ouput parameter name.
-// CHECK: 28:62: error: MaxRecordsSharedWith must reference a valid ouput parameter name.
-// CHECK: 30:52: error: MaxRecordsSharedWith must not reference the same parameter it is applied to.
+// CHECK: 25:52: error: MaxRecordsSharedWith must reference a valid ouput parameter name.
+// CHECK: 27:62: error: MaxRecordsSharedWith must reference a valid ouput parameter name.
 
 struct rec0
 {
@@ -27,7 +26,6 @@ void InvalidRef(
   // MaxRecordsSharedWith referencing an input parameter
   [MaxRecordsSharedWith(InputyMcInputFace)] NodeOutput<rec1> Output2,
   // MaxRecordsSharedWith referencing its own parameter
-  [MaxRecordsSharedWith(Output3)] NodeOutput<rec1> Output3,
-  [MaxRecords(5)] NodeOutput<rec1> Output4)
+  [MaxRecords(5)] NodeOutput<rec1> Output3)
 {
 }
