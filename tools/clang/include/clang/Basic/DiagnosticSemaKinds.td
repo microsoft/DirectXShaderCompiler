@@ -7800,6 +7800,12 @@ def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
    "a RWNodeInputRecord field with SV_DispatchGrid semantic is not assignable">;
 def err_hlsl_maxarraysize_template_arg : Error<
    "the %0 maxArraySize template argument must be an integer constant expression with value >= 1">;
+def err_hlsl_maxrecord_attrs_on_same_arg : Error<
+    "only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.">;
+def err_hlsl_maxrecordssharedwith_references_invalid_arg : Error<
+    "attribute MaxRecordsSharedWith must reference a valid ouput parameter name.">;
+def err_hlsl_maxrecordssharedwith_references_itself : Error<
+    "attribute MaxRecordsSharedWith must not reference the same parameter it is applied to.">;
 def err_hlsl_dispatchgrid_component : Error<
    "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
 def err_hlsl_dispatchgrid_product : Error<

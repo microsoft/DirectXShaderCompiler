@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_8  %s | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 // Test referencing params with MaxOutputRecordsSharedWith before and after
 

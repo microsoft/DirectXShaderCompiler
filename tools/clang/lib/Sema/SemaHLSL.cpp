@@ -12965,6 +12965,99 @@ HLSLShaderAttr* ValidateShaderAttributes(Sema &S, Decl *D,
       HLSLShaderAttr(A.getRange(), S.Context, Literal->getString(), A.getAttributeSpellingListIndex());
 }
 
+HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
+                                             const AttributeList &A) {
+
+  HLSLMaxRecordsAttr *ExistingMRA = D->getAttr<HLSLMaxRecordsAttr>();
+  HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
+      D->getAttr<HLSLMaxRecordsSharedWithAttr>();
+
+  if (ExistingMRA || ExistingMRSWA) {   
+     clang::SourceLocation Loc =
+        ExistingMRA ? ExistingMRA->getLocation() : ExistingMRSWA->getLocation();
+    S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
+    S.Diag(A.getLoc(), diag::note_conflicting_attribute);
+    S.Diag(Loc, diag::note_conflicting_attribute);      
+    return nullptr;
+    
+  }
+  return ::new (S.Context)
+      HLSLMaxRecordsAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+                         A.getAttributeSpellingListIndex());
+}
+
+HLSLMaxRecordsSharedWithAttr *
+ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
+                                                 const AttributeList &A) {
+
+  if (!A.isArgIdent(0)) {
+    S.Diag(A.getLoc(), diag::err_attribute_argument_n_type)
+        << A.getName() << 1 << AANT_ArgumentIdentifier;    
+    return nullptr;    
+  }
+
+  IdentifierInfo *II = A.getArgAsIdent(0)->Ident;
+  StringRef sharedName = II->getName();
+
+
+  HLSLMaxRecordsAttr *ExistingMRA = D->getAttr<HLSLMaxRecordsAttr>();
+  HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
+      D->getAttr<HLSLMaxRecordsSharedWithAttr>();
+
+  ParmVarDecl *pPVD = cast<ParmVarDecl>(D);
+  StringRef ArgName = pPVD->getName();
+  // TODO: check that the output parameter name referenced by the attribute
+  // references an existing output variable name among the list
+  // of variable inputs to the function.
+  /*
+  FunctionDecl *pFD = nullptr;
+  DeclContext *declContext = pPVD->getDeclContext();  
+  
+  while (declContext) {
+    if (pFD = dyn_cast<FunctionDecl>(declContext)) {
+      // This is the function declaration
+      break;
+    }
+    declContext = declContext->getParent();
+  }
+
+  unsigned int arg_idx = 0;
+  bool found = false;
+  while (arg_idx < pFD->getNumParams()) {
+    const ParmVarDecl *parmDecl = pFD->getParamDecl(arg_idx);
+    if (parmDecl->getName() == sharedName) {
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    S.Diag(ExistingMRSWA->getLocation(),
+           diag::err_hlsl_maxrecordssharedwith_references_invalid_arg);
+    return nullptr;
+  }
+  */
+
+  // check that this is the only MaxRecords* attribute for this parameter
+  if (ExistingMRA || ExistingMRSWA) {
+    clang::SourceLocation Loc =
+        ExistingMRA ? ExistingMRA->getLocation() : ExistingMRSWA->getLocation();
+    S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
+    S.Diag(A.getLoc(), diag::note_conflicting_attribute);
+    S.Diag(Loc, diag::note_conflicting_attribute);
+    return nullptr;
+  }
+
+  // check that the attribute that MaxRecordsSharedWith is targeting isn't applied to that exact attribute  
+  if (sharedName == ArgName) {
+    S.Diag(A.getLoc(), diag::err_hlsl_maxrecordssharedwith_references_itself);
+    return nullptr;
+  }
+
+  return ::new (S.Context) HLSLMaxRecordsSharedWithAttr(
+      A.getRange(), S.Context, II, A.getAttributeSpellingListIndex());
+}
+
 void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
   if (const HLSLGloballyCoherentAttr *HLSLGCAttr =
@@ -13165,20 +13258,15 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxRecords:
-    declAttr = ::new (S.Context) HLSLMaxRecordsAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-        A.getAttributeSpellingListIndex());
+    declAttr = ValidateMaxRecordsAttributes(S, D, A);
+    if (!declAttr) {      
+      return;
+    }
+       
     break;
   case AttributeList::AT_HLSLMaxRecordsSharedWith: {
-    if (A.isArgIdent(0)) {
-      IdentifierInfo *II = A.getArgAsIdent(0)->Ident;
-      declAttr = ::new (S.Context) HLSLMaxRecordsSharedWithAttr(
-          A.getRange(), S.Context, II, A.getAttributeSpellingListIndex());
-    } else {
-      S.Diag(A.getLoc(), diag::err_attribute_argument_n_type)
-          << A.getName() << 1 << AANT_ArgumentIdentifier;
-      // We return here to avoid falling into the default failure case and
-      // asserting
+    declAttr = ValidateMaxRecordsSharedWithAttributes(S, D, A);
+    if (!declAttr) {
       return;
     }
     break;
