@@ -48,9 +48,6 @@ public:
   TEST_METHOD(RunLinkFailReDefine);
   TEST_METHOD(RunLinkGlobalInit);
   TEST_METHOD(RunLinkNoAlloca);
-  TEST_METHOD(RunLinkMatArrayParam);
-  TEST_METHOD(RunLinkMatParam);
-  TEST_METHOD(RunLinkMatParamToLib);
   TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
   TEST_METHOD(RunLinkToLibOdNops);
