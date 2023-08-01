@@ -184,62 +184,53 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       Type *EltTy = GEP->getType()->getPointerElementType();
-      if (HLMatrixType::isa(EltTy)) {
-        // Change gep matrixArray, 0, index
-        // into
-        //   gep oneDimArray, 0, index * matSize
-        IRBuilder<> Builder(GEP);
-        SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
-        DXASSERT(idxList.size() == 2,
-                 "else not one dim matrix array index to matrix");
+      DXASSERT(HLMatrixType::isa(EltTy), "invalid GEP for matrix");
+      // Change gep matrixArray, 0, index
+      // into
+      //   gep oneDimArray, 0, index * matSize
+      IRBuilder<> Builder(GEP);
+      SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
+      DXASSERT(idxList.size() == 2,
+               "else not one dim matrix array index to matrix");
 
-        HLMatrixType MatTy = HLMatrixType::cast(EltTy);
-        Value *matSize = Builder.getInt32(MatTy.getNumElements());
-        idxList.back() = Builder.CreateMul(idxList.back(), matSize);
-        Value *NewGEP = Builder.CreateGEP(A, idxList);
-        lowerMatrix(GEP, NewGEP);
-        DXASSERT(GEP->user_empty(), "else lower matrix fail");
-        GEP->eraseFromParent();
-      } else {
-        DXASSERT(0, "invalid GEP for matrix");
-      }
+      HLMatrixType MatTy = HLMatrixType::cast(EltTy);
+      Value *matSize = Builder.getInt32(MatTy.getNumElements());
+      idxList.back() = Builder.CreateMul(idxList.back(), matSize);
+      Value *NewGEP = Builder.CreateGEP(A, idxList);
+      lowerMatrix(GEP, NewGEP);
+      DXASSERT(GEP->user_empty(), "else lower matrix fail");
+      GEP->eraseFromParent();
     } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
       lowerMatrix(BCI, A);
       DXASSERT(BCI->user_empty(), "else lower matrix fail");
       BCI->eraseFromParent();
     } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (VectorType *Ty = dyn_cast<VectorType>(LI->getType())) {
-        IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        Value *NewVec = UndefValue::get(LI->getType());
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateLoad(GEP);
-          NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
-        }
-        LI->replaceAllUsesWith(NewVec);
-        LI->eraseFromParent();
-      } else {
-        DXASSERT(0, "invalid load for matrix");
+      VectorType *Ty = cast<VectorType>(LI->getType());
+      IRBuilder<> Builder(LI);
+      Value *zeroIdx = Builder.getInt32(0);
+      unsigned vecSize = Ty->getNumElements();
+      Value *NewVec = UndefValue::get(LI->getType());
+      for (unsigned i = 0; i < vecSize; i++) {
+        Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
+        Value *Elt = Builder.CreateLoad(GEP);
+        NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
       }
-    } else if (StoreInst *ST = dyn_cast<StoreInst>(U)) {
-      Value *V = ST->getValueOperand();
-      if (VectorType *Ty = dyn_cast<VectorType>(V->getType())) {
-        IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateExtractElement(V, i);
-          Builder.CreateStore(Elt, GEP);
-        }
-        ST->eraseFromParent();
-      } else {
-        DXASSERT(0, "invalid load for matrix");
-      }
+      LI->replaceAllUsesWith(NewVec);
+      LI->eraseFromParent();
     } else {
-      DXASSERT(0, "invalid use of matrix");
+      // Must store inst here.
+      StoreInst *ST = cast<StoreInst>(U);
+      Value *V = ST->getValueOperand();
+      VectorType *Ty = cast<VectorType>(V->getType());
+      IRBuilder<> Builder(LI);
+      Value *zeroIdx = Builder.getInt32(0);
+      unsigned vecSize = Ty->getNumElements();
+      for (unsigned i = 0; i < vecSize; i++) {
+        Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
+        Value *Elt = Builder.CreateExtractElement(V, i);
+        Builder.CreateStore(Elt, GEP);
+      }
+      ST->eraseFromParent();
     }
   }
 }

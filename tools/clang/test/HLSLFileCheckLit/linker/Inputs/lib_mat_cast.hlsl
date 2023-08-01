@@ -1,7 +1,8 @@
-// RUN: %dxc -T lib_6_3 -default-linkage external %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // CHECK: bitcast %class.matrix.float.4.3* {{.*}} to <12 x float>*
 
+export
 float mat_array_test(in float4 in0,
                      in float4 in1,
                      float4x3 basisArray[2]) // cube map basis.

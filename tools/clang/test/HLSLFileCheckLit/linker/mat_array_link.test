@@ -1,0 +1,16 @@
+// RUN: %dxc /T lib_6_3 %S/Inputs/lib_mat_cast.hlsl -Fo %t.cast.dxo
+// RUN: %dxc /T lib_6_3 %S/Inputs/lib_mat_entry.hlsl -Fo %t.entry.dxo
+// RUN: %dxc /T ps_6_0 -link "%t.cast.dxo;%t.entry.dxo" | FileCheck %s
+
+// CHECK: alloca [24 x float]
+// Make sure bitcast is transformed.
+// CHECK-NOT:bitcast
+// CHECK: getelementptr [12 x float], [12 x float]*
+
+// RUN: %dxc /T lib_6_3 -link "%t.entry.dxo" | FileCheck %s --check-prefix=LIB
+// LIB:alloca [24 x float]
+// LIB:getelementptr [24 x float], [24 x float]*
+
+// Make sure bitcast is left when used for call.
+// LIB: bitcast [24 x float]* {{.*}} to [2 x %class.matrix.float.4.3]*
+

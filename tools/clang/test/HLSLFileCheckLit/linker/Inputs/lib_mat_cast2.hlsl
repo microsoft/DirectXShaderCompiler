@@ -2,6 +2,7 @@
 
 // CHECK: bitcast %class.matrix.float.4.3* {{.*}} to <12 x float>*
 
+export
 float3 mat_test(in float4 in0,
                                   in float4 in1,
                                   inout float4x3 m)
