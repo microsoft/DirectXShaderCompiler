@@ -3507,7 +3507,8 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
       // one member, S, then (T)<an-instance-of-S> is allowed, which essentially
       // constructs a new T instance using the instance of S as its only member.
       // Check whether we are handling that case here first.
-      if (field->getType().getCanonicalType() == initType.getCanonicalType()) {
+      if (!field->isBitField() &&
+          field->getType().getCanonicalType() == initType.getCanonicalType()) {
         fields.push_back(initInstr);
       } else {
         fields.push_back(processFlatConversion(field->getType(), initType,
@@ -8128,6 +8129,44 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
       return spvBuilder.createCompositeConstruct(toIntType, castedRows, srcLoc,
                                                  srcRange);
     }
+  }
+
+  if (const auto *recordType = fromType->getAs<RecordType>()) {
+    assert(recordType->isStructureType());
+
+    uint32_t width = getElementSpirvBitwidth(astContext, toIntType,
+                                             spirvOptions.enable16BitTypes);
+    uint32_t offset = 0;
+    SpirvInstruction *result =
+        spvBuilder.getConstantInt(toIntType, llvm::APInt(width, 0));
+    SpirvLayoutRule dstLR = fromVal->getLayoutRule();
+
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    const StructType *spirvStructType =
+        lowerStructType(spirvOptions, lowerTypeVisitor, recordType->desugar());
+
+    forEachSpirvField(
+        recordType, spirvStructType,
+        [&](size_t spirvFieldIndex, const QualType &fieldType,
+            const auto &field) {
+          uint32_t fieldWidth = getElementSpirvBitwidth(
+              astContext, fieldType, spirvOptions.enable16BitTypes);
+          SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
+              fieldType, fromVal, {static_cast<uint32_t>(spirvFieldIndex)},
+              srcLoc, srcRange);
+          result = spvBuilder.createBitFieldInsert(
+              toIntType, result, subSrcVal,
+              spvBuilder.getConstantInt(toIntType, llvm::APInt(32, offset)),
+              spvBuilder.getConstantInt(toIntType, llvm::APInt(32, fieldWidth)),
+              srcLoc);
+          offset += fieldWidth;
+
+          assert(offset <= width);
+          return true;
+        });
+
+    result->setLayoutRule(dstLR);
+    return result;
   }
 
   return nullptr;
