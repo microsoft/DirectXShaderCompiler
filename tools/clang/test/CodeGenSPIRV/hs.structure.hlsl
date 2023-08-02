@@ -1,6 +1,6 @@
-// Run: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 // This test ensures:
 // 1- The hull shader entry point function is invoked.

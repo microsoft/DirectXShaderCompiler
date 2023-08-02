@@ -2,6 +2,20 @@
 set(DXC_EXTERNAL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
     CACHE STRING "Root location of all external projects")
 
+# We need to match this setting across everything we link together
+if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+  add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
+endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+
+# Need DirectX-Headers module if not on windows
+if (NOT WIN32)
+  if (IS_DIRECTORY "${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers")
+    set(DIRECTX_HEADER_INCLUDE_DIR ${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers/include PARENT_SCOPE)
+  else()
+    message(FATAL_ERROR "DirectX-Headers was not found - required for reflection support on *nix see https://github.com/microsoft/DirectX-Headers")
+  endif()
+endif (NOT WIN32)
+
 # Enabling SPIR-V codegen requires SPIRV-Headers for spirv.hpp and
 # SPIRV-Tools for SPIR-V disassembling functionality.
 if (${ENABLE_SPIRV_CODEGEN})
@@ -12,7 +26,9 @@ if (${ENABLE_SPIRV_CODEGEN})
 
   if (NOT DEFINED SPIRV-Headers_SOURCE_DIR)
     if (IS_DIRECTORY ${DXC_SPIRV_HEADERS_DIR})
-      add_subdirectory(${DXC_SPIRV_HEADERS_DIR} EXCLUDE_FROM_ALL)
+      add_subdirectory(${DXC_SPIRV_HEADERS_DIR}
+          "${CMAKE_BINARY_DIR}/external/SPIRV-Headers"
+          EXCLUDE_FROM_ALL)
     endif()
   endif()
   if (NOT DEFINED SPIRV-Headers_SOURCE_DIR)
@@ -23,12 +39,19 @@ if (${ENABLE_SPIRV_CODEGEN})
 
   if (NOT TARGET SPIRV-Tools)
     if (IS_DIRECTORY ${DXC_SPIRV_TOOLS_DIR})
+      # Avoid implicit fallthrough warning from clang
+      # This add_compile_options() will only affect the current directory and its subdirectories.
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-Wno-implicit-fallthrough)
+      endif()
       # We only need the library from SPIRV-Tools.
       set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip building SPIRV-Tools executables")
       if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
         set(SPIRV_TOOLS_EXTRA_DEFINITIONS /D_ITERATOR_DEBUG_LEVEL=0)
       endif()
-      add_subdirectory(${DXC_SPIRV_TOOLS_DIR} EXCLUDE_FROM_ALL)
+      add_subdirectory(${DXC_SPIRV_TOOLS_DIR}
+          "${CMAKE_BINARY_DIR}/external/SPIRV-Tools"
+          EXCLUDE_FROM_ALL)
     endif()
   endif()
   if (NOT TARGET SPIRV-Tools)
@@ -46,21 +69,6 @@ if (${ENABLE_SPIRV_CODEGEN})
   foreach(target ${SPIRV_DEP_TARGETS})
     set_property(TARGET ${target} PROPERTY FOLDER "External dependencies")
   endforeach()
-
-  # We need GoogleTest for unit and SPIR-V codegen testing.
-  if (${SPIRV_BUILD_TESTS})
-    set(DXC_GTEST_DIR "${DXC_EXTERNAL_ROOT_DIR}/googletest"
-        CACHE STRING "Location of GoogleTest source")
-    if (NOT TARGET gtest)
-      if (IS_DIRECTORY ${DXC_GTEST_DIR})
-        # Configure googletest
-        include(GTestConfig.cmake)
-      endif()
-      if (NOT TARGET gtest)
-        message(FATAL_ERROR "GoogleTest was not found - required for SPIR-V codegen")
-      endif()
-    endif()
-  endif()
 
   # We need Effcee for SPIR-V codegen testing.
   if (${SPIRV_BUILD_TESTS})

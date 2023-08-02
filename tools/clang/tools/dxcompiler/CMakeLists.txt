@@ -1,5 +1,8 @@
 ﻿# Copyright (C) Microsoft Corporation. All rights reserved.
-# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# This file is distributed under the University of Illinois Open Source License.
+# See LICENSE.TXT for details.
+
+add_hlsl_hctgen(DxcDisassembler OUTPUT DxcDisassembler.inc BUILD_DIR)
 
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
@@ -26,7 +29,7 @@ set(LLVM_LINK_COMPONENTS
 #  libdriver
 #  lineeditor
   linker
-  lto
+#  lto
 #  mirparser # no support for LLVM codegen
   mssupport
 #  object # no support for object files (coff, elf)
@@ -39,7 +42,8 @@ set(LLVM_LINK_COMPONENTS
   target
   transformutils
   vectorize
-  miniz
+  dxilcompression
+  passprinters
   )
 
 if (WIN32)
@@ -73,11 +77,11 @@ set(SOURCES
   dxcpdbutils.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  dxclinker.cpp
   dxcshadersourceinfo.cpp
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp
-  dxclinker.cpp
 )
 endif(WIN32)
 
@@ -138,3 +142,19 @@ set_target_properties(dxcompiler
   OUTPUT_NAME "dxcompiler"
   VERSION ${LIBCLANG_LIBRARY_VERSION}
   DEFINE_SYMBOL _CINDEX_LIB_)
+
+if (WIN32)
+  set(install_dest RUNTIME DESTINATION bin)
+else()
+  set(install_dest LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+endif()
+
+install(TARGETS dxcompiler
+  ${install_dest}
+  COMPONENT dxcompiler)
+
+add_custom_target(install-dxcompiler
+  DEPENDS dxcompiler
+  COMMAND "${CMAKE_COMMAND}"
+          -DCMAKE_INSTALL_COMPONENT=dxcompiler
+          -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")

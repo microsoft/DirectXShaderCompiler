@@ -350,7 +350,7 @@ static unsigned IsPtrUsedByLoweredFn(
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
-    } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
+    } else if (isa<AddrSpaceCastInst>(user)) {
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
@@ -1674,9 +1674,6 @@ void RemoveUnusedInternalGlobalVariable(Module &M) {
         Value *User = *(UserIt++);
         if (Instruction *I = dyn_cast<Instruction>(User)) {
           I->eraseFromParent();
-        } else {
-          ConstantExpr *CE = cast<ConstantExpr>(User);
-          CE->dropAllReferences();
         }
       }
       GV->eraseFromParent();
@@ -1713,9 +1710,14 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         a1ty->isStructTy() && a1ty->getStructNumElements() == 1;
     auto sz0 = DL.getTypeAllocSize(a0ty);
     auto sz1 = DL.getTypeAllocSize(a1ty);
-    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1))
-      return getNestedLevelInStruct(a0ty) < getNestedLevelInStruct(a1ty);
-    return sz0 < sz1;
+    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1)) {
+      sz0 = getNestedLevelInStruct(a0ty);
+      sz1 = getNestedLevelInStruct(a1ty);
+    }
+    // If sizes are equal, tiebreak with alphabetically lesser at higher priority
+    return sz0 < sz1 || (sz0 == sz1 && isa<GlobalVariable>(a0) &&
+                         isa<GlobalVariable>(a1) &&
+                         a0->getName() > a1->getName());
   };
 
   std::priority_queue<Value *, std::vector<Value *>,
@@ -1734,7 +1736,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       dbgOffset.debugOffset = 0;
     } else {
       // merge GEP use for global.
-      HLModule::MergeGepUse(&GV);
+      dxilutil::MergeGepUse(&GV);
     }
   }
   // Add static GVs to work list.
@@ -1755,7 +1757,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         if (!A->user_empty()) {
           WorkList.push(A);
           // merge GEP use for the allocs
-          HLModule::MergeGepUse(A);
+          dxilutil::MergeGepUse(A);
         }
       }
   }
@@ -1792,6 +1794,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       DominatorTree &DT = domTreeMap[F];
       if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL, &DT,
                                    bAllowReplace)) {
+        if (AI->use_empty())
+          AI->eraseFromParent();
         Changed = true;
         continue;
       }
@@ -1888,13 +1892,21 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       }
     } else {
       GlobalVariable *GV = cast<GlobalVariable>(V);
+      // Handle dead GVs trivially. These can be formed by RAUWing one GV
+      // with another, leaving the original in the worklist
+      if (GV->use_empty()) {
+        GV->eraseFromParent();
+        Changed = true;
+        continue;
+      }
+
       if (staticGVs.count(GV)) {
         Type *Ty = GV->getType()->getPointerElementType();
         // Skip basic types.
         if (!Ty->isAggregateType() && !Ty->isVectorTy())
           continue;
         // merge GEP use for global.
-        HLModule::MergeGepUse(GV);
+        dxilutil::MergeGepUse(GV);
       }
 
       const bool bAllowReplace = true;
@@ -2725,7 +2737,7 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
           break;
         }
       }
-      __fallthrough;
+      LLVM_FALLTHROUGH;
       default:
         // RayQuery this pointer replacement.
         if (OldVal->getType()->isPointerTy() &&
@@ -3215,9 +3227,12 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 }
 
 static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder) {
+  Function *F = Builder.GetInsertBlock()->getParent();
   for (auto it = C->user_begin(); it != C->user_end(); ) {
     User *U = *(it++);
     if (Instruction *I = dyn_cast<Instruction>(U)) {
+      if (I->getParent()->getParent() != F)
+        continue;
       I->replaceUsesOfWith(C, V);
     } else {
       // Skip unused ConstantExpr.
@@ -3756,6 +3771,85 @@ static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
   return false;
 }
 
+static void collectAllStores(const Value *V,
+                             SmallVector<const Instruction *, 4> &Stores) {
+  for (const User *U : V->users()) {
+    if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
+      collectAllStores(BC, Stores);
+    } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
+      if (MC->getRawDest() == V)
+        Stores.emplace_back(MC);
+    } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      collectAllStores(GEP, Stores);
+    } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      Stores.emplace_back(SI);
+    } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *F = CI->getCalledFunction();
+      if (F->isIntrinsic()) {
+        if (F->getIntrinsicID() == Intrinsic::lifetime_start ||
+            F->getIntrinsicID() == Intrinsic::lifetime_end)
+          continue;
+      }
+
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+      switch (group) {
+      case HLOpcodeGroup::HLMatLoadStore: {
+        HLMatLoadStoreOpcode opcode =
+            static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+        switch (opcode) {
+        case HLMatLoadStoreOpcode::ColMatLoad:
+        case HLMatLoadStoreOpcode::RowMatLoad:
+          break;
+        case HLMatLoadStoreOpcode::ColMatStore:
+        case HLMatLoadStoreOpcode::RowMatStore:
+          Stores.emplace_back(CI);
+          break;
+        default:
+          DXASSERT(0, "invalid opcode");
+          Stores.emplace_back(CI);
+          break;
+        }
+      } break;
+      case HLOpcodeGroup::HLSubscript: {
+        HLSubscriptOpcode opcode =
+            static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
+        switch (opcode) {
+        case HLSubscriptOpcode::VectorSubscript:
+        case HLSubscriptOpcode::ColMatElement:
+        case HLSubscriptOpcode::ColMatSubscript:
+        case HLSubscriptOpcode::RowMatElement:
+        case HLSubscriptOpcode::RowMatSubscript:
+          collectAllStores(CI, Stores);
+          break;
+        default:
+          // Rest are resource ptr like buf[i].
+          // Only read of resource handle.
+          break;
+        }
+      } break;
+      default: {
+        // If not sure its out param or not. Take as out param.
+        Stores.emplace_back(CI);
+      }
+      }
+    }
+  }
+}
+
+// Make sure all store on V dominate I.
+static bool allStoresDominateInst(Value *V, Instruction *I, DominatorTree *DT) {
+  if (!DT)
+    return false;
+  SmallVector<const Instruction *, 4> Stores;
+  collectAllStores(V, Stores);
+
+  for (const Instruction *S : Stores) {
+    if (!DT->dominates(S, I))
+      return false;
+  }
+  return true;
+}
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3830,9 +3924,14 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Resource ptr should not be replaced.
           // Need to make sure src not updated after current memcpy.
           // Check Src only have 1 store now.
+          // If Src has more than 1 store but only used once by memcpy, check if
+          // the stores dominate the memcpy.
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
-          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
+          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored ||
+              (SrcPS.loadedType ==
+                   hlutil::PointerStatus::LoadedType::MemcopySrcOnce &&
+               allStoresDominateInst(Src, MC, DT))) {
             if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
               if (V->user_empty())
                 return true;
@@ -3853,8 +3952,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         // For GEP, the ptr could have other GEP read/write.
         // Only scan one GEP is not enough.
         // And resource ptr should not be replaced.
+        // Nor should (output) argument ptr be replaced.
         if (!isa<GEPOperator>(Dest) && !isa<CallInst>(Dest) &&
-            !isa<BitCastOperator>(Dest)) {
+            !isa<BitCastOperator>(Dest) && !isa<Argument>(Dest)) {
           // Need to make sure Dest not updated after current memcpy.
           // Check Dest only have 1 store now.
           hlutil::PointerStatus DestPS(Dest, size, /*bLdStOnly*/ false);
@@ -3923,6 +4023,97 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
   return false;
 }
 
+// Recursively search all loads and stores of Ptr, and record all the scopes
+// they are in.
+static void FindAllScopesOfLoadsAndStores(Value *Ptr, std::unordered_set<MDNode *> *OutScopes) {
+  for (User *U : Ptr->users()) {
+    if (isa<GEPOperator>(U) || isa<BitCastOperator>(U)) {
+      FindAllScopesOfLoadsAndStores(U, OutScopes);
+      continue;
+    }
+    Instruction *I = dyn_cast<Instruction>(U);
+    if (!I)
+      continue;
+    DebugLoc DL = I->getDebugLoc();
+    if (!DL)
+      continue;
+
+    if (isa<LoadInst>(I) || isa<StoreInst>(I) || isa<MemCpyInst>(I) ||
+        isa<CallInst>(I)) // Could be some arbitrary HL op
+    {
+      DILocation *loc = DL.get();
+      while (loc) {
+        DILocalScope *scope = dyn_cast<DILocalScope>(loc->getScope());
+        while (scope) {
+          OutScopes->insert(scope);
+          if (auto lexicalScope = dyn_cast<DILexicalBlockBase>(scope))
+            scope = lexicalScope->getScope();
+          else if (isa<DISubprogram>(scope))
+            break;
+        }
+        loc = loc->getInlinedAt();
+      }
+    }
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Delete all dbg.declare instructions for allocas that are never touched in
+// scopes. This could greatly improve compilation speed and binary size at the
+// cost of in-scope but unused (part of) variables being invisible in certain
+// functions. For example:
+//
+//     struct Context {
+//        float a, b, c;
+//     };
+//     void bar(inout Context ctx) {
+//       ctx.b = ctx.a * 2;
+//     }
+//     void foo(inout Context ctx) {
+//       ctx.a = 10;
+//       bar(ctx);
+//     }
+//     
+//     float main() : SV_Target {
+//       Context ctx = (Context)0;
+//       foo(ctx);
+//       return ctx.a + ctx.b + ctx.c;
+//     }
+//
+// Before running this, shader would generate dbg.declare for members 'a', 'b',
+// and 'c' for variable 'ctx' in every scope ('main', 'foo', and 'bar'). In
+// the call stack with 'foo' and 'bar', member 'c' is never used in any way, so
+// it's a waste to generate dbg.declare for member 'c' for the 'ctx' in scope
+// 'foo' and scope 'bar', so they can be removed.
+//===----------------------------------------------------------------------===//
+static void DeleteOutOfScopeDebugInfo(Function &F) {
+  if (!llvm::hasDebugInfo(*F.getParent()))
+    return;
+
+  std::unordered_set<MDNode *> Scopes;
+  for (Instruction &I : F.getEntryBlock()) {
+    auto AI = dyn_cast<AllocaInst>(&I);
+    if (!AI)
+      continue;
+
+    Scopes.clear();
+    FindAllScopesOfLoadsAndStores(AI, &Scopes);
+    for (auto it = hlsl::dxilutil::mdv_users_begin(AI),
+              end = hlsl::dxilutil::mdv_users_end(AI);
+        it != end;)
+    {
+      User *U = *(it++);
+      if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U)) {
+        DILocalVariable *var = DDI->getVariable();
+        DILocalScope *scope = var->getScope();
+        if (!Scopes.count(scope)) {
+          DDI->eraseFromParent();
+        }
+      }
+    }
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // SROA on function parameters.
 //===----------------------------------------------------------------------===//
@@ -3940,9 +4131,11 @@ class SROA_Parameter_HLSL : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit SROA_Parameter_HLSL() : ModulePass(ID) {}
-  const char *getPassName() const override { return "SROA Parameter HLSL"; }
+  StringRef getPassName() const override { return "SROA Parameter HLSL"; }
   static void RewriteBitcastWithIdenticalStructs(Function *F);
   static void RewriteBitcastWithIdenticalStructs(BitCastInst *BCI);
+  static bool DeleteSimpleStoreOnlyAlloca(AllocaInst *AI);
+  static bool IsSimpleStoreOnlyAlloca(AllocaInst *AI);
 
   bool runOnModule(Module &M) override {
     // Patch memcpy to cover case bitcast (gep ptr, 0,0) is transformed into
@@ -4043,12 +4236,21 @@ public:
     SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
 
     // Move up allocas that might have been pushed down by instruction inserts
+    SmallVector<AllocaInst *, 16> simpleStoreOnlyAllocas;
     for (Function &F : M) {
       if (F.isDeclaration())
         continue;
       Instruction *insertPt = nullptr;
+      simpleStoreOnlyAllocas.clear();
       // SROA only potentially "incorrectly" inserts non-allocas into the entry block.
       for (llvm::Instruction &I : F.getEntryBlock()) {
+        // In really pathologically huge shaders, there could be thousands of
+        // unused allocas (and hundreds of thousands of dbg.declares). Record
+        // and remove them now so they don't horrifically slow down the
+        // compilation.
+        if (isa<AllocaInst>(I) && IsSimpleStoreOnlyAlloca(cast<AllocaInst>(&I)))
+          simpleStoreOnlyAllocas.push_back(cast<AllocaInst>(&I));
+
         if (!insertPt) {
           // Find the first non-alloca to move the allocas above
           if (!isa<AllocaInst>(I) && !isa<DbgInfoIntrinsic>(I))
@@ -4058,6 +4260,11 @@ public:
           I.moveBefore(insertPt);
         }
       }
+      for (AllocaInst *AI : simpleStoreOnlyAllocas) {
+        DeleteSimpleStoreOnlyAlloca(AI);
+      }
+
+      DeleteOutOfScopeDebugInfo(F);
     }
     return true;
   }
@@ -4152,6 +4359,34 @@ void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(Function *F) {
     worklist.pop_back();
     RewriteBitcastWithIdenticalStructs(BCI);
   }
+}
+
+bool SROA_Parameter_HLSL::IsSimpleStoreOnlyAlloca(AllocaInst *AI) {
+  if (!AI->getAllocatedType()->isSingleValueType())
+    return false;
+  for (User *U : AI->users()) {
+    if (!isa<StoreInst>(U))
+      return false;
+  }
+  return true;
+}
+
+bool SROA_Parameter_HLSL::DeleteSimpleStoreOnlyAlloca(AllocaInst *AI) {
+  assert(IsSimpleStoreOnlyAlloca(AI));
+  for (auto it = AI->user_begin(), end = AI->user_end(); it != end;) {
+    StoreInst *Store = cast<StoreInst>(*(it++));
+    Store->eraseFromParent();
+  }
+
+  // Delete dbg.declare's too
+  for (auto it = hlsl::dxilutil::mdv_users_begin(AI), end = hlsl::dxilutil::mdv_users_end(AI); it != end;) {
+    User *U = *(it++);
+    if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
+      DDI->eraseFromParent();
+  }
+
+  AI->eraseFromParent();
+  return true;
 }
 
 void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(BitCastInst *BCI) {
@@ -5116,7 +5351,7 @@ void SROA_Parameter_HLSL::flattenArgument(
       flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
       flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
       flatParamAnnotation.SetPrecise(annotation.IsPrecise());
-      flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
+      flatParamAnnotation.SetResourceProperties(annotation.GetResourceProperties());
 
       // Add debug info.
       if (DDIs.size() && V != Arg) {
@@ -5465,7 +5700,7 @@ static void LegalizeDxilInputOutputs(Function *F,
   // Map from output to the temp created for it.
   MapVector<Argument *, Value*> outputTempMap; // Need deterministic order of iteration
   for (Argument &arg : F->args()) {
-    HLModule::MergeGepUse(&arg);
+    dxilutil::MergeGepUse(&arg);
     Type *Ty = arg.getType();
 
     DxilParameterAnnotation &paramAnnotation = EntryAnnotation->GetParameterAnnotation(arg.getArgNo());
@@ -5635,7 +5870,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   // Add all argument to worklist.
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
-    HLModule::MergeGepUse(&Arg);
+    dxilutil::MergeGepUse(&Arg);
 
     unsigned prevFlatParamCount = FlatParamList.size();
 
@@ -5917,7 +6152,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       if (isa<Instruction>(flatArg))
         DeadInsts.emplace_back(flatArg);
 
-      HLModule::MergeGepUse(Arg);
+      dxilutil::MergeGepUse(Arg);
       // Flatten store of array parameter.
       if (Arg->getType()->isPointerTy()) {
         Type *Ty = Arg->getType()->getPointerElementType();
@@ -5957,7 +6192,7 @@ class LowerStaticGlobalIntoAlloca : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit LowerStaticGlobalIntoAlloca() : ModulePass(ID) {}
-  const char *getPassName() const override { return "Lower static global into Alloca"; }
+  StringRef getPassName() const override { return "Lower static global into Alloca"; }
 
   bool runOnModule(Module &M) override {
     m_DbgFinder.processModule(M);

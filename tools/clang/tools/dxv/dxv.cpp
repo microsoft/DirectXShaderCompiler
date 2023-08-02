@@ -52,7 +52,7 @@ public:
 void DxvContext::Validate() {
   {
     CComPtr<IDxcBlobEncoding> pSource;
-    ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+    ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
     bool bSourceIsDxilContainer = hlsl::IsValidDxilContainer(
         hlsl::IsDxilContainerLike(pSource->GetBufferPointer(),
@@ -109,7 +109,7 @@ void DxvContext::Validate() {
         if (bSourceIsDxilContainer) {
           const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
               pSource->GetBufferPointer(), pSource->GetBufferSize());
-          WriteBlobToFile(pSource, StringRefUtf16(OutputFilename), CP_ACP);
+          WriteBlobToFile(pSource, StringRefWide(OutputFilename), CP_ACP);
           if (memcmp(&pHeader->Hash, &origHash,
                      sizeof(hlsl::DxilContainerHash)) != 0) {
             printf("Signed DxilContainer written to \"%s\"\n", OutputFilename.c_str());
@@ -125,7 +125,11 @@ void DxvContext::Validate() {
   }
 }
 
+#ifdef _WIN32
 int __cdecl main(int argc,  _In_reads_z_(argc) const char **argv) {
+#else
+int main(int argc, const char **argv) {
+#endif
   const char *pStage = "Operation";
   if (llvm::sys::fs::SetupPerThreadFileSystem())
     return 1;

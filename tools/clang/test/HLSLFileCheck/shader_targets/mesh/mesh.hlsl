@@ -1,12 +1,15 @@
 // RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s
 // RUN: %dxc -E main -T ms_6_5 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
+// CHECK: Mesh Shader
+// CHECK: MeshOutputTopology=triangle
+// CHECK: NumThreads=(32,1,1)
 // CHECK: dx.op.getMeshPayload.struct.MeshPayload(i32 170)
 // CHECK: dx.op.setMeshOutputCounts(i32 168, i32 32, i32 16)
 // CHECK: dx.op.emitIndices(i32 169,
 // CHECK: dx.op.storePrimitiveOutput.f32(i32 172,
 // CHECK: dx.op.storeVertexOutput.f32(i32 171,
-// CHECK: !"cullPrimitive", i32 3, i32 100, i32 4, !"SV_CullPrimitive", i32 7, i32 1}
+// CHECK: !{i32 5, !"SV_CullPrimitive", i8 1, i8 30, !{{[0-9]+}}, i8 1, i32 1, i8 1, i32 -1, i8 -1, !{{[0-9]+}}}
 
 #define MAX_VERT 32
 #define MAX_PRIM 16

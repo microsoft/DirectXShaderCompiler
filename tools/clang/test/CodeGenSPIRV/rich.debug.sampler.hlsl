@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T vs_6_0 -E main -fspv-debug=rich
 
 //CHECK: [[name:%\d+]] = OpString "@type.sampler"
 //CHECK: [[info_none:%\d+]] = OpExtInst %void [[ext:%\d+]] DebugInfoNone

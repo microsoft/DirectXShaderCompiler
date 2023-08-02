@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -O0
+// RUN: %dxc -T ps_6_0 -E main -O0
 
 // CHECK: OpDecorate %g_CombinedTextureSampler_t DescriptorSet 0
 // CHECK: OpDecorate %g_CombinedTextureSampler_t Binding 0

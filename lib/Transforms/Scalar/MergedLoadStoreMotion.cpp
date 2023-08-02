@@ -90,6 +90,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include <vector>
 using namespace llvm;
 
@@ -293,7 +294,7 @@ void MergedLoadStoreMotion::hoistInstruction(BasicBlock *BB,
 
   // Intersect optional metadata.
   HoistCand->intersectOptionalDataWith(ElseInst);
-  HoistCand->dropUnknownMetadata();
+  combineMetadata(HoistCand, ElseInst, None);     // HLSL Change: Preserve DXIL metadata
 
   // Prepend point for instruction insert
   Instruction *HoistPt = BB->getTerminator();
@@ -480,7 +481,7 @@ bool MergedLoadStoreMotion::sinkStore(BasicBlock *BB, StoreInst *S0,
     BasicBlock::iterator InsertPt = BB->getFirstInsertionPt();
     // Intersect optional metadata.
     S0->intersectOptionalDataWith(S1);
-    S0->dropUnknownMetadata();
+    combineMetadata(S0, S1, None);      // HLSL Change: Preserve DXIL metadata
 
     // Create the new store to be inserted at the join point.
     StoreInst *SNew = (StoreInst *)(S0->clone());

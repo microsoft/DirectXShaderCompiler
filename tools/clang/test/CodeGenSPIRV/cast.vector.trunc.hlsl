@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: [[v3f32c0:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_3
 // CHECK: [[v3f32c1:%\d+]] = OpConstantComposite %v3float %float_5 %float_6 %float_7

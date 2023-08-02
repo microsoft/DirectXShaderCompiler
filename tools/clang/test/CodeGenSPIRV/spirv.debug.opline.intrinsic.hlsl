@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -Zi
+// RUN: %dxc -T ps_6_0 -E main -Zi
 
 // CHECK:      [[file:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.intrinsic.hlsl
@@ -182,5 +182,5 @@ void main() {
 // CHECK-NEXT: OpExtInst %float {{%\d+}} Cos
       cos(v4f.x));
 // CHECK:      OpLine [[file]] 180 3
-// CHECK-NEXT: OpExtInst %float {{%\d+}} FMax
+// CHECK-NEXT: OpExtInst %float {{%\d+}} NMax
 }

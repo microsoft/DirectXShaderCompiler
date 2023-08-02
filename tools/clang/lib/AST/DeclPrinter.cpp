@@ -488,9 +488,13 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
   // HLSL Change Begin
   DeclContext *Namespace = D->getEnclosingNamespaceContext();
   DeclContext *Enclosing = D->getLexicalParent();
-  if (!Enclosing->isNamespace() && Namespace->isNamespace()) {
+  if (!Enclosing->isNamespace() && Namespace->isNamespace() &&
+      !Policy.HLSLOnlyDecl) {
     NamespaceDecl* ns = (NamespaceDecl*)Namespace;
     Proto = ns->getName().str() + "::" + Proto;
+  }
+  if (Policy.HLSLNoinlineMethod) {
+    Proto = D->getQualifiedNameAsString();
   }
   // HLSL Change End
 
@@ -677,8 +681,15 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
     } else
       Out << ' ';
 
-    if (D->getBody())
-      D->getBody()->printPretty(Out, nullptr, SubPolicy, Indentation);
+    if (D->getBody()) {
+      // HLSL Change Begin - only print decl.
+      if (Policy.HLSLOnlyDecl) {
+        Out << ";";
+      } else {
+        // HLSL Change end.
+        D->getBody()->printPretty(Out, nullptr, SubPolicy, Indentation);
+      }
+    }
     Out << '\n';
   }
 }
@@ -841,6 +852,13 @@ void DeclPrinter::VisitStaticAssertDecl(StaticAssertDecl *D) {
 // C++ declarations
 //----------------------------------------------------------------------------
 void DeclPrinter::VisitNamespaceDecl(NamespaceDecl *D) {
+  // HLSL Change Begin - Don't emit built-in "vk" namespace, it's implicitly
+  // declared when compiling to SPIR-V and would otherwise cause parsing errors
+  // due to unsupported HLSL 2021 features.
+  if (D->getNameAsString() == "vk")
+    return;
+  // HLSL Change End
+
   if (D->isInline())
     Out << "inline ";
   Out << "namespace " << *D << " {\n";

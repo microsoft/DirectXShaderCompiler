@@ -708,7 +708,7 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
       }
       // Vectorization/interleaving is disabled, set width/count to 1.
       ValueInt = 1;
-      // Fallthrough.
+      LLVM_FALLTHROUGH; // HLSL Change
     case LoopHintAttr::VectorizeWidth:
     case LoopHintAttr::InterleaveCount:
     case LoopHintAttr::UnrollCount:
@@ -1169,6 +1169,14 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
                                 /*isInit*/ true);
       break;
     case TEK_Aggregate: {
+      CodeGenFunction::HLSLOutParamScope OutParamScope(*this);
+      // HLSL Change Begins.
+      auto MapTemp = [&](const VarDecl *LocalVD, llvm::Value *TmpArg) {
+        OutParamScope.addTemp(LocalVD, TmpArg);
+      };
+      RV = CGM.getHLSLRuntime().CheckReturnStmtGLCMismatch(*this, RV, S,
+                                                           FnRetTy, MapTemp);
+      // HLSL Change Ends.
       CharUnits Alignment = getContext().getTypeAlignInChars(RV->getType());
       EmitAggExpr(RV, AggValueSlot::forAddr(ReturnValue, Alignment,
                                             Qualifiers(),

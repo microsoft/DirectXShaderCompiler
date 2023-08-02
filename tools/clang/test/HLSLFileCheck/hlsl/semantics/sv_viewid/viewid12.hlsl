@@ -1,4 +1,7 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T gs_6_1 %s | FileCheck %s
+// RUN: %dxilver 1.7 | %dxc -E main -T gs_6_1 %s | FileCheck %s
+
+// dxilver 1.7 because PSV0 data was incorrectly filled in before this point,
+// making this test fail if running against prior validator versions.
 
 // CHECK: Number of inputs: 12, outputs per stream: { 4, 4, 0, 0 }
 // CHECK: Outputs for Stream 0 dependent on ViewId: { 1, 2, 3 }

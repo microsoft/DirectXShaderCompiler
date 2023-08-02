@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <set>
 #include <sstream>
+#include <random>
 #include <vector>
 
 namespace llvm {
@@ -113,6 +114,12 @@ public:
   ptrdiff_t operator()(ptrdiff_t y) {
     return  Rand64() % y;
   }
+
+  /// Make this like a C++11 random device
+  typedef uint32_t result_type;
+  uint32_t operator()() { return Rand32(); }
+  static constexpr result_type min() { return 0; }
+  static constexpr result_type max() { return 0x7ffff; }
 
 private:
   unsigned Seed;
@@ -376,6 +383,7 @@ struct ConstModifier: public Modifier {
       switch (Ran->Rand() % 2) {
       case 0: if (Ty->getScalarType()->isIntegerTy())
                 return PT->push_back(ConstantVector::getAllOnesValue(Ty));
+        break;
       case 1: if (Ty->getScalarType()->isIntegerTy())
                 return PT->push_back(ConstantVector::getNullValue(Ty));
       }
@@ -401,9 +409,11 @@ struct ConstModifier: public Modifier {
       case 0: if (Ty->isIntegerTy())
                 return PT->push_back(ConstantInt::get(Ty,
                   APInt::getAllOnesValue(Ty->getPrimitiveSizeInBits())));
+        break;
       case 1: if (Ty->isIntegerTy())
                 return PT->push_back(ConstantInt::get(Ty,
                   APInt::getNullValue(Ty->getPrimitiveSizeInBits())));
+        break;
       case 2: case 3: case 4: case 5:
       case 6: if (Ty->isIntegerTy())
                 PT->push_back(ConstantInt::get(Ty, Ran->Rand()));
@@ -662,7 +672,7 @@ static void IntroduceControlFlow(Function *F, Random &R) {
       BoolInst.push_back(&Instr);
   }
 
-  std::random_shuffle(BoolInst.begin(), BoolInst.end(), R);
+  std::shuffle(BoolInst.begin(), BoolInst.end(), R);
 
   for (auto *Instr : BoolInst) {
     BasicBlock *Curr = Instr->getParent();

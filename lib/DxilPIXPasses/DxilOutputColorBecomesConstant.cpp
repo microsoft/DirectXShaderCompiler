@@ -46,7 +46,7 @@ class DxilOutputColorBecomesConstant : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilOutputColorBecomesConstant() : ModulePass(ID) {}
-  const char *getPassName() const override { return "DXIL Constant Color Mod"; }
+  StringRef getPassName() const override { return "DXIL Constant Color Mod"; }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 };

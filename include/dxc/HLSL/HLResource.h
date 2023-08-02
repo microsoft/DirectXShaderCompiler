@@ -22,7 +22,7 @@ public:
   //QQQ
   // TODO: this does not belong here. QQQ
   //static Kind KeywordToKind(const std::string &keyword);
-  
+
   HLResource();
 };
 

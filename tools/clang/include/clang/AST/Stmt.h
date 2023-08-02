@@ -272,6 +272,9 @@ protected:
     /// Whether this initializer list originally had a GNU array-range
     /// designator in it. This is a temporary marker used by CodeGen.
     unsigned HadArrayRangeDesignator : 1;
+    // HLSL Change begin - mark vector init like float4(a,b,c,d).
+    unsigned VectorInitWithCXXFunctionalCastExpr : 1;
+    // HLSL Change end.
   };
 
   class TypeTraitExprBitfields {
@@ -920,6 +923,7 @@ class IfStmt : public Stmt {
 
   SourceLocation IfLoc;
   SourceLocation ElseLoc;
+  SourceLocation MergeLoc;
 
 public:
   IfStmt(const ASTContext &C, SourceLocation IL, VarDecl *var, Expr *cond,
@@ -961,6 +965,8 @@ public:
   void setIfLoc(SourceLocation L) { IfLoc = L; }
   SourceLocation getElseLoc() const { return ElseLoc; }
   void setElseLoc(SourceLocation L) { ElseLoc = L; }
+  SourceLocation getMergeLoc() const { return MergeLoc; }
+  void setMergeLoc(SourceLocation L) { MergeLoc = L; }
 
   SourceLocation getLocStart() const LLVM_READONLY { return IfLoc; }
   SourceLocation getLocEnd() const LLVM_READONLY {

@@ -61,7 +61,7 @@ unsigned UpdateSemanticAndInterpMode(StringRef &semName,
     case InterpolationMode::Kind::Constant:
     case InterpolationMode::Kind::Undefined:
     case InterpolationMode::Kind::Invalid: {
-      Context.emitError("invalid interpolation mode for SV_Position");
+      llvm_unreachable("invalid interpolation mode for SV_Position");
     } break;
     case InterpolationMode::Kind::LinearNoperspective:
     case InterpolationMode::Kind::LinearNoperspectiveCentroid:
@@ -159,8 +159,8 @@ void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *GV,
       semKind == Semantic::Kind::GroupID ||
       semKind == Semantic::Kind::DispatchThreadID) {
     unsigned vecSize = 1;
-    if (Ty->isVectorTy())
-      vecSize = Ty->getVectorNumElements();
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty))
+      vecSize = VT->getNumElements();
 
     newArg = Builder.CreateCall(dxilFunc, { OpArg,
       semKind == Semantic::Kind::DomainLocation ? hlslOP->GetU8Const(0) : hlslOP->GetU32Const(0) });
@@ -270,9 +270,12 @@ void HLSignatureLower::ProcessArgument(Function *func,
 
   llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
   if (semanticStr.empty()) {
-    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func,
-        "Semantic must be defined for all parameters of an entry function or "
-        "patch constant function");
+    
+    std::string msg = "Semantic must be defined for all ";
+    msg += (qual == DxilParamInputQual::Out) ? "outputs " : "parameters ";
+    msg += "of an entry function or patch constant function";
+    
+    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func, msg);
     return;
   }
   UpdateSemanticAndInterpMode(semanticStr, interpMode, sigPoint->GetKind(),
@@ -467,8 +470,7 @@ void HLSignatureLower::CreateDxilSignatures() {
   if (props.shaderKind == DXIL::ShaderKind::Hull) {
     Function *patchConstantFunc = props.ShaderProps.HS.patchConstantFunc;
     if (patchConstantFunc == nullptr) {
-      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-          "Patch constant function is not specified.");
+      llvm_unreachable("Patch constant function is not specified.");
     }
 
     DxilFunctionAnnotation *patchFuncAnnotation =
@@ -496,15 +498,13 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
 
   hlsl::PackDxilSignature(EntrySig.InputSignature, packing);
   if (!EntrySig.InputSignature.IsFullyAllocated()) {
-    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-        "Failed to allocate all input signature elements in available space.");
+    llvm_unreachable("Failed to allocate all input signature elements in available space.");
   }
 
   if (props.shaderKind != DXIL::ShaderKind::Amplification) {
     hlsl::PackDxilSignature(EntrySig.OutputSignature, packing);
     if (!EntrySig.OutputSignature.IsFullyAllocated()) {
-      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-          "Failed to allocate all output signature elements in available space.");
+      llvm_unreachable("Failed to allocate all output signature elements in available space.");
     }
   }
 
@@ -513,8 +513,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
       props.shaderKind == DXIL::ShaderKind::Mesh) {
     hlsl::PackDxilSignature(EntrySig.PatchConstOrPrimSignature, packing);
     if (!EntrySig.PatchConstOrPrimSignature.IsFullyAllocated()) {
-      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
-                             "Failed to allocate all patch constant signature "
+      llvm_unreachable("Failed to allocate all patch constant signature "
                              "elements in available space.");
     }
   }
@@ -865,7 +864,7 @@ void collectInputOutputAccessInfo(
     std::vector<InputOutputAccessInfo> &accessInfoList, bool hasVertexOrPrimID,
     bool bInput, bool bRowMajor, bool isMS) {
   // merge GEP use for input output.
-  HLModule::MergeGepUse(GV);
+  dxilutil::MergeGepUse(GV);
   for (auto User = GV->user_begin(); User != GV->user_end();) {
     Value *I = *(User++);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(I)) {
@@ -1264,8 +1263,8 @@ void HLSignatureLower::GenerateDxilCSInputs() {
       newArg = Builder.CreateCall(dxilFunc, {OpArg});
     } else {
       unsigned vecSize = 1;
-      if (NumTy->isVectorTy())
-        vecSize = NumTy->getVectorNumElements();
+      if (FixedVectorType *VT = dyn_cast<FixedVectorType>(NumTy))
+        vecSize = VT->getNumElements();
 
       newArg = Builder.CreateCall(dxilFunc, {OpArg, hlslOP->GetU32Const(0)});
       if (vecSize > 1) {

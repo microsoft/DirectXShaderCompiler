@@ -493,7 +493,7 @@ public:
     AU.addRequired<DxilValueCache>();
   }
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Lower createHandleForLib";
   }
 
@@ -580,7 +580,7 @@ public:
 
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
-    m_HasDbgInfo = hasDebugInfo(M);
+    m_HasDbgInfo = llvm::getDebugMetadataVersionFromModule(M) != 0;
 
     GenerateDxilResourceHandles();
 
@@ -607,6 +607,8 @@ private:
   void FailOnPoisonResources();
   bool RemovePhiOnResource();
   void UpdateResourceSymbols();
+  void ReplaceResourceUserWithHandle(DxilResource &res, LoadInst *load,
+                                     Instruction *handle);
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
   bool UpdateStructTypeForLegacyLayout();
@@ -657,11 +659,6 @@ public:
     // we encountered an unexpted value type
     UnexpectedValuesFromStorePointer,
 
-    // When remapping values to be replaced, we add them to RemappedValues
-    // so we don't use dead values stored in other sets/maps.  Circular
-    // remaps that should not happen are aadded to RemappingCyclesDetected.
-    RemappingCyclesDetected,
-
     // Without SUPPORT_SELECT_ON_ALLOCA, phi/select on alloca based
     // pointer is disallowed, since this scenario is still untested.
     // This error also covers any other unknown alloca pointer uses.
@@ -671,7 +668,9 @@ public:
     // Unsupported without SUPPORT_SELECT_ON_ALLOCA:
     // alloca (-> gep)? -> phi/select -> ...
     AllocaUserDisallowed,
-
+    MismatchHandleAnnotation,
+    MixDynamicResourceWithBindingResource,
+    MismatchIsSampler,
 #ifdef SUPPORT_SELECT_ON_ALLOCA
     // Conflict in select/phi between GV pointer and alloca pointer.  This
     // algorithm can't handle this case.
@@ -686,8 +685,10 @@ public:
     "static global resource use is disallowed for library functions.",
     "exported library functions cannot have resource parameters or return value.",
     "internal error: unexpected instruction type when looking for alloca from store.",
-    "internal error: cycles detected in value remapping.",
-    "phi/select disallowed on pointers to local resources."
+    "phi/select disallowed on pointers to local resources.",
+    "mismatch handle annotation",
+    "possible mixing dynamic resource and binding resource",
+    "merging sampler handle and resource handle",
 #ifdef SUPPORT_SELECT_ON_ALLOCA
     ,"unable to resolve merge of global and local resource pointers."
 #endif
@@ -757,6 +758,33 @@ unsigned CountArrayDimensions(Type* Ty,
     Ty = Ty->getArrayElementType();
   }
   return dim;
+}
+
+// Delete unused CleanupInsts, restarting when changed
+// Return true if something was deleted
+bool CleanupUnusedValues(std::unordered_set<Instruction *> &CleanupInsts) {
+  //  - delete unused CleanupInsts, restarting when changed
+  bool bAnyChanges = false;
+  bool bChanged = false;
+  do {
+    bChanged = false;
+    for (auto it = CleanupInsts.begin(); it != CleanupInsts.end();) {
+      Instruction *I = *(it++);
+      if (I->user_empty()) {
+        // Add instructions operands CleanupInsts
+        for (unsigned iOp = 0; iOp < I->getNumOperands(); iOp++) {
+          if (Instruction *opI = dyn_cast<Instruction>(I->getOperand(iOp)))
+            CleanupInsts.insert(opI);
+        }
+        I->eraseFromParent();
+        CleanupInsts.erase(I);
+        bChanged = true;
+      }
+    }
+    if (bChanged)
+      bAnyChanges = true;
+  } while (bChanged);
+  return bAnyChanges;
 }
 
 // Helper class for legalizing resource use
@@ -872,8 +900,11 @@ public:
     while (it != RemappedValues.end()) {
       // Cycles should not happen, but are bad if they do.
       if (visited.count(it->second)) {
+        // When remapping values to be replaced, we add them to RemappedValues
+        // so we don't use dead values stored in other sets/maps. Circular
+        // remaps that should not happen
         DXASSERT(false, "otherwise, circular remapping");
-        m_Errors.ReportError(ResourceUseErrors::RemappingCyclesDetected, V);
+        llvm_unreachable("cycles detected in value remapping");
         break;
       }
       V = it->second;
@@ -1425,33 +1456,6 @@ public:
     }
   }
 
-  // Delete unused CleanupInsts, restarting when changed
-  // Return true if something was deleted
-  bool CleanupUnusedValues() {
-    //  - delete unused CleanupInsts, restarting when changed
-    bool bAnyChanges = false;
-    bool bChanged = false;
-    do {
-      bChanged = false;
-      for (auto it = CleanupInsts.begin(); it != CleanupInsts.end();) {
-        Instruction *I = *(it++);
-        if (I->user_empty()) {
-          // Add instructions operands CleanupInsts
-          for (unsigned iOp = 0; iOp < I->getNumOperands(); iOp++) {
-            if (Instruction *opI = dyn_cast<Instruction>(I->getOperand(iOp)))
-              CleanupInsts.insert(opI);
-          }
-          I->eraseFromParent();
-          CleanupInsts.erase(I);
-          bChanged = true;
-        }
-      }
-      if (bChanged)
-        bAnyChanges = true;
-    } while (bChanged);
-    return bAnyChanges;
-  }
-
   void SimplifyMerges() {
     // Loop if changed
     bool bChanged = false;
@@ -1483,7 +1487,7 @@ public:
         CleanupInsts.insert(I);
       SI->eraseFromParent();
     }
-    CleanupUnusedValues();
+    CleanupUnusedValues(CleanupInsts);
   }
 
   void VerifyComplete(DxilModule &DM) {
@@ -1561,7 +1565,7 @@ public:
     return bChanged;
   }
 
-  void DoTransform() {
+  void DoTransform(hlsl::OP *hlslOP) {
     RemoveConflicts();
     CreateSelects();
     CreateIndexAllocas();
@@ -1582,6 +1586,7 @@ public:
 
   bool runOnModule(llvm::Module &M) {
     DxilModule &DM = M.GetOrCreateDxilModule();
+    hlsl::OP *hlslOP = DM.GetOP();
 
     bool bChanged = CollectResources(DM);
 
@@ -1589,7 +1594,7 @@ public:
     if (Selects.empty() && Allocas.empty())
       return bChanged;
 
-    DoTransform();
+    DoTransform(hlslOP);
     VerifyComplete(DM);
 
     return true;
@@ -1602,7 +1607,7 @@ public:
   explicit DxilLegalizeResources()
     : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Legalize Resource Use";
   }
 
@@ -1688,14 +1693,14 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
       return rowTy;
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     return UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
-  } else if (Ty->isVectorTy()) {
-    Type *EltTy = Ty->getVectorElementType();
+  } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    Type *EltTy = VT->getElementType();
     Type *UpdatedTy =
         UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
     else
-      return VectorType::get(UpdatedTy, Ty->getVectorNumElements());
+      return VectorType::get(UpdatedTy, VT->getNumElements());
   } else {
     Type *i32Ty = Type::getInt32Ty(Ty->getContext());
     // Basic types.
@@ -1802,9 +1807,9 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
         Res.GetKind() == DXIL::ResourceKind::StructuredBuffer);
   if (ST != UpdatedST) {
     // Support Array of ConstantBuffer/StructuredBuffer.
-    UpdatedST = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
+    Type *UpdatedTy = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
     GlobalVariable *NewGV = cast<GlobalVariable>(
-        M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
+        M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedTy));
     Res.SetGlobalSymbol(NewGV);
     Res.SetHLSLType(NewGV->getType());
     OP *hlslOP = DM.GetOP();
@@ -1813,26 +1818,57 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
       TypeSys.EraseStructAnnotation(ST);
       // If it's a library, we need to replace the GV which involves a few replacements
       Function *NF = hlslOP->GetOpFunc(hlsl::OP::OpCode::CreateHandleForLib, UpdatedST);
+      Value *opArg =
+          hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib);
+      auto replaceResLd = [&NF,&opArg](LoadInst *ldInst, Value *NewPtr) {
+        if (!ldInst->user_empty()) {
+          IRBuilder<> Builder = IRBuilder<>(ldInst);
+          LoadInst *newLoad = Builder.CreateLoad(NewPtr);
+          Value *args[] = {opArg, newLoad};
 
+          for (auto user = ldInst->user_begin(), E = ldInst->user_end();
+               user != E;) {
+            CallInst *CI = cast<CallInst>(*(user++));
+            CallInst *newCI = CallInst::Create(NF, args, "", CI);
+            CI->replaceAllUsesWith(newCI);
+            CI->eraseFromParent();
+          }
+        }
+        ldInst->eraseFromParent();
+      };
+      // Merge GEP to simplify replace old GV.
+      if (!arrayDims.empty())
+        dxilutil::MergeGepUse(Symbol);
       // Replace old GV.
-      for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
+      for (auto UserIt = Symbol->user_begin(), userEnd = Symbol->user_end(); UserIt != userEnd;) {
         Value *User = *(UserIt++);
 
         if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
-          if (!ldInst->user_empty()) {
-            IRBuilder<> Builder = IRBuilder<>(ldInst);
-            LoadInst *newLoad = Builder.CreateLoad(NewGV);
-            ArrayRef<Value *> args = {hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib), newLoad};
-
-            for (auto user = ldInst->user_begin(); user != ldInst->user_end();) {
-              CallInst *CI = cast<CallInst>(*(user++));
-
-              CallInst *newCI = CallInst::Create(NF, args, "", CI);
-              CI->replaceAllUsesWith(newCI);
-              CI->eraseFromParent();
+          replaceResLd(ldInst, NewGV);
+        } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(User)) {
+          IRBuilder<> Builder(GEP->getContext());
+          StringRef Name = "";
+          if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+            Builder.SetInsertPoint(I);
+            Name = GEP->getName();
+          }
+          SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+          Value *NewPtr = Builder.CreateGEP(NewGV, Indices);
+          for (auto GEPUserIt = GEP->user_begin(), GEPuserEnd = GEP->user_end();
+               GEPUserIt != GEPuserEnd;) {
+            Value *User = *(GEPUserIt++);
+            if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
+              replaceResLd(ldInst, NewPtr);
+            } else {
+              User->dump();
+              DXASSERT(0, "unsupported user when update resouce type");
             }
           }
-          ldInst->eraseFromParent();
+          if (Instruction *I = dyn_cast<Instruction>(GEP))
+            I->eraseFromParent();
+        } else {
+          User->dump();
+          DXASSERT(0,"unsupported user when update resouce type");
         }
       }
     } else {
@@ -1935,72 +1971,6 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
 // Lower createHandleForLib
 namespace {
 
-void ReplaceResourceUserWithHandle(
-    DxilResource &res,
-    LoadInst *load, Value *handle)
-{
-  for (auto resUser = load->user_begin(); resUser != load->user_end();) {
-    Value *V = *(resUser++);
-    CallInst *CI = dyn_cast<CallInst>(V);
-    DxilInst_CreateHandleForLib createHandle(CI);
-    DXASSERT(createHandle, "must be createHandle");
-    CI->replaceAllUsesWith(handle);
-    CI->eraseFromParent();
-  }
-
-  if (res.GetClass() == DXIL::ResourceClass::UAV) {
-    // Before this pass, the global resources might not have been mapped with all the uses.
-    // Now we're 100% sure who uses what resources (otherwise the compilation would have failed),
-    // so we do a round on marking UAV's as having counter.
-    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
-      Instruction *I = dyn_cast<Instruction>(V);
-      if (!I)
-        return false;
-      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
-    };
-
-    // Search all users for update counter
-    bool updateAnnotateHandle = false;
-    if (!res.HasCounter()) {
-      for (User *U : handle->users()) {
-        if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
-          res.SetHasCounter(true);
-          break;
-        }
-        else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
-          for (User *UU : U->users()) {
-            if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter)) {
-              res.SetHasCounter(true);
-              updateAnnotateHandle = true;
-              break;
-            }
-          }
-          if (updateAnnotateHandle)
-            break;
-        }
-      }
-      if (updateAnnotateHandle) {
-        // Update resource props with counter flag
-        DxilResourceProperties RP =
-          resource_helper::loadPropsFromResourceBase(&res);
-        // Require ShaderModule to reconstruct resource property constant
-        const ShaderModel *pSM = load->getParent()->getParent()->getParent()
-                                    ->GetDxilModule().GetShaderModel();
-        for (User *U : handle->users()) {
-          DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
-          if (annotateHandle) {
-            annotateHandle.set_props(
-              resource_helper::getAsConstant(
-                RP, annotateHandle.get_props()->getType(), *pSM));
-          }
-        }
-      }
-    }
-  }
-
-  load->eraseFromParent();
-}
-
 Value *flattenGepIdx(GEPOperator *GEP) {
   Value *idx = nullptr;
   if (GEP->getNumIndices() == 2) {
@@ -2032,6 +2002,89 @@ Value *flattenGepIdx(GEPOperator *GEP) {
 }
 
 } // namespace
+
+
+void DxilLowerCreateHandleForLib::ReplaceResourceUserWithHandle(
+    DxilResource &res, LoadInst *load, Instruction *handle) {
+  for (auto resUser = load->user_begin(), E = load->user_end(); resUser != E;) {
+    Value *V = *(resUser++);
+    CallInst *CI = dyn_cast<CallInst>(V);
+    DxilInst_CreateHandleForLib createHandle(CI);
+    DXASSERT(createHandle, "must be createHandle");
+    CI->replaceAllUsesWith(handle);
+    CI->eraseFromParent();
+  }
+
+  if (res.GetClass() == DXIL::ResourceClass::UAV) {
+    // Before this pass, the global resources might not have been mapped with
+    // all the uses. Now we're 100% sure who uses what resources (otherwise the
+    // compilation would have failed), so we do a round on marking UAV's as
+    // having counter.
+    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (!I)
+        return false;
+      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
+    };
+
+    // Search all users for update counter
+    bool updateAnnotateHandle = res.IsGloballyCoherent();
+    if (!res.HasCounter()) {
+      for (User *U : handle->users()) {
+        if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
+          res.SetHasCounter(true);
+          break;
+        } else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
+          for (User *UU : U->users()) {
+            if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter)) {
+              res.SetHasCounter(true);
+              updateAnnotateHandle = true;
+              break;
+            }
+          }
+          if (updateAnnotateHandle)
+            break;
+        }
+      }
+    }
+    if (updateAnnotateHandle) {
+      // Update resource props with counter flag
+      DxilResourceProperties RP =
+          resource_helper::loadPropsFromResourceBase(&res);
+      // Require ShaderModule to reconstruct resource property constant
+      const ShaderModel *pSM = m_DM->GetShaderModel();
+
+      SmallVector<Instruction *, 4> annotHandles;
+      for (User *U : handle->users()) {
+        DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
+        if (annotateHandle) {
+          annotHandles.emplace_back(cast<Instruction>(U));
+        }
+      }
+      if (!annotHandles.empty()) {
+        Instruction *firstAnnot = annotHandles.pop_back_val();
+        DxilInst_AnnotateHandle annotateHandle(firstAnnot);
+        // Update props.
+        Constant *propsConst = resource_helper::getAsConstant(
+            RP, annotateHandle.get_props()->getType(), *pSM);
+        annotateHandle.set_props(propsConst);
+        if (!annotHandles.empty()) {
+          // Move firstAnnot after handle.
+          firstAnnot->removeFromParent();
+          firstAnnot->insertAfter(handle);
+          // Remove redundant annotate handles.
+          for (auto *annotHdl : annotHandles) {
+            annotHdl->replaceAllUsesWith(firstAnnot);
+            annotHdl->eraseFromParent();
+          }
+        }
+      }
+    }
+  }
+
+  load->eraseFromParent();
+}
+
 void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     DxilResourceBase &res) {
   OP *hlslOP = m_DM->GetOP();
@@ -2127,7 +2180,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
       Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
-      Value *handle = handleMapOnFunction[userF];
+      Instruction *handle = handleMapOnFunction[userF];
       ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
       Value *idx = flattenGepIdx(GEP);
@@ -2137,7 +2190,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       Args[nonUniformOpIdx] =
           isUniformRes;
 
-      Value *handle = nullptr;
+      Instruction *handle = nullptr;
       if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
         IRBuilder<> Builder = IRBuilder<>(GEPInst);
         if (DxilMDHelper::IsMarkedNonUniform(GEPInst)) {
@@ -2160,7 +2213,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
         } else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
           Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
-          Value *localHandle =
+          Instruction *localHandle =
               Builder.CreateCall(createHandle, Args, handleName);
           ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, localHandle);
         }
@@ -2505,11 +2558,15 @@ static unsigned GetCBOffset(Value *V, OffsetForValueMap &visited) {
 
 typedef std::map<unsigned, DxilFieldAnnotation*> FieldAnnotationByOffsetMap;
 
-static void MarkCBUse(unsigned offset, FieldAnnotationByOffsetMap &fieldMap) {
+// Returns size in bits of the field if it's a basic type, otherwise 0.
+static unsigned MarkCBUse(unsigned offset, FieldAnnotationByOffsetMap &fieldMap) {
   auto it = fieldMap.upper_bound(offset);
   it--;
-  if (it != fieldMap.end())
+  if (it != fieldMap.end()) {
     it->second->SetCBVarUsed(true);
+    return it->second->GetCompType().GetSizeInBits();
+  }
+  return 0;
 }
 
 // Detect patterns of lshr v,16 or trunc to 16-bits and return low and high
@@ -2522,11 +2579,11 @@ static unsigned DetectLowAndHighWordUsage(ExtractValueInst *EV) {
   if (EV->getType()->getScalarSizeInBits() == 32) {
     for (auto U : EV->users()) {
       Instruction *I = cast<Instruction>(U);
-      if (I->getOpcode() == LLVMLShr) {
+      if (I->getOpcode() == Instruction::LShr) {
         ConstantInt *CShift = dyn_cast<ConstantInt>(I->getOperand(1));
         if (CShift && CShift->getLimitedValue() == 16)
           result |= kHighWordUsed;
-      } else if (I->getOpcode() == LLVMTrunc &&
+      } else if (I->getOpcode() == Instruction::Trunc &&
                I->getType()->getPrimitiveSizeInBits() == 16) {
         result |= kLowWordUsed;
       } else {
@@ -2561,9 +2618,17 @@ static void MarkCBUsesForExtractElement(
     ExtractValueInst *EV, bool bMinPrecision) {
   unsigned lowHighWordUsage = 0;
   unsigned evOffset = GetOffsetForCBExtractValue(EV, bMinPrecision, lowHighWordUsage);
+
+  // For tbuffer, where value extracted is always 32-bits:
+  // If lowHighWordUsage is 0, it means 32-bits used.
+  // If field marked is < 32 bits, we still need to mark the high 16-bits as
+  // used, in case there is another 16-bit field.
+  // Since MarkCBUse could return 0 on non-basic type field, look for 16
+  // when determining whether we still need to mark high word as used.
+  bool highUnmarked = EV->getType()->getScalarSizeInBits() == 32;
   if (!lowHighWordUsage || 0 != (lowHighWordUsage & kLowWordUsed))
-    MarkCBUse(offset + evOffset, fieldMap);
-  if (lowHighWordUsage & kHighWordUsed)
+    highUnmarked &= MarkCBUse(offset + evOffset, fieldMap) == 16;
+  if (highUnmarked && (!lowHighWordUsage || 0 != (lowHighWordUsage & kHighWordUsed)))
     MarkCBUse(offset + evOffset + 2, fieldMap);
 }
 
@@ -2747,7 +2812,7 @@ public:
   void applyOptions(PassOptions O) override {
     GetPassOptionUInt32(O, "auto-binding-space", &m_AutoBindingSpace, UINT_MAX);
   }
-  const char *getPassName() const override { return "DXIL Allocate Resources For Library"; }
+  StringRef getPassName() const override { return "DXIL Allocate Resources For Library"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
@@ -2781,12 +2846,396 @@ ModulePass *llvm::createDxilAllocateResourcesForLibPass() {
 INITIALIZE_PASS(DxilAllocateResourcesForLib, "hlsl-dxil-allocate-resources-for-lib", "DXIL Allocate Resources For Library", false, false)
 
 
-class DxilCleanupAnnotateHandle : public ModulePass {
+namespace {
+struct CreateHandleFromHeapArgs {
+  Value *Index;
+  bool isSampler;
+  bool isNonUniform;
+  // All incoming handle args are confirmed.
+  // If not resolved, some of the incoming handle is not from createHandleFromHeap.
+  // Might be resolved after linking for lib.
+  bool isResolved;
+  void merge(CreateHandleFromHeapArgs &args, ResourceUseErrors &Errors,
+             Value *mergeHdl) {
+    if (args.isSampler != isSampler) {
+      // Report error.
+      Errors.ReportError(ResourceUseErrors::ErrorCode::MismatchIsSampler,
+                         mergeHdl);
+    }
+    args.isNonUniform |= isNonUniform;
+  }
+};
+
+} // namespace
+
+// Helper class for legalizing dynamic resource use
+// Convert select/phi on resources to select/phi on index.
+// TODO: support case when save dynamic resource as local array element.
+// TODO: share code with LegalizeResourceUseHelper.
+class LegalizeDynamicResourceUseHelper {
+
+public:
+  ResourceUseErrors m_Errors;
+  DenseMap<Value *, CreateHandleFromHeapArgs> HandleToArgs;
+  // Value sets we can use to iterate
+  ValueSetVector HandleSelects;
+  ResourceUseErrors Errors;
+  std::unordered_set<Instruction *> CleanupInsts;
+
+  void mergeHeapArgs(Value *SelHdl, Value *SelIdx, User::op_range Hdls) {
+    CreateHandleFromHeapArgs args = {nullptr, false, false, true};
+
+    for (Value *V : Hdls) {
+      auto it = HandleToArgs.find(V);
+      // keep invalid when V is not createHandleFromHeap.
+      if (it == HandleToArgs.end()) {
+        args.isResolved = false;
+        continue;
+      }
+      CreateHandleFromHeapArgs &itArgs = it->second;
+      if (!itArgs.isResolved) {
+        args.isResolved = false;
+        continue;
+      }
+
+      if (args.Index != nullptr) {
+        args.merge(itArgs, Errors, SelHdl);
+      } else {
+        args.Index = SelIdx;
+        args.isNonUniform = itArgs.isNonUniform;
+        args.isSampler = itArgs.isSampler;
+      }
+    }
+    // set Index when all incoming Hdls cannot be resolved.
+    if (args.Index == nullptr)
+      args.Index = SelIdx;
+    HandleToArgs[SelHdl] = args;
+  }
+
+  void CreateSelectsForHandleSelects() {
+    if (HandleSelects.empty())
+      return;
+
+    LLVMContext &Ctx = HandleSelects[0]->getContext();
+    Type *i32Ty = Type::getInt32Ty(Ctx);
+    Value *UndefValue = UndefValue::get(i32Ty);
+    // Create select for each HandleSelects.
+    for (auto &Select : HandleSelects) {
+      if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
+        IRBuilder<> B(Phi);
+        unsigned numIncoming = Phi->getNumIncomingValues();
+        PHINode *newPhi = B.CreatePHI(i32Ty, numIncoming);
+        for (unsigned j = 0; j < numIncoming; j++) {
+          // Set incoming values to undef until next pass
+          newPhi->addIncoming(UndefValue, Phi->getIncomingBlock(j));
+        }
+        mergeHeapArgs(Phi, newPhi, Phi->incoming_values());
+      } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
+        IRBuilder<> B(Sel);
+        Value *newSel =
+            B.CreateSelect(Sel->getCondition(), UndefValue, UndefValue);
+        User::op_range range = User::op_range(Sel->getOperandList() + 1,
+                                       Sel->getOperandList() + 3);
+        mergeHeapArgs(
+            Sel, newSel,
+            range);
+      } else {
+        DXASSERT(false, "otherwise, non-select/phi in Selects set");
+      }
+    }
+  }
+  // propagate CreateHandleFromHeapArgs for HandleSel which all operands are
+  // other HandleSel.
+  void PropagateHeapArgs() {
+    SmallVector<Value *, 4> Candidates;
+    for (auto &Select : HandleSelects) {
+      CreateHandleFromHeapArgs &args = HandleToArgs[Select];
+      if (args.isResolved)
+        continue;
+      Candidates.emplace_back(Select);
+    }
+
+    while (1) {
+      SmallVector<Value *, 4> NextPass;
+      for (auto &Select : Candidates) {
+        CreateHandleFromHeapArgs &args = HandleToArgs[Select];
+        if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
+          mergeHeapArgs(Phi, args.Index, Phi->incoming_values());
+        } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
+          User::op_range range = User::op_range(Sel->getOperandList() + 1,
+                                                Sel->getOperandList() + 3);
+          mergeHeapArgs(
+              Sel, args.Index,
+              range);
+        } else {
+          DXASSERT(false, "otherwise, non-select/phi in Selects set");
+        }
+
+        if (args.isResolved)
+          continue;
+        NextPass.emplace_back(Select);
+      }
+      // Some node cannot be reached.
+      if (NextPass.size() == Candidates.size())
+        return;
+      Candidates = NextPass;
+    }
+  }
+
+  void UpdateSelectsForHandleSelect(hlsl::OP *hlslOP) {
+    if (HandleSelects.empty())
+      return;
+    LLVMContext &Ctx = HandleSelects[0]->getContext();
+    Type *pVoidTy = Type::getVoidTy(Ctx);
+    // NOTE: phi of createHandleFromHeap and createHandleFromBinding
+    // is not supported.
+    Function *createHdlFromHeap =
+        hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromHeap, pVoidTy);
+    Value *hdlFromHeapOP = hlslOP->GetI32Const(
+        static_cast<unsigned>(DXIL::OpCode::CreateHandleFromHeap));
+    for (auto &Select : HandleSelects) {
+      if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
+        unsigned numIncoming = Phi->getNumIncomingValues();
+        CreateHandleFromHeapArgs &args = HandleToArgs[Phi];
+        PHINode *newPhi = cast<PHINode>(args.Index);
+        if (args.isResolved) {
+          for (unsigned j = 0; j < numIncoming; j++) {
+            Value *V = Phi->getIncomingValue(j);
+            auto it = HandleToArgs.find(V);
+            DXASSERT(it != HandleToArgs.end(),
+                     "args.isResolved should be false");
+            CreateHandleFromHeapArgs &itArgs = it->second;
+            newPhi->setIncomingValue(j, itArgs.Index);
+          }
+
+          IRBuilder<> B(Phi->getParent()->getFirstNonPHI());
+          B.SetCurrentDebugLocation(Phi->getDebugLoc());
+          Value *isSampler = hlslOP->GetI1Const(args.isSampler);
+          // TODO: or args.IsNonUniform with !isUniform(Phi) with uniform
+          // analysis.
+          Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
+          CallInst *newCI =
+              B.CreateCall(createHdlFromHeap,
+                           {hdlFromHeapOP, newPhi, isSampler, isNonUniform});
+          Phi->replaceAllUsesWith(newCI);
+          CleanupInsts.insert(Phi);
+          // put newCI in HandleToArgs.
+          HandleToArgs[newCI] = args;
+        } else {
+          newPhi->eraseFromParent();
+        }
+      } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
+        CreateHandleFromHeapArgs &args = HandleToArgs[Sel];
+        SelectInst *newSel = cast<SelectInst>(args.Index);
+        if (args.isResolved) {
+          for (unsigned j = 1; j < 3; ++j) {
+            Value *V = Sel->getOperand(j);
+            auto it = HandleToArgs.find(V);
+            DXASSERT(it != HandleToArgs.end(),
+                     "args.isResolved should be false");
+            CreateHandleFromHeapArgs &itArgs = it->second;
+            newSel->setOperand(j, itArgs.Index);
+          }
+
+          IRBuilder<> B(newSel->getNextNode());
+          B.SetCurrentDebugLocation(newSel->getDebugLoc());
+          Value *isSampler = hlslOP->GetI1Const(args.isSampler);
+          // TODO: or args.IsNonUniform with !isUniform(Phi).
+          Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
+          CallInst *newCI =
+              B.CreateCall(createHdlFromHeap,
+                           {hdlFromHeapOP, newSel, isSampler, isNonUniform});
+          Sel->replaceAllUsesWith(newCI);
+          CleanupInsts.insert(Sel);
+          // put newCI in HandleToArgs.
+          HandleToArgs[newCI] = args;
+        } else {
+          newSel->eraseFromParent();
+        }
+      } else {
+        DXASSERT(false, "otherwise, non-select/phi in HandleSelects set");
+      }
+    }
+  }
+
+  void CollectResources(DxilModule &DM) {
+    ValueSetVector tmpHandleSelects;
+    hlsl::OP *hlslOP = DM.GetOP();
+    if (hlslOP->IsDxilOpUsed(DXIL::OpCode::CreateHandleFromHeap)) {
+      Function *F = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromHeap,
+                                      Type::getVoidTy(DM.GetCtx()));
+      for (User *U : F->users()) {
+        DxilInst_CreateHandleFromHeap Hdl(cast<CallInst>(U));
+        HandleToArgs[U] = {Hdl.get_index(), Hdl.get_samplerHeap_val(),
+                           Hdl.get_nonUniformIndex_val(), true};
+        for (User *HdlU : U->users()) {
+          if (isa<PHINode>(HdlU) || isa<SelectInst>(HdlU)) {
+            tmpHandleSelects.insert(HdlU);
+          }
+        }
+      }
+    }
+    // Collect phi/sel of other phi/sel selected handles.
+    while (!tmpHandleSelects.empty()) {
+      HandleSelects.insert(tmpHandleSelects.begin(), tmpHandleSelects.end());
+      ValueSetVector newHandleSelects;
+      for (Value *Hdl : tmpHandleSelects) {
+        for (User *HdlU : Hdl->users()) {
+          if (HandleSelects.count(HdlU))
+            continue;
+          if (isa<PHINode>(HdlU) || isa<SelectInst>(HdlU)) {
+            newHandleSelects.insert(HdlU);
+          }
+        }
+      }
+      tmpHandleSelects = newHandleSelects;
+    }
+  }
+
+  void DoTransform(hlsl::OP *hlslOP) {
+    CreateSelectsForHandleSelects();
+    PropagateHeapArgs();
+    UpdateSelectsForHandleSelect(hlslOP);
+    CleanupUnusedValues(CleanupInsts);
+  }
+
+  bool runOnModule(llvm::Module &M) {
+    DxilModule &DM = M.GetOrCreateDxilModule();
+    hlsl::OP *hlslOP = DM.GetOP();
+
+    CollectResources(DM);
+
+    // If no selects or allocas are involved, there isn't anything to do
+    if (HandleSelects.empty())
+      return false;
+
+    DoTransform(hlslOP);
+
+    return true;
+  }
+};
+
+namespace {
+// Make sure no phi/sel on annotateHandle.
+bool sinkAnnotateHandleAfterSelect(DxilModule &DM, Module &M) {
+  // Collect AnnotateHandle calls.
+  SmallVector<CallInst *, 4> annotHdls;
+  hlsl::OP *op = DM.GetOP();
+  LLVMContext &Ctx = M.getContext();
+  Type *pVoidTy = Type::getVoidTy(Ctx);
+  Function *annotHdlFn = op->GetOpFunc(DXIL::OpCode::AnnotateHandle, pVoidTy);
+  for (auto it : op->GetOpFuncList(OP::OpCode::AnnotateHandle)) {
+    Function *F = it.second;
+    if (F == nullptr)
+      continue;
+    for (auto U = F->user_begin(); U != F->user_end();) {
+      CallInst *CI = dyn_cast<CallInst>(*(U++));
+      annotHdls.emplace_back(CI);
+    }
+  }
+  if (annotHdls.empty())
+    return false;
+
+  SetVector<Instruction *> selectAnnotHdls;
+  for (CallInst *CI : annotHdls) {
+    for (User *U : CI->users()) {
+      if (isa<PHINode>(U) || isa<SelectInst>(U))
+        selectAnnotHdls.insert(cast<Instruction>(U));
+    }
+  }
+  const ShaderModel *pSM = DM.GetShaderModel();
+  Type *propsTy = op->GetResourcePropertiesType();
+  Value *OpArg =
+      op->GetI32Const(static_cast<unsigned>(DXIL::OpCode::AnnotateHandle));
+  ResourceUseErrors Errors;
+  Value *undefHdl = UndefValue::get(op->GetHandleType());
+  // Sink annotateHandle after phi.
+  for (Instruction *Hdl : selectAnnotHdls) {
+    if (PHINode *phi = dyn_cast<PHINode>(Hdl)) {
+      Value *props = nullptr;
+      for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
+        Value *V = phi->getIncomingValue(i);
+        if (CallInst *CI = dyn_cast<CallInst>(V)) {
+          DxilInst_AnnotateHandle annot(CI);
+          if (annot) {
+            if (props == nullptr) {
+              props = annot.get_props();
+            }
+            else if (props != annot.get_props()) {
+              props = resource_helper::tryMergeProps(
+                  cast<Constant>(props), cast<Constant>(annot.get_props()),
+                  propsTy, *pSM);
+              if (props == nullptr) {
+                Errors.ReportError(
+                    ResourceUseErrors::ErrorCode::MismatchHandleAnnotation,
+                    phi);
+                props = annot.get_props();
+              }
+            }
+
+            Value *res = annot.get_res();
+            phi->setIncomingValue(i, res);
+          }
+        }
+      }
+      // Insert after phi.
+      IRBuilder<> B(phi->getParent()->getFirstNonPHI());
+      CallInst *annotCI = B.CreateCall(annotHdlFn, {OpArg, undefHdl, props});
+      phi->replaceAllUsesWith(annotCI);
+      annotCI->setArgOperand(DxilInst_AnnotateHandle::arg_res, phi);
+    } else {
+      SelectInst *sel = dyn_cast<SelectInst>(Hdl);
+      Value *TVal = sel->getTrueValue();
+      Value *FVal = sel->getFalseValue();
+      Value *props = nullptr;
+      if (CallInst *CI = dyn_cast<CallInst>(TVal)) {
+        DxilInst_AnnotateHandle annot(CI);
+        if (annot) {
+          props = annot.get_props();
+          Value *res = annot.get_res();
+          sel->setOperand(1, res);
+        }
+      }
+      if (CallInst *CI = dyn_cast<CallInst>(FVal)) {
+        DxilInst_AnnotateHandle annot(CI);
+        if (annot) {
+          if (props == nullptr) {
+            props = annot.get_props();
+          } else if (props != annot.get_props()) {
+            props = resource_helper::tryMergeProps(
+                cast<Constant>(props), cast<Constant>(annot.get_props()),
+                propsTy, *pSM);
+            if (props == nullptr) {
+              Errors.ReportError(
+                  ResourceUseErrors::ErrorCode::MismatchHandleAnnotation, sel);
+              props = annot.get_props();
+            }
+          }
+
+          Value *res = annot.get_res();
+          sel->setOperand(2, res);
+        }
+      }
+
+      // Insert after sel.
+      IRBuilder<> B(sel->getNextNode());
+      CallInst *annotCI = B.CreateCall(annotHdlFn, {OpArg, undefHdl, props});
+      sel->replaceAllUsesWith(annotCI);
+      annotCI->setArgOperand(DxilInst_AnnotateHandle::arg_res, sel);
+    }
+  }
+  return true;
+}
+} // namespace
+
+// Remove redudant annotateHandle.
+// Legalize phi on createHandleFromHeap.
+class DxilCleanupDynamicResourceHandle : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilCleanupAnnotateHandle() : ModulePass(ID) {}
+  explicit DxilCleanupDynamicResourceHandle() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "DXIL Cleanup extra annotate handle calls"; }
+  StringRef getPassName() const override { return "DXIL Cleanup dynamic resource handle calls"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
@@ -2797,13 +3246,22 @@ public:
     if (DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 6) < 0)
       return false;
 
-    bool bChanged = false;
+    bool bChanged = sinkAnnotateHandleAfterSelect(DM, M);
 
-    // Iterate AnnotateHandle calls and eliminate redundant annotate handle call chains.
+    // Legalize phi on createHandleFromHeap.
+    LegalizeDynamicResourceUseHelper helper;
+    bChanged |= helper.runOnModule(M);
+
     hlsl::OP *op = DM.GetOP();
+    const ShaderModel *pSM = DM.GetShaderModel();
+    Type *propsTy = op->GetResourcePropertiesType();
+    // Iterate AnnotateHandle calls and eliminate redundant annotate handle call
+    // chains.
     for (auto it : op->GetOpFuncList(OP::OpCode::AnnotateHandle)) {
       Function *F = it.second;
-      for (auto U = F->user_begin(); U != F->user_end(); ) {
+      if (F == nullptr)
+        continue;
+      for (auto U = F->user_begin(); U != F->user_end();) {
         CallInst *CI = dyn_cast<CallInst>(*(U++));
         if (CI) {
           DxilInst_AnnotateHandle AH(CI);
@@ -2813,9 +3271,19 @@ public:
             if (isa<LoadInst>(Res))
               continue;
             CallInst *CRes = dyn_cast<CallInst>(Res);
+            if (!CRes)
+              continue;
             DxilInst_AnnotateHandle PrevAH(CRes);
             if (PrevAH) {
-              DXASSERT(AH.get_props() == PrevAH.get_props(), "otherwise, AnnotateHandle chain with inconsistent props");
+              Value *mergedProps = resource_helper::tryMergeProps(
+                  cast<Constant>(AH.get_props()), cast<Constant>(PrevAH.get_props()), propsTy, *pSM);
+              if (mergedProps == nullptr) {
+                ResourceUseErrors Errors;
+                Errors.ReportError(
+                    ResourceUseErrors::ErrorCode::MismatchHandleAnnotation, CI);
+              } else if (mergedProps != PrevAH.get_props()) {
+                PrevAH.set_props(mergedProps);
+              }
               CI->replaceAllUsesWith(Res);
               CI->eraseFromParent();
               bChanged = true;
@@ -2831,10 +3299,12 @@ public:
 private:
 };
 
-char DxilCleanupAnnotateHandle::ID = 0;
+char DxilCleanupDynamicResourceHandle::ID = 0;
 
-ModulePass *llvm::createDxilCleanupAnnotateHandlePass() {
-  return new DxilCleanupAnnotateHandle();
+ModulePass *llvm::createDxilCleanupDynamicResourceHandlePass() {
+  return new DxilCleanupDynamicResourceHandle();
 }
 
-INITIALIZE_PASS(DxilCleanupAnnotateHandle, "hlsl-dxil-cleanup-annotate-handle", "DXIL Cleanup extra annotate handle calls", false, false)
+INITIALIZE_PASS(DxilCleanupDynamicResourceHandle,
+                "hlsl-dxil-cleanup-dynamic-resource-handle",
+                "DXIL Cleanup dynamic resource handle calls", false, false)

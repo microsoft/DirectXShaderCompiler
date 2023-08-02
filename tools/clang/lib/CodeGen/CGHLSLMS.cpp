@@ -80,8 +80,6 @@ private:
   llvm::DataLayout dataLayout;
   // decl map to constant id for program
   llvm::DenseMap<HLSLBufferDecl *, uint32_t> constantBufMap;
-  // Map for resource type to resource metadata value.
-  std::unordered_map<llvm::Type *, MDNode*> resMetadataMap;
   // Map from Constant to register bindings.
   llvm::DenseMap<llvm::Constant *,
                  llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>, 1>>
@@ -111,6 +109,7 @@ private:
   bool SetUAVSRV(SourceLocation loc, hlsl::DxilResourceBase::Class resClass,
                  DxilResource *hlslRes, QualType QualTy);
   uint32_t AddCBuffer(HLSLBufferDecl *D);
+  void AddCBufferDecls(DeclContext *DC, HLCBuffer *CB);
   uint32_t AddConstantBufferView(VarDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
 
@@ -210,7 +209,6 @@ private:
                                      DxilTypeSystem &dxilTypeSys);
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
                              unsigned &arrayEltSize);
-  MDNode *GetOrAddResTypeMD(QualType resTy, bool bCreate);
   DxilResourceProperties BuildResourceProperty(QualType resTy);
   void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
                                           QualType fieldTy,
@@ -218,6 +216,7 @@ private:
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
   StringSet<> m_PreciseOutputSet;
+  DenseSet<Value *> mismatchGLCArgSet;
 
   DenseMap<Function*, ScopeInfo> m_ScopeMap;
   ScopeInfo *GetScopeInfo(Function *F);
@@ -271,10 +270,6 @@ public:
                                    llvm::Value *DestPtr,
                                    clang::QualType Ty) override;
 
-  void EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *Val,
-                                   llvm::Value *DestPtr,
-                                   clang::QualType Ty) override;
-
   void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *Val,
                               Value *DestPtr,
                               QualType Ty,
@@ -294,11 +289,18 @@ public:
                           ArrayRef<const Attr *> Attrs) override;
   void MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
                                  clang::QualType QaulTy) override;
-  void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
+  void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
+                     llvm::Value *V) override;
+  const clang::Expr *CheckReturnStmtGLCMismatch(
+      CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
+      clang::QualType FnRetTy,
+      const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap)
+      override;
   void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
                       BasicBlock *endSwitch) override;
   void MarkReturnStmt(CodeGenFunction &CGF, BasicBlock *bbWithRet) override;
+  void MarkCleanupBlock(CodeGenFunction &CGF, llvm::BasicBlock *cleanupBB) override;
   void MarkLoopStmt(CodeGenFunction &CGF, BasicBlock *loopContinue,
                      BasicBlock *loopExit) override;
   CGHLSLMSHelper::Scope* MarkScopeEnd(CodeGenFunction &CGF) override;
@@ -376,14 +378,15 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // Set Option.
   HLOptions opts;
   opts.bIEEEStrict = CGM.getCodeGenOpts().UnsafeFPMath;
-  opts.bDefaultRowMajor = CGM.getCodeGenOpts().HLSLDefaultRowMajor;
   opts.bDisableOptimizations = CGM.getCodeGenOpts().DisableLLVMOpts;
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
+  opts.bResMayAlias = CGM.getCodeGenOpts().HLSLResMayAlias;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
   opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;
 
+  opts.bDefaultRowMajor = CGM.getLangOpts().HLSLDefaultRowMajor;
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
   opts.bDX9CompatMode = CGM.getLangOpts().EnableDX9CompatMode;
   opts.bFXCCompatMode = CGM.getLangOpts().EnableFXCCompatMode;
@@ -662,56 +665,6 @@ static DxilSampler::SamplerKind KeywordToSamplerKind(llvm::StringRef keyword) {
     .Default(DxilSampler::SamplerKind::Invalid);
 }
 
-MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
-  const RecordType *RT = resTy->getAs<RecordType>();
-  if (!RT)
-    return nullptr;
-  RecordDecl *RD = RT->getDecl();
-  SourceLocation loc = RD->getLocation();
-
-  hlsl::DxilResourceBase::Class resClass = TypeToClass(resTy);
-  llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
-  auto it = resMetadataMap.find(Ty);
-  if (!bCreate && it != resMetadataMap.end())
-    return it->second;
-
-  // Save resource type metadata.
-  switch (resClass) {
-  case DXIL::ResourceClass::UAV: {
-    DxilResource UAV;
-    // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
-    SetUAVSRV(loc, resClass, &UAV, resTy);
-    // Set global symbol to save type.
-    UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
-    resMetadataMap[Ty] = MD;
-    return MD;
-  } break;
-  case DXIL::ResourceClass::SRV: {
-    DxilResource SRV;
-    SetUAVSRV(loc, resClass, &SRV, resTy);
-    // Set global symbol to save type.
-    SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
-    resMetadataMap[Ty] = MD;
-    return MD;
-  } break;
-  case DXIL::ResourceClass::Sampler: {
-    DxilSampler S;
-    DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
-    S.SetSamplerKind(kind);
-    // Set global symbol to save type.
-    S.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    MDNode *MD = m_pHLModule->DxilSamplerToMDNode(S);
-    resMetadataMap[Ty] = MD;
-    return MD;
-  }
-  default:
-    // Skip OutputStream for GS.
-    return nullptr;
-  }
-}
-
 
 namespace {
 MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
@@ -830,10 +783,7 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     EltTy = hlsl::GetHLSLVecElementType(Ty);
 
   if (IsHLSLResourceType(Ty)) {
-    // Always create for llvm::Type could be same for different QualType.
-    // TODO: change to DxilProperties.
-    MDNode *MD = GetOrAddResTypeMD(Ty, /*bCreate*/ true);
-    fieldAnnotation.SetResourceAttribute(MD);
+    fieldAnnotation.SetResourceProperties(BuildResourceProperty(Ty));
   }
 
   bool bSNorm = false;
@@ -898,7 +848,8 @@ static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size, QualType Ty,
   }
   if (BT) {
     if (BT->getKind() == clang::BuiltinType::Kind::Double ||
-        BT->getKind() == clang::BuiltinType::Kind::LongLong)
+        BT->getKind() == clang::BuiltinType::Kind::LongLong ||
+        BT->getKind() == clang::BuiltinType::Kind::ULongLong)
       scalarSizeInBytes = 8;
     else if (BT->getKind() == clang::BuiltinType::Kind::Half ||
              BT->getKind() == clang::BuiltinType::Kind::Short ||
@@ -998,7 +949,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     if (Field->isBitField()) {
       // TODO(?): Consider refactoring, as this branch duplicates much
       // of the logic of CGRecordLowering::accumulateBitFields().
-      DXASSERT(CGM.getLangOpts().HLSLVersion > 2015, "We should have already ensured we have no bitfields.");
+      DXASSERT(CGM.getLangOpts().HLSLVersion > hlsl::LangStd::v2015,
+               "We should have already ensured we have no bitfields.");
       CodeGenTypes &Types = CGM.getTypes();
       ASTContext &Context = Types.getContext();
       const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
@@ -1006,8 +958,11 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       RecordDecl::field_iterator End = Field;
       for (++End; End != FieldEnd && End->isBitField(); ++End);
 
+      std::vector<DxilFieldAnnotation> BitFields;
+
       RecordDecl::field_iterator Run = End;
-      uint64_t StartBitOffset, Tail = 0;
+      uint64_t StartBitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+      uint64_t Tail = 0;
       for (; Field != End; ++Field) {
         uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
         // Zero-width bitfields end runs.
@@ -1015,10 +970,19 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           Run = End;
           continue;
         }
+
         llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
         // If we don't have a run yet, or don't live within the previous run's
         // allocated storage then we allocate some storage and start a new run.
         if (Run == End || BitOffset >= Tail) {
+          // Add BitFields to current field.
+          if (BitOffset >= Tail && BitOffset > 0) {
+            DxilFieldAnnotation &curFieldAnnotation =
+                annotation->GetFieldAnnotation(fieldIdx-1);
+            curFieldAnnotation.SetBitFields(BitFields);
+            BitFields.clear();
+          }
+
           Run = Field;
           StartBitOffset = BitOffset;
           Tail = StartBitOffset + DataLayout.getTypeAllocSizeInBits(Type);
@@ -1041,9 +1005,35 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           // Update offset.
           CBufferOffset += size;
         }
+
+        DxilFieldAnnotation bitfieldAnnotation;
+
+        bitfieldAnnotation.SetBitFieldWidth(Field->getBitWidthValue(Context));
+        QualType FieldTy = Field->getType().getCanonicalType();
+        const BuiltinType *BTy = FieldTy->getAs<BuiltinType>();
+        if (!BTy) {
+          // Should be enum type.
+          EnumDecl *Decl = FieldTy->getAs<EnumType>()->getDecl();
+          BTy = Decl->getPromotionType()->getAs<BuiltinType>();
+        }
+        CompType::Kind kind =
+            BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);
+        bitfieldAnnotation.SetCompType(kind);
+        bitfieldAnnotation.SetFieldName(Field->getName());
+        bitfieldAnnotation.SetCBufferOffset(
+            (unsigned)(BitOffset - StartBitOffset));
+        BitFields.emplace_back(bitfieldAnnotation);
+      }
+
+      if (!BitFields.empty()) {
+        DxilFieldAnnotation &curFieldAnnotation =
+            annotation->GetFieldAnnotation(fieldIdx - 1);
+        curFieldAnnotation.SetBitFields(BitFields);
+        BitFields.clear();
       }
 
       CBufferSize = CBufferOffset;
+
       continue;  // Field has already been advanced past bitfields
     }
 
@@ -1260,23 +1250,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
     // Resources don't count towards cbuffer size.
     return 0;
-  } else if (const RecordType *RT = paramTy->getAsStructureType()) {
-    RecordDecl *RD = RT->getDecl();
-    llvm::StructType *ST = CGM.getTypes().ConvertRecordDeclType(RD);
-    // Skip if already created.
-    if (DxilStructAnnotation *annotation = dxilTypeSys.GetStructAnnotation(ST)) {
-      unsigned structSize = annotation->GetCBufferSize();
-      return structSize;
-    }
-    DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST,
-      GetNumTemplateArgsForRecordDecl(RT->getDecl()));
-    DxilPayloadAnnotation *payloadAnnotation = nullptr;
-    if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
-      payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
-    // Resources don't count towards cbuffer size.
-    return IsHLSLResourceType(Ty) ? 0 : size;
-  } else if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
+  } else if (const RecordType *RT = paramTy->getAs<RecordType>()) {
     // For this pointer.
     RecordDecl *RD = RT->getDecl();
     llvm::StructType *ST = CGM.getTypes().ConvertRecordDeclType(RD);
@@ -1290,7 +1264,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilPayloadAnnotation* payloadAnnotation = nullptr;
     if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
          payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
+    unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
+    // Resources don't count towards cbuffer size.
+    return IsHLSLResourceType(Ty) ? 0 : size;
   } else if (IsStringType(Ty)) {
     // string won't be included in cbuffer
     return 0;
@@ -1548,6 +1524,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  if (FD->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+    if (SM->IsSM67Plus() &&
+        (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
+         (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
+      F->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
+  }
   if (isEntry) {
     funcProps->shaderKind = SM->GetKind();
     if (funcProps->shaderKind == DXIL::ShaderKind::Mesh) {
@@ -1875,10 +1857,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
-  }
-  if (isRay && !retTy->isVoidType()) {
-    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
-      DiagnosticsEngine::Error, "return type for ray tracing shaders must be void"));
   }
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
@@ -2230,96 +2208,35 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       switch (funcProps->shaderKind) {
       case DXIL::ShaderKind::RayGeneration:
       case DXIL::ShaderKind::Intersection:
-        // RayGeneration and Intersection shaders are not allowed to have any input parameters
-        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "parameters are not allowed for %0 shader"))
-            << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
-                "raygeneration" : "intersection");
-        rayShaderHaveErrors = true;
+        break;
       case DXIL::ShaderKind::AnyHit:
-      case DXIL::ShaderKind::ClosestHit:
-        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be inout"));
-          rayShaderHaveErrors = true;
-        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "intersection attributes parameter must be in"));
-          rayShaderHaveErrors = true;
-        } else if (ArgNo > 1) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "too many parameters, expected payload and attributes parameters only."));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 2) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "payload and attribute structures must be user defined types with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            if (0 == ArgNo)
-              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-            else
-              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
-          }
-        }
+      case DXIL::ShaderKind::ClosestHit: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        if (0 == ArgNo)
+          funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+        else
+          funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Miss:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter (ray payload) allowed for miss shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "ray payload parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Miss: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Callable:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter allowed for callable shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "callable parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "callable parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Callable: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.paramSizeInBytes = size;
         break;
+      }
       }
     }
 
@@ -2352,8 +2269,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     case DXIL::ShaderKind::AnyHit:
     case DXIL::ShaderKind::ClosestHit:
       bNeedsAttributes = true;
+      LLVM_FALLTHROUGH;
     case DXIL::ShaderKind::Miss:
       bNeedsPayload = true;
+      LLVM_FALLTHROUGH;
     case DXIL::ShaderKind::Callable:
       if (0 == funcProps->ShaderProps.Ray.payloadSizeInBytes) {
         unsigned DiagID = bNeedsPayload ?
@@ -2439,11 +2358,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Add target-dependent experimental function attributes
-  for (const auto &Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
+  for (const HLSLExperimentalAttr *Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
 
-  m_ScopeMap[F] = ScopeInfo(F);
+  m_ScopeMap[F] = ScopeInfo(F, FD->getLocation());
 }
 
 void CGMSHLSLRuntime::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {
@@ -2572,13 +2491,26 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
   }
 }
 
-void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
-                                           clang::QualType QualTy) {
+void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF,
+                                                llvm::Value *V,
+                                                clang::QualType QualTy) {
   // Save object properties for temp that may be created for
   // call args, return value, or agg expr copy.
   if (objectProperties.GetResource(V).isValid())
     return;
   AddValToPropertyMap(V, QualTy);
+}
+
+static bool isGLCMismatch(QualType Ty0, QualType Ty1, const Expr *SrcExp,
+                          clang::SourceLocation Loc, DiagnosticsEngine &Diags) {
+  if (HasHLSLGloballyCoherent(Ty0) == HasHLSLGloballyCoherent(Ty1))
+    return false;
+  if (const CastExpr *Cast = dyn_cast<CastExpr>(SrcExp)) {
+    // Skip flat conversion which is for createHandleFromHeap.
+    if (Cast->getCastKind() == CastKind::CK_FlatConversion)
+      return false;
+  }
+  return true;
 }
 
 void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
@@ -2593,6 +2525,57 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
   AddTypeAnnotation(D.getType(), typeSys, arrayEltSize);
   // Save object properties for local variables.
   AddValToPropertyMap(V, D.getType());
+
+  if (D.hasInit()) {
+    if (isGLCMismatch(D.getType(), D.getInit()->getType(), D.getInit(),
+                      D.getLocation(), CGM.getDiags())) {
+      objectProperties.updateGLC(V);
+    }
+  }
+}
+
+const clang::Expr *CGMSHLSLRuntime::CheckReturnStmtGLCMismatch(
+    CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
+    clang::QualType FnRetTy,
+    const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
+  if (!isGLCMismatch(RV->getType(), FnRetTy, RV, S.getReturnLoc(),
+                     CGM.getDiags())) {
+    return RV;
+  }
+  const FunctionDecl *FD = cast<FunctionDecl>(CGF.CurFuncDecl);
+  // create temp Var
+  VarDecl *tmpArg =
+      VarDecl::Create(CGF.getContext(), const_cast<FunctionDecl *>(FD),
+                      SourceLocation(), SourceLocation(),
+                      /*IdentifierInfo*/ nullptr, FnRetTy,
+                      CGF.getContext().getTrivialTypeSourceInfo(FnRetTy),
+                      StorageClass::SC_Auto);
+
+  // Aggregate type will be indirect param convert to pointer type.
+  // So don't update to ReferenceType, use RValue for it.
+  const DeclRefExpr *tmpRef = DeclRefExpr::Create(
+      CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
+      /*enclosing*/ false, tmpArg->getLocation(), FnRetTy, VK_RValue);
+
+  // create alloc for the tmp arg
+  Value *tmpArgAddr = nullptr;
+  BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
+  Function *F = InsertBlock->getParent();
+
+  // Make sure the alloca is in entry block to stop inline create stacksave.
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+  tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(FnRetTy));
+
+  // add it to local decl map
+  TmpArgMap(tmpArg, tmpArgAddr);
+
+  LValue argLV = CGF.EmitLValue(RV);
+  Value *argAddr = argLV.getAddress();
+
+  // Annotate return value when mismatch with function return type.
+  DxilResourceProperties RP = BuildResourceProperty(RV->getType());
+  CopyAndAnnotateResourceArgument(argAddr, tmpArgAddr, RP, *m_pHLModule, CGF);
+  return tmpRef;
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
@@ -2613,62 +2596,6 @@ hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
   return Interp;
 }
 
-hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
-
-  hlsl::CompType ElementType = hlsl::CompType::getInvalid();
-  switch (BT->getKind()) {
-  case BuiltinType::Bool:
-    ElementType = hlsl::CompType::getI1();
-    break;
-  case BuiltinType::Double:
-    ElementType = hlsl::CompType::getF64();
-    break;
-  case BuiltinType::HalfFloat: // HLSL Change
-  case BuiltinType::Float:
-    ElementType = hlsl::CompType::getF32();
-    break;
-  // HLSL Changes begin
-  case BuiltinType::Min10Float:
-  case BuiltinType::Min16Float:
-  // HLSL Changes end
-  case BuiltinType::Half:
-    ElementType = hlsl::CompType::getF16();
-    break;
-  case BuiltinType::Int:
-    ElementType = hlsl::CompType::getI32();
-    break;
-  case BuiltinType::LongLong:
-    ElementType = hlsl::CompType::getI64();
-    break;
-  // HLSL Changes begin
-  case BuiltinType::Min12Int:
-  case BuiltinType::Min16Int:
-  // HLSL Changes end
-  case BuiltinType::Short:
-    ElementType = hlsl::CompType::getI16();
-    break;
-    // HLSL Changes begin
-  case BuiltinType::Int8_4Packed:
-  case BuiltinType::UInt8_4Packed:
-    // HLSL Changes end
-  case BuiltinType::UInt:
-    ElementType = hlsl::CompType::getU32();
-    break;
-  case BuiltinType::ULongLong:
-    ElementType = hlsl::CompType::getU64();
-    break;
-  case BuiltinType::Min16UInt: // HLSL Change
-  case BuiltinType::UShort:
-    ElementType = hlsl::CompType::getU16();
-    break;
-  default:
-    llvm_unreachable("unsupported type");
-    break;
-  }
-
-  return ElementType;
-}
-
 /// Add resource to the program
 void CGMSHLSLRuntime::addResource(Decl *D) {
   if (HLSLBufferDecl *BD = dyn_cast<HLSLBufferDecl>(D))
@@ -2681,8 +2608,17 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
       AddValToPropertyMap(GV, VD->getType());
     }
     // skip decl has init which is resource.
-    if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid)
+    if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid) {
+
+      if (resClass == DXIL::ResourceClass::UAV) {
+        if (isGLCMismatch(VD->getType(), VD->getInit()->getType(),
+                          VD->getInit(), D->getLocation(), CGM.getDiags())) {
+          GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
+          objectProperties.updateGLC(GV);
+        }
+      }
       return;
+    }
     // skip static global.
     if (!VD->hasExternalFormalLinkage()) {
       if (VD->hasInit() && VD->getType().isConstQualified()) {
@@ -3025,7 +2961,7 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
     }
     case DXIL::SubobjectKind::LocalRootSignature:
       flags = DxilRootSignatureCompilationFlags::LocalRootSignature;
-      __fallthrough;
+      LLVM_FALLTHROUGH;
     case DXIL::SubobjectKind::GlobalRootSignature: {
       DXASSERT_NOMSG(argCount == 1);
       StringRef signature;
@@ -3140,10 +3076,7 @@ static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
         CollectScalarTypes(ScalarTys, EltTy);
       }
     } else {
-      const RecordType *RT = Ty->getAsStructureType();
-      // For CXXRecord.
-      if (!RT)
-        RT = Ty->getAs<RecordType>();
+      const RecordType *RT = Ty->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
       for (FieldDecl *field : RD->fields())
         CollectScalarTypes(ScalarTys, field->getType());
@@ -3292,15 +3225,6 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     hlslRes->SetGloballyCoherent(true);
   }
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
-    if (hlslRes->IsGloballyCoherent()) {
-      DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "globallycoherent can only be used with "
-                                    "Unordered Access View buffers.");
-      Diags.Report(loc, DiagID);
-      return false;
-    }
-
     hlslRes->SetRW(false);
     hlslRes->SetID(m_pHLModule->GetSRVs().size());
   } else {
@@ -3478,7 +3402,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
   }
   
   unsigned LowerBound = userOffset ? offset : UINT_MAX;
-  AddConstantToCB(cast<llvm::GlobalVariable>(constVal), constDecl->getName(),
+  AddConstantToCB(cast<llvm::GlobalVariable>(constVal), constDecl->getQualifiedNameAsString(),
                   constDecl->getType(), LowerBound, CB);
 
   // Save fieldAnnotation for the const var.
@@ -3516,28 +3440,40 @@ unique_ptr<HLCBuffer> CreateHLCBuf(NamedDecl *D, bool bIsView, bool bIsTBuf) {
 
 } // namespace
 
+void CGMSHLSLRuntime::AddCBufferDecls(DeclContext *DC, HLCBuffer *CB) {
+  for (Decl *it : DC->decls()) {
+    if (VarDecl *constDecl = dyn_cast<VarDecl>(it)) {
+      AddConstant(constDecl, *CB);
+    } else if (isa<EmptyDecl>(*it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<CXXRecordDecl>(it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<FunctionDecl>(it)) {
+      // A function within an cbuffer is effectively a top-level function,
+      // as it only refers to globally scoped declarations.
+      CGM.EmitTopLevelDecl(it);
+    } else if (NamespaceDecl *ND = dyn_cast<NamespaceDecl>(it)) {
+      AddCBufferDecls(ND, CB);
+    } else {
+      HLSLBufferDecl *inner = dyn_cast<HLSLBufferDecl>(it);
+      if (!inner) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                                "invalid decl inside cbuffer");
+        Diags.Report(it->getLocation(), DiagID);
+        return;
+      }
+      GetOrCreateCBuffer(inner);
+    }
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
   unique_ptr<HLCBuffer> CB = CreateHLCBuf(D, false, !D->isCBuffer());
 
   // Add constant
-  auto declsEnds = D->decls_end();
   CB->SetRangeSize(1);
-  for (auto it = D->decls_begin(); it != declsEnds; it++) {
-    if (VarDecl *constDecl = dyn_cast<VarDecl>(*it)) {
-      AddConstant(constDecl, *CB.get());
-    } else if (isa<EmptyDecl>(*it)) {
-      // Nothing to do for this declaration.
-    } else if (isa<CXXRecordDecl>(*it)) {
-      // Nothing to do for this declaration.
-    } else if (isa<FunctionDecl>(*it)) {
-      // A function within an cbuffer is effectively a top-level function,
-      // as it only refers to globally scoped declarations.
-      this->CGM.EmitTopLevelDecl(*it);
-    } else {
-      HLSLBufferDecl *inner = cast<HLSLBufferDecl>(*it);
-      GetOrCreateCBuffer(inner);
-    }
-  }
+  AddCBufferDecls(D, CB.get());
 
   CB->SetID(m_pHLModule->GetCBuffers().size());
   return m_pHLModule->AddCBuffer(std::move(CB));
@@ -3550,19 +3486,21 @@ uint32_t CGMSHLSLRuntime::AddConstantBufferView(VarDecl *D) {
   CB->SetRangeSize(1);
 
   if (Ty->isArrayType()) {
-    if (!Ty->isIncompleteArrayType()) {
-      unsigned arraySize = 1;
-      while (Ty->isArrayType()) {
-        Ty = Ty->getCanonicalTypeUnqualified();
-        const ConstantArrayType *AT = cast<ConstantArrayType>(Ty);
-        arraySize *= AT->getSize().getLimitedValue();
-        Ty = AT->getElementType();
-      }
-      CB->SetRangeSize(arraySize);
-    } else {
+    unsigned incompleteSize = 0;
+    // The initial array may be unbound
+    if (Ty->isIncompleteArrayType()) {
       Ty = QualType(Ty->getArrayElementTypeNoTypeQual(),0);
-      CB->SetRangeSize(UINT_MAX);
+      incompleteSize = UINT_MAX;
     }
+    DXASSERT(!Ty->isIncompleteArrayType(), "Unbound array found after first axis");
+    unsigned arraySize = 1;
+    while (Ty->isArrayType()) {
+      Ty = Ty->getCanonicalTypeUnqualified();
+      const ConstantArrayType *AT = cast<ConstantArrayType>(Ty);
+      arraySize *= AT->getSize().getLimitedValue();
+      Ty = AT->getElementType();
+    }
+    CB->SetRangeSize(std::max(arraySize, incompleteSize));
     CB->SetIsArray();
   }
 
@@ -3723,7 +3661,8 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
           StringRef intrinsicGroup;
           hlsl::GetIntrinsicOp(FD, intrinsicOpcode, intrinsicGroup);
           IntrinsicOp opcode = static_cast<IntrinsicOp>(intrinsicOpcode);
-          if (Value *Result = TryEvalIntrinsic(CI, opcode, CGM.getLangOpts().HLSLVersion)) {
+          if (Value *Result =
+                  TryEvalIntrinsic(CI, opcode, CGM.getLangOpts().HLSLVersion)) {
             RV = RValue::get(Result);
           }
         }
@@ -3942,7 +3881,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
           elts.emplace_back(Builder.CreateLoad(val));
           eltTys.emplace_back(Ty);
         } else {
-          RecordDecl *RD = Ty->getAsStructureType()->getDecl();
+          const RecordDecl *RD = Ty->getAs<RecordType>()->getDecl();
           const CGRecordLayout& RL = CGF.getTypes().getCGRecordLayout(RD);
 
           // Take care base.
@@ -4012,7 +3951,9 @@ static Value* ConvertScalarOrVector(CGBuilderTy& Builder, CodeGenTypes &Types,
   llvm::Type *SrcTy = Val->getType();
   llvm::Type *DstTy = Types.ConvertType(DstQualTy);
 
-  DXASSERT(Val->getType() == Types.ConvertType(SrcQualTy), "QualType/Value mismatch!");
+  DXASSERT(Val->getType() == Types.ConvertType(SrcQualTy) ||
+               Val->getType() == Types.ConvertTypeForMem(SrcQualTy),
+           "QualType/Value mismatch!");
   DXASSERT((SrcTy->isIntOrIntVectorTy() || SrcTy->isFPOrFPVectorTy())
     && (DstTy->isIntOrIntVectorTy() || DstTy->isFPOrFPVectorTy()),
     "EmitNumericConversion can only be used with int/float scalars/vectors.");
@@ -4072,10 +4013,7 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
       // Skip hlsl object.
       idx++;
     } else {
-      const RecordType *RT = Ty->getAsStructureType();
-      // For CXXRecord.
-      if (!RT)
-        RT = Ty->getAs<RecordType>();
+      const RecordType *RT = Ty->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
       // Take care base.
       if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
@@ -4158,10 +4096,7 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     } else {
       Constant *zero = Builder.getInt32(0);
 
-      const RecordType *RT = Type->getAsStructureType();
-      // For CXXRecord.
-      if (!RT)
-        RT = Type->getAs<RecordType>();
+      const RecordType *RT = Type->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
       const CGRecordLayout &RL = Types.getCGRecordLayout(RD);
       // Take care base.
@@ -4717,6 +4652,10 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
 // If the block uses values that are wave-sensitive, it needs to stay in the loop to prevent optimizations
 // that might produce incorrect results by ignoring the volatile aspect of wave operation results.
 BranchInst *CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
+  // Skip if unreachable
+  if (!CGF.HaveInsertPoint())
+    return nullptr;
+
   // If not a wave-enabled stage, we can keep everything unconditional as before
   if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsCS() &&
       !m_pHLModule->GetShaderModel()->IsLib()) {
@@ -5297,7 +5236,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
       EltTyList.push_back(Type);
       return;
     }
-    const clang::RecordType *RT = Type->getAsStructureType();
+    const clang::RecordType *RT = Type->getAs<RecordType>();
     RecordDecl *RD = RT->getDecl();
 
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
@@ -5661,9 +5600,9 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     }
   }
 
-  // It is possible to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
-  // the same way. But split value to scalar will generate many instruction when
-  // src type is same as dest type.
+  // It is possible to implement EmitHLSLAggregateCopy, the same way. But split
+  // value to scalar will generate many instruction when src type is same as
+  // dest type.
   SmallVector<Value *, 4> GEPIdxStack;
   SmallVector<Value *, 4> SrcPtrs;
   SmallVector<QualType, 4> SrcQualTys;
@@ -5680,12 +5619,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
                                DestPtr->getType(), DstPtrs, DstQualTys);
 
   ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
-}
-
-void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,
-    llvm::Value *DestPtr,
-    clang::QualType Ty) {
-    DXASSERT(0, "aggregate return type will use SRet, no aggregate store should exist");
 }
 
 // Either copies a scalar to a scalar, a scalar to a vector, or splats a scalar to a vector
@@ -5746,7 +5679,7 @@ void CGMSHLSLRuntime::EmitHLSLSplat(
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     DXASSERT(!dxilutil::IsHLSLObjectType(ST), "cannot cast to hlsl object, Sema should reject");
 
-    const clang::RecordType *RT = Type->getAsStructureType();
+    const clang::RecordType *RT = Type->getAs<RecordType>();
     RecordDecl *RD = RT->getDecl();
 
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
@@ -5869,11 +5802,26 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
   // Special case: skip first argument of CXXOperatorCall (it is "this").
   unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(E) ? 1 : 0;
+  llvm::SmallSet<llvm::Value*, 8> ArgVals;
   for (uint32_t i = 0; i < FD->getNumParams(); i++) {
     const ParmVarDecl *Param = FD->getParamDecl(i);
-    const Expr *Arg = E->getArg(i+ArgsToSkip);
+    uint32_t ArgIdx = i+ArgsToSkip;
+    const Expr *Arg = E->getArg(ArgIdx);
     QualType ParamTy = Param->getType().getNonReferenceType();
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool bAnnotResource = false;
+    if (isObject) {
+      if (isGLCMismatch(Param->getType(), Arg->getType(), Arg,
+                        Arg->getExprLoc(), CGM.getDiags())) {
+        // NOTE: if function is noinline, resource parameter is not allowed.
+        // Here assume function will be always inlined.
+        // This can only take care resource as parameter. When parameter is
+        // struct with resource member, glc cannot mismatch because the
+        // struct type will always match.
+        // Add annotate handle here.
+        bAnnotResource = true;
+      }
+    }
     bool isVector = hlsl::IsHLSLVecType(ParamTy);
     bool isArray = ParamTy->isArrayType();
     // Check for array of matrix
@@ -5898,7 +5846,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                       dyn_cast<ImplicitCastExpr>(cCast->getSubExpr())) {
                 if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
                   // update the arg
-                  argList[i] = cast->getSubExpr();
+                  argList[ArgIdx] = cast->getSubExpr();
                   continue;
                 }
               }
@@ -5923,7 +5871,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         // Must be object
         DXASSERT(isObject, "otherwise, flow condition changed, breaking assumption");
         // in-only objects should be skipped to preserve previous behavior.
-        continue;
+        if (!bAnnotResource)
+          continue;
       }
     }
 
@@ -5961,7 +5910,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
 
-      bool mustCopy = false;
+      bool mustCopy = bAnnotResource;
 
       // If matrix orientation changes, we must copy here
       // TODO: A high level intrinsic for matrix array copy with orientation
@@ -5977,21 +5926,28 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         // copy to let the lower not happen on argument when calle is noinline
         // or extern functions. Will do it in HLLegalizeParameter after known
         // which functions are extern but before inline.
-        bool bConstGlobal = false;
         Value *Ptr = argAddr;
         while (GEPOperator *GEP = dyn_cast_or_null<GEPOperator>(Ptr)) {
           Ptr = GEP->getPointerOperand();
-        }
-        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
-          bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
         }
         // Skip copy-in copy-out when safe.
         // The unsafe case will be global variable alias with parameter.
         // Then global variable is updated in the function, the parameter will
         // be updated silently. For non global variable or constant global
         // variable, it should be safe.
-        if (argAddr &&
-            (isa<AllocaInst>(Ptr) || isa<Argument>(Ptr) || bConstGlobal)) {
+        bool SafeToSkip = false;
+        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
+          SafeToSkip = ParamTy.isConstQualified() && (m_ConstVarAnnotationMap.count(GV) > 0 || GV->isConstant());
+        }
+        if (Ptr) {
+          if (isa<AllocaInst>(Ptr) && 0 == ArgVals.count(Ptr))
+            SafeToSkip = true;
+          else if (const auto *A = dyn_cast<Argument>(Ptr))
+            SafeToSkip = A->hasNoAliasAttr() && 0 == ArgVals.count(Ptr);
+        }
+
+        if (argAddr && SafeToSkip) {
+          ArgVals.insert(Ptr);
           llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
           if (argAddr->getType()->getPointerElementType() == ToTy &&
               // Check clang Type for case like int cast to unsigned.
@@ -6023,7 +5979,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         (isAggregateType || isObject) ? VK_RValue : VK_LValue);
 
     // must update the arg, since we did emit Arg, else we get double emit.
-    argList[i] = tmpRef;
+    argList[ArgIdx] = tmpRef;
 
     // create alloc for the tmp arg
     Value *tmpArgAddr = nullptr;
@@ -6098,6 +6054,11 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                               idxList, ArgTy, ParamTy,
                               argAddr->getType());
       }
+    } else if (bAnnotResource) {
+      DxilResourceProperties RP = BuildResourceProperty(Arg->getType());
+      CopyAndAnnotateResourceArgument(argAddr, tmpArgAddr, RP, *m_pHLModule,
+                                      CGF);
+      mismatchGLCArgSet.insert(tmpArgAddr);
     }
   }
 }
@@ -6162,8 +6123,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
                               idxList, ParamTy, ArgTy,
                               argLV.getAddress()->getType());
       }
-    } else
+    } else if (mismatchGLCArgSet.find(tmpArgAddr) == mismatchGLCArgSet.end()) {
       tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
+    }
   }
 
   for (LValue &tmpLV : lifetimeCleanupList) {
@@ -6186,6 +6148,10 @@ void CGMSHLSLRuntime::MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
     Scope->AddIf(endIfBB);
 }
 
+void CGMSHLSLRuntime::MarkCleanupBlock(CodeGenFunction &CGF, llvm::BasicBlock *cleanupBB) {
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddCleanupBB(cleanupBB);
+}
 
 void CGMSHLSLRuntime::MarkSwitchStmt(CodeGenFunction &CGF,
                                      SwitchInst *switchInst,

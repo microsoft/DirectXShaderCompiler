@@ -6,7 +6,7 @@
 // CHECK:float main
 
 // KEEP_GLOBAL:struct
-// KEEP_GLOBAL:ConstantBuffer.
+// KEEP_GLOBAL:ConstantBuffer
 // KEEP_GLOBAL:float main
 
 

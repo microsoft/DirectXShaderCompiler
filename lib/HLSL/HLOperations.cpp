@@ -73,6 +73,7 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
       case 'r': // createhandle
         return HLOpcodeGroup::HLCreateHandle;
       }
+      llvm_unreachable("unrecognized group code");
     case 'i': // init
       return HLOpcodeGroup::HLInit;
     case 'b': // binaryOp
@@ -86,6 +87,7 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
       case 'e':
         return HLOpcodeGroup::HLSelect;
       }
+      llvm_unreachable("unrecognized group code");
     case 'm': // matldst
       return HLOpcodeGroup::HLMatLoadStore;
     case 'a': // annotatehandle
@@ -372,10 +374,6 @@ unsigned  GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode) {
   default:
     return opcode;
   }
-}
-
-bool HasUnsignedOpcode(unsigned opcode) {
-  return HasUnsignedIntrinsicOpcode(static_cast<IntrinsicOp>(opcode));
 }
 
 unsigned GetUnsignedOpcode(unsigned opcode) {

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // According to the HLSL reference, clip operates on scalar, vector, or matrix of floats.
 

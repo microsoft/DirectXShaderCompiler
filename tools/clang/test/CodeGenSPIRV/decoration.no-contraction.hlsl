@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 float func(float e, float f, float g, float h);
 float func2(float e, float f, float g, float h);

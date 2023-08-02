@@ -61,7 +61,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
     int line = 1;
     int col  = 1;
     llvm::raw_ostream &errors;
-    bool WasNewline = false;
+    bool WasEndOfLine = false;
 
     struct Location {
       int line = 0;
@@ -73,6 +73,9 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
     }
     inline static bool IsNewline(char c) {
        return c == '\r' || c == '\n';
+    }
+    inline static bool IsEndOfLine(char c) {
+      return IsNewline(c) || c == ';' || c == '\0';
     }
     inline static bool IsWhitespace(char c) {
       return c == ' ' || c == '\t';
@@ -86,7 +89,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       EatWhiteSpaceAndNewlines();
     }
     inline bool WasJustEndOfLine() const {
-      return WasNewline;
+      return WasEndOfLine;
     }
 
     inline void EatWhitespace() {
@@ -156,8 +159,8 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       }
 
       while (!ReachedEnd()) {
-        if (IsNewline(Peek()) || (!hasQuote && IsDelimiter(Peek()))) {
-          if (hasQuote)
+        if (IsEndOfLine(Peek()) || (!hasQuote && IsDelimiter(Peek()))) {
+          if (hasQuote && IsNewline(Peek()))
             return Error("Unexpected newline inside quotation.");
           // Trim the white space at the end of the string
           if (str) {
@@ -173,7 +176,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
           if (!hasQuote)
             return Error("'\"' not allowed in non-quoted cell.");
           EatWhitespace();
-          if (!IsDelimiter(Peek()) && !IsNewline(Peek())) {
+          if (!IsDelimiter(Peek()) && !IsEndOfLine(Peek())) {
             return Error("Unexpected character after quote.");
           }
           break;
@@ -188,8 +191,8 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       // Handle delimiter
       {
         // If this delimiter is not a newline, set our newline flag to false.
-        if (!IsNewline(Peek())) {
-          WasNewline = false;
+        if (!IsEndOfLine(Peek())) {
+          WasEndOfLine = false;
           Advance();
 
           // Eat white spaces so we can detect the next newline if this
@@ -197,8 +200,9 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
           EatWhitespace();
         }
 
-        if (IsNewline(Peek())) {
-          WasNewline = true;
+        if (IsEndOfLine(Peek())) {
+          Advance(); // Skip this character, which could be ';'
+          WasEndOfLine = true;
           EatWhiteSpaceAndNewlines();
         }
       }

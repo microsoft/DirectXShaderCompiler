@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_4 -E main
+// RUN: %dxc -T vs_6_4 -E main
 
 void main(out uint rate : SV_ShadingRate) {
 // CHECK:   OpCapability FragmentShadingRateKHR

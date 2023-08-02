@@ -6,9 +6,9 @@
 # release and a number of commits since then. The format is `dxil_major.dxil_minor.release_no.commit_count`.
 # For example a current official version would be something like `1.5.1905.42`. The latest release 
 # information is read from `utils\version\latest-release.json`. The `1905` corresponds to `dxil-2019-05-16`
-# release branch and `42` is the number of commits since that release branch was created. For master branch 
+# release branch and `42` is the number of commits since that release branch was created. For main branch 
 # the `commit_count` will be incremented by 10000 to distinguish it from stabilized official release branch 
-# builds. So the current official version of master would be someting like `1.5.1905.10042`.
+# builds. So the current official version of main would be someting like `1.5.1905.10042`.
 
 # 2. **Dev build**
 # Build by using `hctbuild` with no other version-related option. 
@@ -21,7 +21,7 @@
 # on `hctbuild`.
 
 # In addition to the numbered version the product version string on the binaries will also include branch
-# name and last commit sha - `"1.5.1905.10042 (master, 47e31c8a)"`. This product version string is included 
+# name and last commit sha - `"1.5.1905.10042 (main, 47e31c8a)"`. This product version string is included 
 # in `dxc -?` output.
 
 import argparse
@@ -65,6 +65,10 @@ class VersionGen():
         self.current_branch = get_current_branch()
         self.rc_version_field_4_cache = None
 
+    def tool_name(self):
+        return self.latest_release_info.get("toolname",
+            "dxcoob" if self.options.official else "dxc(private)")
+
     def rc_version_field_1(self):
         return self.latest_release_info["version"]["major"]
 
@@ -81,7 +85,7 @@ class VersionGen():
                 base_commit_count = int(get_commit_count(self.latest_release_info["sha"]))
             current_commit_count = int(get_commit_count("HEAD"))
             distance_from_base = current_commit_count - base_commit_count
-            if (self.current_branch == "master"):
+            if (self.current_branch == "main"):
                 distance_from_base += 10000
             self.rc_version_field_4_cache = str(distance_from_base)
         return self.rc_version_field_4_cache
@@ -127,6 +131,9 @@ class VersionGen():
         self.print_define('RC_COPYRIGHT',        '"(c) Microsoft Corporation. All rights reserved."')
         self.print_define('RC_PRODUCT_NAME',     '"Microsoft(r) DirectX for Windows(r) - Out Of Band"')
         self.print_define('RC_PRODUCT_VERSION',   self.product_version_str())
+        self.print_define('HLSL_TOOL_NAME',       '"{}"'.format(self.tool_name()))
+        self.print_define('HLSL_VERSION_MACRO',   'HLSL_TOOL_NAME " " RC_FILE_VERSION')
+        self.print_define('HLSL_LLVM_IDENT',      'HLSL_TOOL_NAME " " RC_PRODUCT_VERSION')
 
 
 def main():

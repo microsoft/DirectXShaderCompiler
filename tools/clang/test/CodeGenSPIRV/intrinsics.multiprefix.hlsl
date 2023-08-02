@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_5 -E main
+// RUN: %dxc -T ps_6_5 -E main
 
 StructuredBuffer<uint4> g_mask;
 

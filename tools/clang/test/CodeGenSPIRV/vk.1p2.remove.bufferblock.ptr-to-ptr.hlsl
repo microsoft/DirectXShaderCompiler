@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_4 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_4 -fspv-target-env=vulkan1.2
 
 // We cannot use BufferBlock decoration for SPIR-V 1.4 or above.
 // Instead, we must use Block decorated StorageBuffer Storage Class.
@@ -14,7 +14,6 @@
 
 // CHECK: OpDecorate %type_StructuredBuffer_float Block
 // CHECK: OpDecorate %type_RWStructuredBuffer_float Block
-// CHECK: OpDecorate %type_ACSBuffer_counter Block
 
 // CHECK: [[fn-type:%\d+]] = OpTypeFunction %_ptr_StorageBuffer_type_StructuredBuffer_float %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_float
 

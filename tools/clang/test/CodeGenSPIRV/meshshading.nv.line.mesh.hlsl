@@ -1,4 +1,4 @@
-// Run: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main
 // CHECK:  OpCapability MeshShadingNV
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
 // CHECK:  OpEntryPoint MeshNV %main "main" %gl_GlobalInvocationID %gl_Position [[primind:%\d+]] [[primcount:%\d+]]

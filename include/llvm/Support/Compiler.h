@@ -220,6 +220,27 @@
 #define LLVM_ATTRIBUTE_RETURNS_NOALIAS
 #endif
 
+#if __cplusplus > 201402L
+#define LLVM_FALLTHROUGH [[fallthrough]]
+#elif defined(__clang__)
+#define LLVM_FALLTHROUGH [[clang::fallthrough]]
+#elif defined(_MSC_VER)
+#define LLVM_FALLTHROUGH __fallthrough
+#else
+#define LLVM_FALLTHROUGH [[gnu::fallthrough]]
+#endif
+
+#if defined(_MSC_VER)
+#if __cplusplus > 201402L
+#define LLVM_C_FALLTHROUGH [[fallthrough]]
+#else
+#define LLVM_C_FALLTHROUGH 
+#endif
+#else
+#define LLVM_C_FALLTHROUGH  __attribute__((fallthrough));
+#endif
+
+
 /// LLVM_EXTENSION - Support compilers where we have a keyword to suppress
 /// pedantic diagnostics.
 #ifdef __GNUC__

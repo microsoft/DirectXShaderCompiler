@@ -15,7 +15,7 @@
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
@@ -664,45 +664,6 @@ void HLModule::LoadHLShaderProperties(const MDOperand &MDO) {
   return;
 }
 
-MDNode *HLModule::DxilSamplerToMDNode(const DxilSampler &S) {
-  MDNode *MD = m_pMDHelper->EmitDxilSampler(S);
-  ValueAsMetadata *ResClass =
-      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::Sampler);
-
-  return MDNode::get(m_Ctx, {ResClass, MD});
-}
-MDNode *HLModule::DxilSRVToMDNode(const DxilResource &SRV) {
-  MDNode *MD = m_pMDHelper->EmitDxilSRV(SRV);
-  ValueAsMetadata *ResClass =
-      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::SRV);
-
-  return MDNode::get(m_Ctx, {ResClass, MD});
-}
-MDNode *HLModule::DxilUAVToMDNode(const DxilResource &UAV) {
-  MDNode *MD = m_pMDHelper->EmitDxilUAV(UAV);
-  ValueAsMetadata *ResClass =
-      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::UAV);
-
-  return MDNode::get(m_Ctx, {ResClass, MD});
-}
-MDNode *HLModule::DxilCBufferToMDNode(const DxilCBuffer &CB) {
-  MDNode *MD = m_pMDHelper->EmitDxilCBuffer(CB);
-  ValueAsMetadata *ResClass =
-      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::CBuffer);
-
-  return MDNode::get(m_Ctx, {ResClass, MD});
-}
-
-void HLModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
-  return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
-}
-void HLModule::LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R) {
-  return m_pMDHelper->LoadDxilResourceFromMDNode(MD, R);
-}
-void HLModule::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
-  return m_pMDHelper->LoadDxilSamplerFromMDNode(MD, S);
-}
-
 DxilResourceBase *
 HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
                                                  DxilResourceProperties &RP) {
@@ -974,126 +935,17 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
       cols = matrix.Rows;
       rows = matrix.Cols;
     }
-  } else if (Ty->isVectorTy())
-    cols = Ty->getVectorNumElements();
+  } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty))
+    cols = VT->getNumElements();
 
   rows *= arraySize;
 }
 
-static Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
-  IRBuilder<> Builder(GEP->getContext());
-  StringRef Name = "";
-  if (Instruction *I = dyn_cast<Instruction>(GEP)) {
-    Builder.SetInsertPoint(I);
-    Name = GEP->getName();
-  }
-  SmallVector<Value *, 8> Indices;
-
-  // Find out whether the last index in the source GEP is a sequential idx.
-  bool EndsWithSequential = false;
-  for (gep_type_iterator I = gep_type_begin(*SrcGEP), E = gep_type_end(*SrcGEP);
-       I != E; ++I)
-    EndsWithSequential = !(*I)->isStructTy();
-  if (EndsWithSequential) {
-    Value *Sum;
-    Value *SO1 = SrcGEP->getOperand(SrcGEP->getNumOperands() - 1);
-    Value *GO1 = GEP->getOperand(1);
-    if (SO1 == Constant::getNullValue(SO1->getType())) {
-      Sum = GO1;
-    } else if (GO1 == Constant::getNullValue(GO1->getType())) {
-      Sum = SO1;
-    } else {
-      // If they aren't the same type, then the input hasn't been processed
-      // by the loop above yet (which canonicalizes sequential index types to
-      // intptr_t).  Just avoid transforming this until the input has been
-      // normalized.
-      if (SO1->getType() != GO1->getType())
-        return nullptr;
-      // Only do the combine when GO1 and SO1 are both constants. Only in
-      // this case, we are sure the cost after the merge is never more than
-      // that before the merge.
-      if (!isa<Constant>(GO1) || !isa<Constant>(SO1))
-        return nullptr;
-      Sum = Builder.CreateAdd(SO1, GO1);
-    }
-
-    // Update the GEP in place if possible.
-    if (SrcGEP->getNumOperands() == 2) {
-      GEP->setOperand(0, SrcGEP->getOperand(0));
-      GEP->setOperand(1, Sum);
-      return GEP;
-    }
-    Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end() - 1);
-    Indices.push_back(Sum);
-    Indices.append(GEP->op_begin() + 2, GEP->op_end());
-  } else if (isa<Constant>(*GEP->idx_begin()) &&
-             cast<Constant>(*GEP->idx_begin())->isNullValue() &&
-             SrcGEP->getNumOperands() != 1) {
-    // Otherwise we can do the fold if the first index of the GEP is a zero
-    Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end());
-    Indices.append(GEP->idx_begin() + 1, GEP->idx_end());
-  }
-
-  DXASSERT(!Indices.empty(), "must merge");
-  Value *newGEP = Builder.CreateInBoundsGEP(nullptr, SrcGEP->getOperand(0), Indices, Name);
-  GEP->replaceAllUsesWith(newGEP);
-  if (Instruction *I = dyn_cast<Instruction>(GEP))
-    I->eraseFromParent();
-  return newGEP;
-}
-
-void HLModule::MergeGepUse(Value *V) {
-  SmallVector<Value*, 16> worklist;
-  auto addUsersToWorklist = [&worklist](Value *V) {
-    if (!V->user_empty()) {
-      // Add users in reverse to the worklist, so they are processed in order
-      // This makes it equivalent to recursive traversal
-      size_t start = worklist.size();
-      worklist.append(V->user_begin(), V->user_end());
-      size_t end = worklist.size();
-      std::reverse(worklist.data() + start, worklist.data() + end);
-    }
-  };
-  addUsersToWorklist(V);
-  while (worklist.size()) {
-    V = worklist.pop_back_val();
-    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
-      if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
-        worklist.push_back(NewV);
-      } else {
-        // merge any GEP users of the untranslated bitcast
-        addUsersToWorklist(V);
-      }
-    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
-      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
-        // merge the 2 GEPs, returns nullptr if couldn't merge
-        if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
-          worklist.push_back(newGEP);
-          // delete prevGEP if no more users
-          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP))
-            cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
-        }
-      } else {
-        // nothing to merge yet, add GEP users
-        addUsersToWorklist(V);
-      }
-    }
-  }
-}
-
-template
-CallInst *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
-                                           HLOpcodeGroup group, unsigned opcode,
-                                           Type *RetType,
-                                           ArrayRef<Value *> paramList,
-                                           llvm::Module &M);
-
-template<typename BuilderTy>
-CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
-                                           HLOpcodeGroup group, unsigned opcode,
-                                           Type *RetType,
-                                           ArrayRef<Value *> paramList,
-                                           llvm::Module &M) {
+llvm::Function *HLModule::GetHLOperationFunction(
+    HLOpcodeGroup group, unsigned opcode,
+                                       llvm::Type *RetType,
+                                       llvm::ArrayRef<llvm::Value *> paramList,
+                                       llvm::Module &M) {
   SmallVector<llvm::Type *, 4> paramTyList;
   // Add the opcode param
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
@@ -1106,6 +958,26 @@ CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
       llvm::FunctionType::get(RetType, paramTyList, false);
 
   Function *opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+  return opFunc;
+}
+
+template CallInst *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
+                                                 HLOpcodeGroup group,
+                                                 unsigned opcode, Type *RetType,
+                                                 ArrayRef<Value *> paramList,
+                                                 llvm::Module &M);
+
+template<typename BuilderTy>
+CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
+                                           HLOpcodeGroup group, unsigned opcode,
+                                           Type *RetType,
+                                           ArrayRef<Value *> paramList,
+                                           llvm::Module &M) {
+  // Add the opcode param
+  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
+
+  Function *opFunc =
+      GetHLOperationFunction(group, opcode, RetType, paramList, M);
 
   SmallVector<Value *, 4> opcodeParamList;
   Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
@@ -1191,8 +1063,8 @@ void HLModule::MarkPreciseAttributeOnValWithFunctionCall(
       cast<Function>(M.getOrInsertFunction(preciseFuncName, preciseFuncTy));
   if (!HLModule::HasPreciseAttribute(preciseFunc))
     MarkPreciseAttribute(preciseFunc);
-  if (Ty->isVectorTy()) {
-    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+  if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    for (unsigned i = 0; i < VT->getNumElements(); i++) {
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateCall(preciseFunc, {Elt});
     }
@@ -1303,7 +1175,10 @@ void HLModule::CreateElementGlobalVariableDebugInfo(
     unsigned sizeInBits, unsigned alignInBits, unsigned offsetInBits,
     StringRef eltName) {
   DIGlobalVariable *DIGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
-  DXASSERT_NOMSG(DIGV);
+  if (!DIGV) {
+    DXASSERT(DIGV, "DIGV Parameter must be non-null");
+    return;
+  }
   DIBuilder Builder(*GV->getParent());
   DITypeIdentifierMap EmptyMap;
 
@@ -1331,7 +1206,10 @@ void HLModule::UpdateGlobalVariableDebugInfo(
     llvm::GlobalVariable *GV, llvm::DebugInfoFinder &DbgInfoFinder,
     llvm::GlobalVariable *NewGV) {
   DIGlobalVariable *DIGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
-  DXASSERT_NOMSG(DIGV);
+  if (!DIGV) {
+    DXASSERT(DIGV, "DIGV Parameter must be non-null");
+    return;
+  }
   DIBuilder Builder(*GV->getParent());
   DITypeIdentifierMap EmptyMap;
   DIType *DITy = DIGV->getType().resolve(EmptyMap);

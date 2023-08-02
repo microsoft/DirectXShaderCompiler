@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
 
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 0 Offset 0
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 1 Offset 8

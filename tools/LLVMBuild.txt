@@ -28,7 +28,6 @@ subdirectories =
  llvm-dwarfdump
  llvm-extract
  llvm-link
- llvm-lto
  llvm-mc
  llvm-mcmarkup
  llvm-nm
@@ -46,4 +45,4 @@ type = Group
 name = Tools
 parent = $ROOT
 
-; HLSL Changes: remove bugpoint, llvm-ar, llvm-jitlistener
+; HLSL Changes: remove bugpoint, llvm-ar, llvm-jitlistener, llvm-lto

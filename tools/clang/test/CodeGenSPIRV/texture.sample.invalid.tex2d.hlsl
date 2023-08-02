@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: deprecated tex2D intrinsic function will not be supported
 sampler Sampler;

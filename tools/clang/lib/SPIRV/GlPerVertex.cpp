@@ -52,7 +52,7 @@ inline QualType getTypeOrFnRetType(const DeclaratorDecl *decl) {
 
 /// Returns true if the given declaration has a primitive type qualifier.
 /// Returns false otherwise.
-inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
+inline bool hasGSPrimitiveTypeQualifier(const NamedDecl *decl) {
   return decl->hasAttr<HLSLTriangleAttr>() ||
          decl->hasAttr<HLSLTriangleAdjAttr>() ||
          decl->hasAttr<HLSLPointAttr>() || decl->hasAttr<HLSLLineAttr>() ||
@@ -322,8 +322,8 @@ bool GlPerVertex::setClipCullDistanceType(SemanticIndexToTypeMap *typeMap,
   return true;
 }
 
-bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
-                                     QualType baseType, bool asInput) {
+bool GlPerVertex::doGlPerVertexFacts(const NamedDecl *decl, QualType baseType,
+                                     bool asInput) {
 
   llvm::StringRef semanticStr;
   const hlsl::Semantic *semantic = {};
@@ -332,11 +332,19 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
 
   if (!getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
     if (baseType->isStructureType()) {
-      const auto *structDecl = baseType->getAs<RecordType>()->getDecl();
+      const auto *recordType = baseType->getAs<RecordType>();
+      const auto *recordDecl = recordType->getAsCXXRecordDecl();
       // Go through each field to see if there is any usage of
       // SV_ClipDistance/SV_CullDistance.
-      for (const auto *field : structDecl->fields()) {
+      for (const auto *field : recordDecl->fields()) {
         if (!doGlPerVertexFacts(field, field->getType(), asInput))
+          return false;
+      }
+
+      // We should also recursively go through each inherited class.
+      for (const auto &base : recordDecl->bases()) {
+        const auto *baseDecl = base.getType()->getAsCXXRecordDecl();
+        if (!doGlPerVertexFacts(baseDecl, base.getType(), asInput))
           return false;
       }
       return true;
@@ -541,7 +549,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
                               llvm::Optional<SpirvInstruction *> invocationId,
                               SpirvInstruction **value, bool noWriteBack,
                               SpirvInstruction *vecComponent,
-                              SourceLocation loc) {
+                              SourceLocation loc, SourceRange range) {
   assert(value);
   // invocationId should only be used for HSPCOut or MSOut.
   assert(invocationId.hasValue()
@@ -563,7 +571,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
   case hlsl::SigPoint::Kind::HSCPIn:
   case hlsl::SigPoint::Kind::DSCPIn:
   case hlsl::SigPoint::Kind::GSVIn:
-    return readField(semanticKind, semanticIndex, value, loc);
+    return readField(semanticKind, semanticIndex, value, loc, range);
 
   case hlsl::SigPoint::Kind::GSOut:
   case hlsl::SigPoint::Kind::VSOut:
@@ -574,7 +582,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
       return true;
 
     return writeField(semanticKind, semanticIndex, invocationId, value,
-                      vecComponent, loc);
+                      vecComponent, loc, range);
   default:
     // Only interfaces that involve gl_PerVertex are needed.
     break;
@@ -583,8 +591,10 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
   return false;
 }
 
-SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
-    bool isClip, uint32_t offset, QualType asType, SourceLocation loc) const {
+SpirvInstruction *
+GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
+                                     QualType asType, SourceLocation loc,
+                                     SourceRange range) const {
   SpirvVariable *clipCullVar = isClip ? inClipVar : inCullVar;
   uint32_t count = getNumberOfScalarComponentsInScalarVectorArray(asType);
   if (count == 0) {
@@ -613,7 +623,7 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
 
 bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                             uint32_t semanticIndex, SpirvInstruction **value,
-                            SourceLocation loc) {
+                            SourceLocation loc, SourceRange range) {
   assert(value);
   switch (semanticKind) {
   case hlsl::Semantic::Kind::ClipDistance: {
@@ -623,7 +633,7 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
     assert(offsetIter != inClipOffset.end());
     assert(typeIter != inClipType.end());
     *value = readClipCullArrayAsType(/*isClip=*/true, offsetIter->second,
-                                     typeIter->second, loc);
+                                     typeIter->second, loc, range);
     return true;
   }
   case hlsl::Semantic::Kind::CullDistance: {
@@ -633,7 +643,7 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
     assert(offsetIter != inCullOffset.end());
     assert(typeIter != inCullType.end());
     *value = readClipCullArrayAsType(/*isClip=*/false, offsetIter->second,
-                                     typeIter->second, loc);
+                                     typeIter->second, loc, range);
     return true;
   }
   default:
@@ -646,7 +656,7 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
 void GlPerVertex::writeClipCullArrayFromType(
     llvm::Optional<SpirvInstruction *> invocationId, bool isClip,
     SpirvInstruction *offset, QualType fromType, SpirvInstruction *fromValue,
-    SourceLocation loc) const {
+    SourceLocation loc, SourceRange range) const {
   auto *clipCullVar = isClip ? outClipVar : outCullVar;
 
   if (outArraySize == 0) {
@@ -691,8 +701,8 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
                              uint32_t semanticIndex,
                              llvm::Optional<SpirvInstruction *> invocationId,
                              SpirvInstruction **value,
-                             SpirvInstruction *vecComponent,
-                             SourceLocation loc) {
+                             SpirvInstruction *vecComponent, SourceLocation loc,
+                             SourceRange range) {
   // Similar to the writing logic in DeclResultIdMapper::createStageVars():
   //
   // Unlike reading, which may require us to read stand-alone builtins and
@@ -746,10 +756,12 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
       assert(false && "expected vector type");
     }
     type = elemType;
-    offset = spvBuilder.createBinaryOp(
-        spv::Op::OpIAdd, astContext.UnsignedIntTy, vecComponent, offset, loc);
+    offset =
+        spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                  vecComponent, offset, loc, range);
   }
-  writeClipCullArrayFromType(invocationId, isClip, offset, type, *value, loc);
+  writeClipCullArrayFromType(invocationId, isClip, offset, type, *value, loc,
+                             range);
   return true;
 }
 

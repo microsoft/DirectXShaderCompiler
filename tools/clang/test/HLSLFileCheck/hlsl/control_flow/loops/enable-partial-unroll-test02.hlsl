@@ -1,4 +1,4 @@
-// RUN: %dxc /Tcs_6_0 /Emain > %s | FileCheck %s
+// RUN: %dxc /Tcs_6_0 /Emain  %s | FileCheck %s
 // CHECK: define void @main()
 // CHECK: entry
 

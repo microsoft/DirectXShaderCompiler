@@ -34,9 +34,9 @@ float main() : SV_Target {
   // CHECK: dbg.value(metadata i32 80, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"x"
 
   x = x * 5;
-  // CHECK: %[[x6:.+]] = mul 
+  // xHECK: %[[x6:.+]] = mul 
   // xHECK-SAME: %[[x5]]
-  // CHECK: dbg.value(metadata i32 %[[x6]], i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"x"
+  // CHECK: dbg.value(metadata i32 400, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"x"
 
   // CHECK: dx.nothing
   return x;

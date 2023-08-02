@@ -46,7 +46,7 @@ namespace llvm {
 /// Note that this pass is designed for use with the legacy pass manager.
 ModulePass *createDxilLowerCreateHandleForLibPass();
 ModulePass *createDxilAllocateResourcesForLibPass();
-ModulePass *createDxilCleanupAnnotateHandlePass();
+ModulePass *createDxilCleanupDynamicResourceHandlePass();
 ModulePass *createDxilEliminateOutputDynamicIndexingPass();
 ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper);
 ModulePass *createHLEmitMetadataPass();
@@ -79,7 +79,7 @@ ModulePass *createDxilRenameResourcesPass();
 
 void initializeDxilLowerCreateHandleForLibPass(llvm::PassRegistry&);
 void initializeDxilAllocateResourcesForLibPass(llvm::PassRegistry&);
-void initializeDxilCleanupAnnotateHandlePass(llvm::PassRegistry&);
+void initializeDxilCleanupDynamicResourceHandlePass(llvm::PassRegistry &);
 void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
 void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
@@ -117,7 +117,7 @@ void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry&);
 FunctionPass *createCleanupDxBreakPass();
 void initializeCleanupDxBreakPass(llvm::PassRegistry&);
 
-FunctionPass *createDxilLoopDeletionPass();
+FunctionPass *createDxilLoopDeletionPass(bool NoSink);
 void initializeDxilLoopDeletionPass(llvm::PassRegistry &);
 
 ModulePass *createHLLegalizeParameter();
@@ -133,5 +133,14 @@ void initializeDxilNoOptSimplifyInstructionsPass(llvm::PassRegistry&);
 
 ModulePass *createDxilMutateResourceToHandlePass();
 void initializeDxilMutateResourceToHandlePass(llvm::PassRegistry&);
+
+ModulePass *createDxilDeleteRedundantDebugValuesPass();
+void initializeDxilDeleteRedundantDebugValuesPass(llvm::PassRegistry&);
+
+FunctionPass *createDxilSimpleGVNEliminateRegionPass();
+void initializeDxilSimpleGVNEliminateRegionPass(llvm::PassRegistry&);
+
+ModulePass *createDxilModuleInitPass();
+void initializeDxilModuleInitPass(llvm::PassRegistry &);
 
 }

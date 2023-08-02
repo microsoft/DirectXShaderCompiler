@@ -27,7 +27,7 @@ namespace llvm {
 namespace hlsl {
   class OP;
 
-  struct HLResourceLookup 
+  struct HLResourceLookup
   {
       // Lookup resource kind based on handle. Return true on success.
       virtual bool GetResourceKindName(llvm::Value *HLHandle, const char **ppName) = 0;

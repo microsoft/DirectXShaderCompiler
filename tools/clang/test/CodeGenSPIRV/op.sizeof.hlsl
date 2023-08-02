@@ -1,4 +1,4 @@
-// Run: %dxc -E main -T vs_6_2 -HV 2018 -enable-16bit-types
+// RUN: %dxc -E main -T vs_6_2 -HV 2018 -enable-16bit-types
 
 struct Empty {};
 

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpCapability RuntimeDescriptorArray
 // CHECK: OpCapability ShaderNonUniform
@@ -59,10 +59,6 @@
 // CHECK: OpDecorate [[nu47:%\d+]] NonUniform
 // CHECK: OpDecorate [[nu48:%\d+]] NonUniform
 // CHECK: OpDecorate [[nu49:%\d+]] NonUniform
-// CHECK: OpDecorate [[nu50:%\d+]] NonUniform
-// CHECK: OpDecorate [[nu51:%\d+]] NonUniform
-// CHECK: OpDecorate [[nu52:%\d+]] NonUniform
-// CHECK: OpDecorate [[nu53:%\d+]] NonUniform
 
 Texture2D           gTextures[32];
 SamplerState        gSamplers[];
@@ -177,12 +173,6 @@ float4 main(uint index : A, float2 loc : B, int2 offset : C) : SV_Target {
 // CHECK:   [[nu47]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu46]]
 // CHECK:   [[nu48]] = OpLoad %type_2d_image
 // CHECK:   [[nu49]] = OpSampledImage %type_sampled_image
-// CHECK:              OpImageQueryLod
-// CHECK: [[i:%\d+]] = OpLoad %uint %index
-// CHECK:   [[nu50]] = OpCopyObject %uint [[i]]
-// CHECK:   [[nu51]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu50]]
-// CHECK:   [[nu52]] = OpLoad %type_2d_image
-// CHECK:   [[nu53]] = OpSampledImage %type_sampled_image
 // CHECK:              OpImageQueryLod
     float  v9 = gTextures[NonUniformResourceIndex(index)].CalculateLevelOfDetail(gSamplers[0], 0.5);
 

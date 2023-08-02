@@ -22,9 +22,9 @@ namespace spirv {
 namespace utils {
 
 bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
-                            std::string *generatedSpirvAsm,
-                            bool generateHeader) {
-  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
+                            std::string *generatedSpirvAsm, bool generateHeader,
+                            spv_target_env target_env) {
+  spvtools::SpirvTools spirvTools(target_env);
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
          const char *message) { fprintf(stdout, "%s\n", message); });
@@ -66,9 +66,9 @@ bool processRunCommandArgs(const llvm::StringRef runCommandLine,
   std::istringstream buf(runCommandLine);
   std::istream_iterator<std::string> start(buf), end;
   std::vector<std::string> tokens(start, end);
-  if (tokens.size() < 3 || tokens[1].find("Run") == std::string::npos ||
+  if (tokens.size() < 3 || tokens[1].find("RUN") == std::string::npos ||
       tokens[2].find("%dxc") == std::string::npos) {
-    fprintf(stderr, "The only supported format is: \"// Run: %%dxc -T "
+    fprintf(stderr, "The only supported format is: \"// RUN: %%dxc -T "
                     "<profile> -E <entry>\"\n");
     return false;
   }
@@ -85,8 +85,12 @@ bool processRunCommandArgs(const llvm::StringRef runCommandLine,
         *targetEnv = SPV_ENV_VULKAN_1_0;
       else if (targetEnvStr == "vulkan1.1")
         *targetEnv = SPV_ENV_VULKAN_1_1;
+      else if (targetEnvStr == "vulkan1.1spirv1.4")
+        *targetEnv = SPV_ENV_VULKAN_1_1_SPIRV_1_4;
       else if (targetEnvStr == "vulkan1.2")
         *targetEnv = SPV_ENV_VULKAN_1_2;
+      else if (targetEnvStr == "vulkan1.3")
+        *targetEnv = SPV_ENV_UNIVERSAL_1_6;
       else if (targetEnvStr == "universal1.5")
         *targetEnv = SPV_ENV_UNIVERSAL_1_5;
       else {

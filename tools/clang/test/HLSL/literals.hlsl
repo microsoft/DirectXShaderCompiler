@@ -163,8 +163,8 @@ float test() {
   VERIFY_TYPES(min16float4x4, m16f4x4 * (0.5 + 1));
 
   // Ensure Conversion works.
-  VERIFY_TYPE_CONVERSION(min10float, 1.5f);  /* expected-warning {{min10float is promoted to min16float}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
-  VERIFY_TYPE_CONVERSION(min10float, 0.25l); /* expected-warning {{min10float is promoted to min16float}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
+  VERIFY_TYPE_CONVERSION(min10float, 1.5f);  /* expected-warning {{'min10float' is promoted to 'min16float'}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
+  VERIFY_TYPE_CONVERSION(min10float, 0.25l); /* expected-warning {{'min10float' is promoted to 'min16float'}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
 
   VERIFY_TYPE_CONVERSION(min16float, 1.5f);  /* fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   VERIFY_TYPE_CONVERSION(min16float, 2.5l);  /* fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
@@ -184,9 +184,9 @@ float test() {
   VERIFY_TYPE_CONVERSION(uint, 1UL);
   VERIFY_TYPE_CONVERSION(uint, 1LL);         /* fxc-error {{X3000: syntax error: unexpected token 'L'}} */
 
-  VERIFY_TYPE_CONVERSION(min12int, 1L);  /* expected-warning {{min12int is promoted to min16int}} fxc-pass {{}} */
-  VERIFY_TYPE_CONVERSION(min12int, 1UL); /* expected-warning {{min12int is promoted to min16int}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
-  VERIFY_TYPE_CONVERSION(min12int, 1LL); /* expected-warning {{min12int is promoted to min16int}} fxc-error {{X3000: syntax error: unexpected token 'L'}} */
+  VERIFY_TYPE_CONVERSION(min12int, 1L);  /* expected-warning {{'min12int' is promoted to 'min16int'}} fxc-pass {{}} */
+  VERIFY_TYPE_CONVERSION(min12int, 1UL); /* expected-warning {{'min12int' is promoted to 'min16int'}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
+  VERIFY_TYPE_CONVERSION(min12int, 1LL); /* expected-warning {{'min12int' is promoted to 'min16int'}} fxc-error {{X3000: syntax error: unexpected token 'L'}} */
 
   VERIFY_TYPE_CONVERSION(min16int, 1L);
   VERIFY_TYPE_CONVERSION(min16int, 1UL); /* fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
@@ -197,12 +197,12 @@ float test() {
   VERIFY_TYPES(uint, 1U << i);
   // FXC behavior: pick uint if RHS is uint, otherwise, pick int
   // DXC: Warn for ambiguous literal LHS, then match FXC for type
-  VERIFY_TYPES(int, 1 << i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
-  VERIFY_TYPES(uint, 1 << u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
-  VERIFY_TYPES(int, 1 << m16i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
-  VERIFY_TYPES(int, 1 << m16u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
+  VERIFY_TYPES(int, 1 << i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
+  VERIFY_TYPES(uint, 1 << u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
+  VERIFY_TYPES(int, 1 << m16i);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
+  VERIFY_TYPES(int, 1 << m16u);/* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */
 
   return 0.0f;
 }
 
-int half_btf(int w,int bit) { return (w + (1<<bit)) >> bit; } /* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} */
+int half_btf(int w,int bit) { return (w + (1<<bit)) >> bit; } /* expected-warning {{ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast}} fxc-pass {{}} */

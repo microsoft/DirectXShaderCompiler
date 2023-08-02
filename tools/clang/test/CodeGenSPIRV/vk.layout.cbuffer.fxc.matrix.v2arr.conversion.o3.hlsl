@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-use-dx-layout -O3
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout -O3
 
 // CHECK: OpDecorate [[arr_f3:%\w+]] ArrayStride 16
 // CHECK: OpMemberDecorate {{%\w+}} 0 Offset 0

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -O3
+// RUN: %dxc -T ps_6_0 -E main -O3
 
 struct PSInput
 {

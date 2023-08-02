@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fvk-support-nonzero-base-instance
+// RUN: %dxc -T vs_6_0 -E main -fvk-support-nonzero-base-instance
 
 // CHECK:                     OpEntryPoint Vertex %main "main"
 // CHECK-SAME:                %gl_InstanceIndex

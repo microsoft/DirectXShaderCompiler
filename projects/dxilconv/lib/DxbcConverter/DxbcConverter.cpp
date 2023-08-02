@@ -247,7 +247,7 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
 
   // Wrap LLVM module in a DXBC container.
   size_t DXILSize = DxilBuffer.size_in_bytes();
-  DxilContainerWriter *pContainerWriter = hlsl::NewDxilContainerWriter();
+  std::unique_ptr<DxilContainerWriter> pContainerWriter(hlsl::NewDxilContainerWriter());
   pContainerWriter->AddPart(DXBC_DXIL, DXILSize, [=](AbstractMemoryStream *pStream) {
     WritePart(pStream, DxilBuffer);
   });
@@ -289,8 +289,13 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
       IFT(dxbcReader.FindFirstPartKind(IOSigFourCCArray[i], &uBlob));
       if(uBlob != DXIL_CONTAINER_BLOB_NOT_FOUND) {
         IFT(dxbcReader.GetPartContent(uBlob, &pBlobData, &uElemSize));
-        pContainerWriter->AddPart(IOSigFourCCArray[i], uElemSize, [=](AbstractMemoryStream *pStream) {
+        pContainerWriter->AddPart(IOSigFourCCArray[i], PSVALIGN4(uElemSize), [=](AbstractMemoryStream *pStream) {
           WritePart(pStream, pBlobData, uElemSize);
+          unsigned padding = PSVALIGN4(uElemSize) - uElemSize;
+          if (padding) {
+            const char padZeros[4] = {0,0,0,0};
+            WritePart(pStream, padZeros, padding);
+          }
         });
       }
     }
@@ -327,7 +332,7 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
   CComPtr<AbstractMemoryStream> pOutputStream;
   IFT(CreateFixedSizeMemoryStream((LPBYTE)pOutput.m_pData, OutputSize, &pOutputStream));
   pContainerWriter->write(pOutputStream);
-  pOutputStream.Detach();
+  // pOutputStream does not own the buffer; allow CComPtr to clean up the stream object.
 
   *ppDxil = pOutput.Detach();
   *pDxilSize = OutputSize;
@@ -908,7 +913,7 @@ void DxbcConverter::ConvertSignature(SignatureHelper &SigHelper, DxilSignature &
               E.SetRows(Rows);
               SigHelper.m_Signature.AppendElement(std::move(pE));
             } else {
-#ifdef DBG
+#ifndef NDEBUG
               // Verify match with range representative element.
               DxilSignatureElement &RE = SigHelper.m_Signature.GetElement(itKeyDxilEl->second);
               DXASSERT_DXBC(RE.GetCompType() == E.GetCompType());
@@ -1650,7 +1655,7 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       case D3D11_SB_OPERAND_TYPE_OUTPUT_DEPTH_GREATER_EQUAL:
       case D3D11_SB_OPERAND_TYPE_OUTPUT_DEPTH_LESS_EQUAL:
         m_DepthRegType = RegType;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case D3D11_SB_OPERAND_TYPE_OUTPUT_STENCIL_REF:
       case D3D10_SB_OPERAND_TYPE_OUTPUT_COVERAGE_MASK: {
         m_bHasStencilRef = RegType == D3D11_SB_OPERAND_TYPE_OUTPUT_STENCIL_REF;
@@ -1862,7 +1867,7 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       DXASSERT_DXBC(Inst.m_NumOperands == 0);
       auto& Iface = m_Interfaces[Inst.m_InterfaceDecl.InterfaceNumber];
       Iface.Tables.assign(Inst.m_InterfaceDecl.pFunctionTableIdentifiers, Inst.m_InterfaceDecl.pFunctionTableIdentifiers + Inst.m_InterfaceDecl.TableLength);
-#ifdef DBG
+#ifndef NDEBUG
       for (unsigned TableIdx : Iface.Tables) {
           DXASSERT_DXBC(m_FunctionTables[TableIdx].size() == Inst.m_InterfaceDecl.ExpectedTableSize);
       }
@@ -3319,9 +3324,7 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
     case D3D10_1_SB_OPCODE_GATHER4:
     case D3DWDDM1_3_SB_OPCODE_GATHER4_FEEDBACK: {
       OP::OpCode OpCode = OP::OpCode::TextureGather;
-      bool bHasFeedback = DXBC::HasFeedback(Inst.OpCode());
       const unsigned uOpOutput = 0;
-      const unsigned uOpCoord = uOpOutput + 1 + (bHasFeedback ? 1 : 0);
       const unsigned uOpSRV = DXBC::GetResourceSlot(Inst.OpCode());
       const unsigned uOpSampler = uOpSRV + 1;
       const DxilResource &R = GetSRVFromOperand(Inst, uOpSRV);
@@ -3355,9 +3358,7 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
     case D3D11_SB_OPCODE_GATHER4_C:
     case D3DWDDM1_3_SB_OPCODE_GATHER4_C_FEEDBACK: {
       OP::OpCode OpCode = OP::OpCode::TextureGatherCmp;
-      bool bHasFeedback = DXBC::HasFeedback(Inst.OpCode());
       const unsigned uOpOutput = 0;
-      const unsigned uOpCoord = uOpOutput + 1 + (bHasFeedback ? 1 : 0);
       const unsigned uOpSRV = DXBC::GetResourceSlot(Inst.OpCode());
       const unsigned uOpSampler = uOpSRV + 1;
       const unsigned uOpCmp = uOpSampler + 1;
@@ -4259,7 +4260,7 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
         switch (Comp) {
         case 0: Out[c] = pOpRetClamped; break;
         case 1: Out[c] = pOpRetUnclamped; break;
-        case 2: __fallthrough;
+        case 2: LLVM_FALLTHROUGH;
         case 3: Out[c] = m_pOP->GetFloatConst(0.f); break;
         default: DXASSERT_DXBC(false);
         }
@@ -4281,9 +4282,9 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
       break;
     }
 
-    case D3D10_SB_OPCODE_DERIV_RTX:         __fallthrough;
+    case D3D10_SB_OPCODE_DERIV_RTX:         LLVM_FALLTHROUGH;
     case D3D11_SB_OPCODE_DERIV_RTX_COARSE:  ConvertUnary(OP::OpCode::DerivCoarseX, CompType::getF32(), Inst); break;
-    case D3D10_SB_OPCODE_DERIV_RTY:         __fallthrough;
+    case D3D10_SB_OPCODE_DERIV_RTY:         LLVM_FALLTHROUGH;
     case D3D11_SB_OPCODE_DERIV_RTY_COARSE:  ConvertUnary(OP::OpCode::DerivCoarseY, CompType::getF32(), Inst); break;
     case D3D11_SB_OPCODE_DERIV_RTX_FINE:    ConvertUnary(OP::OpCode::DerivFineX, CompType::getF32(), Inst); break;
     case D3D11_SB_OPCODE_DERIV_RTY_FINE:    ConvertUnary(OP::OpCode::DerivFineY, CompType::getF32(), Inst); break;
@@ -5347,7 +5348,6 @@ void DxbcConverter::ConvertFromDouble(const CompType &DstElementType, D3D10Shade
 
 void DxbcConverter::LoadCommonSampleInputs(D3D10ShaderBinary::CInstruction &Inst, Value *pArgs[], bool bSetOffsets) {
   bool bHasFeedback = DXBC::HasFeedback(Inst.OpCode());
-  const unsigned uOpOutput = 0;
   const unsigned uOpStatus = 1;
   const unsigned uOpCoord = uOpStatus + (bHasFeedback ? 1 : 0);
   const unsigned uOpSRV = DXBC::GetResourceSlot(Inst.OpCode());
@@ -5769,12 +5769,12 @@ void DxbcConverter::LoadOperand(OperandValue &SrcVal,
         SrcVal[c] = CastDxbcValue(LoadConstFloat(O.m_Valuef[Comp]), CompType::Kind::F32, CompType::Kind::F16);
         break;
 
-      case CompType::Kind::I32: __fallthrough;
+      case CompType::Kind::I32: LLVM_FALLTHROUGH;
       case CompType::Kind::U32:
         SrcVal[c] = m_pOP->GetU32Const(O.m_Value[Comp]);
         break;
 
-      case CompType::Kind::I16: __fallthrough;
+      case CompType::Kind::I16: LLVM_FALLTHROUGH;
       case CompType::Kind::U16:
         SrcVal[c] = CastDxbcValue(m_pOP->GetU32Const(O.m_Value[Comp]), CompType::Kind::U32, CompType::Kind::I16);
         break;
@@ -6806,7 +6806,7 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       return m_pBuilder->CreateBitCast(m_pBuilder->CreateSExt(pValue, Type::getInt16Ty(m_Ctx)), Type::getHalfTy(m_Ctx));
     case CompType::Kind::F32:
       return m_pBuilder->CreateBitCast(m_pBuilder->CreateSExt(pValue, Type::getInt32Ty(m_Ctx)), Type::getFloatTy(m_Ctx));
-    default: __fallthrough;
+    default: LLVM_FALLTHROUGH;
     }
     break;
 
@@ -6830,7 +6830,7 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       pValue = m_pBuilder->CreateSExt(pValue, Type::getInt32Ty(m_Ctx));
       return CreateBitCast(pValue, CompType::getI32(), CompType::getF32());
     }
-    default: __fallthrough;
+    default: LLVM_FALLTHROUGH;
     }
     break;
 
@@ -6854,7 +6854,7 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       pValue = m_pBuilder->CreateZExt(pValue, Type::getInt32Ty(m_Ctx));
       return CreateBitCast(pValue, CompType::getI32(), CompType::getF32());
     }
-    default: __fallthrough;
+    default: LLVM_FALLTHROUGH;
     }
     break;
 
@@ -6876,7 +6876,7 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
     }
     case CompType::Kind::F32:
       return CreateBitCast(pValue, CompType::getI32(), CompType::getF32());
-    default: __fallthrough;
+    default: LLVM_FALLTHROUGH;
     }
     break;
 
@@ -6896,7 +6896,7 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
     }
     case CompType::Kind::F32:
       return m_pBuilder->CreateFPExt(pValue, Type::getFloatTy(m_Ctx));
-    default: __fallthrough;
+    default: LLVM_FALLTHROUGH;
     }
     break;
 
@@ -6916,11 +6916,11 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       return CreateBitCast(pValue, CompType::getF32(), CompType::getI32());
     case CompType::Kind::F16:
       return m_pBuilder->CreateFPTrunc(pValue, Type::getHalfTy(m_Ctx));
-    default: __fallthrough;
+    default: LLVM_FALLTHROUGH;
     }
     break;
 
-  default: __fallthrough;
+  default: LLVM_FALLTHROUGH;
   }
 
   DXASSERT(false, "unsupported cast combination");
@@ -7083,7 +7083,7 @@ CompType DxbcConverter::InferOperandType(const D3D10ShaderBinary::CInstruction &
       }
     }
 
-    default: __fallthrough;
+    default: LLVM_FALLTHROUGH;
     }
   }
 

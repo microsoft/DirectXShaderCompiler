@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 %s | FileCheck -input=stderr %s
+// RUN: %dxc -T ps_6_0 %s | FileCheck -input-file=stderr %s
 
 // CHECK-NOT: warning: Declared output SV_Target0 not fully written in shader.
 // CHECK: warning: Declared output SV_Target1 not fully written in shader.

@@ -20,6 +20,7 @@
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 using namespace clang;
 
 /// \brief Parse a template declaration, explicit instantiation, or
@@ -198,18 +199,8 @@ Parser::ParseSingleDeclarationAfterTemplate(
   // HLSL Change: comment only - MaybeParseHLSLAttributes would go here if allowed at this point
 
   if (Tok.is(tok::kw_using))
-    // HLSL Change Starts
-    {
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << "using";
-      SkipMalformedDecl();
-    }
-    else {
-    // HLSL Change Ends - succeeding statement is now conditional
       return ParseUsingDirectiveOrDeclaration(Context, TemplateInfo, DeclEnd,
                                               prefixAttrs);
-    } // HLSL Change - close conditional
-    } // HLSL Change - close conditional
 
   // Parse the declaration specifiers, stealing any diagnostics from
   // the template parameters.
@@ -247,6 +238,14 @@ Parser::ParseSingleDeclarationAfterTemplate(
       ConsumeToken();
     return nullptr;
   }
+
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope TimeScope("ParseTemplate", [&]() {
+    return DeclaratorInfo.getIdentifier() != nullptr
+               ? DeclaratorInfo.getIdentifier()->getName()
+               : "<unknown>";
+  });
+  // HLSL Change End - Support hierarchial time tracing.
 
   LateParsedAttrList LateParsedAttrs(true);
   if (DeclaratorInfo.isFunctionDeclarator())
@@ -1224,7 +1223,6 @@ ParsedTemplateArgument Parser::ParseTemplateArgument() {
   }
   
   // Try to parse a template template argument.
-  if (!getLangOpts().HLSL) // HLSL Change - HLSL does not support template template arguments
   {
     TentativeParsingAction TPA(*this);
 

@@ -330,8 +330,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "PS Inner Coverage",
     "Typed UAV Load Additional Formats",
     "Raster Ordered UAVs",
-    "SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader "
-    "feeding rasterizer",
+    ("SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader "
+    "feeding rasterizer"),
     "Wave level operations",
     "64-Bit integer",
     "View Instancing",
@@ -347,6 +347,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "Sampler descriptor heap indexing",
     "<RESERVED>",
     "64-bit Atomics on Heap Resources",
+    "Advanced Texture Ops",
+    "Writeable MSAA Textures",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -388,6 +390,7 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
       OS << right_justify(compName, alignment);
       break;
     }
+    break;
   case DxilResource::Class::Invalid:
     break;
   }
@@ -703,7 +706,7 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
     }
     case DXIL::SubobjectKind::LocalRootSignature:
       bLocalRS = true;
-      __fallthrough;
+      LLVM_FALLTHROUGH;
     case DXIL::SubobjectKind::GlobalRootSignature: {
       const char *Text = nullptr;
       const void *Data = nullptr;
@@ -960,7 +963,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
   if (!RetTy->isStructTy() || HLMatrixType::isa(RetTy)) {
     llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
     // For resource array, use element type.
-    if (Ty->isArrayTy())
+    while (Ty->isArrayTy())
       Ty = Ty->getArrayElementType();
     // Get the struct buffer type like this %class.StructuredBuffer = type {
     // %struct.mat }.
@@ -1069,233 +1072,7 @@ void PrintBufferDefinitions(DxilModule &M, raw_string_ostream &OS,
   }
 }
 
-/* <py::lines('OPCODE-SIGS')>hctdb_instrhelp.get_opsigs()</py>*/
-// OPCODE-SIGS:BEGIN
-static const char *OpCodeSignatures[] = {
-  "(index)",  // TempRegLoad
-  "(index,value)",  // TempRegStore
-  "(regIndex,index,component)",  // MinPrecXRegLoad
-  "(regIndex,index,component,value)",  // MinPrecXRegStore
-  "(inputSigId,rowIndex,colIndex,gsVertexAxis)",  // LoadInput
-  "(outputSigId,rowIndex,colIndex,value)",  // StoreOutput
-  "(value)",  // FAbs
-  "(value)",  // Saturate
-  "(value)",  // IsNaN
-  "(value)",  // IsInf
-  "(value)",  // IsFinite
-  "(value)",  // IsNormal
-  "(value)",  // Cos
-  "(value)",  // Sin
-  "(value)",  // Tan
-  "(value)",  // Acos
-  "(value)",  // Asin
-  "(value)",  // Atan
-  "(value)",  // Hcos
-  "(value)",  // Hsin
-  "(value)",  // Htan
-  "(value)",  // Exp
-  "(value)",  // Frc
-  "(value)",  // Log
-  "(value)",  // Sqrt
-  "(value)",  // Rsqrt
-  "(value)",  // Round_ne
-  "(value)",  // Round_ni
-  "(value)",  // Round_pi
-  "(value)",  // Round_z
-  "(value)",  // Bfrev
-  "(value)",  // Countbits
-  "(value)",  // FirstbitLo
-  "(value)",  // FirstbitHi
-  "(value)",  // FirstbitSHi
-  "(a,b)",  // FMax
-  "(a,b)",  // FMin
-  "(a,b)",  // IMax
-  "(a,b)",  // IMin
-  "(a,b)",  // UMax
-  "(a,b)",  // UMin
-  "(a,b)",  // IMul
-  "(a,b)",  // UMul
-  "(a,b)",  // UDiv
-  "(a,b)",  // UAddc
-  "(a,b)",  // USubb
-  "(a,b,c)",  // FMad
-  "(a,b,c)",  // Fma
-  "(a,b,c)",  // IMad
-  "(a,b,c)",  // UMad
-  "(a,b,c)",  // Msad
-  "(a,b,c)",  // Ibfe
-  "(a,b,c)",  // Ubfe
-  "(width,offset,value,replacedValue)",  // Bfi
-  "(ax,ay,bx,by)",  // Dot2
-  "(ax,ay,az,bx,by,bz)",  // Dot3
-  "(ax,ay,az,aw,bx,by,bz,bw)",  // Dot4
-  "(resourceClass,rangeId,index,nonUniformIndex)",  // CreateHandle
-  "(handle,byteOffset,alignment)",  // CBufferLoad
-  "(handle,regIndex)",  // CBufferLoadLegacy
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,clamp)",  // Sample
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)",  // SampleBias
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)",  // SampleLevel
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,ddx0,ddx1,ddx2,ddy0,ddy1,ddy2,clamp)",  // SampleGrad
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,clamp)",  // SampleCmp
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue)",  // SampleCmpLevelZero
-  "(srv,mipLevelOrSampleCount,coord0,coord1,coord2,offset0,offset1,offset2)",  // TextureLoad
-  "(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)",  // TextureStore
-  "(srv,index,wot)",  // BufferLoad
-  "(uav,coord0,coord1,value0,value1,value2,value3,mask)",  // BufferStore
-  "(uav,inc)",  // BufferUpdateCounter
-  "(status)",  // CheckAccessFullyMapped
-  "(handle,mipLevel)",  // GetDimensions
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGather
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)",  // TextureGatherCmp
-  "(srv,index)",  // Texture2DMSGetSamplePosition
-  "(index)",  // RenderTargetGetSamplePosition
-  "()",  // RenderTargetGetSampleCount
-  "(handle,atomicOp,offset0,offset1,offset2,newValue)",  // AtomicBinOp
-  "(handle,offset0,offset1,offset2,compareValue,newValue)",  // AtomicCompareExchange
-  "(barrierMode)",  // Barrier
-  "(handle,sampler,coord0,coord1,coord2,clamped)",  // CalculateLOD
-  "(condition)",  // Discard
-  "(value)",  // DerivCoarseX
-  "(value)",  // DerivCoarseY
-  "(value)",  // DerivFineX
-  "(value)",  // DerivFineY
-  "(inputSigId,inputRowIndex,inputColIndex,offsetX,offsetY)",  // EvalSnapped
-  "(inputSigId,inputRowIndex,inputColIndex,sampleIndex)",  // EvalSampleIndex
-  "(inputSigId,inputRowIndex,inputColIndex)",  // EvalCentroid
-  "()",  // SampleIndex
-  "()",  // Coverage
-  "()",  // InnerCoverage
-  "(component)",  // ThreadId
-  "(component)",  // GroupId
-  "(component)",  // ThreadIdInGroup
-  "()",  // FlattenedThreadIdInGroup
-  "(streamId)",  // EmitStream
-  "(streamId)",  // CutStream
-  "(streamId)",  // EmitThenCutStream
-  "()",  // GSInstanceID
-  "(lo,hi)",  // MakeDouble
-  "(value)",  // SplitDouble
-  "(inputSigId,row,col,index)",  // LoadOutputControlPoint
-  "(inputSigId,row,col)",  // LoadPatchConstant
-  "(component)",  // DomainLocation
-  "(outputSigID,row,col,value)",  // StorePatchConstant
-  "()",  // OutputControlPointID
-  "()",  // PrimitiveID
-  "()",  // CycleCounterLegacy
-  "()",  // WaveIsFirstLane
-  "()",  // WaveGetLaneIndex
-  "()",  // WaveGetLaneCount
-  "(cond)",  // WaveAnyTrue
-  "(cond)",  // WaveAllTrue
-  "(value)",  // WaveActiveAllEqual
-  "(cond)",  // WaveActiveBallot
-  "(value,lane)",  // WaveReadLaneAt
-  "(value)",  // WaveReadLaneFirst
-  "(value,op,sop)",  // WaveActiveOp
-  "(value,op)",  // WaveActiveBit
-  "(value,op,sop)",  // WavePrefixOp
-  "(value,quadLane)",  // QuadReadLaneAt
-  "(value,op)",  // QuadOp
-  "(value)",  // BitcastI16toF16
-  "(value)",  // BitcastF16toI16
-  "(value)",  // BitcastI32toF32
-  "(value)",  // BitcastF32toI32
-  "(value)",  // BitcastI64toF64
-  "(value)",  // BitcastF64toI64
-  "(value)",  // LegacyF32ToF16
-  "(value)",  // LegacyF16ToF32
-  "(value)",  // LegacyDoubleToFloat
-  "(value)",  // LegacyDoubleToSInt32
-  "(value)",  // LegacyDoubleToUInt32
-  "(value)",  // WaveAllBitCount
-  "(value)",  // WavePrefixBitCount
-  "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
-  "()",  // ViewID
-  "(srv,index,elementOffset,mask,alignment)",  // RawBufferLoad
-  "(uav,index,elementOffset,value0,value1,value2,value3,mask,alignment)",  // RawBufferStore
-  "()",  // InstanceID
-  "()",  // InstanceIndex
-  "()",  // HitKind
-  "()",  // RayFlags
-  "(col)",  // DispatchRaysIndex
-  "(col)",  // DispatchRaysDimensions
-  "(col)",  // WorldRayOrigin
-  "(col)",  // WorldRayDirection
-  "(col)",  // ObjectRayOrigin
-  "(col)",  // ObjectRayDirection
-  "(row,col)",  // ObjectToWorld
-  "(row,col)",  // WorldToObject
-  "()",  // RayTMin
-  "()",  // RayTCurrent
-  "()",  // IgnoreHit
-  "()",  // AcceptHitAndEndSearch
-  "(AccelerationStructure,RayFlags,InstanceInclusionMask,RayContributionToHitGroupIndex,MultiplierForGeometryContributionToShaderIndex,MissShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)",  // TraceRay
-  "(THit,HitKind,Attributes)",  // ReportHit
-  "(ShaderIndex,Parameter)",  // CallShader
-  "(Resource)",  // CreateHandleForLib
-  "()",  // PrimitiveIndex
-  "(acc,ax,ay,bx,by)",  // Dot2AddHalf
-  "(acc,a,b)",  // Dot4AddI8Packed
-  "(acc,a,b)",  // Dot4AddU8Packed
-  "(value)",  // WaveMatch
-  "(value,mask0,mask1,mask2,mask3,op,sop)",  // WaveMultiPrefixOp
-  "(value,mask0,mask1,mask2,mask3)",  // WaveMultiPrefixBitCount
-  "(numVertices,numPrimitives)",  // SetMeshOutputCounts
-  "(PrimitiveIndex,VertexIndex0,VertexIndex1,VertexIndex2)",  // EmitIndices
-  "()",  // GetMeshPayload
-  "(outputSigId,rowIndex,colIndex,value,vertexIndex)",  // StoreVertexOutput
-  "(outputSigId,rowIndex,colIndex,value,primitiveIndex)",  // StorePrimitiveOutput
-  "(threadGroupCountX,threadGroupCountY,threadGroupCountZ,payload)",  // DispatchMesh
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,clamp)",  // WriteSamplerFeedback
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,bias,clamp)",  // WriteSamplerFeedbackBias
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,lod)",  // WriteSamplerFeedbackLevel
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,ddx0,ddx1,ddx2,ddy0,ddy1,ddy2,clamp)",  // WriteSamplerFeedbackGrad
-  "(constRayFlags)",  // AllocateRayQuery
-  "(rayQueryHandle,accelerationStructure,rayFlags,instanceInclusionMask,origin_X,origin_Y,origin_Z,tMin,direction_X,direction_Y,direction_Z,tMax)",  // RayQuery_TraceRayInline
-  "(rayQueryHandle)",  // RayQuery_Proceed
-  "(rayQueryHandle)",  // RayQuery_Abort
-  "(rayQueryHandle)",  // RayQuery_CommitNonOpaqueTriangleHit
-  "(rayQueryHandle,t)",  // RayQuery_CommitProceduralPrimitiveHit
-  "(rayQueryHandle)",  // RayQuery_CommittedStatus
-  "(rayQueryHandle)",  // RayQuery_CandidateType
-  "(rayQueryHandle,row,col)",  // RayQuery_CandidateObjectToWorld3x4
-  "(rayQueryHandle,row,col)",  // RayQuery_CandidateWorldToObject3x4
-  "(rayQueryHandle,row,col)",  // RayQuery_CommittedObjectToWorld3x4
-  "(rayQueryHandle,row,col)",  // RayQuery_CommittedWorldToObject3x4
-  "(rayQueryHandle)",  // RayQuery_CandidateProceduralPrimitiveNonOpaque
-  "(rayQueryHandle)",  // RayQuery_CandidateTriangleFrontFace
-  "(rayQueryHandle)",  // RayQuery_CommittedTriangleFrontFace
-  "(rayQueryHandle,component)",  // RayQuery_CandidateTriangleBarycentrics
-  "(rayQueryHandle,component)",  // RayQuery_CommittedTriangleBarycentrics
-  "(rayQueryHandle)",  // RayQuery_RayFlags
-  "(rayQueryHandle,component)",  // RayQuery_WorldRayOrigin
-  "(rayQueryHandle,component)",  // RayQuery_WorldRayDirection
-  "(rayQueryHandle)",  // RayQuery_RayTMin
-  "(rayQueryHandle)",  // RayQuery_CandidateTriangleRayT
-  "(rayQueryHandle)",  // RayQuery_CommittedRayT
-  "(rayQueryHandle)",  // RayQuery_CandidateInstanceIndex
-  "(rayQueryHandle)",  // RayQuery_CandidateInstanceID
-  "(rayQueryHandle)",  // RayQuery_CandidateGeometryIndex
-  "(rayQueryHandle)",  // RayQuery_CandidatePrimitiveIndex
-  "(rayQueryHandle,component)",  // RayQuery_CandidateObjectRayOrigin
-  "(rayQueryHandle,component)",  // RayQuery_CandidateObjectRayDirection
-  "(rayQueryHandle)",  // RayQuery_CommittedInstanceIndex
-  "(rayQueryHandle)",  // RayQuery_CommittedInstanceID
-  "(rayQueryHandle)",  // RayQuery_CommittedGeometryIndex
-  "(rayQueryHandle)",  // RayQuery_CommittedPrimitiveIndex
-  "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayOrigin
-  "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayDirection
-  "()",  // GeometryIndex
-  "(rayQueryHandle)",  // RayQuery_CandidateInstanceContributionToHitGroupIndex
-  "(rayQueryHandle)",  // RayQuery_CommittedInstanceContributionToHitGroupIndex
-  "(res,props)",  // AnnotateHandle
-  "(bind,index,nonUniformIndex)",  // CreateHandleFromBinding
-  "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
-  "(unpackMode,pk)",  // Unpack4x8
-  "(packMode,x,y,z,w)",  // Pack4x8
-  "()"  // IsHelperLane
-};
-// OPCODE-SIGS:END
+#include "DxcDisassembler.inc"
 
 LPCSTR ResourceKindToString(DXIL::ResourceKind RK) {
   switch (RK)
@@ -1508,7 +1285,7 @@ public:
   }
 };
 
-void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
+void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, const uint32_t uBufferSize,
                                                     DXIL::ShaderKind shaderKind,
                                                     raw_string_ostream &OS,
                                                     StringRef comment) {
@@ -1516,21 +1293,24 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
      << comment << " Pipeline Runtime Information: \n"
      << comment << "\n";
 
-  const unsigned offset = sizeof(unsigned);
-  const PSVRuntimeInfo0 *pInfo = (const PSVRuntimeInfo0 *)(pBuffer + offset);
+  DxilPipelineStateValidation PSV;
+  PSV.InitFromPSV0(pBuffer, uBufferSize);
+  const PSVRuntimeInfo0 *pInfo0 = PSV.GetPSVRuntimeInfo0();
+  const PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
+  const PSVRuntimeInfo2 *pInfo2 = PSV.GetPSVRuntimeInfo2();
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Hull: {
     OS << comment << " Hull Shader\n";
     OS << comment
-       << " InputControlPointCount=" << pInfo->HS.InputControlPointCount
+       << " InputControlPointCount=" << pInfo0->HS.InputControlPointCount
        << "\n";
     OS << comment
-       << " OutputControlPointCount=" << pInfo->HS.OutputControlPointCount
+       << " OutputControlPointCount=" << pInfo0->HS.OutputControlPointCount
        << "\n";
     OS << comment << " Domain=";
     DXIL::TessellatorDomain domain =
-        static_cast<DXIL::TessellatorDomain>(pInfo->HS.TessellatorDomain);
+        static_cast<DXIL::TessellatorDomain>(pInfo0->HS.TessellatorDomain);
     switch (domain) {
     case DXIL::TessellatorDomain::IsoLine:
       OS << "isoline\n";
@@ -1548,7 +1328,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
     OS << comment << " OutputPrimitive=";
     DXIL::TessellatorOutputPrimitive primitive =
         static_cast<DXIL::TessellatorOutputPrimitive>(
-            pInfo->HS.TessellatorOutputPrimitive);
+            pInfo0->HS.TessellatorOutputPrimitive);
     switch (primitive) {
     case DXIL::TessellatorOutputPrimitive::Point:
       OS << "point\n";
@@ -1570,17 +1350,17 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
   case DXIL::ShaderKind::Domain:
     OS << comment << " Domain Shader\n";
     OS << comment
-       << " InputControlPointCount=" << pInfo->DS.InputControlPointCount
+       << " InputControlPointCount=" << pInfo0->DS.InputControlPointCount
        << "\n";
     OS << comment
-       << " OutputPositionPresent=" << (bool)pInfo->DS.OutputPositionPresent
+       << " OutputPositionPresent=" << (bool)pInfo0->DS.OutputPositionPresent
        << "\n";
     break;
   case DXIL::ShaderKind::Geometry: {
     OS << comment << " Geometry Shader\n";
     OS << comment << " InputPrimitive=";
     DXIL::InputPrimitive primitive =
-        static_cast<DXIL::InputPrimitive>(pInfo->GS.InputPrimitive);
+        static_cast<DXIL::InputPrimitive>(pInfo0->GS.InputPrimitive);
     switch (primitive) {
     case DXIL::InputPrimitive::Point:
       OS << "point\n";
@@ -1699,7 +1479,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
     }
     OS << comment << " OutputTopology=";
     DXIL::PrimitiveTopology topology =
-        static_cast<DXIL::PrimitiveTopology>(pInfo->GS.OutputTopology);
+        static_cast<DXIL::PrimitiveTopology>(pInfo0->GS.OutputTopology);
     switch (topology) {
     case DXIL::PrimitiveTopology::PointList:
       OS << "point\n";
@@ -1714,32 +1494,67 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
       OS << "invalid\n";
       break;
     }
-    OS << comment << " OutputStreamMask=" << pInfo->GS.OutputStreamMask << "\n";
+    OS << comment << " OutputStreamMask=" << pInfo0->GS.OutputStreamMask << "\n";
     OS << comment
-       << " OutputPositionPresent=" << (bool)pInfo->GS.OutputPositionPresent
+       << " OutputPositionPresent=" << (bool)pInfo0->GS.OutputPositionPresent
        << "\n";
   } break;
   case DXIL::ShaderKind::Vertex:
     OS << comment << " Vertex Shader\n";
     OS << comment
-       << " OutputPositionPresent=" << (bool)pInfo->VS.OutputPositionPresent
+       << " OutputPositionPresent=" << (bool)pInfo0->VS.OutputPositionPresent
        << "\n";
     break;
   case DXIL::ShaderKind::Pixel:
     OS << comment << " Pixel Shader\n";
-    OS << comment << " DepthOutput=" << (bool)pInfo->PS.DepthOutput << "\n";
-    OS << comment << " SampleFrequency=" << (bool)pInfo->PS.SampleFrequency
+    OS << comment << " DepthOutput=" << (bool)pInfo0->PS.DepthOutput << "\n";
+    OS << comment << " SampleFrequency=" << (bool)pInfo0->PS.SampleFrequency
        << "\n";
     break;
   case DXIL::ShaderKind::Compute:
+    OS << comment << " Compute Shader\n";
+    if (pInfo2) {
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
+    break;
+  case DXIL::ShaderKind::Amplification:
+    OS << comment << " Amplification Shader\n"; 
+    if (pInfo2) {
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
+    break;
+  case DXIL::ShaderKind::Mesh:
+    OS << comment << " Mesh Shader\n"; 
+    if (pInfo1) {
+      OS << comment << " MeshOutputTopology=";
+      DXIL::MeshOutputTopology topology = static_cast<DXIL::MeshOutputTopology>(pInfo1->MS1.MeshOutputTopology);
+      switch (topology) {
+      case DXIL::MeshOutputTopology::Undefined:
+        OS << "undefined\n";
+        break;
+      case DXIL::MeshOutputTopology::Line:
+        OS << "line\n";
+        break;
+      case DXIL::MeshOutputTopology::Triangle:
+        OS << "triangle\n";
+        break;
+      default:
+        OS << "invalid\n";
+        break;
+      }
+    }
+    if (pInfo2) {
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
+    break;
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
     // Nothing to print for these shader kinds.
     break;
   }
 
-  if (pInfo->MinimumExpectedWaveLaneCount == pInfo->MaximumExpectedWaveLaneCount) {
-    OS << comment << " WaveSize=" << pInfo->MinimumExpectedWaveLaneCount << "\n";
+  if (pInfo0->MinimumExpectedWaveLaneCount == pInfo0->MaximumExpectedWaveLaneCount) {
+    OS << comment << " WaveSize=" << pInfo0->MinimumExpectedWaveLaneCount << "\n";
   }
 
   OS << comment << "\n";
@@ -1851,7 +1666,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
                       DxilPartIsType(DFCC_PipelineStateValidation));
     if (it != end(pContainer)) {
       PrintPipelineStateValidationRuntimeInfo(
-          GetDxilPartData(*it),
+          GetDxilPartData(*it), (*it)->PartSize,
           GetVersionShaderType(pProgramHeader->ProgramVersion), Stream,
           /*comment*/ ";");
     }
@@ -1931,10 +1746,9 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     if (pRDATPart) {
       RDAT::DxilRuntimeData runtimeData(GetDxilPartData(pRDATPart), pRDATPart->PartSize);
       // TODO: Print the rest of the RDAT info
-      if (RDAT::SubobjectTableReader *pSubobjectTableReader =
-        runtimeData.GetSubobjectTableReader()) {
+      if (runtimeData.GetSubobjectTable()) {
         dxilModule.ResetSubobjects(new DxilSubobjects());
-        if (!LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), pSubobjectTableReader)) {
+        if (!LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), runtimeData)) {
           Stream << "; error occurred while loading Subobjects from RDAT.\n";
         }
       }

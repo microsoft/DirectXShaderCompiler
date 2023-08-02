@@ -12,10 +12,20 @@
 
 #ifdef _MSC_VER
 
+// mingw-w64 tends to define it as 0x0502 in its headers.
+#undef _WIN32_WINNT
+#undef _WIN32_IE
+
+// Require at least Windows 7 (Updated from XP)
+#define _WIN32_WINNT 0x0601
+#define _WIN32_IE    0x0800 // MinGW at it again.
+
 #define NOATOM 1
 #define NOGDICAPMASKS 1
 #define NOMETAFILE 1
+#ifndef NOMINMAX
 #define NOMINMAX 1
+#endif
 #define NOOPENFILE 1
 #define NORASTEROPS 1
 #define NOSCROLL 1
@@ -37,6 +47,8 @@
 #include <intsafe.h>
 #include <ObjIdl.h>
 
+#include "dxc/config.h"
+
 // Support older atlbase.h if needed
 #ifndef _ATL_DECLSPEC_ALLOCATOR
 #define _ATL_DECLSPEC_ALLOCATOR
@@ -51,7 +63,7 @@ template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {
 
 #else // _MSC_VER
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 #ifdef __cplusplus
 // Define operator overloads to enable bit operations on enum values that are
@@ -102,3 +114,26 @@ inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_
 #endif
 
 #endif // _MSC_VER
+
+/// DxcCoGetMalloc
+#if defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+
+#define DxcCoGetMalloc CoGetMalloc
+
+#else // defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+
+#ifndef _WIN32
+CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
+struct IMalloc : public IUnknown {
+  virtual void *Alloc(SIZE_T size) = 0;
+  virtual void *Realloc(void *ptr, SIZE_T size) = 0;
+  virtual void Free(void *ptr) = 0;
+  virtual SIZE_T GetSize(void *pv) = 0;
+  virtual int DidAlloc(void *pv) = 0;
+  virtual void HeapMinimize(void) = 0;
+};
+#endif
+
+HRESULT DxcCoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc);
+
+#endif // defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)

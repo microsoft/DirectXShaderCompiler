@@ -11,6 +11,10 @@
 
 #pragma once
 
+// for memset dependency:
+#include <cstring>
+#include <vector>
+
 #include "dxc/DXIL/DxilConstants.h"
 
 namespace llvm {

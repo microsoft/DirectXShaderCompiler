@@ -108,7 +108,6 @@ public:
   static char ID;
 
   std::set<Loop *> LoopsThatFailed;
-  std::unordered_set<Function *> CleanedUpAlloca;
   unsigned MaxIterationAttempt = 0;
   bool OnlyWarnOnFail = false;
   bool StructurizeLoopExits = false;
@@ -121,7 +120,7 @@ public:
   {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
-  const char *getPassName() const override { return "Dxil Loop Unroll"; }
+  StringRef getPassName() const override { return "Dxil Loop Unroll"; }
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
   bool doFinalization() override;
   bool IsLoopSafeToClone(Loop *L);
@@ -574,7 +573,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
       }
 
       // Ignore uses that are only used by lifetime intrinsics.
-      if (onlyUsedByLifetimeMarkers(U))
+      if (isa<BitCastInst>(U) && onlyUsedByLifetimeMarkers(U))
         continue;
 
       // We've found something that prevents us from safely replacing this alloca.
@@ -1164,6 +1163,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
+    DVC->ResetUnknowns();
+
     return true;
   }
 
@@ -1210,7 +1211,11 @@ bool DxilLoopUnroll::doFinalization() {
           Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
       }
     }
+
+    // This pass instance can be reused. Clear this so it doesn't blow up on the subsequent runs.
+    LoopsThatFailed.clear();
   }
+
   return false;
 }
 

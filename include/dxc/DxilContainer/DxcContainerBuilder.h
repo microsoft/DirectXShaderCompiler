@@ -39,6 +39,7 @@ public:
   void Init(const char *warning = nullptr) {
     m_warning = warning;
     m_RequireValidation = false;
+    m_HasPrivateData = false;
   }
 
 protected:
@@ -57,9 +58,11 @@ private:
   CComPtr<IDxcBlob> m_pContainer; 
   const char *m_warning;
   bool m_RequireValidation;
+  bool m_HasPrivateData;
 
   UINT32 ComputeContainerSize();
   HRESULT UpdateContainerHeader(AbstractMemoryStream *pStream, uint32_t containerSize);
   HRESULT UpdateOffsetTable(AbstractMemoryStream *pStream);
   HRESULT UpdateParts(AbstractMemoryStream *pStream);
+  void AddPart(DxilPart&& part);
 };

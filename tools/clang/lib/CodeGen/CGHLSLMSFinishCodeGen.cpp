@@ -29,6 +29,8 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
+#include "clang/Sema/SemaDiagnostic.h"
+#include "CodeGenFunction.h"
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -55,27 +57,57 @@ using namespace CGHLSLMSHelper;
 
 namespace {
 
+template <typename BuilderTy>
+Value *EmitHLOperationCall(HLModule &HLM, BuilderTy &Builder,
+                           HLOpcodeGroup group, unsigned opcode, Type *RetType,
+                           ArrayRef<Value *> paramList, llvm::Module &M) {
+  // Add the opcode param
+  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
+
+  Function *opFunc =
+      HLM.GetHLOperationFunction(group, opcode, RetType, paramList, M);
+
+  SmallVector<Value *, 4> opcodeParamList;
+  Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
+  opcodeParamList.emplace_back(opcodeConst);
+  opcodeParamList.append(paramList.begin(), paramList.end());
+
+  return Builder.CreateCall(opFunc, opcodeParamList);
+}
+
+template <typename BuilderTy>
 Value *CreateHandleFromResPtr(Value *ResPtr, HLModule &HLM,
-                              llvm::Type *HandleTy, IRBuilder<> &Builder) {
+                              llvm::Type *HandleTy, BuilderTy &Builder) {
   Module &M = *HLM.GetModule();
   // Load to make sure resource only have Ld/St use so mem2reg could remove
   // temp resource.
   Value *ldObj = Builder.CreateLoad(ResPtr);
   Value *args[] = {ldObj};
-  CallInst *Handle = HLM.EmitHLOperationCall(
-      Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, args, M);
+  Value *Handle = EmitHLOperationCall<BuilderTy>(
+      HLM, Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, args, M);
   return Handle;
 }
 
-CallInst *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
-                            DxilResourceProperties &RP, llvm::Type *ResTy,
-                            IRBuilder<> &Builder) {
+template <typename BuilderTy>
+Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
+                               DxilResourceProperties &RP, llvm::Type *ResTy,
+                               BuilderTy &Builder) {
   Constant *RPConstant = resource_helper::getAsConstant(
       RP, HLM.GetOP()->GetResourcePropertiesType(), *HLM.GetShaderModel());
-  return HLM.EmitHLOperationCall(
-      Builder, HLOpcodeGroup::HLAnnotateHandle,
+  return EmitHLOperationCall<BuilderTy>(
+      HLM, Builder, HLOpcodeGroup::HLAnnotateHandle,
       (unsigned)HLOpcodeGroup::HLAnnotateHandle, Handle->getType(),
       {Handle, RPConstant, UndefValue::get(ResTy)}, *HLM.GetModule());
+}
+
+template <typename BuilderTy>
+Value *CastHandleToRes(HLModule &HLM, Value *Handle, llvm::Type *ResTy,
+                       BuilderTy &Builder) {
+  Value *Res =
+      EmitHLOperationCall<BuilderTy>(HLM, Builder, HLOpcodeGroup::HLCast,
+                                     (unsigned)HLCastOpcode::HandleToResCast,
+                                     ResTy, {Handle}, *HLM.GetModule());
+  return Res;
 }
 
 // Lower CBV bitcast use to handle use.
@@ -617,26 +649,8 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
           cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
 
       DxilFieldAnnotation &fieldAnno = Anno->GetFieldAnnotation(Index);
-      if (fieldAnno.HasResourceAttribute()) {
-        MDNode *resAttrib = fieldAnno.GetResourceAttribute();
-        DxilResourceBase R(DXIL::ResourceClass::Invalid);
-        HLM.LoadDxilResourceBaseFromMDNode(resAttrib, R);
-        switch (R.GetClass()) {
-        case DXIL::ResourceClass::SRV:
-        case DXIL::ResourceClass::UAV: {
-          DxilResource Res;
-          HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
-          RP = resource_helper::loadPropsFromResourceBase(&Res);
-        } break;
-        case DXIL::ResourceClass::Sampler: {
-          DxilSampler Sampler;
-          HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
-          RP = resource_helper::loadPropsFromResourceBase(&Sampler);
-        } break;
-        default:
-          DXASSERT(0, "invalid resource attribute in filed annotation");
-          break;
-        }
+      if (fieldAnno.HasResourceProperties()) {
+        RP = fieldAnno.GetResourceProperties();
         break;
       }
     }
@@ -743,7 +757,7 @@ void AddOpcodeParamForIntrinsic(
     DXASSERT(resTy, "must find the resource type");
     // Change object type to handle type.
     paramTyList[HLOperandIndex::kSubscriptObjectOpIdx] = HandleTy;
-    // Change RetTy into pointer of resource reture type.
+    // Change RetTy into pointer of resource return type.
     RetTy = cast<StructType>(resTy)->getElementType(0)->getPointerTo();
   }
 
@@ -960,6 +974,23 @@ Value *Atan2(CallInst *CI) {
   }
 }
 } // namespace
+
+namespace CGHLSLMSHelper {
+void CopyAndAnnotateResourceArgument(llvm::Value *Src, llvm::Value *Dest,
+                                     DxilResourceProperties &RP,
+                                     hlsl::HLModule &HLM,
+                                     clang::CodeGen::CodeGenFunction &CGF) {
+  Type *ResTy = Src->getType()->getPointerElementType();
+  Type *HandleTy = HLM.GetOP()->GetHandleType();
+  // Ld resource -> annotateHandle -> turnback to resource.
+
+  Value *Handle = CreateHandleFromResPtr(Src, HLM, HandleTy, CGF.Builder);
+
+  Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, CGF.Builder);
+  Value *Res = CastHandleToRes(HLM, Handle, ResTy, CGF.Builder);
+  CGF.Builder.CreateStore(Res, Dest);
+}
+} // namespace CGHLSLMSHelper
 
 namespace {
 
@@ -1763,27 +1794,6 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
       }
     }
   } break;
-  case Instruction::LShr:
-  case Instruction::AShr:
-  case Instruction::Shl: {
-    llvm::BinaryOperator *BO = cast<llvm::BinaryOperator>(I);
-    Value *op2 = BO->getOperand(1);
-    IntegerType *Ty = cast<IntegerType>(BO->getType()->getScalarType());
-    unsigned bitWidth = Ty->getBitWidth();
-    // Clamp op2 to 0 ~ bitWidth-1
-    if (ConstantInt *cOp2 = dyn_cast<ConstantInt>(op2)) {
-      unsigned iOp2 = cOp2->getLimitedValue();
-      unsigned clampedOp2 = iOp2 & (bitWidth - 1);
-      if (iOp2 != clampedOp2) {
-        BO->setOperand(1, ConstantInt::get(op2->getType(), clampedOp2));
-      }
-    } else {
-      Value *mask = ConstantInt::get(op2->getType(), bitWidth - 1);
-      IRBuilder<> Builder(I);
-      op2 = Builder.CreateAnd(op2, mask);
-      BO->setOperand(1, op2);
-    }
-  } break;
   }
 }
 
@@ -1792,7 +1802,7 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
 namespace CGHLSLMSHelper {
 
 Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
-                        unsigned hlslVersion) {
+                        hlsl::LangStd hlslVersion) {
   switch (intriOp) {
   case IntrinsicOp::IOP_tan: {
     return EvalUnaryIntrinsic(CI, tanf, tan);
@@ -1907,7 +1917,7 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
     // For back compat, DXC still preserves the above behavior for language
     // versions 2016 or below. However, for newer language versions, DXC now
     // always use nearest even for round() intrinsic in all cases.
-    if (hlslVersion <= 2016) {
+    if (hlslVersion <= hlsl::LangStd::v2016) {
       return EvalUnaryIntrinsic(CI, roundf, round);
     } else {
       auto roundingMode = fegetround();
@@ -2475,7 +2485,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     }
     if (!cbSubscript->user_empty()) {
       // merge GEP use for cbSubscript.
-      HLModule::MergeGepUse(cbSubscript);
+      dxilutil::MergeGepUse(cbSubscript);
     }
   }
   return true;
@@ -2889,22 +2899,7 @@ void AddRegBindingsForResourceInConstantBuffer(
 
 // extension codegen.
 void ExtensionCodeGen(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM) {
-  // Add semantic defines for extensions if any are available.
-  HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
-      CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(
-          HLM.GetModule());
-
-  clang::DiagnosticsEngine &Diags = CGM.getDiags();
-  for (const HLSLExtensionsCodegenHelper::SemanticDefineError &error : errors) {
-    clang::DiagnosticsEngine::Level level = clang::DiagnosticsEngine::Error;
-    if (error.IsWarning())
-      level = clang::DiagnosticsEngine::Warning;
-    unsigned DiagID = Diags.getCustomDiagID(level, "%0");
-    Diags.Report(clang::SourceLocation::getFromRawEncoding(error.Location()),
-                 DiagID)
-        << error.Message();
-  }
-
+  auto &Diags = CGM.getDiags();
   // Add root signature from a #define. Overrides root signature in function
   // attribute.
   {
@@ -3126,8 +3121,11 @@ void UpdateLinkage(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM,
         f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
       }
     }
-    // Skip no inline functions.
-    if (f.hasFnAttribute(llvm::Attribute::NoInline))
+    // Skip no inline functions, or all functions if we're not in the
+    // AlwaysInline mode.
+    if (f.hasFnAttribute(llvm::Attribute::NoInline) ||
+        (CGM.getCodeGenOpts().getInlining() !=
+            clang::CodeGenOptions::OnlyAlwaysInlining && bIsLib))
       continue;
     // Always inline for used functions.
     if (!f.user_empty() && !f.isDeclaration())
@@ -3197,7 +3195,7 @@ void FinishEntries(
     // const global to allow writing to it.
     // TODO: Verfiy the behavior of static globals in hull shader
     if (CGM.getLangOpts().EnableDX9CompatMode &&
-        CGM.getLangOpts().HLSLVersion <= 2016)
+        CGM.getLangOpts().HLSLVersion <= hlsl::LangStd::v2016)
       CreateWriteEnabledStaticGlobals(HLM.GetModule(), HLM.GetEntryFunction());
     if (HLM.GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry, HSEntryPatchConstantFuncAttr,
@@ -3294,7 +3292,7 @@ void AddDxBreak(Module &M,
 
 namespace CGHLSLMSHelper {
 
-ScopeInfo::ScopeInfo(Function *F) : maxRetLevel(0), bAllReturnsInIf(true) {
+ScopeInfo::ScopeInfo(Function *F, clang::SourceLocation loc) : maxRetLevel(0), bAllReturnsInIf(true), sourceLoc(loc) {
   Scope FuncScope;
   FuncScope.kind = Scope::ScopeKind::FunctionScope;
   FuncScope.EndScopeBB = nullptr;
@@ -3534,12 +3532,21 @@ static void ChangePredBranch(BasicBlock *BB, BasicBlock *NewBB) {
 //   }
 //   return vRet;
 // }
-void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
+void StructurizeMultiRetFunction(Function *F, clang::DiagnosticsEngine &Diags, ScopeInfo &ScopeInfo,
                                  bool bWaveEnabledStage,
                                  SmallVector<BranchInst *, 16> &DxBreaks) {
 
   if (ScopeInfo.CanSkipStructurize())
     return;
+
+  // If there are cleanup blocks generated for lifetime markers, do
+  // not structurize returns. The scope info recorded is no longer correct.
+  if (ScopeInfo.HasCleanupBlocks()) {
+    Diags.Report(ScopeInfo.GetSourceLocation(), clang::diag::warn_hlsl_structurize_exits_lifetime_markers_conflict)
+      << F->getName();
+    return;
+  }
+
   // Get bbWithRets.
   auto &rets = ScopeInfo.GetRetScopes();
 
@@ -3707,7 +3714,8 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
     auto it = ScopeMap.find(&F);
     if (it == ScopeMap.end())
       continue;
-    StructurizeMultiRetFunction(&F, it->second, bWaveEnabledStage, DxBreaks);
+
+    StructurizeMultiRetFunction(&F, CGM.getDiags(), it->second, bWaveEnabledStage, DxBreaks);
   }
 }
 
@@ -3727,6 +3735,13 @@ hlsl::DxilResourceProperties DxilObjectProperties::GetResource(llvm::Value *V) {
   if (it != resMap.end())
     return it->second;
   return DxilResourceProperties();
+}
+void DxilObjectProperties::updateGLC(llvm::Value *V) {
+  auto it = resMap.find(V);
+  if (it == resMap.end())
+    return;
+  
+  it->second.Basic.IsGloballyCoherent ^= 1;
 }
 
 } // namespace CGHLSLMSHelper

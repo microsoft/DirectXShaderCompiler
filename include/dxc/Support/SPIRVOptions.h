@@ -43,21 +43,39 @@ struct SpirvCodeGenOptions {
   bool debugInfoSource;
   bool debugInfoTool;
   bool debugInfoRich;
+  /// Use NonSemantic.Vulkan.DebugInfo.100 debug info instead of
+  /// OpenCL.DebugInfo.100
+  bool debugInfoVulkan;
   bool defaultRowMajor;
   bool disableValidation;
   bool enable16BitTypes;
+  bool finiteMathOnly;
   bool enableReflect;
   bool invertY; // Additive inverse
   bool invertW; // Multiplicative inverse
   bool noWarnEmulatedFeatures;
   bool noWarnIgnoredFeatures;
+  bool preserveBindings;
+  bool preserveInterface;
   bool useDxLayout;
   bool useGlLayout;
+  bool useLegacyBufferMatrixOrder;
   bool useScalarLayout;
   bool flattenResourceArrays;
   bool reduceLoadSize;
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
+  bool fixFuncCallArguments;
+  bool allowRWStructuredBufferArrays;
+  /// Maximum length in words for the OpString literal containing the shader
+  /// source for DebugSource and DebugSourceContinued. If the source code length
+  /// is larger than this number, we will use DebugSourceContinued instructions
+  /// for follow-up source code after the first DebugSource instruction. Note
+  /// that this number must be less than or equal to 0xFFFDu because of the
+  /// limitation of a single SPIR-V instruction size (0xFFFF) - 2 operand words
+  /// for OpString. Currently a smaller value is only used to test
+  /// DebugSourceContinued generation.
+  uint32_t debugSourceLen;
   SpirvLayoutRule cBufferLayoutRule;
   SpirvLayoutRule sBufferLayoutRule;
   SpirvLayoutRule tBufferLayoutRule;
@@ -72,9 +90,15 @@ struct SpirvCodeGenOptions {
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
   std::vector<std::string> bindRegister;
   std::vector<std::string> bindGlobals;
+  std::string entrypointName;
 
-  // String representation of all command line options.
+  bool signaturePacking; ///< Whether signature packing is enabled or not
+
+  bool printAll; // Dump SPIR-V module before each pass and after the last one.
+
+  // String representation of all command line options and input file.
   std::string clOptions;
+  std::string inputFile;
 };
 
 } // namespace spirv

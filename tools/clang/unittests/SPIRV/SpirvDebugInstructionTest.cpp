@@ -19,7 +19,8 @@ namespace {
 class SpirvDebugInstructionTest : public SpirvTestBase {
 public:
   SpirvDebugInstructionTest()
-      : spirvBuilder(getAstContext(), getSpirvContext(), {}) {}
+      : spirvBuilder(getAstContext(), getSpirvContext(), {},
+                     getFeatureManager()) {}
   SpirvBuilder *GetSpirvBuilder() { return &spirvBuilder; }
 
 private:

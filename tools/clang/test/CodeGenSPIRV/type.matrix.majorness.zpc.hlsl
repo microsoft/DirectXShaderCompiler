@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -Zpc
+// RUN: %dxc -T ps_6_0 -E main -Zpc
 
 // CHECK: OpDecorate %_runtimearr_mat2v3float ArrayStride 24
 // CHECK: OpMemberDecorate %type_StructuredBuffer_mat2v3float 0 MatrixStride 8

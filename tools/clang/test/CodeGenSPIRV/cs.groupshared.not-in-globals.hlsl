@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // A and B are groupshared, and should not be placed in the $Globals cbuffer.
 // myGlobalInteger is a global variable and is placed in $Globals cbuffer.

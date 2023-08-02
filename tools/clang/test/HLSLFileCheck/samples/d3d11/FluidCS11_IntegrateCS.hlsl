@@ -15,7 +15,7 @@
 //--------------------------------------------------------------------------------------
 // Smoothed Particle Hydrodynamics Algorithm Based Upon:
 // Particle-Based Fluid Simulation for Interactive Applications
-// Matthias Müller
+// Matthias MÃ¼ller
 //--------------------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------------------

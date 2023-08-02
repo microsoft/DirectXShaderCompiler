@@ -69,7 +69,8 @@ struct HLOptions {
   unsigned bFXCCompatMode          : 1;
   unsigned bLegacyResourceReservation : 1;
   unsigned bForceZeroStoreLifetimes : 1;
-  unsigned unused                  : 20;
+  unsigned bResMayAlias            : 1;
+  unsigned unused                  : 19;
 };
 
 typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
@@ -175,14 +176,7 @@ public:
   void LoadHLMetadata();
   /// Delete any HLDXIR from the specified module.
   static void ClearHLMetadata(llvm::Module &M);
-  /// Create Metadata from a resource.
-  llvm::MDNode *DxilSamplerToMDNode(const DxilSampler &S);
-  llvm::MDNode *DxilSRVToMDNode(const DxilResource &SRV);
-  llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
-  llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
-  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
-  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
-  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
+
   DxilResourceBase *
   AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
                                         DxilResourceProperties &RP);
@@ -196,9 +190,10 @@ public:
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
 
-  static void MergeGepUse(llvm::Value *V);
-
   // HL code gen.
+  static llvm::Function *GetHLOperationFunction(
+      HLOpcodeGroup group, unsigned opcode, llvm::Type *RetType,
+      llvm::ArrayRef<llvm::Value *> paramList, llvm::Module &M);
   template<class BuilderTy>
   static llvm::CallInst *EmitHLOperationCall(BuilderTy &Builder,
                                           HLOpcodeGroup group, unsigned opcode,

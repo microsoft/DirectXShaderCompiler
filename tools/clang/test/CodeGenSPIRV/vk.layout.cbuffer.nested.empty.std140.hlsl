@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpMemberDecorate %OuterStruct 0 Offset 0
 // CHECK: OpMemberDecorate %OuterStruct 1 Offset 0

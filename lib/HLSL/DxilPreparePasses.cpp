@@ -21,6 +21,7 @@
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "dxc/HLSL/DxilPoisonValues.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -33,6 +34,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -53,7 +55,7 @@ public:
     initializeScalarizerPass(*PassRegistry::getPassRegistry());
   }
 
-  const char *getPassName() const override { return "Invalidate undef resources"; }
+  StringRef getPassName() const override { return "Invalidate undef resources"; }
 
   bool runOnModule(Module &M) override;
 };
@@ -128,7 +130,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilDeadFunctionElimination () : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "Remove all unused function except entry from DxilModule"; }
+  StringRef getPassName() const override { return "Remove all unused function except entry from DxilModule"; }
 
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
@@ -173,11 +175,14 @@ static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
     attrKind = attribute.getKindAsString();
     attrValue = attribute.getValueAsString();
   }
+  bool helperLane = attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kWaveOpsIncludeHelperLanesString);
   if (F == NewFunc) {
     NewFunc->removeAttributes(AttributeSet::FunctionIndex, attributeSet);
   }
   if (!attrKind.empty() && !attrValue.empty())
     NewFunc->addFnAttr(attrKind, attrValue);
+  if (helperLane)
+    NewFunc->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
 }
 
 // If this returns non-null, the old function F has been stripped and can be deleted.
@@ -337,28 +342,20 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilFinalizeModule() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
+  StringRef getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
-  void patchValidation_1_1(Module &M) {
-    for (iplist<Function>::iterator F : M.getFunctionList()) {
-      for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
-           ++BBI) {
-        BasicBlock *BB = BBI;
-        for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;
-             ++II) {
-          Instruction *I = II;
-          if (I->hasMetadataOtherThanDebugLoc()) {
-            SmallVector<std::pair<unsigned, MDNode*>, 2> MDs;
-            I->getAllMetadataOtherThanDebugLoc(MDs);
+  void patchInstructionMetadata(Module &M, DenseSet<unsigned> &IllegalMDSet) {
+    for (auto &F : M.getFunctionList()) {
+      for (auto &BB : F) {
+        for (auto &I : BB) {
+          if (I.hasMetadataOtherThanDebugLoc()) {
+            SmallVector<std::pair<unsigned, MDNode *>, 2> MDs;
+            I.getAllMetadataOtherThanDebugLoc(MDs);
             for (auto &MD : MDs) {
               unsigned kind = MD.first;
-              // Remove Metadata which validation_1_0 not allowed.
-              bool bNeedPatch = kind == LLVMContext::MD_tbaa ||
-                  kind == LLVMContext::MD_prof ||
-                  (kind > LLVMContext::MD_fpmath &&
-                  kind <= LLVMContext::MD_dereferenceable_or_null);
-              if (bNeedPatch)
-                I->setMetadata(kind, nullptr);
+              // Remove illegal metadata.
+              if (IllegalMDSet.count(kind))
+                I.setMetadata(kind, nullptr);
             }
           }
         }
@@ -610,6 +607,56 @@ public:
     }
   }
 
+  void convertQuadVote(Module &M, hlsl::OP *hlslOP) {
+    for (auto FnIt : hlslOP->GetOpFuncList(DXIL::OpCode::QuadVote)) {
+      Function *F = FnIt.second;
+      if (!F)
+        continue;
+      for (auto UserIt = F->user_begin(); UserIt != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(UserIt++));
+
+        IRBuilder<> B(CI);
+        DXASSERT_NOMSG(CI->getOperand(1)->getType() ==
+                       Type::getInt1Ty(M.getContext()));
+
+        Type *i32Ty = Type::getInt32Ty(M.getContext());
+        Value *Cond = B.CreateSExt(CI->getOperand(1), i32Ty);
+
+        Function *QuadOpFn = hlslOP->GetOpFunc(DXIL::OpCode::QuadOp, i32Ty);
+        const std::string &OpName = hlslOP->GetOpCodeName(DXIL::OpCode::QuadOp);
+
+        Value *refArgs[] = {hlslOP->GetU32Const((unsigned)DXIL::OpCode::QuadOp),
+                            Cond, nullptr};
+        refArgs[2] =
+            hlslOP->GetI8Const((unsigned)DXIL::QuadOpKind::ReadAcrossX);
+        Value *X = B.CreateCall(QuadOpFn, refArgs, OpName);
+        refArgs[2] =
+            hlslOP->GetI8Const((unsigned)DXIL::QuadOpKind::ReadAcrossY);
+        Value *Y = B.CreateCall(QuadOpFn, refArgs, OpName);
+        refArgs[2] =
+            hlslOP->GetI8Const((unsigned)DXIL::QuadOpKind::ReadAcrossDiagonal);
+        Value *Z = B.CreateCall(QuadOpFn, refArgs, OpName);
+        Value *Result = nullptr;
+
+        uint64_t OpKind = cast<ConstantInt>(CI->getOperand(2))->getZExtValue();
+
+        if (OpKind == (uint64_t)DXIL::QuadVoteOpKind::All) {
+          Value *XY = B.CreateAnd(X, Y);
+          Value *XYZ = B.CreateAnd(XY, Z);
+          Result = B.CreateAnd(XYZ, Cond);
+        } else {
+          DXASSERT_NOMSG(OpKind == (uint64_t)DXIL::QuadVoteOpKind::Any);
+          Value *XY = B.CreateOr(X, Y);
+          Value *XYZ = B.CreateOr(XY, Z);
+          Result = B.CreateOr(XYZ, Cond);
+        }
+        Value *Res = B.CreateTrunc(Result, Type::getInt1Ty(M.getContext()));
+        CI->replaceAllUsesWith(Res);
+        CI->eraseFromParent();
+      }
+    }
+  }
+
   // Replace llvm.lifetime.start/.end intrinsics with undef or zeroinitializer
   // stores (for earlier validator versions) unless the pointer is a global
   // that has an initializer.
@@ -704,6 +751,10 @@ public:
   }
 
   bool runOnModule(Module &M) override {
+
+    // Remove all the poisoned values and emit errors if necessary.
+    (void)hlsl::FinalizePoisonValues(M);
+
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
       unsigned ValMajor = 0;
@@ -716,8 +767,22 @@ public:
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
       if (!IsLib) {
+        unsigned DxilTempMDKind =
+            M.getContext().getMDKindID(DxilMDHelper::kDxilTempAllocaMDName);
         if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) <= 0) {
-          patchValidation_1_1(M);
+          DenseSet<unsigned> IllegalMDSet;
+          IllegalMDSet.insert(LLVMContext::MD_tbaa);
+          IllegalMDSet.insert(LLVMContext::MD_prof);
+          for (unsigned I = LLVMContext::MD_fpmath + 1;
+               I <= LLVMContext::MD_dereferenceable_or_null; ++I) {
+            IllegalMDSet.insert(I);
+          }
+          IllegalMDSet.insert(DxilTempMDKind);
+          patchInstructionMetadata(M, IllegalMDSet);
+        } else {
+          DenseSet<unsigned> IllegalMDSet;
+          IllegalMDSet.insert(DxilTempMDKind);
+          patchInstructionMetadata(M, IllegalMDSet);
         }
       }
 
@@ -732,6 +797,11 @@ public:
       // Basic down-conversions for Dxil < 1.6
       if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 6) < 0) {
         patchDxil_1_6(M, hlslOP, ValMajor, ValMinor);
+      }
+
+      // Convert quad vote
+      if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 7) < 0) {
+        convertQuadVote(M, DM.GetOP());
       }
 
       // Remove store undef output.
@@ -772,6 +842,9 @@ public:
 
       // Strip parameters of entry function.
       StripEntryParameters(M, DM, IsLib);
+
+      // Remove unused types from type annotations
+      DM.RemoveUnusedTypeAnnotations();
 
       // Update flags to reflect any changes.
       DM.CollectShaderFlagsForModule();
@@ -1303,7 +1376,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilCleanupAddrSpaceCast() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL DXIL Cleanup Address Space Cast"; }
+  StringRef getPassName() const override { return "HLSL DXIL Cleanup Address Space Cast"; }
 
   bool runOnModule(Module &M) override {
     return CleanupSharedMemoryAddrSpaceCast(M);
@@ -1327,7 +1400,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilEmitMetadata() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
+  StringRef getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
@@ -1398,7 +1471,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilValidateWaveSensitivity() : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "HLSL DXIL wave sensitiveity validation";
   }
 
@@ -1567,7 +1640,7 @@ class CleanupDxBreak : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit CleanupDxBreak() : FunctionPass(ID) {}
-  const char *getPassName() const override { return "HLSL Remove unnecessary dx.break conditions"; }
+  StringRef getPassName() const override { return "HLSL Remove unnecessary dx.break conditions"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
   }
@@ -1647,3 +1720,33 @@ INITIALIZE_PASS_END(CleanupDxBreak, "hlsl-cleanup-dxbreak", "HLSL Remove unneces
 FunctionPass *llvm::createCleanupDxBreakPass() {
   return new CleanupDxBreak();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+class DxilModuleInit : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilModuleInit() : ModulePass(ID) {}
+
+  StringRef getPassName() const override {
+    return "Create DXIL Module for opt tests";
+  }
+
+  bool runOnModule(Module &M) override {
+    M.GetOrCreateDxilModule();
+    return true;
+  }
+};
+
+} // namespace
+
+char DxilModuleInit::ID = 0;
+
+ModulePass *llvm::createDxilModuleInitPass() { return new DxilModuleInit(); }
+
+INITIALIZE_PASS(DxilModuleInit, "hlsl-dxil-module-init",
+                "Create DXIL Module for opt tests", false, false)
+
+///////////////////////////////////////////////////////////////////////////////

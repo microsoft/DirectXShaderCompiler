@@ -24,7 +24,7 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   r += status;
   uav1[b] = r; // expected-error {{type 'RWByteAddressBuffer' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
   uav1.Load(a.x, status);
-  min16float4 h = min16float4(1,2,3,4);                     /* expected-warning {{min16float is promoted to float16_t}} expected-warning {{min16float is promoted to float16_t}} */
+  min16float4 h = min16float4(1,2,3,4);                     /* expected-warning {{'min16float' is promoted to 'half'}} */
 
   // valid template argument
   r += uav1.Load<half4>(0);

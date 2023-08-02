@@ -67,7 +67,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilExpandTrigIntrinsics() : FunctionPass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL expand trig intrinsics";
   }
   

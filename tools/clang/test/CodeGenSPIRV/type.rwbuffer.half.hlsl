@@ -1,6 +1,6 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
-// CHECK: %type_buffer_image = OpTypeImage %float Buffer 2 0 0 2 Rgba32f
+// CHECK: %type_buffer_image = OpTypeImage %float Buffer 2 0 0 2 Rgba16f
 // CHECK: %_ptr_UniformConstant_type_buffer_image = OpTypePointer UniformConstant %type_buffer_image
 // CHECK: %HalfBuffer = OpVariable %_ptr_UniformConstant_type_buffer_image UniformConstant
 

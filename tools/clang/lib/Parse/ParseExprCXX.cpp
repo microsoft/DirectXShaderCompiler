@@ -13,6 +13,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "RAIIObjectsForParser.h"
+#include "dxc/Support/HLSLVersion.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Lex/LiteralSupport.h"
@@ -308,7 +309,8 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
     // 'identifier <' after it.
     if (Tok.is(tok::kw_template)) {
       // HLSL Change Starts - template is reserved
-      if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
         Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
         ConsumeToken();
         return true;
@@ -331,7 +333,8 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         ConsumeToken();
       } else if (Tok.is(tok::kw_operator)) {
         // HLSL Change Starts
-        if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
+        if (getLangOpts().HLSL &&
+            getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
           Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
           TPA.Commit();
           return true;
@@ -541,8 +544,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
 
     // nested-name-specifier:
     //   type-name '<'
-    bool nextIsLess = Next.is(tok::less);
-    if (nextIsLess || getLangOpts().HLSL) { // HLSL Change
+    if (Next.is(tok::less)) {
       TemplateTy Template;
       UnqualifiedId TemplateName;
       TemplateName.setIdentifier(&II, Tok.getLocation());
@@ -553,31 +555,21 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
                                                         ObjectType,
                                                         EnteringContext,
                                                         Template,
-                                              MemberOfUnknownSpecialization,
-                                                        nextIsLess)) {  // HLSL Change
+                                              MemberOfUnknownSpecialization)) {
         // We have found a template name, so annotate this token
         // with a template-id annotation. We do not permit the
         // template-id to be translated into a type annotation,
         // because some clients (e.g., the parsing of class template
         // specializations) still want to see the original template-id
         // token.
-        if (nextIsLess) { // HLSL Change
         ConsumeToken();
-        }
         if (AnnotateTemplateIdToken(Template, TNK, SS, SourceLocation(),
                                     TemplateName, false))
           return true;
         continue;
       }
 
-      // HLSL Change: avoid handling other cases and emitting incorrect
-      // diagnostics if the template lookup fails.
-      if (!nextIsLess && getLangOpts().HLSL) {
-        break;
-      }
-
-      if (getLangOpts().EnableTemplates && // HLSL Change - template fixup only available when templates enabled
-          MemberOfUnknownSpecialization && (ObjectType || SS.isSet()) && 
+      if (MemberOfUnknownSpecialization && (ObjectType || SS.isSet()) && 
           (IsTypename || IsTemplateArgumentList(1))) {
         // We have something like t::getAs<T>, where getAs is a 
         // member of an unknown specialization. However, this will only
@@ -2207,7 +2199,8 @@ bool Parser::ParseUnqualifiedIdTemplateId(CXXScopeSpec &SS,
 bool Parser::ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
                                         ParsedType ObjectType,
                                         UnqualifiedId &Result) {
-  assert((!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+  assert((!getLangOpts().HLSL ||
+          getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) &&
          "not supported in HLSL - unreachable"); // HLSL Change
   assert(Tok.is(tok::kw_operator) && "Expected 'operator' keyword");
   
@@ -2538,7 +2531,8 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, bool EnteringContext,
   //   conversion-function-id
   if (Tok.is(tok::kw_operator)) {
     // HLSL Change Starts
-    if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       ConsumeToken();
       return true;

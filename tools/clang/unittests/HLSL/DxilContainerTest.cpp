@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <unordered_set>
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/D3DReflection.h"
 #include "dxc/dxcapi.h"
 #ifdef _WIN32
 #include <atlfile.h>
@@ -96,6 +97,7 @@ public:
 
   TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
   TEST_METHOD(CompileAS_CheckPSV0)
+  TEST_METHOD(CompileGS_CheckPSV0_ViewID)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
@@ -109,6 +111,8 @@ public:
   TEST_METHOD(DisassemblyWhenValidThenOK)
   TEST_METHOD(ValidateFromLL_Abs2)
   TEST_METHOD(DxilContainerUnitTest)
+  TEST_METHOD(DxilContainerCompilerVersionTest)
+  TEST_METHOD(ContainerBuilder_AddPrivateForceLast)
 
   TEST_METHOD(ReflectionMatchesDXBC_CheckIn)
   BEGIN_TEST_METHOD(ReflectionMatchesDXBC_Full)
@@ -122,7 +126,7 @@ public:
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-    IFT(library->CreateBlobWithEncodingFromPinned((LPBYTE)data, size, codePage,
+    IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
@@ -138,7 +142,7 @@ public:
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
   }
 
-#ifdef _WIN32 // - Reflection Unsupported
+#ifdef _WIN32 // DXBC Unsupported
   void CompareShaderInputBindDesc(D3D12_SHADER_INPUT_BIND_DESC *pTestDesc,
     D3D12_SHADER_INPUT_BIND_DESC *pBaseDesc) {
     VERIFY_ARE_EQUAL(pTestDesc->BindCount, pBaseDesc->BindCount);
@@ -351,9 +355,7 @@ public:
       VERIFY_ARE_EQUAL(testZ, baseZ);
     }
   }
-#endif // _WIN32 - Reflection unsupported
 
-#ifdef _WIN32  // - Reflection unsupported
   HRESULT CompileFromFile(LPCWSTR path, bool useDXBC,
                           UINT fxcFlags, IDxcBlob **ppBlob) {
     std::vector<FileRunCommandPart> parts;
@@ -411,7 +413,7 @@ public:
         D3DReflect(pBlob->GetBufferPointer(), pBlob->GetBufferSize(),
                    __uuidof(ID3D12ShaderReflection), (void **)ppReflection));
   }
-#endif // _WIN32 - Reflection unsupported
+#endif // _WIN32 - DXBC Unsupported
 
   void CompileToProgram(LPCSTR program, LPCWSTR entryPoint, LPCWSTR target,
                         LPCWSTR *pArguments, UINT32 argCount,
@@ -547,7 +549,7 @@ public:
     }
   }
 
-#ifdef _WIN32 // Reflection unsupported
+#ifdef _WIN32  // DXBC Unsupported
   WEX::Common::String WStrFmt(const wchar_t* msg, ...) {
     va_list args;
     va_start(args, msg);
@@ -591,7 +593,7 @@ public:
 
     CompareReflection(pProgramReflection, pProgramReflectionDXBC);
   }
-#endif // _WIN32 - Reflection unsupported
+#endif // _WIN32 - DXBC Unsupported
 };
 
 bool DxilContainerTest::InitSupport() {
@@ -602,7 +604,7 @@ bool DxilContainerTest::InitSupport() {
   return true;
 }
 
-#ifdef _WIN32
+#ifdef _WIN32 // - No reflection support
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
@@ -659,7 +661,103 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   // Source hash and bin hash should be different
   VERIFY_IS_FALSE(0 == strcmp(binHash1Zss.c_str(), binHash1.c_str()));
 }
-#endif // _WIN32
+#endif // WIN32 - No reflection support
+
+TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+
+  CComPtr<IDxcUtils> pUtils;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pDebugPart;
+
+  CComPtr<IDxcBlobEncoding> pPrivateData;
+  std::string data("Here is some private data.");
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(data.data(), data.size(), DXC_CP_ACP, &pPrivateData));
+
+  const char *shader =
+      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
+      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
+      "float function1();"
+      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
+      "ThreeTextures[0].SampleLevel(Sampler, float2(0, 0), 0) + "
+      "ThreeTextures[2].SampleLevel(Sampler, float2(0, 0), 0) + function1(); }";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  std::vector<LPCWSTR> arguments;
+  arguments.emplace_back(L"-Zi");
+  arguments.emplace_back(L"-Qembed_debug");
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
+    L"lib_6_3", arguments.data(), arguments.size(), nullptr, 0,
+    nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  auto GetPart = [](IDxcBlob* pContainerBlob, uint32_t fourCC) -> hlsl::DxilPartIterator {
+    const hlsl::DxilContainerHeader *pHeader = (const hlsl::DxilContainerHeader *)pContainerBlob->GetBufferPointer();
+    hlsl::DxilPartIterator partIter = std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                            hlsl::DxilPartIsType(fourCC));
+    VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), partIter);
+    return partIter;
+  };
+
+  auto VerifyPrivateLast = [](IDxcBlob* pContainerBlob) {
+    const hlsl::DxilContainerHeader *pHeader = (const hlsl::DxilContainerHeader *)pContainerBlob->GetBufferPointer();
+    bool bFoundPrivate = false;
+    for (auto partIter = hlsl::begin(pHeader), end = hlsl::end(pHeader); partIter != end; partIter++) {
+      VERIFY_IS_FALSE(bFoundPrivate && "otherwise, private data is not last");
+      if ((*partIter)->PartFourCC == hlsl::DFCC_PrivateData) {
+        bFoundPrivate = true;
+      }
+    }
+    VERIFY_IS_TRUE(bFoundPrivate);
+  };
+
+  auto debugPart = *GetPart(pProgram, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(debugPart + 1, debugPart->PartSize,
+                                      DXC_CP_ACP, &pDebugPart));
+
+  // release for re-use
+  pResult.Release();
+
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+
+  // remove debug info, add private, add debug back, and build container.
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
+  CComPtr<IDxcBlob> pNewContainer;
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
+
+  // GetPart verifies we have debug info, but don't need result.
+  GetPart(pNewContainer, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VerifyPrivateLast(pNewContainer);
+
+  // release for re-use
+  pResult.Release();
+  pBuilder.Release();
+
+  // Now verify that we can remove and re-add private without error
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pNewContainer));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_PrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  pNewContainer.Release();
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
+
+  // verify private data found after debug info again
+  GetPart(pNewContainer, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VerifyPrivateLast(pNewContainer);
+}
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
   char program[] =
@@ -837,11 +935,121 @@ TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
       VERIFY_ARE_EQUAL(PSVShaderKind::Amplification, kind);
       PSVRuntimeInfo0* pInfo = PSV.GetPSVRuntimeInfo0();
       VERIFY_IS_NOT_NULL(pInfo);
-      VERIFY_ARE_EQUAL(12, pInfo->AS.PayloadSizeInBytes);
+      VERIFY_ARE_EQUAL(12U, pInfo->AS.PayloadSizeInBytes);
       break;
     }
   }
   VERIFY_IS_TRUE(blobFound);
+}
+
+TEST_F(DxilContainerTest, CompileGS_CheckPSV0_ViewID) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+
+  // Verify that ViewID and Input to Output masks are correct for
+  // geometry shader with multiple stream outputs.
+  // This acts as a regression test for issue #5199, where a single pointer was
+  // used for the ViewID dependency mask and a single pointer for input to
+  // output dependencies, when each of these needed a separate pointer per
+  // stream.  The effect was an overlapping and clobbering of data for earlier
+  // streams.
+  // Skip validator versions < 1.7 since they lack the fix.
+
+  const unsigned ARRAY_SIZE = 8;
+  const char gsSource[] =
+    "#define ARRAY_SIZE 8\n"
+    "struct GSOut0 { float4 pos : SV_Position; };\n"
+    "struct GSOut1 { float4 arr[ARRAY_SIZE] : Array; };\n"
+    "[shader(\"geometry\")]\n"
+    "[maxvertexcount(1)]\n"
+    "void main(point float4 input[1] : COORD,\n"
+    "          inout PointStream<GSOut0> out0,\n"
+    "          inout PointStream<GSOut1> out1,\n"
+    "          uint vid : SV_ViewID) {\n"
+    " GSOut0 o0 = (GSOut0)0;\n"
+    " GSOut1 o1 = (GSOut1)0;\n"
+    " o0.pos = input[0];\n"
+    " out0.Append(o0);\n"
+    " out0.RestartStrip();\n"
+    " [unroll]\n"
+    " for (uint i = 0; i < ARRAY_SIZE; i++)\n"
+    "   o1.arr[i] = input[0][i%4] + vid;\n"
+    " out1.Append(o1);\n"
+    " out1.RestartStrip();\n"
+    "}";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pResult;
+
+  // Compile the shader
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(gsSource, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"gs_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  HRESULT hrStatus;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrStatus));
+  VERIFY_SUCCEEDED(hrStatus);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  // Get PSV0 part
+  CComPtr<IDxcContainerReflection> containerReflection;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+  VERIFY_SUCCEEDED(containerReflection->Load(pProgram));
+  uint32_t partIdx = 0;
+  VERIFY_SUCCEEDED(containerReflection->FindFirstPartKind((uint32_t)hlsl::DxilFourCC::DFCC_PipelineStateValidation, &partIdx));
+  CComPtr<IDxcBlob> pBlob;
+  VERIFY_SUCCEEDED(containerReflection->GetPartContent(partIdx, &pBlob));
+
+  // Init PSV and verify ViewID masks and Input to Output Masks
+  DxilPipelineStateValidation PSV;
+  PSV.InitFromPSV0(pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+  PSVShaderKind kind = PSV.GetShaderKind();
+  VERIFY_ARE_EQUAL(PSVShaderKind::Geometry, kind);
+  PSVRuntimeInfo0* pInfo = PSV.GetPSVRuntimeInfo0();
+  VERIFY_IS_NOT_NULL(pInfo);
+
+  // Stream 0 should have no direct ViewID dependency:
+  PSVComponentMask viewIDMask0 = PSV.GetViewIDOutputMask(0);
+  VERIFY_IS_TRUE(viewIDMask0.IsValid());
+  VERIFY_ARE_EQUAL(1U, viewIDMask0.NumVectors);
+  for (unsigned i = 0; i < 4; i++) {
+    VERIFY_IS_FALSE(viewIDMask0.Get(i));
+  }
+
+  // Everything in stream 1 should be dependent on ViewID:
+  PSVComponentMask viewIDMask1 = PSV.GetViewIDOutputMask(1);
+  VERIFY_IS_TRUE(viewIDMask1.IsValid());
+  VERIFY_ARE_EQUAL(ARRAY_SIZE, viewIDMask1.NumVectors);
+  for (unsigned i = 0; i < ARRAY_SIZE * 4; i++) {
+    VERIFY_IS_TRUE(viewIDMask1.Get(i));
+  }
+
+  // Stream 0 is simple assignment of input vector:
+  PSVDependencyTable ioTable0 = PSV.GetInputToOutputTable(0);
+  VERIFY_IS_TRUE(ioTable0.IsValid());
+  VERIFY_ARE_EQUAL(1U, ioTable0.OutputVectors);
+  for (unsigned i = 0; i < 4; i++) {
+    PSVComponentMask ioMask0_i = ioTable0.GetMaskForInput(i);
+    // input 0123 -> output 0123
+    for (unsigned j = 0; j < 4; j++) {
+      VERIFY_ARE_EQUAL(i == j, ioMask0_i.Get(j));
+    }
+  }
+
+  // Each vector in Stream 1 combines one component of input with ViewID:
+  PSVDependencyTable ioTable1 = PSV.GetInputToOutputTable(1);
+  VERIFY_IS_TRUE(ioTable1.IsValid());
+  VERIFY_ARE_EQUAL(ARRAY_SIZE, ioTable1.OutputVectors);
+  for (unsigned i = 0; i < 4; i++) {
+    PSVComponentMask ioMask1_i = ioTable1.GetMaskForInput(i);
+    for (unsigned j = 0; j < ARRAY_SIZE * 4; j++) {
+      // Vector output vector/component dependency by input component:
+      // 0000, 1111, 2222, 3333, 0000, 1111, 2222, 3333, ...
+      VERIFY_ARE_EQUAL(i == (j / 4) % 4, ioMask1_i.Get(j));
+    }
+  }
 }
 
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
@@ -909,66 +1117,66 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       // Validate using DxilRuntimeData
       DxilRuntimeData context;
       context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
-      ResourceTableReader *resTableReader = context.GetResourceTableReader();
-      VERIFY_ARE_EQUAL(funcTableReader->GetNumFunctions(), 4);
+      auto funcTable = context.GetFunctionTable();
+      auto resTable = context.GetResourceTable();
+      VERIFY_ARE_EQUAL(funcTable.Count(), 4U);
       std::string str("function");
-      for (uint32_t j = 0; j < funcTableReader->GetNumFunctions(); ++j) {
-        FunctionReader funcReader = funcTableReader->GetItem(j);
-        std::string funcName(funcReader.GetUnmangledName());
+      for (uint32_t j = 0; j < funcTable.Count(); ++j) {
+        auto funcReader = funcTable[j];
+        std::string funcName(funcReader.getUnmangledName());
         VERIFY_IS_TRUE(str.compare(funcName.substr(0,8)) == 0);
         std::string cur_str = str;
         cur_str.push_back('0' + j);
         if (cur_str.compare("function0") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 1);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 1U);
           hlsl::ShaderFlags flag;
           flag.SetUAVLoadAdditionalFormats(true);
           flag.SetLowPrecisionPresent(true);
           uint64_t rawFlag = flag.GetFeatureInfo();
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
-          ResourceReader resReader = funcReader.GetResource(0);
-          VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
-          VERIFY_ARE_EQUAL(resReader.GetResourceKind(), hlsl::DXIL::ResourceKind::Texture1D);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags(), rawFlag);
+          auto resReader = funcReader.getResources()[0];
+          VERIFY_ARE_EQUAL(resReader.getClass(), hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(resReader.getKind(), hlsl::DXIL::ResourceKind::Texture1D);
         }
         else if (cur_str.compare("function1") == 0) {
           hlsl::ShaderFlags flag;
           flag.SetLowPrecisionPresent(true);
           uint64_t rawFlag = flag.GetFeatureInfo();
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 3);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags(), rawFlag);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 3U);
         }
         else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 0);
-          std::string dependency = funcReader.GetDependency(0);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags() & 0xffffffffffffffff, 0U);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), 0U);
+          std::string dependency = funcReader.getFunctionDependencies()[0];
           VERIFY_IS_TRUE(dependency.find("function_import") != std::string::npos);
         }
         else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), numResFlagCheck);
-          for (unsigned i = 0; i < funcReader.GetNumResources(); ++i) {
-            ResourceReader resReader = funcReader.GetResource(0);
-            VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlags() & 0xffffffffffffffff, 0U);
+          VERIFY_ARE_EQUAL(funcReader.getResources().Count(), numResFlagCheck);
+          for (unsigned i = 0; i < funcReader.getResources().Count(); ++i) {
+            auto resReader = funcReader.getResources()[0];
+            VERIFY_ARE_EQUAL(resReader.getClass(), hlsl::DXIL::ResourceClass::UAV);
             unsigned j = 0;
             for (; j < numResFlagCheck; ++j) {
-              if (resFlags[j].name.compare(resReader.GetName()) == 0)
+              if (resFlags[j].name.compare(resReader.getName()) == 0)
                 break;
             }
             VERIFY_IS_LESS_THAN(j, numResFlagCheck);
-            VERIFY_ARE_EQUAL(resReader.GetResourceKind(), resFlags[j].kind);
-            VERIFY_ARE_EQUAL(resReader.GetFlags(), static_cast<uint32_t>(resFlags[j].flag));
+            VERIFY_ARE_EQUAL(resReader.getKind(), resFlags[j].kind);
+            VERIFY_ARE_EQUAL(resReader.getFlags(), static_cast<uint32_t>(resFlags[j].flag));
           }
         }
         else {
           IFTBOOLMSG(false, E_FAIL, "unknown function name");
         }
       }
-      VERIFY_ARE_EQUAL(resTableReader->GetNumResources(), 8);
+      VERIFY_ARE_EQUAL(resTable.Count(), 8U);
       // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
       unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
       VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(), pBlob->GetBufferSize()));
       DxilLibraryDesc lib_reflection = pReflection->GetLibraryReflection();
-      VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4);
+      VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4U);
       for (uint32_t j = 0; j < 3; ++j) {
         DxilFunctionDesc function = lib_reflection.pFunction[j];
         std::string cur_str = str;
@@ -981,8 +1189,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
           featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
           VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 1);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          VERIFY_ARE_EQUAL(function.NumResources, 1U);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
           const DxilResourceDesc &resource = *function.Resources[0];
           VERIFY_ARE_EQUAL(resource.Class, (uint32_t)hlsl::DXIL::ResourceClass::UAV);
           VERIFY_ARE_EQUAL(resource.Kind, (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
@@ -996,8 +1204,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
           featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
           VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 3);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          VERIFY_ARE_EQUAL(function.NumResources, 3U);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
           std::unordered_set<std::wstring> stringSet = { L"$Globals", L"b_buf", L"tex2" };
           for (uint32_t j = 0; j < 3; ++j) {
             const DxilResourceDesc &resource = *function.Resources[j];
@@ -1006,18 +1214,18 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           }
         }
         else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0);
-          VERIFY_ARE_EQUAL(function.NumResources, 0);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 1);
+          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
+          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
+          VERIFY_ARE_EQUAL(function.NumResources, 0U);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 1U);
           std::wstring dependency = function.FunctionDependencies[0];
           VERIFY_IS_TRUE(dependency.find(L"function_import") != std::wstring::npos);
         }
         else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0);
+          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
+          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
           VERIFY_ARE_EQUAL(function.NumResources, numResFlagCheck);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
           for (unsigned i = 0; i < function.NumResources; ++i) {
             const DxilResourceDesc *res = function.Resources[i];
             VERIFY_ARE_EQUAL(res->Class, static_cast<uint32_t>(hlsl::DXIL::ResourceClass::UAV));
@@ -1088,19 +1296,19 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
       IFT(pReflection->GetPartContent(i, &pBlob));
       DxilRuntimeData context;
       context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
-      ResourceTableReader *resTableReader = context.GetResourceTableReader();
-      VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 1);
-      VERIFY_IS_TRUE(resTableReader->GetNumResources() == 3);
-      FunctionReader funcReader = funcTableReader->GetItem(0);
-      llvm::StringRef name(funcReader.GetUnmangledName());
+      auto funcTable = context.GetFunctionTable();
+      auto resTable = context.GetResourceTable();
+      VERIFY_IS_TRUE(funcTable.Count() == 1);
+      VERIFY_IS_TRUE(resTable.Count() == 3);
+      auto funcReader = funcTable[0];
+      llvm::StringRef name(funcReader.getUnmangledName());
       VERIFY_IS_TRUE(name.compare("RayGenMain") == 0);
-      VERIFY_IS_TRUE(funcReader.GetShaderKind() ==
+      VERIFY_IS_TRUE(funcReader.getShaderKind() ==
                      hlsl::DXIL::ShaderKind::RayGeneration);
-      VERIFY_IS_TRUE(funcReader.GetNumResources() == 3);
-      VERIFY_IS_TRUE(funcReader.GetNumDependencies() == 1);
+      VERIFY_IS_TRUE(funcReader.getResources().Count() == 3);
+      VERIFY_IS_TRUE(funcReader.getFunctionDependencies().Count() == 1);
       llvm::StringRef dependencyName =
-          hlsl::dxilutil::DemangleFunctionName(funcReader.GetDependency(0));
+          hlsl::dxilutil::DemangleFunctionName(funcReader.getFunctionDependencies()[0]);
       VERIFY_IS_TRUE(dependencyName.compare("function1") == 0);
     }
   }
@@ -1113,17 +1321,17 @@ static uint32_t EncodedVersion_vs_6_3 = hlsl::EncodeVersion(hlsl::DXIL::ShaderKi
 static void Ref1_CheckCBuffer_Globals(ID3D12ShaderReflectionConstantBuffer *pCBReflection, D3D12_SHADER_BUFFER_DESC &cbDesc) {
   std::string cbName = cbDesc.Name;
   VERIFY_IS_TRUE(cbName.compare("$Globals") == 0);
-  VERIFY_ARE_EQUAL(cbDesc.Size, 16);
+  VERIFY_ARE_EQUAL(cbDesc.Size, 16U);
   VERIFY_ARE_EQUAL(cbDesc.Type, D3D_CT_CBUFFER);
-  VERIFY_ARE_EQUAL(cbDesc.Variables, 1);
+  VERIFY_ARE_EQUAL(cbDesc.Variables, 1U);
 
   // cbval1
   ID3D12ShaderReflectionVariable *pVar = pCBReflection->GetVariableByIndex(0);
   D3D12_SHADER_VARIABLE_DESC varDesc;
   VERIFY_SUCCEEDED(pVar->GetDesc(&varDesc));
   VERIFY_ARE_EQUAL_STR(varDesc.Name, "cbval1");
-  VERIFY_ARE_EQUAL(varDesc.StartOffset, 0);
-  VERIFY_ARE_EQUAL(varDesc.Size, 4);
+  VERIFY_ARE_EQUAL(varDesc.StartOffset, 0U);
+  VERIFY_ARE_EQUAL(varDesc.Size, 4U);
   // TODO: verify rest of variable
   ID3D12ShaderReflectionType *pType = pVar->GetType();
   D3D12_SHADER_TYPE_DESC tyDesc;
@@ -1136,9 +1344,9 @@ static void Ref1_CheckCBuffer_Globals(ID3D12ShaderReflectionConstantBuffer *pCBR
 static void Ref1_CheckCBuffer_MyCB(ID3D12ShaderReflectionConstantBuffer *pCBReflection, D3D12_SHADER_BUFFER_DESC &cbDesc) {
   std::string cbName = cbDesc.Name;
   VERIFY_IS_TRUE(cbName.compare("MyCB") == 0);
-  VERIFY_ARE_EQUAL(cbDesc.Size, 32);
+  VERIFY_ARE_EQUAL(cbDesc.Size, 32U);
   VERIFY_ARE_EQUAL(cbDesc.Type, D3D_CT_CBUFFER);
-  VERIFY_ARE_EQUAL(cbDesc.Variables, 2);
+  VERIFY_ARE_EQUAL(cbDesc.Variables, 2U);
 
   // cbval2
   {
@@ -1146,8 +1354,8 @@ static void Ref1_CheckCBuffer_MyCB(ID3D12ShaderReflectionConstantBuffer *pCBRefl
     D3D12_SHADER_VARIABLE_DESC varDesc;
     VERIFY_SUCCEEDED(pVar->GetDesc(&varDesc));
     VERIFY_ARE_EQUAL_STR(varDesc.Name, "cbval2");
-    VERIFY_ARE_EQUAL(varDesc.StartOffset, 0);
-    VERIFY_ARE_EQUAL(varDesc.Size, 16);
+    VERIFY_ARE_EQUAL(varDesc.StartOffset, 0U);
+    VERIFY_ARE_EQUAL(varDesc.Size, 16U);
     // TODO: verify rest of variable
     ID3D12ShaderReflectionType *pType = pVar->GetType();
     D3D12_SHADER_TYPE_DESC tyDesc;
@@ -1163,8 +1371,8 @@ static void Ref1_CheckCBuffer_MyCB(ID3D12ShaderReflectionConstantBuffer *pCBRefl
     D3D12_SHADER_VARIABLE_DESC varDesc;
     VERIFY_SUCCEEDED(pVar->GetDesc(&varDesc));
     VERIFY_ARE_EQUAL_STR(varDesc.Name, "cbval3");
-    VERIFY_ARE_EQUAL(varDesc.StartOffset, 16);
-    VERIFY_ARE_EQUAL(varDesc.Size, 16);
+    VERIFY_ARE_EQUAL(varDesc.StartOffset, 16U);
+    VERIFY_ARE_EQUAL(varDesc.Size, 16U);
     // TODO: verify rest of variable
     ID3D12ShaderReflectionType *pType = pVar->GetType();
     D3D12_SHADER_TYPE_DESC tyDesc;
@@ -1180,45 +1388,45 @@ static void Ref1_CheckBinding_Globals(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   VERIFY_IS_TRUE(resName.compare("$Globals") == 0);
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_CBUFFER);
   // not explicitly bound:
-  VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295);
-  VERIFY_ARE_EQUAL(resDesc.Space, 0);
-  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295U);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0U);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1U);
 }
 
 static void Ref1_CheckBinding_MyCB(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   std::string resName = resDesc.Name;
   VERIFY_IS_TRUE(resName.compare("MyCB") == 0);
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_CBUFFER);
-  VERIFY_ARE_EQUAL(resDesc.BindPoint, 11);
-  VERIFY_ARE_EQUAL(resDesc.Space, 2);
-  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 11U);
+  VERIFY_ARE_EQUAL(resDesc.Space, 2U);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1U);
 }
 
 static void Ref1_CheckBinding_tex(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   std::string resName = resDesc.Name;
   VERIFY_IS_TRUE(resName.compare("tex") == 0);
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_UAV_RWTYPED);
-  VERIFY_ARE_EQUAL(resDesc.BindPoint, 5);
-  VERIFY_ARE_EQUAL(resDesc.Space, 0);
-  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 5U);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0U);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1U);
 }
 
 static void Ref1_CheckBinding_tex2(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   std::string resName = resDesc.Name;
   VERIFY_IS_TRUE(resName.compare("tex2") == 0);
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_TEXTURE);
-  VERIFY_ARE_EQUAL(resDesc.BindPoint, 0);
-  VERIFY_ARE_EQUAL(resDesc.Space, 0);
-  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 0U);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0U);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1U);
 }
 
 static void Ref1_CheckBinding_samp(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   std::string resName = resDesc.Name;
   VERIFY_IS_TRUE(resName.compare("samp") == 0);
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_SAMPLER);
-  VERIFY_ARE_EQUAL(resDesc.BindPoint, 7);
-  VERIFY_ARE_EQUAL(resDesc.Space, 0);
-  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 7U);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0U);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1U);
 }
 
 static void Ref1_CheckBinding_b_buf(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
@@ -1226,9 +1434,9 @@ static void Ref1_CheckBinding_b_buf(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   VERIFY_IS_TRUE(resName.compare("b_buf") == 0);
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_UAV_RWBYTEADDRESS);
   // not explicitly bound:
-  VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295);
-  VERIFY_ARE_EQUAL(resDesc.Space, 4294967295);
-  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295U);
+  VERIFY_ARE_EQUAL(resDesc.Space, 4294967295U);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1U);
 }
 
 
@@ -1277,7 +1485,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
       VERIFY_SUCCEEDED(containerReflection->GetPartReflection(i, IID_PPV_ARGS(&pLibraryReflection)));
       D3D12_LIBRARY_DESC LibDesc;
       VERIFY_SUCCEEDED(pLibraryReflection->GetDesc(&LibDesc));
-      VERIFY_ARE_EQUAL(LibDesc.FunctionCount, 3);
+      VERIFY_ARE_EQUAL(LibDesc.FunctionCount, 3U);
       for (INT iFn = 0; iFn < (INT)LibDesc.FunctionCount; iFn++) {
         ID3D12FunctionReflection *pFunctionReflection = pLibraryReflection->GetFunctionByIndex(iFn);
         D3D12_FUNCTION_DESC FnDesc;
@@ -1285,8 +1493,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
         std::string Name = FnDesc.Name;
         if (Name.compare("\01?function0@@YAM$min16f@@Z") == 0) {
           VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_lib_6_3);
-          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1);
-          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2);
+          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1U);
+          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2U);
           D3D12_SHADER_BUFFER_DESC cbDesc;
           ID3D12ShaderReflectionConstantBuffer *pCBReflection = pFunctionReflection->GetConstantBufferByIndex(0);
           VERIFY_SUCCEEDED(pCBReflection->GetDesc(&cbDesc));
@@ -1316,8 +1524,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
           }
         } else if (Name.compare("\01?function1@@YAMM$min12i@@Z") == 0) {
           VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_lib_6_3);
-          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1);
-          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 4);
+          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1U);
+          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 4U);
           D3D12_SHADER_BUFFER_DESC cbDesc;
           ID3D12ShaderReflectionConstantBuffer *pCBReflection = pFunctionReflection->GetConstantBufferByIndex(0);
           VERIFY_SUCCEEDED(pCBReflection->GetDesc(&cbDesc));
@@ -1348,8 +1556,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
         } else if (Name.compare("function2") == 0) {
           // shader function with unmangled name
           VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_vs_6_3);
-          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 2);
-          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2);
+          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 2U);
+          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2U);
           for (INT iCB = 0; iCB < (INT)FnDesc.BoundResources; iCB++) {
             D3D12_SHADER_BUFFER_DESC cbDesc;
             ID3D12ShaderReflectionConstantBuffer *pCBReflection = pFunctionReflection->GetConstantBufferByIndex(0);
@@ -1445,8 +1653,8 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
       VERIFY_SUCCEEDED(pShaderReflection->GetDesc(&desc));
       VERIFY_ARE_EQUAL(desc.Version, EncodedVersion_vs_6_3);
       if (bValid) {
-        VERIFY_ARE_EQUAL(desc.ConstantBuffers, 2);
-        VERIFY_ARE_EQUAL(desc.BoundResources, 2);
+        VERIFY_ARE_EQUAL(desc.ConstantBuffers, 2U);
+        VERIFY_ARE_EQUAL(desc.BoundResources, 2U);
         // That should be good enough to check that IDxcUtils::CreateReflection worked
       }
     };
@@ -1504,7 +1712,7 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
       D3D12_LIBRARY_DESC desc;
       VERIFY_SUCCEEDED(pLibraryReflection->GetDesc(&desc));
       if (bValid) {
-        VERIFY_ARE_EQUAL(desc.FunctionCount, 3);
+        VERIFY_ARE_EQUAL(desc.FunctionCount, 3U);
       // That should be good enough to check that IDxcUtils::CreateReflection worked
       }
     };
@@ -1753,13 +1961,17 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
   const char *pLineEnd = pText;
   while (pLineEnd < pEnd && *pLineEnd != '\n') pLineEnd++;
 
-  // Create a UTF-16-backing store.
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > w;
-  std::wstring line = w.from_bytes(pText, pLineEnd);
+  // Create a wide char backing store.
+  auto state = std::mbstate_t();
+  size_t size = std::mbsrtowcs(nullptr, &pText, 0, &state);
+  if (size == static_cast<size_t>(-1))
+    return E_INVALIDARG;
+
+  std::unique_ptr<wchar_t[]> pWText(new wchar_t[size + 1]);
+  std::mbsrtowcs(pWText.get(), &pText, size + 1, &state);
 
   // Find starting and ending '-*-' delimiters.
-  const wchar_t *pWText = line.c_str();
-  const wchar_t *pVarStart = wcsstr(pWText, L"-*-");
+  const wchar_t *pVarStart = wcsstr(pWText.get(), L"-*-");
   if (!pVarStart) return E_INVALIDARG;
   pVarStart += 3;
   const wchar_t *pVarEnd = wcsstr(pVarStart, L"-*-");
@@ -1796,7 +2008,7 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
   return S_OK;
 }
 
-#ifdef _WIN32 // Reflection unsupported
+#ifdef _WIN32 // DXBC unsupported
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
@@ -1867,10 +2079,119 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
     }
   }
 }
-#endif // _WIN32 - Reflection unsupported
+#endif // _WIN32 - DXBC unsupported
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");
+}
+
+// Test to see if the Compiler Version (VERS) part gets added to library shaders
+// with validator version >= 1.8
+TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("export float4 main() : SV_Target { return 0; }",
+                     &pSource);
+  // Test DxilContainer with ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(
+      hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+
+  pResult.Release();
+  pProgram.Release();
+
+  // Test DxilContainer without ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_8", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(),
+                                      pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(
+      hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
+  const hlsl::DxilPartHeader *pVersionHeader =
+      hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
+
+  // ensure the version info has the expected contents by
+  // querying IDxcVersion interface from pCompiler and comparing
+  // against the contents inside of pProgram
+
+  // Gather "true" information
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  CComPtr<IDxcVersionInfo2> pVersionInfo2;
+  CComPtr<IDxcVersionInfo3> pVersionInfo3;
+  pCompiler.QueryInterface(&pVersionInfo);
+  UINT major;
+  UINT minor;
+  UINT flags;
+  UINT commit_count;
+  CComHeapPtr<char> pCommitHashRef;
+  CComHeapPtr<char> pCustomVersionStrRef;
+  VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&major, &minor));
+  VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&flags));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pVersionInfo2));
+  VERIFY_SUCCEEDED(
+      pVersionInfo2->GetCommitInfo(&commit_count, &pCommitHashRef));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pVersionInfo3));
+  VERIFY_SUCCEEDED(
+      pVersionInfo3->GetCustomVersionString(&pCustomVersionStrRef));
+
+  // test the "true" information against what's in the blob
+  VERIFY_IS_TRUE(pVersionHeader->PartFourCC ==
+                 hlsl::DxilFourCC::DFCC_CompilerVersion);
+  // test the rest of the contents (major, minor, etc.)
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                  &containerReflection));
+  IFT(containerReflection->Load(pProgram));
+  IFT(containerReflection->GetPartCount(&partCount));
+  UINT part_index;
+  VERIFY_SUCCEEDED(containerReflection->FindFirstPartKind(
+      hlsl::DFCC_CompilerVersion, &part_index));
+
+  CComPtr<IDxcBlob> pBlob;
+  IFT(containerReflection->GetPartContent(part_index, &pBlob));
+  void *pBlobPtr = pBlob->GetBufferPointer();
+  hlsl::DxilCompilerVersion *pDCV = (hlsl::DxilCompilerVersion *)pBlobPtr;
+  VERIFY_ARE_EQUAL(major, pDCV->Major);
+  VERIFY_ARE_EQUAL(minor, pDCV->Minor);
+  VERIFY_ARE_EQUAL(flags, pDCV->VersionFlags);
+  VERIFY_ARE_EQUAL(commit_count, pDCV->CommitCount);
+
+  if (pDCV->VersionStringListSizeInBytes != 0) {
+    LPCSTR pCommitHashStr = (LPCSTR)pDCV + sizeof(hlsl::DxilCompilerVersion);
+    uint32_t uCommitHashLen = (uint32_t)strlen(pCommitHashStr);
+    VERIFY_ARE_EQUAL_STR(pCommitHashStr, pCommitHashRef);
+
+    // + 2 for the two null terminators that are included in this size:
+    if (pDCV->VersionStringListSizeInBytes > uCommitHashLen + 2) {
+      LPCSTR pCustomVersionString = pCommitHashStr + uCommitHashLen + 1;
+      VERIFY_ARE_EQUAL_STR(pCustomVersionString, pCustomVersionStrRef)
+    }
+  }
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {

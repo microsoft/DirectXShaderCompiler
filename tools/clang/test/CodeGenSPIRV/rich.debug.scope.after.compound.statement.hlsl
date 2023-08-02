@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T vs_6_0 -E main -fspv-debug=rich
 
 struct VS_OUTPUT {
   float4 pos : SV_POSITION;

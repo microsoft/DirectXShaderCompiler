@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: 5:19: error: SV_InnerCoverage must be of uint type.
 

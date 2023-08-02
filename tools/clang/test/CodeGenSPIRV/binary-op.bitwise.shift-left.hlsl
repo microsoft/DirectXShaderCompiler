@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types
 
 // CHECK: [[v2c31:%\d+]] = OpConstantComposite %v2uint %uint_31 %uint_31
 // CHECK: [[v3c63:%\d+]] = OpConstantComposite %v3long %long_63 %long_63 %long_63

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 float4 main(float4 input : A) : SV_Target {
 // CHECK:       [[vec:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_4

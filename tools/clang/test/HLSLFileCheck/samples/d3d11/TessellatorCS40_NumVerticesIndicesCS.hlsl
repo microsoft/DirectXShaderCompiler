@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_6_0 -O0 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 -O0 -HV 2018 %s | FileCheck %s
 
 // CHECK: threadId
 // CHECK: bufferLoad
@@ -21,6 +21,7 @@
 
 StructuredBuffer<float4> InputEdgeFactor : register(t0);
 RWStructuredBuffer<uint2> NumVerticesIndicesOut : register(u0);
+RWStructuredBuffer<int4> DebugOutput : register(u1); // HLSL Change
 
 cbuffer cbCS : register(b1)
 {
@@ -59,7 +60,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
                 num_index += 4;
             }
         }
-
+        DebugOutput[DTid.x] = processedTessFactors.outsideInsideSplitPointOnFloorHalfTessFactor; // HLSL Change: Use that output so the loop that defines it doens't get deleted.
         NumVerticesIndicesOut[DTid.x] = uint2(num_points, num_index);
     }
 }

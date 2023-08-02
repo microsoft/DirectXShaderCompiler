@@ -1,9 +1,10 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-bind-register u10 2 10 1
+// RUN: %dxc -T ps_6_0 -E main -fvk-bind-register u10 2 10 1
 
 struct S { float4 val; };
 RWStructuredBuffer<S>  MyBuffer : register(u10, space2);
 
 float4 main() : SV_Target {
+  MyBuffer.IncrementCounter();
   return MyBuffer[0].val;
 }
 

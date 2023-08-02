@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 struct Base {
   static const uint s_coefficientCount = 4;

@@ -38,7 +38,7 @@
 #ifndef _REGEX_IMPL_H_ // HLSL Change
 #define _REGEX_IMPL_H_ // HLSL Change
 
-#include "dxc/Support/WinAdapter.h" // HLSL Change
+#include "dxc/WinAdapter.h" // HLSL Change
 #include <sys/types.h>
 
 typedef off_t llvm_regoff_t;

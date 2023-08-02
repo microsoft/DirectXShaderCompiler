@@ -10,6 +10,7 @@ add_dxilconv_project_test_library(dxilconv-tests SHARED
 
 target_link_libraries(dxilconv-tests PRIVATE
   HLSLTestLib
+  LLVMDxilContainer # for RDAT used by HLSLTestLib
   LLVMDxcSupport
   LLVMMSSupport
   LLVMSupport
@@ -22,7 +23,10 @@ target_include_directories(dxilconv-tests PRIVATE
   ${TAEF_INCLUDE_DIRS}
 )
 
-add_dependencies(dxilconv-tests dxilconv HLSLTestLib)
+# dxilconv-tests calls out to several external tools. Those need to be listed
+# here to ensure they build with dxilconv for our test target depencencies to be
+# correct.
+add_dependencies(dxilconv-tests dxilconv HLSLTestLib dxbc2dxil dxa opt)
 
 install(TARGETS dxilconv-tests
   RUNTIME DESTINATION bin)

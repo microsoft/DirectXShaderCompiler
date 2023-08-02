@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fvk-use-dx-layout
+// RUN: %dxc -T vs_6_0 -E main -fvk-use-dx-layout
 
 // CHECK: OpMemberDecorate %type__Globals 0 Offset 0
 // CHECK: OpMemberDecorate %type__Globals 1 Offset 16

@@ -40,7 +40,7 @@
 #include <unordered_set>
 
 using namespace llvm;
-using namespace std;
+using std::map;
 
 namespace hlsl {
 

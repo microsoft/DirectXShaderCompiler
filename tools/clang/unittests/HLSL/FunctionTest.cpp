@@ -454,6 +454,8 @@ TEST_F(FunctionTest, ParseRootSignature) {
   TestHLSLRootSignatureCase("StaticSampler(BorderColor = STATIC_BORDER_COLOR_TRANSPARENT_BLACK, s2)", S_OK);
   TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_BLACK)", S_OK);
   TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE)", S_OK);
+  TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_BLACK_UINT)", S_OK);
+  TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE_UINT)", S_OK);
   TestHLSLRootSignatureCase("StaticSampler(BorderColor = STATIC_BORDER_COLOR_TRANSPARENT_BLACK, s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE)", E_FAIL);
 
   // MinLOD

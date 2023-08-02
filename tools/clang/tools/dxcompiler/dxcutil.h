@@ -11,10 +11,12 @@
 
 #pragma once
 
-#include "dxc/dxcapi.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/microcom.h"
-#include <memory>
+#include "dxc/dxcapi.h"
 #include "llvm/ADT/StringRef.h"
+
+#include <memory>
 
 namespace clang {
 class DiagnosticsEngine;
@@ -41,17 +43,19 @@ class DxcOpts;
 namespace dxcutil {
 struct AssembleInputs {
   AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
-                 CComPtr<IDxcBlob> &pOutputContainerBlob,
-                 IMalloc *pMalloc,
+                 CComPtr<IDxcBlob> &pOutputContainerBlob, IMalloc *pMalloc,
                  hlsl::SerializeDxilFlags SerializeFlags,
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                  llvm::StringRef DebugName = llvm::StringRef(),
                  clang::DiagnosticsEngine *pDiag = nullptr,
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
-                 hlsl::AbstractMemoryStream *pRootSigOut = nullptr);
+                 hlsl::AbstractMemoryStream *pRootSigOut = nullptr,
+                 CComPtr<IDxcBlob> pRootSigBlob = nullptr,
+                 CComPtr<IDxcBlob> pPrivateBlob = nullptr);
   std::unique_ptr<llvm::Module> pM;
   CComPtr<IDxcBlob> &pOutputContainerBlob;
+  IDxcVersionInfo *pVersionInfo = nullptr;
   IMalloc *pMalloc;
   hlsl::SerializeDxilFlags SerializeFlags;
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
@@ -60,10 +64,13 @@ struct AssembleInputs {
   hlsl::DxilShaderHash *pShaderHashOut = nullptr;
   hlsl::AbstractMemoryStream *pReflectionOut = nullptr;
   hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
+  CComPtr<IDxcBlob> pRootSigBlob = nullptr;
+  CComPtr<IDxcBlob> pPrivateBlob = nullptr;
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
 HRESULT ValidateRootSignatureInContainer(
     IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr);
+HRESULT SetRootSignature(hlsl::DxilModule *pModule, CComPtr<IDxcBlob> pSource);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
 void AssembleToContainer(AssembleInputs &inputs);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);

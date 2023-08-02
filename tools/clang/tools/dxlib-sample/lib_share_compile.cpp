@@ -94,7 +94,8 @@ static void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
     finished = true;
     return;
   }
-  DXASSERT(opts.HLSLVersion > 2015, "else ReadDxcOpts didn't fail for non-isense");
+  DXASSERT(opts.HLSLVersion > hlsl::LangStd::v2015,
+           "else ReadDxcOpts didn't fail for non-isense");
   finished = false;
 }
 
@@ -136,8 +137,6 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       }
 
       for (const llvm::opt::Arg *A : opts.Args.filtered(options::OPT_I)) {
-        const bool IsFrameworkFalse = false;
-        const bool IgnoreSysRoot = true;
         if (dxcutil::IsAbsoluteOrCurDirRelative(A->getValue())) {
           preprocessor->AddIncPath(A->getValue());
         } else {
@@ -157,7 +156,6 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     IFR(CreateLinker(&linker));
     IDxcIncludeHandler * const kNoIncHandler = nullptr;
     const auto &snippets = preprocessor->GetSnippets();
-    const bool bLazyLoad = true;
     std::string processedHeader = "";
     std::vector<std::wstring> hashStrList;
     std::vector<LPCWSTR> hashList;
@@ -204,8 +202,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       linker->RegisterLibrary(hashList.back(), pOutputBlob);
       pOutputBlob.Detach(); // Ownership is in libCache.
     }
-    std::wstring wEntry = Unicode::UTF8ToUTF16StringOrThrow(pEntrypoint);
-    std::wstring wTarget = Unicode::UTF8ToUTF16StringOrThrow(Target);
+    std::wstring wEntry = Unicode::UTF8ToWideStringOrThrow(pEntrypoint);
+    std::wstring wTarget = Unicode::UTF8ToWideStringOrThrow(Target);
 
     // Link
 #ifdef LIB_SHARE_DBG

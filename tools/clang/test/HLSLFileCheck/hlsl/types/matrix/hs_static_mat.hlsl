@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // Make sure not crash.
-// CHECK:define void @"\01?patchConstantF@@YA?AUPatchConstantOutput@@V?$OutputPatch@UHsOutput@@$02@@@Z"()
+// CHECK:define void @"\01?patchConstantF{{[@$?.A-Za-z0-9_]+}}"()
 // CHECK:define void @main()
 struct ST
 {

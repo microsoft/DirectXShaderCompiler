@@ -1410,7 +1410,7 @@ DeduceTemplateArgumentsByTypeMatch(Sema &S,
         ->getInjectedSpecializationType();
       assert(isa<TemplateSpecializationType>(Param) &&
              "injected class name is not a template specialization type");
-      // fall through
+      LLVM_FALLTHROUGH; // HLSL Change
     }
 
     //     template-name<T> (where template-name refers to a class template)
@@ -2605,10 +2605,12 @@ Sema::SubstituteExplicitTemplateArguments(
     return TDK_SubstitutionFailure;
 
   if (FunctionType) {
-    *FunctionType = BuildFunctionType(ResultType, ParamTypes,
-                                      Function->getLocation(),
-                                      Function->getDeclName(),
-                                      Proto->getExtProtoInfo());
+    // HLSL Change - FIX - We should move param mods to parameter QualTypes
+    *FunctionType = BuildFunctionType(
+        ResultType, ParamTypes, Function->getLocation(),
+        Function->getDeclName(), Proto->getExtProtoInfo(),
+        cast<FunctionProtoType>(Function->getType())->getParamMods());
+    // HLSL Change - End
     if (FunctionType->isNull() || Trap.hasErrorOccurred())
       return TDK_SubstitutionFailure;
   }
@@ -2726,6 +2728,18 @@ CheckOriginalCallArgDeduction(Sema &S, Sema::OriginalCallArg OriginalArg,
       }
     }
   }
+  
+  /// HLSL Change Begin
+  // resolve literal types to 32-bit types for template argument types.
+  if (LangOptions().HLSL) {
+    if (auto BT = dyn_cast<BuiltinType>(A)) {
+      if (BT->getKind() == BuiltinType::LitFloat)
+        A = Context.FloatTy;
+      else if (BT->getKind() == BuiltinType::LitInt)
+        A = Context.IntTy;
+    }
+  }
+  /// HLSL Change End
   
   if (Context.hasSameUnqualifiedType(A, DeducedA))
     return false;
@@ -2899,6 +2913,28 @@ Sema::FinishTemplateArgumentDeduction(FunctionTemplateDecl *FunctionTemplate,
 
     // If we get here, we successfully used the default template argument.
   }
+
+  /// HLSL Change Begin
+
+  // In HLSL for user-supplied templates we translate any `literal <type>`
+  // arguments into the appropriate 32-bit type. For builtins we preserve the
+  // `literal` types as long as possible so that constant folding can operate on
+  // the highest precision type.
+  if (LangOptions().HLSL) {
+    for (auto &Arg : Builder) {
+      if (Arg.getKind() != TemplateArgument::Type)
+        continue;
+      QualType QT = Arg.getAsType();
+      if (auto BT = dyn_cast<BuiltinType>(QT)) {
+        if (BT->getKind() == BuiltinType::LitFloat) {
+          Arg = TemplateArgument(Context.FloatTy);
+        } else if (BT->getKind() == BuiltinType::LitInt) {
+          Arg = TemplateArgument(Context.IntTy);
+        }
+      }
+    }
+  }
+  /// HLSL Change End
 
   // Form the template argument list from the deduced template arguments.
   TemplateArgumentList *DeducedArgumentList
@@ -4747,6 +4783,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
                                cast<DependentSizedArrayType>(T)->getSizeExpr(),
                                OnlyDeduced, Depth, Used);
     // Fall through to check the element type
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Type::ConstantArray:
   case Type::IncompleteArray:
@@ -4802,7 +4839,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
 
   case Type::InjectedClassName:
     T = cast<InjectedClassNameType>(T)->getInjectedSpecializationType();
-    // fall through
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Type::TemplateSpecialization: {
     const TemplateSpecializationType *Spec
@@ -4904,7 +4941,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
     MarkUsedTemplateParameters(Ctx,
                                cast<AutoType>(T)->getDeducedType(),
                                OnlyDeduced, Depth, Used);
-
+    break;
   // None of these types have any template parameters in them.
   case Type::Builtin:
   case Type::VariableArray:

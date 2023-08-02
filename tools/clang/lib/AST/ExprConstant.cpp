@@ -641,6 +641,7 @@ namespace {
               break;
             // We've had side-effects; we want the diagnostic from them, not
             // some later problem.
+            LLVM_FALLTHROUGH; // HLSL Change
           case EM_ConstantExpression:
           case EM_PotentialConstantExpression:
           case EM_ConstantExpressionUnevaluated:
@@ -3811,6 +3812,23 @@ static bool HandleIntrinsicCall(SourceLocation CallLoc, unsigned opcode,
       return false;
     }
     return true;
+  case hlsl::IntrinsicOp::IOP_min:
+    assert(Args.size() == 2 && "else call should be invalid");
+    assert(ArgValues[0].getKind() == ArgValues[1].getKind() && "else call is invalid");
+    if (ArgValues[0].isInt()) {
+      Result = ArgValues[0].getInt() < ArgValues[1].getInt() ? ArgValues[0] : ArgValues[1];
+    }
+    else if (ArgValues[0].isFloat()) {
+      // TODO: handle NaNs properly
+      APFloat::cmpResult r = ArgValues[0].getFloat().compare(ArgValues[1].getFloat());
+      Result = (r == APFloat::cmpLessThan) ? ArgValues[0] : ArgValues[1];
+    }
+    else {
+      // TODO: consider a better error message here
+      Info.Diag(CallLoc, diag::note_invalid_subexpr_in_const_expr);
+      return false;
+    }
+    return true;
   default:
     Info.Diag(CallLoc, diag::note_invalid_subexpr_in_const_expr);
     return false;
@@ -6554,6 +6572,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
     case EvalInfo::EM_PotentialConstantExpressionUnevaluated:
       return Success(-1ULL, E);
     }
+    llvm_unreachable("Invalid EvalMode!");
   }
 
   case Builtin::BI__builtin_bswap16:
@@ -6693,7 +6712,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
         << /*isConstexpr*/0 << /*isConstructor*/0 << "'strlen'";
     else
       Info.CCEDiag(E, diag::note_invalid_subexpr_in_const_expr);
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case Builtin::BI__builtin_strlen: {
     // As an extension, we support __builtin_strlen() as a constant expression,
     // and support folding strlen() to a constant.
@@ -9172,7 +9191,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return CheckICE(Exp->getSubExpr(), Ctx);
     }
 
-    // OffsetOf falls through here.
+    return CheckEvalInICE(E, Ctx); // HLSL Change - avoid dead-code fallthrough
+
   }
   case Expr::OffsetOfExprClass: {
     // Note that per C99, offsetof must be an ICE. And AFAIK, using
@@ -9275,6 +9295,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return Worst(LHSResult, RHSResult);
     }
     }
+    llvm_unreachable("Invalid binary operator!");
   }
   case Expr::ImplicitCastExprClass:
   case Expr::CStyleCastExprClass:
@@ -9301,7 +9322,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
         return NoDiag();
       }
     }
-    switch (cast<CastExpr>(E)->getCastKind()) {
+    const CastExpr *CE = (const CastExpr*)(E);
+    switch (CE->getCastKind()) {
     case CK_LValueToRValue:
     case CK_AtomicToNonAtomic:
     case CK_NonAtomicToAtomic:
@@ -9393,7 +9415,9 @@ static bool EvaluateCPlusPlus11IntegralConstantExpr(const ASTContext &Ctx,
 
 bool Expr::isIntegerConstantExpr(const ASTContext &Ctx,
                                  SourceLocation *Loc) const {
-  if (Ctx.getLangOpts().CPlusPlus11)
+  // HLSL Change - if templates are enabled we need to act like C++11 here
+  if (Ctx.getLangOpts().CPlusPlus11 ||
+      Ctx.getLangOpts().HLSLVersion >= hlsl::LangStd::v2021)
     return EvaluateCPlusPlus11IntegralConstantExpr(Ctx, this, nullptr, Loc);
 
   ICEDiag D = CheckICE(this, Ctx);
@@ -9406,7 +9430,9 @@ bool Expr::isIntegerConstantExpr(const ASTContext &Ctx,
 
 bool Expr::isIntegerConstantExpr(llvm::APSInt &Value, const ASTContext &Ctx,
                                  SourceLocation *Loc, bool isEvaluated) const {
-  if (Ctx.getLangOpts().CPlusPlus11)
+  // HLSL Change - if templates are enabled we need to act like C++11 here
+  if (Ctx.getLangOpts().CPlusPlus11 ||
+      Ctx.getLangOpts().HLSLVersion >= hlsl::LangStd::v2021)
     return EvaluateCPlusPlus11IntegralConstantExpr(Ctx, this, &Value, Loc);
 
   if (!isIntegerConstantExpr(Ctx, Loc))

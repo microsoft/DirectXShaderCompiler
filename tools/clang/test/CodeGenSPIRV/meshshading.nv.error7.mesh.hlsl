@@ -1,4 +1,4 @@
-// Run: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main
 
 // CHECK: 21:9: error: 'primitives' object must be an out parameter
 

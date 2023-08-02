@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -Wno-vk-ignored-features
+// RUN: %dxc -T vs_6_0 -E main -Wno-vk-ignored-features
 
 cbuffer MyCBuffer {
     float a = 1.0;

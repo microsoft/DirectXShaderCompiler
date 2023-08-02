@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -O0
+// RUN: %dxc -T ps_6_0 -E main -O0
 
 // CHECK: OpDecorate %tex0 DescriptorSet 1
 // CHECK: OpDecorate %tex0 Binding 0

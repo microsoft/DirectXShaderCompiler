@@ -1,8 +1,8 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-extension=SPV_EXT_demote_to_helper_invocation
+// RUN: %dxc -T ps_6_0 -E main -fspv-extension=SPV_EXT_demote_to_helper_invocation
 
 // According to the HLS spec, discard can only be called from a pixel shader.
 
-// CHECK: OpCapability DemoteToHelperInvocationEXT
+// CHECK: OpCapability DemoteToHelperInvocation
 // CHECK: OpExtension "SPV_EXT_demote_to_helper_invocation"
 
 void main() {
@@ -13,13 +13,13 @@ void main() {
 // CHECK: %while_body = OpLabel
     if(a==b) {
 // CHECK: %if_true = OpLabel
-// CHECK: OpDemoteToHelperInvocationEXT
+// CHECK: OpDemoteToHelperInvocation
       discard;
       break;
     } else {
 // CHECK: %if_false = OpLabel
       ++a;
-// CHECK: OpDemoteToHelperInvocationEXT
+// CHECK: OpDemoteToHelperInvocation
       discard;
       continue;
       --b;

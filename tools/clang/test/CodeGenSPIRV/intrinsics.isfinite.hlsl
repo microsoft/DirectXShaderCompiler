@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // Since OpIsFinite needs the Kernel capability, translation is done using OpIsNan and OpIsInf.
 // isFinite = !(isNan || isInf)

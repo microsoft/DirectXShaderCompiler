@@ -60,7 +60,6 @@ echo Setting up macros for this console - run hcthelp for a reference.
 echo.
 doskey hctbld=pushd %HLSL_BLD_DIR%
 doskey hctbuild=%HLSL_SRC_DIR%\utils\hct\hctbuild.cmd $*
-doskey hctcheckin=%HLSL_SRC_DIR%\utils\hct\hctcheckin.cmd $*
 doskey hctclean=%HLSL_SRC_DIR%\utils\hct\hctclean.cmd $*
 doskey hcthelp=%HLSL_SRC_DIR%\utils\hct\hcthelp.cmd $*
 doskey hctshortcut=cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctshortcut.js $*
@@ -88,6 +87,7 @@ if errorlevel 1 (
   call :findpython
 )
 
+call :findminte
 where te.exe 1>nul 2>nul
 if errorlevel 1 (
   call :findte
@@ -114,13 +114,18 @@ echo.
 goto :eof
 
 :findcmake 
-for %%v in (2019 2017) do (
-  for %%e in (Community Professional Enterprise) do (
-    if exist "%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin" (
-      set "PATH=%PATH%;%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-      echo Path adjusted to include cmake from Visual Studio %%v %%e.
-      exit /b 0
-    )
+for %%e in (Community Professional Enterprise) do (
+  rem check VS 2022 in programfiles first
+  if exist "%programfiles%\Microsoft Visual Studio\2022\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin" (
+    set "PATH=%PATH%;%programfiles%\Microsoft Visual Studio\2022\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+    echo Path adjusted to include cmake from Visual Studio 2022 %%e.
+    exit /b 0
+  )
+  rem then check VS 2019 in programfiles(x86)
+  if exist "%programfiles(x86)%\Microsoft Visual Studio\2019\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin" (
+    set "PATH=%PATH%;%programfiles(x86)%\Microsoft Visual Studio\2019\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+    echo Path adjusted to include cmake from Visual Studio 2019 %%e.
+    exit /b 0
   )
 )
 if errorlevel 1 if exist "%programfiles%\CMake\bin" set path=%path%;%programfiles%\CMake\bin
@@ -132,6 +137,26 @@ if errorlevel 1 (
 )
 echo Path adjusted to include cmake.
 goto :eof
+
+:findminte 
+set HLSL_TAEF_DIR=
+set HLSL_TAEF_MINTE=
+if exist "%HLSL_SRC_DIR%\external\taef\build\Binaries\%BUILD_ARCH:Win32=x86%\Te.exe" set HLSL_TAEF_MINTE=%HLSL_SRC_DIR%\external\taef\build\Binaries\%BUILD_ARCH:Win32=x86%
+if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe
+if exist "%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\%BUILD_ARCH:Win32=x86%\MinTe
+if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles%\windows kits\10\Testing\Runtimes\TAEF\MinTe
+if exist "%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\MinTe\Te.exe" set HLSL_TAEF_MINTE=%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\MinTe
+if "%HLSL_TAEF_MINTE%"=="" (
+  echo Unable to find matching MinTe, will not auto-copy AgilitySDK binaries.
+  exit /b 1
+)
+echo Found TAEF at %HLSL_TAEF_MINTE%
+set HLSL_TAEF_DIR=%HLSL_BLD_DIR%\TAEF
+echo Copying to %HLSL_TAEF_DIR% for use with AgilitySDK
+mkdir "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%" 1>nul 2>nul
+robocopy /NP /NJH /NJS /S "%HLSL_TAEF_MINTE%" "%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%" *
+set path=%path%;%HLSL_TAEF_DIR%\%BUILD_ARCH:Win32=x86%
+goto:eof
 
 :findte 
 if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles%\windows kits\10\Testing\Runtimes\TAEF
@@ -184,7 +209,7 @@ for /F "tokens=1,2*" %%A in ('%REG_QUERY% /v InstallationFolder') do (
   )
 )
 if ""=="%kit_root%" (
-    set kit_root=%WIN10_SDK_PATH%
+    set "kit_root=%WIN10_SDK_PATH%"
 )
 if ""=="%kit_root%" (
   echo Did not find a Windows 10 SDK installation.

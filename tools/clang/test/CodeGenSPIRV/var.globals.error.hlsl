@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 [[vk::binding(10, 2)]] float4 gVec = 1.0;
 

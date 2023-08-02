@@ -22,6 +22,7 @@
 #include "llvm/Support/Casting.h"
 
 #include "AlignmentSizeCalculator.h"
+#include "SignaturePackingUtil.h"
 #include "SpirvEmitter.h"
 
 namespace clang {
@@ -106,12 +107,13 @@ QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                    "getUintTypeWithSourceComponents");
 }
 
-uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
+LocationAndComponent getLocationAndComponentCount(const ASTContext &astContext,
+                                                  QualType type) {
   // See Vulkan spec 14.1.4. Location Assignment for the complete set of rules.
 
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return getLocationCount(astContext, canonicalType);
+    return getLocationAndComponentCount(astContext, canonicalType);
 
   // Inputs and outputs of the following types consume a single interface
   // location:
@@ -123,8 +125,20 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
   // locations.
 
   // Primitive types
-  if (isScalarType(type))
-    return 1;
+  if (isScalarType(type)) {
+    const auto *builtinType = type->getAs<BuiltinType>();
+    if (builtinType != nullptr) {
+      switch (builtinType->getKind()) {
+      case BuiltinType::Double:
+      case BuiltinType::LongLong:
+      case BuiltinType::ULongLong:
+        return {1, 2, true};
+      default:
+        return {1, 1, false};
+      }
+    }
+    return {1, 1, false};
+  }
 
   // Vector types
   {
@@ -135,14 +149,16 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
       switch (builtinType->getKind()) {
       case BuiltinType::Double:
       case BuiltinType::LongLong:
-      case BuiltinType::ULongLong:
+      case BuiltinType::ULongLong: {
         if (elemCount >= 3)
-          return 2;
+          return {2, 4, true};
+        return {1, 2 * elemCount, true};
+      }
       default:
         // Filter switch only interested in types occupying 2 locations.
         break;
       }
-      return 1;
+      return {1, elemCount, false};
     }
   }
 
@@ -155,42 +171,50 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
   {
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
-      return getLocationCount(astContext,
-                              astContext.getExtVectorType(elemType, colCount)) *
-             rowCount;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      auto locComponentCount = getLocationAndComponentCount(
+          astContext, astContext.getExtVectorType(elemType, colCount));
+      return {locComponentCount.location * rowCount,
+              locComponentCount.component,
+              locComponentCount.componentAlignment};
+    }
   }
 
   // Typedefs
   if (const auto *typedefType = type->getAs<TypedefType>())
-    return getLocationCount(astContext, typedefType->desugar());
+    return getLocationAndComponentCount(astContext, typedefType->desugar());
 
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>())
-    return getLocationCount(astContext, refType->getPointeeType());
+    return getLocationAndComponentCount(astContext, refType->getPointeeType());
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>())
-    return getLocationCount(astContext, ptrType->getPointeeType());
+    return getLocationAndComponentCount(astContext, ptrType->getPointeeType());
 
   // If a declared input or output is an array of size n and each element takes
   // m locations, it will be assigned m * n consecutive locations starting with
   // the location specified.
 
   // Array types
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type))
-    return getLocationCount(astContext, arrayType->getElementType()) *
-           static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    auto locComponentCount =
+        getLocationAndComponentCount(astContext, arrayType->getElementType());
+    uint32_t arrayLength =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    return {locComponentCount.location * arrayLength,
+            locComponentCount.component, locComponentCount.componentAlignment};
+  }
 
   // Struct type
   if (type->getAs<RecordType>()) {
     assert(false && "all structs should already be flattened");
-    return 0;
+    return {0, 0, false};
   }
 
   llvm_unreachable(
       "calculating number of occupied locations for type unimplemented");
-  return 0;
+  return {0, 0, false};
 }
 
 bool shouldSkipInStructLayout(const Decl *decl) {
@@ -383,7 +407,7 @@ spv::StorageClass getStorageClassForExternVar(QualType type,
   if (hasGroupsharedAttr)
     return spv::StorageClass::Workgroup;
 
-  if (isAKindOfStructuredOrByteBuffer(type))
+  if (isAKindOfStructuredOrByteBuffer(type) || isConstantTextureBuffer(type))
     return spv::StorageClass::Uniform;
 
   return spv::StorageClass::UniformConstant;
@@ -395,6 +419,10 @@ SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
                                           const SpirvCodeGenOptions &opts) {
   if (isAKindOfStructuredOrByteBuffer(type))
     return opts.sBufferLayoutRule;
+  if (isConstantBuffer(type))
+    return opts.cBufferLayoutRule;
+  if (isTextureBuffer(type))
+    return opts.tBufferLayoutRule;
   return SpirvLayoutRule::Void;
 }
 
@@ -517,9 +545,27 @@ bool insertSeenSemanticsForEntryPointIfNotExist(
   return true;
 }
 
-// Returns whether the type is float4 or a composite type recursively including
-// only float4 e.g., float4, float4[1], struct S { float4 foo[1]; }.
-bool containOnlyVecWithFourFloats(QualType type) {
+// Returns whether the type is translated to a 32-bit floating point type,
+// depending on whether SPIR-V codegen options are configured to use 16-bit
+// types when possible.
+bool is32BitFloatingPointType(BuiltinType::Kind kind, bool use16Bit) {
+  // Always translated into 32-bit floating point types.
+  if (kind == BuiltinType::Float || kind == BuiltinType::LitFloat)
+    return true;
+
+  // Translated into 32-bit floating point types when run without
+  // -enable-16bit-types.
+  if (kind == BuiltinType::Half || kind == BuiltinType::HalfFloat ||
+      kind == BuiltinType::Min10Float || kind == BuiltinType::Min16Float)
+    return !use16Bit;
+
+  return false;
+}
+
+// Returns whether the type is a 4-component 32-bit float or a composite type
+// recursively including only such a vector e.g., float4, float4[1], struct S {
+// float4 foo[1]; }.
+bool containOnlyVecWithFourFloats(QualType type, bool use16Bit) {
   if (type->isReferenceType())
     type = type->getPointeeType();
 
@@ -532,7 +578,7 @@ bool containOnlyVecWithFourFloats(QualType type) {
         (const ConstantArrayType *)type->getAsArrayTypeUnsafe();
     elemCount = hlsl::GetArraySize(type);
     return elemCount == 1 &&
-           containOnlyVecWithFourFloats(arrayType->getElementType());
+           containOnlyVecWithFourFloats(arrayType->getElementType(), use16Bit);
   }
 
   if (const auto *structType = type->getAs<RecordType>()) {
@@ -540,7 +586,7 @@ bool containOnlyVecWithFourFloats(QualType type) {
     for (const auto *field : structType->getDecl()->fields()) {
       if (fieldCount != 0)
         return false;
-      if (!containOnlyVecWithFourFloats(field->getType()))
+      if (!containOnlyVecWithFourFloats(field->getType(), use16Bit))
         return false;
       ++fieldCount;
     }
@@ -550,7 +596,8 @@ bool containOnlyVecWithFourFloats(QualType type) {
   QualType elemType = {};
   if (isVectorType(type, &elemType, &elemCount)) {
     if (const auto *builtinType = elemType->getAs<BuiltinType>()) {
-      return elemCount == 4 && builtinType->getKind() == BuiltinType::Float;
+      return elemCount == 4 &&
+             is32BitFloatingPointType(builtinType->getKind(), use16Bit);
     }
     return false;
   }
@@ -572,8 +619,14 @@ std::string StageVar::getSemanticStr() const {
   return ss.str();
 }
 
-SpirvInstruction *CounterIdAliasPair::get(SpirvBuilder &builder,
-                                          SpirvContext &spvContext) const {
+SpirvInstruction *CounterIdAliasPair::getAliasAddress() const {
+  assert(isAlias);
+  return counterVar;
+}
+
+SpirvInstruction *
+CounterIdAliasPair::getCounterVariable(SpirvBuilder &builder,
+                                       SpirvContext &spvContext) const {
   if (isAlias) {
     const auto *counterType = spvContext.getACSBufferCounterType();
     const auto *counterVarType =
@@ -600,7 +653,8 @@ bool CounterVarFields::assign(const CounterVarFields &srcFields,
     if (!srcField)
       return false;
 
-    field.counterVar.assign(*srcField, builder, context);
+    field.counterVar.assign(srcField->getCounterVariable(builder, context),
+                            builder);
   }
 
   return true;
@@ -640,7 +694,8 @@ bool CounterVarFields::assign(const CounterVarFields &srcFields,
       if (!srcField)
         return false;
 
-      field.counterVar.assign(*srcField, builder, context);
+      field.counterVar.assign(srcField->getCounterVariable(builder, context),
+                              builder);
       for (uint32_t i = srcPrefix.size(); i < srcIndices.size(); ++i)
         srcIndices.pop_back();
     }
@@ -685,12 +740,42 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
       if (!isVectorType(type, nullptr, &verticesPerPrim)) {
         assert(isScalarType(type));
       }
-      arraySize = arraySize * verticesPerPrim;
-      QualType arrayType = astContext.getConstantArrayType(
-          astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
-          clang::ArrayType::Normal, 0);
-      stageVarInstructions[cast<DeclaratorDecl>(decl)] = getBuiltinVar(
-          spv::BuiltIn::PrimitiveIndicesNV, arrayType, decl->getLocation());
+
+      spv::BuiltIn builtinID = spv::BuiltIn::Max;
+      if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+        // For EXT_mesh_shader, set builtin type as PrimitivePoint/Line/TriangleIndicesEXT
+        // based on the vertices per primitive
+        switch (verticesPerPrim) { 
+          case 1:
+            builtinID = spv::BuiltIn::PrimitivePointIndicesEXT;
+            break;
+          case 2:
+            builtinID = spv::BuiltIn::PrimitiveLineIndicesEXT;
+            break;
+          case 3:
+            builtinID = spv::BuiltIn::PrimitiveTriangleIndicesEXT;
+            break;
+          default:
+            break;
+        }
+        QualType arrayType = astContext.getConstantArrayType(
+            type, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+
+        stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+            getBuiltinVar(builtinID, arrayType, decl->getLocation());
+      } else {
+          // For NV_mesh_shader, the built type is PrimitiveIndicesNV
+          builtinID = spv::BuiltIn::PrimitiveIndicesNV;
+
+          arraySize = arraySize * verticesPerPrim;
+          QualType arrayType = astContext.getConstantArrayType(
+              astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
+              clang::ArrayType::Normal, 0);
+
+          stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+              getBuiltinVar(builtinID, arrayType, decl->getLocation());
+      }
+
       return true;
     }
   }
@@ -764,7 +849,9 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   SemanticInfo inheritSemantic = {};
 
   if (paramDecl->hasAttr<HLSLPayloadAttr>()) {
-    spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+    spv::StorageClass sc = (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader))
+                           ? spv::StorageClass::TaskPayloadWorkgroupEXT
+                           : getStorageClassForSigPoint(sigPoint);
     return createPayloadStageVars(sigPoint, sc, paramDecl, /*asInput=*/true,
                                   type, "in.var", loadedValue);
   } else {
@@ -784,7 +871,8 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 }
 
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
-                                                      SourceLocation loc) {
+                                                      SourceLocation loc,
+                                                      SourceRange range) {
   const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
 
   // If DeclSpirvInfo is not found for this decl, it might be because it is an
@@ -807,7 +895,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
           valueType, info->instr,
           {spvBuilder.getConstantInt(
               astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))},
-          loc);
+          loc, range);
     } else if (auto *type = info->instr->getResultType()) {
       const auto *ptrTy = dyn_cast<HybridPointerType>(type);
 
@@ -815,7 +903,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
       // array of an opaque type, we have to load it because we pass a
       // pointer of a global variable that has the bindless opaque array.
       if (ptrTy != nullptr && isBindlessOpaqueArray(decl->getType())) {
-        auto *load = spvBuilder.createLoad(ptrTy, info->instr, loc);
+        auto *load = spvBuilder.createLoad(ptrTy, info->instr, loc, range);
         load->setRValue(false);
         return load;
       } else {
@@ -840,6 +928,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
                                   uint32_t dbgArgNumber) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
+  const auto range = param->getSourceRange();
   const auto name = param->getName();
   SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
       type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
@@ -861,7 +950,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
         type, name, info->source, line, column, info->scopeStack.back(), flags,
         dbgArgNumber);
-    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr);
+    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr, loc, range);
   }
 
   return fnParamInstr;
@@ -946,7 +1035,9 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto type = var->getType();
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
-  const bool isACRWSBuffer = isRWAppendConsumeSBuffer(type);
+  const bool isACSBuffer =
+      isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type);
+  const bool isRWSBuffer = isRWStructuredBuffer(type);
   const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
   const auto loc = var->getLocation();
@@ -1013,6 +1104,12 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   VkImageFeatures vkImgFeatures = {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
+  if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+    // Legalization is needed to propagate the correct image type for
+    // instructions in addition to cases where the resource is assigned to
+    // another variable or function parameter
+    needsLegalization = true;
+  }
   if (vkImgFeatures.isCombinedImageSampler ||
       vkImgFeatures.format != spv::ImageFormat::Unknown) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
@@ -1037,13 +1134,30 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     spvBuilder.decorateInputAttachmentIndex(varInstr,
                                             inputAttachment->getIndex(), loc);
 
-  if (isACRWSBuffer) {
-    // For {Append|Consume|RW}StructuredBuffer, we need to always create another
+  if (isACSBuffer) {
+    // For {Append|Consume}StructuredBuffer, we need to always create another
     // variable for its associated counter.
     createCounterVar(var, varInstr, /*isAlias=*/false);
+  } else if (isRWSBuffer) {
+    declRWSBuffers[var] = varInstr;
   }
 
   return varInstr;
+}
+
+SpirvInstruction *DeclResultIdMapper::createResultId(const VarDecl *var) {
+  assert(isExtResultIdType(var->getType()));
+
+  // Without initialization, we cannot generate the result id.
+  if (!var->hasInit()) {
+    emitError("Found uninitialized variable for result id.",
+              var->getLocation());
+    return nullptr;
+  }
+
+  SpirvInstruction *init = theEmitter.doExpr(var->getInit());
+  astDecls[var] = createDeclSpirvInfo(init);
+  return init;
 }
 
 SpirvInstruction *
@@ -1066,8 +1180,9 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
 }
 
 SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
-    const DeclContext *decl, int arraySize, const ContextUsageKind usageKind,
-    llvm::StringRef typeName, llvm::StringRef varName) {
+    const DeclContext *decl, llvm::ArrayRef<int> arraySize,
+    const ContextUsageKind usageKind, llvm::StringRef typeName,
+    llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
   // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
   // Push constants are translated into OpTypeStruct with Block decoration.
@@ -1093,6 +1208,13 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
+    auto varType = declDecl->getType();
+    if (const auto *fieldVar = dyn_cast<VarDecl>(subDecl)) {
+      if (isResourceType(varType)) {
+        createExternVar(fieldVar);
+        continue;
+      }
+    }
 
     // In case 'register(c#)' annotation is placed on a global variable.
     const hlsl::RegisterAssignment *registerC =
@@ -1100,7 +1222,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
 
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
-    auto varType = declDecl->getType();
     varType.removeLocalConst();
     HybridStructType::FieldInfo info(varType, declDecl->getName(),
                                      declDecl->getAttr<VKOffsetAttr>(),
@@ -1116,24 +1237,24 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
       forTBuffer ? StructInterfaceType::StorageBuffer
                  : StructInterfaceType::UniformBuffer);
 
-  // Make an array if requested.
-  if (arraySize > 0) {
-    resultType = spvContext.getArrayType(resultType, arraySize,
-                                         /*ArrayStride*/ llvm::None);
-  } else if (arraySize == -1) {
-    resultType =
-        spvContext.getRuntimeArrayType(resultType, /*ArrayStride*/ llvm::None);
+  for (int size : arraySize) {
+    if (size != -1) {
+      resultType = spvContext.getArrayType(resultType, size,
+                                           /*ArrayStride*/ llvm::None);
+    } else {
+      resultType = spvContext.getRuntimeArrayType(resultType,
+                                                  /*ArrayStride*/ llvm::None);
+    }
   }
 
   // Register the <type-id> for this decl
   ctBufferPCTypes[decl] = resultType;
 
-  const auto sc = forPC ? spv::StorageClass::PushConstant
-                        : forShaderRecordNV
-                              ? spv::StorageClass::ShaderRecordBufferNV
-                              : forShaderRecordEXT
-                                    ? spv::StorageClass::ShaderRecordBufferKHR
-                                    : spv::StorageClass::Uniform;
+  const auto sc = forPC               ? spv::StorageClass::PushConstant
+                  : forShaderRecordNV ? spv::StorageClass::ShaderRecordBufferNV
+                  : forShaderRecordEXT
+                      ? spv::StorageClass::ShaderRecordBufferKHR
+                      : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
   // The fields may be 'precise', but the structure itself is not.
@@ -1149,6 +1270,17 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   var->setHlslUserType(forCBuffer ? "cbuffer" : forTBuffer ? "tbuffer" : "");
   var->setLayoutRule(layoutRule);
   return var;
+}
+
+SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
+    const DeclContext *decl, int arraySize, const ContextUsageKind usageKind,
+    llvm::StringRef typeName, llvm::StringRef varName) {
+  llvm::SmallVector<int, 1> arraySizes;
+  if (arraySize > 0)
+    arraySizes.push_back(arraySize);
+
+  return createStructOrStructArrayVarOfExplicitLayout(
+      decl, arraySizes, usageKind, typeName, varName);
 }
 
 void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
@@ -1179,12 +1311,21 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     if (shouldSkipInStructLayout(subDecl))
       continue;
 
+    // If subDecl is a variable with resource type, we already added a separate
+    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
     const auto *varDecl = cast<VarDecl>(subDecl);
+    if (isResourceType(varDecl->getType()))
+      continue;
+
     astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
-  resourceVars.emplace_back(
-      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  // If it does not contains a member with non-resource type, we do not want to
+  // set a dedicated binding number.
+  if (index != 0) {
+    resourceVars.emplace_back(
+        bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
+        decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  }
 
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
@@ -1192,73 +1333,6 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     // C/TBuffer needs HLSLBufferDecl for debug type lowering.
     spvContext.registerStructDeclForSpirvType(bufferVar->getResultType(), decl);
   }
-  return bufferVar;
-}
-
-SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
-  // This function handles creation of ConstantBuffer<T> or TextureBuffer<T>.
-  // The way this is represented in the AST is as follows:
-  //
-  // |-VarDecl MyCbuffer 'ConstantBuffer<T>':'ConstantBuffer<T>'
-  // |-CXXRecordDecl referenced struct T definition
-  //   |-CXXRecordDecl implicit struct T
-  //   |-FieldDecl
-  //   |-...
-  //   |-FieldDecl
-
-  const QualType type = decl->getType();
-  assert(isConstantTextureBuffer(type));
-  const RecordType *recordType = nullptr;
-  const RecordType *templatedType = nullptr;
-  int arraySize = 0;
-
-  // In case we have an array of ConstantBuffer/TextureBuffer:
-  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
-    const QualType elemType = arrayType->getElementType();
-    recordType = elemType->getAs<RecordType>();
-    templatedType =
-        hlsl::GetHLSLResourceResultType(elemType)->getAs<RecordType>();
-    if (const auto *caType = astContext.getAsConstantArrayType(type)) {
-      arraySize = static_cast<uint32_t>(caType->getSize().getZExtValue());
-    } else {
-      arraySize = -1;
-    }
-  } else {
-    recordType = type->getAs<RecordType>();
-    templatedType = hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
-  }
-  if (!recordType) {
-    emitError("constant/texture buffer type %0 unimplemented",
-              decl->getLocStart())
-        << type;
-    return nullptr;
-  }
-  if (!templatedType) {
-    emitError(
-        "the underlying type for constant/texture buffer must be a struct",
-        decl->getLocStart())
-        << type;
-    return nullptr;
-  }
-
-  const bool isConstBuffer = isConstantBuffer(type);
-  const auto usageKind =
-      isConstBuffer ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
-
-  const std::string structName = "type." +
-                                 recordType->getDecl()->getName().str() + "." +
-                                 templatedType->getDecl()->getName().str();
-
-  SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      templatedType->getDecl(), arraySize, usageKind, structName,
-      decl->getName());
-
-  // We register the VarDecl here.
-  astDecls[decl] = createDeclSpirvInfo(bufferVar);
-  resourceVars.emplace_back(
-      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
-
   return bufferVar;
 }
 
@@ -1291,7 +1365,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
-                                                ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   const auto *recordType =
       hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
   assert(recordType);
@@ -1306,8 +1380,8 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
   const std::string structName =
       typeName + recordType->getDecl()->getName().str();
   SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
-      recordType->getDecl(), /*arraySize*/ 0,
-      kind, structName, decl->getName());
+      recordType->getDecl(), /*arraySize*/ 0, kind, structName,
+      decl->getName());
 
   // Register the VarDecl
   astDecls[decl] = createDeclSpirvInfo(var);
@@ -1320,7 +1394,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
-                                               ContextUsageKind kind) {
+                                             ContextUsageKind kind) {
   assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
@@ -1328,12 +1402,10 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
                             ? "type.ShaderRecordBufferEXT."
                             : "type.ShaderRecordBufferNV.";
 
-  const std::string structName =
-      typeName + decl->getName().str();
+  const std::string structName = typeName + decl->getName().str();
   // The front-end does not allow arrays of cbuffer/tbuffer.
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      decl, /*arraySize*/ 0, kind, structName,
-      decl->getName());
+      decl, /*arraySize*/ 0, kind, structName, decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when
@@ -1344,7 +1416,12 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
     if (shouldSkipInStructLayout(subDecl))
       continue;
 
+    // If subDecl is a variable with resource type, we already added a separate
+    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
     const auto *varDecl = cast<VarDecl>(subDecl);
+    if (isResourceType(varDecl->getType()))
+      continue;
+
     astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   return bufferVar;
@@ -1358,10 +1435,6 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   SpirvVariable *globals = createStructOrStructArrayVarOfExplicitLayout(
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
-
-  resourceVars.emplace_back(globals, /*decl*/ nullptr, SourceLocation(),
-                            nullptr, nullptr, nullptr, /*isCounterVar*/ false,
-                            /*isGlobalsCBuffer*/ true);
 
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
@@ -1381,8 +1454,22 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
         return;
       }
 
+      // If subDecl is a variable with resource type, we already added a
+      // separate OpVariable for it in
+      // createStructOrStructArrayVarOfExplicitLayout().
+      if (isResourceType(varDecl->getType()))
+        continue;
+
       astDecls[varDecl] = createDeclSpirvInfo(globals, index++);
     }
+  }
+
+  // If it does not contains a member with non-resource type, we do not want to
+  // set a dedicated binding number.
+  if (index != 0) {
+    resourceVars.emplace_back(globals, /*decl*/ nullptr, SourceLocation(),
+                              nullptr, nullptr, nullptr, /*isCounterVar*/ false,
+                              /*isGlobalsCBuffer*/ true);
   }
 }
 
@@ -1435,12 +1522,39 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
     if (counter != fieldCounterVars.end())
       return counter->second.get(*indices);
   } else {
-    // No indices. Check the stand-alone entities.
-    const auto counter = counterVars.find(decl);
+    // No indices. Check the stand-alone entities. If not found,
+    // likely a deferred RWStructuredBuffer counter, so try
+    // creating it now.
+    auto counter = counterVars.find(decl);
+    if (counter == counterVars.end()) {
+      auto declInstr = declRWSBuffers[decl];
+      if (declInstr) {
+        createCounterVar(decl, declInstr, /*isAlias*/ false);
+        counter = counterVars.find(decl);
+      }
+    }
     if (counter != counterVars.end())
       return &counter->second;
   }
 
+  return nullptr;
+}
+
+const CounterIdAliasPair *
+DeclResultIdMapper::createOrGetCounterIdAliasPair(const DeclaratorDecl *decl) {
+  auto counterPair = getCounterIdAliasPair(decl);
+  if (counterPair)
+    return counterPair;
+  if (!decl)
+    return nullptr;
+  // If deferred RWStructuredBuffer, try creating the counter now
+  auto declInstr = declRWSBuffers[decl];
+  if (declInstr) {
+    createCounterVar(decl, declInstr, /*isAlias*/ false);
+    auto counter = counterVars.find(decl);
+    assert(counter != counterVars.end() && "counter not found");
+    return &counter->second;
+  }
   return nullptr;
 }
 
@@ -1473,6 +1587,21 @@ void DeclResultIdMapper::createCounterVar(
   }
 
   const SpirvType *counterType = spvContext.getACSBufferCounterType();
+  QualType declType = decl->getType();
+  if (declType->isArrayType()) {
+    // TODO(5440): This codes does not handle multi-dimensional arrays. We need
+    // to look at specific example to determine the best way to do it.
+    uint32_t arrayStride = 4;
+    if (const auto *constArrayType =
+            astContext.getAsConstantArrayType(declType)) {
+      counterType = spvContext.getArrayType(
+          counterType, constArrayType->getSize().getZExtValue(), arrayStride);
+    } else {
+      assert(declType->isIncompleteArrayType());
+      counterType = spvContext.getRuntimeArrayType(counterType, arrayStride);
+    }
+  }
+
   // {RW|Append|Consume}StructuredBuffer are all in Uniform storage class.
   // Alias counter variables should be created into the Private storage class.
   const spv::StorageClass sc =
@@ -1554,6 +1683,8 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
     if (var.getEntryPoint() && var.getEntryPoint() != entryPoint)
       continue;
     auto *instr = var.getSpirvInstr();
+    if (instr->getStorageClass() == spv::StorageClass::Private)
+      continue;
     if (seenVars.count(instr) == 0) {
       vars.push_back(instr);
       seenVars.insert(instr);
@@ -1746,6 +1877,24 @@ bool DeclResultIdMapper::isDuplicatedStageVarLocation(
   return true;
 }
 
+bool DeclResultIdMapper::assignLocations(
+    const std::vector<const StageVar *> &vars,
+    llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+    llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+        *stageVariableLocationInfo) {
+  for (const auto *var : vars) {
+    auto locCount = var->getLocationCount();
+    uint32_t location = nextLocs(locCount);
+    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
+
+    if (!isDuplicatedStageVarLocation(stageVariableLocationInfo, *var, location,
+                                      0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (!checkSemanticDuplication(forInput))
     return false;
@@ -1753,9 +1902,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
   const auto locAssigned = [forInput, this](const StageVar &v) {
-    if (forInput == isInputStorageClass(v))
+    if (forInput == isInputStorageClass(v)) {
       // No need to assign location for builtins. Treat as assigned.
-      return v.isSpirvBuitin() || v.getLocationAttr() != nullptr;
+      return v.isSpirvBuitin() || v.hasLocOrBuiltinDecorateAttr() ||
+             v.getLocationAttr() != nullptr;
+    }
     // For the ones we don't care, treat as assigned.
     return true;
   };
@@ -1773,8 +1924,10 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
     for (const auto &var : stageVars) {
       // Skip builtins & those stage variables we are not handling for this call
-      if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
+      if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
+          forInput != isInputStorageClass(var)) {
         continue;
+      }
 
       const auto *attr = var.getLocationAttr();
       const auto loc = attr->getNumber();
@@ -1815,8 +1968,10 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   LocationSet locSet;
 
   for (const auto &var : stageVars) {
-    if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
+    if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
+        forInput != isInputStorageClass(var)) {
       continue;
+    }
 
     if (var.getLocationAttr()) {
       // We have checked that not all of the stage variables have explicit
@@ -1845,31 +2000,44 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     }
   }
 
+  if (vars.empty())
+    return true;
+
+  auto nextLocs = [&locSet](uint32_t locCount) {
+    return locSet.useNextLocs(locCount);
+  };
+
   // If alphabetical ordering was requested, sort by semantic string.
+  if (spirvOptions.stageIoOrder == "alpha") {
+    // Sort stage input/output variables alphabetically
+    std::stable_sort(vars.begin(), vars.end(),
+              [](const StageVar *a, const StageVar *b) {
+                return a->getSemanticStr() < b->getSemanticStr();
+              });
+    return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
+  }
+
+  // Pack signature if it is enabled. Vertext shader input and pixel
+  // shader output are special. We have to preserve the given signature.
+  auto sigPointKind = vars[0]->getSigPoint()->GetKind();
+  if (spirvOptions.signaturePacking &&
+      sigPointKind != hlsl::SigPoint::Kind::VSIn &&
+      sigPointKind != hlsl::SigPoint::Kind::PSOut) {
+    return packSignature(spvBuilder, vars, nextLocs, forInput);
+  }
+
   // Since HS includes 2 sets of outputs (patch-constant output and
   // OutputPatch), running into location mismatches between HS and DS is very
   // likely. In order to avoid location mismatches between HS and DS, use
   // alphabetical ordering.
-  if (spirvOptions.stageIoOrder == "alpha" ||
-      (!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
+  if ((!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
     // Sort stage input/output variables alphabetically
-    std::sort(vars.begin(), vars.end(),
+    std::stable_sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
                 return a->getSemanticStr() < b->getSemanticStr();
               });
   }
-
-  for (const auto *var : vars) {
-    uint32_t location = locSet.useNextLocs(var->getLocationCount());
-    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
-
-    if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, *var,
-                                      location, 0)) {
-      return false;
-    }
-  }
-
-  return true;
+  return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
 }
 
 namespace {
@@ -2029,7 +2197,14 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           }
           spvBuilder.decorateDSetBinding(var.getSpirvInstr(), setNo, bindNo);
         }
-      } else if (bindGlobals && var.isGlobalsBuffer()) {
+      } else if (var.isGlobalsBuffer()) {
+        if (!bindGlobals) {
+          emitError("-fvk-bind-register requires Globals buffer to be bound "
+                    "with -fvk-bind-globals",
+                    var.getSourceLocation());
+          return false;
+        }
+
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
                                        globalsBindNo);
       } else {
@@ -2115,6 +2290,14 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           binding += tShiftMapper.getShiftForSet(set);
           break;
         case 's':
+          // For combined texture and sampler resources, always use the t shift
+          // value and ignore the s shift value.
+          if (const auto *decl = var.getDeclaration()) {
+            if (decl->getAttr<VKCombinedImageSamplerAttr>() != nullptr) {
+              binding += tShiftMapper.getShiftForSet(set);
+              break;
+            }
+          }
           binding += sShiftMapper.getShiftForSet(set);
           break;
         case 'u':
@@ -2310,7 +2493,7 @@ bool DeclResultIdMapper::createStageVars(
             break;
           }
         }
-        // fall through
+        LLVM_FALLTHROUGH;
       default:
         emitError("invalid usage of semantic '%0' in shader profile %1", loc)
             << semanticToUse->str
@@ -2405,7 +2588,7 @@ bool DeclResultIdMapper::createStageVars(
     StageVar stageVar(
         sigPoint, *semanticToUse, builtinAttr, evalType,
         // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-        getLocationCount(astContext, type));
+        getLocationAndComponentCount(astContext, type));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     SpirvVariable *varInstr =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -2420,6 +2603,7 @@ bool DeclResultIdMapper::createStageVars(
         stageVar.getStorageClass() == spv::StorageClass::Output) {
       stageVar.setEntryPoint(entryFunction);
     }
+    decorateStageVarWithIntrinsicAttrs(decl, &stageVar, varInstr);
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -2465,7 +2649,7 @@ bool DeclResultIdMapper::createStageVars(
           type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
           decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
       StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
-                         getLocationCount(astContext, type));
+                         getLocationAndComponentCount(astContext, type));
       stageVar2.setSpirvInstr(baseInstanceVar);
       stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
       stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
@@ -2876,7 +3060,7 @@ bool DeclResultIdMapper::createPayloadStageVars(
   const auto loc = decl->getLocation();
   if (!type->isStructureType()) {
     StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                      getLocationCount(astContext, type));
+                      getLocationAndComponentCount(astContext, type));
     const auto name = namePrefix.str() + "." + decl->getNameAsString();
     SpirvVariable *varInstr =
         spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false, loc);
@@ -2895,9 +3079,12 @@ bool DeclResultIdMapper::createPayloadStageVars(
     }
     stageVars.push_back(stageVar);
 
-    // Decorate with PerTaskNV for mesh/amplification shader payload variables.
-    spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
-                                 varInstr->getSourceLocation());
+    if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      // Decorate with PerTaskNV for mesh/amplification shader payload
+      // variables.
+      spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
+                                   varInstr->getSourceLocation());
+    }
 
     if (asInput) {
       *value = spvBuilder.createLoad(type, varInstr, loc);
@@ -2957,7 +3144,8 @@ bool DeclResultIdMapper::createPayloadStageVars(
 
 bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
                                                QualType type,
-                                               SpirvInstruction *value) {
+                                               SpirvInstruction *value,
+                                               SourceRange range) {
   assert(spvContext.isGS()); // Only for GS use
 
   if (hlsl::IsHLSLStreamOutputType(type))
@@ -2976,7 +3164,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     if (glPerVertex.tryToAccess(
             hlsl::DXIL::SigPointKind::GSOut, semanticInfo.semantic->GetKind(),
             semanticInfo.index, llvm::None, &value,
-            /*noWriteBack=*/false, /*vecComponent=*/nullptr, loc))
+            /*noWriteBack=*/false, /*vecComponent=*/nullptr, loc, range))
       return true;
 
     // Query the <result-id> for the stage output variable generated out
@@ -2990,16 +3178,16 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
 
     // Negate SV_Position.y if requested
     if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
-      value = invertYIfRequested(value, loc);
+      value = invertYIfRequested(value, loc, range);
 
     // Boolean stage output variables are represented as unsigned integers.
     if (isBooleanStageIOVar(decl, type, semanticInfo.semantic->GetKind(),
                             hlsl::SigPoint::Kind::GSOut)) {
       QualType uintType = getUintTypeWithSourceComponents(astContext, type);
-      value = theEmitter.castToType(value, type, uintType, loc);
+      value = theEmitter.castToType(value, type, uintType, loc, range);
     }
 
-    spvBuilder.createStore(found->second, value, loc);
+    spvBuilder.createStore(found->second, value, loc, range);
     return true;
   }
 
@@ -3015,11 +3203,11 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
     uint32_t baseIndex = 0;
     for (auto base : cxxDecl->bases()) {
-      auto *subValue = spvBuilder.createCompositeExtract(base.getType(), value,
-                                                         {baseIndex++}, loc);
+      auto *subValue = spvBuilder.createCompositeExtract(
+          base.getType(), value, {baseIndex++}, loc, range);
 
       if (!writeBackOutputStream(base.getType()->getAsCXXRecordDecl(),
-                                 base.getType(), subValue))
+                                 base.getType(), subValue, range))
         return false;
     }
   }
@@ -3031,9 +3219,9 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     const auto fieldType = field->getType();
     auto *subValue = spvBuilder.createCompositeExtract(
         fieldType, value, {getNumBaseClasses(type) + field->getFieldIndex()},
-        loc);
+        loc, range);
 
-    if (!writeBackOutputStream(field, field->getType(), subValue))
+    if (!writeBackOutputStream(field, field->getType(), subValue, range))
       return false;
   }
 
@@ -3042,16 +3230,16 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
 
 SpirvInstruction *
 DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
-                                       SourceLocation loc) {
+                                       SourceLocation loc, SourceRange range) {
   // Negate SV_Position.y if requested
   if (spirvOptions.invertY) {
-    const auto oldY = spvBuilder.createCompositeExtract(astContext.FloatTy,
-                                                        position, {1}, loc);
-    const auto newY = spvBuilder.createUnaryOp(spv::Op::OpFNegate,
-                                               astContext.FloatTy, oldY, loc);
+    const auto oldY = spvBuilder.createCompositeExtract(
+        astContext.FloatTy, position, {1}, loc, range);
+    const auto newY = spvBuilder.createUnaryOp(
+        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
     position = spvBuilder.createCompositeInsert(
         astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
-        loc);
+        loc, range);
   }
   return position;
 }
@@ -3077,8 +3265,12 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
 void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
                                                    QualType type,
                                                    SpirvVariable *varInstr) {
-  const auto loc = decl->getLocation();
+  if (varInstr->getStorageClass() != spv::StorageClass::Input &&
+      varInstr->getStorageClass() != spv::StorageClass::Output) {
+    return;
+  }
 
+  const auto loc = decl->getLocation();
   if (isUintOrVecMatOfUintType(type) || isSintOrVecMatOfSintType(type) ||
       isBoolOrVecMatOfBoolType(type)) {
     // TODO: Probably we can call hlsl::ValidateSignatureElement() for the
@@ -3116,11 +3308,15 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   if (builtInVar != builtinToVarMap.end()) {
     return builtInVar->second;
   }
+  bool mayNeedFlatDecoration = false;
   spv::StorageClass sc = spv::StorageClass::Max;
   // Valid builtins supported
   switch (builtIn) {
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
+    needsLegalization = true;
+    mayNeedFlatDecoration = true;
+    LLVM_FALLTHROUGH;
   case spv::BuiltIn::HitTNV:
   case spv::BuiltIn::RayTmaxNV:
   case spv::BuiltIn::RayTminNV:
@@ -3143,9 +3339,13 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::LocalInvocationIndex:
     sc = spv::StorageClass::Input;
     break;
+  case spv::BuiltIn::TaskCountNV:
   case spv::BuiltIn::PrimitiveCountNV:
   case spv::BuiltIn::PrimitiveIndicesNV:
-  case spv::BuiltIn::TaskCountNV:
+  case spv::BuiltIn::PrimitivePointIndicesEXT:
+  case spv::BuiltIn::PrimitiveLineIndicesEXT:
+  case spv::BuiltIn::PrimitiveTriangleIndicesEXT:
+  case spv::BuiltIn::CullPrimitiveEXT:
     sc = spv::StorageClass::Output;
     break;
   default:
@@ -3156,6 +3356,9 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   // Create a dummy StageVar for this builtin variable
   auto var = spvBuilder.addStageBuiltinVar(type, sc, builtIn,
                                            /*isPrecise*/ false, loc);
+  if (mayNeedFlatDecoration && spvContext.isPS()) {
+    spvBuilder.decorateFlat(var, loc);
+  }
 
   const hlsl::SigPoint *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
@@ -3163,7 +3366,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
           /*isPatchConstant=*/false));
 
   StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                    /*locCount=*/0);
+                    /*locAndComponentCount=*/{0, 0, false});
 
   stageVar.setIsSpirvBuiltin();
   stageVar.setSpirvInstr(var);
@@ -3172,43 +3375,6 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   // Store in map for re-use
   builtinToVarMap[spvBuiltinId] = var;
   return var;
-}
-
-SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
-    const NamedDecl *decl, const llvm::StringRef name, QualType type) {
-  const auto *semantic = hlsl::Semantic::GetByName(name);
-  SemanticInfo thisSemantic{name, semantic, name, 0, decl->getLocation()};
-
-  const auto *sigPoint =
-      deduceSigPoint(cast<DeclaratorDecl>(decl), /*asInput=*/false,
-                     spvContext.getCurrentShaderModelKind(), /*forPCF=*/false);
-
-  StageVar stageVar(sigPoint, thisSemantic, decl->getAttr<VKBuiltInAttr>(),
-                    type, /*locCount=*/1);
-  SpirvVariable *varInstr =
-      createSpirvStageVar(&stageVar, decl, name, thisSemantic.loc);
-
-  if (!varInstr)
-    return nullptr;
-
-  stageVar.setSpirvInstr(varInstr);
-  stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
-  stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
-  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-      stageVar.getStorageClass() == spv::StorageClass::Output) {
-    stageVar.setEntryPoint(entryFunction);
-  }
-  stageVars.push_back(stageVar);
-
-  // Emit OpDecorate* instructions to link this stage variable with the HLSL
-  // semantic it is created for.
-  spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
-
-  // We have semantics attached to this decl, which means it must be a
-  // function/parameter/variable. All are DeclaratorDecls.
-  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
-
-  return varInstr;
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
@@ -3241,6 +3407,14 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
             .Default(BuiltIn::Max);
 
     assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
+    if (spvBuiltIn == BuiltIn::HelperInvocation &&
+        !featureManager.isTargetEnvVulkan1p3OrAbove()) {
+      // If [[vk::HelperInvocation]] is used for Vulkan 1.2 or less, we enable
+      // SPV_EXT_demote_to_helper_invocation extension to use
+      // OpIsHelperInvocationEXT instruction.
+      featureManager.allowExtension("SPV_EXT_demote_to_helper_invocation");
+      return spvBuilder.addVarForHelperInvocation(type, isPrecise, srcLoc);
+    }
     return spvBuilder.addStageBuiltinVar(type, sc, spvBuiltIn, isPrecise,
                                          srcLoc);
   }
@@ -3255,9 +3429,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // by VSOut, HS/DS/GS In/Out, MSOut.
   case hlsl::Semantic::Kind::Position: {
     if (sigPointKind == hlsl::SigPoint::Kind::VSOut &&
-        !containOnlyVecWithFourFloats(type)) {
-      emitError("semantic Position must be float4 or a composite type "
-                "recursively including only float4",
+        !containOnlyVecWithFourFloats(
+            type, theEmitter.getSpirvOptions().enable16BitTypes)) {
+      emitError("SV_Position must be a 4-component 32-bit float vector or a "
+                "composite which recursively contains only such a vector",
                 srcLoc);
     }
 
@@ -3580,9 +3755,9 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex,
                                          isPrecise, srcLoc);
   }
-    // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
-    // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
-    // PSIn.
+  // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
+  // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
+  // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FullyCoveredEXT,
@@ -3592,14 +3767,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
   // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
-    QualType checkType = type->getAs<ReferenceType>()
-                             ? type->getAs<ReferenceType>()->getPointeeType()
-                             : type;
-    QualType scalarTy;
-    if (!isScalarType(checkType, &scalarTy) || !scalarTy->isIntegerType()) {
-      emitError("semantic ShadingRate must be interger scalar type", srcLoc);
-    }
-
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
@@ -3608,12 +3775,34 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::MSOut:
+    case hlsl::SigPoint::Kind::MSPOut:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(
           type, sc, BuiltIn::PrimitiveShadingRateKHR, isPrecise, srcLoc);
     default:
       emitError("semantic ShadingRate must be used only for PSIn, VSOut, "
                 "GSOut, MSOut",
+                srcLoc);
+      break;
+    }
+    break;
+  }
+  // According to DXIL spec, the ShadingRate SV can only be used by
+  // MSPOut or PSIn.
+  // According to Vulkan spec, the CullPrimitiveEXT BuiltIn can only
+  // be used as MSOut.
+  case hlsl::Semantic::Kind::CullPrimitive: {
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::PSIn:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
+                                           isPrecise, srcLoc);
+    case hlsl::SigPoint::Kind::MSPOut:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
+                                           isPrecise, srcLoc);
+    default:
+      emitError("semantic CullPrimitive must be used only for PSIn, MSPOut",
                 srcLoc);
       break;
     }
@@ -3832,7 +4021,7 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     // This method is only intended to be used to create SPIR-V variables in the
     // Function or Private storage class.
-    assert(!varDecl->isExternallyVisible() || varDecl->isStaticDataMember());
+    assert(!SpirvEmitter::isExternalVar(varDecl));
   }
 
   const QualType type = getTypeOrFnRetType(decl);
@@ -3883,6 +4072,13 @@ bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
       else if (isRWByteAddressBuffer(type) || isRWAppendConsumeSBuffer(type) ||
                isRWBuffer(type) || isRWTexture(type)) {
         *registerTypeOut = 'u';
+        return true;
+      }
+
+      // b - for constant buffer
+      // views (CBV)
+      else if (isConstantBuffer(type)) {
+        *registerTypeOut = 'b';
         return true;
       }
     } else {
@@ -3948,18 +4144,104 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
   astDecls[varDecl].instr = constVal;
 }
 
-SpirvInstruction *
-DeclResultIdMapper::createHullMainOutputPatch(const ParmVarDecl *param,
-                                              const QualType retType,
-                                              uint32_t numOutputControlPoints) {
-  const QualType hullMainRetType = astContext.getConstantArrayType(
-      retType, llvm::APInt(32, numOutputControlPoints),
-      clang::ArrayType::Normal, 0);
-  SpirvInstruction *hullMainOutputPatch = createSpirvIntermediateOutputStageVar(
-      param, "temp.var.hullMainRetVal", hullMainRetType);
-  assert(astDecls[param].instr == nullptr);
-  astDecls[param].instr = hullMainOutputPatch;
-  return hullMainOutputPatch;
+void DeclResultIdMapper::decorateWithIntrinsicAttrs(
+    const NamedDecl *decl, SpirvVariable *varInst,
+    llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr) {
+  if (!decl->hasAttrs())
+    return;
+
+  // TODO: Handle member field in a struct and function parameter.
+  for (auto &attr : decl->getAttrs()) {
+    if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
+      spvBuilder.decorateWithLiterals(
+          varInst, decoAttr->getDecorate(),
+          {decoAttr->literals_begin(), decoAttr->literals_end()},
+          varInst->getSourceLocation());
+      extraFunctionForDecoAttr(decoAttr);
+      continue;
+    }
+    if (auto decoAttr = dyn_cast<VKDecorateIdExtAttr>(attr)) {
+      llvm::SmallVector<SpirvInstruction *, 2> args;
+      for (Expr *arg : decoAttr->arguments()) {
+        args.push_back(theEmitter.doExpr(arg));
+      }
+      spvBuilder.decorateWithIds(varInst, decoAttr->getDecorate(), args,
+                                 varInst->getSourceLocation());
+      continue;
+    }
+    if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
+      llvm::SmallVector<llvm::StringRef, 2> args(decoAttr->arguments_begin(),
+                                                 decoAttr->arguments_end());
+      spvBuilder.decorateWithStrings(varInst, decoAttr->getDecorate(), args,
+                                     varInst->getSourceLocation());
+      continue;
+    }
+  }
+}
+
+void DeclResultIdMapper::decorateStageVarWithIntrinsicAttrs(
+    const NamedDecl *decl, StageVar *stageVar, SpirvVariable *varInst) {
+  auto checkBuiltInLocationDecoration =
+      [stageVar](const VKDecorateExtAttr *decoAttr) {
+        auto decorate = static_cast<spv::Decoration>(decoAttr->getDecorate());
+        if (decorate == spv::Decoration::BuiltIn ||
+            decorate == spv::Decoration::Location) {
+          // This information will be used to avoid
+          // assigning multiple location decorations
+          // in finalizeStageIOLocations()
+          stageVar->setIsLocOrBuiltinDecorateAttr();
+        }
+      };
+  decorateWithIntrinsicAttrs(decl, varInst, checkBuiltInLocationDecoration);
+}
+
+void DeclResultIdMapper::copyHullOutStageVarsToOutputPatch(
+    SpirvInstruction *hullMainOutputPatch, const ParmVarDecl *outputPatchDecl,
+    QualType outputControlPointType, uint32_t numOutputControlPoints) {
+  for (uint32_t outputCtrlPoint = 0; outputCtrlPoint < numOutputControlPoints;
+       ++outputCtrlPoint) {
+    SpirvConstant *index = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, outputCtrlPoint));
+    auto *tempLocation = spvBuilder.createAccessChain(
+        outputControlPointType, hullMainOutputPatch, {index}, /*loc=*/{});
+    storeOutStageVarsToStorage(cast<DeclaratorDecl>(outputPatchDecl), index,
+                               outputControlPointType, tempLocation);
+  }
+}
+
+void DeclResultIdMapper::storeOutStageVarsToStorage(
+    const DeclaratorDecl *outputPatchDecl, SpirvConstant *ctrlPointID,
+    QualType outputControlPointType, SpirvInstruction *ptr) {
+  if (!outputControlPointType->isStructureType()) {
+    const auto found = stageVarInstructions.find(outputPatchDecl);
+    if (found == stageVarInstructions.end()) {
+      emitError("Shader output variable '%0' was not created", {})
+          << outputPatchDecl->getName();
+    }
+    auto *ptrToOutputStageVar = spvBuilder.createAccessChain(
+        outputControlPointType, found->second, {ctrlPointID}, /*loc=*/{});
+    auto *load =
+        spvBuilder.createLoad(outputControlPointType, ptrToOutputStageVar,
+                              /*loc=*/{});
+    spvBuilder.createStore(ptr, load, /*loc=*/{});
+    return;
+  }
+
+  const auto *recordType = outputControlPointType->getAs<RecordType>();
+  assert(recordType != nullptr);
+  const auto *structDecl = recordType->getDecl();
+  assert(structDecl != nullptr);
+
+  uint32_t index = 0;
+  for (const auto *field : structDecl->fields()) {
+    SpirvConstant *indexInst = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, index));
+    auto *tempLocation = spvBuilder.createAccessChain(field->getType(), ptr,
+                                                      {indexInst}, /*loc=*/{});
+    storeOutStageVarsToStorage(cast<DeclaratorDecl>(field), ctrlPointID,
+                               field->getType(), tempLocation);
+    ++index;
+  }
 }
 
 } // end namespace spirv

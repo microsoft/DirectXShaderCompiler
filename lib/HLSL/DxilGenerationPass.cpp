@@ -172,6 +172,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.EmitLLVMUsed();
 
   M.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+  M.SetResMayAlias(H.GetHLOptions().bResMayAlias);
 
   M.SetAutoBindingSpace(H.GetAutoBindingSpace());
 
@@ -189,7 +190,7 @@ public:
   explicit DxilGenerationPass(bool NoOpt = false)
       : ModulePass(ID), m_pHLModule(nullptr), m_extensionsCodegenHelper(nullptr), NotOptimized(NoOpt) {}
 
-  const char *getPassName() const override { return "DXIL Generator"; }
+  StringRef getPassName() const override { return "DXIL Generator"; }
 
   void SetExtensionsHelper(HLSLExtensionsCodegenHelper *helper) {
     m_extensionsCodegenHelper = helper;
@@ -209,7 +210,7 @@ public:
     if (!SM->IsLib()) {
       Function *EntryFn = m_pHLModule->GetEntryFunction();
       if (!m_pHLModule->HasDxilFunctionProps(EntryFn)) {
-        dxilutil::EmitErrorOnFunction(M.getContext(), EntryFn, "Entry function don't have property.");
+        llvm_unreachable("Entry function doesn't have any properties.");
         return false;
       }
       DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(EntryFn);
@@ -263,7 +264,7 @@ public:
           if (F.user_empty()) {
             F.eraseFromParent();
           } else {
-            dxilutil::EmitErrorOnFunction(M.getContext(), &F, "Fail to lower createHandle.");
+            llvm_unreachable("Fail to lower createHandle.");
           }
         }
       }

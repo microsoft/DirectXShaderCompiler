@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_5 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_5 -E main -fspv-target-env=vulkan1.2
 RaytracingAccelerationStructure g_topLevel : register(t0, space0);
 RWTexture2D<float4> g_output : register(u1, space0);
 

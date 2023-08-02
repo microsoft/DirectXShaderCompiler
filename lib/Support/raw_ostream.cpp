@@ -28,6 +28,7 @@
 #include <ios>
 #include <sys/stat.h>
 #include <system_error>
+#include <float.h> // HLSL Change: add for '_fpclass'
 
 // <fcntl.h> may provide O_BINARY.
 #if defined(HAVE_FCNTL_H)
@@ -372,10 +373,10 @@ void raw_ostream::copy_to_buffer(const char *Ptr, size_t Size) {
   // Handle short strings specially, memcpy isn't very good at very short
   // strings.
   switch (Size) {
-  case 4: OutBufCur[3] = Ptr[3]; // FALL THROUGH
-  case 3: OutBufCur[2] = Ptr[2]; // FALL THROUGH
-  case 2: OutBufCur[1] = Ptr[1]; // FALL THROUGH
-  case 1: OutBufCur[0] = Ptr[0]; // FALL THROUGH
+  case 4: OutBufCur[3] = Ptr[3]; LLVM_FALLTHROUGH; // HLSL Change
+  case 3: OutBufCur[2] = Ptr[2]; LLVM_FALLTHROUGH; // HLSL Change
+  case 2: OutBufCur[1] = Ptr[1]; LLVM_FALLTHROUGH; // HLSL Change
+  case 1: OutBufCur[0] = Ptr[0]; LLVM_FALLTHROUGH; // HLSL Change
   case 0: break;
   default:
     memcpy(OutBufCur, Ptr, Size);
@@ -603,7 +604,7 @@ raw_fd_ostream::~raw_fd_ostream() {
   // to avoid report_fatal_error calls should check for errors with
   // has_error() and clear the error flag with clear_error() before
   // destructing raw_ostream objects which may have errors.
-  if (has_error())
+  if (has_error() && ShouldClose) // HLSL Change - ignore error on !ShouldClose
     report_fatal_error("IO failure on output stream.", /*GenCrashDiag=*/false);
 }
 

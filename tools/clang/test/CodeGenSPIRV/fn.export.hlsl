@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3 -fspv-target-env=universal1.5
+// RUN: %dxc -T lib_6_3 -fspv-target-env=universal1.5
 
 // CHECK: OpCapability Shader
 // CHECK: OpCapability Linkage

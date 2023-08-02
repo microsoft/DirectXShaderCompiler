@@ -1,17 +1,11 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpDecorate %rw1 DescriptorSet 0
 // CHECK: OpDecorate %rw1 Binding 0
-// CHECK: OpDecorate %counter_var_rw1 DescriptorSet 0
-// CHECK: OpDecorate %counter_var_rw1 Binding 1
 // CHECK: OpDecorate %rw2 DescriptorSet 0
-// CHECK: OpDecorate %rw2 Binding 2
-// CHECK: OpDecorate %counter_var_rw2 DescriptorSet 0
-// CHECK: OpDecorate %counter_var_rw2 Binding 3
+// CHECK: OpDecorate %rw2 Binding 1
 // CHECK: OpDecorate %rw3 DescriptorSet 0
-// CHECK: OpDecorate %rw3 Binding 4
-// CHECK: OpDecorate %counter_var_rw3 DescriptorSet 0
-// CHECK: OpDecorate %counter_var_rw3 Binding 5
+// CHECK: OpDecorate %rw3 Binding 2
 
 // CHECK: OpMemberDecorate %type_RWStructuredBuffer_v4float 0 Offset 0
 // CHECK: OpDecorate %type_RWStructuredBuffer_v4float BufferBlock

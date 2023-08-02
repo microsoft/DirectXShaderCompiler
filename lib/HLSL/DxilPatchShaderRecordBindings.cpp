@@ -100,7 +100,7 @@ class DxilPatchShaderRecordBindings : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilPatchShaderRecordBindings() : ModulePass(ID) {}
-  const char *getPassName() const override { return "DXIL Patch Shader Record Binding"; }
+  StringRef getPassName() const override { return "DXIL Patch Shader Record Binding"; }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 
@@ -203,7 +203,7 @@ static inline std::string GetUnmangledName(StringRef name) {
 
 static Function* getFunctionFromName(Module &M, const std::wstring& exportName) {
   for (auto F = M.begin(), E = M.end(); F != E; ++F) {
-    std::wstring functionName = Unicode::UTF8ToUTF16StringOrThrow(GetUnmangledName(F->getName()).c_str());
+    std::wstring functionName = Unicode::UTF8ToWideStringOrThrow(GetUnmangledName(F->getName()).c_str());
     if (exportName == functionName) {
       return F;
     }

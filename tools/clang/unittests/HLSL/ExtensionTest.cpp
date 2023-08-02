@@ -478,10 +478,13 @@ public:
     return Compile(program, {}, {});
   }
 
-  IDxcOperationResult *Compile(const char *program, const std::vector<LPCWSTR> &arguments, const std::vector<DxcDefine> defs ) {
+  IDxcOperationResult *Compile(const char *program,
+                               const std::vector<LPCWSTR> &arguments,
+                               const std::vector<DxcDefine> defs,
+                               LPCWSTR target = L"ps_6_0") {
     Utf8ToBlob(m_dllSupport, program, &pCodeBlob);
     VERIFY_SUCCEEDED(pCompiler->Compile(pCodeBlob, L"hlsl.hlsl", L"main",
-      L"ps_6_0",
+      target,
       const_cast<LPCWSTR *>(arguments.data()), arguments.size(),
       defs.data(), defs.size(),
       nullptr, &pCompileResult));
@@ -529,8 +532,14 @@ public:
   TEST_METHOD(DefineNoValidatorOk)
   TEST_METHOD(DefineFromMacro)
   TEST_METHOD(DefineContradictionFail)
+  TEST_METHOD(DefineOverrideSource)
+  TEST_METHOD(DefineOverrideDefinesList)
+  TEST_METHOD(DefineOverrideCommandLine)
+  TEST_METHOD(DefineOverrideNone)
+  TEST_METHOD(DefineOverrideDeterministicOutput)
   TEST_METHOD(OptionFromDefineGVN)
   TEST_METHOD(OptionFromDefineStructurizeReturns)
+  TEST_METHOD(OptionFromDefineLifetimeMarkers)
   TEST_METHOD(TargetTriple)
   TEST_METHOD(IntrinsicWhenAvailableThenUsed)
   TEST_METHOD(CustomIntrinsicName)
@@ -731,6 +740,269 @@ TEST_F(ExtensionTest, DefineContradictionFail) {
     errors.find("Contradictory -opt-selects for \"yook\""));
 }
 
+// Test that the override-semdef flag can override a define from the source.
+TEST_F(ExtensionTest, DefineOverrideSource) {
+
+  // Compile baseline without the override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "#define FOO_A 1\n"
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"1\"}"));
+  }
+
+  // Compile with an override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "#define FOO_A 1\n"
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+// Test that the override-semdef flag can override a define from the compile defines list.
+TEST_F(ExtensionTest, DefineOverrideDefinesList) {
+  // Compile baseline without the override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd"},
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"1\"}"));
+  }
+
+  // Compile with an override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7"},
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+// Test that the override-semdef flag can override a define from the command line.
+TEST_F(ExtensionTest, DefineOverrideCommandLine) {
+  // Compile baseline without the override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"/DFOO_A=1"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"1\"}"));
+  }
+
+  // Compile with an override after the /D define.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"/DFOO_A=1", L"-override-semdef", L"FOO_A=7"},
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+  
+  // Compile with an override before the /D define.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7",  L"/DFOO_A=1" },
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+// Test that the override-semdef flag can override a define when there is no previous def.
+TEST_F(ExtensionTest, DefineOverrideNone) {
+  // Compile baseline without the define.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos ==
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos ==
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+
+  // Compile with an override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+TEST_F(ExtensionTest, DefineOverrideDeterministicOutput) {
+
+    std::string source =
+        "#define FOO_B 1\n"
+        "#define FOO_A 1\n"
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n";
+
+  std::string baselineOutput;
+  // Compile baseline.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        source.data(),
+        {L"/Vd", L"-override-semdef", L"FOO_A=7", L"-override-semdef", L"FOO_B=7"},
+        { }
+      );
+      baselineOutput = c.Disassemble();
+  }
+
+  // Compile NUM_COMPILES times and make sure the output always matches.
+  enum {NUM_COMPILES = 10};
+  for (int i = 0; i < NUM_COMPILES; ++i)
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        source.data(),
+        {L"/Vd", L"-override-semdef", L"FOO_A=7", L"-override-semdef", L"FOO_B=7"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Make sure the outputs are the same.
+      VERIFY_ARE_EQUAL(baselineOutput, disassembly);
+  }
+}
+
 // Test setting of codegen options from semantic defines
 TEST_F(ExtensionTest, OptionFromDefineGVN) {
 
@@ -782,6 +1054,32 @@ TEST_F(ExtensionTest, OptionFromDefineStructurizeReturns) {
   std::string regexErrors;
   VERIFY_IS_TRUE(regex.isValid(regexErrors));
   VERIFY_IS_TRUE(regex.match(disassembly));
+}
+
+// Test setting of codegen options from semantic defines
+TEST_F(ExtensionTest, OptionFromDefineLifetimeMarkers) {
+  std::string shader = "\n"
+      "float foo(float a) {\n"
+    "float res[2] = {a, 2 * 2};\n"
+    "return res[a];\n"
+    "}\n"
+  "float4 main(float a : A) : SV_Target { return foo(a); }\n";
+
+  Compiler c(m_dllSupport);
+  c.RegisterSemanticDefine(L"FOO*");
+  c.Compile(shader.data(), {L"/Vd", L"-DFOO_DISABLE_LIFETIME_MARKERS"}, {},
+            L"ps_6_6");
+
+  std::string disassembly = c.Disassemble();
+  Compiler c2(m_dllSupport);
+  c2.Compile(shader.data(), {L"/Vd", L""}, {}, L"ps_6_6");
+  std::string disassembly2 = c2.Disassemble();
+  // Make sure lifetime marker not exist with FOO_DISABLE_LIFETIME_MARKERS.
+  VERIFY_IS_TRUE(disassembly.find("lifetime") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("FOO_DISABLE_LIFETIME_MARKERS\", !\"1\"") !=
+                 std::string::npos);
+  // Make sure lifetime marker exist by default.
+  VERIFY_IS_TRUE(disassembly2.find("lifetime") != std::string::npos);
 }
 
 

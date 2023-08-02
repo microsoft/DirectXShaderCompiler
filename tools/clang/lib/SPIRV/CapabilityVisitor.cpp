@@ -15,10 +15,11 @@ namespace spirv {
 
 void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
                                      SourceLocation loc) {
-  featureManager.requestExtension(ext, target, loc);
   // Do not emit OpExtension if the given extension is natively supported in
   // the target environment.
-  if (featureManager.isExtensionRequiredForTargetEnv(ext))
+  if (!featureManager.isExtensionRequiredForTargetEnv(ext))
+    return;
+  if (featureManager.requestExtension(ext, target, loc))
     spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
 }
 
@@ -189,6 +190,11 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   // Pointer type
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
     addCapabilityForType(ptrType->getPointeeType(), loc, sc);
+    if (sc == spv::StorageClass::PhysicalStorageBuffer) {
+      addExtension(Extension::KHR_physical_storage_buffer,
+                   "SPV_KHR_physical_storage_buffer", loc);
+      addCapability(spv::Capability::PhysicalStorageBufferAddresses);
+    }
   }
   // Struct type
   else if (const auto *structType = dyn_cast<StructType>(type)) {
@@ -208,22 +214,15 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
-  // AccelerationStructureTypeNV type
-  else if (isa<AccelerationStructureTypeNV>(type)) {
-    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
-      addCapability(spv::Capability::RayTracingNV);
-      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
-    } else {
-      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
-      // extention or Vulkan 1.2.
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
-                                      "Raytracing", {});
-      addCapability(spv::Capability::RayTracingKHR);
-      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
-    }
-  }
-  // RayQueryTypeKHR type
-  else if (isa<RayQueryTypeKHR>(type)) {
+  // AccelerationStructureTypeNV and RayQueryTypeKHR type
+  // Note: Because AccelerationStructureType can be provided by both
+  // SPV_KHR_ray_query and SPV_{NV,KHR}_ray_tracing extensions, this logic will
+  // result in SPV_KHR_ray_query being unnecessarily required in some cases. If
+  // this is an issue in future (more devices are identified that support
+  // ray_tracing but not ray_query), then we should consider addressing this
+  // interaction with a spirv-opt pass instead.
+  else if (isa<AccelerationStructureTypeNV>(type) ||
+           isa<RayQueryTypeKHR>(type)) {
     addCapability(spv::Capability::RayQueryKHR);
     addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
@@ -250,6 +249,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
   }
   // Capabilities needed for built-ins
   case spv::Decoration::BuiltIn: {
+    AddVulkanMemoryModelForVolatile(decor, loc);
     assert(decor->getParams().size() == 1);
     const auto builtin = static_cast<spv::BuiltIn>(decor->getParams()[0]);
     switch (builtin) {
@@ -307,7 +307,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     case spv::BuiltIn::PrimitiveId: {
       // PrimitiveID can be used as PSIn or MSPOut.
       if (shaderModel == spv::ExecutionModel::Fragment ||
-          shaderModel == spv::ExecutionModel::MeshNV)
+          shaderModel == spv::ExecutionModel::MeshNV   ||
+          shaderModel == spv::ExecutionModel::MeshEXT)
         addCapability(spv::Capability::Geometry);
       break;
     }
@@ -315,11 +316,17 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        addExtension(Extension::EXT_shader_viewport_index_layer,
-                     "SV_RenderTargetArrayIndex", loc);
-        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+
+        if (featureManager.isTargetEnvVulkan1p2OrAbove()) {
+          addCapability(spv::Capability::ShaderLayer);
+        } else {
+          addExtension(Extension::EXT_shader_viewport_index_layer,
+                       "SV_RenderTargetArrayIndex", loc);
+          addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::MeshNV) {
+                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
         addCapability(spv::Capability::Geometry);
       }
@@ -329,12 +336,17 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        addExtension(Extension::EXT_shader_viewport_index_layer,
-                     "SV_ViewPortArrayIndex", loc);
-        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        if (featureManager.isTargetEnvVulkan1p2OrAbove()) {
+          addCapability(spv::Capability::ShaderViewportIndex);
+        } else {
+          addExtension(Extension::EXT_shader_viewport_index_layer,
+                       "SV_ViewPortArrayIndex", loc);
+          addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+        }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry ||
-                 shaderModel == spv::ExecutionModel::MeshNV) {
+                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
         addCapability(spv::Capability::MultiViewport);
       }
@@ -420,6 +432,22 @@ bool CapabilityVisitor::visit(SpirvImageSparseTexelsResident *instr) {
   return true;
 }
 
+namespace {
+bool isImageOpOnUnknownFormat(const SpirvImageOp *instruction) {
+  if (!instruction->getImage() || !instruction->getImage()->getResultType()) {
+    return false;
+  }
+
+  const ImageType *imageType =
+      dyn_cast<ImageType>(instruction->getImage()->getResultType());
+  if (!imageType || imageType->getImageFormat() != spv::ImageFormat::Unknown) {
+    return false;
+  }
+
+  return imageType->getImageFormat() == spv::ImageFormat::Unknown;
+}
+} // namespace
+
 bool CapabilityVisitor::visit(SpirvImageOp *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
@@ -429,6 +457,12 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
     addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
+
+  if (isImageOpOnUnknownFormat(instr)) {
+    addCapability(instr->isImageWrite()
+                      ? spv::Capability::StorageImageWriteWithoutFormat
+                      : spv::Capability::StorageImageReadWithoutFormat);
+  }
 
   return true;
 }
@@ -524,11 +558,40 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   }
   case spv::Op::OpRayQueryInitializeKHR: {
     auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
-    if (rayQueryInst->hasCullFlags()) {
-      addCapability(
-          spv::Capability::RayTraversalPrimitiveCullingKHR);
+    if (rayQueryInst && rayQueryInst->hasCullFlags()) {
+      addCapability(spv::Capability::RayTraversalPrimitiveCullingKHR);
     }
 
+    break;
+  }
+
+  case spv::Op::OpReportIntersectionKHR:
+  case spv::Op::OpIgnoreIntersectionKHR:
+  case spv::Op::OpTerminateRayKHR:
+  case spv::Op::OpTraceRayKHR:
+  case spv::Op::OpExecuteCallableKHR: {
+    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
+      addCapability(spv::Capability::RayTracingNV);
+      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    } else {
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
+      addCapability(spv::Capability::RayTracingKHR);
+      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
+    }
+    break;
+  }
+
+  case spv::Op::OpSetMeshOutputsEXT:
+  case spv::Op::OpEmitMeshTasksEXT: {
+    if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader",
+                                     {});
+      addCapability(spv::Capability::MeshShadingEXT);
+      addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
+    }
     break;
   }
 
@@ -577,27 +640,98 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
     addCapability(spv::Capability::MeshShadingNV);
     addExtension(Extension::NV_mesh_shader, "SPV_NV_mesh_shader", {});
     break;
+  case spv::ExecutionModel::MeshEXT:
+  case spv::ExecutionModel::TaskEXT:
+    addCapability(spv::Capability::MeshShadingEXT);
+    addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
+    break;
   default:
     llvm_unreachable("found unknown shader model");
+    break;
+  }
+
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
+  spv::ExecutionMode executionMode = execMode->getExecutionMode();
+  SourceLocation execModeSourceLocation = execMode->getSourceLocation();
+  SourceLocation entryPointSourceLocation =
+      execMode->getEntryPoint()->getSourceLocation();
+  switch (executionMode) {
+  case spv::ExecutionMode::PostDepthCoverage:
+    addCapability(spv::Capability::SampleMaskPostDepthCoverage,
+                  entryPointSourceLocation);
+    addExtension(Extension::KHR_post_depth_coverage,
+                 "[[vk::post_depth_coverage]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::EarlyAndLateFragmentTestsAMD:
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::early_and_late_tests]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefUnchangedFrontAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_unchanged_front]]", execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_unchanged_front]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefGreaterFrontAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_greater_equal_front]]",
+                 execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_greater_equal_front]]",
+                 execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefLessFrontAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_less_equal_front]]",
+                 execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_less_equal_front]]",
+                 execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefUnchangedBackAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_unchanged_back]]", execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_unchanged_back]]", execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefGreaterBackAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_greater_equal_back]]",
+                 execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_greater_equal_back]]",
+                 execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::StencilRefLessBackAMD:
+    addCapability(spv::Capability::StencilExportEXT, entryPointSourceLocation);
+    addExtension(Extension::AMD_shader_early_and_late_fragment_tests,
+                 "[[vk::stencil_ref_less_equal_back]]", execModeSourceLocation);
+    addExtension(Extension::EXT_shader_stencil_export,
+                 "[[vk::stencil_ref_less_equal_back]]", execModeSourceLocation);
+    break;
+  default:
     break;
   }
   return true;
 }
 
-bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
-  if (execMode->getExecutionMode() == spv::ExecutionMode::PostDepthCoverage) {
-    addCapability(spv::Capability::SampleMaskPostDepthCoverage,
-                  execMode->getEntryPoint()->getSourceLocation());
-    addExtension(Extension::KHR_post_depth_coverage,
-                 "[[vk::post_depth_coverage]]", execMode->getSourceLocation());
-  }
-  return true;
-}
-
 bool CapabilityVisitor::visit(SpirvExtInstImport *instr) {
-  if (instr->getExtendedInstSetName() == "NonSemantic.DebugPrintf")
+  if (instr->getExtendedInstSetName() == "NonSemantic.DebugPrintf") {
     addExtension(Extension::KHR_non_semantic_info, "DebugPrintf",
                  /*SourceLocation*/ {});
+  } else if (instr->getExtendedInstSetName() ==
+             "NonSemantic.Shader.DebugInfo.100") {
+    addExtension(Extension::KHR_non_semantic_info, "Shader.DebugInfo.100",
+                 /*SourceLocation*/ {});
+  }
   return true;
 }
 
@@ -614,6 +748,7 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
     case GLSLstd450::GLSLstd450InterpolateAtOffset:
       addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
                    instr->getSourceLocation());
+      break;
     default:
       break;
     }
@@ -629,11 +764,83 @@ bool CapabilityVisitor::visit(SpirvAtomic *instr) {
   return true;
 }
 
-bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
-  addCapability(spv::Capability::DemoteToHelperInvocationEXT,
+bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
+  addCapability(spv::Capability::DemoteToHelperInvocation,
                 inst->getSourceLocation());
-  addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
-               inst->getSourceLocation());
+  if (!featureManager.isTargetEnvVulkan1p3OrAbove()) {
+    addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
+                 inst->getSourceLocation());
+  }
+  return true;
+}
+
+bool CapabilityVisitor::IsShaderModelForRayTracing() {
+  switch (shaderModel) {
+  case spv::ExecutionModel::RayGenerationKHR:
+  case spv::ExecutionModel::ClosestHitKHR:
+  case spv::ExecutionModel::MissKHR:
+  case spv::ExecutionModel::CallableKHR:
+  case spv::ExecutionModel::IntersectionKHR:
+    return true;
+  default:
+    return false;
+  }
+}
+
+void CapabilityVisitor::AddVulkanMemoryModelForVolatile(SpirvDecoration *decor,
+                                                        SourceLocation loc) {
+  // For Vulkan 1.3 or above, we can simply add Volatile decoration. We do not
+  // need VulkanMemoryModel capability.
+  if (featureManager.isTargetEnvVulkan1p3OrAbove()) {
+    return;
+  }
+
+  const auto builtin = static_cast<spv::BuiltIn>(decor->getParams()[0]);
+  bool enableVkMemoryModel = false;
+  switch (builtin) {
+  case spv::BuiltIn::SubgroupSize:
+  case spv::BuiltIn::SubgroupLocalInvocationId:
+  case spv::BuiltIn::SMIDNV:
+  case spv::BuiltIn::WarpIDNV:
+  case spv::BuiltIn::SubgroupEqMask:
+  case spv::BuiltIn::SubgroupGeMask:
+  case spv::BuiltIn::SubgroupGtMask:
+  case spv::BuiltIn::SubgroupLeMask:
+  case spv::BuiltIn::SubgroupLtMask: {
+    if (IsShaderModelForRayTracing()) {
+      enableVkMemoryModel = true;
+    }
+    break;
+  }
+  case spv::BuiltIn::RayTmaxKHR: {
+    if (shaderModel == spv::ExecutionModel::IntersectionKHR) {
+      enableVkMemoryModel = true;
+    }
+    break;
+  }
+  default:
+    break;
+  }
+
+  if (enableVkMemoryModel) {
+    // VulkanMemoryModel was promoted to the core for Vulkan 1.2 or above. For
+    // Vulkan 1.1 or earlier, we have to use SPV_KHR_vulkan_memory_model
+    // extension.
+    if (!featureManager.isTargetEnvVulkan1p2OrAbove()) {
+      addExtension(Extension::KHR_vulkan_memory_model,
+                   "Volatile builtin variable in raytracing", loc);
+    }
+    addCapability(spv::Capability::VulkanMemoryModel, loc);
+    spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
+                              spv::MemoryModel::VulkanKHR);
+  }
+}
+
+bool CapabilityVisitor::visit(SpirvIsHelperInvocationEXT *inst) {
+  addCapability(spv::Capability::DemoteToHelperInvocation,
+                inst->getSourceLocation());
+  addExtension(Extension::EXT_demote_to_helper_invocation,
+               "[[vk::HelperInvocation]]", inst->getSourceLocation());
   return true;
 }
 

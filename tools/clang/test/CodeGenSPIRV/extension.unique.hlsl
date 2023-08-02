@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types
 
 // Make sure the same decoration is not applied twice.
 //

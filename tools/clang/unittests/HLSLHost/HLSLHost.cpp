@@ -235,7 +235,7 @@ private:
 
   HRESULT LoadTestDll() {
     if (m_TestDLL == NULL) {
-      m_TestDLL = LoadLibrary("clang-hlsl-tests.dll");
+      m_TestDLL = LoadLibrary("ClangHLSLTests.dll");
       m_pRunOpTestFn = (RunOpTestFn)GetProcAddress(m_TestDLL, "RunOpTest");
       m_pInitOpTestFn = (InitOpTestFn)GetProcAddress(m_TestDLL, "InitializeOpTests");
       HRESULT hrInit = m_pInitOpTestFn(this, RendererLog);

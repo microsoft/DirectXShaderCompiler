@@ -247,7 +247,7 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(_Out_ UINT32 *pFlags) {
   if (pFlags == nullptr)
     return E_INVALIDARG;
   *pFlags = DxcVersionInfoFlags_None;
-#ifdef _DEBUG
+#ifndef NDEBUG
   *pFlags |= DxcVersionInfoFlags_Debug;
 #endif
   *pFlags |= DxcVersionInfoFlags_Internal;

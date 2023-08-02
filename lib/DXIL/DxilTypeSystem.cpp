@@ -43,9 +43,9 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 //
 DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
-, m_ResourceAttribute(nullptr)
 , m_CBufferOffset(UINT_MAX)
 , m_bCBufferVarUsed(false)
+, m_BitFieldWidth(0)
 {}
 
 bool DxilFieldAnnotation::IsPrecise() const { return m_bPrecise; }
@@ -53,14 +53,14 @@ void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
 bool DxilFieldAnnotation::HasMatrixAnnotation() const { return m_Matrix.Cols != 0; }
 const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { return m_Matrix; }
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
-bool DxilFieldAnnotation::HasResourceAttribute() const {
-  return m_ResourceAttribute;
+bool DxilFieldAnnotation::HasResourceProperties() const {
+  return m_ResourceProps.isValid();
 }
-llvm::MDNode *DxilFieldAnnotation::GetResourceAttribute() const {
-  return m_ResourceAttribute;
+const DxilResourceProperties &DxilFieldAnnotation::GetResourceProperties() const {
+  return m_ResourceProps;
 }
-void DxilFieldAnnotation::SetResourceAttribute(llvm::MDNode *MD) {
-  m_ResourceAttribute = MD;
+void DxilFieldAnnotation::SetResourceProperties(const DxilResourceProperties &RP) {
+  m_ResourceProps = RP;
 }
 bool DxilFieldAnnotation::HasCBufferOffset() const { return m_CBufferOffset != UINT_MAX; }
 unsigned DxilFieldAnnotation::GetCBufferOffset() const { return m_CBufferOffset; }
@@ -80,6 +80,20 @@ const std::string &DxilFieldAnnotation::GetFieldName() const { return m_FieldNam
 void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
 bool DxilFieldAnnotation::IsCBVarUsed() const { return m_bCBufferVarUsed; }
 void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
+bool DxilFieldAnnotation::HasBitFields() const { return !m_BitFields.empty(); }
+const std::vector<DxilFieldAnnotation> &
+DxilFieldAnnotation::GetBitFields() const {
+  return m_BitFields;
+}
+void DxilFieldAnnotation::SetBitFields(
+    const std::vector<DxilFieldAnnotation> &Fields) {
+  m_BitFields = Fields;
+}
+bool DxilFieldAnnotation::HasBitFieldWidth() const { return m_BitFieldWidth != 0; }
+unsigned DxilFieldAnnotation::GetBitFieldWidth() const { return m_BitFieldWidth; }
+void DxilFieldAnnotation::SetBitFieldWidth(const unsigned BitWidth) {
+  m_BitFieldWidth = BitWidth;
+}
 
 //------------------------------------------------------------------------------
 //
@@ -525,7 +539,7 @@ StructType *DxilTypeSystem::GetNormFloatType(CompType CT, unsigned NumComps) {
   raw_string_ostream NameStream(TypeName);
   if (NumComps > 1) {
     (NameStream << "dx.types." << NumComps << "x" << CT.GetName()).flush();
-    pFieldType = VectorType::get(pFieldType, NumComps);
+    pFieldType = FixedVectorType::get(pFieldType, NumComps);
   } else {
     (NameStream << "dx.types." << CT.GetName()).flush();
   }
@@ -702,8 +716,11 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
 void RemapSemantic(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName,
   DxilParameterAnnotation &paramInfo, llvm::LLVMContext &Context) {
   // format deprecation warning
-  Context.emitWarning(Twine("DX9-style semantic \"") + oldSemName + Twine("\" mapped to DX10 system semantic \"") + newSemName +
-    Twine("\" due to -Gec flag. This functionality is deprecated in newer language versions."));
+  dxilutil::EmitWarningOnContext(
+      Context, Twine("DX9-style semantic \"") + oldSemName +
+                   Twine("\" mapped to DX10 system semantic \"") + newSemName +
+                   Twine("\" due to -Gec flag. This functionality is "
+                         "deprecated in newer language versions."));
 
   // create new semantic name with the same index
   std::string newSemNameStr(newSemName);

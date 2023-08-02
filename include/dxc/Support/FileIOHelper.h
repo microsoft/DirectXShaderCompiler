@@ -21,7 +21,7 @@
 struct IDxcBlob;
 struct IDxcBlobEncoding;
 struct IDxcBlobUtf8;
-struct IDxcBlobUtf16;
+struct IDxcBlobWide;
 
 namespace hlsl {
 
@@ -116,16 +116,16 @@ public:
   }
 };
 
-void ReadBinaryFile(_In_opt_ IMalloc *pMalloc,
+HRESULT ReadBinaryFile(_In_opt_ IMalloc *pMalloc,
                     _In_z_ LPCWSTR pFileName,
                     _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
-                    _Out_ DWORD *pDataSize);
-void ReadBinaryFile(_In_z_ LPCWSTR pFileName,
+                    _Out_ DWORD *pDataSize) throw();
+HRESULT ReadBinaryFile(_In_z_ LPCWSTR pFileName,
                     _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
-                    _Out_ DWORD *pDataSize);
-void WriteBinaryFile(_In_z_ LPCWSTR pFileName,
+                    _Out_ DWORD *pDataSize) throw();
+HRESULT WriteBinaryFile(_In_z_ LPCWSTR pFileName,
                      _In_reads_bytes_(DataSize) const void *pData,
-                     _In_ DWORD DataSize);
+                     _In_ DWORD DataSize) throw();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Blob and encoding manipulation functions.
@@ -137,10 +137,10 @@ UINT32 DxcCodePageFromBytes(_In_count_(byteLen) const char *bytes,
 // Null pMalloc means use current thread malloc.
 // bPinned will point to existing memory without managing it;
 // bCopy will copy to heap; bPinned and bCopy are mutually exclusive.
-// If encodingKnown, UTF-8 or UTF-16, and null-termination possible,
-// an IDxcBlobUtf8 or IDxcBlobUtf16 will be constructed.
+// If encodingKnown, UTF-8 or wide, and null-termination possible,
+// an IDxcBlobUtf8 or IDxcBlobWide will be constructed.
 // If text, it's best if size includes null terminator when not copying,
-// otherwise IDxcBlobUtf8 or IDxcBlobUtf16 will not be constructed.
+// otherwise IDxcBlobUtf8 or IDxcBlobWide will not be constructed.
 HRESULT DxcCreateBlob(
     LPCVOID pPtr, SIZE_T size, bool bPinned, bool bCopy,
     bool encodingKnown, UINT32 codePage,
@@ -153,8 +153,7 @@ HRESULT DxcCreateBlobEncodingFromBlob(
     IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw();
 
 // Load files
-HRESULT
-DxcCreateBlobFromFile(_In_opt_ IMalloc *pMalloc, LPCWSTR pFileName,
+HRESULT DxcCreateBlobFromFile(_In_opt_ IMalloc *pMalloc, LPCWSTR pFileName,
                       _In_opt_ UINT32 *pCodePage,
                       _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
@@ -218,10 +217,11 @@ DxcCreateBlobWithEncodingOnMallocCopy(
   _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
 HRESULT DxcGetBlobAsUtf8(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
-                         _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding) throw();
+                         _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding,
+                         UINT32 defaultCodePage = CP_ACP) throw();
 HRESULT
-DxcGetBlobAsUtf16(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
-                  _COM_Outptr_ IDxcBlobUtf16 **pBlobEncoding) throw();
+DxcGetBlobAsWide(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
+                  _COM_Outptr_ IDxcBlobWide **pBlobEncoding) throw();
 
 bool IsBlobNullOrEmpty(_In_opt_ IDxcBlob *pBlob) throw();
 

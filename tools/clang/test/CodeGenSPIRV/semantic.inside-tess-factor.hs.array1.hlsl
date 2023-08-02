@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main
 
 #define NumOutPoints 2
 

@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: error: elements for SV_ClipDistance variable 'foo' must be scalar, vector, or array with float type
 

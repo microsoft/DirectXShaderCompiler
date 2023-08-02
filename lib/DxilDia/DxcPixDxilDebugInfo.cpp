@@ -9,12 +9,15 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilOperations.h"
+
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/Support/exception.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/Module.h"
 
 #include "DxcPixLiveVariables.h"
 #include "DxcPixDxilDebugInfo.h"
@@ -106,7 +109,7 @@ llvm::Instruction* dxil_debug_info::DxcPixDxilDebugInfo::FindInstruction(
     DWORD InstructionOffset
 ) const
 {
-  const auto Instructions = m_pSession->InstructionsRef();
+  const auto & Instructions = m_pSession->InstructionsRef();
   auto it = Instructions.find(InstructionOffset);
   if (it == Instructions.end())
   {
@@ -172,30 +175,23 @@ dxil_debug_info::DxcPixDxilInstructionOffsets::DxcPixDxilInstructionOffsets(
 {
   assert(SourceColumn == 0);
   (void)SourceColumn;
-
-  auto files = pSession->Contents()->operands();
-  for (const auto& file : files)
-  {
-    auto candidateFilename = llvm::dyn_cast<llvm::MDString>(file->getOperand(0))
-        ->getString();
-
-    if (CompareFilenames(FileName, candidateFilename.str().c_str()))
-    {
-
-      auto Fn = pSession->DxilModuleRef().GetEntryFunction();
-      auto &Blocks = Fn->getBasicBlockList();
-      for (auto& CurrentBlock : Blocks) {
-        auto& Is = CurrentBlock.getInstList();
-        for (auto& Inst : Is) {
-          auto & debugLoc = Inst.getDebugLoc();
-          if (debugLoc)
-          {
-            unsigned line = debugLoc.getLine();
-            if (line == SourceLine)
-            {
+  for (llvm::Function &Fn :
+       pSession->DxilModuleRef().GetModule()->functions()) {
+    if (Fn.isDeclaration() || Fn.isIntrinsic() || hlsl::OP::IsDxilOpFunc(&Fn))
+      continue;
+    auto &Blocks = Fn.getBasicBlockList();
+    for (auto &CurrentBlock : Blocks) {
+      auto &Is = CurrentBlock.getInstList();
+      for (auto &Inst : Is) {
+        auto &debugLoc = Inst.getDebugLoc();
+        if (debugLoc) {
+          unsigned line = debugLoc.getLine();
+          if (line == SourceLine) {
+            auto file = debugLoc.get()->getFilename();
+            if (CompareFilenames(FileName, file.str().c_str())) {
               std::uint32_t InstructionNumber;
-              if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstructionNumber))
-              {
+              if (pix_dxil::PixDxilInstNum::FromInst(&Inst,
+                                                     &InstructionNumber)) {
                 m_offsets.push_back(InstructionNumber);
               }
             }

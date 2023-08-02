@@ -365,6 +365,7 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
       }
     }
     // If typo correction failed or was not performed, fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case LookupResult::FoundOverloaded:
   case LookupResult::FoundUnresolvedValue:
     Result.suppressDiagnostics();
@@ -445,6 +446,12 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
     (void)DiagnoseUseOfDecl(IDecl, NameLoc);
     if (!HasTrailingDot)
       T = Context.getObjCInterfaceType(IDecl);
+  } else if (getLangOpts().HLSL) { // HLSL - omit empty template argument lists
+    if (TemplateDecl *TD = dyn_cast<TemplateDecl>(IIDecl)) {
+      QualType DefaultTy = getHLSLDefaultSpecialization(TD);
+      if (!DefaultTy.isNull())
+        T = DefaultTy;
+    } // HLSL Change end
   }
 
   if (T.isNull()) {
@@ -602,7 +609,7 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
     return;
   }
 
-  if (getLangOpts().CPlusPlus && !getLangOpts().HLSL) {  // HLSL Change
+  if (getLangOpts().CPlusPlus) {
     // See if II is a class template that the user forgot to pass arguments to.
     UnqualifiedId Name;
     Name.setIdentifier(II, IILoc);
@@ -8101,6 +8108,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     AddToScope = false;
   }
 
+  if (getLangOpts().HLSL) {
+    hlsl::DiagnoseRaytracingEntry(*this, NewFD);
+  }
+
   return NewFD;
 }
 
@@ -9146,6 +9157,13 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   // Get the decls type and save a reference for later, since
   // CheckInitializerTypes may change it.
   QualType DclT = VDecl->getType(), SavT = DclT;
+
+  // HLSL Change begin
+  // When initializing an HLSL resource type we should diagnose mismatches in
+  // globally coherent annotations _unless_ the source is a dynamic resource
+  // placeholder type where we safely infer the globallycoherent annotaiton.
+  DiagnoseGloballyCoherentMismatch(Init, DclT, Init->getExprLoc());
+  // HLSL Change end
   
   // Expressions default to 'id' when we're in a debugger
   // and we are assigning it to a variable of Objective-C pointer type.
@@ -9508,7 +9526,7 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
       // that has an in-class initializer, so we type-check this like
       // a declaration. 
       //
-      // Fall through
+      LLVM_FALLTHROUGH; // HLSL Change
       
     case VarDecl::DeclarationOnly:
       // It's only a declaration. 
@@ -11703,7 +11721,7 @@ Decl *Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK,
   }
 
   // HLSL Change Starts
-  if (getLangOpts().HLSLVersion == 2015 && TUK == TUK_Declaration) {
+  if (getLangOpts().HLSLVersion == hlsl::LangStd::v2015 && TUK == TUK_Declaration) {
     Diag(NameLoc, diag::err_hlsl_unsupported_construct)
         << "struct declaration without definition";
   }
@@ -13658,7 +13676,8 @@ EnumConstantDecl *Sema::CheckEnumConstant(EnumDecl *Enum,
     else {
       SourceLocation ExpLoc;
       // HLSL Change - check constant expression for enum
-      if ((getLangOpts().HLSLVersion >= 2017 || getLangOpts().CPlusPlus11) &&
+      if ((getLangOpts().HLSLVersion >= hlsl::LangStd::v2017 ||
+           getLangOpts().CPlusPlus11) &&
           Enum->isFixed() && !getLangOpts().MSVCCompat) {
         // C++11 [dcl.enum]p5: If the underlying type is fixed, [...] the
         // constant-expression in the enumerator-definition shall be a converted
@@ -13672,8 +13691,8 @@ EnumConstantDecl *Sema::CheckEnumConstant(EnumDecl *Enum,
         else
           Val = Converted.get();
       } else if (!Val->isValueDependent() &&
-                 !(Val = VerifyIntegerConstantExpression(Val,
-                                                         &EnumVal).get())) {
+                 !(Val =
+                       VerifyIntegerConstantExpression(Val, &EnumVal).get())) {
         // C99 6.7.2.2p2: Make sure we have an integer constant expression.
       } else {
         if (Enum->isFixed()) {

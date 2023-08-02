@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpEntryPoint Vertex %main "main" %in_var_AAA %in_var_B %in_var_CC %out_var_DDDD
 

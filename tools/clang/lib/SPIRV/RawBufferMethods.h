@@ -28,7 +28,9 @@ public:
   /// which is a runtime array in SPIR-V. This method works by loading one or
   /// more uints, and performing necessary casts and composite constructions
   /// to build the 'targetType'. The 'offset' parameter can be used for finer
-  /// grained load of bitwidths smaller than 32-bits.
+  /// grained load of bitwidths smaller than 32-bits. The layout rule for the
+  /// result will be `Void` because the value will be built and used internally
+  /// only. It does not have to match `buffer`.
   ///
   /// Example:
   /// targetType = uint16_t, address=0, offset=0
@@ -38,7 +40,8 @@ public:
   SpirvInstruction *processTemplatedLoadFromBuffer(SpirvInstruction *buffer,
                                                    SpirvInstruction *&index,
                                                    const QualType targetType,
-                                                   uint32_t &bitOffset);
+                                                   uint32_t &bitOffset,
+                                                   SourceRange range = {});
 
   /// \brief Performs RWByteAddressBuffer.Store<T>(address, value).
   /// RWByteAddressBuffers are represented in SPIR-V as structs with only one
@@ -57,59 +60,69 @@ public:
                                      SpirvInstruction *buffer,
                                      SpirvInstruction *&index,
                                      const QualType valueType,
-                                     uint32_t &bitOffset);
+                                     uint32_t &bitOffset,
+                                     SourceRange range = {});
 
 private:
   SpirvInstruction *load16BitsAtBitOffset0(SpirvInstruction *buffer,
                                            SpirvInstruction *&index,
                                            QualType target16BitType,
-                                           uint32_t &bitOffset);
+                                           uint32_t &bitOffset,
+                                           SourceRange range = {});
 
   SpirvInstruction *load32BitsAtBitOffset0(SpirvInstruction *buffer,
                                            SpirvInstruction *&index,
                                            QualType target32BitType,
-                                           uint32_t &bitOffset);
+                                           uint32_t &bitOffset,
+                                           SourceRange range = {});
 
   SpirvInstruction *load64BitsAtBitOffset0(SpirvInstruction *buffer,
                                            SpirvInstruction *&index,
                                            QualType target64BitType,
-                                           uint32_t &bitOffset);
+                                           uint32_t &bitOffset,
+                                           SourceRange range = {});
 
   SpirvInstruction *load16BitsAtBitOffset16(SpirvInstruction *buffer,
                                             SpirvInstruction *&index,
                                             QualType target16BitType,
-                                            uint32_t &bitOffset);
+                                            uint32_t &bitOffset,
+                                            SourceRange range = {});
 
 private:
   void store16BitsAtBitOffset0(SpirvInstruction *value,
                                SpirvInstruction *buffer,
                                SpirvInstruction *&index,
-                               const QualType valueType);
+                               const QualType valueType,
+                               SourceRange range = {});
 
   void store32BitsAtBitOffset0(SpirvInstruction *value,
                                SpirvInstruction *buffer,
                                SpirvInstruction *&index,
-                               const QualType valueType);
+                               const QualType valueType,
+                               SourceRange range = {});
 
   void store64BitsAtBitOffset0(SpirvInstruction *value,
                                SpirvInstruction *buffer,
                                SpirvInstruction *&index,
-                               const QualType valueType);
+                               const QualType valueType,
+                               SourceRange range = {});
 
   void store16BitsAtBitOffset16(SpirvInstruction *value,
                                 SpirvInstruction *buffer,
                                 SpirvInstruction *&index,
-                                const QualType valueType);
+                                const QualType valueType,
+                                SourceRange range = {});
 
   void storeArrayOfScalars(std::deque<SpirvInstruction *> values,
                            SpirvInstruction *buffer, SpirvInstruction *&index,
                            const QualType valueType, uint32_t &bitOffset,
-                           SourceLocation);
+                           SourceLocation, SourceRange range = {});
 
   /// \brief Serializes the given values into their components until a scalar or
   /// a struct has been reached. Returns the most basic type it reaches.
   QualType serializeToScalarsOrStruct(std::deque<SpirvInstruction *> *values,
-                                      QualType valueType, SourceLocation);
+                                      QualType valueType, SourceLocation,
+                                      SourceRange range = {});
 
 private:
   /// \brief Performs an OpBitCast from |fromType| to |toType| on the given
@@ -121,7 +134,8 @@ private:
   /// the given instruction
   SpirvInstruction *bitCastToNumericalOrBool(SpirvInstruction *instr,
                                              QualType fromType, QualType toType,
-                                             SourceLocation loc);
+                                             SourceLocation loc,
+                                             SourceRange range = {});
 
 private:
   SpirvEmitter &theEmitter;

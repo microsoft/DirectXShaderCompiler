@@ -184,6 +184,8 @@ void InitHeaderSearch::AddUnmappedPath(const Twine &Path, IncludeDirGroup Group,
 #endif // HLSL Change Ends - simplify mapping based on actual usage
 }
 
+// HLSL Change: Remove unused function;
+#if 0
 void InitHeaderSearch::AddGnuCPlusPlusIncludePaths(StringRef Base,
                                                    StringRef ArchDir,
                                                    StringRef Dir32,
@@ -434,6 +436,7 @@ AddDefaultCPlusPlusIncludePaths(const llvm::Triple &triple, const HeaderSearchOp
   }
 #endif // HLSL Change Ends
 }
+#endif
 
 void InitHeaderSearch::AddDefaultIncludePaths(const LangOptions &Lang,
                                               const llvm::Triple &triple,

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-use-scalar-layout
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-scalar-layout
 
 // CHECK: OpDecorate %_runtimearr_v3uint ArrayStride 12
 // CHECK: OpDecorate %type_StructuredBuffer_v3uint BufferBlock

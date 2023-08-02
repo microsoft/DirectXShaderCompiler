@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 RWBuffer<float4>    MyRWBuffer;
 RWTexture2D<float3> MyRWTexture;

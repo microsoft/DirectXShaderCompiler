@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 //CHECK:      %First = OpVariable %_ptr_Private_int Private %int_0
 //CHECK-NEXT: %Second = OpVariable %_ptr_Private_int Private %int_1

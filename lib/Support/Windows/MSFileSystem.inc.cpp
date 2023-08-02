@@ -11,7 +11,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "llvm/ADT/STLExtras.h"
-#define NOMINMAX
 #include "WindowsSupport.h"
 #include <fcntl.h>
 #ifdef _WIN32
@@ -120,6 +119,11 @@ void CleanupPerThreadFileSystem() throw() {
 }
 
 MSFileSystemRef GetCurrentThreadFileSystem() throw() {
+#ifdef MS_IMPLICIT_DISK_FILESYSTEM
+  if (!g_PerThreadSystem)
+    getImplicitFilesystem();
+#endif
+
   assert(g_PerThreadSystem && "otherwise, TLS not initialized");
   return g_PerThreadSystem.GetValue();
 }
@@ -307,6 +311,12 @@ namespace path {
     // Just use the caller's original path.
     return UTF8ToUTF16(Path8Str, Path16);
   }
+
+bool home_directory(SmallVectorImpl<char> &result) {
+  assert("HLSL Unimplemented!");
+  return false;
+}
+
 } // end namespace path
 
 namespace fs {
@@ -422,33 +432,35 @@ std::error_code create_link(const Twine &to, const Twine &from) {
 
 std::error_code remove(const Twine &path, bool IgnoreNonExisting) {
   MSFileSystemRef fsr;
-  if (error_code ec = GetCurrentThreadFileSystemOrError(&fsr)) return ec;
+  if (error_code ec = GetCurrentThreadFileSystemOrError(&fsr))
+    return ec;
 
   SmallVector<wchar_t, 128> path_utf16;
-
-  file_status ST;
-  if (std::error_code EC = status(path, ST)) {
-    if (EC != errc::no_such_file_or_directory || !IgnoreNonExisting)
-      return EC;
-    return std::error_code();
-  }
 
   if (std::error_code ec = widenPath(path, path_utf16))
     return ec;
 
-  if (ST.type() == file_type::directory_file) {
-    if (!fsr->RemoveDirectoryW(c_str(path_utf16))) {
-      std::error_code EC = mapWindowsError(::GetLastError());
-      if (EC != errc::no_such_file_or_directory || !IgnoreNonExisting)
-        return EC;
-    }
-    return std::error_code();
-  }
-  if (!fsr->DeleteFileW(c_str(path_utf16))) {
+  // We don't know whether this is a file or a directory, and remove() can
+  // accept both. The usual way to delete a file or directory is to use one of
+  // the DeleteFile or RemoveDirectory functions, but that requires you to know
+  // which one it is. We could stat() the file to determine that, but that would
+  // cost us additional system calls, which can be slow in a directory
+  // containing a large number of files. So instead we call CreateFile directly.
+  // The important part is the FILE_FLAG_DELETE_ON_CLOSE flag, which causes the
+  // file to be deleted once it is closed. We also use the flags
+  // FILE_FLAG_BACKUP_SEMANTICS (which allows us to open directories), and
+  // FILE_FLAG_OPEN_REPARSE_POINT (don't follow symlinks).
+  ScopedFileHandle h(fsr->CreateFileW(
+      c_str(path_utf16), DELETE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS |
+          FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_DELETE_ON_CLOSE));
+  if (!h) {
     std::error_code EC = mapWindowsError(::GetLastError());
     if (EC != errc::no_such_file_or_directory || !IgnoreNonExisting)
       return EC;
   }
+
   return std::error_code();
 }
 
@@ -1038,6 +1050,15 @@ error_code openFileForWrite(const Twine &Name, int &ResultFD,
 
   ResultFD = FD;
   return error_code();
+}
+
+std::error_code resize_file(int FD, uint64_t Size) {
+#ifdef HAVE__CHSIZE_S
+  errno_t error = ::_chsize_s(FD, Size);
+#else
+  errno_t error = ::_chsize(FD, Size);
+#endif
+  return std::error_code(error, std::generic_category());
 }
 
 } // end namespace fs

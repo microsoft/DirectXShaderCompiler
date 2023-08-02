@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpDecorate %_arr_double_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr_mat2v3double_uint_2 ArrayStride 64

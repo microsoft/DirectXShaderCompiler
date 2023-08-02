@@ -114,12 +114,15 @@ public:
   DEFINE_VISIT_METHOD(SpirvVectorShuffle)
   DEFINE_VISIT_METHOD(SpirvArrayLength)
   DEFINE_VISIT_METHOD(SpirvRayTracingOpNV)
-  DEFINE_VISIT_METHOD(SpirvDemoteToHelperInvocationEXT)
+  DEFINE_VISIT_METHOD(SpirvDemoteToHelperInvocation)
+  DEFINE_VISIT_METHOD(SpirvIsHelperInvocationEXT)
   DEFINE_VISIT_METHOD(SpirvDebugInfoNone)
   DEFINE_VISIT_METHOD(SpirvDebugSource)
   DEFINE_VISIT_METHOD(SpirvDebugCompilationUnit)
   DEFINE_VISIT_METHOD(SpirvDebugFunctionDeclaration)
   DEFINE_VISIT_METHOD(SpirvDebugFunction)
+  DEFINE_VISIT_METHOD(SpirvDebugFunctionDefinition)
+  DEFINE_VISIT_METHOD(SpirvDebugEntryPoint)
   DEFINE_VISIT_METHOD(SpirvDebugLocalVariable)
   DEFINE_VISIT_METHOD(SpirvDebugGlobalVariable)
   DEFINE_VISIT_METHOD(SpirvDebugOperation)
@@ -140,13 +143,16 @@ public:
   DEFINE_VISIT_METHOD(SpirvReadClock)
   DEFINE_VISIT_METHOD(SpirvRayTracingTerminateOpKHR)
   DEFINE_VISIT_METHOD(SpirvIntrinsicInstruction)
+
+  DEFINE_VISIT_METHOD(SpirvEmitMeshTasksEXT)
+  DEFINE_VISIT_METHOD(SpirvSetMeshOutputsEXT)
 #undef DEFINE_VISIT_METHOD
+
+  const SpirvCodeGenOptions &getCodeGenOptions() const { return spvOptions; }
 
 protected:
   explicit Visitor(const SpirvCodeGenOptions &opts, SpirvContext &ctx)
       : spvOptions(opts), context(ctx) {}
-
-  const SpirvCodeGenOptions &getCodeGenOptions() const { return spvOptions; }
 
 protected:
   const SpirvCodeGenOptions &spvOptions;

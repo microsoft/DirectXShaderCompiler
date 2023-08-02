@@ -41,6 +41,7 @@ if is_py3:
     basestring = (str,bytes)   
 
 import re
+import hctdb_instrhelp
 
 def SelectTaggedLines(tag, start, doc=None):
     "Select lines between tag:BEGIN and tag:END"
@@ -408,7 +409,7 @@ CodeTags.py <input file> [<output file>]
 """)
     return 1
 
-def main(argv):
+def main(argv, newline=None):
     trace = False
     test = False
     args = []
@@ -444,7 +445,7 @@ def main(argv):
             test = Test(f.read(), 'expected not used.')
             result = test.test()
         if result == 0:
-            with open(args[1], 'wt') as f:
+            with open(args[1], 'wt', newline=newline) as f:
                 f.write(test.after)
         else:
             sys.stderr.write(test.after)

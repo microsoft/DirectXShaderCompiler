@@ -71,6 +71,16 @@ private:
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
                                      SourceLocation);
 
+  /// Lowers the fields of a RecordDecl into SPIR-V StructType field
+  /// information.
+  llvm::SmallVector<StructType::FieldInfo, 4>
+  lowerStructFields(const RecordDecl *structType, SpirvLayoutRule rule);
+
+  /// Lowers the given type defined in vk namespace into its SPIR-V type.
+  const SpirvType *lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
+                                            SpirvLayoutRule rule,
+                                            SourceLocation srcLoc);
+
   /// For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType sampledType,
@@ -84,6 +94,13 @@ private:
   llvm::SmallVector<StructType::FieldInfo, 4>
   populateLayoutInformation(llvm::ArrayRef<HybridStructType::FieldInfo> fields,
                             SpirvLayoutRule rule);
+
+  /// Create a clang::StructType::FieldInfo from HybridStructType::FieldInfo.
+  /// This function only considers the field as standalone.
+  /// Offset and layout constraint from the parent struct are not considered.
+  StructType::FieldInfo lowerField(const HybridStructType::FieldInfo *field,
+                                   SpirvLayoutRule rule,
+                                   const uint32_t fieldIndex);
 
 private:
   ASTContext &astContext;                /// AST context

@@ -36,7 +36,7 @@ namespace spirv {
 
 void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
     QualType fieldType, uint32_t fieldSize, uint32_t fieldAlignment,
-    uint32_t *currentOffset) {
+    uint32_t *currentOffset) const {
   QualType vecElemType = {};
   const bool fieldIsVecType = isVectorType(fieldType, &vecElemType);
 
@@ -64,7 +64,7 @@ void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
 
 std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     QualType type, SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
-    uint32_t *stride) {
+    uint32_t *stride) const {
   // std140 layout rules:
 
   // 1. If the member is a scalar consuming N basic machine units, the base
@@ -282,7 +282,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     // If this struct is derived from some other structs, place an implicit
     // field at the very beginning for the base struct.
     if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(structType->getDecl())) {
-      for (const auto base : cxxDecl->bases()) {
+      for (const auto &base : cxxDecl->bases()) {
         uint32_t memberAlignment = 0, memberSize = 0;
         std::tie(memberAlignment, memberSize) =
             getAlignmentAndSize(base.getType(), rule, isRowMajor, stride);
@@ -374,6 +374,8 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
       alignment = roundToPow2(alignment, kStd140Vec4Alignment);
+      if (size == 0)
+        size = alignment;
     }
     if (rule == SpirvLayoutRule::FxcCTBuffer) {
       // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data

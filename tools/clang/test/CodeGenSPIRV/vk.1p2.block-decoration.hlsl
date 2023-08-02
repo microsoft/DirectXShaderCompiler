@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2
 
 // We cannot use BufferBlock decoration for SPIR-V 1.4 or above.
 // Instead, we must use Block decorated StorageBuffer Storage Class.

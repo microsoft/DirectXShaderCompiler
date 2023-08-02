@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_4 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_4 -E main -fspv-target-env=vulkan1.2
 
 
 // CHECK: OpDecorate %type_ByteAddressBuffer Block

@@ -1584,7 +1584,7 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   case AtomicExpr::AO__atomic_add_fetch:
   case AtomicExpr::AO__atomic_sub_fetch:
     IsAddSub = true;
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change
   case AtomicExpr::AO__c11_atomic_fetch_and:
   case AtomicExpr::AO__c11_atomic_fetch_or:
   case AtomicExpr::AO__c11_atomic_fetch_xor:
@@ -6173,7 +6173,7 @@ static IntRange GetExprRange(ASTContext &C, Expr *E, unsigned MaxWidth) {
           return IntRange(R.Width, /*NonNegative*/ true);
         }
       }
-      // fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case BO_ShlAssign:
       return IntRange::forValueOfType(C, GetExprType(E));
@@ -6771,6 +6771,9 @@ static void AnalyzeAssignment(Sema &S, BinaryOperator *E) {
   // Just recurse on the LHS.
   AnalyzeImplicitConversions(S, E->getLHS(), E->getOperatorLoc());
 
+  S.DiagnoseGloballyCoherentMismatch(E->getRHS(), E->getLHS()->getType(),
+                                     E->getOperatorLoc());
+
   // We want to recurse on the RHS as normal unless we're assigning to
   // a bitfield.
   if (FieldDecl *Bitfield = E->getLHS()->getSourceBitField()) {
@@ -6872,6 +6875,22 @@ static bool IsImplicitBoolFloatConversion(Sema &S, Expr *Ex, bool ToBool) {
 
 void CheckImplicitArgumentConversions(Sema &S, CallExpr *TheCall,
                                       SourceLocation CC) {
+  // HLSL Change Begin
+  if (FunctionDecl *FD = TheCall->getDirectCallee()) {
+    CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
+    unsigned ArgIdx = 0;
+    unsigned ParmIdx = 0;
+    if (MD && MD->isInstance())
+      ++ParmIdx;
+    for (; ArgIdx < TheCall->getNumArgs() && ParmIdx < FD->getNumParams();
+         ++ArgIdx, ++ParmIdx) {
+      ParmVarDecl *PD = FD->getParamDecl(ParmIdx);
+      Expr *CurrA = TheCall->getArg(ArgIdx);
+      S.DiagnoseGloballyCoherentMismatch(CurrA, PD->getType(), CC);
+    }
+  }
+  // HLSL CHange End
+
   unsigned NumArgs = TheCall->getNumArgs();
   for (unsigned i = 0; i < NumArgs; ++i) {
     Expr *CurrA = TheCall->getArg(i);
@@ -8469,7 +8488,7 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     }
 
     // HLSL Change Starts
-    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > 2016) {
+    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > hlsl::LangStd::v2016) {
       DiagRuntimeBehavior(BaseExpr->getLocStart(), BaseExpr,
         PDiag(diag::err_hlsl_array_element_index_out_of_bounds) << index.toString(10, true));
     }
@@ -8488,7 +8507,7 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     } // HLSL Change
   } else {
     // HLSL Change Starts
-    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > 2016) {
+    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > hlsl::LangStd::v2016) {
       DiagRuntimeBehavior(BaseExpr->getLocStart(), BaseExpr,
         PDiag(diag::err_hlsl_array_element_index_out_of_bounds) << index.toString(10, true));
     }

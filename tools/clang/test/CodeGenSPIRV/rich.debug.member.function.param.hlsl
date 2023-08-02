@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
 
 struct foo {
   int a;
@@ -19,6 +19,12 @@ struct foo {
   bool c;
 };
 
+// Note:
+//    For member functions, the scope in the debug info should be the encapsulating composite.
+//    Doing this (as specified in the NonSemantic.Shader.DebugInfo.100) would break the SPIR-V and NonSemantic
+//    spec. For this reason, DXC is emitting the wrong scope.
+//    See https://github.com/KhronosGroup/SPIRV-Registry/issues/203
+
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
 // CHECK: [[fooName:%\d+]] = OpString "foo"
@@ -31,19 +37,26 @@ struct foo {
 // CHECK: [[arg:%\d+]] = OpString "arg"
 
 // CHECK: [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
+// CHECK: [[unit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 {{%\d+}} HLSL
 // CHECK: [[foo:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[fooName]] Structure {{%\d+}} 3 8
 
 // CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
 // CHECK: [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 
 // CHECK: [[func1Type:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[int]] [[foo]] [[int]] [[float]] [[bool]]
-// CHECK: [[f1:%\d+]] = OpExtInst %void [[set]] DebugFunction [[func1]] [[func1Type]] {{%\d+}} 12 3 [[foo]] {{%\d+}} FlagIsProtected|FlagIsPrivate 12 %foo_func1
+
+// CHECK-NOT: [[f1:%\d+]] = OpExtInst %void [[set]] DebugFunction [[func1]] [[func1Type]] {{%\d+}} 12 3 [[foo]] {{%\d+}} FlagIsProtected|FlagIsPrivate 12 %foo_func1
+// CHECK: [[f1:%\d+]] = OpExtInst %void [[set]] DebugFunction [[func1]] [[func1Type]] {{%\d+}} 12 3 [[unit]] {{%\d+}} FlagIsProtected|FlagIsPrivate 12 %foo_func1
+
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[arg2]] {{%\d+}} {{%\d+}} 12 40 [[f1]] FlagIsLocal 4
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[arg1]] {{%\d+}} {{%\d+}} 12 29 [[f1]] FlagIsLocal 3
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[arg0]] {{%\d+}} {{%\d+}} 12 17 [[f1]] FlagIsLocal 2
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[this]] [[foo]] {{%\d+}} 12 3 [[f1]] FlagArtificial|FlagObjectPointer 1
 // CHECK: [[func0Type:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[foo]] [[float]]
-// CHECK: [[f0:%\d+]] = OpExtInst %void [[set]] DebugFunction [[func0]] [[func0Type]] {{%\d+}} 6 3 [[foo]] {{%\d+}} FlagIsProtected|FlagIsPrivate 6 %foo_func0
+
+// CHECK-NOT: [[f0:%\d+]] = OpExtInst %void [[set]] DebugFunction [[func0]] [[func0Type]] {{%\d+}} 6 3 [[foo]] {{%\d+}} FlagIsProtected|FlagIsPrivate 6 %foo_func0
+// CHECK: [[f0:%\d+]] = OpExtInst %void [[set]] DebugFunction [[func0]] [[func0Type]] {{%\d+}} 6 3 [[unit]] {{%\d+}} FlagIsProtected|FlagIsPrivate 6 %foo_func0
+
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[arg]] {{%\d+}} {{%\d+}} 6 20 [[f0]] FlagIsLocal 2
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[this]] [[foo]] {{%\d+}} 6 3 [[f0]] FlagArtificial|FlagObjectPointer 1
 

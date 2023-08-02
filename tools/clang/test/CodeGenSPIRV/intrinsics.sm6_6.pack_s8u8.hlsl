@@ -1,4 +1,4 @@
-// Run: %dxc -E main -T ps_6_6 -enable-16bit-types
+// RUN: %dxc -E main -T ps_6_6 -enable-16bit-types
 
 // CHECK:    %short = OpTypeInt 16 1
 // CHECK:  %v4short = OpTypeVector %short 4

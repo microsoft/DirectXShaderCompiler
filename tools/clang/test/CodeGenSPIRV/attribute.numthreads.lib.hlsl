@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_4 -E main
+// RUN: %dxc -T lib_6_4 -E main
 
 // CHECK: OpExecutionMode %entryHistogram LocalSize 16 16 1
 [shader("compute")]

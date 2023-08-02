@@ -15,6 +15,7 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilCompType.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 #include <memory>
 #include <string>
@@ -54,9 +55,12 @@ public:
   const DxilMatrixAnnotation &GetMatrixAnnotation() const;
   void SetMatrixAnnotation(const DxilMatrixAnnotation &MA);
 
-  bool HasResourceAttribute() const;
-  llvm::MDNode *GetResourceAttribute() const;
-  void SetResourceAttribute(llvm::MDNode *MD);
+  // Currently, ResourceProperties is only used to capture resource type
+  // information during CodeGen for the annotate handle generated during
+  // AddOpcodeParamForIntrinsic.
+  bool HasResourceProperties() const;
+  const DxilResourceProperties &GetResourceProperties() const;
+  void SetResourceProperties(const DxilResourceProperties &RP);
 
   bool HasCBufferOffset() const;
   unsigned GetCBufferOffset() const;
@@ -82,16 +86,26 @@ public:
   bool IsCBVarUsed() const;
   void SetCBVarUsed(bool used);
 
+  bool HasBitFields() const;
+  const std::vector<DxilFieldAnnotation> &GetBitFields() const;
+  void SetBitFields(const std::vector<DxilFieldAnnotation> &Fields);
+
+  bool HasBitFieldWidth() const;
+  unsigned GetBitFieldWidth() const;
+  void SetBitFieldWidth(const unsigned BitWidth);
+
 private:
   bool m_bPrecise;
   CompType m_CompType;
   DxilMatrixAnnotation m_Matrix;
-  llvm::MDNode *m_ResourceAttribute;
+  DxilResourceProperties m_ResourceProps;
   unsigned m_CBufferOffset;
   std::string m_Semantic;
   InterpolationMode m_InterpMode;
   std::string m_FieldName;
   bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
+  std::vector<DxilFieldAnnotation> m_BitFields;
+  unsigned m_BitFieldWidth; // For bit field. 0 means not bitfield.
 };
 
 class DxilTemplateArgAnnotation {
@@ -311,15 +325,19 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
 
 void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKind sigPoint, llvm::LLVMContext &Context);
 
-class DxilStructTypeIterator
-    : public std::iterator<std::input_iterator_tag,
-                           std::pair<llvm::Type *, DxilFieldAnnotation *>> {
+class DxilStructTypeIterator {
 private:
   llvm::StructType *STy;
   DxilStructAnnotation *SAnnotation;
   unsigned index;
 
 public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = std::pair<llvm::Type *, DxilFieldAnnotation *>;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   DxilStructTypeIterator(llvm::StructType *sTy,
                          DxilStructAnnotation *sAnnotation, unsigned idx = 0);
   // prefix

@@ -43,7 +43,7 @@ bool FileTest::parseCommand() {
   // Effcee skips any input line which doesn't have a CHECK directive, therefore
   // we can pass the entire input to effcee. This way, any warning/error message
   // provided by effcee also reflects the correct line number in the input file.
-  const char hlslStartLabel[] = "// Run:";
+  const char hlslStartLabel[] = "// RUN:";
   const auto runCmdStartPos = checkCommands.find(hlslStartLabel);
   if (runCmdStartPos != std::string::npos) {
     const auto runCmdEndPos = checkCommands.find('\n', runCmdStartPos);
@@ -54,7 +54,7 @@ bool FileTest::parseCommand() {
       return false;
     }
   } else {
-    fprintf(stderr, "Error: Missing \"Run:\" command.\n");
+    fprintf(stderr, "Error: Missing \"RUN:\" command.\n");
     return false;
   }
 
@@ -110,8 +110,9 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
     ASSERT_TRUE(compileOk);
 
     // Disassemble the generated SPIR-V binary.
-    ASSERT_TRUE(utils::disassembleSpirvBinary(
-        generatedBinary, &generatedSpirvAsm, true /* generateHeader */));
+    ASSERT_TRUE(
+        utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
+                                      true /* generateHeader */, targetEnv));
 
     auto options = effcee::Options()
                        .SetChecksName(filename.str())
@@ -128,10 +129,12 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
     // All checks must have passed.
     ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
-    if (runValidation)
+    // HLSL Change: Explicit braces
+    if (runValidation) {
       EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
                                              beforeHLSLLegalization, glLayout,
                                              dxLayout, scalarLayout));
+    }
   } else if (expect == Expect::Warning) {
     ASSERT_TRUE(compileOk);
 
@@ -154,10 +157,12 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
     // All checks must have passed.
     ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
-    if (runValidation)
+    // HLSL Change: explicit braces
+    if (runValidation) {
       EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
                                              beforeHLSLLegalization, glLayout,
                                              dxLayout, scalarLayout));
+    }
   } else if (expect == Expect::Failure) {
     ASSERT_FALSE(compileOk);
 

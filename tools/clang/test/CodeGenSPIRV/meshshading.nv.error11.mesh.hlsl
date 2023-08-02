@@ -1,4 +1,4 @@
-// Run: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main
 
 // CHECK:  15:36: error: expected 1D array of indices/vertices/primitives object
 

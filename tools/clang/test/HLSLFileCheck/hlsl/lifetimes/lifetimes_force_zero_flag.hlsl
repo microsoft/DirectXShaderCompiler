@@ -4,7 +4,7 @@
 // Same test as in lifetimes.hlsl, but expecting zeroinitializer store
 // instead of lifetime intrinsics due to flag -force-zero-store-lifetimes.
 //
-// CHECK: define i32 @"\01?if_scoped_array@@YAHHH@Z"
+// CHECK: define i32 @"\01?if_scoped_array{{[@$?.A-Za-z0-9_]+}}"
 // CHECK: alloca
 // CHECK: icmp
 // CHECK: br i1

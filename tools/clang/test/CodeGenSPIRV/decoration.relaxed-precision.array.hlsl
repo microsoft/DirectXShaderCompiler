@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // CHECK:                      OpDecorate %testShared RelaxedPrecision
 // CHECK-NEXT:                 OpDecorate %test RelaxedPrecision

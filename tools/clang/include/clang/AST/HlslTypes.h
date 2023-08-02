@@ -20,7 +20,7 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
@@ -301,10 +301,6 @@ struct SemanticDecl : public UnusualAnnotation
 ParameterModifier
 ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
 
-/// Returns a ParameterModifier initialized as per the attribute list.
-ParameterModifier
-ParamModFromAttrs(llvm::ArrayRef<clang::InheritableAttr *> attributes);
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AST manipulation functions.
 
@@ -338,8 +334,18 @@ clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
             uint8_t templateArgCount,
   _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
 
+clang::CXXRecordDecl* DeclareTemplateTypeWithHandleInDeclContext(
+            clang::ASTContext& context,
+            clang::DeclContext *declContext,
+            llvm::StringRef name,
+            uint8_t templateArgCount,
+  _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
+
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
+clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    llvm::StringRef typeName, llvm::StringRef templateParamName);
 clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext& context, bool bTBuf);
 clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
@@ -393,14 +399,18 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLDynamicResourceType(clang::QualType type);
 bool IsHLSLBufferViewType(clang::QualType type);
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
 bool IsHLSLNumericUserDefinedType(clang::QualType type);
+bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
+bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
 unsigned GetHLSLResourceTemplateUInt(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext& context, clang::QualType type);
+clang::QualType GetHLSLResourceTemplateParamType(clang::QualType type);
 clang::QualType GetHLSLInputPatchElementType(clang::QualType type);
 unsigned GetHLSLInputPatchCount(clang::QualType type);
 clang::QualType GetHLSLOutputPatchElementType(clang::QualType type);
@@ -431,6 +441,12 @@ bool GetIntrinsicOp(const clang::FunctionDecl *FD, unsigned &opcode,
                     llvm::StringRef &group);
 bool GetIntrinsicLowering(const clang::FunctionDecl *FD, llvm::StringRef &S);
 
+bool IsUserDefinedRecordType(clang::QualType type);
+bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
+                                      clang::OverloadedOperatorKind opc,
+                                      clang::QualType paramType);
+bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
+
 /// <summary>Adds a function declaration to the specified class record.</summary>
 /// <param name="context">ASTContext that owns declarations.</param>
 /// <param name="recordDecl">Record declaration in which to add function.</param>
@@ -447,7 +463,8 @@ clang::CXXMethodDecl* CreateObjectFunctionDeclarationWithParams(
   llvm::ArrayRef<clang::QualType> paramTypes,
   llvm::ArrayRef<clang::StringRef> paramNames,
   clang::DeclarationName declarationName,
-  bool isConst);
+  bool isConst,
+  bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,
                                             clang::QualType Ty);

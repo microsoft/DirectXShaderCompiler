@@ -34,8 +34,6 @@ using std::vector;
 using std::unordered_set;
 using std::unordered_map;
 
-#define DXILVIEWID_DBG   0
-
 #define DEBUG_TYPE "viewid"
 
 DxilViewIdState::DxilViewIdState(DxilModule *pDxilModule)

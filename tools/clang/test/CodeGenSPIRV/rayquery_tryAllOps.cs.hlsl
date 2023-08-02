@@ -1,4 +1,4 @@
-// Run: dxc -T cs_6_5 -E CS -fspv-target-env=vulkan1.2
+// RUN: dxc -T cs_6_5 -E CS -fspv-target-env=vulkan1.2
 // CHECK:  OpCapability RayQueryKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 

@@ -40,7 +40,13 @@ void ValidateDbgDeclare(
     unsigned FragmentOffsetInBits
 )
 {
-#ifndef NDEBUG
+  // #DSLTodo: When operating on libraries, each exported 
+  // function is instrumented separately, resulting in 
+  // overlapping variables. This is not a problem for, e.g.
+  // raytracing debugging because WinPIX only ever (so far)
+  // invokes debugging on one export at a time.
+  // With the advent of DSL, this will have to change...
+#if 0 //ndef NDEBUG
   for (unsigned i = 0; i < FragmentSizeInBits; ++i)
   {
     const unsigned BitNum = FragmentOffsetInBits + i;
@@ -67,6 +73,7 @@ struct dxil_debug_info::LiveVariables::Impl
   DxcPixDxilDebugInfo *m_pDxilDebugInfo;
   llvm::Module *m_pModule;
   LiveVarsMap m_LiveVarsDbgDeclare;
+  VariableInfoMap m_LiveGlobalVarsDbgDeclare;
 
   void Init(
       IMalloc *pMalloc,
@@ -81,6 +88,9 @@ struct dxil_debug_info::LiveVariables::Impl
       llvm::Value *Address,
       unsigned FragmentIndex,
       unsigned FragmentOffsetInBits);
+
+    bool IsVariableLive(const VariableInfoMap::value_type &VarAndInfo,
+                      const llvm::DIScope* S, const llvm::DebugLoc &DL);
 };
 
 void dxil_debug_info::LiveVariables::Impl::Init(
@@ -142,6 +152,13 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
     return;
   }
 
+  VariableInfoMap *LiveVarInfoMap;
+  if (Variable->getName().startswith("global.")) {
+    LiveVarInfoMap = &m_LiveGlobalVarsDbgDeclare;
+  } else {
+    LiveVarInfoMap = &m_LiveVarsDbgDeclare[S];
+  }
+ 
 
   unsigned FragmentIndex;
   while (Iter->Next(&FragmentIndex))
@@ -152,7 +169,7 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
         Iter->OffsetInBits(FragmentIndex);
 
     VariableInfo* VarInfo = AssignValueToOffset(
-        &m_LiveVarsDbgDeclare[S],
+        LiveVarInfoMap,
         Variable,
         Address,
         FragmentIndex,
@@ -170,7 +187,8 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
   }
 }
 
-dxil_debug_info::VariableInfo* dxil_debug_info::LiveVariables::Impl::AssignValueToOffset(
+dxil_debug_info::VariableInfo *
+dxil_debug_info::LiveVariables::Impl::AssignValueToOffset(
     VariableInfoMap *VarInfoMap,
     llvm::DIVariable *Variable,
     llvm::Value *Address,
@@ -245,29 +263,32 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
       {
         auto *Var = VarAndInfo.first;
         llvm::StringRef VarName = Var->getName();
-        if (Var->getLine() > DL.getLine())
-        {
+        if (Var->getLine() > DL.getLine()) {
           // Defined later in the HLSL source.
           continue;
         }
-        if (VarName.empty())
-        {
+        if (VarName.empty()) {
           // No name?...
           continue;
         }
-        if (!LiveVarsName.insert(VarName).second)
-        {
+        if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {
           // There's a variable with the same name; use the
           // previous one instead.
-          continue;
+          return false;
         }
-
         LiveVars.emplace_back(VarAndInfo.second.get());
       }
     }
     S = S->getScope().resolve(EmptyMap);
   }
-
+  for (const auto &VarAndInfo : m_pImpl->m_LiveGlobalVarsDbgDeclare) {
+    if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {
+      // There shouldn't ever be a global variable with the same name,
+      // but it doesn't hurt to check
+      return false;
+    }
+    LiveVars.emplace_back(VarAndInfo.second.get());
+  }
   return CreateDxilLiveVariables(
       m_pImpl->m_pDxilDebugInfo,
       std::move(LiveVars),

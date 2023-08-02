@@ -1,4 +1,4 @@
-// RUN: %dxc /Tgs_6_0 /Emain %s | FileCheck %s
+// RUN: %dxc /Tgs_6_0 /Emain -HV 2018 %s | FileCheck %s
 // github issue #1560
 
 // CHECK: main

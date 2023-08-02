@@ -1,4 +1,4 @@
-// RUN: %dxc /Tps_6_2 /Emain > %s | FileCheck %s
+// RUN: %dxc /Tps_6_2 /Emain  %s | FileCheck %s
 // CHECK: define void @main()
 // CHECK: %{{[a-z0-9]+}} = call half @dx.op.loadInput.f16(i32 4, i32 3, i32 0, i8 0, i32 undef)
 // CHECK: %{{[a-z0-9]+}} = call half @dx.op.loadInput.f16(i32 4, i32 2, i32 0, i8 0, i32 undef)

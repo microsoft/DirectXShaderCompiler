@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // globalS[0].t[0] should take binding #0.
 // globalS[0].t[1] should take binding #1.

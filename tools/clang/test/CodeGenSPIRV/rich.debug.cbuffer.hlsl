@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T vs_6_0 -E main -fspv-debug=rich
 
 struct S {
     float  f1;  // Size: 32,  Offset: [ 0 -  32]

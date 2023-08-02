@@ -3,11 +3,12 @@
 #pragma once
 
 #include "clang/Basic/SourceLocation.h"
-
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/MapVector.h"
-
 #include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/Support/HLSLVersion.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
 
 #include <memory>
 #include <vector>
@@ -16,6 +17,7 @@ namespace clang {
 class HLSLPatchConstantFuncAttr;
 namespace CodeGen {
 class CodeGenModule;
+class CodeGenFunction;
 }
 }
 
@@ -120,11 +122,12 @@ struct Scope {
 class ScopeInfo {
 public:
   ScopeInfo(){}
-  ScopeInfo(llvm::Function *F);
+  ScopeInfo(llvm::Function *F, clang::SourceLocation loc);
   void AddIf(llvm::BasicBlock *endIfBB);
   void AddSwitch(llvm::BasicBlock *endSwitchBB);
   void AddLoop(llvm::BasicBlock *loopContinue, llvm::BasicBlock *endLoopBB);
   void AddRet(llvm::BasicBlock *bbWithRet);
+  void AddCleanupBB(llvm::BasicBlock *cleanupBB) { hasCleanupBlocks = true; }
   Scope &EndScope(bool bScopeFinishedWithRet);
   Scope &GetScope(unsigned i);
   const llvm::SmallVector<unsigned, 2> &GetRetScopes() { return rets; }
@@ -132,15 +135,19 @@ public:
   llvm::SmallVector<Scope, 16> &GetScopes() { return scopes; }
   bool CanSkipStructurize();
   void dump();
+  bool HasCleanupBlocks() const { return hasCleanupBlocks; }
+  clang::SourceLocation GetSourceLocation() const { return sourceLoc; }
 
 private:
   void AddScope(Scope::ScopeKind k, llvm::BasicBlock *endScopeBB);
+  bool hasCleanupBlocks = false;
   llvm::SmallVector<unsigned, 2> rets;
   unsigned maxRetLevel;
   bool bAllReturnsInIf;
   llvm::SmallVector<unsigned, 8> scopeStack;
   // save all scopes.
   llvm::SmallVector<Scope, 16> scopes;
+  clang::SourceLocation sourceLoc;
 };
 
 // Map from value to resource properties.
@@ -150,10 +157,16 @@ struct DxilObjectProperties {
   bool AddResource(llvm::Value *V, const hlsl::DxilResourceProperties &RP);
   bool IsResource(llvm::Value *V);
   hlsl::DxilResourceProperties GetResource(llvm::Value *V);
+  void updateGLC(llvm::Value *V);
 
   // MapVector for deterministic iteration order.
   llvm::MapVector<llvm::Value *, hlsl::DxilResourceProperties> resMap;
 };
+
+void CopyAndAnnotateResourceArgument(llvm::Value *Src, llvm::Value *Dest,
+                                     hlsl::DxilResourceProperties &RP,
+                                     hlsl::HLModule &HLM,
+                                     clang::CodeGen::CodeGenFunction &CGF);
 
 // Align cbuffer offset in legacy mode (16 bytes per row).
 unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
@@ -221,7 +234,8 @@ void StructurizeMultiRet(llvm::Module &M,
                          bool bWaveEnabledStage,
                          llvm::SmallVector<llvm::BranchInst *, 16> &DxBreaks);
 
-llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp, unsigned hlslVersion);
+llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp,
+                              hlsl::LangStd hlslVersion);
 void SimpleTransformForHLDXIR(llvm::Module *pM);
 void ExtensionCodeGen(hlsl::HLModule &HLM, clang::CodeGen::CodeGenModule &CGM);
 } // namespace CGHLSLMSHelper

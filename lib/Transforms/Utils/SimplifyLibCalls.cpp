@@ -141,7 +141,7 @@ static bool checkStringCopyLibFuncSignature(Function *F, LibFunc::Func Func) {
     llvm_unreachable("Can't check signature for non-string-copy libfunc.");
   case LibFunc::stpncpy_chk:
   case LibFunc::strncpy_chk:
-    --NumParams; // fallthrough
+    --NumParams; LLVM_FALLTHROUGH; // HLSL Change
   case LibFunc::stpncpy:
   case LibFunc::strncpy: {
     if (NumParams != 3 || FT->getParamType(0) != FT->getParamType(1) ||
@@ -151,7 +151,7 @@ static bool checkStringCopyLibFuncSignature(Function *F, LibFunc::Func Func) {
   }
   case LibFunc::strcpy_chk:
   case LibFunc::stpcpy_chk:
-    --NumParams; // fallthrough
+    --NumParams; LLVM_FALLTHROUGH; // HLSL Change
   case LibFunc::stpcpy:
   case LibFunc::strcpy: {
     if (NumParams != 2 || FT->getParamType(0) != FT->getParamType(1) ||
@@ -161,7 +161,7 @@ static bool checkStringCopyLibFuncSignature(Function *F, LibFunc::Func Func) {
   }
   case LibFunc::memmove_chk:
   case LibFunc::memcpy_chk:
-    --NumParams; // fallthrough
+    --NumParams; LLVM_FALLTHROUGH; // HLSL Change
   case LibFunc::memmove:
   case LibFunc::memcpy: {
     if (NumParams != 3 || !FT->getParamType(0)->isPointerTy() ||
@@ -170,7 +170,7 @@ static bool checkStringCopyLibFuncSignature(Function *F, LibFunc::Func Func) {
     break;
   }
   case LibFunc::memset_chk:
-    --NumParams; // fallthrough
+    --NumParams; LLVM_FALLTHROUGH; // HLSL Change
   case LibFunc::memset: {
     if (NumParams != 3 || !FT->getParamType(0)->isPointerTy() ||
         !FT->getParamType(1)->isIntegerTy() || FT->getParamType(2) != SizeTTy)

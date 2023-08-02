@@ -5,7 +5,7 @@ int4 g_vec1;                                                /* expected-note {{v
 uint64_t3x4 g_mat1;                                         /* fxc-error {{X3000: unrecognized identifier 'uint64_t3x4'}} */
 
 cbuffer g_cbuffer {
-    min12int m_buffer_min12int;                             /* expected-note {{variable 'm_buffer_min12int' declared const here}} expected-warning {{min12int is promoted to min16int}} fxc-pass {{}} */
+    min12int m_buffer_min12int;                             /* expected-note {{variable 'm_buffer_min12int' declared const here}} expected-warning {{'min12int' is promoted to 'min16int'}} fxc-pass {{}} */
     float4 m_buffer_float4;                                 /* expected-note {{variable 'm_buffer_float4' declared const here}} fxc-pass {{}} */
     int3x4 m_buffer_int3x4;
 }
@@ -22,7 +22,24 @@ struct MyStruct {
 };
 
 ConstantBuffer<MyStruct> g_const_buffer;
-TextureBuffer<MyStruct> g_texture_buffer;                
+TextureBuffer<MyStruct> g_texture_buffer;
+
+class MyClass {
+    float3 my_float3;
+    int3x4 my_int3x4;
+};
+
+ConstantBuffer<MyClass> g_const_buffer2;
+TextureBuffer<MyClass> g_texture_buffer2;
+
+struct FWDDeclStruct;
+class FWDDeclClass;
+
+// Ensure forward declared struct/class fails as expected
+ConstantBuffer<FWDDeclStruct> g_const_buffer3;              /* expected-error {{variable has incomplete type 'FWDDeclStruct'}} */
+TextureBuffer<FWDDeclStruct> g_texture_buffer3;             /* expected-error {{variable has incomplete type 'FWDDeclStruct'}} */
+ConstantBuffer<FWDDeclClass> g_const_buffer4;               /* expected-error {{variable has incomplete type 'FWDDeclClass'}} */
+TextureBuffer<FWDDeclClass> g_texture_buffer4;              /* expected-error {{variable has incomplete type 'FWDDeclClass'}} */
 
 float4 main() : SV_TARGET
 {
@@ -43,6 +60,11 @@ float4 main() : SV_TARGET
     g_const_buffer.my_int3x4._21 -= 2;                      /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
     g_texture_buffer.my_float3.y += 2.0;                      /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
     g_texture_buffer.my_int3x4._14 = 3;                     /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+
+    g_const_buffer2.my_float3.x = 1.5;                      /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+    g_const_buffer2.my_int3x4._21 -= 2;                     /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+    g_texture_buffer2.my_float3.y += 2.0;                     /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+    g_texture_buffer2.my_int3x4._14 = 3;                    /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
 
     return (float4)g_float1;
 }

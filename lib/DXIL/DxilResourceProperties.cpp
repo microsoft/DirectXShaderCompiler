@@ -173,6 +173,7 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
       Type *Ty = Res.GetRetType();
       RP.Typed.CompCount = dxilutil::GetResourceComponentCount(Ty);
       RP.Typed.CompType = (uint8_t)Res.GetCompType().GetKind();
+      RP.Typed.SampleCount = (uint8_t)Res.GetSampleCount();
       break;
     }
   };
@@ -207,6 +208,65 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
   } break;
   }
   return RP;
+}
+
+// Merge 2 props on a chain of annotateHandle.
+DxilResourceProperties tryMergeProps(DxilResourceProperties curProps,
+                                     DxilResourceProperties prevProps) {
+  DxilResourceProperties props;
+  if (curProps.Basic.ResourceKind != prevProps.Basic.ResourceKind) {
+    return props;
+  }
+
+  if (curProps.Basic.IsUAV != prevProps.Basic.IsUAV)
+    return props;
+
+  if (curProps.Basic.IsUAV) {
+    // Or hasCounter.
+    if (curProps.Basic.SamplerCmpOrHasCounter !=
+        prevProps.Basic.SamplerCmpOrHasCounter) {
+      curProps.Basic.SamplerCmpOrHasCounter = true;
+      prevProps.Basic.SamplerCmpOrHasCounter = true;
+    }
+    // curProps follow prevProps.
+    if (curProps.Basic.IsGloballyCoherent !=
+        prevProps.Basic.IsGloballyCoherent) {
+      curProps.Basic.IsGloballyCoherent = prevProps.Basic.IsGloballyCoherent;
+    }
+  }
+
+  if (curProps.Basic.ResourceKind == (uint8_t)DXIL::ResourceKind::CBuffer) {
+    // use max cbuffer size.
+    if (curProps.CBufferSizeInBytes != prevProps.CBufferSizeInBytes) {
+      curProps.CBufferSizeInBytes =
+          std::max(curProps.CBufferSizeInBytes, prevProps.CBufferSizeInBytes);
+      prevProps.CBufferSizeInBytes = curProps.CBufferSizeInBytes;
+    }
+  }
+
+  // If still not match after merge.
+  // return null.
+  if (curProps.RawDword0 != prevProps.RawDword0 ||
+      curProps.RawDword1 != prevProps.RawDword1)
+    return props;
+  return curProps;
+}
+// Merge 2 props on a chain of annotateHandle.
+Constant *tryMergeProps(const Constant *curPropsConst, const Constant *prevPropsConst, Type *Ty,
+                        const ShaderModel &SM) {
+  if (curPropsConst == prevPropsConst)
+    return const_cast<Constant *>(curPropsConst);
+
+  DxilResourceProperties curProps = loadPropsFromConstant(*curPropsConst);
+  DxilResourceProperties prevProps = loadPropsFromConstant(*prevPropsConst);
+
+  DxilResourceProperties props = tryMergeProps(curProps, prevProps);
+
+  if (!props.isValid()) {
+    return nullptr;
+  }
+
+  return getAsConstant(props, Ty, SM);
 }
 
 } // namespace resource_helper

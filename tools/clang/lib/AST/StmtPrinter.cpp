@@ -1479,7 +1479,8 @@ void StmtPrinter::VisitInitListExpr(InitListExpr* Node) {
     return;
   }
 
-  if (!Policy.LangOpts.HLSL || (Node->getLBraceLoc().isValid() || Node->getRBraceLoc().isValid())) // HLSL Change
+  if (!Policy.LangOpts.HLSL ||
+      !Node->isVectorInitWithCXXFunctionalCastExpr()) // HLSL Change
     OS << "{ "; 
 
   for (unsigned i = 0, e = Node->getNumInits(); i != e; ++i) {
@@ -1490,7 +1491,8 @@ void StmtPrinter::VisitInitListExpr(InitListExpr* Node) {
       OS << "{}";
   }
 
-  if (!Policy.LangOpts.HLSL || (Node->getLBraceLoc().isValid() || Node->getRBraceLoc().isValid())) // HLSL Change
+  if (!Policy.LangOpts.HLSL ||
+      !Node->isVectorInitWithCXXFunctionalCastExpr()) // HLSL Change
     OS << " }";
 }
 

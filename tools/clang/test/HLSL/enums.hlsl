@@ -74,7 +74,7 @@ enum MyEnumMin16Float : min16float {                        /* expected-error {{
   ZEROMIN16F,
 };
 
-enum MyEnumMin10Float : min10float {                        /* expected-error {{non-integral type 'min10float' is an invalid underlying type}} expected-warning {{min10float is promoted to min16float}} */
+enum MyEnumMin10Float : min10float {                        /* expected-error {{non-integral type 'min10float' is an invalid underlying type}} */
   ZEROMIN10F,
 };
 

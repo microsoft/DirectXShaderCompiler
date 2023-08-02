@@ -3,8 +3,12 @@
 // CHECK: fadd
 // CHECK: fadd
 
+cbuffer cb : register(b0) {
+  float bar;
+};
+
 float foo() {
-    float x = 0;
+    float x = bar;
 
 #if defined(__SHADER_TARGET_STAGE) && __SHADER_TARGET_STAGE == __SHADER_STAGE_LIBRARY
     x += 1;

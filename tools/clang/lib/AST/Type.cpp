@@ -3161,7 +3161,7 @@ public:
   friend CachedProperties merge(CachedProperties L, CachedProperties R) {
     Linkage MergedLinkage = minLinkage(L.L, R.L);
     return CachedProperties(MergedLinkage,
-                         L.hasLocalOrUnnamedType() | R.hasLocalOrUnnamedType());
+                         L.hasLocalOrUnnamedType() || R.hasLocalOrUnnamedType());
   }
 };
 }
@@ -3474,8 +3474,8 @@ bool Type::canHaveNullability() const {
   case Type::Builtin:
     switch (cast<BuiltinType>(type.getTypePtr())->getKind()) {
       // Signed, unsigned, and floating-point types cannot have nullability.
-#define SIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
-#define UNSIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
+#define SIGNED_TYPE(Id, SingletonId) case BuiltinType::Id: LLVM_C_FALLTHROUGH;
+#define UNSIGNED_TYPE(Id, SingletonId) case BuiltinType::Id: LLVM_C_FALLTHROUGH;
 #define FLOATING_TYPE(Id, SingletonId) case BuiltinType::Id:
 #define BUILTIN_TYPE(Id, SingletonId)
 #include "clang/AST/BuiltinTypes.def"

@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -fspv-reduce-load-size -O0
+// RUN: %dxc -T cs_6_0 -E main -fspv-reduce-load-size -O0
 
 struct S {
   uint f;

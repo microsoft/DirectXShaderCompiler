@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-use-gl-layout
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-gl-layout
 
 // CHECK: OpDecorate %_runtimearr_v3uint ArrayStride 16
 // CHECK: OpDecorate %type_StructuredBuffer_v3uint BufferBlock

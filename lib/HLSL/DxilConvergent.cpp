@@ -41,7 +41,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilConvergentMark() : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DxilConvergentMark";
   }
 
@@ -210,7 +210,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilConvergentClear() : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DxilConvergentClear";
   }
 

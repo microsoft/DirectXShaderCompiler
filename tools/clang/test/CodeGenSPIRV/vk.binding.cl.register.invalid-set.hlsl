@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-bind-register s10 0 10 ff
+// RUN: %dxc -T ps_6_0 -E main -fvk-bind-register s10 0 10 ff
 
 Texture2D MyTexture;
 SamplerState MySampler;

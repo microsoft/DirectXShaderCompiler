@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // According to HLSL reference:
 // The 'determinant' function can only operate matrix of floats. The matrix must also be a square matrix.

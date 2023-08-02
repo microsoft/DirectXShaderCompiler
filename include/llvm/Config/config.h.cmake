@@ -171,6 +171,9 @@
 /* Define if mallinfo() is available on this platform. */
 #cmakedefine HAVE_MALLINFO ${HAVE_MALLINFO}
 
+/* Define if mallinfo2() is available on this platform. */
+#cmakedefine HAVE_MALLINFO2 ${HAVE_MALLINFO2}
+
 /* Define to 1 if you have the <malloc.h> header file. */
 #cmakedefine HAVE_MALLOC_H ${HAVE_MALLOC_H}
 
@@ -300,7 +303,7 @@
 #cmakedefine HAVE_SYS_IOCTL_H ${HAVE_SYS_IOCTL_H}
 
 /* Define to 1 if you have the <sys/mman.h> header file. */
-#cmakedefine HAVE_SYS_MMAN_H ${}
+#cmakedefine HAVE_SYS_MMAN_H ${HAVE_SYS_MMAN_H}
 
 /* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'.
    */
@@ -428,10 +431,6 @@
 
 /* Installation directory for documentation */
 #cmakedefine LLVM_DOCSDIR "${LLVM_DOCSDIR}"
-
-/* Define if LLVM is built with asserts and checks that change the layout of
-   client-visible data structures.  */
-#cmakedefine LLVM_ENABLE_ABI_BREAKING_CHECKS
 
 /* Define if threads enabled */
 #cmakedefine01 LLVM_ENABLE_THREADS

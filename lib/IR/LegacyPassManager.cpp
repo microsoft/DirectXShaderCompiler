@@ -24,6 +24,7 @@
 #include "llvm/Support/Mutex.h"
 #include "llvm/Support/TimeValue.h"
 #include "llvm/Support/Timer.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <map>
@@ -187,7 +188,7 @@ public:
   PMDataManager *getAsPMDataManager() override { return this; }
   Pass *getAsPass() override { return this; }
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "BasicBlock Pass Manager";
   }
 
@@ -342,7 +343,7 @@ public:
   /// its runOnFunction() for function F.
   Pass* getOnTheFlyPass(Pass *MP, AnalysisID PI, Function &F) override;
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Module Pass Manager";
   }
 
@@ -679,8 +680,8 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   }
 
   if (PI && !PI->isAnalysis() && ShouldPrintBeforePass(PI)) {
-    Pass *PP = P->createPrinterPass(
-      dbgs(), std::string("*** IR Dump Before ") + P->getPassName() + " ***");
+    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump Before ") +
+                                         P->getPassName().str() + " ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 
@@ -689,13 +690,13 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   P->assignPassManager(activeStack, getTopLevelPassManagerType());
 
   if (PI && !PI->isAnalysis() && ShouldPrintAfterPass(PI)) {
-    Pass *PP = P->createPrinterPass(
-      dbgs(), std::string("*** IR Dump After ") + P->getPassName() + " ***");
+    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump After ") +
+                                         P->getPassName().str() + " ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 
   // HLSL Change - begin
-  if (PI && !PI->isAnalysis() && this->HLSLPrintAfterAll) {
+  if (PI && !PI->isAnalysis() && (this->HLSLPrintAfterAll || (this->HLSLPrintAfter.size() && this->HLSLPrintAfter.count(PI->getPassArgument())))) {
     class direct_stderr_stream : public raw_ostream {
       uint64_t current_pos() const override { return 0; }
       /// See raw_ostream::write_impl.
@@ -707,7 +708,7 @@ void PMTopLevelManager::schedulePass(Pass *P) {
     static direct_stderr_stream stderr_stream;
 
     Pass *PP = P->createPrinterPass(
-      stderr_stream, std::string("*** IR Dump After ") + P->getPassName() + " (" + PI->getPassArgument() + ") ***");
+      stderr_stream, std::string("*** IR Dump After ") + P->getPassName().str() + " (" + PI->getPassArgument() + ") ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
   // HLSL Change - end
@@ -1321,7 +1322,7 @@ bool BBPassManager::runOnFunction(Function &F) {
 
   bool Changed = doInitialization(F);
 
-  for (Function::iterator I = F.begin(), E = F.end(); I != E; ++I)
+  for (Function::iterator I = F.begin(), E = F.end(); I != E; ++I) 
     for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
       BasicBlockPass *BP = getContainedPass(Index);
       bool LocalChanged = false;
@@ -1420,6 +1421,7 @@ FunctionPassManager::~FunctionPassManager() {
 void FunctionPassManager::add(Pass *P) {
   // HLSL Change Starts
   FPM->HLSLPrintAfterAll = this->HLSLPrintAfterAll;
+  FPM->HLSLPrintAfter = this->HLSLPrintAfter;
   std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths
   if (TrackPassOS) {
     P->dumpConfig(*TrackPassOS);
@@ -1551,9 +1553,17 @@ bool FPPassManager::runOnFunction(Function &F) {
   // Collect inherited analysis from Module level pass manager.
   populateInheritedAnalysis(TPM->activeStack);
 
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope FunctionScope("OptFunction", F.getName());
+  // HLSL Change End
+
   for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
     FunctionPass *FP = getContainedPass(Index);
     bool LocalChanged = false;
+
+    // HLSL Change Begin - Support hierarchial time tracing.
+    llvm::TimeTraceScope PassScope("RunFunctionPass", FP->getPassName());
+    // HLSL Change End - Support hierarchial time tracing.
 
     dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, F.getName());
     dumpRequiredSet(FP);
@@ -1577,12 +1587,14 @@ bool FPPassManager::runOnFunction(Function &F) {
     recordAvailableAnalysis(FP);
     removeDeadPasses(FP, F.getName(), ON_FUNCTION_MSG);
   }
+
   return Changed;
 }
 
 bool FPPassManager::runOnModule(Module &M) {
   bool Changed = false;
 
+  llvm::TimeTraceScope TimeScope("OptModule", M.getName());
   for (Function &F : M)
     Changed |= runOnFunction(F);
 
@@ -1615,6 +1627,8 @@ bool FPPassManager::doFinalization(Module &M) {
 /// the module, and if so, return true.
 bool
 MPPassManager::runOnModule(Module &M) {
+  llvm::TimeTraceScope TimeScope("OptModule", M.getName());
+
   bool Changed = false;
 
   // Initialize on-the-fly passes
@@ -1630,6 +1644,8 @@ MPPassManager::runOnModule(Module &M) {
   for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
     ModulePass *MP = getContainedPass(Index);
     bool LocalChanged = false;
+
+    llvm::TimeTraceScope PassScope("RunModulePass", MP->getPassName());
 
     dumpPassInfo(MP, EXECUTION_MSG, ON_MODULE_MSG, M.getModuleIdentifier());
     dumpRequiredSet(MP);
@@ -1769,6 +1785,7 @@ PassManager::~PassManager() {
 void PassManager::add(Pass *P) {
   // HLSL Change Starts
   PM->HLSLPrintAfterAll = this->HLSLPrintAfterAll;
+  PM->HLSLPrintAfter = this->HLSLPrintAfter;
   std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths
   if (TrackPassOS) {
     P->dumpConfig(*TrackPassOS);

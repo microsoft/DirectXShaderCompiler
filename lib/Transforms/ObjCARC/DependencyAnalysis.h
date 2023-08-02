@@ -23,6 +23,7 @@
 #ifndef LLVM_LIB_TRANSFORMS_OBJCARC_DEPENDENCYANALYSIS_H
 #define LLVM_LIB_TRANSFORMS_OBJCARC_DEPENDENCYANALYSIS_H
 
+#include "ARCInstKind.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 namespace llvm {

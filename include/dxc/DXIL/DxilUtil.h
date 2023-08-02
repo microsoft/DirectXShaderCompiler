@@ -62,6 +62,13 @@ namespace dxilutil {
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
   bool HasDynamicIndexing(llvm::Value *V);
 
+  // Cleans up unnecessary chains of GEPs and bitcasts left over from certain
+  // optimizations. This function is NOT safe to call while iterating
+  // instructions either forward or backward. If V happens to be a GEP or
+  // bitcast, the function may delete V, instructions preceding V it, and
+  // instructions following V.
+  bool MergeGepUse(llvm::Value *V);
+
   // Find alloca insertion point, given instruction
   llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I); // Considers entire parent function
   llvm::Instruction *FindAllocaInsertionPt(llvm::BasicBlock* BB); // Only considers provided block
@@ -161,6 +168,17 @@ namespace dxilutil {
   /// This can enhance SROA and other transforms that want type-safe pointers,
   /// and enables merging with other getelementptr's.
   llvm::Value *TryReplaceBaseCastWithGep(llvm::Value *V);
+
+  llvm::Value::user_iterator mdv_users_end(llvm::Value *V);
+  llvm::Value::user_iterator mdv_users_begin(llvm::Value *V);
+  inline bool mdv_user_empty(llvm::Value *V) {
+    return mdv_users_begin(V) == mdv_users_end(V);
+  }
+
+  /// Finds all allocas that only have stores and delete them.
+  /// These allocas hold on to values that do not contribute to the
+  /// shader's results.
+  bool DeleteDeadAllocas(llvm::Function &F);
 }
 
 }

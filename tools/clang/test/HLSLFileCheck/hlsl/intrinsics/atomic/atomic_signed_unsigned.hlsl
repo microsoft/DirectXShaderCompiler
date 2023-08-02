@@ -1,4 +1,4 @@
-// RUN: %dxc /Tcs_6_2 /Emain > %s | FileCheck %s
+// RUN: %dxc /Tcs_6_2 /Emain  %s | FileCheck %s
 
 // Make sure choose correct signed unsigned.
 // CHECK:atomicrmw max

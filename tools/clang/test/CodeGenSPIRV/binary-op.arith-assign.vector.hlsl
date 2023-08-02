@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: [[v3i4:%\d+]] = OpConstantComposite %v3int %int_4 %int_4 %int_4
 

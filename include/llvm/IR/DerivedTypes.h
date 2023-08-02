@@ -442,7 +442,8 @@ public:
     return T->getTypeID() == VectorTyID;
   }
 };
-
+// HLSL change - add FixedVectorType to help move to newer llvm.
+using FixedVectorType = VectorType;
 
 /// PointerType - Class to represent pointers.
 ///

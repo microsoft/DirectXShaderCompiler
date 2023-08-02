@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_1 -E main
+// RUN: %dxc -T ps_6_1 -E main
 
 // CHECK:      OpExtension "SPV_AMD_shader_explicit_vertex_parameter"
 

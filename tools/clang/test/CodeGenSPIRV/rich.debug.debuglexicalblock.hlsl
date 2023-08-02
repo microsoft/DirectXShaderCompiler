@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
 
 // CHECK:      [[debugSet:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK:   [[debugSource:%\d+]] = OpExtInst %void [[debugSet]] DebugSource

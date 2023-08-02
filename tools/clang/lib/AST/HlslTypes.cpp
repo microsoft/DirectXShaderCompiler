@@ -14,6 +14,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/Global.h"
+#include "dxc/DXIL/DxilSemantic.h"
 #include "clang/AST/CanonicalType.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
@@ -96,7 +97,7 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
       return true;
-    return IsHLSLNumericUserDefinedType(type);
+    return IsHLSLCopyableAnnotatableRecord(type);
   } else if (type->isArrayType()) {
     return IsHLSLNumericOrAggregateOfNumericType(QualType(type->getArrayElementTypeNoTypeQual(), 0));
   }
@@ -110,14 +111,7 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
-    if (isa<ClassTemplateSpecializationDecl>(RD)) {
-      return false;   // UDT are not templates
-    }
-    // TODO: avoid check by name
-    StringRef name = RD->getName();
-    if (name == "ByteAddressBuffer" ||
-        name == "RWByteAddressBuffer" ||
-        name == "RaytracingAccelerationStructure")
+    if (!IsUserDefinedRecordType(type))
       return false;
     for (auto member : RD->fields()) {
       if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
@@ -128,15 +122,34 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
+// In some cases we need record types that are annotatable and trivially
+// copyable from outside the shader. This excludes resource types which may be
+// trivially copyable inside the shader, and builtin matrix and vector types
+// which can't be annotated. But includes UDTs of trivially copyable data and
+// the builtin trivially copyable raytracing structs.
+bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
+  return IsHLSLNumericUserDefinedType(QT) ||
+         IsHLSLBuiltinRayAttributeStruct(QT);
+}
+
+bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
+  QT = QT.getCanonicalType();
+  const clang::Type *Ty = QT.getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (RD->getName() == "BuiltInTriangleIntersectionAttributes" || 
+        RD->getName() == "RayDesc")
+      return true;
+  }
+  return false;
+}
+
 // Aggregate types are arrays and user-defined structs
 bool IsHLSLAggregateType(clang::QualType type) {
   type = type.getCanonicalType();
   if (isa<clang::ArrayType>(type)) return true;
 
-  const RecordType *Record = dyn_cast<RecordType>(type);
-  return Record != nullptr
-    && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type)
-    && !dyn_cast<ClassTemplateSpecializationDecl>(Record->getAsCXXRecordDecl());
+  return IsUserDefinedRecordType(type);
 }
 
 clang::QualType GetElementTypeOrType(clang::QualType type) {
@@ -529,6 +542,11 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "FeedbackTexture2D" || name == "FeedbackTexture2DArray")
       return true;
 
+    if (name == "RasterizerOrderedTexture1D" || name == "RasterizerOrderedTexture2D" || name == "RasterizerOrderedTexture3D" ||
+        name == "RasterizerOrderedTexture1DArray" || name == "RasterizerOrderedTexture2DArray" ||
+        name == "RasterizerOrderedBuffer" || name == "RasterizerOrderedByteAddressBuffer" || name == "RasterizerOrderedStructuredBuffer")
+      return true;
+
     if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer")
       return true;
 
@@ -549,6 +567,14 @@ bool IsHLSLResourceType(clang::QualType type) {
 
     if (name == "RaytracingAccelerationStructure")
       return true;
+  }
+  return false;
+}
+
+bool IsHLSLDynamicResourceType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    return name == ".Resource";
   }
   return false;
 }
@@ -578,6 +604,97 @@ bool IsHLSLSubobjectType(clang::QualType type) {
   DXIL::SubobjectKind kind;
   DXIL::HitGroupType hgType;
   return GetHLSLSubobjectKind(type, kind, hgType);
+}
+
+bool IsUserDefinedRecordType(clang::QualType QT) {
+  const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (RD->isImplicit())
+      return false;
+    if (auto TD = dyn_cast<ClassTemplateSpecializationDecl>(RD))
+      if (TD->getSpecializedTemplate()->isImplicit())
+        return false;
+    return true;
+  }
+  return false;
+}
+
+static bool HasTessFactorSemantic(const ValueDecl *decl) {
+  for (const UnusualAnnotation *it : decl->getUnusualAnnotations()) {
+    if (it->getKind() == UnusualAnnotation::UA_SemanticDecl) {
+      const SemanticDecl *sd = cast<SemanticDecl>(it);
+      StringRef semanticName;
+      unsigned int index = 0;
+      Semantic::DecomposeNameAndIndex(sd->SemanticName, &semanticName, &index);
+      const hlsl::Semantic *pSemantic = hlsl::Semantic::GetByName(semanticName);
+      if (pSemantic && pSemantic->GetKind() == hlsl::Semantic::Kind::TessFactor)
+        return true;
+    }
+  }
+  return false;
+}
+
+static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
+  if (Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty))
+    return false;
+
+  if (const RecordType *RT = Ty->getAs<RecordType>()) {
+    RecordDecl *RD = RT->getDecl();
+    for (FieldDecl *fieldDecl : RD->fields()) {
+      if (HasTessFactorSemanticRecurse(fieldDecl, fieldDecl->getType()))
+        return true;
+    }
+    return false;
+  }
+
+  if (Ty->getAsArrayTypeUnsafe())
+    return HasTessFactorSemantic(decl);
+
+  return false;
+}
+
+bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD) {
+  // This checks whether the function is structurally capable of being a patch
+  // constant function, not whether it is in fact the patch constant function
+  // for the entry point of a compiled hull shader (which may not have been
+  // seen yet). So the answer is conservative.
+  if (!FD->getReturnType()->isVoidType()) {
+    // Try to find TessFactor in return type.
+    if (HasTessFactorSemanticRecurse(FD, FD->getReturnType()))
+      return true;
+  }
+  // Try to find TessFactor in out param.
+  for (const ParmVarDecl *param : FD->params()) {
+    if (param->hasAttr<HLSLOutAttr>()) {
+      if (HasTessFactorSemanticRecurse(param, param->getType()))
+        return true;
+    }
+  }
+  return false;
+}
+
+bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
+                                      clang::OverloadedOperatorKind opc,
+                                      clang::QualType paramType) {
+  if (const RecordType *recordType = typeWithOperator->getAs<RecordType>()) {
+    if (const CXXRecordDecl *cxxRecordDecl =
+            dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+      for (const auto *method : cxxRecordDecl->methods()) {
+        if (!method->isUserProvided() || method->getNumParams() != 1)
+          continue;
+        // It must be an implicit assignment.
+        if (opc == OO_Equal &&
+            typeWithOperator != method->getParamDecl(0)->getOriginalType() &&
+            typeWithOperator == paramType) {
+          continue;
+        }
+        if (method->getOverloadedOperator() == opc)
+          return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, DXIL::HitGroupType &hgType) {
@@ -680,19 +797,28 @@ bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type) {
   if (type->isIncompleteArrayType()) {
     const IncompleteArrayType *IAT = context.getAsIncompleteArrayType(type);
-    QualType EltTy = IAT->getElementType();
-    if (IsHLSLResourceType(EltTy))
-      return true;
+    type = IAT->getElementType();
   }
+
+  while (type->isArrayType())
+    type = cast<ArrayType>(type)->getElementType();
+
+  if (IsHLSLResourceType(type))
+    return true;
   return false;
 }
-QualType GetHLSLInputPatchElementType(QualType type) {
+
+QualType GetHLSLResourceTemplateParamType(QualType type) {
   type = type.getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);
   const ClassTemplateSpecializationDecl *templateDecl =
       cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
   const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
   return argList[0].getAsType();
+}
+
+QualType GetHLSLInputPatchElementType(QualType type) {
+  return GetHLSLResourceTemplateParamType(type);
 }
 unsigned GetHLSLInputPatchCount(QualType type) {
   type = type.getCanonicalType();
@@ -703,12 +829,7 @@ unsigned GetHLSLInputPatchCount(QualType type) {
   return argList[1].getAsIntegral().getLimitedValue();
 }
 clang::QualType GetHLSLOutputPatchElementType(QualType type) {
-  type = type.getCanonicalType();
-  const RecordType *RT = cast<RecordType>(type);
-  const ClassTemplateSpecializationDecl *templateDecl =
-      cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
-  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-  return argList[0].getAsType();
+  return GetHLSLResourceTemplateParamType(type);
 }
 unsigned GetHLSLOutputPatchCount(QualType type) {
   type = type.getCanonicalType();
@@ -754,23 +875,6 @@ _Use_decl_annotations_
 hlsl::ParameterModifier ParamModFromAttributeList(clang::AttributeList *pAttributes) {
   bool isIn, isOut;
   isOut = IsParamAttributedAsOut(pAttributes, &isIn);
-  return ParameterModifier::FromInOut(isIn, isOut);
-}
-
-hlsl::ParameterModifier ParamModFromAttrs(llvm::ArrayRef<InheritableAttr *> attributes) {
-  bool isIn = false, isOut = false;
-  for (InheritableAttr * attr : attributes) {
-    if (isa<HLSLInAttr>(attr))
-      isIn = true;
-    else if (isa<HLSLOutAttr>(attr))
-      isOut = true;
-    else if (isa<HLSLInOutAttr>(attr))
-      isIn = isOut = true;
-  }
-  // Without any specifications, default to in.
-  if (!isIn && !isOut) {
-    isIn = true;
-  }
   return ParameterModifier::FromInOut(isIn, isOut);
 }
 

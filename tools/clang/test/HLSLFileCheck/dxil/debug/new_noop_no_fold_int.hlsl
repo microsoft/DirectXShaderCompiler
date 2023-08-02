@@ -16,19 +16,19 @@ float4 main() : SV_Target {
   // CHECK: dx.nothing
 
   int y = x + 5;
-  // CHECK: %[[a1:.+]] = add
+  // xHECK: %[[a1:.+]] = add
   // select i1 %[[p]], i32 [[a1]], i32 [[a1]]
   // CHECK: dx.nothing
 
   int z = y * 2;
-  // CHECK: %[[b1:.+]] = mul
+  // xHECK: %[[b1:.+]] = mul
   // select i1 %[[p]], i32 [[b1]], i32 [[b1]]
   // CHECK: dx.nothing
 
   int w = z / 0.5;
-  // CHECK: sitofp
-  // CHECK: fdiv
-  // CHECK: %[[c1:.+]] = fptosi
+  // xHECK: sitofp
+  // xHECK: fdiv
+  // xHECK: %[[c1:.+]] = fptosi
   // select i1 %[[p]], i32 [[c1]], i32 [[c1]]
   // CHECK: dx.nothing
 

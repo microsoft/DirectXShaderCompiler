@@ -44,7 +44,7 @@ public:
 
   bool TryRewriteDebugInfoForVector(InsertElementInst *IE);
   bool runOnFunction(Function &F) override;
-  const char *getPassName() const override { return "Dxil Eliminate Vector"; }
+  StringRef getPassName() const override { return "Dxil Eliminate Vector"; }
 };
 
 char DxilEliminateVector::ID;

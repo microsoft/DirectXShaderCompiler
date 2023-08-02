@@ -28,7 +28,7 @@ class DxilReduceMSAAToSingleSample : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilReduceMSAAToSingleSample() : ModulePass(ID) {}
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "HLSL DXIL Reduce all MSAA reads to single-sample reads";
   }
   bool runOnModule(Module &M) override;

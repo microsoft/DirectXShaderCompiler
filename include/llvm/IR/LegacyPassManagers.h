@@ -21,6 +21,7 @@
 #include "llvm/Pass.h"
 #include <map>
 #include <vector>
+#include <set> // HLSL change
 
 //===----------------------------------------------------------------------===//
 // Overview:
@@ -180,6 +181,7 @@ private:
 
 public:
   bool HLSLPrintAfterAll = false; // HLSL Change
+  std::set<std::string> HLSLPrintAfter; // HLSL Change
 
   /// Schedule pass P for execution. Make sure that passes required by
   /// P are run before P is run. Update analysis info maintained by
@@ -459,7 +461,7 @@ public:
   // Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override;
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Function Pass Manager";
   }
 

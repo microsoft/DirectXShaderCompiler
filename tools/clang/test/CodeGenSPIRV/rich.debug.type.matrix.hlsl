@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
 
 // NOTE: The current debug info extension (OpenCL.DebugInfo.100
 // Information Extended Instruction Set) does not support a matrix

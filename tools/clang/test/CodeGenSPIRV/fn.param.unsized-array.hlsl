@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: 7: error: initializer for type 'unsigned int []' unimplemented
 void foo(uint value[]) {

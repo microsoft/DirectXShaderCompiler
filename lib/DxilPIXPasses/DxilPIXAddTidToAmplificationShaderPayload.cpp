@@ -32,7 +32,7 @@ class DxilPIXAddTidToAmplificationShaderPayload : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   DxilPIXAddTidToAmplificationShaderPayload() : ModulePass(ID) {}
-  const char *getPassName() const override { return "DXIL Add flat thread id to payload from AS to MS"; }
+  StringRef getPassName() const override { return "DXIL Add flat thread id to payload from AS to MS"; }
   bool runOnModule(Module &M) override;
   void applyOptions(PassOptions O) override;
 };

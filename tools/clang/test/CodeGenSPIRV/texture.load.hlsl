@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 Texture1D       <float4> t1 : register(t1);
 Texture2D       <float4> t2 : register(t2);

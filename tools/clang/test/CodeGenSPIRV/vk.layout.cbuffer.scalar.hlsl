@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_2 -E main -fvk-use-scalar-layout -enable-16bit-types
+// RUN: %dxc -T vs_6_2 -E main -fvk-use-scalar-layout -enable-16bit-types
 
 struct R {     // Alignment       Offset     Size       Next
     double rf; // 8            -> 0        + 8        = 8

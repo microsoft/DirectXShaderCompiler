@@ -9,10 +9,12 @@
 
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
@@ -20,6 +22,10 @@
 #include "llvm/Pass.h"
 
 #include "PixPassHelpers.h"
+
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/dxcapi.h"
 
 #ifdef PIX_DEBUG_DUMP_HELPER
 #include <iostream>
@@ -59,6 +65,10 @@ static bool IsDynamicResourceShaderModel(DxilModule &DM) {
   return DM.GetShaderModel()->IsSMAtLeast(6, 6);
 }
 
+static bool ShaderModelRequiresAnnotateHandle(DxilModule &DM) {
+  return DM.GetShaderModel()->IsSMAtLeast(6, 6);
+}
+
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
                                         llvm::IRBuilder<> &Builder,
                                         hlsl::DxilResourceBase *resource,
@@ -72,8 +82,37 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   unsigned int resourceMetaDataId =
       GetNextRegisterIdForClass(DM, resourceClass);
 
-  // Create handle for the newly-added resource
-  if (IsDynamicResourceShaderModel(DM)) {
+  auto const * shaderModel = DM.GetShaderModel();
+  if (shaderModel->IsLib())
+  {
+    llvm::Constant *object = resource->GetGlobalSymbol();
+    auto * load = Builder.CreateLoad(object);
+    Function *CreateHandleForLibOpFunc = HlslOP->GetOpFunc(
+        DXIL::OpCode::CreateHandleForLib, resource->GetHLSLType()->getVectorElementType());
+    Constant *CreateHandleForLibOpcodeArg =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
+    auto *handle =
+        Builder.CreateCall(CreateHandleForLibOpFunc,
+        {CreateHandleForLibOpcodeArg, load });
+
+    if (ShaderModelRequiresAnnotateHandle(DM)) {
+      Function *annotHandleFn =
+          HlslOP->GetOpFunc(DXIL::OpCode::AnnotateHandle, Type::getVoidTy(Ctx));
+      Value *annotHandleArg =
+          HlslOP->GetI32Const((unsigned)DXIL::OpCode::AnnotateHandle);
+      DxilResourceProperties RP =
+          resource_helper::loadPropsFromResourceBase(resource);
+      Type *resPropertyTy = HlslOP->GetResourcePropertiesType();
+      Value *propertiesV = resource_helper::getAsConstant(RP, resPropertyTy,
+                                                          *DM.GetShaderModel());
+
+      return Builder.CreateCall(annotHandleFn,
+                                {annotHandleArg, handle, propertiesV});
+    } else {
+      return handle;
+    }
+  }
+  else if (IsDynamicResourceShaderModel(DM)) {
     Function *CreateHandleFromBindingOpFunc = HlslOP->GetOpFunc(
         DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
     Constant *CreateHandleFromBindingOpcodeArg =
@@ -83,7 +122,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
     Value *bindingV = resource_helper::getAsConstant(
         binding, HlslOP->GetResourceBindingType(), *DM.GetShaderModel());
 
-    Value *registerIndex = HlslOP->GetU32Const(resourceMetaDataId);
+    Value *registerIndex = HlslOP->GetU32Const(0);
 
     Value *isUniformRes = HlslOP->GetI1Const(0);
 
@@ -126,17 +165,126 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   }
 }
 
-// Set up a UAV with structure of a single int
+static std::vector<uint8_t> SerializeRootSignatureToVector(DxilVersionedRootSignatureDesc const *rootSignature) {
+  CComPtr<IDxcBlob> serializedRootSignature;
+  CComPtr<IDxcBlobEncoding> errorBlob;
+  constexpr bool allowReservedRegisterSpace = true;
+  SerializeRootSignature(rootSignature, &serializedRootSignature, &errorBlob,
+                         allowReservedRegisterSpace);
+  std::vector<uint8_t> ret;
+  auto const *serializedData = reinterpret_cast<const uint8_t *>(
+      serializedRootSignature->GetBufferPointer());
+  ret.assign(serializedData,
+             serializedData + serializedRootSignature->GetBufferSize());
+
+  return ret;
+}
+
+constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
+constexpr uint32_t toolsUAVRegister = 0;
+
+template<typename RootSigDesc, typename RootParameterDesc>
+void ExtendRootSig(RootSigDesc &rootSigDesc) {
+  auto *existingParams = rootSigDesc.pParameters;
+  auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
+  if (existingParams != nullptr) {
+    memcpy(newParams, existingParams,
+           rootSigDesc.NumParameters * sizeof(RootParameterDesc));
+    delete[] existingParams;
+  }
+  rootSigDesc.pParameters = newParams;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].ParameterType = DxilRootParameterType::UAV;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace = toolsRegisterSpace;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister = toolsUAVRegister;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility = DxilShaderVisibility::All;
+  rootSigDesc.NumParameters++;
+} 
+
+static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
+                                                       uint32_t Size) {
+  DxilVersionedRootSignature rootSignature;
+  DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
+  auto *rs = rootSignature.get_mutable();
+  switch (rootSignature->Version) {
+  case DxilRootSignatureVersion::Version_1_0:
+    ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(rs->Desc_1_0);
+    break;
+  case DxilRootSignatureVersion::Version_1_1:
+    ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(rs->Desc_1_1);
+    rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1].Descriptor.Flags =
+        hlsl::DxilRootDescriptorFlags::None;
+    break;
+  }
+  return SerializeRootSignatureToVector(rs);
+}
+
+static void AddUAVToShaderAttributeRootSignature(DxilModule &DM) {
+  auto rs = DM.GetSerializedRootSignature();
+  if(!rs.empty()) {
+    std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(rs.data(), static_cast<uint32_t>(rs.size()));
+    DM.ResetSerializedRootSignature(asVector);
+  }
+}
+
+static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule& DM) {
+  auto *subObjects = DM.GetSubobjects();
+  if (subObjects != nullptr) {
+    for (auto const &subObject : subObjects->GetSubobjects()) {
+      if (subObject.second->GetKind() ==
+          DXIL::SubobjectKind::GlobalRootSignature) {
+        const void *Data = nullptr;
+        uint32_t Size = 0;
+        constexpr bool notALocalRS = false;
+        if (subObject.second->GetRootSignature(notALocalRS, Data, Size,
+                                               nullptr)) {
+          auto extendedRootSig = AddUAVParamterToRootSignature(Data, Size);
+          auto rootSignatureSubObjectName = subObject.first;
+          subObjects->RemoveSubobject(rootSignatureSubObjectName);
+          subObjects->CreateRootSignature(rootSignatureSubObjectName,
+                                          notALocalRS,
+                                          extendedRootSig.data(),
+                                          static_cast<uint32_t>(extendedRootSig.size()));
+          break;
+        }
+      }
+    }
+  }
+}
+
+    // Set up a UAV with structure of a single int
 llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
                           unsigned int registerId, const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
-  SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
+  const char * PIXStructTypeName = "struct.RWByteAddressBuffer";
   llvm::StructType *UAVStructTy =
-      llvm::StructType::create(Elements, "class.RWStructuredBuffer");
+      DM.GetModule()->getTypeByName(PIXStructTypeName);
+  if (UAVStructTy == nullptr) {
+    SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
+    UAVStructTy = llvm::StructType::create(Elements, PIXStructTypeName);
+
+    // Since we only have to do this once per module, we can do it now when
+    // we're adding the singular UAV structure type to the module:
+    AddUAVToDxilDefinedGlobalRootSignatures(DM);
+    AddUAVToShaderAttributeRootSignature(DM);
+  }
+
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+
+  auto const *shaderModel = DM.GetShaderModel();
+  if (shaderModel->IsLib()) {
+    auto *Global = DM.GetModule()->getOrInsertGlobal(("PIXUAV" + std::to_string(registerId)).c_str(), UAVStructTy);
+    GlobalVariable *NewGV = cast<GlobalVariable>(Global);
+    NewGV->setConstant(true);
+    NewGV->setLinkage(GlobalValue::ExternalLinkage);
+    NewGV->setThreadLocal(false);
+    NewGV->setAlignment(4);
+    pUAV->SetGlobalSymbol(NewGV);
+  }
+  else {
+    pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
+  }
   pUAV->SetGlobalName(name);
-  pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
   pUAV->SetID(GetNextRegisterIdForClass(DM, DXIL::ResourceClass::UAV));
   pUAV->SetRW(true); // sets UAV class
   pUAV->SetSpaceID(
@@ -145,7 +293,7 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
   pUAV->SetGloballyCoherent(false);
   pUAV->SetHasCounter(false);
   pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(0);
+  pUAV->SetLowerBound(registerId);
   pUAV->SetRangeSize(1);
   pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
 
@@ -171,6 +319,34 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
         return DM.GetEntryFunction();
     }
     return DM.GetPatchConstantFunction();
+}
+
+std::vector<llvm::Function *>
+GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
+
+  std::vector<llvm::Function *> ret;
+
+  for (llvm::Function &F : DM.GetModule()->functions()) {
+    if (F.isDeclaration() || F.isIntrinsic() || hlsl::OP::IsDxilOpFunc(&F))
+      continue;
+    if (F.getBasicBlockList().empty())
+      continue;
+    ret.push_back(&F);
+  }
+
+  return ret;
+}
+
+std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
+    std::vector<llvm::BasicBlock*> ret;
+    auto entryPoints = DM.GetExportedFunctions();
+    for (auto& fn : entryPoints) {
+      auto& blocks = fn->getBasicBlockList();
+      for (auto& block : blocks) {
+        ret.push_back(&block);
+      }
+    }
+    return ret;
 }
 
 ExpandedStruct ExpandStructType(LLVMContext &Ctx,

@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // Note that since 'derived_count' is static,
 // Derived structures are in fact empty (have no members other than their Base)

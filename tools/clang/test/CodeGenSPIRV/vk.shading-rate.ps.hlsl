@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_4 -E main
+// RUN: %dxc -T ps_6_4 -E main
 
 float4 main(uint rate : SV_ShadingRate) : SV_TARGET {
 // CHECK:   OpCapability FragmentShadingRateKHR

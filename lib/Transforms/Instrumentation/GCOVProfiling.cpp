@@ -84,7 +84,7 @@ namespace {
       ReversedVersion[4] = '\0';
       initializeGCOVProfilerPass(*PassRegistry::getPassRegistry());
     }
-    const char *getPassName() const override {
+    StringRef getPassName() const override {
       return "GCOV Profiler";
     }
 

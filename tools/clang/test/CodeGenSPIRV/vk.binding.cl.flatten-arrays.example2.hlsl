@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays
+// RUN: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays
 
 
 // CHECK: OpDecorate %AnotherTexture Binding 3

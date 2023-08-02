@@ -11,9 +11,11 @@
 
 #pragma once
 
-#include "dxc/Support/Unicode.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Unicode.h"
 #include "dxc/dxcapi.internal.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include <vector>
 
 namespace llvm {
@@ -39,7 +41,7 @@ private:
     try {
       IFTPTR(name);
       std::string s;
-      if (!Unicode::UTF16ToUTF8String(name, &s)) {
+      if (!Unicode::WideToUTF8String(name, &s)) {
         throw ::hlsl::Exception(E_INVALIDARG);
       }
       here.push_back(s);
@@ -53,7 +55,7 @@ private:
     try {
       IFTPTR(name);
       std::string s;
-      if (!Unicode::UTF16ToUTF8String(name, &s)) {
+      if (!Unicode::WideToUTF8String(name, &s)) {
         throw ::hlsl::Exception(E_INVALIDARG);
       }
       here.insert(s);

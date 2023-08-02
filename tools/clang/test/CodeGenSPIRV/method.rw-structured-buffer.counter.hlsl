@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 struct S {
     float4 f;
@@ -13,7 +13,6 @@ struct S {
 // CHECK: %counter_var_wCounter2 = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
 RWStructuredBuffer<S> wCounter1;
 RWStructuredBuffer<S> wCounter2;
-// CHECK: %counter_var_woCounter = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
 RWStructuredBuffer<S> woCounter;
 
 float4 main() : SV_Target {

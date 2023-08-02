@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // Note: Matrix truncation cast does not allow truncation into a mat1x1.
 

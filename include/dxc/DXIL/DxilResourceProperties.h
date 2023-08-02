@@ -22,9 +22,9 @@ namespace hlsl {
 
 struct DxilResourceProperties {
   struct TypedProps {
-    uint8_t CompType;  // TypedBuffer/Image component type.
-    uint8_t CompCount; // Number of components known to shader.
-    uint8_t Reserved2;
+    uint8_t CompType;     // TypedBuffer/Image component type.
+    uint8_t CompCount;    // Number of components known to shader.
+    uint8_t SampleCount;  // Number of samples for multisample texture if defined in HLSL.
     uint8_t Reserved3;
   };
 
@@ -91,7 +91,11 @@ DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
 loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, const ShaderModel &);
 DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *);
+DxilResourceProperties tryMergeProps(DxilResourceProperties,
+                                     DxilResourceProperties);
 
+llvm::Constant *tryMergeProps(const llvm::Constant *, const llvm::Constant *,
+                              llvm::Type *Ty, const ShaderModel &);
 } // namespace resource_helper
 
 } // namespace hlsl

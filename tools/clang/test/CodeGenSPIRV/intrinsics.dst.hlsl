@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // According to the HLSL reference:
 // https://msdn.microsoft.com/en-us/library/windows/desktop/bb219790(v=vs.85).aspx

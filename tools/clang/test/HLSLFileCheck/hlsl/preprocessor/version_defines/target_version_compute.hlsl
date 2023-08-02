@@ -5,9 +5,13 @@
 
 RWBuffer<float> buf;
 
+cbuffer cb : register(b0) {
+  float foo;
+};
+
 [numthreads(8, 8, 1)]
 void main(uint id : SV_DispatchThreadId) {
-    float x = 0;
+    float x = foo;
 #if defined(__SHADER_TARGET_STAGE) && __SHADER_TARGET_STAGE == __SHADER_STAGE_COMPUTE
     x += 1;
 #else

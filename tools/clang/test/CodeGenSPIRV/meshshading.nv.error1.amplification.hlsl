@@ -1,4 +1,4 @@
-// Run: %dxc -T as_6_5 -E main
+// RUN: %dxc -T as_6_5 -E main
 
 // CHECK:  11:6: error: AS entry point must have the numthreads attribute
 

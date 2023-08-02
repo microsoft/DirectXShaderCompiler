@@ -64,7 +64,7 @@ public:
   bool runOnBasicBlock(BasicBlock &BB) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  const char *getPassName() const override { return "LoadCombine"; }
+  StringRef getPassName() const override { return "LoadCombine"; }
   static char ID;
 
   typedef IRBuilder<true, TargetFolder> BuilderTy;

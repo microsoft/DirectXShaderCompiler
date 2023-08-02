@@ -7,6 +7,8 @@ set(LLVM_LINK_COMPONENTS
   DXIL # HLSL Change
   DxcBindingTable # HLSL Change
   HLSL # HLSL Change
+  DxilContainer #  HLSL Change for DxcOptimizerPass
+  DxilRootSignature #  HLSL Change for DxcOptimizerPass
   IPA
   IPO
   IRReader
@@ -38,12 +40,11 @@ add_llvm_tool(opt
   opt.cpp
 )
 
-if(WIN32)
-target_link_libraries(opt
-   DxilConvPasses
-)
-add_dependencies(opt DxilConvPasses)
-endif(WIN32)
+if(WIN32 AND HLSL_BUILD_DXILCONV)
+  add_compile_definitions(HAS_DXILCONV)
+  target_link_libraries(opt DxilConvPasses)
+  add_dependencies(opt DxilConvPasses)
+endif(WIN32 AND HLSL_BUILD_DXILCONV)
 
 export_executable_symbols(opt)
 

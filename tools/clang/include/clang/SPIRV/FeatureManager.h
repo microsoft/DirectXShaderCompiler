@@ -20,6 +20,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -42,9 +43,11 @@ enum class Extension {
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
   EXT_fragment_invocation_density,
+  EXT_mesh_shader,
   EXT_shader_stencil_export,
   EXT_shader_viewport_index_layer,
   AMD_gpu_shader_half_float,
+  AMD_shader_early_and_late_fragment_tests,
   AMD_shader_explicit_vertex_parameter,
   GOOGLE_hlsl_functionality1,
   GOOGLE_user_type,
@@ -52,6 +55,8 @@ enum class Extension {
   NV_mesh_shader,
   KHR_ray_query,
   EXT_shader_image_int64,
+  KHR_physical_storage_buffer,
+  KHR_vulkan_memory_model,
   Unknown,
 };
 
@@ -105,9 +110,34 @@ public:
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p1OrAbove();
 
+  /// Returns true if the target environment is SPIR-V 1.4 or above.
+  /// Returns false otherwise.
+  bool isTargetEnvSpirv1p4OrAbove();
+
+  /// Returns true if the target environment is Vulkan 1.1 with SPIR-V 1.4 or
+  /// above. Returns false otherwise.
+  bool isTargetEnvVulkan1p1Spirv1p4OrAbove();
+
   /// Returns true if the target environment is Vulkan 1.2 or above.
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p2OrAbove();
+
+  /// Returns true if the target environment is Vulkan 1.3 or above.
+  /// Returns false otherwise.
+  bool isTargetEnvVulkan1p3OrAbove();
+
+  /// Returns the spv_target_env matching the input string if possible.
+  /// This functions matches the spv_target_env with the command-line version
+  /// of the name ('vulkan1.1', not 'Vulkan 1.1').
+  /// Returns an empty Optional if no matching env is found.
+  static llvm::Optional<spv_target_env>
+  stringToSpvEnvironment(const std::string &target_env);
+
+  /// Returns the equivalent to spv_target_env in pretty, human readable form.
+  /// (SPV_ENV_VULKAN_1_0 -> "Vulkan 1.0").
+  /// Returns an empty Optional if the name cannot be matched.
+  static llvm::Optional<std::string>
+  spvEnvironmentToPrettyName(spv_target_env target_env);
 
 private:
   /// Returns whether codegen should allow usage of this extension by default.

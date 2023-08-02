@@ -335,6 +335,14 @@ class db_enumhelp_gen:
             print("  " + lastName + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
         print("};")
 
+    def print_rdat_enum(self, e, **kwargs):
+        nodef = kwargs.get("nodef", False)
+        for v in e.values:
+            line_format = "RDAT_ENUM_VALUE_NODEF({name})" if nodef else "RDAT_ENUM_VALUE({value}, {name})"
+            if v.doc:
+                line_format += " // {doc}"
+            print(line_format.format(name=v.name, value=v.value, doc=v.doc))
+
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e : e.name):
             self.print_enum(e)
@@ -823,6 +831,11 @@ def get_enum_decl(name, **kwargs):
     gen = db_enumhelp_gen(db)
     return run_with_stdout(lambda: gen.print_enum(db.enum_idx[name], **kwargs))
 
+def get_rdat_enum_decl(name, **kwargs):
+    db = get_db_dxil()
+    gen = db_enumhelp_gen(db)
+    return run_with_stdout(lambda: gen.print_rdat_enum(db.enum_idx[name], **kwargs))
+
 def get_valrule_enum():
     return get_enum_decl("ValidationRule", hide_val=True)
 
@@ -1164,6 +1177,9 @@ static const unsigned kHighestMinor = %d;"""%(highest_major, highest_minor)
 def get_dxil_version_minor():
     return "const unsigned kDxilMinor = %d;"%highest_minor
 
+def get_dxil_version_minor_int():
+    return highest_minor
+
 def get_is_shader_model_plus():
     result = ""
 
@@ -1197,7 +1213,7 @@ shader_profiles = [ shader_profile(0, "ps", "Kind::Pixel", "4_0", 32, 8),
 
 def getShaderProfiles():
     # order match DXIL::ShaderKind.
-    profiles = {"ps":"4_0", "vs":"4_0", "gs":"4_0", "hs":"5_0", "ds":"5_0", "cs":"4_0", "lib":"6_1", "ms":"6_5", "as":"6_5"}
+    profiles = (("ps", "4_0"), ("vs", "4_0"), ("gs", "4_0"), ("hs", "5_0"), ("ds", "5_0"), ("cs", "4_0"), ("lib", "6_1"), ("ms", "6_5"), ("as", "6_5"))
     return profiles;
 
 def get_shader_models():
@@ -1277,7 +1293,7 @@ def get_num_shader_models():
 
 def build_shader_model_hash_idx_map():
     #must match get_shader_models.
-    result = "const static std::unordered_map<unsigned, unsigned> hashToIdxMap = {\n"
+    result = "const static std::pair<unsigned, unsigned> hashToIdxMap[] = {\n"
     count = 0
     for profile in shader_profiles:
         min_sm = profile.start_sm
@@ -1338,7 +1354,7 @@ def get_target_profiles():
     shader_models = getShaderModels()
 
     base_sm = "%d_0"%highest_major
-    for profile, min_sm in profiles.items():
+    for profile, min_sm in profiles:
         for shader_model in shader_models:
             if (base_sm > shader_model):
                 continue
@@ -1370,11 +1386,12 @@ def get_dxil_version():
     return result
 
 def get_shader_model_get():
-    # const static std::unordered_map<unsigned, unsigned> hashToIdxMap = {};
+    # const static std::pair<unsigned, unsigned> hashToIdxMap[] = {};
     result = build_shader_model_hash_idx_map()
     result += "unsigned hash = (unsigned)Kind << 16 | Major << 8 | Minor;\n"
-    result += "auto it = hashToIdxMap.find(hash);\n"
-    result += "if (it == hashToIdxMap.end())\n"
+    result += "auto pred = [](const std::pair<unsigned, unsigned>& elem, unsigned val){ return elem.first < val;};\n"
+    result += "auto it = std::lower_bound(std::begin(hashToIdxMap), std::end(hashToIdxMap), hash, pred);\n"
+    result += "if (it == std::end(hashToIdxMap) || it->first != hash)\n"
     result += "  return GetInvalid();\n"
     result += "return &ms_ShaderModels[it->second];"
     return result
@@ -1481,6 +1498,7 @@ if __name__ == "__main__":
             'include/dxc/DXIL/DxilCounters.h',
             'lib/DXIL/DxilCounters.cpp',
             'lib/DXIL/DxilMetadataHelper.cpp',
+            'include/dxc/DxilContainer/RDAT_LibraryTypes.inl',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

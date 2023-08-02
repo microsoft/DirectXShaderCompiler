@@ -1,4 +1,4 @@
-// RUN: %dxc -ast-dump /Tvs_6_0 /Evs_main > %s | FileCheck %s
+// RUN: %dxc -ast-dump /Tvs_6_0 /Evs_main  %s | FileCheck %s
 
 // CHECK: GetMatrix 'row_major float2x2 (int)'
 

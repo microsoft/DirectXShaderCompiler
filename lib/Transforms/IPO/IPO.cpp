@@ -22,7 +22,9 @@
 using namespace llvm;
 
 void llvm::initializeIPO(PassRegistry &Registry) {
+#if 0  // HLSL Change Starts: Disable ArgPromotion
   initializeArgPromotionPass(Registry);
+#endif // HLSL Change Ends
   initializeConstantMergePass(Registry);
   initializeDAEPass(Registry);
   initializeDAHPass(Registry);
@@ -53,9 +55,11 @@ void LLVMInitializeIPO(LLVMPassRegistryRef R) {
   initializeIPO(*unwrap(R));
 }
 
+#if 0  // HLSL Change Starts: Disable ArgPromotion
 void LLVMAddArgumentPromotionPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createArgumentPromotionPass());
 }
+#endif // HLSL Change Ends
 
 void LLVMAddConstantMergePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createConstantMergePass());

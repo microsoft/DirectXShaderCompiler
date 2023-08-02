@@ -6,7 +6,7 @@
 // LLVM: The code is converted easily to standard C++.
 
 //------------------------------------------------------------------------------
-// CHECK: define void @"\01?test@@YAXHAIAM@Z"
+// CHECK: define void @"\01?test{{[@$?.A-Za-z0-9_]+}}"
 // CHECK-NOT: undef
 bool done(int);
 float loop_code();
@@ -32,7 +32,7 @@ void test(in int loopCount, out float res) {
 }
 
 //------------------------------------------------------------------------------
-// CHECK: define void @"\01?fn2@@YAXHAIAM@Z"
+// CHECK: define void @"\01?fn2{{[@$?.A-Za-z0-9_]+}}"
 // CHECK-NOT: undef
 export
 void fn2(in int loopCount, out float res) {
@@ -63,7 +63,7 @@ void test2(in int loopCount, out float res) {
 // There can be 'undef' in the metadata, so we limit the check until metadata
 // starts.
 
-// CHECK: define void @"\01?main@@YAXAIAM@Z"
+// CHECK: define void @"\01?main{{[@$?.A-Za-z0-9_]+}}"
 // CHECK-NOT: undef
 // CHECK: !dx.version
 int loopCountGlobal;

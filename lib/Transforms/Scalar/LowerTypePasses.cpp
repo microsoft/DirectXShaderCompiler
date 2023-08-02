@@ -136,7 +136,6 @@ bool LowerTypePass::runOnModule(Module &M) {
     Finder.processModule(M);
   }
 
-  std::vector<AllocaInst*> multiDimAllocas;
   for (Function &F : M.functions()) {
     if (F.isDeclaration())
       continue;
@@ -441,6 +440,10 @@ void DynamicIndexingVectorToArray::ReplaceVectorArrayWithArray(Value *VA, Value 
       ReplaceVecArrayGEP(GEPOp, idxList, A, Builder);
     } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User)) {
       BCI->setOperand(0, A);
+    } else if (auto *CI = dyn_cast<CallInst>(User)) {
+      IRBuilder<> B(CI);
+      auto *Cast = B.CreateBitCast(A, VA->getType());
+      CI->replaceUsesOfWith(VA, Cast);
     } else {
       DXASSERT(0, "Array pointer should only used by GEP");
     }
@@ -535,7 +538,30 @@ protected:
   Type *lowerType(Type *Ty) override;
   Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
   StringRef getGlobalPrefix() override { return ".1dim"; }
+  bool isSafeToLowerArray(Value *V);
 };
+
+// Recurse users, looking for any direct users of array or sub-array type,
+// other than lifetime markers:
+bool MultiDimArrayToOneDimArray::isSafeToLowerArray(Value *V) {
+  if (!V->getType()->getPointerElementType()->isArrayTy())
+    return true;
+  for (auto it = V->user_begin(); it != V->user_end();) {
+    User *U = *it++;
+    if (isa<BitCastOperator>(U)) {
+      // Bitcast is ok because source type can be changed.
+      continue;
+    } else if (isa<GEPOperator>(U) || isa<AddrSpaceCastInst>(U) ||
+               isa<ConstantExpr>(U)) {
+      if (!isSafeToLowerArray(U))
+        return false;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
 
 bool MultiDimArrayToOneDimArray::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
@@ -546,8 +572,8 @@ bool MultiDimArrayToOneDimArray::needToLower(Value *V) {
     return false;
   } else {
     // Merge all GEP.
-    HLModule::MergeGepUse(V);
-    return true;
+    dxilutil::MergeGepUse(V);
+    return isSafeToLowerArray(V);
   }
 }
 

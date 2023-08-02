@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fspv-reflect
+// RUN: %dxc -T vs_6_0 -E main -fspv-reflect
 
 // CHECK:      OpDecorate [[aa_1:%\d+]] NoContraction
 // CHECK-NEXT: OpDecorate [[aa_plus_b_1:%\d+]] NoContraction

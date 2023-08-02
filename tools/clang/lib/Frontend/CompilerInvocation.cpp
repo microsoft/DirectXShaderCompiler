@@ -863,7 +863,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::EmitObj; break;
     case OPT_fixit_EQ:
       Opts.FixItSuffix = A->getValue();
-      // fall-through!
+      LLVM_FALLTHROUGH; // HLSL Change
     case OPT_fixit:
       Opts.ProgramAction = frontend::FixIt; break;
     case OPT_emit_module:
@@ -933,6 +933,9 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.ShowHelp = Args.hasArg(OPT_help);
   Opts.ShowStats = Args.hasArg(OPT_print_stats);
   Opts.ShowTimers = Args.hasArg(OPT_ftime_report);
+  // HLSL Change Begin - Support hierarchial time tracing.
+  Opts.TimeTrace = Args.hasArg(OPT_ftime_trace);
+  // HLSL Change End - Support hierarchial time tracing.
   Opts.ShowVersion = Args.hasArg(OPT_version);
   Opts.ASTMergeFiles = Args.getAllArgValues(OPT_ast_merge);
   Opts.LLVMArgs = Args.getAllArgValues(OPT_mllvm);
@@ -1723,62 +1726,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.SanitizerBlacklistFiles = Args.getAllArgValues(OPT_fsanitize_blacklist);
 #else
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  if (ver.empty()) { Opts.HLSLVersion = 2018; }   // Default to latest
+  if (ver.empty()) {
+    Opts.HLSLVersion = hlsl::LangStd::vLatest;
+  } // Default to latest
   else {
-    try {
-      Opts.HLSLVersion = std::stoi(std::string(ver));
-      if (Opts.HLSLVersion < 2015 || Opts.HLSLVersion > 2018) {
-       Diags.Report(diag::err_drv_invalid_value)
-        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
-        << ver;
-      }
-    }
-    catch (const std::invalid_argument &) {
+    Opts.HLSLVersion = hlsl::parseHLSLVersion(ver);
+    if (Opts.HLSLVersion == hlsl::LangStd::vError) {
       Diags.Report(diag::err_drv_invalid_value)
-        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
-        << ver;
-    }
-    catch (const std::out_of_range &) {
-      Diags.Report(diag::err_drv_invalid_value)
-        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
-        << ver;
+          << Args.getLastArg(OPT_hlsl_version)->getAsString(Args) << ver;
     }
   }
   // Enable low precision for HLSL 2018
   // TODO: should we tie low precision to HLSL2018 only?
   Opts.UseMinPrecision = !Args.hasArg(options::OPT_enable_16bit_types);
 
-  // If the HLSL version is 2021, allow the 2021 features by default.
-  // If the HLSL version is 2016 or 2018, allow them only
-  // when the individual option is enabled.
-  // If the HLSL version is 2015, dissallow these features
-  if (Opts.HLSLVersion >= 2021) {
-    // Enable operator overloading in structs
-    Opts.EnableOperatorOverloading = true;
-    // Enable template support
-    Opts.EnableTemplates = true;
-    // Determine overload matching based on UDT names, not just types
-    Opts.StrictUDTCasting = true;
-    // Enable bitfield support
-    Opts.EnableBitfields = true;
-
-  } else {
-    Opts.EnableOperatorOverloading = Args.hasArg(OPT_enable_operator_overloading);
-    Opts.EnableTemplates = Args.hasArg(OPT_enable_templates);
-    Opts.StrictUDTCasting = Args.hasArg(OPT_strict_udt_casting);
-    Opts.EnableBitfields = Args.hasArg(OPT_enable_bitfields);
-
-    if (Opts.HLSLVersion <= 2015) {
-      if (Opts.EnableOperatorOverloading)
-        Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-operator-overloading" << ver;
-      if (Opts.EnableTemplates)
-        Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-templates" << ver;
-      if (Opts.StrictUDTCasting)
-        Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-udt-casting" << ver;
-      if (Opts.EnableBitfields)
-        Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-bitfields" << ver;
-    }
-  }
 #endif // #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 }
 

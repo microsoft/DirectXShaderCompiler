@@ -184,8 +184,6 @@ public:
   bool HLSLAllowPreserveValues = false;
   /// Whether we fail compilation if loop fails to unroll
   bool HLSLOnlyWarnOnUnrollFail = false;
-  /// Whether use row major as default matrix major.
-  bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
   bool HLSLNotUseLegacyCBufLoad = false;
   /// Whether use legacy resource reservation.
@@ -236,16 +234,26 @@ public:
   std::map<std::string, std::string> HLSLOptimizationSelects;
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
+  /// Debug option to print IR after specific pass
+  std::set<std::string> HLSLPrintAfter;
   /// Force-replace lifetime intrinsics by zeroinitializer stores.
   bool HLSLForceZeroStoreLifetimes = false;
   /// Enable lifetime marker generation
   bool HLSLEnableLifetimeMarkers = false;
+  /// Enable lifetime marker generation only for lifetime.start
+  bool HLSLEnablePartialLifetimeMarkers = false;
   /// Put shader sources and options in the module
   bool HLSLEmbedSourcesInModule = false;
   /// Enable generation of payload access qualifier metadata. 
   bool HLSLEnablePayloadAccessQualifiers = false;
   /// Binding table for HLSL resources
   hlsl::DxcBindingTable HLSLBindingTable;
+  /// Binding table #define
+  struct BindingTableParserType {
+    virtual ~BindingTableParserType() {};
+    virtual bool Parse(llvm::raw_ostream &os, hlsl::DxcBindingTable *outBindingTable) = 0;
+  };
+  std::shared_ptr<BindingTableParserType> BindingTableParser;
   // HLSL Change Ends
 
   // SPIRV Change Starts

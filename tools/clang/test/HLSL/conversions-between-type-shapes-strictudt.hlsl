@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -strict-udt-casting -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -HV 2021 -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
 
 // Tests all implicit conversions and explicit casts between type shapes
 // (scalars, vectors, matrices, arrays and structs).

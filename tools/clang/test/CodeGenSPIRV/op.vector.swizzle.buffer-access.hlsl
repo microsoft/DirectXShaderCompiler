@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 Buffer<float>  myBuffer1;
 Buffer<float3> myBuffer3;
