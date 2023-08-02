@@ -42,7 +42,8 @@ void DuplicateMax2(
 
 void DuplicateMaxSameAttr(
 [MaxRecords(6)] [MaxRecords(3)] NodeOutput<rec1> Output1, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecordsSharedWith(Output1)] [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output2) /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecordsSharedWith(Output1)] [MaxRecordsSharedWith(Output2)] NodeOutput<rec1> Output3  /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
+  )
 {    
 }
 

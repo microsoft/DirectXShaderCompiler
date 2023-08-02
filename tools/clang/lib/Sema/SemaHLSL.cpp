@@ -12972,15 +12972,21 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
   HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
       D->getAttr<HLSLMaxRecordsSharedWithAttr>();
 
-  if (ExistingMRA || ExistingMRSWA) {   
-     clang::SourceLocation Loc =
-        ExistingMRA ? ExistingMRA->getLocation() : ExistingMRSWA->getLocation();
-    S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
-    S.Diag(A.getLoc(), diag::note_conflicting_attribute);
-    S.Diag(Loc, diag::note_conflicting_attribute);      
-    return nullptr;
-    
+  if (ExistingMRA || ExistingMRSWA) {
+    Expr *ArgExpr = A.getArgAsExpr(0);
+    IntegerLiteral *LiteralInt =
+        dyn_cast<IntegerLiteral>(ArgExpr->IgnoreParenCasts());
+
+    if (ExistingMRSWA || ExistingMRA->getMaxCount() != LiteralInt->getValue()) {
+      clang::SourceLocation Loc = ExistingMRA ? ExistingMRA->getLocation()
+                                              : ExistingMRSWA->getLocation();
+      S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
+      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
+      S.Diag(Loc, diag::note_conflicting_attribute);
+      return nullptr;
+    }    
   }
+
   return ::new (S.Context)
       HLSLMaxRecordsAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
                          A.getAttributeSpellingListIndex());
@@ -13040,12 +13046,16 @@ ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
 
   // check that this is the only MaxRecords* attribute for this parameter
   if (ExistingMRA || ExistingMRSWA) {
-    clang::SourceLocation Loc =
-        ExistingMRA ? ExistingMRA->getLocation() : ExistingMRSWA->getLocation();
-    S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
-    S.Diag(A.getLoc(), diag::note_conflicting_attribute);
-    S.Diag(Loc, diag::note_conflicting_attribute);
-    return nullptr;
+    // only emit a diagnostic if the argument to the attribute differs from the current attribute
+    // when an extra MRSWA attribute is attached to this parameter
+    if (ExistingMRA || sharedName != ExistingMRSWA->getName()->getName()) { // won't null deref, because short-circuit
+      clang::SourceLocation Loc = ExistingMRA ? ExistingMRA->getLocation()
+                                              : ExistingMRSWA->getLocation();
+      S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
+      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
+      S.Diag(Loc, diag::note_conflicting_attribute);
+      return nullptr;
+    }
   }
 
   // check that the attribute that MaxRecordsSharedWith is targeting isn't applied to that exact attribute  

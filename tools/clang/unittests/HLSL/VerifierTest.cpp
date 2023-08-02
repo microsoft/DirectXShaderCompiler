@@ -201,7 +201,8 @@ TEST_F(VerifierTest, RunShaderMismatch) {
 }
 
 TEST_F(VerifierTest, RunMaxRecordsAttribute) {
-  CheckVerifiesHLSL(L"max_output_records_duplicate.hlsl");  
+  CheckVerifiesHLSL(L"max_output_records_duplicate.hlsl"); 
+  CheckVerifiesHLSL(L"max_output_records_identical_duplicates.hlsl"); 
   // TODO: CheckVerifiesHLSL(L"max_output_records_invalidref.hlsl");
   // TODO: CheckVerifiesHLSL(L"max_output_records_shared_with.hlsl");
 }
