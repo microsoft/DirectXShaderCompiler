@@ -49,10 +49,6 @@ public:
   TEST_METHOD(RunLinkGlobalInit);
   TEST_METHOD(RunLinkNoAlloca);
   TEST_METHOD(RunLinkResRet);
-  TEST_METHOD(RunLinkToLib);
-  TEST_METHOD(RunLinkToLibOdNops);
-  TEST_METHOD(RunLinkToLibExport);
-  TEST_METHOD(RunLinkToLibExportShadersOnly);
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
@@ -64,8 +60,6 @@ public:
   TEST_METHOD(RunLinkToLibWithUnusedExport);
   TEST_METHOD(RunLinkToLibWithNoExports);
   TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
-  TEST_METHOD(RunLinkWithValidatorVersion);
-  TEST_METHOD(RunLinkWithInvalidValidatorVersion);
   TEST_METHOD(RunLinkWithTempReg);
   TEST_METHOD(RunLinkToLibWithGlobalCtor);
   TEST_METHOD(LinkSm63ToSm66);
@@ -496,96 +490,6 @@ TEST_F(LinkerTest, RunLinkResRet) {
   Link(L"test", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
 }
 
-TEST_F(LinkerTest, RunLinkToLib) {
-  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
-
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib, option);
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(
-      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-      &pLib, option);
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker);
-
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {}, option);
-}
-
-TEST_F(LinkerTest, RunLinkToLibOdNops) {
-  LPCWSTR option[] = {L"-Od"};
-
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib, option);
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(
-      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-      &pLib, option);
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker);
-
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.nothing.a, i32 0, i32 0"}, {}, option);
-}
-
-TEST_F(LinkerTest, RunLinkToLibExport) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib);
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-             &pLib);
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker);
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
-    { "@\"\\01?renamed_test@@","@\"\\01?cloned_test@@","@main" },
-    { "@\"\\01?mat_test", "@renamed_test", "@cloned_test" },
-    {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z;main"});
-}
-
-TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib);
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-             &pLib);
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker);
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
-    { "@main" },
-    { "@\"\\01?mat_test" },
-    {L"-export-shaders-only"});
-}
-
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
   if (m_ver.SkipDxilVersion(1, 3)) return;
   CComPtr<IDxcBlob> pEntryLib;
@@ -801,54 +705,6 @@ TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<vector<float, 4> >\"(i32, %\"class.Texture2D<vector<float, 4> >\")",
     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<float>\"(i32, %\"class.Texture2D<float>\")"
   }, { });
-}
-
-TEST_F(LinkerTest, RunLinkWithValidatorVersion) {
-  if (m_ver.SkipDxilVersion(1, 4)) return;
-
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib, {});
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(
-      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-      &pLib, {});
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker);
-
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
-       {"!dx.valver = !{(![0-9]+)}.*\n\\1 = !{i32 1, i32 3}"},
-       {}, {L"-validator-version", L"1.3"}, /*regex*/ true);
-}
-
-TEST_F(LinkerTest, RunLinkWithInvalidValidatorVersion) {
-  if (m_ver.SkipDxilVersion(1, 4))
-    return;
-
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib, {});
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl", &pLib, {});
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker);
-
-  LinkCheckMsg(L"", L"lib_6_3", pLinker, {libName, libName2},
-               {"Validator version does not support target profile lib_6_3"},
-               {L"-validator-version", L"1.2"});
 }
 
 TEST_F(LinkerTest, RunLinkWithTempReg) {

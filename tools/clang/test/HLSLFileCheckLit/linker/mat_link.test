@@ -2,12 +2,56 @@
 // RUN: %dxc /T lib_6_3 %S/Inputs/lib_mat_entry2.hlsl -Fo %t.entry.dxo
 // RUN: %dxc /T ps_6_0 -link "%t.cast.dxo;%t.entry.dxo" | FileCheck %s
 
+// RUN: %dxc /T lib_6_3 -link "%t.entry.dxo" | FileCheck %s --check-prefix=LIB
+
+// RUN: %dxc /T lib_6_3 %S/Inputs/lib_mat_cast2.hlsl -Zi -Qembed_debug -Fo %t.cast.dbg.dxo
+// RUN: %dxc /T lib_6_3 %S/Inputs/lib_mat_entry2.hlsl -Zi -Qembed_debug -Fo %t.entry.dbg.dxo
+// RUN: %dxl /T lib_6_3  "%t.cast.dbg.dxo;%t.entry.dbg.dxo" -Zi -Qembed_debug | FileCheck %s --check-prefix=DBG
+
+
+// RUN: %dxc /T lib_6_3 %S/Inputs/lib_mat_cast2.hlsl -Od -Fo %t.cast.od.dxo
+// RUN: %dxc /T lib_6_3 %S/Inputs/lib_mat_entry2.hlsl -Od -Fo %t.entry.od.dxo
+// RUN: %dxc /T lib_6_3 -link "%t.cast.od.dxo;%t.entry.od.dxo" -Od | FileCheck %s --check-prefix=OD
+
+// RUN: %dxl /T lib_6_3 "%t.cast.dxo;%t.entry.dxo" -export-shaders-only | FileCheck %s --check-prefix=SHADER_ONLY
+
+// RUN: %dxl /T lib_6_3 "%t.cast.dxo;%t.entry.dxo" -exports "renamed_test,cloned_test=\\01?mat_test@@YA?AV?\$vector@M\$02@@V?\$vector@M\$03@@0AIAV?\$matrix@M\$03\$02@@@Z;main" | FileCheck %s --check-prefix=EXPORT
+
+// TODO: limit with dxilver 1.4
+// RUN: %dxl /T lib_6_3 "%t.cast.dxo;%t.entry.dxo" -validator-version 1.3 | FileCheck %s --check-prefix=VALVER
+
+// TODO: limit with dxilver 1.4
+// RUN: not %dxl /T lib_6_3 "%t.cast.dxo;%t.entry.dxo" -validator-version 1.2 2>&1 | FileCheck %s --check-prefix=INVALID_VALVER
+
 // CHECK: alloca [12 x float]
 // Make sure bitcast is transformed.
 // CHECK-NOT:bitcast
 
-// RUN: %dxc /T lib_6_3 -link "%t.entry.dxo" | FileCheck %s --check-prefix=LIB
-// LIB:alloca <12 x float>
 
+// LIB:alloca <12 x float>
 // Make sure bitcast is left when used for call.
 // LIB: bitcast <12 x float>* {{.*}} to %class.matrix.float.4.3*
+
+// Make sure debug info exist after linking.
+// DBG: !llvm.dbg.cu
+
+// Make sure dx nop exist for Od after linking.
+// OD:load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.nothing.a, i32 0, i32 0
+
+
+// SHADER_ONLY: @main
+// SHADER_ONLY-NOT: \\01?mat_test
+
+// Make sure export works.
+// EXPORT-DAG:define {{.+}}\01?renamed_test@@
+// EXPORT-DAG:define {{.+}}\01?cloned_test@@
+// EXPORT-DAG:define {{.+}}@main
+// EXPORT-NOT:define {{.+}}\01?mat_test
+// EXPORT-NOT: @renamed_test
+// EXPORT-NOT: @cloned_test
+
+// Make sure validator-version works for linking.
+// VALVER:!dx.valver = !{![[VER:[0-9]+]]}
+// VALVER: ![[VER]] = !{i32 1, i32 3}
+
+// INVALID_VALVER: Validator version does not support target profile lib_6_3
