@@ -590,6 +590,10 @@ private:
   /// Processes SM6.0 wave query intrinsic calls.
   SpirvInstruction *processWaveQuery(const CallExpr *, spv::Op opcode);
 
+  /// Processes SM6.6 IsHelperLane intrisic calls.
+  SpirvInstruction *processIsHelperLane(const CallExpr *, SourceLocation loc,
+                                        SourceRange range);
+
   /// Processes SM6.0 wave vote intrinsic calls.
   SpirvInstruction *processWaveVote(const CallExpr *, spv::Op opcode);
 

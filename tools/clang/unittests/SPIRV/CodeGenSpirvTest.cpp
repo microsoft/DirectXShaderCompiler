@@ -1506,6 +1506,12 @@ TEST_F(FileTest, IntrinsicsSM66PackClampU8S8) {
 TEST_F(FileTest, IntrinsicsSM66Unpack) {
   runFileTest("intrinsics.sm6_6.unpack.hlsl");
 }
+TEST_F(FileTest, IntrinsicsSM66IsHelperLane) {
+  runFileTest("intrinsics.sm6_6.ishelperlane.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66IsHelperLaneVk1p3) {
+  runFileTest("intrinsics.sm6_6.ishelperlane.vk1p3.hlsl");
+}
 
 // For attributes
 TEST_F(FileTest, AttributeEarlyDepthStencil) {
