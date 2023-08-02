@@ -8109,7 +8109,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   }
 
   if (getLangOpts().HLSL) {
-    hlsl::DiagnoseRaytracingEntry(*this, NewFD);
+    hlsl::DiagnoseEntry(*this, NewFD);
   }
 
   return NewFD;

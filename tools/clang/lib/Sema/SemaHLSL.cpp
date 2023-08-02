@@ -13012,37 +13012,6 @@ ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
 
   ParmVarDecl *pPVD = cast<ParmVarDecl>(D);
   StringRef ArgName = pPVD->getName();
-  // TODO: check that the output parameter name referenced by the attribute
-  // references an existing output variable name among the list
-  // of variable inputs to the function.
-  /*
-  FunctionDecl *pFD = nullptr;
-  DeclContext *declContext = pPVD->getDeclContext();  
-  
-  while (declContext) {
-    if (pFD = dyn_cast<FunctionDecl>(declContext)) {
-      // This is the function declaration
-      break;
-    }
-    declContext = declContext->getParent();
-  }
-
-  unsigned int arg_idx = 0;
-  bool found = false;
-  while (arg_idx < pFD->getNumParams()) {
-    const ParmVarDecl *parmDecl = pFD->getParamDecl(arg_idx);
-    if (parmDecl->getName() == sharedName) {
-      found = true;
-      break;
-    }
-  }
-
-  if (!found) {
-    S.Diag(ExistingMRSWA->getLocation(),
-           diag::err_hlsl_maxrecordssharedwith_references_invalid_arg);
-    return nullptr;
-  }
-  */
 
   // check that this is the only MaxRecords* attribute for this parameter
   if (ExistingMRA || ExistingMRSWA) {
@@ -13058,7 +13027,7 @@ ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
     }
   }
 
-  // check that the attribute that MaxRecordsSharedWith is targeting isn't applied to that exact attribute  
+  // check that the parameter that MaxRecordsSharedWith is targeting isn't applied to that exact parameter  
   if (sharedName == ArgName) {
     S.Diag(A.getLoc(), diag::err_hlsl_maxrecordssharedwith_references_itself);
     return nullptr;
