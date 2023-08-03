@@ -119,7 +119,8 @@ public:
   TEST_METHOD(RunNodeComputeCompatibilityDiags)
   TEST_METHOD(RunNodeInputCompatibilityDiags)
   TEST_METHOD(RunShaderMismatch)
-  
+  TEST_METHOD(RunMaxRecordsAttribute)
+
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
@@ -197,6 +198,13 @@ TEST_F(VerifierTest, RunArrayIndexOutOfBounds) {
 TEST_F(VerifierTest, RunShaderMismatch) {
   CheckVerifiesHLSL(L"shader_attribute.hlsl");
   CheckVerifiesHLSL(L"shader_attribute_no_mismatch.hlsl");
+}
+
+TEST_F(VerifierTest, RunMaxRecordsAttribute) {
+  CheckVerifiesHLSL(L"max_output_records_duplicate.hlsl"); 
+  CheckVerifiesHLSL(L"max_output_records_identical_duplicates.hlsl"); 
+  CheckVerifiesHLSL(L"max_output_records_invalidref.hlsl");
+  // TODO: CheckVerifiesHLSL(L"max_output_records_shared_with.hlsl");
 }
 
 TEST_F(VerifierTest, RunArrayLength) {
