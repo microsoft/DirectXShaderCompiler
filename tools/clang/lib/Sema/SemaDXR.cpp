@@ -1185,19 +1185,25 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::AnyHit: {
     unsigned ExpectedParams = Stage == DXIL::ShaderKind::Miss ? 1 : 2;
-    if (ExpectedParams != FD->getNumParams())
+    if (ExpectedParams != FD->getNumParams()) {
       S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
           << Attr->getStage() << FD->getNumParams() << ExpectedParams;
+      return;
+    }
     ParmVarDecl *Param = FD->getParamDecl(0);
     if (!(Param->getAttr<HLSLInOutAttr>() ||
-          (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>())))
+          (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>()))) {
       S.Diag(Param->getLocation(), diag::err_payload_requires_inout)
           << /*payload|callable*/ 0 << Param;
+      return;
+    }
 
     if (FD->getNumParams() > 1) {
       Param = FD->getParamDecl(1);
-      if (Param->getAttr<HLSLInOutAttr>() || Param->getAttr<HLSLOutAttr>())
+      if (Param->getAttr<HLSLInOutAttr>() || Param->getAttr<HLSLOutAttr>()) {      
         S.Diag(Param->getLocation(), diag::err_attributes_requiers_in) << Param;
+        return;
+      }
     }
 
     for (unsigned Idx = 0; Idx < ExpectedParams && Idx < FD->getNumParams();
@@ -1211,6 +1217,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
             << /*payload|attributes|callable*/ Idx << Param;
       }
     }
+    return;
   }
   case DXIL::ShaderKind::RayGeneration:
   case DXIL::ShaderKind::Intersection: {
@@ -1222,15 +1229,22 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
   case DXIL::ShaderKind::ClosestHit: {
 
-    unsigned ExpectedParams = 0;
-    if (ExpectedParams != FD->getNumParams())
+    unsigned ExpectedParams = 2;
+
+    if (ExpectedParams != FD->getNumParams()) {
       S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
           << Attr->getStage() << FD->getNumParams() << ExpectedParams;
+    }
+
+    if (FD->getNumParams() == 0)
+      return;
+
     ParmVarDecl *Param = FD->getParamDecl(0);
     if (!(Param->getAttr<HLSLInOutAttr>() ||
-          (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>())))
+          (Param->getAttr<HLSLOutAttr>() && Param->getAttr<HLSLInAttr>()))) {    
       S.Diag(Param->getLocation(), diag::err_payload_requires_inout)
           << /*payload|callable*/ 0 << Param;
+    }
 
     if (FD->getNumParams() > 1) {
       Param = FD->getParamDecl(1);
@@ -1245,9 +1259,10 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
       QualType Ty = Param->getType().getNonReferenceType();
 
-      if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty)))
+      if (!(hlsl::IsHLSLCopyableAnnotatableRecord(Ty))) {      
         S.Diag(Param->getLocation(), diag::err_payload_attrs_must_be_udt)
             << /*payload|attributes|callable*/ Idx << Param;
+      }
     }
     return;
   }
@@ -1287,6 +1302,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
         }
       }
     }
+    return;
   }
   }
 }

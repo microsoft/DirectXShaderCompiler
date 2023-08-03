@@ -2,7 +2,7 @@
 
 // Test referencing params with MaxOutputRecordsSharedWith before and after
 
-// CHECK: defisne void {{.*}}BackwardRef
+// CHECK: define void {{.*}}BackwardRef
 // CHECK: define void {{.*}}ForwardRef
 
 struct rec0
