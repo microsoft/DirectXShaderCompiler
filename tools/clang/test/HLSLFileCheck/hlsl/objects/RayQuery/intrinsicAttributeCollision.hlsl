@@ -4,7 +4,8 @@
 // Proceed called before CommittedTriangleFrontFace.
 // Don't be sensitive to HL Opcode because those can change.
 // CHECK: call i1 [[HLProceed:@"[^"]+"]](i32
-// CHECK: call i1 [[HLCommittedTriangleFrontFace:@"[^"]+"]](i32
+// CHECK: call i1 [[HLCommittedTriangleFrontFace:@"[^".]+\.[^.]+\.[^.]+\.ro[^"]+"]](i32
+// ^ matches call i1 @"dx.hl.op.ro.i1 (i32, %\22class.RayQuery<5>\22*)"(i32
 // CHECK-LABEL: ret void,
 
 // Ensure HL declarations are not collapsed when attributes differ

@@ -4,7 +4,8 @@
 // QuadAny called before WaveActiveAnyTrue.
 // Don't be sensitive to HL Opcode because those can change.
 // CHECK: call i1 [[QuadAny:@"[^"]+"]](i32
-// CHECK: call i1 [[WaveActiveAnyTrue:@"[^"]+"]](i32
+// CHECK: call i1 [[WaveActiveAnyTrue:@"[^".]+\.[^.]+\.[^.]+\.wave[^"][^"]+"]](i32
+// ^ matches  call i1 @"dx.hl.op.wave.i1 (i32, i1)"(i32
 
 // Ensure HL declarations are not collapsed when attributes differ
 // CHECK-DAG: declare i1 [[QuadAny]]({{.*}}) #[[AttrQuadAny:[0-9]+]]
