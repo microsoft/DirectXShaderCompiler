@@ -121,6 +121,7 @@ public:
   TEST_METHOD(RunNodeZeroSizedRecordDiags)
   TEST_METHOD(RunWorkGraphAttributeDiags)
   TEST_METHOD(RunInvalidNodeLaunchDiags)
+  TEST_METHOD(RunShaderMismatch)
   
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -194,6 +195,11 @@ public:
 TEST_F(VerifierTest, RunArrayIndexOutOfBounds) {
   CheckVerifiesHLSL(L"array-index-out-of-bounds.hlsl");
   CheckVerifiesHLSL(L"array-index-out-of-bounds-HV-2016.hlsl");
+}
+
+TEST_F(VerifierTest, RunShaderMismatch) {
+  CheckVerifiesHLSL(L"shader_attribute.hlsl");
+  CheckVerifiesHLSL(L"shader_attribute_no_mismatch.hlsl");
 }
 
 TEST_F(VerifierTest, RunArrayLength) {
