@@ -4,27 +4,27 @@
 
 [Shader("node")]
 [NodeLaunch("Coalescing")]           // expected-note +{{Launch type defined here}}
-[NodeDispatchGrid(4, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with Broadcasting nodes}}
+[NodeDispatchGrid(4, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting nodes}}
 [NumThreads(32, 1, 1)]
 void node01()
 { }
 
 [Shader("node")]
 [NodeLaunch("Thread")]               // expected-note +{{Launch type defined here}}
-[NodeDispatchGrid(8, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with Broadcasting nodes}}
+[NodeDispatchGrid(8, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting nodes}}
 void node02()
 { }
 
 [Shader("node")]
 [NodeLaunch("Coalescing")]           // expected-note +{{Launch type defined here}}
-[NodeMaxDispatchGrid(8, 8, 8)]       // expected-error {{'nodemaxdispatchgrid' may only be used with Broadcasting nodes}}
+[NodeMaxDispatchGrid(8, 8, 8)]       // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting nodes}}
 [NumThreads(32, 1, 1)]
 void node03()
 { }
 
 [Shader("node")]
 [NodeLaunch("Thread")]               // expected-note +{{Launch type defined here}}
-[NodeMaxDispatchGrid(256, 8, 8)]     // expected-error {{'nodemaxdispatchgrid' may only be used with Broadcasting nodes}}
+[NodeMaxDispatchGrid(256, 8, 8)]     // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting nodes}}
 void node04()
 { }
 

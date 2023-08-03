@@ -7,7 +7,7 @@
 [NodeID("nodeName")]
 [NodeLocalRootArgumentsTableIndex(3)]
 [NodeShareInputOf("nodeName")]
-[NodeMaxRecursionDepth(51)]
+[NodeMaxRecursionDepth(31)]
 [NodeDispatchGrid(1, 1, 1)]
 [NodeMaxDispatchGrid(2,2,2)]
 [NumThreads(1, 1, 1)]

@@ -11373,7 +11373,7 @@ public:
       nodeLaunchType = NodeLaunch->getLaunchType();
       nodeLaunchLoc = NodeLaunch->getLocation();
     } else {
-      nodeLaunchType = "Broadcasting";
+      nodeLaunchType = "broadcasting";
       nodeLaunchLoc = SourceLocation();
     }
 
@@ -11393,7 +11393,8 @@ public:
         if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
             NumThreads->getZ() != 1) {
           S.Diags.Report(NumThreads->getLocation(),
-                         diag::err_hlsl_wg_thread_launch_group_size);
+                         diag::err_hlsl_wg_thread_launch_group_size)
+            << NumThreads->getRange();
           // Only output the note if the source location is valid
           if (nodeLaunchLoc.isValid())
             S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
@@ -11406,19 +11407,37 @@ public:
         << funcName << nodeLaunchType << "numthreads";
     }
 
-    // NodeDispatchGrid and NodeMaxDispatchGrid may not be used together
-    if (InheritableAttr *nodeMDG = Decl->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
-      if (InheritableAttr *nodeDG = Decl->getAttr<HLSLNodeDispatchGridAttr>()) {
+    auto *nodeDG = Decl->getAttr<HLSLNodeDispatchGridAttr>();
+    auto *nodeMDG = Decl->getAttr<HLSLNodeMaxDispatchGridAttr>();
+    if (!nodeLaunchType.equals_lower("broadcasting")) {
+      // NodeDispatchGrid is only valid for Broadcasting nodes
+      if (nodeDG) {
+        S.Diags.Report(nodeDG->getLocation(), diag::err_hlsl_launch_type_attr)
+          << nodeDG->getSpelling() << "broadcasting" << nodeDG->getRange();
+        // Only output the note if the source location is valid
+        if (nodeLaunchLoc.isValid())
+            S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
+                << "Launch type";
+      }
+      // NodeMaxDispatchGrid is only valid for Broadcasting nodes
+      if (nodeMDG) {
+        S.Diags.Report(nodeMDG->getLocation(), diag::err_hlsl_launch_type_attr)
+          << nodeMDG->getSpelling() << "broadcasting" << nodeMDG->getRange();
+        // Only output the note if the source location is valid
+        if (nodeLaunchLoc.isValid())
+            S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
+                << "Launch type";
+      }
+    } else {
+      // A Broadcasting node must have one of NodeDispatchGrid or NodeMaxDispatchGrid
+      if (!nodeMDG && ! nodeDG)
+        S.Diags.Report(Decl->getLocation(), diag::err_hlsl_missing_dispatchgrid_attr) << funcName;
+      // NodeDispatchGrid and NodeMaxDispatchGrid may not be used together
+      if (nodeMDG && nodeDG) {
         S.Diags.Report(nodeMDG->getLocation(), diag::err_hlsl_incompatible_node_attr)
 	  << funcName << nodeMDG->getSpelling() << nodeDG->getSpelling() << nodeMDG->getRange();
         S.Diags.Report(nodeDG->getLocation(), diag::note_defined_here) << nodeDG->getSpelling();
       }
-    }
-
-    // Check that a Broadcasting node has one of NodeDispatchGrid and NodeMaxDispatchGrid
-    if (nodeLaunchType.equals_lower("broadcasting") && !Decl->hasAttr<HLSLNodeDispatchGridAttr>() &&
-        !Decl->hasAttr<HLSLNodeMaxDispatchGridAttr>()) {
-          S.Diags.Report(Decl->getLocation(), diag::err_hlsl_missing_dispatchgrid_attr) << funcName;
     }
 
     return true;
@@ -11500,33 +11519,6 @@ public:
     return true;
   }
 
-  bool VisitAttr(Attr *A) {
-    switch (A->getKind()) {
-    case attr::HLSLNodeDispatchGrid:
-    case attr::HLSLNodeMaxDispatchGrid:
-      // These attributes are only valid for Broadcasting launch nodes
-      if (!nodeLaunchType.equals_lower("broadcasting")) {
-        S.Diags.Report(A->getLocation(), diag::err_hlsl_launch_type_attr)
-          << A->getSpelling() << "Broadcasting" << A->getRange();
-        // Only output the note if the source location is valid
-        if (nodeLaunchLoc.isValid())
-          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here) << "Launch type";
-      }
-      break;
-    case attr::HLSLNodeMaxRecursionDepth:
-      if (cast<HLSLNodeMaxRecursionDepthAttr>(A)->getCount() > 32)
-        S.Diags.Report(A->getLocation(), diag::err_hlsl_maxrecursiondepth_exceeded)
-          << A->getRange();
-      break;
-    case attr::HLSLNumThreads:
-      auto *numThreads = cast<HLSLNumThreadsAttr>(A);
-      if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
-        S.Diags.Report(A->getLocation(), diag::err_hlsl_numthreads_group_size)
-          << A->getRange();
-      break;
-    }
-    return true;
-  }
 };
 
 namespace hlsl {
@@ -11540,6 +11532,9 @@ void DiagnoseWorkGraphConstraints(clang::Sema &S,
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
+
+  // Check constraints for work graphs (even if errors have already been raised)
+  DiagnoseWorkGraphConstraints(*self, self->getASTContext().getTranslationUnitDecl());
 
   // Don't bother with global validation if compilation has already failed.
   if (self->getDiagnostics().hasErrorOccurred()) {
@@ -11558,9 +11553,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       DiagnoseRaytracingPayloadAccess(*self, TU);
     }
   }
-
-  // Check constraints for work graphs
-  DiagnoseWorkGraphConstraints(*self, self->getASTContext().getTranslationUnitDecl());
 
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
@@ -13323,11 +13315,16 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLMaxTessFactorAttr(A.getRange(), S.Context,
       ValidateAttributeFloatArg(S, A), A.getAttributeSpellingListIndex());
     break;
-  case AttributeList::AT_HLSLNumThreads:
-    declAttr = ::new (S.Context) HLSLNumThreadsAttr(A.getRange(), S.Context,
+  case AttributeList::AT_HLSLNumThreads: {
+    auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
       A.getAttributeSpellingListIndex());
+    if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
+      S.Diags.Report(numThreads->getLocation(), diag::err_hlsl_numthreads_group_size)
+        << numThreads->getRange();
+    declAttr = numThreads;
     break;
+  }
   case AttributeList::AT_HLSLRootSignature:
     declAttr = ::new (S.Context) HLSLRootSignatureAttr(A.getRange(), S.Context,
       ValidateAttributeStringArg(S, A, /*validate strings*/nullptr),
@@ -13427,6 +13424,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLNodeMaxRecursionDepthAttr(
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
         A.getAttributeSpellingListIndex());
+    if (cast<HLSLNodeMaxRecursionDepthAttr>(declAttr)->getCount() > 32)
+      S.Diags.Report(declAttr->getLocation(), diag::err_hlsl_maxrecursiondepth_exceeded)
+        << declAttr->getRange();
     break;
   default:
     Handled = false;

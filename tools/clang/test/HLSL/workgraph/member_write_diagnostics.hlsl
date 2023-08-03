@@ -12,6 +12,7 @@ struct RECORD
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(1024,1,1)]
 void node01(DispatchNodeInputRecord<RECORD> input1)
 {
   RECORD x;
@@ -25,6 +26,7 @@ void node01(DispatchNodeInputRecord<RECORD> input1)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(1024,1,1)]
 void node02(RWDispatchNodeInputRecord<RECORD> input2)
 {
   RECORD x;
@@ -94,6 +96,7 @@ void node06(RWThreadNodeInputRecord<RECORD> input6)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(1024,1,1)]
 void node07(NodeOutput<RECORD> output7)
 {
   RECORD x;
@@ -107,6 +110,7 @@ void node07(NodeOutput<RECORD> output7)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(1024,1,1)]
 void node08([MaxRecords(8)] NodeOutputArray<RECORD> output8)
 {
   RECORD x;
