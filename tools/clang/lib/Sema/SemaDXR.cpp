@@ -1162,11 +1162,11 @@ void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 }
 
 void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
-                               bool isMiss) {
+                               DXIL::ShaderKind Stage) {
   if (!FD->getReturnType()->isVoidType())
     S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
 
-  unsigned ExpectedParams = isMiss ? 1 : 2;
+  unsigned ExpectedParams = Stage == DXIL::ShaderKind::Miss ? 1 : 2;
   if (ExpectedParams != FD->getNumParams()) {
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
         << Attr->getStage() << FD->getNumParams() << ExpectedParams;
@@ -1318,8 +1318,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::AnyHit: {
-    bool isMiss = Stage == DXIL::ShaderKind::Miss;
-    return DiagnoseMissOrAnyHitEntry(S, FD, Attr, isMiss);
+    return DiagnoseMissOrAnyHitEntry(S, FD, Attr, Stage);
   }
   case DXIL::ShaderKind::RayGeneration:
   case DXIL::ShaderKind::Intersection: {
