@@ -128,29 +128,15 @@ bool MatrixBitcastLowerPass::hasCallUser(Instruction *M) {
   for (auto it = M->user_begin(); it != M->user_end();) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-      Type *EltTy = GEP->getType()->getPointerElementType();
-      if (HLMatrixType::isa(EltTy)) {
-        if (hasCallUser(GEP))
-          return true;
-      } else {
-        DXASSERT(0, "invalid GEP for matrix");
-      }
+      if (hasCallUser(GEP))
+        return true;
     } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
       if (hasCallUser(BCI))
         return true;
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (isa<VectorType>(LI->getType())) {
-      } else {
-        DXASSERT(0, "invalid load for matrix");
-      }
-    } else if (StoreInst *ST = dyn_cast<StoreInst>(U)) {
-      Value *V = ST->getValueOperand();
-      if (isa<VectorType>(V->getType())) {
-      } else {
-        DXASSERT(0, "invalid load for matrix");
-      }
     } else if (isa<CallInst>(U)) {
       return true;
+    } else if (isa<LoadInst>(U) || isa<StoreInst>(U)) {
+      continue;
     } else {
       DXASSERT(0, "invalid use of matrix");
     }
@@ -222,7 +208,7 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
       StoreInst *ST = cast<StoreInst>(U);
       Value *V = ST->getValueOperand();
       VectorType *Ty = cast<VectorType>(V->getType());
-      IRBuilder<> Builder(LI);
+      IRBuilder<> Builder(ST);
       Value *zeroIdx = Builder.getInt32(0);
       unsigned vecSize = Ty->getNumElements();
       for (unsigned i = 0; i < vecSize; i++) {
