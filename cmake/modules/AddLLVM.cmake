@@ -9,7 +9,7 @@ function(llvm_update_compile_flags name)
 
   # LLVM_REQUIRES_EH is an internal flag that individual
   # targets can use to force EH
-  if((LLVM_REQUIRES_EH OR LLVM_ENABLE_EH) AND NOT CLANG_CL)
+  if(LLVM_REQUIRES_EH OR LLVM_ENABLE_EH) # HLSL Change - allow CLANG_CL to use EH.
     if(NOT (LLVM_REQUIRES_RTTI OR LLVM_ENABLE_RTTI))
       message(AUTHOR_WARNING "Exception handling requires RTTI. Enabling RTTI for ${name}")
       set(LLVM_REQUIRES_RTTI ON)
