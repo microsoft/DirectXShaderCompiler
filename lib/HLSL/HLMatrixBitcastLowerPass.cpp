@@ -176,12 +176,20 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
       //   gep oneDimArray, 0, index * matSize
       IRBuilder<> Builder(GEP);
       SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
-      DXASSERT(idxList.size() == 2,
-               "else not one dim matrix array index to matrix");
-
       HLMatrixType MatTy = HLMatrixType::cast(EltTy);
       Value *matSize = Builder.getInt32(MatTy.getNumElements());
-      idxList.back() = Builder.CreateMul(idxList.back(), matSize);
+      if (idxList.size() == 2) {
+        // Change gep matrixArray, 0, index
+        // into
+        //   gep oneDimArray, 0, index * matSize
+        idxList.back() = Builder.CreateMul(idxList.back(), matSize);
+      } else {
+        DXASSERT(idxList.size() == 1, "else invalid gep on matrix");
+        // Change gep matrix, 0
+        // into
+        //   gep oneDimArray, 0, 0
+        idxList.emplace_back(ConstantInt::get(idxList.back()->getType(), 0));
+      }
       Value *NewGEP = Builder.CreateGEP(A, idxList);
       lowerMatrix(GEP, NewGEP);
       DXASSERT(GEP->user_empty(), "else lower matrix fail");
