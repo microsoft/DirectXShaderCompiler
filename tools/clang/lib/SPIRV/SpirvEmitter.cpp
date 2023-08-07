@@ -874,6 +874,20 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   auto dsetbindingsToCombineImageSampler =
       collectDSetBindingsToCombineSampledImage(resourceInfoForSampledImages);
 
+  {
+    std::string messages;
+    if (!spirvToolsTrimCapabilities(&m, &messages)) {
+      emitFatalError("failed to trim capabilities: %0", {}) << messages;
+      emitNote("please file a bug report on "
+               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+               "with source code if possible",
+               {});
+      return;
+    } else if (!messages.empty()) {
+      emitWarning("SPIR-V capability trimming: %0", {}) << messages;
+    }
+  }
+
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
   needsLegalization =
@@ -13991,6 +14005,28 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
   }
 
   return tools.Validate(mod->data(), mod->size(), options);
+}
+
+bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
+                                              std::string *messages) {
+  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
+
+  spvtools::OptimizerOptions options;
+  options.set_run_validator(false);
+  options.set_preserve_bindings(spirvOptions.preserveBindings);
+
+  optimizer.RegisterPass(spvtools::CreateTrimCapabilitiesPass());
+
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
 bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
