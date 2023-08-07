@@ -107,27 +107,14 @@ void DxilAnnotateWithVirtualRegister::applyOptions(llvm::PassOptions O) {
 
 char DxilAnnotateWithVirtualRegister::ID = 0;
 
-static const char* ShaderKindName(hlsl::DXIL::ShaderKind kind) {
-  switch (kind) {
-  case hlsl::DXIL::ShaderKind::Pixel:           return "Pixel";
-  case hlsl::DXIL::ShaderKind::Vertex:          return "Vertex";
-  case hlsl::DXIL::ShaderKind::Geometry:        return "Geometry";
-  case hlsl::DXIL::ShaderKind::Hull:            return "Hull";
-  case hlsl::DXIL::ShaderKind::Domain:          return "Domain";
-  case hlsl::DXIL::ShaderKind::Compute:         return "Compute";
-  case hlsl::DXIL::ShaderKind::Library:         return "Library";
-  case hlsl::DXIL::ShaderKind::RayGeneration:   return "RayGeneration";
-  case hlsl::DXIL::ShaderKind::Intersection:    return "Intersection";
-  case hlsl::DXIL::ShaderKind::AnyHit:          return "AnyHit";
-  case hlsl::DXIL::ShaderKind::ClosestHit:      return "ClosestHit";
-  case hlsl::DXIL::ShaderKind::Miss:            return "Miss";
-  case hlsl::DXIL::ShaderKind::Callable:        return "Callable";
-  case hlsl::DXIL::ShaderKind::Mesh:            return "Mesh";
-  case hlsl::DXIL::ShaderKind::Amplification:   return "Amplification";
-  case hlsl::DXIL::ShaderKind::Invalid:
-  default:
-    return "Invalid";
+static llvm::StringRef
+PrintableSubsetOfMangledFunctionName(llvm::StringRef mangled) {
+  llvm::StringRef printableNameSubset = mangled;
+  if (mangled.size() > 2 && mangled[0] == '\1' && mangled[1] == '?') {
+    printableNameSubset =
+        llvm::StringRef(mangled.data() + 2, mangled.size() - 2);
   }
+  return printableNameSubset;
 }
 
 bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
@@ -143,14 +130,14 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   std::uint32_t InstNum = m_StartInstruction;
-  std::map<std::string, std::pair<int, int>> InstructionRangeByFunctionName;
+  llvm::StringMap<std::pair<int, int>> InstructionRangeByFunctionName;
 
   auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
   for (auto * F : instrumentableFunctions) {
     auto shaderKind = PIXPassHelpers::GetFunctionShaderKind(*m_DM, F);
     std::string FunctioNamePlusKind =
-        F->getName().str() + " " + ShaderKindName(shaderKind);
+        F->getName().str() + " " + hlsl::ShaderModel::GetKindName(shaderKind);
     auto &EndInstruction = InstructionRangeByFunctionName[FunctioNamePlusKind];
     EndInstruction.first = InstNum;
     for (auto &block : F->getBasicBlockList()) {
@@ -170,13 +157,10 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     *OSOverride << "\nInstructionCount:" << InstNum << "\n";
     for (auto const &fn : InstructionRangeByFunctionName) {
       *OSOverride << "InstructionRange: ";
-      int skipOverLeadingUnprintableCharacters = 0;
-      if (fn.first.size() > 2 && fn.first[0] == '\1' && fn.first[1] == '?') {
-        skipOverLeadingUnprintableCharacters = 2;
-      }
+      llvm::StringRef printableNameSubset =
+          PrintableSubsetOfMangledFunctionName(fn.first());
       *OSOverride << fn.second.first << " " << fn.second.second << " "
-                  << (fn.first.c_str() +
-                      skipOverLeadingUnprintableCharacters)
+                  << printableNameSubset
                   << "\n";
     }
   }
