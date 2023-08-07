@@ -115,13 +115,11 @@ struct MSFWriter {
     return AddStream({});
   }
 
-  uint32_t CalculateDirectorySize() {
+  uint32_t CalculateStreamDirectorySize() {
     uint32_t DirectorySizeInBytes = 0;
-    DirectorySizeInBytes += sizeof(uint32_t);
-    DirectorySizeInBytes += m_Streams.size() * 4;
-    for (unsigned i = 0; i < m_Streams.size(); i++) {
-      DirectorySizeInBytes += m_Streams[i].NumBlocks * 4;
-    }
+    DirectorySizeInBytes += sizeof(uint32_t); // NumStreams
+    DirectorySizeInBytes += m_Streams.size() * sizeof(uint32_t);  // Stream sizes (in number of blocks)
+    DirectorySizeInBytes += m_NumStreamBlocks * sizeof(uint32_t); // Block indices for each stream
     return DirectorySizeInBytes;
   }
 
@@ -174,7 +172,7 @@ struct MSFWriter {
   }
 
   void WriteToStream(raw_ostream &OS) {
-    const uint32_t StreamDirectorySizeInBytes = CalculateDirectorySize();
+    const uint32_t StreamDirectorySizeInBytes = CalculateStreamDirectorySize();
     const uint32_t StreamDirectoryNumBlocks = GetNumBlocks(StreamDirectorySizeInBytes);
 
     const uint32_t BlockAddrSizeInBytes = StreamDirectoryNumBlocks * sizeof(support::ulittle32_t);
@@ -202,7 +200,8 @@ struct MSFWriter {
 
     // BlockAddr
     // This block contains a list of uint32's that point to the blocks that
-    // make up the stream directory.
+    // make up the stream directory. In the MSF spec, these blocks don't
+    // necessarily have to be contiguous.
     {
       SmallVector<support::ulittle32_t, 4> BlockAddr;
       uint32_t Start = StreamDirectoryStart;

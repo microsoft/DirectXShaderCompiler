@@ -1970,13 +1970,19 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
 }
 
+// We had a bug where the block addr blocks were not included in the
+// NumBlocks member in the super block. This test makes sure that number
+// is actually correct.
 TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
+  // Normal small shader
   std::string source_0 = R"x(
       [RootSignature("CBV(b1)")]
       float4 main() : SV_Target {
         return float4(1,0,0,1);
       }
   )x";
+
+  // This is going to compile to a really big shader (and PDB)
   std::string source_1 = R"x(
       Texture1D<float> t0 : register(t0);
       [RootSignature("CBV(b1),DescriptorTable(SRV(t0))")]
@@ -1992,7 +1998,6 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
 
   CComPtr<IDxcCompiler3> pCompiler;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-
 
   struct Profile {
     llvm::StringRef src;
@@ -2046,9 +2051,10 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
     VERIFY_ARE_EQUAL(0, memcmp(pPdb->GetBufferPointer(), kMsfMagic, sizeof(kMsfMagic)));
 
     const MSF_SuperBlock *pSuperBlock = (const MSF_SuperBlock *)pPdb->GetBufferPointer();
+    const uint32_t NumBlocks = pSuperBlock->NumBlocks;
+    const uint32_t BlockSize = pSuperBlock->BlockSize;
 
-    VERIFY_ARE_EQUAL(pSuperBlock->BlockSize * pSuperBlock->NumBlocks,
-                     pPdb->GetBufferSize());
+    VERIFY_ARE_EQUAL(BlockSize * NumBlocks, pPdb->GetBufferSize());
   }
 }
 
