@@ -1,5 +1,5 @@
-// RUN: %dxc /T ps_6_0 %s -HV 2021 /Zi | FileCheck %s
-// RUN: %dxc /T ps_6_0 %s | FileCheck %s -check-prefix=NO_SHORT_CIRCUIT
+// RUN: %dxc /T ps_6_0 %s -HV 2021 -Zi | FileCheck %s
+// RUN: %dxc /T ps_6_0 %s -HV 2018 | FileCheck %s -check-prefix=NO_SHORT_CIRCUIT
 
 // Load the two uav handles
 // CHECK-DAG: %[[uav_foo:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 128, i1 false)
