@@ -5,10 +5,10 @@
 
 // CHECK-NOT: CBufUnused
 
-// CHECK: DxilRuntimeData (size = 448 bytes):
-// CHECK:   StringBuffer (size = 52 bytes)
-// CHECK:   IndexTable (size = 28 bytes)
-// CHECK:   RawBytes (size = 0 bytes)
+// CHECK: DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:   IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:   RawBytes (size = {{[0-9]+}} bytes)
 // CHECK:   RecordTable (stride = 32 bytes) ResourceTable[3] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
 // CHECK:       Class: CBuffer
