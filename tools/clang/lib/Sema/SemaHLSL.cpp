@@ -11481,12 +11481,6 @@ public:
           << funcName << P->getSourceRange();
       }
     }
-    // MaxRecords and MaxRecordsSharedWith are mutually exclusive
-    if (auto *maxShared = P->getAttr<HLSLMaxRecordsSharedWithAttr>())
-      if (auto *maxRecs = P->getAttr<HLSLMaxRecordsAttr>())
-        S.Diags.Report(P->getLocation(), diag::err_hlsl_incompatible_param_attr)
-          << P->getName() << maxShared->getSpelling() << maxRecs->getSpelling()
-          << P->getSourceRange();
 
     return true;
   }

@@ -113,9 +113,3 @@ void node17(ThreadNodeInputRecord<RECORD> input,
             NodeOutput<RECORD> output,
             RWThreadNodeInputRecord<RECORD> input2)  // expected-error {{Node shader 'node17' may not have more than one input record}}
 { }
-
-[Shader("node")]
-[NodeLaunch("thread")]
-void node18(NodeOutput<RECORD> firstOut,
-            [MaxRecords(5)][MaxRecordsSharedWith(firstOut)] NodeOutput<RECORD> secondOut) // expected-error {{parameter 'secondOut' may not have both 'maxrecordssharedwith' and 'MaxRecords'}}
-{ }
