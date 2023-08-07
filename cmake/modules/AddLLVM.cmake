@@ -889,6 +889,9 @@ function(configure_lit_site_cfg input output)
   set(HOST_CXX "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_COMPILER_ARG1}")
   set(HOST_LDFLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
+  # HLSL Change - replace " with \" in HOST_LDFLAGS for -fprofile-instr-generate
+  string(REPLACE "\"" "\\\"" HOST_LDFLAGS "${HOST_LDFLAGS}")
+
   configure_file(${input} ${output} @ONLY)
 endfunction()
 
