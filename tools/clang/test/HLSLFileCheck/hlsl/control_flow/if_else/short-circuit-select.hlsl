@@ -12,7 +12,7 @@
 // The actual select
 // CHECK: br i1 %[[cond_cmp]], label %[[true_label:.+]], label %[[false_label:.+]],
 
-// CHECK: [[true_label]]:
+// CHECK: [[true_label]]{{:? *}}; preds =
 // First side effect
 // CHECK-DAG: call void @dx.op.bufferStore.f32(i32 69, %dx.types.Handle %[[uav_foo]]
 // CHECK-DAG: %[[sin:.+]] = call float @dx.op.unary.f32(i32 13
