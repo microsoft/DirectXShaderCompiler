@@ -64,10 +64,12 @@ class TaefTest(TestFormat):
 
         if litConfig.debug:
             litConfig.note('searching taef test in %r' % dll_path)
+        
+        select_arg = str.format('/select:"{}"', self.select_filter)
 
+        cmd = [self.te, dll_path, "/list", select_arg]
         try:
-            lines = lit.util.capture([self.te, dll_path, '/list'],
-                                     env=localConfig.environment)
+            lines,_,_ = executeCommandForTaef(cmd)
             # this is for windows
             lines = lines.replace('\r', '')
             lines = lines.split('\n')
