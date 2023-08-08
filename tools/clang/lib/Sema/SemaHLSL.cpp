@@ -900,6 +900,7 @@ static const ArTypeObjectKind g_AnyTT[] =
 static const ArTypeObjectKind g_ObjectTT[] =
 {
   AR_TOBJ_OBJECT,
+  AR_TOBJ_STRING,
   AR_TOBJ_UNKNOWN
 };
 
@@ -6210,9 +6211,6 @@ bool HLSLExternalSource::MatchArguments(
     const ArTypeObjectKind *pTT = g_LegalIntrinsicTemplates[pArgument->uLegalTemplates];
     if (AR_TOBJ_UNKNOWN != Template[i]) {
       if ((AR_TOBJ_SCALAR == Template[i]) && (AR_TOBJ_VECTOR == *pTT || AR_TOBJ_MATRIX == *pTT)) {
-        Template[i] = *pTT;
-      }
-      else if(AR_TOBJ_STRING == Template[i] && *pTT == AR_TOBJ_OBJECT) {
         Template[i] = *pTT;
       }
       else {
