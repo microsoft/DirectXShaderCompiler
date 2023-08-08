@@ -18,13 +18,13 @@
 // CHECK-DAG: %[[sin:.+]] = call float @dx.op.unary.f32(i32 13
 // CHECK: br label %[[final_block:.+]],
 
-// CHECK: [[false_label]]:
+// CHECK: [[false_label]]{{:? *}}; preds =
 // Second side effect
 // CHECK-DAG: call void @dx.op.bufferStore.f32(i32 69, %dx.types.Handle %[[uav_bar]]
 // CHECK-DAG: %[[cos:.+]] = call float @dx.op.unary.f32(i32 12
 // CHECK: br label %[[final_block]],
 
-// CHECK: [[final_block]]:
+// CHECK: [[final_block]]{{:? *}}; preds =
 // CHECK: phi float [ %[[sin]], %[[true_label]] ],  [ %[[cos]], %[[false_label]] ]
 
 // Just check there's no branches.
