@@ -5,8 +5,7 @@
 
 // CHECK-COUNT-16: select i1
 
-// CHECK: icmp ne i32
-// CHECK: 0
+// CHECK: icmp ne i32 %{{.+}}, 0
 
 
 // CHECK-COUNT-16: select i1

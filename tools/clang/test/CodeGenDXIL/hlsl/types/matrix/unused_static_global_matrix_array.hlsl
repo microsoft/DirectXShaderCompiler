@@ -19,5 +19,7 @@ cbuffer C
 
 static const float1x1 bar[1] = foo;
 
+// NOTE: Commented out root signature to work around https://github.com/microsoft/DirectXShaderCompiler/issues/5476
+// [RootSignature("DescriptorTable(SRV(t0), UAV(u0))")]
 void main() {}
 
