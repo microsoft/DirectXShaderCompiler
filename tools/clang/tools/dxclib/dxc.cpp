@@ -555,10 +555,8 @@ void DxcContext::ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult) {
   hlsl::DxilContainerHeader newHeader;
   uint32_t containerSize = hlsl::GetDxilContainerSizeFromParts(1, pPartHeader->PartSize);
   hlsl::InitDxilContainer(&newHeader, 1, containerSize); 
-  CComPtr<IMalloc> pMalloc;
   CComPtr<hlsl::AbstractMemoryStream> pMemoryStream;
-  IFT(CoGetMalloc(1, &pMalloc));
-  IFT(hlsl::CreateMemoryStream(pMalloc, &pMemoryStream));
+  IFT(hlsl::CreateMemoryStream(DxcGetThreadMallocNoRef(), &pMemoryStream));
   ULONG cbWritten;
 
   // Write Container Header

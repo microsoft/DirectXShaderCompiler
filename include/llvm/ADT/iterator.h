@@ -152,12 +152,7 @@ protected:
 
   iterator_adaptor_base() = default;
 
-  // HLSL Change Begins: Fix libc++ build
-  explicit iterator_adaptor_base(WrappedIteratorT u) : I(std::move(u)) {
-    static_assert(std::is_base_of<iterator_adaptor_base, DerivedT>::value,
-                  "Must pass the derived type to this template!");
-  }
-  // HLSL Change Ends
+  explicit iterator_adaptor_base(WrappedIteratorT u) : I(std::move(u)) {}
 
   const WrappedIteratorT &wrapped() const { return I; }
 
@@ -236,6 +231,23 @@ struct pointee_iterator
       : pointee_iterator::iterator_adaptor_base(std::forward<U &&>(u)) {}
 
   T &operator*() const { return **this->I; }
+};
+
+template <typename WrappedIteratorT,
+          typename T = decltype(&*std::declval<WrappedIteratorT>())>
+class pointer_iterator
+    : public iterator_adaptor_base<pointer_iterator<WrappedIteratorT>,
+                                   WrappedIteratorT, T> {
+  mutable T Ptr;
+
+public:
+  pointer_iterator() {}
+
+  explicit pointer_iterator(WrappedIteratorT u)
+      : pointer_iterator::iterator_adaptor_base(std::move(u)) {}
+
+  T &operator*() { return Ptr = &*this->I; }
+  const T &operator*() const { return Ptr = &*this->I; }
 };
 
 }

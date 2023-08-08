@@ -16,7 +16,6 @@
 #include "llvm/IR/Statepoint.h"
 #include "llvm/Support/CommandLine.h"
 
-using namespace std;
 using namespace llvm;
 
 bool llvm::isStatepoint(const ImmutableCallSite &CS) {

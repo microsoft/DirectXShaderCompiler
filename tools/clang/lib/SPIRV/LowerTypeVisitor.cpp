@@ -519,36 +519,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       return spvType;
     }
 
-    // Collect all fields' information.
-    llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
-
-    // If this struct is derived from some other struct, place an implicit
-    // field at the very beginning for the base struct.
-    if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl)) {
-      for (const auto &base : cxxDecl->bases()) {
-        fields.push_back(HybridStructType::FieldInfo(base.getType()));
-      }
-    }
-
-    // Create fields for all members of this struct
-    for (const auto *field : decl->fields()) {
-      llvm::Optional<BitfieldInfo> bitfieldInfo;
-      if (field->isBitField()) {
-        bitfieldInfo = BitfieldInfo();
-        bitfieldInfo->sizeInBits =
-            field->getBitWidthValue(field->getASTContext());
-      }
-
-      fields.push_back(HybridStructType::FieldInfo(
-          field->getType(), field->getName(),
-          /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
-          /*packoffset*/ getPackOffset(field),
-          /*RegisterAssignment*/ nullptr,
-          /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
-          /*bitfield*/ bitfieldInfo));
-    }
-
-    auto loweredFields = populateLayoutInformation(fields, rule);
+    auto loweredFields = lowerStructFields(decl, rule);
 
     const auto *spvStructType =
         spvContext.getStructType(loweredFields, decl->getName());
@@ -566,7 +537,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     if (rule != SpirvLayoutRule::Void &&
         // We won't have stride information for structured/byte buffers since
         // they contain runtime arrays.
-        !isAKindOfStructuredOrByteBuffer(elemType)) {
+        !isAKindOfStructuredOrByteBuffer(elemType) &&
+        !isConstantTextureBuffer(elemType)) {
       uint32_t stride = 0;
       alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
       arrayStride = stride;
@@ -761,6 +733,43 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     return valType;
   }
 
+  if (name == "ConstantBuffer" || name == "TextureBuffer") {
+    // ConstantBuffer<T> and TextureBuffer<T> are lowered as T
+
+    const bool forTBuffer = name == "TextureBuffer";
+
+    if (rule == SpirvLayoutRule::Void) {
+      rule = forTBuffer ? getCodeGenOptions().tBufferLayoutRule
+                        : getCodeGenOptions().cBufferLayoutRule;
+    }
+
+    const auto *bufferType = type->getAs<RecordType>();
+    assert(bufferType);
+    const auto *bufferDecl = bufferType->getDecl();
+
+    // Get the underlying resource type.
+    const auto underlyingType = hlsl::GetHLSLResourceResultType(type);
+
+    const auto *underlyingStructType = underlyingType->getAs<RecordType>();
+    assert(underlyingStructType &&
+           "T in ConstantBuffer<T> or TextureBuffer<T> must be a struct type");
+
+    const auto *underlyingStructDecl = underlyingStructType->getDecl();
+
+    auto loweredFields = lowerStructFields(underlyingStructDecl, rule);
+
+    const std::string structName = "type." + bufferDecl->getName().str() + "." +
+                                   underlyingStructDecl->getName().str();
+
+    const auto *spvStructType = spvContext.getStructType(
+        loweredFields, structName, /*isReadOnly*/ forTBuffer,
+        forTBuffer ? StructInterfaceType::StorageBuffer
+                   : StructInterfaceType::UniformBuffer);
+
+    spvContext.registerStructDeclForSpirvType(spvStructType, bufferDecl);
+    return spvStructType;
+  }
+
   // ByteAddressBuffer types.
   if (name == "ByteAddressBuffer") {
     const auto *bufferType =
@@ -840,6 +849,43 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   }
 
   return nullptr;
+}
+
+llvm::SmallVector<StructType::FieldInfo, 4>
+LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
+                                    SpirvLayoutRule rule) {
+  assert(decl);
+
+  // Collect all fields' information.
+  llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
+
+  // If this struct is derived from some other struct, place an implicit
+  // field at the very beginning for the base struct.
+  if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl)) {
+    for (const auto &base : cxxDecl->bases()) {
+      fields.push_back(HybridStructType::FieldInfo(base.getType()));
+    }
+  }
+
+  // Create fields for all members of this struct
+  for (const auto *field : decl->fields()) {
+    llvm::Optional<BitfieldInfo> bitfieldInfo;
+    if (field->isBitField()) {
+      bitfieldInfo = BitfieldInfo();
+      bitfieldInfo->sizeInBits =
+          field->getBitWidthValue(field->getASTContext());
+    }
+
+    fields.push_back(HybridStructType::FieldInfo(
+        field->getType(), field->getName(),
+        /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
+        /*packoffset*/ getPackOffset(field),
+        /*RegisterAssignment*/ nullptr,
+        /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
+        /*bitfield*/ bitfieldInfo));
+  }
+
+  return populateLayoutInformation(fields, rule);
 }
 
 spv::ImageFormat

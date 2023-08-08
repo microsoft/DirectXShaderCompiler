@@ -10,6 +10,11 @@ configure_file(
   ${LLVM_INCLUDE_DIR}/dxc/Test/TestConfig.h
   )
 
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake
+  ${LLVM_INCLUDE_DIR}/dxc/config.h
+  )
+
 add_subdirectory(DXIL)
 add_subdirectory(DxilContainer)
 add_subdirectory(HLSL)
@@ -17,6 +22,7 @@ add_subdirectory(Support)
 add_subdirectory(Tracing)
 
 set(DXC_PUBLIC_HEADERS
+    ${CMAKE_CURRENT_BINARY_DIR}/config.h
     ${CMAKE_CURRENT_SOURCE_DIR}/dxcapi.h
     ${CMAKE_CURRENT_SOURCE_DIR}/dxcerrors.h
     ${CMAKE_CURRENT_SOURCE_DIR}/dxcisense.h)

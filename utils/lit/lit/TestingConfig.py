@@ -1,6 +1,8 @@
 import os
 import sys
 import platform
+import itertools
+import lit.util
 
 OldPy = sys.version_info[0] == 2 and sys.version_info[1] < 7
 
@@ -11,6 +13,33 @@ def strip_dxil_validator_path(env_path):
         if not os.path.isfile(os.path.join(p, dxil_name))
         ])
 
+def _find_git_windows_unix_tools(tools_needed):
+    assert(sys.platform == 'win32')
+    if sys.version_info.major >= 3:
+        import winreg
+    else:
+        import _winreg as winreg
+
+    # Search both the 64 and 32-bit hives, as well as HKLM + HKCU
+    masks = [0, winreg.KEY_WOW64_64KEY]
+    hives = [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]
+    for mask, hive in itertools.product(masks, hives):
+        try:
+            with winreg.OpenKey(hive, r"SOFTWARE\GitForWindows", 0,
+                                winreg.KEY_READ | mask) as key:
+                install_root, _ = winreg.QueryValueEx(key, 'InstallPath')
+                if not install_root:
+                    continue
+                candidate_path = os.path.join(install_root, 'usr', 'bin')
+                if not lit.util.checkToolsPath(
+                            candidate_path, tools_needed):
+                    continue
+
+                # We found it, stop enumerating.
+                return lit.util.to_string(candidate_path)
+        except:
+            continue
+    raise(f"fail to find {tools_needed} which are required for DXC tests")
 
 class TestingConfig:
     """"
@@ -32,7 +61,14 @@ class TestingConfig:
                                      [os.environ.get('PATH','')])
 
         all_path = strip_dxil_validator_path(all_path)
+        if sys.platform == 'win32':
+            required_tools = [
+                'cmp.exe', 'grep.exe', 'sed.exe', 'diff.exe', 'echo.exe', 'ls.exe']
+            path = lit.util.whichTools(required_tools, all_path)
+            if path is None:
+                path = _find_git_windows_unix_tools(required_tools)
 
+            all_path = f"{path};{all_path}"
         environment = {
             'PATH' : all_path,
             'LLVM_DISABLE_CRASH_REPORT' : '1',
@@ -53,6 +89,7 @@ class TestingConfig:
                     'INCLUDE' : os.environ.get('INCLUDE',''),
                     'PATHEXT' : os.environ.get('PATHEXT',''),
                     'PYTHONUNBUFFERED' : '1',
+                    'USERPROFILE' : os.environ.get('USERPROFILE',''),
                     'TEMP' : os.environ.get('TEMP',''),
                     'TMP' : os.environ.get('TMP',''),
                     })

@@ -15,11 +15,12 @@
 #include <string>
 #include <algorithm>
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Regex.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
+#include "dxc/Support/WinIncludes.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Regex.h"
 
 #ifdef _WIN32
 #include <atlbase.h>
@@ -600,7 +601,7 @@ public:
 
     // Write the container
     CComPtr<IMalloc> pMalloc;
-    VERIFY_SUCCEEDED(CoGetMalloc(1, &pMalloc));
+    VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &pMalloc));
     CComPtr<AbstractMemoryStream> pOutputStream;
     VERIFY_SUCCEEDED(CreateMemoryStream(pMalloc, &pOutputStream));
     pOutputStream->Reserve(pContainerWriter->size());

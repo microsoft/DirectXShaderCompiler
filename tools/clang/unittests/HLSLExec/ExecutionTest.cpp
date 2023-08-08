@@ -165,7 +165,6 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
   CComPtr<IWICBitmapEncoder> pEncoder;
   CComPtr<IWICBitmapFrameEncode> pFrameEncode;
   CComPtr<IStream> pStream;
-  CComPtr<IMalloc> pMalloc;
 
   struct PF {
     DXGI_FORMAT Format;
@@ -182,7 +181,6 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
 
   VERIFY_SUCCEEDED(ctx.Init());
   VERIFY_SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&pFactory));
-  VERIFY_SUCCEEDED(CoGetMalloc(1, &pMalloc));
   VERIFY_ARE_NOT_EQUAL(pFormat, Vals + _countof(Vals));
   VERIFY_SUCCEEDED(pFactory->CreateBitmapFromMemory(m_width, m_height, pFormat->PixelFormat, m_width * pFormat->PixelSize, m_width * m_height * pFormat->PixelSize, (BYTE *)pPixels, &pBitmap));
   VERIFY_SUCCEEDED(pFactory->CreateEncoder(GUID_ContainerFormatBmp, nullptr, &pEncoder));

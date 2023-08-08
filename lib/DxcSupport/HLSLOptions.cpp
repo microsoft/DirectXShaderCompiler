@@ -130,36 +130,36 @@ void DxcDefines::BuildDefines() {
   }
 }
 
-bool DxcOpts::IsRootSignatureProfile() {
+bool DxcOpts::IsRootSignatureProfile() const {
   return TargetProfile == "rootsig_1_0" ||
       TargetProfile == "rootsig_1_1";
 }
 
-bool DxcOpts::IsLibraryProfile() {
+bool DxcOpts::IsLibraryProfile() const {
   return TargetProfile.startswith("lib_");
 }
 
-bool DxcOpts::GenerateFullDebugInfo() {
+bool DxcOpts::GenerateFullDebugInfo() const {
   return DebugInfo;
 }
 
-bool DxcOpts::GeneratePDB() {
+bool DxcOpts::GeneratePDB() const {
   return DebugInfo || SourceOnlyDebug;
 }
 
-bool DxcOpts::EmbedDebugInfo() {
+bool DxcOpts::EmbedDebugInfo() const {
   return EmbedDebug;
 }
 
-bool DxcOpts::EmbedPDBName() {
+bool DxcOpts::EmbedPDBName() const {
   return GeneratePDB() || !DebugFile.empty();
 }
 
-bool DxcOpts::DebugFileIsDirectory() {
+bool DxcOpts::DebugFileIsDirectory() const {
   return !DebugFile.empty() && llvm::sys::path::is_separator(DebugFile[DebugFile.size() - 1]);
 }
 
-llvm::StringRef DxcOpts::GetPDBName() {
+llvm::StringRef DxcOpts::GetPDBName() const {
   if (!DebugFileIsDirectory())
     return DebugFile;
   return llvm::StringRef();
@@ -986,6 +986,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
   opts.SpirvOptions.preserveBindings =
       Args.hasFlag(OPT_fspv_preserve_bindings, OPT_INVALID, false);
+  opts.SpirvOptions.preserveInterface =
+      Args.hasFlag(OPT_fspv_preserve_interface, OPT_INVALID, false);
+  opts.SpirvOptions.allowRWStructuredBufferArrays =
+      Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
@@ -1105,7 +1109,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_scalar_layout, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspv_use_legacy_buffer_matrix_order, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_use_legacy_buffer_matrix_order, OPT_INVALID,
+                   false) ||
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
@@ -1114,6 +1119,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID,
+                   false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_debug_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||

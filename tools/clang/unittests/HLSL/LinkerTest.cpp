@@ -21,6 +21,7 @@
 #include "WexTestClass.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
+#include "dxc/Support/Global.h" // for IFT macro
 #include "dxc/dxcapi.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 
@@ -40,6 +41,7 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   TEST_METHOD(RunLinkResource);
+  TEST_METHOD(RunLinkModulesDifferentVersions);
   TEST_METHOD(RunLinkResourceWithBinding);
   TEST_METHOD(RunLinkAllProfiles);
   TEST_METHOD(RunLinkFailNoDefine);
@@ -51,6 +53,7 @@ public:
   TEST_METHOD(RunLinkMatParamToLib);
   TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
+  TEST_METHOD(RunLinkToLibOdNops);
   TEST_METHOD(RunLinkToLibExport);
   TEST_METHOD(RunLinkToLibExportShadersOnly);
   TEST_METHOD(RunLinkFailReDefineGlobal);
@@ -157,14 +160,14 @@ public:
 
   void LinkCheckMsg(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
             ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pErrorMsgs,
-            llvm::ArrayRef<LPCWSTR> pArguments = {}) {
+            llvm::ArrayRef<LPCWSTR> pArguments = {}, bool bRegex=false) {
     CComPtr<IDxcOperationResult> pResult;
     VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel,
                                    libNames.data(), libNames.size(),
                                    pArguments.data(), pArguments.size(),
                                    &pResult));
     CheckOperationResultMsgs(pResult, pErrorMsgs.data(), pErrorMsgs.size(),
-                             false, false);
+                             false, bRegex);
   }
 };
 
@@ -271,6 +274,97 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   LPCWSTR libResName = L"res";
   RegisterDxcModule(libResName, pResLib, pLinker);
   Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {},{});
+}
+
+TEST_F(LinkerTest, RunLinkModulesDifferentVersions) {
+  CComPtr<IDxcLinker> pLinker1, pLinker2, pLinker3;
+  CreateLinker(&pLinker1);
+  CreateLinker(&pLinker2);
+  CreateLinker(&pLinker3);
+
+  LPCWSTR libName = L"entry";
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib, option);
+
+  // the 2nd blob is the "good" blob that stays constant
+  CComPtr<IDxcBlob> pResLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
+  LPCWSTR libResName = L"res";
+
+  // modify the first compiled blob to force it to have a different compiler
+  // version
+  CComPtr<IDxcContainerReflection> containerReflection;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                  &containerReflection));
+  IFT(containerReflection->Load(pEntryLib));
+  UINT part_index;
+  VERIFY_SUCCEEDED(containerReflection->FindFirstPartKind(
+      hlsl::DFCC_CompilerVersion, &part_index));
+  CComPtr<IDxcBlob> pBlob;
+  IFT(containerReflection->GetPartContent(part_index, &pBlob));
+  void *pBlobPtr = pBlob->GetBufferPointer();
+
+  std::string commonMismatchStr =
+      "error: Cannot link libraries with conflicting compiler versions.";
+
+  hlsl::DxilCompilerVersion *pDCV = (hlsl::DxilCompilerVersion *)pBlobPtr;
+  if (pDCV->VersionStringListSizeInBytes) {
+    // first just get both strings, the compiler version and the commit hash
+    char *pVersionStringListPtr =
+        (char *)pBlobPtr + sizeof(hlsl::DxilCompilerVersion);
+    std::string commitHashStr(pVersionStringListPtr);
+    std::string oldCommitHashStr = commitHashStr;
+    std::string compilerVersionStr(pVersionStringListPtr +
+                                   commitHashStr.size() + 1);
+    std::string oldCompilerVersionStr = compilerVersionStr;
+
+    // flip a character to change the commit hash
+    *pVersionStringListPtr = commitHashStr[0] == 'a' ? 'b' : 'a';
+    // store the modified compiler version part.
+    RegisterDxcModule(libName, pEntryLib, pLinker1);
+    // and the "good" version part
+    RegisterDxcModule(libResName, pResLib, pLinker1);
+    // 2 blobs with different compiler versions should not be linkable
+    LinkCheckMsg(L"hs_main", L"hs_6_1", pLinker1, {libName, libResName},
+                 {commonMismatchStr.c_str()});
+
+    // reset the modified part back to normal
+    *pVersionStringListPtr = oldCommitHashStr[0];
+
+    // flip a character to change the compiler version
+    *(pVersionStringListPtr + commitHashStr.size() + 1) =
+        compilerVersionStr[0] == '1' ? '2' : '1';
+    // store the modified compiler version part.
+    RegisterDxcModule(libName, pEntryLib, pLinker2);
+    // and the "good" version part
+    RegisterDxcModule(libResName, pResLib, pLinker2);
+    // 2 blobs with different compiler versions should not be linkable
+    LinkCheckMsg(L"hs_main", L"hs_6_1", pLinker2, {libName, libResName},
+                 {commonMismatchStr.c_str()});
+
+    // reset the modified part back to normal
+    *(pVersionStringListPtr + commitHashStr.size() + 1) =
+        oldCompilerVersionStr[0];
+  } else {
+    // The blob can't be changed by adding data, since the
+    // the data after this header could be a subsequent header.
+    // The test should announce that it can't make any version string
+    // modifications
+    WEX::Logging::Log::Warning(
+        L"Cannot modify compiler version string for test");
+  }
+
+  // finally, test that a difference is detected if a member of the struct, say
+  // the major member, is different.
+  pDCV->Major = pDCV->Major == 2 ? 1 : 2;
+  // store the modified compiler version part.
+  RegisterDxcModule(libName, pEntryLib, pLinker3);
+  // and the "good" version part
+  RegisterDxcModule(libResName, pResLib, pLinker3);
+  // 2 blobs with different compiler versions should not be linkable
+  LinkCheckMsg(L"hs_main", L"hs_6_1", pLinker3, {libName, libResName},
+               {commonMismatchStr.c_str()});
 }
 
 TEST_F(LinkerTest, RunLinkFailNoDefine) {
@@ -482,6 +576,29 @@ TEST_F(LinkerTest, RunLinkToLib) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {}, option);
+}
+
+TEST_F(LinkerTest, RunLinkToLibOdNops) {
+  LPCWSTR option[] = {L"-Od"};
+
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
+             &pEntryLib, option);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(
+      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
+      &pLib, option);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.nothing.a, i32 0, i32 0"}, {}, option);
 }
 
 TEST_F(LinkerTest, RunLinkToLibExport) {
