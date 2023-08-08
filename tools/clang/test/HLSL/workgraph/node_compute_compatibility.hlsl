@@ -23,14 +23,14 @@ void node01()
 [Shader("compute")]             // expected-note {{compute defined here}}
 [NumThreads(128,1,1)]
 [NodeLaunch("Coalescing")]      // expected-error {{Node shader 'node02' with coalescing launch type is not compatible with compute}}
-void node02(GroupNodeInputRecords<RECORD> input)
+void node02()
 { }
 
 [Shader("compute")]             // expected-note {{compute defined here}}
 [Shader("node")]
 [NumThreads(1,1,1)]
 [NodeLaunch("Thread")]          // expected-error {{Node shader 'node03' with thread launch type is not compatible with compute}}
-void node03(ThreadNodeInputRecord<RECORD> input)
+void node03()
 { }
 
 [Shader("node")]
