@@ -1,6 +1,13 @@
 // RUN: %dxc -T lib_6_4 -HV 2021 %s -ast-dump | FileCheck %s -check-prefix=AST
 // RUN: %dxc -T lib_6_4 -HV 2021 %s -fcgl | FileCheck %s
 
+// This test verifies two things. First it verifies that the AST instantiates a
+// correct AST where the `CXXThisExpr` is an lvalue of type array_ext<float, 3>
+// rather than a pointer (as C++ would have).
+
+// Secondarily it verifies that the code geneariton for the `this` reference
+// correctly resolves to the base pointer and indexes off the base class member.
+
 // AST: ClassTemplateDecl {{.*}} array_ext
 // AST-NEXT: TemplateTypeParmDecl {{.*}} referenced typename T
 // AST-NEXT: NonTypeTemplateParmDecl {{.*}} referenced 'uint32_t':'unsigned int' N

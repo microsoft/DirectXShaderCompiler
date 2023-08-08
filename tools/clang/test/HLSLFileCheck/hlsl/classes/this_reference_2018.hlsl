@@ -3,6 +3,18 @@
 // RUN: %dxc -T lib_6_6 %s -HV 2021 -ast-dump | FileCheck %s -check-prefix=AST
 // RUN: %dxc -T lib_6_6 %s -HV 2021 -fcgl | FileCheck %s
 
+// This test verifies two things, and it verifies them each under both HLSL 2018
+// and HLSL 2021 language modes. The behavior between the two modes should not
+// differ.
+
+// The first thing this verifies is that the AST formulation for
+// `array_ext::test` uses the `this` reference as an lvalue of type `array_ext`
+// rather than a pointer (as C++ would).
+
+// The second part of this test is to verify the code generation to verify that
+// the base class address is resolved and that the member is indexed off the
+// base class as expected.
+
 // AST: CXXRecordDecl {{.*}} referenced class array definition
 // AST-NEXT: CXXRecordDecl {{.*}} implicit class array
 // AST-NEXT: FieldDecl {{.*}} referenced mArr 'float [4]'
