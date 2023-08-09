@@ -24,7 +24,7 @@ using namespace sys;
 
 MutexImpl::MutexImpl(bool /*recursive*/)
 {
-  C_ASSERT(sizeof(data_) == sizeof(CRITICAL_SECTION));
+  static_assert(sizeof(data_) == sizeof(CRITICAL_SECTION), "");
   // data_ = new CRITICAL_SECTION; // HLSL Change
   InitializeCriticalSection((LPCRITICAL_SECTION)data_);
 }

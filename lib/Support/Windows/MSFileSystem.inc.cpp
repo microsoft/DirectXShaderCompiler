@@ -238,6 +238,7 @@ static bool is_separator(const wchar_t value) {
 
 // TODO: consider erasing this
 namespace {
+  [[maybe_unused]]
   error_code TempDir(_In_ MSFileSystemRef fsr, SmallVectorImpl<wchar_t> &result) {
   retry_temp_dir:
     DWORD len = fsr->GetTempPathW(result.capacity(), result.begin());

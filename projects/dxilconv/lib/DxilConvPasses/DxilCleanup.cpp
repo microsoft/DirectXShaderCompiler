@@ -127,8 +127,9 @@ public:
     // I cannot delete these constructors, because vector depends on them, even if I never trigger them.
     // So assert if they are hit instead.
     LiveRange(const LiveRange &other)
-      : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU), pNewType(other.pNewType),
-      defs(other.defs), bitcastMap(other.bitcastMap)
+        : id(other.id), defs(other.defs),
+          bitcastMap(other.bitcastMap) ,numI(other.numI), numF(other.numF),
+          numU(other.numU), pNewType(other.pNewType)
     { DXASSERT_NOMSG(false); }
     LiveRange(LiveRange &&other)
       : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU), pNewType(other.pNewType),
@@ -1265,6 +1266,7 @@ Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigIn
     ArgTypes[2] = Type::getInt64Ty(*m_pCtx);
   } else {
     IFT(DXC_E_OPTIMIZATION_FAILED);
+    OpCode = DXIL::OpCode::NumOpCodes;
   }
 
   // Get function.
@@ -1307,6 +1309,8 @@ bool DxilCleanup::IsDxilBitcast(Value *pValue) {
       case OP::OpCode::BitcastI32toF32:
       case OP::OpCode::BitcastI64toF64:
         return true;
+      default:
+        break;
       }
     }
   }

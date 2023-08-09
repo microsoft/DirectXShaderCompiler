@@ -189,11 +189,11 @@ Retry:
     // punctuator, then we are using them as identifers. Need to change
     // the token type to tok::identifier and fall through to the next case.
     // E.g., center = <RHS>.
-    if (tok::isPunctuator(NextToken().getKind())) {
+    if (!tok::isPunctuator(NextToken().getKind())) {
+      goto tok_default_case;
+    } else {
       Tok.setKind(tok::identifier);
       LLVM_FALLTHROUGH;
-    } else {
-      goto tok_default_case;
     }
   }
     // HLSL Change Ends
