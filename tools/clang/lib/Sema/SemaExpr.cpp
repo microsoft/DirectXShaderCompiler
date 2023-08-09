@@ -5026,7 +5026,13 @@ Sema::ActOnCallExpr(Scope *S, Expr *Fn, SourceLocation LParenLoc,
     }
 
     if (Fn->getType() == Context.BoundMemberTy) {
-      return BuildCallToMemberFunction(S, Fn, LParenLoc, ArgExprs, RParenLoc);
+      // HLSL Change Begin - Diagnose HLSL member calls
+      auto memberCall = BuildCallToMemberFunction(S, Fn, LParenLoc, ArgExprs, RParenLoc);
+      if (getLangOpts().HLSL && !memberCall.isInvalid())
+        if (CXXMemberCallExpr *call = dyn_cast<CXXMemberCallExpr>(memberCall.get()))
+          DiagnoseHLSLMemberCallExpr(call);
+      return memberCall;
+      // HLSL Change End
     }
   }
 

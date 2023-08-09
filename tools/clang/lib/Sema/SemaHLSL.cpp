@@ -11325,68 +11325,36 @@ static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
   return NameLookup{ pFoundDecl, nullptr };
 }
 
-// Work Graph checks:
-// - intrinsics are only called by nodes with appropriate launch types
-class WorkGraphVisitor : public RecursiveASTVisitor<WorkGraphVisitor> {
-private:
-  Sema &S;
-  // Current Launch Node
-  StringRef nodeLaunchType;
-  StringRef funcName;
-  SourceLocation nodeLaunchLoc;
-  SourceLocation computeLoc;
-  SourceLocation nodeLoc;
-  unsigned inputCount;
-
-public:
-  WorkGraphVisitor(Sema &S) : S(S) {}
-
-  void diagnose(TranslationUnitDecl *TU) { TraverseTranslationUnitDecl(TU); }
-
-  bool VisitCallExpr(CallExpr *C) {
-
-    if (FunctionDecl *FD = C->getDirectCallee()) {
-      if (FD->hasAttr<HLSLIntrinsicAttr>()) {
-        // this is a call to a HLSL intrinsic FinishedCrossGroupSharing
-        hlsl::IntrinsicOp opCode =
-            (IntrinsicOp)FD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-        if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
-          const CXXMethodDecl *MD = cast<CXXMethodDecl>(FD);
-          const CXXRecordDecl *NodeRecDecl = MD->getParent();
-          // Node I/O records are templateTypes
-          const ClassTemplateSpecializationDecl *templateDecl =
-              cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
-          auto &TemplateArgs = templateDecl->getTemplateArgs();
-          DXASSERT(TemplateArgs.size() == 1,
-                   "Input record types need to have one template argument");
-          auto &Rec = TemplateArgs.get(0);
-          clang::QualType RecType = Rec.getAsType();
-          RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
-          if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
-            S.Diags.Report(C->getLocStart(),
-                           diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
-        }
+// Check HLSL member call constraints
+void Sema::DiagnoseHLSLMemberCallExpr(const CXXMemberCallExpr *C) {
+  if (const FunctionDecl *FD = C->getDirectCallee()) {
+    if (FD->hasAttr<HLSLIntrinsicAttr>()) {
+      // If this is a call to FinishedCrossGroupSharing then the Input record
+      // must have the NodeTrackRWInputSharing attribute
+      hlsl::IntrinsicOp opCode =
+          (IntrinsicOp)FD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
+      if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
+        const CXXMethodDecl *MD = cast<CXXMethodDecl>(FD);
+        const CXXRecordDecl *NodeRecDecl = MD->getParent();
+        // Node I/O records are templateTypes
+        const ClassTemplateSpecializationDecl *templateDecl =
+            cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
+        auto &TemplateArgs = templateDecl->getTemplateArgs();
+        DXASSERT(TemplateArgs.size() == 1,
+                 "Input record types need to have one template argument");
+        auto &Rec = TemplateArgs.get(0);
+        clang::QualType RecType = Rec.getAsType();
+        RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
+        if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
+          Diags.Report(C->getLocStart(),
+                       diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
       }
     }
-    return true;
   }
-
-};
-
-namespace hlsl {
-
-void DiagnoseWorkGraphConstraints(clang::Sema &S,
-                                  clang::TranslationUnitDecl *TU) {
-  WorkGraphVisitor visitor(S);
-  visitor.diagnose(TU);
 }
-} // namespace hlsl
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
-
-  // Check constraints for work graphs (even if errors have already been raised)
-  DiagnoseWorkGraphConstraints(*self, self->getASTContext().getTranslationUnitDecl());
 
   // Don't bother with global validation if compilation has already failed.
   if (self->getDiagnostics().hasErrorOccurred()) {
