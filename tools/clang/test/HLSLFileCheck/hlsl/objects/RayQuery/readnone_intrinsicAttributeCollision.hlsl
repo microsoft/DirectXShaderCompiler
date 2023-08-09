@@ -1,5 +1,5 @@
-// RUN: %dxc -T ps_6_5 -E PS -fcgl %s | FileCheck %s
-// RUN: %dxc -T ps_6_5 -E PS %s | FileCheck %s -check-prefix=CHECKDXIL
+// RUN: %dxc -T ps_6_7 -E PS -fcgl %s | FileCheck %s
+// RUN: %dxc -T ps_6_7 -E PS %s | FileCheck %s -check-prefix=CHECKDXIL
 
 // IncrementCounter called before GetRenderTargetSampleCount.
 // Don't be sensitive to HL Opcode because those can change.
@@ -24,15 +24,15 @@ StructuredBuffer<int> buf[]: register(t3);
 RWStructuredBuffer<int> uav;
 
 // test read-none attr
-int PS(float4x4 a : A, int b : B) : SV_Target
+int PS(float a : A, int b : B) : SV_Target
 {
   int res = 0;
   
   for (;;) {    
-    float x = EvaluateAttributeCentroid(a[1].z);
+    float x = EvaluateAttributeCentroid(a);
     x += QuadReadAcrossX(x);
     
-    if (a[0].x != x) {
+    if (a != x) {
       res += buf[(int)x][b];
       break;
     }
