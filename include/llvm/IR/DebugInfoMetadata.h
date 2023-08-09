@@ -115,10 +115,10 @@ public:
 
   public:
     using iterator_category = std::input_iterator_tag;
-    using value_type = DIType *;
+    using value_type = DITypeRef;
     using difference_type = std::ptrdiff_t;
     using pointer = void;
-    using reference = DIType *;
+    using reference = DITypeRef;
   
     iterator() = default;
     explicit iterator(MDNode::op_iterator I) : I(I) {}

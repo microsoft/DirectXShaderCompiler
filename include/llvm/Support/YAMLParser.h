@@ -305,7 +305,7 @@ private:
 template <class BaseT, class ValueT>
 class basic_collection_iterator {
 public:
-  using iterator_category = std::input_iterator_tag;
+  using iterator_category = std::forward_iterator_tag;
   using value_type = ValueT;
   using difference_type = std::ptrdiff_t;
   using pointer = value_type *;
