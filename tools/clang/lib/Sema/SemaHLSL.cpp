@@ -2112,13 +2112,20 @@ static bool CombineBasicTypes(ArBasicKind LeftKind,
                               ArBasicKind RightKind,
                               _Out_ ArBasicKind* pOutKind)
 {
+  // Make sure the kinds are both valid
+  if ((LeftKind < 0 || LeftKind >= AR_BASIC_MAXIMUM_COUNT) ||
+    (RightKind < 0 || RightKind >= AR_BASIC_MAXIMUM_COUNT)) {
+    return false;
+  }
+
+  // If kinds match perfectly, succeed without requiring they be basic
   if (LeftKind == RightKind) {
     *pOutKind = LeftKind;
     return true;
   }
 
-  if ((LeftKind < 0 || LeftKind >= AR_BASIC_COUNT) ||
-    (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
+  // More complicated combination requires that the kinds be basic
+  if (LeftKind >= AR_BASIC_COUNT || RightKind >= AR_BASIC_COUNT) {
     return false;
   }
 
