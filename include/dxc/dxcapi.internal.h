@@ -53,23 +53,32 @@ enum LEGAL_INTRINSIC_TEMPLATES {
 static const BYTE INTRIN_COMPTYPE_FROM_TYPE_ELT0 = 0xff;
 
 enum LEGAL_INTRINSIC_COMPTYPES {
-  LICOMPTYPE_VOID = 0,            // void, used for function returns
-  LICOMPTYPE_BOOL = 1,            // bool
-  LICOMPTYPE_INT = 2,             // i32, int-literal
-  LICOMPTYPE_UINT = 3,            // u32, int-literal
-  LICOMPTYPE_ANY_INT = 4,         // i32, u32, i64, u64, int-literal
-  LICOMPTYPE_ANY_INT32 = 5,       // i32, u32, int-literal
-  LICOMPTYPE_UINT_ONLY = 6,       // u32, u64, int-literal; no casts allowed
-  LICOMPTYPE_FLOAT = 7,           // f32, partial-precision-f32, float-literal
-  LICOMPTYPE_ANY_FLOAT = 8,       // f32, partial-precision-f32, f64, float-literal, min10-float, min16-float, half
-  LICOMPTYPE_FLOAT_LIKE = 9,      // f32, partial-precision-f32, float-literal, min10-float, min16-float, half
-  LICOMPTYPE_FLOAT_DOUBLE = 10,   // f32, partial-precision-f32, f64, float-literal
-  LICOMPTYPE_DOUBLE = 11,         // f64, float-literal
-  LICOMPTYPE_DOUBLE_ONLY = 12,    // f64; no casts allowed
-  LICOMPTYPE_NUMERIC = 13,        // float-literal, f32, partial-precision-f32, f64, min10-float, min16-float, int-literal, i32, u32, min12-int, min16-int, min16-uint, i64, u64
-  LICOMPTYPE_NUMERIC32 = 14,      // float-literal, f32, partial-precision-f32, int-literal, i32, u32
-  LICOMPTYPE_NUMERIC32_ONLY = 15, // float-literal, f32, partial-precision-f32, int-literal, i32, u32; no casts allowed
-  LICOMPTYPE_ANY = 16,            // float-literal, f32, partial-precision-f32, f64, min10-float, min16-float, int-literal, i32, u32, min12-int, min16-int, min16-uint, bool, i64, u64
+  LICOMPTYPE_VOID = 0,       // void, used for function returns
+  LICOMPTYPE_BOOL = 1,       // bool
+  LICOMPTYPE_INT = 2,        // i32, int-literal
+  LICOMPTYPE_UINT = 3,       // u32, int-literal
+  LICOMPTYPE_ANY_INT = 4,    // i32, u32, i64, u64, int-literal
+  LICOMPTYPE_ANY_INT32 = 5,  // i32, u32, int-literal
+  LICOMPTYPE_UINT_ONLY = 6,  // u32, u64, int-literal; no casts allowed
+  LICOMPTYPE_FLOAT = 7,      // f32, partial-precision-f32, float-literal
+  LICOMPTYPE_ANY_FLOAT = 8,  // f32, partial-precision-f32, f64, float-literal,
+                             // min10-float, min16-float, half
+  LICOMPTYPE_FLOAT_LIKE = 9, // f32, partial-precision-f32, float-literal,
+                             // min10-float, min16-float, half
+  LICOMPTYPE_FLOAT_DOUBLE =
+      10,                      // f32, partial-precision-f32, f64, float-literal
+  LICOMPTYPE_DOUBLE = 11,      // f64, float-literal
+  LICOMPTYPE_DOUBLE_ONLY = 12, // f64; no casts allowed
+  LICOMPTYPE_NUMERIC = 13, // float-literal, f32, partial-precision-f32, f64,
+                           // min10-float, min16-float, int-literal, i32, u32,
+                           // min12-int, min16-int, min16-uint, i64, u64
+  LICOMPTYPE_NUMERIC32 =
+      14, // float-literal, f32, partial-precision-f32, int-literal, i32, u32
+  LICOMPTYPE_NUMERIC32_ONLY = 15, // float-literal, f32, partial-precision-f32,
+                                  // int-literal, i32, u32; no casts allowed
+  LICOMPTYPE_ANY = 16, // float-literal, f32, partial-precision-f32, f64,
+                       // min10-float, min16-float, int-literal, i32, u32,
+                       // min12-int, min16-int, min16-uint, bool, i64, u64
   LICOMPTYPE_SAMPLER1D = 17,
   LICOMPTYPE_SAMPLER2D = 18,
   LICOMPTYPE_SAMPLER3D = 19,
@@ -78,7 +87,7 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_SAMPLER = 22,
   LICOMPTYPE_STRING = 23,
   LICOMPTYPE_WAVE = 24,
-  LICOMPTYPE_UINT64 = 25,         // u64, int-literal
+  LICOMPTYPE_UINT64 = 25, // u64, int-literal
   LICOMPTYPE_FLOAT16 = 26,
   LICOMPTYPE_INT16 = 27,
   LICOMPTYPE_UINT16 = 28,
