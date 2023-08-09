@@ -55,7 +55,6 @@ set(HLSL_IGNORE_SOURCES
   MSFileSysTest.cpp
   PixTest.cpp
   RewriterTest.cpp
-  ShaderOpTest.cpp
   )
 
 add_clang_unittest(ClangHLSLTests

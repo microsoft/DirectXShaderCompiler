@@ -36,7 +36,6 @@ using namespace llvm;
 class LinkerTest {
 #else
 class LinkerTest : public ::testing::Test {
-protected:
 #endif
 public:
   BEGIN_TEST_CLASS(LinkerTest)
