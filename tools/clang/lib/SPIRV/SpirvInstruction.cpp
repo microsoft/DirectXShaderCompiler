@@ -566,6 +566,9 @@ SpirvConstantComposite::SpirvConstantComposite(
 SpirvConstantNull::SpirvConstantNull(QualType type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
 
+SpirvConstantNull::SpirvConstantNull(const SpirvType *type)
+    : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
+
 bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
   return opcode == that.opcode && resultType == that.resultType &&
          astResultType == that.astResultType;

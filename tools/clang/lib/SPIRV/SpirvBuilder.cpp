@@ -1699,6 +1699,13 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   return nullConst;
 }
 
+SpirvConstant *SpirvBuilder::getConstantNull(const SpirvType *type) {
+  // We do not care about making unique constants at this point.
+  auto *nullConst = new (context) SpirvConstantNull(type);
+  mod->addConstant(nullConst);
+  return nullConst;
+}
+
 SpirvString *SpirvBuilder::createString(llvm::StringRef str) {
   // Create a SpirvString instruction
   auto *instr = new (context) SpirvString(/* SourceLocation */ {}, str);

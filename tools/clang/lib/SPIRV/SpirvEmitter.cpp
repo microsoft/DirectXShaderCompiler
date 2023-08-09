@@ -1501,9 +1501,16 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         // If the source code does not provide a proper return value for some
         // control flow path, it's undefined behavior. We just return null
         // value here.
-        SpirvInstruction * nullValue = spvBuilder.getConstantNull(retType);
-        if (isOrContainsAKindOfStructuredOrByteBuffer(retType))
+        SpirvInstruction *nullValue = nullptr;
+        if (isOrContainsAKindOfStructuredOrByteBuffer(retType)) {
+          const auto *hybridType =
+              spvContext.getPointerType(retType, spv::StorageClass::Uniform);
+          nullValue = spvBuilder.getConstantNull(hybridType);
           nullValue->setLayoutRule(spirvOptions.sBufferLayoutRule);
+          nullValue->setStorageClass(spv::StorageClass::Uniform);
+        } else {
+          nullValue = spvBuilder.getConstantNull(retType);
+        }
 
         spvBuilder.createReturnValue(nullValue, returnLoc);
       }

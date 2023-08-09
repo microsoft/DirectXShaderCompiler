@@ -1228,6 +1228,7 @@ private:
 class SpirvConstantNull : public SpirvConstant {
 public:
   SpirvConstantNull(QualType type);
+  SpirvConstantNull(const SpirvType *type);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantNull)
 

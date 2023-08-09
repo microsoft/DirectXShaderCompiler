@@ -754,6 +754,7 @@ public:
                        llvm::ArrayRef<SpirvConstant *> constituents,
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
+  SpirvConstant *getConstantNull(const SpirvType *);
 
   SpirvString *createString(llvm::StringRef str);
   SpirvString *getString(llvm::StringRef str);
