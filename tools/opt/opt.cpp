@@ -53,6 +53,7 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 // HLSL Change Starts
+#include "llvm/Option/StaticCommonOptions.inc"
 #include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/Support/Global.h"
@@ -72,8 +73,6 @@ using namespace opt_tool;
 static cl::list<const PassInfo*, bool, PassNameParser>
 PassList(cl::desc("Optimizations available:"));
 
-
-static cl::opt<bool> Help("help", cl::desc("Print help"));
 
 // This flag specifies a textual description of the optimization pass pipeline
 // to run over the module. This flag switches opt to use the new pass manager
