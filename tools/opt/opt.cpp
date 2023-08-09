@@ -72,6 +72,9 @@ using namespace opt_tool;
 static cl::list<const PassInfo*, bool, PassNameParser>
 PassList(cl::desc("Optimizations available:"));
 
+
+static cl::opt<bool> Help("help", cl::desc("Print help"));
+
 // This flag specifies a textual description of the optimization pass pipeline
 // to run over the module. This flag switches opt to use the new pass manager
 // infrastructure, completely disabling all of the flags specific to the old
@@ -307,6 +310,7 @@ void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
 #endif
 namespace hlsl {
 HRESULT SetupRegistryPassForHLSL();
+HRESULT SetupRegistryPassForPIX();
 } // namespace hlsl
 // HLSL Change End
 
@@ -365,6 +369,7 @@ int __cdecl main(int argc, char **argv) {
   // HLSL Change Starts
   initializeDxilModuleInitPass(Registry);
   hlsl::SetupRegistryPassForHLSL();
+  hlsl::SetupRegistryPassForPIX();
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
@@ -377,6 +382,10 @@ int __cdecl main(int argc, char **argv) {
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
 
+  if (InputFilename == "" || Help) {
+    cl::PrintHelpMessage();
+    return 2;
+  }
   if (AnalyzeOnly && NoOutput) {
     errs() << argv[0] << ": analyze mode conflicts with no-output mode.\n";
     return 1;

@@ -9,6 +9,7 @@ set(LLVM_LINK_COMPONENTS
   HLSL # HLSL Change
   DxilContainer #  HLSL Change for DxcOptimizerPass
   DxilRootSignature #  HLSL Change for DxcOptimizerPass
+  DxilPIXPasses # HLSL Change for PIX passes.
   IPA
   IPO
   IRReader
