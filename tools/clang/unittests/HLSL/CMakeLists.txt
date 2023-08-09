@@ -52,7 +52,6 @@ add_clang_library(ClangHLSLTests SHARED
   add_dependencies(ClangUnitTests ClangHLSLTests)
 else (WIN32)
 set(HLSL_IGNORE_SOURCES
-  LinkerTest.cpp
   MSFileSysTest.cpp
   PixTest.cpp
   RewriterTest.cpp
@@ -69,6 +68,7 @@ add_clang_unittest(ClangHLSLTests
   ExtensionTest.cpp
   FunctionTest.cpp
   HLSLTestOptions.cpp
+  LinkerTest.cpp
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp

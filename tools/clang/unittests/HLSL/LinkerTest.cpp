@@ -18,7 +18,9 @@
 
 #include <fstream>
 
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h" // for IFT macro
@@ -30,49 +32,53 @@ using namespace hlsl;
 using namespace llvm;
 
 // The test fixture.
-class LinkerTest
-{
+#ifdef _WIN32
+class LinkerTest {
+#else
+class LinkerTest : public ::testing::Test {
+protected:
+#endif
 public:
   BEGIN_TEST_CLASS(LinkerTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_CLASS_SETUP(InitSupport);
+  TEST_CLASS_SETUP(InitSupport)
 
-  TEST_METHOD(RunLinkResource);
-  TEST_METHOD(RunLinkModulesDifferentVersions);
-  TEST_METHOD(RunLinkResourceWithBinding);
-  TEST_METHOD(RunLinkAllProfiles);
-  TEST_METHOD(RunLinkFailNoDefine);
-  TEST_METHOD(RunLinkFailReDefine);
-  TEST_METHOD(RunLinkGlobalInit);
-  TEST_METHOD(RunLinkNoAlloca);
-  TEST_METHOD(RunLinkMatArrayParam);
-  TEST_METHOD(RunLinkMatParam);
-  TEST_METHOD(RunLinkMatParamToLib);
-  TEST_METHOD(RunLinkResRet);
-  TEST_METHOD(RunLinkToLib);
-  TEST_METHOD(RunLinkToLibOdNops);
-  TEST_METHOD(RunLinkToLibExport);
-  TEST_METHOD(RunLinkToLibExportShadersOnly);
-  TEST_METHOD(RunLinkFailReDefineGlobal);
-  TEST_METHOD(RunLinkFailProfileMismatch);
-  TEST_METHOD(RunLinkFailEntryNoProps);
-  TEST_METHOD(RunLinkFailSelectRes);
-  TEST_METHOD(RunLinkToLibWithUnresolvedFunctions);
-  TEST_METHOD(RunLinkToLibWithUnresolvedFunctionsExports);
-  TEST_METHOD(RunLinkToLibWithExportNamesSwapped);
-  TEST_METHOD(RunLinkToLibWithExportCollision);
-  TEST_METHOD(RunLinkToLibWithUnusedExport);
-  TEST_METHOD(RunLinkToLibWithNoExports);
-  TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
-  TEST_METHOD(RunLinkWithValidatorVersion);
-  TEST_METHOD(RunLinkWithInvalidValidatorVersion);
-  TEST_METHOD(RunLinkWithTempReg);
-  TEST_METHOD(RunLinkToLibWithGlobalCtor);
-  TEST_METHOD(LinkSm63ToSm66);
-  TEST_METHOD(RunLinkWithRootSig);
+  TEST_METHOD(RunLinkResource)
+  TEST_METHOD(RunLinkModulesDifferentVersions)
+  TEST_METHOD(RunLinkResourceWithBinding)
+  TEST_METHOD(RunLinkAllProfiles)
+  TEST_METHOD(RunLinkFailNoDefine)
+  TEST_METHOD(RunLinkFailReDefine)
+  TEST_METHOD(RunLinkGlobalInit)
+  TEST_METHOD(RunLinkNoAlloca)
+  TEST_METHOD(RunLinkMatArrayParam)
+  TEST_METHOD(RunLinkMatParam)
+  TEST_METHOD(RunLinkMatParamToLib)
+  TEST_METHOD(RunLinkResRet)
+  TEST_METHOD(RunLinkToLib)
+  TEST_METHOD(RunLinkToLibOdNops)
+  TEST_METHOD(RunLinkToLibExport)
+  TEST_METHOD(RunLinkToLibExportShadersOnly)
+  TEST_METHOD(RunLinkFailReDefineGlobal)
+  TEST_METHOD(RunLinkFailProfileMismatch)
+  TEST_METHOD(RunLinkFailEntryNoProps)
+  TEST_METHOD(RunLinkFailSelectRes)
+  TEST_METHOD(RunLinkToLibWithUnresolvedFunctions)
+  TEST_METHOD(RunLinkToLibWithUnresolvedFunctionsExports)
+  TEST_METHOD(RunLinkToLibWithExportNamesSwapped)
+  TEST_METHOD(RunLinkToLibWithExportCollision)
+  TEST_METHOD(RunLinkToLibWithUnusedExport)
+  TEST_METHOD(RunLinkToLibWithNoExports)
+  TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions)
+  TEST_METHOD(RunLinkWithValidatorVersion)
+  TEST_METHOD(RunLinkWithInvalidValidatorVersion)
+  TEST_METHOD(RunLinkWithTempReg)
+  TEST_METHOD(RunLinkToLibWithGlobalCtor)
+  TEST_METHOD(LinkSm63ToSm66)
+  TEST_METHOD(RunLinkWithRootSig)
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -351,8 +357,12 @@ TEST_F(LinkerTest, RunLinkModulesDifferentVersions) {
     // the data after this header could be a subsequent header.
     // The test should announce that it can't make any version string
     // modifications
+#if _WIN32
     WEX::Logging::Log::Warning(
         L"Cannot modify compiler version string for test");
+#else
+    FAIL() << "Cannot modify compiler version string for test";
+#endif
   }
 
   // finally, test that a difference is detected if a member of the struct, say
