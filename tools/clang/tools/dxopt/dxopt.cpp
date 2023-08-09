@@ -69,15 +69,15 @@ static HRESULT ReadStdin(std::string &input) {
     std::getline(std::cin, line);
     if (line.empty()) {
       emptyLine = true;
-      break;
+      continue;
     }
 
     std::copy(line.begin(), line.end(),
               std::back_inserter(input));
+    input.push_back('\n');
   }
 
   DWORD lastError = GetLastError();
-
   // Make sure we reached finished successfully.
   if (std::cin.eof())
     return S_OK;

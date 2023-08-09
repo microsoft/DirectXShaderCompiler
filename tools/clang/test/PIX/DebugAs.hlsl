@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tas_6_5 %s | %opt -S -hlsl-dxil-debug-instrumentation,parameter0=10,parameter1=20,parameter2=30 | %FileCheck %s
+// RUN: %dxc -Emain -Tas_6_5 %s | %dxopt - -S -hlsl-dxil-debug-instrumentation,parameter0=10,parameter1=20,parameter2=30 | FileCheck %s
 
 // Check that the AS thread IDs are added properly
 
