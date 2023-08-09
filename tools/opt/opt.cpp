@@ -53,13 +53,15 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 // HLSL Change Starts
-#include "llvm/Option/StaticCommonOptions.inc"
 #include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/Support/Global.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
+
+// regist help options.
+void setupHelpPrint();
 // HLSL Change Ends
 
 #include <algorithm>
@@ -372,16 +374,16 @@ int __cdecl main(int argc, char **argv) {
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
+
+  setupHelpPrint();
   // HLSL Change Ends
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
 #endif
-
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
-
-  if (InputFilename == "" || Help) {
+  if (InputFilename == "") {
     cl::PrintHelpMessage();
     return 2;
   }
