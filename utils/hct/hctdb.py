@@ -2947,6 +2947,7 @@ class db_hlsl(object):
             "p32u8" : "LICOMPTYPE_UINT8_4PACKED",
             "any_int16or32": "LICOMPTYPE_ANY_INT16_OR_32",
             "sint16or32_only": "LICOMPTYPE_SINT16_OR_32_ONLY",
+            "any_sampler": "LICOMPTYPE_ANY_SAMPLER",
             }
         self.trans_rowcol = {
             "r": "IA_R",
@@ -3076,7 +3077,7 @@ class db_hlsl(object):
                         template_list = "LITEMPLATE_ANY"
                     else:
                         base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
+                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc") or base_type.startswith("any_sampler"):
                             template_list = "LITEMPLATE_OBJECT"
                         else:
                             template_list = "LITEMPLATE_SCALAR"
