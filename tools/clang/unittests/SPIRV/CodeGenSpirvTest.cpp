@@ -3246,5 +3246,8 @@ TEST_F(FileTest, SpirvOptFre) {
 TEST_F(FileTest, SpirvOptQStripReflect) {
   runFileTest("spirv.opt.qstripreflect.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, SpirvOptGec) {
+  runFileTest("spirv.opt.gec.hlsl", Expect::Failure);
+}
 
 } // namespace
