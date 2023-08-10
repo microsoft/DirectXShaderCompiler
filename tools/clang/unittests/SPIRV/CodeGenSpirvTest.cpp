@@ -171,6 +171,9 @@ TEST_F(FileTest, RWStructuredBufferArrayBindAttributes) {
 TEST_F(FileTest, RWStructuredBufferUnboundedArray) {
   runFileTest("type.rwstructured-buffer.array.unbounded.counter.hlsl");
 }
+TEST_F(FileTest, RWStructuredBufferMultiDimentionalArray) {
+  runFileTest("type.rwstructured-buffer.array.multidim.counter.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, AppendStructuredBufferArrayError) {
   runFileTest("type.append-structured-buffer.array.hlsl");
 }
