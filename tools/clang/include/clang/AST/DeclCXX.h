@@ -1830,6 +1830,13 @@ public:
   /// Should only be called for instance (i.e., non-static) methods.
   QualType getThisType(ASTContext &C) const;
 
+  // HLSL Change Begin - This is a reference.
+  /// \brief Returns the type of the \c this object looking through the pointer.
+  ///
+  /// Should only be called for instance (i.e., non-static) methods.
+  QualType getThisObjectType(ASTContext &C) const;
+  // HLSL Change End - This is a reference.
+
   unsigned getTypeQualifiers() const {
     return getType()->getAs<FunctionProtoType>()->getTypeQuals();
   }
