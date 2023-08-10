@@ -4,6 +4,18 @@
 # DXIL information.                                                           #
 ###############################################################################
 import os
+import pdb
+
+def parse_command_line_options():
+    import argparse
+    parser = argparse.ArgumentParser(description="A script for outputting and searching through all Dxil Instructions")
+    
+    parser.add_argument(
+        '--query',
+        action='store_true',
+        help='A switch that indicates a query is being made against the database of DXIL instructions.')
+    options = parser.parse_args()
+    return options
 
 all_stages = (
     'vertex',
@@ -3246,7 +3258,29 @@ class db_hlsl(object):
         self.attributes = attributes
 
 
+def parse_options(db, options):
+    if options.query == True:
+        print()
+        for dxil_inst in db.instr:
+            ops = []
+            #pdb.set_trace()
+            for op in dxil_inst.ops:            
+                ops.append(op.llvm_type)
+            ret_type = ""
+            if len(ops) > 0:
+                ret_type = ops[0]
+            args = []
+            if len(ops) > 1:
+                args = ops[1:]
+
+            print("[{}] {}({})".format(ret_type, dxil_inst.name, ",".join(args)))
+
+
+
 if __name__ == "__main__":
     db = db_dxil()
     print(db)
     db.print_stats()
+
+    options = parse_command_line_options()
+    parse_options(db, options)
