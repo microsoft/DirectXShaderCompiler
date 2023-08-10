@@ -130,23 +130,29 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   std::uint32_t InstNum = m_StartInstruction;
-  llvm::StringMap<std::pair<int, int>> InstructionRangeByFunctionName;
 
   auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
   for (auto * F : instrumentableFunctions) {
-    auto shaderKind = PIXPassHelpers::GetFunctionShaderKind(*m_DM, F);
-    std::string FunctioNamePlusKind =
-        F->getName().str() + " " + hlsl::ShaderModel::GetKindName(shaderKind);
-    auto &EndInstruction = InstructionRangeByFunctionName[FunctioNamePlusKind];
-    EndInstruction.first = InstNum;
+    int InstructionRangeStart = InstNum;
+    int InstructionRangeEnd = InstNum;
     for (auto &block : F->getBasicBlockList()) {
       for (llvm::Instruction &I : block.getInstList()) {
         if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
           pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
-          EndInstruction.second = InstNum;
+          InstructionRangeEnd = InstNum;
         }
       }
+    }
+    if (OSOverride != nullptr) {
+      auto shaderKind = PIXPassHelpers::GetFunctionShaderKind(*m_DM, F);
+      std::string FunctioNamePlusKind =
+          F->getName().str() + " " + hlsl::ShaderModel::GetKindName(shaderKind);
+      *OSOverride << "InstructionRange: ";
+      llvm::StringRef printableNameSubset =
+          PrintableSubsetOfMangledFunctionName(FunctioNamePlusKind);
+      *OSOverride << InstructionRangeStart << " " << InstructionRangeEnd << " "
+                  << printableNameSubset << "\n";
     }
   }
 
@@ -155,14 +161,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     if (m_DM->GetShaderModel()->GetKind() == hlsl::ShaderModel::Kind::Library)
         *OSOverride << "\nIsLibrary\n";
     *OSOverride << "\nInstructionCount:" << InstNum << "\n";
-    for (auto const &fn : InstructionRangeByFunctionName) {
-      *OSOverride << "InstructionRange: ";
-      llvm::StringRef printableNameSubset =
-          PrintableSubsetOfMangledFunctionName(fn.first());
-      *OSOverride << fn.second.first << " " << fn.second.second << " "
-                  << printableNameSubset
-                  << "\n";
-    }
   }
 
   for (auto * F : instrumentableFunctions) {
