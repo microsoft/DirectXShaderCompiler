@@ -107,6 +107,16 @@ void DxilAnnotateWithVirtualRegister::applyOptions(llvm::PassOptions O) {
 
 char DxilAnnotateWithVirtualRegister::ID = 0;
 
+static llvm::StringRef
+PrintableSubsetOfMangledFunctionName(llvm::StringRef mangled) {
+  llvm::StringRef printableNameSubset = mangled;
+  if (mangled.size() > 2 && mangled[0] == '\1' && mangled[1] == '?') {
+    printableNameSubset =
+        llvm::StringRef(mangled.data() + 2, mangled.size() - 2);
+  }
+  return printableNameSubset;
+}
+
 bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   Init(M);
   if (m_DM == nullptr) {
@@ -120,39 +130,37 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   std::uint32_t InstNum = m_StartInstruction;
-  std::map<llvm::StringRef, std::pair<int, int>> InstructionRangeByFunctionName;
 
   auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
   for (auto * F : instrumentableFunctions) {
-    auto &EndInstruction = InstructionRangeByFunctionName[F->getName()];
-    EndInstruction.first = InstNum;
+    int InstructionRangeStart = InstNum;
+    int InstructionRangeEnd = InstNum;
     for (auto &block : F->getBasicBlockList()) {
       for (llvm::Instruction &I : block.getInstList()) {
         if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
           pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
-          EndInstruction.second = InstNum;
+          InstructionRangeEnd = InstNum;
         }
       }
+    }
+    if (OSOverride != nullptr) {
+      auto shaderKind = PIXPassHelpers::GetFunctionShaderKind(*m_DM, F);
+      std::string FunctioNamePlusKind =
+          F->getName().str() + " " + hlsl::ShaderModel::GetKindName(shaderKind);
+      *OSOverride << "InstructionRange: ";
+      llvm::StringRef printableNameSubset =
+          PrintableSubsetOfMangledFunctionName(FunctioNamePlusKind);
+      *OSOverride << InstructionRangeStart << " " << InstructionRangeEnd << " "
+                  << printableNameSubset << "\n";
     }
   }
 
   if (OSOverride != nullptr) {
     // Print a set of strings of the exemplary form "InstructionCount: <n> <fnName>"
+    if (m_DM->GetShaderModel()->GetKind() == hlsl::ShaderModel::Kind::Library)
+        *OSOverride << "\nIsLibrary\n";
     *OSOverride << "\nInstructionCount:" << InstNum << "\n";
-    for (auto const &fn : InstructionRangeByFunctionName) {
-      *OSOverride << "InstructionRange: ";
-      int skipOverLeadingUnprintableCharacters = 0;
-      if (fn.first.size() > 2 && fn.first[0] == '\1' && fn.first[1] == '?') {
-        skipOverLeadingUnprintableCharacters = 2;
-      }
-      *OSOverride << fn.second.first << " " << fn.second.second << " "
-                  << (fn.first.str().c_str() +
-                      skipOverLeadingUnprintableCharacters)
-                  << "\n";
-    }
-
-    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
   for (auto * F : instrumentableFunctions) {
@@ -169,10 +177,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
         AnnotateStore(&I);
       }
     }
-  }
-
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nEnd - dxil values to virtual register mapping\n";
   }
 
   m_DM = nullptr;
