@@ -30,6 +30,8 @@ namespace PIXPassHelpers
     llvm::Function* GetEntryFunction(hlsl::DxilModule& DM);
     std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM);
     std::vector<llvm::Function*> GetAllInstrumentableFunctions(hlsl::DxilModule& DM);
+    hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
+                                           llvm::Function *fn);
 #ifdef PIX_DEBUG_DUMP_HELPER
     void Log(const char* format, ...);
     void LogPartialLine(const char* format, ...);
