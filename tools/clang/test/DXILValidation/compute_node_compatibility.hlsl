@@ -8,8 +8,7 @@
 // for each shader in turn.
 // ==================================================================
 
-struct RECORD
-{
+struct RECORD {
   uint a;
 };
 
