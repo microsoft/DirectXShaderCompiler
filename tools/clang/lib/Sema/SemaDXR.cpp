@@ -1140,7 +1140,8 @@ void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
 
 void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
 
   if (FD->getNumParams() != 1)
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
@@ -1164,7 +1165,8 @@ void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
                                DXIL::ShaderKind Stage) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
 
   unsigned ExpectedParams = Stage == DXIL::ShaderKind::Miss ? 1 : 2;
   if (ExpectedParams != FD->getNumParams()) {
@@ -1205,7 +1207,8 @@ void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
 void DiagnoseRayGenerationOrIntersectionEntry(Sema &S, FunctionDecl *FD,
                                               HLSLShaderAttr *Attr) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
   unsigned ExpectedParams = 0;
   if (ExpectedParams != FD->getNumParams())
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
@@ -1215,7 +1218,8 @@ void DiagnoseRayGenerationOrIntersectionEntry(Sema &S, FunctionDecl *FD,
 
 void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
   unsigned ExpectedParams = 2;
 
   if (ExpectedParams != FD->getNumParams()) {
@@ -1366,7 +1370,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   }
 
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
 
   // Check parameter constraints
   for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {

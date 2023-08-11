@@ -7599,8 +7599,8 @@ def err_attributes_requiers_in : Error<
   "intersection attributes parameter %0 must be 'in'">;
 def err_payload_attrs_must_be_udt : Error<
   "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
-def err_raytracing_must_return_void : Error<
-  "return type for ray tracing shaders must be void">;
+def err_shader_must_return_void : Error<
+  "return type for '%0' shaders must be void">;
 def err_raytracing_entry_param_count : Error<
   "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
 def err_payload_fields_not_qualified : Error<
