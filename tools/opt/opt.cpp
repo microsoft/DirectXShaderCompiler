@@ -125,7 +125,14 @@ DisableOptimizations("disable-opt",
 static cl::opt<bool>
 StandardLinkOpts("std-link-opts",
                  cl::desc("Include the standard link time optimizations"));
-#endif // HLSL Change Ends
+#endif
+
+static cl::opt<bool> ShowHelp("?", cl::desc("Show the help message"));
+
+static cl::alias ShowHelpA("help", cl::desc("Alias for -?"),
+                           cl::aliasopt(ShowHelp));
+
+// HLSL Change Ends
 
 static cl::opt<bool>
 OptLevelO1("O1",
@@ -383,6 +390,12 @@ int __cdecl main(int argc, char **argv) {
   }
 
   SMDiagnostic Err;
+
+  // Handle any help options first
+  if (ShowHelp) {
+    cl::PrintHelpMessage();
+    return 2;
+  }
 
   // Load the input module...
   std::unique_ptr<Module> M = parseIRFile(InputFilename, Err, Context);
