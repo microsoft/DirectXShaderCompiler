@@ -1589,7 +1589,8 @@ void DeclResultIdMapper::createCounterVar(
   const SpirvType *counterType = spvContext.getACSBufferCounterType();
   QualType declType = decl->getType();
   if (declType->isArrayType()) {
-    // Vulkan does not support multi-dimentional arrays of resource, so we assume the array is a single dimensional array.
+    // Vulkan does not support multi-dimentional arrays of resource, so we
+    // assume the array is a single dimensional array.
     assert(!declType->getArrayElementTypeNoTypeQual()->isArrayType());
     uint32_t arrayStride = 4;
     if (const auto *constArrayType =

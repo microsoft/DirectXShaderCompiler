@@ -1720,13 +1720,21 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
   // Reject arrays of RW/append/consume structured buffers. They have assoicated
   // counters, which are quite nasty to handle.
-  if (decl->getType()->isArrayType() && isRWAppendConsumeSBuffer(decl->getType())) {
+  if (decl->getType()->isArrayType() &&
+      isRWAppendConsumeSBuffer(decl->getType())) {
     if (!spirvOptions.allowRWStructuredBufferArrays) {
-      emitError("arrays of RW/append/consume structured buffers unsupported", loc);
+      emitError("arrays of RW/append/consume structured buffers unsupported",
+                loc);
       return;
-    } else if (decl->getType()->getAsArrayTypeUnsafe()->getElementType()->isArrayType()) {
-      // See https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#interfaces-resources-setandbinding
-      emitError("Multi-dimensional arrays of RW/append/consume structured buffers are unsupported in Vulkan", loc);
+    } else if (decl->getType()
+                   ->getAsArrayTypeUnsafe()
+                   ->getElementType()
+                   ->isArrayType()) {
+      // See
+      // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#interfaces-resources-setandbinding
+      emitError("Multi-dimensional arrays of RW/append/consume structured "
+                "buffers are unsupported in Vulkan",
+                loc);
       return;
     }
   }
