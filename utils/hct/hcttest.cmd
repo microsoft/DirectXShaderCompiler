@@ -307,7 +307,7 @@ if "%TEST_USE_LIT%"=="1" (
     set TEST_CLANG=1
   )
   if "%TEST_ALL%"=="1" (
-    rem check all - run all tests
+    rem check all except exec.
     cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
     set RES_EXEC=!RES_CLANG!
