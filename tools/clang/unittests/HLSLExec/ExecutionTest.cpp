@@ -6435,7 +6435,7 @@ HRESULT TableParameterHandler::ParseTableRow() {
 
 static bool CompareOutputWithExpectedValueInt(int output, int ref,
                                               int tolerance) {
-  return output - ref <= tolerance && ref - output <= tolerance;
+  return ((output - ref) <= tolerance) && ((ref - output) <= tolerance);
 }
 
 static bool VerifyOutputWithExpectedValueInt(int output, int ref,
