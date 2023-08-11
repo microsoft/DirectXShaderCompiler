@@ -58,18 +58,18 @@ float2 main(float4 a:A) : SV_Target {
 
 
 // DI: [[DIFile:![0-9]+]] = !DIFile
-// DI: [[DIFloat:![0-9]+]] = !DIBasicType(name: "float", size: 32, align: 32, encoding: DW_ATE_float)
+// DI-DAG: [[DIFloat:![0-9]+]] = !DIBasicType(name: "float", size: 32, align: 32, encoding: DW_ATE_float)
 
-// DI: [[FSub:![0-9]+]] = !DISubprogram(name: "foo", linkageName: "\01?foo@?$Test@{{[A-Z@0-9]+}}", scope: [[FloatScope:![0-9]+]], file: [[DIFile]], line: {{[0-9]+}}, type: {{![0-9]+}}, isLocal: false, isDefinition: true, scopeLine: {{[0-9]+}}, flags: DIFlagPrototyped, isOptimized: false, function: float (%"struct.Test<float>"*, float)* @"\01?foo@?$Test@{{[A-Z@0-9]+}}",
-// DI: [[DITestF:![0-9]+]] = !DICompositeType(tag: DW_TAG_structure_type, name: "Test<float>"
+// DI-DAG: [[FSub:![0-9]+]] = !DISubprogram(name: "foo", linkageName: "\01?foo@?$Test@{{[A-Z@0-9]+}}", scope: [[FloatScope:![0-9]+]], file: [[DIFile]], line: {{[0-9]+}}, type: {{![0-9]+}}, isLocal: false, isDefinition: true, scopeLine: {{[0-9]+}}, flags: DIFlagPrototyped, isOptimized: false, function: float (%"struct.Test<float>"*, float)* @"\01?foo@?$Test@{{[A-Z@0-9]+}}",
+// DI-DAG: [[DITestF:![0-9]+]] = !DICompositeType(tag: DW_TAG_structure_type, name: "Test<float>"
 
-// DI: [[VSub:![0-9]+]] = !DISubprogram(name: "foo", linkageName: "\01?foo@?$Test@V?$vector{{[A-Za-z0-9@?$]+}}", scope: [[VecScope:![0-9]+]], file: [[DIFile]], line: {{[0-9]+}}, type: {{![0-9]+}}, isLocal: false, isDefinition: true, scopeLine: {{[0-9]+}}, flags: DIFlagPrototyped, isOptimized: false, function: <2 x float> (%"struct.Test<vector<float, 2> >"*, <2 x float>)* @"\01?foo@?$Test@V?$vector{{[A-Za-z0-9@?$]+}}",
-// DI: [[DITestV:![0-9]+]] = !DICompositeType(tag: DW_TAG_structure_type, name: "Test<vector<float, 2> >", file: [[DIFile]], line: {{[0-9]+}}, size: 64, align: 32
+// DI-DAG: [[VSub:![0-9]+]] = !DISubprogram(name: "foo", linkageName: "\01?foo@?$Test@V?$vector{{[A-Za-z0-9@?$]+}}", scope: [[VecScope:![0-9]+]], file: [[DIFile]], line: {{[0-9]+}}, type: {{![0-9]+}}, isLocal: false, isDefinition: true, scopeLine: {{[0-9]+}}, flags: DIFlagPrototyped, isOptimized: false, function: <2 x float> (%"struct.Test<vector<float, 2> >"*, <2 x float>)* @"\01?foo@?$Test@V?$vector{{[A-Za-z0-9@?$]+}}",
+// DI-DAG: [[DITestV:![0-9]+]] = !DICompositeType(tag: DW_TAG_structure_type, name: "Test<vector<float, 2> >", file: [[DIFile]], line: {{[0-9]+}}, size: 64, align: 32
 
-// DI: [[t1FVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "t1", arg: 2, scope: [[FSub]], file: [[DIFile]], line: {{[0-9]+}}, type: [[DIFloat]])
-// DI: [[thisFVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "this", arg: 1, scope: [[FSub]], type: [[thisFPtr:![0-9]+]])
-// DI: [[thisFPtr]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: [[DITestF]], size: 32, align: 32)
+// DI-DAG: [[t1FVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "t1", arg: 2, scope: [[FSub]], file: [[DIFile]], line: {{[0-9]+}}, type: [[DIFloat]])
+// DI-DAG: [[thisFVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "this", arg: 1, scope: [[FSub]], type: [[thisFPtr:![0-9]+]])
+// DI-DAG: [[thisFPtr]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: [[DITestF]], size: 32, align: 32)
 
-// DI: [[t1VVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "t1", arg: 2, scope: [[VSub]], file: [[DIFile]]
-// DI: [[thisVVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "this", arg: 1, scope: [[VSub]], type: [[thisVPtr:![0-9]+]])
-// DI: [[thisVPtr]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: [[DITestV]], size: 32, align: 32)
+// DI-DAG: [[t1VVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "t1", arg: 2, scope: [[VSub]], file: [[DIFile]]
+// DI-DAG: [[thisVVar]] = !DILocalVariable(tag: DW_TAG_arg_variable, name: "this", arg: 1, scope: [[VSub]], type: [[thisVPtr:![0-9]+]])
+// DI-DAG: [[thisVPtr]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: [[DITestV]], size: 32, align: 32)
