@@ -1,5 +1,5 @@
-// RUN: %dxc -E main -T ps_6_0 -fcgl %s | FileCheck %s
-// RUN: %dxc -E main -T ps_6_0 -fcgl -Zi -Qembed_debug %s | FileCheck -check-prefixes=CHECK,DI %s
+// RUN: %dxc -HV 2021 -E main -T ps_6_0 -fcgl %s | FileCheck %s
+// RUN: %dxc -HV 2021 -E main -T ps_6_0 -fcgl -Zi -Qembed_debug %s | FileCheck -check-prefixes=CHECK,DI %s
 
 // The goal of this test is to verify the instantiations of `foo` are correctly
 // generated _and_ to verify that the correct debug information is generated for
