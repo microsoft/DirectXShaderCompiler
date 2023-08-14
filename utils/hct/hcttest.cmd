@@ -310,7 +310,6 @@ if "%TEST_USE_LIT%"=="1" (
     rem check all except exec.
     cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
-    set RES_EXEC=!RES_CLANG!
     set RES_DXILCONV=!RES_CLANG!
   ) else (
     if "%TEST_DXILCONV%"=="1" (
@@ -334,16 +333,16 @@ if "%TEST_USE_LIT%"=="1" (
       set RES_EXEC=!ERRORLEVEL!
     )
   )
-  if "%TEST_EXTRAS%"=="0" OR NOT EXIST "%HCT_EXTRAS%\hcttest-extras.cmd" (
+  if "%TEST_EXTRAS%"=="1" (
+    set TEST_CLANG=0
+    set TEST_DXILCONV=0
+    set TEST_SPIRV=0
+    set TEST_EXEC=0
+    set TEST_CMD=0
+  ) else (
     rem No other tests to run - skip copying and move on to report the results
     goto :report_results
   )
-
-  set TEST_CLANG=0
-  set TEST_DXILCONV=0
-  set TEST_SPIRV=0
-  set TEST_EXEC=0
-  set TEST_CMD=0
 )
 
 if not exist %TEST_DIR% (mkdir %TEST_DIR%)
