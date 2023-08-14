@@ -23,8 +23,8 @@
 #include <set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
-#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
-#include "dxc/Support/DxcOptToggles.h" // HLSL chanhge
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL change
+#include "dxc/Support/DxcOptToggles.h" // HLSL change
 
 namespace clang {
 
