@@ -557,19 +557,6 @@ StringToMeshOutputTopology(StringRef topology) {
   return DXIL::MeshOutputTopology::Undefined;
 }
 
-static DXIL::NodeLaunchType
-StringToNodeLaunchType(StringRef launchType) {
-  if (launchType.equals_lower("broadcasting"))
-    return DXIL::NodeLaunchType::Broadcasting;
-  if (launchType.equals_lower("coalescing"))
-    return DXIL::NodeLaunchType::Coalescing;
-  if (launchType.equals_lower("thread"))
-    return DXIL::NodeLaunchType::Thread;
-
-  DXASSERT(false, "Invalid Node Launch Type");
-  return DXIL::NodeLaunchType::Invalid;
-}
-
 static unsigned GetMatrixSizeInCB(QualType Ty, bool defaultRowMajor,
                                   bool b64Bit) {
   bool bRowMajor;
@@ -1859,7 +1846,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // Assign function properties for all "node" attributes.
   if (const auto *pAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
     if (isNode)
-      funcProps->Node.LaunchType = StringToNodeLaunchType(pAttr->getLaunchType());
+      funcProps->Node.LaunchType =
+        ShaderModel::NodeLaunchTypeFromName(pAttr->getLaunchType());
     else
       ReportMissingNodeDiag(Diags, pAttr);
   }

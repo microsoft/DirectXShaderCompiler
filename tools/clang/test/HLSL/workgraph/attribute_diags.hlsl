@@ -103,12 +103,12 @@ void node13(RWDispatchNodeInputRecord<SharedRecord> input)
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(32, 1, 1)]
-void node14() // expected-error {{Node shader 'node14' with launch type 'Broadcasting' requires 'numthreads' attribute}}
+void node14() // expected-error {{Node shader 'node14' with broadcasting launch type requires 'numthreads' attribute}}
 { }
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
-void node15() // expected-error {{Node shader 'node15' with launch type 'coalescing' requires 'numthreads' attribute}}
+void node15() // expected-error {{Node shader 'node15' with coalescing launch type requires 'numthreads' attribute}}
 { }
 
 [Shader("node")]
