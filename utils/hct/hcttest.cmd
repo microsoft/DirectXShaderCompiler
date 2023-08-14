@@ -333,14 +333,14 @@ if "%TEST_USE_LIT%"=="1" (
       set RES_EXEC=!ERRORLEVEL!
     )
   )
-  if "%TEST_EXTRAS%"=="1" (
-    set TEST_CLANG=0
-    set TEST_DXILCONV=0
-    set TEST_SPIRV=0
-    set TEST_EXEC=0
-    set TEST_CMD=0
-  ) else (
-    rem No other tests to run - skip copying and move on to report the results
+  set TEST_CLANG=0
+  set TEST_DXILCONV=0
+  set TEST_SPIRV=0
+  set TEST_EXEC=0
+  set TEST_CMD=0
+
+  rem No other tests to run - skip copying and move on to report the results
+  if not exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
     goto :report_results
   )
 )
