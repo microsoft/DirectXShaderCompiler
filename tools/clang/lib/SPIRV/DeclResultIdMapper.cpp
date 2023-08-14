@@ -3312,6 +3312,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   spv::StorageClass sc = spv::StorageClass::Max;
   // Valid builtins supported
   switch (builtIn) {
+  case spv::BuiltIn::HelperInvocation:
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
     needsLegalization = true;

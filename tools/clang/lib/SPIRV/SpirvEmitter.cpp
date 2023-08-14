@@ -8504,6 +8504,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
     needsLegalization = true;
   } break;
+  case hlsl::IntrinsicOp::IOP_IsHelperLane:
+    retVal = processIsHelperLane(callExpr, srcLoc, srcRange);
+    break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
     retVal = processWaveQuery(callExpr, spv::Op::OpGroupNonUniformElect);
     break;
@@ -9159,6 +9162,32 @@ SpirvInstruction *SpirvEmitter::processWaveQuery(const CallExpr *callExpr,
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformElect(
       opcode, retType, spv::Scope::Subgroup, callExpr->getExprLoc());
+}
+
+SpirvInstruction *SpirvEmitter::processIsHelperLane(const CallExpr *callExpr,
+                                                    SourceLocation loc,
+                                                    SourceRange range) {
+  assert(callExpr->getNumArgs() == 0);
+
+  if(!featureManager.isTargetEnvVulkan1p3OrAbove()) {
+    // If IsHelperlane is used for Vulkan 1.2 or less, we enable
+    // SPV_EXT_demote_to_helper_invocation extension to use
+    // OpIsHelperInvocationEXT instruction.
+    featureManager.allowExtension("SPV_EXT_demote_to_helper_invocation");
+
+    const QualType retType = callExpr->getCallReturnType(astContext);
+    return spvBuilder.createIsHelperInvocationEXT(retType, callExpr->getExprLoc());
+  }
+
+  // The SpreadVolatileSemanticsPass legalization pass will decorate the
+  // load with Volatile.
+  const QualType retType = callExpr->getCallReturnType(astContext);
+  auto *var =
+    declIdMapper.getBuiltinVar(spv::BuiltIn::HelperInvocation, retType, loc);
+  auto retVal = spvBuilder.createLoad(retType, var, loc, range);
+  needsLegalization = true;
+
+  return retVal;
 }
 
 SpirvInstruction *SpirvEmitter::processWaveVote(const CallExpr *callExpr,
