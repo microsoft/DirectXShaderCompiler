@@ -2950,9 +2950,6 @@ TEST_F(FileTest, RichDebugInfoTypeCompositeBeforeFunction) {
 TEST_F(FileTest, RichDebugInfoMemberFunctionParam) {
   runFileTest("rich.debug.member.function.param.hlsl");
 }
-TEST_F(FileTest, DISABLED_RichDebugInfoMemberFunctionWithoutCall) {
-  runFileTest("rich.debug.member.function.without-call.hlsl");
-}
 TEST_F(FileTest, RichDebugInfoTypeComposite) {
   runFileTest("rich.debug.type.composite.hlsl");
 }
