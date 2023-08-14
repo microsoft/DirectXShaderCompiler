@@ -277,8 +277,8 @@ private:
     const std::string disableStr("_DISABLE_");
     const std::string selectStr("_SELECT_");
 
-    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles;
-    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationSelects;
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles.Toggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationToggles.Selects;
 
     const llvm::SmallVector<std::string, 2> &semDefPrefixes =
                              m_langExtensionsHelper.GetSemanticDefines();
@@ -372,12 +372,11 @@ public:
   void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
     auto &CodeGenOpts = m_CI.getCodeGenOpts();
     CGO.HLSLEnableLifetimeMarkers &=
-        (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
-         CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
+        CodeGenOpts.HLSLOptimizationToggles.IsEnabled(
+            hlsl::options::TOGGLE_LIFETIME_MARKERS);
   }
-  virtual bool IsOptionEnabled(std::string option) override {
-    return m_CI.getCodeGenOpts().HLSLOptimizationToggles.count(option) &&
-      m_CI.getCodeGenOpts().HLSLOptimizationToggles.find(option)->second;
+  virtual bool IsOptionEnabled(hlsl::options::Toggle toggle) override {
+    return m_CI.getCodeGenOpts().HLSLOptimizationToggles.IsEnabled(toggle);
   }
 
   virtual std::string GetIntrinsicName(UINT opcode) override {
@@ -1362,9 +1361,6 @@ public:
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
 
-    compiler.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers =
-      Opts.DxcOptimizationToggles.count("partial-lifetime-markers") && Opts.DxcOptimizationToggles.find("partial-lifetime-markers")->second;
-
     // Enable dumping implicit top level decls either if it was specifically
     // requested or if we are not dumping the ast from the command line. That
     // allows us to dump implicit AST nodes in the debugger.
@@ -1410,8 +1406,7 @@ public:
     compiler.getCodeGenOpts().HLSLOnlyWarnOnUnrollFail = Opts.EnableFXCCompatMode;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
-    compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.DxcOptimizationToggles;
-    compiler.getCodeGenOpts().HLSLOptimizationSelects = Opts.DxcOptimizationSelects;
+    compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.OptToggles;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs = Opts.IgnoreOptSemDefs;
     compiler.getCodeGenOpts().HLSLIgnoreSemDefs = Opts.IgnoreSemDefs;
