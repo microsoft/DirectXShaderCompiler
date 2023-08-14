@@ -1316,8 +1316,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     S.Diags.Report(nodeLaunchLoc, diag::err_hlsl_compute_launch_compatibility)
       << FD->getName() << ShaderModel::GetNodeLaunchTypeName(nodeLaunchType);
     S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
-    // ignore other compute incompatibilities (i.e. input/output records)
-    computeLoc = SourceLocation();
   }
 
   // Check that if a Thread launch node has the NumThreads attribute the
@@ -1398,8 +1396,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
                      diag::err_hlsl_compute_io_compatibility)
         << FD->getName() << "node input/output" << Param->getSourceRange();
       S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
-      // ignore any other errors
-      return;
     }
 
     // Check any node input is compatible with the node launch type
