@@ -1839,7 +1839,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
-    if (!isEntry && !isNode) {
+    if ((!SM->IsLib() && !isEntry) && !isNode) {
       unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error,
         "attribute WaveSize only valid on entry point function.");
