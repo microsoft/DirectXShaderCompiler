@@ -530,10 +530,24 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   // Array type
   if (const auto *arrayType = astContext.getAsArrayType(type)) {
     const auto elemType = arrayType->getElementType();
-    const auto *loweredElemType =
-        lowerType(arrayType->getElementType(), rule, isRowMajor, srcLoc);
-    llvm::Optional<uint32_t> arrayStride = llvm::None;
 
+    // If layout rule is void, it means these resource types are used for
+    // declaring local resources. This should be lowered to a pointer to the
+    // array.
+    //
+    // The pointer points to the Uniform storage class, and the element type
+    // should have the corresponding layout.
+    bool isLocalStructuredOrByteBuffer =
+        isAKindOfStructuredOrByteBuffer(elemType) &&
+        rule == SpirvLayoutRule::Void;
+
+    SpirvLayoutRule elementLayoutRule =
+        (isLocalStructuredOrByteBuffer ? getCodeGenOptions().sBufferLayoutRule
+                                       : rule);
+    const SpirvType *loweredElemType =
+        lowerType(elemType, elementLayoutRule, isRowMajor, srcLoc);
+
+    llvm::Optional<uint32_t> arrayStride = llvm::None;
     if (rule != SpirvLayoutRule::Void &&
         // We won't have stride information for structured/byte buffers since
         // they contain runtime arrays.
@@ -544,13 +558,23 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       arrayStride = stride;
     }
 
+    const SpirvType *spirvArrayType = nullptr;
     if (const auto *caType = astContext.getAsConstantArrayType(type)) {
       const auto size = static_cast<uint32_t>(caType->getSize().getZExtValue());
-      return spvContext.getArrayType(loweredElemType, size, arrayStride);
+      spirvArrayType =
+          spvContext.getArrayType(loweredElemType, size, arrayStride);
+    } else {
+      assert(type->isIncompleteArrayType());
+      spirvArrayType =
+          spvContext.getRuntimeArrayType(loweredElemType, arrayStride);
     }
 
-    assert(type->isIncompleteArrayType());
-    return spvContext.getRuntimeArrayType(loweredElemType, arrayStride);
+    if (isLocalStructuredOrByteBuffer) {
+      return spvContext.getPointerType(spirvArrayType,
+                                       spv::StorageClass::Uniform);
+    }
+
+    return spirvArrayType;
   }
 
   // Reference types

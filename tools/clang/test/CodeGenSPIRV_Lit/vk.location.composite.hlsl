@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv -fvk-use-gl-layout | FileCheck %s
 
 // CHECK: OpDecorate %in_var_A Location 0
 // CHECK: OpDecorate %in_var_B Location 1

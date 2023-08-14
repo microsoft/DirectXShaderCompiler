@@ -1001,6 +1001,9 @@ bool isAKindOfStructuredOrByteBuffer(QualType type) {
 }
 
 bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||

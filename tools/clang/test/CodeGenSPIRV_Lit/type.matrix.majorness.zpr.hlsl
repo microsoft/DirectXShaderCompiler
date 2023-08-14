@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main /Zpr
+// RUN: %dxc -T vs_6_0 -E main /Zpr -fcgl  %s -spirv | FileCheck %s
 
 struct S {
 // CHECK: OpMemberDecorate %S 0 ColMajor

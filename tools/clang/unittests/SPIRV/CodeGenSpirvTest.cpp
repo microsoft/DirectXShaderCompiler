@@ -44,13 +44,6 @@ TEST_F(WholeFileTest, EmptyStructInterfaceVS) {
 // For types
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
-TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
-TEST_F(FileTest, MatrixTypesMajornessZpr) {
-  runFileTest("type.matrix.majorness.zpr.hlsl");
-}
-TEST_F(FileTest, MatrixTypesMajornessZpc) {
-  runFileTest("type.matrix.majorness.zpc.hlsl");
-}
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, StructTypeEmptyStructArrayStride) {
   runFileTest("type.struct.empty-struct.array-stride.hlsl");
@@ -169,6 +162,9 @@ TEST_F(FileTest, RWStructuredBufferArrayCounterFlattened) {
 TEST_F(FileTest, RWStructuredBufferArrayCounterIndirect) {
   runFileTest("type.rwstructured-buffer.array.counter.indirect.hlsl");
 }
+TEST_F(FileTest, RWStructuredBufferArrayCounterIndirect2) {
+  runFileTest("type.rwstructured-buffer.array.counter.indirect2.hlsl");
+}
 TEST_F(FileTest, RWStructuredBufferArrayBindAttributes) {
   runFileTest("type.rwstructured-buffer.array.binding.attributes.hlsl");
 }
@@ -233,10 +229,6 @@ TEST_F(FileTest, LiteralVecTimesScalar) {
 
 // For variables
 TEST_F(FileTest, VarInitScalarVector) { runFileTest("var.init.hlsl"); }
-TEST_F(FileTest, VarInitMatrixMxN) { runFileTest("var.init.matrix.mxn.hlsl"); }
-TEST_F(FileTest, VarInitMatrixMx1) { runFileTest("var.init.matrix.mx1.hlsl"); }
-TEST_F(FileTest, VarInitMatrix1xN) { runFileTest("var.init.matrix.1xn.hlsl"); }
-TEST_F(FileTest, VarInitMatrix1x1) { runFileTest("var.init.matrix.1x1.hlsl"); }
 TEST_F(FileTest, VarInitStruct) { runFileTest("var.init.struct.hlsl"); }
 TEST_F(FileTest, VarInitArray) { runFileTest("var.init.array.hlsl"); }
 TEST_F(FileTest, VarInitCbuffer) {
@@ -372,9 +364,6 @@ TEST_F(FileTest, BinaryOpMixedFormArithAssign) {
 TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
   // Test mixing float/int/uint/bool/etc.
   runFileTest("binary-op.arith-assign.mixed.type.hlsl");
-}
-TEST_F(FileTest, BinaryOpMulAssignTypeMismatch) {
-  runFileTest("binary-op.mul-assign.type-mismatch.hlsl");
 }
 
 // For bitwise binary operators
@@ -1293,7 +1282,6 @@ TEST_F(FileTest, IntrinsicsFirstBitLow) {
 }
 TEST_F(FileTest, IntrinsicsPrintf) { runFileTest("intrinsics.printf.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
-TEST_F(FileTest, IntrinsicsFma) { runFileTest("intrinsics.fma.hlsl"); }
 TEST_F(FileTest, IntrinsicsFmod) { runFileTest("intrinsics.fmod.hlsl"); }
 TEST_F(FileTest, IntrinsicsFrac) { runFileTest("intrinsics.frac.hlsl"); }
 TEST_F(FileTest, IntrinsicsFrexp) { runFileTest("intrinsics.frexp.hlsl"); }
@@ -1381,7 +1369,6 @@ TEST_F(FileTest, IntrinsicsFloatSign) {
   runFileTest("intrinsics.floatsign.hlsl");
 }
 TEST_F(FileTest, IntrinsicsIntSign) { runFileTest("intrinsics.intsign.hlsl"); }
-TEST_F(FileTest, IntrinsicsRcp) { runFileTest("intrinsics.rcp.hlsl"); }
 TEST_F(FileTest, IntrinsicsReflect) { runFileTest("intrinsics.reflect.hlsl"); }
 TEST_F(FileTest, IntrinsicsRefract) { runFileTest("intrinsics.refract.hlsl"); }
 TEST_F(FileTest, IntrinsicsReverseBits) {
@@ -1505,6 +1492,12 @@ TEST_F(FileTest, IntrinsicsSM66PackClampU8S8) {
 }
 TEST_F(FileTest, IntrinsicsSM66Unpack) {
   runFileTest("intrinsics.sm6_6.unpack.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66IsHelperLane) {
+  runFileTest("intrinsics.sm6_6.ishelperlane.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66IsHelperLaneVk1p3) {
+  runFileTest("intrinsics.sm6_6.ishelperlane.vk1p3.hlsl");
 }
 
 // For attributes
@@ -2034,9 +2027,6 @@ TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
 TEST_F(FileTest, VulkanLocationInputImplicitOutputExplicit) {
   runFileTest("vk.location.exp-out.hlsl");
 }
-TEST_F(FileTest, VulkanLocationCompositeTypes) {
-  runFileTest("vk.location.composite.hlsl");
-}
 TEST_F(FileTest, VulkanLocationTooLarge) {
   runFileTest("vk.location.large.hlsl", Expect::Failure);
 }
@@ -2385,22 +2375,8 @@ TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
   setGlLayout();
   runFileTest("vk.layout.texture-buffer.std430.hlsl");
 }
-TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.64bit-types.std430.hlsl");
-}
-TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
-  setGlLayout();
-  runFileTest("vk.layout.64bit-types.std140.hlsl");
-}
 TEST_F(FileTest, VulkanLayout16BitTypesPushConstant) {
   runFileTest("vk.layout.16bit-types.pc.hlsl");
-}
-TEST_F(FileTest, VulkanLayout16BitTypesCBuffer) {
-  runFileTest("vk.layout.16bit-types.cbuffer.hlsl");
-}
-TEST_F(FileTest, VulkanLayout16BitTypesTBuffer) {
-  runFileTest("vk.layout.16bit-types.tbuffer.hlsl");
 }
 TEST_F(FileTest, VulkanLayout16BitTypesStructuredBuffer) {
   runFileTest("vk.layout.16bit-types.sbuffer.hlsl");
@@ -2453,11 +2429,6 @@ TEST_F(FileTest, VulkanLayoutFxcRulesSBufferStructSizeNested) {
   // structured buffers with fxc layout rules
   setDxLayout();
   runFileTest("vk.layout.sbuffer.nested-struct-size.with.fxc.rule.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesSBufferVectorAndMatrix) {
-  // structured buffers with fxc layout rules
-  setDxLayout();
-  runFileTest("vk.layout.sbuffer.vector-and-matrix.with.fxc.rule.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
@@ -2985,9 +2956,6 @@ TEST_F(FileTest, RichDebugInfoTypeCompositeBeforeFunction) {
 TEST_F(FileTest, RichDebugInfoMemberFunctionParam) {
   runFileTest("rich.debug.member.function.param.hlsl");
 }
-TEST_F(FileTest, DISABLED_RichDebugInfoMemberFunctionWithoutCall) {
-  runFileTest("rich.debug.member.function.without-call.hlsl");
-}
 TEST_F(FileTest, RichDebugInfoTypeComposite) {
   runFileTest("rich.debug.type.composite.hlsl");
 }
@@ -3280,6 +3248,9 @@ TEST_F(FileTest, SpirvOptFre) {
 }
 TEST_F(FileTest, SpirvOptQStripReflect) {
   runFileTest("spirv.opt.qstripreflect.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptGec) {
+  runFileTest("spirv.opt.gec.hlsl", Expect::Failure);
 }
 
 } // namespace
