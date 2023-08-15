@@ -3931,6 +3931,7 @@ TEST_F(CompilerTest, LibGVStore) {
       RWByteAddressBuffer outputBuffer;
       RWByteAddressBuffer outputBuffer2;
 
+      [shader("compute")]
       [numthreads(8, 8, 1)]
       void main( uint2 id : SV_DispatchThreadID )
       {
