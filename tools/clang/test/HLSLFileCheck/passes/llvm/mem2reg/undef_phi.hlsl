@@ -9,6 +9,7 @@ int c;
 float a;
 
 RWBuffer<float> buf;
+[shader("compute")]
 [numthreads(8,8,1)]
 void main() {
 
