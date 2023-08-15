@@ -99,7 +99,6 @@ public:
       CComPtr<IDxcBlob> pContainer;
 
       VERIFY_SUCCEEDED(pResult->GetResult(&pContainer));
-#ifdef _WIN32 // No reflection support
       VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
       VERIFY_SUCCEEDED(pReflection->Load(pContainer));
       UINT count;
@@ -114,7 +113,6 @@ public:
         }
       }
       VERIFY_IS_TRUE(found);
-#endif // _WIN32 - No reflection support
     }
   }
 
