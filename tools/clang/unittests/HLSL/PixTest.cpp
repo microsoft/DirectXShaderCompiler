@@ -2664,6 +2664,7 @@ void fn()
     floatRWUAV[0] = Accumulator + globalStruct.IntArray[0] + globalStruct.IntArray[1];
 }
 
+[shader("compute")]
 [numthreads(1, 1, 1)]
 void main()
 {
@@ -2756,6 +2757,7 @@ struct GlobalStruct
 };
 
 static GlobalStruct globalStruct;
+[shader("compute")]
 [numthreads(1, 1, 1)]
 void main()
 {
