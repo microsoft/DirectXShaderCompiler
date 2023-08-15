@@ -121,6 +121,7 @@ RWBuffer< int > g_Intensities : register(u1);
 
 groupshared Foo sharedData;
 
+[shader("compute")]
 [ numthreads( 64, 2, 2 ) ]
 void main( uint GI : SV_GroupIndex)
 {
