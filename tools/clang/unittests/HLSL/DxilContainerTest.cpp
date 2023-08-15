@@ -604,7 +604,6 @@ bool DxilContainerTest::InitSupport() {
   return true;
 }
 
-#ifdef _WIN32 // - No reflection support
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
@@ -661,7 +660,6 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   // Source hash and bin hash should be different
   VERIFY_IS_FALSE(0 == strcmp(binHash1Zss.c_str(), binHash1.c_str()));
 }
-#endif // WIN32 - No reflection support
 
 TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   if (m_ver.SkipDxilVersion(1, 7)) return;
