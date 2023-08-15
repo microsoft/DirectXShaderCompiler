@@ -4271,12 +4271,7 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
   }
 }
 
-
-#ifdef _WIN32
 TEST_F(CompilerTest, CodeGenHashStability) {
-#else
-TEST_F(CompilerTest, DISABLED_CodeGenHashStability) {
-#endif
   CodeGenTestCheckBatchHash(L"");
 }
 
