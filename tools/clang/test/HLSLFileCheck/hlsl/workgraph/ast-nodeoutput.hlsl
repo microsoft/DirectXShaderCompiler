@@ -4,8 +4,7 @@
 // that it forces a use to ensure the AST is fully loaded by the
 // external sema source.
 
-struct RECORD
-{
+struct RECORD {
   int X;
 };
 
@@ -14,7 +13,7 @@ struct RECORD
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(8,1,1)]
-void node02(NodeOutput<RECORD> output)
+void node01(NodeOutput<RECORD> output)
 {
   GroupNodeOutputRecords<RECORD> outrec = output.GetGroupNodeOutputRecords(1);
 }
@@ -84,7 +83,7 @@ void node02(NodeOutput<RECORD> output)
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(8,1,1)]
 [NodeLaunch("Broadcasting")]
-void node03(NodeOutput<RECORD> output)
+void node02(NodeOutput<RECORD> output)
 {
   ThreadNodeOutputRecords<RECORD> outrec = output.GetThreadNodeOutputRecords(1);
 }
