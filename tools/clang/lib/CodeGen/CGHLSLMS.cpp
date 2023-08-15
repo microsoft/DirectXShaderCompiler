@@ -1643,20 +1643,31 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.GS.instanceCount = 1;
   }
 
+  // set isCs
+  if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
+    if (Attr->getStage() == "compute") {
+      funcProps->shaderKind = DXIL::ShaderKind::Compute;
+      isCS = true;
+    } 
+    else if (Attr->getStage() == "node") {
+      const HLSLShaderAttr *Attr2 = FD->getAttr<HLSLShaderAttr>();
+      if (Attr2 && Attr2->getStage() == "compute")  {
+        funcProps->shaderKind = DXIL::ShaderKind::Compute;
+        isCS = true;
+      }
+    }
+  } 
+
+
   // Populate numThreads
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
-    if (!(isMS || isAS)) {
-      // Compute and/or node shader
-      if (isCS || funcProps->shaderKind == DXIL::ShaderKind::Invalid)
-        funcProps->shaderKind = DXIL::ShaderKind::Compute;
-      isCS = true;
-    }
 
     funcProps->numThreads[0] = Attr->getX();
     funcProps->numThreads[1] = Attr->getY();
     funcProps->numThreads[2] = Attr->getZ();
 
-    if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
+    if (!isNode && (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) ||
+        (SM->IsLib() && !isCS && !isMS && !isAS) ) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error, "attribute numthreads only valid for CS/MS/AS.");
       Diags.Report(Attr->getLocation(), DiagID);
