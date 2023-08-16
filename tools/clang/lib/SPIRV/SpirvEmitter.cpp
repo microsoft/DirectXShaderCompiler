@@ -882,54 +882,56 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       declIdMapper.requiresFlatteningCompositeResources() ||
       !dsetbindingsToCombineImageSampler.empty() ||
       spirvOptions.signaturePacking;
-  beforeHlslLegalization = needsLegalization;
 
   // Run legalization passes
-  if (!spirvOptions.codeGenHighLevel && needsLegalization) {
-    std::string messages;
-    if (!spirvToolsLegalize(&m, &messages,
-                            &dsetbindingsToCombineImageSampler)) {
-      emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
-      emitNote("please file a bug report on "
-               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
-               "with source code if possible",
-               {});
-      return;
-    } else if (!messages.empty()) {
-      emitWarning("SPIR-V legalization: %0", {}) << messages;
+  if (spirvOptions.codeGenHighLevel) {
+    beforeHlslLegalization = needsLegalization;
+  } else {
+    if (needsLegalization) {
+      std::string messages;
+      if (!spirvToolsLegalize(&m, &messages,
+                              &dsetbindingsToCombineImageSampler)) {
+        emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
+        return;
+      } else if (!messages.empty()) {
+        emitWarning("SPIR-V legalization: %0", {}) << messages;
+      }
     }
-  }
 
-  if (!spirvOptions.codeGenHighLevel &&
-      theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
-    // Run optimization passes
-    std::string messages;
-    if (!spirvToolsOptimize(&m, &messages)) {
-      emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
-      emitNote("please file a bug report on "
-               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
-               "with source code if possible",
-               {});
-      return;
+    if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
+      // Run optimization passes
+      std::string messages;
+      if (!spirvToolsOptimize(&m, &messages)) {
+        emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
+        return;
+      }
     }
-  }
 
-  // Trim unused capabilities.
-  // When optimizations are enabled, some optimization passes like DCE could
-  // make some capabilities useless. To avoid logic duplication between this
-  // pass, and DXC, DXC generates some capabilities unconditionally. This means
-  // we should run this pass, even when optimizations are disabled.
-  {
-    std::string messages;
-    if (!spirvToolsTrimCapabilities(&m, &messages)) {
-      emitFatalError("failed to trim capabilities: %0", {}) << messages;
-      emitNote("please file a bug report on "
-               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
-               "with source code if possible",
-               {});
-      return;
-    } else if (!messages.empty()) {
-      emitWarning("SPIR-V capability trimming: %0", {}) << messages;
+    // Trim unused capabilities.
+    // When optimizations are enabled, some optimization passes like DCE could
+    // make some capabilities useless. To avoid logic duplication between this
+    // pass, and DXC, DXC generates some capabilities unconditionally. This
+    // means we should run this pass, even when optimizations are disabled.
+    {
+      std::string messages;
+      if (!spirvToolsTrimCapabilities(&m, &messages)) {
+        emitFatalError("failed to trim capabilities: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
+        return;
+      } else if (!messages.empty()) {
+        emitWarning("SPIR-V capability trimming: %0", {}) << messages;
+      }
     }
   }
 

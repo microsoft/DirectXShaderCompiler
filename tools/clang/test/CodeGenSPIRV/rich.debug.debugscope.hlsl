@@ -6,7 +6,7 @@
 // CHECK: [[mainFnLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 15 1 [[main]]
 // CHECK: [[whileLoopLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 35 3 [[mainFnLexBlock]]
 // CHECK: [[ifStmtLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 42 20 [[whileLoopLexBlock]]
-// CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 50 7 [[ifStmtLexBlock]]
+// CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 47 7 [[ifStmtLexBlock]]
 // CHECK: [[forLoopLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 20 12 [[mainFnLexBlock]]
 
 float4 main(float4 color : COLOR) : SV_TARGET
@@ -42,17 +42,14 @@ float4 main(float4 color : COLOR) : SV_TARGET
     if (bool(c.x)) {
 // CHECK:      %if_true = OpLabel
 // CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[ifStmtLexBlock]]
-
-// CHECK:      {{%\d+}} = OpFAdd %v4float {{%\d+}} {{%\d+}}
       c = c + c;
-
-// CHECK:      {{%\d+}} = OpExtInst %void [[set]] DebugScope [[tempLexBlock]]
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[tempLexBlock]]
       {
         c = c + c;
       }
     }
 // CHECK:     %if_merge = OpLabel
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[mainFnLexBlock]]
+// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[whileLoopLexBlock]]
 
 // CHECK:%while_continue = OpLabel
 // CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[mainFnLexBlock]]
