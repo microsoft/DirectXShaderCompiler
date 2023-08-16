@@ -2331,10 +2331,22 @@ void Raygen()
 
 typedef BuiltInTriangleIntersectionAttributes MyAttributes;
 
+namespace ANameSpace
+{
+    namespace AContainedNamespace
+    {
+        float4 RoundaboutWayToReturnAmbientColor()
+        {
+            return g_sceneCB.lightAmbientColor;
+        }
+    }
+}
+
+
 [shader("closesthit")]
 void InnerClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 {
-    payload.color = float4(0,1,0,0);
+    payload.color = ANameSpace::AContainedNamespace::RoundaboutWayToReturnAmbientColor();
 }
 
 
