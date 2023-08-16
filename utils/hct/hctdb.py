@@ -12,8 +12,8 @@ def parse_command_line_options():
     
     parser.add_argument(
         '--query',
-        action='store_true',
-        help='A switch that indicates a query is being made against the database of DXIL instructions.')
+        action="store_true",
+        help='A query against the database of DXIL instructions. Requires the query function to be defined.')
     options = parser.parse_args()
     return options
 
@@ -3257,24 +3257,57 @@ class db_hlsl(object):
         add_attr_arg("Unroll", "l", "Unroll the loop until it stops executing or a max count", [{"name":"Count", "type":"int"}])
         self.attributes = attributes
 
+class InstructionSignature:
+    def __init__(self, ret_type, name, args):
+        self.ret_type = ret_type
+        self.name = name
+        self.args = args
+    def __str__(self):
+        str_args = ",".join(self.args)
+        return "[{}] {}({})".format(self.ret_type, self.name, str_args)
 
-def parse_options(db, options):
-    if options.query == True:
-        print()
-        for dxil_inst in db.instr:
-            ops = []
-            #pdb.set_trace()
-            for op in dxil_inst.ops:            
-                ops.append(op.llvm_type)
-            ret_type = ""
-            if len(ops) > 0:
-                ret_type = ops[0]
-            args = []
-            if len(ops) > 1:
-                args = ops[1:]
+# user defined function
+# return false on instructions that should fail the query
+def query(inst):
+    #ex 
+    """
+    if inst.ret_type == "v":
+        return true
+    return false
+    """
 
-            print("[{}] {}({})".format(ret_type, dxil_inst.name, ",".join(args)))
+    if inst.ret_type == "i32" and len(inst.args) > 2:
+        return True
+    return False
 
+#--query="(ret_type=v OR ret_type=l) AND name"
+def parse_query(db, options):
+    if not options.query:
+        return
+
+    instructions = []
+
+    for dxil_inst in db.instr:
+        ops = []
+        #pdb.set_trace()
+        for op in dxil_inst.ops:            
+            ops.append(op.llvm_type)
+        ret_type = ""
+        if len(ops) > 0:
+            ret_type = ops[0]
+        args = []
+        if len(ops) > 1:
+            args = ops[1:]
+
+
+        i = InstructionSignature(ret_type, dxil_inst.name, args)
+        instructions.append(i)
+
+    # apply the query filter
+    filtered_instructions = []
+    for instruction in instructions:
+        if query(instruction):
+            print(instruction)
 
 
 if __name__ == "__main__":
@@ -3283,4 +3316,4 @@ if __name__ == "__main__":
     db.print_stats()
 
     options = parse_command_line_options()
-    parse_options(db, options)
+    parse_query(db, options)
