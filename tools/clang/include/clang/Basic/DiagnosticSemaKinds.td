@@ -7797,7 +7797,8 @@ def err_hlsl_numthreads_group_size : Error<
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
 def err_hlsl_wg_input_kind : Error<
-   "'%0' may not be used with %1 launch nodes">;
+   "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
+   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
 def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
@@ -7815,7 +7816,7 @@ def err_hlsl_dispatchgrid_component : Error<
 def err_hlsl_dispatchgrid_product : Error<
    "%0 X * Y * Z product may not exceed 16,777,215 (2^24-1)">;
 def err_hlsl_compute_launch_compatibility : Error<
-   "Node shader '%0' with %1 launch type is not compatible with compute">;
+   "Node shader '%0' with %1 launch type is not compatible with compute (must be broadcasting)">;
 def err_hlsl_compute_io_compatibility : Error<
    "Node shader '%0' with node input/output is not compatible with compute">;
 def err_hlsl_launch_type_attr : Error<

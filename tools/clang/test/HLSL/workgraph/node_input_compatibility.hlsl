@@ -13,84 +13,84 @@ struct RECORD
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
 [NodeLaunch("BrOaDcasting")]                         // expected-note  {{Launch type defined here}}
-void node01(GroupNodeInputRecords<RECORD> input)     // expected-error {{'GroupNodeInputRecords' may not be used with broadcasting launch nodes}}
+void node01(GroupNodeInputRecords<RECORD> input)     // expected-error {{'GroupNodeInputRecords' may not be used with broadcasting nodes (only DispatchNodeInputRecord or RWDispatchNodeInputRecord)}}
 { }
 
 [NodeDispatchGrid(64,1,1)]
 [Shader("node")]
 [NumThreads(1024,1,1)]
-void node02(RWGroupNodeInputRecords<RECORD> input)   // expected-error {{'RWGroupNodeInputRecords' may not be used with broadcasting launch nodes}}
+void node02(RWGroupNodeInputRecords<RECORD> input)   // expected-error {{'RWGroupNodeInputRecords' may not be used with broadcasting nodes (only DispatchNodeInputRecord or RWDispatchNodeInputRecord)}}
 { }
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]                         // expected-note  {{Launch type defined here}}
-void node03(ThreadNodeInputRecord<RECORD> input)     // expected-error {{'ThreadNodeInputRecord' may not be used with broadcasting launch nodes}}
+void node03(ThreadNodeInputRecord<RECORD> input)     // expected-error {{'ThreadNodeInputRecord' may not be used with broadcasting nodes (only DispatchNodeInputRecord or RWDispatchNodeInputRecord)}}
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]                         // expected-note  {{Launch type defined here}}
 [NodeDispatchGrid(64,1,1)]
 [NumThreads(1024,1,1)]
-void node04(RWThreadNodeInputRecord<RECORD> input)   // expected-error {{'RWThreadNodeInputRecord' may not be used with broadcasting launch nodes}}
+void node04(RWThreadNodeInputRecord<RECORD> input)   // expected-error {{'RWThreadNodeInputRecord' may not be used with broadcasting nodes (only DispatchNodeInputRecord or RWDispatchNodeInputRecord)}}
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]                         // expected-note  {{Launch type defined here}}
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-void node05(EmptyNodeInput input)                    // expected-error {{'EmptyNodeInput' may not be used with broadcasting launch nodes}}
+void node05(EmptyNodeInput input)                    // expected-error {{'EmptyNodeInput' may not be used with broadcasting nodes (only DispatchNodeInputRecord or RWDispatchNodeInputRecord)}}
 { }
 
 [Shader("node")]
 [NumThreads(128,1,1)]
 [NodeLaunch("COALESCING")]                           // expected-note  {{Launch type defined here}}
-void node06(DispatchNodeInputRecord<RECORD> input)   // expected-error {{'DispatchNodeInputRecord' may not be used with coalescing launch nodes}}
+void node06(DispatchNodeInputRecord<RECORD> input)   // expected-error {{'DispatchNodeInputRecord' may not be used with coalescing nodes (only GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput)}}
 { }
 
 [NodeLaunch("Coalescing")]                           // expected-note  {{Launch type defined here}}
 [Shader("node")]
 [NumThreads(128,1,1)]
-void node07(RWDispatchNodeInputRecord<RECORD> input) // expected-error {{'RWDispatchNodeInputRecord' may not be used with coalescing launch nodes}}
+void node07(RWDispatchNodeInputRecord<RECORD> input) // expected-error {{'RWDispatchNodeInputRecord' may not be used with coalescing nodes (only GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput)}}
 { }
 
 [Shader("node")]
 [NumThreads(128,1,1)]
 [NodeLaunch("Coalescing")]                           // expected-note  {{Launch type defined here}}
-void node08(ThreadNodeInputRecord<RECORD> input)     // expected-error {{'ThreadNodeInputRecord' may not be used with coalescing launch nodes}}
+void node08(ThreadNodeInputRecord<RECORD> input)     // expected-error {{'ThreadNodeInputRecord' may not be used with coalescing nodes (only GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput)}}
 { }
 
 [NodeLaunch("Coalescing")]                           // expected-note  {{Launch type defined here}}
 [Shader("node")]
 [NumThreads(128,1,1)]
-void node09(RWThreadNodeInputRecord<RECORD> input)   // expected-error {{'RWThreadNodeInputRecord' may not be used with coalescing launch nodes}}
+void node09(RWThreadNodeInputRecord<RECORD> input)   // expected-error {{'RWThreadNodeInputRecord' may not be used with coalescing nodes (only GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput)}}
 { }
 
 [Shader("node")]
 [NodeLaunch("Thread")]                               // expected-note  {{Launch type defined here}}
-void node10(DispatchNodeInputRecord<RECORD> input)   // expected-error {{'DispatchNodeInputRecord' may not be used with thread launch nodes}}
+void node10(DispatchNodeInputRecord<RECORD> input)   // expected-error {{'DispatchNodeInputRecord' may not be used with thread nodes (only ThreadNodeInputRecord or RWThreadNodeInputRecord)}}
 { }
 
 [NodeLaunch("Thread")]                               // expected-note  {{Launch type defined here}}
 [Shader("node")]
-void node11(RWDispatchNodeInputRecord<RECORD> input) // expected-error {{'RWDispatchNodeInputRecord' may not be used with thread launch nodes}}
+void node11(RWDispatchNodeInputRecord<RECORD> input) // expected-error {{'RWDispatchNodeInputRecord' may not be used with thread nodes (only ThreadNodeInputRecord or RWThreadNodeInputRecord)}}
 { }
 
 [Shader("node")]
 [NodeLaunch("Thread")]                               // expected-note  {{Launch type defined here}}
-void node12(GroupNodeInputRecords<RECORD> input)     // expected-error {{'GroupNodeInputRecords' may not be used with thread launch nodes}}
+void node12(GroupNodeInputRecords<RECORD> input)     // expected-error {{'GroupNodeInputRecords' may not be used with thread nodes (only ThreadNodeInputRecord or RWThreadNodeInputRecord)}}
 { }
 
 [NodeLaunch("ThREAd")]                               // expected-note  {{Launch type defined here}}
 [Shader("node")]
 void node13([MaxRecords(32)]
-            RWGroupNodeInputRecords<RECORD> input)   // expected-error {{'RWGroupNodeInputRecords' may not be used with thread launch nodes}}
+            RWGroupNodeInputRecords<RECORD> input)   // expected-error {{'RWGroupNodeInputRecords' may not be used with thread nodes (only ThreadNodeInputRecord or RWThreadNodeInputRecord)}}
 { }
 
 [Shader("node")]
 [NodeLaunch("Thread")]                               // expected-note  {{Launch type defined here}}
-void node14(EmptyNodeInput input)                    // expected-error {{'EmptyNodeInput' may not be used with thread launch nodes}}
+void node14(EmptyNodeInput input)                    // expected-error {{'EmptyNodeInput' may not be used with thread nodes (only ThreadNodeInputRecord or RWThreadNodeInputRecord)}}
 { }
 
 [Shader("node")]

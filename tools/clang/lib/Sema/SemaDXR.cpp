@@ -1403,10 +1403,11 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
       inputCount++;
       const RecordType* RT = Param->getType()->getAs<RecordType>();
       StringRef typeName = RT->getDecl()->getName();
-      if (!NodeInputIsCompatible(typeName, nodeLaunchType)) {
+      if (nodeLaunchType != DXIL::NodeLaunchType::Invalid &&
+          !NodeInputIsCompatible(typeName, nodeLaunchType)) {
         S.Diags.Report(Param->getLocation(), diag::err_hlsl_wg_input_kind)
           << typeName << ShaderModel::GetNodeLaunchTypeName(nodeLaunchType)
-          << Param->getSourceRange();
+          << (static_cast<unsigned>(nodeLaunchType) - 1) << Param->getSourceRange();
         if (nodeLaunchLoc.isValid())
           S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
             << "Launch type";
