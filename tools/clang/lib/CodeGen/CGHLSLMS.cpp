@@ -1644,20 +1644,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // set isCs
-  if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
+  for (auto *Attr : FD->specific_attrs<HLSLShaderAttr>()) {
     if (Attr->getStage() == "compute") {
       funcProps->shaderKind = DXIL::ShaderKind::Compute;
       isCS = true;
-    } 
-    else if (Attr->getStage() == "node") {
-      const HLSLShaderAttr *Attr2 = FD->getAttr<HLSLShaderAttr>();
-      if (Attr2 && Attr2->getStage() == "compute")  {
-        funcProps->shaderKind = DXIL::ShaderKind::Compute;
-        isCS = true;
-      }
-    }
-  } 
-
+    }   
+  }
 
   // Populate numThreads
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
