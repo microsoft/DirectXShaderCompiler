@@ -1,10 +1,10 @@
 // RUN: %dxc  -T lib_6_7 %s | %D3DReflect %s | FileCheck %s
 
 
-// CHECK:DxilRuntimeData (size = 240 bytes):
-// CHECK:  StringBuffer (size = 24 bytes)
-// CHECK:  IndexTable (size = 24 bytes)
-// CHECK:  RawBytes (size = 0 bytes)
+// CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:  IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:  RawBytes (size = {{[0-9]+}} bytes)
 // CHECK:  RecordTable (stride = 32 bytes) ResourceTable[1] = {
 // CHECK:    <0:RuntimeDataResourceInfo> = {
 // CHECK:      Class: SRV

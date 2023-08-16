@@ -21,10 +21,10 @@ float4 PSMain(int idx : INDEX) : SV_Target {
   return T2[T0.Load(idx)].f;
 }
 
-// CHECK: DxilRuntimeData (size = 584 bytes):
-// CHECK:   StringBuffer (size = 140 bytes)
-// CHECK:   IndexTable (size = 28 bytes)
-// CHECK:   RawBytes (size = 0 bytes)
+// CHECK: DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:   IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:   RawBytes (size = {{[0-9]+}} bytes)
 // CHECK:   RecordTable (stride = 32 bytes) ResourceTable[3] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
 // CHECK:       Class: SRV

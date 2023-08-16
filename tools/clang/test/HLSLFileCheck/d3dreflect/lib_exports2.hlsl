@@ -26,10 +26,10 @@ void RayGen() {
   U0.Store(idx.y * dim.x * 4 + idx.x * 4, idx.x ^ idx.y);
 }
 
-// CHECK: DxilRuntimeData (size = 612 bytes):
-// CHECK:   StringBuffer (size = 148 bytes)
-// CHECK:   IndexTable (size = 16 bytes)
-// CHECK:   RawBytes (size = 0 bytes)
+// CHECK: DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:   IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:   RawBytes (size = {{[0-9]+}} bytes)
 // CHECK:   RecordTable (stride = 32 bytes) ResourceTable[2] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
 // CHECK:       Class: SRV

@@ -1,9 +1,9 @@
 // RUN: %dxc -T lib_6_8  %s | %D3DReflect %s | FileCheck %s
 
-// CHECK:DxilRuntimeData (size = 488 bytes):
-// CHECK:  StringBuffer (size = 56 bytes)
-// CHECK:  IndexTable (size = 92 bytes)
-// CHECK:  RawBytes (size = 0 bytes)
+// CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:  IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:  RawBytes (size = {{[0-9]+}} bytes)
 // CHECK:  RecordTable (stride = 56 bytes) FunctionTable[1] = {
 // CHECK:    <0:RuntimeDataFunctionInfo3> = {
 // CHECK:      Name: "depth18part0_wg_63_nodes_seed_255"

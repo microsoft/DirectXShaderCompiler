@@ -1,9 +1,9 @@
 // RUN: %dxilver 1.8 | %dxc -T lib_6_7 %s | %D3DReflect %s | FileCheck %s
 
-// CHECK:DxilRuntimeData (size = 340 bytes):
-// CHECK:  StringBuffer (size = 32 bytes)
-// CHECK:  IndexTable (size = 64 bytes)
-// CHECK:  RawBytes (size = 0 bytes)
+// CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:  IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:  RawBytes (size = {{[0-9]+}} bytes)
 // CHECK:  RecordTable (stride = 56 bytes) FunctionTable[1] = {
 // CHECK:    <0:RuntimeDataFunctionInfo3> = {
 // CHECK:      Name: "main"

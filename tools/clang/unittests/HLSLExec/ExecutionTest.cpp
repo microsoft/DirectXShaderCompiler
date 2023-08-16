@@ -6433,20 +6433,29 @@ HRESULT TableParameterHandler::ParseTableRow() {
   return S_OK;
 }
 
-static bool CompareOutputWithExpectedValueInt(int output, int ref, int tolerance) {
-    return output - ref <= tolerance && ref - output <= tolerance;
+static bool CompareOutputWithExpectedValueInt(int output, int ref,
+                                              int tolerance) {
+  return ((output - ref) <= tolerance) && ((ref - output) <= tolerance);
 }
 
-static bool VerifyOutputWithExpectedValueInt(int output, int ref, int tolerance) {
-    return VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
+static bool VerifyOutputWithExpectedValueInt(int output, int ref,
+                                             int tolerance) {
+  return VERIFY_IS_TRUE(
+      CompareOutputWithExpectedValueInt(output, ref, tolerance));
 }
 
-static bool CompareOutputWithExpectedValueUInt(uint32_t output, uint32_t ref, uint32_t tolerance) {
-    return output - ref <= tolerance && ref - output <= tolerance;
+static bool CompareOutputWithExpectedValueUInt(uint32_t output, uint32_t ref,
+                                               uint32_t tolerance) {
+  if (output > ref)
+    return output - ref <= tolerance;
+  else
+    return ref - output <= tolerance;
 }
 
-static bool VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref, uint32_t tolerance) {
-    return VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
+static bool VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref,
+                                              uint32_t tolerance) {
+  return VERIFY_IS_TRUE(
+      CompareOutputWithExpectedValueUInt(output, ref, tolerance));
 }
 
 static void VerifyOutputWithExpectedValueUInt4(XMUINT4 output, XMUINT4 ref) {
@@ -6589,7 +6598,7 @@ bool VerifyArrayWithExpectedValue(T *arr, T *expected, size_t num_elements, LPCW
                                                  toleranceType, tolerance) && passed;
 
       if (!passed) {
-        __debugbreak();
+        break;
       }
     }
     VERIFY_IS_TRUE(passed);
