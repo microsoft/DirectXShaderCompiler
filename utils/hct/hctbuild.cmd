@@ -190,8 +190,12 @@ if "%1"=="-show-cmake-log" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-lit-xml-output-path" (
-  set "CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS=--xunit-xml-output=%~2"
+  set "CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_TESTS_XUNIT_OUTPUT_FILE=%~2"
   shift /1
+  shift /1 & goto :parse_args
+)
+if "%1"=="-lit-verbose" (
+  set "CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_TESTS_VERBOSE_OUTPUT=ON"
   shift /1 & goto :parse_args
 )
 if "%1"=="-default-adapter" (

@@ -101,6 +101,9 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
 endif()
 
+option(HLSL_TESTS_VERBOSE_OUTPUT "Enable verbose test output" OFF) # HLSL Change
+option(HLSL_TESTS_XUNIT_OUTPUT_FILE "Test output xunit file name" "") # HLSL Change
+
 option(DXC_DISABLE_ALLOCATOR_OVERRIDES "Disable usage of allocator overrides" OFF)
 mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 
@@ -365,8 +368,22 @@ if (MSVC OR XCODE)
   set(LIT_ARGS_DEFAULT "${LIT_ARGS_DEFAULT} --no-progress-bar")
 endif()
 
-# HLSL Change - disable short output mode for tests (will list all tests)
-set(LLVM_LIT_ARGS "-v --no-progress-bar" CACHE STRING "Options for lit")
+# HLSL Change start - set arguments for the lit runner
+option(HLSL_TESTS_VERBOSE_OUTPUT "Enable verbose test output" OFF) # HLSL Change
+option(HLSL_TESTS_XUNIT_OUTPUT_FILE "Test output xunit file name" "") # HLSL Change
+
+set(DXC_LIT_ARGS ${LIT_ARGS_DEFAULT})
+if(HLSL_TESTS_VERBOSE_OUTPUT)
+  set(DXC_LIT_ARGS "-v --no-progress-bar")
+endif(HLSL_TESTS_VERBOSE_OUTPUT)
+
+if(HLSL_TESTS_XUNIT_OUTPUT_FILE)
+  set(DXC_LIT_ARGS "${DXC_LIT_ARGS} --xunit-xml-output=${HLSL_TESTS_XUNIT_OUTPUT_FILE}")
+endif(HLSL_TESTS_XUNIT_OUTPUT_FILE)
+
+set(LLVM_LIT_ARGS ${DXC_LIT_ARGS} CACHE STRING "Options for lit")
+message("HERE LLVM_LIT_ARGS=${LLVM_LIT_ARGS}")
+# HLSL Change end
 
 # On Win32 hosts, provide an option to specify the path to the GnuWin32 tools.
 if( WIN32 AND NOT CYGWIN )
