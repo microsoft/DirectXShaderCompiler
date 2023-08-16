@@ -3294,7 +3294,6 @@ def query(insts, inst):
         return True
     return False
 
-#--query="(ret_type=v OR ret_type=l) AND name"
 def parse_query(db, options):
     if not options.query:
         return
