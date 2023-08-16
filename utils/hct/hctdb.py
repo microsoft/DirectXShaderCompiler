@@ -3258,21 +3258,35 @@ class db_hlsl(object):
         self.attributes = attributes
 
 class InstructionSignature:
-    def __init__(self, ret_type, name, args):
+    def __init__(self, fn_attr, ret_type, name, args):
+        self.fn_attr = fn_attr
         self.ret_type = ret_type
         self.name = name
         self.args = args
     def __str__(self):
         str_args = ",".join(self.args)
-        return "[{}] {}({})".format(self.ret_type, self.name, str_args)
+        return "[{}] {} {}({})".format(self.fn_attr, self.ret_type, self.name, str_args)
 
 # user defined function
 # return false on instructions that should fail the query
-def query(inst):
+def query(insts, inst):
     #ex 
     """
     if inst.ret_type == "v":
         return true
+    return false
+    """
+
+    #ex 
+    """
+    if inst.fn_attr == "" and "Quad" in inst.name:
+        found = false
+        for other_inst in insts:
+            if not (other_inst == inst) and "Quad" in other_inst.name and other_inst.fn_attr != ""
+                found = true
+                break
+        return found
+        
     return false
     """
 
@@ -3300,13 +3314,14 @@ def parse_query(db, options):
             args = ops[1:]
 
 
-        i = InstructionSignature(ret_type, dxil_inst.name, args)
+        i = InstructionSignature(dxil_inst.fn_attr, ret_type, dxil_inst.name, args)
         instructions.append(i)
 
     # apply the query filter
     filtered_instructions = []
+    print("\nQUERY RESULTS:\n")
     for instruction in instructions:
-        if query(instruction):
+        if query(instructions, instruction):
             print(instruction)
 
 
