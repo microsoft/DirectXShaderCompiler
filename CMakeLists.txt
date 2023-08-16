@@ -101,9 +101,6 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
 endif()
 
-option(HLSL_TESTS_VERBOSE_OUTPUT "Enable verbose test output" OFF) # HLSL Change
-option(HLSL_TESTS_XUNIT_OUTPUT_FILE "Test output xunit file name" "") # HLSL Change
-
 option(DXC_DISABLE_ALLOCATOR_OVERRIDES "Disable usage of allocator overrides" OFF)
 mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 
