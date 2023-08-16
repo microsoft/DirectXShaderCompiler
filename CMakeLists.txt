@@ -369,10 +369,8 @@ if (MSVC OR XCODE)
 endif()
 
 # HLSL Change start - set arguments for the lit runner
-option(HLSL_TESTS_VERBOSE_OUTPUT "Enable verbose test output" OFF) # HLSL Change
-option(HLSL_TESTS_XUNIT_OUTPUT_FILE "Test output xunit file name" "") # HLSL Change
-
 set(DXC_LIT_ARGS ${LIT_ARGS_DEFAULT})
+
 if(HLSL_TESTS_VERBOSE_OUTPUT)
   set(DXC_LIT_ARGS "-v --no-progress-bar")
 endif(HLSL_TESTS_VERBOSE_OUTPUT)
@@ -382,7 +380,6 @@ if(HLSL_TESTS_XUNIT_OUTPUT_FILE)
 endif(HLSL_TESTS_XUNIT_OUTPUT_FILE)
 
 set(LLVM_LIT_ARGS ${DXC_LIT_ARGS} CACHE STRING "Options for lit")
-message("HERE LLVM_LIT_ARGS=${LLVM_LIT_ARGS}")
 # HLSL Change end
 
 # On Win32 hosts, provide an option to specify the path to the GnuWin32 tools.
