@@ -45,6 +45,7 @@ set SHOW_CMAKE_LOG=0
 set WINSDK_MIN_VERSION=10.0.17763.0
 set INSTALL_DIR=
 set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=
+set LIT_ARGS=
 
 :parse_args
 if "%1"=="" (
@@ -190,12 +191,12 @@ if "%1"=="-show-cmake-log" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-lit-xml-output-path" (
-  set "CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_TESTS_XUNIT_OUTPUT_FILE=%~2"
+  set "LIT_ARGS=%LIT_ARGS% --xunit-xml-output=%~2"
   shift /1
   shift /1 & goto :parse_args
 )
 if "%1"=="-lit-verbose" (
-  set "CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_TESTS_VERBOSE_OUTPUT=ON"
+  set "LIT_ARGS=%LIT_ARGS% -v --no-progress-bar"
   shift /1 & goto :parse_args
 )
 if "%1"=="-default-adapter" (
@@ -337,6 +338,10 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR%
+
+if "%LIT_ARGS%" NEQ "" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS="%LIT_ARGS%"
+)
 
 rem Setup taef exec adapter.
 set CMAKE_OPTS=%CMAKE_OPTS% %DEFAULT_EXEC_ADAPTER%

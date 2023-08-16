@@ -368,20 +368,6 @@ if (MSVC OR XCODE)
   set(LIT_ARGS_DEFAULT "${LIT_ARGS_DEFAULT} --no-progress-bar")
 endif()
 
-# HLSL Change start - set arguments for the lit runner
-set(DXC_LIT_ARGS ${LIT_ARGS_DEFAULT})
-
-if(HLSL_TESTS_VERBOSE_OUTPUT)
-  set(DXC_LIT_ARGS "-v --no-progress-bar")
-endif(HLSL_TESTS_VERBOSE_OUTPUT)
-
-if(HLSL_TESTS_XUNIT_OUTPUT_FILE)
-  set(DXC_LIT_ARGS "${DXC_LIT_ARGS} --xunit-xml-output=${HLSL_TESTS_XUNIT_OUTPUT_FILE}")
-endif(HLSL_TESTS_XUNIT_OUTPUT_FILE)
-
-set(LLVM_LIT_ARGS ${DXC_LIT_ARGS} CACHE STRING "Options for lit")
-# HLSL Change end
-
 # On Win32 hosts, provide an option to specify the path to the GnuWin32 tools.
 if( WIN32 AND NOT CYGWIN )
   set(LLVM_LIT_TOOLS_DIR "" CACHE PATH "Path to GnuWin32 tools")
