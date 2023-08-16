@@ -914,7 +914,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     }
   }
 
-  if (!spirvOptions.codeGenHighLevel && theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
+  if (!spirvOptions.codeGenHighLevel &&
+      theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
     // Run optimization passes
     std::string messages;
     if (!spirvToolsOptimize(&m, &messages)) {
