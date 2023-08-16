@@ -874,6 +874,32 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   auto dsetbindingsToCombineImageSampler =
       collectDSetBindingsToCombineSampledImage(resourceInfoForSampledImages);
 
+  // In order to flatten composite resources, we must also unroll loops.
+  // Therefore we should run legalization before optimization.
+  needsLegalization =
+      needsLegalization || declIdMapper.requiresLegalization() ||
+      spirvOptions.flattenResourceArrays || spirvOptions.reduceLoadSize ||
+      declIdMapper.requiresFlatteningCompositeResources() ||
+      !dsetbindingsToCombineImageSampler.empty() ||
+      spirvOptions.signaturePacking;
+  beforeHlslLegalization = needsLegalization;
+
+  // Run legalization passes
+  if (!spirvOptions.codeGenHighLevel && needsLegalization) {
+    std::string messages;
+    if (!spirvToolsLegalize(&m, &messages,
+                            &dsetbindingsToCombineImageSampler)) {
+      emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
+      emitNote("please file a bug report on "
+               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+               "with source code if possible",
+               {});
+      return;
+    } else if (!messages.empty()) {
+      emitWarning("SPIR-V legalization: %0", {}) << messages;
+    }
+  }
+
   {
     std::string messages;
     if (!spirvToolsTrimCapabilities(&m, &messages)) {
@@ -888,45 +914,16 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     }
   }
 
-  // In order to flatten composite resources, we must also unroll loops.
-  // Therefore we should run legalization before optimization.
-  needsLegalization =
-      needsLegalization || declIdMapper.requiresLegalization() ||
-      spirvOptions.flattenResourceArrays || spirvOptions.reduceLoadSize ||
-      declIdMapper.requiresFlatteningCompositeResources() ||
-      !dsetbindingsToCombineImageSampler.empty() ||
-      spirvOptions.signaturePacking;
-
-  if (spirvOptions.codeGenHighLevel) {
-    beforeHlslLegalization = needsLegalization;
-  } else {
-    // Run legalization passes
-    if (needsLegalization) {
-      std::string messages;
-      if (!spirvToolsLegalize(&m, &messages,
-                              &dsetbindingsToCombineImageSampler)) {
-        emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
-        emitNote("please file a bug report on "
-                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
-                 "with source code if possible",
-                 {});
-        return;
-      } else if (!messages.empty()) {
-        emitWarning("SPIR-V legalization: %0", {}) << messages;
-      }
-    }
-
+  if (!spirvOptions.codeGenHighLevel && theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
     // Run optimization passes
-    if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
-      std::string messages;
-      if (!spirvToolsOptimize(&m, &messages)) {
-        emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
-        emitNote("please file a bug report on "
-                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
-                 "with source code if possible",
-                 {});
-        return;
-      }
+    std::string messages;
+    if (!spirvToolsOptimize(&m, &messages)) {
+      emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
+      emitNote("please file a bug report on "
+               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+               "with source code if possible",
+               {});
+      return;
     }
   }
 
