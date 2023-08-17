@@ -757,10 +757,15 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
-  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86)) {
+  // Instructions: CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
+  // DerivFineX=85, DerivFineY=86
+  if (op == 81 || (83 <= op && op <= 86)) {
     mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
+    return;
+  }
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64
+  if ((60 <= op && op <= 61) || op == 64) {
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: RenderTargetGetSamplePosition=76,
@@ -955,9 +960,15 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
-  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254, SampleCmpBias=255
-  if ((244 <= op && op <= 246) || (254 <= op && op <= 255)) {
+  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254
+  if ((244 <= op && op <= 246) || op == 254) {
     major = 6;  minor = 8;
+    return;
+  }
+  // Instructions: SampleCmpBias=255
+  if (op == 255) {
+    major = 6;  minor = 8;
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
