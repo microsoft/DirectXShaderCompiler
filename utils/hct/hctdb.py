@@ -289,8 +289,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,SampleCmpLevel,SampleCmpBias,SampleCmpGrad,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
-        for i in "Sample,SampleBias,SampleCmp".split(","):
-            self.name_idx[i].shader_stages = ("library", "pixel", "compute", "amplification", "mesh")
+        for i in "Sample,SampleBias,SampleCmp,SampleCmpBias".split(","):
+            self.name_idx[i].shader_stages = ("library", "pixel", "compute", "amplification", "mesh", "node")
         for i in "RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
