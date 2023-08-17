@@ -3139,8 +3139,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
-  // BarrierByNodeRecordHandle=246
-  if ((244 <= op && op <= 246)) {
+  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254, SampleCmpBias=255
+  if ((244 <= op && op <= 246) || (254 <= op && op <= 255)) {
     major = 6;
     minor = 8;
     return;
@@ -5266,6 +5266,45 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
+
+    // Comparison Samples
+  case OpCode::SampleCmpGrad:
+    RRT(pETy);
+    A(pI32);
+    A(pRes);
+    A(pRes);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    break;
+  case OpCode::SampleCmpBias:
+    RRT(pETy);
+    A(pI32);
+    A(pRes);
+    A(pRes);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pF32);
+    A(pF32);
+    A(pF32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -5577,7 +5616,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RawBufferLoad:
   case OpCode::Unpack4x8:
   case OpCode::TextureGatherRaw:
-  case OpCode::SampleCmpLevel: {
+  case OpCode::SampleCmpLevel:
+  case OpCode::SampleCmpGrad:
+  case OpCode::SampleCmpBias:
+  {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }

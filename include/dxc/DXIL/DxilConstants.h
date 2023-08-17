@@ -496,6 +496,14 @@ enum class OpCode : unsigned {
   BitcastI32toF32 = 126, // bitcast between different sizes
   BitcastI64toF64 = 128, // bitcast between different sizes
 
+  // Comparison Samples
+  SampleCmpBias = 255, // samples a texture after applying the input bias to the
+                       // mipmap level and compares a single component against
+                       // the specified comparison value
+  SampleCmpGrad =
+      254, // samples a texture using a gradient and compares a single component
+           // against the specified comparison value
+
   // Compute/Mesh/Amplification/Node shader
   FlattenedThreadIdInGroup = 96, // provides a flattened index for a given
                                  // thread within a given group (SV_GroupIndex)
@@ -952,7 +960,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
 
-  NumOpCodes = 254 // exclusive last value of enumeration
+  NumOpCodes = 256 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
