@@ -3446,20 +3446,23 @@ static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
       // if there was no input specified
       if (input.Flags.IsEmptyInput())
         continue;
-      LPCSTR launchTypeStr = "Invalid";
+
+      LPCSTR validInputs = "";
       switch (props.Node.LaunchType) {
       case DXIL::NodeLaunchType::Broadcasting:
-        launchTypeStr = "Broadcasting";
+        validInputs = "{RW}DispatchNodeInputRecord";
         break;
       case DXIL::NodeLaunchType::Coalescing:
-        launchTypeStr = "Coalescing";
+        validInputs = "{RW}GroupNodeInputRecords or EmptyNodeInput";
         break;
       case DXIL::NodeLaunchType::Thread:
-        launchTypeStr = "Thread";
+        validInputs = "{RW}ThreadNodeInputRecord";
         break;
       }
-      ValCtx.EmitFnFormatError(F, ValidationRule::DeclNodeLaunchInputType,
-                               {launchTypeStr, F->getName()});
+      ValCtx.EmitFnFormatError(
+          F, ValidationRule::DeclNodeLaunchInputType,
+          {ShaderModel::GetNodeLaunchTypeName(props.Node.LaunchType),
+           F->getName(), validInputs});
     }
   }
 }
@@ -3491,14 +3494,17 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
           // Check compatibility when both compute and node are specified
           if (entryProps.props.IsNode()) {
             // Compute is only compatible with Broadcasting launch nodes
+
             if (entryProps.props.Node.LaunchType !=
                 DXIL::NodeLaunchType::Broadcasting) {
               ValCtx.EmitFnFormatError(
                   &F, ValidationRule::FlowComputeNodeLaunchType,
                   {F.getName(), entryProps.props.Node.LaunchType ==
                                         DXIL::NodeLaunchType::Coalescing
-                                    ? "Coalescing"
-                                    : "Thread"});
+                                    ? ShaderModel::GetNodeLaunchTypeName(
+                                          DXIL::NodeLaunchType::Coalescing)
+                                    : ShaderModel::GetNodeLaunchTypeName(
+                                          DXIL::NodeLaunchType::Thread)});
               break;
             }
             // Compute is not compatible with node input (other than an input
