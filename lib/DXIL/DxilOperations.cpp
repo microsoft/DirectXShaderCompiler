@@ -458,6 +458,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::NodeOutputIsValid,       "NodeOutputIsValid",        OCC::NodeOutputIsValid,        "nodeOutputIsValid",         {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
   {  OC::GetRemainingRecursionLevels, "GetRemainingRecursionLevels", OCC::GetRemainingRecursionLevels, "getRemainingRecursionLevels", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Comparison Samples                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::SampleCmpGrad,           "SampleCmpGrad",            OCC::SampleCmpGrad,            "sampleCmpGrad",             { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleCmpBias,           "SampleCmpBias",            OCC::SampleCmpBias,            "sampleCmpBias",             { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 
@@ -951,8 +955,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
-  // BarrierByNodeRecordHandle=246
-  if ((244 <= op && op <= 246)) {
+  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254, SampleCmpBias=255
+  if ((244 <= op && op <= 246) || (254 <= op && op <= 255)) {
     major = 6;  minor = 8;
     return;
   }
@@ -1640,6 +1644,10 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     // Work Graph intrinsics
   case OpCode::NodeOutputIsValid:      A(pI1);      A(pI32); A(pNodeHandle);break;
   case OpCode::GetRemainingRecursionLevels:A(pI32);     A(pI32); break;
+
+    // Comparison Samples
+  case OpCode::SampleCmpGrad:          RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+  case OpCode::SampleCmpBias:          RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1945,6 +1953,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::Unpack4x8:
   case OpCode::TextureGatherRaw:
   case OpCode::SampleCmpLevel:
+  case OpCode::SampleCmpGrad:
+  case OpCode::SampleCmpBias:
   {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
