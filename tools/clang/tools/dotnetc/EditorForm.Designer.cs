@@ -686,8 +686,6 @@ namespace MainNs
             "ms_6_6",
             "ms_6_7",
             "ms_6_8",
-            "lib_6_1",
-            "lib_6_2",
             "lib_6_3",
             "lib_6_4",
             "lib_6_5",
