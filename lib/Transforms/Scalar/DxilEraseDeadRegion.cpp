@@ -137,10 +137,6 @@ struct DxilEraseDeadRegion : public FunctionPass {
         }
       }
 
-      // Wave intrinsics are technically read-only and safe to delete
-      if (IsWaveIntrinsic(&I))
-        continue;
-
       if (I.mayHaveSideEffects() && !hlsl::IsNop(&I)) {
         m_SafeBlocks[BB] = false;
         return false;
