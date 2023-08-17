@@ -2907,6 +2907,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Amplification) | SFLAG(Mesh);
     return;
   }
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64
+  if ((60 <= op && op <= 61) || op == 64) {
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
+    return;
+  }
   // Instructions: RenderTargetGetSamplePosition=76,
   // RenderTargetGetSampleCount=77, Discard=82, EvalSnapped=87,
   // EvalSampleIndex=88, EvalCentroid=89, SampleIndex=90, Coverage=91,
@@ -3143,6 +3148,12 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if ((244 <= op && op <= 246) || (254 <= op && op <= 255)) {
     major = 6;
     minor = 8;
+    return;
+  }
+  // Instructions: SampleCmpBias=255
+  if (op == 255) {
+    major = 6;  minor = 8;
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
