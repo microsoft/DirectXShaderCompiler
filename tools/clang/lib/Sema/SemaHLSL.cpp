@@ -11326,31 +11326,30 @@ static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
 }
 
 // Check HLSL member call constraints
-void Sema::DiagnoseHLSLMemberCallExpr(const CXXMemberCallExpr *C) {
-  if (const FunctionDecl *FD = C->getDirectCallee()) {
-    if (FD->hasAttr<HLSLIntrinsicAttr>()) {
-      // If this is a call to FinishedCrossGroupSharing then the Input record
-      // must have the NodeTrackRWInputSharing attribute
-      hlsl::IntrinsicOp opCode =
-          (IntrinsicOp)FD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-      if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
-        const CXXMethodDecl *MD = cast<CXXMethodDecl>(FD);
-        const CXXRecordDecl *NodeRecDecl = MD->getParent();
-        // Node I/O records are templateTypes
-        const ClassTemplateSpecializationDecl *templateDecl =
-            cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
-        auto &TemplateArgs = templateDecl->getTemplateArgs();
-        DXASSERT(TemplateArgs.size() == 1,
-                 "Input record types need to have one template argument");
-        auto &Rec = TemplateArgs.get(0);
-        clang::QualType RecType = Rec.getAsType();
-        RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
-        if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
-          Diags.Report(C->getLocStart(),
-                       diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
+bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
+  if (MD->hasAttr<HLSLIntrinsicAttr>()) {
+    // If this is a call to FinishedCrossGroupSharing then the Input record
+    // must have the NodeTrackRWInputSharing attribute
+    hlsl::IntrinsicOp opCode =
+        (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
+    if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
+      const CXXRecordDecl *NodeRecDecl = MD->getParent();
+      // Node I/O records are templateTypes
+      const ClassTemplateSpecializationDecl *templateDecl =
+          cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
+      auto &TemplateArgs = templateDecl->getTemplateArgs();
+      DXASSERT(TemplateArgs.size() == 1,
+               "Input record types need to have one template argument");
+      auto &Rec = TemplateArgs.get(0);
+      clang::QualType RecType = Rec.getAsType();
+      RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
+      if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
+        Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
+        return true;
       }
     }
   }
+  return false;
 }
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
