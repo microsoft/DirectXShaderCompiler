@@ -10,6 +10,8 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilNoops.h"
 #include "llvm/IR/Operator.h"
@@ -105,6 +107,8 @@ public:
 
   bool runOnModule(Module &M) override {
     bool Changed = false;
+    SmallVector<PHINode*, 4> LcssaHandlePhis;
+    Type *HandleType = M.GetOrCreateDxilModule().GetOP()->GetHandleType();
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
     for (Function &F : M) {
       for (BasicBlock &BB : F) {
@@ -120,10 +124,27 @@ public:
               I->eraseFromParent();
               Changed = true;
             }
+          } else if (PHINode* Phi = dyn_cast<PHINode>(I)) {
+            if (Phi->getNumIncomingValues() == 1
+             && Phi->getType() == HandleType) {
+                Changed = true;
+                LcssaHandlePhis.push_back(Phi);
+            }
           }
         }
       }
     }
+
+    // Replace all single value phi nodes (these are inserted by lcssa) of
+    // resource handles with the resource handle itself. This avoids
+    // validation errors since we do not allow handles in phis.
+    for (PHINode* Phi : LcssaHandlePhis) {
+      assert(Phi->getNumIncomingValues() == 1);
+      Value* Handle = Phi->getIncomingValue(0);
+      Phi->replaceAllUsesWith(Handle);
+      Phi->eraseFromParent();
+    }
+
     return Changed;
   }
 };
