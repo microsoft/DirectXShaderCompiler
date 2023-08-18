@@ -11530,8 +11530,6 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
           assembledShader, DxcValidatorFlags_InPlaceEdit, &pValidationResult));
       VERIFY_SUCCEEDED(pValidationResult->GetStatus(&validationStatus));
       VERIFY_SUCCEEDED(validationStatus);
-
-      pValidator.Release();
     }
 
     // Find root signature part in container
@@ -11588,7 +11586,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
 
   // The input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 normal float numbers.
   // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
-  std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.900f, -.122900f};
+  std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, -122.900f, .122900f};
   std::vector<float> *Validation_Input = &Validation_Input_Vec;
 
   std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};
