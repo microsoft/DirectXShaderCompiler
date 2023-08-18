@@ -12,7 +12,11 @@ def parse_command_line_options():
     
     parser.add_argument(
         '--query',
-        help='A path to a python script that defines a query function against the database of DXIL instructions. Requires the query function to be defined.')
+        action="store_true",
+        help='If given, enables the query mode for hctdb. The option requires that the user create a query.py file \
+        that defines a function called query. The file must be located in the same directory that contains hctdb.py. \
+        The query function must take 2 parameters, the set of all instructions, and a specific instruction. \
+        The query function returns true if the specific instruction should pass the query, and false otherwise.')
     options = parser.parse_args()
     return options
 
@@ -3274,14 +3278,14 @@ def execfile(filepath, globals=None, locals=None):
         "__name__": "__main__",
     })
     with open(filepath, 'rb') as file:
-        exec(compile(open(filepath, 'rb').read(), filepath, 'exec'), globals, locals)
+        eval(compile(open(filepath, 'rb').read(), filepath, 'exec'), globals, locals)
 
 
 def parse_query(db, options):
     if not options.query:
         return
         
-    execfile(options.query)
+    from query import query
 
     instructions = []
 
