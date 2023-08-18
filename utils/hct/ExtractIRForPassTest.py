@@ -1,4 +1,4 @@
-#! /usr/bin/env py -3
+#! /usr/bin/env python3
 """ExtractIRForPassTest.py - extract IR just before selected pass would be run.
 
 This script automates some operations to make it easier to write IR tests:
