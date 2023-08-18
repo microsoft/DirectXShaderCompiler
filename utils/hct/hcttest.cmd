@@ -231,9 +231,9 @@ rem Win32 to x86, no changes for other platforms
 set TEST_ARCH=%BUILD_ARCH:Win32=x86%
 
 rem By default, run all clang tests and execution tests and dxilconv tests
+rem Cmd tests are already included in the clang test suite.
 if "%TEST_ALL%"=="1" (
   set TEST_CLANG=1
-  set TEST_CMD=1
   set TEST_EXEC=1
   set TEST_EXTRAS=1
   set TEST_DXILCONV=1
@@ -299,6 +299,8 @@ if "%TEST_MANUAL_FILE_CHECK%"=="1" (
   )
 )
 
+echo Running HLSL tests for %BUILD_ARCH%...
+
 if "%TEST_USE_LIT%"=="1" (
   rem LIT does not separate spirv tests from other clang hlsl tests.
   if "%TEST_SPIRV%"=="1" (
@@ -308,9 +310,7 @@ if "%TEST_USE_LIT%"=="1" (
     rem check all except exec.
     cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
-    set RES_DXILCONV=%RES_CLANG%
-    set RES_EXEC=%RES_CLANG%
-    set RES_CMD=%RES_CLANG%
+    set RES_DXILCONV=!RES_CLANG!
   ) else (
     if "%TEST_DXILCONV%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
@@ -326,7 +326,7 @@ if "%TEST_USE_LIT%"=="1" (
     )
     if "!TEST_EXEC!"=="1" (
       if defined EXEC_ADAPTER (
-        py %HLSL_SRC_DIR%/utils/lit/lit.py -sv --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
+        py %HLSL_SRC_DIR%/utils/lit/lit.py -v --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
       ) else (
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
 	  )
@@ -338,6 +338,11 @@ if "%TEST_USE_LIT%"=="1" (
   set TEST_SPIRV=0
   set TEST_EXEC=0
   set TEST_CMD=0
+
+  rem No other tests to run - skip copying and move on to report the results
+  if not exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
+    goto :report_results
+  )
 )
 
 if not exist %TEST_DIR% (mkdir %TEST_DIR%)
@@ -385,8 +390,6 @@ if "%TEST_SPIRV%"=="1" (
   )
 )
 rem End SPIRV change
-
-echo Running HLSL tests for %BUILD_ARCH%...
 
 if "%BUILD_ARCH_DIR%"=="ARM64" (
     rem ARM64 TAEF has an issue when running ARM64X tests with /parallel flag
@@ -473,6 +476,7 @@ if "%TEST_MANUAL_FILE_CHECK%"=="1" (
   set RES_EXEC=!ERRORLEVEL!
 )
 
+:report_results
 echo.
 echo ==================================
 echo Unit test results:
