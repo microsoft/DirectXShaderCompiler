@@ -12,8 +12,7 @@ def parse_command_line_options():
     
     parser.add_argument(
         '--query',
-        action="store_true",
-        help='A query against the database of DXIL instructions. Requires the query function to be defined.')
+        help='A path to a python script that defines a query function against the database of DXIL instructions. Requires the query function to be defined.')
     options = parser.parse_args()
     return options
 
@@ -3267,42 +3266,27 @@ class InstructionSignature:
         str_args = ",".join(self.args)
         return "[{}] {} {}({})".format(self.fn_attr, self.ret_type, self.name, str_args)
 
-# user defined function
-# return false on instructions that should fail the query
-def query(insts, inst):
-    #ex 
-    """
-    if inst.ret_type == "v":
-        return true
-    return false
-    """
+def execfile(filepath, globals=None, locals=None):
+    if globals is None:
+        globals = {}
+    globals.update({
+        "__file__": filepath,
+        "__name__": "__main__",
+    })
+    with open(filepath, 'rb') as file:
+        exec(compile(open(filepath, 'rb').read(), filepath, 'exec'), globals, locals)
 
-    #ex 
-    """
-    if inst.fn_attr == "" and "Quad" in inst.name:
-        found = false
-        for other_inst in insts:
-            if not (other_inst == inst) and "Quad" in other_inst.name and other_inst.fn_attr != ""
-                found = true
-                break
-        return found
-        
-    return false
-    """
-
-    if inst.ret_type == "i32" and len(inst.args) > 2:
-        return True
-    return False
 
 def parse_query(db, options):
     if not options.query:
         return
+        
+    execfile(options.query)
 
     instructions = []
 
     for dxil_inst in db.instr:
         ops = []
-        #pdb.set_trace()
         for op in dxil_inst.ops:            
             ops.append(op.llvm_type)
         ret_type = ""
