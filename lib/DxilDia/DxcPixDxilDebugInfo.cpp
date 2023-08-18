@@ -235,18 +235,12 @@ dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
                 // that returns a DIScope directly, but if that namespace
                 // is at file-level scope, it will return nullptr.
                 if (auto * ContainingScope = Namespace->getScope())
-                {
                     S = ContainingScope;
-                }
                 else 
-                {
                     S = S->getFile();
-                }
             } 
             else 
-            {
                  S = S->getScope().resolve(EmptyMap);
-            }
         }
 
         if (S != nullptr)
