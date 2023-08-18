@@ -80,6 +80,8 @@ public:
   static const ShaderModel *GetByName(const char *pszName);
   static const char *GetKindName(Kind kind);
   static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
+  static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);
+  static DXIL::NodeLaunchType NodeLaunchTypeFromName(llvm::StringRef name);
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }

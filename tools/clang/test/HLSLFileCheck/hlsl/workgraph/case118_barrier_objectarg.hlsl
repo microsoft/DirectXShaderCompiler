@@ -12,6 +12,7 @@ struct RECORD
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,1)]
+[NodeDispatchGrid(256,1,1)]
 void node01(DispatchNodeInputRecord<RECORD> input)
 {
    Barrier(input, 1, 1);
@@ -59,7 +60,8 @@ void node04([MaxRecords(6)] RWGroupNodeInputRecords<RECORD> input)
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,1)]
-void node05([MaxOutputRecords(5)] NodeOutput<RECORD> outputs)
+[NodeDispatchGrid(256,1,1)]
+void node05([MaxRecords(5)] NodeOutput<RECORD> outputs)
 {
    ThreadNodeOutputRecords<RECORD> outrec = outputs.GetThreadNodeOutputRecords(1);
    Barrier(outrec, 1, 1);
@@ -103,7 +105,8 @@ void node07([MaxOutputRecords(5)] NodeOutput<RECORD> outputs)
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
-void node08([MaxOutputRecords(5)] NodeOutput<RECORD> outputs)
+[NodeDispatchGrid(256,1,1)]
+void node08([MaxRecords(5)] NodeOutput<RECORD> outputs)
 {
    GroupNodeOutputRecords<RECORD> outrec = outputs.GetGroupNodeOutputRecords(4);
    Barrier(outrec, 1, 1);
@@ -119,6 +122,7 @@ RWBuffer<float> obj09;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node09()
 {
    Barrier(obj09, 1, 1);
@@ -134,6 +138,7 @@ RWTexture1D<float4> obj10;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node10()
 {
    Barrier(obj10, 1, 1);
@@ -149,6 +154,7 @@ RWTexture1DArray<float4> obj11;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node11()
 {
    Barrier(obj11, 1, 1);
@@ -162,6 +168,7 @@ RWTexture2D<float> obj12;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node12()
 {
    Barrier(obj12, 1, 1);
@@ -176,6 +183,7 @@ RWTexture2DArray<float> obj13;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node13()
 {
    Barrier(obj13, 1, 1);
@@ -190,6 +198,7 @@ RWTexture3D<float> obj14;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node14()
 {
    Barrier(obj14, 1, 1);
@@ -204,6 +213,7 @@ RWStructuredBuffer<RECORD> obj15;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node15()
 {
    Barrier(obj15, 1, 1);
@@ -218,6 +228,7 @@ RWByteAddressBuffer obj16;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node16()
 {
    Barrier(obj16, 1, 1);
@@ -232,6 +243,7 @@ AppendStructuredBuffer<RECORD> obj17;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(256,1,4)]
+[NodeDispatchGrid(256,1,1)]
 void node17()
 {
    Barrier(obj17, 1, 1);

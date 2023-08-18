@@ -7,14 +7,12 @@
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(65535, 1, 1)]
-[NodeMaxDispatchGrid(65535, 1, 1)]
 [NumThreads(32, 1, 1)]
 void node01()
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
-[NodeMaxDispatchGrid(1, 65536, 1)]    // expected-error {{'NodeMaxDispatchGrid' Y component value must be between 1 and 65,535 (2^16-1) inclusive}}
 [NodeDispatchGrid(1, 65536, 1)]       // expected-error {{'NodeDispatchGrid' Y component value must be between 1 and 65,535 (2^16-1) inclusive}}
 [NumThreads(32, 1, 1)]
 void node02()
@@ -23,7 +21,6 @@ void node02()
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(1, 1, 0)]           // expected-error {{'NodeDispatchGrid' Z component value must be between 1 and 65,535 (2^16-1) inclusive}}
-[NodeMaxDispatchGrid(1, 1, 0)]        // expected-error {{'NodeMaxDispatchGrid' Z component value must be between 1 and 65,535 (2^16-1) inclusive}}
 [NumThreads(32, 1, 1)]
 void node03()
 { }
@@ -35,7 +32,6 @@ static const int z = 0;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(x, 256, 256)]       // expected-error {{'NodeDispatchGrid' X component value must be between 1 and 65,535 (2^16-1) inclusive}}
-[NodeMaxDispatchGrid(1, y, z)]        // expected-error {{'NodeMaxDispatchGrid' Z component value must be between 1 and 65,535 (2^16-1) inclusive}}
 [NumThreads(32, 1, 1)]
 void node04()
 { }
@@ -43,7 +39,6 @@ void node04()
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(256, 256, 256)]     // expected-error {{'NodeDispatchGrid' X * Y * Z product may not exceed 16,777,215 (2^24-1)}}
-[NodeMaxDispatchGrid(1, 65535, 257)]  // expected-error {{'NodeMaxDispatchGrid' X * Y * Z product may not exceed 16,777,215 (2^24-1)}}
 [NumThreads(32, 1, 1)]
 void node05()
 { }
@@ -51,9 +46,50 @@ void node05()
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(64, 4, 2)]          // expected-warning {{attribute 'NodeDispatchGrid' is already applied}}
-[NodeMaxDispatchGrid(256, 8, 8)]      // expected-warning {{attribute 'NodeMaxDispatchGrid' is already applied}}
 [NodeDispatchGrid(64, 4, 2)]
-[NodeMaxDispatchGrid(256, 8, 8)]
 [NumThreads(32, 1, 1)]
 void node06()
+{}
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(65535, 1, 1)]
+[NumThreads(32, 1, 1)]
+void node11()
+{ }
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(1, 65536, 1)]    // expected-error {{'NodeMaxDispatchGrid' Y component value must be between 1 and 65,535 (2^16-1) inclusive}}
+[NumThreads(32, 1, 1)]
+void node12()
+{ }
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(1, 1, 0)]        // expected-error {{'NodeMaxDispatchGrid' Z component value must be between 1 and 65,535 (2^16-1) inclusive}}
+[NumThreads(32, 1, 1)]
+void node13()
+{ }
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(1, y, z)]        // expected-error {{'NodeMaxDispatchGrid' Z component value must be between 1 and 65,535 (2^16-1) inclusive}}
+[NumThreads(32, 1, 1)]
+void node14()
+{ }
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(1, 65535, 257)]  // expected-error {{'NodeMaxDispatchGrid' X * Y * Z product may not exceed 16,777,215 (2^24-1)}}
+[NumThreads(32, 1, 1)]
+void node15()
+{ }
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(256, 8, 8)]      // expected-warning {{attribute 'NodeMaxDispatchGrid' is already applied}}
+[NodeMaxDispatchGrid(64, 1, 1)]
+[NumThreads(32, 1, 1)]
+void node16()
 { }

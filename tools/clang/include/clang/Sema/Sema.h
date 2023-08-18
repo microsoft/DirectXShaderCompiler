@@ -3799,6 +3799,7 @@ public:
   void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
                                         QualType TargetType,
                                         SourceLocation Loc);
+  bool DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
