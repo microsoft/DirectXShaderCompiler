@@ -51,6 +51,7 @@ ExtensionLowering::Strategy ExtensionLowering::GetStrategy(StringRef strategy) {
     case 'p': return Strategy::Pack;
     case 'm': return Strategy::Resource;
     case 'd': return Strategy::Dxil;
+    case 'c': return Strategy::Custom;
     default: break;
   }
   return Strategy::Unknown;
@@ -63,6 +64,7 @@ llvm::StringRef ExtensionLowering::GetStrategyName(Strategy strategy) {
     case Strategy::Pack:          return "p";
     case Strategy::Resource:      return "m"; // m for resource method
     case Strategy::Dxil:          return "d";
+    case Strategy::Custom:        return "c";
     default: break;
   }
   return "?";
@@ -91,6 +93,7 @@ llvm::Value *ExtensionLowering::Translate(llvm::CallInst *CI) {
   case Strategy::Pack:          return Pack(CI);
   case Strategy::Resource:      return Resource(CI);
   case Strategy::Dxil:          return Dxil(CI);
+  case Strategy::Custom:        return Custom(CI);
   default: break;
   }
   return Unknown(CI);
@@ -374,6 +377,27 @@ Value *ExtensionLowering::Replicate(CallInst *CI) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Helper functions
+static VectorType* ConvertStructTypeToVectorType(Type* structTy) {
+  assert(structTy->isStructTy());
+  return VectorType::get(structTy->getStructElementType(0), structTy->getStructNumElements());
+}
+
+static Value* PackStructIntoVector(IRBuilder<>& builder, Value* strukt) {
+  Type* vecTy = ConvertStructTypeToVectorType(strukt->getType());
+  Value* packed = UndefValue::get(vecTy);
+
+  unsigned numElements = vecTy->getVectorNumElements();
+  for (unsigned i = 0; i < numElements; ++i) {
+    Value* element = builder.CreateExtractValue(strukt, i);
+    packed = builder.CreateInsertElement(packed, element, i);
+  }
+
+  return packed;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Packed Lowering.
 class PackCall {
 public:
@@ -426,11 +450,6 @@ private:
     return result;
   }
 
-  static VectorType *ConvertStructTypeToVectorType(Type *structTy) {
-    assert(structTy->isStructTy());
-    return VectorType::get(structTy->getStructElementType(0), structTy->getStructNumElements());
-  }
-
   static Value *PackVectorIntoStruct(IRBuilder<> &builder, Value *vec) {
     StructType *structTy = ConvertVectorTypeToStructType(vec->getType());
     Value *packed = UndefValue::get(structTy);
@@ -439,19 +458,6 @@ private:
     for (unsigned i = 0; i < numElements; ++i) {
       Value *element = builder.CreateExtractElement(vec, i);
       packed = builder.CreateInsertValue(packed, element, { i });
-    }
-
-    return packed;
-  }
-
-  static Value *PackStructIntoVector(IRBuilder<> &builder, Value *strukt) {
-    Type *vecTy = ConvertStructTypeToVectorType(strukt->getType());
-    Value *packed = UndefValue::get(vecTy);
-
-    unsigned numElements = vecTy->getVectorNumElements();
-    for (unsigned i = 0; i < numElements; ++i) {
-      Value *element = builder.CreateExtractValue(strukt, i);
-      packed = builder.CreateInsertElement(packed, element, i);
     }
 
     return packed;
@@ -713,10 +719,30 @@ Value *ExtensionLowering::Resource(CallInst *CI) {
 //  dxil: @MyTextureOp(17, handle, a.x, a.y, undef, c.x, c.y)
 //
 // 
-class CustomResourceLowering
+class CustomLowering
 {
 public:
-    CustomResourceLowering(StringRef LoweringInfo, CallInst *CI, HLResourceLookup &ResourceLookup)
+    CustomLowering(StringRef LoweringInfo, CallInst* CI)
+    {
+        // Parse lowering info json format.
+        std::map<ResourceKindName, std::vector<DxilArgInfo>> LoweringInfoMap =
+            ParseLoweringInfo(LoweringInfo, CI->getContext());
+
+        // Select lowering info to use based on resource kind.
+        const char *DefaultInfoName = "default";
+        std::vector<DxilArgInfo> *pArgInfo = nullptr;
+        if (LoweringInfoMap.count(DefaultInfoName))
+        {
+            pArgInfo = &LoweringInfoMap.at(DefaultInfoName);
+        }
+        else
+        {
+            ThrowExtensionError("Unable to find lowering info for resource");
+        }
+        GenerateLoweredArgs(CI, *pArgInfo);
+    }
+
+   CustomLowering(StringRef LoweringInfo, CallInst *CI, HLResourceLookup &ResourceLookup)
     {
         // Parse lowering info json format.
         std::map<ResourceKindName, std::vector<DxilArgInfo>> LoweringInfoMap =
@@ -775,6 +801,7 @@ private:
             {"?half",  Type::getHalfTy(Ctx)},
             {"?i8",    Type::getInt8Ty(Ctx)},
             {"?i16",   Type::getInt16Ty(Ctx)},
+            {"?i1",    Type::getInt1Ty(Ctx)},
         };
         DXASSERT(m_OptionalTypes.empty(), "Init should only be called once");
         m_OptionalTypes.clear();
@@ -988,23 +1015,23 @@ private:
 
 // Boilerplate to reuse exising logic as much as possible.
 // We just want to overload GetFunctionType here.
-class CustomResourceFunctionTranslator : public FunctionTranslator {
+class CustomFunctionTranslator : public FunctionTranslator {
 public:
   static Function *GetLoweredFunction(
-        const CustomResourceLowering &CustomLowering,
-        ResourceFunctionTypeTranslator &typeTranslator,
+        const CustomLowering &CustomLowering,
+        FunctionTypeTranslator &typeTranslator,
         CallInst *CI,
         ExtensionLowering &lower
     )
   {
-      CustomResourceFunctionTranslator T(CustomLowering, typeTranslator, lower);
+      CustomFunctionTranslator T(CustomLowering, typeTranslator, lower);
       return T.FunctionTranslator::GetLoweredFunction(CI);
   }
 
 private:
-    CustomResourceFunctionTranslator(
-        const CustomResourceLowering &CustomLowering,
-        ResourceFunctionTypeTranslator &typeTranslator,
+    CustomFunctionTranslator(
+        const CustomLowering &CustomLowering,
+        FunctionTypeTranslator &typeTranslator,
         ExtensionLowering &lower
     )
         : FunctionTranslator(typeTranslator, lower)
@@ -1023,7 +1050,7 @@ private:
     }
 
 private:
-    const CustomResourceLowering &m_CustomLowering;
+    const CustomLowering &m_CustomLowering;
 };
 
 // Boilerplate to reuse exising logic as much as possible.
@@ -1031,7 +1058,7 @@ private:
 class CustomResourceMethodCall : public ResourceMethodCall
 {
 public:
-    CustomResourceMethodCall(CallInst *CI, const CustomResourceLowering &CustomLowering)
+    CustomResourceMethodCall(CallInst *CI, const CustomLowering &CustomLowering)
         : ResourceMethodCall(CI)
         , m_CustomLowering(CustomLowering)
     {}
@@ -1043,14 +1070,14 @@ public:
     }
 
 private:
-    const CustomResourceLowering &m_CustomLowering;
+    const CustomLowering &m_CustomLowering;
 };
 
 // Support custom lowering logic for resource functions.
 Value *ExtensionLowering::CustomResource(CallInst *CI) {
-    CustomResourceLowering CustomLowering(m_extraStrategyInfo, CI, m_hlResourceLookup);
+    CustomLowering CustomLowering(m_extraStrategyInfo, CI, m_hlResourceLookup);
     ResourceFunctionTypeTranslator ResourceTypeTranslator(m_hlslOp);
-    Function *ResourceFunction = CustomResourceFunctionTranslator::GetLoweredFunction(
+    Function *ResourceFunction = CustomFunctionTranslator::GetLoweredFunction(
         CustomLowering,
         ResourceTypeTranslator,
         CI,
@@ -1062,6 +1089,30 @@ Value *ExtensionLowering::CustomResource(CallInst *CI) {
     CustomResourceMethodCall custom(CI, CustomLowering);
     Value *Result = custom.Generate(ResourceFunction);
     return Result;
+}
+
+// Support custom lowering logic for arbitrary functions.
+Value *ExtensionLowering::Custom(CallInst *CI) {
+    CustomLowering CustomLowering(m_extraStrategyInfo, CI);
+    PackedFunctionTypeTranslator TypeTranslator;
+    Function *CustomFunction = CustomFunctionTranslator::GetLoweredFunction(
+        CustomLowering,
+        TypeTranslator,
+        CI,
+        *this
+    );
+    if (!CustomFunction)
+        return NoTranslation(CI);
+
+    IRBuilder<> builder(CI);
+    Value* result = builder.CreateCall(CustomFunction, CustomLowering.GetLoweredArgs());
+
+    // Arbitrary functions will expect vectors, not structs
+    if (CustomFunction->getReturnType()->isStructTy()) {
+      return PackStructIntoVector(builder, result);
+    }
+
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
