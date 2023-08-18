@@ -15,6 +15,7 @@ void VGMain() {
 
 [shader("vertex")] /* expected-note {{conflicting attribute is here}} */ /* expected-error {{invalid shader stage attribute combination}} */
 [shader("node")] /* expected-note {{conflicting attribute is here}} */ 
+[NodeDispatchGrid(2,1,1)]
 [ numthreads( 64, 2, 2 ) ] 
 void VNMain() {
 }
@@ -22,6 +23,7 @@ void VNMain() {
 [shader("compute")] 
 [shader("vertex")]  /* expected-error {{invalid shader stage attribute combination}} */ /* expected-note {{conflicting attribute is here}} */
 [shader("node")] /* expected-note {{conflicting attribute is here}} */ 
+[NodeDispatchGrid(2,1,1)]
 [ numthreads( 64, 2, 2 ) ] 
 void CVNMain() {
 }

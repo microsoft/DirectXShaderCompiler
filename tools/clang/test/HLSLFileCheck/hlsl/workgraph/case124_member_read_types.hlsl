@@ -24,6 +24,7 @@ struct RECORD
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node01(DispatchNodeInputRecord<RECORD> input)
 {
@@ -34,6 +35,7 @@ void node01(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node02(DispatchNodeInputRecord<RECORD> input)
 {
@@ -45,6 +47,7 @@ void node02(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node03(DispatchNodeInputRecord<RECORD> input)
 {
@@ -56,6 +59,7 @@ void node03(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node04(DispatchNodeInputRecord<RECORD> input)
 {
@@ -67,6 +71,7 @@ void node04(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node05(DispatchNodeInputRecord<RECORD> input)
 {
@@ -78,6 +83,7 @@ void node05(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node06(DispatchNodeInputRecord<RECORD> input)
 {
@@ -89,6 +95,7 @@ void node06(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node07(DispatchNodeInputRecord<RECORD> input)
 {
@@ -100,6 +107,7 @@ void node07(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node08(DispatchNodeInputRecord<RECORD> input)
 {

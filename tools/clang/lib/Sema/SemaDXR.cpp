@@ -1140,7 +1140,8 @@ void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
 
 void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
 
   if (FD->getNumParams() != 1)
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
@@ -1164,7 +1165,8 @@ void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
                                DXIL::ShaderKind Stage) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
 
   unsigned ExpectedParams = Stage == DXIL::ShaderKind::Miss ? 1 : 2;
   if (ExpectedParams != FD->getNumParams()) {
@@ -1205,7 +1207,8 @@ void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
 void DiagnoseRayGenerationOrIntersectionEntry(Sema &S, FunctionDecl *FD,
                                               HLSLShaderAttr *Attr) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
   unsigned ExpectedParams = 0;
   if (ExpectedParams != FD->getNumParams())
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
@@ -1215,7 +1218,8 @@ void DiagnoseRayGenerationOrIntersectionEntry(Sema &S, FunctionDecl *FD,
 
 void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
   unsigned ExpectedParams = 2;
 
   if (ExpectedParams != FD->getNumParams()) {
@@ -1254,11 +1258,165 @@ void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   return;
 }
 
+static bool NodeInputIsCompatible(StringRef& typeName,
+                                  DXIL::NodeLaunchType launchType) {
+  return llvm::StringSwitch<bool>(typeName)
+         .Case("DispatchNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Broadcasting)
+         .Case("RWDispatchNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Broadcasting)
+         .Case("GroupNodeInputRecords",
+               launchType == DXIL::NodeLaunchType::Coalescing)
+         .Case("RWGroupNodeInputRecords",
+               launchType == DXIL::NodeLaunchType::Coalescing)
+         .Case("EmptyNodeInput",
+               launchType == DXIL::NodeLaunchType::Coalescing)
+         .Case("ThreadNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Thread)
+         .Case("RWThreadNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Thread)
+         .Default(false);
+}
+
 void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
+
+  SourceLocation computeLoc = SourceLocation();
+  SourceLocation nodeLoc = SourceLocation();
+  SourceLocation nodeLaunchLoc = SourceLocation();
+  DXIL::NodeLaunchType nodeLaunchType = DXIL::NodeLaunchType::Invalid;
+  unsigned inputCount = 0;
+
+  // a function may be both compute and work-graph node
+  for (auto *pAttr : FD->specific_attrs<HLSLShaderAttr>()) {
+    DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(pAttr->getStage());
+    if (shaderKind == DXIL::ShaderKind::Node) {
+      nodeLoc = pAttr->getLocation();
+    } else if (shaderKind == DXIL::ShaderKind::Compute) {
+      computeLoc = pAttr->getLocation();
+    }
+  }
+  // if this isn't a work-graph node we can quit now
+  if (!nodeLoc.isValid())
+    return;
+
+  // save NodeLaunch type for use later
+  if (auto nodeLaunchAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
+    nodeLaunchType =
+      ShaderModel::NodeLaunchTypeFromName(nodeLaunchAttr->getLaunchType());
+    nodeLaunchLoc = nodeLaunchAttr->getLocation();
+  } else {
+    nodeLaunchType = DXIL::NodeLaunchType::Broadcasting;
+    nodeLaunchLoc = SourceLocation();
+  }
+
+  // If this is both a compute shader and work-graph node, it may only have
+  // broadcasting launch mode
+  if (computeLoc.isValid() &&
+      nodeLaunchType != DXIL::NodeLaunchType::Broadcasting) {
+    S.Diags.Report(nodeLaunchLoc, diag::err_hlsl_compute_launch_compatibility)
+      << FD->getName() << ShaderModel::GetNodeLaunchTypeName(nodeLaunchType);
+    S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
+  }
+
+  // Check that if a Thread launch node has the NumThreads attribute the
+  // thread group size is (1,1,1)
+  if (nodeLaunchType == DXIL::NodeLaunchType::Thread) {
+    if (auto NumThreads = FD->getAttr<HLSLNumThreadsAttr>()) {
+      if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
+          NumThreads->getZ() != 1) {
+        S.Diags.Report(NumThreads->getLocation(),
+                       diag::err_hlsl_wg_thread_launch_group_size)
+          << NumThreads->getRange();
+        // Only output the note if the source location is valid
+        if (nodeLaunchLoc.isValid())
+          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
+              << "Launch type";
+      }
+    }
+  } else if (!FD->hasAttr<HLSLNumThreadsAttr>()) {
+    // All other launch types require the NumThreads attribute.
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_node_attr)
+      << FD->getName() << ShaderModel::GetNodeLaunchTypeName(nodeLaunchType)
+      << "numthreads";
+  }
+
+  auto *nodeDG = FD->getAttr<HLSLNodeDispatchGridAttr>();
+  auto *nodeMDG = FD->getAttr<HLSLNodeMaxDispatchGridAttr>();
+  if (nodeLaunchType != DXIL::NodeLaunchType::Broadcasting) {
+    // NodeDispatchGrid is only valid for Broadcasting nodes
+    if (nodeDG) {
+      S.Diags.Report(nodeDG->getLocation(), diag::err_hlsl_launch_type_attr)
+        << nodeDG->getSpelling()
+        << ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType::Broadcasting)
+        << nodeDG->getRange();
+      // Only output the note if the source location is valid
+      if (nodeLaunchLoc.isValid())
+          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
+              << "Launch type";
+    }
+    // NodeMaxDispatchGrid is only valid for Broadcasting nodes
+    if (nodeMDG) {
+      S.Diags.Report(nodeMDG->getLocation(), diag::err_hlsl_launch_type_attr)
+        << nodeMDG->getSpelling()
+        << ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType::Broadcasting)
+        << nodeMDG->getRange();
+      // Only output the note if the source location is valid
+      if (nodeLaunchLoc.isValid())
+          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
+              << "Launch type";
+    }
+  } else {
+    // A Broadcasting node must have one of NodeDispatchGrid or
+    // NodeMaxDispatchGrid
+    if (!nodeMDG && ! nodeDG)
+      S.Diags.Report(FD->getLocation(),
+        diag::err_hlsl_missing_dispatchgrid_attr) << FD->getName();
+    // NodeDispatchGrid and NodeMaxDispatchGrid may not be used together
+    if (nodeMDG && nodeDG) {
+      S.Diags.Report(nodeMDG->getLocation(),
+                     diag::err_hlsl_incompatible_node_attr)
+        << FD->getName() << nodeMDG->getSpelling() << nodeDG->getSpelling()
+        << nodeMDG->getRange();
+      S.Diags.Report(nodeDG->getLocation(), diag::note_defined_here)
+        << nodeDG->getSpelling();
+    }
+  }
+
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_raytracing_must_return_void);
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
+
+  // Check parameter constraints
   for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {
     ParmVarDecl *Param = FD->getParamDecl(Idx);
+
+    // compute is incompatible with node input/output
+    if (computeLoc.isValid() && hlsl::IsHLSLNodeType(Param->getType())) {
+      S.Diags.Report(Param->getLocation(),
+                     diag::err_hlsl_compute_io_compatibility)
+        << FD->getName() << "node input/output" << Param->getSourceRange();
+      S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
+    }
+
+    // Check any node input is compatible with the node launch type
+    if (hlsl::IsHLSLNodeInputType(Param->getType())) {
+      inputCount++;
+      const RecordType* RT = Param->getType()->getAs<RecordType>();
+      StringRef typeName = RT->getDecl()->getName();
+      if (nodeLaunchType != DXIL::NodeLaunchType::Invalid &&
+          !NodeInputIsCompatible(typeName, nodeLaunchType)) {
+        S.Diags.Report(Param->getLocation(), diag::err_hlsl_wg_input_kind)
+          << typeName << ShaderModel::GetNodeLaunchTypeName(nodeLaunchType)
+          << (static_cast<unsigned>(nodeLaunchType) - 1) << Param->getSourceRange();
+        if (nodeLaunchLoc.isValid())
+          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
+            << "Launch type";
+      }
+      if (inputCount > 1)
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_too_many_node_inputs)
+          << FD->getName() << Param->getSourceRange();
+    }
 
     HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
         Param->getAttr<HLSLMaxRecordsSharedWithAttr>();
@@ -1307,7 +1465,6 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
-  case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Amplification:
@@ -1327,7 +1484,9 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::ClosestHit: {
     return DiagnoseClosestHitEntry(S, FD, Attr);
   }
+  case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Node: {
+    // A compute shader may also be a node, so we check it here
     return DiagnoseNodeEntry(S, FD, Attr);
   }
   }

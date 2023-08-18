@@ -7599,8 +7599,8 @@ def err_attributes_requiers_in : Error<
   "intersection attributes parameter %0 must be 'in'">;
 def err_payload_attrs_must_be_udt : Error<
   "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
-def err_raytracing_must_return_void : Error<
-  "return type for ray tracing shaders must be void">;
+def err_shader_must_return_void : Error<
+  "return type for '%0' shaders must be void">;
 def err_raytracing_entry_param_count : Error<
   "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
 def err_payload_fields_not_qualified : Error<
@@ -7792,10 +7792,15 @@ def err_hlsl_wg_intrinsic_launch_type : Error<
    "%0 may only be used by nodes with %1 launch type">;
 def err_hlsl_wg_thread_launch_group_size : Error<
    "Thread launch nodes must have a thread group size of (1,1,1)">;
+def err_hlsl_numthreads_group_size : Error<
+   "NumThreads group size may not exceed 1024 (x * y * z)">;
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
 def err_hlsl_wg_input_kind : Error<
-   "%0 may not be used with %1 launch nodes">;
+   "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
+   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
+def err_hlsl_zero_sized_record : Error<
+   "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
    "a RWNodeInputRecord field with SV_DispatchGrid semantic is not assignable">;
 def err_hlsl_maxarraysize_template_arg : Error<
@@ -7810,8 +7815,22 @@ def err_hlsl_dispatchgrid_component : Error<
    "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
 def err_hlsl_dispatchgrid_product : Error<
    "%0 X * Y * Z product may not exceed 16,777,215 (2^24-1)">;
-def err_hlsl_compute_compatibility : Error<
-   "Node shader '%0' with %1 is not compatible with compute">;
+def err_hlsl_compute_launch_compatibility : Error<
+   "Node shader '%0' with %1 launch type is not compatible with compute (must be broadcasting)">;
+def err_hlsl_compute_io_compatibility : Error<
+   "Node shader '%0' with node input/output is not compatible with compute">;
+def err_hlsl_launch_type_attr : Error<
+   "'%0' may only be used with %1 nodes">;
+def err_hlsl_incompatible_node_attr : Error<
+   "Node shader '%0' may not use both '%1' and '%2'">;
+def err_hlsl_missing_node_attr : Error<
+   "Node shader '%0' with %1 launch type requires '%2' attribute">;
+def err_hlsl_missing_dispatchgrid_attr : Error<
+   "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
+def err_hlsl_maxrecursiondepth_exceeded : Error<
+   "NodeMaxRecursionDepth may not exceed 32">;
+def err_hlsl_too_many_node_inputs : Error<
+   "Node shader '%0' may not have more than one input record">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

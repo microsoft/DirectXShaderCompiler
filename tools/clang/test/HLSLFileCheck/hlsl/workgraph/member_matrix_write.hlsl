@@ -16,6 +16,7 @@ struct RECORD
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(64,1,1)]
 void node01(RWDispatchNodeInputRecord<RECORD> input1)
 {
   // CHECK: %[[p1_0:[^ ]+]] = getelementptr %[[RECORD]], %[[RECORD]] addrspace(6)* %{{[^,]+}}, i32 0, i32 1, i32 0
@@ -85,6 +86,7 @@ void node02([MaxRecords(4)] RWGroupNodeInputRecords<RECORD> input2)
 // CHECK: define void @node03
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(64,1,1)]
 [NodeLaunch("Broadcasting")]
 void node03(NodeOutput<RECORD> output3)
 {

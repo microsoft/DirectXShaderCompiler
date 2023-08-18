@@ -5575,6 +5575,15 @@ public:
             << argType;
         return true;
       }
+      // a node input/output record can't be empty
+      if (const RecordType *recordType = argType->getAsStructureType()) {
+        RecordDecl *RD = recordType->getDecl();
+        if (RD->field_empty()) {
+          m_sema->Diag(argLoc.getLocation(), diag::err_hlsl_zero_sized_record) << templateName << argLoc.getSourceRange();
+          m_sema->Diag(RD->getLocation(), diag::note_defined_here) << "zero sized record";
+          return true;
+        }
+      }
       return false;
     }
 
@@ -11316,157 +11325,32 @@ static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
   return NameLookup{ pFoundDecl, nullptr };
 }
 
-// Work Graph checks:
-// - intrinsics are only called by nodes with appropriate launch types
-class WorkGraphVisitor : public RecursiveASTVisitor<WorkGraphVisitor> {
-private:
-  Sema &S;
-  // Current Launch Node
-  StringRef nodeLaunchType;
-  StringRef funcName;
-  SourceLocation nodeLaunchLoc;
-  SourceLocation computeLoc;
-  SourceLocation nodeLoc;
-
-public:
-  WorkGraphVisitor(Sema &S) : S(S) {}
-
-  void diagnose(TranslationUnitDecl *TU) { TraverseTranslationUnitDecl(TU); }
-
-  bool VisitFunctionDecl(FunctionDecl *Decl) {
-    nodeLaunchType = StringRef();
-    funcName = StringRef();
-    nodeLaunchLoc = SourceLocation();
-    computeLoc = SourceLocation();
-    nodeLoc = SourceLocation();
-
-    // a function may be both compute and work-graph node
-    for (auto *pAttr : Decl->specific_attrs<HLSLShaderAttr>()) {
-      DXIL::ShaderKind shaderKind =
-          ShaderModel::KindFromFullName(pAttr->getStage());
-      if (shaderKind == DXIL::ShaderKind::Node) {
-        nodeLoc = pAttr->getLocation();
-      } else if (shaderKind == DXIL::ShaderKind::Compute) {
-        computeLoc = pAttr->getLocation();
+// Check HLSL member call constraints
+bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
+  if (MD->hasAttr<HLSLIntrinsicAttr>()) {
+    // If this is a call to FinishedCrossGroupSharing then the Input record
+    // must have the NodeTrackRWInputSharing attribute
+    hlsl::IntrinsicOp opCode =
+        (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
+    if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
+      const CXXRecordDecl *NodeRecDecl = MD->getParent();
+      // Node I/O records are templateTypes
+      const ClassTemplateSpecializationDecl *templateDecl =
+          cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
+      auto &TemplateArgs = templateDecl->getTemplateArgs();
+      DXASSERT(TemplateArgs.size() == 1,
+               "Input record types need to have one template argument");
+      auto &Rec = TemplateArgs.get(0);
+      clang::QualType RecType = Rec.getAsType();
+      RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
+      if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
+        Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
+        return true;
       }
     }
-    // if this isn't a work-graph node we can quit now
-    if (!nodeLoc.isValid())
-      return false;
-
-    // nodes will always have a name - we'll save it for use in diagnostics
-    funcName = Decl->getName();
-
-    // save NodeLaunch type for use later
-    if (auto NodeLaunch = Decl->getAttr<HLSLNodeLaunchAttr>()) {
-      nodeLaunchType = NodeLaunch->getLaunchType();
-      nodeLaunchLoc = NodeLaunch->getLocation();
-    } else {
-      nodeLaunchType = "Broadcasting";
-      nodeLaunchLoc = SourceLocation();
-    }
-
-    // If this is both a compute shader and work-graph node, it may only have broadcasting launch mode
-    if (computeLoc.isValid() && !nodeLaunchType.equals_lower("broadcasting")) {
-      S.Diags.Report(nodeLaunchLoc, diag::err_hlsl_compute_compatibility)
-	<< funcName << nodeLaunchType.lower() + " launch type";
-      S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
-      // ignore other compute incompatibilities (i.e. input/output records)
-      computeLoc = SourceLocation();
-    }
-
-    // Check that a Thread node has thread group size (1,1,1)
-    if (nodeLaunchType.equals_lower("thread")) {
-      if (auto NumThreads = Decl->getAttr<HLSLNumThreadsAttr>()) {
-        if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
-            NumThreads->getZ() != 1) {
-          S.Diags.Report(NumThreads->getLocation(),
-                         diag::err_hlsl_wg_thread_launch_group_size);
-          // Only output the note if the source location is valid
-          if (nodeLaunchLoc.isValid())
-            S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
-                << "Launch type";
-        }
-      }
-    }
-
-    return true;
   }
-
-  bool NodeInputIsCompatible(StringRef& typeName, StringRef& launchName) {
-    return llvm::StringSwitch<bool>(typeName)
-	   .Case("DispatchNodeInputRecord", launchName.equals_lower("broadcasting"))
-	   .Case("RWDispatchNodeInputRecord", launchName.equals_lower("broadcasting"))
-	   .Case("GroupNodeInputRecords", launchName.equals_lower("coalescing"))
-	   .Case("RWGroupNodeInputRecords", launchName.equals_lower("coalescing"))
-	   .Case("EmptyNodeInput", launchName.equals_lower("coalescing"))
-	   .Case("ThreadNodeInputRecord", launchName.equals_lower("thread"))
-	   .Case("RWThreadNodeInputRecord", launchName.equals_lower("thread"))
-	   .Default(false);
-  }
-
-  bool VisitParmVarDecl(ParmVarDecl *P) {
-    // compute is incompatible with node input/output
-    if (computeLoc.isValid() && hlsl::IsHLSLNodeType(P->getType())) {
-      S.Diags.Report(P->getLocation(), diag::err_hlsl_compute_compatibility)
-	<< funcName << "node input/output" << P->getSourceRange();
-      S.Diags.Report(computeLoc, diag::note_defined_here) << "compute";
-      // ignore any other errors
-      return true;
-    }
-    // Check any node input is compatible with the node launch type
-    if (hlsl::IsHLSLNodeInputType(P->getType())) {
-      const RecordType* RT = P->getType()->getAs<RecordType>();
-      StringRef typeName = RT->getDecl()->getName();
-      if (!NodeInputIsCompatible(typeName, nodeLaunchType)) {
-        S.Diags.Report(P->getLocation(), diag::err_hlsl_wg_input_kind) << typeName
-          << nodeLaunchType.lower() << P->getSourceRange();
-        if (nodeLaunchLoc.isValid()) {
-          S.Diags.Report(nodeLaunchLoc, diag::note_defined_here) << "Launch type";
-        }
-      }
-    }
-
-    return true;
-  }
-
-  bool VisitCallExpr(CallExpr *C) {
-
-    if (FunctionDecl *FD = C->getDirectCallee()) {
-      if (FD->hasAttr<HLSLIntrinsicAttr>()) {
-        // this is a call to a HLSL intrinsic FinishedCrossGroupSharing
-        hlsl::IntrinsicOp opCode =
-            (IntrinsicOp)FD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-        if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
-          const CXXMethodDecl *MD = cast<CXXMethodDecl>(FD);
-          const CXXRecordDecl *NodeRecDecl = MD->getParent();
-          // Node I/O records are templateTypes
-          const ClassTemplateSpecializationDecl *templateDecl =
-              cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
-          auto &TemplateArgs = templateDecl->getTemplateArgs();
-          DXASSERT(TemplateArgs.size() == 1,
-                   "Input record types need to have one template argument");
-          auto &Rec = TemplateArgs.get(0);
-          clang::QualType RecType = Rec.getAsType();
-          RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
-          if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
-            S.Diags.Report(C->getLocStart(),
-                           diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
-        }
-      }
-    }
-    return true;
-  }
-};
-
-namespace hlsl {
-
-void DiagnoseWorkGraphConstraints(clang::Sema &S,
-                                  clang::TranslationUnitDecl *TU) {
-  WorkGraphVisitor visitor(S);
-  visitor.diagnose(TU);
+  return false;
 }
-} // namespace hlsl
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
@@ -11488,9 +11372,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       DiagnoseRaytracingPayloadAccess(*self, TU);
     }
   }
-
-  // Check constraints for work graphs
-  DiagnoseWorkGraphConstraints(*self, self->getASTContext().getTranslationUnitDecl());
 
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
@@ -13355,11 +13236,16 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLMaxTessFactorAttr(A.getRange(), S.Context,
       ValidateAttributeFloatArg(S, A), A.getAttributeSpellingListIndex());
     break;
-  case AttributeList::AT_HLSLNumThreads:
-    declAttr = ::new (S.Context) HLSLNumThreadsAttr(A.getRange(), S.Context,
+  case AttributeList::AT_HLSLNumThreads: {
+    auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
       A.getAttributeSpellingListIndex());
+    if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
+      S.Diags.Report(numThreads->getLocation(), diag::err_hlsl_numthreads_group_size)
+        << numThreads->getRange();
+    declAttr = numThreads;
     break;
+  }
   case AttributeList::AT_HLSLRootSignature:
     declAttr = ::new (S.Context) HLSLRootSignatureAttr(A.getRange(), S.Context,
       ValidateAttributeStringArg(S, A, /*validate strings*/nullptr),
@@ -13456,6 +13342,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLNodeMaxRecursionDepthAttr(
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
         A.getAttributeSpellingListIndex());
+    if (cast<HLSLNodeMaxRecursionDepthAttr>(declAttr)->getCount() > 32)
+      S.Diags.Report(declAttr->getLocation(), diag::err_hlsl_maxrecursiondepth_exceeded)
+        << declAttr->getRange();
     break;
   default:
     Handled = false;
@@ -14992,7 +14881,7 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
 
   case clang::attr::HLSLNodeTrackRWInputSharing: {
     Indent(Indentation, Out);
-    Out << "[HLSLNodeTrackRWInputSharing]\n";
+    Out << "[NodeTrackRWInputSharing]\n";
     break;
   }
 

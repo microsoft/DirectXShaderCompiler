@@ -14,6 +14,7 @@ struct RECORD
 
 [Shader("node")]
 [NodeLaunch("Coalescing")]
+[NumThreads(1,1,1)]
 void node01(RWGroupNodeInputRecords<RECORD> input)
 {
   input.Get().a = 11;
@@ -23,6 +24,7 @@ void node01(RWGroupNodeInputRecords<RECORD> input)
 
 [Shader("node")]
 [NodeLaunch("Coalescing")]
+[NumThreads(2,1,1)]
 void node02(GroupNodeInputRecords<RECORD> input)
 {
   input.Get().a = 21; //expected-error{{cannot assign to return value because function 'Get' returns a const value}}
@@ -31,6 +33,7 @@ void node02(GroupNodeInputRecords<RECORD> input)
 
 [Shader("node")]
 [NodeLaunch("Coalescing")]
+[NumThreads(4,1,1)]
 void node03([MaxRecords(4)] GroupNodeInputRecords<RECORD> input)
 {
   input[1].a = 31; //expected-error{{cannot assign to return value because function 'operator[]' returns a const value}}
@@ -39,6 +42,7 @@ void node03([MaxRecords(4)] GroupNodeInputRecords<RECORD> input)
 
 [Shader("node")]
 [NodeLaunch("Coalescing")]
+[NumThreads(8,1,1)]
 void node04(const RWGroupNodeInputRecords<RECORD> input) 
 {
   input.Get().a = 41; // expected-error{{cannot assign to return value because function 'Get' returns a const value}}
