@@ -1075,15 +1075,6 @@ public:
 
 };
 
-
-#endif // __cplusplus
-
-#endif // _WIN32
-
-#ifdef __cplusplus
-
-#include <string>
-#include <vector>
 //===--------- Convert argv to wchar ----------------===//
 class WArgV {
   std::vector<std::wstring> WStringVector;
@@ -1094,6 +1085,9 @@ public:
   WArgV(int argc, const wchar_t **argv);
   const wchar_t **argv() { return WCharPtrVector.data();}
 };
-#endif
+
+#endif // __cplusplus
+
+#endif // _WIN32
 
 #endif // LLVM_SUPPORT_WIN_ADAPTER_H
