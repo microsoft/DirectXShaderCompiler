@@ -14,6 +14,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilNoops.h"
+#include "dxc/Support/Global.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Analysis/DxilValueCache.h"
 
@@ -139,7 +140,7 @@ public:
     // resource handles with the resource handle itself. This avoids
     // validation errors since we do not allow handles in phis.
     for (PHINode* Phi : LcssaHandlePhis) {
-      assert(Phi->getNumIncomingValues() == 1);
+      DXASSERT(Phi->getNumIncomingValues() == 1, "unexpected number of phi operands");
       Value* Handle = Phi->getIncomingValue(0);
       Phi->replaceAllUsesWith(Handle);
       Phi->eraseFromParent();
