@@ -3,7 +3,7 @@
 // launch type was NodeLaunchType::Thread
 
 
-// CHECK: error: NumThreads is required, but was not specified
+// CHECK: error: Node shader 'N' with broadcasting launch type requires 'numthreads' attribute
 [WaveSize(64)]
 [shader("node")]
 void N()
