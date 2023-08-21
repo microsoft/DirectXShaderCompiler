@@ -1652,22 +1652,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Populate numThreads
-<<<<<<< HEAD
-  if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {    
-=======
+
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
->>>>>>> 95d035d6de42d7db6f2ade15f8ae3e464069e956
 
     funcProps->numThreads[0] = Attr->getX();
     funcProps->numThreads[1] = Attr->getY();
     funcProps->numThreads[2] = Attr->getZ();
 
     if (!isNode && ((isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) ||
-<<<<<<< HEAD
                     (SM->IsLib() && !isCS && !isMS && !isAS))) {
-=======
-        (SM->IsLib() && !isCS && !isMS && !isAS) )) {
->>>>>>> 95d035d6de42d7db6f2ade15f8ae3e464069e956
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
           "attribute numthreads only valid for CS/MS/AS.");
