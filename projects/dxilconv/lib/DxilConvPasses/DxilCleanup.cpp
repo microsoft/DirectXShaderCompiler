@@ -1227,7 +1227,7 @@ Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigIn
 
   const unsigned kNumTypeArgs = 3;
   Type *ArgTypes[kNumTypeArgs];
-  DXIL::OpCode OpCode;
+  DXIL::OpCode OpCode = DXIL::OpCode::NumOpCodes;
   if (pType == Type::getFloatTy(*m_pCtx)) {
     IFTBOOL(pToType == Type::getInt32Ty(*m_pCtx), DXC_E_OPTIMIZATION_FAILED);
     OpCode = DXIL::OpCode::BitcastF32toI32;
@@ -1266,7 +1266,6 @@ Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigIn
     ArgTypes[2] = Type::getInt64Ty(*m_pCtx);
   } else {
     IFT(DXC_E_OPTIMIZATION_FAILED);
-    OpCode = DXIL::OpCode::NumOpCodes;
   }
 
   // Get function.

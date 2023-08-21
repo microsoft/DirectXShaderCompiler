@@ -176,9 +176,9 @@ ConvertAndPushArg(const wchar_t *Arg, SmallVectorImpl<const char *> &Args,
   return std::error_code();
 }
 
+#if 0 // HLSL Change - comment out unused function.
 /// \brief Perform wildcard expansion of Arg, or just push it into Args if it
 /// doesn't have wildcards or doesn't match any files.
-[[maybe_unused]]
 static std::error_code
 WildcardExpand(const wchar_t *Arg, SmallVectorImpl<const char *> &Args,
                SpecificBumpPtrAllocator<char> &Allocator) {
@@ -223,6 +223,7 @@ WildcardExpand(const wchar_t *Arg, SmallVectorImpl<const char *> &Args,
   FindClose(FindHandle);
   return ec;
 }
+#endif
 
 std::error_code
 Process::GetArgumentVector(SmallVectorImpl<const char *> &Args,
