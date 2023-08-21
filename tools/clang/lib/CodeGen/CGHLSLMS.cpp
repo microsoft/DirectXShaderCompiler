@@ -1644,21 +1644,17 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Populate numThreads
-  if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
-    if (!(isMS || isAS)) {
-      // Compute and/or node shader
-      if (isCS || funcProps->shaderKind == DXIL::ShaderKind::Invalid)
-        funcProps->shaderKind = DXIL::ShaderKind::Compute;
-      isCS = true;
-    }
+  if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {    
 
     funcProps->numThreads[0] = Attr->getX();
     funcProps->numThreads[1] = Attr->getY();
     funcProps->numThreads[2] = Attr->getZ();
 
-    if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
+    if (!isNode && ((isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) ||
+                    (SM->IsLib() && !isCS && !isMS && !isAS))) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "attribute numthreads only valid for CS/MS/AS.");
+          DiagnosticsEngine::Error,
+          "attribute numthreads only valid for CS/MS/AS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1819,7 +1815,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
-    if (!isEntry && !isNode) {
+    if ((!SM->IsLib() && !isEntry) && !isNode) {
       unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error,
         "attribute WaveSize only valid on entry point function.");
