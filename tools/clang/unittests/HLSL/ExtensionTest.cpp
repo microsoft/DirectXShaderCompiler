@@ -97,6 +97,12 @@ static const HLSL_INTRINSIC_ARGUMENT TestMyBufferOp[] = {
   { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// float2 = CustomLoadOp(uint2 addr)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOp[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+};
+
 // bool<> = test_isinf(float<> x)
 static const HLSL_INTRINSIC_ARGUMENT TestIsInf[] = {
   { "test_isinf", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_BOOL, 1, IA_C },
@@ -190,7 +196,8 @@ Intrinsic Intrinsics[] = {
 };
 
 Intrinsic BufferIntrinsics[] = {
-  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+  {L"MyBufferOp",     "MyBufferOp",    "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+  {L"CustomLoadOp",   "CustomLoadOp",  "c", { 21, true,  true, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState will do).
@@ -558,6 +565,7 @@ public:
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering2)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering3)
   TEST_METHOD(CustomOverloadArg1)
+  TEST_METHOD(CustomLoadOp)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -1276,6 +1284,27 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
   // - buffer is translated to dx.types.Handle
   // - vector is exploded
   llvm::Regex regex("call %dx.types.ResRet.f32 @MyBufferOp\\(i32 12, %dx.types.Handle %.*, i32 1, i32 2\\)");
+  std::string regexErrors;
+  VERIFY_IS_TRUE(regex.isValid(regexErrors));
+  VERIFY_IS_TRUE(regex.match(disassembly));
+}
+
+ TEST_F(ExtensionTest, CustomLoadOp) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "float2 main(uint2 v1 : V1) : SV_Target {\n"
+    "  return CustomLoadOp(uint2(1, 2));\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // - return type is translated to dx.types.ResRet
+  // - buffer is translated to dx.types.Handle
+  // - vector is exploded
+  llvm::Regex regex("%1 = call {i32, i32} @CustomLoadOp\\(i32 12, i64 %.*, i32 1, i32 2\\)");
   std::string regexErrors;
   VERIFY_IS_TRUE(regex.isValid(regexErrors));
   VERIFY_IS_TRUE(regex.match(disassembly));
