@@ -1643,6 +1643,14 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.GS.instanceCount = 1;
   }
 
+  // set isCs
+  for (auto *Attr : FD->specific_attrs<HLSLShaderAttr>()) {
+    if (Attr->getStage() == "compute") {
+      funcProps->shaderKind = DXIL::ShaderKind::Compute;
+      isCS = true;
+    }   
+  }
+
   // Populate numThreads
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
 
