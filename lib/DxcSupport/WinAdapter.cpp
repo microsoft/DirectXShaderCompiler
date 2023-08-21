@@ -113,11 +113,4 @@ WArgV::WArgV(int argc, const char **argv)
   }
 }
 
-WArgV::WArgV(int argc, const wchar_t **argv)
-    : WCharPtrVector(argc) {
-  for (int i = 0; i < argc; ++i) {
-    WCharPtrVector[i] = argv[i];
-  }
-}
-
 #endif
