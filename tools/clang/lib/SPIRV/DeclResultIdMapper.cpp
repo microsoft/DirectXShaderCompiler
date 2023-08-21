@@ -1946,10 +1946,10 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       // Make sure the same location is not assigned more than once
       for (uint32_t l = loc; l < loc + locCount; ++l) {
         if (locSet.isLocUsed(l, idx)) {
-          emitError(
-              "stage %select{output|input}0 location #%1 already assigned",
-              attrLoc)
-              << forInput << l;
+          emitError("stage %select{output|input}0 location #%1 already "
+                    "consumed by semantic '%2'",
+                    attrLoc)
+              << forInput << l << stageVars[idx].getSemanticStr();
           noError = false;
         }
 
