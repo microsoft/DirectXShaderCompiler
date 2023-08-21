@@ -189,15 +189,15 @@ Intrinsic Intrinsics[] = {
   // Make this intrinsic have the same opcode as an hlsl intrinsic with an unsigned
   // counterpart for testing purposes.
   {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, -1, countof(TestUnsigned), TestUnsigned}},
-  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1, countof(WaveProcArgs), WaveProcArgs }},
-  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1,  countof(WaveProcArgs), WaveProcArgs }},
+  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
 };
 
 Intrinsic BufferIntrinsics[] = {
   {L"MyBufferOp",     "MyBufferOp",    "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
-  {L"CustomLoadOp",   "CustomLoadOp",  "c", { 21, true,  true, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState will do).
@@ -1301,13 +1301,17 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
   std::string disassembly = c.Disassemble();
 
   // Things to check
-  // - return type is translated to dx.types.ResRet
-  // - buffer is translated to dx.types.Handle
-  // - vector is exploded
-  llvm::Regex regex("%1 = call {i32, i32} @CustomLoadOp\\(i32 12, i64 %.*, i32 1, i32 2\\)");
-  std::string regexErrors;
-  VERIFY_IS_TRUE(regex.isValid(regexErrors));
-  VERIFY_IS_TRUE(regex.match(disassembly));
+  // - return type is 2xfloat
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find(std::string("%1 = call { float, float } @CustomLoadOp(i32 21, <2 x i32> <i32 1, i32 2>)")));
+  // - struct gets converted to vector
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find(std::string("%2 = extractvalue { float, float } %1, 0")));
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find(std::string("%3 = extractvalue { float, float } %1, 1")));
 }
 
 TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
