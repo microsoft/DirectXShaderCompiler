@@ -76,8 +76,3 @@ WexLogFileOutput/*
 #==============================================================================#
 bindings/go/llvm/llvm_config.go
 bindings/go/llvm/workdir
-
-#==============================================================================#
-# Default output path use by Visual Studio cmake project builds.
-#==============================================================================#
-out/
