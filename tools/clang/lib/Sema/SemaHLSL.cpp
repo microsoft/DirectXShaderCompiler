@@ -14267,7 +14267,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
                 functionName == entryName;
       AttributeList *pAL = D.getDeclSpec().getAttributes().getList();
       while (pAL) {
-        StringRef attrName = pAL->getName()->getName();
         if (pAL->getKind() == AttributeList::AT_HLSLShader) {
           Expr *ArgExpr = pAL->getArgAsExpr(0);
           StringLiteral *Literal =
@@ -14306,7 +14305,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       
       AttributeList *pAL = D.getDeclSpec().getAttributes().getList();
       while (pAL) {
-        StringRef attrName = pAL->getName()->getName();
         if (pAL->getKind() == AttributeList::AT_HLSLShader) {
           Expr *ArgExpr = pAL->getArgAsExpr(0);
           StringLiteral *Literal =
@@ -14320,7 +14318,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       
       if (!SM->IsLib() && !isEntry && !isNode) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_non_entry_attr) << "WaveSize";
+        Diag(pAttr->getLoc(),
+             diag::err_hlsl_attribute_valid_on_entry_function_only)
+            << "WaveSize";
         result = false;
       }      
 

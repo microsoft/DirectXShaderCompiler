@@ -7473,6 +7473,14 @@ def err_hlsl_attribute_mismatch: Error<
   "invalid shader stage attribute combination">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
+def err_hlsl_attribute_valid_on_entry_function_only: Error<
+  "%0 attribute only valid on entry point functions">;
+def err_hlsl_attr_for_wrong_shader: Error<
+  "attribute %0 only valid for %1.">;
+def err_hlsl_numthreads_attr: Error<
+  "attribute numthreads only valid for CS/MS/AS.">;
+def err_hlsl_wavesize_size: Error<
+  "WaveSize value must be between 4 and 128 and a power of 2">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<
