@@ -14280,9 +14280,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
           isAS |= Stage == DXIL::ShaderKind::Amplification;          
         }
         pAL = pAL->getNext();
-      }
-      
-      
+      }           
 
       if (!isNode && ((isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) ||
                       (SM->IsLib() && !isCS && !isMS && !isAS))) {
@@ -14321,7 +14319,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         pAL = pAL->getNext();
       }
       
-
       if (!SM->IsLib() && !isEntry && !isNode) {
         Diag(pAttr->getLoc(), diag::err_hlsl_non_entry_attr) << "WaveSize";
         result = false;
