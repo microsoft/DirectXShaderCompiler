@@ -1645,19 +1645,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   // Populate numThreads
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {    
-
     funcProps->numThreads[0] = Attr->getX();
     funcProps->numThreads[1] = Attr->getY();
-    funcProps->numThreads[2] = Attr->getZ();
-
-    if (!isNode && ((isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) ||
-                    (SM->IsLib() && !isCS && !isMS && !isAS))) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute numthreads only valid for CS/MS/AS.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
+    funcProps->numThreads[2] = Attr->getZ();    
   }
 
   // Hull shader.
@@ -1808,28 +1798,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
-    if (!isCS && !isNode) {
-      unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "attribute WaveSize only valid for CS.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    if ((!SM->IsLib() && !isEntry) && !isNode) {
-      unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "attribute WaveSize only valid on entry point function.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    // validate that it is a power of 2 between 4 and 128
-    unsigned waveSize = Attr->getSize();
-    if (!DXIL::IsValidWaveSizeValue(waveSize)) {
-      unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "WaveSize value must be between %0 and %1 and a power of 2.");
-      Diags.Report(Attr->getLocation(), DiagID) << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
-    }
+
     funcProps->waveSize = Attr->getSize();
   }
 

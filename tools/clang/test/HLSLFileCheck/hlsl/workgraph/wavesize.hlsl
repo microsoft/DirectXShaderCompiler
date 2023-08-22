@@ -3,12 +3,12 @@
 // Check the WaveSize attribute is accepted by work graph nodes
 // and appears in the metadata
 
-[shader("compute")]
-[Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
 [WaveSize(4)]
+[shader("compute")]
+[Shader("node")]
 void node01() { }
 
 // CHECK: !{void ()* @node01, !"node01", null, null, [[NODE01:![0-9]+]]}

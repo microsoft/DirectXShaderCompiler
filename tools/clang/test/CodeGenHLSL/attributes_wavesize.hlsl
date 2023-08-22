@@ -15,5 +15,6 @@
 
 [wavesize(WAVESIZE)]
 [numthreads(1,1,8)]
+[shader("compute")]
 void main() {
 }

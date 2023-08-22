@@ -12873,6 +12873,40 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
                          A.getAttributeSpellingListIndex());
 }
 
+HLSLNumThreadsAttr *ValidateNumThreadsAttributes(Sema &S, Decl *D,
+                                             const AttributeList &A) {
+
+  HLSLNumThreadsAttr *pAttr = ::new (S.Context) HLSLNumThreadsAttr(
+      A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+      ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
+      A.getAttributeSpellingListIndex());
+  if (pAttr->getX() * pAttr->getY() * pAttr->getZ() > 1024) {
+    S.Diag(A.getLoc(), diag::err_hlsl_numthreads_group_size);    
+    // don't return nullptr. 
+    // we want to add the attribute to the decl anyways because
+    // later on in sema dxr, we will check for the absence of 
+    // this attr as a condition to emit an error.
+  }
+  return pAttr;
+}
+
+HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
+                                                 const AttributeList &A) { 
+
+  // validate that it is a power of 2 between 4 and 128
+  HLSLWaveSizeAttr *pAttr = ::new (S.Context)
+      HLSLWaveSizeAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+                       A.getAttributeSpellingListIndex());
+
+  unsigned waveSize = pAttr->getSize();
+  if (!DXIL::IsValidWaveSizeValue(waveSize)) {
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size);
+    return nullptr;
+  }
+
+  return pAttr;
+}
+
 HLSLMaxRecordsSharedWithAttr *
 ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
                                                  const AttributeList &A) {
@@ -13237,14 +13271,12 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       ValidateAttributeFloatArg(S, A), A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNumThreads: {
-    auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(A.getRange(), S.Context,
-      ValidateAttributeIntArg(S, A), ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
-      A.getAttributeSpellingListIndex());
-    if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
-      S.Diags.Report(numThreads->getLocation(), diag::err_hlsl_numthreads_group_size)
-        << numThreads->getRange();
-    declAttr = numThreads;
-    break;
+    declAttr = ValidateNumThreadsAttributes(S, D, A);
+    if (!declAttr) {
+      Handled = true;
+      return;
+    }
+    break;    
   }
   case AttributeList::AT_HLSLRootSignature:
     declAttr = ::new (S.Context) HLSLRootSignatureAttr(A.getRange(), S.Context,
@@ -13293,8 +13325,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLWaveSensitiveAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLWaveSize:
-    declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
-      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    declAttr = ValidateWaveSizeAttributes(S, D, A);
+    if (!declAttr) {
+      Handled = true;
+      return;
+    }
     break;
   case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
     declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
@@ -13794,6 +13829,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
 
   bool result = true;
+  StringRef functionName = "";
   bool isTypedef = storage == DeclSpec::SCS_typedef;
   bool isFunction = D.isFunctionDeclarator() && !DC->isRecord();
   bool isLocalVar = DC->isFunctionOrMethod() && !isFunction && !isTypedef;
@@ -13890,6 +13926,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       qt = pFP->getReturnType();
       hlslSource->WarnMinPrecision(qt, D.getLocStart());
       pType = qt.getTypePtrOrNull();
+      if (D.getIdentifier())
+        functionName = D.getIdentifier()->getName();
 
       // prohibit string as a return type
       if (hlsl::IsStringType(qt)) {
@@ -14212,6 +14250,89 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         pMaxDispatchGrid = pAttr;
       }
       break;
+    case AttributeList::AT_HLSLNumThreads: {
+      const auto *SM =
+          hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+
+      const std::string &entryName = getLangOpts().HLSLEntryFunction;
+
+      bool isEntry = false;
+      bool isNode = false;
+      bool isCS = false;
+      bool isMS = false;
+      bool isAS = false;
+
+      isEntry = !getLangOpts().IsHLSLLibrary &&
+                DC->getDeclKind() == Decl::Kind::TranslationUnit &&
+                functionName == entryName;
+      AttributeList *pAL = D.getDeclSpec().getAttributes().getList();
+      while (pAL) {
+        StringRef attrName = pAL->getName()->getName();
+        if (pAL->getKind() == AttributeList::AT_HLSLShader) {
+          Expr *ArgExpr = pAL->getArgAsExpr(0);
+          StringLiteral *Literal =
+              dyn_cast<StringLiteral>(ArgExpr->IgnoreParenCasts());
+          DXIL::ShaderKind Stage =
+              ShaderModel::KindFromFullName(Literal->getString());
+          isNode |= Stage == DXIL::ShaderKind::Node;
+          isCS |= Stage == DXIL::ShaderKind::Compute;
+          isMS |= Stage == DXIL::ShaderKind::Mesh;
+          isAS |= Stage == DXIL::ShaderKind::Amplification;          
+        }
+        pAL = pAL->getNext();
+      }
+      
+      
+
+      if (!isNode && ((isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) ||
+                      (SM->IsLib() && !isCS && !isMS && !isAS))) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_numthreads_attr);
+        result = false;
+      }
+      break;
+    }
+    case AttributeList::AT_HLSLWaveSize: {      
+      const auto *SM =
+          hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+
+      const std::string &entryName = getLangOpts().HLSLEntryFunction;
+
+      bool isEntry = false;
+      bool isNode = false;
+      bool isCS = false;
+
+      isEntry = !SM->IsLib() &&
+                DC->getDeclKind() ==
+                    Decl::Kind::TranslationUnit &&
+                functionName == entryName;
+      
+      AttributeList *pAL = D.getDeclSpec().getAttributes().getList();
+      while (pAL) {
+        StringRef attrName = pAL->getName()->getName();
+        if (pAL->getKind() == AttributeList::AT_HLSLShader) {
+          Expr *ArgExpr = pAL->getArgAsExpr(0);
+          StringLiteral *Literal =
+              dyn_cast<StringLiteral>(ArgExpr->IgnoreParenCasts());
+          DXIL::ShaderKind Stage =
+              ShaderModel::KindFromFullName(Literal->getString());
+          isNode |= Stage == DXIL::ShaderKind::Node;
+          isCS |= Stage == DXIL::ShaderKind::Compute;          
+        }
+        pAL = pAL->getNext();
+      }
+      
+
+      if (!SM->IsLib() && !isEntry && !isNode) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_non_entry_attr) << "WaveSize";
+        result = false;
+      }      
+
+      if (!isCS && !isNode) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_attr_for_wrong_shader) << "WaveSize" << "CS";
+        result = false;
+      }    
+      break;
+    }
 
     default:
       break;

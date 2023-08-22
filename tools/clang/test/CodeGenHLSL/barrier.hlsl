@@ -66,6 +66,7 @@ struct mat {
 StructuredBuffer<mat> mats;
 StructuredBuffer<float2x2> mats2;
 
+[shader("compute")]
 [numthreads(8,8,1)]
 void main( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex )
 {
