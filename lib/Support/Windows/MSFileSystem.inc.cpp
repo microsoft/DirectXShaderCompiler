@@ -236,24 +236,6 @@ static bool is_separator(const wchar_t value) {
   }
 }
 
-// TODO: consider erasing this
-namespace {
-  error_code TempDir(_In_ MSFileSystemRef fsr, SmallVectorImpl<wchar_t> &result) {
-  retry_temp_dir:
-    DWORD len = fsr->GetTempPathW(result.capacity(), result.begin());
-
-    if (len == 0)
-      return mapWindowsError(::GetLastError());
-
-    if (len > result.capacity()) {
-      result.reserve(len);
-      goto retry_temp_dir;
-    }
-
-    result.set_size(len);
-    return error_code();
-  }
-}
 
 namespace llvm {
 namespace sys  {
