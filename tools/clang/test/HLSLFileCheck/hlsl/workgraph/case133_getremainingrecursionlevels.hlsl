@@ -9,6 +9,7 @@ RWBuffer<uint> buf0;
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(8,1,1)]
+[NodeDispatchGrid(32,2,2)]
 [NodeMaxRecursionDepth(16)]
 void node133_getremainingrecursionlevels()
 {

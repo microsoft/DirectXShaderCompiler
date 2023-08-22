@@ -12,6 +12,7 @@ struct RECORD {
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1024, 1, 1)]
+[NodeDispatchGrid(16, 1, 1)]
 void node150_a(NodeOutput<RECORD> output)
 {
   GroupNodeOutputRecords<RECORD> outRec1 = output.GetGroupNodeOutputRecords(1);
@@ -32,6 +33,7 @@ void node150_a(NodeOutput<RECORD> output)
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1024, 1, 1)]
+[NodeDispatchGrid(16, 1, 1)]
 void node150_b(NodeOutput<RECORD> output)
 {
   ThreadNodeOutputRecords<RECORD> outRec1 = output.GetThreadNodeOutputRecords(5);

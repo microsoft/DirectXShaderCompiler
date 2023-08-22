@@ -12,6 +12,7 @@ struct RECORD
 // CHECK: define void @node01
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(32,1,1)]
 [NodeLaunch("Broadcasting")]
 void node01(RWDispatchNodeInputRecord<RECORD> input1)
 {
@@ -48,6 +49,7 @@ void node02([MaxRecords(4)]RWGroupNodeInputRecords<RECORD> input2)
 // CHECK: define void @node03
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(32,1,1)]
 [NodeLaunch("Broadcasting")]
 void node03(NodeOutput<RECORD> output3)
 {

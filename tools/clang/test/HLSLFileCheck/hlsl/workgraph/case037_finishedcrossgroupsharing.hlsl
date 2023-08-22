@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // ==================================================================
-// CASE037
 // FinishedCrossGroupSharing() is called with RWDispatchNodeInputRecord
 // ==================================================================
 
@@ -34,8 +33,6 @@ struct [NodeTrackRWInputSharing] INPUT_RECORD
 void node037_finishedcrossgroupsharing(RWDispatchNodeInputRecord<INPUT_RECORD> input)
 {
   bool b = input.FinishedCrossGroupSharing();
-  // the return value is used in a call to Barrier to avoid the call to
-  // FinishedCrossGroupSharing() being optimised away.
   buf0[0] = 0 ? b : 1;
 }
 
@@ -91,4 +88,3 @@ void node037_finishedcrossgroupsharing(RWDispatchNodeInputRecord<INPUT_RECORD> i
 // Arg #3: 1
 // ------------------------------------------------------------------
 // CHECK-DAG: [[NUMTHREADS]] = !{i32 1, i32 1, i32 1}
-

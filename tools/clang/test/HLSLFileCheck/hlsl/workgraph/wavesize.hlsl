@@ -7,6 +7,7 @@
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
+[NodeMaxDispatchGrid(32,1,1)]
 [WaveSize(4)]
 void node01() { }
 
@@ -18,6 +19,7 @@ void node01() { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [WaveSize(8)]
+[NodeMaxDispatchGrid(32,1,1)]
 void node02() { }
 
 // CHECK: !{void ()* @node02, !"node02", null, null, [[NODE02:![0-9]+]]}

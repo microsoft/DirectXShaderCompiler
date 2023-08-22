@@ -557,19 +557,6 @@ StringToMeshOutputTopology(StringRef topology) {
   return DXIL::MeshOutputTopology::Undefined;
 }
 
-static DXIL::NodeLaunchType
-StringToNodeLaunchType(StringRef launchType) {
-  if (launchType.equals_lower("broadcasting"))
-    return DXIL::NodeLaunchType::Broadcasting;
-  if (launchType.equals_lower("coalescing"))
-    return DXIL::NodeLaunchType::Coalescing;
-  if (launchType.equals_lower("thread"))
-    return DXIL::NodeLaunchType::Thread;
-
-  DXASSERT(false, "Invalid Node Launch Type");
-  return DXIL::NodeLaunchType::Invalid;
-}
-
 static unsigned GetMatrixSizeInCB(QualType Ty, bool defaultRowMajor,
                                   bool b64Bit) {
   bool bRowMajor;
@@ -1669,13 +1656,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->numThreads[1] = Attr->getY();
     funcProps->numThreads[2] = Attr->getZ();
 
-    if ((Attr->getX() * Attr->getY() * Attr->getZ()) > 1024) {
-      unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "Thread group size may not exceed 1024");
-      Diags.Report(Attr->getLocation(), DiagID);
-    }
-
     if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error, "attribute numthreads only valid for CS/MS/AS.");
@@ -1866,7 +1846,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // Assign function properties for all "node" attributes.
   if (const auto *pAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
     if (isNode)
-      funcProps->Node.LaunchType = StringToNodeLaunchType(pAttr->getLaunchType());
+      funcProps->Node.LaunchType =
+        ShaderModel::NodeLaunchTypeFromName(pAttr->getLaunchType());
     else
       ReportMissingNodeDiag(Diags, pAttr);
   }
@@ -1916,12 +1897,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->Node.DispatchGrid[0] = pAttr->getX();
       funcProps->Node.DispatchGrid[1] = pAttr->getY();
       funcProps->Node.DispatchGrid[2] = pAttr->getZ();
-      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Broadcasting) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "NodeDispatchGrid may only be used with Broadcasting nodes");
-        Diags.Report(pAttr->getLocation(), DiagID);
-      }
     }
     else {
       ReportMissingNodeDiag(Diags, pAttr);
@@ -1932,44 +1907,26 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->Node.MaxDispatchGrid[0] = pAttr->getX();
       funcProps->Node.MaxDispatchGrid[1] = pAttr->getY();
       funcProps->Node.MaxDispatchGrid[2] = pAttr->getZ();
-      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Broadcasting) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "NodeMaxDispatchGrid may only be used with Broadcasting nodes");
-        Diags.Report(pAttr->getLocation(), DiagID);
-      }
     }
     else {
       ReportMissingNodeDiag(Diags, pAttr);
     }
   }
   if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
-    if (isNode) {
+    if (isNode)
       funcProps->Node.MaxRecursionDepth = pAttr->getCount();
-      if (pAttr->getCount() > 32) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "NodeMaxRecursionDepth may not exceed 32");
-        Diags.Report(pAttr->getLocation(), DiagID);
-      }
-    }
-    else {
+    else
       ReportMissingNodeDiag(Diags, pAttr);
-    }
   }
   if (!FD->getAttr<HLSLNumThreadsAttr>()) {
     if (isNode) {
       // NumThreads wasn't specified.
       // For a Thread launch node the default is (1,1,1,) which we set here.
+      // Other node launch types require NumThreads and an error will have
+      // been generated earlier.
       funcProps->numThreads[0] = 1;
       funcProps->numThreads[1] = 1;
       funcProps->numThreads[2] = 1;
-      // Other node launch types require NumThreads to be specified.
-      if (funcProps->Node.LaunchType != DXIL::NodeLaunchType::Thread) {
-        unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "NumThreads is required, but was not specified");
-        Diags.Report(FD->getLocation(), DiagID);
-      }
     }
   }
 
@@ -2452,13 +2409,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         // Add Node Record Type
         AddHLSLNodeRecordTypeInfo(parmDecl, node);
         if (nodeFlags.IsInputRecord()) {
-         // Add Node Shader parameter to a ValToProp map
-         // This will be used later to lower the Node parameters
-         // to handles
-          if (NodeInputParamIdx != 0) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(DiagnosticsEngine::Error,
-              "Node Shaders can have only zero or one Input Record parameter"));            
-          }
+          // Add Node Shader parameter to a ValToProp map
+          // This will be used later to lower the Node parameters
+          // to handles
+          // Note: there may be a maximum of one input record
           NodeInputRecordParams[ArgIt].MetadataIdx = NodeInputParamIdx++;
 
           if (parmDecl->hasAttr<HLSLMaxRecordsAttr>()) {
@@ -2557,14 +2511,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       }
       node.MaxRecordsSharedWith = ix;
     }
-    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>()) {
-      if (node.MaxRecordsSharedWith >= 0) {
-        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "Only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter."));
-      }
+    if (const auto *Attr = parmDecl->getAttr<HLSLMaxRecordsAttr>())
       node.MaxRecords = Attr->getMaxCount();
-    }
   }
 
   if (inputPatchCount > 1) {
@@ -2714,13 +2662,6 @@ void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(const clang::ParmVarDecl* parmDe
 
         // Ex: For DispatchNodeInputRecord<MY_RECORD>, set size = size(MY_RECORD)
         node.RecordType.size = CGM.getDataLayout().getTypeAllocSize(Type);
-        if (node.RecordType.size == 0) {
-          // a node input/output record can't have a size of zero
-          DiagnosticsEngine &Diags = CGM.getDiags();
-          unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "record used in %0 may not have zero size");
-          Diags.Report(parmDecl->getSourceRange().getBegin(), DiagID) << templateDecl->getName() << parmDecl->getSourceRange();
-          Diags.Report(RD->getLocation(), diag::note_defined_here) << "zero sized record";
-        }
         // If we find SV_DispatchGrid we'll remember the location for diagnostics
         SourceLocation SV_DispatchGridLoc;
         // Iterate over fields of the MY_RECORD(example) struct

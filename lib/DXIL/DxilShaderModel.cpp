@@ -518,4 +518,23 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   // VALRULE-TEXT:END
 };
 
+
+static const char *NodeLaunchTypeNames[] = {
+    "invalid", "broadcasting", "coalescing", "thread"};
+
+const char *ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy) {
+  static_assert(static_cast<unsigned>(DXIL::NodeLaunchType::Thread) ==
+                    _countof(NodeLaunchTypeNames) - 1,
+                "Invalid launch type or names");
+  return NodeLaunchTypeNames[static_cast<unsigned int>(launchTy)];
+}
+
+DXIL::NodeLaunchType ShaderModel::NodeLaunchTypeFromName(llvm::StringRef name) {
+  return llvm::StringSwitch<DXIL::NodeLaunchType>(name.lower())
+      .Case("broadcasting", DXIL::NodeLaunchType::Broadcasting)
+      .Case("coalescing", DXIL::NodeLaunchType::Coalescing)
+      .Case("thread", DXIL::NodeLaunchType::Thread)
+      .Default(DXIL::NodeLaunchType::Invalid);
+}
+
 } // namespace hlsl

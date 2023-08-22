@@ -16,6 +16,7 @@ struct RECORD
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
+[NodeDispatchGrid(16,1,1)]
 void node01(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().a;
@@ -28,6 +29,7 @@ void node01(DispatchNodeInputRecord<RECORD> input)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
+[NodeDispatchGrid(16,1,1)]
 [NodeLaunch("Broadcasting")]
 void node02(RWDispatchNodeInputRecord<RECORD> input)
 {

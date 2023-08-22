@@ -118,6 +118,9 @@ public:
   TEST_METHOD(RunWorkGraphDispatchGridDiags)
   TEST_METHOD(RunNodeComputeCompatibilityDiags)
   TEST_METHOD(RunNodeInputCompatibilityDiags)
+  TEST_METHOD(RunNodeZeroSizedRecordDiags)
+  TEST_METHOD(RunWorkGraphAttributeDiags)
+  TEST_METHOD(RunInvalidNodeLaunchDiags)
   TEST_METHOD(RunShaderMismatch)
   TEST_METHOD(RunMaxRecordsAttribute)
 
@@ -488,7 +491,7 @@ TEST_F(VerifierTest, RunAtomicsOnBitfields) {
 }
 
 TEST_F(VerifierTest, RunWorkGraphs) {
-  CheckVerifiesHLSL(L"work-graphs.hlsl");
+  CheckVerifiesHLSL(L"workgraph/work-graphs.hlsl");
 }
 
 TEST_F(VerifierTest, RunUnboundedResourceArrays) {
@@ -537,4 +540,16 @@ TEST_F(VerifierTest, RunNodeComputeCompatibilityDiags) {
 
 TEST_F(VerifierTest, RunNodeInputCompatibilityDiags) {
   CheckVerifiesHLSL(L"/workgraph/node_input_compatibility.hlsl");
+}
+
+TEST_F(VerifierTest, RunNodeZeroSizedRecordDiags) {
+  CheckVerifiesHLSL(L"/workgraph/zero_sized_node_record.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphAttributeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/attribute_diags.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_nodelaunch.hlsl");
 }
