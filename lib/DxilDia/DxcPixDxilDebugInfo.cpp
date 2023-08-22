@@ -229,7 +229,18 @@ dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
         auto* S = llvm::dyn_cast<llvm::DIScope>(DL.getScope());
         while (S != nullptr && !llvm::isa<llvm::DIFile>(S))
         {
-            S = S->getScope().resolve(EmptyMap);
+            if(auto Namespace = llvm::dyn_cast<llvm::DINamespace>(S))
+            {
+                // DINamespace has a getScope member (that hides DIScope's)
+                // that returns a DIScope directly, but if that namespace
+                // is at file-level scope, it will return nullptr.
+                if (auto * ContainingScope = Namespace->getScope())
+                    S = ContainingScope;
+                else 
+                    S = S->getFile();
+            } 
+            else 
+                 S = S->getScope().resolve(EmptyMap);
         }
 
         if (S != nullptr)
