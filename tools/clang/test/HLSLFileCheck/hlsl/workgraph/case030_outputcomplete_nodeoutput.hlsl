@@ -50,7 +50,7 @@ void node030_outputcomplete_nodeoutput(NodeOutput<OUTPUT_RECORD> output)
 // NodeOutputs
 // Arg #1: NodeIOKind Tag (1)
 // Arg #2: RWOutputRecord (6)
-// Arg #3: NodeRecordType Tag (3)
+// Arg #3: NodeRecordType Tag (2)
 // Arg #4: OUTPUT_RECORD (output metadata)
 // Arg #5: NodeOutputID (0)
 // Arg #6: NodeID (metadata)

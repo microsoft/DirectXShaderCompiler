@@ -54,7 +54,7 @@ void node129_nodeoutputisvalid_nodeoutput(NodeOutput<RECORD> output)
 // NodeOutputs
 // Arg #1: NodeIOKind Tag (1)
 // Arg #2: RWOutputRecord (6)
-// Arg #3: NodeRecordType Tag (3)
+// Arg #3: NodeRecordType Tag (2)
 // Arg #4: INPUT_RECORD type
 // Arg #5: NodeMaxOutputRecords Tag (4)
 // Arg #6: value (0) - TODO: shouldn't this be 1?

@@ -2662,7 +2662,7 @@ NodeIOProperties DxilMDHelper::LoadDxilNodeIOState(const llvm::MDOperand &MDO) {
       Node.OutputID.Index = ConstMDToUint32(pNode->getOperand(1));
     } break;
     default:
-      DXASSERT(false, "Unknown NodeIO properties tag");
+      m_bExtraMetadata = true;
       break;
     }
   }
