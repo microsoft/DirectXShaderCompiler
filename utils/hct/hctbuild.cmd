@@ -395,7 +395,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-sources]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc ^<path^>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-sources]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -404,15 +404,17 @@ echo   -alldef        adds optional projects to the default build
 echo   -analyze       adds /analyze option
 echo   -official      will generate official version for build
 echo   -fv            fixes the resource version for release (utils\version\version.inc)
-echo   -fvloc <path>  directory with the version.inc file
+echo   -fvloc ^<path^>  directory with the version.inc file
 echo   -rel           builds release rather than debug
+echo   -spirv         enable SPIR-V codegen
+echo   -spirvtest     enable building SPIR-V tests
 echo   -speak-up      enables audible build confirmation
 echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo   -vs2019        uses Visual Studio 2019 to build
 echo   -vs2022        uses Visual Studio 2022 to build
-echo
-echo   -update-generated-soures   Updates generated soures in the source tree
+echo.
+echo   -update-generated-sources   Updates generated sources in the source tree
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
