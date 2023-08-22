@@ -1,4 +1,4 @@
-; RUN: opt -S -dxilgen %s | FileCheck %s
+; RUN: opt -S -dxil-o0-simplify-inst -dxilgen %s | FileCheck %s
 
 ; Make sure we can correctly generate the buffer load when
 ; its gep goes through a single-value phi node.

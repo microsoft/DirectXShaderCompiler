@@ -1,6 +1,6 @@
 ; RUN: opt -S -dxil-o0-simplify-inst %s | FileCheck %s
 
-; Make sure we remove a single-value phi node when it contains a handle type.
+; Make sure we remove a single-value phi node.
 ; Phis of handles are invalid dxil but we can make it valid by replacing
 ; the phi with its one incoming value.
 

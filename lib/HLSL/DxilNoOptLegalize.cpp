@@ -10,8 +10,6 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
-#include "dxc/DXIL/DxilModule.h"
-#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilNoops.h"
 #include "dxc/Support/Global.h"
@@ -108,8 +106,7 @@ public:
 
   bool runOnModule(Module &M) override {
     bool Changed = false;
-    SmallVector<PHINode*, 4> LcssaHandlePhis;
-    Type *HandleType = M.GetOrCreateDxilModule().GetOP()->GetHandleType();
+    SmallVector<PHINode*, 4> LcssaPhis;
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
     for (Function &F : M) {
       for (BasicBlock &BB : F) {
@@ -126,23 +123,22 @@ public:
               Changed = true;
             }
           } else if (PHINode* Phi = dyn_cast<PHINode>(I)) {
-            if (Phi->getNumIncomingValues() == 1
-             && Phi->getType() == HandleType) {
+            if (Phi->getNumIncomingValues() == 1) {
                 Changed = true;
-                LcssaHandlePhis.push_back(Phi);
+                LcssaPhis.push_back(Phi);
             }
           }
         }
       }
     }
 
-    // Replace all single value phi nodes (these are inserted by lcssa) of
-    // resource handles with the resource handle itself. This avoids
-    // validation errors since we do not allow handles in phis.
-    for (PHINode* Phi : LcssaHandlePhis) {
+    // Replace all single value phi nodes (these are inserted by lcssa) with the
+    // value itself. This avoids phis in places they are not expected because
+    // the normal simplify passes will clean them up.
+    for (PHINode* Phi : LcssaPhis) {
       DXASSERT(Phi->getNumIncomingValues() == 1, "unexpected number of phi operands");
-      Value* Handle = Phi->getIncomingValue(0);
-      Phi->replaceAllUsesWith(Handle);
+      Value* V = Phi->getIncomingValue(0);
+      Phi->replaceAllUsesWith(V);
       Phi->eraseFromParent();
     }
 
