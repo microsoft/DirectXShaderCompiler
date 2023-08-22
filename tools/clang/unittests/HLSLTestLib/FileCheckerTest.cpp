@@ -419,7 +419,7 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
     return FileRunCommandResult::Error("Adding Qstrip_reflect and Zi failed compilation.");
   }
 
-  if (pHash0->GetBufferSize() != pHash1->GetBufferSize() || 0 != memcmp(pHash0->GetBufferPointer(), pHash0->GetBufferPointer(), pHash1->GetBufferSize())) {
+  if (pHash0->GetBufferSize() != pHash1->GetBufferSize() || 0 != memcmp(pHash0->GetBufferPointer(), pHash1->GetBufferPointer(), pHash1->GetBufferSize())) {
     StdErr = "Hashes do not match between normal and debug!!!\n";
     StdErr += Output0;
     StdErr += Output1;
