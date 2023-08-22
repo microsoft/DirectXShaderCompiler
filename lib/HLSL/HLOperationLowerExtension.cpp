@@ -396,6 +396,30 @@ static Value* PackStructIntoVector(IRBuilder<>& builder, Value* strukt) {
   return packed;
 }
 
+static StructType* ConvertVectorTypeToStructType(Type* vecTy) {
+  assert(vecTy->isVectorTy());
+  Type* elementTy = vecTy->getVectorElementType();
+  unsigned numElements = vecTy->getVectorNumElements();
+  SmallVector<Type*, 4> elements;
+  for (unsigned i = 0; i < numElements; ++i)
+    elements.push_back(elementTy);
+
+  return StructType::get(vecTy->getContext(), elements);
+}
+
+
+static Value* PackVectorIntoStruct(IRBuilder<>& builder, Value* vec) {
+  StructType* structTy = ConvertVectorTypeToStructType(vec->getType());
+  Value* packed = UndefValue::get(structTy);
+
+  unsigned numElements = structTy->getStructNumElements();
+  for (unsigned i = 0; i < numElements; ++i) {
+    Value* element = builder.CreateExtractElement(vec, i);
+    packed = builder.CreateInsertValue(packed, element, { i });
+  }
+
+  return packed;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Packed Lowering.
@@ -412,17 +436,6 @@ public:
     PackArgs(args);
     Value *result = CreateCall(args);
     return UnpackResult(result);
-  }
-  
-  static StructType *ConvertVectorTypeToStructType(Type *vecTy) {
-    assert(vecTy->isVectorTy());
-    Type *elementTy = vecTy->getVectorElementType();
-    unsigned numElements = vecTy->getVectorNumElements();
-    SmallVector<Type *, 4> elements;
-    for (unsigned i = 0; i < numElements; ++i)
-      elements.push_back(elementTy);
-
-    return StructType::get(vecTy->getContext(), elements);
   }
 
 private:
@@ -449,19 +462,6 @@ private:
     }
     return result;
   }
-
-  static Value *PackVectorIntoStruct(IRBuilder<> &builder, Value *vec) {
-    StructType *structTy = ConvertVectorTypeToStructType(vec->getType());
-    Value *packed = UndefValue::get(structTy);
-
-    unsigned numElements = structTy->getStructNumElements();
-    for (unsigned i = 0; i < numElements; ++i) {
-      Value *element = builder.CreateExtractElement(vec, i);
-      packed = builder.CreateInsertValue(packed, element, { i });
-    }
-
-    return packed;
-  }
 };
 
 class PackedFunctionTypeTranslator : public FunctionTypeTranslator {
@@ -474,7 +474,7 @@ class PackedFunctionTypeTranslator : public FunctionTypeTranslator {
 
   Type *TranslateIfVector(Type *ty) {
     if (ty->isVectorTy())
-      ty = PackCall::ConvertVectorTypeToStructType(ty);
+      ty = ConvertVectorTypeToStructType(ty);
     return ty;
   }
 };
@@ -728,18 +728,18 @@ public:
         std::map<ResourceKindName, std::vector<DxilArgInfo>> LoweringInfoMap =
             ParseLoweringInfo(LoweringInfo, CI->getContext());
 
-        // Select lowering info to use based on resource kind.
-        const char *DefaultInfoName = "default";
+        // Find the default lowering kind
         std::vector<DxilArgInfo> *pArgInfo = nullptr;
-        if (LoweringInfoMap.count(DefaultInfoName))
+        if (LoweringInfoMap.count(m_DefaultInfoName))
         {
-            pArgInfo = &LoweringInfoMap.at(DefaultInfoName);
+            pArgInfo = &LoweringInfoMap.at(m_DefaultInfoName);
         }
         else
         {
-            ThrowExtensionError("Unable to find lowering info for resource");
+            ThrowExtensionError("Unable to find lowering info for custom function");
         }
-        GenerateLoweredArgs(CI, *pArgInfo);
+        // Don't explode vectors for custom functions
+        GenerateLoweredArgs(CI, *pArgInfo, true);
     }
 
    CustomLowering(StringRef LoweringInfo, CallInst *CI, HLResourceLookup &ResourceLookup)
@@ -758,15 +758,14 @@ public:
         std::string Name(pName);
 
         // Select lowering info to use based on resource kind.
-        const char *DefaultInfoName = "default";
         std::vector<DxilArgInfo> *pArgInfo = nullptr;
         if (LoweringInfoMap.count(Name))
         {
             pArgInfo = &LoweringInfoMap.at(Name);
         }
-        else if (LoweringInfoMap.count(DefaultInfoName))
+        else if (LoweringInfoMap.count(m_DefaultInfoName))
         {
-            pArgInfo = &LoweringInfoMap.at(DefaultInfoName);
+            pArgInfo = &LoweringInfoMap.at(m_DefaultInfoName);
         }
         else
         {
@@ -953,7 +952,7 @@ private:
     }
 
     // Create the dxil args based on custom lowering info.
-    void GenerateLoweredArgs(CallInst *CI, const std::vector<DxilArgInfo> &ArgInfoRecords)
+    void GenerateLoweredArgs(CallInst *CI, const std::vector<DxilArgInfo> &ArgInfoRecords, bool ConvertArgToStruct = false)
     {
         IRBuilder<> builder(CI);
         for (const DxilArgInfo &ArgInfo : ArgInfoRecords)
@@ -962,7 +961,15 @@ private:
             if (ArgInfo.HighLevelArgIndex < CI->getNumArgOperands())
             {
                 Value *Arg = CI->getArgOperand(ArgInfo.HighLevelArgIndex);
-                if (ArgInfo.HasVectorIndex)
+                if (ConvertArgToStruct)
+                {
+                    // This also disables 'exploding' of vectors
+                    if (Arg->getType()->isVectorTy()) {
+                        Arg = PackVectorIntoStruct(builder, Arg);
+                    }
+                    // If not vector, just leave it alone
+                }
+                else if (ArgInfo.HasVectorIndex)
                 {
                     // We expect a vector type here, but we handle one special case if not.
                     if (Arg->getType()->isVectorTy())
@@ -1011,6 +1018,7 @@ private:
     
     std::vector<Value *> m_LoweredArgs;
     SmallVector<OptionalTypeSpec, 5> m_OptionalTypes;
+    const char* m_DefaultInfoName = "default";
 };
 
 // Boilerplate to reuse exising logic as much as possible.

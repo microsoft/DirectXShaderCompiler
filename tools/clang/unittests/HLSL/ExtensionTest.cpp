@@ -103,6 +103,13 @@ static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOp[] = {
   { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// float2 = CustomLoadOp(uint2 addr, bool val)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpBool [] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+  { "val",  AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
+};
+
 // bool<> = test_isinf(float<> x)
 static const HLSL_INTRINSIC_ARGUMENT TestIsInf[] = {
   { "test_isinf", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_BOOL, 1, IA_C },
@@ -193,11 +200,12 @@ Intrinsic Intrinsics[] = {
   {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
   {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
   {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpBool), TestCustomLoadOpBool}},
 };
 
 Intrinsic BufferIntrinsics[] = {
-  {L"MyBufferOp",     "MyBufferOp",    "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+  {L"MyBufferOp",     "MyBufferOp",   "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState will do).
@@ -1292,27 +1300,41 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
  TEST_F(ExtensionTest, CustomLoadOp) {
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable());
-  c.Compile(
+  auto result = c.Compile(
     "float2 main(uint2 v1 : V1) : SV_Target {\n"
-    "  return CustomLoadOp(uint2(1, 2));\n"
+    "  float2 a = CustomLoadOp(uint2(1,2));\n"
+    "  float2 b = CustomLoadOp(uint2(3,4),1);\n"
+    "  return a+b;\n"
     "}\n",
     { L"/Vd" }, {}
   );
+  CheckOperationResultMsgs(result, {}, true, false);
   std::string disassembly = c.Disassemble();
 
   // Things to check
   // - return type is 2xfloat
+  // - input type is 2x struct
+  // - function overload handles variable arguments (and replaces them with undefs)
+  // - output struct gets converted to vector
   VERIFY_IS_TRUE(
     disassembly.npos !=
-    disassembly.find(std::string("%1 = call { float, float } @CustomLoadOp(i32 21, <2 x i32> <i32 1, i32 2>)")));
-  // - struct gets converted to vector
+    disassembly.find(std::string("%1 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 1, i32 2 }, i1 undef)")));
   VERIFY_IS_TRUE(
     disassembly.npos !=
     disassembly.find(std::string("%2 = extractvalue { float, float } %1, 0")));
   VERIFY_IS_TRUE(
     disassembly.npos !=
     disassembly.find(std::string("%3 = extractvalue { float, float } %1, 1")));
-}
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find(std::string("%4 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 3, i32 4 }, i1 true)")));
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find(std::string("%5 = extractvalue { float, float } %4, 0")));
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find(std::string("%6 = extractvalue { float, float } %4, 1")));
+ }
 
 TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
   Compiler c(m_dllSupport);
