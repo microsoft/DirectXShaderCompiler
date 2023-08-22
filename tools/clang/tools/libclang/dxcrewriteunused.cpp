@@ -305,10 +305,6 @@ public:
     }
     return true;
   }
-  bool VisitArrayType(const ArrayType *AT) {
-    TraverseType(AT->getElementType());
-    return true;
-  }
 };
 
 // Macro related.
