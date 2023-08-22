@@ -302,6 +302,6 @@ struct rec1
 [NodeDispatchGrid(2, 8, 10)]
 export void depth18part0_wg_63_nodes_seed_255(
   DispatchNodeInputRecord<rec0> InputyMcInputFace,
-  [MaxRecords(47)] [AllowSparseNodes] [NodeArraySize(2)] NodeOutput<rec1> OutputyMcOutputFace[2])
+  [MaxRecords(47)] [AllowSparseNodes] [NodeArraySize(2)] NodeOutput<rec1> OutputyMcOutputFace)
 {
 }

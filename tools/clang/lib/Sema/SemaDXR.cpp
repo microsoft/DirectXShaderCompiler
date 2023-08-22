@@ -1389,9 +1389,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   // Check parameter constraints
   for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {
     ParmVarDecl *Param = FD->getParamDecl(Idx);
+    clang::QualType paramTy = Param->getType();
 
     // compute is incompatible with node input/output
-    if (computeLoc.isValid() && hlsl::IsHLSLNodeType(Param->getType())) {
+    if (computeLoc.isValid() && hlsl::IsHLSLNodeType(paramTy)) {
       S.Diags.Report(Param->getLocation(),
                      diag::err_hlsl_compute_io_compatibility)
         << FD->getName() << "node input/output" << Param->getSourceRange();
@@ -1399,15 +1400,16 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     }
 
     // Check any node input is compatible with the node launch type
-    if (hlsl::IsHLSLNodeInputType(Param->getType())) {
+    if (hlsl::IsHLSLNodeInputType(paramTy)) {
       inputCount++;
-      const RecordType* RT = Param->getType()->getAs<RecordType>();
+      const RecordType* RT = paramTy->getAs<RecordType>();
       StringRef typeName = RT->getDecl()->getName();
       if (nodeLaunchType != DXIL::NodeLaunchType::Invalid &&
           !NodeInputIsCompatible(typeName, nodeLaunchType)) {
         S.Diags.Report(Param->getLocation(), diag::err_hlsl_wg_input_kind)
           << typeName << ShaderModel::GetNodeLaunchTypeName(nodeLaunchType)
-          << (static_cast<unsigned>(nodeLaunchType) - 1) << Param->getSourceRange();
+          << (static_cast<unsigned>(nodeLaunchType) - 1)
+          << Param->getSourceRange();
         if (nodeLaunchLoc.isValid())
           S.Diags.Report(nodeLaunchLoc, diag::note_defined_here)
             << "Launch type";
@@ -1416,6 +1418,24 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
         S.Diags.Report(Param->getLocation(),
                        diag::err_hlsl_too_many_node_inputs)
           << FD->getName() << Param->getSourceRange();
+    }
+
+    // arrays of NodeOutput or EmptyNodeOutput are not supported as node
+    // parameters
+    if (paramTy->isArrayType()) {
+      const ArrayType* AT = dyn_cast<ArrayType>(paramTy);
+      if (hlsl::IsHLSLNodeType(AT->getElementType(), "NodeOutput")) {
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_nodeoutput_array_parameter)
+          << "NodeOutput" << Param->getSourceRange();
+        Param->setInvalidDecl();
+      }
+      if (hlsl::IsHLSLNodeType(AT->getElementType(), "EmptyNodeOutput")) {
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_nodeoutput_array_parameter)
+          << "EmptyNodeOutput" << Param->getSourceRange();
+        Param->setInvalidDecl();
+      }
     }
 
     HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
