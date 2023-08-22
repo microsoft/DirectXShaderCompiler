@@ -1309,7 +1309,7 @@ bool DxilCleanup::IsDxilBitcast(Value *pValue) {
       case OP::OpCode::BitcastI64toF64:
         return true;
       default:
-        break;
+        return false;
       }
     }
   }
