@@ -35,7 +35,10 @@ using namespace hlsl::options;
 #ifdef _WIN32
 int __cdecl wmain(int argc, const wchar_t **argv_) {
 #else
-int main(int argc, const char **argv_) {
+int main(int argc, const char **argv) {
+  // Convert argv to wchar.
+  WArgV ArgV(argc, argv);
+  const wchar_t **argv_ = ArgV.argv();
 #endif
   if (FAILED(DxcInitThreadMalloc())) return 1;
   DxcSetThreadMallocToDefault();
@@ -130,10 +133,8 @@ int main(int argc, const char **argv_) {
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dxcSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
 
-    // Convert argv to wchar.
-    WArgV ArgV(argc, argv_);
     IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(),
-                                      ArgV.argv(), argc, nullptr, 0,
+                                      argv_, argc, nullptr, 0,
                                       pIncludeHandler, &pRewriteResult));
                         
     if (dxcOpts.OutputObject.empty()) {
