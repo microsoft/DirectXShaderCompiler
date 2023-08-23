@@ -1,14 +1,14 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
+// CHECK:      [[set:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
 // CHECK: rich.debug.function.parent.hlsl
 // CHECK: spirv.debug.opline.include-file-3.hlsli
-// CHECK: [[f3:%\d+]] = OpString "function3"
+// CHECK: [[f3:%[0-9]+]] = OpString "function3"
 // CHECK: spirv.debug.opline.include-file-2.hlsli
-// CHECK: [[f2:%\d+]] = OpString "function2"
+// CHECK: [[f2:%[0-9]+]] = OpString "function2"
 // CHECK: spirv.debug.opline.include-file-1.hlsli
-// CHECK: [[f1:%\d+]] = OpString "function1"
+// CHECK: [[f1:%[0-9]+]] = OpString "function1"
 
 
 #include "spirv.debug.opline.include-file-1.hlsli"
@@ -29,19 +29,19 @@ int callFunction3() {
   CALL_FUNCTION_3;
 }
 
-// CHECK: [[s3:%\d+]] = OpExtInst %void [[set]] DebugSource
-// CHECK: [[c3:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s3]] HLSL
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[f3]] {{%\d+}} [[s3]] 3 1 [[c3]]
+// CHECK: [[s3:%[0-9]+]] = OpExtInst %void [[set]] DebugSource
+// CHECK: [[c3:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s3]] HLSL
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugFunction [[f3]] {{%[0-9]+}} [[s3]] 3 1 [[c3]]
 
-// CHECK: [[s2:%\d+]] = OpExtInst %void [[set]] DebugSource
-// CHECK: [[c2:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s2]] HLSL
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[f2]] {{%\d+}} [[s2]] 2 1 [[c2]]
+// CHECK: [[s2:%[0-9]+]] = OpExtInst %void [[set]] DebugSource
+// CHECK: [[c2:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s2]] HLSL
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugFunction [[f2]] {{%[0-9]+}} [[s2]] 2 1 [[c2]]
 
-// CHECK: [[s1:%\d+]] = OpExtInst %void [[set]] DebugSource
-// CHECK: [[c1:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s1]] HLSL
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[f1]] {{%\d+}} [[s1]] 1 1 [[c1]]
+// CHECK: [[s1:%[0-9]+]] = OpExtInst %void [[set]] DebugSource
+// CHECK: [[c1:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s1]] HLSL
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugFunction [[f1]] {{%[0-9]+}} [[s1]] 1 1 [[c1]]
 
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugSource
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugSource
 
 void main() {
   callFunction1();

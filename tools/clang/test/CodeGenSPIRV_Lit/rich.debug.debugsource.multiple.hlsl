@@ -1,20 +1,20 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich-with-source
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich-with-source -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[debugSet:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
+// CHECK:      [[debugSet:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
 // CHECK: rich.debug.debugsource.multiple.hlsl
 // CHECK: spirv.debug.opline.include-file-3.hlsli
-// CHECK: [[file3_code:%\d+]] = OpString "int b;
+// CHECK: [[file3_code:%[0-9]+]] = OpString "int b;
 // CHECK: spirv.debug.opline.include-file-2.hlsli
-// CHECK: [[file2_code:%\d+]] = OpString "static int a;
+// CHECK: [[file2_code:%[0-9]+]] = OpString "static int a;
 // CHECK: spirv.debug.opline.include-file-1.hlsli
-// CHECK: [[file1_code:%\d+]] = OpString "int function1() {
-// CHECK: [[main_code:%\d+]] = OpString "// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich-with-source
+// CHECK: [[file1_code:%[0-9]+]] = OpString "int function1() {
+// CHECK: [[main_code:%[0-9]+]] = OpString "// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich-with-source -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: {{%\d+}} = OpExtInst %void [[debugSet]] DebugSource {{%\d+}} [[file3_code]]
-// CHECK: {{%\d+}} = OpExtInst %void [[debugSet]] DebugSource {{%\d+}} [[file2_code]]
-// CHECK: {{%\d+}} = OpExtInst %void [[debugSet]] DebugSource {{%\d+}} [[file1_code]]
-// CHECK: {{%\d+}} = OpExtInst %void [[debugSet]] DebugSource {{%\d+}} [[main_code]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[debugSet]] DebugSource {{%[0-9]+}} [[file3_code]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[debugSet]] DebugSource {{%[0-9]+}} [[file2_code]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[debugSet]] DebugSource {{%[0-9]+}} [[file1_code]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[debugSet]] DebugSource {{%[0-9]+}} [[main_code]]
 
 #include "spirv.debug.opline.include-file-1.hlsli"
 

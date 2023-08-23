@@ -1,9 +1,9 @@
-// RUN: %dxc -E main -T vs_6_0 -fspv-target-env=vulkan1.1 -Zi -O3
+// RUN: %dxc -E main -T vs_6_0 -fspv-target-env=vulkan1.1 -Zi -O3  %s -spirv | FileCheck %s
 
 // This test ensures that the debug info generation does not cause
 // crash when we enable spirv-opt with it.
 
-// CHECK:      [[file:%\d+]] = OpString
+// CHECK:      [[file:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.o3.option.hlsl
 
 struct VSOUT {

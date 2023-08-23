@@ -1,14 +1,14 @@
-// RUN: %dxc -T vs_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T vs_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv | FileCheck %s
 
 struct VS_OUTPUT {
   float4 pos : SV_POSITION;
 };
 
-//CHECK: [[fn:%\d+]] = OpExtInst %void [[ext:%\d+]] DebugFunction
-//CHECK: [[bb0:%\d+]] = OpExtInst %void [[ext]] DebugLexicalBlock {{%\d+}} 14 {{\d+}} [[fn]]
-//CHECK: [[bb1:%\d+]] = OpExtInst %void [[ext]] DebugLexicalBlock {{%\d+}} 21 {{\d+}} [[bb0]]
-//CHECK: [[bb2:%\d+]] = OpExtInst %void [[ext]] DebugLexicalBlock {{%\d+}} 27 {{\d+}} [[bb1]]
-//CHECK: [[a:%\d+]] = OpExtInst %void [[ext]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 32 {{\d+}} [[bb2]]
+//CHECK: [[fn:%[0-9]+]] = OpExtInst %void [[ext:%[0-9]+]] DebugFunction
+//CHECK: [[bb0:%[0-9]+]] = OpExtInst %void [[ext]] DebugLexicalBlock {{%[0-9]+}} 14 {{[0-9]+}} [[fn]]
+//CHECK: [[bb1:%[0-9]+]] = OpExtInst %void [[ext]] DebugLexicalBlock {{%[0-9]+}} 21 {{[0-9]+}} [[bb0]]
+//CHECK: [[bb2:%[0-9]+]] = OpExtInst %void [[ext]] DebugLexicalBlock {{%[0-9]+}} 27 {{[0-9]+}} [[bb1]]
+//CHECK: [[a:%[0-9]+]] = OpExtInst %void [[ext]] DebugLocalVariable {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 32 {{[0-9]+}} [[bb2]]
 
 VS_OUTPUT main(float4 pos : POSITION,
                float4 color : COLOR) {
@@ -20,24 +20,24 @@ VS_OUTPUT main(float4 pos : POSITION,
   float x = a + b + c;
   {
 //CHECK:      DebugScope [[bb1]]
-//CHECK-NEXT: OpLine [[file:%\d+]] 24
+//CHECK-NEXT: OpLine [[file:%[0-9]+]] 24
     float a = 3.0;
     float b = 4.0;
     x += a + b + c;
     {
 //CHECK:      DebugScope [[bb2]]
-//CHECK-NEXT: OpLine [[file:%\d+]] 32
-//CHECK-NEXT: OpStore [[var_a:%\w+]] %float_6
+//CHECK-NEXT: OpLine [[file_0:%[0-9]+]] 32
+//CHECK-NEXT: OpStore [[var_a:%[a-zA-Z0-9_]+]] %float_6
 //CHECK:      DebugDeclare [[a]] [[var_a]]
       float a = 6.0;
       x += a + b + c;
     }
 //CHECK:      DebugScope [[bb1]]
-//CHECK-NEXT: OpLine [[file:%\d+]] 37
+//CHECK-NEXT: OpLine [[file_0_0:%[0-9]+]] 37
     x += a + b + c;
   }
 //CHECK:      DebugScope [[bb0]]
-//CHECK-NEXT: OpLine [[file:%\d+]] 41
+//CHECK-NEXT: OpLine [[file_0_0_0:%[0-9]+]] 41
   x += a + b + c;
 
   VS_OUTPUT vout;

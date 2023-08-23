@@ -1,11 +1,11 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: %i = OpFunctionParameter %_ptr_Function_PS_INPUT
-// CHECK: DebugDeclare {{%\d+}} %i
+// CHECK: DebugDeclare {{%[0-9]+}} %i
 // CHECK: %ps_output = OpVariable %_ptr_Function_PS_OUTPUT Function
 // CHECK: %c = OpVariable %_ptr_Function_v4float Function
-// CHECK: DebugDeclare {{%\d+}} %ps_output
-// CHECK: DebugDeclare {{%\d+}} %c
+// CHECK: DebugDeclare {{%[0-9]+}} %ps_output
+// CHECK: DebugDeclare {{%[0-9]+}} %c
 
 Texture2D g_tColor;
 

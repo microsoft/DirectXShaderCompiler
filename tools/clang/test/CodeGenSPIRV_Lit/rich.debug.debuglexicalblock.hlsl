@@ -1,13 +1,13 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[debugSet:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
-// CHECK:   [[debugSource:%\d+]] = OpExtInst %void [[debugSet]] DebugSource
-// CHECK:          [[main:%\d+]] = OpExtInst %void [[debugSet]] DebugFunction
-// CHECK: [[mainFnLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 13 1 [[main]]
-// CHECK: [[whileLoopLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 21 3 [[mainFnLexBlock]]
-// CHECK: [[ifStmtLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 26 20 [[whileLoopLexBlock]]
-// CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 28 7 [[ifStmtLexBlock]]
-// CHECK: [[forLoopLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 15 12 [[mainFnLexBlock]]
+// CHECK:      [[debugSet:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
+// CHECK:   [[debugSource:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugSource
+// CHECK:          [[main:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugFunction
+// CHECK: [[mainFnLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 13 1 [[main]]
+// CHECK: [[whileLoopLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 21 3 [[mainFnLexBlock]]
+// CHECK: [[ifStmtLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 26 20 [[whileLoopLexBlock]]
+// CHECK: [[tempLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 28 7 [[ifStmtLexBlock]]
+// CHECK: [[forLoopLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 15 12 [[mainFnLexBlock]]
 
 float4 main(float4 color : COLOR) : SV_TARGET
 {

@@ -1,15 +1,15 @@
-// RUN: %dxc -T ps_6_0 -E main -Zi
+// RUN: %dxc -T ps_6_0 -E main -Zi -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[main:%\d+]] = OpString
+// CHECK:      [[main:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.include.hlsl
-// CHECK-NEXT: OpSource HLSL 600 [[main]] "// RUN: %dxc -T ps_6_0 -E main -Zi
-// CHECK:      [[file1:%\d+]] = OpString
+// CHECK-NEXT: OpSource HLSL 600 [[main]] "// RUN: %dxc -T ps_6_0 -E main -Zi -fcgl  %s -spirv | FileCheck %s
+// CHECK:      [[file1:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.include-file-1.hlsli
 // CHECK-NEXT: OpSource HLSL 600 [[file1]] "int function1() {
-// CHECK:      [[file2:%\d+]] = OpString
+// CHECK:      [[file2:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.include-file-2.hlsli
 // CHECK-NEXT: OpSource HLSL 600 [[file2]] "static int a;
-// CHECK:      [[file3:%\d+]] = OpString
+// CHECK:      [[file3:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.include-file-3.hlsli
 // CHECK-NEXT: OpSource HLSL 600 [[file3]] "int b;
 

@@ -1,6 +1,6 @@
-// RUN: %dxc -T cs_6_0 -E main -Zi
+// RUN: %dxc -T cs_6_0 -E main -Zi -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
+// CHECK:      [[file:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.precedence.hlsl
 
 [numthreads(1,1,1)]void main() {

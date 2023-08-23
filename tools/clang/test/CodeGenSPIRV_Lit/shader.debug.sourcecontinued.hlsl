@@ -1,7 +1,7 @@
-// RUN: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan-with-source-test
+// RUN: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan-with-source-test -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:             DebugSource {{%\d+}} {{%\d+}}
-// CHECK:             DebugSourceContinued {{%\d+}}
+// CHECK:             DebugSource {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:             DebugSourceContinued {{%[0-9]+}}
 
 Texture2D g_tColor;
 

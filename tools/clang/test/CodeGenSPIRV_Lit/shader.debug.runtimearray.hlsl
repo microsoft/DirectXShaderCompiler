@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan -fcgl  %s -spirv | FileCheck %s
 
 struct PSInput
 {
@@ -9,7 +9,7 @@ Texture2D bindless[];
 
 sampler DummySampler;
 
-// CHECK: {{%\d+}} = OpExtInst %void {{%\d+}} DebugTypeArray {{%\d+}} %uint_0
+// CHECK: {{%[0-9]+}} = OpExtInst %void {{%[0-9]+}} DebugTypeArray {{%[0-9]+}} %uint_0
 
 float4 main(PSInput input) : SV_TARGET
 {

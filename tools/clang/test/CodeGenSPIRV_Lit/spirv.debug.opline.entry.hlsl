@@ -1,6 +1,6 @@
-// RUN: %dxc -T ps_6_0 -E main -Zi
+// RUN: %dxc -T ps_6_0 -E main -Zi -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
+// CHECK:      [[file:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.entry.hlsl
 
 float4 main(float2 a : TEXCOORD0,

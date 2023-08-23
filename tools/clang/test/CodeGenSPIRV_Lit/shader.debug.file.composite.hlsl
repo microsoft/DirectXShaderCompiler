@@ -1,4 +1,4 @@
-// RUN: %dxc -E MainPs -T ps_6_0 -fspv-target-env=vulkan1.1 -fspv-debug=vulkan-with-source
+// RUN: %dxc -E MainPs -T ps_6_0 -fspv-target-env=vulkan1.1 -fspv-debug=vulkan-with-source -fcgl  %s -spirv | FileCheck %s
 
 // Just check that compilation completes
 // CHECK: %MainPs = OpFunction %void None

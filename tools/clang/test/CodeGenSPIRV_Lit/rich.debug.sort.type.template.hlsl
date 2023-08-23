@@ -1,8 +1,8 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: [[dbg_info_none:%\d+]] = OpExtInst %void [[ext:%\d+]] DebugInfoNone
-// CHECK: [[ty:%\d+]] = OpExtInst %void [[ext]] DebugTypeComposite {{%\d+}} Class {{%\d+}} 0 0 {{%\d+}} {{%\d+}} [[dbg_info_none]]
-// CHECK: [[param:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter {{%\d+}} {{%\d+}} [[dbg_info_none]]
+// CHECK: [[dbg_info_none:%[0-9]+]] = OpExtInst %void [[ext:%[0-9]+]] DebugInfoNone
+// CHECK: [[ty:%[0-9]+]] = OpExtInst %void [[ext]] DebugTypeComposite {{%[0-9]+}} Class {{%[0-9]+}} 0 0 {{%[0-9]+}} {{%[0-9]+}} [[dbg_info_none]]
+// CHECK: [[param:%[0-9]+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter {{%[0-9]+}} {{%[0-9]+}} [[dbg_info_none]]
 // CHECK: OpExtInst %void [[ext]] DebugTypeTemplate [[ty]] [[param]]
 
 Texture2D<float4> tex : register(t0);

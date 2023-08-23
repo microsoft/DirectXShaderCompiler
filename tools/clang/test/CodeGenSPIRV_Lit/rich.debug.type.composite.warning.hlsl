@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 struct foo {
   void method() { }

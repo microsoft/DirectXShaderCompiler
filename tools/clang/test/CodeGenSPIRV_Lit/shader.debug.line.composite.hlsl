@@ -1,7 +1,7 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
-// CHECK:      [[src:%\d+]] = OpExtInst %void %2 DebugSource [[file]]
+// CHECK:      [[file:%[0-9]+]] = OpString
+// CHECK:      [[src:%[0-9]+]] = OpExtInst %void %2 DebugSource [[file]]
 
 struct int4_bool_float3 {
   int4 a;
@@ -48,31 +48,31 @@ void main() {
 // CHECK: DebugLine [[src]] %uint_50 %uint_50 %uint_7 %uint_19
 // CHECK: OpFunctionCall %int4_bool_float3_0 %test_struct
       test_struct().c.zx
-// CHECK:      OpCompositeExtract %float {{%\d+}} 0
-// CHECK-NEXT: OpCompositeExtract %float {{%\d+}} 1
+// CHECK:      OpCompositeExtract %float {{%[0-9]+}} 0
+// CHECK-NEXT: OpCompositeExtract %float {{%[0-9]+}} 1
 // CHECK-NEXT: DebugLine [[src]] %uint_46 %uint_46 %uint_12 %uint_12
 // CHECK-NEXT: OpConvertFToS %int
 // CHECK-NEXT: OpConvertFToS %int
 // CHECK:      OpCompositeConstruct %v4int
   };
 
-// CHECK:                        OpFDiv %float {{%\d+}} %float_2
+// CHECK:                        OpFDiv %float {{%[0-9]+}} %float_2
 // CHECK-NEXT:                   DebugLine [[src]] %uint_64 %uint_64 %uint_16 %uint_57
-// CHECK-NEXT:  [[first:%\d+]] = OpCompositeConstruct %v2float {{%\d+}} {{%\d+}}
-// CHECK-NEXT: [[second:%\d+]] = OpCompositeConstruct %v2float {{%\d+}} {{%\d+}}
-// CHECK-NEXT:        {{%\d+}} = OpCompositeConstruct %mat2v2float [[first]] [[second]]
+// CHECK-NEXT:  [[first:%[0-9]+]] = OpCompositeConstruct %v2float {{%[0-9]+}} {{%[0-9]+}}
+// CHECK-NEXT: [[second:%[0-9]+]] = OpCompositeConstruct %v2float {{%[0-9]+}} {{%[0-9]+}}
+// CHECK-NEXT:        {{%[0-9]+}} = OpCompositeConstruct %mat2v2float [[first]] [[second]]
   float2x2 b = float2x2(a.x, b._m00, 2 + a.y, b._m11 / 2);
 
 // CHECK:                   DebugLine [[src]] %uint_69 %uint_69 %uint_12 %uint_14
-// CHECK-NEXT: [[y:%\d+]] = OpAccessChain %_ptr_Uniform_int4_bool_float3 %CONSTANTS %int_0
-// CHECK-NEXT:   {{%\d+}} = OpAccessChain %_ptr_Uniform_v4int [[y]] %int_0
+// CHECK-NEXT: [[y:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int4_bool_float3 %CONSTANTS %int_0
+// CHECK-NEXT:   {{%[0-9]+}} = OpAccessChain %_ptr_Uniform_v4int [[y]] %int_0
   int4 c = y.a;
 
 // CHECK:                   DebugLine [[src]] %uint_76 %uint_76 %uint_3 %uint_3
-// CHECK-NEXT: [[z:%\d+]] = OpLoad %type_2d_image %z
-// CHECK-NEXT: [[z:%\d+]] = OpImageRead %v4int [[z]] {{%\d+}} None
-// CHECK-NEXT: [[z:%\d+]] = OpVectorShuffle %v3int [[z]] [[z]] 0 1 2
-// CHECK:        {{%\d+}} = OpCompositeInsert %v3int %int_16 [[z]] 0
+// CHECK-NEXT: [[z:%[0-9]+]] = OpLoad %type_2d_image %z
+// CHECK-NEXT: [[z_0:%[0-9]+]] = OpImageRead %v4int [[z]] {{%[0-9]+}} None
+// CHECK-NEXT: [[z_0_0:%[0-9]+]] = OpVectorShuffle %v3int [[z_0]] [[z_0]] 0 1 2
+// CHECK:        {{%[0-9]+}} = OpCompositeInsert %v3int %int_16 [[z_0_0]] 0
   z[uint2(2, 3)].x = 16;
 
 // CHECK:      DebugLine [[src]] %uint_82 %uint_82 %uint_3 %uint_4

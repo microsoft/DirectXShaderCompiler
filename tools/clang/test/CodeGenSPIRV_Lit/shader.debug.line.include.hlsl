@@ -1,21 +1,21 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:           [[main:%\d+]] = OpString
+// CHECK:           [[main:%[0-9]+]] = OpString
 // CHECK-SAME:      shader.debug.line.include.hlsl
 // CHECK:           OpString
-// CHECK:           [[file3:%\d+]] = OpString
+// CHECK:           [[file3:%[0-9]+]] = OpString
 // CHECK-SAME:      spirv.debug.opline.include-file-3.hlsli
 // CHECK:           OpString
 // CHECK:           OpString
-// CHECK:           [[file2:%\d+]] = OpString
+// CHECK:           [[file2:%[0-9]+]] = OpString
 // CHECK-SAME:      spirv.debug.opline.include-file-2.hlsli
 // CHECK:           OpString
-// CHECK:           [[file1:%\d+]] = OpString
+// CHECK:           [[file1:%[0-9]+]] = OpString
 // CHECK-SAME:      spirv.debug.opline.include-file-1.hlsli
-// CHECK:      [[src3:%\d+]] = OpExtInst %void %1 DebugSource [[file3]]
-// CHECK:      [[src2:%\d+]] = OpExtInst %void %1 DebugSource [[file2]]
-// CHECK:      [[src1:%\d+]] = OpExtInst %void %1 DebugSource [[file1]]
-// CHECK:      [[src0:%\d+]] = OpExtInst %void %1 DebugSource [[main]]
+// CHECK:      [[src3:%[0-9]+]] = OpExtInst %void %1 DebugSource [[file3]]
+// CHECK:      [[src2:%[0-9]+]] = OpExtInst %void %1 DebugSource [[file2]]
+// CHECK:      [[src1:%[0-9]+]] = OpExtInst %void %1 DebugSource [[file1]]
+// CHECK:      [[src0:%[0-9]+]] = OpExtInst %void %1 DebugSource [[main]]
 
 // DebugLine cannot preceed OpFunction
 // CHECK:      %src_main = OpFunction %void None
