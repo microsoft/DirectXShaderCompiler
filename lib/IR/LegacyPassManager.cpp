@@ -103,19 +103,19 @@ static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
   }
   return false;
 }
-#endif
 
 /// This is a utility to check whether a pass should have IR dumped
 /// before it.
 static bool ShouldPrintBeforePass(const PassInfo *PI) {
-  return false; // HLSL Change - return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PI, PrintBefore);
+  return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PI, PrintBefore);
 }
 
 /// This is a utility to check whether a pass should have IR dumped
 /// after it.
 static bool ShouldPrintAfterPass(const PassInfo *PI) {
-  return false; // HLSL Change -PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
+  return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
 }
+#endif // HLSL Change Ends
 
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
 /// or higher is specified.
@@ -689,19 +689,15 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   };
 
   static direct_stderr_stream stderr_stream;
-  // HLSL Change - end
 
-  if (PI && !PI->isAnalysis() && ShouldPrintBeforePass(PI)) {
-    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump Before ") +
-                                         P->getPassName().str() + " ***");
-    PP->assignPassManager(activeStack, getTopLevelPassManagerType());
-  }
+  auto ShouldPrint =
+      [](const PassInfo *PI, bool AllOpt, std::set<std::string> &ByNameOpt) {
+        return AllOpt ||
+               (ByNameOpt.size() && ByNameOpt.count(PI->getPassArgument()));
+      }
 
-  // HLSL Change - begin
   if (PI && !PI->isAnalysis() &&
-      (this->HLSLPrintBeforeAll ||
-       (this->HLSLPrintBefore.size() &&
-        this->HLSLPrintBefore.count(PI->getPassArgument())))) {
+      ShouldPrint(PI, this->HLSLPrintBeforeAll, this->HLSLPrintBefore)) {
     Pass *PP = P->createPrinterPass(stderr_stream,
                                     std::string("*** IR Dump Before ") +
                                         P->getPassName().str() + " (" +
@@ -714,17 +710,9 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   PPtr.release(); // HLSL Change - assignPassManager takes ownership
   P->assignPassManager(activeStack, getTopLevelPassManagerType());
 
-  if (PI && !PI->isAnalysis() && ShouldPrintAfterPass(PI)) {
-    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump After ") +
-                                         P->getPassName().str() + " ***");
-    PP->assignPassManager(activeStack, getTopLevelPassManagerType());
-  }
-
   // HLSL Change - begin
   if (PI && !PI->isAnalysis() &&
-      (this->HLSLPrintAfterAll ||
-       (this->HLSLPrintAfter.size() &&
-        this->HLSLPrintAfter.count(PI->getPassArgument())))) {
+      ShouldPrint(PI, this->HLSLPrintAfterAll, this->HLSLPrintAfter)) {
     Pass *PP = P->createPrinterPass(stderr_stream,
                                     std::string("*** IR Dump After ") +
                                         P->getPassName().str() + " (" +

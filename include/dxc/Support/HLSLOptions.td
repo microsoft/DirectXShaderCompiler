@@ -310,11 +310,11 @@ def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcom
 def print_before_all : Flag<["-", "/"], "print-before-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR before each pass.">;
 def print_before : Separate<["-", "/"], "print-before">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Print LLVM IR before a specific pass.">;
+  HelpText<"Print LLVM IR before a specific pass. May be specificied multiple times.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Print LLVM IR after a specific pass.">;
+  HelpText<"Print LLVM IR after a specific pass. May be specificied multiple times.">;
 def ignore_opt_semdefs : Flag<["-", "/"], "ignore-opt-semdefs">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Ignore optional semantic defines which are not required to ensure program correctness.">;
 def ignore_semdef : Separate<["-", "/"], "ignore-semdef">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
