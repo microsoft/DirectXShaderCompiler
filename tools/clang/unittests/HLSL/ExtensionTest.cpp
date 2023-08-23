@@ -7,6 +7,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "llvm/ADT/STLExtras.h"
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
@@ -1344,7 +1345,7 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
     "%9 = extractvalue { float, float } %7, 1"
   };
 
-  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, sizeof(expected)/sizeof(LPCSTR), false);
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, llvm::array_lengthof(expected), false);
  }
 
 TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
