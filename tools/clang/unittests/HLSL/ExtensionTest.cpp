@@ -208,6 +208,12 @@ Intrinsic Intrinsics[] = {
   {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
   {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
   {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  // custom lowering with both optional arguments and vector exploding.
+  // Arg 0 = Opcode
+  // Arg 1 = Pass as is
+  // Arg 2:?i1 = Optional boolean argument
+  // Arg 3.0:?i32 = Optional x component (in i32) of 3rd HLSL arg
+  // Arg 3.1:?i32 = Optional y component (in i32) of 3rd HLSL arg
   {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
   {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpBool), TestCustomLoadOpBool}},
   {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpSubscript), TestCustomLoadOpSubscript}},
