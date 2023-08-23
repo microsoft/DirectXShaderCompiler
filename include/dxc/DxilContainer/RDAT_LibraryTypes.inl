@@ -91,7 +91,10 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::ShaderKind, uint32_t)
 RDAT_ENUM_END()
 
 RDAT_DXIL_ENUM_START(hlsl::DXIL::SemanticKind, uint32_t)
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('SemanticKind-ENUM')>hctdb_instrhelp.get_rdat_enum_decl("SemanticKind", nodef=True)</py>*/
+  // clang-format onm
   // SemanticKind-ENUM:BEGIN
   RDAT_ENUM_VALUE_NODEF(Arbitrary)
   RDAT_ENUM_VALUE_NODEF(VertexID)
