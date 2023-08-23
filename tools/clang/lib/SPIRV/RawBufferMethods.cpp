@@ -42,63 +42,93 @@ SpirvInstruction *RawBufferHandler::bitCastToNumericalOrBool(
                                   range);
 }
 
-SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset0(
-    SpirvInstruction *buffer, SpirvInstruction *&index,
-    QualType target16BitType, uint32_t &bitOffset, SourceRange range) {
-  assert(bitOffset == 0);
+SpirvInstruction *RawBufferHandler::load16Bits(SpirvInstruction *buffer,
+                                               SpirvInstruction *&byteAddress,
+                                               QualType target16BitType,
+                                               SourceRange range) {
   const auto loc = buffer->getSourceLocation();
   SpirvInstruction *result = nullptr;
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint4 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
+  auto *constUint8 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8));
+
+  // divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer
+  auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                          astContext.UnsignedIntTy, byteAddress,
+                                          constUint2, loc, range);
+
+  // take the remainder and multiply by 8 to get the bit offset within the word
+  auto *bitOffset =
+      spvBuilder.createBinaryOp(spv::Op::OpUMod, astContext.UnsignedIntTy,
+                                byteAddress, constUint4, loc, range);
+  bitOffset =
+      spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
+                                bitOffset, constUint8, loc, range);
+
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to load 32-bits at the very least.
-  auto *loadPtr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                               {constUint0, index}, loc, range);
-  result = spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr, loc, range);
-  // Only need to mask the lowest 16 bits of the loaded 32-bit uint.
-  // OpUConvert can perform truncation in this case.
+  auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
+                                           {constUint0, index}, loc, range);
+  result = spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
+  result = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                     astContext.UnsignedIntTy, result,
+                                     bitOffset, loc, range);
   result = spvBuilder.createUnaryOp(
       spv::Op::OpUConvert, astContext.UnsignedShortTy, result, loc, range);
   result = bitCastToNumericalOrBool(result, astContext.UnsignedShortTy,
                                     target16BitType, loc, range);
   result->setRValue();
 
-  // Now that a 16-bit load at bit-offset 0 has been performed, the next load
-  // should be done at *the same base index* at bit-offset 16.
-  bitOffset = (bitOffset + 16) % 32;
+  byteAddress =
+      spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                byteAddress, constUint2, loc, range);
   return result;
 }
 
-SpirvInstruction *RawBufferHandler::load32BitsAtBitOffset0(
-    SpirvInstruction *buffer, SpirvInstruction *&index,
-    QualType target32BitType, uint32_t &bitOffset, SourceRange range) {
-  assert(bitOffset == 0);
+SpirvInstruction *RawBufferHandler::load32Bits(SpirvInstruction *buffer,
+                                               SpirvInstruction *&byteAddress,
+                                               QualType target32BitType,
+                                               SourceRange range) {
   const auto loc = buffer->getSourceLocation();
   SpirvInstruction *result = nullptr;
   // Only need to perform one 32-bit uint load.
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint4 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
+
+  // divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer
+  auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                          astContext.UnsignedIntTy, byteAddress,
+                                          constUint2, loc, range);
+
   auto *loadPtr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                                {constUint0, index}, loc, range);
   result = spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr, loc, range);
   result = bitCastToNumericalOrBool(result, astContext.UnsignedIntTy,
                                     target32BitType, loc, range);
   result->setRValue();
-  // Now that a 32-bit load at bit-offset 0 has been performed, the next load
-  // should be done at *the next base index* at bit-offset 0.
-  bitOffset = (bitOffset + 32) % 32;
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc, range);
+
+  byteAddress =
+      spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                byteAddress, constUint4, loc, range);
 
   return result;
 }
 
-SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset0(
-    SpirvInstruction *buffer, SpirvInstruction *&index,
-    QualType target64BitType, uint32_t &bitOffset, SourceRange range) {
-  assert(bitOffset == 0);
+SpirvInstruction *RawBufferHandler::load64Bits(SpirvInstruction *buffer,
+                                               SpirvInstruction *&byteAddress,
+                                               QualType target64BitType,
+                                               SourceRange range) {
   const auto loc = buffer->getSourceLocation();
   SpirvInstruction *result = nullptr;
   SpirvInstruction *ptr = nullptr;
@@ -106,8 +136,18 @@ SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset0(
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   auto *constUint1 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint8 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8));
   auto *constUint32 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
+
+  // divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer
+  auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                          astContext.UnsignedIntTy, byteAddress,
+                                          constUint2, loc, range);
 
   // Need to perform two 32-bit uint loads and construct a 64-bit value.
 
@@ -143,112 +183,35 @@ SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset0(
   result = bitCastToNumericalOrBool(result, astContext.UnsignedLongLongTy,
                                     target64BitType, loc, range);
   result->setRValue();
-  // Now that a 64-bit load at bit-offset 0 has been performed, the next load
-  // should be done at *the base index + 2* at bit-offset 0. The index has
-  // already been incremented once. Need to increment it once more.
-  bitOffset = (bitOffset + 64) % 32;
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc, range);
 
-  return result;
-}
+  byteAddress =
+      spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                byteAddress, constUint8, loc, range);
 
-SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset16(
-    SpirvInstruction *buffer, SpirvInstruction *&index,
-    QualType target16BitType, uint32_t &bitOffset, SourceRange range) {
-  assert(bitOffset == 16);
-  const auto loc = buffer->getSourceLocation();
-  SpirvInstruction *result = nullptr;
-  auto *constUint0 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
-  auto *constUint16 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
-
-  // The underlying element type of the ByteAddressBuffer is uint. So we
-  // need to load 32-bits at the very least.
-  auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                           {constUint0, index}, loc, range);
-  result = spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
-  result = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
-                                     astContext.UnsignedIntTy, result,
-                                     constUint16, loc, range);
-  result = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedShortTy, result, loc, range);
-  result = bitCastToNumericalOrBool(result, astContext.UnsignedShortTy,
-                                    target16BitType, loc, range);
-  result->setRValue();
-
-  // Now that a 16-bit load at bit-offset 16 has been performed, the next load
-  // should be done at *the next base index* at bit-offset 0.
-  bitOffset = (bitOffset + 16) % 32;
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc, range);
   return result;
 }
 
 SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
-    SpirvInstruction *buffer, SpirvInstruction *&index,
-    const QualType targetType, uint32_t &bitOffset, SourceRange range) {
+    SpirvInstruction *buffer, SpirvInstruction *&byteAddress,
+    const QualType targetType, SourceRange range) {
   const auto loc = buffer->getSourceLocation();
   SpirvInstruction *result = nullptr;
-
-  // TODO: If 8-bit types are to be supported in the future, we should also
-  // add code to support bitOffset 8 and 24.
-  assert(bitOffset == 0 || bitOffset == 16);
 
   // Scalar types
   if (isScalarType(targetType)) {
     SpirvInstruction *scalarResult = nullptr;
     auto loadWidth = getElementSpirvBitwidth(
         astContext, targetType, theEmitter.getSpirvOptions().enable16BitTypes);
-    switch (bitOffset) {
-    case 0: {
-      switch (loadWidth) {
-      case 16:
-        scalarResult =
-            load16BitsAtBitOffset0(buffer, index, targetType, bitOffset, range);
-        break;
-      case 32:
-        scalarResult =
-            load32BitsAtBitOffset0(buffer, index, targetType, bitOffset, range);
-        break;
-      case 64:
-        scalarResult =
-            load64BitsAtBitOffset0(buffer, index, targetType, bitOffset, range);
-        break;
-      default:
-        theEmitter.emitError(
-            "templated load of ByteAddressBuffer is only implemented for "
-            "16, 32, and 64-bit types",
-            loc);
-        return nullptr;
-      }
+    switch (loadWidth) {
+    case 16:
+      scalarResult = load16Bits(buffer, byteAddress, targetType, range);
       break;
-    }
-    case 16: {
-      switch (loadWidth) {
-      case 16:
-        scalarResult = load16BitsAtBitOffset16(buffer, index, targetType,
-                                               bitOffset, range);
-        break;
-      case 32:
-      case 64:
-        theEmitter.emitError(
-            "templated buffer load should not result in loading "
-            "32-bit or 64-bit values at bit offset 16",
-            loc);
-        return nullptr;
-      default:
-        theEmitter.emitError(
-            "templated load of ByteAddressBuffer is only implemented for "
-            "16, 32, and 64-bit types",
-            loc);
-        return nullptr;
-      }
+    case 32:
+      scalarResult = load32Bits(buffer, byteAddress, targetType, range);
       break;
-    }
+    case 64:
+      scalarResult = load64Bits(buffer, byteAddress, targetType, range);
+      break;
     default:
       theEmitter.emitError(
           "templated load of ByteAddressBuffer is only implemented for "
@@ -271,7 +234,7 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
       llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
       for (uint32_t i = 0; i < elemCount; ++i) {
         loadedElems.push_back(processTemplatedLoadFromBuffer(
-            buffer, index, elemType, bitOffset, range));
+            buffer, byteAddress, elemType, range));
       }
       result = spvBuilder.createCompositeConstruct(targetType, loadedElems, loc,
                                                    range);
@@ -290,7 +253,7 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
       llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
       for (uint32_t i = 0; i < elemCount; ++i) {
         loadedElems.push_back(processTemplatedLoadFromBuffer(
-            buffer, index, elemType, bitOffset, range));
+            buffer, byteAddress, elemType, range));
       }
       result = spvBuilder.createCompositeConstruct(targetType, loadedElems, loc,
                                                    range);
@@ -323,8 +286,8 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
       const uint32_t numElements = numRows * numCols;
       llvm::SmallVector<SpirvInstruction *, 16> loadedElems(numElements);
       for (uint32_t i = 0; i != numElements; ++i)
-        loadedElems[i] = processTemplatedLoadFromBuffer(buffer, index, elemType,
-                                                        bitOffset, range);
+        loadedElems[i] = processTemplatedLoadFromBuffer(buffer, byteAddress,
+                                                        elemType, range);
 
       llvm::SmallVector<SpirvInstruction *, 4> loadedRows;
       for (uint32_t i = 0; i < numRows; ++i) {
@@ -352,8 +315,6 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
   // As a result, there might exist some padding after some struct members.
   if (const auto *structType = targetType->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
-    SpirvInstruction *originalIndex = index;
-    uint32_t originalBitOffset = bitOffset;
     llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
     uint32_t fieldOffsetInBytes = 0;
     uint32_t structAlignment = 0, structSize = 0, stride = 0;
@@ -370,45 +331,34 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
           field->getType(), theEmitter.getSpirvOptions().sBufferLayoutRule,
           /*isRowMajor*/ llvm::None, &stride);
       fieldOffsetInBytes = roundToPow2(fieldOffsetInBytes, fieldAlignment);
-      const auto wordOffset =
-          ((originalBitOffset / 8) + fieldOffsetInBytes) / 4;
-      bitOffset = (((originalBitOffset / 8) + fieldOffsetInBytes) % 4) * 8;
-
-      if (wordOffset != 0) {
-        // Divide the fieldOffset by 4 to figure out how much to increment the
-        // index into the buffer (increment occurs by 32-bit words since the
-        // underlying type is an array of uints).
-        // The remainder by four tells us the *byte offset* (then multiply by 8
-        // to get bit offset).
-        index = spvBuilder.createBinaryOp(
-            spv::Op::OpIAdd, astContext.UnsignedIntTy, originalIndex,
+      auto *byteOffset = byteAddress;
+      if (fieldOffsetInBytes != 0) {
+        byteOffset = spvBuilder.createBinaryOp(
+            spv::Op::OpIAdd, astContext.UnsignedIntTy, byteOffset,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, wordOffset)),
+                                      llvm::APInt(32, fieldOffsetInBytes)),
             loc, range);
       }
+
       loadedElems.push_back(processTemplatedLoadFromBuffer(
-          buffer, index, field->getType(), bitOffset, range));
+          buffer, byteOffset, field->getType(), range));
 
       fieldOffsetInBytes += fieldSize;
     }
 
     // After we're done with loading the entire struct, we need to update the
-    // index and bitOffset (in case we are loading an array of structs).
+    // byteAddress (in case we are loading an array of structs).
     //
-    // Example: struct alignment = 8. struct size = 34 bytes
-    // (34 / 8) = 4 full words
-    // (34 % 8) = 2 > 0, therefore need to move to the next aligned address
-    // So the starting byte offset after loading the entire struct is:
-    // 8 * (4 + 1) = 40
+    // struct size = 34 bytes (34 / 8) = 4 full words (34 % 8) = 2 > 0,
+    // therefore need to move to the next aligned address So the starting byte
+    // offset after loading the entire struct is: 8 * (4 + 1) = 40
     assert(structAlignment != 0);
-    uint32_t newByteOffset = roundToPow2(structSize, structAlignment);
-    uint32_t newWordOffset = ((originalBitOffset / 8) + newByteOffset) / 4;
-    bitOffset = 8 * (((originalBitOffset / 8) + newByteOffset) % 4);
-    index = spvBuilder.createBinaryOp(
-        spv::Op::OpIAdd, astContext.UnsignedIntTy, originalIndex,
-        spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                  llvm::APInt(32, newWordOffset)),
-        loc, range);
+    SpirvInstruction *structWidth = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy,
+        llvm::APInt(32, roundToPow2(structSize, structAlignment)));
+    byteAddress =
+        spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                  byteAddress, structWidth, loc, range);
 
     result = spvBuilder.createCompositeConstruct(targetType, loadedElems, loc,
                                                  range);
@@ -419,69 +369,96 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
   llvm_unreachable("templated buffer load unimplemented for type");
 }
 
-void RawBufferHandler::store16BitsAtBitOffset0(SpirvInstruction *value,
-                                               SpirvInstruction *buffer,
-                                               SpirvInstruction *&index,
-                                               const QualType valueType,
-                                               SourceRange range) {
+void RawBufferHandler::store16Bits(SpirvInstruction *value,
+                                   SpirvInstruction *buffer,
+                                   SpirvInstruction *&byteAddress,
+                                   const QualType valueType,
+                                   SourceRange range) {
   const auto loc = buffer->getSourceLocation();
   SpirvInstruction *result = nullptr;
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  // The underlying element type of the ByteAddressBuffer is uint. So we
-  // need to store a 32-bit value.
-  auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                           {constUint0, index}, loc, range);
-  result = bitCastToNumericalOrBool(value, valueType,
-                                    astContext.UnsignedShortTy, loc, range);
-  result = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedIntTy, result, loc, range);
-  spvBuilder.createStore(ptr, result, loc, range);
-}
-
-void RawBufferHandler::store16BitsAtBitOffset16(SpirvInstruction *value,
-                                                SpirvInstruction *buffer,
-                                                SpirvInstruction *&index,
-                                                const QualType valueType,
-                                                SourceRange range) {
-  const auto loc = buffer->getSourceLocation();
-  SpirvInstruction *result = nullptr;
-  auto *constUint0 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint4 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
+  auto *constUint8 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8));
   auto *constUint16 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
+  // 0xffff
+  auto *constUint65535 = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                   llvm::APInt(32, 65535));
+
+  // divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer
+  auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                          astContext.UnsignedIntTy, byteAddress,
+                                          constUint2, loc, range);
+
+  // take the remainder and multiply by 8 to get the bit offset within the word
+  auto *bitOffset =
+      spvBuilder.createBinaryOp(spv::Op::OpUMod, astContext.UnsignedIntTy,
+                                byteAddress, constUint4, loc, range);
+  bitOffset =
+      spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
+                                bitOffset, constUint8, loc, range);
+
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to store a 32-bit value.
   auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                            {constUint0, index}, loc, range);
+
   result = bitCastToNumericalOrBool(value, valueType,
                                     astContext.UnsignedShortTy, loc, range);
   result = spvBuilder.createUnaryOp(
       spv::Op::OpUConvert, astContext.UnsignedIntTy, result, loc, range);
   result = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
                                      astContext.UnsignedIntTy, result,
-                                     constUint16, loc, range);
-  result = spvBuilder.createBinaryOp(
-      spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc), result, loc,
+                                     bitOffset, loc, range);
+
+  auto *maskOffset =
+      spvBuilder.createBinaryOp(spv::Op::OpISub, astContext.UnsignedIntTy,
+                                constUint16, bitOffset, loc, range);
+
+  auto *mask = spvBuilder.createBinaryOp(
+      spv::Op::OpShiftLeftLogical, astContext.UnsignedIntTy, constUint65535,
+      maskOffset, loc, range);
+
+  // load and mask the other value in the word
+  auto *masked = spvBuilder.createBinaryOp(
+      spv::Op::OpBitwiseAnd, astContext.UnsignedIntTy,
+      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc), mask, loc,
       range);
+
+  result =
+      spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
+                                masked, result, loc, range);
   spvBuilder.createStore(ptr, result, loc, range);
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc, range);
+  byteAddress =
+      spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                byteAddress, constUint2, loc, range);
 }
 
-void RawBufferHandler::store32BitsAtBitOffset0(SpirvInstruction *value,
-                                               SpirvInstruction *buffer,
-                                               SpirvInstruction *&index,
-                                               const QualType valueType,
-                                               SourceRange range) {
+void RawBufferHandler::store32Bits(SpirvInstruction *value,
+                                   SpirvInstruction *buffer,
+                                   SpirvInstruction *&byteAddress,
+                                   const QualType valueType,
+                                   SourceRange range) {
   const auto loc = buffer->getSourceLocation();
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint4 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
+
+  // divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer
+  auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                          astContext.UnsignedIntTy, byteAddress,
+                                          constUint2, loc, range);
+
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to store a 32-bit value.
   auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
@@ -489,22 +466,33 @@ void RawBufferHandler::store32BitsAtBitOffset0(SpirvInstruction *value,
   value = bitCastToNumericalOrBool(value, valueType, astContext.UnsignedIntTy,
                                    loc, range);
   spvBuilder.createStore(ptr, value, loc, range);
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc, range);
+  byteAddress =
+      spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                byteAddress, constUint4, loc, range);
 }
 
-void RawBufferHandler::store64BitsAtBitOffset0(SpirvInstruction *value,
-                                               SpirvInstruction *buffer,
-                                               SpirvInstruction *&index,
-                                               const QualType valueType,
-                                               SourceRange range) {
+void RawBufferHandler::store64Bits(SpirvInstruction *value,
+                                   SpirvInstruction *buffer,
+                                   SpirvInstruction *&byteAddress,
+                                   const QualType valueType,
+                                   SourceRange range) {
   const auto loc = buffer->getSourceLocation();
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   auto *constUint1 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint8 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8));
   auto *constUint32 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
+
+  // divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer
+  auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                          astContext.UnsignedIntTy, byteAddress,
+                                          constUint2, loc, range);
 
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to store two 32-bit values.
@@ -534,74 +522,9 @@ void RawBufferHandler::store64BitsAtBitOffset0(SpirvInstruction *value,
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
   spvBuilder.createStore(ptr, msb, loc, range);
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc, range);
-}
-
-void RawBufferHandler::storeArrayOfScalars(
-    std::deque<SpirvInstruction *> values, SpirvInstruction *buffer,
-    SpirvInstruction *&index, const QualType valueType, uint32_t &bitOffset,
-    SourceLocation loc, SourceRange range) {
-  auto *constUint0 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
-  auto *constUint16 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
-  const auto storeWidth = getElementSpirvBitwidth(
-      astContext, valueType, theEmitter.getSpirvOptions().enable16BitTypes);
-  const uint32_t elemCount = values.size();
-
-  if (storeWidth == 16u) {
-    uint32_t elemIndex = 0;
-    if (bitOffset == 16) {
-      // First store the first element at offset 16 of the last memory index.
-      store16BitsAtBitOffset16(values[0], buffer, index, valueType, range);
-      bitOffset = 0;
-      ++elemIndex;
-    }
-    // Do a custom store based on the number of elements.
-    for (; elemIndex < elemCount; elemIndex = elemIndex + 2) {
-      // The underlying element type of the ByteAddressBuffer is uint. So we
-      // need to store a 32-bit value by combining two 16-bit values.
-      SpirvInstruction *word = nullptr;
-      word = bitCastToNumericalOrBool(values[elemIndex], valueType,
-                                      astContext.UnsignedShortTy, loc, range);
-      // Zero-extend to 32 bits.
-      word = spvBuilder.createUnaryOp(
-          spv::Op::OpUConvert, astContext.UnsignedIntTy, word, loc, range);
-      if (elemIndex + 1 < elemCount) {
-        SpirvInstruction *msb = nullptr;
-        msb = bitCastToNumericalOrBool(values[elemIndex + 1], valueType,
-                                       astContext.UnsignedShortTy, loc, range);
-        msb = spvBuilder.createUnaryOp(
-            spv::Op::OpUConvert, astContext.UnsignedIntTy, msb, loc, range);
-        msb = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                        astContext.UnsignedIntTy, msb,
-                                        constUint16, loc, range);
-        word = spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr,
-                                         astContext.UnsignedIntTy, word, msb,
-                                         loc, range);
-        // We will store two 16-bit values.
-        bitOffset = (bitOffset + 32) % 32;
-      } else {
-        // We will store one 16-bit value.
-        bitOffset = (bitOffset + 16) % 32;
-      }
-
-      auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                               {constUint0, index}, loc, range);
-      spvBuilder.createStore(ptr, word, loc, range);
-      index =
-          spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc, range);
-    }
-  } else if (storeWidth == 32u || storeWidth == 64u) {
-    assert(bitOffset == 0);
-    for (uint32_t i = 0; i < elemCount; ++i)
-      processTemplatedStoreToBuffer(values[i], buffer, index, valueType,
-                                    bitOffset, range);
-  }
+  byteAddress =
+      spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                byteAddress, constUint8, loc, range);
 }
 
 QualType RawBufferHandler::serializeToScalarsOrStruct(
@@ -687,41 +610,25 @@ QualType RawBufferHandler::serializeToScalarsOrStruct(
 }
 
 void RawBufferHandler::processTemplatedStoreToBuffer(
-    SpirvInstruction *value, SpirvInstruction *buffer, SpirvInstruction *&index,
-    const QualType valueType, uint32_t &bitOffset, SourceRange range) {
-  assert(bitOffset == 0 || bitOffset == 16);
+    SpirvInstruction *value, SpirvInstruction *buffer,
+    SpirvInstruction *&byteAddress, const QualType valueType,
+    SourceRange range) {
   const auto loc = buffer->getSourceLocation();
 
   // Scalar types
   if (isScalarType(valueType)) {
     auto storeWidth = getElementSpirvBitwidth(
         astContext, valueType, theEmitter.getSpirvOptions().enable16BitTypes);
-    switch (bitOffset) {
-    case 0: {
-      switch (storeWidth) {
-      case 16:
-        store16BitsAtBitOffset0(value, buffer, index, valueType, range);
-        return;
-      case 32:
-        store32BitsAtBitOffset0(value, buffer, index, valueType, range);
-        return;
-      case 64:
-        store64BitsAtBitOffset0(value, buffer, index, valueType, range);
-        return;
-      default:
-        theEmitter.emitError(
-            "templated load of ByteAddressBuffer is only implemented for "
-            "16, 32, and 64-bit types",
-            loc);
-        return;
-      }
-    }
-    case 16: {
-      // The only legal store at offset 16 is by a 16-bit value.
-      assert(storeWidth == 16);
-      store16BitsAtBitOffset16(value, buffer, index, valueType, range);
+    switch (storeWidth) {
+    case 16:
+      store16Bits(value, buffer, byteAddress, valueType, range);
       return;
-    }
+    case 32:
+      store32Bits(value, buffer, byteAddress, valueType, range);
+      return;
+    case 64:
+      store64Bits(value, buffer, byteAddress, valueType, range);
+      return;
     default:
       theEmitter.emitError(
           "templated load of ByteAddressBuffer is only implemented for "
@@ -738,13 +645,10 @@ void RawBufferHandler::processTemplatedStoreToBuffer(
     elems.push_back(value);
     auto serializedType =
         serializeToScalarsOrStruct(&elems, valueType, loc, range);
-    if (isScalarType(serializedType)) {
-      storeArrayOfScalars(elems, buffer, index, serializedType, bitOffset, loc,
-                          range);
-    } else if (serializedType->getAs<RecordType>()) {
+    if (isScalarType(serializedType) || serializedType->getAs<RecordType>()) {
       for (auto elem : elems)
-        processTemplatedStoreToBuffer(elem, buffer, index, serializedType,
-                                      bitOffset, range);
+        processTemplatedStoreToBuffer(elem, buffer, byteAddress, serializedType,
+                                      range);
     }
     return;
   }
@@ -755,8 +659,6 @@ void RawBufferHandler::processTemplatedStoreToBuffer(
   // As a result, there might exist some padding after some struct members.
   if (const auto *structType = valueType->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
-    SpirvInstruction *originalIndex = index;
-    const auto originalBitOffset = bitOffset;
     uint32_t fieldOffsetInBytes = 0;
     uint32_t structAlignment = 0, structSize = 0, stride = 0;
     std::tie(structAlignment, structSize) =
@@ -773,34 +675,26 @@ void RawBufferHandler::processTemplatedStoreToBuffer(
           field->getType(), theEmitter.getSpirvOptions().sBufferLayoutRule,
           /*isRowMajor*/ llvm::None, &stride);
       fieldOffsetInBytes = roundToPow2(fieldOffsetInBytes, fieldAlignment);
-      const auto wordOffset =
-          ((originalBitOffset / 8) + fieldOffsetInBytes) / 4;
-      bitOffset = (((originalBitOffset / 8) + fieldOffsetInBytes) % 4) * 8;
-
-      if (wordOffset != 0) {
-        // Divide the fieldOffset by 4 to figure out how much to increment the
-        // index into the buffer (increment occurs by 32-bit words since the
-        // underlying type is an array of uints).
-        // The remainder by four tells us the *byte offset* (then multiply by 8
-        // to get bit offset).
-        index = spvBuilder.createBinaryOp(
-            spv::Op::OpIAdd, astContext.UnsignedIntTy, originalIndex,
+      auto *byteOffset = byteAddress;
+      if (fieldOffsetInBytes != 0) {
+        byteOffset = spvBuilder.createBinaryOp(
+            spv::Op::OpIAdd, astContext.UnsignedIntTy, byteOffset,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, wordOffset)),
+                                      llvm::APInt(32, fieldOffsetInBytes)),
             loc, range);
       }
 
       processTemplatedStoreToBuffer(
           spvBuilder.createCompositeExtract(field->getType(), value,
                                             {fieldIndex}, loc, range),
-          buffer, index, field->getType(), bitOffset, range);
+          buffer, byteOffset, field->getType(), range);
 
       fieldOffsetInBytes += fieldSize;
       ++fieldIndex;
     }
 
     // After we're done with storing the entire struct, we need to update the
-    // index (in case we are stroring an array of structs).
+    // byteAddress (in case we are storing an array of structs).
     //
     // Example: struct alignment = 8. struct size = 34 bytes
     // (34 / 8) = 4 full words
@@ -808,14 +702,12 @@ void RawBufferHandler::processTemplatedStoreToBuffer(
     // So the starting byte offset after loading the entire struct is:
     // 8 * (4 + 1) = 40
     assert(structAlignment != 0);
-    uint32_t newByteOffset = roundToPow2(structSize, structAlignment);
-    uint32_t newWordOffset = ((originalBitOffset / 8) + newByteOffset) / 4;
-    bitOffset = 8 * (((originalBitOffset / 8) + newByteOffset) % 4);
-    index = spvBuilder.createBinaryOp(
-        spv::Op::OpIAdd, astContext.UnsignedIntTy, originalIndex,
-        spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                  llvm::APInt(32, newWordOffset)),
-        loc, range);
+    auto *structWidth = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy,
+        llvm::APInt(32, roundToPow2(structSize, structAlignment)));
+    byteAddress =
+        spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                  byteAddress, structWidth, loc, range);
 
     return;
   }

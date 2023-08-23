@@ -4342,32 +4342,34 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
                      BuiltinType::UInt)
                : !expr->getType()->isSpecificBuiltinType(BuiltinType::UInt));
 
-  // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
-  // access). The AST always casts the address to unsinged integer, so shift
-  // by unsinged integer 2.
-  auto *constUint2 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
   const auto range = expr->getSourceRange();
-  SpirvInstruction *address = spvBuilder.createBinaryOp(
-      spv::Op::OpShiftRightLogical, addressType, byteAddress, constUint2,
-      expr->getExprLoc(), range);
 
   if (isTemplatedLoadOrStore) {
     // Templated load. Need to (potentially) perform more
     // loads/casts/composite-constructs.
-    uint32_t bitOffset = 0;
     if (doStore) {
       auto *values = doExpr(expr->getArg(1));
       RawBufferHandler(*this).processTemplatedStoreToBuffer(
-          values, objectInfo, address, expr->getArg(1)->getType(), bitOffset,
-          range);
+          values, objectInfo, byteAddress, expr->getArg(1)->getType(), range);
       return nullptr;
     } else {
       RawBufferHandler rawBufferHandler(*this);
       return rawBufferHandler.processTemplatedLoadFromBuffer(
-          objectInfo, address, expr->getType(), bitOffset, range);
+          objectInfo, byteAddress, expr->getType(), range);
     }
   }
+
+  // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
+  // access). The AST always casts the address to unsigned integer, so shift
+  // by unsigned integer 2.
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  SpirvInstruction *address = spvBuilder.createBinaryOp(
+      spv::Op::OpShiftRightLogical, addressType, byteAddress, constUint2,
+      expr->getExprLoc(), range);
+
+  // We might be able to reduce duplication by handling this with
+  // processTemplatedLoadFromBuffer
 
   // Perform access chain into the RWByteAddressBuffer.
   // First index must be zero (member 0 of the struct is a
