@@ -18,6 +18,9 @@
 #define _WCHAR_H_CPLUSPLUS_98_CONFORMANCE_
 #endif
 
+// clang-format off
+// Includes on Windows are highly order dependent.
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -62,6 +65,8 @@
 #include <chrono>
 
 #include <codecvt>
+
+// clang-format on
 
 
 using namespace std;

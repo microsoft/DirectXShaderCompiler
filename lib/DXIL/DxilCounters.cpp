@@ -230,7 +230,10 @@ bool CountLlvmOp_uints(unsigned op) {
 // OPCODE-COUNTERS:END
 
 void CountDxilOp(unsigned op, DxilCounters &counters) {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNT-DXIL-OPS')>['if (CountDxilOp_%s(op)) ++counters.%s;' % (c,c) for c in hctdb_instrhelp.get_dxil_op_counters()]</py>
+  // clang-format on
   // COUNT-DXIL-OPS:BEGIN
   if (CountDxilOp_atomic(op)) ++counters.atomic;
   if (CountDxilOp_barrier(op)) ++counters.barrier;
@@ -251,7 +254,10 @@ void CountDxilOp(unsigned op, DxilCounters &counters) {
 }
 
 void CountLlvmOp(unsigned op, DxilCounters &counters) {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNT-LLVM-OPS')>['if (CountLlvmOp_%s(op)) ++counters.%s;' % (c,c) for c in hctdb_instrhelp.get_llvm_op_counters()]</py>
+  // clang-format on
   // COUNT-LLVM-OPS:BEGIN
   if (CountLlvmOp_atomic(op)) ++counters.atomic;
   if (CountLlvmOp_fence(op)) ++counters.fence;
@@ -334,7 +340,10 @@ struct CounterOffsetByName {
 
 // Must be sorted case-sensitive:
 static const CounterOffsetByName CountersByName[] = {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNTER-MEMBER-PTRS')>['{ "%s", &DxilCounters::%s },' % (c,c) for c in hctdb_instrhelp.get_counters()]</py>
+  // clang-format on
   // COUNTER-MEMBER-PTRS:BEGIN
   { "array_local_bytes", &DxilCounters::array_local_bytes },
   { "array_local_ldst", &DxilCounters::array_local_ldst },

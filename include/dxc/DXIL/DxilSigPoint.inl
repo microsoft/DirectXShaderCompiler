@@ -51,7 +51,10 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
 #undef DEF_SIGPOINT
 };
 
+// clang-format off
+// Python lines need to be not formatted.
 // <py::lines('INTERPRETATION-TABLE')>hctdb_instrhelp.get_interpretation_table()</py>
+// clang-format on
 // INTERPRETATION-TABLE:BEGIN
 //   Semantic,               VSIn,         VSOut,    PCIn,         HSIn,         HSCPIn,   HSCPOut,  PCOut,      DSIn,         DSCPIn,   DSOut,    GSVIn,    GSIn,         GSOut,    PSIn,          PSOut,         CSIn,     MSIn,     MSOut,    MSPOut,    ASIn
 #define DO_INTERPRETATION_TABLE(ROW) \

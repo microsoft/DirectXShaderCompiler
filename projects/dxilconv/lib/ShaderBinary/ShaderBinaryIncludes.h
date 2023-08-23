@@ -8,6 +8,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include "windows.h"
 
 #include <assert.h>
@@ -20,5 +22,6 @@
 #include "dxc/Support/d3dx12.h"
 #include "dxc/Support/D3D12TokenizedProgramFormat.hpp"
 #include "ShaderBinary/ShaderBinary.h"
+// clang-format on
 
 #define ASSUME( _exp ) { assert( _exp ); __analysis_assume( _exp ); __assume( _exp ); }
