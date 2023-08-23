@@ -1418,6 +1418,8 @@ public:
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
+    compiler.getCodeGenOpts().HLSLPrintBeforeAll = Opts.PrintBeforeAll;
+    compiler.getCodeGenOpts().HLSLPrintBefore = Opts.PrintBefore;
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
     compiler.getCodeGenOpts().HLSLPrintAfter = Opts.PrintAfter;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
