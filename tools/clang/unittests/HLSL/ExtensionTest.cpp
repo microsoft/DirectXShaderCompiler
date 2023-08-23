@@ -1332,7 +1332,7 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
   // - input type is 2x struct
   // - function overload handles variable arguments (and replaces them with undefs)
   // - output struct gets converted to vector
-  llvm::ArrayRef<LPCSTR> expected = {
+  LPCSTR expected[] = {
     "%1 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 1, i32 2 }, i1 undef, i32 undef, i32 undef)",
     "%2 = extractvalue { float, float } %1, 0",
     "%3 = extractvalue { float, float } %1, 1",
@@ -1343,7 +1343,8 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
     "%8 = extractvalue { float, float } %7, 0",
     "%9 = extractvalue { float, float } %7, 1"
   };
-  CheckMsgs(disassembly.c_str(), disassembly.length(), expected.data(), expected.size(), false);
+
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, sizeof(expected)/sizeof(LPCSTR), false);
  }
 
 TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
