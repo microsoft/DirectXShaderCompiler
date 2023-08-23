@@ -2774,9 +2774,7 @@ TEST_F(FileTest, MeshShadingEXTAmplification) {
 
 // === MeshShading NV examples ===
 TEST_F(FileTest, MeshShadingNVMeshTriangle) {
-  // TODO: Re-enable spirv-val once issue#3006 is fixed.
-  runFileTest("meshshading.nv.triangle.mesh.hlsl", Expect::Success,
-              /* runValidation */ false);
+  runFileTest("meshshading.nv.triangle.mesh.hlsl", Expect::Success);
 }
 TEST_F(FileTest, MeshShadingNVMeshLine) {
   runFileTest("meshshading.nv.line.mesh.hlsl");
@@ -2785,9 +2783,7 @@ TEST_F(FileTest, MeshShadingNVMeshPoint) {
   runFileTest("meshshading.nv.point.mesh.hlsl");
 }
 TEST_F(FileTest, MeshShadingNVMeshBuffer) {
-  // TODO: Re-enable spirv-val once issue#3006 is fixed.
-  runFileTest("meshshading.nv.buffer.mesh.hlsl", Expect::Success,
-              /* runValidation */ false);
+  runFileTest("meshshading.nv.buffer.mesh.hlsl", Expect::Success);
 }
 TEST_F(FileTest, MeshShadingNVMeshError1) {
   runFileTest("meshshading.nv.error1.mesh.hlsl", Expect::Failure);
