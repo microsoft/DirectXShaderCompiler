@@ -13,6 +13,8 @@
 #define UNICODE
 #endif
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <memory>
 #include <vector>
 #include <string>
@@ -57,6 +59,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+// clang-format on
 
 using namespace std;
 using namespace hlsl_test;

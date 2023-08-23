@@ -20,6 +20,8 @@
 #define NOMINMAX
 #endif
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <memory>
 #include <vector>
 #include <string>
@@ -41,6 +43,7 @@
 #include "dxc/dxctools.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.internal.h"
+// clang-format on
 
 using namespace std;
 using namespace hlsl_test;
