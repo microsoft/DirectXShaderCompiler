@@ -694,7 +694,7 @@ void PMTopLevelManager::schedulePass(Pass *P) {
       [](const PassInfo *PI, bool AllOpt, std::set<std::string> &ByNameOpt) {
         return AllOpt ||
                (ByNameOpt.size() && ByNameOpt.count(PI->getPassArgument()));
-      }
+      };
 
   if (PI && !PI->isAnalysis() &&
       ShouldPrint(PI, this->HLSLPrintBeforeAll, this->HLSLPrintBefore)) {
