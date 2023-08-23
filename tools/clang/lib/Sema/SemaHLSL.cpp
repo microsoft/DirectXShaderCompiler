@@ -14324,7 +14324,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         result = false;
       }      
 
-      if (!isCS && !isNode) {
+      if ((!isCS && !isNode) && !SM->IsCS()) {
         Diag(pAttr->getLoc(), diag::err_hlsl_attr_for_wrong_shader) << "WaveSize" << "CS";
         result = false;
       }    
