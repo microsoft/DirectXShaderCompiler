@@ -19,7 +19,7 @@
 #endif
 
 // clang-format off
-// Windows include ordering is fragile.
+// Includes on Windows are highly order dependent.
 
 #include <memory>
 #include <vector>
