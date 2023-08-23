@@ -739,7 +739,7 @@ public:
             ThrowExtensionError("Unable to find lowering info for custom function");
         }
         // Don't explode vectors for custom functions
-        GenerateLoweredArgs(CI, *pArgInfo, true);
+        GenerateLoweredArgs(CI, *pArgInfo);
     }
 
    CustomLowering(StringRef LoweringInfo, CallInst *CI, HLResourceLookup &ResourceLookup)
@@ -952,7 +952,7 @@ private:
     }
 
     // Create the dxil args based on custom lowering info.
-    void GenerateLoweredArgs(CallInst *CI, const std::vector<DxilArgInfo> &ArgInfoRecords, bool ConvertArgToStruct = false)
+    void GenerateLoweredArgs(CallInst *CI, const std::vector<DxilArgInfo> &ArgInfoRecords)
     {
         IRBuilder<> builder(CI);
         for (const DxilArgInfo &ArgInfo : ArgInfoRecords)
@@ -961,15 +961,7 @@ private:
             if (ArgInfo.HighLevelArgIndex < CI->getNumArgOperands())
             {
                 Value *Arg = CI->getArgOperand(ArgInfo.HighLevelArgIndex);
-                if (ConvertArgToStruct)
-                {
-                    // This also disables 'exploding' of vectors
-                    if (Arg->getType()->isVectorTy()) {
-                        Arg = PackVectorIntoStruct(builder, Arg);
-                    }
-                    // If not vector, just leave it alone
-                }
-                else if (ArgInfo.HasVectorIndex)
+                if (ArgInfo.HasVectorIndex)
                 {
                     // We expect a vector type here, but we handle one special case if not.
                     if (Arg->getType()->isVectorTy())
@@ -998,6 +990,14 @@ private:
                             Arg = UndefValue::get(Arg->getType());
                         }
                     }
+                }
+                else
+                {
+                    // This also disables 'exploding' of vectors
+                    if (Arg->getType()->isVectorTy()) {
+                      Arg = PackVectorIntoStruct(builder, Arg);
+                    }
+                    // If not vector, just leave it alone
                 }
 
                 m_LoweredArgs.push_back(Arg);

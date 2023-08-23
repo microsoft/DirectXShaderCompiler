@@ -104,10 +104,18 @@ static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOp[] = {
 };
 
 // float2 = CustomLoadOp(uint2 addr, bool val)
-static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpBool [] = {
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpBool[] = {
   { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
   { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
   { "val",  AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
+};
+
+// float2 = CustomLoadOp(uint2 addr, bool val, uint lo, uint hi)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpSubscript[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr",         AR_QUAL_IN,  1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+  { "val",          AR_QUAL_IN,  2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
+  { "subscript",    AR_QUAL_IN,  3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_UINT, 1, 2},
 };
 
 // bool<> = test_isinf(float<> x)
@@ -200,8 +208,9 @@ Intrinsic Intrinsics[] = {
   {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
   {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
   {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
-  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpBool), TestCustomLoadOpBool}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpBool), TestCustomLoadOpBool}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpSubscript), TestCustomLoadOpSubscript}},
 };
 
 Intrinsic BufferIntrinsics[] = {
@@ -1304,7 +1313,8 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
     "float2 main(uint2 v1 : V1) : SV_Target {\n"
     "  float2 a = CustomLoadOp(uint2(1,2));\n"
     "  float2 b = CustomLoadOp(uint2(3,4),1);\n"
-    "  return a+b;\n"
+    "  float2 c = CustomLoadOp(uint2(5,6),1,uint2(7,8));\n"
+    "  return a+b+c;\n"
     "}\n",
     { L"/Vd" }, {}
   );
@@ -1316,24 +1326,18 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
   // - input type is 2x struct
   // - function overload handles variable arguments (and replaces them with undefs)
   // - output struct gets converted to vector
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find(std::string("%1 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 1, i32 2 }, i1 undef)")));
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find(std::string("%2 = extractvalue { float, float } %1, 0")));
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find(std::string("%3 = extractvalue { float, float } %1, 1")));
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find(std::string("%4 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 3, i32 4 }, i1 true)")));
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find(std::string("%5 = extractvalue { float, float } %4, 0")));
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find(std::string("%6 = extractvalue { float, float } %4, 1")));
+  llvm::ArrayRef<LPCSTR> expected = {
+    "%1 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 1, i32 2 }, i1 undef, i32 undef, i32 undef)",
+    "%2 = extractvalue { float, float } %1, 0",
+    "%3 = extractvalue { float, float } %1, 1",
+    "%4 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 3, i32 4 }, i1 true, i32 undef, i32 undef)",
+    "%5 = extractvalue { float, float } %4, 0",
+    "%6 = extractvalue { float, float } %4, 1",
+    "%7 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 5, i32 6 }, i1 true, i32 7, i32 8)",
+    "%8 = extractvalue { float, float } %7, 0",
+    "%9 = extractvalue { float, float } %7, 1"
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected.data(), expected.size(), false);
  }
 
 TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
