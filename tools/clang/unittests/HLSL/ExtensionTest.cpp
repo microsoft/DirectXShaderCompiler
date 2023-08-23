@@ -110,7 +110,7 @@ static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpBool[] = {
   { "val",  AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
 };
 
-// float2 = CustomLoadOp(uint2 addr, bool val, uint lo, uint hi)
+// float2 = CustomLoadOp(uint2 addr, bool val, uint2 subscript)
 static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpSubscript[] = {
   { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
   { "addr",         AR_QUAL_IN,  1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
