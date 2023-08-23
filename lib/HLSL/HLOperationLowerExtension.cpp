@@ -993,11 +993,10 @@ private:
                 }
                 else
                 {
-                    // This also disables 'exploding' of vectors
+                    // If the vector isn't exploded, use structs for DXIL Intrinsics
                     if (Arg->getType()->isVectorTy()) {
                       Arg = PackVectorIntoStruct(builder, Arg);
                     }
-                    // If not vector, just leave it alone
                 }
 
                 m_LoweredArgs.push_back(Arg);
