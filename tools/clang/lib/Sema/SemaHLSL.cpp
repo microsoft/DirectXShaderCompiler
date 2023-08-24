@@ -11480,7 +11480,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
-    // TODO: validate no recursion start from every function.     
+    // TODO: validate no recursion start from every function.
     return;
   }
 
@@ -14433,6 +14433,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
     }
+
     default:
       break;
     }
