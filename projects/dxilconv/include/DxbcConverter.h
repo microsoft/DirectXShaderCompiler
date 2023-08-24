@@ -12,6 +12,8 @@
 #ifndef __DXBC_CONVERTER__H__
 #define __DXBC_CONVERTER__H__
 
+#include "dxc/dxcapi.h"
+
 #ifndef _MSC_VER
 extern "C"
 #endif

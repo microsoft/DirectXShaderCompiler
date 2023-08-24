@@ -9,7 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Support/Debug.h"
+#include "llvm/Support/Debug.h" // Must be included first.
+
 #include "DxbcConverterImpl.h"
 #include "DxilConvPasses/DxilCleanup.h"
 #include "dxc/DxilContainer/DxilContainer.h"

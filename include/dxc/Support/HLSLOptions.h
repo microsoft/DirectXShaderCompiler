@@ -17,10 +17,14 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
-#include "dxc/dxcapi.h"
 #include "dxc/Support/HLSLVersion.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include "dxc/Support/DxcOptToggles.h"
+
+#include "dxc/Support/WinIncludes.h"
+
+#include "dxc/dxcapi.h"
+
 #include <map>
 #include <set>
 

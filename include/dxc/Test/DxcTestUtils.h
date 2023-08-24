@@ -11,14 +11,18 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-#include <map>
+
+#include "dxc/Support/WinIncludes.h"
+
 #include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringMap.h"
+
+#include <string>
+#include <vector>
+#include <map>
 
 namespace hlsl {
 namespace options {

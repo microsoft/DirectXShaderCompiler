@@ -12,8 +12,10 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
+
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
+
 #include "Tracing/DxcRuntimeEtw.h"
 
 #define DXC_API_IMPORT

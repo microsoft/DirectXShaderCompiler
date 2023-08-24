@@ -15,6 +15,8 @@
 
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <algorithm>
 #include <memory>
 #include <array>
@@ -56,6 +58,7 @@
 #include <wincodec.h>
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
+// clang-format on
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")

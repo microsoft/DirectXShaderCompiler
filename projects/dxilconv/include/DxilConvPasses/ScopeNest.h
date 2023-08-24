@@ -38,6 +38,8 @@
 
 #pragma once
 
+#include "llvm/Pass.h"
+
 namespace llvm {
 
 struct ScopeNestEvent {

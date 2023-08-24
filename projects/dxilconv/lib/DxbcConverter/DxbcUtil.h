@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "Support/DXIncludes.h"
+
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
