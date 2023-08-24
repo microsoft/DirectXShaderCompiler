@@ -11352,6 +11352,111 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
+
+void ValidateCallGraphWaveSize(clang::Sema *S, FunctionDecl *FD) {
+  const auto *SM =
+      hlsl::ShaderModel::GetByName(S->getLangOpts().HLSLProfile.c_str());
+
+  const std::string &entryName = S->getLangOpts().HLSLEntryFunction;
+  StringRef functionName = "";
+  if (FD->getIdentifier())
+    functionName = FD->getIdentifier()->getName();
+  bool isEntry = false;
+  bool isNode = false;
+  bool isCS = false;
+
+  isEntry = !SM->IsLib() &&
+            FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
+            functionName == entryName;
+
+  for (auto *pAL : FD->specific_attrs<HLSLShaderAttr>()) {
+    StringRef Literal = pAL->getStage();
+    DXIL::ShaderKind Stage =
+        ShaderModel::KindFromFullName(Literal);
+    isNode |= Stage == DXIL::ShaderKind::Node;
+    isCS |= Stage == DXIL::ShaderKind::Compute;
+  }
+
+  HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
+  
+  if (!SM->IsLib() && !isEntry && !isNode) {
+    S->Diag(attr->getRange().getBegin(),
+            diag::err_hlsl_attribute_valid_on_entry_function_only)
+        << "WaveSize";
+  }
+
+  if ((!isCS && !isNode) && !SM->IsCS()) {
+    S->Diag(attr->getRange().getBegin(), diag::err_hlsl_attr_for_wrong_shader)
+        << "WaveSize" << "CS";
+  }
+}
+
+void ValidateCallGraphNumThreads(clang::Sema *S, FunctionDecl *FD) {
+  const auto *SM =
+      hlsl::ShaderModel::GetByName(S->getLangOpts().HLSLProfile.c_str());
+
+  const std::string &entryName = S->getLangOpts().HLSLEntryFunction;
+  StringRef functionName = "";
+  if (FD->getIdentifier())
+    functionName = FD->getIdentifier()->getName();
+
+  bool isEntry = false;
+  bool isNode = false;
+  bool isCS = false;
+  bool isMS = false;
+  bool isAS = false;
+
+  isEntry = !S->getLangOpts().IsHLSLLibrary &&
+            FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
+            functionName == entryName;
+  for (auto *pAL : FD->specific_attrs<HLSLShaderAttr>()) { 
+    StringRef Literal = pAL->getStage();
+    DXIL::ShaderKind Stage =
+        ShaderModel::KindFromFullName(Literal);
+    isNode |= Stage == DXIL::ShaderKind::Node;
+    isCS |= Stage == DXIL::ShaderKind::Compute;
+    isMS |= Stage == DXIL::ShaderKind::Mesh;
+    isAS |= Stage == DXIL::ShaderKind::Amplification;    
+  }
+
+  if (!isNode && isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
+    HLSLNumThreadsAttr *attr = FD->getAttr<HLSLNumThreadsAttr>();
+    S->Diag(attr->getRange().getBegin(), diag::err_hlsl_numthreads_attr);
+  }
+}
+
+void ValidateEntryPointFunctionAndAllReachableFunctionAttributes(clang::Sema *self, CallNodes CN, FunctionDecl *pEntryPointDecl) {
+  // for every reachable function from the entry point, 
+  // verify that it does not have an entry-point-only attribute
+  for (auto it : CN) {
+    FunctionDecl *FD = it.first;
+    if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
+      ValidateCallGraphNumThreads(self, FD);
+    }
+    if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
+      ValidateCallGraphWaveSize(self, FD);
+    }
+  }
+  
+  // run validation on the entry point attribute that belongs
+  // to the entry point function
+  if (pEntryPointDecl->hasAttrs()) {
+    for (Attr *pAttr : pEntryPointDecl->getAttrs()) {
+      switch (pAttr->getKind()) {
+      case clang::attr::HLSLNumThreads: {
+        ValidateCallGraphNumThreads(self, pEntryPointDecl);
+        break;
+      }
+      case clang::attr::HLSLWaveSize: {
+
+        ValidateCallGraphWaveSize(self, pEntryPointDecl);
+        break;
+      }
+      }
+    }
+  }  
+}
+
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
 
@@ -11375,7 +11480,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
-    // TODO: validate no recursion start from every function.
+    // TODO: validate no recursion start from every function.     
     return;
   }
 
@@ -11482,6 +11587,9 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         Diags.Report(pPatchFnDecl->getSourceRange().getBegin(), id);
       }
     }
+    
+    CallNodes CN = CG.GetCallGraph();
+    ValidateEntryPointFunctionAndAllReachableFunctionAttributes(self, CN, pEntryPointDecl);    
   }
 }
 
@@ -14249,7 +14357,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         // HandleDeclAttributeForHLSL()
         pMaxDispatchGrid = pAttr;
       }
-      break;
+      break; 
     case AttributeList::AT_HLSLNumThreads: {
       const auto *SM =
           hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
@@ -14276,19 +14384,20 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
           isNode |= Stage == DXIL::ShaderKind::Node;
           isCS |= Stage == DXIL::ShaderKind::Compute;
           isMS |= Stage == DXIL::ShaderKind::Mesh;
-          isAS |= Stage == DXIL::ShaderKind::Amplification;          
+          isAS |= Stage == DXIL::ShaderKind::Amplification;
         }
         pAL = pAL->getNext();
-      }           
+      }
 
-      if (!isNode && ((isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) ||
-                      (SM->IsLib() && !isCS && !isMS && !isAS))) {
+      if (!isNode && SM->IsLib() &&
+          ((!isCS && !isMS && !isAS) &&
+           (!SM->IsCS() && !SM->IsMS() && !SM->IsAS()))) {
         Diag(pAttr->getLoc(), diag::err_hlsl_numthreads_attr);
         result = false;
       }
       break;
     }
-    case AttributeList::AT_HLSLWaveSize: {      
+    case AttributeList::AT_HLSLWaveSize: {
       const auto *SM =
           hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
 
@@ -14299,10 +14408,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       bool isCS = false;
 
       isEntry = !SM->IsLib() &&
-                DC->getDeclKind() ==
-                    Decl::Kind::TranslationUnit &&
+                DC->getDeclKind() == Decl::Kind::TranslationUnit &&
                 functionName == entryName;
-      
+
       AttributeList *pAL = D.getDeclSpec().getAttributes().getList();
       while (pAL) {
         if (pAL->getKind() == AttributeList::AT_HLSLShader) {
@@ -14312,25 +14420,19 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
           DXIL::ShaderKind Stage =
               ShaderModel::KindFromFullName(Literal->getString());
           isNode |= Stage == DXIL::ShaderKind::Node;
-          isCS |= Stage == DXIL::ShaderKind::Compute;          
+          isCS |= Stage == DXIL::ShaderKind::Compute;
         }
         pAL = pAL->getNext();
       }
-      
-      if (!SM->IsLib() && !isEntry && !isNode) {
-        Diag(pAttr->getLoc(),
-             diag::err_hlsl_attribute_valid_on_entry_function_only)
-            << "WaveSize";
-        result = false;
-      }      
 
       if ((!isCS && !isNode) && !SM->IsCS()) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_attr_for_wrong_shader) << "WaveSize" << "CS";
+        Diag(pAttr->getLoc(), diag::err_hlsl_attr_for_wrong_shader)
+            << "WaveSize"
+            << "CS";
         result = false;
-      }    
+      }
       break;
     }
-
     default:
       break;
     }
