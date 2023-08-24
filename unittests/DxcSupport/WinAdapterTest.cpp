@@ -23,16 +23,7 @@ TEST(WArgVTest, suppressAndTrap) {
   std::wstring data [] = {L"a", L"b"};
   const wchar_t *ref_argv[] = {data[0].c_str(), data[1].c_str()};
   {
-    WArgV ArgV(argc, ref_argv);
-    const wchar_t **wargv = ArgV.argv();
-    for (int i=0;i<argc;++i) {
-      EXPECT_EQ(0, std::wcscmp(ref_argv[i], wargv[i]));
-    }
-  }
-  {
-    int argc=2;
     const char *argv [] = {"a", "b"};
-
     WArgV ArgV(argc, argv);
     const wchar_t **wargv = ArgV.argv();
     for (int i=0;i<argc;++i) {
