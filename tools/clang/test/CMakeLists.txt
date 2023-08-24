@@ -15,6 +15,11 @@ configure_lit_site_cfg(
   )
 
 configure_lit_site_cfg(
+  ${CMAKE_CURRENT_SOURCE_DIR}/hash_stability/lit.site.cfg.in
+  ${CMAKE_CURRENT_BINARY_DIR}/hash_stability/lit.site.cfg
+  )
+
+configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/Unit/lit.site.cfg.in
   ${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
   )
@@ -90,6 +95,7 @@ add_lit_testsuite(check-clang "Running the Clang regression tests"
   #LIT ${LLVM_LIT}
   PARAMS ${CLANG_TEST_PARAMS}
     skip_taef_exec=True
+    skip_hash_stability=True
   DEPENDS ${CLANG_TEST_DEPS}
   ARGS ${CLANG_TEST_EXTRA_ARGS}
   )
@@ -108,6 +114,7 @@ set(CLANG_TEST_PARAMS
   clang_taef_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
   no_priority=True
   clang_taef_exec_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
+  clang_hash_stability_site_config=${CMAKE_CURRENT_BINARY_DIR}/hash_stability/lit.site.cfg
   )
 
 add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
@@ -146,6 +153,13 @@ if (WIN32)
             PARAMS ${CLANG_TEST_PARAMS}
                 adapter=${TAEF_EXEC_ADAPTER}
             DEPENDS ExecHLSLTests dxexp
+            ARGS ${CLANG_TEST_EXTRA_ARGS}
+          )
+
+  add_lit_target("check-clang-hash-stability" "Running lit suite dxc hash stability test"
+            ${CMAKE_CURRENT_SOURCE_DIR}/hash_stability
+            PARAMS ${CLANG_TEST_PARAMS}
+            DEPENDS ${CLANG_TEST_DEPS}
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )
 endif()
