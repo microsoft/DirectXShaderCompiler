@@ -11,4 +11,4 @@ void main() {
   return;
 }
 
-// CHECK: error: attribute numthreads only
+// CHECK: error: attribute numthreads requires shader stage compute, mesh, or amplification

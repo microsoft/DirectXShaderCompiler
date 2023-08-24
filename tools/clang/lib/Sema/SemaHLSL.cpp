@@ -11385,9 +11385,10 @@ void ValidateCallGraphWaveSize(clang::Sema *S, FunctionDecl *FD) {
         << "WaveSize";
   }
 
-  if ((!isCS && !isNode) && !SM->IsCS()) {
-    S->Diag(attr->getRange().getBegin(), diag::err_hlsl_attr_for_wrong_shader)
-        << "WaveSize" << "CS";
+  if (!SM->IsLib() && !SM->IsCS() && !isCS && !isNode) {
+    S->Diag(attr->getRange().getBegin(),
+            diag::err_hlsl_attribute_unsupported_stage)
+        << "WaveSize" << "compute";
   }
 }
 
@@ -11419,9 +11420,14 @@ void ValidateCallGraphNumThreads(clang::Sema *S, FunctionDecl *FD) {
     isAS |= Stage == DXIL::ShaderKind::Amplification;    
   }
 
-  if (!isNode && isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
+  if (!isNode && isEntry &&
+      ((!isCS && !isMS && !isAS) &&
+       (!SM->IsCS() && !SM->IsMS() && !SM->IsAS()))) {
     HLSLNumThreadsAttr *attr = FD->getAttr<HLSLNumThreadsAttr>();
-    S->Diag(attr->getRange().getBegin(), diag::err_hlsl_numthreads_attr);
+    S->Diag(attr->getRange().getBegin(),
+            diag::err_hlsl_attribute_unsupported_stage)
+        << "numthreads"
+        << "compute, mesh, or amplification";
   }
 }
 
@@ -14390,9 +14396,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
 
       if (!isNode && SM->IsLib() &&
-          ((!isCS && !isMS && !isAS) &&
-           (!SM->IsCS() && !SM->IsMS() && !SM->IsAS()))) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_numthreads_attr);
+          (!isCS && !isMS && !isAS )) {
+        Diag(pAttr->getRange().getBegin(),
+                diag::err_hlsl_attribute_unsupported_stage)
+            << "numthreads"
+            << "compute, mesh, or amplification";
         result = false;
       }
       break;
@@ -14425,10 +14433,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         pAL = pAL->getNext();
       }
 
-      if ((!isCS && !isNode) && !SM->IsCS()) {
-        Diag(pAttr->getLoc(), diag::err_hlsl_attr_for_wrong_shader)
+      if (!isCS && !isNode && !SM->IsCS()) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_attribute_unsupported_stage)
             << "WaveSize"
-            << "CS";
+            << "compute";
         result = false;
       }
       break;
