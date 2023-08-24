@@ -72,21 +72,21 @@ class DxcHashTest(TestFormat):
         # remove things before RUN: from first line
         first_line = first_line[first_line.find("RUN:") + 4:]
 
-        sourcepath = test.getFilePath()
-        sourcedir = os.path.dirname(sourcepath)
-        execpath = test.getExecPath()
-        execdir,execbase = os.path.split(execpath)
-        tmpDir = os.path.join(self.cwd, 'Output')
-        tmpBase = os.path.join(tmpDir, execbase)
-        tmpFile = tmpBase + '.tmp'
+        source_path = test.getFilePath()
+        source_dir = os.path.dirname(source_path)
+        exec_path = test.getExecPath()
+        execdir,exec_base = os.path.split(exec_path)
+        tmp_dir = os.path.join(self.cwd, 'Output')
+        tmp_base = os.path.join(tmp_dir, exec_base)
+        tmp_file = tmp_base + '.tmp'
         # subsitute %s with sourcepath
-        first_line = first_line.replace("%s", sourcepath)
+        first_line = first_line.replace("%s", source_path)
         # subsitute %t with tmpDir
-        first_line = first_line.replace("%t", tmpFile)
+        first_line = first_line.replace("%t", tmp_file)
         # subsitute %S with sourcedir
-        first_line = first_line.replace("%S", sourcedir)
-        # subsitute %T with execdir
-        first_line = first_line.replace("%T", tmpDir)
+        first_line = first_line.replace("%S", source_dir)
+        # subsitute %T with tmp_dir
+        first_line = first_line.replace("%T", tmp_dir)
 
         return first_line
 
