@@ -95,7 +95,6 @@ add_lit_testsuite(check-clang "Running the Clang regression tests"
   #LIT ${LLVM_LIT}
   PARAMS ${CLANG_TEST_PARAMS}
     skip_taef_exec=True
-    skip_hash_stability=True
   DEPENDS ${CLANG_TEST_DEPS}
   ARGS ${CLANG_TEST_EXTRA_ARGS}
   )
