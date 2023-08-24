@@ -43,7 +43,7 @@ class DxcHashTest(TestFormat):
 
         # add hlsl files which has first line as %dxc test as tests.
         for filename in hlsl_list:
-            with open(filename, 'r') as f:
+            with open(filename, 'r', errors='ignore') as f:
                 first_line = f.readline()
                 if (first_line.find("%dxc") == -1 or first_line.find("RUN:") == -1 or
                     first_line.find(" not ") != -1 or
@@ -66,7 +66,7 @@ class DxcHashTest(TestFormat):
 
     def getRunLine(self, test):
         # Read first line of the test file
-        f = open(test.getFilePath(), 'r')
+        f = open(test.getFilePath(), 'r', errors='ignore')
         first_line = f.readline().rstrip()
         f.close()
         # remove things before RUN: from first line
