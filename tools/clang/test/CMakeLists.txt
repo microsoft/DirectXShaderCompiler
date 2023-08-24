@@ -155,11 +155,5 @@ if (WIN32)
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )
 
-  add_lit_target("check-clang-hash-stability" "Running lit suite dxc hash stability test"
-            ${CMAKE_CURRENT_SOURCE_DIR}/hash_stability
-            PARAMS ${CLANG_TEST_PARAMS}
-            DEPENDS ${CLANG_TEST_DEPS}
-            ARGS ${CLANG_TEST_EXTRA_ARGS}
-          )
 endif()
 # HLSL Change End
