@@ -99,7 +99,7 @@ void node_2_1(
 // CHECK: [[IDXNH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.indexNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle {{%[0-9]+}}, i32 1)
 // CHECK: [[ANH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[IDXNH]], %dx.types.NodeInfo { i32 26, i32 0 })
 // CHECK: call i1 @dx.op.nodeOutputIsValid(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANH]])
-// CHECKOD-LABEL: if.then:
+// CHECKOD-LABEL: {{if\.then|\<label\>}}:
 // CHECKOD: [[IDXNH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.indexNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle {{%[0-9]+}}, i32 1)
 // CHECKOD: [[ANH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[IDXNH]], %dx.types.NodeInfo { i32 26, i32 0 })
 // CHECK: call void @dx.op.incrementOutputCount(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANH]], i32 10, i1 false)
