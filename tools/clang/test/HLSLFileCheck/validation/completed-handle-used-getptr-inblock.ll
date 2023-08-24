@@ -26,6 +26,8 @@ define void @loadStress_16() {
   ; test usage of output completed handle in same block
   ; CHECK: error: Invalid use of completed record handle.
   ; CHECK: %bad.idx.handle = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle %5, i32 0)
+  ; note: record handle invalidated by OutputComplete
+  ; note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)'
   %bad.idx.handle = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle %5, i32 0)
   
   ret void

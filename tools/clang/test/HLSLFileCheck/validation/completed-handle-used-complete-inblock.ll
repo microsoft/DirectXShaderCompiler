@@ -26,11 +26,15 @@ define void @loadStress_16() {
   ; test duplicate output complete call
   ; CHECK: error: Invalid use of completed record handle.
   ; CHECK: call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
+  ; CHECK: note: record handle invalidated by OutputComplete
+  ; CHECK: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)'
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5) ; dup1
 
   ; test another duplicate output complete call
   ; CHECK: error: Invalid use of completed record handle.
   ; CHECK: call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
+  ; CHECK: note: record handle invalidated by OutputComplete
+  ; CHECK: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)'
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5) ; dup2
 
   ret void
