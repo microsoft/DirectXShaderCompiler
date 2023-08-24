@@ -453,8 +453,6 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
                        instr->getStorageClass());
   if (instr->hasOffset() || instr->hasConstOffsets())
     addCapability(spv::Capability::ImageGatherExtended);
-  if (instr->hasMinLod())
-    addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
 
@@ -864,6 +862,13 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
     addCapability(spv::Capability::Shader);
     addCapability(spv::Capability::Linkage);
   }
+
+  // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
+  // can remove most capability-selection logic from here, and just add
+  // capabilities by default. SPIRV-Tools will clean those up. Note: this pass
+  // supports only some capabilities. This list should be expanded to match the
+  // supported capabilities.
+  addCapability(spv::Capability::MinLod);
   return true;
 }
 

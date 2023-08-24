@@ -883,10 +883,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       !dsetbindingsToCombineImageSampler.empty() ||
       spirvOptions.signaturePacking;
 
+  // Run legalization passes
   if (spirvOptions.codeGenHighLevel) {
     beforeHlslLegalization = needsLegalization;
   } else {
-    // Run legalization passes
     if (needsLegalization) {
       std::string messages;
       if (!spirvToolsLegalize(&m, &messages,
@@ -902,8 +902,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       }
     }
 
-    // Run optimization passes
     if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
+      // Run optimization passes
       std::string messages;
       if (!spirvToolsOptimize(&m, &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
@@ -912,6 +912,25 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                  "with source code if possible",
                  {});
         return;
+      }
+    }
+
+    // Trim unused capabilities.
+    // When optimizations are enabled, some optimization passes like DCE could
+    // make some capabilities useless. To avoid logic duplication between this
+    // pass, and DXC, DXC generates some capabilities unconditionally. This
+    // means we should run this pass, even when optimizations are disabled.
+    {
+      std::string messages;
+      if (!spirvToolsTrimCapabilities(&m, &messages)) {
+        emitFatalError("failed to trim capabilities: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
+        return;
+      } else if (!messages.empty()) {
+        emitWarning("SPIR-V capability trimming: %0", {}) << messages;
       }
     }
   }
@@ -13996,6 +14015,28 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
   }
 
   return tools.Validate(mod->data(), mod->size(), options);
+}
+
+bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
+                                              std::string *messages) {
+  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
+
+  spvtools::OptimizerOptions options;
+  options.set_run_validator(false);
+  options.set_preserve_bindings(spirvOptions.preserveBindings);
+
+  optimizer.RegisterPass(spvtools::CreateTrimCapabilitiesPass());
+
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
 bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,

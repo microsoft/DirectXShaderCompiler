@@ -1187,6 +1187,14 @@ private:
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
 
+  // \brief Calls SPIRV-Tools optimizer's, but only with the capability trimming
+  // pass. Removes unused capabilities from the given SPIR-V module |mod|, and
+  // returns info/warning/error messages via |messages|. This pass doesn't trim
+  // all capabilities. To see the list of supported capabilities, check the pass
+  // headers.
+  bool spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
+                                  std::string *messages);
+
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
   /// gets the info/warning/error messages via |messages|. If

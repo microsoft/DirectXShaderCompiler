@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main %s | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main %s -O0 | FileCheck %s
 
 float4 main(float4 input: COLOR): SV_Target
 {
