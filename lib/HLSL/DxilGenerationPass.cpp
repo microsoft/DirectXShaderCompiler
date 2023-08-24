@@ -581,8 +581,7 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataL
         NodeOutputHandle = CastI->getArgOperand(HLOperandIndex::kHandleOpIdx);
       }
       CI->replaceAllUsesWith(NodeOutputHandle);
-      LLVM_FALLTHROUGH;
-    }
+    } break;
     case HLCastOpcode::NodeRecordToHandleCast: {
       Value *OutputRecordHandle =
           CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
@@ -596,8 +595,7 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataL
         OutputRecordHandle = CastI->getArgOperand(HLOperandIndex::kHandleOpIdx);
       }
       CI->replaceAllUsesWith(OutputRecordHandle);
-      LLVM_FALLTHROUGH;
-    }
+    } break;
     case HLCastOpcode::HandleToResCast: {
       Value *Handle = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
       for (auto HandleU = CI->user_begin(); HandleU != CI->user_end();) {
@@ -612,10 +610,10 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataL
           HandleCI->eraseFromParent();
         }
       }
-      if (CI->user_empty()) {
-        CI->eraseFromParent();
-      }
     } break;
+    }
+    if (CI->user_empty()) {
+      CI->eraseFromParent();
     }
   }
 }

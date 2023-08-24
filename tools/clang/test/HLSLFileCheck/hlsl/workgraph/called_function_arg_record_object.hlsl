@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
+// RUN: %dxc -T lib_6_8 -Od %s | FileCheck %s
 //
 // Verify that NodeInputRecord can be passed to a called function and used."
 
