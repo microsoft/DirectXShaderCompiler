@@ -4,6 +4,28 @@ ByteAddressBuffer buf;
 
 [numthreads(64, 1, 1)] void main(uint3 tid
                                  : SV_DispatchThreadId) {
+  // ******* 16-bit scalar, literal index *******
+
+  // CHECK:  [[index:%\d+]] = OpShiftRightLogical %uint %uint_0 %uint_2
+  // CHECK:   [[byte:%\d+]] = OpUMod %uint %uint_0 %uint_4
+  // CHECK:   [[bits:%\d+]] = OpShiftLeftLogical %uint [[byte]] %uint_3
+  // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index]]
+  // CHECK:   [[uint:%\d+]] = OpLoad %uint [[ptr]]
+  // CHECK:  [[shift:%\d+]] = OpShiftRightLogical %uint [[uint]] [[bits]]
+  // CHECK: [[ushort:%\d+]] = OpUConvert %ushort [[shift]]
+  // CHECK:                   OpStore %v1 [[ushort]]
+  uint16_t v1 = buf.Load<uint16_t>(0);
+
+  // CHECK:  [[index:%\d+]] = OpShiftRightLogical %uint %uint_2 %uint_2
+  // CHECK:   [[byte:%\d+]] = OpUMod %uint %uint_2 %uint_4
+  // CHECK:   [[bits:%\d+]] = OpShiftLeftLogical %uint [[byte]] %uint_3
+  // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index]]
+  // CHECK:   [[uint:%\d+]] = OpLoad %uint [[ptr]]
+  // CHECK:  [[shift:%\d+]] = OpShiftRightLogical %uint [[uint]] [[bits]]
+  // CHECK: [[ushort:%\d+]] = OpUConvert %ushort [[shift]]
+  // CHECK:                   OpStore %v2 [[ushort]]
+  uint16_t v2 = buf.Load<uint16_t>(2);
+
   // ********* 16-bit scalar ********************
 
   // CHECK:   [[byte:%\d+]] = OpUMod %uint {{%\d+}} %uint_4
