@@ -12,7 +12,7 @@ void loadStressWorker(
     inout DispatchNodeInputRecord<loadStressRecord> inputData,
     GroupNodeOutputRecords<loadStressRecord> outRec)
 {
-    // CHECK: getelementptr %struct.loadStressRecord, %struct.loadStressRecord
+    // CHECK: getelementptr inbounds %struct.loadStressRecord, %struct.loadStressRecord
     uint val =  inputData.Get().data[0]; // problem line
 
     outRec.Get().data[0] = val + 61;
