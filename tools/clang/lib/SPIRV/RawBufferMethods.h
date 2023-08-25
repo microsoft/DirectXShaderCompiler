@@ -43,14 +43,10 @@ public:
   /// member which is a runtime array of uints. This method works by decomposing
   /// the given |value| to reach numeric/bool types. Then performs necessary
   /// casts to uints and stores them in the underlying runtime array.
-  /// The |bitOffset| parameter can be used for finer-grained bit-offset
-  /// control.
   ///
   /// Example:
-  /// targetType = uint16_t, address=0, offset=0
+  /// targetType = uint16_t, address=0
   ///                 --> Store to the first 16-bit uint starting at address 0.
-  /// targetType = uint16_t, address=0, offset=16
-  ///                 --> Store to the second 16-bit uint starting at address 0.
   void processTemplatedStoreToBuffer(SpirvInstruction *value,
                                      SpirvInstruction *buffer,
                                      SpirvInstruction *&byteAddress,

@@ -52,24 +52,24 @@ SpirvInstruction *RawBufferHandler::load16Bits(SpirvInstruction *buffer,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   auto *constUint2 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint3 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 3));
   auto *constUint4 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
-  auto *constUint8 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8));
 
-  // divide the byte index by 4 (shift right by 2) to get the index in the
-  // word-sized buffer
+  // Divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer.
   auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                           astContext.UnsignedIntTy, byteAddress,
                                           constUint2, loc, range);
 
-  // take the remainder and multiply by 8 to get the bit offset within the word
+  // Take the remainder and multiply by 8 to get the bit offset within the word.
   auto *bitOffset =
       spvBuilder.createBinaryOp(spv::Op::OpUMod, astContext.UnsignedIntTy,
                                 byteAddress, constUint4, loc, range);
-  bitOffset =
-      spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
-                                bitOffset, constUint8, loc, range);
+  bitOffset = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                        astContext.UnsignedIntTy, bitOffset,
+                                        constUint3, loc, range);
 
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to load 32-bits at the very least.
@@ -105,8 +105,8 @@ SpirvInstruction *RawBufferHandler::load32Bits(SpirvInstruction *buffer,
   auto *constUint4 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
 
-  // divide the byte index by 4 (shift right by 2) to get the index in the
-  // word-sized buffer
+  // Divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer.
   auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                           astContext.UnsignedIntTy, byteAddress,
                                           constUint2, loc, range);
@@ -143,8 +143,8 @@ SpirvInstruction *RawBufferHandler::load64Bits(SpirvInstruction *buffer,
   auto *constUint32 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
 
-  // divide the byte index by 4 (shift right by 2) to get the index in the
-  // word-sized buffer
+  // Divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer.
   auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                           astContext.UnsignedIntTy, byteAddress,
                                           constUint2, loc, range);
@@ -380,29 +380,28 @@ void RawBufferHandler::store16Bits(SpirvInstruction *value,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   auto *constUint2 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+  auto *constUint3 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 3));
   auto *constUint4 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
-  auto *constUint8 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8));
   auto *constUint16 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
-  // 0xffff
-  auto *constUint65535 = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                   llvm::APInt(32, 65535));
+  auto *constUintFFFF = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                  llvm::APInt(32, 0xffff));
 
-  // divide the byte index by 4 (shift right by 2) to get the index in the
-  // word-sized buffer
+  // Divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer.
   auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                           astContext.UnsignedIntTy, byteAddress,
                                           constUint2, loc, range);
 
-  // take the remainder and multiply by 8 to get the bit offset within the word
+  // Take the remainder and multiply by 8 to get the bit offset within the word.
   auto *bitOffset =
       spvBuilder.createBinaryOp(spv::Op::OpUMod, astContext.UnsignedIntTy,
                                 byteAddress, constUint4, loc, range);
-  bitOffset =
-      spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
-                                bitOffset, constUint8, loc, range);
+  bitOffset = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                        astContext.UnsignedIntTy, bitOffset,
+                                        constUint3, loc, range);
 
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to store a 32-bit value.
@@ -421,11 +420,11 @@ void RawBufferHandler::store16Bits(SpirvInstruction *value,
       spvBuilder.createBinaryOp(spv::Op::OpISub, astContext.UnsignedIntTy,
                                 constUint16, bitOffset, loc, range);
 
-  auto *mask = spvBuilder.createBinaryOp(
-      spv::Op::OpShiftLeftLogical, astContext.UnsignedIntTy, constUint65535,
-      maskOffset, loc, range);
+  auto *mask = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                         astContext.UnsignedIntTy,
+                                         constUintFFFF, maskOffset, loc, range);
 
-  // load and mask the other value in the word
+  // Load and mask the other value in the word.
   auto *masked = spvBuilder.createBinaryOp(
       spv::Op::OpBitwiseAnd, astContext.UnsignedIntTy,
       spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc), mask, loc,
@@ -453,8 +452,8 @@ void RawBufferHandler::store32Bits(SpirvInstruction *value,
   auto *constUint4 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
 
-  // divide the byte index by 4 (shift right by 2) to get the index in the
-  // word-sized buffer
+  // Divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer.
   auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                           astContext.UnsignedIntTy, byteAddress,
                                           constUint2, loc, range);
@@ -488,8 +487,8 @@ void RawBufferHandler::store64Bits(SpirvInstruction *value,
   auto *constUint32 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
 
-  // divide the byte index by 4 (shift right by 2) to get the index in the
-  // word-sized buffer
+  // Divide the byte index by 4 (shift right by 2) to get the index in the
+  // word-sized buffer.
   auto *index = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                           astContext.UnsignedIntTy, byteAddress,
                                           constUint2, loc, range);
