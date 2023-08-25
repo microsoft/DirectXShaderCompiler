@@ -8,7 +8,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // ********* 16-bit vector ********************
 // CHECK:   [[index_0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
 // CHECK:  [[byteOff0:%\d+]] = OpUMod %uint [[addr0]] %uint_4
-// CHECK:   [[bitOff0:%\d+]] = OpIMul %uint [[byteOff0]] %uint_8
+// CHECK:   [[bitOff0:%\d+]] = OpShiftLeftLogical %uint [[byteOff0]] %uint_3
 // CHECK:       [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:     [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[val0_uint:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff0]]
@@ -17,7 +17,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:   [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
 // CHECK:  [[byteOff1:%\d+]] = OpUMod %uint [[addr1]] %uint_4
-// CHECK:   [[bitOff1:%\d+]] = OpIMul %uint [[byteOff1]] %uint_8
+// CHECK:   [[bitOff1:%\d+]] = OpShiftLeftLogical %uint [[byteOff1]] %uint_3
 // CHECK:       [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:     [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[val1_uint:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff1]]
@@ -26,7 +26,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:   [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr2:%\d+]] %uint_2
 // CHECK:  [[byteOff2:%\d+]] = OpUMod %uint [[addr2]] %uint_4
-// CHECK:   [[bitOff2:%\d+]] = OpIMul %uint [[byteOff2]] %uint_8
+// CHECK:   [[bitOff2:%\d+]] = OpShiftLeftLogical %uint [[byteOff2]] %uint_3
 // CHECK:       [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:     [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[val2_uint:%\d+]] = OpShiftRightLogical %uint [[word1]] [[bitOff2]]
@@ -98,7 +98,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr0]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:         [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:     [[val0_uint:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff]]
@@ -107,7 +107,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_0:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr1]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:         [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[word0_shifted:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff]]
@@ -116,7 +116,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr2]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr2]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:         [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[word1_shifted:%\d+]] = OpShiftRightLogical %uint [[word1]] [[bitOff]]
@@ -127,7 +127,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr3]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr3]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:         [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[word1_shifted:%\d+]] = OpShiftRightLogical %uint [[word1]] [[bitOff]]
@@ -136,7 +136,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr4]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr4]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:         [[word2:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[word2_shifted:%\d+]] = OpShiftRightLogical %uint [[word2]] [[bitOff]]
@@ -145,7 +145,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr5]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr5]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:         [[word2:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[shifted_word2:%\d+]] = OpShiftRightLogical %uint [[word2]] [[bitOff]]
@@ -156,7 +156,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_3:%\d+]] = OpShiftRightLogical %uint [[addr6]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr6]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
 // CHECK:         [[word3:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[word3_shifted:%\d+]] = OpShiftRightLogical %uint [[word3]] [[bitOff]]
@@ -165,7 +165,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_3:%\d+]] = OpShiftRightLogical %uint [[addr7]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr7]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
 // CHECK:         [[word3:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[shifted_word3:%\d+]] = OpShiftRightLogical %uint [[word3]] [[bitOff]]
@@ -174,7 +174,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // CHECK:       [[index_4:%\d+]] = OpShiftRightLogical %uint [[addr8]] %uint_2
 // CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr8]] %uint_4
-// CHECK:        [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
 // CHECK:         [[word4:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[word4_shifted:%\d+]] = OpShiftRightLogical %uint [[word4]] [[bitOff]]

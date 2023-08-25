@@ -7,7 +7,7 @@ ByteAddressBuffer buf;
   // ********* 16-bit scalar ********************
 
   // CHECK:   [[byte:%\d+]] = OpUMod %uint {{%\d+}} %uint_4
-  // CHECK:   [[bits:%\d+]] = OpIMul %uint [[byte]] %uint_8
+  // CHECK:   [[bits:%\d+]] = OpShiftLeftLogical %uint [[byte]] %uint_3
   // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 {{%\d+}}
   // CHECK:   [[uint:%\d+]] = OpLoad %uint [[ptr]]
   // CHECK:  [[shift:%\d+]] = OpShiftRightLogical %uint [[uint]] [[bits]]
@@ -101,7 +101,7 @@ ByteAddressBuffer buf;
 
 // CHECK:   [[index0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
 // CHECK: [[byteOff0:%\d+]] = OpUMod %uint [[addr0]] %uint_4
-// CHECK:  [[bitOff0:%\d+]] = OpIMul %uint [[byteOff0]] %uint_8
+// CHECK:  [[bitOff0:%\d+]] = OpShiftLeftLogical %uint [[byteOff0]] %uint_3
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index0]]
 // CHECK:    [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:    [[shift:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff0]]
@@ -109,7 +109,7 @@ ByteAddressBuffer buf;
 // CHECK:    [[addr1:%\d+]] = OpIAdd %uint [[addr0]] %uint_2
 // CHECK:   [[index1:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
 // CHECK: [[byteOff1:%\d+]] = OpUMod %uint [[addr1]] %uint_4
-// CHECK:  [[bitOff1:%\d+]] = OpIMul %uint [[byteOff1]] %uint_8
+// CHECK:  [[bitOff1:%\d+]] = OpShiftLeftLogical %uint [[byteOff1]] %uint_3
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index1]]
 // CHECK:    [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK: [[val1uint:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff1]]
@@ -117,7 +117,7 @@ ByteAddressBuffer buf;
 // CHECK:    [[addr2:%\d+]] = OpIAdd %uint [[addr1]] %uint_2
 // CHECK:   [[index2:%\d+]] = OpShiftRightLogical %uint [[addr2]] %uint_2
 // CHECK: [[byteOff2:%\d+]] = OpUMod %uint [[addr2]] %uint_4
-// CHECK:  [[bitOff2:%\d+]] = OpIMul %uint [[byteOff2]] %uint_8
+// CHECK:  [[bitOff2:%\d+]] = OpShiftLeftLogical %uint [[byteOff2]] %uint_3
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index2]]
 // CHECK:    [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:    [[shift:%\d+]] = OpShiftRightLogical %uint [[word1]] [[bitOff2]]

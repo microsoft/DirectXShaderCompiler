@@ -46,7 +46,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK:     [[s0_a:%\d+]] = OpCompositeExtract %half [[sArr0]] 0
 // CHECK: [[s0_a_ind:%\d+]] = OpShiftRightLogical %uint [[s0_addr]] %uint_2
 // CHECK:  [[byteOff:%\d+]] = OpUMod %uint [[s0_addr]] %uint_4
-// CHECK:   [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:   [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:     [[ptr0:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[s0_a_ind]]
 // CHECK: OpBitcast %ushort
 // CHECK: OpUConvert %uint
@@ -70,7 +70,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK: [[s0_e0_x1:%\d+]] = OpCompositeExtract %half [[s0_e0_x]] 1
 // CHECK: [[s0_e_ind:%\d+]] = OpShiftRightLogical %uint [[eAddr]] %uint_2
 // CHECK:  [[byteOff:%\d+]] = OpUMod %uint [[eAddr]] %uint_4
-// CHECK:   [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:   [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:     [[ptr0:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[s0_e_ind]]
 // CHECK: OpBitcast %ushort [[s0_e0_x0]]
 // CHECK: OpUConvert %uint
@@ -87,7 +87,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK:[[s0_e0_x1_add:%\d+]] = OpIAdd %uint [[eAddr]] %uint_2
 // CHECK:[[s0_e0_x1_ind:%\d+]] = OpShiftRightLogical %uint [[s0_e0_x1_add]] %uint_2
 // CHECK:  [[byteOff:%\d+]] = OpUMod %uint [[s0_e0_x1_add]] %uint_4
-// CHECK:   [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:   [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:     [[ptr1:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[s0_e0_x1_ind]]
 // CHECK: OpBitcast %ushort [[s0_e0_x1]]
 // CHECK: OpUConvert %uint
@@ -107,7 +107,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK: [[s0_e1_x1:%\d+]] = OpCompositeExtract %half [[s0_e1_x]] 1
 // CHECK:[[s0_e1_x0_ind:%\d+]] = OpShiftRightLogical %uint [[e1Addr]] %uint_2
 // CHECK:  [[byteOff:%\d+]] = OpUMod %uint [[e1Addr]] %uint_4
-// CHECK:   [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:   [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:     [[ptr1:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[s0_e1_x0_ind]]
 // CHECK: OpBitcast %ushort [[s0_e1_x0]]
 // CHECK: OpUConvert %uint
@@ -124,7 +124,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK:[[s0_e1_x1_add:%\d+]] = OpIAdd %uint [[e1Addr]] %uint_2
 // CHECK:[[s0_e1_x1_ind:%\d+]] = OpShiftRightLogical %uint [[s0_e1_x1_add]] %uint_2
 // CHECK:  [[byteOff:%\d+]] = OpUMod %uint [[s0_e1_x1_add]] %uint_4
-// CHECK:   [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:   [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:     [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[s0_e1_x1_ind]]
 // CHECK: OpBitcast %ushort [[s0_e1_x1]]
 // CHECK: OpUConvert %uint
@@ -136,7 +136,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // CHECK:     [[s1_a:%\d+]] = OpCompositeExtract %half [[sArr1]] 0
 // CHECK: [[s1_a_ind:%\d+]] = OpShiftRightLogical %uint [[s1_addr]] %uint_2
 // CHECK:  [[byteOff:%\d+]] = OpUMod %uint [[s1_addr]] %uint_4
-// CHECK:   [[bitOff:%\d+]] = OpIMul %uint [[byteOff]] %uint_8
+// CHECK:   [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:     [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[s1_a_ind]]
 // CHECK: OpBitcast %ushort [[s1_a]]
 // CHECK: OpUConvert %uint
