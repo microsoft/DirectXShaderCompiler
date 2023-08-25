@@ -6,6 +6,7 @@
 // Ensure multi-dim array produced by lowering record struct with array of
 // vector has GEP instructions merged to prevent invalid GEP with array type.
 
+// CHECK: [[TID:%[0-9]+]] = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)
 // CHECK-DAG: [[NOH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.createNodeOutputHandle(i32 247, i32 0)
 // CHECK-DAG: [[ANOH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle [[NOH]], %dx.types.NodeInfo { i32 6, i32 32768 })
 // CHECK-DAG: [[IRH:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.createNodeInputRecordHandle(i32 250, i32 0)
@@ -13,9 +14,9 @@
 // CHECK-DAG: [[ORH:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 238, %dx.types.NodeHandle [[ANOH]], i32 1, i1 false)
 // CHECK-DAG: [[AORH:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle [[ORH]], %dx.types.NodeRecordInfo { i32 70, i32 32768 })
 // CHECK-DAG: [[IRP:%[0-9]+]] = call %[[RECORD:struct\.MyRecord[^ ]*]] addrspace(6)* @dx.op.getNodeRecordPtr.[[RECORD]](i32 239, %dx.types.NodeRecordHandle [[AIRH]], i32 0)
-// CHECK-DAG: getelementptr inbounds %[[RECORD]], %[[RECORD]] addrspace(6)* [[IRP]], i32 0, i32 0, i32 %0, i32 0
+// CHECK-DAG: getelementptr inbounds %[[RECORD]], %[[RECORD]] addrspace(6)* [[IRP]], i32 0, i32 0, i32 [[TID]], i32 0
 // CHECK-DAG: [[ORP:%[0-9]+]] = call %[[RECORD]] addrspace(6)* @dx.op.getNodeRecordPtr.[[RECORD]](i32 239, %dx.types.NodeRecordHandle [[AORH]], i32 0)
-// CHECK-DAG: getelementptr inbounds %[[RECORD]], %[[RECORD]] addrspace(6)* [[ORP]], i32 0, i32 0, i32 %0, i32 0
+// CHECK-DAG: getelementptr inbounds %[[RECORD]], %[[RECORD]] addrspace(6)* [[ORP]], i32 0, i32 0, i32 [[TID]], i32 0
 
 #define THREADGROUP_SIZE 1024
 struct MyRecord {
