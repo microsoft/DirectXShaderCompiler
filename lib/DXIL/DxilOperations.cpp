@@ -229,7 +229,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Wave                                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::WaveIsFirstLane,         "WaveIsFirstLane",          OCC::WaveIsFirstLane,          "waveIsFirstLane",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
-  {  OC::WaveGetLaneIndex,        "WaveGetLaneIndex",         OCC::WaveGetLaneIndex,         "waveGetLaneIndex",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::WaveGetLaneIndex,        "WaveGetLaneIndex",         OCC::WaveGetLaneIndex,         "waveGetLaneIndex",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
   {  OC::WaveGetLaneCount,        "WaveGetLaneCount",         OCC::WaveGetLaneCount,         "waveGetLaneCount",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::WaveAnyTrue,             "WaveAnyTrue",              OCC::WaveAnyTrue,              "waveAnyTrue",               {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
   {  OC::WaveAllTrue,             "WaveAllTrue",              OCC::WaveAllTrue,              "waveAllTrue",               {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
