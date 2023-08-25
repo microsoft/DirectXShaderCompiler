@@ -93,6 +93,9 @@ private:
   legacy::PassManager *getPerModulePasses() const {
     if (!PerModulePasses) {
       PerModulePasses = new legacy::PassManager();
+      PerModulePasses->HLSLPrintBeforeAll =
+          this->CodeGenOpts.HLSLPrintBeforeAll;
+      PerModulePasses->HLSLPrintBefore = this->CodeGenOpts.HLSLPrintBefore;
       PerModulePasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
       PerModulePasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerModulePasses->TrackPassOS = &PerModulePassesConfigOS;
@@ -105,7 +108,11 @@ private:
   legacy::FunctionPassManager *getPerFunctionPasses() const {
     if (!PerFunctionPasses) {
       PerFunctionPasses = new legacy::FunctionPassManager(TheModule);
-      PerFunctionPasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
+      PerFunctionPasses->HLSLPrintBeforeAll =
+          this->CodeGenOpts.HLSLPrintBeforeAll;
+      PerFunctionPasses->HLSLPrintBefore = this->CodeGenOpts.HLSLPrintBefore;
+      PerFunctionPasses->HLSLPrintAfterAll =
+          this->CodeGenOpts.HLSLPrintAfterAll;
       PerFunctionPasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerFunctionPasses->TrackPassOS = &PerFunctionPassesConfigOS;
       PerFunctionPasses->add(

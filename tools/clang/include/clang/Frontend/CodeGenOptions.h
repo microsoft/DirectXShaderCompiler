@@ -232,6 +232,10 @@ public:
   unsigned ScanLimit = 0;
   /// Optimization pass enables, disables and selects
   hlsl::options::OptimizationToggles HLSLOptimizationToggles;
+  /// Debug option to print IR before every pass
+  bool HLSLPrintBeforeAll = false;
+  /// Debug option to print IR before specific pass
+  std::set<std::string> HLSLPrintBefore;
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
   /// Debug option to print IR after specific pass

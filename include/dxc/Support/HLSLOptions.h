@@ -223,6 +223,8 @@ public:
   std::set<std::string> IgnoreSemDefs; // OPT_ignore_semdef
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
 
+  bool PrintBeforeAll; // OPT_print_before_all
+  std::set<std::string> PrintBefore; // OPT_print_before
   bool PrintAfterAll; // OPT_print_after_all
   std::set<std::string> PrintAfter; // OPT_print_after
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
