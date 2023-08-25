@@ -1161,7 +1161,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "waveGetLaneIndex",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::ReadNone,
+        Attribute::ReadOnly,
     },
     {
         OC::WaveGetLaneCount,

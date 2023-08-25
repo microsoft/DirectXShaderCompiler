@@ -26,9 +26,7 @@ struct Payload {
   // CHECK: call void @dx.op.callShader.struct.Payload(i32 159, i32 1
   // CHECK: call i32 @dx.op.waveGetLaneIndex(i32 111
   // CHECK: call void @dx.op.callShader.struct.Payload(i32 159, i32 1
-  // TODO: The second call is missing, we are incorrectly re-using the result
-  //       from before the repacking point.
-  // CHECK-NOT: call i32 @dx.op.waveGetLaneIndex(i32 111
+  // CHECK: call i32 @dx.op.waveGetLaneIndex(i32 111
   CallShader(1, p);
   p.value += WaveGetLaneIndex();
   CallShader(1, p);
