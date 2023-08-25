@@ -15,6 +15,7 @@
 #include "dxc/Support/Global.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 
 using namespace llvm;
 
@@ -106,7 +107,6 @@ public:
 
   bool runOnModule(Module &M) override {
     bool Changed = false;
-    SmallVector<PHINode*, 4> LcssaPhis;
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
     for (Function &F : M) {
       for (BasicBlock &BB : F) {
@@ -123,25 +123,18 @@ public:
               Changed = true;
             }
           } else if (PHINode* Phi = dyn_cast<PHINode>(I)) {
-            if (Phi->getNumIncomingValues() == 1) {
-                Changed = true;
-                LcssaPhis.push_back(Phi);
+            // Replace all simple phi values (such as those inserted by lcssa) with the
+            // value itself. This avoids phis in places they are not expected because
+            // the normal simplify passes will clean them up.
+            if (Value *NewPhi = llvm::SimplifyInstruction(Phi, M.getDataLayout())) {
+              Phi->replaceAllUsesWith(NewPhi);
+              Phi->eraseFromParent();
+              Changed = true;
             }
           }
         }
       }
     }
-
-    // Replace all single value phi nodes (these are inserted by lcssa) with the
-    // value itself. This avoids phis in places they are not expected because
-    // the normal simplify passes will clean them up.
-    for (PHINode* Phi : LcssaPhis) {
-      DXASSERT(Phi->getNumIncomingValues() == 1, "unexpected number of phi operands");
-      Value* V = Phi->getIncomingValue(0);
-      Phi->replaceAllUsesWith(V);
-      Phi->eraseFromParent();
-    }
-
     return Changed;
   }
 };

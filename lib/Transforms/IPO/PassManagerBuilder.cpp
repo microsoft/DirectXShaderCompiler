@@ -279,8 +279,6 @@ void PassManagerBuilder::addHLSLPasses(legacy::PassManagerBase &MPM) {
 
   if (!NoOpt)
     MPM.add(createSimplifyInstPass());
-  else
-    MPM.add(createDxilNoOptSimplifyInstructionsPass());
 
   if (!NoOpt)
     MPM.add(createCFGSimplificationPass());

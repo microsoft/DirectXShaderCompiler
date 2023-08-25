@@ -1,8 +1,6 @@
 ; RUN: opt -S -dxil-o0-simplify-inst %s | FileCheck %s
 
 ; Make sure we remove a single-value phi node.
-; This pass needs to run before dxilgen so this test verifies
-; that we can run this pass without requiring a dxil module.
 
 ; CHECK: %add = add i32 1, 2
 ; CHECK-NOT: phi
