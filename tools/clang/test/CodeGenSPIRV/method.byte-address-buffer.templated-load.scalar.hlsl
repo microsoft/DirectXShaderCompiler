@@ -152,8 +152,7 @@ ByteAddressBuffer buf;
 // CHECK:       [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index]]
 // CHECK: [[val0_uint:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:      [[val0:%\d+]] = OpBitcast %int [[val0_uint]]
-// CHECK:   [[newAddr:%\d+]] = OpIAdd %uint [[addr]] %uint_4
-// CHECK:  [[newIndex:%\d+]] = OpShiftRightLogical %uint [[newAddr]] %uint_2
+// CHECK:  [[newIndex:%\d+]] = OpIAdd %uint [[index]] %uint_1
 // CHECK:       [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[newIndex]]
 // CHECK: [[val1_uint:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:      [[val1:%\d+]] = OpBitcast %int [[val1_uint]]
@@ -173,11 +172,10 @@ ByteAddressBuffer buf;
 // CHECK:               [[val0_ulong:%\d+]] = OpBitwiseOr %ulong [[val0_word0_ulong]] [[shifted_val0_word1_ulong]]
 // CHECK:              [[val0_double:%\d+]] = OpBitcast %double [[val0_ulong]]
 //
-// CHECK:                   [[addr_1:%\d+]] = OpIAdd %uint [[addr_0]] %uint_8
-// CHECK:                  [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr_1:%\d+]] %uint_2
+// CHECK:                  [[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
 // CHECK:                      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:          [[val1_word0_uint:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK:                   [[index_3:%\d+]] = OpIAdd %uint [[index_2]] %uint_1
+// CHECK:                  [[index_3:%\d+]] = OpIAdd %uint [[index_2]] %uint_1
 // CHECK:                      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
 // CHECK:          [[val1_word1_uint:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:         [[val1_word0_ulong:%\d+]] = OpUConvert %ulong [[val1_word0_uint]]

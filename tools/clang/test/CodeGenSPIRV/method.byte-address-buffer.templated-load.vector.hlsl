@@ -43,8 +43,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:     [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:   [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:    [[val0:%\d+]] = OpBitcast %int [[word0]]
-// CHECK:   [[addr1:%\d+]] = OpIAdd %uint [[addr0]] %uint_4
-// CHECK: [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
+// CHECK: [[index_1:%\d+]] = OpIAdd %uint [[index_0]] %uint_1
 // CHECK:     [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:   [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:    [[val1:%\d+]] = OpBitcast %int [[word1]]
@@ -56,8 +55,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:     [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:   [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:    [[val0:%\d+]] = OpINotEqual %bool [[word0]] %uint_0
-// CHECK:   [[addr1:%\d+]] = OpIAdd %uint [[addr0]] %uint_4
-// CHECK: [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
+// CHECK: [[index_1:%\d+]] = OpIAdd %uint [[index_0]] %uint_1
 // CHECK:     [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:   [[word1:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:    [[val1:%\d+]] = OpINotEqual %bool [[word1]] %uint_0
@@ -78,8 +76,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:  [[shifted_word1_ulong:%\d+]] = OpShiftLeftLogical %ulong [[word1_ulong]] %uint_32
 // CHECK:           [[val0_ulong:%\d+]] = OpBitwiseOr %ulong [[word0_ulong]] [[shifted_word1_ulong]]
 // CHECK:                 [[val0:%\d+]] = OpBitcast %double [[val0_ulong]]
-// CHECK:                [[addr1:%\d+]] = OpIAdd %uint [[addr0]] %uint_8
-// CHECK:              [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr1:%\d+]] %uint_2
+// CHECK:              [[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
 // CHECK:                  [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:                [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:              [[index_3:%\d+]] = OpIAdd %uint [[index_2]] %uint_1

@@ -35,7 +35,7 @@ public:
   /// targetType = uint16_t, byteAddress=0
   ///                 --> Load the first 16-bit uint starting at byte address 0.
   SpirvInstruction *processTemplatedLoadFromBuffer(
-      SpirvInstruction *buffer, SpirvInstruction *&byteAddress,
+      SpirvInstruction *buffer, SpirvInstruction *byteAddress,
       const QualType targetType, SourceRange range = {});
 
   /// \brief Performs RWByteAddressBuffer.Store<T>(address, value).
@@ -54,18 +54,44 @@ public:
                                      SourceRange range = {});
 
 private:
-  SpirvInstruction *load16Bits(SpirvInstruction *buffer,
-                               SpirvInstruction *&byteAddress,
+  class BufferAddress {
+  public:
+    BufferAddress(SpirvInstruction *&byteAddress, SpirvEmitter &emitter)
+        : byteAddress(byteAddress), wordIndex(byteAddress),
+          wordIndexOutdated(true), spvBuilder(emitter.getSpirvBuilder()),
+          astContext(emitter.getASTContext()) {}
+    SpirvInstruction *getByte();
+    SpirvInstruction *getWord(SourceLocation loc, SourceRange range);
+
+    void incrementByte(SpirvInstruction *width, SourceLocation loc,
+                       SourceRange range);
+    void incrementByte(uint32_t width, SourceLocation loc, SourceRange range);
+
+    void incrementWord(SourceLocation loc, SourceRange range);
+
+  private:
+    SpirvInstruction *byteAddress;
+    SpirvInstruction *wordIndex;
+    bool wordIndexOutdated;
+
+    SpirvBuilder &spvBuilder;
+    ASTContext &astContext;
+  };
+
+  SpirvInstruction *processTemplatedLoadFromBuffer(SpirvInstruction *buffer,
+                                                   BufferAddress &address,
+                                                   const QualType targetType,
+                                                   SourceRange range = {});
+
+  SpirvInstruction *load16Bits(SpirvInstruction *buffer, BufferAddress &address,
                                QualType target16BitType,
                                SourceRange range = {});
 
-  SpirvInstruction *load32Bits(SpirvInstruction *buffer,
-                               SpirvInstruction *&byteAddress,
+  SpirvInstruction *load32Bits(SpirvInstruction *buffer, BufferAddress &address,
                                QualType target32BitType,
                                SourceRange range = {});
 
-  SpirvInstruction *load64Bits(SpirvInstruction *buffer,
-                               SpirvInstruction *&byteAddress,
+  SpirvInstruction *load64Bits(SpirvInstruction *buffer, BufferAddress &address,
                                QualType target64BitType,
                                SourceRange range = {});
 
