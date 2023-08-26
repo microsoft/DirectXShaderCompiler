@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -fdisable-loc-tracking %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T cs_6_0 -fdisable-loc-tracking %s 2>&1 | FileCheck %s
 
 // CHECK: Function: main: note: Debug information is disabled which may impact diagnostic location accuracy. Re-run without -fdisable-loc-tracking to improve accuracy.
 // CHECK-NOT: note: Debug information is disabled

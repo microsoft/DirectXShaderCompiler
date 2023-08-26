@@ -254,7 +254,6 @@ public:
   TEST_METHOD(BatchInfra)
   TEST_METHOD(BatchPasses)
   TEST_METHOD(BatchShaderTargets)
-  TEST_METHOD(BatchValidation)
   TEST_METHOD(BatchPIX)
 
   TEST_METHOD(CodeGenHashStabilityD3DReflect)
@@ -4342,10 +4341,6 @@ TEST_F(CompilerTest, BatchPasses) {
 
 TEST_F(CompilerTest, BatchShaderTargets) {
   CodeGenTestCheckBatchDir(L"shader_targets");
-}
-
-TEST_F(CompilerTest, BatchValidation) {
-  CodeGenTestCheckBatchDir(L"validation");
 }
 
 TEST_F(CompilerTest, BatchPIX) {

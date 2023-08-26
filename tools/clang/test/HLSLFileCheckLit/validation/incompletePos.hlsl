@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 %s| FileCheck %s
+// RUN: not %dxc -E main -T vs_6_0 %s 2>&1 | FileCheck %s
 
 // CHECK: Not all elements of SV_Position were written
 
