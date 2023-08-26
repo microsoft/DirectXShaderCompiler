@@ -677,10 +677,6 @@ bool IsHLSLNodeInputRecordType(llvm::Type *Ty) {
   return false;
 }
 
-bool IsHLSLNodeIOType(llvm::Type* Ty) {
-  return IsHLSLNodeInputRecordType(Ty) || IsHLSLNodeOutputType(Ty);
-}
-
 bool IsHLSLNodeEmptyInputRecordType(llvm::Type* Ty) {
   if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
@@ -762,6 +758,11 @@ bool IsHLSLGSNodeOutputRecordType(llvm::Type* Ty) {
 bool IsHLSLNodeRecordType(llvm::Type *Ty) {
   return IsHLSLNodeOutputRecordType(Ty) ||
     IsHLSLNodeInputRecordType(Ty);
+}
+
+bool IsHLSLNodeIOType(llvm::Type* Ty) {
+  return IsHLSLNodeRecordType(Ty) || IsHLSLNodeOutputType(Ty) ||
+         IsHLSLNodeOutputArrayType(Ty);
 }
 
 bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
