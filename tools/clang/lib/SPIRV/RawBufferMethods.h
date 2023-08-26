@@ -82,6 +82,11 @@ private:
                                                    BufferAddress &address,
                                                    const QualType targetType,
                                                    SourceRange range = {});
+  void processTemplatedStoreToBuffer(SpirvInstruction *value,
+                                     SpirvInstruction *buffer,
+                                     BufferAddress &address,
+                                     const QualType valueType,
+                                     SourceRange range = {});
 
   SpirvInstruction *load16Bits(SpirvInstruction *buffer, BufferAddress &address,
                                QualType target16BitType,
@@ -97,15 +102,15 @@ private:
 
 private:
   void store16Bits(SpirvInstruction *value, SpirvInstruction *buffer,
-                   SpirvInstruction *&index, const QualType valueType,
+                   BufferAddress &address, const QualType valueType,
                    SourceRange range = {});
 
   void store32Bits(SpirvInstruction *value, SpirvInstruction *buffer,
-                   SpirvInstruction *&index, const QualType valueType,
+                   BufferAddress &address, const QualType valueType,
                    SourceRange range = {});
 
   void store64Bits(SpirvInstruction *value, SpirvInstruction *buffer,
-                   SpirvInstruction *&index, const QualType valueType,
+                   BufferAddress &address, const QualType valueType,
                    SourceRange range = {});
 
   /// \brief Serializes the given values into their components until a scalar or

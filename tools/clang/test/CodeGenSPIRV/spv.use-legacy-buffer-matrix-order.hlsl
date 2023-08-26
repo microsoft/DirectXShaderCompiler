@@ -50,28 +50,23 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx0]]
 // CHECK:    [[val:%\d+]] = OpBitcast %uint [[elem0]]
 // CHECK:                   OpStore [[ptr]] [[val]]
-// CHECK:  [[addr1:%\d+]] = OpIAdd %uint [[addr0]] %uint_4
-// CHECK:   [[idx1:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
+// CHECK:   [[idx1:%\d+]] = OpIAdd %uint [[idx0]] %uint_1
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx1]]
 // CHECK:    [[val:%\d+]] = OpBitcast %uint [[elem1]]
 // CHECK:                   OpStore [[ptr]] [[val]]
-// CHECK:  [[addr2:%\d+]] = OpIAdd %uint [[addr1]] %uint_4
-// CHECK:   [[idx2:%\d+]] = OpShiftRightLogical %uint [[addr2]] %uint_2
+// CHECK:   [[idx2:%\d+]] = OpIAdd %uint [[idx1]] %uint_1
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx2]]
 // CHECK:    [[val:%\d+]] = OpBitcast %uint [[elem2]]
 // CHECK:                   OpStore [[ptr]] [[val]]
-// CHECK:  [[addr3:%\d+]] = OpIAdd %uint [[addr2]] %uint_4
-// CHECK:   [[idx3:%\d+]] = OpShiftRightLogical %uint [[addr3]] %uint_2
+// CHECK:   [[idx3:%\d+]] = OpIAdd %uint [[idx2]] %uint_1
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx3]]
 // CHECK:    [[val:%\d+]] = OpBitcast %uint [[elem3]]
 // CHECK:                   OpStore [[ptr]] [[val]]
-// CHECK:  [[addr4:%\d+]] = OpIAdd %uint [[addr3]] %uint_4
-// CHECK:   [[idx4:%\d+]] = OpShiftRightLogical %uint [[addr4]] %uint_2
+// CHECK:   [[idx4:%\d+]] = OpIAdd %uint [[idx3]] %uint_1
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx4]]
 // CHECK:    [[val:%\d+]] = OpBitcast %uint [[elem4]]
 // CHECK:                   OpStore [[ptr]] [[val]]
-// CHECK:  [[addr5:%\d+]] = OpIAdd %uint [[addr4]] %uint_4
-// CHECK:   [[idx5:%\d+]] = OpShiftRightLogical %uint [[addr5]] %uint_2
+// CHECK:   [[idx5:%\d+]] = OpIAdd %uint [[idx4]] %uint_1
 // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx5]]
 // CHECK:    [[val:%\d+]] = OpBitcast %uint [[elem5]]
 // CHECK:                   OpStore [[ptr]] [[val]]
