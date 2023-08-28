@@ -7090,7 +7090,8 @@ CompType DxbcConverter::InferOperandType(const D3D10ShaderBinary::CInstruction &
       }
     }
 
-    default: break;
+    default:
+      break;
     }
   }
 
