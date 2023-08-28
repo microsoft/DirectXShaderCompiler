@@ -9,13 +9,13 @@ jobs:
   check-pr-description:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
       - run: git diff -U0 --no-color $GITHUB_BASE_REF..$GITHUB_HEAD_REF | clang-format-diff -p1 > tee format.diff
              if [ ! -s "format.diff" ]; then
                exit 1
              fi
-      if: failure()
-      - uses: actions/github-script@v6
+      - if: failure()
+        uses: actions/github-script@v6
         with:
           script: |
             github.rest.issues.createComment({
