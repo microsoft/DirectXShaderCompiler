@@ -12,13 +12,14 @@ IS_WINDOWS = platform.system() == 'Windows'
 USE_CLOSE_FDS = not IS_WINDOWS
 
 
-def extract_hash(dxa_path, dx_container, working_dir):
+def extract_hash(dxa_path, dx_container, working_dir, empty_env):
     # extract hash from dxa_path
     hash_file = f"{dx_container}.hash"
     args = [dxa_path, "-extractpart", "HASH",
             dx_container, "-o", hash_file]
 
     proc = subprocess.Popen(args, cwd=working_dir,
+                            env=empty_env,
                             executable=dxa_path,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
@@ -32,13 +33,14 @@ def extract_hash(dxa_path, dx_container, working_dir):
     return hash_file
 
 
-def normal_compile(args, output_file, working_dir):
+def normal_compile(args, output_file, working_dir, empty_env):
     normal_args = args
     normal_args.append("-Qstrip_reflect")
     normal_args.append("-Zsb")
     normal_args.append("-Fo")
     normal_args.append(output_file)
     proc = subprocess.Popen(normal_args, cwd=working_dir,
+                            env=empty_env,
                             # don't writ output to stdout
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
@@ -47,7 +49,7 @@ def normal_compile(args, output_file, working_dir):
     return proc.wait()
 
 
-def debug_compile(args, output_file, working_dir):
+def debug_compile(args, output_file, working_dir, empty_env):
     debug_args = args
     debug_args.append("-Zi")
     debug_args.append("-Qstrip_reflect")
@@ -56,6 +58,7 @@ def debug_compile(args, output_file, working_dir):
     debug_args.append(output_file)
 
     proc = subprocess.Popen(debug_args, cwd=working_dir,
+                            env=empty_env,
                             # don't writ output to stdout
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
@@ -65,9 +68,13 @@ def debug_compile(args, output_file, working_dir):
 
 
 def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
+    empty_env = os.environ.copy()
+    # clear PATH to make sure dxil.dll are not found.
+    empty_env["PATH"] = ""
     args[0] = dxc_path
     # run original compile
     proc = subprocess.Popen(args, cwd=working_dir,
+                           # env=empty_env,
                             # don't writ output to stdout
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
@@ -80,23 +87,23 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
 
     # run normal compile
     normal_out = os.path.join(working_dir, 'Output', test_name+'.normal.out')
-    res = normal_compile(args, normal_out, working_dir)
+    res = normal_compile(args, normal_out, working_dir, empty_env)
     if res != 0:
         # strip_reflect failed, return fail.
         return False, "Adding Qstrip_reflect failed compilation."
 
-    normal_hash = extract_hash(dxa_path, normal_out, working_dir)
+    normal_hash = extract_hash(dxa_path, normal_out, working_dir, empty_env)
     if normal_hash is None:
         return False, "Fail to get hash for normal compilation."
 
     # run debug compilation
     debug_out = os.path.join(working_dir, 'Output', test_name+'.dbg.out')
-    res = debug_compile(args, debug_out, working_dir)
+    res = debug_compile(args, debug_out, working_dir, empty_env)
     if res != 0:
         # strip_reflect failed, return fail.
         return False, "Adding Qstrip_reflect and Zi failed compilation."
 
-    debug_hash = extract_hash(dxa_path, debug_out, working_dir)
+    debug_hash = extract_hash(dxa_path, debug_out, working_dir, empty_env)
     if debug_hash is None:
         return False, "Fail to get hash for normal compilation."
 
