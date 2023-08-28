@@ -1,0 +1,26 @@
+name: 'PR description checker'
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+jobs:
+  check-pr-description:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: git diff -U0 --no-color $GITHUB_BASE_REF..$GITHUB_HEAD_REF | clang-format-diff -p1 > tee format.diff
+             if [ ! -s "format.diff" ]; then
+               exit 1
+             fi
+      if: failure()
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'PR contains clang-format violations. See action log for diff.'
+            })
