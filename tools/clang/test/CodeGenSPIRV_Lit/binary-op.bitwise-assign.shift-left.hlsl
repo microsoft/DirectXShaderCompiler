@@ -1,8 +1,8 @@
-// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: [[v2c31:%\d+]] = OpConstantComposite %v2uint %uint_31 %uint_31
-// CHECK: [[v3c63:%\d+]] = OpConstantComposite %v3long %long_63 %long_63 %long_63
-// CHECK: [[v4c15:%\d+]] = OpConstantComposite %v4ushort %ushort_15 %ushort_15 %ushort_15 %ushort_15
+// CHECK: [[v2c31:%[0-9]+]] = OpConstantComposite %v2uint %uint_31 %uint_31
+// CHECK: [[v3c63:%[0-9]+]] = OpConstantComposite %v3long %long_63 %long_63 %long_63
+// CHECK: [[v4c15:%[0-9]+]] = OpConstantComposite %v4ushort %ushort_15 %ushort_15 %ushort_15 %ushort_15
 void main() {
     int       a, b;
     uint2     d, e;
@@ -13,33 +13,33 @@ void main() {
     int16_t   m, n;
     uint16_t4 p, q;
 
-// CHECK:        [[b:%\d+]] = OpLoad %int %b
-// CHECK:      [[rhs:%\d+]] = OpBitwiseAnd %int [[b]] %int_31
-// CHECK-NEXT:                OpShiftLeftLogical %int {{%\d+}} [[rhs]]
+// CHECK:        [[b:%[0-9]+]] = OpLoad %int %b
+// CHECK:      [[rhs:%[0-9]+]] = OpBitwiseAnd %int [[b]] %int_31
+// CHECK-NEXT:                OpShiftLeftLogical %int {{%[0-9]+}} [[rhs]]
     a <<= b;
 
-// CHECK:        [[e:%\d+]] = OpLoad %v2uint %e
-// CHECK:      [[rhs:%\d+]] = OpBitwiseAnd %v2uint [[e]] [[v2c31]]
-// CHECK-NEXT:                OpShiftLeftLogical %v2uint {{%\d+}} [[rhs]]
+// CHECK:        [[e:%[0-9]+]] = OpLoad %v2uint %e
+// CHECK:      [[rhs_0:%[0-9]+]] = OpBitwiseAnd %v2uint [[e]] [[v2c31]]
+// CHECK-NEXT:                OpShiftLeftLogical %v2uint {{%[0-9]+}} [[rhs_0]]
     d <<= e;
 
-// CHECK:        [[h:%\d+]] = OpLoad %v3long %h
-// CHECK:      [[rhs:%\d+]] = OpBitwiseAnd %v3long [[h]] [[v3c63]]
-// CHECK-NEXT:                OpShiftLeftLogical %v3long {{%\d+}} [[rhs]]
+// CHECK:        [[h:%[0-9]+]] = OpLoad %v3long %h
+// CHECK:      [[rhs_0_0:%[0-9]+]] = OpBitwiseAnd %v3long [[h]] [[v3c63]]
+// CHECK-NEXT:                OpShiftLeftLogical %v3long {{%[0-9]+}} [[rhs_0_0]]
     g <<= h;
 
-// CHECK:        [[k:%\d+]] = OpLoad %ulong %k
-// CHECK:      [[rhs:%\d+]] = OpBitwiseAnd %ulong [[k]] %ulong_63
-// CHECK-NEXT:                OpShiftLeftLogical %ulong {{%\d+}} [[rhs]]
+// CHECK:        [[k:%[0-9]+]] = OpLoad %ulong %k
+// CHECK:      [[rhs_0_0_0:%[0-9]+]] = OpBitwiseAnd %ulong [[k]] %ulong_63
+// CHECK-NEXT:                OpShiftLeftLogical %ulong {{%[0-9]+}} [[rhs_0_0_0]]
     j <<= k;
 
-// CHECK:        [[n:%\d+]] = OpLoad %short %n
-// CHECK:      [[rhs:%\d+]] = OpBitwiseAnd %short [[n]] %short_15
-// CHECK-NEXT:                OpShiftLeftLogical %short {{%\d+}} [[rhs]]
+// CHECK:        [[n:%[0-9]+]] = OpLoad %short %n
+// CHECK:      [[rhs_0_0_0_0:%[0-9]+]] = OpBitwiseAnd %short [[n]] %short_15
+// CHECK-NEXT:                OpShiftLeftLogical %short {{%[0-9]+}} [[rhs_0_0_0_0]]
     m <<= n;
 
-// CHECK:        [[q:%\d+]] = OpLoad %v4ushort %q
-// CHECK:      [[rhs:%\d+]] = OpBitwiseAnd %v4ushort [[q]] [[v4c15]]
-// CHECK-NEXT:                OpShiftLeftLogical %v4ushort {{%\d+}} [[rhs]]
+// CHECK:        [[q:%[0-9]+]] = OpLoad %v4ushort %q
+// CHECK:      [[rhs_0_0_0_0_0:%[0-9]+]] = OpBitwiseAnd %v4ushort [[q]] [[v4c15]]
+// CHECK-NEXT:                OpShiftLeftLogical %v4ushort {{%[0-9]+}} [[rhs_0_0_0_0_0]]
     p <<= q;
 }

@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_4 -E main
+// RUN: not %dxc -T lib_6_4 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 [shader("compute")]
 [numthreads(16, 16, 1)]
