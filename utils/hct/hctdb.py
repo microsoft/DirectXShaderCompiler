@@ -4,7 +4,6 @@
 # DXIL information.                                                           #
 ###############################################################################
 import os
-import pdb
 
 def parse_command_line_options():
     import argparse
@@ -12,11 +11,12 @@ def parse_command_line_options():
     
     parser.add_argument(
         '--query',
-        action="store_true",
-        help='If given, enables the query mode for hctdb. The option requires that the user create a query.py file \
-        that defines a function called query. The file must be located in the same directory that contains hctdb.py. \
-        The query function must take 2 parameters, the set of all instructions, and a specific instruction. \
-        The query function returns true if the specific instruction should pass the query, and false otherwise.')
+        help='If given, stores a path to a query file. The option requires that the user create the specified file \
+        that defines a function called inst_query. The file must be located in the same directory that contains hctdb.py. \
+        The inst_query function must take 2 parameters, the set of all instructions, and a specific instruction. \
+        The inst_query function returns true if the specific instruction should pass the query, and false otherwise.')
+    # ex: hctdb.py --query=myquery.py
+    # The user must define myquery.py as a file in the same dir as hctdb.py
     options = parser.parse_args()
     return options
 
@@ -3270,22 +3270,11 @@ class InstructionSignature:
         str_args = ",".join(self.args)
         return "[{}] {} {}({})".format(self.fn_attr, self.ret_type, self.name, str_args)
 
-def execfile(filepath, globals=None, locals=None):
-    if globals is None:
-        globals = {}
-    globals.update({
-        "__file__": filepath,
-        "__name__": "__main__",
-    })
-    with open(filepath, 'rb') as file:
-        eval(compile(open(filepath, 'rb').read(), filepath, 'exec'), globals, locals)
-
-
 def parse_query(db, options):
     if not options.query:
         return
         
-    from query import query
+    query_module = __import__(options.query)
 
     instructions = []
 
@@ -3308,7 +3297,7 @@ def parse_query(db, options):
     filtered_instructions = []
     print("\nQUERY RESULTS:\n")
     for instruction in instructions:
-        if query(instructions, instruction):
+        if query_module.inst_query(instructions, instruction):
             print(instruction)
 
 
