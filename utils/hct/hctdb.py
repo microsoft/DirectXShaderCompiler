@@ -3308,3 +3308,4 @@ if __name__ == "__main__":
 
     options = parse_command_line_options()
     parse_query(db, options)
+    
