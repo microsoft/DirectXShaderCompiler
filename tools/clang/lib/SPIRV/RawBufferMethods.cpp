@@ -55,12 +55,12 @@ SpirvInstruction *RawBufferHandler::load16Bits(SpirvInstruction *buffer,
   auto *constUint4 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4));
 
-  auto *index = address.getWord(loc, range);
+  auto *index = address.getWordIndex(loc, range);
 
   // Take the remainder and multiply by 8 to get the bit offset within the word.
-  auto *bitOffset =
-      spvBuilder.createBinaryOp(spv::Op::OpUMod, astContext.UnsignedIntTy,
-                                address.getByte(), constUint4, loc, range);
+  auto *bitOffset = spvBuilder.createBinaryOp(
+      spv::Op::OpUMod, astContext.UnsignedIntTy, address.getByteAddress(),
+      constUint4, loc, range);
   bitOffset = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
                                         astContext.UnsignedIntTy, bitOffset,
                                         constUint3, loc, range);
@@ -79,7 +79,7 @@ SpirvInstruction *RawBufferHandler::load16Bits(SpirvInstruction *buffer,
                                     target16BitType, loc, range);
   result->setRValue();
 
-  address.incrementByte(2, loc, range);
+  address.incrementByteAddress(2, loc, range);
   return result;
 }
 
@@ -93,7 +93,7 @@ SpirvInstruction *RawBufferHandler::load32Bits(SpirvInstruction *buffer,
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
 
-  auto *index = address.getWord(loc, range);
+  auto *index = address.getWordIndex(loc, range);
 
   auto *loadPtr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                                {constUint0, index}, loc, range);
@@ -102,7 +102,7 @@ SpirvInstruction *RawBufferHandler::load32Bits(SpirvInstruction *buffer,
                                     target32BitType, loc, range);
   result->setRValue();
 
-  address.incrementWord(loc, range);
+  address.incrementWordIndex(loc, range);
 
   return result;
 }
@@ -119,7 +119,7 @@ SpirvInstruction *RawBufferHandler::load64Bits(SpirvInstruction *buffer,
   auto *constUint32 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
 
-  auto *index = address.getWord(loc, range);
+  auto *index = address.getWordIndex(loc, range);
 
   // Need to perform two 32-bit uint loads and construct a 64-bit value.
 
@@ -129,8 +129,8 @@ SpirvInstruction *RawBufferHandler::load64Bits(SpirvInstruction *buffer,
   SpirvInstruction *word0 =
       spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
   // Increment the base index
-  address.incrementWord(loc, range);
-  index = address.getWord(loc, range);
+  address.incrementWordIndex(loc, range);
+  index = address.getWordIndex(loc, range);
   // Load the second 32-bit uint (word1).
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
@@ -156,7 +156,7 @@ SpirvInstruction *RawBufferHandler::load64Bits(SpirvInstruction *buffer,
                                     target64BitType, loc, range);
   result->setRValue();
 
-  address.incrementWord(loc, range);
+  address.incrementWordIndex(loc, range);
 
   return result;
 }
@@ -301,7 +301,7 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
           field->getType(), theEmitter.getSpirvOptions().sBufferLayoutRule,
           /*isRowMajor*/ llvm::None, &stride);
       fieldOffsetInBytes = roundToPow2(fieldOffsetInBytes, fieldAlignment);
-      auto *byteOffset = address.getByte();
+      auto *byteOffset = address.getByteAddress();
       if (fieldOffsetInBytes != 0) {
         byteOffset = spvBuilder.createBinaryOp(
             spv::Op::OpIAdd, astContext.UnsignedIntTy, byteOffset,
@@ -326,7 +326,7 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     SpirvInstruction *structWidth = spvBuilder.getConstantInt(
         astContext.UnsignedIntTy,
         llvm::APInt(32, roundToPow2(structSize, structAlignment)));
-    address.incrementByte(structWidth, loc, range);
+    address.incrementByteAddress(structWidth, loc, range);
 
     result = spvBuilder.createCompositeConstruct(targetType, loadedElems, loc,
                                                  range);
@@ -363,12 +363,12 @@ void RawBufferHandler::store16Bits(SpirvInstruction *value,
   auto *constUintFFFF = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                   llvm::APInt(32, 0xffff));
 
-  auto *index = address.getWord(loc, range);
+  auto *index = address.getWordIndex(loc, range);
 
   // Take the remainder and multiply by 8 to get the bit offset within the word.
-  auto *bitOffset =
-      spvBuilder.createBinaryOp(spv::Op::OpUMod, astContext.UnsignedIntTy,
-                                address.getByte(), constUint4, loc, range);
+  auto *bitOffset = spvBuilder.createBinaryOp(
+      spv::Op::OpUMod, astContext.UnsignedIntTy, address.getByteAddress(),
+      constUint4, loc, range);
   bitOffset = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
                                         astContext.UnsignedIntTy, bitOffset,
                                         constUint3, loc, range);
@@ -404,7 +404,7 @@ void RawBufferHandler::store16Bits(SpirvInstruction *value,
       spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
                                 masked, result, loc, range);
   spvBuilder.createStore(ptr, result, loc, range);
-  address.incrementByte(2, loc, range);
+  address.incrementByteAddress(2, loc, range);
 }
 
 void RawBufferHandler::store32Bits(SpirvInstruction *value,
@@ -416,7 +416,7 @@ void RawBufferHandler::store32Bits(SpirvInstruction *value,
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
 
-  auto *index = address.getWord(loc, range);
+  auto *index = address.getWordIndex(loc, range);
 
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to store a 32-bit value.
@@ -425,7 +425,7 @@ void RawBufferHandler::store32Bits(SpirvInstruction *value,
   value = bitCastToNumericalOrBool(value, valueType, astContext.UnsignedIntTy,
                                    loc, range);
   spvBuilder.createStore(ptr, value, loc, range);
-  address.incrementWord(loc, range);
+  address.incrementWordIndex(loc, range);
 }
 
 void RawBufferHandler::store64Bits(SpirvInstruction *value,
@@ -439,7 +439,7 @@ void RawBufferHandler::store64Bits(SpirvInstruction *value,
   auto *constUint32 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
 
-  auto *index = address.getWord(loc, range);
+  auto *index = address.getWordIndex(loc, range);
 
   // The underlying element type of the ByteAddressBuffer is uint. So we
   // need to store two 32-bit values.
@@ -464,12 +464,12 @@ void RawBufferHandler::store64Bits(SpirvInstruction *value,
       loc, range);
 
   spvBuilder.createStore(ptr, lsb, loc, range);
-  address.incrementWord(loc, range);
-  index = address.getWord(loc, range);
+  address.incrementWordIndex(loc, range);
+  index = address.getWordIndex(loc, range);
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
   spvBuilder.createStore(ptr, msb, loc, range);
-  address.incrementWord(loc, range);
+  address.incrementWordIndex(loc, range);
 }
 
 QualType RawBufferHandler::serializeToScalarsOrStruct(
@@ -621,7 +621,7 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
           field->getType(), theEmitter.getSpirvOptions().sBufferLayoutRule,
           /*isRowMajor*/ llvm::None, &stride);
       fieldOffsetInBytes = roundToPow2(fieldOffsetInBytes, fieldAlignment);
-      auto *byteOffset = address.getByte();
+      auto *byteOffset = address.getByteAddress();
       if (fieldOffsetInBytes != 0) {
         byteOffset = spvBuilder.createBinaryOp(
             spv::Op::OpIAdd, astContext.UnsignedIntTy, byteOffset,
@@ -651,7 +651,7 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
     auto *structWidth = spvBuilder.getConstantInt(
         astContext.UnsignedIntTy,
         llvm::APInt(32, roundToPow2(structSize, structAlignment)));
-    address.incrementByte(structWidth, loc, range);
+    address.incrementByteAddress(structWidth, loc, range);
 
     return;
   }
@@ -668,61 +668,58 @@ void RawBufferHandler::processTemplatedStoreToBuffer(
   processTemplatedStoreToBuffer(value, buffer, address, valueType, range);
 }
 
-SpirvInstruction *RawBufferHandler::BufferAddress::getByte() {
+SpirvInstruction *RawBufferHandler::BufferAddress::getByteAddress() {
   return byteAddress;
 }
 
-SpirvInstruction *RawBufferHandler::BufferAddress::getWord(SourceLocation loc,
-                                                           SourceRange range) {
-  if (!wordIndexOutdated) {
-    return wordIndex;
+SpirvInstruction *
+RawBufferHandler::BufferAddress::getWordIndex(SourceLocation loc,
+                                              SourceRange range) {
+  if (!wordIndex.hasValue()) {
+    auto *constUint2 =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
+
+    // Divide the byte index by 4 (shift right by 2) to get the index in the
+    // word-sized buffer.
+    wordIndex = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
+                                          astContext.UnsignedIntTy, byteAddress,
+                                          constUint2, loc, range);
   }
 
-  auto *constUint2 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
-
-  // Divide the byte index by 4 (shift right by 2) to get the index in the
-  // word-sized buffer.
-  wordIndex = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
-                                        astContext.UnsignedIntTy, byteAddress,
-                                        constUint2, loc, range);
-  wordIndexOutdated = false;
-
-  return wordIndex;
+  return wordIndex.getValue();
 }
 
-void RawBufferHandler::BufferAddress::incrementByte(SpirvInstruction *width,
-                                                    SourceLocation loc,
-                                                    SourceRange range) {
+void RawBufferHandler::BufferAddress::incrementByteAddress(
+    SpirvInstruction *width, SourceLocation loc, SourceRange range) {
   byteAddress =
       spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
                                 byteAddress, width, loc, range);
-  wordIndexOutdated = true;
+  wordIndex.reset();
 }
 
-void RawBufferHandler::BufferAddress::incrementByte(uint32_t width,
-                                                    SourceLocation loc,
-                                                    SourceRange range) {
-  incrementByte(spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                          llvm::APInt(32, width)),
-                loc, range);
+void RawBufferHandler::BufferAddress::incrementByteAddress(uint32_t width,
+                                                           SourceLocation loc,
+                                                           SourceRange range) {
+  incrementByteAddress(spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                 llvm::APInt(32, width)),
+                       loc, range);
 }
 
-void RawBufferHandler::BufferAddress::incrementWord(SourceLocation loc,
-                                                    SourceRange range) {
+void RawBufferHandler::BufferAddress::incrementWordIndex(SourceLocation loc,
+                                                         SourceRange range) {
 
   auto *constUint1 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
 
+  auto *oldWordIndex = getWordIndex(loc, range);
+
   // Keep byte address up-to-date. If this is unneeded the optimizer will remove
   // it.
-  incrementByte(4, loc, range);
+  incrementByteAddress(4, loc, range);
 
   wordIndex =
       spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                wordIndex, constUint1, loc, range);
-
-  wordIndexOutdated = false;
+                                oldWordIndex, constUint1, loc, range);
 }
 
 } // namespace spirv

@@ -57,22 +57,22 @@ private:
   class BufferAddress {
   public:
     BufferAddress(SpirvInstruction *&byteAddress, SpirvEmitter &emitter)
-        : byteAddress(byteAddress), wordIndex(byteAddress),
-          wordIndexOutdated(true), spvBuilder(emitter.getSpirvBuilder()),
+        : byteAddress(byteAddress), wordIndex(),
+          spvBuilder(emitter.getSpirvBuilder()),
           astContext(emitter.getASTContext()) {}
-    SpirvInstruction *getByte();
-    SpirvInstruction *getWord(SourceLocation loc, SourceRange range);
+    SpirvInstruction *getByteAddress();
+    SpirvInstruction *getWordIndex(SourceLocation loc, SourceRange range);
 
-    void incrementByte(SpirvInstruction *width, SourceLocation loc,
-                       SourceRange range);
-    void incrementByte(uint32_t width, SourceLocation loc, SourceRange range);
+    void incrementByteAddress(SpirvInstruction *width, SourceLocation loc,
+                              SourceRange range);
+    void incrementByteAddress(uint32_t width, SourceLocation loc,
+                              SourceRange range);
 
-    void incrementWord(SourceLocation loc, SourceRange range);
+    void incrementWordIndex(SourceLocation loc, SourceRange range);
 
   private:
     SpirvInstruction *byteAddress;
-    SpirvInstruction *wordIndex;
-    bool wordIndexOutdated;
+    llvm::Optional<SpirvInstruction *> wordIndex;
 
     SpirvBuilder &spvBuilder;
     ASTContext &astContext;
