@@ -13,7 +13,7 @@ USE_CLOSE_FDS = not IS_WINDOWS
 
 
 def extract_hash(dxa_path, dx_container, working_dir, empty_env):
-    # extract hash from dxa_path
+    # extract hash using dxa
     hash_file = f"{dx_container}.hash"
     args = [dxa_path, "-extractpart", "HASH",
             dx_container, "-o", hash_file]
@@ -24,10 +24,10 @@ def extract_hash(dxa_path, dx_container, working_dir, empty_env):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             close_fds=USE_CLOSE_FDS)
-    proc.communicate()
+    stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
-        print(f"extract hash failed {args}")
+        print(f"extract hash from {dx_container} failed {args}, stdout:{stdout}, stderr:{stderr}")
         # extract hash failed, return fail.
         return None
     return hash_file
@@ -45,9 +45,11 @@ def normal_compile(args, output_file, working_dir, empty_env):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             close_fds=USE_CLOSE_FDS)
-    proc.communicate()
-    return proc.wait()
-
+    stdout, stderr = proc.communicate()
+    res = proc.wait()
+    if res != 0:
+        print(f"normal compile failed {args}, stdout:{stdout}, stderr:{stderr}")
+    return res
 
 def debug_compile(args, output_file, working_dir, empty_env):
     debug_args = args
@@ -63,8 +65,11 @@ def debug_compile(args, output_file, working_dir, empty_env):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             close_fds=USE_CLOSE_FDS)
-    proc.communicate()
-    return proc.wait()
+    stdout, stderr = proc.communicate()
+    res = proc.wait()
+    if res != 0:
+        print(f"debug compile failed {args}, stdout:{stdout}, stderr:{stderr}")
+    return res
 
 
 def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
@@ -72,25 +77,13 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
     # clear PATH to make sure dxil.dll are not found.
     empty_env["PATH"] = ""
     args[0] = dxc_path
-    # run original compile
-    proc = subprocess.Popen(args, cwd=working_dir,
-                           # env=empty_env,
-                            # don't writ output to stdout
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            close_fds=USE_CLOSE_FDS)
-    proc.communicate()
-    res = proc.wait()
-    if res != 0:
-        # original compilation failed, don't run hash test.
-        return True, "Original compilation failed."
 
     # run normal compile
     normal_out = os.path.join(working_dir, 'Output', test_name+'.normal.out')
     res = normal_compile(args, normal_out, working_dir, empty_env)
     if res != 0:
         # strip_reflect failed, return fail.
-        return False, "Adding Qstrip_reflect failed compilation."
+        return True, "normal compile failed, assume this is an expected failure testing shader."
 
     normal_hash = extract_hash(dxa_path, normal_out, working_dir, empty_env)
     if normal_hash is None:
@@ -100,12 +93,12 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
     debug_out = os.path.join(working_dir, 'Output', test_name+'.dbg.out')
     res = debug_compile(args, debug_out, working_dir, empty_env)
     if res != 0:
-        # strip_reflect failed, return fail.
-        return False, "Adding Qstrip_reflect and Zi failed compilation."
+        # Zi failed, return fail.
+        return False, "debug compilation failed."
 
     debug_hash = extract_hash(dxa_path, debug_out, working_dir, empty_env)
     if debug_hash is None:
-        return False, "Fail to get hash for normal compilation."
+        return False, "Fail to get hash for debug compilation."
 
     # compare normal_hash and debug_hash.
     if filecmp.cmp(normal_hash, debug_hash):
@@ -119,28 +112,19 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
 ################################################
 # For running from the command-line
 
-def usage():
-    print("""HashStability.py - Run hash stability test.
-
-Usage:
-HashStability.py <dxc_args> - args to run dxc like " "%dxc -ECSMain -Tcs_6_0 D:\test.hlsl"
-    <bin_dir>       - path to dxc.exe and dxa.exe
-""")
-    return 1
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Description of your program')
+    parser = argparse.ArgumentParser(description='Run hash stability test')
     parser.add_argument('-a','--argument', help='origin command line options to run dxc like \"dxc -ECSMain -Tcs_6_0 D:\\test.hlsl\"', required=True)
     parser.add_argument('-p','--path', help='path to find dxc and dxa', required=True)
     args = vars(parser.parse_args())
     dxc_args = args['argument'].split(' ')
     dxc_args[0] = "%dxc"
     bin_dir = args['path']
+    # get dxc and dxa path when running from command line
     dxc_path = os.path.join(bin_dir, 'dxc.exe')
     dxa_path = os.path.join(bin_dir, 'dxa.exe')
     working_dir = os.getcwd()
     tmp_path = os.path.join(working_dir, 'Output')
-    print('tmp_path: ' + tmp_path)
     # create tmp_path if it doesn't exist
     if not os.path.exists(tmp_path):
         try:
