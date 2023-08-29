@@ -47,6 +47,9 @@
 
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
 #include "dxc/DXIL/DxilUtil.h" // HLSL Change - special handling of convergent marker
+#include "dxc/HLSL/HLOperations.h" // HLSL Change - HLOperandIndex usage
+#include "dxc/DXIL/DxilOperations.h" // HLSL Change - Get HLSL Opcodes
+
 using namespace llvm;
 
 #define DEBUG_TYPE "local"
@@ -332,9 +335,19 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
     if (Constant *C = dyn_cast<Constant>(CI->getArgOperand(0)))
       return C->isNullValue() || isa<UndefValue>(C);
 
-  // HLSL change - don't force unused convergenet markers to stay
-  if (CallInst *CI = dyn_cast<CallInst>(I))
+  // HLSL Change - don't force unused convergenet markers to stay, 
+  // remove bad OutputCompletes
+  if (CallInst *CI = dyn_cast<CallInst>(I)) {  
     if (hlsl::dxilutil::IsConvergentMarker(CI)) return true;
+    if (hlsl::OP::IsDxilOpFuncCallInst(I, hlsl::OP::OpCode::OutputComplete)) {
+      Value *NodeRecHandle =
+          CI->getArgOperand(hlsl::HLOperandIndex::kHandleOpIdx);
+      Constant *C = dyn_cast<Constant>(NodeRecHandle);
+      if (C && C->isZeroValue())
+        return true;
+    }
+  }
+  // HLSL Change End
 
   return false;
 }
