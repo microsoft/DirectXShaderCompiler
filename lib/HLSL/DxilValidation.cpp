@@ -534,52 +534,6 @@ struct ValidationContext {
     return I;
   }
 
-  void EmitInstrNote(Instruction *I, std::string Msg) {
-    Instruction *DbgI = GetDebugInstr(I);
-    const DebugLoc L = DbgI->getDebugLoc();
-    if (L) {
-      LastDebugLocEmit = L;
-    }
-
-    BasicBlock *BB = I->getParent();
-    Function *F = BB->getParent();
-
-    dxilutil::EmitErrorOnInstruction(DbgI, Msg);
-
-    // Add llvm information as a note to instruction string
-    std::string InstrStr;
-    raw_string_ostream InstrStream(InstrStr);
-    I->print(InstrStream, slotTracker);
-    InstrStream.flush();
-    StringRef InstrStrRef = InstrStr;
-    InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation
-    Msg = "at '" + InstrStrRef.str() + "'";
-
-    // Print the parent block name
-    Msg += " in block '";
-    if (!BB->getName().empty()) {
-      Msg += BB->getName();
-    }
-    else {
-      unsigned idx = 0;
-      for (auto i = F->getBasicBlockList().begin(),
-        e = F->getBasicBlockList().end(); i != e; ++i) {
-        if (BB == &(*i)) {
-          break;
-        }
-        idx++;
-      }
-      Msg += "#" + std::to_string(idx);
-    }
-    Msg += "'";
-
-    // Print the function name
-    Msg += " of function '" + F->getName().str() + "'.";
-
-    dxilutil::EmitNoteOnContext(DbgI->getContext(), Msg);
-
-  }
-
   // Emit Error or note on instruction `I` with `Msg`.
   // If `isError` is true, `Rule` may omit repeated errors
   void EmitInstrDiagMsg(Instruction *I, ValidationRule Rule, std::string Msg,
