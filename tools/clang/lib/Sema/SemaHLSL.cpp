@@ -6462,8 +6462,10 @@ bool HLSLExternalSource::MatchArguments(
   // For object return types that need to match arguments, we need to slot in
   // the full type here Can't do it sooner because when return is encountered
   // above, the other arg types haven't been set
-  if (Template[pIntrinsic->pArgs[0].uTemplateId] == AR_TOBJ_OBJECT)
-    argTypes[0] = argTypes[pIntrinsic->pArgs[0].uComponentTypeId];
+  if (pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs) {
+    if (Template[pIntrinsic->pArgs[0].uTemplateId] == AR_TOBJ_OBJECT)
+      argTypes[0] = argTypes[pIntrinsic->pArgs[0].uComponentTypeId];
+  }
 
   return badArgIdx == MaxIntrinsicArgs;
 #undef CAB
