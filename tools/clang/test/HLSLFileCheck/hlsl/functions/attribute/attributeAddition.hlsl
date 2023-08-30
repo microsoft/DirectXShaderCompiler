@@ -2,6 +2,7 @@
 
 // CHECK: mymain 'void ()'
 // CHECK: -HLSLShaderAttr
+// CHECK-SAME: "compute"
 
 [numthreads(1,1,1)]
 void mymain(){
