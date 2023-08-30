@@ -15367,6 +15367,12 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
   if (EntryPointName.empty()) {
     return;
   }
+  
+  // There's no way we should be adding a shader attribute
+  // to a Function Decl if it doesn't even have an identifer
+  if (!FD->getIdentifier()) {
+    return;
+  }
 
   // if this FD isn't the entry point, then there's no
   // shader attribute to work with, so just return
