@@ -15358,31 +15358,45 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   return;
 }
 
+void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
+  const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
+
+  // if this is the Entry FD, then add the target profile
+  // shader attribute to the FD and carry on with validation
+  // otherwise, with no shader attribute, just return
+  if (EntryPointName.empty()) {
+    return;
+  }
+
+  // if this FD isn't the entry point, then there's no
+  // shader attribute to work with, so just return
+  if (EntryPointName != FD->getIdentifier()->getName() || 
+    (EntryPointName == FD->getIdentifier()->getName() && !FD->isGlobal())) {
+    return;
+  }
+
+  std::string profile = S.getLangOpts().HLSLProfile;
+  const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+  const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
+
+  // don't add the attribute for an invalid profile, like library
+  if (fullName.empty()) {
+    return;
+  }
+
+  HLSLShaderAttr *pShaderAttr =
+      HLSLShaderAttr::CreateImplicit(S.Context, fullName);
+  
+  FD->addAttr(pShaderAttr);
+  return;
+}
+
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
+  TryAddShaderAttrFromTargetProfile(S, FD);
+
   auto Attr = FD->getAttr<HLSLShaderAttr>();
-  if (!Attr) {
-    // if this is the Entry FD, then add the target profile
-    // shader attribute to the FD and carry on with validation
-    // otherwise, with no shader attribute, just return
-    const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
-    if (EntryPointName.empty()) {
-      return;
-    }
-
-    
-    // if this FD isn't the entry point, then there's no
-    // shader attribute to work with, so just return
-    if (EntryPointName != FD->getIdentifier()->getName()) {
-      return;
-    }
-
-    std::string profile = S.getLangOpts().HLSLProfile;
-    const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
-    const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
-    HLSLShaderAttr *pShaderAttr = HLSLShaderAttr::CreateImplicit(S.Context, fullName);
-
-    FD->addAttr(pShaderAttr);
-    Attr = FD->getAttr<HLSLShaderAttr>();         
+  if (!Attr) {         
+    return;     
   }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());

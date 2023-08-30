@@ -14,6 +14,7 @@
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <algorithm>
 
@@ -429,6 +430,8 @@ const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
     return "domain";
   case DXIL::ShaderKind::Compute:
     return "compute";
+  case DXIL::ShaderKind::Library:
+    return llvm::StringRef();
   case DXIL::ShaderKind::RayGeneration:
     return "raygeneration";
   case DXIL::ShaderKind::Intersection:
@@ -447,8 +450,10 @@ const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
     return "amplification";
   case DXIL::ShaderKind::Node:
     return "node";
+  case DXIL::ShaderKind::Invalid:
+    return llvm::StringRef();
   default:
-    return "invalid";
+    llvm_unreachable("unknown ShaderKind");
   }
 }
 
