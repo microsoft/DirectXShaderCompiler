@@ -15369,18 +15369,20 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
       return;
     }
 
-    NameLookup NL = GetSingleFunctionDeclByName(&S, EntryPointName,
-                                                /*checkPatch*/ false);
+    
     // if this FD isn't the entry point, then there's no
     // shader attribute to work with, so just return
-    if (NL.Found != FD) {
+    if (EntryPointName != FD->getIdentifier()->getName()) {
       return;
     }
 
     std::string profile = S.getLangOpts().HLSLProfile;
-    HLSLShaderAttr *pShaderAttr = HLSLShaderAttr::CreateImplicit(S.Context, profile);
+    const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+    const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
+    HLSLShaderAttr *pShaderAttr = HLSLShaderAttr::CreateImplicit(S.Context, fullName);
 
-    FD->addAttr(pShaderAttr);             
+    FD->addAttr(pShaderAttr);
+    Attr = FD->getAttr<HLSLShaderAttr>();         
   }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());

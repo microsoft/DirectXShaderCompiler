@@ -415,6 +415,43 @@ DXIL::ShaderKind ShaderModel::KindFromFullName(llvm::StringRef Name) {
       .Default(DXIL::ShaderKind::Invalid);
 }
 
+const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
+  switch (sk) {
+  case DXIL::ShaderKind::Pixel:
+    return "pixel";
+  case DXIL::ShaderKind::Vertex:
+    return "vertex";
+  case DXIL::ShaderKind::Geometry:
+    return "geometry";
+  case DXIL::ShaderKind::Hull:
+    return "hull";
+  case DXIL::ShaderKind::Domain:
+    return "domain";
+  case DXIL::ShaderKind::Compute:
+    return "compute";
+  case DXIL::ShaderKind::RayGeneration:
+    return "raygeneration";
+  case DXIL::ShaderKind::Intersection:
+    return "intersection";
+  case DXIL::ShaderKind::AnyHit:
+    return "anyhit";
+  case DXIL::ShaderKind::ClosestHit:
+    return "closesthit";
+  case DXIL::ShaderKind::Miss:
+    return "miss";
+  case DXIL::ShaderKind::Callable:
+    return "callable";
+  case DXIL::ShaderKind::Mesh:
+    return "mesh";
+  case DXIL::ShaderKind::Amplification:
+    return "amplification";
+  case DXIL::ShaderKind::Node:
+    return "node";
+  default:
+    return "invalid";
+  }
+}
+
 typedef ShaderModel SM;
 typedef Semantic SE;
 const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
