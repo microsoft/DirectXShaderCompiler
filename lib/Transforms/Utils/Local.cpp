@@ -47,7 +47,7 @@
 
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
 #include "dxc/DXIL/DxilUtil.h" // HLSL Change - special handling of convergent marker
-#include "dxc/HLSL/HLOperations.h" // HLSL Change - HLOperandIndex usage
+#include "dxc/DXIL/DxilInstructions.h" // HLSL Change - DxilInst_OutputComplete usage
 #include "dxc/DXIL/DxilOperations.h" // HLSL Change - Get HLSL Opcodes
 
 using namespace llvm;
@@ -340,8 +340,8 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
   if (CallInst *CI = dyn_cast<CallInst>(I)) {  
     if (hlsl::dxilutil::IsConvergentMarker(CI)) return true;
     if (hlsl::OP::IsDxilOpFuncCallInst(I, hlsl::OP::OpCode::OutputComplete)) {
-      Value *NodeRecHandle =
-          CI->getArgOperand(hlsl::HLOperandIndex::kHandleOpIdx);
+      hlsl::DxilInst_OutputComplete OutputComplete(CI);
+      Value *NodeRecHandle = OutputComplete.get_output();
       Constant *C = dyn_cast<Constant>(NodeRecHandle);
       if (C && C->isZeroValue())
         return true;
