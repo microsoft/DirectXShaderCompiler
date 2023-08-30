@@ -3,27 +3,27 @@
 // NodeDispatchGrid and NodeMaxDispatchGrid may only be used with Broadcasting launch nodes
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]           // expected-note +{{Launch type defined here}}
+[NodeLaunch("coalescing")]           // expected-note +{{Launch type defined here}}
 [NodeDispatchGrid(4, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting nodes}}
 [NumThreads(32, 1, 1)]
 void node01()
 { }
 
 [Shader("node")]
-[NodeLaunch("Thread")]               // expected-note +{{Launch type defined here}}
+[NodeLaunch("thread")]               // expected-note +{{Launch type defined here}}
 [NodeDispatchGrid(8, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting nodes}}
 void node02()
 { }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]           // expected-note +{{Launch type defined here}}
+[NodeLaunch("coalescing")]           // expected-note +{{Launch type defined here}}
 [NodeMaxDispatchGrid(8, 8, 8)]       // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting nodes}}
 [NumThreads(32, 1, 1)]
 void node03()
 { }
 
 [Shader("node")]
-[NodeLaunch("Thread")]               // expected-note +{{Launch type defined here}}
+[NodeLaunch("thread")]               // expected-note +{{Launch type defined here}}
 [NodeMaxDispatchGrid(256, 8, 8)]     // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting nodes}}
 void node04()
 { }
@@ -31,7 +31,7 @@ void node04()
 // NodeDispatchGrid and NodeMaxDispatchGrid may not both be used
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(256, 64, 32)]   // expected-error {{Node shader 'node05' may not use both 'nodemaxdispatchgrid' and 'nodedispatchgrid'}}
 [NodeDispatchGrid(32, 1, 1)]         // expected-note  {{nodedispatchgrid defined here}}
 [NumThreads(32, 1, 1)]
@@ -41,7 +41,7 @@ void node05()
 // One of NodeDispatchGrid or NodeMaxDispatchGrid must be specified for a Broadcasting node
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(32, 1, 1)]
 void node06()                        // expected-error {{Broadcasting node shader 'node06' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute}}
 { }
@@ -62,7 +62,7 @@ struct InheritedRecord : TrackedRecord {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(32, 1, 1)]
 [NumThreads(32, 1, 1)]
 void node10(RWDispatchNodeInputRecord<TrackedRecord> input)
@@ -71,7 +71,7 @@ void node10(RWDispatchNodeInputRecord<TrackedRecord> input)
 }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(32, 1, 1)]
 [NumThreads(32, 1, 1)]
 void node11(RWDispatchNodeInputRecord<SharedRecord> input)
@@ -80,7 +80,7 @@ void node11(RWDispatchNodeInputRecord<SharedRecord> input)
 }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(32, 1, 1)]
 [NumThreads(32, 1, 1)]
 // The [NodeTrackRWInputSharing] attribute is not inherited
@@ -93,7 +93,7 @@ void node12(RWDispatchNodeInputRecord<InheritedRecord> input)
 // This means NodeMaxRecursionDepth may never be more than 32.
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(32, 1, 1)]
 [NumThreads(32, 1, 1)]
 [NodeMaxRecursionDepth(33)] // expected-error {{NodeMaxRecursionDepth may not exceed 32}}
@@ -101,7 +101,7 @@ void node13(RWDispatchNodeInputRecord<SharedRecord> input)
 { }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(32, 1, 1)]
 void node14() // expected-error {{Node shader 'node14' with broadcasting launch type requires 'numthreads' attribute}}
 { }
@@ -112,7 +112,7 @@ void node15() // expected-error {{Node shader 'node15' with coalescing launch ty
 { }
 
 [Shader("node")]
-[NodeLaunch("Thread")] // expected-note {{Launch type defined here}}
+[NodeLaunch("thread")] // expected-note {{Launch type defined here}}
 [NumThreads(1024,1,1)] // expected-error {{Thread launch nodes must have a thread group size of (1,1,1)}}
 void node16()
 { }

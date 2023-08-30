@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // ==================================================================
-// CASE011
 // Thread launch node without NumThreads specified should use a
 // default of (1,1,1)
 // ==================================================================
@@ -13,7 +12,7 @@
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NodeIsProgramEntry]
 void node011_thread_numthreads_none()
 {
@@ -29,7 +28,7 @@ void node011_thread_numthreads_none()
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Thread (3)
+// Arg #4: thread (3)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS]] = !{i32 8, i32 15, i32 13, i32 3,

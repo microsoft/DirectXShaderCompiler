@@ -8,7 +8,7 @@
 
 [Shader("compute")]
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(9,1,2)]
 void compute_node() { }
@@ -38,7 +38,7 @@ void compute_only() { }
 
 [Shader("node")]
 [Shader("compute")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(9,5,6)]
 void node_compute() { }
@@ -54,7 +54,7 @@ void node_compute() { }
 // ==================================================================
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(9,7,8)]
 void node_only() { }

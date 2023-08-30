@@ -27,7 +27,7 @@ struct [NodeTrackRWInputSharing] INPUT_RECORD
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(256,1,1)]
 [NumThreads(1,1,1)]
 void node037_finishedcrossgroupsharing(RWDispatchNodeInputRecord<INPUT_RECORD> input)
@@ -46,7 +46,7 @@ void node037_finishedcrossgroupsharing(RWDispatchNodeInputRecord<INPUT_RECORD> i
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // ...
 // Arg #x: NodeDispatchGrid Tag (18)
 // Arg #x+1: NodeDispatchGrid (xyz metadata)

@@ -11,7 +11,7 @@ struct RECORD {
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(8,1,1)]
 void node01(NodeOutput<RECORD> output)
 {
@@ -82,7 +82,7 @@ void node01(NodeOutput<RECORD> output)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(8,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node02(NodeOutput<RECORD> output)
 {
   ThreadNodeOutputRecords<RECORD> outrec = output.GetThreadNodeOutputRecords(1);

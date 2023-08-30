@@ -2,7 +2,7 @@
 // ==================================================================
 // Errors are generated for shaders with both "node" and "compute"
 // specified when:
-// - the launch type is not Broadcasting
+// - the launch type is not broadcasting
 // - a broadcasting node has an input record and/or output records
 // ==================================================================
 
@@ -14,7 +14,7 @@ struct RECORD {
 [Shader("compute")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(128,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node01()
 { /* compatible */  }
 
@@ -22,28 +22,28 @@ void node01()
 [Shader("compute")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(128,1,1)]
-// implicit [NodeLaunch("Broadcasting")]
+// implicit [NodeLaunch("broadcasting")]
 void node02()
 { /* compatible */  }
 
 [Shader("node")]
 [Shader("compute")] // expected-note {{compute defined here}}
 [NumThreads(128,1,1)]
-[NodeLaunch("Coalescing")]      // expected-error {{Node shader 'node03' with coalescing launch type is not compatible with compute (must be broadcasting)}}
+[NodeLaunch("coalescing")]      // expected-error {{Node shader 'node03' with coalescing launch type is not compatible with compute (must be broadcasting)}}
 void node03()
 { }
 
 [Shader("compute")] // expected-note {{compute defined here}}
 [Shader("node")]
 [NumThreads(1,1,1)]
-[NodeLaunch("Thread")] // expected-error {{Node shader 'node04' with thread launch type is not compatible with compute}}
+[NodeLaunch("thread")] // expected-error {{Node shader 'node04' with thread launch type is not compatible with compute}}
 void node04()
 { }
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [Shader("compute")] // expected-note {{compute defined here}}
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(128,1,1)]
 void node05(DispatchNodeInputRecord<RECORD> input) // expected-error {{Node shader 'node05' with node input/output is not compatible with compute}}
 { }
@@ -51,12 +51,12 @@ void node05(DispatchNodeInputRecord<RECORD> input) // expected-error {{Node shad
 [Shader("compute")] // expected-note {{compute defined here}}
 [NumThreads(1024,1,1)]
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(128,1,1)]
 void node06(RWDispatchNodeInputRecord<RECORD> input) // expected-error {{Node shader 'node06' with node input/output is not compatible with compute}}
 { }
 
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(128,1,1)]
@@ -65,7 +65,7 @@ void node07(NodeOutput<RECORD> output) // expected-error {{Node shader 'node07' 
 { }
 
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(128,1,1)]
 [Shader("node")]
 [Shader("compute")] // expected-note {{compute defined here}}

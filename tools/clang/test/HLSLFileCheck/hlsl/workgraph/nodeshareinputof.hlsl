@@ -8,14 +8,14 @@ struct entryRecord
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(1, 1, 1)]
 void firstNode(DispatchNodeInputRecord<entryRecord> inputData)
 { }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(1, 1, 1)]
 [NodeShareInputOf("firstNode")]
@@ -23,7 +23,7 @@ void secondNode(DispatchNodeInputRecord<entryRecord> inputData)
 { }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(1, 1, 1)]
 [NodeShareInputOf("firstNode", 3)]

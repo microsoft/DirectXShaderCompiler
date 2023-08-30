@@ -12731,10 +12731,8 @@ static void ValidateAttributeOnSwitchOrIf(Sema& S, Stmt* St, const AttributeList
   }
 }
 
-static StringRef ValidateAttributeStringArg(Sema &S, const AttributeList &A,
-                                            _In_opt_z_ const char *values,
-                                            unsigned index = 0,
-                                            bool isCaseSensitive = true) {
+static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In_opt_z_ const char* values, unsigned index = 0)
+{
   // values is an optional comma-separated list of potential values.
   if (A.getNumArgs() <= index)
     return StringRef();
@@ -12749,9 +12747,6 @@ static StringRef ValidateAttributeStringArg(Sema &S, const AttributeList &A,
 
   StringLiteral* sl = cast<StringLiteral>(E);
   StringRef result = sl->getString();
-  std::string cmpstr = sl->getString();
-  if (!isCaseSensitive)
-    cmpstr = sl->getString().lower();
 
   // Return result with no additional validation.
   if (values == nullptr)
@@ -12765,8 +12760,8 @@ static StringRef ValidateAttributeStringArg(Sema &S, const AttributeList &A,
     DXASSERT_NOMSG(*value != ','); // no leading commas in values
 
     // Look for a match.
-    const char* argData = cmpstr.c_str();
-    size_t argDataLen = cmpstr.size();
+    const char* argData = result.data();
+    size_t argDataLen = result.size();
 
     while (argDataLen != 0 && *argData == *value && *value)
     {
@@ -13302,8 +13297,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLNodeLaunch:
     declAttr = ::new (S.Context) HLSLNodeLaunchAttr(
         A.getRange(), S.Context,
-        ValidateAttributeStringArg(S, A, "broadcasting,coalescing,thread", 0,
-                                   false /*isCaseSensitive*/),
+        ValidateAttributeStringArg(S, A, "broadcasting,coalescing,thread"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNodeIsProgramEntry:
