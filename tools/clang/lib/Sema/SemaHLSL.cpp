@@ -15360,8 +15360,28 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   auto Attr = FD->getAttr<HLSLShaderAttr>();
-  if (!Attr)
-    return;
+  if (!Attr) {
+    // if this is the Entry FD, then add the target profile
+    // shader attribute to the FD and carry on with validation
+    // otherwise, with no shader attribute, just return
+    const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
+    if (EntryPointName.empty()) {
+      return;
+    }
+
+    NameLookup NL = GetSingleFunctionDeclByName(&S, EntryPointName,
+                                                /*checkPatch*/ false);
+    // if this FD isn't the entry point, then there's no
+    // shader attribute to work with, so just return
+    if (NL.Found != FD) {
+      return;
+    }
+
+    std::string profile = S.getLangOpts().HLSLProfile;
+    HLSLShaderAttr *pShaderAttr = HLSLShaderAttr::CreateImplicit(S.Context, profile);
+
+    FD->addAttr(pShaderAttr);             
+  }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
   switch (Stage) {
