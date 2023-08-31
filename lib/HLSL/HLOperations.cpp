@@ -515,6 +515,7 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
   // Capture for adding in canonical order later.
   bool ReadNone = false;
   bool ReadOnly = false;
+  bool ArgMemOnly = false;
   bool NoDuplicate = false;
   bool WaveSensitive = false;
 
@@ -537,6 +538,9 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
           case Attribute::NoUnwind:
             // All intrinsics have this attribute, so mangling is unaffected.
             break;
+          case Attribute::ArgMemOnly:
+            ArgMemOnly = true;
+            break;
           default:
             assert(false && "unexpected attribute for HLOperation");
           }
@@ -556,8 +560,8 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
   }
 
   // Validate attribute combinations.
-  assert(!(ReadNone && ReadOnly) &&
-         "ReadNone and ReadOnly are mutually exclusive");
+  assert(!(ReadNone && ReadOnly && ArgMemOnly) &&
+         "ReadNone, ReadOnly and ArgMemOnly are mutually exclusive");
 
   // Add mangling in canonical order
   if (NoDuplicate)
