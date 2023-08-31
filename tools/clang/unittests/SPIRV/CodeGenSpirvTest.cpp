@@ -322,109 +322,6 @@ TEST_F(FileTest, UnaryOpSizeof) { runFileTest("unary-op.sizeof.hlsl"); }
 // For cast of size 1 float vectors
 TEST_F(FileTest, CastSize1Vectors) { runFileTest("cast.float1.half1.hlsl"); }
 
-// For assignments
-TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
-TEST_F(FileTest, BinaryOpAssignImage) {
-  runFileTest("binary-op.assign.image.hlsl");
-}
-TEST_F(FileTest, BinaryOpAssignComposite) {
-  runFileTest("binary-op.assign.composite.hlsl");
-}
-TEST_F(FileTest, BinaryOpAssignOpaqueArray) {
-  // Test that for copying opaque arrays, we load each element via access chain
-  // separately, create an composite, and then write out once
-  setBeforeHLSLLegalization();
-  runFileTest("binary-op.assign.opaque.array.hlsl");
-}
-
-// For comma binary operator
-TEST_F(FileTest, BinaryOpComma) { runFileTest("binary-op.comma.hlsl"); }
-
-// For arithmetic binary operators
-TEST_F(FileTest, BinaryOpScalarArithmetic) {
-  runFileTest("binary-op.arithmetic.scalar.hlsl");
-}
-TEST_F(FileTest, BinaryOpVectorArithmetic) {
-  runFileTest("binary-op.arithmetic.vector.hlsl");
-}
-TEST_F(FileTest, BinaryOpMatrixArithmetic) {
-  runFileTest("binary-op.arithmetic.matrix.hlsl");
-}
-TEST_F(FileTest, BinaryOpMixedArithmetic) {
-  runFileTest("binary-op.arithmetic.mixed.hlsl");
-}
-
-// For arithmetic assignments
-TEST_F(FileTest, BinaryOpScalarArithAssign) {
-  runFileTest("binary-op.arith-assign.scalar.hlsl");
-}
-TEST_F(FileTest, BinaryOpVectorArithAssign) {
-  runFileTest("binary-op.arith-assign.vector.hlsl");
-}
-TEST_F(FileTest, BinaryOpMatrixArithAssign) {
-  runFileTest("binary-op.arith-assign.matrix.hlsl");
-}
-TEST_F(FileTest, BinaryOpMixedFormArithAssign) {
-  // Test mixing scalar/vector/matrix/etc.
-  runFileTest("binary-op.arith-assign.mixed.form.hlsl");
-}
-TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
-  // Test mixing float/int/uint/bool/etc.
-  runFileTest("binary-op.arith-assign.mixed.type.hlsl");
-}
-
-// For bitwise binary operators
-TEST_F(FileTest, BinaryOpScalarBitwise) {
-  runFileTest("binary-op.bitwise.scalar.hlsl");
-}
-TEST_F(FileTest, BinaryOpVectorBitwise) {
-  runFileTest("binary-op.bitwise.vector.hlsl");
-}
-TEST_F(FileTest, BinaryOpBitwiseShiftLeft) {
-  runFileTest("binary-op.bitwise.shift-left.hlsl");
-}
-TEST_F(FileTest, BinaryOpBitwiseShiftRight) {
-  runFileTest("binary-op.bitwise.shift-right.hlsl");
-}
-
-// For bitwise assignments
-TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
-  runFileTest("binary-op.bitwise-assign.scalar.hlsl");
-}
-TEST_F(FileTest, BinaryOpVectorBitwiseAssign) {
-  runFileTest("binary-op.bitwise-assign.vector.hlsl");
-}
-TEST_F(FileTest, BinaryOpBitwiseAssignShiftLeft) {
-  runFileTest("binary-op.bitwise-assign.shift-left.hlsl");
-}
-TEST_F(FileTest, BinaryOpBitwiseAssignShiftRight) {
-  runFileTest("binary-op.bitwise-assign.shift-right.hlsl");
-}
-
-// For comparison operators
-TEST_F(FileTest, BinaryOpScalarComparison) {
-  runFileTest("binary-op.comparison.scalar.hlsl");
-}
-TEST_F(FileTest, BinaryOpVectorComparison) {
-  runFileTest("binary-op.comparison.vector.hlsl");
-}
-
-// For logical binary operators
-TEST_F(FileTest, BinaryOpLogicalAnd) {
-  runFileTest("binary-op.logical-and.hlsl");
-}
-TEST_F(FileTest, BinaryOpLogicalOr) {
-  runFileTest("binary-op.logical-or.hlsl");
-}
-
-// For short-circuited logical binary operators (HLSL 2021)
-TEST_F(FileTest, BinaryOpShortCircuitedLogicalAnd) {
-  runFileTest("binary-op.short-circuited-logical-and.hlsl");
-}
-TEST_F(FileTest, BinaryOpShortCircuitedLogicalOr) {
-  runFileTest("binary-op.short-circuited-logical-or.hlsl");
-}
-
 // For ternary operators
 TEST_F(FileTest, TernaryOpConditionalOp) {
   runFileTest("ternary-op.cond-op.hlsl");
@@ -1508,24 +1405,6 @@ TEST_F(FileTest, IntrinsicsSM66IsHelperLaneVk1p3) {
 }
 
 // For attributes
-TEST_F(FileTest, AttributeEarlyDepthStencil) {
-  runFileTest("attribute.earlydepthstencil.ps.hlsl");
-}
-TEST_F(FileTest, AttributePostDepthCoverage) {
-  runFileTest("attribute.postdepthcoverage.ps.hlsl");
-}
-TEST_F(FileTest, AttributeNumThreads) {
-  runFileTest("attribute.numthreads.hlsl");
-}
-TEST_F(FileTest, AttributeNumThreadsLib) {
-  runFileTest("attribute.numthreads.lib.hlsl");
-}
-TEST_F(FileTest, AttributeMissingNumThreads) {
-  runFileTest("attribute.numthreads.missing.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, AttributeMissingNumThreadsLib) {
-  runFileTest("attribute.numthreads.lib.missing.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, AttributeDomainTri) {
   runFileTest("attribute.domain.tri.hlsl");
 }
@@ -1555,15 +1434,6 @@ TEST_F(FileTest, AttributeOutputTopologyTriangleCcw) {
 }
 TEST_F(FileTest, AttributeOutputControlPoints) {
   runFileTest("attribute.outputcontrolpoints.hlsl");
-}
-TEST_F(FileTest, AttributeMaxVertexCount) {
-  runFileTest("attribute.max-vertex-count.hlsl");
-}
-TEST_F(FileTest, AttributeInstanceGS) {
-  runFileTest("attribute.instance.gs.hlsl");
-}
-TEST_F(FileTest, AttributeInstanceMissingGS) {
-  runFileTest("attribute.instance.missing.gs.hlsl");
 }
 
 // For geometry shader primitive types
