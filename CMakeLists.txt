@@ -112,11 +112,16 @@ if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32 AND NOT CMAKE_C_COMPILER_ARCH
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
 
-# enable control flow guard; add CET Shadow Stack Compatible flag
+# enable control flow guard
 if(WIN32)
 add_compile_options(/guard:cf)
-add_link_options(/guard:cf /CETCOMPAT)
+add_link_options(/guard:cf)
 endif(WIN32)
+
+# Enable CET Shadow Stack
+if(WIN32 AND NOT (CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*"))
+add_link_options(/CETCOMPAT)
+endif(WIN32 AND NOT (CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*"))
 
 # HLSL Change Ends
 
