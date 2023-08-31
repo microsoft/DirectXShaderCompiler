@@ -1,52 +1,51 @@
-// RUN: %dxc -T ps_6_0 -E main %s -O0 | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main %s -O0 -spirv | FileCheck %s
 
 float4 main(float4 input: COLOR): SV_Target
 {
     return input;
 }
 
-// CHECK-WHOLE-SPIR-V:
-// ; SPIR-V
-// ; Version: 1.0
-// ; Generator: Google spiregg; 0
-// ; Bound: 20
-// ; Schema: 0
-//                OpCapability Shader
-//                OpMemoryModel Logical GLSL450
-//                OpEntryPoint Fragment %main "main" %in_var_COLOR %out_var_SV_Target
-//                OpExecutionMode %main OriginUpperLeft
-//                OpSource HLSL 600
-//                OpName %in_var_COLOR "in.var.COLOR"
-//                OpName %out_var_SV_Target "out.var.SV_Target"
-//                OpName %main "main"
-//                OpName %param_var_input "param.var.input"
-//                OpName %src_main "src.main"
-//                OpName %input "input"
-//                OpName %bb_entry "bb.entry"
-//                OpDecorate %in_var_COLOR Location 0
-//                OpDecorate %out_var_SV_Target Location 0
-//       %float = OpTypeFloat 32
-//     %v4float = OpTypeVector %float 4
-// %_ptr_Input_v4float = OpTypePointer Input %v4float
-// %_ptr_Output_v4float = OpTypePointer Output %v4float
-//        %void = OpTypeVoid
-//           %9 = OpTypeFunction %void
-// %_ptr_Function_v4float = OpTypePointer Function %v4float
-//          %16 = OpTypeFunction %v4float %_ptr_Function_v4float
-// %in_var_COLOR = OpVariable %_ptr_Input_v4float Input
-// %out_var_SV_Target = OpVariable %_ptr_Output_v4float Output
-//        %main = OpFunction %void None %9
-//          %10 = OpLabel
-// %param_var_input = OpVariable %_ptr_Function_v4float Function
-//          %13 = OpLoad %v4float %in_var_COLOR
-//                OpStore %param_var_input %13
-//          %14 = OpFunctionCall %v4float %src_main %param_var_input
-//                OpStore %out_var_SV_Target %14
-//                OpReturn
-//                OpFunctionEnd
-//    %src_main = OpFunction %v4float None %16
-//       %input = OpFunctionParameter %_ptr_Function_v4float
-//    %bb_entry = OpLabel
-//          %19 = OpLoad %v4float %input
-//                OpReturnValue %19
-//                OpFunctionEnd
+// CHECK: ; SPIR-V
+// CHECK-NEXT: ; Version: 1.0
+// CHECK-NEXT: ; Generator: Google spiregg; 0
+// CHECK-NEXT: ; Bound: 20
+// CHECK-NEXT: ; Schema: 0
+// CHECK-NEXT:                OpCapability Shader
+// CHECK-NEXT:                OpMemoryModel Logical GLSL450
+// CHECK-NEXT:                OpEntryPoint Fragment %main "main" %in_var_COLOR %out_var_SV_Target
+// CHECK-NEXT:                OpExecutionMode %main OriginUpperLeft
+// CHECK-NEXT:                OpSource HLSL 600
+// CHECK-NEXT:                OpName %in_var_COLOR "in.var.COLOR"
+// CHECK-NEXT:                OpName %out_var_SV_Target "out.var.SV_Target"
+// CHECK-NEXT:                OpName %main "main"
+// CHECK-NEXT:                OpName %param_var_input "param.var.input"
+// CHECK-NEXT:                OpName %src_main "src.main"
+// CHECK-NEXT:                OpName %input "input"
+// CHECK-NEXT:                OpName %bb_entry "bb.entry"
+// CHECK-NEXT:                OpDecorate %in_var_COLOR Location 0
+// CHECK-NEXT:                OpDecorate %out_var_SV_Target Location 0
+// CHECK-NEXT:       %float = OpTypeFloat 32
+// CHECK-NEXT:     %v4float = OpTypeVector %float 4
+// CHECK-NEXT: %_ptr_Input_v4float = OpTypePointer Input %v4float
+// CHECK-NEXT: %_ptr_Output_v4float = OpTypePointer Output %v4float
+// CHECK-NEXT:        %void = OpTypeVoid
+// CHECK-NEXT:           %9 = OpTypeFunction %void
+// CHECK-NEXT: %_ptr_Function_v4float = OpTypePointer Function %v4float
+// CHECK-NEXT:          %16 = OpTypeFunction %v4float %_ptr_Function_v4float
+// CHECK-NEXT: %in_var_COLOR = OpVariable %_ptr_Input_v4float Input
+// CHECK-NEXT: %out_var_SV_Target = OpVariable %_ptr_Output_v4float Output
+// CHECK-NEXT:        %main = OpFunction %void None %9
+// CHECK-NEXT:          %10 = OpLabel
+// CHECK-NEXT: %param_var_input = OpVariable %_ptr_Function_v4float Function
+// CHECK-NEXT:          %13 = OpLoad %v4float %in_var_COLOR
+// CHECK-NEXT:                OpStore %param_var_input %13
+// CHECK-NEXT:          %14 = OpFunctionCall %v4float %src_main %param_var_input
+// CHECK-NEXT:                OpStore %out_var_SV_Target %14
+// CHECK-NEXT:                OpReturn
+// CHECK-NEXT:                OpFunctionEnd
+// CHECK-NEXT:    %src_main = OpFunction %v4float None %16
+// CHECK-NEXT:       %input = OpFunctionParameter %_ptr_Function_v4float
+// CHECK-NEXT:    %bb_entry = OpLabel
+// CHECK-NEXT:          %19 = OpLoad %v4float %input
+// CHECK-NEXT:                OpReturnValue %19
+// CHECK-NEXT:                OpFunctionEnd

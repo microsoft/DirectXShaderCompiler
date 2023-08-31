@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "FileTestFixture.h"
-#include "WholeFileTestFixture.h"
 
 namespace {
 using clang::spirv::FileTest;

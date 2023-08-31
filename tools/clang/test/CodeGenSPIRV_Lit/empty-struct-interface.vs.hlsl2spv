@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main %s -O0 | FileCheck %s
+// RUN: %dxc -T vs_6_0 -E main %s -O0 -spirv | FileCheck %s
 
 // There is no interface variable for VSIn or VSOut empty structs (See OpEntryPoint below).
 
@@ -12,37 +12,37 @@ VSOut main(VSIn input)
   return result;
 }
 
-// CHECK-WHOLE-SPIR-V:
-// OpCapability Shader
-// OpMemoryModel Logical GLSL450
-// OpEntryPoint Vertex %main "main"
-// OpSource HLSL 600
-// OpName %main "main"
-// OpName %VSIn "VSIn"
-// OpName %param_var_input "param.var.input"
-// OpName %VSOut "VSOut"
-// OpName %src_main "src.main"
-// OpName %input "input"
-// OpName %bb_entry "bb.entry"
-// OpName %result "result"
-// %void = OpTypeVoid
-// %3 = OpTypeFunction %void
-// %VSIn = OpTypeStruct
-// %_ptr_Function_VSIn = OpTypePointer Function %VSIn
-// %VSOut = OpTypeStruct
-// %12 = OpTypeFunction %VSOut %_ptr_Function_VSIn
-// %_ptr_Function_VSOut = OpTypePointer Function %VSOut
-// %main = OpFunction %void None %3
-// %4 = OpLabel
-// %param_var_input = OpVariable %_ptr_Function_VSIn Function
-// %8 = OpCompositeConstruct %VSIn
-// %10 = OpFunctionCall %VSOut %src_main %param_var_input
-// OpReturn
-// OpFunctionEnd
-// %src_main = OpFunction %VSOut None %12
-// %input = OpFunctionParameter %_ptr_Function_VSIn
-// %bb_entry = OpLabel
-// %result = OpVariable %_ptr_Function_VSOut Function
-// %17 = OpLoad %VSOut %result
-// OpReturnValue %17
-// OpFunctionEnd
+
+// CHECK: OpCapability Shader
+// CHECK-NEXT: OpMemoryModel Logical GLSL450
+// CHECK-NEXT: OpEntryPoint Vertex %main "main"
+// CHECK-NEXT: OpSource HLSL 600
+// CHECK-NEXT: OpName %main "main"
+// CHECK-NEXT: OpName %VSIn "VSIn"
+// CHECK-NEXT: OpName %param_var_input "param.var.input"
+// CHECK-NEXT: OpName %VSOut "VSOut"
+// CHECK-NEXT: OpName %src_main "src.main"
+// CHECK-NEXT: OpName %input "input"
+// CHECK-NEXT: OpName %bb_entry "bb.entry"
+// CHECK-NEXT: OpName %result "result"
+// CHECK-NEXT: %void = OpTypeVoid
+// CHECK-NEXT: %3 = OpTypeFunction %void
+// CHECK-NEXT: %VSIn = OpTypeStruct
+// CHECK-NEXT: %_ptr_Function_VSIn = OpTypePointer Function %VSIn
+// CHECK-NEXT: %VSOut = OpTypeStruct
+// CHECK-NEXT: %12 = OpTypeFunction %VSOut %_ptr_Function_VSIn
+// CHECK-NEXT: %_ptr_Function_VSOut = OpTypePointer Function %VSOut
+// CHECK-NEXT: %main = OpFunction %void None %3
+// CHECK-NEXT: %4 = OpLabel
+// CHECK-NEXT: %param_var_input = OpVariable %_ptr_Function_VSIn Function
+// CHECK-NEXT: %8 = OpCompositeConstruct %VSIn
+// CHECK-NEXT: %10 = OpFunctionCall %VSOut %src_main %param_var_input
+// CHECK-NEXT: OpReturn
+// CHECK-NEXT: OpFunctionEnd
+// CHECK-NEXT: %src_main = OpFunction %VSOut None %12
+// CHECK-NEXT: %input = OpFunctionParameter %_ptr_Function_VSIn
+// CHECK-NEXT: %bb_entry = OpLabel
+// CHECK-NEXT: %result = OpVariable %_ptr_Function_VSOut Function
+// CHECK-NEXT: %17 = OpLoad %VSOut %result
+// CHECK-NEXT: OpReturnValue %17
+// CHECK-NEXT: OpFunctionEnd
