@@ -63,12 +63,16 @@ public:
 template<class GraphT,
 class SetType = llvm::SmallPtrSet<typename GraphTraits<GraphT>::NodeType*, 8>,
          bool ExtStorage = false, class GT = GraphTraits<GraphT> >
-class df_iterator : public std::iterator<std::forward_iterator_tag,
-                                         typename GT::NodeType, ptrdiff_t>,
-                    public df_iterator_storage<SetType, ExtStorage> {
-  typedef std::iterator<std::forward_iterator_tag,
-                        typename GT::NodeType, ptrdiff_t> super;
+class df_iterator : public df_iterator_storage<SetType, ExtStorage> {
 
+public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = typename GT::NodeType;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
+private:
   typedef typename GT::NodeType          NodeType;
   typedef typename GT::ChildIteratorType ChildItTy;
   typedef PointerIntPair<NodeType*, 1>   PointerIntTy;
@@ -77,7 +81,7 @@ class df_iterator : public std::iterator<std::forward_iterator_tag,
   // First element is node pointer, second is the 'next child' to visit
   // if the int in PointerIntTy is 0, the 'next child' to visit is invalid
   std::vector<std::pair<PointerIntTy, ChildItTy> > VisitStack;
-private:
+
   inline df_iterator(NodeType *Node) {
     this->Visited.insert(Node);
     VisitStack.push_back(std::make_pair(PointerIntTy(Node, 0), 
@@ -127,8 +131,6 @@ private:
   }
 
 public:
-  typedef typename super::pointer pointer;
-
   // Provide static begin and end methods as our public "constructors"
   static df_iterator begin(const GraphT &G) {
     return df_iterator(GT::getEntryNode(G));

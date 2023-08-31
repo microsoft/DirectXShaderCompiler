@@ -4987,8 +4987,8 @@ Sema::PerformObjectArgumentInitialization(Expr *From,
                                           NamedDecl *FoundDecl,
                                           CXXMethodDecl *Method) {
   QualType FromRecordType, DestType;
-  QualType ImplicitParamRecordType  =
-    Method->getThisType(Context)->getAs<PointerType>()->getPointeeType();
+  // HLSL Change - this is a reference.
+  QualType ImplicitParamRecordType = Method->getThisObjectType(Context);
 
   Expr::Classification FromClassification;
   if (const PointerType *PT = From->getType()->getAs<PointerType>()) {

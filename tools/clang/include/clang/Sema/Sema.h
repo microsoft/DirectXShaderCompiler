@@ -2736,6 +2736,13 @@ private:
                              const ObjCObjectPointerType *OPT,
                              bool ErrorRecovery);
 
+  /// HLSL Change Begin - back ported from llvm-project/c601377b2376.
+  bool addInstantiatedParametersToScope(
+      FunctionDecl *Function, const FunctionDecl *PatternDecl,
+      LocalInstantiationScope &Scope,
+      const MultiLevelTemplateArgumentList &TemplateArgs);
+  /// HLSL Change End - back ported from llvm-project/c601377b2376.
+
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
@@ -6976,6 +6983,12 @@ public:
                       const MultiLevelTemplateArgumentList &TemplateArgs,
                       SmallVectorImpl<QualType> &ParamTypes,
                       SmallVectorImpl<ParmVarDecl *> *OutParams = nullptr);
+  /// HLSL Change Begin - back ported from llvm-project/4409a83c2935.
+  bool SubstDefaultArgument(SourceLocation Loc, ParmVarDecl *Param,
+                            const MultiLevelTemplateArgumentList &TemplateArgs,
+                            bool ForCallExpr = false);
+  /// HLSL Change End - back ported from llvm-project/4409a83c2935.
+
   ExprResult SubstExpr(Expr *E,
                        const MultiLevelTemplateArgumentList &TemplateArgs);
 

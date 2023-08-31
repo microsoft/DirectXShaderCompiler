@@ -31,7 +31,7 @@ HRESULT DxcInitThreadMalloc() throw() {
   }
   else {
     // We capture the default malloc early to avoid potential failures later on.
-    HRESULT hrMalloc = CoGetMalloc(1, &g_pDefaultMalloc);
+    HRESULT hrMalloc = DxcCoGetMalloc(1, &g_pDefaultMalloc);
     if (FAILED(hrMalloc)) return hrMalloc;
   }
   DXASSERT(g_ThreadMallocTls == nullptr, "else InitThreadMalloc already called");
@@ -97,4 +97,32 @@ DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
 
 DxcThreadMalloc::~DxcThreadMalloc() {
     DxcSwapThreadMalloc(pPrior, nullptr);
+}
+
+void* DxcNew(std::size_t size) throw() {
+  void *ptr;
+  IMalloc* iMalloc = DxcGetThreadMallocNoRef();
+  if (iMalloc != nullptr) {
+    ptr = iMalloc->Alloc(size);
+  } else {
+    // DxcGetThreadMallocNoRef() returning null means the operator is called before DllMain
+    // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
+    // static linking is enabled. In that case fallback to the standard allocator
+    // and use CoTaskMemAlloc directly instead of CoGetMalloc, Alloc & Release for better perf.
+    ptr = CoTaskMemAlloc(size);
+  }
+  return ptr;
+}
+
+void DxcDelete(void *ptr) throw() {
+  IMalloc* iMalloc = DxcGetThreadMallocNoRef();
+  if (iMalloc != nullptr) {
+    iMalloc->Free(ptr);
+  } else {
+    // DxcGetThreadMallocNoRef() returning null means the operator is called before DllMain
+    // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
+    // static linking is enabled. In that case fallback to the standard allocator
+    // and use CoTaskMemFree directly instead of CoGetMalloc, Free & Release for better perf.
+    CoTaskMemFree(ptr);
+  }
 }

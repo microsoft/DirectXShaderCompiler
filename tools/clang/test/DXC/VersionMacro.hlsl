@@ -18,4 +18,9 @@
 // RUN: FileCheck --input-file=%t.v2021.hlsl.pp %s --check-prefix=HV21
 // HV21: 2021
 
+// Verify the default version:
+// RUN: %dxc  %s -P %t.default.hlsl.pp
+// RUN: FileCheck --input-file=%t.v2021.hlsl.pp %s --check-prefix=Default
+// Default: 2021
+
 __HLSL_VERSION

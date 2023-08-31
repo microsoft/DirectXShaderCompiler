@@ -15,6 +15,8 @@
 
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <algorithm>
 #include <memory>
 #include <array>
@@ -23,7 +25,6 @@
 #include <string>
 #include <map>
 #include <unordered_set>
-#include <strstream>
 #include <typeinfo>
 #include <iomanip>
 #include "dxc/Test/CompilationResult.h"
@@ -60,6 +61,7 @@
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
 #include <DirectXPackedVector.h>
+// clang-format on
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")
@@ -169,7 +171,6 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
   CComPtr<IWICBitmapEncoder> pEncoder;
   CComPtr<IWICBitmapFrameEncode> pFrameEncode;
   CComPtr<IStream> pStream;
-  CComPtr<IMalloc> pMalloc;
 
   struct PF {
     DXGI_FORMAT Format;
@@ -186,7 +187,6 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
 
   VERIFY_SUCCEEDED(ctx.Init());
   VERIFY_SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&pFactory));
-  VERIFY_SUCCEEDED(CoGetMalloc(1, &pMalloc));
   VERIFY_ARE_NOT_EQUAL(pFormat, Vals + _countof(Vals));
   VERIFY_SUCCEEDED(pFactory->CreateBitmapFromMemory(m_width, m_height, pFormat->PixelFormat, m_width * pFormat->PixelSize, m_width * m_height * pFormat->PixelSize, (BYTE *)pPixels, &pBitmap));
   VERIFY_SUCCEEDED(pFactory->CreateEncoder(GUID_ContainerFormatBmp, nullptr, &pEncoder));
@@ -8400,7 +8400,7 @@ template <typename T> void PrintMat(T *mat, int rows = 16, int cols = 16) {
 template <typename T>
 void LoadStoreRowCol(int M, int N, bool LEFT, int MEM_TYPE, size_t start,
                      uint32_t alignmentOrGsharedOffset, uint32_t elementStride,
-                     byte *src, byte *dst, bool testStore = false) {
+                     BYTE *src, BYTE *dst, bool testStore = false) {
     
     // For groupshared we repurpose the alignment arg to give coverage to store
     // offsets.
@@ -8431,8 +8431,8 @@ void LoadStoreRowCol(int M, int N, bool LEFT, int MEM_TYPE, size_t start,
 template <typename T>
 void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
                   size_t start, uint32_t stride,
-                  uint32_t alignmentOrGsharedOffset, bool transpose, byte *src,
-                  byte *dst, bool testStore = false) {
+                  uint32_t alignmentOrGsharedOffset, bool transpose, BYTE *src,
+                  BYTE *dst, bool testStore = false) {
 
   // For groupshared we repurpose the alignment arg to give coverage to store
   // offsets.
@@ -8736,7 +8736,7 @@ void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
       GenerateMatrix<T>((T *)Data.data(), NUM_ELEMENTS * 2, 0,
                         NUM_ELEMENTS * 2);
 
-      byte *src = (byte *)Data.data();
+      BYTE *src = (BYTE *)Data.data();
       uint32_t a = 4; // alignment OR if MEM_TYPE is groupshared, acts as
                       // additional storage offset in elements.
       size_t s = 16 * sizeof(T); // start
@@ -8752,39 +8752,39 @@ void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
       // Generate expected values
 
       // Load
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, s, lStride  , 0, false, src, (byte*)expectedMatrices[LOAD_LEFT_START ].data());
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, s, rStride  , 0, false, src, (byte*)expectedMatrices[LOAD_RIGHT_START].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, s, lStride  , 0, false, src, (BYTE*)expectedMatrices[LOAD_LEFT_START ].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, s, rStride  , 0, false, src, (BYTE*)expectedMatrices[LOAD_RIGHT_START].data());
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStrideP4, 0, false, src, (byte*)expectedMatrices[LOAD_LEFT_STRIDE_P4 ].data());
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStrideP4, 0, false, src, (byte*)expectedMatrices[LOAD_RIGHT_STRIDE_P4].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStrideP4, 0, false, src, (BYTE*)expectedMatrices[LOAD_LEFT_STRIDE_P4 ].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStrideP4, 0, false, src, (BYTE*)expectedMatrices[LOAD_RIGHT_STRIDE_P4].data());
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride*2, 0, false, src, (byte*)expectedMatrices[LOAD_LEFT_STRIDE_X2 ].data());
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride*2, 0, false, src, (byte*)expectedMatrices[LOAD_RIGHT_STRIDE_X2].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride*2, 0, false, src, (BYTE*)expectedMatrices[LOAD_LEFT_STRIDE_X2 ].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride*2, 0, false, src, (BYTE*)expectedMatrices[LOAD_RIGHT_STRIDE_X2].data());
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride  , a, false, src, (byte*)expectedMatrices[LOAD_LEFT_ALIGNMENT ].data());
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride  , a, false, src, (byte*)expectedMatrices[LOAD_RIGHT_ALIGNMENT].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride  , a, false, src, (BYTE*)expectedMatrices[LOAD_LEFT_ALIGNMENT ].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride  , a, false, src, (BYTE*)expectedMatrices[LOAD_RIGHT_ALIGNMENT].data());
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, ltStride  , 0, true , src, (byte*)expectedMatrices[LOAD_LEFT_TRANSPOSE ].data());
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStride  , 0, true , src, (byte*)expectedMatrices[LOAD_RIGHT_TRANSPOSE].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, ltStride  , 0, true , src, (BYTE*)expectedMatrices[LOAD_LEFT_TRANSPOSE ].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStride  , 0, true , src, (BYTE*)expectedMatrices[LOAD_RIGHT_TRANSPOSE].data());
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, s, ltStrideP4, a, true , src, (byte*)expectedMatrices[LOAD_LEFT_ALLPARAMS ].data());
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, s, rtStrideP4, a, true , src, (byte*)expectedMatrices[LOAD_RIGHT_ALLPARAMS].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, s, ltStrideP4, a, true , src, (BYTE*)expectedMatrices[LOAD_LEFT_ALLPARAMS ].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, s, rtStrideP4, a, true , src, (BYTE*)expectedMatrices[LOAD_RIGHT_ALLPARAMS].data());
                                                  
       // Store                           
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStrideP4, 0, false, src, (byte*)expectedMatrices[STORE_LEFT_STRIDE_P4 ].data(), true);
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStrideP4, 0, false, src, (byte*)expectedMatrices[STORE_RIGHT_STRIDE_P4].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStrideP4, 0, false, src, (BYTE*)expectedMatrices[STORE_LEFT_STRIDE_P4 ].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStrideP4, 0, false, src, (BYTE*)expectedMatrices[STORE_RIGHT_STRIDE_P4].data(), true);
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride*2, 0, false, src, (byte*)expectedMatrices[STORE_LEFT_STRIDE_X2 ].data(), true);
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride*2, 0, false, src, (byte*)expectedMatrices[STORE_RIGHT_STRIDE_X2].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride*2, 0, false, src, (BYTE*)expectedMatrices[STORE_LEFT_STRIDE_X2 ].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride*2, 0, false, src, (BYTE*)expectedMatrices[STORE_RIGHT_STRIDE_X2].data(), true);
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride  , a, false, src, (byte*)expectedMatrices[STORE_LEFT_ALIGNMENT ].data(), true);
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride  , a, false, src, (byte*)expectedMatrices[STORE_RIGHT_ALIGNMENT].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, lStride  , a, false, src, (BYTE*)expectedMatrices[STORE_LEFT_ALIGNMENT ].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride  , a, false, src, (BYTE*)expectedMatrices[STORE_RIGHT_ALIGNMENT].data(), true);
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, ltStride  , 0, true , src, (byte*)expectedMatrices[STORE_LEFT_TRANSPOSE ].data(), true);
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStride  , 0, true , src, (byte*)expectedMatrices[STORE_RIGHT_TRANSPOSE].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, ltStride  , 0, true , src, (BYTE*)expectedMatrices[STORE_LEFT_TRANSPOSE ].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStride  , 0, true , src, (BYTE*)expectedMatrices[STORE_RIGHT_TRANSPOSE].data(), true);
                                                  
-      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, ltStrideP4, a, true , src, (byte*)expectedMatrices[STORE_LEFT_ALLPARAMS ].data(), true);
-      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStrideP4, a, true , src, (byte*)expectedMatrices[STORE_RIGHT_ALLPARAMS].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, true , MEM_TYPE, DIM_K, DIM_K, 0, ltStrideP4, a, true , src, (BYTE*)expectedMatrices[STORE_LEFT_ALLPARAMS ].data(), true);
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStrideP4, a, true , src, (BYTE*)expectedMatrices[STORE_RIGHT_ALLPARAMS].data(), true);
 
     } else if (0 == _stricmp(Name, "g_bufInAccum") && doAccumTest) {
       std::fill(Data.begin(), Data.end(), (BYTE)0);
@@ -8792,7 +8792,7 @@ void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
                                static_cast<TYPE_ACC>(0),
                                static_cast<TYPE_ACC>(NUM_ELEMENTS * 2));
 
-      byte *src = (byte *)Data.data();
+      BYTE *src = (BYTE *)Data.data();
       uint32_t a = 4; // alignment OR if MEM_TYPE is groupshared, acts as
                       // additional storage offset in elements.
       size_t s = 16 * sizeof(TYPE_ACC); // start
@@ -8804,53 +8804,53 @@ void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
       uint32_t elemStrideP4 = sizeof(TYPE_ACC) + 4;
 
       if (disableFragmentTests == 0) {
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, s, 0, elemStride  , src, (byte*)expectedRowCols [LOAD_LEFT_START ].data());
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, s, 0, elemStride  , src, (byte*)expectedRowCols [LOAD_RIGHT_START].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, s, 0, elemStride  , src, (BYTE*)expectedRowCols [LOAD_LEFT_START ].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, s, 0, elemStride  , src, (BYTE*)expectedRowCols [LOAD_RIGHT_START].data());
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStrideP4, src, (byte*)expectedRowCols [LOAD_LEFT_STRIDE_P4 ].data());
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStrideP4, src, (byte*)expectedRowCols [LOAD_RIGHT_STRIDE_P4].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStrideP4, src, (BYTE*)expectedRowCols [LOAD_LEFT_STRIDE_P4 ].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStrideP4, src, (BYTE*)expectedRowCols [LOAD_RIGHT_STRIDE_P4].data());
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride*2, src, (byte*)expectedRowCols [LOAD_LEFT_STRIDE_X2 ].data());
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride*2, src, (byte*)expectedRowCols [LOAD_RIGHT_STRIDE_X2].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride*2, src, (BYTE*)expectedRowCols [LOAD_LEFT_STRIDE_X2 ].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride*2, src, (BYTE*)expectedRowCols [LOAD_RIGHT_STRIDE_X2].data());
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, a, elemStride  , src, (byte*)expectedRowCols [LOAD_LEFT_ALIGNMENT ].data());
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStride  , src, (byte*)expectedRowCols [LOAD_RIGHT_ALIGNMENT].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, a, elemStride  , src, (BYTE*)expectedRowCols [LOAD_LEFT_ALIGNMENT ].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStride  , src, (BYTE*)expectedRowCols [LOAD_RIGHT_ALIGNMENT].data());
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride  , src, (byte*)expectedRowCols [LOAD_LEFT_TRANSPOSE ].data());
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride  , src, (byte*)expectedRowCols [LOAD_RIGHT_TRANSPOSE].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride  , src, (BYTE*)expectedRowCols [LOAD_LEFT_TRANSPOSE ].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride  , src, (BYTE*)expectedRowCols [LOAD_RIGHT_TRANSPOSE].data());
                                                                                
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, s, a, elemStrideP4, src, (byte*)expectedRowCols [LOAD_LEFT_ALLPARAMS ].data());
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, s, a, elemStrideP4, src, (byte*)expectedRowCols [LOAD_RIGHT_ALLPARAMS].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, s, a, elemStrideP4, src, (BYTE*)expectedRowCols [LOAD_LEFT_ALLPARAMS ].data());
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, s, a, elemStrideP4, src, (BYTE*)expectedRowCols [LOAD_RIGHT_ALLPARAMS].data());
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStrideP4, src, (byte*)expectedRowCols [STORE_LEFT_STRIDE_P4 ].data(), true);
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStrideP4, src, (byte*)expectedRowCols [STORE_RIGHT_STRIDE_P4].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStrideP4, src, (BYTE*)expectedRowCols [STORE_LEFT_STRIDE_P4 ].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStrideP4, src, (BYTE*)expectedRowCols [STORE_RIGHT_STRIDE_P4].data(), true);
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride*2, src, (byte*)expectedRowCols [STORE_LEFT_STRIDE_X2 ].data(), true);
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride*2, src, (byte*)expectedRowCols [STORE_RIGHT_STRIDE_X2].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride*2, src, (BYTE*)expectedRowCols [STORE_LEFT_STRIDE_X2 ].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride*2, src, (BYTE*)expectedRowCols [STORE_RIGHT_STRIDE_X2].data(), true);
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, a, elemStride  , src, (byte*)expectedRowCols [STORE_LEFT_ALIGNMENT ].data(), true);
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStride  , src, (byte*)expectedRowCols [STORE_RIGHT_ALIGNMENT].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, a, elemStride  , src, (BYTE*)expectedRowCols [STORE_LEFT_ALIGNMENT ].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStride  , src, (BYTE*)expectedRowCols [STORE_RIGHT_ALIGNMENT].data(), true);
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride  , src, (byte*)expectedRowCols [STORE_LEFT_TRANSPOSE ].data(), true);
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride  , src, (byte*)expectedRowCols [STORE_RIGHT_TRANSPOSE].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, 0, elemStride  , src, (BYTE*)expectedRowCols [STORE_LEFT_TRANSPOSE ].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride  , src, (BYTE*)expectedRowCols [STORE_RIGHT_TRANSPOSE].data(), true);
                                                                    
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, a, elemStrideP4, src, (byte*)expectedRowCols [STORE_LEFT_ALLPARAMS ].data(), true);
-        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStrideP4, src, (byte*)expectedRowCols [STORE_RIGHT_ALLPARAMS].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, true , MEM_TYPE, 0, a, elemStrideP4, src, (BYTE*)expectedRowCols [STORE_LEFT_ALLPARAMS ].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStrideP4, src, (BYTE*)expectedRowCols [STORE_RIGHT_ALLPARAMS].data(), true);
       }
 
       // Accumulator
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, s, aStride  , 0, false, src, (byte*)expectedAccumulatorMatrices[LOAD_START     ].data());
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStrideP4, 0, false, src, (byte*)expectedAccumulatorMatrices[LOAD_STRIDE_P4 ].data());
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride*2, 0, false, src, (byte*)expectedAccumulatorMatrices[LOAD_STRIDE_X2 ].data());
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride  , a, false, src, (byte*)expectedAccumulatorMatrices[LOAD_ALIGNMENT ].data());
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStride  , 0, true , src, (byte*)expectedAccumulatorMatrices[LOAD_TRANSPOSE ].data());
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, s, atStrideP4, a, true , src, (byte*)expectedAccumulatorMatrices[LOAD_ALLPARAMS ].data());
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, s, aStride  , 0, false, src, (BYTE*)expectedAccumulatorMatrices[LOAD_START     ].data());
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStrideP4, 0, false, src, (BYTE*)expectedAccumulatorMatrices[LOAD_STRIDE_P4 ].data());
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride*2, 0, false, src, (BYTE*)expectedAccumulatorMatrices[LOAD_STRIDE_X2 ].data());
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride  , a, false, src, (BYTE*)expectedAccumulatorMatrices[LOAD_ALIGNMENT ].data());
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStride  , 0, true , src, (BYTE*)expectedAccumulatorMatrices[LOAD_TRANSPOSE ].data());
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, s, atStrideP4, a, true , src, (BYTE*)expectedAccumulatorMatrices[LOAD_ALLPARAMS ].data());
 
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStrideP4, 0, false, src, (byte*)expectedAccumulatorMatrices[STORE_STRIDE_P4].data(), true);
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride*2, 0, false, src, (byte*)expectedAccumulatorMatrices[STORE_STRIDE_X2].data(), true);
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride  , a, false, src, (byte*)expectedAccumulatorMatrices[STORE_ALIGNMENT].data(), true);
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStride  , 0, true , src, (byte*)expectedAccumulatorMatrices[STORE_TRANSPOSE].data(), true);
-      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStrideP4, a, true , src, (byte*)expectedAccumulatorMatrices[STORE_ALLPARAMS].data(), true);
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStrideP4, 0, false, src, (BYTE*)expectedAccumulatorMatrices[STORE_STRIDE_P4].data(), true);
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride*2, 0, false, src, (BYTE*)expectedAccumulatorMatrices[STORE_STRIDE_X2].data(), true);
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride  , a, false, src, (BYTE*)expectedAccumulatorMatrices[STORE_ALIGNMENT].data(), true);
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStride  , 0, true , src, (BYTE*)expectedAccumulatorMatrices[STORE_TRANSPOSE].data(), true);
+      LoadStoreMat<TYPE_ACC>(DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStrideP4, a, true , src, (BYTE*)expectedAccumulatorMatrices[STORE_ALLPARAMS].data(), true);
     } else {
       std::fill(Data.begin(), Data.end(), (BYTE)0);
     }
@@ -13632,12 +13632,26 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     {
       CComPtr<IDxcAssembler> pAssembler;
       CComPtr<IDxcOperationResult> pResult;
-      VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-      VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(rewrittenDisassembly, &pResult));
+      CComPtr<IDxcOperationResult> pValidationResult;
+      CComPtr<IDxcValidator> pValidator;
+
       HRESULT status;
+      HRESULT validationStatus;
+      VERIFY_SUCCEEDED(
+          dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+      VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(rewrittenDisassembly, &pResult));
       VERIFY_SUCCEEDED(pResult->GetStatus(&status));
       VERIFY_SUCCEEDED(status);
       VERIFY_SUCCEEDED(pResult->GetResult(&assembledShader));
+
+      // now validate the rewritten disassembly and sign the shader
+      VERIFY_SUCCEEDED(
+          dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+      VERIFY_SUCCEEDED(pValidator->Validate(
+          assembledShader, DxcValidatorFlags_InPlaceEdit, &pValidationResult));
+      VERIFY_SUCCEEDED(pValidationResult->GetStatus(&validationStatus));
+      VERIFY_SUCCEEDED(validationStatus);
     }
 
     // Find root signature part in container
@@ -13694,7 +13708,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
 
   // The input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 normal float numbers.
   // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
-  std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
+  std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, -122.900f, .122900f};
   std::vector<float> *Validation_Input = &Validation_Input_Vec;
 
   std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};

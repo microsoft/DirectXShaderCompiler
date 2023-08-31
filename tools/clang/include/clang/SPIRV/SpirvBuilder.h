@@ -706,9 +706,6 @@ public:
   void decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
                          SourceLocation);
 
-  /// \brief Decorates the given target with PerVertexKHR
-  void decoratePerVertexKHR(SpirvInstruction *argInst, SourceLocation);
-
   /// \brief Decorates the given target with Coherent
   void decorateCoherent(SpirvInstruction *target, SourceLocation);
 

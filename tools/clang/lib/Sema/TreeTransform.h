@@ -2344,7 +2344,7 @@ public:
                                 bool isImplicit) {
     getSema().CheckCXXThisCapture(ThisLoc);
     // HLSL Change Begin - adjust this from T* to T&-like
-    if (getSema().getLangOpts().HLSL && ThisType.getTypePtr()->isPointerType())
+    if (getSema().getLangOpts().HLSL)
       return getSema().genereateHLSLThis(ThisLoc, ThisType, isImplicit);
     // HLSL Change End - adjust this from T* to T&-like
     return new (getSema().Context) CXXThisExpr(ThisLoc, ThisType, isImplicit);
@@ -9777,7 +9777,7 @@ TreeTransform<Derived>::TransformCXXDependentScopeMemberExpr(
   } else {
     OldBase = nullptr;
     BaseType = getDerived().TransformType(E->getBaseType());
-    ObjectType = BaseType->getAs<PointerType>()->getPointeeType();
+    ObjectType = BaseType->getPointeeType();
   }
 
   // Transform the first part of the nested-name-specifier that qualifies

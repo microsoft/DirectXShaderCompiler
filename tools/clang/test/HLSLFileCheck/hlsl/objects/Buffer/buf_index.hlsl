@@ -41,7 +41,7 @@ float4 main(uint i:I) : SV_Target {
 // FCGL-SAME: %dx.types.ResourceProperties { i32 {{[0-9]+}}, i32 {{[0-9]+}} },
 // FCGL-SAME: %"class.Buffer<vector<float, 4> >" undef)
 
-// FCGL: {{%.+}} = call <4 x float>* @"dx.hl.subscript.[].<4 x float>* (i32, %dx.types.Handle, i32)"
+// FCGL: {{%.+}} = call <4 x float>* @"dx.hl.subscript.[].rn.<4 x float>* (i32, %dx.types.Handle, i32)"
 // FCGL-SAME: (i32 0, %dx.types.Handle [[AnnHandle]], i32 2)
 
 

@@ -1026,6 +1026,7 @@ static const ArTypeObjectKind g_AnyTT[] =
 static const ArTypeObjectKind g_ObjectTT[] =
 {
   AR_TOBJ_OBJECT,
+  AR_TOBJ_STRING,
   AR_TOBJ_UNKNOWN
 };
 
@@ -1229,6 +1230,13 @@ static const ArBasicKind g_AnyCT[] =
   AR_BASIC_BOOL,
   AR_BASIC_INT64,
   AR_BASIC_UINT64,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnySamplerCT[] =
+{
+  AR_OBJECT_SAMPLER,
+  AR_OBJECT_SAMPLERCOMPARISON,
   AR_BASIC_UNKNOWN
 };
 
@@ -1512,64 +1520,64 @@ static const ArBasicKind g_AnyOutputRecordCT[] =
 };
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
-const ArBasicKind* g_LegalIntrinsicCompTypes[] =
-{
-  g_NullCT,             // LICOMPTYPE_VOID
-  g_BoolCT,             // LICOMPTYPE_BOOL
-  g_IntCT,              // LICOMPTYPE_INT
-  g_UIntCT,             // LICOMPTYPE_UINT
-  g_AnyIntCT,           // LICOMPTYPE_ANY_INT
-  g_AnyInt32CT,         // LICOMPTYPE_ANY_INT32
-  g_UIntOnlyCT,         // LICOMPTYPE_UINT_ONLY
-  g_FloatCT,            // LICOMPTYPE_FLOAT
-  g_AnyFloatCT,         // LICOMPTYPE_ANY_FLOAT
-  g_FloatLikeCT,        // LICOMPTYPE_FLOAT_LIKE
-  g_FloatDoubleCT,      // LICOMPTYPE_FLOAT_DOUBLE
-  g_DoubleCT,           // LICOMPTYPE_DOUBLE
-  g_DoubleOnlyCT,       // LICOMPTYPE_DOUBLE_ONLY
-  g_NumericCT,          // LICOMPTYPE_NUMERIC
-  g_Numeric32CT,        // LICOMPTYPE_NUMERIC32
-  g_Numeric32OnlyCT,    // LICOMPTYPE_NUMERIC32_ONLY
-  g_AnyCT,              // LICOMPTYPE_ANY
-  g_Sampler1DCT,        // LICOMPTYPE_SAMPLER1D
-  g_Sampler2DCT,        // LICOMPTYPE_SAMPLER2D
-  g_Sampler3DCT,        // LICOMPTYPE_SAMPLER3D
-  g_SamplerCUBECT,      // LICOMPTYPE_SAMPLERCUBE
-  g_SamplerCmpCT,       // LICOMPTYPE_SAMPLERCMP
-  g_SamplerCT,          // LICOMPTYPE_SAMPLER
-  g_StringCT,           // LICOMPTYPE_STRING
-  g_WaveCT,             // LICOMPTYPE_WAVE
-  g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_Float16CT,          // LICOMPTYPE_FLOAT16
-  g_Int16CT,            // LICOMPTYPE_INT16
-  g_UInt16CT,           // LICOMPTYPE_UINT16
-  g_Numeric16OnlyCT,    // LICOMPTYPE_NUMERIC16_ONLY
-  g_RayDescCT,          // LICOMPTYPE_RAYDESC
-  g_AccelerationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
-  g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
-  g_Texture2DCT,        // LICOMPTYPE_TEXTURE2D
-  g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
-  g_ResourceCT,         // LICOMPTYPE_RESOURCE
-  g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
-  g_Int64OnlyCT,        // LICOMPTYPE_INT64_ONLY
-  g_AnyInt64CT,         // LICOMPTYPE_ANY_INT64
-  g_Float32OnlyCT,      // LICOMPTYPE_FLOAT32_ONLY
-  g_Int8_4PackedCT,     // LICOMPTYPE_INT8_4PACKED
-  g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
-  g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
-  g_SInt16Or32OnlyCT,   // LICOMPTYPE_SINT16_OR_32_ONLY
+const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
+    g_NullCT,               // LICOMPTYPE_VOID
+    g_BoolCT,               // LICOMPTYPE_BOOL
+    g_IntCT,                // LICOMPTYPE_INT
+    g_UIntCT,               // LICOMPTYPE_UINT
+    g_AnyIntCT,             // LICOMPTYPE_ANY_INT
+    g_AnyInt32CT,           // LICOMPTYPE_ANY_INT32
+    g_UIntOnlyCT,           // LICOMPTYPE_UINT_ONLY
+    g_FloatCT,              // LICOMPTYPE_FLOAT
+    g_AnyFloatCT,           // LICOMPTYPE_ANY_FLOAT
+    g_FloatLikeCT,          // LICOMPTYPE_FLOAT_LIKE
+    g_FloatDoubleCT,        // LICOMPTYPE_FLOAT_DOUBLE
+    g_DoubleCT,             // LICOMPTYPE_DOUBLE
+    g_DoubleOnlyCT,         // LICOMPTYPE_DOUBLE_ONLY
+    g_NumericCT,            // LICOMPTYPE_NUMERIC
+    g_Numeric32CT,          // LICOMPTYPE_NUMERIC32
+    g_Numeric32OnlyCT,      // LICOMPTYPE_NUMERIC32_ONLY
+    g_AnyCT,                // LICOMPTYPE_ANY
+    g_Sampler1DCT,          // LICOMPTYPE_SAMPLER1D
+    g_Sampler2DCT,          // LICOMPTYPE_SAMPLER2D
+    g_Sampler3DCT,          // LICOMPTYPE_SAMPLER3D
+    g_SamplerCUBECT,        // LICOMPTYPE_SAMPLERCUBE
+    g_SamplerCmpCT,         // LICOMPTYPE_SAMPLERCMP
+    g_SamplerCT,            // LICOMPTYPE_SAMPLER
+    g_StringCT,             // LICOMPTYPE_STRING
+    g_WaveCT,               // LICOMPTYPE_WAVE
+    g_UInt64CT,             // LICOMPTYPE_UINT64
+    g_Float16CT,            // LICOMPTYPE_FLOAT16
+    g_Int16CT,              // LICOMPTYPE_INT16
+    g_UInt16CT,             // LICOMPTYPE_UINT16
+    g_Numeric16OnlyCT,      // LICOMPTYPE_NUMERIC16_ONLY
+    g_RayDescCT,            // LICOMPTYPE_RAYDESC
+    g_AccelerationStructCT, // LICOMPTYPE_ACCELERATION_STRUCT,
+    g_UDTCT,                // LICOMPTYPE_USER_DEFINED_TYPE
+    g_Texture2DCT,          // LICOMPTYPE_TEXTURE2D
+    g_Texture2DArrayCT,     // LICOMPTYPE_TEXTURE2DARRAY
+    g_ResourceCT,           // LICOMPTYPE_RESOURCE
+    g_Int32OnlyCT,          // LICOMPTYPE_INT32_ONLY
+    g_Int64OnlyCT,          // LICOMPTYPE_INT64_ONLY
+    g_AnyInt64CT,           // LICOMPTYPE_ANY_INT64
+    g_Float32OnlyCT,        // LICOMPTYPE_FLOAT32_ONLY
+    g_Int8_4PackedCT,       // LICOMPTYPE_INT8_4PACKED
+    g_UInt8_4PackedCT,      // LICOMPTYPE_UINT8_4PACKED
+    g_AnyInt16Or32CT,       // LICOMPTYPE_ANY_INT16_OR_32
+    g_SInt16Or32OnlyCT,     // LICOMPTYPE_SINT16_OR_32_ONLY
+    g_AnySamplerCT,         // LICOMPTYPE_ANY_SAMPLER
 
-  g_ByteAddressBufferCT,      // LICOMPTYPE_BYTEADDRESSBUFFER
-  g_RWByteAddressBufferCT,    // LICOMPTYPE_RWBYTEADDRESSBUFFER
-  g_WaveMatrixLeftCT,         // LICOMPTYPE_WAVE_MATRIX_LEFT
-  g_WaveMatrixRightCT,        // LICOMPTYPE_WAVE_MATRIX_RIGHT
-  g_WaveMatrixLeftColAccCT,      // LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC
-  g_WaveMatrixRightRowAccCT,     // LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC
-  g_WaveMatrixAccumulatorCT,  // LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR
-  g_NodeRecordOrUAVCT,  // LICOMPTYPE_NODE_RECORD_OR_UAV
-  g_AnyOutputRecordCT,  // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
-  g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
-  g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
+    g_ByteAddressBufferCT,  // LICOMPTYPE_BYTEADDRESSBUFFER
+    g_RWByteAddressBufferCT,// LICOMPTYPE_RWBYTEADDRESSBUFFER
+    g_WaveMatrixLeftCT,     // LICOMPTYPE_WAVE_MATRIX_LEFT
+    g_WaveMatrixRightCT,    // LICOMPTYPE_WAVE_MATRIX_RIGHT
+    g_WaveMatrixLeftColAccCT,// LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC
+    g_WaveMatrixRightRowAccCT,// LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC
+    g_WaveMatrixAccumulatorCT,// LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR
+    g_NodeRecordOrUAVCT,    // LICOMPTYPE_NODE_RECORD_OR_UAV
+    g_AnyOutputRecordCT,    // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
+    g_GroupNodeOutputRecordsCT,// LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
+    g_ThreadNodeOutputRecordsCT,// LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -2426,14 +2434,21 @@ static bool CombineBasicTypes(ArBasicKind LeftKind,
                               ArBasicKind RightKind,
                               _Out_ ArBasicKind* pOutKind)
 {
-  if ((LeftKind < 0 || LeftKind >= AR_BASIC_COUNT) ||
-    (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
+  // Make sure the kinds are both valid
+  if ((LeftKind < 0 || LeftKind >= AR_BASIC_MAXIMUM_COUNT) ||
+      (RightKind < 0 || RightKind >= AR_BASIC_MAXIMUM_COUNT)) {
     return false;
   }
 
+  // If kinds match perfectly, succeed without requiring they be basic
   if (LeftKind == RightKind) {
     *pOutKind = LeftKind;
     return true;
+  }
+
+  // More complicated combination requires that the kinds be basic
+  if (LeftKind >= AR_BASIC_COUNT || RightKind >= AR_BASIC_COUNT) {
+    return false;
   }
 
   UINT uLeftProps = GetBasicKindProps(LeftKind);
@@ -6789,11 +6804,7 @@ bool HLSLExternalSource::MatchArguments(
     if (AR_TOBJ_UNKNOWN != Template[i]) {
       if ((AR_TOBJ_SCALAR == Template[i]) && (AR_TOBJ_VECTOR == *pTT || AR_TOBJ_MATRIX == *pTT)) {
         Template[i] = *pTT;
-      }
-      else if(AR_TOBJ_STRING == Template[i] && *pTT == AR_TOBJ_OBJECT) {
-        Template[i] = *pTT;
-      }
-      else {
+      } else {
         while (AR_TOBJ_UNKNOWN != *pTT) {
           if (Template[i] == *pTT)
             break;
@@ -6956,9 +6967,9 @@ bool HLSLExternalSource::MatchArguments(
         badArgIdx = std::min(badArgIdx, i);
       }
       pNewType = objectElement;
-    }
-    else if (pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2D
-      || pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2DARRAY) {
+    } else if (i != 0 && Template[pArgument->uTemplateId] == AR_TOBJ_OBJECT) {
+      // For object parameters, just use the argument type
+      // Return type is assigned below
       pNewType = Args[i - 1]->getType().getNonReferenceType();
     } else if (pArgument->uLegalComponentTypes ==
                LICOMPTYPE_NODE_RECORD_OR_UAV) {
@@ -7136,6 +7147,12 @@ bool HLSLExternalSource::MatchArguments(
              "In the absence of varargs, a successful match would indicate we "
              "have as many arguments and types as the intrinsic template");
   }
+
+  // For object return types that need to match arguments, we need to slot in
+  // the full type here Can't do it sooner because when return is encountered
+  // above, the other arg types haven't been set
+  if (Template[pIntrinsic->pArgs[0].uTemplateId] == AR_TOBJ_OBJECT)
+    argTypes[0] = argTypes[pIntrinsic->pArgs[0].uComponentTypeId];
 
   return badArgIdx == MaxIntrinsicArgs;
 #undef CAB

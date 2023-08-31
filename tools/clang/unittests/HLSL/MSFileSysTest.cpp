@@ -9,8 +9,10 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <stdint.h>
-#include <dxc/Support/WinIncludes.h>
+#include "dxc/Support/WinIncludes.h"
 #include "WexTestClass.h"
 #include "dxc/Test/HlslTestUtils.h"
 
@@ -23,6 +25,7 @@
 #include <algorithm>
 #include <vector>
 #include <memory>
+// clang-format on
 
 using namespace llvm;
 using namespace llvm::sys;

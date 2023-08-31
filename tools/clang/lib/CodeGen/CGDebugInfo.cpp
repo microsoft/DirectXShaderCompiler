@@ -1117,11 +1117,12 @@ llvm::DISubroutineType *CGDebugInfo::getOrCreateInstanceMethodType(
   const CXXRecordDecl *RD = ThisPtr->getPointeeCXXRecordDecl();
   if (isa<ClassTemplateSpecializationDecl>(RD)) {
     // Create pointer type directly in this case.
-    const PointerType *ThisPtrTy = cast<PointerType>(ThisPtr);
-    QualType PointeeTy = ThisPtrTy->getPointeeType();
+    // HLSL Change Begin - This is a reference.
+    QualType PointeeTy = ThisPtr->getPointeeType();
     unsigned AS = CGM.getContext().getTargetAddressSpace(PointeeTy);
     uint64_t Size = CGM.getTarget().getPointerWidth(AS);
-    uint64_t Align = CGM.getContext().getTypeAlign(ThisPtrTy);
+    uint64_t Align = CGM.getContext().getTypeAlign(ThisPtr.getTypePtr());
+    // HLSL Change End - This is a reference.
     llvm::DIType *PointeeType = getOrCreateType(PointeeTy, Unit);
     llvm::DIType *ThisPtrType =
         DBuilder.createPointerType(PointeeType, Size, Align);

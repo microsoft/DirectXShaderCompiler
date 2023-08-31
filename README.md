@@ -47,7 +47,7 @@ Building DXC requires:
 
 * [Git](http://git-scm.com/downloads).
 * [Python](https://www.python.org/downloads/) - version 3.x is required
-* [CMake](https://cmake.org/download/) - version >= 3.10
+* [CMake](https://cmake.org/download/) - version >= 3.17.2
     * The bundled version with Visual Studio works for Windows.
 * The C++ 14 compiler and runtime of your choosing.
     * DXC is known to compile with recent versions of GCC, Clang and MSVC.

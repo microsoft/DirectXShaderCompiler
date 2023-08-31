@@ -57,7 +57,10 @@ bool ShaderModel::IsValidForDxil() const {
   switch (m_Major) {
     case 6: {
       switch (m_Minor) {
+      // clang-format off
+      // Python lines need to be not formatted.
       /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_is_valid_for_dxil()</py>*/
+      // clang-format on
       // VALRULE-TEXT:BEGIN
       case 0:
       case 1:
@@ -229,7 +232,10 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   switch (pszName[Idx++]) {
     case '0': Minor = 0;  break;
     case '1': Minor = 1;  break;
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_shader_model_by_name()</py>*/
+  // clang-format on
   // VALRULE-TEXT:BEGIN
   case '2':
     if (Major == 6) {
@@ -335,7 +341,10 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
   DXASSERT(IsValidForDxil(), "invalid shader model");
   ValMajor = 1;
   switch (m_Minor) {
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_min_validator_version()</py>*/
+  // clang-format on
   // VALRULE-TEXT:BEGIN
   case 0:
     ValMinor = 0;

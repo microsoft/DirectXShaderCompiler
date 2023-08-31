@@ -89,6 +89,7 @@ class TestingConfig:
                     'INCLUDE' : os.environ.get('INCLUDE',''),
                     'PATHEXT' : os.environ.get('PATHEXT',''),
                     'PYTHONUNBUFFERED' : '1',
+                    'USERPROFILE' : os.environ.get('USERPROFILE',''),
                     'TEMP' : os.environ.get('TEMP',''),
                     'TMP' : os.environ.get('TMP',''),
                     })

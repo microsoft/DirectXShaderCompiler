@@ -9,6 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
@@ -38,6 +40,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 
 #include "dxc/HLSL/DxilFallbackLayerPass.h"
+// clang-format on
 
 using namespace llvm;
 using namespace hlsl;

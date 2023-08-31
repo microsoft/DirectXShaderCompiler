@@ -13,6 +13,8 @@
 #define UNICODE
 #endif
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <memory>
 #include <vector>
 #include <string>
@@ -57,6 +59,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+// clang-format on
 
 using namespace std;
 using namespace hlsl_test;
@@ -254,14 +257,20 @@ public:
   TEST_METHOD(BatchValidation)
   TEST_METHOD(BatchPIX)
 
+  TEST_METHOD(CodeGenHashStabilityD3DReflect)
+  TEST_METHOD(CodeGenHashStabilityDisassembler)
+  TEST_METHOD(CodeGenHashStabilityDXIL)
+  TEST_METHOD(CodeGenHashStabilityHLSL)
+  TEST_METHOD(CodeGenHashStabilityInfra)
+  TEST_METHOD(CodeGenHashStabilityPIX)
+  TEST_METHOD(CodeGenHashStabilityRewriter)
+  TEST_METHOD(CodeGenHashStabilitySamples)
+  TEST_METHOD(CodeGenHashStabilityShaderTargets)
+  TEST_METHOD(CodeGenHashStabilityValidation)
+
   TEST_METHOD(SubobjectCodeGenErrors)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
-  END_TEST_METHOD()
-
-  // Batch directories
-  BEGIN_TEST_METHOD(CodeGenHashStability)
-      TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
@@ -2454,7 +2463,6 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   VERIFY_IS_NOT_NULL(pPartHeader);
 }
 
-#if _WIN32 // API -setrootsignature requires reflection, which isn't supported on non-win
 TEST_F(CompilerTest, CompileThenSetRootSignatureThenValidate) {
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
@@ -2589,7 +2597,7 @@ TEST_F(CompilerTest, CompileThenSetRootSignatureThenValidate) {
                              pRSBlobReplace->GetBufferPointer(),
                              pRSBlob->GetBufferSize()));
 }
-#endif // _WIN32 - API -setrootsignature requires reflection, which isn't supported on non-win
+
 TEST_F(CompilerTest, CompileSetPrivateThenWithStripPrivate) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -3759,7 +3767,8 @@ TEST_F(CompilerTest, CompileHlsl2022ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
-#if defined(_WIN32) && !(defined(_M_ARM64) || defined(_M_ARM64EC)) // this test has issues on ARM64; disable until we figure out what it going on
+// this test has issues on ARM64 and clang_cl, disable until we figure out what it going on
+#if defined(_WIN32) && !(defined(_M_ARM64) || defined(_M_ARM64EC) || defined(__clang__))
 
 #pragma fenv_access(on)
 #pragma optimize("", off)
@@ -4272,13 +4281,44 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
   }
 }
 
+TEST_F(CompilerTest, CodeGenHashStabilityD3DReflect) {
+  CodeGenTestCheckBatchHash(L"d3dreflect");
+}
 
-#ifdef _WIN32
-TEST_F(CompilerTest, CodeGenHashStability) {
-#else
-TEST_F(CompilerTest, DISABLED_CodeGenHashStability) {
-#endif
-  CodeGenTestCheckBatchHash(L"");
+TEST_F(CompilerTest, CodeGenHashStabilityDisassembler) {
+  CodeGenTestCheckBatchHash(L"disassembler");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityDXIL) {
+  CodeGenTestCheckBatchHash(L"dxil");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityHLSL) {
+  CodeGenTestCheckBatchHash(L"hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityInfra) {
+  CodeGenTestCheckBatchHash(L"infra");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityPIX) {
+  CodeGenTestCheckBatchHash(L"pix");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityRewriter) {
+  CodeGenTestCheckBatchHash(L"rewriter");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilitySamples) {
+  CodeGenTestCheckBatchHash(L"samples");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityShaderTargets) {
+  CodeGenTestCheckBatchHash(L"shader_targets");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityValidation) {
+  CodeGenTestCheckBatchHash(L"validation");
 }
 
 TEST_F(CompilerTest, BatchD3DReflect) {

@@ -8,7 +8,7 @@
 
 // CHECK: %gl_TessLevelInner = OpVariable %_ptr_Output__arr_float_uint_2 Output
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 [domain("quad")]
 [partitioning("fractional_odd")]

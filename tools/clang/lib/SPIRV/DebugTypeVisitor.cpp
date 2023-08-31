@@ -162,6 +162,14 @@ void DebugTypeVisitor::lowerDebugTypeMembers(
     assert(false && "Uknown DeclContext for DebugTypeMember generation");
   }
 
+  // Note:
+  //    The NonSemantic.Shader.DebugInfo.100 way to define member functions
+  //    breaks both the NonSemantic and SPIR-V specification. Until this is
+  //    resolved, we cannot emit debug instructions for member functions without
+  //    creating invalid forward references.
+  //
+  //    See https://github.com/KhronosGroup/SPIRV-Registry/issues/203
+#if 0
   // Push member functions to DebugTypeComposite Members operand.
   for (auto *subDecl : decl->decls()) {
     if (const auto *methodDecl = dyn_cast<FunctionDecl>(subDecl)) {
@@ -174,6 +182,7 @@ void DebugTypeVisitor::lowerDebugTypeMembers(
       }
     }
   }
+#endif
 }
 
 SpirvDebugTypeTemplate *DebugTypeVisitor::lowerDebugTypeTemplate(

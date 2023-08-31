@@ -28,15 +28,15 @@ stages:
       submodules: true
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest -enable-lit
+        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest
       displayName: 'Building'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) noexec -enable-lit
+        call utils\hct\hcttest.cmd -$(configuration) noexec
       displayName: 'DXIL Tests'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) spirv_only -enable-lit
+        call utils\hct\hcttest.cmd -$(configuration) spirv_only
       displayName: 'SPIRV Tests'
 
   - job: Nix

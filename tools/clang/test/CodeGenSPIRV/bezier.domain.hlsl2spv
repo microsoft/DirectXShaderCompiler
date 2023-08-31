@@ -1,4 +1,4 @@
-// RUN: %dxc -T ds_6_0 -E BezierEvalDS %s | FileCheck %s
+// RUN: %dxc -T ds_6_0 -E BezierEvalDS %s -O0 | FileCheck %s
 
 #define MAX_POINTS 4
 

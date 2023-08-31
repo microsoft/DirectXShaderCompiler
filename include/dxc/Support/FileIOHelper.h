@@ -12,6 +12,7 @@
 #pragma once
 
 #include "Global.h"
+#include "dxc/Support/WinIncludes.h"
 
 #ifndef _ATL_DECLSPEC_ALLOCATOR
 #define _ATL_DECLSPEC_ALLOCATOR

@@ -9,7 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Support/Debug.h"
+#include "llvm/Support/Debug.h" // Must be included first.
+
 #include "DxbcConverterImpl.h"
 #include "DxilConvPasses/DxilCleanup.h"
 #include "dxc/DxilContainer/DxilContainer.h"
@@ -6806,7 +6807,8 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       return m_pBuilder->CreateBitCast(m_pBuilder->CreateSExt(pValue, Type::getInt16Ty(m_Ctx)), Type::getHalfTy(m_Ctx));
     case CompType::Kind::F32:
       return m_pBuilder->CreateBitCast(m_pBuilder->CreateSExt(pValue, Type::getInt32Ty(m_Ctx)), Type::getFloatTy(m_Ctx));
-    default: LLVM_FALLTHROUGH;
+    default:
+      break;
     }
     break;
 
@@ -6830,7 +6832,8 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       pValue = m_pBuilder->CreateSExt(pValue, Type::getInt32Ty(m_Ctx));
       return CreateBitCast(pValue, CompType::getI32(), CompType::getF32());
     }
-    default: LLVM_FALLTHROUGH;
+    default:
+      break;
     }
     break;
 
@@ -6854,7 +6857,8 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       pValue = m_pBuilder->CreateZExt(pValue, Type::getInt32Ty(m_Ctx));
       return CreateBitCast(pValue, CompType::getI32(), CompType::getF32());
     }
-    default: LLVM_FALLTHROUGH;
+    default:
+      break;
     }
     break;
 
@@ -6876,7 +6880,8 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
     }
     case CompType::Kind::F32:
       return CreateBitCast(pValue, CompType::getI32(), CompType::getF32());
-    default: LLVM_FALLTHROUGH;
+    default:
+      break;
     }
     break;
 
@@ -6896,7 +6901,8 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
     }
     case CompType::Kind::F32:
       return m_pBuilder->CreateFPExt(pValue, Type::getFloatTy(m_Ctx));
-    default: LLVM_FALLTHROUGH;
+    default:
+      break;
     }
     break;
 
@@ -6916,11 +6922,13 @@ Value *DxbcConverter::CastDxbcValue(Value *pValue, const CompType &SrcType, cons
       return CreateBitCast(pValue, CompType::getF32(), CompType::getI32());
     case CompType::Kind::F16:
       return m_pBuilder->CreateFPTrunc(pValue, Type::getHalfTy(m_Ctx));
-    default: LLVM_FALLTHROUGH;
+    default:
+      break;
     }
     break;
 
-  default: LLVM_FALLTHROUGH;
+  default:
+    break;
   }
 
   DXASSERT(false, "unsupported cast combination");
@@ -7083,7 +7091,8 @@ CompType DxbcConverter::InferOperandType(const D3D10ShaderBinary::CInstruction &
       }
     }
 
-    default: LLVM_FALLTHROUGH;
+    default:
+      break;
     }
   }
 

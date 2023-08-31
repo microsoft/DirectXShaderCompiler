@@ -247,11 +247,6 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                  loc);
     break;
   }
-  case spv::Decoration::PerVertexKHR: {
-    addExtension(Extension::KHR_fragment_shader_barycentric, "PerVertexKHR", loc);
-    addCapability(spv::Capability::FragmentBarycentricKHR);
-    break;
-  }
   // Capabilities needed for built-ins
   case spv::Decoration::BuiltIn: {
     AddVulkanMemoryModelForVolatile(decor, loc);
@@ -365,14 +360,15 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       addCapability(spv::Capability::CullDistance);
       break;
     }
-    case spv::BuiltIn::BaryCoordKHR:
-    case spv::BuiltIn::BaryCoordNoPerspKHR: {
-      // SV_Barycentrics will have only two builtins
-      // But it is still allowed to decorate those two builtins with
-      // interpolation qualifier like centroid or sample.
-      addExtension(Extension::KHR_fragment_shader_barycentric,
+    case spv::BuiltIn::BaryCoordNoPerspAMD:
+    case spv::BuiltIn::BaryCoordNoPerspCentroidAMD:
+    case spv::BuiltIn::BaryCoordNoPerspSampleAMD:
+    case spv::BuiltIn::BaryCoordSmoothAMD:
+    case spv::BuiltIn::BaryCoordSmoothCentroidAMD:
+    case spv::BuiltIn::BaryCoordSmoothSampleAMD:
+    case spv::BuiltIn::BaryCoordPullModelAMD: {
+      addExtension(Extension::AMD_shader_explicit_vertex_parameter,
                    "SV_Barycentrics", loc);
-      addCapability(spv::Capability::FragmentBarycentricKHR);
       break;
     }
     case spv::BuiltIn::ShadingRateKHR:
@@ -457,8 +453,6 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
                        instr->getStorageClass());
   if (instr->hasOffset() || instr->hasConstOffsets())
     addCapability(spv::Capability::ImageGatherExtended);
-  if (instr->hasMinLod())
-    addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
 
@@ -868,6 +862,13 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
     addCapability(spv::Capability::Shader);
     addCapability(spv::Capability::Linkage);
   }
+
+  // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
+  // can remove most capability-selection logic from here, and just add
+  // capabilities by default. SPIRV-Tools will clean those up. Note: this pass
+  // supports only some capabilities. This list should be expanded to match the
+  // supported capabilities.
+  addCapability(spv::Capability::MinLod);
   return true;
 }
 
