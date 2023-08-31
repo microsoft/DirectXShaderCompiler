@@ -934,7 +934,8 @@ TEST_F(LinkerTest, RunLinkWithTempReg) {
   CComPtr<IDxcBlob> pTempRegLib;
   AssembleLib(L"..\\HLSLFileCheck\\dxil\\linker\\TempReg.ll", &pTempRegLib);
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\HLSLFileCheck\\dxil\\linker\\use-TempReg.hlsl", &pEntryLib, {}, L"lib_6_3");
+  CompileLib(L"..\\HLSLFileCheck\\dxil\\linker\\use-TempReg.hlsl", &pEntryLib,
+             {L"-validator-version", L"1.7"}, L"lib_6_3");
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
   LPCWSTR libName = L"entry";
