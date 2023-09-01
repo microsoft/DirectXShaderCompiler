@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_4 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_4 -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 // We cannot use BufferBlock decoration for SPIR-V 1.4 or above.
 // Instead, we must use Block decorated StorageBuffer Storage Class.
@@ -15,7 +15,7 @@
 // CHECK: OpDecorate %type_StructuredBuffer_float Block
 // CHECK: OpDecorate %type_RWStructuredBuffer_float Block
 
-// CHECK: [[fn-type:%\d+]] = OpTypeFunction %_ptr_StorageBuffer_type_StructuredBuffer_float %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_float
+// CHECK: [[fn_type:%[0-9]+]] = OpTypeFunction %_ptr_StorageBuffer_type_StructuredBuffer_float %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_float
 
 // CHECK:   %gSBuffer = OpVariable %_ptr_StorageBuffer_type_StructuredBuffer_float StorageBuffer
 StructuredBuffer<float> gSBuffer;
@@ -32,13 +32,13 @@ void main() {
   float a = foo(gSBuffer)[0];
 }
 
-// CHECK:      %foo = OpFunction %_ptr_StorageBuffer_type_StructuredBuffer_float None [[fn-type]]
+// CHECK:      %foo = OpFunction %_ptr_StorageBuffer_type_StructuredBuffer_float None [[fn_type]]
 // CHECK: %pSBuffer = OpFunctionParameter %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_float
 StructuredBuffer<float> foo(StructuredBuffer<float> pSBuffer) {
 // CHECK: OpLoad %_ptr_StorageBuffer_type_StructuredBuffer_float %pSBuffer
 // CHECK: OpAccessChain %_ptr_StorageBuffer_float
   float x = pSBuffer[0];
-// CHECK: [[buf:%\d+]] = OpLoad %_ptr_StorageBuffer_type_StructuredBuffer_float %pSBuffer
+// CHECK: [[buf:%[0-9]+]] = OpLoad %_ptr_StorageBuffer_type_StructuredBuffer_float %pSBuffer
 // CHECK: OpReturnValue [[buf]]
   return pSBuffer;
 }

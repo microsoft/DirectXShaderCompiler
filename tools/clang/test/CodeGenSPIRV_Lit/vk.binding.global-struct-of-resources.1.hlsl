@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd %s -spirv | FileCheck %s
 
 // globalS.t should take binding #0.
 // globalS.s should take binding #1.
@@ -36,7 +36,7 @@ SamplerState globalSamplerState;
 [[vk::input_attachment_index (0)]] SubpassInput<float4> MySubpassInput;
 
 float4 main() : SV_Target {
-// CHECK: [[globalS:%\d+]] = OpLoad %S %globalS
+// CHECK: [[globalS:%[0-9]+]] = OpLoad %S %globalS
 // CHECK:                    OpStore %param_var_x [[globalS]]
 // CHECK:                    OpFunctionCall %v4float %tex2D %param_var_x %param_var_v
   return tex2D(globalS, float2(0,0));

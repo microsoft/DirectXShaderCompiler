@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
   int a;
@@ -30,8 +30,8 @@ void main() {
 // CHECK: %E = OpVariable %_ptr_Function_int Function
   int E;
 
-// CHECK:        [[A:%\d+]] = OpAccessChain %_ptr_Uniform_int %A %int_0 %uint_0
-// CHECK-NEXT:     {{%\d+}} = OpFunctionCall %void %foo [[A]] %B %C %D %E
+// CHECK:        [[A:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %A %int_0 %uint_0
+// CHECK-NEXT:     {{%[0-9]+}} = OpFunctionCall %void %foo [[A]] %B %C %D %E
   foo(A[0], B, C, D, E);
   A[0] = A[0] | B | C | D.a | E;
 }

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 float func(float e, float f, float g, float h);
 float func2(float e, float f, float g, float h);
@@ -7,37 +7,37 @@ float func4(float i, float j, precise out float k);
 
 // The purpose of this to make sure the first NoContraction decoration is on a_mul_b.
 // CHECK:      OpName %bb_entry_3
-// CHECK-NEXT: OpDecorate [[a_mul_b:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[c_mul_d:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[r_plus_s:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[aw_mul_bw:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[cw_mul_dw:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[awbw_plus_cwdw:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func2_e_mul_f:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func2_g_mul_h:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func2_ef_plus_gh:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func3_e_mul_f:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func3_g_mul_h:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func3_ef_plus_gh:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func4_i_mul_i:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[func4_ii_plus_j:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[a_mul_b:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[c_mul_d:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[r_plus_s:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[aw_mul_bw:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[cw_mul_dw:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[awbw_plus_cwdw:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func2_e_mul_f:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func2_g_mul_h:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func2_ef_plus_gh:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func3_e_mul_f:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func3_g_mul_h:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func3_ef_plus_gh:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func4_i_mul_i:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func4_ii_plus_j:%[0-9]+]] NoContraction
 
 void main() {
   float4 a, b, c, d;
   precise float4 v; 
 
-// CHECK:      [[a_mul_b]] = OpFMul %v3float {{%\d+}} {{%\d+}}
+// CHECK:      [[a_mul_b]] = OpFMul %v3float {{%[0-9]+}} {{%[0-9]+}}
 // CHECK-NEXT:               OpStore %r [[a_mul_b]]
   float3 r = float3((float3)a * (float3)b); // precise, used to compute v.xyz
 
 
-// CHECK:      [[c_mul_d]] = OpFMul %v3float {{%\d+}} {{%\d+}}
+// CHECK:      [[c_mul_d]] = OpFMul %v3float {{%[0-9]+}} {{%[0-9]+}}
 // CHECK-NEXT:               OpStore %s [[c_mul_d]]
   float3 s = float3((float3)c * (float3)d); // precise, used to compute v.xyz
 
 // CHECK:                     OpLoad %v3float %r
 // CHECK-NEXT:                OpLoad %v3float %s
-// CHECK-NEXT: [[r_plus_s]] = OpFAdd %v3float {{%\d+}} {{%\d+}}
+// CHECK-NEXT: [[r_plus_s]] = OpFAdd %v3float {{%[0-9]+}} {{%[0-9]+}}
   v.xyz = r + s; // precise
   
 // CHECK:                           OpAccessChain %_ptr_Function_float %a %int_3

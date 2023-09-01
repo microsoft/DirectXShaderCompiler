@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd %s -spirv | FileCheck %s
 
 // globalS[0][0].t should take binding #0.
 // globalS[0][0].s should take binding #1.
@@ -45,8 +45,8 @@ Texture2D globalTexture;
 SamplerState globalSamplerState;
 
 float4 main() : SV_Target {
-// CHECK:  [[ptr:%\d+]] = OpAccessChain %_ptr_UniformConstant_S %globalS %int_0 %int_0
-// CHECK: [[elem:%\d+]] = OpLoad %S [[ptr]]
+// CHECK:  [[ptr:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_S %globalS %int_0 %int_0
+// CHECK: [[elem:%[0-9]+]] = OpLoad %S [[ptr]]
 // CHECK:                 OpStore %param_var_x [[elem]]
 // CHECK:                 OpFunctionCall %v4float %tex2D %param_var_x %param_var_v
   return tex2D(globalS[0][0], float2(0,0));

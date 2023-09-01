@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
     float4 f;
@@ -7,7 +7,7 @@ struct S {
 
 // Signature for returnRWSBuffer(). Both the function parameter and return gain
 // an extra level of pointer.
-// CHECK: [[retRWSBSig:%\d+]] = OpTypeFunction %_ptr_Uniform_type_RWStructuredBuffer_S %_ptr_Function__ptr_Uniform_type_RWStructuredBuffer_S
+// CHECK: [[retRWSBSig:%[0-9]+]] = OpTypeFunction %_ptr_Uniform_type_RWStructuredBuffer_S %_ptr_Function__ptr_Uniform_type_RWStructuredBuffer_S
 RWStructuredBuffer<S> returnRWSBuffer(RWStructuredBuffer<S> paramRWSBuffer);
 
 float4 useAsStaticRWSBuffer();
@@ -35,40 +35,40 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 
 // CHECK: %localv4f32RWSBuffer = OpVariable %_ptr_Function__ptr_Uniform_type_RWStructuredBuffer_v4float Function
 
-// CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %staticgRWSBuffer
-// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1]] %int_0 %uint_0 %int_0
-// CHECK-NEXT:      {{%\d+}} = OpLoad %v4float [[ptr2]]
+// CHECK:      [[ptr1:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %staticgRWSBuffer
+// CHECK-NEXT: [[ptr2:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1]] %int_0 %uint_0 %int_0
+// CHECK-NEXT:      {{%[0-9]+}} = OpLoad %v4float [[ptr2]]
     float4 val = staticgRWSBuffer[0].f + useAsStaticRWSBuffer();
 
 // Directly storing the pointer to %param_var_paramRWSBuffer
 // CHECK:      OpStore %param_var_paramRWSBuffer %globalRWSBuffer
 // Function calls have matching signatures.
-// CHECK-NEXT: [[ptr:%\d+]] = OpFunctionCall %_ptr_Uniform_type_RWStructuredBuffer_S %returnRWSBuffer %param_var_paramRWSBuffer
+// CHECK-NEXT: [[ptr:%[0-9]+]] = OpFunctionCall %_ptr_Uniform_type_RWStructuredBuffer_S %returnRWSBuffer %param_var_paramRWSBuffer
 // CHECK-NEXT: OpStore %localRWSBuffer [[ptr]]
     RWStructuredBuffer<S> localRWSBuffer = returnRWSBuffer(globalRWSBuffer);
 
-// CHECK:      [[ptr:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %staticgRWSBuffer
-// CHECK-NEXT: OpStore %localRWSBuffer [[ptr]]
+// CHECK:      [[ptr_0:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %staticgRWSBuffer
+// CHECK-NEXT: OpStore %localRWSBuffer [[ptr_0]]
     localRWSBuffer = staticgRWSBuffer;
 
-// CHECK:      {{%\d+}} = OpAccessChain %_ptr_Uniform_v4float %globalRWSBuffer %int_0 %uint_1 %int_0
+// CHECK:      {{%[0-9]+}} = OpAccessChain %_ptr_Uniform_v4float %globalRWSBuffer %int_0 %uint_1 %int_0
     globalRWSBuffer[1].f = 4.2;
 
 // CHECK:      OpStore %localv4f32RWSBuffer %globalv4f32RWSBuffer
     RWStructuredBuffer<float4> localv4f32RWSBuffer = globalv4f32RWSBuffer;
 
     return val +
-// CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %localRWSBuffer
-// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1]] %int_0 %uint_2 %int_0
-// CHECK-NEXT:      {{%\d+}} = OpLoad %v4float [[ptr2]]
+// CHECK:      [[ptr1_0:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %localRWSBuffer
+// CHECK-NEXT: [[ptr2_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1_0]] %int_0 %uint_2 %int_0
+// CHECK-NEXT:      {{%[0-9]+}} = OpLoad %v4float [[ptr2_0]]
         localRWSBuffer[2].f +
-// CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %localRWSBuffer
-// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_float [[ptr1]] %int_0 %uint_33 %int_1 %int_44
-// CHECK-NEXT:      {{%\d+}} = OpLoad %float [[ptr2]]
+// CHECK:      [[ptr1_1:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %localRWSBuffer
+// CHECK-NEXT: [[ptr2_1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[ptr1_1]] %int_0 %uint_33 %int_1 %int_44
+// CHECK-NEXT:      {{%[0-9]+}} = OpLoad %float [[ptr2_1]]
         localRWSBuffer[33].v[44] +
-// CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_v4float %localv4f32RWSBuffer
-// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1]] %int_0 %uint_3
-// CHECK-NEXT:      {{%\d+}} = OpLoad %v4float [[ptr2]]
+// CHECK:      [[ptr1_2:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_v4float %localv4f32RWSBuffer
+// CHECK-NEXT: [[ptr2_2:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1_2]] %int_0 %uint_3
+// CHECK-NEXT:      {{%[0-9]+}} = OpLoad %v4float [[ptr2_2]]
         localv4f32RWSBuffer[3];
 }
 
@@ -85,7 +85,7 @@ float4 useAsStaticRWSBuffer() {
 // Function parameters gain an extra level of pointer.
 // CHECK:  %paramRWSBuffer = OpFunctionParameter %_ptr_Function__ptr_Uniform_type_RWStructuredBuffer_S
 RWStructuredBuffer<S> returnRWSBuffer(RWStructuredBuffer<S> paramRWSBuffer) {
-// CHECK:     [[ptr:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %paramRWSBuffer
-// CHECK-NEXT:               OpReturnValue [[ptr]]
+// CHECK:     [[ptr_1:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %paramRWSBuffer
+// CHECK-NEXT:               OpReturnValue [[ptr_1]]
     return paramRWSBuffer;
 }

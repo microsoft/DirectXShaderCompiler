@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
   float    a;
@@ -65,12 +65,12 @@ struct R {
 };
 RWStructuredBuffer<R> rwsb;
 
-// CHECK:     [[ft_f32:%\d+]] = OpTypeFunction %float
-// CHECK:       [[ft_S:%\d+]] = OpTypeFunction %float %_ptr_Function_S
-// CHECK:   [[ft_S_f32:%\d+]] = OpTypeFunction %float %_ptr_Function_S %_ptr_Function_float
-// CHECK:       [[ft_T:%\d+]] = OpTypeFunction %float %_ptr_Function_T
-// CHECK:  [[fooFnType:%\d+]] = OpTypeFunction %T
-// CHECK: [[getSFntype:%\d+]] = OpTypeFunction %S %_ptr_Function_T
+// CHECK:     [[ft_f32:%[0-9]+]] = OpTypeFunction %float
+// CHECK:       [[ft_S:%[0-9]+]] = OpTypeFunction %float %_ptr_Function_S
+// CHECK:   [[ft_S_f32:%[0-9]+]] = OpTypeFunction %float %_ptr_Function_S %_ptr_Function_float
+// CHECK:       [[ft_T:%[0-9]+]] = OpTypeFunction %float %_ptr_Function_T
+// CHECK:  [[fooFnType:%[0-9]+]] = OpTypeFunction %T
+// CHECK: [[getSFntype:%[0-9]+]] = OpTypeFunction %S %_ptr_Function_T
 
 float main() : A {
 
@@ -86,25 +86,25 @@ float main() : A {
     S s;
     T t;
 
-// CHECK:          {{%\d+}} = OpFunctionCall %float %S_fn_no_ref %s
-// CHECK:          {{%\d+}} = OpFunctionCall %float %S_fn_ref %s
-// CHECK:          {{%\d+}} = OpFunctionCall %float %S_fn_call %s %param_var_c
-// CHECK:          {{%\d+}} = OpFunctionCall %float %T_fn_nested %t
-// CHECK:          {{%\d+}} = OpFunctionCall %float %S_fn_static
-// CHECK:          {{%\d+}} = OpFunctionCall %float %T_fn_static
-// CHECK:          {{%\d+}} = OpFunctionCall %float %S_fn_static
-// CHECK:          {{%\d+}} = OpFunctionCall %float %T_fn_static
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %S_fn_no_ref %s
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %S_fn_ref %s
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %S_fn_call %s %param_var_c
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %T_fn_nested %t
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %S_fn_static
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %T_fn_static
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %S_fn_static
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %float %T_fn_static
   float f1 = s.fn_no_ref() + s.fn_ref() + s.fn_call(5.0) + t.fn_nested() +
              s.fn_static() + t.fn_static() + S::fn_static() + T::fn_static();
 
-// CHECK:      [[temp_T:%\d+]] = OpFunctionCall %T %foo
+// CHECK:      [[temp_T:%[0-9]+]] = OpFunctionCall %T %foo
 // CHECK-NEXT:                   OpStore %temp_var_T [[temp_T]]
-// CHECK-NEXT: [[temp_S:%\d+]] = OpFunctionCall %S %T_get_S %temp_var_T
+// CHECK-NEXT: [[temp_S:%[0-9]+]] = OpFunctionCall %S %T_get_S %temp_var_T
 // CHECK-NEXT:                   OpStore %temp_var_S [[temp_S]]
-// CHECK-NEXT:        {{%\d+}} = OpFunctionCall %float %S_fn_ref %temp_var_S
+// CHECK-NEXT:        {{%[0-9]+}} = OpFunctionCall %float %S_fn_ref %temp_var_S
   float f2 = foo().get_S().fn_ref();
 
-// CHECK:      [[rwsb_0:%\d+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
+// CHECK:      [[rwsb_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
 // CHECK-NEXT:                   OpFunctionCall %void %R_incr [[rwsb_0]]
   rwsb[0].incr();
 
@@ -121,8 +121,8 @@ float main() : A {
 // CHECK:          %S_fn_ref = OpFunction %float None [[ft_S]]
 // CHECK-NEXT: %param_this_0 = OpFunctionParameter %_ptr_Function_S
 // CHECK-NEXT:   %bb_entry_1 = OpLabel
-// CHECK:           {{%\d+}} = OpAccessChain %_ptr_Function_float %param_this_0 %int_0
-// CHECK:           {{%\d+}} = OpAccessChain %_ptr_Function_float %param_this_0 %int_1 %uint_0
+// CHECK:           {{%[0-9]+}} = OpAccessChain %_ptr_Function_float %param_this_0 %int_0
+// CHECK:           {{%[0-9]+}} = OpAccessChain %_ptr_Function_float %param_this_0 %int_1 %uint_0
 // CHECK:                      OpFunctionEnd
 
 
@@ -131,14 +131,14 @@ float main() : A {
 // CHECK-NEXT:             %c = OpFunctionParameter %_ptr_Function_float
 // CHECK-NEXT:    %bb_entry_2 = OpLabel
 // CHECK-NEXT: %param_var_c_0 = OpVariable %_ptr_Function_float Function
-// CHECK:            {{%\d+}} = OpFunctionCall %float %S_fn_param %param_this_1 %param_var_c_0
+// CHECK:            {{%[0-9]+}} = OpFunctionCall %float %S_fn_param %param_this_1 %param_var_c_0
 // CHECK:                       OpFunctionEnd
 
 // CHECK:       %T_fn_nested = OpFunction %float None [[ft_T]]
 // CHECK-NEXT: %param_this_2 = OpFunctionParameter %_ptr_Function_T
 // CHECK-NEXT:   %bb_entry_3 = OpLabel
-// CHECK:       [[t_s:%\d+]] = OpAccessChain %_ptr_Function_S %param_this_2 %int_0
-// CHECK:           {{%\d+}} = OpFunctionCall %float %S_fn_ref [[t_s]]
+// CHECK:       [[t_s:%[0-9]+]] = OpAccessChain %_ptr_Function_S %param_this_2 %int_0
+// CHECK:           {{%[0-9]+}} = OpFunctionCall %float %S_fn_ref [[t_s]]
 // CHECK:                      OpFunctionEnd
 
 

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // %S  : generated from struct S, with    layout decorations
 // %S_0: generated from struct S, without layout decorations
@@ -26,17 +26,17 @@ tbuffer MyTBuffer {
 
 float4 main() : SV_Target {
 // %S vs %S_0: need destruction and construction
-// CHECK:       [[tb_s:%\d+]] = OpAccessChain %_ptr_Uniform_S %MyTBuffer %int_1
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %v3float %S_get_s_val [[tb_s]]
+// CHECK:       [[tb_s:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S %MyTBuffer %int_1
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %v3float %S_get_s_val [[tb_s]]
     return get_cb_val() + float4(tb_s.get_s_val(), 0.) * get_tb_val();
 }
 
-// CHECK:      %get_cb_val = OpFunction %v4float None {{%\d+}}
-// CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_v4float %MyCBuffer %int_0
+// CHECK:      %get_cb_val = OpFunction %v4float None {{%[0-9]+}}
+// CHECK:         {{%[0-9]+}} = OpAccessChain %_ptr_Uniform_v4float %MyCBuffer %int_0
 
-// CHECK:     %S_get_s_val = OpFunction %v3float None {{%\d+}}
+// CHECK:     %S_get_s_val = OpFunction %v3float None {{%[0-9]+}}
 // CHECK-NEXT: %param_this = OpFunctionParameter %_ptr_Function_S_0
-// CHECK:         {{%\d+}} = OpAccessChain %_ptr_Function_v3float %param_this %int_0
+// CHECK:         {{%[0-9]+}} = OpAccessChain %_ptr_Function_v3float %param_this %int_0
 
-// CHECK:      %get_tb_val = OpFunction %float None {{%\d+}}
-// CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_float %MyTBuffer %int_0
+// CHECK:      %get_tb_val = OpFunction %float None {{%[0-9]+}}
+// CHECK:         {{%[0-9]+}} = OpAccessChain %_ptr_Uniform_float %MyTBuffer %int_0
