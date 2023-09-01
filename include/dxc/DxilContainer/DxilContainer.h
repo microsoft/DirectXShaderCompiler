@@ -444,7 +444,7 @@ const DxilProgramHeader *
 GetDxilProgramHeader(const DxilContainerHeader *pHeader, DxilFourCC fourCC);
 
 /// Initializes container with the specified values.
-void InitDxilContainer(_Out_ DxilContainerHeader *pHeader, uint32_t partCount,
+void InitDxilContainer(DxilContainerHeader *pHeader, uint32_t partCount,
                        uint32_t containerSizeInBytes);
 
 /// Checks whether pHeader claims by signature to be a DXIL container
@@ -587,7 +587,8 @@ inline bool IsDxilShaderDebugNameValid(const DxilPartHeader *pPart) {
 }
 
 inline bool GetDxilShaderDebugName(const DxilPartHeader *pDebugNamePart,
-  const char **ppUtf8Name, _Out_opt_ uint16_t *pUtf8NameLen) {
+                                   const char **ppUtf8Name,
+                                   uint16_t *pUtf8NameLen) {
   *ppUtf8Name = nullptr;
   if (!IsDxilShaderDebugNameValid(pDebugNamePart)) {
     return false;
@@ -627,7 +628,7 @@ inline SerializeDxilFlags operator~(SerializeDxilFlags l) {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 
 // Converts uint32_t partKind to char array object.
-inline char * PartKindToCharArray(uint32_t partKind, _Out_writes_(5) char* pText) {
+inline char *PartKindToCharArray(uint32_t partKind, char *pText) {
   pText[0] = (char)((partKind & 0x000000FF) >> 0);
   pText[1] = (char)((partKind & 0x0000FF00) >> 8);
   pText[2] = (char)((partKind & 0x00FF0000) >> 16);

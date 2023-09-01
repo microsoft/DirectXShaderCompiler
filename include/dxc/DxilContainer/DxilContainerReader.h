@@ -51,13 +51,14 @@ namespace hlsl {
     //     Minor = DXBC_MAJOR_VERSION
     // 
     // Returns S_OK or E_FAIL
-    HRESULT Load(_In_ const void* pContainer, _In_ uint32_t containerSizeInBytes);
+    HRESULT Load(const void *pContainer, uint32_t containerSizeInBytes);
 
-    HRESULT GetVersion(_Out_ DxilContainerVersion *pResult);
-    HRESULT GetPartCount(_Out_ uint32_t *pResult);
-    HRESULT GetPartContent(uint32_t idx, _Outptr_ const void **ppResult, _Out_ uint32_t *pResultSize = nullptr);
-    HRESULT GetPartFourCC(uint32_t idx, _Out_ uint32_t *pResult);
-    HRESULT FindFirstPartKind(uint32_t kind, _Out_ uint32_t *pResult);
+    HRESULT GetVersion(DxilContainerVersion *pResult);
+    HRESULT GetPartCount(uint32_t *pResult);
+    HRESULT GetPartContent(uint32_t idx, const void **ppResult,
+                           uint32_t *pResultSize = nullptr);
+    HRESULT GetPartFourCC(uint32_t idx, uint32_t *pResult);
+    HRESULT FindFirstPartKind(uint32_t kind, uint32_t *pResult);
 
   private:
     const void* m_pContainer = nullptr;

@@ -23,13 +23,13 @@
 #include "llvm/ADT/SmallVector.h"
 
 // This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 template <class TInterface>
-HRESULT DxilLibCreateInstance(_In_ REFCLSID rclsid, _In_ TInterface **ppInterface);
+HRESULT DxilLibCreateInstance(REFCLSID rclsid, TInterface **ppInterface);
 
 using namespace hlsl;
 
-HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(_In_ IDxcBlob *pSource) {
+HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(IDxcBlob *pSource) {
   DxcThreadMalloc TM(m_pMalloc);
   try {
     IFTBOOL(m_pContainer == nullptr && pSource != nullptr &&
@@ -49,8 +49,8 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(_In_ IDxcBlob *pSource) {
   CATCH_CPP_RETURN_HRESULT();
 }
 
-
-HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) {
+HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(UINT32 fourCC,
+                                                       IDxcBlob *pSource) {
   DxcThreadMalloc TM(m_pMalloc);
   try {
     IFTBOOL(pSource != nullptr && !IsDxilContainerLike(pSource->GetBufferPointer(),
@@ -72,7 +72,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ 
   CATCH_CPP_RETURN_HRESULT();
 }
 
-HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
+HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(UINT32 fourCC) {
   DxcThreadMalloc TM(m_pMalloc);
   try {
     IFTBOOL(fourCC == DxilFourCC::DFCC_ShaderDebugInfoDXIL ||
@@ -94,7 +94,8 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
   CATCH_CPP_RETURN_HRESULT();
 }
 
-HRESULT STDMETHODCALLTYPE DxcContainerBuilder::SerializeContainer(_Out_ IDxcOperationResult **ppResult) {
+HRESULT STDMETHODCALLTYPE
+DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   DxcThreadMalloc TM(m_pMalloc);
   try {
     // Allocate memory for new dxil container.

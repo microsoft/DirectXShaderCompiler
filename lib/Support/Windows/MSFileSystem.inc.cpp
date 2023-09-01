@@ -209,9 +209,8 @@ int msf_setmode(int fd, int mode) throw()
 
 typedef llvm::sys::fs::MSFileSystemRef MSFileSystemRef;
 
-static
-error_code GetCurrentThreadFileSystemOrError(_Outptr_ MSFileSystemRef* pResult) throw()
-{
+static error_code
+GetCurrentThreadFileSystemOrError(MSFileSystemRef *pResult) throw() {
   *pResult = ::llvm::sys::fs::GetCurrentThreadFileSystem();
 
   // It is an error to have an I/O API invoked without having installed support 

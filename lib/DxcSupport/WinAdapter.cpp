@@ -78,7 +78,7 @@ CHandle::~CHandle() { CloseHandle(m_h); }
 CHandle::operator HANDLE() const throw() { return m_h; }
 
 // CComBSTR
-CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
+CComBSTR::CComBSTR(int nSize, LPCWSTR sz) {
   if (nSize < 0) {
     throw  std::invalid_argument("CComBSTR must have size >= 0");
   }
@@ -93,7 +93,7 @@ CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
   }
 }
 
-bool CComBSTR::operator==(_In_ const CComBSTR &bstrSrc) const throw() {
+bool CComBSTR::operator==(const CComBSTR &bstrSrc) const throw() {
   return wcscmp(m_str, bstrSrc.m_str) == 0;
 }
 

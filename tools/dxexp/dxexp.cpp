@@ -69,11 +69,11 @@ enum D3D12_VIEW_INSTANCING_TIER
 
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3
 {
-  _Out_  BOOL CopyQueueTimestampQueriesSupported;
-  _Out_  BOOL CastingFullyTypedFormatSupported;
-  _Out_  DWORD WriteBufferImmediateSupportFlags;
-  _Out_  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
-  _Out_  BOOL BarycentricsSupported;
+  BOOL CopyQueueTimestampQueriesSupported;
+  BOOL CastingFullyTypedFormatSupported;
+  DWORD WriteBufferImmediateSupportFlags;
+  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
+  BOOL BarycentricsSupported;
 } 	D3D12_FEATURE_DATA_D3D12_OPTIONS3;
 #endif
 
@@ -91,9 +91,9 @@ typedef enum D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER
 
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS4
 {
-    _Out_ BOOL ReservedBufferPlacementSupported;
-    _Out_ D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER SharedResourceCompatibilityTier;
-    _Out_ BOOL Native16BitShaderOpsSupported;
+  BOOL ReservedBufferPlacementSupported;
+  D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER SharedResourceCompatibilityTier;
+  BOOL Native16BitShaderOpsSupported;
 } D3D12_FEATURE_DATA_D3D12_OPTIONS4;
 #endif
 
@@ -119,9 +119,9 @@ typedef enum D3D12_RAYTRACING_TIER
 
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS5
 {
-    _Out_  BOOL SRVOnlyTiledResourceTier3;
-    _Out_  D3D12_RENDER_PASS_TIER RenderPassesTier;
-    _Out_  D3D12_RAYTRACING_TIER RaytracingTier;
+  BOOL SRVOnlyTiledResourceTier3;
+  D3D12_RENDER_PASS_TIER RenderPassesTier;
+  D3D12_RAYTRACING_TIER RaytracingTier;
 }   D3D12_FEATURE_DATA_D3D12_OPTIONS5;
 #endif
 
@@ -133,9 +133,9 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS5
 #define D3D12_FEATURE_D3D12_OPTIONS14 ((D3D12_FEATURE)43)
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS14
 {
-  _Out_  BOOL AdvancedTextureOpsSupported;
-  _Out_  BOOL WriteableMSAATexturesSupported;
-  _Out_  BOOL IndependentFrontAndBackStencilRefMaskSupported;
+  BOOL AdvancedTextureOpsSupported;
+  BOOL WriteableMSAATexturesSupported;
+  BOOL IndependentFrontAndBackStencilRefMaskSupported;
 } 	D3D12_FEATURE_DATA_D3D12_OPTIONS14;
 #endif
 

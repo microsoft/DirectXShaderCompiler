@@ -58,14 +58,11 @@ public:
     return DoBasicQueryInterface<IDxcPixConstType, IDxcPixType>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override;
+  STDMETHODIMP GetName(BSTR *Name) override;
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD * pSizeInBits) override;
+  STDMETHODIMP GetSizeInBits(DWORD *pSizeInBits) override;
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP UnAlias(IDxcPixType **ppType) override;
 };
 
 class DxcPixTypedefType : public IDxcPixTypedefType
@@ -96,14 +93,11 @@ public:
     return DoBasicQueryInterface<IDxcPixTypedefType, IDxcPixType>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override;
+  STDMETHODIMP GetName(BSTR *Name) override;
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *pSizeInBits) override;
+  STDMETHODIMP GetSizeInBits(DWORD *pSizeInBits) override;
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType **ppBaseType) override;
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override;
 };
 
 class DxcPixScalarType : public IDxcPixScalarType
@@ -131,14 +125,11 @@ public:
     return DoBasicQueryInterface<IDxcPixScalarType, IDxcPixType>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override;
+  STDMETHODIMP GetName(BSTR *Name) override;
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *pSizeInBits) override;
+  STDMETHODIMP GetSizeInBits(DWORD *pSizeInBits) override;
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType **ppBaseType) override;
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override;
 };
 
 class DxcPixArrayType : public IDxcPixArrayType
@@ -181,23 +172,17 @@ public:
     return DoBasicQueryInterface<IDxcPixArrayType, IDxcPixType>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override;
+  STDMETHODIMP GetName(BSTR *Name) override;
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *pSizeInBits) override;
+  STDMETHODIMP GetSizeInBits(DWORD *pSizeInBits) override;
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType **ppBaseType) override;
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override;
 
-  STDMETHODIMP GetNumElements(
-      _Outptr_result_z_ DWORD *ppNumElements) override;
+  STDMETHODIMP GetNumElements(DWORD *ppNumElements) override;
 
-  STDMETHODIMP GetIndexedType(
-      _Outptr_result_z_ IDxcPixType **ppElementType) override;
+  STDMETHODIMP GetIndexedType(IDxcPixType **ppElementType) override;
 
-  STDMETHODIMP GetElementType(
-      _Outptr_result_z_ IDxcPixType **ppElementType) override;
+  STDMETHODIMP GetElementType(IDxcPixType **ppElementType) override;
 };
 
 class DxcPixStructType : public IDxcPixStructType2
@@ -231,28 +216,21 @@ public:
     return DoBasicQueryInterface<IDxcPixStructType2, IDxcPixStructType, IDxcPixType>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override;
+  STDMETHODIMP GetName(BSTR *Name) override;
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *pSizeInBits) override;
+  STDMETHODIMP GetSizeInBits(DWORD *pSizeInBits) override;
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType **ppBaseType) override;
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override;
 
-  STDMETHODIMP GetNumFields(
-      _Outptr_result_z_ DWORD* ppNumFields) override;
+  STDMETHODIMP GetNumFields(DWORD *ppNumFields) override;
 
-  STDMETHODIMP GetFieldByIndex(
-      DWORD dwIndex,
-      _Outptr_result_z_ IDxcPixStructField **ppField) override;
+  STDMETHODIMP GetFieldByIndex(DWORD dwIndex,
+                               IDxcPixStructField **ppField) override;
 
-  STDMETHODIMP GetFieldByName(
-      _In_ LPCWSTR lpName,
-      _Outptr_result_z_ IDxcPixStructField **ppField) override;
+  STDMETHODIMP GetFieldByName(LPCWSTR lpName,
+                              IDxcPixStructField **ppField) override;
 
-  STDMETHODIMP GetBaseType(
-    _COM_Outptr_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetBaseType(IDxcPixType **ppType) override;
 };
 
 class DxcPixStructField : public IDxcPixStructField
@@ -283,13 +261,10 @@ public:
     return DoBasicQueryInterface<IDxcPixStructField>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override;
+  STDMETHODIMP GetName(BSTR *Name) override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 
-  STDMETHODIMP GetOffsetInBits(
-      _Outptr_result_z_ DWORD *pOffsetInBits) override;
+  STDMETHODIMP GetOffsetInBits(DWORD *pOffsetInBits) override;
 };
 }  // namespace dxil_debug_info

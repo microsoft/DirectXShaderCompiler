@@ -283,23 +283,18 @@ public:
 
   ~DxbcConverter();
 
-  __override HRESULT STDMETHODCALLTYPE Convert(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
-                                               _In_ UINT32 DxbcSize,
-                                               _In_opt_z_ LPCWSTR pExtraOptions,
-                                               _Outptr_result_bytebuffer_maybenull_(*pDxilSize) LPVOID *ppDxil,
-                                               _Out_ UINT32 *pDxilSize,
-                                               _Outptr_result_maybenull_z_ LPWSTR *ppDiag); 
+  __override HRESULT STDMETHODCALLTYPE Convert(LPCVOID pDxbc, UINT32 DxbcSize,
+                                               LPCWSTR pExtraOptions,
+                                               LPVOID *ppDxil,
+                                               UINT32 *pDxilSize,
+                                               LPWSTR *ppDiag);
 
-  __override HRESULT STDMETHODCALLTYPE ConvertInDriver(_In_reads_bytes_(8) const UINT32 *pBytecode,
-                                                       _In_opt_z_ LPCVOID pInputSignature,
-                                                       _In_ UINT32 NumInputSignatureElements,
-                                                       _In_opt_z_ LPCVOID pOutputSignature,
-                                                       _In_ UINT32 NumOutputSignatureElements,
-                                                       _In_opt_z_ LPCVOID pPatchConstantSignature,
-                                                       _In_ UINT32 NumPatchConstantSignatureElements,
-                                                       _In_opt_z_ LPCWSTR pExtraOptions,
-                                                       _Out_ IDxcBlob **ppDxilModule,
-                                                       _Outptr_result_maybenull_z_ LPWSTR *ppDiag);
+  __override HRESULT STDMETHODCALLTYPE ConvertInDriver(
+      const UINT32 *pBytecode, LPCVOID pInputSignature,
+      UINT32 NumInputSignatureElements, LPCVOID pOutputSignature,
+      UINT32 NumOutputSignatureElements, LPCVOID pPatchConstantSignature,
+      UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
+      IDxcBlob **ppDxilModule, LPWSTR *ppDiag);
 
 protected:
   LLVMContext m_Ctx;
@@ -498,34 +493,26 @@ protected:
   unsigned m_FcallCount;
 
 protected:
-  virtual void ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
-                           _In_ UINT32 DxbcSize,
-                           _In_opt_z_ LPCWSTR pExtraOptions,
-                           _Outptr_result_bytebuffer_maybenull_(*pDxilSize) LPVOID *ppDxil,
-                           _Out_ UINT32 *pDxilSize,
-                           _Outptr_result_maybenull_z_ LPWSTR *ppDiag);
+  virtual void ConvertImpl(LPCVOID pDxbc, UINT32 DxbcSize,
+                           LPCWSTR pExtraOptions, LPVOID *ppDxil,
+                           UINT32 *pDxilSize, LPWSTR *ppDiag);
 
-  virtual void ConvertInDriverImpl(_In_reads_bytes_(8) const UINT32 *pByteCode,
-                           _In_opt_ const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pInputSignature,
-                           _In_ UINT32 NumInputSignatureElements,
-                           _In_opt_ const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pOutputSignature,
-                           _In_ UINT32 NumOutputSignatureElements,
-                           _In_opt_ const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pPatchConstantSignature,
-                           _In_ UINT32 NumPatchConstantSignatureElements,
-                           _In_opt_z_ LPCWSTR pExtraOptions,
-                           _Out_ IDxcBlob **ppDxcBlob,
-                           _Outptr_result_maybenull_z_ LPWSTR *ppDiag);
+  virtual void ConvertInDriverImpl(
+      const UINT32 *pByteCode,
+      const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pInputSignature,
+      UINT32 NumInputSignatureElements,
+      const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pOutputSignature,
+      UINT32 NumOutputSignatureElements,
+      const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pPatchConstantSignature,
+      UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
+      IDxcBlob **ppDxcBlob, LPWSTR *ppDiag);
 
   virtual void LogConvertResult(bool InDriver,
-                           _In_ const LARGE_INTEGER *pQPCConvertStart,
-                           _In_ const LARGE_INTEGER *pQPCConvertEnd,
-                           _In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
-                           _In_ UINT32 DxbcSize,
-                           _In_opt_z_ LPCWSTR pExtraOptions,
-                           _In_reads_bytes_(ConvertedSize) LPCVOID pConverted,
-                           _In_opt_ UINT32 ConvertedSize,
-                           HRESULT hr);
-
+                                const LARGE_INTEGER *pQPCConvertStart,
+                                const LARGE_INTEGER *pQPCConvertEnd,
+                                LPCVOID pDxbc, UINT32 DxbcSize,
+                                LPCWSTR pExtraOptions, LPCVOID pConverted,
+                                UINT32 ConvertedSize, HRESULT hr);
 
   // Callbacks added to support conversion of custom intrinsics.
   virtual HRESULT PreConvertHook(const CShaderToken *pByteCode);

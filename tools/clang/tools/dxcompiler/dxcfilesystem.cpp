@@ -340,10 +340,10 @@ private:
   }
 
 public:
-  DxcArgsFileSystemImpl(_In_ IDxcBlobUtf8 *pSource, LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pHandler,
-                        _In_opt_ UINT32 defaultCodePage)
-      : m_pSource(pSource), m_pSourceName(pSourceName), m_pOutputStreamName(nullptr), m_includeLoader(pHandler),
+  DxcArgsFileSystemImpl(IDxcBlobUtf8 *pSource, LPCWSTR pSourceName,
+                        IDxcIncludeHandler *pHandler, UINT32 defaultCodePage)
+      : m_pSource(pSource), m_pSourceName(pSourceName),
+        m_pOutputStreamName(nullptr), m_includeLoader(pHandler),
         m_bDisplayIncludeProcess(false), m_DefaultCodePage(defaultCodePage) {
     MakeAbsoluteOrCurDirRelativeW(m_pSourceName, m_pAbsSourceName);
     IFT(CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream));
@@ -360,7 +360,7 @@ public:
     s.write((char *)m_pStdOutStream->GetPtr(), m_pStdOutStream->GetPtrSize());
     s.flush();
   }
-  HRESULT CreateStdStreams(_In_ IMalloc* pMalloc) override {
+  HRESULT CreateStdStreams(IMalloc *pMalloc) override {
     DXASSERT(m_pStdOutStream == nullptr, "else already created");
     CreateMemoryStream(pMalloc, &m_pStdOutStream);
     CreateMemoryStream(pMalloc, &m_pStdErrStream);
@@ -436,16 +436,14 @@ public:
   }
 
   ~DxcArgsFileSystemImpl() override { };
-  BOOL FindNextFileW(
-    _In_   HANDLE hFindFile,
-    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() override {
+  BOOL FindNextFileW(HANDLE hFindFile,
+                     LPWIN32_FIND_DATAW lpFindFileData) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  HANDLE FindFirstFileW(
-    _In_   LPCWSTR lpFileName,
-    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() override {
+  HANDLE FindFirstFileW(LPCWSTR lpFileName,
+                        LPWIN32_FIND_DATAW lpFindFileData) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
@@ -454,12 +452,9 @@ public:
     __debugbreak();
   }
 
-  HANDLE CreateFileW(
-    _In_      LPCWSTR lpFileName,
-    _In_      DWORD dwDesiredAccess,
-    _In_      DWORD dwShareMode,
-    _In_      DWORD dwCreationDisposition,
-    _In_      DWORD dwFlagsAndAttributes) throw() override {
+  HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess,
+                     DWORD dwShareMode, DWORD dwCreationDisposition,
+                     DWORD dwFlagsAndAttributes) throw() override {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::CreateFileW %S\n", lpFileName);
     DWORD findError;
     {
@@ -488,15 +483,16 @@ public:
     return INVALID_HANDLE_VALUE;
   }
 
-  BOOL SetFileTime(_In_ HANDLE hFile,
-    _In_opt_  const FILETIME *lpCreationTime,
-    _In_opt_  const FILETIME *lpLastAccessTime,
-    _In_opt_  const FILETIME *lpLastWriteTime) throw() override {
+  BOOL SetFileTime(HANDLE hFile, const FILETIME *lpCreationTime,
+                   const FILETIME *lpLastAccessTime,
+                   const FILETIME *lpLastWriteTime) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  BOOL GetFileInformationByHandle(_In_ HANDLE hFile, _Out_ LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override {
+  BOOL GetFileInformationByHandle(
+      HANDLE hFile,
+      LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override {
     DxcArgsHandle argsHandle(hFile);
     ZeroMemory(lpFileInformation, sizeof(*lpFileInformation));
     lpFileInformation->nFileIndexLow = (DWORD)(uintptr_t)hFile;
@@ -526,7 +522,7 @@ public:
     return FALSE;
   }
 
-  DWORD GetFileType(_In_ HANDLE hFile) throw() override {
+  DWORD GetFileType(HANDLE hFile) throw() override {
     DxcArgsHandle argsHandle(hFile);
     if (argsHandle.IsStdHandle()) {
       return FILE_TYPE_CHAR;
@@ -540,15 +536,17 @@ public:
     return FILE_TYPE_UNKNOWN;
   }
 
-  BOOL CreateHardLinkW(_In_ LPCWSTR lpFileName, _In_ LPCWSTR lpExistingFileName) throw() override {
+  BOOL CreateHardLinkW(LPCWSTR lpFileName,
+                       LPCWSTR lpExistingFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOL MoveFileExW(_In_ LPCWSTR lpExistingFileName, _In_opt_ LPCWSTR lpNewFileName, _In_ DWORD dwFlags) throw() override {
+  BOOL MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName,
+                   DWORD dwFlags) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() override {
+  DWORD GetFileAttributesW(LPCWSTR lpFileName) throw() override {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::GetFileAttributesW %S\n", lpFileName);
     DWORD findError;
     {
@@ -585,7 +583,7 @@ public:
     return INVALID_FILE_ATTRIBUTES;
   }
 
-  BOOL CloseHandle(_In_ HANDLE hObject) throw() override {
+  BOOL CloseHandle(HANDLE hObject) throw() override {
     // Not actually closing handle. Would allow improper usage, but simplifies
     // query/open/usage patterns.
     if (IsKnownHandle(hObject)) {
@@ -595,61 +593,59 @@ public:
     SetLastError(ERROR_INVALID_HANDLE);
     return FALSE;
   }
-  BOOL DeleteFileW(_In_ LPCWSTR lpFileName) throw() override {
+  BOOL DeleteFileW(LPCWSTR lpFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOL RemoveDirectoryW(_In_ LPCWSTR lpFileName) throw() override {
+  BOOL RemoveDirectoryW(LPCWSTR lpFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOL CreateDirectoryW(_In_ LPCWSTR lpPathName) throw() override {
+  BOOL CreateDirectoryW(LPCWSTR lpPathName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  _Success_(return != 0 && return < nBufferLength)
-    DWORD GetCurrentDirectoryW(_In_ DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override {
+  DWORD GetCurrentDirectoryW(DWORD nBufferLength,
+                             LPWSTR lpBuffer) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  _Success_(return != 0 && return < nSize)
-    DWORD GetMainModuleFileNameW(__out_ecount_part(nSize, return +1) LPWSTR lpFilename, DWORD nSize) throw() override {
+  DWORD GetMainModuleFileNameW(LPWSTR lpFilename,
+                               DWORD nSize) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override {
+  DWORD GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOLEAN CreateSymbolicLinkW(_In_ LPCWSTR lpSymlinkFileName, _In_ LPCWSTR lpTargetFileName, DWORD dwFlags) throw() override {
+  BOOLEAN CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName,
+                              LPCWSTR lpTargetFileName,
+                              DWORD dwFlags) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
   bool SupportsCreateSymbolicLink() throw() override {
     return false;
   }
-  BOOL ReadFile(_In_ HANDLE hFile, _Out_bytecap_(nNumberOfBytesToRead) LPVOID lpBuffer, _In_ DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw() override {
+  BOOL ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
+                LPDWORD lpNumberOfBytesRead) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  HANDLE CreateFileMappingW(
-    _In_      HANDLE hFile,
-    _In_      DWORD flProtect,
-    _In_      DWORD dwMaximumSizeHigh,
-    _In_      DWORD dwMaximumSizeLow) throw() override {
+  HANDLE CreateFileMappingW(HANDLE hFile, DWORD flProtect,
+                            DWORD dwMaximumSizeHigh,
+                            DWORD dwMaximumSizeLow) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return INVALID_HANDLE_VALUE;
   }
-  LPVOID MapViewOfFile(
-    _In_  HANDLE hFileMappingObject,
-    _In_  DWORD dwDesiredAccess,
-    _In_  DWORD dwFileOffsetHigh,
-    _In_  DWORD dwFileOffsetLow,
-    _In_  SIZE_T dwNumberOfBytesToMap) throw() override {
+  LPVOID MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess,
+                       DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow,
+                       SIZE_T dwNumberOfBytesToMap) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return nullptr;
   }
-  BOOL UnmapViewOfFile(_In_ LPCVOID lpBaseAddress) throw() override {
+  BOOL UnmapViewOfFile(LPCVOID lpBaseAddress) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
@@ -712,10 +708,10 @@ public:
   int setmode(int fd, int mode) throw() override {
     return 0;
   }
-  errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() override {
+  errno_t resize_file(LPCWSTR path, uint64_t size) throw() override {
     return 0;
   }
-  int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() override {
+  int Read(int fd, void *buffer, unsigned int count) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
@@ -732,7 +728,7 @@ public:
 
     return (int)cbRead;
   }
-  int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() override {
+  int Write(int fd, const void *buffer, unsigned int count) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
@@ -836,11 +832,10 @@ public:
 
 namespace dxcutil {
 
-DxcArgsFileSystem *
-CreateDxcArgsFileSystem(
-    _In_ IDxcBlobUtf8 *pSource, _In_ LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-                        _In_opt_ UINT32 defaultCodePage) {
+DxcArgsFileSystem *CreateDxcArgsFileSystem(IDxcBlobUtf8 *pSource,
+                                           LPCWSTR pSourceName,
+                                           IDxcIncludeHandler *pIncludeHandler,
+                                           UINT32 defaultCodePage) {
   return new DxcArgsFileSystemImpl(pSource, pSourceName, pIncludeHandler,
                                    defaultCodePage);
 }

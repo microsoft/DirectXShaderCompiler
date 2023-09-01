@@ -63,7 +63,7 @@ void st::SetOutputFn(void *pCtx, OutputStringFn F) {
   g_OutputStrFn = F;
 }
 
-static void ShaderOpLogFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
+static void ShaderOpLogFmt(const wchar_t *fmt, ...) {
   va_list args;
   va_start(args, fmt);
   std::wstring buf(hlsl_test::vFormatToWString(fmt, args));

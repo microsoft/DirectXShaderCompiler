@@ -93,9 +93,8 @@ MIDL_INTERFACE("e9eb5314-33aa-42b2-a718-d77f58b1f1c7")
 ID3D12SDKConfiguration : public IUnknown
 {
 public:
-    virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(
-        UINT SDKVersion,
-        _In_z_  LPCSTR SDKPath) = 0;
+  virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(UINT SDKVersion,
+                                                  LPCSTR SDKPath) = 0;
 };
 #endif 	/* __ID3D12SDKConfiguration_INTERFACE_DEFINED__ */
 
@@ -252,11 +251,11 @@ enum D3D12_VIEW_INSTANCING_TIER
 
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3
 {
-  _Out_  BOOL CopyQueueTimestampQueriesSupported;
-  _Out_  BOOL CastingFullyTypedFormatSupported;
-  _Out_  DWORD WriteBufferImmediateSupportFlags;
-  _Out_  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
-  _Out_  BOOL BarycentricsSupported;
+  BOOL CopyQueueTimestampQueriesSupported;
+  BOOL CastingFullyTypedFormatSupported;
+  DWORD WriteBufferImmediateSupportFlags;
+  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
+  BOOL BarycentricsSupported;
 } D3D12_FEATURE_DATA_D3D12_OPTIONS3;
 #endif
 
@@ -270,9 +269,9 @@ typedef enum D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER
 
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS4
 {
-    _Out_ BOOL ReservedBufferPlacementSupported;
-    _Out_ D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER SharedResourceCompatibilityTier;
-    _Out_ BOOL Native16BitShaderOpsSupported;
+  BOOL ReservedBufferPlacementSupported;
+  3D12_SHARED_RESOURCE_COMPATIBILITY_TIER SharedResourceCompatibilityTier;
+  BOOL Native16BitShaderOpsSupported;
 } D3D12_FEATURE_DATA_D3D12_OPTIONS4;
 
 #endif
@@ -520,7 +519,7 @@ public:
     return true;
   }
 
-  std::wstring DxcBlobToWide(_In_ IDxcBlob *pBlob) {
+  std::wstring DxcBlobToWide(IDxcBlob *pBlob) {
     if (!pBlob)
       return std::wstring();
 
@@ -728,8 +727,9 @@ public:
     VERIFY_SUCCEEDED(pDevice->CreateComputePipelineState(&computePsoDesc, IID_PPV_ARGS(ppComputeState)));
   }
 
-  bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
-                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true) {
+  bool CreateDevice(ID3D12Device **ppDevice,
+                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0,
+                    bool skipUnsupported = true) {
     if (testModel > HIGHEST_SHADER_MODEL) {
       UINT minor = (UINT)testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
@@ -789,7 +789,7 @@ public:
     if (!UseDxbc()) {
       // Check for DXIL support.
       typedef struct D3D12_FEATURE_DATA_SHADER_MODEL {
-        _Inout_ D3D_SHADER_MODEL HighestShaderModel;
+        D3D_SHADER_MODEL HighestShaderModel;
       } D3D12_FEATURE_DATA_SHADER_MODEL;
       const UINT D3D12_FEATURE_SHADER_MODEL = 7;
       D3D12_FEATURE_DATA_SHADER_MODEL SMData;
@@ -5289,7 +5289,7 @@ struct Half2
     Half2& operator=(Half2&&) = default;
 
     constexpr Half2(uint16_t _x, uint16_t _y) : x(_x), y(_y) {}
-    explicit Half2(_In_reads_(2) const uint16_t *pArray) : x(pArray[0]), y(pArray[1]) {}
+    explicit Half2(const uint16_t *pArray) : x(pArray[0]), y(pArray[1]) {}
 };
 
 struct SDot2AddHalfOp {

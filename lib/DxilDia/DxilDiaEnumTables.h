@@ -48,7 +48,7 @@ public:
   STDMETHODIMP get__NewEnum(
     /* [retval][out] */ IUnknown **pRetVal) override { return ENotImpl(); }
 
-  STDMETHODIMP get_Count(_Out_ LONG *pRetVal) override;
+  STDMETHODIMP get_Count(LONG *pRetVal) override;
 
   STDMETHODIMP Item(
     /* [in] */ VARIANT index,
