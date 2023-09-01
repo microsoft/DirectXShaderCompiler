@@ -44,11 +44,8 @@ def normal_compile(args, output_file, working_dir, empty_env):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             close_fds=close_fds)
-    stdout, stderr = proc.communicate()
-    res = proc.wait()
-    if res != 0:
-        print(f"normal compile failed {args}, stdout:{stdout}, stderr:{stderr}")
-    return res
+    proc.communicate()
+    return proc.wait()
 
 def debug_compile(args, output_file, working_dir, empty_env):
     debug_args = args
@@ -113,12 +110,13 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run hash stability test')
-    parser.add_argument('-a','--argument', help='dxc command line options', required=True)
+    parser.add_argument('argument', nargs='+',
+                        help='command line options to run dxc')
     parser.add_argument('-p','--path', help='path to the directory containing dxc and dxa', required=True)
-    args = vars(parser.parse_args())
-    dxc_args = args['argument'].split(' ')
-    dxc_args[0] = "%dxc"
-    bin_dir = args['path']
+    args = parser.parse_args()
+    dxc_args = args.argument
+    dxc_args.insert(0, "%dxc")
+    bin_dir = args.path
     # get dxc and dxa path when running from command line
     dxc_name = 'dxc'
     dxa_name = 'dxa'

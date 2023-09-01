@@ -1,1 +1,1 @@
-RUN: %hash_stability  "dxc /T ps_6_0 %S/../DXC/Inputs/smake.hlsl"
+RUN: %hash_stability   /T ps_6_0 %S/../DXC/Inputs/smake.hlsl
