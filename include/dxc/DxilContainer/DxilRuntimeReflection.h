@@ -645,7 +645,7 @@ struct DxilFunctionDesc {
   uint32_t NumResources;
   uint32_t NumFunctionDependencies;
   DxilResourceDescPtrArray Resources;
-  const wchar_t * const *FunctionDependencies;
+  const wchar_t *const *FunctionDependencies;
   DXIL::ShaderKind ShaderKind;
   uint32_t PayloadSizeInBytes;   // 1) hit, miss, or closest shader: payload count
                                  // 2) call shader: parameter size
@@ -670,7 +670,7 @@ struct DxilSubobjectDesc {
   struct SubobjectToExportsAssociation_t {
     const wchar_t *Subobject;
     uint32_t NumExports;
-    const wchar_t * const *Exports;
+    const wchar_t *const *Exports;
   };
   struct RaytracingShaderConfig_t {
     uint32_t MaxPayloadSizeInBytes;
