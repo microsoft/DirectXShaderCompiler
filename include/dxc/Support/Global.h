@@ -244,10 +244,10 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 #else // NDEBUG
 
 // DXASSERT_ARGS is disabled in free builds.
-#define DXASSERT_ARGS(exp, s, ...) assert(exp)
+#define DXASSERT_ARGS(exp, s, ...)
 
 // DXASSERT is disabled in free builds.
-#define DXASSERT(exp, msg) assert(exp)
+#define DXASSERT(exp, msg)
 
 // DXASSERT_LOCALVAR is disabled in free builds, but we keep the local referenced to avoid a warning.
 #define DXASSERT_LOCALVAR(local, exp, msg)                                     \
