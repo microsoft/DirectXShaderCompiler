@@ -1096,7 +1096,7 @@ allocset(struct parse *p)
 		p->g->setbits = ptr;
 
 		for (i = 0; i < no; i++) {
-			_Analysis_assume_(i < nc); // HLSL Change
+			assert(i < nc); // HLSL Change
 			p->g->sets[i].ptr = p->g->setbits + css*(i/CHAR_BIT);
 		}
 
