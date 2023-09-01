@@ -14,6 +14,7 @@
 #else
 #include <clocale>
 #endif
+#include <assert.h>
 #include <string>
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
