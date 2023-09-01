@@ -258,7 +258,7 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 #define DXASSERT_LOCALVAR_NOMSG(local, exp) DXASSERT_LOCALVAR(local, exp, "")
 
 // DXASSERT_NOMSG is disabled in free builds.
-#define DXASSERT_NOMSG(exp) assert(exp)
+#define DXASSERT_NOMSG(exp)
 
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
 #define DXVERIFY_NOMSG(exp)                                                    \
