@@ -1,12 +1,11 @@
-// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS -fcgl  %s -spirv | FileCheck %s
 
 #include "bezier_common_hull.hlsli"
 
-
 [domain("tri")]
-// CHECK: OpExecutionMode %SubDToBezierHS SpacingEqual
-[partitioning("integer")]
-[outputtopology("line")]
+[partitioning("fractional_odd")]
+// CHECK: OpExecutionMode %SubDToBezierHS PointMode
+[outputtopology("point")]
 [outputcontrolpoints(16)]
 [patchconstantfunc("SubDToBezierConstantsHS")]
 BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID) {

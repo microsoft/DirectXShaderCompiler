@@ -1,15 +1,15 @@
-// RUN: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 #include "bezier_common_hull.hlsli"
 
 // Test: PCF takes the input control points (InputPatch)
 
-// CHECK:              [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_16
+// CHECK:              [[fType:%[0-9]+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_16
 
-// CHECK:                       %main = OpFunction %void None {{%\d+}}
+// CHECK:                       %main = OpFunction %void None {{%[0-9]+}}
 // CHECK:               %param_var_ip = OpVariable %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_16 Function
 
-// CHECK:                    {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF %param_var_ip
+// CHECK:                    {{%[0-9]+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF %param_var_ip
 
 // CHECK:                        %PCF = OpFunction %HS_CONSTANT_DATA_OUTPUT None [[fType]]
 // CHECK-NEXT:                    %ip = OpFunctionParameter %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_16

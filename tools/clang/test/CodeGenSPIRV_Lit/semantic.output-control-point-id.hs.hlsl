@@ -1,10 +1,15 @@
-// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS -fcgl  %s -spirv | FileCheck %s
+
+// CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS"
+// CHECK-SAME: %gl_InvocationID
+
+// CHECK: OpDecorate %gl_InvocationID BuiltIn InvocationId
+
+// CHECK: %gl_InvocationID = OpVariable %_ptr_Input_uint Input
 
 #include "bezier_common_hull.hlsli"
 
-// CHECK: OpExecutionMode %SubDToBezierHS Triangle
-
-[domain("tri")]
+[domain("quad")]
 [partitioning("fractional_odd")]
 [outputtopology("line")]
 [outputcontrolpoints(16)]

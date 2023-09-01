@@ -1,11 +1,12 @@
-// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS"
-// CHECK-SAME: %gl_InvocationID
+// CHECK-SAME: %gl_TessLevelInner
 
-// CHECK: OpDecorate %gl_InvocationID BuiltIn InvocationId
+// CHECK: OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
+// CHECK: OpDecorate %gl_TessLevelInner Patch
 
-// CHECK: %gl_InvocationID = OpVariable %_ptr_Input_uint Input
+// CHECK: %gl_TessLevelInner = OpVariable %_ptr_Output__arr_float_uint_2 Output
 
 #include "bezier_common_hull.hlsli"
 

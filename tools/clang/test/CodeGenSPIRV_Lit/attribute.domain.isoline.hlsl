@@ -1,11 +1,11 @@
-// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS -fcgl  %s -spirv | FileCheck %s
 
 #include "bezier_common_hull.hlsli"
 
+// CHECK: OpExecutionMode %SubDToBezierHS Isoline
 
-[domain("tri")]
-// CHECK: OpExecutionMode %SubDToBezierHS SpacingFractionalEven
-[partitioning("fractional_even")]
+[domain("isoline")]
+[partitioning("fractional_odd")]
 [outputtopology("line")]
 [outputcontrolpoints(16)]
 [patchconstantfunc("SubDToBezierConstantsHS")]

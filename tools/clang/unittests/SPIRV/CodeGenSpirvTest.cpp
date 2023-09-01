@@ -8,36 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "FileTestFixture.h"
-#include "WholeFileTestFixture.h"
 
 namespace {
 using clang::spirv::FileTest;
-using clang::spirv::WholeFileTest;
-
-// === Whole output tests ===
-
-TEST_F(WholeFileTest, PassThruPixelShader) {
-  runWholeFileTest("passthru-ps.hlsl2spv", /*generateHeader*/ true);
-}
-
-TEST_F(WholeFileTest, PassThruVertexShader) {
-  runWholeFileTest("passthru-vs.hlsl2spv", /*generateHeader*/ true);
-}
-
-TEST_F(WholeFileTest, PassThruComputeShader) {
-  runWholeFileTest("passthru-cs.hlsl2spv", /*generateHeader*/ true);
-}
-
-TEST_F(WholeFileTest, BezierHullShader) {
-  runWholeFileTest("bezier.hull.hlsl2spv");
-}
-
-TEST_F(WholeFileTest, BezierDomainShader) {
-  runWholeFileTest("bezier.domain.hlsl2spv");
-}
-TEST_F(WholeFileTest, EmptyStructInterfaceVS) {
-  runWholeFileTest("empty-struct-interface.vs.hlsl2spv");
-}
 
 // === Partial output tests ===
 
@@ -780,21 +753,12 @@ TEST_F(FileTest, SemanticInsideTessFactorDSArray1) {
   // Test that SV_InsideTessFactor is of type float[1]
   runFileTest("semantic.inside-tess-factor.ds.array1.hlsl");
 }
-TEST_F(FileTest, SemanticTessFactorHS) {
-  runFileTest("semantic.tess-factor.hs.hlsl");
-}
 TEST_F(FileTest, SemanticTessFactorSizeMismatchHS) {
   runFileTest("semantic.tess-factor.size-mismatch.hs.hlsl");
-}
-TEST_F(FileTest, SemanticInsideTessFactorHS) {
-  runFileTest("semantic.inside-tess-factor.hs.hlsl");
 }
 TEST_F(FileTest, SemanticInsideTessFactorHSArray1) {
   // Test that SV_InsideTessFactor is of type float[1]
   runFileTest("semantic.inside-tess-factor.hs.array1.hlsl");
-}
-TEST_F(FileTest, SemanticPrimitiveIdHS) {
-  runFileTest("semantic.primitive-id.hs.hlsl");
 }
 TEST_F(FileTest, SemanticPrimitiveIdDS) {
   runFileTest("semantic.primitive-id.ds.hlsl");
@@ -804,9 +768,6 @@ TEST_F(FileTest, SemanticPrimitiveIdGS) {
 }
 TEST_F(FileTest, SemanticPrimitiveIdPS) {
   runFileTest("semantic.primitive-id.ps.hlsl");
-}
-TEST_F(FileTest, SemanticOutputControlPointIdHS) {
-  runFileTest("semantic.output-control-point-id.hs.hlsl");
 }
 TEST_F(FileTest, SemanticOutputControlPointIdHSError) {
   runFileTest("semantic.output-control-point-id.hs.error.hlsl",
@@ -1402,38 +1363,6 @@ TEST_F(FileTest, IntrinsicsSM66IsHelperLane) {
 }
 TEST_F(FileTest, IntrinsicsSM66IsHelperLaneVk1p3) {
   runFileTest("intrinsics.sm6_6.ishelperlane.vk1p3.hlsl");
-}
-
-// For attributes
-TEST_F(FileTest, AttributeDomainTri) {
-  runFileTest("attribute.domain.tri.hlsl");
-}
-TEST_F(FileTest, AttributeDomainQuad) {
-  runFileTest("attribute.domain.quad.hlsl");
-}
-TEST_F(FileTest, AttributeDomainIsoline) {
-  runFileTest("attribute.domain.isoline.hlsl");
-}
-TEST_F(FileTest, AttributePartitioningInteger) {
-  runFileTest("attribute.partitioning.integer.hlsl");
-}
-TEST_F(FileTest, AttributePartitioningFractionalEven) {
-  runFileTest("attribute.partitioning.fractional-even.hlsl");
-}
-TEST_F(FileTest, AttributePartitioningFractionalOdd) {
-  runFileTest("attribute.partitioning.fractional-odd.hlsl");
-}
-TEST_F(FileTest, AttributeOutputTopologyPoint) {
-  runFileTest("attribute.outputtopology.point.hlsl");
-}
-TEST_F(FileTest, AttributeOutputTopologyTriangleCw) {
-  runFileTest("attribute.outputtopology.triangle-cw.hlsl");
-}
-TEST_F(FileTest, AttributeOutputTopologyTriangleCcw) {
-  runFileTest("attribute.outputtopology.triangle-ccw.hlsl");
-}
-TEST_F(FileTest, AttributeOutputControlPoints) {
-  runFileTest("attribute.outputcontrolpoints.hlsl");
 }
 
 // For geometry shader primitive types
@@ -2281,19 +2210,6 @@ TEST_F(FileTest, NamespaceResources) {
 }
 
 // HS: for different Patch Constant Functions
-TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hs.pcf.void.hlsl"); }
-TEST_F(FileTest, HullShaderPCFTakesInputPatch) {
-  runFileTest("hs.pcf.input-patch.hlsl");
-}
-TEST_F(FileTest, HullShaderPCFTakesOutputPatch) {
-  runFileTest("hs.pcf.output-patch.hlsl");
-}
-TEST_F(FileTest, HullShaderPCFTakesPrimitiveId) {
-  runFileTest("hs.pcf.primitive-id.1.hlsl");
-}
-TEST_F(FileTest, HullShaderPCFTakesPrimitiveIdButMainDoesnt) {
-  runFileTest("hs.pcf.primitive-id.2.hlsl");
-}
 TEST_F(FileTest, HullShaderPCFTakesViewId) {
   runFileTest("hs.pcf.view-id.1.hlsl");
 }
@@ -2303,8 +2219,6 @@ TEST_F(FileTest, HullShaderPCFTakesViewIdButMainDoesnt) {
 TEST_F(FileTest, HullShaderConstOutputPatch) {
   runFileTest("hs.const.output-patch.hlsl");
 }
-// HS: for the structure of hull shaders
-TEST_F(FileTest, HullShaderStructure) { runFileTest("hs.structure.hlsl"); }
 
 // GS: emit vertex and emit primitive
 TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }

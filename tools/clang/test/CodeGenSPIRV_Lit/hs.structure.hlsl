@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 #include "bezier_common_hull.hlsli"
 
@@ -7,18 +7,18 @@
 // 2- Control barrier is placed before PCF is called.
 // 3- PCF is called by invocationID of 0.
 
-// CHECK:         %main = OpFunction %void None {{%\d+}}
-// CHECK:   [[id:%\d+]] = OpLoad %uint %gl_InvocationID
+// CHECK:         %main = OpFunction %void None {{%[0-9]+}}
+// CHECK:   [[id:%[0-9]+]] = OpLoad %uint %gl_InvocationID
 
-// CHECK:      {{%\d+}} = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
+// CHECK:      {{%[0-9]+}} = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
 
 // CHECK:                 OpControlBarrier %uint_2 %uint_4 %uint_0
 
-// CHECK: [[cond:%\d+]] = OpIEqual %bool [[id]] %uint_0
+// CHECK: [[cond:%[0-9]+]] = OpIEqual %bool [[id]] %uint_0
 // CHECK:                 OpSelectionMerge %if_merge None
 // CHECK:                 OpBranchConditional [[cond]] %if_true %if_merge
 // CHECK:      %if_true = OpLabel
-// CHECK:      {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %SubDToBezierConstantsHS %param_var_ip %param_var_PatchID
+// CHECK:      {{%[0-9]+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %SubDToBezierConstantsHS %param_var_ip %param_var_PatchID
 // CHECK:                 OpBranch %if_merge
 // CHECK:     %if_merge = OpLabel
 // CHECK:                 OpReturn

@@ -1,17 +1,11 @@
-// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
-
-// CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS"
-// CHECK-SAME: %gl_TessLevelInner
-
-// CHECK: OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
-// CHECK: OpDecorate %gl_TessLevelInner Patch
-
-// CHECK: %gl_TessLevelInner = OpVariable %_ptr_Output__arr_float_uint_2 Output
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS -fcgl  %s -spirv | FileCheck %s
 
 #include "bezier_common_hull.hlsli"
 
-[domain("quad")]
-[partitioning("fractional_odd")]
+
+[domain("tri")]
+// CHECK: OpExecutionMode %SubDToBezierHS SpacingFractionalEven
+[partitioning("fractional_even")]
 [outputtopology("line")]
 [outputcontrolpoints(16)]
 [patchconstantfunc("SubDToBezierConstantsHS")]

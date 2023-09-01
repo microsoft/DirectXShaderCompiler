@@ -1,10 +1,10 @@
-// RUN: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 #include "bezier_common_hull.hlsli"
 
-// CHECK: [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT
-// CHECK:          %main = OpFunction %void None {{%\d+}}
-// CHECK:       {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF
+// CHECK: [[fType:%[0-9]+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT
+// CHECK:          %main = OpFunction %void None {{%[0-9]+}}
+// CHECK:       {{%[0-9]+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF
 // CHECK:           %PCF = OpFunction %HS_CONSTANT_DATA_OUTPUT None [[fType]]
 
 // PCF does not take any args
