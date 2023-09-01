@@ -1,1 +1,0 @@
-RUN: python3 %S/../../../../utils/hct/HashStability.py -a %S/../DXC/Inputs/smake.hlsl -p %llvm_tools_dir

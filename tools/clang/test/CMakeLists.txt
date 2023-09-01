@@ -15,8 +15,8 @@ configure_lit_site_cfg(
   )
 
 configure_lit_site_cfg(
-  ${CMAKE_CURRENT_SOURCE_DIR}/hash_stability/lit.site.cfg.in
-  ${CMAKE_CURRENT_BINARY_DIR}/hash_stability/lit.site.cfg
+  ${CMAKE_CURRENT_SOURCE_DIR}/HashStability/lit.site.cfg.in
+  ${CMAKE_CURRENT_BINARY_DIR}/HashStability/lit.site.cfg
   )
 
 configure_lit_site_cfg(
@@ -113,7 +113,7 @@ set(CLANG_TEST_PARAMS
   clang_taef_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
   no_priority=True
   clang_taef_exec_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
-  clang_hash_stability_site_config=${CMAKE_CURRENT_BINARY_DIR}/hash_stability/lit.site.cfg
+  clang_hash_stability_site_config=${CMAKE_CURRENT_BINARY_DIR}/HashStability/lit.site.cfg
   )
 
 add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
