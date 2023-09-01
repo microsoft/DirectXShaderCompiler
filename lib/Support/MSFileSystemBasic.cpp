@@ -13,6 +13,8 @@
 #ifdef _WIN32
 
 #include "dxc/Support/WinIncludes.h"
+
+#include <assert.h>
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
