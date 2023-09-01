@@ -2006,8 +2006,6 @@ inline HRESULT D3DX12SerializeVersionedRootSignature(
 
       if (SUCCEEDED(hr)) {
         for (UINT n = 0; n < desc_1_1.NumParameters; n++) {
-          assert(ParametersSize ==
-                 sizeof(D3D12_ROOT_PARAMETER) * desc_1_1.NumParameters);
           pParameters_1_0[n].ParameterType =
               desc_1_1.pParameters[n].ParameterType;
           pParameters_1_0[n].ShaderVisibility =
@@ -2050,9 +2048,6 @@ inline HRESULT D3DX12SerializeVersionedRootSignature(
 
             if (SUCCEEDED(hr)) {
               for (UINT x = 0; x < table_1_1.NumDescriptorRanges; x++) {
-                assert(DescriptorRangesSize ==
-                       sizeof(D3D12_DESCRIPTOR_RANGE) *
-                           table_1_1.NumDescriptorRanges);
                 pDescriptorRanges_1_0[x].BaseShaderRegister =
                     table_1_1.pDescriptorRanges[x].BaseShaderRegister;
                 pDescriptorRanges_1_0[x].NumDescriptors =

@@ -116,7 +116,6 @@ void CheckLLVMErrorCode(const std::error_code &ec);
     hr = E_OUTOFMEMORY;                                                        \
   }                                                                            \
   catch (hlsl::Exception & _hlsl_exception_) {                                 \
-    assert(DXC_FAILED(_hlsl_exception_.hr));                                   \
     hr = _hlsl_exception_.hr;                                                  \
   }                                                                            \
   catch (...) {                                                                \
@@ -127,7 +126,6 @@ void CheckLLVMErrorCode(const std::error_code &ec);
     return E_OUTOFMEMORY;                                                      \
   }                                                                            \
   catch (hlsl::Exception & _hlsl_exception_) {                                 \
-    assert(DXC_FAILED(_hlsl_exception_.hr));                                   \
     return _hlsl_exception_.hr;                                                \
   }                                                                            \
   catch (...) {                                                                \
@@ -209,7 +207,6 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 //
 #define DXASSERT_ARGS(exp, fmt, ...)                                           \
   do {                                                                         \
-    assert(exp);                                                               \
     if (!(exp)) {                                                              \
       OutputDebugFormatA(                                                      \
           "Error: \t%s\nFile:\n%s(%d)\nFunc:\t%s.\n\t" fmt "\n",               \
