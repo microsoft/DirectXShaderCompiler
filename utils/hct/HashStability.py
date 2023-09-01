@@ -6,10 +6,9 @@ import filecmp
 import argparse
 import shutil
 
-IS_WINDOWS = platform.system() == 'Windows'
-
+is_windows = platform.system() == 'Windows'
 # Don't use close_fds on Windows.
-USE_CLOSE_FDS = not IS_WINDOWS
+close_fds = not is_windows
 
 
 def extract_hash(dxa_path, dx_container, working_dir, empty_env):
@@ -23,7 +22,7 @@ def extract_hash(dxa_path, dx_container, working_dir, empty_env):
                             executable=dxa_path,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
-                            close_fds=USE_CLOSE_FDS)
+                            close_fds=close_fds)
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
@@ -44,7 +43,7 @@ def normal_compile(args, output_file, working_dir, empty_env):
                             # don't writ output to stdout
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
-                            close_fds=USE_CLOSE_FDS)
+                            close_fds=close_fds)
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
@@ -64,7 +63,7 @@ def debug_compile(args, output_file, working_dir, empty_env):
                             # don't writ output to stdout
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
-                            close_fds=USE_CLOSE_FDS)
+                            close_fds=close_fds)
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
@@ -103,10 +102,10 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
     # compare normal_hash and debug_hash.
     if filecmp.cmp(normal_hash, debug_hash):
         # hash match, return pass.
-        return True, "Hash match."
+        return True, "Hash matches."
     else:
         # hash mismatch
-        return False, "Hash mismatch."
+        return False, "Hash mismatches."
 
 ################################################
 ################################################
@@ -114,15 +113,20 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run hash stability test')
-    parser.add_argument('-a','--argument', help='origin command line options to run dxc like \"dxc -ECSMain -Tcs_6_0 D:\\test.hlsl\"', required=True)
-    parser.add_argument('-p','--path', help='path to find dxc and dxa', required=True)
+    parser.add_argument('-a','--argument', help='dxc command line options', required=True)
+    parser.add_argument('-p','--path', help='path to the directory containing dxc and dxa', required=True)
     args = vars(parser.parse_args())
     dxc_args = args['argument'].split(' ')
     dxc_args[0] = "%dxc"
     bin_dir = args['path']
     # get dxc and dxa path when running from command line
-    dxc_path = os.path.join(bin_dir, 'dxc.exe')
-    dxa_path = os.path.join(bin_dir, 'dxa.exe')
+    dxc_name = 'dxc'
+    dxa_name = 'dxa'
+    if is_windows:
+        dxc_name += '.exe'
+        dxa_name += '.exe'
+    dxc_path = os.path.join(bin_dir, dxc_name)
+    dxa_path = os.path.join(bin_dir, dxa_name)
     working_dir = os.getcwd()
     tmp_path = os.path.join(working_dir, 'Output')
     # create tmp_path if it doesn't exist
