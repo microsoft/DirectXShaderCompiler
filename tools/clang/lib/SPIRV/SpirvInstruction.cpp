@@ -112,6 +112,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIntrinsicInstruction)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitMeshTasksEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSetMeshOutputsEXT)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvInvocationInterlockEXT)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -121,7 +122,8 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
       srcRange(range), debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
       storageClass(spv::StorageClass::Function), isRValue_(false),
-      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
+      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false),
+      isRasterizerOrdered_(false) {}
 
 bool SpirvInstruction::isArithmeticInstruction() const {
   switch (opcode) {
@@ -1123,6 +1125,12 @@ SpirvSetMeshOutputsEXT::SpirvSetMeshOutputsEXT(SpirvInstruction *vertCount,
     : SpirvInstruction(IK_SetMeshOutputsEXT, spv::Op::OpSetMeshOutputsEXT,
                        QualType(), loc, range),
       vertCount(vertCount), primCount(primCount) {}
+
+SpirvInvocationInterlockEXT::SpirvInvocationInterlockEXT(spv::Op opcode,
+                                                         SourceLocation loc,
+                                                         SourceRange range)
+    : SpirvInstruction(IK_InvocationInterlockEXT, opcode, QualType(), loc,
+                       range) {}
 
 } // namespace spirv
 } // namespace clang

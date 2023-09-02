@@ -302,6 +302,7 @@ public:
   bool visit(SpirvIntrinsicInstruction *) override;
   bool visit(SpirvEmitMeshTasksEXT *) override;
   bool visit(SpirvSetMeshOutputsEXT *) override;
+  bool visit(SpirvInvocationInterlockEXT *) override;
 
   using Visitor::visit;
 

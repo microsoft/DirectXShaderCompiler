@@ -134,6 +134,8 @@ public:
     IK_VectorShuffle,             // OpVectorShuffle
     IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
 
+    IK_InvocationInterlockEXT, // Op*InvocationInterlockEXT
+
     // For DebugInfo instructions defined in
     // OpenCL.DebugInfo.100 and NonSemantic.Shader.DebugInfo.100
     IK_DebugInfoNone,
@@ -218,6 +220,9 @@ public:
   void setBitfieldInfo(const BitfieldInfo &info) { bitfieldInfo = info; }
   llvm::Optional<BitfieldInfo> getBitfieldInfo() const { return bitfieldInfo; }
 
+  void setRasterizerOrdered(bool ro = true) { isRasterizerOrdered_ = ro; }
+  bool isRasterizerOrdered() const { return isRasterizerOrdered_; }
+
   /// Legalization-specific code
   ///
   /// Note: the following two functions are currently needed in order to support
@@ -261,6 +266,7 @@ protected:
   bool isNonUniform_;
   bool isPrecise_;
   llvm::Optional<BitfieldInfo> bitfieldInfo;
+  bool isRasterizerOrdered_;
 };
 
 /// \brief OpCapability instruction
@@ -2212,6 +2218,23 @@ public:
 private:
   SpirvInstruction *vertCount;
   SpirvInstruction *primCount;
+};
+
+/// \brief OpBeginInvocationInterlockEXT and OpEndInvocationInterlockEXT
+/// instructions.
+class SpirvInvocationInterlockEXT : public SpirvInstruction {
+public:
+  SpirvInvocationInterlockEXT(spv::Op opcode, SourceLocation loc,
+                              SourceRange range = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvInvocationInterlockEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_InvocationInterlockEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
 };
 
 class SpirvDebugInfoNone : public SpirvDebugInstruction {

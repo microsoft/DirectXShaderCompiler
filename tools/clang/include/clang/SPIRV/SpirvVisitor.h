@@ -146,6 +146,7 @@ public:
 
   DEFINE_VISIT_METHOD(SpirvEmitMeshTasksEXT)
   DEFINE_VISIT_METHOD(SpirvSetMeshOutputsEXT)
+  DEFINE_VISIT_METHOD(SpirvInvocationInterlockEXT)
 #undef DEFINE_VISIT_METHOD
 
   const SpirvCodeGenOptions &getCodeGenOptions() const { return spvOptions; }

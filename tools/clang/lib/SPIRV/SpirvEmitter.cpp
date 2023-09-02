@@ -623,7 +623,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                    spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
-      beforeHlslLegalization(false), mainSourceFile(nullptr) {
+      beforeHlslLegalization(false), interlockModeAdded(false),
+      mainSourceFile(nullptr) {
 
   // Get ShaderModel from command line hlsl profile option.
   const hlsl::ShaderModel *shaderModel =
@@ -753,6 +754,16 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
     interfacesInVector.push_back(interface);
   }
   return interfacesInVector;
+}
+
+void SpirvEmitter::beginInvocationInterlock(SourceLocation loc,
+                                            SourceRange range) {
+  if (!interlockModeAdded) {
+    spvBuilder.addExecutionMode(
+        entryFunction, declIdMapper.getInterlockExecutionMode(), {}, loc);
+    interlockModeAdded = true;
+  }
+  spvBuilder.createBeginInvocationInterlockEXT(loc, range);
 }
 
 llvm::StringRef SpirvEmitter::getEntryPointName(const FunctionInfo *entryInfo) {
@@ -4250,6 +4261,11 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
          isRWTexture(type) || isSubpassInput(type) || isSubpassInputMS(type));
 
   const bool doFetch = isBuffer(type) || isTexture(type);
+  const bool rasterizerOrdered = isRasterizerOrderedView(type);
+
+  if (rasterizerOrdered) {
+    beginInvocationInterlock(loc, range);
+  }
 
   auto *objectInfo = loadIfGLValue(object, range);
 
@@ -4313,6 +4329,10 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
       varOffset, /*constOffsets*/ nullptr, sampleNumber, residencyCode, loc,
       range);
 
+  if (rasterizerOrdered) {
+    spvBuilder.createEndInvocationInterlockEXT(loc, range);
+  }
+
   // If the result type is a vec1, vec2, or vec3, some extra processing
   // (extraction) is required.
   auto *retVal = extractVecFromVec4(texel, elemCount, elemType, loc, range);
@@ -4368,19 +4388,30 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
 
   const auto range = expr->getSourceRange();
 
+  const bool rasterizerOrder = isRasterizerOrderedView(object->getType());
+
   if (isTemplatedLoadOrStore) {
     // Templated load. Need to (potentially) perform more
     // loads/casts/composite-constructs.
+    if (rasterizerOrder) {
+      beginInvocationInterlock(expr->getLocStart(), range);
+    }
+
     if (doStore) {
       auto *values = doExpr(expr->getArg(1));
       RawBufferHandler(*this).processTemplatedStoreToBuffer(
           values, objectInfo, byteAddress, expr->getArg(1)->getType(), range);
-      return nullptr;
+      result = nullptr;
     } else {
       RawBufferHandler rawBufferHandler(*this);
-      return rawBufferHandler.processTemplatedLoadFromBuffer(
+      result = rawBufferHandler.processTemplatedLoadFromBuffer(
           objectInfo, byteAddress, expr->getType(), range);
     }
+
+    if (rasterizerOrder) {
+      spvBuilder.createEndInvocationInterlockEXT(expr->getLocStart(), range);
+    }
+    return result;
   }
 
   // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
@@ -4394,6 +4425,10 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
 
   // We might be able to reduce duplication by handling this with
   // processTemplatedLoadFromBuffer
+
+  if (rasterizerOrder) {
+    beginInvocationInterlock(expr->getLocStart(), range);
+  }
 
   // Perform access chain into the RWByteAddressBuffer.
   // First index must be zero (member 0 of the struct is a
@@ -4457,11 +4492,16 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
           astContext.getExtVectorType(addressType, numWords);
       result = spvBuilder.createCompositeConstruct(resultType, values,
                                                    expr->getLocStart(), range);
-      if (!result)
-        return nullptr;
-
-      result->setRValue();
+      if (!result) {
+        result = nullptr;
+      } else {
+        result->setRValue();
+      }
     }
+  }
+
+  if (rasterizerOrder) {
+    spvBuilder.createEndInvocationInterlockEXT(expr->getLocStart(), range);
   }
 
   return result;
@@ -7392,10 +7432,20 @@ SpirvInstruction *SpirvEmitter::tryToAssignToRWBufferRWTexture(
     auto *loc = doExpr(indexExpr, range);
     const QualType imageType = baseExpr->getType();
     auto *baseInfo = doExpr(baseExpr, range);
+
+    const bool rasterizerOrder = isRasterizerOrderedView(imageType);
+    if (rasterizerOrder) {
+      beginInvocationInterlock(baseExpr->getExprLoc(), range);
+    }
+
     auto *image = spvBuilder.createLoad(imageType, baseInfo,
                                         baseExpr->getExprLoc(), range);
     spvBuilder.createImageWrite(imageType, image, loc, rhs, lhs->getExprLoc(),
                                 range);
+
+    if (rasterizerOrder) {
+      spvBuilder.createEndInvocationInterlockEXT(baseExpr->getExprLoc(), range);
+    }
     return rhs;
   }
   return nullptr;
@@ -8028,26 +8078,33 @@ SpirvInstruction *SpirvEmitter::derefOrCreatePointerToValue(
     QualType baseType, SpirvInstruction *base, QualType elemType,
     const llvm::SmallVector<SpirvInstruction *, 4> &indices, SourceLocation loc,
     SourceRange range) {
+  SpirvInstruction *value = nullptr;
+
   if (base->isLValue()) {
-    return spvBuilder.createAccessChain(elemType, base, indices, loc, range);
+    value = spvBuilder.createAccessChain(elemType, base, indices, loc, range);
+  } else {
+
+    // If this is a rvalue, we need a temporary object to hold it
+    // so that we can get access chain from it.
+    SpirvVariable *variable = turnIntoLValue(baseType, base, loc);
+    SpirvInstruction *chain =
+        spvBuilder.createAccessChain(elemType, variable, indices, loc, range);
+
+    // Okay, this part seems weird, but it is intended:
+    // If the base is originally a rvalue, the whole AST involving the base
+    // is consistently set up to handle rvalues. By copying the base into
+    // a temporary variable and grab an access chain from it, we are breaking
+    // the consistency by turning the base from rvalue into lvalue. Keep in
+    // mind that there will be no LValueToRValue casts in the AST for us
+    // to rely on to load the access chain if a rvalue is expected. Therefore,
+    // we must do the load here. Otherwise, it's up to the consumer of this
+    // access chain to do the load, and that can be everywhere.
+    value = spvBuilder.createLoad(elemType, chain, loc);
   }
 
-  // If this is a rvalue, we need a temporary object to hold it
-  // so that we can get access chain from it.
-  SpirvVariable *variable = turnIntoLValue(baseType, base, loc);
-  SpirvInstruction *chain =
-      spvBuilder.createAccessChain(elemType, variable, indices, loc, range);
+  value->setRasterizerOrdered(isRasterizerOrderedView(baseType));
 
-  // Okay, this part seems weird, but it is intended:
-  // If the base is originally a rvalue, the whole AST involving the base
-  // is consistently set up to handle rvalues. By copying the base into
-  // a temporary variable and grab an access chain from it, we are breaking
-  // the consistency by turning the base from rvalue into lvalue. Keep in
-  // mind that there will be no LValueToRValue casts in the AST for us
-  // to rely on to load the access chain if a rvalue is expected. Therefore,
-  // we must do the load here. Otherwise, it's up to the consumer of this
-  // access chain to do the load, and that can be everywhere.
-  return spvBuilder.createLoad(elemType, chain, loc);
+  return value;
 }
 
 SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,

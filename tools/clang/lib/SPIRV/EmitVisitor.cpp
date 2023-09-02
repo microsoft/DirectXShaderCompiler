@@ -1992,6 +1992,13 @@ bool EmitVisitor::visit(SpirvSetMeshOutputsEXT *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvInvocationInterlockEXT *inst) {
+  initInstruction(inst);
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

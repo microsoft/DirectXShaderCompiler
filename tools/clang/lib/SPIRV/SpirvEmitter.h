@@ -1176,6 +1176,10 @@ private:
   std::vector<SpirvVariable *>
   getInterfacesForEntryPoint(SpirvFunction *entryPoint);
 
+  /// \brief Emits OpBeginInvocationInterlockEXT and add the appropriate
+  /// execution mode, if it has not already been added.
+  void beginInvocationInterlock(SourceLocation loc, SourceRange range);
+
 private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates
   /// a FunctionInfo object for it, and inserts it into the workQueue. It also
@@ -1390,6 +1394,10 @@ private:
   /// This is the Patch Constant Function. This function is not explicitly
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;
+
+  /// Whether or not an Interlock execution mode has been added to the entry
+  /// function.
+  bool interlockModeAdded;
 
   /// The <result-id> of the OpString containing the main source file's path.
   SpirvString *mainSourceFile;
