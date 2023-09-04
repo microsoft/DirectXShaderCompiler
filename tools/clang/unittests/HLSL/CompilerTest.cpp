@@ -13,6 +13,8 @@
 #define UNICODE
 #endif
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <memory>
 #include <vector>
 #include <string>
@@ -57,6 +59,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+// clang-format on
 
 using namespace std;
 using namespace hlsl_test;
@@ -146,10 +149,12 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
+  TEST_METHOD(CompileSameFilenameAndEntryThenTestPdbUtilsArgs)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
   TEST_METHOD(CompileThenSetRootSignatureThenValidate)
   TEST_METHOD(CompileSetPrivateThenWithStripPrivate)
   TEST_METHOD(CompileWithMultiplePrivateOptionsThenFail)
+  TEST_METHOD(TestPdbUtilsWithEmptyDefine)
 
   void CompileThenTestReflectionThreadSize(const char *source, const WCHAR *target, UINT expectedX, UINT expectedY, UINT expectedZ);
 
@@ -179,6 +184,7 @@ public:
   TEST_METHOD(CompileWhenIncludeEmptyThenOK)
 
   TEST_METHOD(CompileWhenODumpThenPassConfig)
+  TEST_METHOD(CompileWhenODumpThenCheckNoSink)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
 
@@ -224,7 +230,6 @@ public:
   TEST_METHOD(CodeGenLibCsEntry3)
   TEST_METHOD(CodeGenLibEntries)
   TEST_METHOD(CodeGenLibEntries2)
-  TEST_METHOD(CodeGenLibNoAlias)
   TEST_METHOD(CodeGenLibResource)
   TEST_METHOD(CodeGenLibUnusedFunc)
 
@@ -252,14 +257,20 @@ public:
   TEST_METHOD(BatchValidation)
   TEST_METHOD(BatchPIX)
 
+  TEST_METHOD(CodeGenHashStabilityD3DReflect)
+  TEST_METHOD(CodeGenHashStabilityDisassembler)
+  TEST_METHOD(CodeGenHashStabilityDXIL)
+  TEST_METHOD(CodeGenHashStabilityHLSL)
+  TEST_METHOD(CodeGenHashStabilityInfra)
+  TEST_METHOD(CodeGenHashStabilityPIX)
+  TEST_METHOD(CodeGenHashStabilityRewriter)
+  TEST_METHOD(CodeGenHashStabilitySamples)
+  TEST_METHOD(CodeGenHashStabilityShaderTargets)
+  TEST_METHOD(CodeGenHashStabilityValidation)
+
   TEST_METHOD(SubobjectCodeGenErrors)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
-  END_TEST_METHOD()
-
-  // Batch directories
-  BEGIN_TEST_METHOD(CodeGenHashStability)
-      TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
@@ -1966,6 +1977,85 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
 }
 
+TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
+  // This is a regression test for a bug where if entry point has the same
+  // value as the input filename, the entry point gets omitted from the arg
+  // list in debug module and PDB, making them useless for recompilation.
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::wstring shader = LR"x(
+    [RootSignature("")] float PSMain() : SV_Target {
+      return 0;
+    }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils)));
+
+  CComPtr<IDxcOperationResult> pOpResult;
+
+  std::wstring EntryPoint = L"PSMain";
+  CComPtr<IDxcBlobEncoding> pShaderBlob;
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(), shader.size() * sizeof(shader[0]), DXC_CP_UTF16, &pShaderBlob));
+
+  const WCHAR *OtherInputs[] = {
+    L"AnotherInput1",
+    L"AnotherInput2",
+    L"AnotherInput3",
+    L"AnotherInput4",
+  };
+
+  const WCHAR *Args[] = {
+    OtherInputs[0], OtherInputs[1],
+    L"-Od",
+    OtherInputs[2],
+    L"-Zi",
+    OtherInputs[3],
+  };
+  VERIFY_SUCCEEDED(pCompiler->Compile(pShaderBlob, EntryPoint.c_str(), EntryPoint.c_str(), L"ps_6_0", Args, _countof(Args), nullptr, 0, nullptr, &pOpResult));
+
+  HRESULT compileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOpResult->GetStatus(&compileStatus));
+  VERIFY_SUCCEEDED(compileStatus);
+
+  CComPtr<IDxcBlob> pDxil;
+  VERIFY_SUCCEEDED(pOpResult->GetResult(&pDxil));
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOpResult.QueryInterface(&pResult));
+  CComPtr<IDxcBlob> pPdb;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+  IDxcBlob *PdbLikes[] = {
+    pDxil, pPdb,
+  };
+
+  for (IDxcBlob *pPdbLike : PdbLikes) {
+    CComPtr<IDxcPdbUtils2> pPdbUtils;
+    VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcPdbUtils, IID_PPV_ARGS(&pPdbUtils)));
+    VERIFY_SUCCEEDED(pPdbUtils->Load(pPdbLike));
+
+    CComPtr<IDxcBlobWide> pEntryPoint;
+    VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&pEntryPoint));
+    VERIFY_IS_NOT_NULL(pEntryPoint);
+    VERIFY_ARE_EQUAL(std::wstring(pEntryPoint->GetStringPointer(), pEntryPoint->GetStringLength()), EntryPoint);
+
+    std::set<std::wstring> ArgSet;
+    UINT uNumArgs = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgCount(&uNumArgs));
+    for (UINT i = 0; i < uNumArgs; i++) {
+      CComPtr<IDxcBlobWide> pArg;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArg(i, &pArg));
+      ArgSet.insert(std::wstring(pArg->GetStringPointer(), pArg->GetStringLength()));
+    }
+
+    for (const WCHAR *OtherInputs : OtherInputs) {
+      VERIFY_ARE_EQUAL(ArgSet.end(), ArgSet.find(OtherInputs));
+    }
+    VERIFY_ARE_NOT_EQUAL(ArgSet.end(), ArgSet.find(L"-Od"));
+    VERIFY_ARE_NOT_EQUAL(ArgSet.end(), ArgSet.find(L"-Zi"));
+  }
+}
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
   std::string main_source = R"x(
@@ -2007,6 +2097,26 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
   VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&pEntryName));
 
   VERIFY_ARE_EQUAL(pEntryName, L"main");
+}
+
+TEST_F(CompilerTest, TestPdbUtilsWithEmptyDefine) {
+#include "TestHeaders/TestDxilWithEmptyDefine.h"
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcBlobEncoding> pBlob;
+  VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(g_TestDxilWithEmptyDefine, sizeof(g_TestDxilWithEmptyDefine), CP_ACP, &pBlob));
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
+
+  UINT32 uCount = 0;
+  VERIFY_SUCCEEDED(pPdbUtils->GetDefineCount(&uCount));
+  for (UINT i = 0; i < uCount; i++) {
+    CComBSTR pDefine;
+    VERIFY_SUCCEEDED(pPdbUtils->GetDefine(i, &pDefine));
+  }
 }
 
 #endif //  _WIN32 - No PDBUtil support
@@ -2353,7 +2463,6 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   VERIFY_IS_NOT_NULL(pPartHeader);
 }
 
-#if _WIN32 // API -setrootsignature requires reflection, which isn't supported on non-win
 TEST_F(CompilerTest, CompileThenSetRootSignatureThenValidate) {
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
@@ -2488,7 +2597,7 @@ TEST_F(CompilerTest, CompileThenSetRootSignatureThenValidate) {
                              pRSBlobReplace->GetBufferPointer(),
                              pRSBlob->GetBufferSize()));
 }
-#endif // _WIN32 - API -setrootsignature requires reflection, which isn't supported on non-win
+
 TEST_F(CompilerTest, CompileSetPrivateThenWithStripPrivate) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -2941,6 +3050,40 @@ TEST_F(CompilerTest, CompileWhenIncludeEmptyThenOK) {
 }
 
 static const char EmptyCompute[] = "[numthreads(8,8,1)] void main() { }";
+
+TEST_F(CompilerTest, CompileWhenODumpThenCheckNoSink) {
+  struct Check {
+    std::vector<const WCHAR *> Args;
+    std::vector<const WCHAR *> Passes;
+  };
+
+  Check Checks[] = {
+    { {L"-Odump"},                      {L"-instcombine,NoSink=0",L"-dxil-loop-deletion,NoSink=0"} },
+    { {L"-Odump",L"-opt-disable sink"}, {L"-instcombine,NoSink=1",L"-dxil-loop-deletion,NoSink=1"} },
+  };
+
+  for (Check &C : Checks) {
+
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(EmptyCompute, &pSource);
+
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+      L"cs_6_0", C.Args.data(), C.Args.size(), nullptr, 0, nullptr, &pResult));
+
+    VerifyOperationSucceeded(pResult);
+    CComPtr<IDxcBlob> pResultBlob;
+    VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
+    wstring passes = BlobToWide(pResultBlob);
+
+    for (const WCHAR *pPattern : C.Passes) {
+      VERIFY_ARE_NOT_EQUAL(wstring::npos, passes.find(pPattern));
+    }
+  }
+}
 
 TEST_F(CompilerTest, CompileWhenODumpThenPassConfig) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -3624,7 +3767,8 @@ TEST_F(CompilerTest, CompileHlsl2022ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
-#if defined(_WIN32) && !(defined(_M_ARM64) || defined(_M_ARM64EC)) // this test has issues on ARM64; disable until we figure out what it going on
+// this test has issues on ARM64 and clang_cl, disable until we figure out what it going on
+#if defined(_WIN32) && !(defined(_M_ARM64) || defined(_M_ARM64EC) || defined(__clang__))
 
 #pragma fenv_access(on)
 #pragma optimize("", off)
@@ -3727,10 +3871,6 @@ TEST_F(CompilerTest, CodeGenLibEntries) {
 
 TEST_F(CompilerTest, CodeGenLibEntries2) {
   CodeGenTestCheck(L"lib_entries2.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenLibNoAlias) {
-  CodeGenTestCheck(L"lib_no_alias.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibResource) {
@@ -4140,13 +4280,44 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
   }
 }
 
+TEST_F(CompilerTest, CodeGenHashStabilityD3DReflect) {
+  CodeGenTestCheckBatchHash(L"d3dreflect");
+}
 
-#ifdef _WIN32
-TEST_F(CompilerTest, CodeGenHashStability) {
-#else
-TEST_F(CompilerTest, DISABLED_CodeGenHashStability) {
-#endif
-  CodeGenTestCheckBatchHash(L"");
+TEST_F(CompilerTest, CodeGenHashStabilityDisassembler) {
+  CodeGenTestCheckBatchHash(L"disassembler");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityDXIL) {
+  CodeGenTestCheckBatchHash(L"dxil");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityHLSL) {
+  CodeGenTestCheckBatchHash(L"hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityInfra) {
+  CodeGenTestCheckBatchHash(L"infra");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityPIX) {
+  CodeGenTestCheckBatchHash(L"pix");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityRewriter) {
+  CodeGenTestCheckBatchHash(L"rewriter");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilitySamples) {
+  CodeGenTestCheckBatchHash(L"samples");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityShaderTargets) {
+  CodeGenTestCheckBatchHash(L"shader_targets");
+}
+
+TEST_F(CompilerTest, CodeGenHashStabilityValidation) {
+  CodeGenTestCheckBatchHash(L"validation");
 }
 
 TEST_F(CompilerTest, BatchD3DReflect) {

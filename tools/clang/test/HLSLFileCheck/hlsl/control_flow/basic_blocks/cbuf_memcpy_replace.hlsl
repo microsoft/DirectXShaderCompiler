@@ -12,7 +12,7 @@ cbuffer cbuf : register(b1)
 {
   Istruct istructs[1];
 }
-//CHECK: define i32 @"\01?loop_with_break1@@YAHH@Z"
+//CHECK: define i32 @"\01?loop_with_break1{{[@$?.A-Za-z0-9_]+}}"
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: icmp eq i32
@@ -37,7 +37,7 @@ int loop_with_break1(int i)
   return istruct.ival;
 }
 
-//CHECK: define i32 @"\01?loop_with_break2@@YAHH@Z"
+//CHECK: define i32 @"\01?loop_with_break2{{[@$?.A-Za-z0-9_]+}}"
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: icmp eq i32
@@ -60,7 +60,7 @@ int loop_with_break2(int i)
   return istruct.ival;
 }
 
-//CHECK: define i32 @"\01?uncond_loop_with_break@@YAHI@Z"
+//CHECK: define i32 @"\01?uncond_loop_with_break{{[@$?.A-Za-z0-9_]+}}"
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: icmp eq i32
@@ -80,7 +80,7 @@ int uncond_loop_with_break(uint i)
   return istruct.ival;
 }
 
-//CHECK define i32 @"\01?uncond_init_loop@@YAHH@Z"
+//CHECK define i32 @"\01?uncond_init_loop{{[@$?.A-Za-z0-9_]+}}"
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: phi i32
@@ -96,7 +96,7 @@ int init_loop(int ct)
   return istruct.ival;
 }
 
-//CHECK: define i32 @"\01?cond_if@@YAHH@Z"(i32 %i)
+//CHECK: define i32 @"\01?cond_if{{[@$?.A-Za-z0-9_]+}}"(i32 %i)
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: phi i32
@@ -112,7 +112,7 @@ int cond_if(int i)
   return istruct.ival;
 }
 
-//CHECK: define i32 @"\01?uncond_if@@YAHI@Z"(i32 %i)
+//CHECK: define i32 @"\01?uncond_if{{[@$?.A-Za-z0-9_]+}}"(i32 %i)
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: ret i32
@@ -129,7 +129,7 @@ int uncond_if(uint i)
 }
 
 
-//CHECK: define i32 @"\01?cond_if_else@@YAHHH@Z"(i32 %i, i32 %j)
+//CHECK: define i32 @"\01?cond_if_else{{[@$?.A-Za-z0-9_]+}}"(i32 %i, i32 %j)
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
@@ -150,7 +150,7 @@ int cond_if_else(int i, int j)
   return istruct.ival;
 }
 
-//CHECK: define i32 @"\01?uncond_if_else@@YAHIH@Z"(i32 %i, i32 %j)
+//CHECK: define i32 @"\01?uncond_if_else{{[@$?.A-Za-z0-9_]+}}"(i32 %i, i32 %j)
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: ret i32
@@ -167,7 +167,7 @@ int uncond_if_else(uint i, int j)
   return istruct.ival;
 }
 
-//CHECK: define i32 @"\01?entry_memcpy@@YAHHH@Z"(i32 %i, i32 %ct)
+//CHECK: define i32 @"\01?entry_memcpy{{[@$?.A-Za-z0-9_]+}}"(i32 %i, i32 %ct)
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: phi i32

@@ -25,7 +25,7 @@ enum class LangStd : unsigned long  {
   v2018 = 2018,
   v2021 = 2021,
   v202x = 2029,
-  vLatest = v2018
+  vLatest = v2021
 };
 
 constexpr const char *ValidVersionsStr = "2015, 2016, 2017, 2018, and 2021";

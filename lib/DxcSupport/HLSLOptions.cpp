@@ -8,6 +8,10 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/Support/WinIncludes.h"
+
+#include "dxc/Support/dxcapi.use.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -16,10 +20,8 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
-#include "dxc/Support/dxcapi.use.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 
 using namespace llvm::opt;
@@ -130,36 +132,36 @@ void DxcDefines::BuildDefines() {
   }
 }
 
-bool DxcOpts::IsRootSignatureProfile() {
+bool DxcOpts::IsRootSignatureProfile() const {
   return TargetProfile == "rootsig_1_0" ||
       TargetProfile == "rootsig_1_1";
 }
 
-bool DxcOpts::IsLibraryProfile() {
+bool DxcOpts::IsLibraryProfile() const {
   return TargetProfile.startswith("lib_");
 }
 
-bool DxcOpts::GenerateFullDebugInfo() {
+bool DxcOpts::GenerateFullDebugInfo() const {
   return DebugInfo;
 }
 
-bool DxcOpts::GeneratePDB() {
+bool DxcOpts::GeneratePDB() const {
   return DebugInfo || SourceOnlyDebug;
 }
 
-bool DxcOpts::EmbedDebugInfo() {
+bool DxcOpts::EmbedDebugInfo() const {
   return EmbedDebug;
 }
 
-bool DxcOpts::EmbedPDBName() {
+bool DxcOpts::EmbedPDBName() const {
   return GeneratePDB() || !DebugFile.empty();
 }
 
-bool DxcOpts::DebugFileIsDirectory() {
+bool DxcOpts::DebugFileIsDirectory() const {
   return !DebugFile.empty() && llvm::sys::path::is_separator(DebugFile[DebugFile.size() - 1]);
 }
 
-llvm::StringRef DxcOpts::GetPDBName() {
+llvm::StringRef DxcOpts::GetPDBName() const {
   if (!DebugFileIsDirectory())
     return DebugFile;
   return llvm::StringRef();
@@ -328,8 +330,8 @@ static bool hasUnsupportedSpirvOption(const InputArgList &args,
   // Note: The options checked here are non-exhaustive. A thorough audit of
   // available options and their current compatibility is needed to generate a
   // complete list.
-  std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre,
-                                               OPT_Qstrip_reflect, OPT_Gis};
+  std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre, OPT_Gec,
+                                               OPT_Gis, OPT_Qstrip_reflect};
 
   for (const auto &id : unsupportedOpts) {
     if (Arg *arg = args.getLastArg(id)) {
@@ -573,7 +575,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       }
     }
   }
-  opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
+  opts.AstDumpImplicit = Args.hasFlag(OPT_ast_dump_implicit, OPT_INVALID, false);
+  // -ast-dump-implicit should imply -ast-dump.
+  opts.AstDump =
+      Args.hasFlag(OPT_ast_dump, OPT_INVALID, false) || opts.AstDumpImplicit;
   opts.WriteDependencies =
       Args.hasFlag(OPT_write_dependencies, OPT_INVALID, false);
   opts.OutputFileForDependencies =
@@ -601,17 +606,17 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ScanLimit = std::stoul(std::string(limit));
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_disable))
-    opts.DxcOptimizationToggles[llvm::StringRef(opt).lower()] = false;
+    opts.OptToggles.Toggles[llvm::StringRef(opt).lower()] = false;
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_enable)) {
     std::string optimization = llvm::StringRef(opt).lower();
-    if (opts.DxcOptimizationToggles.count(optimization) &&
-        !opts.DxcOptimizationToggles[optimization]) {
+    if (opts.OptToggles.Toggles.count(optimization) &&
+        !opts.OptToggles.Toggles[optimization]) {
       errors << "Contradictory use of -opt-disable and -opt-enable with \""
              << llvm::StringRef(opt).lower() << "\"";
       return 1;
     }
-    opts.DxcOptimizationToggles[optimization] = true;
+    opts.OptToggles.Toggles[optimization] = true;
   }
 
   std::vector<std::string> ignoreSemDefs = Args.getAllArgValues(OPT_ignore_semdef);
@@ -635,13 +640,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   for (unsigned i = 0; i + 1 < optSelects.size(); i+=2) {
     std::string optimization = llvm::StringRef(optSelects[i]).lower();
     std::string selection = optSelects[i+1];
-    if (opts.DxcOptimizationSelects.count(optimization) &&
-        selection.compare(opts.DxcOptimizationSelects[optimization])) {
+    if (opts.OptToggles.Selects.count(optimization) &&
+        selection.compare(opts.OptToggles.Selects[optimization])) {
       errors << "Contradictory -opt-selects for \""
              << optimization << "\"";
       return 1;
     }
-    opts.DxcOptimizationSelects[optimization] = selection;
+    opts.OptToggles.Selects[optimization] = selection;
   }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
@@ -771,23 +776,29 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.LegacyMacroExpansion = Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
   opts.LegacyResourceReservation = Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false);
   opts.ExportShadersOnly = Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
+  opts.PrintBeforeAll = Args.hasFlag(OPT_print_before_all, OPT_INVALID, false);
   opts.PrintAfterAll = Args.hasFlag(OPT_print_after_all, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
   opts.ForceZeroStoreLifetimes = Args.hasFlag(OPT_force_zero_store_lifetimes, OPT_INVALID, false);
   // Lifetime markers on by default in 6.6 unless disabled explicitly
-  opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
-                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0) &&
-                              !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
+  opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_disable_lifetime_markers,
+                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0);
   opts.ForceDisableLocTracking =
       Args.hasFlag(OPT_fdisable_loc_tracking, OPT_INVALID, false);
+  opts.NewInlining =
+      Args.hasFlag(OPT_fnew_inlining_behavior, OPT_INVALID, false);
   opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
+  opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
 
+  for (const std::string &value : Args.getAllArgValues(OPT_print_before)) {
+    opts.PrintBefore.insert(value);
+  }
   for (const std::string &value : Args.getAllArgValues(OPT_print_after)) {
     opts.PrintAfter.insert(value);
   }
@@ -977,6 +988,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.fixFuncCallArguments =
       Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false);
   opts.SpirvOptions.autoShiftBindings = Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false);
+  opts.SpirvOptions.finiteMathOnly =
+      Args.hasFlag(OPT_ffinite_math_only, OPT_fno_finite_math_only, false);
+  opts.SpirvOptions.preserveBindings =
+      Args.hasFlag(OPT_fspv_preserve_bindings, OPT_INVALID, false);
+  opts.SpirvOptions.preserveInterface =
+      Args.hasFlag(OPT_fspv_preserve_interface, OPT_INVALID, false);
+  opts.SpirvOptions.allowRWStructuredBufferArrays =
+      Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
@@ -1096,7 +1115,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_scalar_layout, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspv_use_legacy_buffer_matrix_order, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_use_legacy_buffer_matrix_order, OPT_INVALID,
+                   false) ||
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
@@ -1105,6 +1125,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID,
+                   false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_debug_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
@@ -1183,9 +1205,8 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
                        llvm::raw_ostream &errors) {
   if (!opts.ExternalLib.empty()) {
     DXASSERT(!opts.ExternalFn.empty(), "else ReadDxcOpts should have failed");
-    StringRefWide externalLib(opts.ExternalLib);
     HRESULT hrLoad =
-        dxcSupport.InitializeForDll(externalLib, opts.ExternalFn.data());
+      dxcSupport.InitializeForDll(opts.ExternalLib.data(), opts.ExternalFn.data());
     if (DXC_FAILED(hrLoad)) {
       errors << "Unable to load support for external DLL " << opts.ExternalLib
              << " with function " << opts.ExternalFn << " - error 0x";

@@ -19,8 +19,10 @@
 #include "dxc/DXIL/DxilResourceBase.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -240,7 +242,8 @@ class VariableRegisters
 {
 public:
   VariableRegisters(
-      llvm::DbgValueInst* DbgValue,
+      llvm::DebugLoc const &m_dbgLoc,
+      llvm::BasicBlock::iterator allocaInsertionPoint,
       llvm::DIVariable *Variable,
       llvm::DIType* Ty,
       llvm::Module *M
@@ -291,6 +294,19 @@ private:
   std::unordered_map<OffsetInBits, llvm::AllocaInst *> m_AlignedOffsetToAlloca;
 };
 
+struct GlobalEmbeddedArrayElementStorage {
+  std::string Name;
+  OffsetInBits Offset;
+  SizeInBits Size;
+};
+using GlobalVariableToLocalMirrorMap = std::map<llvm::Function const*, llvm::DILocalVariable *>;
+struct LocalMirrorsAndStorage 
+{
+  std::vector<GlobalEmbeddedArrayElementStorage> ArrayElementStorage;
+  GlobalVariableToLocalMirrorMap LocalMirrors;
+};
+using GlobalStorageMap = std::map<llvm::DIGlobalVariable *, LocalMirrorsAndStorage>;
+
 class DxilDbgValueToDbgDeclare : public llvm::ModulePass {
 public:
     static char ID;
@@ -305,8 +321,12 @@ private:
   void handleDbgValue(
       llvm::Module &M,
       llvm::DbgValueInst *DbgValue);
+  bool handleStoreIfDestIsGlobal(llvm::Module &M,
+                                 GlobalStorageMap &GlobalStorage,
+                                 llvm::StoreInst *Store);
 
-  std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableRegisters>> m_Registers;
+  std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableRegisters>>
+      m_Registers;
 };
 }  // namespace
 
@@ -365,7 +385,8 @@ static OffsetInBits SplitValue(
   else
   {
     assert(VTy->isFloatTy() || VTy->isDoubleTy() || VTy->isHalfTy() ||
-           VTy->isIntegerTy(32) || VTy->isIntegerTy(64) || VTy->isIntegerTy(16));
+           VTy->isIntegerTy(32) || VTy->isIntegerTy(64) || VTy->isIntegerTy(16) ||
+           VTy->isPointerTy());
     Values->emplace_back(ValueAndOffset{V, CurrentOffset});
     CurrentOffset += VTy->getScalarSizeInBits();
   }
@@ -398,16 +419,221 @@ static OffsetInBits GetAlignedOffsetFromDIExpression(
   return Exp->getBitPieceOffset();
 }
 
+llvm::DISubprogram* GetFunctionDebugInfo(llvm::Module& M, llvm::Function* fn) {
+  auto FnMap = makeSubprogramMap(M);
+  return FnMap[fn];
+}
+
+GlobalVariableToLocalMirrorMap
+GenerateGlobalToLocalMirrorMap(llvm::Module &M,
+                                    llvm::DIGlobalVariable *DIGV) {
+  auto & Functions = M.getFunctionList();
+
+  std::string LocalMirrorOfGlobalName =
+      std::string("global.") + std::string(DIGV->getName());
+
+  GlobalVariableToLocalMirrorMap ret;
+  DenseMap<const Function *, DISubprogram *> FnMap;
+
+  for (llvm::Function const & fn : Functions) {
+    auto &blocks = fn.getBasicBlockList();
+    if (!blocks.empty()) {
+      auto &LocalMirror = ret[&fn];
+      for (auto &block : blocks) {
+        bool breakOut = false;
+        for (auto &instruction : block) {
+          if (auto const *DbgValue =
+                  llvm::dyn_cast<llvm::DbgValueInst>(&instruction)) {
+            auto *Variable = DbgValue->getVariable();
+            if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
+              LocalMirror = Variable;
+              breakOut = true;
+              break;
+            }
+          }
+          if (auto const *DbgDeclare =
+                  llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction)) {
+            auto *Variable = DbgDeclare->getVariable();
+            if (Variable->getName().equals(LocalMirrorOfGlobalName)) {
+              LocalMirror = Variable;
+              breakOut = true;
+              break;
+            }
+          }
+        }
+        if (breakOut)
+          break;
+      }
+      if (LocalMirror == nullptr) {
+        // If we didn't find a dbg.value for any member of this
+        // DIGlobalVariable, then no local mirror exists. We must manufacture
+        // one.
+        if (FnMap.empty()) {
+          FnMap = makeSubprogramMap(M);
+        }
+        auto DIFn = FnMap[&fn];
+        if (DIFn != nullptr) {
+          const llvm::DITypeIdentifierMap EmptyMap;
+          auto DIGVType = DIGV->getType().resolve(EmptyMap);
+          DIBuilder DbgInfoBuilder(M);
+          LocalMirror = DbgInfoBuilder.createLocalVariable(
+              dwarf::DW_TAG_auto_variable, DIFn, LocalMirrorOfGlobalName,
+              DIFn->getFile(), DIFn->getLine(), DIGVType);
+        }
+      }
+    }
+  }
+  return ret;
+}
+
+std::vector<GlobalEmbeddedArrayElementStorage>
+DescendTypeAndFindEmbeddedArrayElements(llvm::StringRef VariableName,
+                  uint64_t AccumulatedMemberOffset, llvm::DIType *Ty,
+                                        uint64_t OffsetToSeek, uint64_t SizeToSeek) {
+  const llvm::DITypeIdentifierMap EmptyMap;
+  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+    auto BaseTy = DerivedTy->getBaseType().resolve(EmptyMap);
+    auto storage = DescendTypeAndFindEmbeddedArrayElements(
+        VariableName, AccumulatedMemberOffset, BaseTy, OffsetToSeek, SizeToSeek);
+    if (!storage.empty()) {
+      return storage;
+    }
+  } else if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(Ty)) {
+    switch (CompositeTy->getTag()) {
+    case llvm::dwarf::DW_TAG_array_type: {
+      for (auto Element : CompositeTy->getElements()) {
+        // First element for an array is DISubrange
+        if (auto Subrange = llvm::dyn_cast<DISubrange>(Element)) {
+          auto ElementTy = CompositeTy->getBaseType().resolve(EmptyMap);
+          if (auto *BasicTy = llvm::dyn_cast<llvm::DIBasicType>(ElementTy)) {
+            bool CorrectLowerOffset = AccumulatedMemberOffset == OffsetToSeek;
+            bool CorrectUpperOffset =
+                AccumulatedMemberOffset +
+                    Subrange->getCount() * BasicTy->getSizeInBits() ==
+                OffsetToSeek + SizeToSeek;
+            if (BasicTy != nullptr && CorrectLowerOffset &&
+                CorrectUpperOffset) {
+              std::vector<GlobalEmbeddedArrayElementStorage> storage;
+              for (int64_t i = 0; i < Subrange->getCount(); ++i) {
+                auto ElementOffset =
+                    AccumulatedMemberOffset + i * BasicTy->getSizeInBits();
+                GlobalEmbeddedArrayElementStorage element;
+                element.Name = VariableName.str() + "." + std::to_string(i);
+                element.Offset = static_cast<OffsetInBits>(ElementOffset);
+                element.Size =
+                    static_cast<SizeInBits>(BasicTy->getSizeInBits());
+                storage.push_back(std::move(element));
+              }
+              return storage;
+            }
+          } 
+         
+          // If we didn't succeed and return above, then we need to process each element in the array
+          std::vector<GlobalEmbeddedArrayElementStorage> storage;
+          for (int64_t i = 0; i < Subrange->getCount(); ++i) {
+            auto elementStorage = DescendTypeAndFindEmbeddedArrayElements(
+                VariableName, AccumulatedMemberOffset + ElementTy->getSizeInBits() * i, ElementTy, OffsetToSeek, SizeToSeek);
+            std::move(elementStorage.begin(),
+                            elementStorage.end(), std::back_inserter(storage));
+          }
+          if (!storage.empty()) {
+            return storage;
+          }
+        }
+      }
+      for (auto Element : CompositeTy->getElements()) {
+        // First element for an array is DISubrange
+        if (auto Subrange = llvm::dyn_cast<DISubrange>(Element)) {
+          auto ElementType = CompositeTy->getBaseType().resolve(EmptyMap);
+          for (int64_t i = 0; i < Subrange->getCount(); ++i) {
+            auto storage = DescendTypeAndFindEmbeddedArrayElements(
+                VariableName, AccumulatedMemberOffset + ElementType->getSizeInBits() * i,
+                ElementType, OffsetToSeek,
+                SizeToSeek);
+            if (!storage.empty()) {
+              return storage;
+            }
+          }
+        }
+      }
+    } break;
+    case llvm::dwarf::DW_TAG_structure_type:
+    case llvm::dwarf::DW_TAG_class_type: {
+      for (auto Element : CompositeTy->getElements()) {
+        if (auto diMember = llvm::dyn_cast<DIType>(Element)) {
+          auto storage = DescendTypeAndFindEmbeddedArrayElements(
+              VariableName, AccumulatedMemberOffset + diMember->getOffsetInBits(), diMember, OffsetToSeek, SizeToSeek);
+          if (!storage.empty()) {
+            return storage;
+          }
+        }
+      }
+    } break;
+    }
+  }
+  return {};
+}
+
+GlobalStorageMap GatherGlobalEmbeddedArrayStorage(llvm::Module &M) {
+  GlobalStorageMap ret;
+  auto DebugFinder = llvm::make_unique<llvm::DebugInfoFinder>();
+  DebugFinder->processModule(M);
+  auto GlobalVariables = DebugFinder->global_variables();
+
+  // First find the list of global variables that represent HLSL global statics:
+  const llvm::DITypeIdentifierMap EmptyMap;
+  SmallVector<llvm::DIGlobalVariable *, 8> GlobalStaticVariables;
+  for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
+    if (DIGV->isLocalToUnit()) {
+      llvm::DIType *DIGVType = DIGV->getType().resolve(EmptyMap);
+      // We're only interested in aggregates, since only they might have
+      // embedded arrays:
+      if (isa<llvm::DICompositeType>(DIGVType)) {
+        auto LocalMirrors = GenerateGlobalToLocalMirrorMap(M, DIGV);
+        if (!LocalMirrors.empty()) {
+          GlobalStaticVariables.push_back(DIGV);
+          ret[DIGV].LocalMirrors = std::move(LocalMirrors);
+        }
+      }
+    }
+  }
+
+  // Now find any globals that represent embedded arrays inside the global
+  // statics
+  for (auto HLSLStruct : GlobalStaticVariables) {
+    for (llvm::DIGlobalVariable *DIGV : GlobalVariables) {
+      if (DIGV != HLSLStruct && !DIGV->isLocalToUnit()) {
+        llvm::DIType *DIGVType = DIGV->getType().resolve(EmptyMap);
+        if (auto *DIGVDerivedType =
+                llvm::dyn_cast<llvm::DIDerivedType>(DIGVType)) {
+          if (DIGVDerivedType->getTag() == llvm::dwarf::DW_TAG_member) {
+            // This type is embedded within the containing DIGSV type
+            const llvm::DITypeIdentifierMap EmptyMap;
+            auto *Ty = HLSLStruct->getType().resolve(EmptyMap);
+            auto Storage = DescendTypeAndFindEmbeddedArrayElements(
+                    DIGV->getName(), 0, Ty, DIGVDerivedType->getOffsetInBits(),
+                    DIGVDerivedType->getSizeInBits());
+            auto & ArrayStorage = ret[HLSLStruct].ArrayElementStorage;
+            std::move(Storage.begin(), Storage.end(),
+                      std::back_inserter(ArrayStorage));
+          }
+        }
+      }
+    }
+  }
+  return ret;
+}
+
 bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
 )
 {
-  hlsl::DxilModule &DM = M.GetOrCreateDxilModule();
+  auto GlobalEmbeddedArrayStorage = GatherGlobalEmbeddedArrayStorage(M);
 
   bool Changed = false;
 
-  auto entryPoints = DM.GetExportedFunctions();
-  for (auto &fn : entryPoints) {
+  auto & Functions = M.getFunctionList();
+  for (auto &fn : Functions) {
     // #DSLTodo: We probably need to merge the list of variables for each export
     // into one set so that WinPIX shader debugging can follow a thread through
     // any function within a given module. (Unless PIX chooses to launch a new
@@ -425,21 +651,39 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     // Not sure what the right path forward is: might be that we have to tag
     // m_Registers with the exported function, and maybe write out a function
     // identifier during debug instrumentation...
-    auto &blocks = fn->getBasicBlockList();
-    for (auto &block : blocks) {
-      std::vector<Instruction *> instructions;
-      for (auto &instruction : block) {
-        instructions.push_back(&instruction);
-      }
-      for (auto & instruction : instructions) {
-        if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
-          llvm::Value *V = DbgValue->getValue();
-          if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
-            continue;
+    auto &blocks = fn.getBasicBlockList();
+    if (!blocks.empty()) {
+      for (auto &block : blocks) {
+        std::vector<Instruction *> instructions;
+        for (auto &instruction : block) {
+          instructions.push_back(&instruction);
+        }
+        // Handle store instructions before handling dbg.value, since the
+        // latter will add store instructions that we don't need to examine.
+        // Why do we handle store instructions? It's for the case of
+        // non-const global statics that are backed by an llvm global,
+        // rather than an alloca. In the llvm global case, there is no
+        // debug linkage between the store and the HLSL variable being
+        // modified. But we can patch together enough knowledge about those
+        // from the lists of such globals (HLSL and llvm) and comparing the
+        // lists.
+        for (auto &instruction : instructions) {
+          if (auto *Store = llvm::dyn_cast<llvm::StoreInst>(instruction)) {
+            Changed =
+                handleStoreIfDestIsGlobal(M, GlobalEmbeddedArrayStorage, Store);
           }
-          Changed = true;
-          handleDbgValue(M, DbgValue);
-          DbgValue->eraseFromParent();
+        }
+        for (auto &instruction : instructions) {
+          if (auto *DbgValue =
+                  llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
+            llvm::Value *V = DbgValue->getValue();
+            if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
+              continue;
+            }
+            Changed = true;
+            handleDbgValue(M, DbgValue);
+            DbgValue->eraseFromParent();
+          }
         }
       }
     }
@@ -544,7 +788,7 @@ static bool SortMembers(
             return false;
         }
         case llvm::dwarf::DW_TAG_subprogram: {
-            if (auto* SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
+            if (isa<llvm::DISubprogram>(Element)) {
                 continue;
             }
             assert(!"DISubprogram not understood");
@@ -733,7 +977,10 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   if (Register == nullptr)
   {
     Register.reset(
-        new VariableRegisters(DbgValue, Variable, Ty, &M));
+        new VariableRegisters(
+          DbgValue->getDebugLoc(),
+          DbgValue->getParent()->getParent()->getEntryBlock().begin(),
+          Variable, Ty, &M));
   }
 
   // Convert the offset from DbgValue's expression to a packed
@@ -795,6 +1042,110 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   }
 }
 
+class ScopedInstruction {
+  llvm::Instruction *m_Instruction;
+public:
+  ScopedInstruction(llvm::Instruction* I) : m_Instruction(I) {}
+  ~ScopedInstruction() {
+    delete m_Instruction;
+  }
+  llvm::Instruction* Get() const { return m_Instruction; }
+};
+
+struct GlobalVariableAndStorage
+{
+  llvm::DIGlobalVariable  * DIGV;
+  OffsetInBits Offset;
+};
+
+GlobalVariableAndStorage GetOffsetFromGlobalVariable(
+    llvm::StringRef name,
+    GlobalStorageMap &GlobalEmbeddedArrayStorage) {
+  GlobalVariableAndStorage ret{};
+  for (auto &Variable : GlobalEmbeddedArrayStorage) {
+    for (auto &Storage : Variable.second.ArrayElementStorage) {
+      if (llvm::StringRef(Storage.Name).equals(name)) {
+        ret.DIGV = Variable.first;
+        ret.Offset = Storage.Offset;
+        return ret;
+      }
+    }
+  }
+  return ret;
+}
+
+bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
+    llvm::Module &M, GlobalStorageMap &GlobalEmbeddedArrayStorage,
+    llvm::StoreInst *Store) {
+  if (Store->getDebugLoc()) {
+    llvm::Value *V = Store->getPointerOperand();
+    std::string MemberName;
+    if (auto *Constant = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
+      ScopedInstruction asInstr(Constant->getAsInstruction());
+      if (auto *asGEP =
+              llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
+        // We are only interested in the case of basic types within an array
+        // because the PIX debug instrumentation operates at that level.
+        // Aggregate members will have been descended through to produce their
+        // own entries in the GlobalStorageMap.
+        // Consequently, we're only interested in the GEP's index into the
+        // array. Any deeper indexing in the GEP will be for embedded
+        // aggregates. The three operands in such a GEP mean:
+        //    0 = the pointer
+        //    1 = dereference the pointer (expected to be constant int zero)
+        //    2 = the index into the array
+        if (asGEP->getNumOperands() == 3 &&
+            llvm::isa<ConstantInt>(asGEP->getOperand(1)) &&
+            llvm::dyn_cast<ConstantInt>(asGEP->getOperand(1))
+                    ->getLimitedValue() == 0) {
+          // TODO: The case where this index is not a constant int
+          // (Needs changes to the allocas generated elsewhere in this pass.)
+          if (auto *arrayIndexAsConstInt =
+                  llvm::dyn_cast<ConstantInt>(asGEP->getOperand(2))) {
+            int MemberIndex = arrayIndexAsConstInt->getLimitedValue();
+            MemberName = std::string(asGEP->getPointerOperand()->getName()) +
+                         "." + std::to_string(MemberIndex);
+          }
+        }
+      }
+    } else {
+      MemberName = V->getName();
+    }
+    if (!MemberName.empty()) {
+      auto Storage =
+          GetOffsetFromGlobalVariable(MemberName, GlobalEmbeddedArrayStorage);
+      if (Storage.DIGV != nullptr) {
+        llvm::DILocalVariable *Variable =
+            GlobalEmbeddedArrayStorage[Storage.DIGV]
+                .LocalMirrors[Store->getParent()->getParent()];
+        if (Variable != nullptr) {
+          const llvm::DITypeIdentifierMap EmptyMap;
+          llvm::DIType *Ty = Variable->getType().resolve(EmptyMap);
+          if (Ty != nullptr) {
+            auto &Register = m_Registers[Variable];
+            if (Register == nullptr) {
+              Register.reset(new VariableRegisters(
+                  Store->getDebugLoc(),
+                  Store->getParent()->getParent()->getEntryBlock().begin(),
+                  Variable, Ty, &M));
+            }
+            auto *AllocaInst =
+                Register->GetRegisterForAlignedOffset(Storage.Offset);
+            if (AllocaInst != nullptr) {
+              IRBuilder<> B(Store->getNextNode());
+              auto *Zero = B.getInt32(0);
+              auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+              B.CreateStore(Store->getValueOperand(), GEP);
+              return true; // yes, we modified the module
+            }
+          }
+        }
+      }
+    }
+  }
+  return false; // no we did not modify the module
+}
+
 SizeInBits VariableRegisters::GetVariableSizeInbits(DIVariable *Var) {
   const llvm::DITypeIdentifierMap EmptyMap;
   DIType *Ty = Var->getType().resolve(EmptyMap);
@@ -852,20 +1203,24 @@ static llvm::DIType *DITypePeelTypeAlias(
 #endif // NDEBUG
 
 VariableRegisters::VariableRegisters(
-    llvm::DbgValueInst *DbgValue,
+    llvm::DebugLoc const &dbgLoc,
+    llvm::BasicBlock::iterator allocaInsertionPoint,
     llvm::DIVariable *Variable,
     llvm::DIType* Ty,
     llvm::Module *M)
-  : m_dbgLoc(DbgValue->getDebugLoc())
+  : m_dbgLoc(dbgLoc)
   , m_Variable(Variable)
-  , m_B(DbgValue->getParent()->getParent()->getEntryBlock().begin())
+  , m_B(allocaInsertionPoint)
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {
   PopulateAllocaMap(Ty);
   m_Offsets.AlignTo(Ty); // For padding.
+
+  // (min16* types can occupy 16 or 32 bits depending on whether or not they are natively supported.
+  // If non-native, the alignment will be 32, but the claimed size will still be 16, hence the "max" here)
   assert(m_Offsets.GetCurrentAlignedOffset() ==
-         DITypePeelTypeAlias(Ty)->getSizeInBits());
+         std::max<uint64_t>(DITypePeelTypeAlias(Ty)->getSizeInBits(), DITypePeelTypeAlias(Ty)->getAlignInBits()));
 }
 
 void VariableRegisters::PopulateAllocaMap(
@@ -1100,6 +1455,8 @@ void VariableRegisters::PopulateAllocaMap_StructType(
   }
 }
 
+//HLSL Change: remove unused function
+#if 0
 llvm::DILocation *VariableRegisters::GetVariableLocation() const
 {
   const unsigned DefaultColumn = 1;
@@ -1109,6 +1466,7 @@ llvm::DILocation *VariableRegisters::GetVariableLocation() const
       DefaultColumn,
       m_Variable->getScope());
 }
+#endif
 
 llvm::Value *VariableRegisters::GetMetadataAsValue(
     llvm::Metadata *M

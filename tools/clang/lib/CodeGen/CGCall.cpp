@@ -988,17 +988,13 @@ static llvm::Value *CreateCoercedLoad(llvm::Value *SrcPtr,
 // FIXME: Do we need to recurse here?
 static void BuildAggStore(CodeGenFunction &CGF, llvm::Value *Val,
                           llvm::Value *DestPtr, bool DestIsVolatile,
-                          CharUnits DestAlign,
-                          QualType QTy // HLSL Change
-                          ) {
+                          CharUnits DestAlign) {
   // Prefer scalar stores to first-class aggregate stores.
   if (llvm::StructType *STy =
         dyn_cast<llvm::StructType>(Val->getType())) {
     // HLSL Change Begins
-    if (CGF.getLangOpts().HLSL) {
-      CGF.CGM.getHLSLRuntime().EmitHLSLAggregateStore(CGF, Val, DestPtr, QTy);
-      return;
-    }
+    assert(!CGF.getLangOpts().HLSL &&
+           "HLSL uses SRet so this should not be possible to reach.");
     // HLSL Change Ends
     const llvm::StructLayout *Layout =
       CGF.CGM.getDataLayout().getStructLayout(STy);
@@ -1028,9 +1024,7 @@ static void CreateCoercedStore(llvm::Value *Src,
                                llvm::Value *DstPtr,
                                bool DstIsVolatile,
                                CharUnits DstAlign,
-                               CodeGenFunction &CGF,
-                               QualType QTy // HLSL Change
-                               ) {
+                               CodeGenFunction &CGF) {
   llvm::Type *SrcTy = Src->getType();
   llvm::Type *DstTy =
     cast<llvm::PointerType>(DstPtr->getType())->getElementType();
@@ -1063,7 +1057,7 @@ static void CreateCoercedStore(llvm::Value *Src,
   if (SrcSize <= DstSize) {
     llvm::Value *Casted =
       CGF.Builder.CreateBitCast(DstPtr, llvm::PointerType::getUnqual(SrcTy));
-    BuildAggStore(CGF, Src, Casted, DstIsVolatile, DstAlign, QTy);  // HLSL Change - Add QTy
+    BuildAggStore(CGF, Src, Casted, DstIsVolatile, DstAlign);
   } else {
     // Otherwise do coercion through memory. This is stupid, but
     // simple.
@@ -2082,7 +2076,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
         assert(NumIRArgs == 1);
         auto AI = FnArgs[FirstIRArg];
         AI->setName(Arg->getName() + ".coerce");
-        CreateCoercedStore(AI, Ptr, /*DestIsVolatile=*/false, PtrAlign, *this, Ty); // HLSL Change - Add Ty.
+        CreateCoercedStore(AI, Ptr, /*DestIsVolatile=*/false, PtrAlign, *this);
       }
 
 
@@ -3724,7 +3718,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             DestPtr = CreateMemTemp(RetTy, "agg.tmp");
             DestIsVolatile = false;
           }
-          BuildAggStore(*this, CI, DestPtr, DestIsVolatile, DestAlign, RetTy); // HLSL Change - Add QualTy.
+          BuildAggStore(*this, CI, DestPtr, DestIsVolatile, DestAlign);
           return RValue::getAggregate(DestPtr);
         }
         case TEK_Scalar: {
@@ -3760,7 +3754,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         StoreAlign =
           StoreAlign.alignmentAtOffset(CharUnits::fromQuantity(Offs));
       }
-      CreateCoercedStore(CI, StorePtr, DestIsVolatile, StoreAlign, *this, RetTy); // HLSL Change - Add QTy.
+      CreateCoercedStore(CI, StorePtr, DestIsVolatile, StoreAlign, *this);
 
       return convertTempToRValue(DestPtr, RetTy, SourceLocation());
     }

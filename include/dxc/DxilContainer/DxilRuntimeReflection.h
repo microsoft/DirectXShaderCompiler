@@ -12,7 +12,6 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/Support/WinAdapter.h"
 
 #define RDAT_NULL_REF ((uint32_t)0xFFFFFFFF)
 
@@ -634,19 +633,19 @@ struct DxilResourceDesc {
   uint32_t Space;
   uint32_t UpperBound;
   uint32_t LowerBound;
-  LPCWSTR Name;
+  const wchar_t *Name;
   uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 };
 
 typedef const DxilResourceDesc *const *DxilResourceDescPtrArray;
 
 struct DxilFunctionDesc {
-  LPCWSTR Name;
-  LPCWSTR UnmangledName;
+  const wchar_t *Name;
+  const wchar_t *UnmangledName;
   uint32_t NumResources;
   uint32_t NumFunctionDependencies;
   DxilResourceDescPtrArray Resources;
-  const LPCWSTR *FunctionDependencies;
+  const wchar_t *const *FunctionDependencies;
   DXIL::ShaderKind ShaderKind;
   uint32_t PayloadSizeInBytes;   // 1) hit, miss, or closest shader: payload count
                                  // 2) call shader: parameter size
@@ -658,20 +657,20 @@ struct DxilFunctionDesc {
 };
 
 struct DxilSubobjectDesc {
-  LPCWSTR Name;
+  const wchar_t *Name;
   DXIL::SubobjectKind Kind;         // D3D12_STATE_SUBOBJECT_TYPE
 
   struct StateObjectConfig_t {
     uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
   };
   struct RootSignature_t {
-    LPCVOID pSerializedSignature;
+    const void *pSerializedSignature;
     uint32_t SizeInBytes;
   };    // GlobalRootSignature or LocalRootSignature
   struct SubobjectToExportsAssociation_t {
-    LPCWSTR Subobject;
+    const wchar_t *Subobject;
     uint32_t NumExports;
-    const LPCWSTR* Exports;
+    const wchar_t *const *Exports;
   };
   struct RaytracingShaderConfig_t {
     uint32_t MaxPayloadSizeInBytes;
@@ -682,9 +681,9 @@ struct DxilSubobjectDesc {
   };
   struct HitGroup_t {
     DXIL::HitGroupType Type;        // D3D12_HIT_GROUP_TYPE
-    LPCWSTR AnyHit;
-    LPCWSTR ClosestHit;
-    LPCWSTR Intersection;
+    const wchar_t *AnyHit;
+    const wchar_t *ClosestHit;
+    const wchar_t *Intersection;
   };
 
   struct RaytracingPipelineConfig1_t {

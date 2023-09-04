@@ -7,7 +7,7 @@
 //
 // Non-SSA arrays should have lifetimes within the correct scope.
 //
-// CHECK: define i32 @"\01?if_scoped_array@@YAHHH@Z"
+// CHECK: define i32 @"\01?if_scoped_array{{[@$?.A-Za-z0-9_]+}}"
 // CHECK: alloca
 // CHECK: icmp
 // CHECK: br i1
@@ -44,12 +44,12 @@ int if_scoped_array(int n, int c)
 //
 // Escaping structs should have lifetimes within the correct scope.
 //
-// CHECK: define void @"\01?loop_scoped_escaping_struct@@YAXH@Z"(i32 %n)
+// CHECK: define void @"\01?loop_scoped_escaping_struct{{[@$?.A-Za-z0-9_]+}}"(i32 %n)
 // CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
 // CHECK: ret
 // CHECK: phi i32
 // CHECK-NEXT: store %struct.MyStruct undef
-// CHECK-NEXT: call float @"\01?func@@YAMUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
+// CHECK-NEXT: call float @"\01?func{{[@$?.A-Za-z0-9_]+}}"(%struct.MyStruct* nonnull %[[alloca]])
 // CHECK-NEXT: store %struct.MyStruct undef
 // CHECK: br i1
 struct MyStruct {
@@ -72,7 +72,7 @@ void loop_scoped_escaping_struct(int n)
 // within the correct scope and should not produce values live across multiple
 // loop iterations (=no loop phi nodes).
 //
-// CHECK: define i32 @"\01?loop_scoped_escaping_struct_write@@YAHH@Z"(i32 %n)
+// CHECK: define i32 @"\01?loop_scoped_escaping_struct_write{{[@$?.A-Za-z0-9_]+}}"(i32 %n)
 // CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
 // CHECK: br i1
 // CHECK: phi i32
@@ -82,7 +82,7 @@ void loop_scoped_escaping_struct(int n)
 // CHECK-NOT: phi float
 // CHECK-NEXT: store %struct.MyStruct undef
 // CHECK-NOT: store
-// CHECK-NEXT: call void @"\01?func2@@YAXUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
+// CHECK-NEXT: call void @"\01?func2{{[@$?.A-Za-z0-9_]+}}"(%struct.MyStruct* nonnull %[[alloca]])
 // CHECK-NEXT: getelementptr
 // CHECK-NEXT: load
 // CHECK: store %struct.MyStruct undef
@@ -106,7 +106,7 @@ int loop_scoped_escaping_struct_write(int n)
 // values considered live across multiple loop iterations (= no loop phi nodes).
 //
 // Make sure there is only one loop phi node, which is the induction var.
-// CHECK: define i32 @"\01?loop_scoped_struct_conditional_init@@YAHHH@Z"(i32 %n, i32 %c1)
+// CHECK: define i32 @"\01?loop_scoped_struct_conditional_init{{[@$?.A-Za-z0-9_]+}}"(i32 %n, i32 %c1)
 // CHECK-NOT: alloca
 // CHECK: phi i32
 // CHECK-NEXT: ret i32
@@ -153,7 +153,7 @@ int loop_scoped_struct_conditional_init(int n, int c1)
 // Both the consume and produce calls must be inlined, otherwise the alloca
 // can't be promoted.
 //
-// CHECK: define i32 @"\01?loop_scoped_struct_conditional_assign_from_func_output@@YAHHH@Z"(i32 %n, i32 %c1)
+// CHECK: define i32 @"\01?loop_scoped_struct_conditional_assign_from_func_output{{[@$?.A-Za-z0-9_]+}}"(i32 %n, i32 %c1)
 // CHECK-NOT: alloca
 // CHECK: phi i32
 // CHECK-NOT: phi i32
@@ -193,7 +193,7 @@ int loop_scoped_struct_conditional_assign_from_func_output(int n, int c1)
 // There should be no store of undef or 0 that would overwrite
 // the initializer.
 //
-// CHECK: define i32 @"\01?global_constant@@YAHH@Z"(i32 %n)
+// CHECK: define i32 @"\01?global_constant{{[@$?.A-Za-z0-9_]+}}"(i32 %n)
 // CHECK-NOT: store [8 x i32] undef
 // CHECK: load i32
 // CHECK-NOT: store [8 x i32] undef
@@ -216,7 +216,7 @@ int global_constant(int n)
 // There should be no store of undef or 0 that would overwrite
 // the initializer.
 //
-// CHECK: define i32 @"\01?global_constant2@@YAHH@Z"(i32 %n)
+// CHECK: define i32 @"\01?global_constant2{{[@$?.A-Za-z0-9_]+}}"(i32 %n)
 // CHECK: phi i32
 // CHECK: phi i32
 // CHECK-NOT: store [8 x i32] undef

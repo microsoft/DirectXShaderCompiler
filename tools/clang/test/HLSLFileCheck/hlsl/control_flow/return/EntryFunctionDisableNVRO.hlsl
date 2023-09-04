@@ -102,7 +102,7 @@ MyReturn main() {
 
 #elif defined(HS)
 
-// HS-LABEL: @"\01?patch_const@@YA?AUMyPatchConstantReturn@@XZ"
+// HS-LABEL: @"\01?patch_const{{[@$?.A-Za-z0-9_]+}}"
 // HS: call void @dx.op.storePatchConstant
 // HS: call void @dx.op.storePatchConstant
 // HS: call void @dx.op.storePatchConstant

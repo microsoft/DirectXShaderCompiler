@@ -23,7 +23,8 @@
 #include <set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
-#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL change
+#include "dxc/Support/DxcOptToggles.h" // HLSL change
 
 namespace clang {
 
@@ -184,8 +185,6 @@ public:
   bool HLSLAllowPreserveValues = false;
   /// Whether we fail compilation if loop fails to unroll
   bool HLSLOnlyWarnOnUnrollFail = false;
-  /// Whether use row major as default matrix major.
-  bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
   bool HLSLNotUseLegacyCBufLoad = false;
   /// Whether use legacy resource reservation.
@@ -231,9 +230,12 @@ public:
   bool HLSLResMayAlias = false;
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
-  // Optimization pass enables, disables and selects
-  std::map<std::string, bool> HLSLOptimizationToggles;
-  std::map<std::string, std::string> HLSLOptimizationSelects;
+  /// Optimization pass enables, disables and selects
+  hlsl::options::OptimizationToggles HLSLOptimizationToggles;
+  /// Debug option to print IR before every pass
+  bool HLSLPrintBeforeAll = false;
+  /// Debug option to print IR before specific pass
+  std::set<std::string> HLSLPrintBefore;
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
   /// Debug option to print IR after specific pass

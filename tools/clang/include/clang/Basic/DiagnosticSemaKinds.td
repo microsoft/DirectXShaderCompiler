@@ -1574,6 +1574,22 @@ def warn_sometimes_uninit_var : Warning<
   "its declaration is reached|"
   "%3 is called}2">,
   InGroup<UninitializedSometimes>, DefaultIgnore;
+// HLSL Change Begin - Add warning for uninitialized out param
+// These errors must match the format of the errors above.
+def warn_hlsl_uninit_out_param : Warning<
+  "parameter %0 is uninitialized when %select{used here|returned}1">,
+  InGroup<HLSLParameterUsage>;
+
+def warn_hlsl_sometimes_uninit_out_param : Warning<
+  "parameter %0 is %select{used|returned}1 uninitialized whenever "
+  "%select{'%3' condition is %select{true|false}4|"
+  "'%3' loop %select{is entered|exits because its condition is false}4|"
+  "'%3' loop %select{condition is true|exits because its condition is false}4|"
+  "switch %3 is taken|"
+  "its declaration is reached|"
+  "%3 is called}2">,
+  InGroup<HLSLParameterUsage>;
+// HLSL Change End - Add warning for uninitialized out param
 def warn_maybe_uninit_var : Warning<
   "variable %0 may be uninitialized when "
   "%select{used here|captured by block}1">,
@@ -7530,7 +7546,7 @@ def err_hlsl_typeintemplateargument : Error<
 def err_hlsl_typeintemplateargument_requires_scalar : Error<
   "%0 cannot be used as a type parameter where a scalar is required">;
 def err_hlsl_typeintemplateargument_requires_struct : Error<
-  "%0 cannot be used as a type parameter where a struct is required">;
+  "%0 cannot be used as a type parameter where a struct/class is required">;
 def err_hlsl_type_mismatch : Error<
   "type mismatch">;
 def err_hlsl_unsupported_array_equality_op: Error<
@@ -7575,6 +7591,16 @@ def err_not_all_payload_fields_qualified : Error<
   "payload type '%0' requires that all fields carry payload access qualifiers.">;
 def err_payload_requires_attribute : Error<
   "type '%0' used as payload requires that it is annotated with the [raypayload] attribute">;
+def err_payload_requires_inout : Error<
+  "%select{payload|callable}0 parameter %1 must be 'inout'">;
+def err_attributes_requiers_in : Error<
+  "intersection attributes parameter %0 must be 'in'">;
+def err_payload_attrs_must_be_udt : Error<
+  "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
+def err_raytracing_must_return_void : Error<
+  "return type for ray tracing shaders must be void">;
+def err_raytracing_entry_param_count : Error<
+  "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
 def err_payload_fields_not_qualified : Error<
   "payload field '%0' has no payload access qualifiers.">;
 def err_payload_fields_is_payload_and_overqualified : Error<
@@ -7659,6 +7685,9 @@ def err_hlsl_incorrect_bind_semantic: Error< // Is an error in fxc in some cases
   "invalid register specification, expected %0 binding">;
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
+  InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_impcast_glc_mismatch : Warning<
+  "implicit conversion from %0 to %1 %select{loses|adds}2 globallycoherent annotation">,
   InGroup<Conversion>, DefaultWarn;
 def warn_hlsl_narrowing : Warning<
   "conversion from larger type %0 to smaller type %1, possible loss of data">,
@@ -7754,6 +7783,9 @@ def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
    "condition for short-circuiting ternary operator must be scalar, for non-scalar types use 'select'">;
+def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
+   "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
+  InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
 // HLSL Change Ends
 
 // SPIRV Change Starts

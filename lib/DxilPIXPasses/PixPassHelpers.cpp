@@ -273,7 +273,7 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
 
   auto const *shaderModel = DM.GetShaderModel();
   if (shaderModel->IsLib()) {
-    auto *Global = DM.GetModule()->getOrInsertGlobal("PIXUAV", UAVStructTy);
+    auto *Global = DM.GetModule()->getOrInsertGlobal(("PIXUAV" + std::to_string(registerId)).c_str(), UAVStructTy);
     GlobalVariable *NewGV = cast<GlobalVariable>(Global);
     NewGV->setConstant(true);
     NewGV->setLinkage(GlobalValue::ExternalLinkage);
@@ -293,7 +293,7 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
   pUAV->SetGloballyCoherent(false);
   pUAV->SetHasCounter(false);
   pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(0);
+  pUAV->SetLowerBound(registerId);
   pUAV->SetRangeSize(1);
   pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
 
@@ -335,6 +335,20 @@ GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
   }
 
   return ret;
+}
+
+hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
+                                       llvm::Function *fn) {
+  hlsl::DXIL::ShaderKind shaderKind = hlsl::DXIL::ShaderKind::Invalid;
+  if (!DM.HasDxilFunctionProps(fn)) {
+    auto ShaderModel = DM.GetShaderModel();
+    shaderKind = ShaderModel->GetKind();
+  } else {
+    hlsl::DxilFunctionProps const &props =
+        DM.GetDxilFunctionProps(fn);
+    shaderKind = props.shaderKind;
+  }
+  return shaderKind;
 }
 
 std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {

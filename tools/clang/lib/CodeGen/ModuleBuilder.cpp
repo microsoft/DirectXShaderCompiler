@@ -308,8 +308,10 @@ namespace {
         // Add main file name to debug info
         llvm::NamedMDNode *pSourceFilename = M->getOrInsertNamedMetadata(
             hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName);
+        llvm::SmallString<128> NormalizedPath;
+        llvm::sys::path::native(CodeGenOpts.MainFileName, NormalizedPath);
         llvm::MDTuple *pFileName = llvm::MDNode::get(
-          LLVMCtx, llvm::MDString::get(LLVMCtx, CodeGenOpts.MainFileName));
+            LLVMCtx, llvm::MDString::get(LLVMCtx, NormalizedPath));
         pSourceFilename->addOperand(pFileName);
 
         // Pass in any other arguments to debug info

@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/Global.h"
@@ -42,6 +43,48 @@ using namespace llvm;
 
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+
+struct DeserializedDxilCompilerVersion {
+  const hlsl::DxilCompilerVersion DCV;
+  std::string commitHashStr;
+  std::string versionStr;
+
+  DeserializedDxilCompilerVersion(const DxilCompilerVersion *pDCV)
+      : DCV(*pDCV) {
+    // Assumes pDCV has been checked for safe parsing
+    if (pDCV->VersionStringListSizeInBytes) {
+      const char *pStr = (const char *)(pDCV + 1);
+      commitHashStr.assign(pStr);
+      if (commitHashStr.size() + 1 < pDCV->VersionStringListSizeInBytes)
+        versionStr.assign(pStr + commitHashStr.size() + 1);
+    }
+  }
+
+  DeserializedDxilCompilerVersion(DeserializedDxilCompilerVersion &&other)
+      : DCV(other.DCV), commitHashStr(std::move(other.commitHashStr)),
+        versionStr(std::move(other.versionStr)) {}
+
+  bool operator<(const DeserializedDxilCompilerVersion &rhs) const {
+    return std::tie(DCV.Major, DCV.Minor, DCV.CommitCount,
+                    DCV.VersionStringListSizeInBytes, commitHashStr,
+                    versionStr) < std::tie(rhs.DCV.Major, rhs.DCV.Minor,
+                                           rhs.DCV.CommitCount,
+                                           rhs.DCV.VersionStringListSizeInBytes,
+                                           rhs.commitHashStr, rhs.versionStr);
+  }
+
+  std::string display() const {
+    std::string ret;
+    ret += "Version(" + std::to_string(DCV.Major) + "." +
+           std::to_string(DCV.Minor) + ") ";
+    ret += "commits(" + std::to_string(DCV.CommitCount) + ") ";
+    ret += "sha(" + commitHashStr + ") ";
+    ret += "version string: \"" + versionStr + "\"";
+    ret += "\n";
+
+    return ret;
+  }
+};
 
 class DxcLinker : public IDxcLinker, public IDxcContainerEvent {
 public:
@@ -87,7 +130,7 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcLinker>(this, riid, ppvObject);
   }
 
@@ -95,6 +138,30 @@ public:
     UINT32 valMajor, valMinor;
     dxcutil::GetValidatorVersion(&valMajor, &valMinor);
     m_pLinker.reset(DxilLinker::CreateLinker(m_Ctx, valMajor, valMinor));
+  }
+
+  bool AddCompilerVersionMapEntry(LPCWSTR libName,
+                                  const hlsl::DxilCompilerVersion *pDCV,
+                                  uint32_t partSize) {
+    // Make sure it's safe to parse pDCV
+    bool valid = pDCV && partSize >= sizeof(hlsl::DxilCompilerVersion) &&
+                 partSize - sizeof(hlsl::DxilCompilerVersion) >=
+                     pDCV->VersionStringListSizeInBytes;
+    if (valid && pDCV->VersionStringListSizeInBytes) {
+        const char *vStr = (const char *)(pDCV + 1);
+        valid = vStr[pDCV->VersionStringListSizeInBytes - 1] == 0;
+    }
+
+    DXASSERT(valid, "DxilCompilerVersion part malformed");
+    if (!valid)
+        return false;
+
+    CW2A pUtf8LibName(libName, CP_UTF8);
+    std::string libNameStr = std::string(pUtf8LibName);
+    auto result = m_uniqueCompilerVersions.insert(DeserializedDxilCompilerVersion(pDCV));    
+    m_libNameToCompilerVersionPart[libNameStr] = &(*result.first);
+
+    return true;
   }
 
   ~DxcLinker() {
@@ -108,6 +175,8 @@ private:
   std::unique_ptr<DxilLinker> m_pLinker;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
   std::vector<CComPtr<IDxcBlob>> m_blobs; // Keep blobs live for lazy load.
+  std::map<std::string, const DeserializedDxilCompilerVersion*> m_libNameToCompilerVersionPart;
+  std::set<DeserializedDxilCompilerVersion> m_uniqueCompilerVersions;
 };
 
 HRESULT
@@ -127,11 +196,8 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
   try {
     std::unique_ptr<llvm::Module> pModule, pDebugModule;
 
-    CComPtr<IMalloc> pMalloc;
     CComPtr<AbstractMemoryStream> pDiagStream;
-
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pDiagStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDiagStream));
 
     raw_stream_ostream DiagStream(pDiagStream);
 
@@ -139,6 +205,22 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
         pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
         pDebugModule, m_Ctx, m_Ctx, DiagStream));
 
+
+    // add an entry into the library to compiler version part map
+    const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
+        pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+    const DxilPartHeader *pDPH = hlsl::GetDxilPartByType(
+        pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
+    if (pDPH) {
+        const hlsl::DxilCompilerVersion *pDCV =
+            (const hlsl::DxilCompilerVersion *)(pDPH + 1);
+        // If the compiler version string is non-empty, add the struct to the
+        // map
+        if (!AddCompilerVersionMapEntry(pLibName, pDCV, pDPH->PartSize)) {
+          return E_INVALIDARG;
+        }
+    }
+    
     if (m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
                                std::move(pDebugModule))) {
       m_blobs.emplace_back(pBlob);
@@ -179,12 +261,10 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
   HRESULT hr = S_OK;
   try {
-    CComPtr<IMalloc> pMalloc;
     CComPtr<IDxcBlob> pOutputBlob;
     CComPtr<AbstractMemoryStream> pDiagStream;
 
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
 
     // Read and validate options.
     int argCountInt;
@@ -206,7 +286,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     std::string warnings;
     //llvm::raw_string_ostream w(warnings);
-    IFT(CreateMemoryStream(pMalloc, &pDiagStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDiagStream));
     raw_stream_ostream DiagStream(pDiagStream);
     llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
     PrintDiagnosticContext DiagContext(DiagPrinter);
@@ -228,13 +308,53 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     // Attach libraries.
     bool bSuccess = true;
-    for (unsigned i = 0; i < libCount; i++) {
+    const DeserializedDxilCompilerVersion *cur_version = nullptr;
+    const DeserializedDxilCompilerVersion *first_version = nullptr;
+
+    std::string cur_lib_name;
+    std::string first_lib_name;
+
+    for (UINT32 i = 0; i < libCount; i++) {
       CW2A pUtf8LibName(pLibNames[i], CP_UTF8);
       bSuccess &= m_pLinker->AttachLib(pUtf8LibName.m_psz);
+
+      cur_lib_name = std::string(pUtf8LibName);      
+
+      // only libraries with compiler version parts are in the map
+      auto result = m_libNameToCompilerVersionPart.find(cur_lib_name);
+
+      if (result != m_libNameToCompilerVersionPart.end()) {
+        cur_version = result->second;
+      }
+
+      if (i == 0) {
+        first_lib_name = cur_lib_name;
+        first_version = cur_version;
+      }
+
+      if (cur_version != first_version) {
+
+        std::string errorMsg = "error: Cannot link libraries with "
+                               "conflicting compiler versions.\n";
+
+        std::string firstErrorStr =
+            "note: library \"" + first_lib_name + "\" version: ";
+        firstErrorStr += first_version ? first_version->display()
+                                       : "No version info available";
+
+        std::string secondErrorStr =
+            "note: library \"" + cur_lib_name + "\" version: ";
+        secondErrorStr +=
+            cur_version ? cur_version->display() : "No version info available";
+
+        errorMsg += firstErrorStr + secondErrorStr;
+        DiagStream << errorMsg;
+        bSuccess = false;
+      }
     }
 
     dxilutil::ExportMap exportMap;
-    bSuccess = exportMap.ParseExports(opts.Exports, DiagStream);
+    bSuccess &= exportMap.ParseExports(opts.Exports, DiagStream);
 
     if (opts.ExportShadersOnly)
       exportMap.setExportShadersOnly(true);
@@ -272,9 +392,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         // Validation.
         HRESULT valHR = S_OK;
         dxcutil::AssembleInputs inputs(
-          std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
-          pOutputStream,
-          opts.DebugFile, &Diag);
+            std::move(pM), pOutputBlob, DxcGetThreadMallocNoRef(),
+            SerializeFlags, pOutputStream, opts.DebugFile, &Diag);
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {

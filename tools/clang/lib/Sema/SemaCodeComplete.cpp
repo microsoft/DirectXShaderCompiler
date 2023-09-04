@@ -3063,6 +3063,7 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
       switch (cast<ObjCPropertyImplDecl>(D)->getPropertyImplementation()) {
       case ObjCPropertyImplDecl::Dynamic:
         return CXCursor_ObjCDynamicDecl;
+        LLVM_C_FALLTHROUGH; //HLSL Change: avoid fallthrough warning
           
       case ObjCPropertyImplDecl::Synthesize:
         return CXCursor_ObjCSynthesizeDecl;
@@ -3070,8 +3071,10 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
 
       case Decl::Import:
         return CXCursor_ModuleImportDecl;
+        LLVM_C_FALLTHROUGH; //HLSL Change: avoid fallthrough warning
 
     case Decl::ObjCTypeParam:   return CXCursor_TemplateTypeParameter;
+    LLVM_C_FALLTHROUGH; //HLSL Change: avoid fallthrough warning
 
     default:
       if (const TagDecl *TD = dyn_cast<TagDecl>(D)) {

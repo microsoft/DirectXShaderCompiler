@@ -443,7 +443,7 @@ void DxcContext::ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult) {
   hlsl::InitDxilContainer(&newHeader, 1, containerSize);
   CComPtr<IMalloc> pMalloc;
   CComPtr<hlsl::AbstractMemoryStream> pMemoryStream;
-  IFT(CoGetMalloc(1, &pMalloc));
+  IFT(DxcCoGetMalloc(1, &pMalloc));
   IFT(hlsl::CreateMemoryStream(pMalloc, &pMemoryStream));
   ULONG cbWritten;
 

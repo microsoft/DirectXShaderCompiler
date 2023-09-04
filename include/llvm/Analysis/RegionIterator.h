@@ -31,10 +31,15 @@ namespace llvm {
 /// For a subregion RegionNode there is just one successor. The RegionNode
 /// representing the exit of the subregion.
 template<class NodeType, class BlockT, class RegionT>
-class RNSuccIterator : public std::iterator<std::forward_iterator_tag,
-                                           NodeType, ptrdiff_t> {
-  typedef std::iterator<std::forward_iterator_tag, NodeType, ptrdiff_t> super;
+class RNSuccIterator {
+public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = NodeType;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
 
+private:
   typedef GraphTraits<BlockT*> BlockTraits;
   typedef typename BlockTraits::ChildIteratorType SuccIterTy;
 
@@ -88,8 +93,6 @@ class RNSuccIterator : public std::iterator<std::forward_iterator_tag,
   }
 public:
   typedef RNSuccIterator<NodeType, BlockT, RegionT> Self;
-
-  typedef typename super::pointer pointer;
 
   /// @brief Create begin iterator of a RegionNode.
   inline RNSuccIterator(NodeType* node)
@@ -154,9 +157,7 @@ public:
 /// are contained in the Region and its subregions. This is close to a virtual
 /// control flow graph of the Region.
 template<class NodeType, class BlockT, class RegionT>
-class RNSuccIterator<FlatIt<NodeType>, BlockT, RegionT>
-  : public std::iterator<std::forward_iterator_tag, NodeType, ptrdiff_t> {
-  typedef std::iterator<std::forward_iterator_tag, NodeType, ptrdiff_t> super;
+class RNSuccIterator<FlatIt<NodeType>, BlockT, RegionT> {
   typedef GraphTraits<BlockT*> BlockTraits;
   typedef typename BlockTraits::ChildIteratorType SuccIterTy;
 
@@ -164,8 +165,13 @@ class RNSuccIterator<FlatIt<NodeType>, BlockT, RegionT>
   SuccIterTy Itor;
 
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = NodeType;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   typedef RNSuccIterator<FlatIt<NodeType>, BlockT, RegionT> Self;
-  typedef typename super::pointer pointer;
 
   /// @brief Create the iterator from a RegionNode.
   ///

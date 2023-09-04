@@ -350,7 +350,7 @@ static unsigned IsPtrUsedByLoweredFn(
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
-    } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
+    } else if (isa<AddrSpaceCastInst>(user)) {
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
 
@@ -1674,9 +1674,6 @@ void RemoveUnusedInternalGlobalVariable(Module &M) {
         Value *User = *(UserIt++);
         if (Instruction *I = dyn_cast<Instruction>(User)) {
           I->eraseFromParent();
-        } else {
-          ConstantExpr *CE = cast<ConstantExpr>(User);
-          CE->dropAllReferences();
         }
       }
       GV->eraseFromParent();
@@ -1797,6 +1794,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       DominatorTree &DT = domTreeMap[F];
       if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL, &DT,
                                    bAllowReplace)) {
+        if (AI->use_empty())
+          AI->eraseFromParent();
         Changed = true;
         continue;
       }
@@ -3772,6 +3771,85 @@ static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
   return false;
 }
 
+static void collectAllStores(const Value *V,
+                             SmallVector<const Instruction *, 4> &Stores) {
+  for (const User *U : V->users()) {
+    if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
+      collectAllStores(BC, Stores);
+    } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
+      if (MC->getRawDest() == V)
+        Stores.emplace_back(MC);
+    } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      collectAllStores(GEP, Stores);
+    } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      Stores.emplace_back(SI);
+    } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *F = CI->getCalledFunction();
+      if (F->isIntrinsic()) {
+        if (F->getIntrinsicID() == Intrinsic::lifetime_start ||
+            F->getIntrinsicID() == Intrinsic::lifetime_end)
+          continue;
+      }
+
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+      switch (group) {
+      case HLOpcodeGroup::HLMatLoadStore: {
+        HLMatLoadStoreOpcode opcode =
+            static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+        switch (opcode) {
+        case HLMatLoadStoreOpcode::ColMatLoad:
+        case HLMatLoadStoreOpcode::RowMatLoad:
+          break;
+        case HLMatLoadStoreOpcode::ColMatStore:
+        case HLMatLoadStoreOpcode::RowMatStore:
+          Stores.emplace_back(CI);
+          break;
+        default:
+          DXASSERT(0, "invalid opcode");
+          Stores.emplace_back(CI);
+          break;
+        }
+      } break;
+      case HLOpcodeGroup::HLSubscript: {
+        HLSubscriptOpcode opcode =
+            static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
+        switch (opcode) {
+        case HLSubscriptOpcode::VectorSubscript:
+        case HLSubscriptOpcode::ColMatElement:
+        case HLSubscriptOpcode::ColMatSubscript:
+        case HLSubscriptOpcode::RowMatElement:
+        case HLSubscriptOpcode::RowMatSubscript:
+          collectAllStores(CI, Stores);
+          break;
+        default:
+          // Rest are resource ptr like buf[i].
+          // Only read of resource handle.
+          break;
+        }
+      } break;
+      default: {
+        // If not sure its out param or not. Take as out param.
+        Stores.emplace_back(CI);
+      }
+      }
+    }
+  }
+}
+
+// Make sure all store on V dominate I.
+static bool allStoresDominateInst(Value *V, Instruction *I, DominatorTree *DT) {
+  if (!DT)
+    return false;
+  SmallVector<const Instruction *, 4> Stores;
+  collectAllStores(V, Stores);
+
+  for (const Instruction *S : Stores) {
+    if (!DT->dominates(S, I))
+      return false;
+  }
+  return true;
+}
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3846,9 +3924,14 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Resource ptr should not be replaced.
           // Need to make sure src not updated after current memcpy.
           // Check Src only have 1 store now.
+          // If Src has more than 1 store but only used once by memcpy, check if
+          // the stores dominate the memcpy.
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
-          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
+          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored ||
+              (SrcPS.loadedType ==
+                   hlutil::PointerStatus::LoadedType::MemcopySrcOnce &&
+               allStoresDominateInst(Src, MC, DT))) {
             if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
               if (V->user_empty())
                 return true;

@@ -891,6 +891,7 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
   llvm::CallInst *C =
       Builder.CreateCall(CGM.getLLVMLifetimeStartFn(), {SizeV, Addr});
   C->setDoesNotThrow();
+  if (CGM.getCodeGenOpts().HLSLOptimizationToggles.IsEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS)) return nullptr; // HLSL Change - Returning nullptr prevents generating lifetime.end
   return SizeV;
 }
 

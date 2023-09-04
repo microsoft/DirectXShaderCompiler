@@ -285,6 +285,8 @@ void DxilViewIdStateBuilder::ComputeReachableFunctionsRec(CallGraph &CG, CallGra
   Function *F = pNode->getFunction();
   // Accumulate only functions with bodies.
   if (F->empty()) return;
+  if (FuncSet.count(F))
+    return;
   auto itIns = FuncSet.emplace(F);
   DXASSERT_NOMSG(itIns.second);
   (void)itIns;
@@ -880,6 +882,19 @@ public:
   bool runOnModule(Module &M) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  void print(raw_ostream &o, const Module *M) const override {
+    DxilModule &DxilModule = M->GetDxilModule();
+    const ShaderModel *pSM = DxilModule.GetShaderModel();
+    if (pSM->IsCS() || pSM->IsLib())
+      return;
+
+    auto &SerializedViewIdState = DxilModule.GetSerializedViewIdState();
+    DxilViewIdState ViewIdState(&DxilModule);
+    ViewIdState.Deserialize(SerializedViewIdState.data(),
+                            SerializedViewIdState.size());
+    ViewIdState.PrintSets(errs());
+  }
 };
 } // namespace
 

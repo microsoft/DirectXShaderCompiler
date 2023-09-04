@@ -15,6 +15,7 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "llvm/ADT/StringRef.h"
 
+struct IDxcVersionInfo;
 struct IStream;
 class DxilPipelineStateValidation;
 
@@ -51,6 +52,7 @@ DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
 DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX);
 DxilPartWriter *NewRDATWriter(const DxilModule &M);
+DxilPartWriter *NewVersionWriter(IDxcVersionInfo *pVersionInfo);
 
 // Store serialized ViewID data from DxilModule to PipelineStateValidation.
 void StoreViewIDStateToPSV(const uint32_t *pInputData,
@@ -77,6 +79,7 @@ void WriteProgramPart(const hlsl::ShaderModel *pModel,
 
 void SerializeDxilContainerForModule(
     hlsl::DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    IDxcVersionInfo *DXCVersionInfo,
     AbstractMemoryStream *pStream, llvm::StringRef DebugName,
     SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut = nullptr,
     AbstractMemoryStream *pReflectionStreamOut = nullptr,

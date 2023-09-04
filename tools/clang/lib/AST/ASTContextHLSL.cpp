@@ -291,10 +291,11 @@ void AddSubscriptOperator(
     vectorType = context.getConstType(vectorType);
 
   QualType indexType = intType;
-  CreateObjectFunctionDeclarationWithParams(
-    context, templateRecordDecl, vectorType,
-    ArrayRef<QualType>(indexType), ArrayRef<StringRef>(StringRef("index")),
-    context.DeclarationNames.getCXXOperatorName(OO_Subscript), forConst);
+  auto methodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, templateRecordDecl, vectorType, ArrayRef<QualType>(indexType),
+      ArrayRef<StringRef>(StringRef("index")),
+      context.DeclarationNames.getCXXOperatorName(OO_Subscript), forConst);
+  methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 /// <summary>Adds up-front support for HLSL matrix types (just the template declaration).</summary>
@@ -351,7 +352,10 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
 
 static void AddHLSLVectorSubscriptAttr(Decl *D, ASTContext &context) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
-  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
+  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, group, "",
+      static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
+  D->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 /// <summary>Adds up-front support for HLSL vector types (just the template declaration).</summary>
@@ -819,7 +823,8 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
   ArrayRef<QualType> paramTypes,
   ArrayRef<StringRef> paramNames,
   DeclarationName declarationName,
-  bool isConst)
+  bool isConst,
+  bool isTemplateFunction)
 {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(!resultType.isNull());
@@ -850,7 +855,10 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
                                            parmVarDecls.size());
   }
 
-  recordDecl->addDecl(functionDecl);
+  // If this is going to be part of a template function decl, don't add it to
+  // the record because the template function decl will be added instead.
+  if (!isTemplateFunction)
+    recordDecl->addDecl(functionDecl);
 
   return functionDecl;
 }
@@ -937,6 +945,7 @@ CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
   functionDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
       context, "op", "",
       static_cast<int>(hlsl::IntrinsicOp::IOP_CreateResourceFromHeap)));
+  functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
   return recordDecl;
 }
 

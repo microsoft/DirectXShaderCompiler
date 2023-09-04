@@ -43,8 +43,10 @@
 
 uint32_t CountStructMembers(llvm::Type const *pType) {
   uint32_t Count = 0;
-
-  if (auto *ST = llvm::dyn_cast<llvm::StructType>(pType)) {
+  if (auto *VT = llvm::dyn_cast<llvm::VectorType>(pType)) {
+    // Vector types can only contain scalars:
+    Count = VT->getVectorNumElements();
+  } else if (auto *ST = llvm::dyn_cast<llvm::StructType>(pType)) {
     for (auto &El : ST->elements()) {
       Count += CountStructMembers(El);
     }
@@ -81,9 +83,7 @@ private:
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
-  void PrintSingleRegister(llvm::Instruction* pI, uint32_t Register);
   void AssignNewAllocaRegister(llvm::AllocaInst* pAlloca, std::uint32_t C);
-  void PrintAllocaMember(llvm::AllocaInst* pAlloca, uint32_t Base, uint32_t Offset);
 
   hlsl::DxilModule* m_DM;
   std::uint32_t m_uVReg;
@@ -107,6 +107,16 @@ void DxilAnnotateWithVirtualRegister::applyOptions(llvm::PassOptions O) {
 
 char DxilAnnotateWithVirtualRegister::ID = 0;
 
+static llvm::StringRef
+PrintableSubsetOfMangledFunctionName(llvm::StringRef mangled) {
+  llvm::StringRef printableNameSubset = mangled;
+  if (mangled.size() > 2 && mangled[0] == '\1' && mangled[1] == '?') {
+    printableNameSubset =
+        llvm::StringRef(mangled.data() + 2, mangled.size() - 2);
+  }
+  return printableNameSubset;
+}
+
 bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   Init(M);
   if (m_DM == nullptr) {
@@ -120,39 +130,37 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   std::uint32_t InstNum = m_StartInstruction;
-  std::map<llvm::StringRef, std::pair<int, int>> InstructionRangeByFunctionName;
 
   auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
   for (auto * F : instrumentableFunctions) {
-    auto &EndInstruction = InstructionRangeByFunctionName[F->getName()];
-    EndInstruction.first = InstNum;
+    int InstructionRangeStart = InstNum;
+    int InstructionRangeEnd = InstNum;
     for (auto &block : F->getBasicBlockList()) {
       for (llvm::Instruction &I : block.getInstList()) {
         if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
           pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
-          EndInstruction.second = InstNum;
+          InstructionRangeEnd = InstNum;
         }
       }
+    }
+    if (OSOverride != nullptr) {
+      auto shaderKind = PIXPassHelpers::GetFunctionShaderKind(*m_DM, F);
+      std::string FunctioNamePlusKind =
+          F->getName().str() + " " + hlsl::ShaderModel::GetKindName(shaderKind);
+      *OSOverride << "InstructionRange: ";
+      llvm::StringRef printableNameSubset =
+          PrintableSubsetOfMangledFunctionName(FunctioNamePlusKind);
+      *OSOverride << InstructionRangeStart << " " << InstructionRangeEnd << " "
+                  << printableNameSubset << "\n";
     }
   }
 
   if (OSOverride != nullptr) {
     // Print a set of strings of the exemplary form "InstructionCount: <n> <fnName>"
+    if (m_DM->GetShaderModel()->GetKind() == hlsl::ShaderModel::Kind::Library)
+        *OSOverride << "\nIsLibrary\n";
     *OSOverride << "\nInstructionCount:" << InstNum << "\n";
-    for (auto const &fn : InstructionRangeByFunctionName) {
-      *OSOverride << "InstructionRange: ";
-      int skipOverLeadingUnprintableCharacters = 0;
-      if (fn.first.size() > 2 && fn.first[0] == '\1' && fn.first[1] == '?') {
-        skipOverLeadingUnprintableCharacters = 2;
-      }
-      *OSOverride << fn.second.first << " " << fn.second.second << " "
-                  << (fn.first.str().c_str() +
-                      skipOverLeadingUnprintableCharacters)
-                  << "\n";
-    }
-
-    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
   for (auto * F : instrumentableFunctions) {
@@ -169,10 +177,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
         AnnotateStore(&I);
       }
     }
-  }
-
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nEnd - dxil values to virtual register mapping\n";
   }
 
   m_DM = nullptr;
@@ -387,11 +391,26 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
             llvm::dyn_cast<llvm::ConstantInt>(GEP->getOperand(2));
         if (OffsetAsInt != nullptr)
         {
-          std::uint32_t Offset = static_cast<std::uint32_t>(
+          std::uint32_t OffsetInElementsFromStructureStart = static_cast<std::uint32_t>(
             OffsetAsInt->getValue().getLimitedValue());
-          DXASSERT(Offset < regSize,
+          DXASSERT(OffsetInElementsFromStructureStart < regSize,
             "Structure member offset out of expected range");
-          PixDxilReg::AddMD(m_DM->GetCtx(), pI, baseStructRegNum + Offset);
+          std::uint32_t OffsetInValuesFromStructureStart =
+              OffsetInElementsFromStructureStart; 
+          if (auto *ST = llvm::dyn_cast<llvm::StructType>(GEP->getPointerOperandType()
+                                                       ->getPointerElementType())) {
+            DXASSERT(OffsetInElementsFromStructureStart < ST->getNumElements(),
+                     "Offset into struct is bigger than struct");
+            OffsetInValuesFromStructureStart = 0;
+            for (std::uint32_t Element = 0;
+                 Element < OffsetInElementsFromStructureStart; ++Element) {
+              OffsetInValuesFromStructureStart +=
+                  CountStructMembers(ST->getElementType(Element));
+            }
+          }
+          PixDxilReg::AddMD(m_DM->GetCtx(), pI,
+                            baseStructRegNum +
+                                OffsetInValuesFromStructureStart);
         }
       }
     }
@@ -406,34 +425,13 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
 void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(
     llvm::Instruction *pI) {
   PixDxilReg::AddMD(m_DM->GetCtx(), pI, m_uVReg);
-  PrintSingleRegister(pI, m_uVReg);
   m_uVReg++;
 }
 
 void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(
     llvm::AllocaInst *pAlloca, std::uint32_t C) {
   PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
-  PrintAllocaMember(pAlloca, m_uVReg, C);
   m_uVReg += C;
-}
-
-void DxilAnnotateWithVirtualRegister::PrintSingleRegister(
-    llvm::Instruction* pI, uint32_t Register) {
-  if (OSOverride != nullptr) {
-    static constexpr bool DontPrintType = false;
-    pI->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
-    *OSOverride << " dxil " << Register << "\n";
-  }
-}
-
-void DxilAnnotateWithVirtualRegister::PrintAllocaMember(llvm::AllocaInst* pAlloca,
-                                                   uint32_t Base,
-                                                   uint32_t Offset) {
-  if (OSOverride != nullptr) {
-    static constexpr bool DontPrintType = false;
-    pAlloca->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
-    *OSOverride << " alloca " << Base << " " << Offset << "\n";
-  }
 }
 
 } // namespace

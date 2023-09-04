@@ -447,9 +447,11 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
     if (!HasTrailingDot)
       T = Context.getObjCInterfaceType(IDecl);
   } else if (getLangOpts().HLSL) { // HLSL - omit empty template argument lists
-    if (ClassTemplateDecl *TD = dyn_cast<ClassTemplateDecl>(IIDecl))
-      if (TypeDecl *DefaultSpec = getHLSLDefaultSpecialization(TD))
-        T = Context.getTypeDeclType(DefaultSpec); // HLSL Change end
+    if (TemplateDecl *TD = dyn_cast<TemplateDecl>(IIDecl)) {
+      QualType DefaultTy = getHLSLDefaultSpecialization(TD);
+      if (!DefaultTy.isNull())
+        T = DefaultTy;
+    } // HLSL Change end
   }
 
   if (T.isNull()) {
@@ -8106,6 +8108,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     AddToScope = false;
   }
 
+  if (getLangOpts().HLSL) {
+    hlsl::DiagnoseRaytracingEntry(*this, NewFD);
+  }
+
   return NewFD;
 }
 
@@ -9151,6 +9157,13 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   // Get the decls type and save a reference for later, since
   // CheckInitializerTypes may change it.
   QualType DclT = VDecl->getType(), SavT = DclT;
+
+  // HLSL Change begin
+  // When initializing an HLSL resource type we should diagnose mismatches in
+  // globally coherent annotations _unless_ the source is a dynamic resource
+  // placeholder type where we safely infer the globallycoherent annotaiton.
+  DiagnoseGloballyCoherentMismatch(Init, DclT, Init->getExprLoc());
+  // HLSL Change end
   
   // Expressions default to 'id' when we're in a debugger
   // and we are assigning it to a variable of Objective-C pointer type.

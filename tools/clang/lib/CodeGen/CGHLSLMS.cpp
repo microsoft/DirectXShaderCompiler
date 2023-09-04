@@ -270,10 +270,6 @@ public:
                                    llvm::Value *DestPtr,
                                    clang::QualType Ty) override;
 
-  void EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *Val,
-                                   llvm::Value *DestPtr,
-                                   clang::QualType Ty) override;
-
   void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *Val,
                               Value *DestPtr,
                               QualType Ty,
@@ -304,6 +300,7 @@ public:
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
                       BasicBlock *endSwitch) override;
   void MarkReturnStmt(CodeGenFunction &CGF, BasicBlock *bbWithRet) override;
+  void MarkCleanupBlock(CodeGenFunction &CGF, llvm::BasicBlock *cleanupBB) override;
   void MarkLoopStmt(CodeGenFunction &CGF, BasicBlock *loopContinue,
                      BasicBlock *loopExit) override;
   CGHLSLMSHelper::Scope* MarkScopeEnd(CodeGenFunction &CGF) override;
@@ -381,7 +378,6 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // Set Option.
   HLOptions opts;
   opts.bIEEEStrict = CGM.getCodeGenOpts().UnsafeFPMath;
-  opts.bDefaultRowMajor = CGM.getCodeGenOpts().HLSLDefaultRowMajor;
   opts.bDisableOptimizations = CGM.getCodeGenOpts().DisableLLVMOpts;
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
@@ -390,6 +386,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
   opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;
 
+  opts.bDefaultRowMajor = CGM.getLangOpts().HLSLDefaultRowMajor;
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
   opts.bDX9CompatMode = CGM.getLangOpts().EnableDX9CompatMode;
   opts.bFXCCompatMode = CGM.getLangOpts().EnableFXCCompatMode;
@@ -961,8 +958,11 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       RecordDecl::field_iterator End = Field;
       for (++End; End != FieldEnd && End->isBitField(); ++End);
 
+      std::vector<DxilFieldAnnotation> BitFields;
+
       RecordDecl::field_iterator Run = End;
-      uint64_t StartBitOffset, Tail = 0;
+      uint64_t StartBitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+      uint64_t Tail = 0;
       for (; Field != End; ++Field) {
         uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
         // Zero-width bitfields end runs.
@@ -970,10 +970,19 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           Run = End;
           continue;
         }
+
         llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
         // If we don't have a run yet, or don't live within the previous run's
         // allocated storage then we allocate some storage and start a new run.
         if (Run == End || BitOffset >= Tail) {
+          // Add BitFields to current field.
+          if (BitOffset >= Tail && BitOffset > 0) {
+            DxilFieldAnnotation &curFieldAnnotation =
+                annotation->GetFieldAnnotation(fieldIdx-1);
+            curFieldAnnotation.SetBitFields(BitFields);
+            BitFields.clear();
+          }
+
           Run = Field;
           StartBitOffset = BitOffset;
           Tail = StartBitOffset + DataLayout.getTypeAllocSizeInBits(Type);
@@ -996,9 +1005,35 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
           // Update offset.
           CBufferOffset += size;
         }
+
+        DxilFieldAnnotation bitfieldAnnotation;
+
+        bitfieldAnnotation.SetBitFieldWidth(Field->getBitWidthValue(Context));
+        QualType FieldTy = Field->getType().getCanonicalType();
+        const BuiltinType *BTy = FieldTy->getAs<BuiltinType>();
+        if (!BTy) {
+          // Should be enum type.
+          EnumDecl *Decl = FieldTy->getAs<EnumType>()->getDecl();
+          BTy = Decl->getPromotionType()->getAs<BuiltinType>();
+        }
+        CompType::Kind kind =
+            BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);
+        bitfieldAnnotation.SetCompType(kind);
+        bitfieldAnnotation.SetFieldName(Field->getName());
+        bitfieldAnnotation.SetCBufferOffset(
+            (unsigned)(BitOffset - StartBitOffset));
+        BitFields.emplace_back(bitfieldAnnotation);
+      }
+
+      if (!BitFields.empty()) {
+        DxilFieldAnnotation &curFieldAnnotation =
+            annotation->GetFieldAnnotation(fieldIdx - 1);
+        curFieldAnnotation.SetBitFields(BitFields);
+        BitFields.clear();
       }
 
       CBufferSize = CBufferOffset;
+
       continue;  // Field has already been advanced past bitfields
     }
 
@@ -1489,7 +1524,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
-  if (auto *Attr = FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+  if (FD->hasAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
     if (SM->IsSM67Plus() &&
         (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
          (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
@@ -1822,10 +1857,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
-  }
-  if (isRay && !retTy->isVoidType()) {
-    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
-      DiagnosticsEngine::Error, "return type for ray tracing shaders must be void"));
   }
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
@@ -2177,97 +2208,35 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       switch (funcProps->shaderKind) {
       case DXIL::ShaderKind::RayGeneration:
       case DXIL::ShaderKind::Intersection:
-        // RayGeneration and Intersection shaders are not allowed to have any input parameters
-        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "parameters are not allowed for %0 shader"))
-            << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
-                "raygeneration" : "intersection");
-        rayShaderHaveErrors = true;
         break;
       case DXIL::ShaderKind::AnyHit:
-      case DXIL::ShaderKind::ClosestHit:
-        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be inout"));
-          rayShaderHaveErrors = true;
-        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "intersection attributes parameter must be in"));
-          rayShaderHaveErrors = true;
-        } else if (ArgNo > 1) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "too many parameters, expected payload and attributes parameters only."));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 2) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "payload and attribute structures must be user defined types with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            if (0 == ArgNo)
-              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-            else
-              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
-          }
-        }
+      case DXIL::ShaderKind::ClosestHit: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        if (0 == ArgNo)
+          funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+        else
+          funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Miss:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter (ray payload) allowed for miss shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "ray payload parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "ray payload parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Miss: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
         break;
-      case DXIL::ShaderKind::Callable:
-        if (ArgNo > 0) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "only one parameter allowed for callable shader"));
-          rayShaderHaveErrors = true;
-        } else if (dxilInputQ != DxilParamInputQual::Inout) {
-          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "callable parameter must be declared inout"));
-          rayShaderHaveErrors = true;
-        }
-        if (ArgNo < 1) {
-          if (!IsHLSLCopyableAnnotatableRecord(parmDecl->getType())) {
-            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "callable parameter must be a user defined type with only numeric contents."));
-            rayShaderHaveErrors = true;
-          } else {
-            DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
-            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
-          }
-        }
+      }
+      case DXIL::ShaderKind::Callable: {
+        DataLayout DL(&this->TheModule);
+        unsigned size = DL.getTypeAllocSize(F->getFunctionType()
+                                                ->getFunctionParamType(ArgNo)
+                                                ->getPointerElementType());
+        funcProps->ShaderProps.Ray.paramSizeInBytes = size;
         break;
+      }
       }
     }
 
@@ -2393,7 +2362,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
 
-  m_ScopeMap[F] = ScopeInfo(F);
+  m_ScopeMap[F] = ScopeInfo(F, FD->getLocation());
 }
 
 void CGMSHLSLRuntime::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {
@@ -2541,9 +2510,6 @@ static bool isGLCMismatch(QualType Ty0, QualType Ty1, const Expr *SrcExp,
     if (Cast->getCastKind() == CastKind::CK_FlatConversion)
       return false;
   }
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Warning,
-                                          "global coherent mismatch");
-  Diags.Report(Loc, DiagID);
   return true;
 }
 
@@ -2628,62 +2594,6 @@ hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
       Interp = InterpolationMode::Kind::Constant;
   }
   return Interp;
-}
-
-hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
-
-  hlsl::CompType ElementType = hlsl::CompType::getInvalid();
-  switch (BT->getKind()) {
-  case BuiltinType::Bool:
-    ElementType = hlsl::CompType::getI1();
-    break;
-  case BuiltinType::Double:
-    ElementType = hlsl::CompType::getF64();
-    break;
-  case BuiltinType::HalfFloat: // HLSL Change
-  case BuiltinType::Float:
-    ElementType = hlsl::CompType::getF32();
-    break;
-  // HLSL Changes begin
-  case BuiltinType::Min10Float:
-  case BuiltinType::Min16Float:
-  // HLSL Changes end
-  case BuiltinType::Half:
-    ElementType = hlsl::CompType::getF16();
-    break;
-  case BuiltinType::Int:
-    ElementType = hlsl::CompType::getI32();
-    break;
-  case BuiltinType::LongLong:
-    ElementType = hlsl::CompType::getI64();
-    break;
-  // HLSL Changes begin
-  case BuiltinType::Min12Int:
-  case BuiltinType::Min16Int:
-  // HLSL Changes end
-  case BuiltinType::Short:
-    ElementType = hlsl::CompType::getI16();
-    break;
-    // HLSL Changes begin
-  case BuiltinType::Int8_4Packed:
-  case BuiltinType::UInt8_4Packed:
-    // HLSL Changes end
-  case BuiltinType::UInt:
-    ElementType = hlsl::CompType::getU32();
-    break;
-  case BuiltinType::ULongLong:
-    ElementType = hlsl::CompType::getU64();
-    break;
-  case BuiltinType::Min16UInt: // HLSL Change
-  case BuiltinType::UShort:
-    ElementType = hlsl::CompType::getU16();
-    break;
-  default:
-    llvm_unreachable("unsupported type");
-    break;
-  }
-
-  return ElementType;
 }
 
 /// Add resource to the program
@@ -4041,7 +3951,9 @@ static Value* ConvertScalarOrVector(CGBuilderTy& Builder, CodeGenTypes &Types,
   llvm::Type *SrcTy = Val->getType();
   llvm::Type *DstTy = Types.ConvertType(DstQualTy);
 
-  DXASSERT(Val->getType() == Types.ConvertType(SrcQualTy), "QualType/Value mismatch!");
+  DXASSERT(Val->getType() == Types.ConvertType(SrcQualTy) ||
+               Val->getType() == Types.ConvertTypeForMem(SrcQualTy),
+           "QualType/Value mismatch!");
   DXASSERT((SrcTy->isIntOrIntVectorTy() || SrcTy->isFPOrFPVectorTy())
     && (DstTy->isIntOrIntVectorTy() || DstTy->isFPOrFPVectorTy()),
     "EmitNumericConversion can only be used with int/float scalars/vectors.");
@@ -5688,9 +5600,9 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     }
   }
 
-  // It is possible to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
-  // the same way. But split value to scalar will generate many instruction when
-  // src type is same as dest type.
+  // It is possible to implement EmitHLSLAggregateCopy, the same way. But split
+  // value to scalar will generate many instruction when src type is same as
+  // dest type.
   SmallVector<Value *, 4> GEPIdxStack;
   SmallVector<Value *, 4> SrcPtrs;
   SmallVector<QualType, 4> SrcQualTys;
@@ -5707,12 +5619,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
                                DestPtr->getType(), DstPtrs, DstQualTys);
 
   ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
-}
-
-void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,
-    llvm::Value *DestPtr,
-    clang::QualType Ty) {
-    DXASSERT(0, "aggregate return type will use SRet, no aggregate store should exist");
 }
 
 // Either copies a scalar to a scalar, a scalar to a vector, or splats a scalar to a vector
@@ -5899,7 +5805,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
   llvm::SmallSet<llvm::Value*, 8> ArgVals;
   for (uint32_t i = 0; i < FD->getNumParams(); i++) {
     const ParmVarDecl *Param = FD->getParamDecl(i);
-    const Expr *Arg = E->getArg(i+ArgsToSkip);
+    uint32_t ArgIdx = i+ArgsToSkip;
+    const Expr *Arg = E->getArg(ArgIdx);
     QualType ParamTy = Param->getType().getNonReferenceType();
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool bAnnotResource = false;
@@ -5939,7 +5846,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                       dyn_cast<ImplicitCastExpr>(cCast->getSubExpr())) {
                 if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
                   // update the arg
-                  argList[i] = cast->getSubExpr();
+                  argList[ArgIdx] = cast->getSubExpr();
                   continue;
                 }
               }
@@ -6072,7 +5979,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         (isAggregateType || isObject) ? VK_RValue : VK_LValue);
 
     // must update the arg, since we did emit Arg, else we get double emit.
-    argList[i] = tmpRef;
+    argList[ArgIdx] = tmpRef;
 
     // create alloc for the tmp arg
     Value *tmpArgAddr = nullptr;
@@ -6241,6 +6148,10 @@ void CGMSHLSLRuntime::MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
     Scope->AddIf(endIfBB);
 }
 
+void CGMSHLSLRuntime::MarkCleanupBlock(CodeGenFunction &CGF, llvm::BasicBlock *cleanupBB) {
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddCleanupBB(cleanupBB);
+}
 
 void CGMSHLSLRuntime::MarkSwitchStmt(CodeGenFunction &CGF,
                                      SwitchInst *switchInst,

@@ -22,8 +22,9 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/microcom.h"
-#include <comdef.h>
+
 #include <iostream>
 #include <limits>
 
@@ -57,30 +58,32 @@ bool isStdIn(LPCWSTR fName) {
 // Arg does not start with '-' or '/' and so assume it is a filename,
 // or next arg equals '-' which is the name of stdin.
 bool isFileInputArg(LPCWSTR arg) {
-  const bool isNonOptionArg = !wcsistarts(arg, L"-") && !wcsistarts(arg, L"/");
+  const bool isNonOptionArg = !wcsistarts(arg, L"-") && wcsrchr(arg, L'/') != arg;
   return isNonOptionArg || isStdIn(arg);
 }
 
 static HRESULT ReadStdin(std::string &input) {
-  HANDLE hStdIn = GetStdHandle(STD_INPUT_HANDLE);
-  std::vector<unsigned char> buffer(1024);
-  DWORD numBytesRead = -1;
-  BOOL ok = FALSE;
+  bool emptyLine = false;
+  while (!std::cin.eof()) {
+    std::string line;
+    std::getline(std::cin, line);
+    if (line.empty()) {
+      emptyLine = true;
+      continue;
+    }
 
-  // Read all data from stdin.
-  while (ok = ReadFile(hStdIn, buffer.data(), buffer.size(), &numBytesRead, NULL)) {
-    if (numBytesRead == 0)
-      break;
-    std::copy(buffer.begin(), buffer.begin() + numBytesRead, std::back_inserter(input));
+    std::copy(line.begin(), line.end(),
+              std::back_inserter(input));
+    input.push_back('\n');
   }
 
   DWORD lastError = GetLastError();
-
   // Make sure we reached finished successfully.
-  if (ok)
+  if (std::cin.eof())
     return S_OK;
   // Or reached the end of a pipe.
-  else if (!ok && numBytesRead == 0 && lastError == ERROR_BROKEN_PIPE)
+  else if (!std::cin.good() && emptyLine &&
+           lastError == ERROR_BROKEN_PIPE)
     return S_OK;
   else
     return HRESULT_FROM_WIN32(lastError);
@@ -106,9 +109,15 @@ static void PrintOptOutput(LPCWSTR pFileName, IDxcBlob *pBlob, IDxcBlobEncoding 
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pOutputText16;
   IFT(g_DxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+#ifdef _WIN32
   IFT(pLibrary->GetBlobAsWide(pOutputText, &pOutputText16));
   wprintf(L"%*s", (int)pOutputText16->GetBufferSize(),
           (wchar_t *)pOutputText16->GetBufferPointer());
+#else
+  IFT(pLibrary->GetBlobAsUtf8(pOutputText, &pOutputText16));
+  printf("%*s", (int)pOutputText16->GetBufferSize(),
+          (char *)pOutputText16->GetBufferPointer());
+#endif
   if (pBlob && pFileName && *pFileName) {
     dxc::WriteBlobToFile(pBlob, pFileName, DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
   }
@@ -210,7 +219,14 @@ static void PrintHelp() {
   );
 }
 
+#ifdef _WIN32
 int __cdecl wmain(int argc, const wchar_t **argv_) {
+#else
+int main(int argc, const char **argv) {
+  // Convert argv to wchar.
+  WArgV ArgV(argc, argv);
+  const wchar_t **argv_ = ArgV.argv();
+#endif
   const char *pStage = "Operation";
   int retVal = 0;
   if (llvm::sys::fs::SetupPerThreadFileSystem())
@@ -223,7 +239,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     ProgramAction action = ProgramAction::PrintHelp;
     LPCWSTR inFileName = nullptr;
     LPCWSTR outFileName = nullptr;
-    LPCWSTR externalLib = nullptr;
+    LPCWSTR externalLib = nullptr; 
     LPCWSTR externalFn = nullptr;
     LPCWSTR passFileName = nullptr;
     const wchar_t **optArgs = nullptr;
@@ -300,7 +316,8 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
 
     if (externalLib) {
       CW2A externalFnA(externalFn, CP_UTF8);
-      IFT(g_DxcSupport.InitializeForDll(externalLib, externalFnA));
+      CW2A externalLibA(externalLib, CP_UTF8);
+      IFT(g_DxcSupport.InitializeForDll(externalLibA, externalFnA));
     }
     else {
       IFT(g_DxcSupport.Initialize());

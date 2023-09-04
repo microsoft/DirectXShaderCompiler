@@ -2142,6 +2142,8 @@ class db_dxil(object):
         add_pass('hlsl-dxil-PIX-add-tid-to-as-payload', 'DxilPIXAddTidToAmplificationShaderPayload', 'HLSL DXIL Add flat thread id to payload from AS to MS', [
             {'n':'dispatchArgY','t':'int','c':1},
             {'n':'dispatchArgZ','t':'int','c':1}])
+        add_pass('hlsl-dxil-pix-dxr-invocations-log', 'DxilPIXDXRInvocationsLog', 'HLSL DXIL Logs all non-RayGen DXR 1.0 invocations into a UAV', [
+            {'n':'maxNumEntriesInLog','t':'int','c':1}])
 
         category_lib="dxil_gen"
 
@@ -2198,6 +2200,7 @@ class db_dxil(object):
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
         add_pass('dxil-rewrite-output-arg-debug-info', 'DxilRewriteOutputArgDebugInfo', 'Dxil Rewrite Output Arg Debug Info', [])
         add_pass('dxil-finalize-preserves', 'DxilFinalizePreserves', 'Dxil Finalize Preserves', [])
+        add_pass('dxil-reinsert-nops', 'DxilReinsertNops', 'Dxil Reinsert Nops', [])
         add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [
                 {'n':'AllowPreserves', 't':'bool', 'c':1},
             ])
@@ -2218,7 +2221,9 @@ class db_dxil(object):
         add_pass('deadargelim', 'DAE', 'Dead Argument Elimination', [])
         # Should we get rid of this, or invest in bugpoint support?
         add_pass('deadarghaX0r', 'DAH', 'Dead Argument Hacking (BUGPOINT USE ONLY; DO NOT USE)', [])
-        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [])
+        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [
+            {'n':'NoSink', 't':'bool', 'c':1},
+        ])
         add_pass('prune-eh', 'PruneEH', 'Remove unused exception handling info', [])
         add_pass('functionattrs', 'FunctionAttrs', 'Deduce function attributes', [])
         # add_pass('argpromotion', 'ArgPromotion', "Promote 'by reference' arguments to scalars", [
@@ -2248,6 +2253,9 @@ class db_dxil(object):
         add_pass('dxil-remove-dead-blocks', 'DxilRemoveDeadBlocks', 'DxilRemoveDeadBlocks', [])
         add_pass('dxil-o0-legalize', 'DxilNoOptLegalize', 'DXIL No-Opt Legalize', [])
         add_pass('dxil-o0-simplify-inst', 'DxilNoOptSimplifyInstructions', 'DXIL No-Opt Simplify Inst', [])
+        add_pass('dxil-loop-deletion', 'DxilLoopDeletion', "Dxil Delete dead loops", [
+            {'n':'NoSink', 't':'bool', 'c':1},
+        ])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
         add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [
@@ -2939,6 +2947,7 @@ class db_hlsl(object):
             "p32u8" : "LICOMPTYPE_UINT8_4PACKED",
             "any_int16or32": "LICOMPTYPE_ANY_INT16_OR_32",
             "sint16or32_only": "LICOMPTYPE_SINT16_OR_32_ONLY",
+            "any_sampler": "LICOMPTYPE_ANY_SAMPLER",
             }
         self.trans_rowcol = {
             "r": "IA_R",
@@ -2948,6 +2957,7 @@ class db_hlsl(object):
         self.param_qual = {
             "in": "AR_QUAL_IN",
             "inout": "AR_QUAL_IN | AR_QUAL_OUT",
+            "ref" : "AR_QUAL_REF",
             "out": "AR_QUAL_OUT",
             "col_major": "AR_QUAL_COLMAJOR",
             "row_major": "AR_QUAL_ROWMAJOR"}
@@ -3067,7 +3077,7 @@ class db_hlsl(object):
                         template_list = "LITEMPLATE_ANY"
                     else:
                         base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
+                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc") or base_type.startswith("any_sampler"):
                             template_list = "LITEMPLATE_OBJECT"
                         else:
                             template_list = "LITEMPLATE_SCALAR"

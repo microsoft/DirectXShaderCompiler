@@ -9,12 +9,15 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilOperations.h"
+
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/Support/exception.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/Module.h"
 
 #include "DxcPixLiveVariables.h"
 #include "DxcPixDxilDebugInfo.h"
@@ -172,24 +175,25 @@ dxil_debug_info::DxcPixDxilInstructionOffsets::DxcPixDxilInstructionOffsets(
 {
   assert(SourceColumn == 0);
   (void)SourceColumn;
-  auto Fn = pSession->DxilModuleRef().GetEntryFunction();
-  auto &Blocks = Fn->getBasicBlockList();
-  for (auto& CurrentBlock : Blocks) {
-    auto& Is = CurrentBlock.getInstList();
-    for (auto& Inst : Is) {
-      auto & debugLoc = Inst.getDebugLoc();
-      if (debugLoc)
-      {
-        unsigned line = debugLoc.getLine();
-        if (line == SourceLine)
-        {
-          auto file = debugLoc.get()->getFilename();
-          if (CompareFilenames(FileName, file.str().c_str()))
-          {
-            std::uint32_t InstructionNumber;
-            if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstructionNumber))
-            {
-              m_offsets.push_back(InstructionNumber);
+  for (llvm::Function &Fn :
+       pSession->DxilModuleRef().GetModule()->functions()) {
+    if (Fn.isDeclaration() || Fn.isIntrinsic() || hlsl::OP::IsDxilOpFunc(&Fn))
+      continue;
+    auto &Blocks = Fn.getBasicBlockList();
+    for (auto &CurrentBlock : Blocks) {
+      auto &Is = CurrentBlock.getInstList();
+      for (auto &Inst : Is) {
+        auto &debugLoc = Inst.getDebugLoc();
+        if (debugLoc) {
+          unsigned line = debugLoc.getLine();
+          if (line == SourceLine) {
+            auto file = debugLoc.get()->getFilename();
+            if (CompareFilenames(FileName, file.str().c_str())) {
+              std::uint32_t InstructionNumber;
+              if (pix_dxil::PixDxilInstNum::FromInst(&Inst,
+                                                     &InstructionNumber)) {
+                m_offsets.push_back(InstructionNumber);
+              }
             }
           }
         }
@@ -225,7 +229,18 @@ dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
         auto* S = llvm::dyn_cast<llvm::DIScope>(DL.getScope());
         while (S != nullptr && !llvm::isa<llvm::DIFile>(S))
         {
-            S = S->getScope().resolve(EmptyMap);
+            if(auto Namespace = llvm::dyn_cast<llvm::DINamespace>(S))
+            {
+                // DINamespace has a getScope member (that hides DIScope's)
+                // that returns a DIScope directly, but if that namespace
+                // is at file-level scope, it will return nullptr.
+                if (auto * ContainingScope = Namespace->getScope())
+                    S = ContainingScope;
+                else 
+                    S = S->getFile();
+            } 
+            else 
+                 S = S->getScope().resolve(EmptyMap);
         }
 
         if (S != nullptr)

@@ -22,7 +22,9 @@
 #include "dxc/dxctools.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/WinFunctions.h"
 #include "llvm/Support/raw_ostream.h"
+
 
 inline bool wcsieq(LPCWSTR a, LPCWSTR b) { return _wcsicmp(a, b) == 0; }
 
@@ -30,87 +32,14 @@ using namespace dxc;
 using namespace llvm::opt;
 using namespace hlsl::options;
 
-
-class FileMapDxcBlobEncoding : public IDxcBlobEncoding {
-private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
-  CHandle m_FileHandle;
-  CHandle m_MappingHandle;
-  void* m_MappedView;
-  UINT32 m_FileSize;
-public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  FileMapDxcBlobEncoding() : m_dwRef(0), m_MappedView(nullptr) {
-  }
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
-  }
-
-  ~FileMapDxcBlobEncoding() {
-    if (m_MappedView != nullptr) {
-      UnmapViewOfFile(m_MappedView);
-    }
-  }
-
-  static HRESULT CreateForFile(_In_ LPCWSTR pFileName,
-                               _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) {
-    *ppBlobEncoding = nullptr;
-
-    CComPtr<FileMapDxcBlobEncoding> pResult = new FileMapDxcBlobEncoding();
-    HRESULT hr = pResult->Open(pFileName);
-    if (FAILED(hr)) {
-      return hr;
-    }
-    return pResult.QueryInterface(ppBlobEncoding);
-  }
-
-  virtual LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override {
-    return m_MappedView;
-  }
-  virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
-    return m_FileSize;
-  }
-  virtual HRESULT STDMETHODCALLTYPE GetEncoding(_Out_ BOOL *pKnown, _Out_ UINT32 *pCodePage) {
-    *pKnown = FALSE;
-    *pCodePage = 0;
-    return S_OK;
-  }
-
-  HRESULT Open(_In_ LPCWSTR pFileName) {
-    DXASSERT_NOMSG(m_FileHandle == nullptr);
-
-    HANDLE fileHandle = CreateFileW(pFileName, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
-    if (fileHandle == INVALID_HANDLE_VALUE) {
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
-    m_FileHandle.Attach(fileHandle);
-
-    HANDLE mappingHandle = CreateFileMapping(fileHandle, nullptr, PAGE_READONLY, 0, 0, nullptr);
-    if (mappingHandle == INVALID_HANDLE_VALUE) {
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
-    m_MappingHandle.Attach(mappingHandle);
-
-    void* fileView = MapViewOfFile(mappingHandle, FILE_MAP_READ, 0, 0, 0);
-    if (fileView == nullptr) {
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
-    m_MappedView = fileView;
-
-    LARGE_INTEGER FileSize;
-    if (!GetFileSizeEx(fileHandle, &FileSize)) {
-      return HRESULT_FROM_WIN32(GetLastError());
-    }
-    if (FileSize.u.HighPart != 0 || FileSize.u.LowPart == UINT_MAX) {
-      return DXC_E_INPUT_FILE_TOO_LARGE;
-    }
-    m_FileSize = FileSize.u.LowPart;
-
-    return S_OK;
-  }
-};
-
+#ifdef _WIN32
 int __cdecl wmain(int argc, const wchar_t **argv_) {
+#else
+int main(int argc, const char **argv) {
+  // Convert argv to wchar.
+  WArgV ArgV(argc, argv);
+  const wchar_t **argv_ = ArgV.argv();
+#endif
   if (FAILED(DxcInitThreadMalloc())) return 1;
   DxcSetThreadMallocToDefault();
   try {
@@ -195,19 +124,19 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     CComPtr<IDxcOperationResult> pRewriteResult;
     CComPtr<IDxcBlobEncoding> pSource;
     std::wstring wName(CA2W(dxcOpts.InputFile.empty()? "" : dxcOpts.InputFile.data()));
-    if (!dxcOpts.InputFile.empty()) {
-      IFT_Data(FileMapDxcBlobEncoding::CreateForFile(wName.c_str(), &pSource), wName.c_str());
-    }
+    if (!dxcOpts.InputFile.empty())
+      ReadFileIntoBlob(dxcSupport, wName.c_str(), &pSource);
+
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcIncludeHandler> pIncludeHandler;
     IFT(dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dxcSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
-    IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(),
-                                      argv_, argc,
-                                      nullptr, 0, pIncludeHandler,
-                                      &pRewriteResult));
 
+    IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(),
+                                      argv_, argc, nullptr, 0,
+                                      pIncludeHandler, &pRewriteResult));
+                        
     if (dxcOpts.OutputObject.empty()) {
       // No -Fo, print to console
       WriteOperationResultToConsole(pRewriteResult, !dxcOpts.OutputWarnings);

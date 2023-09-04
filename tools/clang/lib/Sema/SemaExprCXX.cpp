@@ -970,7 +970,7 @@ ExprResult Sema::ActOnCXXThis(SourceLocation Loc) {
 
   CheckCXXThisCapture(Loc);
   // HLSL Change Starts - adjust this from T* to T&-like
-  if (getLangOpts().HLSL && ThisTy.getTypePtr()->isPointerType()) {
+  if (getLangOpts().HLSL) {
     return genereateHLSLThis(Loc, ThisTy, /*isImplicit=*/false);
   }
   // HLSL Change Ends
@@ -982,10 +982,10 @@ CXXThisExpr *Sema::genereateHLSLThis(SourceLocation Loc, QualType ThisType,
                                    bool isImplicit) {
   // Expressions cannot be of reference type - instead, they yield
   // an lvalue on the underlying type.
-  const Type *TypePtr = ThisType.getTypePtr();
-  CXXThisExpr *ResultExpr = new (Context) CXXThisExpr(
-      Loc, TypePtr->isPointerType() ? TypePtr->getPointeeType() : ThisType,
-      isImplicit);
+  if (ThisType->isPointerType() || ThisType->isReferenceType())
+    ThisType = ThisType->getPointeeType();
+  CXXThisExpr *ResultExpr =
+      new (Context) CXXThisExpr(Loc, ThisType, isImplicit);
   ResultExpr->setValueKind(ExprValueKind::VK_LValue);
   return ResultExpr;
 }

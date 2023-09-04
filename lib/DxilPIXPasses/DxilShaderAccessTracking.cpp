@@ -552,10 +552,6 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
           auto* MultipliedOutOfBoundsValue = Builder.CreateMul(OneIfOutOfBounds, HlslOP->GetU32Const(EncodedInstructionNumber));
           auto* CombinedFlagOrInstructionValue = Builder.CreateAdd(MultipliedEncodedFlags, MultipliedOutOfBoundsValue);
 
-          // If we failed to find an instruction value, just return the access flags:
-          if (InstructionNumber == 0) {
-            CombinedFlagOrInstructionValue = EncodedFlags;
-          }
           Constant *ElementMask = HlslOP->GetI8Const(1);
           Function *StoreFunc = HlslOP->GetOpFunc(OP::OpCode::BufferStore,
                                                   Type::getInt32Ty(Ctx));
@@ -904,7 +900,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
         FOS << "ShouldAssumeDsvAccess";
       }
     }
-    int uavRegId = 0;
+
     for (auto * F : instrumentableFunctions) {
       DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
       if (!DM.HasDxilFunctionProps(F)) {
@@ -921,7 +917,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
       m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
-          DM, Builder, uavRegId++, "PIX_CountUAV_Handle");
+          DM, Builder, 0u, "PIX_CountUAV_Handle");
       OP *HlslOP = DM.GetOP();
       for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
            accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);

@@ -1,8 +1,8 @@
 // RUN: %dxc -auto-binding-space 13 -exports Foo=VSMain;Foo=VSMainDup;Foo=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;Foo=\01?VSMainDup@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;RayGen;RayGen=fn -T lib_6_3 %s | FileCheck %s
 
 // Verify export collision errors
-// CHECK: error: Export name collides with another export: \01?Foo@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z
-// CHECK: error: Export name collides with another export: \01?RayGen@@YAXXZ
+// CHECK: error: Export name collides with another export: \01?Foo{{[@$?.A-Za-z0-9_]+}}
+// CHECK: error: Export name collides with another export: \01?RayGen{{[@$?.A-Za-z0-9_]+}}
 // CHECK: error: Export name collides with another export: Foo
 
 Buffer<int> T0;

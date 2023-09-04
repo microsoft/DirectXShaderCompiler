@@ -237,16 +237,16 @@ public:
     return L1;
   }
 
-  class member_iterator : public std::iterator<std::forward_iterator_tag,
-                                               const ElemTy, ptrdiff_t> {
-    typedef std::iterator<std::forward_iterator_tag,
-                          const ElemTy, ptrdiff_t> super;
+  class member_iterator {
     const ECValue *Node;
     friend class EquivalenceClasses;
   public:
-    typedef size_t size_type;
-    typedef typename super::pointer pointer;
-    typedef typename super::reference reference;
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = const ElemTy;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
 
     explicit member_iterator() {}
     explicit member_iterator(const ECValue *N) : Node(N) {}

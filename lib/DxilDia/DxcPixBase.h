@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dxc/Support/WinIncludes.h"
+#include <stdexcept>
 
 namespace dxil_debug_info
 {

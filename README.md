@@ -42,7 +42,26 @@ Binary packages containing the output of this project are available from appveyo
 As an example of community contribution, this project can also target the [SPIR-V](https://www.khronos.org/registry/spir-v/) intermediate representation. Please see the [doc](docs/SPIR-V.rst) for how HLSL features are mapped to SPIR-V, and the [wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki/SPIR%E2%80%90V-CodeGen) page for how to build, use, and contribute to the SPIR-V CodeGen.
 
 ## Building Sources
-Note: If you intend to build from sources on Linux/macOS, follow [these instructions](docs/DxcOnUnix.rst).
+
+Building DXC requires:
+
+* [Git](http://git-scm.com/downloads).
+* [Python](https://www.python.org/downloads/) - version 3.x is required
+* [CMake](https://cmake.org/download/) - version >= 3.17.2
+    * The bundled version with Visual Studio works for Windows.
+* The C++ 14 compiler and runtime of your choosing.
+    * DXC is known to compile with recent versions of GCC, Clang and MSVC.
+
+Building on windows additionally requires:
+
+* [Visual Studio 2019 or later](https://www.visualstudio.com/downloads) - select the following workloads: 
+    * Universal Windows Platform Development
+    * Desktop Development with C++
+* [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk) - version 10.0.18362.0 or newer
+* [Windows Driver Kit](https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) - same version as the SDK
+
+> A new experimental simplified build and test workflow is documented [here](docs/BuildingAndTestingDXC.rst).
+
 
 Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 
@@ -62,9 +81,9 @@ To build, run this command on the HLSL Console.
 
     hctbuild
 
-You can also clean, build and run tests with this command.
+You can also run tests with this command.
 
-    hctcheckin
+    hcttest
 
 
 To see a list of additional commands available, run `hcthelp`
@@ -75,7 +94,7 @@ To run tests, open the HLSL Console and run this command after a successful buil
 
     hcttest
 
-Some tests will run shaders and verify their behavior. These tests also involve a driver that can run these execute these shaders. See the next section on how this should be currently set up.
+Some tests will run shaders and verify their behavior. These tests also involve a driver that can execute these shaders. See the next section on how this should be currently set up.
 
 ## Running Shaders
 

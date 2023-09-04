@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T hs_6_0  %s 2>&1 | FileCheck %s
 
 // Make sure @sf is restored to original value 3.0 in patch constant function.
-// CHECK:define void @"\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@XZ"() {
+// CHECK:define void @"\01?HSPerPatchFunc{{[@$?.A-Za-z0-9_]+}}"() {
 
 // CHECK:call void @dx.op.storePatchConstant.f32
 // CHECK-NEXT:call void @dx.op.storePatchConstant.f32

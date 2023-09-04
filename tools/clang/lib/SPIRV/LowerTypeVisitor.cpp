@@ -199,6 +199,16 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
         if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
           resultType = spvContext.getImageType(imageType, vkImgFeatures.format);
           instr->setResultType(resultType);
+        } else if (const auto *arrayType = dyn_cast<ArrayType>(resultType)) {
+          if (const auto *imageType =
+                  dyn_cast<ImageType>(arrayType->getElementType())) {
+            auto newImgType =
+                spvContext.getImageType(imageType, vkImgFeatures.format);
+            resultType = spvContext.getArrayType(newImgType,
+                                                 arrayType->getElementCount(),
+                                                 arrayType->getStride());
+            instr->setResultType(resultType);
+          }
         }
       }
     }
@@ -509,36 +519,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       return spvType;
     }
 
-    // Collect all fields' information.
-    llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
-
-    // If this struct is derived from some other struct, place an implicit
-    // field at the very beginning for the base struct.
-    if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl)) {
-      for (const auto &base : cxxDecl->bases()) {
-        fields.push_back(HybridStructType::FieldInfo(base.getType()));
-      }
-    }
-
-    // Create fields for all members of this struct
-    for (const auto *field : decl->fields()) {
-      llvm::Optional<BitfieldInfo> bitfieldInfo;
-      if (field->isBitField()) {
-        bitfieldInfo = BitfieldInfo();
-        bitfieldInfo->sizeInBits =
-            field->getBitWidthValue(field->getASTContext());
-      }
-
-      fields.push_back(HybridStructType::FieldInfo(
-          field->getType(), field->getName(),
-          /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
-          /*packoffset*/ getPackOffset(field),
-          /*RegisterAssignment*/ nullptr,
-          /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
-          /*bitfield*/ bitfieldInfo));
-    }
-
-    auto loweredFields = populateLayoutInformation(fields, rule);
+    auto loweredFields = lowerStructFields(decl, rule);
 
     const auto *spvStructType =
         spvContext.getStructType(loweredFields, decl->getName());
@@ -549,26 +530,51 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   // Array type
   if (const auto *arrayType = astContext.getAsArrayType(type)) {
     const auto elemType = arrayType->getElementType();
-    const auto *loweredElemType =
-        lowerType(arrayType->getElementType(), rule, isRowMajor, srcLoc);
-    llvm::Optional<uint32_t> arrayStride = llvm::None;
 
+    // If layout rule is void, it means these resource types are used for
+    // declaring local resources. This should be lowered to a pointer to the
+    // array.
+    //
+    // The pointer points to the Uniform storage class, and the element type
+    // should have the corresponding layout.
+    bool isLocalStructuredOrByteBuffer =
+        isAKindOfStructuredOrByteBuffer(elemType) &&
+        rule == SpirvLayoutRule::Void;
+
+    SpirvLayoutRule elementLayoutRule =
+        (isLocalStructuredOrByteBuffer ? getCodeGenOptions().sBufferLayoutRule
+                                       : rule);
+    const SpirvType *loweredElemType =
+        lowerType(elemType, elementLayoutRule, isRowMajor, srcLoc);
+
+    llvm::Optional<uint32_t> arrayStride = llvm::None;
     if (rule != SpirvLayoutRule::Void &&
         // We won't have stride information for structured/byte buffers since
         // they contain runtime arrays.
-        !isAKindOfStructuredOrByteBuffer(elemType)) {
+        !isAKindOfStructuredOrByteBuffer(elemType) &&
+        !isConstantTextureBuffer(elemType)) {
       uint32_t stride = 0;
       alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
       arrayStride = stride;
     }
 
+    const SpirvType *spirvArrayType = nullptr;
     if (const auto *caType = astContext.getAsConstantArrayType(type)) {
       const auto size = static_cast<uint32_t>(caType->getSize().getZExtValue());
-      return spvContext.getArrayType(loweredElemType, size, arrayStride);
+      spirvArrayType =
+          spvContext.getArrayType(loweredElemType, size, arrayStride);
+    } else {
+      assert(type->isIncompleteArrayType());
+      spirvArrayType =
+          spvContext.getRuntimeArrayType(loweredElemType, arrayStride);
     }
 
-    assert(type->isIncompleteArrayType());
-    return spvContext.getRuntimeArrayType(loweredElemType, arrayStride);
+    if (isLocalStructuredOrByteBuffer) {
+      return spvContext.getPointerType(spirvArrayType,
+                                       spv::StorageClass::Uniform);
+    }
+
+    return spirvArrayType;
   }
 
   // Reference types
@@ -751,6 +757,43 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     return valType;
   }
 
+  if (name == "ConstantBuffer" || name == "TextureBuffer") {
+    // ConstantBuffer<T> and TextureBuffer<T> are lowered as T
+
+    const bool forTBuffer = name == "TextureBuffer";
+
+    if (rule == SpirvLayoutRule::Void) {
+      rule = forTBuffer ? getCodeGenOptions().tBufferLayoutRule
+                        : getCodeGenOptions().cBufferLayoutRule;
+    }
+
+    const auto *bufferType = type->getAs<RecordType>();
+    assert(bufferType);
+    const auto *bufferDecl = bufferType->getDecl();
+
+    // Get the underlying resource type.
+    const auto underlyingType = hlsl::GetHLSLResourceResultType(type);
+
+    const auto *underlyingStructType = underlyingType->getAs<RecordType>();
+    assert(underlyingStructType &&
+           "T in ConstantBuffer<T> or TextureBuffer<T> must be a struct type");
+
+    const auto *underlyingStructDecl = underlyingStructType->getDecl();
+
+    auto loweredFields = lowerStructFields(underlyingStructDecl, rule);
+
+    const std::string structName = "type." + bufferDecl->getName().str() + "." +
+                                   underlyingStructDecl->getName().str();
+
+    const auto *spvStructType = spvContext.getStructType(
+        loweredFields, structName, /*isReadOnly*/ forTBuffer,
+        forTBuffer ? StructInterfaceType::StorageBuffer
+                   : StructInterfaceType::UniformBuffer);
+
+    spvContext.registerStructDeclForSpirvType(spvStructType, bufferDecl);
+    return spvStructType;
+  }
+
   // ByteAddressBuffer types.
   if (name == "ByteAddressBuffer") {
     const auto *bufferType =
@@ -832,52 +875,101 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   return nullptr;
 }
 
+llvm::SmallVector<StructType::FieldInfo, 4>
+LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
+                                    SpirvLayoutRule rule) {
+  assert(decl);
+
+  // Collect all fields' information.
+  llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
+
+  // If this struct is derived from some other struct, place an implicit
+  // field at the very beginning for the base struct.
+  if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl)) {
+    for (const auto &base : cxxDecl->bases()) {
+      fields.push_back(HybridStructType::FieldInfo(base.getType()));
+    }
+  }
+
+  // Create fields for all members of this struct
+  for (const auto *field : decl->fields()) {
+    llvm::Optional<BitfieldInfo> bitfieldInfo;
+    if (field->isBitField()) {
+      bitfieldInfo = BitfieldInfo();
+      bitfieldInfo->sizeInBits =
+          field->getBitWidthValue(field->getASTContext());
+    }
+
+    fields.push_back(HybridStructType::FieldInfo(
+        field->getType(), field->getName(),
+        /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
+        /*packoffset*/ getPackOffset(field),
+        /*RegisterAssignment*/ nullptr,
+        /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
+        /*bitfield*/ bitfieldInfo));
+  }
+
+  return populateLayoutInformation(fields, rule);
+}
+
 spv::ImageFormat
 LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
   uint32_t elemCount = 1;
   QualType ty = {};
-  if (isScalarType(sampledType, &ty) ||
-      isVectorType(sampledType, &ty, &elemCount) ||
-      canFitIntoOneRegister(astContext, sampledType, &ty, &elemCount)) {
-    if (const auto *builtinType = ty->getAs<BuiltinType>()) {
-      switch (builtinType->getKind()) {
-      case BuiltinType::Int:
-      case BuiltinType::Min12Int:
-      case BuiltinType::Min16Int:
-        return elemCount == 1   ? spv::ImageFormat::R32i
-               : elemCount == 2 ? spv::ImageFormat::Rg32i
-                                : spv::ImageFormat::Rgba32i;
-      case BuiltinType::UInt:
-      case BuiltinType::Min16UInt:
-        return elemCount == 1   ? spv::ImageFormat::R32ui
-               : elemCount == 2 ? spv::ImageFormat::Rg32ui
-                                : spv::ImageFormat::Rgba32ui;
-      case BuiltinType::Float:
-      case BuiltinType::HalfFloat:
-      case BuiltinType::Min10Float:
-      case BuiltinType::Min16Float:
-        return elemCount == 1   ? spv::ImageFormat::R32f
-               : elemCount == 2 ? spv::ImageFormat::Rg32f
-                                : spv::ImageFormat::Rgba32f;
-      case BuiltinType::LongLong:
-        if (elemCount == 1)
-          return spv::ImageFormat::R64i;
-        break;
-      case BuiltinType::ULongLong:
-        if (elemCount == 1)
-          return spv::ImageFormat::R64ui;
-        break;
-      default:
-        // Other sampled types unimplemented or irrelevant.
-        break;
-      }
-    }
+  if (!isScalarType(sampledType, &ty) &&
+      !isVectorType(sampledType, &ty, &elemCount) &&
+      !canFitIntoOneRegister(astContext, sampledType, &ty, &elemCount)) {
+    return spv::ImageFormat::Unknown;
   }
-  emitError(
-      "cannot translate resource type parameter %0 to proper image format",
-      srcLoc)
-      << sampledType;
+
+  const auto *builtinType = ty->getAs<BuiltinType>();
+  if (builtinType == nullptr) {
+    return spv::ImageFormat::Unknown;
+  }
+
+  switch (builtinType->getKind()) {
+  case BuiltinType::Int:
+    return elemCount == 1   ? spv::ImageFormat::R32i
+           : elemCount == 2 ? spv::ImageFormat::Rg32i
+           : elemCount == 4 ? spv::ImageFormat::Rgba32i
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Min12Int:
+  case BuiltinType::Min16Int:
+    return elemCount == 1   ? spv::ImageFormat::R16i
+           : elemCount == 2 ? spv::ImageFormat::Rg16i
+           : elemCount == 4 ? spv::ImageFormat::Rgba16i
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::UInt:
+    return elemCount == 1   ? spv::ImageFormat::R32ui
+           : elemCount == 2 ? spv::ImageFormat::Rg32ui
+           : elemCount == 4 ? spv::ImageFormat::Rgba32ui
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Min16UInt:
+    return elemCount == 1   ? spv::ImageFormat::R16ui
+           : elemCount == 2 ? spv::ImageFormat::Rg16ui
+           : elemCount == 4 ? spv::ImageFormat::Rgba16ui
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Float:
+    return elemCount == 1   ? spv::ImageFormat::R32f
+           : elemCount == 2 ? spv::ImageFormat::Rg32f
+           : elemCount == 4 ? spv::ImageFormat::Rgba32f
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::HalfFloat:
+  case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
+    return elemCount == 1   ? spv::ImageFormat::R16f
+           : elemCount == 2 ? spv::ImageFormat::Rg16f
+           : elemCount == 4 ? spv::ImageFormat::Rgba16f
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::LongLong:
+    return elemCount == 1 ? spv::ImageFormat::R64i : spv::ImageFormat::Unknown;
+  case BuiltinType::ULongLong:
+    return elemCount == 1 ? spv::ImageFormat::R64ui : spv::ImageFormat::Unknown;
+  default:
+    // Other sampled types unimplemented or irrelevant.
+    break;
+  }
 
   return spv::ImageFormat::Unknown;
 }
@@ -1043,16 +1135,16 @@ LowerTypeVisitor::populateLayoutInformation(
   // This stores the index of the field in the actual SPIR-V construct.
   // When bitfields are merged, this index will be the same for merged fields.
   uint32_t fieldIndexInConstruct = 0;
-  for (size_t i = 0; i < sortedFields.size(); i++) {
-    const StructType::FieldInfo *previousField =
-        i > 0 ? &loweredFields.back() : nullptr;
-    const HybridStructType::FieldInfo *currentField = sortedFields[i];
+  for (size_t i = 0, iPrevious = -1; i < sortedFields.size(); iPrevious = i++) {
     const size_t fieldIndexForMap = loweredFields.size();
 
-    loweredFields.emplace_back(
-        fieldVisitor(previousField, currentField, fieldIndexInConstruct));
-    if (!previousField ||
-        previousField->fieldIndex != loweredFields.back().fieldIndex) {
+    loweredFields.emplace_back(fieldVisitor(
+        (iPrevious < loweredFields.size() ? &loweredFields[iPrevious]
+                                          : nullptr),
+        sortedFields[i], fieldIndexInConstruct));
+    if (!(iPrevious < loweredFields.size()) ||
+        loweredFields[iPrevious].fieldIndex !=
+            loweredFields.back().fieldIndex) {
       fieldIndexInConstruct++;
     }
     fieldToIndexMap[sortedFields[i]] = fieldIndexForMap;

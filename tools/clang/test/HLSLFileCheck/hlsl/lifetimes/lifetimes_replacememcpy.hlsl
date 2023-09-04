@@ -8,7 +8,7 @@
 //
 
 // CHECK: @[[constname:.*]] = internal unnamed_addr constant [2 x float] [float 1.000000e+00, float 3.000000e+00]
-// CHECK: define float @"\01?memcpy_replace@@YAMH@Z"(i32 %i)
+// CHECK: define float @"\01?memcpy_replace{{[@$?.A-Za-z0-9_]+}}"(i32 %i)
 // CHECK: getelementptr inbounds [2 x float], [2 x float]* @[[constname]], i32 0, i32 %i
 // CHECK: load float
 // CHECK: ret float

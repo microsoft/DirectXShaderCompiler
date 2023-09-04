@@ -12,6 +12,9 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
+
+#include "llvm/ADT/StringRef.h"
+
 #include <string>
 
 
@@ -28,7 +31,10 @@ public:
   using Kind = DXIL::ShaderKind;
 
   // Major/Minor version of highest shader model
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
+  // clang-format on
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestMajor = 6;
   static const unsigned kHighestMinor = 7;
@@ -59,7 +65,10 @@ public:
   }
   bool IsSM50Plus() const   { return IsSMAtLeast(5, 0); }
   bool IsSM51Plus() const   { return IsSMAtLeast(5, 1); }
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_is_shader_model_plus()</py>*/
+  // clang-format on
   // VALRULE-TEXT:BEGIN
   bool IsSM60Plus() const { return IsSMAtLeast(6, 0); }
   bool IsSM61Plus() const { return IsSMAtLeast(6, 1); }
@@ -78,6 +87,7 @@ public:
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
   static const char *GetKindName(Kind kind);
+  static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }

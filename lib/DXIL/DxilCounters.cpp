@@ -60,7 +60,7 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
              GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
              GV->getType()->getPointerAddressSpace() == DXIL::kDefaultAddrSpace)
       ptrInfoMap[V].memType = PointerInfo::MemType::Global_Static;
-  } else if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+  } else if (isa<AllocaInst>(V)) {
       ptrInfoMap[V].memType = PointerInfo::MemType::Alloca;
   } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
     ptrInfoMap[V] = GetPointerInfo(GEP->getPointerOperand(), ptrInfoMap);
@@ -70,7 +70,7 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
     ptrInfoMap[V] = GetPointerInfo(AC->getOperand(0), ptrInfoMap);
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
     if (CE->getOpcode() == LLVMAddrSpaceCast)
-      ptrInfoMap[V] = GetPointerInfo(AC->getOperand(0), ptrInfoMap);
+      llvm_unreachable("address space cast is illegal in DxilCounters.");
   //} else if (PHINode *PN = dyn_cast<PHINode>(V)) {
   //  for (auto it = PN->value_op_begin(), e = PN->value_op_end(); it != e; ++it) {
   //    PI = GetPointerInfo(*it, ptrInfoMap);
@@ -230,7 +230,10 @@ bool CountLlvmOp_uints(unsigned op) {
 // OPCODE-COUNTERS:END
 
 void CountDxilOp(unsigned op, DxilCounters &counters) {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNT-DXIL-OPS')>['if (CountDxilOp_%s(op)) ++counters.%s;' % (c,c) for c in hctdb_instrhelp.get_dxil_op_counters()]</py>
+  // clang-format on
   // COUNT-DXIL-OPS:BEGIN
   if (CountDxilOp_atomic(op)) ++counters.atomic;
   if (CountDxilOp_barrier(op)) ++counters.barrier;
@@ -251,7 +254,10 @@ void CountDxilOp(unsigned op, DxilCounters &counters) {
 }
 
 void CountLlvmOp(unsigned op, DxilCounters &counters) {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNT-LLVM-OPS')>['if (CountLlvmOp_%s(op)) ++counters.%s;' % (c,c) for c in hctdb_instrhelp.get_llvm_op_counters()]</py>
+  // clang-format on
   // COUNT-LLVM-OPS:BEGIN
   if (CountLlvmOp_atomic(op)) ++counters.atomic;
   if (CountLlvmOp_fence(op)) ++counters.fence;
@@ -334,7 +340,10 @@ struct CounterOffsetByName {
 
 // Must be sorted case-sensitive:
 static const CounterOffsetByName CountersByName[] = {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNTER-MEMBER-PTRS')>['{ "%s", &DxilCounters::%s },' % (c,c) for c in hctdb_instrhelp.get_counters()]</py>
+  // clang-format on
   // COUNTER-MEMBER-PTRS:BEGIN
   { "array_local_bytes", &DxilCounters::array_local_bytes },
   { "array_local_ldst", &DxilCounters::array_local_ldst },

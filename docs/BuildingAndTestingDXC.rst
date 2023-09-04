@@ -12,8 +12,6 @@ Building and Testing DirectXShaderCompiler
    is complete on Linux and Unix platforms, but is incomplete but usable on
    Windows. Instructions for building on Windows are available in the repository
    `readme <https://github.com/microsoft/DirectXShaderCompiler/blob/main/README.md>`_.
-   Instructions for the preexisting Linux and Unix workflow can be found here:
-   :doc:`DxcOnUnix`
 
 Introduction
 ============
@@ -57,7 +55,6 @@ Open a Visual Stuido command prompt and run:
 .. code:: sh
   cmake <Repository Root> \
     -B <Path to Output> \
-    -DDXC_USE_LIT=On \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
     -G "Visual Studio 17 2022"
@@ -85,7 +82,6 @@ In your preferred terminal run:
 .. code:: sh
   cmake <Repository Root> \
     -B <Path to Output> \
-    -DDXC_USE_LIT=On \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
     -G Ninja
@@ -150,10 +146,3 @@ four commonly used option prefixes:
   code coverage reports. With this setting enabled the
   ``generate-coverage-report`` target is added to the build which produces a
   static HTML page with code coverage analysis results.
-
-**DXC_USE_LIT**:BOOL
-  This option must be passed before the ``-C`` flag to set the PredefinedParams
-  cache script because it is handled by the cache script. This option enables
-  building DXC with the LLVM-LIT testing infrastructure enabled. This generates
-  check targets for each sub-project (i.e. ``check-llvm``, ``check-clang``...),
-  and a ``check-all`` target to build and run DXC's tests.

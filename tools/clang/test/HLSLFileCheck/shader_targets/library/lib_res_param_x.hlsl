@@ -3,14 +3,14 @@
 // resources in return/params allowed for lib_6_x
 // CHECK: alloca %struct.T.hdl
 // CHECK: store %dx.types.Handle
-// CHECK: call void @"\01?resStruct@@YA?AUT2@@UT@@V?$vector@I$01@@@Z"(%struct.T2.hdl
+// CHECK: call void @"\01?resStruct{{[@$?.A-Za-z0-9_]+}}"(%struct.T2.hdl
 // CHECK: %[[ptr:[^, ]+]] = getelementptr inbounds %struct.T2.hdl
 // CHECK: %[[val:[^, ]+]] = load %dx.types.Handle, %dx.types.Handle* %[[ptr]]
 // CHECK: call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %[[val]])
 
 // Make sure save bitcast for global symbol and HLSL type.
-// CHECK:i32 0, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?outputBuffer@@3URWByteAddressBuffer@@A" to %struct.RWByteAddressBuffer*), !"outputBuffer"
-// CHECK:i32 1, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?outputBuffer2@@3URWByteAddressBuffer@@A" to %struct.RWByteAddressBuffer*), !"outputBuffer2"
+// CHECK:i32 0, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?outputBuffer{{[@$?.A-Za-z0-9_]+}}" to %struct.RWByteAddressBuffer*), !"outputBuffer"
+// CHECK:i32 1, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?outputBuffer2{{[@$?.A-Za-z0-9_]+}}" to %struct.RWByteAddressBuffer*), !"outputBuffer2"
 
 
 struct T {

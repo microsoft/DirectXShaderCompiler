@@ -54,7 +54,7 @@ void RayGen() {
 // CHECK:   }
 // CHECK:   RecordTable (stride = 44 bytes) FunctionTable[4] = {
 // CHECK:     <0:RuntimeDataFunctionInfo> = {
-// CHECK:       Name: "\01?RayGen1@@YAXXZ"
+// CHECK:       Name: "\01?RayGen1{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "RayGen1"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
 // CHECK:         [0]: <1:RuntimeDataResourceInfo>
@@ -69,7 +69,7 @@ void RayGen() {
 // CHECK:       MinShaderTarget: 458851
 // CHECK:     }
 // CHECK:     <1:RuntimeDataFunctionInfo> = {
-// CHECK:       Name: "\01?VS_RENAMED@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z"
+// CHECK:       Name: "\01?VS_RENAMED{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "VS_RENAMED"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
 // CHECK:         [0]: <0:RuntimeDataResourceInfo>
@@ -84,7 +84,7 @@ void RayGen() {
 // CHECK:       MinShaderTarget: 393312
 // CHECK:     }
 // CHECK:     <2:RuntimeDataFunctionInfo> = {
-// CHECK:       Name: "\01?RayGen2@@YAXXZ"
+// CHECK:       Name: "\01?RayGen2{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "RayGen2"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
 // CHECK:         [0]: <1:RuntimeDataResourceInfo>
@@ -119,7 +119,7 @@ void RayGen() {
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 4
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGen1@@YAXXZ
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGen1{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: RayGeneration 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
@@ -134,7 +134,7 @@ void RayGen() {
 // CHECK:         NumSamples (or stride): 0
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGen2@@YAXXZ
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGen2{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: RayGeneration 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
@@ -149,7 +149,7 @@ void RayGen() {
 // CHECK:         NumSamples (or stride): 0
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?VS_RENAMED@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?VS_RENAMED{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:

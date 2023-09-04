@@ -110,7 +110,7 @@ void AssembleToContainer(AssembleInputs &inputs) {
   CComPtr<AbstractMemoryStream> pContainerStream;
   IFT(CreateMemoryStream(inputs.pMalloc, &pContainerStream));
   SerializeDxilContainerForModule(&inputs.pM->GetOrCreateDxilModule(),
-                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.SerializeFlags,
+                                  inputs.pModuleBitcode, nullptr, pContainerStream, inputs.DebugName, inputs.SerializeFlags,
                                   inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
   inputs.pOutputContainerBlob.Release();
   IFT(pContainerStream.QueryInterface(&inputs.pOutputContainerBlob));
@@ -156,7 +156,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
     if (inputs.pDiag) {
       unsigned diagID =
           inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
-                               "DXIL.dll not found.  Resulting DXIL will not be "
+                               "DXIL signing library (dxil.dll,libdxil.so) not found.  Resulting DXIL will not be "
                                "signed for use in release environments.\r\n");
       inputs.pDiag->Report(diagID);
     }

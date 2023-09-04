@@ -60,7 +60,9 @@
 #include <deque>
 
 using namespace llvm;
-using namespace std;
+using std::unique_ptr;
+using std::unordered_set;
+using std::vector;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Error messages.
@@ -235,7 +237,7 @@ struct ValidationContext {
       DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(Res);
       ResPropMap[V] = RP;
       for (User *U : V->users()) {
-        if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        if (isa<GEPOperator>(U)) {
           PropagateResMap(U, Res);
         } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
           // Stop propagate on function call.
@@ -245,7 +247,7 @@ struct ValidationContext {
                 resource_helper::loadPropsFromResourceBase(Res);
             ResPropMap[CI] = RP;
           }
-        } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+        } else if (isa<LoadInst>(U)) {
           PropagateResMap(U, Res);
         } else if (isa<BitCastOperator>(U) && U->user_empty()) {
           // For hlsl type.
@@ -3015,13 +3017,13 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       for (Value *op : I.operands()) {
         if (isa<UndefValue>(op)) {
           bool legalUndef = isa<PHINode>(&I);
-          if (InsertElementInst *InsertInst = dyn_cast<InsertElementInst>(&I)) {
+          if (isa<InsertElementInst>(&I)) {
             legalUndef = op == I.getOperand(0);
           }
-          if (ShuffleVectorInst *Shuf = dyn_cast<ShuffleVectorInst>(&I)) {
+          if (isa<ShuffleVectorInst>(&I)) {
             legalUndef = op == I.getOperand(1);
           }
-          if (StoreInst *Store = dyn_cast<StoreInst>(&I)) {
+          if (isa<StoreInst>(&I)) {
             legalUndef = op == I.getOperand(0);
           }
 
@@ -5539,6 +5541,79 @@ static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, "Feature Info", pWriter.get(), pFeatureInfoData, FeatureInfoSize);
 }
 
+// return true if the pBlob is a valid, well-formed CompilerVersion part, false
+// otherwise
+bool ValidateCompilerVersionPart(const void *pBlobPtr, UINT blobSize) {
+  // The hlsl::DxilCompilerVersion struct is always 16 bytes. (2 2-byte
+  // uint16's, 3 4-byte uint32's) The blob size should absolutely never be less
+  // than 16 bytes.
+  if (blobSize < sizeof(hlsl::DxilCompilerVersion)) {
+    return false;
+  }
+
+  const hlsl::DxilCompilerVersion *pDCV =
+      (const hlsl::DxilCompilerVersion *)pBlobPtr;
+  if (pDCV->VersionStringListSizeInBytes == 0) {
+    // No version strings, just make sure there is no extra space.
+    return blobSize == sizeof(hlsl::DxilCompilerVersion);
+  }
+
+  // after this point, we know VersionStringListSizeInBytes >= 1, because it is
+  // a UINT
+
+  UINT EndOfVersionStringIndex =
+      sizeof(hlsl::DxilCompilerVersion) + pDCV->VersionStringListSizeInBytes;
+  // Make sure that the buffer size is large enough to contain both the DCV
+  // struct and the version string but not any larger than necessary
+  if (PSVALIGN4(EndOfVersionStringIndex) != blobSize) {
+    return false;
+  }
+
+  const char *VersionStringsListData =
+      (const char *)pBlobPtr + sizeof(hlsl::DxilCompilerVersion);
+  UINT VersionStringListSizeInBytes = pDCV->VersionStringListSizeInBytes;
+
+  // now make sure that any pad bytes that were added are null-terminators.
+  for (UINT i = VersionStringListSizeInBytes;
+       i < blobSize - sizeof(hlsl::DxilCompilerVersion); i++) {
+    if (VersionStringsListData[i] != '\0') {
+      return false;
+    }
+  }
+
+  // Now, version string validation
+  // first, the final byte of the string should always be null-terminator so
+  // that the string ends
+  if (VersionStringsListData[VersionStringListSizeInBytes - 1] != '\0') {
+    return false;
+  }
+
+  // construct the first string
+  // data format for VersionString can be see in the definition for the
+  // DxilCompilerVersion struct. summary: 2 strings that each end with the null
+  // terminator, and [0-3] null terminators after the final null terminator
+  StringRef firstStr(VersionStringsListData);
+
+  // if the second string exists, attempt to construct it.
+  if (VersionStringListSizeInBytes > (firstStr.size() + 1)) {
+    StringRef secondStr(VersionStringsListData + firstStr.size() + 1);
+
+    // the VersionStringListSizeInBytes member should be exactly equal to the
+    // two string lengths, plus the 2 null terminator bytes.
+    if (VersionStringListSizeInBytes !=
+        firstStr.size() + secondStr.size() + 2) {
+      return false;
+    }
+  } else {
+    // the VersionStringListSizeInBytes member should be exactly equal to the
+    // first string length, plus the 1 null terminator byte.
+    if (VersionStringListSizeInBytes != firstStr.size() + 1) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
                               _In_reads_bytes_(RDATSize) const void *pRDATData,
@@ -5563,7 +5638,7 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
 
   // Verify no errors when runtime reflection from RDAT:
-  RDAT::DxilRuntimeReflection *pReflection = RDAT::CreateDxilRuntimeReflection();
+  unique_ptr<RDAT::DxilRuntimeReflection> pReflection(RDAT::CreateDxilRuntimeReflection());
   if (!pReflection->InitFromRDAT(pRDATData, RDATSize)) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, { PartName });
     return;
@@ -5657,6 +5732,19 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     case DFCC_FeatureInfo:
       VerifyFeatureInfoMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       break;
+    case DFCC_CompilerVersion:
+      // This blob is either a PDB, or a library profile
+      if (ValCtx.isLibProfile) {
+        if (!ValidateCompilerVersionPart((void *)GetDxilPartData(pPart), pPart->PartSize))
+        {
+          ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+        }
+      }
+      else {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      }
+      break;
+
     case DFCC_RootSignature:
       pRootSignaturePart = pPart;
       if (ValCtx.isLibProfile) {

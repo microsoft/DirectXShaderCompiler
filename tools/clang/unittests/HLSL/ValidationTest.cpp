@@ -15,11 +15,12 @@
 #include <string>
 #include <algorithm>
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Regex.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
+#include "dxc/Support/WinIncludes.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Regex.h"
 
 #ifdef _WIN32
 #include <atlbase.h>
@@ -600,7 +601,7 @@ public:
 
     // Write the container
     CComPtr<IMalloc> pMalloc;
-    VERIFY_SUCCEEDED(CoGetMalloc(1, &pMalloc));
+    VERIFY_SUCCEEDED(DxcCoGetMalloc(1, &pMalloc));
     CComPtr<AbstractMemoryStream> pOutputStream;
     VERIFY_SUCCEEDED(CreateMemoryStream(pMalloc, &pOutputStream));
     pOutputStream->Reserve(pContainerWriter->size());
@@ -878,6 +879,9 @@ TEST_F(ValidationTest, InvalidSigCompTyFail) {
       "A specifies unrecognized or invalid component type");
 }
 TEST_F(ValidationTest, MultiStream2Fail) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+  // dxilver 1.7 because PSV0 data was incorrectly filled in before this point,
+  // making this test fail if running against prior validator versions.
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\multiStreamGS.hlsl", "gs_6_0",
       "i32 1, i32 12, i32 7, i32 1, i32 1",

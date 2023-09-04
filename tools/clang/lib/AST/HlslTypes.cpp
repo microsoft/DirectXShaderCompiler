@@ -571,6 +571,14 @@ bool IsHLSLResourceType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLDynamicResourceType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    return name == ".Resource";
+  }
+  return false;
+}
+
 bool IsHLSLBufferViewType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
@@ -631,7 +639,7 @@ static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
   if (Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty))
     return false;
 
-  if (const RecordType *RT = Ty->getAsStructureType()) {
+  if (const RecordType *RT = Ty->getAs<RecordType>()) {
     RecordDecl *RD = RT->getDecl();
     for (FieldDecl *fieldDecl : RD->fields()) {
       if (HasTessFactorSemanticRecurse(fieldDecl, fieldDecl->getType()))
@@ -867,23 +875,6 @@ _Use_decl_annotations_
 hlsl::ParameterModifier ParamModFromAttributeList(clang::AttributeList *pAttributes) {
   bool isIn, isOut;
   isOut = IsParamAttributedAsOut(pAttributes, &isIn);
-  return ParameterModifier::FromInOut(isIn, isOut);
-}
-
-hlsl::ParameterModifier ParamModFromAttrs(llvm::ArrayRef<InheritableAttr *> attributes) {
-  bool isIn = false, isOut = false;
-  for (InheritableAttr * attr : attributes) {
-    if (isa<HLSLInAttr>(attr))
-      isIn = true;
-    else if (isa<HLSLOutAttr>(attr))
-      isOut = true;
-    else if (isa<HLSLInOutAttr>(attr))
-      isIn = isOut = true;
-  }
-  // Without any specifications, default to in.
-  if (!isIn && !isOut) {
-    isIn = true;
-  }
   return ParameterModifier::FromInOut(isIn, isOut);
 }
 

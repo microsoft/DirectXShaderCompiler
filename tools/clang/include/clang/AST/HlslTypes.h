@@ -16,11 +16,12 @@
 #ifndef LLVM_CLANG_AST_HLSLTYPES_H
 #define LLVM_CLANG_AST_HLSLTYPES_H
 
+#include "clang/AST/DeclarationName.h"
 #include "clang/AST/Type.h"             // needs QualType
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
@@ -40,7 +41,8 @@ namespace clang {
   class Sema;
   class TypeSourceInfo;
   class TypedefDecl;
-}
+  class VarDecl;
+ }
 
 namespace hlsl {
 
@@ -301,10 +303,6 @@ struct SemanticDecl : public UnusualAnnotation
 ParameterModifier
 ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
 
-/// Returns a ParameterModifier initialized as per the attribute list.
-ParameterModifier
-ParamModFromAttrs(llvm::ArrayRef<clang::InheritableAttr *> attributes);
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AST manipulation functions.
 
@@ -403,6 +401,7 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLDynamicResourceType(clang::QualType type);
 bool IsHLSLBufferViewType(clang::QualType type);
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
@@ -466,7 +465,8 @@ clang::CXXMethodDecl* CreateObjectFunctionDeclarationWithParams(
   llvm::ArrayRef<clang::QualType> paramTypes,
   llvm::ArrayRef<clang::StringRef> paramNames,
   clang::DeclarationName declarationName,
-  bool isConst);
+  bool isConst,
+  bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,
                                             clang::QualType Ty);

@@ -280,25 +280,31 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
   unsigned rowsUsed = 0;
 
   // Clip/Cull needs special handling due to limitations unique to these.
-  //  Otherwise, packer could easily pack across too many registers in available gaps.
+  //  Otherwise, packer could easily pack across too many registers in available
+  //  gaps.
   // The rules are special/weird:
-  //  - for interpolation mode, clip must be linear or linearCentroid, while cull may be anything
+  //  - for interpolation mode, clip must be linear or linearCentroid, while
+  //    cull may be anything
   //  - both have a maximum of 8 components shared between them
-  //  - you can have a combined maximum of two registers declared with clip or cull SV's
+  //  - you can have a combined maximum of two registers declared with clip or
+  //    cull SV's
   // other SV rules still apply:
   //  - X no indexing allowed X - This rule has been changed to allow indexing
   //  - cannot come before arbitrary values in same register
   // Strategy for dealing with these with rows == 1 for all elements:
   //  - attempt to pack these into a two register allocator
-  //    - if this fails, some constraint is blocking, or declaration order is preventing good packing
-  //      for example: 2, 1, 2, 3 - total 8 components and packable, but if greedily packed, it will fail
-  //      Packing largest to smallest would solve this.
-  //  - track components used for each register and create temp elements for allocation tests
+  //    - if this fails, some constraint is blocking, or declaration order is
+  //      preventing good packing for example: 2, 1, 2, 3 - total 8 components
+  //      and packable, but if greedily packed, it will fail Packing largest to
+  //      smallest would solve this.
+  //  - track components used for each register and create temp elements for
+  //  allocation tests
   //  - iterate rows and look for a viable location for each temp element
   //    When found, allocate original sub-elements associated with temp element.
   // If one or more clip/cull elements have rows > 1:
-  //  - walk through each pair of adjacent rows, initializing a temp two-row allocator
-  //    with existing contents and trying to pack all elements into the remaining space.
+  //  - walk through each pair of adjacent rows, initializing a temp two-row
+  //    allocator with existing contents and trying to pack all elements into
+  //    the remaining space.
   //  - when successful, do real allocation into these rows.
 
   // Packing overview

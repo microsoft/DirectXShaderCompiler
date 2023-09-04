@@ -22,22 +22,6 @@
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/microcom.h"
 
-HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
-                        LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags) {
-  assert(dwFlags == 0 && "dwFlag values not supported in StringCchCopyEx");
-  char *zPtr = 0;
-
-  zPtr = stpncpy(pszDest, pszSrc, cchDest);
-
-  if (ppszDestEnd)
-    *ppszDestEnd = zPtr;
-
-  if (pcchRemaining)
-    *pcchRemaining = cchDest - (zPtr - pszDest);
-
-  return S_OK;
-}
-
 
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
   va_list args;
@@ -153,32 +137,6 @@ unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask) {
   for (l=0; !(Mask&1); l++) Mask >>= 1;
   *Index = l;
   return 1;
-}
-
-struct CoMalloc : public IMalloc {
-  CoMalloc() : m_dwRef(0) {};
-
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject) override {
-    assert(false && "QueryInterface not implemented for CoMalloc.");
-    return E_NOINTERFACE;
-  }
-
-  void *STDMETHODCALLTYPE Alloc(size_t size) override { return malloc(size); }
-  void *STDMETHODCALLTYPE Realloc(void *ptr, size_t size) override { return realloc(ptr, size); }
-  void STDMETHODCALLTYPE Free(void *ptr) override { free(ptr); }
-  size_t STDMETHODCALLTYPE GetSize(void *pv) override { return -1; }
-  int STDMETHODCALLTYPE DidAlloc(void *pv) override { return -1; }
-  void STDMETHODCALLTYPE HeapMinimize(void) override {}
-
-private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
-};
-
-HRESULT CoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc) {
-  *ppMalloc = new CoMalloc;
-  (*ppMalloc)->AddRef();
-  return S_OK;
 }
 
 HANDLE CreateFile2(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,

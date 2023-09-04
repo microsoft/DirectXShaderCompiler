@@ -2409,8 +2409,8 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``log10``               ``Log2`` (scaled by ``1/log2(10)``)
 ``log2``                ``Log2``
 ``mad``                 ``Fma``
-``max``                 ``SMax``/``UMax``/``NMax``
-``min``                 ``SMin``/``UMin``/``NMin``
+``max``                 ``SMax``/``UMax``/``NMax``/``FMax``
+``min``                 ``SMin``/``UMin``/``NMin``/``FMin``
 ``modf``                ``ModfStruct``
 ``normalize``           ``Normalize``
 ``pow``                 ``Pow``
@@ -2430,6 +2430,13 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``tanh``                ``Tanh``
 ``trunc``               ``Trunc``
 ======================= ===================================
+
+Note on NMax,Nmin,FMax & FMin:
+
+This compiler supports the ``--ffinite-math-only`` option, which allows
+assuming non-NaN parameters to some operations. ``min`` & ``max`` intrinsics
+will by default generate ``NMin`` & ``NMax`` instructions, but if this option
+is enabled, ``FMin`` & ``FMax`` can be generated instead.
 
 Synchronization intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4060,6 +4067,8 @@ codegen for Vulkan:
   to the HLSL entry point name.
 - ``-fspv-use-legacy-buffer-matrix-order``: Assumes the legacy matrix order (row
   major) when accessing raw buffers (e.g., ByteAdddressBuffer).
+- ``-fspv-preserve-interface``: Preserves all interface variables in the entry
+  point, even when those variables are unused.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

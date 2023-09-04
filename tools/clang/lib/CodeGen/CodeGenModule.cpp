@@ -1557,8 +1557,10 @@ void CodeGenModule::CompleteDIClassType(const CXXMethodDecl* D) {
 
   if (CGDebugInfo *DI = getModuleDebugInfo())
     if (getCodeGenOpts().getDebugInfo() >= CodeGenOptions::LimitedDebugInfo) {
-      const auto *ThisPtr = cast<PointerType>(D->getThisType(getContext()));
-      DI->getOrCreateRecordType(ThisPtr->getPointeeType(), D->getLocation());
+      // HLSL Change Begin - This is a reference.
+      QualType ThisType = D->getThisObjectType(getContext());
+      DI->getOrCreateRecordType(ThisType, D->getLocation());
+      // HLSL Change End - This is a reference.
     }
 }
 

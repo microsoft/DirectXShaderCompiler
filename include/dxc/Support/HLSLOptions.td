@@ -143,8 +143,10 @@ def fno_associative_math : Flag<["-"], "fno-associative-math">, Group<hlsloptz_G
 //  Flag<["-"], "freciprocal-math">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
 //  HelpText<"Allow division operations to be reassociated">;
 def fno_reciprocal_math : Flag<["-"], "fno-reciprocal-math">, Group<hlsloptz_Group>;
-def ffinite_math_only : Flag<["-"], "ffinite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>;
-def fno_finite_math_only : Flag<["-"], "fno-finite-math-only">, Group<hlsloptz_Group>;
+def ffinite_math_only: Flag<["-"], "ffinite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+  HelpText<"Allow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs.">;
+def fno_finite_math_only: Flag<["-"], "fno-finite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+  HelpText<"Disallow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs.">;
 def fsigned_zeros : Flag<["-"], "fsigned-zeros">, Group<hlsloptz_Group>;
 //def fno_signed_zeros :
 //  Flag<["-"], "fno-signed-zeros">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
@@ -172,6 +174,10 @@ def fdisable_loc_tracking : Flag<["-"], "fdisable-loc-tracking">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Disable source location tracking in IR. This will break diagnostic generation for late validation. (Ignored if /Zi is passed)">;
 
+def fnew_inlining_behavior : Flag<["-"], "fnew-inlining-behavior">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Experimental option to use heuristics-driven late inlining and disable alwaysinline annotation for library shaders">;
+
 
 def ftime_report : Flag<["-"], "ftime-report">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Print time report">;
 def ftime_trace : Flag<["-"], "ftime-trace">,
@@ -180,6 +186,10 @@ def ftime_trace : Flag<["-"], "ftime-trace">,
 def ftime_trace_EQ : Joined<["-"], "ftime-trace=">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Print hierchial time tracing to file">;
+
+def verify : Joined<["-"], "verify">,
+  Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Verify diagnostic output using comment directives">;
 
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
@@ -242,6 +252,8 @@ def _version : Flag<["--"], "version">, Group<hlslcore_Group>, Flags<[DriverOpti
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
+def ast_dump_implicit : Flag<["-", "/"], "ast-dump-implicit">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Dumps the parsed Abstract Syntax Tree, including implicit top-level decls.">; 
 def dump_dependencies : Flag<["-", "/"], "M">, Flags<[CoreOption, DriverOption]>,
   HelpText<"Dumps the list of the compilation target dependencies.">;
 def write_dependencies : Flag<["-", "/"], "MD">, Flags<[CoreOption, DriverOption]>,
@@ -295,10 +307,14 @@ def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[C
   HelpText<"Set default encoding for source inputs and text outputs (utf8|utf16(win)|utf32(*nix)|wide) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
+def print_before_all : Flag<["-", "/"], "print-before-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Print LLVM IR before each pass.">;
+def print_before : Separate<["-", "/"], "print-before">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Print LLVM IR before a specific pass. May be specificied multiple times.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Print LLVM IR after a specific pass.">;
+  HelpText<"Print LLVM IR after a specific pass. May be specificied multiple times.">;
 def ignore_opt_semdefs : Flag<["-", "/"], "ignore-opt-semdefs">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Ignore optional semantic defines which are not required to ensure program correctness.">;
 def ignore_semdef : Separate<["-", "/"], "ignore-semdef">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -380,6 +396,12 @@ def fspv_print_all: Flag<["-"], "fspv-print-all">, Group<spirv_Group>, Flags<[Co
   HelpText<"Print the SPIR-V module before each pass and after the last one. Useful for debugging SPIR-V legalization and optimization passes.">;
 def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOption]>,
   HelpText<"Specify a comma-separated list of SPIRV-Tools passes to customize optimization configuration (see http://khr.io/hlsl2spirv#optimization)">;
+def fspv_preserve_bindings : Flag<["-"], "fspv-preserve-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Preserves all bindings declared within the module, even when those bindings are unused">;
+def fspv_preserve_interface : Flag<["-"], "fspv-preserve-interface">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Preserves all interface variables in the entry point, even when those variables are unused">;
+def fvk_allow_rwstructuredbuffer_arrays: Flag<["-"], "fvk-allow-rwstructuredbuffer-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Allow arrays of RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers. This is in development, and the option will be removed when the feature is complete.">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////

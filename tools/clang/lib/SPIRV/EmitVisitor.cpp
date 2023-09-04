@@ -1963,7 +1963,7 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) { 
+bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) {
   initInstruction(inst);
 
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
@@ -2310,7 +2310,8 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
-    initTypeInstruction(spv::Op::OpConstantComposite);
+    initTypeInstruction(isSpecConst ? spv::Op::OpSpecConstantComposite
+                                    : spv::Op::OpConstantComposite);
     curTypeInst.push_back(typeId);
     curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
     for (auto constituent : inst->getConstituents())
@@ -2413,7 +2414,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // Sampler types
-  else if (const auto *samplerType = dyn_cast<SamplerType>(type)) {
+  else if (isa<SamplerType>(type)) {
     initTypeInstruction(spv::Op::OpTypeSampler);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
@@ -2550,13 +2551,13 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // Acceleration Structure NV type
-  else if (const auto *accType = dyn_cast<AccelerationStructureTypeNV>(type)) {
+  else if (isa<AccelerationStructureTypeNV>(type)) {
     initTypeInstruction(spv::Op::OpTypeAccelerationStructureNV);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }
   // RayQueryType KHR type
-  else if (const auto *rayQueryType = dyn_cast<RayQueryTypeKHR>(type)) {
+  else if (isa<RayQueryTypeKHR>(type)) {
     initTypeInstruction(spv::Op::OpTypeRayQueryKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
@@ -2583,7 +2584,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // Note: The type lowering pass should lower all types to SpirvTypes.
   // Therefore, if we find a hybrid type when going through the emitting pass,
   // that is clearly a bug.
-  else if (const auto *hybridType = dyn_cast<HybridType>(type)) {
+  else if (isa<HybridType>(type)) {
     llvm_unreachable("found hybrid type when emitting SPIR-V");
   }
   // Unhandled types

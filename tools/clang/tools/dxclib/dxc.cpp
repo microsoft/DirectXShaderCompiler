@@ -316,7 +316,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
   }
 
   // Text output.
-  if (m_Opts.AstDump || m_Opts.OptDump) {
+  if (m_Opts.AstDump || m_Opts.OptDump || m_Opts.VerifyDiagnostics) {
     WriteBlobToConsole(pBlob);
     return retVal;
   }
@@ -555,10 +555,8 @@ void DxcContext::ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult) {
   hlsl::DxilContainerHeader newHeader;
   uint32_t containerSize = hlsl::GetDxilContainerSizeFromParts(1, pPartHeader->PartSize);
   hlsl::InitDxilContainer(&newHeader, 1, containerSize); 
-  CComPtr<IMalloc> pMalloc;
   CComPtr<hlsl::AbstractMemoryStream> pMemoryStream;
-  IFT(CoGetMalloc(1, &pMalloc));
-  IFT(hlsl::CreateMemoryStream(pMalloc, &pMemoryStream));
+  IFT(hlsl::CreateMemoryStream(DxcGetThreadMallocNoRef(), &pMemoryStream));
   ULONG cbWritten;
 
   // Write Container Header
@@ -651,7 +649,7 @@ public:
 #else
       // Note: try_emplace is only available in C++17 on Linux.
       // try_emplace does nothing if the key already exists in the map.
-      if (includeFiles.find(std::wstring(pFilename)) != includeFiles.end())
+      if (includeFiles.find(std::wstring(pFilename)) == includeFiles.end())
         includeFiles.emplace(std::wstring(pFilename), pBlob);
 #endif // _WIN32
     }
@@ -682,8 +680,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                            std::wstring &outputPDBPath,
                            CComPtr<IDxcBlob> &pDebugBlob,
                            IDxcOperationResult **ppCompileResult) {
-// Recompile currently only supported on Windows
-#ifdef _WIN32
+
   CComPtr<IDxcPdbUtils> pPdbUtils;
   IFT(CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
   IFT(pPdbUtils->Load(pSource));
@@ -770,11 +767,12 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
       NewDefines.size(), pIncludeHandler, &pResult));
   }
 
+#ifndef _WIN32
+  // FIXME: fix crash on linux when not detach pCompileSource.
+  pCompileSource.Detach();
+#endif
+
   *ppCompileResult = pResult.Detach();
-#else
-  assert(false && "Recompile is currently only supported on Windows.");
-  *ppCompileResult = nullptr;
-#endif // _WIN32
 }
 
 int DxcContext::Compile() {
@@ -867,7 +865,7 @@ int DxcContext::Compile() {
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
   if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
-      m_Opts.DumpDependencies) {
+      m_Opts.DumpDependencies || m_Opts.VerifyDiagnostics) {
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {
@@ -1189,7 +1187,7 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS,
     CComPtr<IDxcVersionInfo2> VerInfo2;
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
-    const char *dllName = !ExternalLib ? "dxcompiler.dll" : ExternalLib;
+    const char *dllName = !ExternalLib ? kDxCompilerLib : ExternalLib;
     std::string compilerName(dllName);
     if (ExternalFn)
       compilerName = compilerName + "!" + ExternalFn;
@@ -1244,17 +1242,17 @@ void WriteDXILVersionInfo(llvm::raw_ostream &OS,
       UINT32 validatorMajor, validatorMinor = 0;
       VerInfo->GetVersion(&validatorMajor, &validatorMinor);
       OS << "; "
-         << "dxil.dll"
+         << kDxilLib
          << ": " << validatorMajor << "." << validatorMinor;
 
     }
     // dxil.dll 1.0 did not support IdxcVersionInfo
     else {
       OS << "; "
-         << "dxil.dll: " << 1 << "." << 0;
+         << kDxilLib << ": " << 1 << "." << 0;
     }
     unsigned int version[4];
-    if (GetDLLFileVersionInfo("dxil.dll", version)) {
+    if (GetDLLFileVersionInfo(kDxilLib, version)) {
       OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
          << version[3] << ")";
     }
@@ -1272,7 +1270,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 
   // Print validator if exists
   DxcDllSupport DxilSupport;
-  DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+  DxilSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
   WriteDXILVersionInfo(OS, DxilSupport);
 }
 

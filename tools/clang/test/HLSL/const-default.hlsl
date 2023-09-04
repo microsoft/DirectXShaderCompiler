@@ -24,6 +24,23 @@ struct MyStruct {
 ConstantBuffer<MyStruct> g_const_buffer;
 TextureBuffer<MyStruct> g_texture_buffer;
 
+class MyClass {
+    float3 my_float3;
+    int3x4 my_int3x4;
+};
+
+ConstantBuffer<MyClass> g_const_buffer2;
+TextureBuffer<MyClass> g_texture_buffer2;
+
+struct FWDDeclStruct;
+class FWDDeclClass;
+
+// Ensure forward declared struct/class fails as expected
+ConstantBuffer<FWDDeclStruct> g_const_buffer3;              /* expected-error {{variable has incomplete type 'FWDDeclStruct'}} */
+TextureBuffer<FWDDeclStruct> g_texture_buffer3;             /* expected-error {{variable has incomplete type 'FWDDeclStruct'}} */
+ConstantBuffer<FWDDeclClass> g_const_buffer4;               /* expected-error {{variable has incomplete type 'FWDDeclClass'}} */
+TextureBuffer<FWDDeclClass> g_texture_buffer4;              /* expected-error {{variable has incomplete type 'FWDDeclClass'}} */
+
 float4 main() : SV_TARGET
 {
     g_float1 = g_float1 + 10.0;                             /* expected-error {{cannot assign to variable 'g_float1' with const-qualified type 'const float'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
@@ -43,6 +60,11 @@ float4 main() : SV_TARGET
     g_const_buffer.my_int3x4._21 -= 2;                      /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
     g_texture_buffer.my_float3.y += 2.0;                      /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
     g_texture_buffer.my_int3x4._14 = 3;                     /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+
+    g_const_buffer2.my_float3.x = 1.5;                      /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+    g_const_buffer2.my_int3x4._21 -= 2;                     /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+    g_texture_buffer2.my_float3.y += 2.0;                     /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+    g_texture_buffer2.my_int3x4._14 = 3;                    /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
 
     return (float4)g_float1;
 }

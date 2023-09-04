@@ -12,8 +12,9 @@
 #ifndef __DXC_MICROCOM__
 #define __DXC_MICROCOM__
 
-#include <atomic>
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/Atomic.h"
+#include <atomic>
 
 template <typename TIface>
 class CComInterfaceArray {

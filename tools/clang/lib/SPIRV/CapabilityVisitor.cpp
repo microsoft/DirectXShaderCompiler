@@ -432,15 +432,35 @@ bool CapabilityVisitor::visit(SpirvImageSparseTexelsResident *instr) {
   return true;
 }
 
+namespace {
+bool isImageOpOnUnknownFormat(const SpirvImageOp *instruction) {
+  if (!instruction->getImage() || !instruction->getImage()->getResultType()) {
+    return false;
+  }
+
+  const ImageType *imageType =
+      dyn_cast<ImageType>(instruction->getImage()->getResultType());
+  if (!imageType || imageType->getImageFormat() != spv::ImageFormat::Unknown) {
+    return false;
+  }
+
+  return imageType->getImageFormat() == spv::ImageFormat::Unknown;
+}
+} // namespace
+
 bool CapabilityVisitor::visit(SpirvImageOp *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
   if (instr->hasOffset() || instr->hasConstOffsets())
     addCapability(spv::Capability::ImageGatherExtended);
-  if (instr->hasMinLod())
-    addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
+
+  if (isImageOpOnUnknownFormat(instr)) {
+    addCapability(instr->isImageWrite()
+                      ? spv::Capability::StorageImageWriteWithoutFormat
+                      : spv::Capability::StorageImageReadWithoutFormat);
+  }
 
   return true;
 }
@@ -842,6 +862,13 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
     addCapability(spv::Capability::Shader);
     addCapability(spv::Capability::Linkage);
   }
+
+  // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
+  // can remove most capability-selection logic from here, and just add
+  // capabilities by default. SPIRV-Tools will clean those up. Note: this pass
+  // supports only some capabilities. This list should be expanded to match the
+  // supported capabilities.
+  addCapability(spv::Capability::MinLod);
   return true;
 }
 

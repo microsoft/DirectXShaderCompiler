@@ -617,9 +617,13 @@ void DxilMDHelper::EmitDxilResourceBase(const DxilResourceBase &R, Metadata *ppM
   Constant *GlobalSymbol = R.GetGlobalSymbol();
   // For sm66+, global symbol will be mutated into handle type.
   // Save hlsl type by generate bitcast on global symbol.
-  if (m_pSM->IsSM66Plus()) {
-    Type *HLSLTy = R.GetHLSLType();
-    if (HLSLTy && HLSLTy != GlobalSymbol->getType())
+  // For sm65-, global symbol will be undef value which saves the HLSLTy
+  // directly.
+  Type *HLSLTy = R.GetHLSLType();
+  if (HLSLTy && HLSLTy != GlobalSymbol->getType()) {
+    if (isa<UndefValue>(GlobalSymbol))
+      GlobalSymbol = UndefValue::get(HLSLTy);
+    else if (m_pSM->IsSM66Plus())
       GlobalSymbol = cast<Constant>(
           ConstantExpr::getCast(Instruction::BitCast, GlobalSymbol, HLSLTy));
   }
@@ -1214,7 +1218,23 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
         m_pModule->GetDxilModule().GetOP()->GetResourcePropertiesType(),
         *m_pSM)));
   }
-
+  if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 7) >= 0) {
+    if (FA.HasBitFields()) {
+      const std::vector<DxilFieldAnnotation> &BitFields = FA.GetBitFields();
+      vector<Metadata *> MDBitFieldVals;
+      for (const DxilFieldAnnotation &BitField : BitFields) {
+        MDBitFieldVals.emplace_back(EmitDxilFieldAnnotation(BitField));
+      }
+      auto *BitFieldsMD = MDNode::get(m_Ctx, MDBitFieldVals);
+      MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationBitFieldsTag));
+      MDVals.emplace_back(BitFieldsMD);
+    }
+    if (FA.HasBitFieldWidth()) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(kDxilFieldAnnotationBitFieldWidthTag));
+      MDVals.emplace_back(Uint32ToConstMD(FA.GetBitFieldWidth()));
+    }
+  }
   return MDNode::get(m_Ctx, MDVals);
 }
 
@@ -1266,6 +1286,23 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       if (Constant *C = dyn_cast_or_null<Constant>(
               dyn_cast<ValueAsMetadata>(MDO)->getValue()))
         FA.SetResourceProperties(resource_helper::loadPropsFromConstant(*C));
+      break;
+    case kDxilFieldAnnotationBitFieldsTag: {
+      if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 7) < 0) {
+        DXASSERT(false, "bitfields tag emitted for dxil version < 1.7");
+      }
+      const MDTuple *pBitFieldsTupleMD = dyn_cast<MDTuple>(MDO.get());
+      std::vector<DxilFieldAnnotation> BitFields(pBitFieldsTupleMD->getNumOperands());
+      for (unsigned i = 0; i < pBitFieldsTupleMD->getNumOperands(); ++i) {
+        LoadDxilFieldAnnotation(pBitFieldsTupleMD->getOperand(i), BitFields[i]);
+      }
+      FA.SetBitFields(BitFields);
+    } break;
+    case kDxilFieldAnnotationBitFieldWidthTag:
+      if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 7) < 0) {
+        DXASSERT(false, "bitfields width tag emitted for dxil version < 1.7");
+      }
+      FA.SetBitFieldWidth(ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");
@@ -1665,49 +1702,47 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
 
 MDTuple *
 DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
-                                   const Function *F) {
+                                    const Function *F) {
   bool bRayAttributes = false;
-  Metadata *MDVals[30];
-  std::fill(MDVals, MDVals + _countof(MDVals), nullptr);
-  unsigned valIdx = 0;
-  MDVals[valIdx++] = ValueAsMetadata::get(const_cast<Function*>(F));
-  MDVals[valIdx++] = Uint32ToConstMD(static_cast<unsigned>(props->shaderKind));
+  SmallVector<Metadata *, 35> MDVals;
+  
+
+  MDVals.push_back(ValueAsMetadata::get(const_cast<Function *>(F)));
+  MDVals.push_back(Uint32ToConstMD(static_cast<unsigned>(props->shaderKind)));
   switch (props->shaderKind) {
   case DXIL::ShaderKind::Compute:
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.CS.numThreads[0]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.CS.numThreads[1]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.CS.numThreads[2]);
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.CS.numThreads[0]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.CS.numThreads[1]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.CS.numThreads[2]));
     break;
   case DXIL::ShaderKind::Geometry:
-    MDVals[valIdx++] =
-        Uint8ToConstMD((uint8_t)props->ShaderProps.GS.inputPrimitive);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.GS.maxVertexCount);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.GS.instanceCount);
+    MDVals.push_back(
+        Uint8ToConstMD((uint8_t)props->ShaderProps.GS.inputPrimitive));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.GS.maxVertexCount));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.GS.instanceCount));
     for (size_t i = 0;
          i < _countof(props->ShaderProps.GS.streamPrimitiveTopologies); ++i)
-      MDVals[valIdx++] = Uint8ToConstMD(
-          (uint8_t)props->ShaderProps.GS.streamPrimitiveTopologies[i]);
+      MDVals.push_back(Uint8ToConstMD(
+          (uint8_t)props->ShaderProps.GS.streamPrimitiveTopologies[i]));
     break;
   case DXIL::ShaderKind::Hull:
-    MDVals[valIdx++] =
-        ValueAsMetadata::get(props->ShaderProps.HS.patchConstantFunc);
-    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.HS.domain);
-    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.HS.partition);
-    MDVals[valIdx++] =
-        Uint8ToConstMD((uint8_t)props->ShaderProps.HS.outputPrimitive);
-    MDVals[valIdx++] =
-        Uint32ToConstMD(props->ShaderProps.HS.inputControlPoints);
-    MDVals[valIdx++] =
-        Uint32ToConstMD(props->ShaderProps.HS.outputControlPoints);
-    MDVals[valIdx++] = FloatToConstMD(props->ShaderProps.HS.maxTessFactor);
+    MDVals.push_back(
+        ValueAsMetadata::get(props->ShaderProps.HS.patchConstantFunc));
+    MDVals.push_back(Uint8ToConstMD((uint8_t)props->ShaderProps.HS.domain));
+    MDVals.push_back(Uint8ToConstMD((uint8_t)props->ShaderProps.HS.partition));
+    MDVals.push_back(
+        Uint8ToConstMD((uint8_t)props->ShaderProps.HS.outputPrimitive));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.HS.inputControlPoints));
+    MDVals.push_back(
+        Uint32ToConstMD(props->ShaderProps.HS.outputControlPoints));
+    MDVals.push_back(FloatToConstMD(props->ShaderProps.HS.maxTessFactor));
     break;
   case DXIL::ShaderKind::Domain:
-    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.DS.domain);
-    MDVals[valIdx++] =
-        Uint32ToConstMD(props->ShaderProps.DS.inputControlPoints);
+    MDVals.push_back(Uint8ToConstMD((uint8_t)props->ShaderProps.DS.domain));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.DS.inputControlPoints));
     break;
   case DXIL::ShaderKind::Pixel:
-    MDVals[valIdx++] = BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil);
+    MDVals.push_back(BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil));
     break;
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
@@ -1716,29 +1751,32 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.Ray.payloadSizeInBytes);
+    MDVals.push_back(
+        Uint32ToConstMD(props->ShaderProps.Ray.payloadSizeInBytes));
     if (bRayAttributes)
-      MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.Ray.attributeSizeInBytes);
+      MDVals.push_back(
+          Uint32ToConstMD(props->ShaderProps.Ray.attributeSizeInBytes));
     break;
   case DXIL::ShaderKind::Mesh:
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.numThreads[0]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.numThreads[1]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.numThreads[2]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.maxVertexCount);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.maxPrimitiveCount);
-    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.MS.outputTopology);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.payloadSizeInBytes);
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.numThreads[0]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.numThreads[1]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.numThreads[2]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.maxVertexCount));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.maxPrimitiveCount));
+    MDVals.push_back(
+        Uint8ToConstMD((uint8_t)props->ShaderProps.MS.outputTopology));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.payloadSizeInBytes));
     break;
   case DXIL::ShaderKind::Amplification:
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.numThreads[0]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.numThreads[1]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.numThreads[2]);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.payloadSizeInBytes);
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.numThreads[0]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.numThreads[1]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.numThreads[2]));
+    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.payloadSizeInBytes));
     break;
   default:
     break;
   }
-  return MDTuple::get(m_Ctx, ArrayRef<llvm::Metadata *>(MDVals, valIdx));
+  return MDTuple::get(m_Ctx, ArrayRef<llvm::Metadata *>(MDVals.data(), MDVals.size()));
 }
 
 void DxilMDHelper::EmitDxilViewIdState(std::vector<unsigned> &SerializedState) {
@@ -2229,7 +2267,10 @@ void DxilMDHelper::EmitDxilCounters(const DxilCounters &counters) {
     m_pModule->eraseNamedMetadata(pDxilCountersMD);
 
   vector<Metadata*> MDVals;
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('OPCODE-COUNTERS')>['AddCounterIfNonZero(counters.%s, "%s", MDVals);' % (c,c) for c in hctdb_instrhelp.get_counters()]</py>
+  // clang-format on
   // OPCODE-COUNTERS:BEGIN
   AddCounterIfNonZero(counters.array_local_bytes, "array_local_bytes", MDVals);
   AddCounterIfNonZero(counters.array_local_ldst, "array_local_ldst", MDVals);
