@@ -265,29 +265,29 @@ void main() {
     int4x4 imat11 = {imat8, imat9, imat10};
 
     // Boolean matrices
-// CHECK:      [[cc00_0_0:%[0-9]+]] = OpCompositeConstruct %v3bool %false %true %false
-// CHECK-NEXT: [[cc01_0_0:%[0-9]+]] = OpCompositeConstruct %v3bool %true %true %false
-// CHECK-NEXT: [[cc02_0_0:%[0-9]+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[cc00_0_0]] [[cc01_0_0]]
-// CHECK-NEXT:                 OpStore %bmat1 [[cc02_0_0]]
+// CHECK:      [[cc00_1:%[0-9]+]] = OpCompositeConstruct %v3bool %false %true %false
+// CHECK-NEXT: [[cc01_1:%[0-9]+]] = OpCompositeConstruct %v3bool %true %true %false
+// CHECK-NEXT: [[cc02_1:%[0-9]+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[cc00_1]] [[cc01_1]]
+// CHECK-NEXT:                 OpStore %bmat1 [[cc02_1]]
     bool2x3 bmat1 = bool2x3(false, true, false, true, true, false);
     // All elements in a single {}
-// CHECK-NEXT: [[cc03_0_0:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
-// CHECK-NEXT: [[cc04_0_0:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
-// CHECK-NEXT: [[cc05_0_0:%[0-9]+]] = OpCompositeConstruct %v2bool %true %false
-// CHECK-NEXT: [[cc06_0_0:%[0-9]+]] = OpCompositeConstruct %_arr_v2bool_uint_3 [[cc03_0_0]] [[cc04_0_0]] [[cc05_0_0]]
-// CHECK-NEXT:                 OpStore %bmat2 [[cc06_0_0]]
+// CHECK-NEXT: [[cc03_1:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
+// CHECK-NEXT: [[cc04_1:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
+// CHECK-NEXT: [[cc05_1:%[0-9]+]] = OpCompositeConstruct %v2bool %true %false
+// CHECK-NEXT: [[cc06_1:%[0-9]+]] = OpCompositeConstruct %_arr_v2bool_uint_3 [[cc03_1]] [[cc04_1]] [[cc05_1]]
+// CHECK-NEXT:                 OpStore %bmat2 [[cc06_1]]
     bool3x2 bmat2 = {false, true, false, true, true, false};
     // Each vector has its own {}
-// CHECK-NEXT: [[cc07_0_0:%[0-9]+]] = OpCompositeConstruct %v3bool %false %true %false
-// CHECK-NEXT: [[cc08_0_0:%[0-9]+]] = OpCompositeConstruct %v3bool %true %true %false
-// CHECK-NEXT: [[cc09_0_0:%[0-9]+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[cc07_0_0]] [[cc08_0_0]]
-// CHECK-NEXT:                 OpStore %bmat3 [[cc09_0_0]]
+// CHECK-NEXT: [[cc07_1:%[0-9]+]] = OpCompositeConstruct %v3bool %false %true %false
+// CHECK-NEXT: [[cc08_1:%[0-9]+]] = OpCompositeConstruct %v3bool %true %true %false
+// CHECK-NEXT: [[cc09_1:%[0-9]+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[cc07_1]] [[cc08_1]]
+// CHECK-NEXT:                 OpStore %bmat3 [[cc09_1]]
     bool2x3 bmat3 = {{false, true, false}, {true, true, false}};
     // Wired & complicated {}s
-// CHECK-NEXT: [[cc10_0_0:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
-// CHECK-NEXT: [[cc11_0_0:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
-// CHECK-NEXT: [[cc12_0_0:%[0-9]+]] = OpCompositeConstruct %v2bool %true %false
-// CHECK-NEXT: [[cc13_0_0:%[0-9]+]] = OpCompositeConstruct %_arr_v2bool_uint_3 [[cc10_0_0]] [[cc11_0_0]] [[cc12_0_0]]
-// CHECK-NEXT:                 OpStore %bmat4 [[cc13_0_0]]
+// CHECK-NEXT: [[cc10_1:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
+// CHECK-NEXT: [[cc11_1:%[0-9]+]] = OpCompositeConstruct %v2bool %false %true
+// CHECK-NEXT: [[cc12_1:%[0-9]+]] = OpCompositeConstruct %v2bool %true %false
+// CHECK-NEXT: [[cc13_1:%[0-9]+]] = OpCompositeConstruct %_arr_v2bool_uint_3 [[cc10_1]] [[cc11_1]] [[cc12_1]]
+// CHECK-NEXT:                 OpStore %bmat4 [[cc13_1]]
     bool3x2 bmat4 = {{false}, {true, false}, true, {{true}, {{false}}}};
 }
