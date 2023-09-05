@@ -89,7 +89,9 @@ STDMETHODIMP dxil_debug_info::DxcPixConstType::GetName(
   CComBSTR BaseName;
   IFR(BaseType->GetName(&BaseName));
 
-  *Name = CComBSTR((L"const " + std::wstring(BaseName)).c_str()).Detach();
+  *Name =
+      CComBSTR((L"const " + std::wstring(BaseName ? BaseName : L"<unknown>")).c_str())
+          .Detach();
   return S_OK;
 }
 
