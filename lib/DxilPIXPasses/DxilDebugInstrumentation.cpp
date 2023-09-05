@@ -212,6 +212,8 @@ private:
       unsigned InstanceId;
     } VertexShader;
   };
+  unsigned m_FirstInstruction = 0;
+  unsigned m_LastInstruction = static_cast<unsigned>(-1);
 
   uint64_t m_UAVSize = 1024 * 1024;
   struct PerFunctionValues
@@ -290,6 +292,9 @@ private:
 };
 
 void DxilDebugInstrumentation::applyOptions(PassOptions O) {
+  GetPassOptionUnsigned(O, "FirstInstruction", &m_FirstInstruction, 0);
+  GetPassOptionUnsigned(O, "LastInstruction", &m_LastInstruction,
+                        static_cast<unsigned>(-1));
   GetPassOptionUnsigned(O, "parameter0", &m_Parameters.Parameters[0], 0);
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
@@ -1008,7 +1013,13 @@ bool DxilDebugInstrumentation::RunOnFunction(
   for (inst_iterator I = inst_begin(entryFunction),
                      E = inst_end(entryFunction);
        I != E; ++I) {
-    AllInstructions.push_back(&*I);
+    std::uint32_t InstructionNumber;
+    if (pix_dxil::PixDxilInstNum::FromInst(&*I, &InstructionNumber)) {
+      if (InstructionNumber < m_FirstInstruction ||
+          InstructionNumber >= m_LastInstruction)
+        continue;
+      AllInstructions.push_back(&*I);
+    }
   }
 
   // Branchless instrumentation requires taking care of a few things:
@@ -1121,6 +1132,8 @@ bool DxilDebugInstrumentation::RunOnFunction(
         if (!pix_dxil::PixDxilInstNum::FromInst(ValueNPhi.Phi, &InstNum)) {
           continue;
         }
+        if (InstNum < m_FirstInstruction || InstNum >= m_LastInstruction)
+          continue;
 
         BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
         addStepDebugEntryValue(BC, InstNum, ValueNPhi.Val, RegNum,
