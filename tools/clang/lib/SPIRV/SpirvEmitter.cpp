@@ -13748,15 +13748,6 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
 }
 
 uint32_t SpirvEmitter::getRawBufferAlignment(const Expr *expr) {
-  if (const auto *templateParmExpr =
-          dyn_cast<SubstNonTypeTemplateParmExpr>(expr)) {
-    expr = templateParmExpr->getReplacement();
-  }
-
-  const auto *intLiteral = dyn_cast<IntegerLiteral>(expr->IgnoreImplicit());
-  if (intLiteral != nullptr && intLiteral->getValue().isNonNegative())
-    return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
-
   llvm::APSInt value;
   if (expr->EvaluateAsInt(value, astContext) && value.isNonNegative()) {
     return static_cast<uint32_t>(value.getZExtValue());
