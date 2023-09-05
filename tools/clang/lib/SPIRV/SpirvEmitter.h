@@ -174,6 +174,10 @@ private:
                          SpirvInstruction **aliasVarInstr,
                          SourceRange rangeOverride = {});
 
+  /// Check whether a member value has a nointerpolation qualifier in its type decl
+  /// or any parents' type decl recursively (for nested structure decl).
+  bool isNoInterpMemberExpr(const MemberExpr *expr);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
@@ -666,6 +670,9 @@ private:
 
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
+
+  /// Process GetAttributeAtVertex for barycentrics.
+  SpirvInstruction* processGetAttributeAtVertex(const CallExpr *expr);
 
   /// Process ray query traceinline intrinsics.
   SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);

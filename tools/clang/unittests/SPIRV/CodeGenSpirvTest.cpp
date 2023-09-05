@@ -1104,7 +1104,45 @@ TEST_F(FileTest, IntrinsicsCheckAccessFullyMappedWithoutSampler) {
 TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
   runFileTest("intrinsics.non-uniform-resource-index.hlsl");
 }
-
+TEST_F(FileTest, IntrinsicsMultiPrefix) {
+  runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexNormalBool) {
+  runFileTest("intrinsics.get-attribute-at-vertex.n.bool.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexNormalMixed) {
+  runFileTest("intrinsics.get-attribute-at-vertex.n.mixedType.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexNormalDot) {
+  runFileTest("intrinsics.get-attribute-at-vertex.n.channel.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexNormalCalls) {
+  runFileTest("intrinsics.get-attribute-at-vertex.n.callChain.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexStructBool) {
+  runFileTest("intrinsics.get-attribute-at-vertex.s.bool.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexStructCalls) {
+  runFileTest("intrinsics.get-attribute-at-vertex.s.callChain.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexStructDot) {
+  runFileTest("intrinsics.get-attribute-at-vertex.s.channel.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexStructMixed) {
+  runFileTest("intrinsics.get-attribute-at-vertex.s.mixedType.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexStructNested) {
+  runFileTest("intrinsics.get-attribute-at-vertex.s.nestedStruct.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexStructReturn) {
+  runFileTest("intrinsics.get-attribute-at-vertex.s.retStruct.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertexStructLocalVar) {
+  runFileTest("intrinsics.get-attribute-at-vertex.s.tempStruct.hlsl");
+}
+TEST_F(FileTest, IntrinsicsDot4Add) {
+  runFileTest("intrinsics.dot4add.hlsl", Expect::Failure);
+}
 // Vulkan-specific intrinsic functions
 TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {
   runFileTest("intrinsics.vkcrossdevicescope.hlsl");

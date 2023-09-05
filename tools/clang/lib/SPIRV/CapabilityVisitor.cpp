@@ -246,6 +246,11 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                  loc);
     break;
   }
+  case spv::Decoration::PerVertexKHR: {
+    addExtension(Extension::KHR_fragment_shader_barycentric, "PerVertexKHR", loc);
+    addCapability(spv::Capability::FragmentBarycentricKHR);
+    break;
+  }
   // Capabilities needed for built-ins
   case spv::Decoration::BuiltIn: {
     AddVulkanMemoryModelForVolatile(decor, loc);
@@ -359,15 +364,14 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       addCapability(spv::Capability::CullDistance);
       break;
     }
-    case spv::BuiltIn::BaryCoordNoPerspAMD:
-    case spv::BuiltIn::BaryCoordNoPerspCentroidAMD:
-    case spv::BuiltIn::BaryCoordNoPerspSampleAMD:
-    case spv::BuiltIn::BaryCoordSmoothAMD:
-    case spv::BuiltIn::BaryCoordSmoothCentroidAMD:
-    case spv::BuiltIn::BaryCoordSmoothSampleAMD:
-    case spv::BuiltIn::BaryCoordPullModelAMD: {
-      addExtension(Extension::AMD_shader_explicit_vertex_parameter,
+    case spv::BuiltIn::BaryCoordKHR:
+    case spv::BuiltIn::BaryCoordNoPerspKHR: {
+      // SV_Barycentrics will have only two builtins
+      // But it is still allowed to decorate those two builtins with
+      // interpolation qualifier like centroid or sample.
+      addExtension(Extension::KHR_fragment_shader_barycentric,
                    "SV_Barycentrics", loc);
+      addCapability(spv::Capability::FragmentBarycentricKHR);
       break;
     }
     case spv::BuiltIn::ShadingRateKHR:
