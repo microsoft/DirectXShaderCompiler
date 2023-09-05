@@ -34,5 +34,11 @@ float4 main() : SV_Target0 {
   // CHECK-NEXT: OpStore %v [[load]]
   uint v = vk::RawBufferLoad(Address);
 
+  // CHECK:      [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_uint
+  // CHECK-NEXT: [[load:%\d+]] = OpLoad %uint [[buf]] Aligned 8
+  // CHECK-NEXT: OpStore %c [[load]]
+  const int alignment = 8;
+  uint c = vk::RawBufferLoad(Address, alignment);
+
   return float4(w.x, x, y, z);
 }

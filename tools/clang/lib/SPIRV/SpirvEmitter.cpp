@@ -13758,19 +13758,17 @@ uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
   }
 
   const Expr *alignmentArgExpr = callExpr->getArg(1);
-  if (const auto *templateParmExpr =
-          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
-    alignmentArgExpr = templateParmExpr->getReplacement();
+
+  Expr::EvalResult evalResult;
+  if (alignmentArgExpr->EvaluateAsRValue(evalResult, astContext) &&
+      !evalResult.HasSideEffects && evalResult.Val.isInt()) {
+    return static_cast<uint32_t>(evalResult.Val.getInt().getZExtValue());
   }
-  const auto *intLiteral =
-      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
-  if (intLiteral == nullptr) {
-    emitError("alignment argument of vk::RawBufferLoad() must be a constant "
-              "integer",
-              callExpr->getArg(1)->getExprLoc());
-    return 0;
-  }
-  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+
+  emitError("alignment argument of vk::RawBufferLoad() must be a constant "
+            "integer",
+            callExpr->getArg(1)->getExprLoc());
+  return 0;
 }
 
 uint32_t SpirvEmitter::getAlignmentForRawBufferStore(const CallExpr *callExpr) {
