@@ -311,6 +311,13 @@ if "%TEST_USE_LIT%"=="1" (
     cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
     set RES_DXILCONV=!RES_CLANG!
+    rem check exec.
+    if defined EXEC_ADAPTER (
+        py %HLSL_SRC_DIR%/utils/lit/lit.py -v --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
+      ) else (
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
+	  )
+    set RES_EXEC=!ERRORLEVEL!
   ) else (
     if "%TEST_DXILCONV%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
