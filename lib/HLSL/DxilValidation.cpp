@@ -534,69 +534,28 @@ struct ValidationContext {
     return I;
   }
 
-  void EmitInstrNote(Instruction *I, std::string Msg) {
-    Instruction *DbgI = GetDebugInstr(I);
-    const DebugLoc L = DbgI->getDebugLoc();
-    if (L) {
-      LastDebugLocEmit = L;
-    }
-
+  // Emit Error or note on instruction `I` with `Msg`.
+  // If `isError` is true, `Rule` may omit repeated errors
+  void EmitInstrDiagMsg(Instruction *I, ValidationRule Rule, std::string Msg,
+                        bool isError = true) {
     BasicBlock *BB = I->getParent();
     Function *F = BB->getParent();
 
-    dxilutil::EmitErrorOnInstruction(DbgI, Msg);
-
-    // Add llvm information as a note to instruction string
-    std::string InstrStr;
-    raw_string_ostream InstrStream(InstrStr);
-    I->print(InstrStream, slotTracker);
-    InstrStream.flush();
-    StringRef InstrStrRef = InstrStr;
-    InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation
-    Msg = "at '" + InstrStrRef.str() + "'";
-
-    // Print the parent block name
-    Msg += " in block '";
-    if (!BB->getName().empty()) {
-      Msg += BB->getName();
-    }
-    else {
-      unsigned idx = 0;
-      for (auto i = F->getBasicBlockList().begin(),
-        e = F->getBasicBlockList().end(); i != e; ++i) {
-        if (BB == &(*i)) {
-          break;
+    Instruction *DbgI = GetDebugInstr(I);
+    if (isError) {
+      if (const DebugLoc L = DbgI->getDebugLoc()) {
+        // Instructions that get scalarized will likely hit
+        // this case. Avoid redundant diagnostic messages.
+        if (Rule == LastRuleEmit && L == LastDebugLocEmit) {
+          return;
         }
-        idx++;
+        LastRuleEmit = Rule;
+        LastDebugLocEmit = L;
       }
-      Msg += "#" + std::to_string(idx);
+      dxilutil::EmitErrorOnInstruction(DbgI, Msg);
+    } else {
+      dxilutil::EmitNoteOnContext(DbgI->getContext(), Msg);
     }
-    Msg += "'";
-
-    // Print the function name
-    Msg += " of function '" + F->getName().str() + "'.";
-
-    dxilutil::EmitNoteOnContext(DbgI->getContext(), Msg);
-
-  }
-
-  void EmitInstrErrorMsg(Instruction *I, ValidationRule Rule, std::string Msg) {
-    Instruction *DbgI = GetDebugInstr(I);
-    const DebugLoc L = DbgI->getDebugLoc();
-    if (L) {
-      // Instructions that get scalarized will likely hit
-      // this case. Avoid redundant diagnostic messages.
-      if (Rule == LastRuleEmit && L == LastDebugLocEmit) {
-        return;
-      }
-      LastRuleEmit = Rule;
-      LastDebugLocEmit = L;
-    }
-
-    BasicBlock *BB = I->getParent();
-    Function *F = BB->getParent();
-
-    dxilutil::EmitErrorOnInstruction(DbgI, Msg);
 
     // Add llvm information as a note to instruction string
     std::string InstrStr;
@@ -634,13 +593,17 @@ struct ValidationContext {
   }
 
   void EmitInstrError(Instruction *I, ValidationRule rule) {
-    EmitInstrErrorMsg(I, rule, GetValidationRuleText(rule));
+    EmitInstrDiagMsg(I, rule, GetValidationRuleText(rule));
+  }
+
+  void EmitInstrNote(Instruction *I, std::string Msg) {
+    EmitInstrDiagMsg(I, LastRuleEmit, Msg, false);
   }
 
   void EmitInstrFormatError(Instruction *I, ValidationRule rule, ArrayRef<StringRef> args) {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
-    EmitInstrErrorMsg(I, rule, ruleText);
+    EmitInstrDiagMsg(I, rule, ruleText);
   }
 
   void EmitSignatureError(DxilSignatureElement *SE, ValidationRule rule) {
@@ -5597,7 +5560,7 @@ static void ValidateFlowControl(ValidationContext &ValCtx) {
                     useInstr,
                     ValidationRule::InstrNodeRecordHandleUseAfterComplete);
                 ValCtx.EmitInstrNote(
-                    *ocIt, "record handle invalidated by OutputComplete here");
+                    *ocIt, "record handle invalidated by OutputComplete");
                 break;
               }
             }
