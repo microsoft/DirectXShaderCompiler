@@ -7,8 +7,10 @@ from glob import iglob
 
 import lit.Test
 import lit.TestRunner
+from lit.TestRunner import parseIntegratedTestScript
 import lit.util
 import lit.ShUtil as ShUtil
+from lit.discovery import getLocalConfig
 from .base import TestFormat
 
 # import HashStability.py
@@ -29,66 +31,39 @@ class DxcHashTest(TestFormat):
         self.dxa_path = dxa_path
         self.cwd = working_dir
 
+    def addTest(self, testSuite, rel_dir, localConfig, filename):
+        return lit.Test.Test(testSuite, [rel_dir], localConfig, filename)
+
+    def discoverTests(self, testSuite, path, litConfig, local_config_cache):
+        rel_dir = os.path.relpath(path, testSuite.source_root)
+        lc = getLocalConfig(testSuite, rel_dir, litConfig, local_config_cache)
+        for name in os.listdir(path):
+            full_name = os.path.join(path, name)
+            if os.path.isfile(full_name):
+                if not name.endswith(".hlsl"):
+                    continue
+                rel_dir = os.path.relpath(full_name, testSuite.source_root)
+                yield self.addTest(testSuite, rel_dir, lc, full_name)
+            else:
+                for test in self.discoverTests(testSuite, full_name, litConfig, local_config_cache):
+                    yield test
+                #yield self.discoverTests(testSuite, os.path.join(path, name), litConfig, local_config_cache)
+
+
     def getTestsInDirectory(self, testSuite, path_in_suite,
                             litConfig, localConfig):
+
         if not os.path.isdir(self.test_path):
-            hlsl_list = [self.test_path]
+            rel_dir = os.path.relpath(self.test_path, testSuite.source_root)
+            yield self.addTest(testSuite, rel_dir, localConfig, self.test_path)
         else:
-            # Scan all sub directories in self.test_path
-            rootdir = self.test_path.replace('\\','/')
-            rootdir_glob = f"{rootdir}/**/*.hlsl"
-
-            # This will return absolute paths
-            hlsl_list = [f for f in iglob(rootdir_glob, recursive=True) if os.path.isfile(f)]
-
-        # add hlsl files which has first line as %dxc test as tests.
-        for filename in hlsl_list:
-            with open(filename, 'r', errors='ignore') as f:
-                first_line = f.readline()
-                if (first_line.find("%dxc") == -1 or first_line.find("RUN:") == -1 or
-                    first_line.find(" not ") != -1 or
-                    first_line.find(" -M ") != -1 or
-                    first_line.find(" -H ") != -1 or
-                    first_line.find(" -Fi ") != -1 or
-                    first_line.find(" -exports ") != -1 or
-                    first_line.find(" -ast-dump-implicit ") != -1 or
-                    first_line.find(" -fcgl ") != -1 or
-                    first_line.find("rootsig_1_") != -1 or
-                    first_line.find(" -verify ") != -1 or
-                    # must have a target profile
-                    first_line.find(" -T") == -1 or
-                    # skip spirv.
-                    first_line.find("spirv") != -1):
-                    continue
-            rel_dir = os.path.relpath(filename, testSuite.source_root)
-
-            yield lit.Test.Test(testSuite, [rel_dir], localConfig, filename)
-
-    def getRunLine(self, test):
-        # Read first line of the test file
-        f = open(test.getFilePath(), 'r', errors='ignore')
-        first_line = f.readline().rstrip()
-        f.close()
-        # remove things before RUN: from first line
-        first_line = first_line[first_line.find("RUN:") + 4:]
-
-        source_path = test.getFilePath()
-        source_dir = os.path.dirname(source_path)
-        exec_path = test.getExecPath()
-        execdir,exec_base = os.path.split(exec_path)
-        tmp_dir = os.path.join(self.cwd, 'Output')
-        tmp_base = os.path.join(tmp_dir, exec_base)
-        tmp_file = tmp_base + '.tmp'
-        # subsitute %s with sourcepath
-        first_line = first_line.replace("%s", source_path)
-        # subsitute %t with tmpDir
-        first_line = first_line.replace("%t", tmp_file)
-        # subsitute %S with sourcedir
-        first_line = first_line.replace("%S", source_dir)
-        # subsitute %T with tmp_dir
-        first_line = first_line.replace("%T", tmp_dir)
-
-        return first_line
+            local_config_cache = {}
+            # add localConfig to cache
+            key = (testSuite, path_in_suite)
+            local_config_cache[key] = localConfig
+            for test in self.discoverTests(testSuite, self.test_path, litConfig, local_config_cache):
+                yield test
+            #yield self.discoverTests(testSuite, self.test_path, litConfig, local_config_cache)
 
     def getCleanArgs(self, dxc_cmd):
         original_args = dxc_cmd.args
@@ -99,44 +74,81 @@ class DxcHashTest(TestFormat):
                 # remove "-Fo", "-validator-version" and things next to it from args
                 i += 2
                 continue
-            elif arg == "-ast-dump" or arg == "-Zi" or arg == "-verify" or arg == "-M" or arg == "-H":
+            elif arg == "-ast-dump" or arg == "-ast-dump-implicit" or \
+                 arg == "-Zi" or arg == "-verify" or arg == "-M" or arg == "-H" or \
+                 arg == "-fcgl" or arg.startswith("rootsig_1_") or arg.startswith("-Trootsig_1_"):
                 # remove "-ast-dump" and "-Zi" from args
                 i += 1
                 continue
+            elif arg == "lib_6_x" or arg == "structurize-returns":
+                # FIXME: allow lib_6_x and structurize-returns
+                i += 1
+                continue
+
             args.append(arg)
         return args
 
+    def executeHashTest(self, test, cmd):
+        if isinstance(cmd, ShUtil.Seq):
+            if cmd.op == '&':
+                raise lit.TestRunner.InternalShellError(cmd,"unsupported shell operator: '&'")
+
+            if cmd.op == ';' or cmd.op == '||' or cmd.op == '&&':
+                res = self.executeHashTest(test, cmd.lhs)
+                if res.code == lit.Test.FAIL:
+                    return res
+                return self.executeHashTest(test, cmd.rhs)
+
+            raise ValueError('Unknown shell command: %r' % cmd.op)
+        assert isinstance(cmd, ShUtil.Pipeline)
+
+        status = lit.Test.PASS
+
+        for i,j in enumerate(cmd.commands):
+            args = self.getCleanArgs(j)
+
+            if args[0] != "%dxc":
+                continue
+
+            if "-spirv" in args:
+                continue
+
+            if "/MD" in args or "/M" in args:
+                continue
+
+            # get test_name from test path for tmp file name.
+            test_name = test.path_in_suite[0].replace('\\','_').replace('/','_').replace('.','_')
+
+            # run hash stability test
+            res, msg = run_hash_stablity_test(args, self.dxc_path, self.dxa_path, test_name, self.cwd, i)
+
+            if not res:
+                status = lit.Test.FAIL
+                return lit.Test.Result(lit.Test.FAIL, msg)
+        return lit.Test.Result(lit.Test.PASS)
+
     def execute(self, test, litConfig):
-        first_line = self.getRunLine(test)
+        if test.config.unsupported:
+            return (lit.Test.UNSUPPORTED, 'Test is unsupported')
+
+        res = parseIntegratedTestScript(test)
+        if isinstance(res, lit.Test.Result):
+            if res.code == lit.Test.UNRESOLVED:
+                return lit.Test.Result(lit.Test.PASS)
+            return res
+        if litConfig.noExecute:
+            return lit.Test.Result(lit.Test.PASS)
+        script, tmpBase, execdir = res
         cmds = []
-        try:
-            cmds.append(ShUtil.ShParser(first_line, litConfig.isWindows,
-                                        test.config.pipefail).parse())
-        except ValueError as e:
-            return lit.Test.Result(lit.Test.FAIL, "shell parser error: %s" % e)
-        except Exception as e:
-            return lit.Test.Result(lit.Test.FAIL, "shell parser error: %s" % e)
-        except:
-            return lit.Test.Result(lit.Test.FAIL, "shell parser error on: %r" % first_line)
+        for ln in script:
+            try:
+                cmds.append(ShUtil.ShParser(ln, litConfig.isWindows,
+                                            test.config.pipefail).parse())
+            except:
+                return lit.Test.Result(lit.Test.FAIL, "shell parser error on: %r" % ln)
 
-        # get first command
-        cmd = cmds[0]
-        while isinstance(cmd, ShUtil.Seq):
-            cmd = cmd.lhs
-        dxc_cmd = cmd.commands[0]
-
-        args = self.getCleanArgs(dxc_cmd)
-
-        if args[0] != "%dxc":
-            return lit.Test.Result(lit.Test.PASS, "Not a dxc test. Skip.")
-
-        # get test_name from test path for tmp file name.
-        test_name = test.path_in_suite[0].replace('\\','_').replace('/','_').replace('.','_')
-
-        # run hash stability test
-        res, msg = run_hash_stablity_test(args, self.dxc_path, self.dxa_path, test_name, self.cwd)
-
-        if res:
-            return lit.Test.Result(lit.Test.PASS, msg)
-        else:
-            return lit.Test.Result(lit.Test.FAIL, msg)
+        for cmd in cmds:
+            res = self.executeHashTest(test, cmd)
+            if res.code == lit.Test.FAIL:
+                return res
+        return lit.Test.Result(lit.Test.PASS)

@@ -68,14 +68,14 @@ def debug_compile(args, output_file, working_dir, empty_env):
     return res
 
 
-def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
+def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir, suffix=0):
     empty_env = os.environ.copy()
     # clear PATH to make sure dxil.dll are not found.
     empty_env["PATH"] = ""
     args[0] = dxc_path
 
     # run normal compile
-    normal_out = os.path.join(working_dir, 'Output', test_name+'.normal.out')
+    normal_out = os.path.join(working_dir, 'Output', f'{test_name}_{suffix}.normal.out')
     res = normal_compile(args, normal_out, working_dir, empty_env)
     if res != 0:
         # strip_reflect failed, return fail.
@@ -86,7 +86,7 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
         return False, "Fail to get hash for normal compilation."
 
     # run debug compilation
-    debug_out = os.path.join(working_dir, 'Output', test_name+'.dbg.out')
+    debug_out = os.path.join(working_dir, 'Output', f'{test_name}_{suffix}.dbg.out')
     res = debug_compile(args, debug_out, working_dir, empty_env)
     if res != 0:
         # Zi failed, return fail.
@@ -102,7 +102,7 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir):
         return True, "Hash matches."
     else:
         # hash mismatch
-        return False, "Hash mismatches."
+        return False, f"Hash mismatches at %dxc RUN line {suffix}."
 
 ################################################
 ################################################
