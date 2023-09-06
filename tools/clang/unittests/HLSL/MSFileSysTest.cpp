@@ -146,12 +146,29 @@ public:
   }
 
   virtual HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName, IEnumSTATSTG** pResult) override {
-    STATSTG items[] =
-    {
-      { L"filename.hlsl", STGTY_STREAM, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, 0, 0, GUID_NULL, 0, 0 },
-      { L"filename2.fx",  STGTY_STREAM, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, 0, 0, GUID_NULL, 0, 0 }
-    };
-    unsigned testCount = (unsigned)_countof(items);
+    STATSTG items[] = {{const_cast<wchar_t *>(L"filename.hlsl"),
+                        STGTY_STREAM,
+                        {.QuadPart = 0},
+                        {0, 0},
+                        {0, 0},
+                        {0, 0},
+                        0,
+                        0,
+                        GUID_NULL,
+                        0,
+                        0},
+                       {const_cast<wchar_t *>(L"filename2.fx"),
+                        STGTY_STREAM,
+                        {.QuadPart = 0},
+                        {0, 0},
+                        {0, 0},
+                        {0, 0},
+                        0,
+                        0,
+                        GUID_NULL,
+                        0,
+                        0}};
+    unsigned testCount = (unsigned)std::size(items);
     FixedEnumSTATSTG* resultEnum = new (std::nothrow) FixedEnumSTATSTG(items, std::min(testCount, findCount));
     if (resultEnum == nullptr) {
         *pResult = nullptr;

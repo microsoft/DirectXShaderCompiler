@@ -538,11 +538,11 @@ std::error_code access(const Twine &Path, AccessMode Mode) {
   case AccessMode::Execute:
     // Consider: directories should not be executable.
     return std::error_code();
-  default:
-    assert(Mode == AccessMode::Write && "no other enum value allowed");
   case AccessMode::Write:
     return !(Attr & FILE_ATTRIBUTE_READONLY) ?
       std::error_code() : make_error_code(std::errc::permission_denied);
+  default:
+    assert(Mode == AccessMode::Write && "no other enum value allowed");
   }
 }
 

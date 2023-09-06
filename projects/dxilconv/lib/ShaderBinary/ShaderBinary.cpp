@@ -11,6 +11,7 @@
 
 // HLSL change start
 #include "ShaderBinaryIncludes.h"
+#include "llvm/Support/Compiler.h" // for LLVM_FALLTHROUGH
 // HLSL change end
 
 /*==========================================================================;
@@ -297,7 +298,7 @@ void InitInstructionInfo()
 
 void CShaderCodeParser::SetShader(CONST CShaderToken* pBuffer)
 {
-    m_pShaderCode = (CShaderToken*)pBuffer;
+    m_pShaderCode = const_cast<CShaderToken*>(pBuffer);
     m_pShaderEndToken = (CShaderToken*)pBuffer + pBuffer[1];
     // First OpCode token
     m_pCurrentToken = (CShaderToken*)&pBuffer[2];
@@ -1120,6 +1121,7 @@ void CShaderAsm::EmitOperand(const COperandBase& operand)
             case D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE:
                 FUNC(operand.m_Index[i].m_RegIndex);
                 // Fall through
+                LLVM_FALLTHROUGH
             case D3D10_SB_OPERAND_INDEX_RELATIVE:
                 {
                     D3D10_SB_OPERAND_TYPE RelRegType = operand.m_Index[i].m_RelRegType;

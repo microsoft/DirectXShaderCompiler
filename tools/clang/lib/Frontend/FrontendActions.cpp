@@ -478,6 +478,7 @@ namespace {
 #define VALUE_LANGOPT(Name, Bits, Default, Description) \
       Out.indent(4) << Description << ": " << LangOpts.Name << "\n";
 #define BENIGN_LANGOPT(Name, Bits, Default, Description)
+#define BENIGN_LANGOPT_BOOL(Name, Default, Description)
 #define BENIGN_ENUM_LANGOPT(Name, Type, Bits, Default, Description)
 #include "clang/Basic/LangOptions.fixed.def"  // HLSL Change
 

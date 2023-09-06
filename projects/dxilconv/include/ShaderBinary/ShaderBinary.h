@@ -2582,8 +2582,8 @@ public:
         CShaderToken* pEndTok = m_pShaderEndToken;
         CShaderToken* pRet;
 
-        m_pCurrentToken = (CShaderToken*)pBuffer;
-        m_pShaderEndToken = (CShaderToken*)pBufferEnd;
+        m_pCurrentToken = const_cast<CShaderToken*>(pBuffer);
+        m_pShaderEndToken = const_cast<CShaderToken*>(pBufferEnd);
 
         ParseOperand(pOperand);
         pRet = m_pCurrentToken;

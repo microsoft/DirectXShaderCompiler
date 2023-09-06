@@ -2445,11 +2445,6 @@ TEST_F(ExecutionTest, SignTest) {
     "  int val = g_bab.Load(addr);\r\n"
     "  g_bab.Store(addr, (uint)(sign(val)));\r\n"
     "}";
-  static const int NumThreadsX = 8;
-  static const int NumThreadsY = 1;
-  static const int NumThreadsZ = 1;
-  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
-  static const int DispatchGroupCount = 1;
 
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice))

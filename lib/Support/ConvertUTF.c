@@ -277,11 +277,11 @@ ConversionResult ConvertUTF16toUTF8 (
         }
         switch (bytesToWrite) { /* note: everything falls through. */
             case 4: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
-            LLVM_C_FALLTHROUGH; // HLSL Change
+            LLVM_FALLTHROUGH; // HLSL Change
             case 3: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
-            LLVM_C_FALLTHROUGH; // HLSL Change
+            LLVM_FALLTHROUGH; // HLSL Change
             case 2: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
-            LLVM_C_FALLTHROUGH; // HLSL Change
+            LLVM_FALLTHROUGH; // HLSL Change
             case 1: *--target =  (UTF8)(ch | firstByteMark[bytesToWrite]);
         }
         target += bytesToWrite;

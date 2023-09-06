@@ -6,7 +6,7 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/dxcdxrfallbackcompiler.h"
-#include "dxc/support/dxcapi.use.h"
+#include "dxc/Support/dxcapi.use.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
