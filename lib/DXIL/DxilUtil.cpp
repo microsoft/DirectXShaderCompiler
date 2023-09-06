@@ -1223,8 +1223,7 @@ bool DxilOpFunctionHasNoSideEffects(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I)) {
     if (CI->onlyReadsMemory()) return false;
 
-    hlsl::OP op(CI->getContext(), CI->getModule());
-    bool isDxilOp = op.IsDxilOpFunc(CI->getCalledFunction());
+    bool isDxilOp = hlsl::OP::IsDxilOpFunc(CI->getCalledFunction());
     if (!isDxilOp) return false;
     switch (hlsl::OP::getOpCode(I)) {
     case hlsl::OP::OpCode::OutputComplete: {
