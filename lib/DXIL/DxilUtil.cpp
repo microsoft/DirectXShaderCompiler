@@ -1233,10 +1233,12 @@ bool DxilOpFunctionHasNoSideEffects(Instruction *I) {
       Constant *C = dyn_cast<Constant>(NodeRecHandle);
       if (C && C->isZeroValue())
         return true;
+      break;
     }
 
     // TODO: Add Wave Ops
-    default: return false;
+    default:
+      return false;
     }
   }
   return false;
