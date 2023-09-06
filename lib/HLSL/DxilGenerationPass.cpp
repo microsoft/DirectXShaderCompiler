@@ -273,10 +273,7 @@ public:
           }
         }
       }
-    }
-
-    const bool SkipInit = true;
-    hlsl::DxilModule& DxilMod = M.GetOrCreateDxilModule(SkipInit);    
+    }  
 
     // Translate precise on allocas into function call to keep the information after mem2reg.
     // The function calls will be removed after propagate precise attribute.
@@ -287,6 +284,9 @@ public:
     if (!SM->IsLib()) {
       pProps = &EntryPropsMap.begin()->second->props;
     }
+
+    const bool SkipInit = true;
+    hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);  
     InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, m_HasDbgInfo);
     DxilMod.ResetEntryPropsMap(std::move(EntryPropsMap));
     if (!SM->IsLib()) {

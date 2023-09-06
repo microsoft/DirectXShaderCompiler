@@ -16,6 +16,8 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilInstructions.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/StringExtras.h"
@@ -1213,6 +1215,31 @@ Value *TryReplaceBaseCastWithGep(Value *V) {
   }
 
   return nullptr;
+}
+
+// returns true if the function call is an intermediate or DXIL op 
+// that has no side effects, for functions not marked ReadNone or ReadOnly.
+bool DxilOpFunctionHasNoSideEffects(Instruction *I) {
+  if (CallInst *CI = dyn_cast<CallInst>(I)) {
+    if (CI->onlyReadsMemory()) return false;
+
+    hlsl::OP op(CI->getContext(), CI->getModule());
+    bool isDxilOp = op.IsDxilOpFunc(CI->getCalledFunction());
+    if (!isDxilOp) return false;
+    switch (hlsl::OP::getOpCode(I)) {
+    case hlsl::OP::OpCode::OutputComplete: {
+      hlsl::DxilInst_OutputComplete OutputComplete(CI);
+      Value *NodeRecHandle = OutputComplete.get_output();
+      Constant *C = dyn_cast<Constant>(NodeRecHandle);
+      if (C && C->isZeroValue())
+        return true;
+    }
+
+    // TODO: Add Wave Ops
+    default: return false;
+    }
+  }
+  return false;
 }
 
 // Calculate Offset

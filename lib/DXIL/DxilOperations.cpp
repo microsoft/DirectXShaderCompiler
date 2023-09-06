@@ -651,9 +651,14 @@ bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode) {
   return llvm::cast<llvm::ConstantInt>(I->getOperand(0))->getZExtValue() == (unsigned)opcode;
 }
 
+OP::OpCode OP::getOpCode(const llvm::Instruction *I) {
+  return (OP::OpCode)llvm::cast<llvm::ConstantInt>(I->getOperand(0))
+      ->getZExtValue();
+}
+
 OP::OpCode OP::GetDxilOpFuncCallInst(const llvm::Instruction *I) {
   DXASSERT(IsDxilOpFuncCallInst(I), "else caller didn't call IsDxilOpFuncCallInst to check");
-  return (OP::OpCode)llvm::cast<llvm::ConstantInt>(I->getOperand(0))->getZExtValue();
+  return getOpCode(I);
 }
 
 bool OP::IsDxilOpWave(OpCode C) {

@@ -335,17 +335,14 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
     if (Constant *C = dyn_cast<Constant>(CI->getArgOperand(0)))
       return C->isNullValue() || isa<UndefValue>(C);
 
-  // HLSL Change - don't force unused convergenet markers to stay, 
+  // HLSL Change - don't force unused convergent markers to stay, 
   // remove bad OutputCompletes
   if (CallInst *CI = dyn_cast<CallInst>(I)) {  
-    if (hlsl::dxilutil::IsConvergentMarker(CI)) return true;
-    if (hlsl::OP::IsDxilOpFuncCallInst(I, hlsl::OP::OpCode::OutputComplete)) {
-      hlsl::DxilInst_OutputComplete OutputComplete(CI);
-      Value *NodeRecHandle = OutputComplete.get_output();
-      Constant *C = dyn_cast<Constant>(NodeRecHandle);
-      if (C && C->isZeroValue())
-        return true;
-    }
+    if (hlsl::dxilutil::IsConvergentMarker(CI)) 
+      return true;
+
+    if (hlsl::dxilutil::DxilOpFunctionHasNoSideEffects(I)) 
+      return true;
   }
   // HLSL Change End
 
