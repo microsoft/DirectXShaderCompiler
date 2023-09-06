@@ -48,7 +48,7 @@
 
 
 #include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_FALLTHROUGH
+#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_C_FALLTHROUGH
 #ifdef CVTUTF_DEBUG
 #include <stdio.h>
 #endif
@@ -277,11 +277,11 @@ ConversionResult ConvertUTF16toUTF8 (
         }
         switch (bytesToWrite) { /* note: everything falls through. */
             case 4: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
-            LLVM_FALLTHROUGH; // HLSL Change
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 3: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
-            LLVM_FALLTHROUGH; // HLSL Change
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 2: *--target = (UTF8)((ch | byteMark) & byteMask); ch >>= 6;
-            LLVM_FALLTHROUGH; // HLSL Change
+            LLVM_C_FALLTHROUGH; // HLSL Change
             case 1: *--target =  (UTF8)(ch | firstByteMark[bytesToWrite]);
         }
         target += bytesToWrite;

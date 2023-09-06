@@ -22,7 +22,7 @@
 #include "DxcPixLiveVariables.h"
 #include "DxcPixDxilDebugInfo.h"
 #include "DxcPixBase.h"
-#include "dxc/DxilPixPasses/DxilPIXVirtualRegisters.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetLiveVariablesAt(
   _In_ DWORD InstructionOffset,

@@ -222,6 +222,8 @@
 
 #if __cplusplus > 201402L
 #define LLVM_FALLTHROUGH [[fallthrough]]
+#elif __has_attribute(fallthrough)
+#define LLVM_FALLTHROUGH __attribute__((fallthrough))
 #elif defined(__clang__)
 #define LLVM_FALLTHROUGH [[clang::fallthrough]]
 #elif defined(_MSC_VER)
@@ -233,6 +235,8 @@
 #if defined(_MSC_VER)
 #if __cplusplus > 201402L
 #define LLVM_C_FALLTHROUGH [[fallthrough]]
+#elif __has_attribute(fallthrough)
+#define LLVM_C_FALLTHROUGH __attribute__((fallthrough))
 #else
 #define LLVM_C_FALLTHROUGH 
 #endif
