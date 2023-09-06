@@ -3167,7 +3167,41 @@ void main()
 
 )";
 
-  TestUnnamedTypeCase(hlsl, L"<unnamed>");
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_0");
+  auto liveVariables =
+      GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
+  DWORD count;
+  VERIFY_SUCCEEDED(liveVariables->GetCount(&count));
+  bool FoundTheVariable = false;
+  for (DWORD i = 0; i < count; ++i) {
+    CComPtr<IDxcPixVariable> variable;
+    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &variable));
+    CComBSTR name;
+    variable->GetName(&name);
+    if (0 == wcscmp(name, L"glbl")) {
+      CComPtr<IDxcPixType> type;
+      VERIFY_SUCCEEDED(variable->GetType(&type));
+      CComPtr<IDxcPixStructType> structType;
+      VERIFY_SUCCEEDED(type->QueryInterface(IID_PPV_ARGS(&structType)));
+      DWORD fieldCount = 0;
+      VERIFY_SUCCEEDED(structType->GetNumFields(&fieldCount));
+      VERIFY_ARE_EQUAL(fieldCount, 1);
+      //Just a crash test:
+      CComPtr<IDxcPixStructField> structField;
+      structType->GetFieldByName(L"", & structField);
+      VERIFY_SUCCEEDED(structType->GetFieldByIndex(0, &structField));
+      FoundTheVariable = true;
+      CComPtr<IDxcPixType> fieldType;
+      VERIFY_SUCCEEDED(structField->GetType(&fieldType));
+      CComBSTR typeName;
+      VERIFY_SUCCEEDED(fieldType->GetName(&typeName));
+      VERIFY_ARE_EQUAL(typeName, L"<unnamed>");
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(FoundTheVariable);
 }
 
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
