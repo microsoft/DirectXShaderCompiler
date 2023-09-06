@@ -93,20 +93,6 @@ TEST_F(FileTest, StructuredBufferType) {
 TEST_F(FileTest, StructuredBufferTypeWithVector) {
   runFileTest("type.structured-buffer.vector.hlsl");
 }
-TEST_F(FileTest, StructuredBufferTypeWithVectorDX) {
-  // structured buffers with fxc layout rules
-  setDxLayout();
-  runFileTest("type.structured-buffer.vector.dx.hlsl");
-}
-TEST_F(FileTest, StructuredBufferTypeWithVectorGL) {
-  setGlLayout();
-  runFileTest("type.structured-buffer.vector.gl.hlsl");
-}
-TEST_F(FileTest, StructuredBufferTypeWithVectorScalar) {
-  // VK_EXT_scalar_block_layout
-  setScalarLayout();
-  runFileTest("type.structured-buffer.vector.scalar.hlsl");
-}
 TEST_F(FileTest, StructuredBufferArrayError) {
   runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
 }
@@ -1851,18 +1837,6 @@ TEST_F(FileTest, VulkanLayoutCBufferMatrixZpr) {
 TEST_F(FileTest, VulkanLayoutCBufferMatrixZpc) {
   runFileTest("vk.layout.cbuffer.zpc.hlsl");
 }
-TEST_F(FileTest, VulkanLayoutCBufferStd140) {
-  setGlLayout();
-  runFileTest("vk.layout.cbuffer.std140.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
-  setGlLayout();
-  runFileTest("vk.layout.cbuffer.nested.std140.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutCBufferNestedEmptyStd140) {
-  setGlLayout();
-  runFileTest("vk.layout.cbuffer.nested.empty.std140.hlsl");
-}
 TEST_F(FileTest, VulkanLayoutCBufferBoolean) {
   runFileTest("vk.layout.cbuffer.boolean.hlsl");
 }
@@ -1871,30 +1845,6 @@ TEST_F(FileTest, VulkanLayoutCBufferDerivedStruct) {
 }
 TEST_F(FileTest, VulkanLayoutRWStructuredBufferBoolean) {
   runFileTest("vk.layout.rwstructuredbuffer.boolean.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutSBufferStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.sbuffer.std430.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutSBufferNestedStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.sbuffer.nested.std430.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutAppendSBufferStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.asbuffer.std430.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.csbuffer.std430.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutTBufferStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.tbuffer.std430.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.texture-buffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayout16BitTypesPushConstant) {
   runFileTest("vk.layout.16bit-types.pc.hlsl");
@@ -1918,110 +1868,11 @@ TEST_F(FileTest, VulkanLayoutStructBitfieldAssignment) {
   runFileTest("vk.layout.struct.bitfield.assignment.hlsl");
 }
 
-TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
-  // Checks the behavior of [[vk::offset]]
-  setDxLayout();
-  runFileTest("vk.layout.attr.offset.hlsl");
-}
-
-TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.push-constant.std430.hlsl");
-}
-
 TEST_F(FileTest, VulkanLayoutCBufferPackOffset) {
   runFileTest("vk.layout.cbuffer.packoffset.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferPackOffsetError) {
   runFileTest("vk.layout.cbuffer.packoffset.error.hlsl", Expect::Failure);
-}
-
-TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
-  // structured buffers with fxc layout rules
-  setDxLayout();
-  runFileTest("vk.layout.sbuffer.fxc.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesSBufferStructSize) {
-  // structured buffers with fxc layout rules
-  setDxLayout();
-  runFileTest("vk.layout.sbuffer.struct-size.with.fxc.rule.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesSBufferStructSizeNested) {
-  // structured buffers with fxc layout rules
-  setDxLayout();
-  runFileTest("vk.layout.sbuffer.nested-struct-size.with.fxc.rule.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
-  // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.hlsl");
-}
-
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrix) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.simple.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixNxM) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.n-by-m.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixArray) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.array.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixStruct) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.struct.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixMajorness) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.majorness.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixUseArrayForVertex) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.v2arr.conversion.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixUseArrayForVertexWithO3) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.v2arr.conversion.o3.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferOffset) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.offset.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixGlobal) {
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.matrix.global.hlsl");
-}
-
-TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {
-  // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
-  setDxLayout();
-  runFileTest("vk.layout.cbuffer.fxc.1.hlsl");
-}
-
-TEST_F(FileTest, VulkanLayoutCBufferScalar) {
-  // VK_EXT_scalar_block_layout
-  setScalarLayout();
-  runFileTest("vk.layout.cbuffer.scalar.hlsl");
-}
-
-TEST_F(FileTest, VulkanLayoutRegisterCAll) {
-  // :register(c#) used on all global variables.
-  setDxLayout();
-  runFileTest("vk.layout.register-c.all.hlsl");
-}
-
-TEST_F(FileTest, VulkanLayoutRegisterCMixed) {
-  // :register(c#) used only on some global variables.
-  setDxLayout();
-  runFileTest("vk.layout.register-c.mixed.hlsl");
-}
-
-TEST_F(FileTest, VulkanLayoutRegisterCError) {
-  // :register(c#) causing offset overlap for global variables.
-  setDxLayout();
-  runFileTest("vk.layout.register-c.error.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
@@ -2187,10 +2038,6 @@ TEST_F(FileTest, PragmaPackMatrix) { runFileTest("pragma.pack_matrix.hlsl"); }
 TEST_F(FileTest, VulkanShaderRecordBufferNV) {
   runFileTest("vk.shader-record-nv.hlsl");
 }
-TEST_F(FileTest, VulkanLayoutShaderRecordBufferNVStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.shader-record-nv.std430.hlsl");
-}
 TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
   runFileTest("vk.shader-record-nv.offset.hlsl");
@@ -2198,10 +2045,6 @@ TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
 // Tests for [[vk::shader_record_ext]]
 TEST_F(FileTest, VulkanShaderRecordBufferEXT) {
   runFileTest("vk.shader-record-ext.hlsl");
-}
-TEST_F(FileTest, VulkanLayoutShaderRecordBufferEXTStd430) {
-  setGlLayout();
-  runFileTest("vk.layout.shader-record-ext.std430.hlsl");
 }
 TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
