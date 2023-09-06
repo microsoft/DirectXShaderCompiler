@@ -66,7 +66,8 @@ private:
 
   /// Checks that the given extension is enabled based on command line arguments
   /// before calling addExtension and addCapability.
-  void addExtensionAndCapabilitiesIfEnabled(
+  /// Returns `true` if the extension was enabled, `false` otherwise.
+  bool addExtensionAndCapabilitiesIfEnabled(
       Extension ext, llvm::ArrayRef<spv::Capability> capabilities);
 
   /// Checks that the given capability is a valid capability. And if so,
