@@ -15358,12 +15358,12 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   return;
 }
 
+// if this is the Entry FD, then try adding the target profile
+// shader attribute to the FD and carry on with validation
 void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
-  const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
-
-  // if this is the Entry FD, then add the target profile
-  // shader attribute to the FD and carry on with validation
-  // otherwise, with no shader attribute, just return
+  const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;  
+  
+  // if there's no defined entry point, just return
   if (EntryPointName.empty()) {
     return;
   }
@@ -15374,10 +15374,9 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
     return;
   }
 
-  // if this FD isn't the entry point, then there's no
-  // shader attribute to work with, so just return
-  if (EntryPointName != FD->getIdentifier()->getName() || 
-    (EntryPointName == FD->getIdentifier()->getName() && !FD->isGlobal())) {
+  // if this FD isn't the entry point, then we shouldn't add
+  // a shader attribute to this decl, so just return
+  if (EntryPointName != FD->getIdentifier()->getName()) {
     return;
   }
 
@@ -15388,6 +15387,15 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
   // don't add the attribute for an invalid profile, like library
   if (fullName.empty()) {
     return;
+  }
+
+  HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
+  // don't add the attribute if it already exists as an attribute on the decl  
+  if (currentShaderAttr) {
+    llvm::StringRef currentFullName = currentShaderAttr->getStage();
+    if (currentFullName == fullName) {
+      return;
+    }
   }
 
   HLSLShaderAttr *pShaderAttr =

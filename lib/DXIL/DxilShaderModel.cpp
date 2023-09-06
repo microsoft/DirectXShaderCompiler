@@ -430,7 +430,9 @@ const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
     return "domain";
   case DXIL::ShaderKind::Compute:
     return "compute";
+  // Library has no full name for use with shader attribute.
   case DXIL::ShaderKind::Library:
+  case DXIL::ShaderKind::Invalid:
     return llvm::StringRef();
   case DXIL::ShaderKind::RayGeneration:
     return "raygeneration";
@@ -450,8 +452,6 @@ const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
     return "amplification";
   case DXIL::ShaderKind::Node:
     return "node";
-  case DXIL::ShaderKind::Invalid:
-    return llvm::StringRef();
   default:
     llvm_unreachable("unknown ShaderKind");
   }
