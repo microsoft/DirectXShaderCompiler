@@ -1,7 +1,6 @@
 // RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpCapability Sampled1D
-// CHECK: OpCapability ImageMSArray
 
 // CHECK: %type_1d_image = OpTypeImage %float 1D 2 0 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_1d_image = OpTypePointer UniformConstant %type_1d_image
@@ -57,6 +56,8 @@ Texture2DMSArray <uint4>  t9 : register(t9);
 // CHECK: %t10 = OpVariable %_ptr_UniformConstant_type_2d_image_1 UniformConstant
 Texture2D   <bool>   t10 : register(t10);
 
+SamplerState gSampler : register(s12);
+
 struct S {
     float a;
     float b;
@@ -72,6 +73,19 @@ Texture1D<S>      sTex;
 // CHECK: %tTex = OpVariable %_ptr_UniformConstant_type_2d_image_array_1 UniformConstant
 Texture2DArray<T> tTex;
 
+// Just to prevent DCE.
+RWBuffer<uint> output;
+
 void main() {
 // CHECK-LABEL: %main = OpFunction
+  output[0] = t1[0].x;
+  output[1] = t2[uint2(0, 0)].x;
+  output[2] = t3[uint3(0, 0, 0)].x;
+  output[3] = t4.Gather(gSampler, float3(0, 0, 0)).x;
+  output[4] = t5[uint2(0, 0)].x;
+  output[5] = t6[uint3(0, 0, 0)].x;
+  output[6] = t7.Gather(gSampler, float4(0, 0, 0, 0)).x;
+  output[7] = t8[uint2(0, 0)].x;
+  output[8] = t9[uint3(0, 0, 0)].x;
+  output[9] = t10[uint2(0, 0)] ? 0 : 1;
 }

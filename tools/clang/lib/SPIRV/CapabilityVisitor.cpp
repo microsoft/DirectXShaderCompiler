@@ -169,9 +169,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       break;
     }
 
-    if (imageType->isArrayedImage() && imageType->isMSImage())
-      addCapability(spv::Capability::ImageMSArray);
-
     if (const auto *sampledType = imageType->getSampledType()) {
       addCapabilityForType(sampledType, loc, sc);
       if (const auto *sampledIntType = dyn_cast<IntegerType>(sampledType)) {
@@ -869,6 +866,7 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // supports only some capabilities. This list should be expanded to match the
   // supported capabilities.
   addCapability(spv::Capability::MinLod);
+  addCapability(spv::Capability::ImageMSArray);
   return true;
 }
 
