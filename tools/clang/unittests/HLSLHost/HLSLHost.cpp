@@ -724,7 +724,7 @@ public:
       WriteRequestResultReply(MsgKind,
         m_renderer.SetSize(pSetSize->Width, pSetSize->Height));
     }
-    LLVM_FALLTHROUGH
+    LLVM_FALLTHROUGH;
     case SetParentWndMsgId: {
       if (cb < sizeof(HhSetParentWndMessage)) {
         WriteRequestResultReply(MsgKind, E_INVALIDARG);
