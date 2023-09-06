@@ -18,7 +18,6 @@
 #include "dxc/dxcapi.h"
 
 #include <algorithm>
-#include <assert.h>
 #include <memory>
 
 #ifdef _WIN32

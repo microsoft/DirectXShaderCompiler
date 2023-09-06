@@ -6,8 +6,8 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// This file implements the DXCompiler specific implementation of the Path
-// API.//
+// This file implements the DXCompiler specific implementation of the Path   //
+//   API.                                                                    //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -30,13 +30,13 @@
 #include "dxc/WinAdapter.h"
 #include "llvm/Support/MSFileSystem.h"
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Externally visible functions.
 
 HRESULT
 CreateMSFileSystemForDisk(::llvm::sys::fs::MSFileSystem **pResult) throw();
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Win32-and-CRT-based MSFileSystem implementation with direct filesystem
 // access.
 

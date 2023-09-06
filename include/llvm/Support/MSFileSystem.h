@@ -79,8 +79,7 @@ public:
   virtual int close(int fd) throw() = 0;
   virtual long lseek(int fd, long offset, int origin) throw() = 0;
   virtual int setmode(int fd, int mode) throw() = 0;
-  virtual errno_t
-  resize_file(LPCWSTR path, uint64_t size) throw() = 0; // A number of C calls.
+  virtual errno_t resize_file(LPCWSTR path, uint64_t size) throw() = 0;
   virtual int Read(int fd, void *buffer, unsigned int count) throw() = 0;
   virtual int Write(int fd, const void *buffer, unsigned int count) throw() = 0;
 
