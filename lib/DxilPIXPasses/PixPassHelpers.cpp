@@ -337,6 +337,20 @@ GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
   return ret;
 }
 
+hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
+                                       llvm::Function *fn) {
+  hlsl::DXIL::ShaderKind shaderKind = hlsl::DXIL::ShaderKind::Invalid;
+  if (!DM.HasDxilFunctionProps(fn)) {
+    auto ShaderModel = DM.GetShaderModel();
+    shaderKind = ShaderModel->GetKind();
+  } else {
+    hlsl::DxilFunctionProps const &props =
+        DM.GetDxilFunctionProps(fn);
+    shaderKind = props.shaderKind;
+  }
+  return shaderKind;
+}
+
 std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
     std::vector<llvm::BasicBlock*> ret;
     auto entryPoints = DM.GetExportedFunctions();

@@ -297,10 +297,10 @@ Supported extensions
 * SPV_EXT_mesh_shader
 * SPV_EXT_shader_stencil_support
 * SPV_AMD_shader_early_and_late_fragment_tests
+* SPV_AMD_shader_explicit_vertex_parameter
 * SPV_GOOGLE_hlsl_functionality1
 * SPV_GOOGLE_user_type
 * SPV_NV_mesh_shader
-* SPV_KHR_fragment_shading_barycentric
 
 Vulkan specific attributes
 --------------------------
@@ -1550,7 +1550,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 | SV_StencilRef             | PSOut       | ``FragStencilRefEXT``                  | N/A                   | ``StencilExportEXT``        |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_Barycentrics           | PSIn        | ``BaryCoord*KHR``                      | N/A                   | ``FragmentBarycentricKHR``  |
+| SV_Barycentrics           | PSIn        | ``BaryCoord*AMD``                      | N/A                   | ``Shader``                  |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``Layer``                              | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
@@ -4067,6 +4067,8 @@ codegen for Vulkan:
   to the HLSL entry point name.
 - ``-fspv-use-legacy-buffer-matrix-order``: Assumes the legacy matrix order (row
   major) when accessing raw buffers (e.g., ByteAdddressBuffer).
+- ``-fspv-preserve-interface``: Preserves all interface variables in the entry
+  point, even when those variables are unused.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

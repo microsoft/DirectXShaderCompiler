@@ -36,6 +36,8 @@ class FunctionPassManagerImpl;
 /// it is.
 class PassManagerBase {
 public:
+  bool HLSLPrintBeforeAll = false; // HLSL Change
+  std::set<std::string> HLSLPrintBefore; // HLSL Change
   bool HLSLPrintAfterAll = false; // HLSL Change
   std::set<std::string> HLSLPrintAfter; // HLSL Change
 

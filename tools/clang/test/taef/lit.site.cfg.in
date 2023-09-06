@@ -7,6 +7,7 @@ config.llvm_obj_root = "@LLVM_BINARY_DIR@"
 config.llvm_build_mode = "@LLVM_BUILD_MODE@"
 config.te = "@TAEF_EXECUTABLE@"
 config.taef_arch = "@TAEF_ARCH@"
+config.verbose = True
 
 # Support substitution of the tools_dir, libs_dirs, and build_mode with user
 # parameters. This is used when we can't determine the tool dir at

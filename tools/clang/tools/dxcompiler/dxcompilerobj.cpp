@@ -12,42 +12,42 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Basic/TargetOptions.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/HLSLMacroExpander.h"
+#include "clang/Basic/TargetOptions.h"
+#include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/Lex/HLSLMacroExpander.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "clang/Frontend/FrontendActions.h"
-#include "clang/CodeGen/CodeGenAction.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/Timer.h"
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
-#include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxcutil.h"
-#include "dxc/Support/dxcfilesystem.h"
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/DxilContainer/DxilContainerAssembler.h"
-#include "dxc/dxcapi.internal.h"
-#include "dxc/DXIL/DxilPDB.h"
-#include "dxc/DXIL/DxilModule.h"
-#include "dxc/DxcBindingTable/DxcBindingTable.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
-#include "dxc/Support/dxcapi.use.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/Unicode.h"
-#include "dxc/Support/microcom.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/dxcapi.impl.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilPDB.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
+#include "dxc/DxilContainer/DxilContainerAssembler.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/dxcfilesystem.h"
+#include "dxc/dxcapi.internal.h"
+#include "dxcutil.h"
+
 #include "dxc/Support/DxcLangExtensionsHelper.h"
+#include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/Unicode.h"
+#include "dxc/Support/dxcapi.impl.h"
+#include "dxc/Support/dxcapi.use.h"
+#include "dxc/Support/microcom.h"
 
 #ifdef _WIN32
 #include "dxcetw.h"
@@ -127,7 +127,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
           IFR(pStream->Write(pPartData, uSize, &uBytesWritten));
           return S_OK;
         }
-      );
+      );      
     }
 
     // Could use any of these. We're mostly after the header version and all that.
@@ -151,7 +151,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
         pStream->Write(pSourceInfo, pSourceInfo->AlignedSizeInBytes, &uBytesWritten);
         return S_OK;
       }
-    );
+    );     
   }
 
   if (pReflectionStream) {
@@ -165,7 +165,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
         pStream->Write(pReflectionPartHeader+1, pReflectionPartHeader->PartSize, &uBytesWritten);
         return S_OK;
       }
-    );
+    );     
   }  
   
   if (pVersionInfo) {
@@ -175,7 +175,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
         pDxilVersionWriter->write(pStream);
         return S_OK;
       }
-    );
+    );  
   }
 
   if (pDebugBlob) {
@@ -277,8 +277,8 @@ private:
     const std::string disableStr("_DISABLE_");
     const std::string selectStr("_SELECT_");
 
-    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles;
-    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationSelects;
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles.Toggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationToggles.Selects;
 
     const llvm::SmallVector<std::string, 2> &semDefPrefixes =
                              m_langExtensionsHelper.GetSemanticDefines();
@@ -372,12 +372,11 @@ public:
   void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) override {
     auto &CodeGenOpts = m_CI.getCodeGenOpts();
     CGO.HLSLEnableLifetimeMarkers &=
-        (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
-         CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
+        CodeGenOpts.HLSLOptimizationToggles.IsEnabled(
+            hlsl::options::TOGGLE_LIFETIME_MARKERS);
   }
-  virtual bool IsOptionEnabled(std::string option) override {
-    return m_CI.getCodeGenOpts().HLSLOptimizationToggles.count(option) &&
-      m_CI.getCodeGenOpts().HLSLOptimizationToggles.find(option)->second;
+  virtual bool IsOptionEnabled(hlsl::options::Toggle toggle) override {
+    return m_CI.getCodeGenOpts().HLSLOptimizationToggles.IsEnabled(toggle);
   }
 
   virtual std::string GetIntrinsicName(UINT opcode) override {
@@ -1374,9 +1373,6 @@ public:
     compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
 
-    compiler.getCodeGenOpts().HLSLEnablePartialLifetimeMarkers =
-      Opts.DxcOptimizationToggles.count("partial-lifetime-markers") && Opts.DxcOptimizationToggles.find("partial-lifetime-markers")->second;
-
     // Enable dumping implicit top level decls either if it was specifically
     // requested or if we are not dumping the ast from the command line. That
     // allows us to dump implicit AST nodes in the debugger.
@@ -1422,8 +1418,7 @@ public:
     compiler.getCodeGenOpts().HLSLOnlyWarnOnUnrollFail = Opts.EnableFXCCompatMode;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
-    compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.DxcOptimizationToggles;
-    compiler.getCodeGenOpts().HLSLOptimizationSelects = Opts.DxcOptimizationSelects;
+    compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.OptToggles;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs = Opts.IgnoreOptSemDefs;
     compiler.getCodeGenOpts().HLSLIgnoreSemDefs = Opts.IgnoreSemDefs;
@@ -1435,6 +1430,8 @@ public:
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
+    compiler.getCodeGenOpts().HLSLPrintBeforeAll = Opts.PrintBeforeAll;
+    compiler.getCodeGenOpts().HLSLPrintBefore = Opts.PrintBefore;
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
     compiler.getCodeGenOpts().HLSLPrintAfter = Opts.PrintAfter;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;

@@ -43,6 +43,7 @@ set(LLVM_LINK_COMPONENTS
   transformutils
   vectorize
   dxilcompression
+  passprinters
   )
 
 if (WIN32)

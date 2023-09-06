@@ -9,28 +9,52 @@ void main(uint3 tid : SV_DispatchThreadId)
 {
 // ********* 16-bit matrix ********************
 
-// CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index:%\d+]]
-// CHECK:         [[word0:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK:          [[val0:%\d+]] = OpUConvert %ushort [[word0]]
+// CHECK:         [[index:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
+// CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr0]] %uint_4
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index]]
 // CHECK:         [[word0:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK: [[shifted_word0:%\d+]] = OpShiftRightLogical %uint [[word0]] %uint_16
+// CHECK: [[shifted_word0:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff]]
+// CHECK:          [[val0:%\d+]] = OpUConvert %ushort [[shifted_word0]]
+// CHECK:         [[addr1:%\d+]] = OpIAdd %uint [[addr0]] %uint_2
+// CHECK:         [[index:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
+// CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr1]] %uint_4
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
+// CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index]]
+// CHECK:         [[word0:%\d+]] = OpLoad %uint [[ptr]]
+// CHECK: [[shifted_word0:%\d+]] = OpShiftRightLogical %uint [[word0]] [[bitOff]]
 // CHECK:          [[val1:%\d+]] = OpUConvert %ushort [[shifted_word0]]
-// CHECK:       [[index_1:%\d+]] = OpIAdd %uint [[index]] %uint_1
+// CHECK:         [[addr2:%\d+]] = OpIAdd %uint [[addr1]] %uint_2
+// CHECK:       [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr2]] %uint_2
+// CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr2]] %uint_4
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:         [[word1:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK:          [[val2:%\d+]] = OpUConvert %ushort [[word1]]
+// CHECK: [[shifted_word1:%\d+]] = OpShiftRightLogical %uint [[word1]] [[bitOff]]
+// CHECK:          [[val2:%\d+]] = OpUConvert %ushort [[shifted_word1]]
+// CHECK:         [[addr3:%\d+]] = OpIAdd %uint [[addr2]] %uint_2
+// CHECK:       [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr3]] %uint_2
+// CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr3]] %uint_4
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
 // CHECK:         [[word1:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK: [[shifted_word1:%\d+]] = OpShiftRightLogical %uint [[word1]] %uint_16
+// CHECK: [[shifted_word1:%\d+]] = OpShiftRightLogical %uint [[word1]] [[bitOff]]
 // CHECK:          [[val3:%\d+]] = OpUConvert %ushort [[shifted_word1:%\d+]]
-// CHECK:       [[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
+// CHECK:         [[addr4:%\d+]] = OpIAdd %uint [[addr3]] %uint_2
+// CHECK:       [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr4]] %uint_2
+// CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr4]] %uint_4
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:         [[word2:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK:          [[val4:%\d+]] = OpUConvert %ushort [[word2:%\d+]]
+// CHECK: [[shifted_word2:%\d+]] = OpShiftRightLogical %uint [[word2]] [[bitOff]]
+// CHECK:          [[val4:%\d+]] = OpUConvert %ushort [[shifted_word2:%\d+]]
+// CHECK:         [[addr5:%\d+]] = OpIAdd %uint [[addr4]] %uint_2
+// CHECK:       [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr5]] %uint_2
+// CHECK:       [[byteOff:%\d+]] = OpUMod %uint [[addr5]] %uint_4
+// CHECK:        [[bitOff:%\d+]] = OpShiftLeftLogical %uint [[byteOff]] %uint_3
 // CHECK:           [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:         [[word2:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK: [[shifted_word2:%\d+]] = OpShiftRightLogical %uint [[word2]] %uint_16
+// CHECK: [[shifted_word2:%\d+]] = OpShiftRightLogical %uint [[word2]] [[bitOff]]
 // CHECK:          [[val5:%\d+]] = OpUConvert %ushort [[shifted_word2:%\d+]]
 // CHECK:          [[row0:%\d+]] = OpCompositeConstruct %v3ushort [[val0]] [[val2]] [[val4]]
 // CHECK:          [[row1:%\d+]] = OpCompositeConstruct %v3ushort [[val1]] [[val3]] [[val5]]
@@ -40,7 +64,8 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // ********* 32-bit matrix ********************
 
-// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0:%\d+]]
+// CHECK:[[index_0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
+// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:  [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:   [[val0:%\d+]] = OpBitcast %int [[word0]]
 // CHECK:[[index_1:%\d+]] = OpIAdd %uint [[index_0]] %uint_1
@@ -72,7 +97,8 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // ********* 64-bit matrix ********************
 
-// CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0:%\d+]]
+// CHECK:             [[index_0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
+// CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:               [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:             [[index_1:%\d+]] = OpIAdd %uint [[index_0]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
@@ -123,37 +149,64 @@ void main(uint3 tid : SV_DispatchThreadId)
 
 // ********* array of matrices ********************
 
-// CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0:%\d+]]
+// CHECK:             [[index_0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
-// CHECK:             [[index_1:%\d+]] = OpIAdd %uint [[index_0]] %uint_1
+// CHECK:               [[addr1:%\d+]] = OpIAdd %uint [[addr0]] %uint_2
+// CHECK:             [[index_0:%\d+]] = OpShiftRightLogical %uint [[addr1]] %uint_2
+// CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
+// CHECK:               [[addr2:%\d+]] = OpIAdd %uint [[addr1]] %uint_2
+// CHECK:             [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr2]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
+// CHECK:               [[addr3:%\d+]] = OpIAdd %uint [[addr2]] %uint_2
+// CHECK:             [[index_1:%\d+]] = OpShiftRightLogical %uint [[addr3]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
-// CHECK:             [[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
+// CHECK:               [[addr4:%\d+]] = OpIAdd %uint [[addr3]] %uint_2
+// CHECK:             [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr4]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
+// CHECK:               [[addr5:%\d+]] = OpIAdd %uint [[addr4]] %uint_2
+// CHECK:             [[index_2:%\d+]] = OpShiftRightLogical %uint [[addr5]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
-// CHECK:             [[index_3:%\d+]] = OpIAdd %uint [[index_2]] %uint_1
+// CHECK:               [[addr6:%\d+]] = OpIAdd %uint [[addr5]] %uint_2
 // CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                [[row2:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:            [[matrix_1:%\d+]] = OpCompositeConstruct %mat2v3half [[row1]] [[row2]]
+// CHECK:             [[index_3:%\d+]] = OpShiftRightLogical %uint [[addr6]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
+// CHECK:               [[addr7:%\d+]] = OpIAdd %uint [[addr6]] %uint_2
+// CHECK:             [[index_3:%\d+]] = OpShiftRightLogical %uint [[addr7]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3]]
-// CHECK:             [[index_4:%\d+]] = OpIAdd %uint [[index_3]] %uint_1
+// CHECK:               [[addr8:%\d+]] = OpIAdd %uint [[addr7]] %uint_2
+// CHECK:             [[index_4:%\d+]] = OpShiftRightLogical %uint [[addr8]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
+// CHECK:               [[addr9:%\d+]] = OpIAdd %uint [[addr8]] %uint_2
+// CHECK:             [[index_4:%\d+]] = OpShiftRightLogical %uint [[addr9]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
-// CHECK:             [[index_5:%\d+]] = OpIAdd %uint [[index_4]] %uint_1
+// CHECK:              [[addr10:%\d+]] = OpIAdd %uint [[addr9]] %uint_2
+// CHECK:             [[index_5:%\d+]] = OpShiftRightLogical %uint [[addr10]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_5]]
+// CHECK:              [[addr11:%\d+]] = OpIAdd %uint [[addr10]] %uint_2
+// CHECK:             [[index_5:%\d+]] = OpShiftRightLogical %uint [[addr11]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_5]]
-// CHECK:             [[index_6:%\d+]] = OpIAdd %uint [[index_5]] %uint_1
+// CHECK:              [[addr12:%\d+]] = OpIAdd %uint [[addr11]] %uint_2
 // CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                [[row2:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:            [[matrix_2:%\d+]] = OpCompositeConstruct %mat2v3half [[row1]] [[row2]]
+// CHECK:             [[index_6:%\d+]] = OpShiftRightLogical %uint [[addr12]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_6]]
+// CHECK:              [[addr13:%\d+]] = OpIAdd %uint [[addr12]] %uint_2
+// CHECK:             [[index_6:%\d+]] = OpShiftRightLogical %uint [[addr13]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_6]]
-// CHECK:             [[index_7:%\d+]] = OpIAdd %uint [[index_6]] %uint_1
+// CHECK:              [[addr14:%\d+]] = OpIAdd %uint [[addr13]] %uint_2
+// CHECK:             [[index_7:%\d+]] = OpShiftRightLogical %uint [[addr14]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_7]]
+// CHECK:              [[addr15:%\d+]] = OpIAdd %uint [[addr14]] %uint_2
+// CHECK:             [[index_7:%\d+]] = OpShiftRightLogical %uint [[addr15]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_7]]
-// CHECK:             [[index_8:%\d+]] = OpIAdd %uint [[index_7]] %uint_1
+// CHECK:              [[addr16:%\d+]] = OpIAdd %uint [[addr15]] %uint_2
+// CHECK:             [[index_8:%\d+]] = OpShiftRightLogical %uint [[addr16]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_8]]
+// CHECK:              [[addr17:%\d+]] = OpIAdd %uint [[addr16]] %uint_2
+// CHECK:             [[index_8:%\d+]] = OpShiftRightLogical %uint [[addr17]] %uint_2
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_8]]
 // CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v3half
 // CHECK:                [[row2:%\d+]] = OpCompositeConstruct %v3half
@@ -163,7 +216,7 @@ void main(uint3 tid : SV_DispatchThreadId)
   float16_t2x3 matVec[3] = buf.Load<float16_t2x3[3]>(tid.x);
 
 //
-// Chceck that the rvalue resulting from the templated load is accessed correctly
+// Check that the rvalue resulting from the templated load is accessed correctly
 // A temporary LValue has to be constructed and accessed in order to do this.
 //
 // CHECK: OpCompositeConstruct %_arr_mat2v3half_uint_3

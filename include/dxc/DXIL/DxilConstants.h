@@ -173,7 +173,10 @@ namespace DXIL {
     Invalid,
   };
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('SemanticKind-ENUM')>hctdb_instrhelp.get_enum_decl("SemanticKind", hide_val=True, sort_val=False)</py>*/
+  // clang-format on
   // SemanticKind-ENUM:BEGIN
   // Semantic kind; Arbitrary or specific system value.
   enum class SemanticKind : unsigned {
@@ -212,7 +215,10 @@ namespace DXIL {
   };
   // SemanticKind-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('SigPointKind-ENUM')>hctdb_instrhelp.get_enum_decl("SigPointKind", hide_val=True, sort_val=False)</py>*/
+  // clang-format on
   // SigPointKind-ENUM:BEGIN
   // Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.
   enum class SigPointKind : unsigned {
@@ -240,7 +246,10 @@ namespace DXIL {
   };
   // SigPointKind-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('SemanticInterpretationKind-ENUM')>hctdb_instrhelp.get_enum_decl("SemanticInterpretationKind", hide_val=True, sort_val=False)</py>*/
+  // clang-format on
   // SemanticInterpretationKind-ENUM:BEGIN
   // Defines how a semantic is interpreted at a particular SignaturePoint
   enum class SemanticInterpretationKind : unsigned {
@@ -258,7 +267,10 @@ namespace DXIL {
   };
   // SemanticInterpretationKind-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('PackingKind-ENUM')>hctdb_instrhelp.get_enum_decl("PackingKind", hide_val=True, sort_val=False)</py>*/
+  // clang-format on
   // PackingKind-ENUM:BEGIN
   // Kind of signature point
   enum class PackingKind : unsigned {
@@ -271,7 +283,10 @@ namespace DXIL {
   };
   // PackingKind-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl("Float32DenormMode", hide_val=False, sort_val=False)</py>*/
+  // clang-format on
   // FPDenormMode-ENUM:BEGIN
   // float32 denorm behavior
   enum class Float32DenormMode : unsigned {
@@ -787,7 +802,10 @@ namespace DXIL {
   };
   // OPCODE-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('OPCODECLASS-ENUM')>hctdb_instrhelp.get_enum_decl("OpCodeClass")</py>*/
+  // clang-format on
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
@@ -1440,7 +1458,10 @@ namespace DXIL {
     ReadAcrossDiagonal = 2, // returns the value from the lane across the quad in horizontal and vertical direction
   };
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('WAVEBITOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("WaveBitOpKind")</py>*/
+  // clang-format on
   // WAVEBITOPKIND-ENUM:BEGIN
   // Kind of bitwise cross-lane operation
   enum class WaveBitOpKind : unsigned {
@@ -1450,7 +1471,10 @@ namespace DXIL {
   };
   // WAVEBITOPKIND-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('WAVEOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("WaveOpKind")</py>*/
+  // clang-format on
   // WAVEOPKIND-ENUM:BEGIN
   // Kind of cross-lane operation
   enum class WaveOpKind : unsigned {
@@ -1461,7 +1485,10 @@ namespace DXIL {
   };
   // WAVEOPKIND-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('WAVEMULTIPREFIXOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("WaveMultiPrefixOpKind")</py>*/
+  // clang-format on
   // WAVEMULTIPREFIXOPKIND-ENUM:BEGIN
   // Kind of cross-lane for multi-prefix operation
   enum class WaveMultiPrefixOpKind : unsigned {
@@ -1473,7 +1500,10 @@ namespace DXIL {
   };
   // WAVEMULTIPREFIXOPKIND-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('SIGNEDOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("SignedOpKind")</py>*/
+  // clang-format on
   // SIGNEDOPKIND-ENUM:BEGIN
   // Sign vs. unsigned operands for operation
   enum class SignedOpKind : unsigned {
@@ -1482,7 +1512,10 @@ namespace DXIL {
   };
   // SIGNEDOPKIND-ENUM:END
 
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('QUADVOTEOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("QuadVoteOpKind")</py>*/
+  // clang-format on
   // QUADVOTEOPKIND-ENUM:BEGIN
   // Kind of cross-quad vote operation
   enum class QuadVoteOpKind : unsigned {

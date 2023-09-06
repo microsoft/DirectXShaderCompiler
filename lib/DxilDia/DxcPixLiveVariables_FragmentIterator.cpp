@@ -212,8 +212,7 @@ private:
   };
   std::vector<FragmentSizeAndOffset> m_fragmentLocations;
   unsigned m_currentFragment = 0;
-  void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(
-    llvm::DIType const*, uint64_t BaseOffset);
+  void DetermineStructMemberSizesAndOffsets(llvm::DIType const*, uint64_t BaseOffset);
 };
 
 unsigned SizeIfBaseType(llvm::DIType const* diType)

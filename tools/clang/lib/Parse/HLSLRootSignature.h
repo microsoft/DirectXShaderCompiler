@@ -12,6 +12,7 @@
 
 #include "dxc/DXIL/DXIL.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/Support/WinIncludes.h"
 
 namespace llvm {
 class raw_ostream;

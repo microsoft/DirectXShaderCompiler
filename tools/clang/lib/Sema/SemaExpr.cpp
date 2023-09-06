@@ -1910,13 +1910,15 @@ Sema::DiagnoseEmptyLookup(Scope *S, CXXScopeSpec &SS, LookupResult &R,
           
           CXXScopeSpec SS;
           SS.Adopt(ULE->getQualifierLoc());
+          // HLSL Change Begin - This is a reference.
           CXXDependentScopeMemberExpr *DepExpr =
               CXXDependentScopeMemberExpr::Create(
-                  Context, DepThis, DepThisType, true, SourceLocation(),
-                  SS.getWithLocInContext(Context),
-                  ULE->getTemplateKeywordLoc(), nullptr,
-                  R.getLookupNameInfo(),
+                  Context, DepThis, DepThisType,
+                  /*IsArrow*/ !getLangOpts().HLSL, SourceLocation(),
+                  SS.getWithLocInContext(Context), ULE->getTemplateKeywordLoc(),
+                  nullptr, R.getLookupNameInfo(),
                   ULE->hasExplicitTemplateArgs() ? &TList : nullptr);
+          // HLSL Change End - This is a reference.
           CallsUndergoingInstantiation.back()->setCallee(DepExpr);
         } else {
           Diag(R.getNameLoc(), diagnostic) << Name;
@@ -2100,6 +2102,12 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
   DB << NameInfo.getName() << RD;
 
   if (!ThisType.isNull()) {
+    // HLSL Change Begin - This code is broken because `this` is a reference in
+    // HLSL, but this code should also be unreachable.
+    assert(!S.getLangOpts().HLSL &&
+           "This should be unreachable in DXC because we don't enable the "
+           "MSCompat language feature.");
+    // HLSL Change End
     DB << FixItHint::CreateInsertion(Loc, "this->");
     return CXXDependentScopeMemberExpr::Create(
         Context, /*This=*/nullptr, ThisType, /*IsArrow=*/true,
@@ -4380,50 +4388,15 @@ ExprResult Sema::BuildCXXDefaultArgExpr(SourceLocation CallLoc,
   }
   
   if (Param->hasUninstantiatedDefaultArg()) {
-    Expr *UninstExpr = Param->getUninstantiatedDefaultArg();
-
-    EnterExpressionEvaluationContext EvalContext(*this, PotentiallyEvaluated,
-                                                 Param);
-
+    /// HLSL Change Begin - back ported from llvm-project/4409a83c2935.
     // Instantiate the expression.
     MultiLevelTemplateArgumentList MutiLevelArgList
       = getTemplateInstantiationArgs(FD, nullptr, /*RelativeToPrimary=*/true);
 
-    InstantiatingTemplate Inst(*this, CallLoc, Param,
-                               MutiLevelArgList.getInnermost());
-    if (Inst.isInvalid())
+    if (SubstDefaultArgument(CallLoc, Param, MutiLevelArgList,
+                             /*ForCallExpr*/ true))
       return ExprError();
-
-    ExprResult Result;
-    {
-      // C++ [dcl.fct.default]p5:
-      //   The names in the [default argument] expression are bound, and
-      //   the semantic constraints are checked, at the point where the
-      //   default argument expression appears.
-      ContextRAII SavedContext(*this, FD);
-      LocalInstantiationScope Local(*this);
-      Result = SubstExpr(UninstExpr, MutiLevelArgList);
-    }
-    if (Result.isInvalid())
-      return ExprError();
-
-    // Check the expression as an initializer for the parameter.
-    InitializedEntity Entity
-      = InitializedEntity::InitializeParameter(Context, Param);
-    InitializationKind Kind
-      = InitializationKind::CreateCopy(Param->getLocation(),
-             /*FIXME:EqualLoc*/UninstExpr->getLocStart());
-    Expr *ResultE = Result.getAs<Expr>();
-
-    InitializationSequence InitSeq(*this, Entity, Kind, ResultE);
-    Result = InitSeq.Perform(*this, Entity, Kind, ResultE);
-    if (Result.isInvalid())
-      return ExprError();
-
-    Expr *Arg = Result.getAs<Expr>();
-    CheckCompletedExpr(Arg, Param->getOuterLocStart());
-    // Build the default argument expression.
-    return CXXDefaultArgExpr::Create(Context, CallLoc, Param, Arg);
+    /// HLSL Change End - back ported from llvm-project/4409a83c2935.
   }
 
   // If the default expression creates temporaries, we need to

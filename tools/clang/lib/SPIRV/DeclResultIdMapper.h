@@ -71,14 +71,19 @@ public:
   CounterIdAliasPair(SpirvVariable *var, bool alias)
       : counterVar(var), isAlias(alias) {}
 
+  /// Returns the pointer to the counter variable alias. This returns a pointer
+  /// that can be used as the address to a store instruction when storing to an
+  /// alias counter.
+  SpirvInstruction *getAliasAddress() const;
+
   /// Returns the pointer to the counter variable. Dereferences first if this is
   /// an alias to a counter variable.
-  SpirvInstruction *get(SpirvBuilder &builder, SpirvContext &spvContext) const;
+  SpirvInstruction *getCounterVariable(SpirvBuilder &builder,
+                                       SpirvContext &spvContext) const;
 
-  /// Stores the counter variable's pointer in srcPair to the curent counter
+  /// Stores the counter variable pointed to by src to the curent counter
   /// variable. The current counter variable must be an alias.
-  inline void assign(const CounterIdAliasPair &srcPair, SpirvBuilder &,
-                     SpirvContext &) const;
+  inline void assign(SpirvInstruction *src, SpirvBuilder &) const;
 
 private:
   SpirvVariable *counterVar;
@@ -298,16 +303,6 @@ public:
   /// to do an extra OpAccessChain to get its pointer from the SPIR-V variable
   /// standing for the whole buffer.
   SpirvVariable *createCTBuffer(const HLSLBufferDecl *decl);
-
-  /// \brief Creates a cbuffer/tbuffer from the given decl.
-  ///
-  /// In the AST, a variable whose type is ConstantBuffer/TextureBuffer is
-  /// represented as a VarDecl whose DeclContext is a HLSLBufferDecl. These
-  /// VarDecl's type is labelled as the struct upon which ConstantBuffer/
-  /// TextureBuffer is parameterized. For a such VarDecl, we need to create
-  /// a corresponding SPIR-V variable for it. Later referencing of such a
-  /// VarDecl does not need an extra OpAccessChain.
-  SpirvVariable *createCTBuffer(const VarDecl *decl);
 
   /// \brief Creates a PushConstant block from the given decl.
   SpirvVariable *createPushConstant(const VarDecl *decl);
@@ -714,7 +709,7 @@ private:
   /// Decorates varInstr of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
   void decorateInterpolationMode(const NamedDecl *decl, QualType asType,
-                                 SpirvVariable *varInstr, const SemanticInfo semanticInfo);
+                                 SpirvVariable *varInstr);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
@@ -893,8 +888,6 @@ private:
   /// an additional SPIR-V optimization pass to flatten such structures.
   bool needsFlatteningCompositeResources;
 
-  uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
-
 public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
@@ -908,12 +901,10 @@ bool SemanticInfo::isTarget() const {
   return semantic && semantic->GetKind() == hlsl::Semantic::Kind::Target;
 }
 
-void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
-                                SpirvBuilder &builder,
-                                SpirvContext &context) const {
+void CounterIdAliasPair::assign(SpirvInstruction *src,
+                                SpirvBuilder &builder) const {
   assert(isAlias);
-  builder.createStore(counterVar, srcPair.get(builder, context),
-                      /* SourceLocation */ {});
+  builder.createStore(counterVar, src, /* SourceLocation */ {});
 }
 
 DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
@@ -926,7 +917,6 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false), needsFlatteningCompositeResources(false),
-      perspBaryCentricsIndex(2), noPerspBaryCentricsIndex(2),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

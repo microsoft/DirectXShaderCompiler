@@ -642,16 +642,6 @@ struct IUnknown {
 CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
 struct INoMarshal : public IUnknown {};
 
-CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
-struct IMalloc : public IUnknown {
-  virtual void *Alloc(size_t size) = 0;
-  virtual void *Realloc(void *ptr, size_t size) = 0;
-  virtual void Free(void *ptr) = 0;
-  virtual size_t GetSize(void *pv) = 0;
-  virtual int DidAlloc(void *pv) = 0;
-  virtual void HeapMinimize(void) = 0;
-};
-
 CROSS_PLATFORM_UUIDOF(ISequentialStream, "0C733A30-2A1C-11CE-ADE5-00AA0044773D")
 struct ISequentialStream : public IUnknown {
   virtual HRESULT Read(void *pv, ULONG cb, ULONG *pcbRead) = 0;
@@ -1075,15 +1065,6 @@ public:
 
 };
 
-
-#endif // __cplusplus
-
-#endif // _WIN32
-
-#ifdef __cplusplus
-
-#include <string>
-#include <vector>
 //===--------- Convert argv to wchar ----------------===//
 class WArgV {
   std::vector<std::wstring> WStringVector;
@@ -1091,9 +1072,11 @@ class WArgV {
 
 public:
   WArgV(int argc, const char **argv);
-  WArgV(int argc, const wchar_t **argv);
   const wchar_t **argv() { return WCharPtrVector.data();}
 };
-#endif
+
+#endif // __cplusplus
+
+#endif // _WIN32
 
 #endif // LLVM_SUPPORT_WIN_ADAPTER_H

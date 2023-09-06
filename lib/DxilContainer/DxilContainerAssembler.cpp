@@ -2052,6 +2052,7 @@ void hlsl::SerializeDxilContainerForModule(
 
   unsigned ValMajor, ValMinor;
   pModule->GetValidatorVersion(ValMajor, ValMinor);
+  bool bValidatorAtLeast_1_8 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) >= 0;
   if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0)
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
   bool bSupportsShaderHash = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) >= 0;
@@ -2108,6 +2109,7 @@ void hlsl::SerializeDxilContainerForModule(
                      });
     }
   }
+
   std::unique_ptr<DxilVersionWriter> pVERSWriter = nullptr;
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
@@ -2123,16 +2125,20 @@ void hlsl::SerializeDxilContainerForModule(
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
     // Write the DxilCompilerVersion (VERS) part.
+    if (DXCVersionInfo && bValidatorAtLeast_1_8) {
 
-    if (pSM->IsSM68Plus() && DXCVersionInfo) {
       pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
 
-      writer.AddPart(hlsl::DFCC_CompilerVersion, pVERSWriter->size(),
-                     [&pVERSWriter](AbstractMemoryStream *pStream) {
-                       pVERSWriter->write(pStream);
-                       return S_OK;
-                     });
+      writer.AddPart(
+        hlsl::DFCC_CompilerVersion,
+        pVERSWriter->size(),
+        [&pVERSWriter](AbstractMemoryStream *pStream) {
+          pVERSWriter->write(pStream);
+          return S_OK;
+        }
+      );
     }
+    
 
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
