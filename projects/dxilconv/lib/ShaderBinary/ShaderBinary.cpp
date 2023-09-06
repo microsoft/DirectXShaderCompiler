@@ -1121,7 +1121,7 @@ void CShaderAsm::EmitOperand(const COperandBase& operand)
             case D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE:
                 FUNC(operand.m_Index[i].m_RegIndex);
                 // Fall through
-                LLVM_FALLTHROUGH
+                LLVM_FALLTHROUGH;
             case D3D10_SB_OPERAND_INDEX_RELATIVE:
                 {
                     D3D10_SB_OPERAND_TYPE RelRegType = operand.m_Index[i].m_RelRegType;
