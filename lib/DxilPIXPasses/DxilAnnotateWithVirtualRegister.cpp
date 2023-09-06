@@ -160,8 +160,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
         if (auto *Alloca = llvm::dyn_cast<llvm::AllocaInst>(&I))
             if (PixAllocaReg::FromInst(Alloca, &unused1, &unused2))
                 continue;
-        if (PixDxilReg::FromInst(&I, &unused1))
-            continue;
         if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
           pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
           InstructionRangeEnd = InstNum;
