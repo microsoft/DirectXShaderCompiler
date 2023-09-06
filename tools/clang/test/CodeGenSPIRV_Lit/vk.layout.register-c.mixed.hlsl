@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main -fvk-use-dx-layout
+// RUN: %dxc -T vs_6_0 -E main -fvk-use-dx-layout -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpMemberDecorate %type__Globals 0 Offset 200
 // CHECK: OpMemberDecorate %type__Globals 1 Offset 0

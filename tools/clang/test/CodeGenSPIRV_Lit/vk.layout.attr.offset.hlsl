@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main -fvk-use-dx-layout
+// RUN: %dxc -T vs_6_0 -E main -fvk-use-dx-layout -fcgl  %s -spirv | FileCheck %s
 
 // Make sure that:
 // * [[vk::offset]] on an internal struct affects layout of an external struct.

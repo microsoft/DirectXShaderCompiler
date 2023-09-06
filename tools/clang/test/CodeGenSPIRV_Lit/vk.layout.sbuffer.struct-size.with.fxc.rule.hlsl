@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_2 -E main -fvk-use-dx-layout -enable-16bit-types
+// RUN: %dxc -T cs_6_2 -E main -fvk-use-dx-layout -enable-16bit-types -fcgl  %s -spirv | FileCheck %s
 
 struct TestStruct0
 {

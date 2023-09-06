@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2 -fvk-use-gl-layout -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %_arr_v2float_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr_mat3v2float_uint_2 ArrayStride 32
@@ -26,10 +26,10 @@ struct T {
 };
 
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 0 Offset 0
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 1 Offset 4
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 2 Offset 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 3 Offset 208
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 4 Offset 240
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 1 Offset 16
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 2 Offset 32
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 3 Offset 224
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 4 Offset 256
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 4 MatrixStride 16
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_S 4 ColMajor
 
@@ -46,10 +46,10 @@ ConstantBuffer<S> cbuf;
 
 // CHECK: OpDecorate %type_ShaderRecordBufferEXT_S Block
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 0 Offset 0
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 1 Offset 4
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 2 Offset 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 3 Offset 208
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 4 Offset 240
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 1 Offset 16
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 2 Offset 32
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 3 Offset 224
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 4 Offset 256
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 4 MatrixStride 16
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 4 ColMajor
 

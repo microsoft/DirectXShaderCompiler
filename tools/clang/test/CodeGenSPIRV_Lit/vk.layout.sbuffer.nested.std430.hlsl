@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-gl-layout -fcgl  %s -spirv | FileCheck %s
 
 // Deep nested array of matrices
 // Depp nested majorness

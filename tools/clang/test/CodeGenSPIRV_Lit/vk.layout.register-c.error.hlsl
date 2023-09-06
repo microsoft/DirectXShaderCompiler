@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main -fvk-use-dx-layout
+// RUN: not %dxc -T vs_6_0 -E main -fvk-use-dx-layout -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 // CHECK: 15:18: error: found offset overlap when processing register(c8) assignment
 // CHECK: 16:18: error: found offset overlap when processing register(c9) assignment

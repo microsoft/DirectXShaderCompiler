@@ -1,9 +1,9 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout -O3
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout -O3  %s -spirv | FileCheck %s
 
-// CHECK: OpDecorate [[arr_f3:%\w+]] ArrayStride 16
-// CHECK: OpMemberDecorate {{%\w+}} 0 Offset 0
-// CHECK: OpMemberDecorate {{%\w+}} 1 Offset 16
-// CHECK: OpMemberDecorate {{%\w+}} 2 Offset 52
+// CHECK: OpDecorate [[arr_f3:%[a-zA-Z0-9_]+]] ArrayStride 16
+// CHECK: OpMemberDecorate {{%[a-zA-Z0-9_]+}} 0 Offset 0
+// CHECK: OpMemberDecorate {{%[a-zA-Z0-9_]+}} 1 Offset 16
+// CHECK: OpMemberDecorate {{%[a-zA-Z0-9_]+}} 2 Offset 52
 
 // CHECK: [[arr_f3]] = OpTypeArray %float %uint_3
 // CHECK: %type_buffer0 = OpTypeStruct %float [[arr_f3]] %float
@@ -24,9 +24,9 @@ cbuffer buffer0 {
 
 float4 main(float4 color : COLOR) : SV_TARGET
 {
-// CHECK: [[foo_0:%\w+]] = OpAccessChain %_ptr_Uniform_float %buffer0 %uint_1 %uint_0
-// CHECK: [[foo_0_value:%\w+]] = OpLoad %float [[foo_0]]
-// CHECK:                  OpFAdd %float {{%\w+}} [[foo_0_value]]
+// CHECK: [[foo_0:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Uniform_float %buffer0 %uint_1 %uint_0
+// CHECK: [[foo_0_value:%[a-zA-Z0-9_]+]] = OpLoad %float [[foo_0]]
+// CHECK:                  OpFAdd %float {{%[a-zA-Z0-9_]+}} [[foo_0_value]]
 
   float1x2 bar = foo;
   color.x += bar._m00;

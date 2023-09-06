@@ -1,6 +1,6 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: OpDecorate [[type_of_foo:%\w+]] ArrayStride 16
+// CHECK: OpDecorate [[type_of_foo:%[a-zA-Z0-9_]+]] ArrayStride 16
 // CHECK: OpDecorate %_arr_mat2v3float_uint_7 ArrayStride 48
 // CHECK: OpDecorate %_arr_float_uint_3 ArrayStride 16
 // CHECK: OpDecorate %_arr__arr_float_uint_3_uint_5 ArrayStride 48
@@ -29,8 +29,8 @@ cbuffer buffer0 {
 
 float4 main(float4 color : COLOR) : SV_TARGET
 {
-// CHECK: [[type_of_arr:%\w+]] = OpTypeArray %float %uint_2
-// CHECK: [[ptr_type_of_arr:%\w+]] = OpTypePointer Function [[type_of_arr]]
+// CHECK: [[type_of_arr:%[a-zA-Z0-9_]+]] = OpTypeArray %float %uint_2
+// CHECK: [[ptr_type_of_arr:%[a-zA-Z0-9_]+]] = OpTypePointer Function [[type_of_arr]]
 
 // CHECK: %arr = OpVariable [[ptr_type_of_arr]] Function
 
