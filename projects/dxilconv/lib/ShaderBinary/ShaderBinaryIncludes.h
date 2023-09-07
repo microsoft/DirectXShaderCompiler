@@ -27,6 +27,5 @@
 #define ASSUME(_exp)                                                           \
   {                                                                            \
     assert(_exp);                                                              \
-    assert(_exp);                                                              \
     __assume(_exp);                                                            \
   }

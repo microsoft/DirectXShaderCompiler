@@ -221,9 +221,7 @@ public:
   void Init(const void *table, uint32_t size) {
     m_table = table; m_size = size;
   }
-  uint32_t Size() const { return m_size; }
   const void *Get(uint32_t offset) const {
-    (void)m_size; // avoid unused private warning if use above is ignored.
     return (const void*)(((const char*)m_table) + offset);
   }
 };
