@@ -926,7 +926,7 @@ public:
         }
         outStream.flush();
 
-        SerializeDxilFlags SerializeFlags = dxcutil::ComputeSerializeDxilFlags(opts);
+        SerializeDxilFlags SerializeFlags = hlsl::options::ComputeSerializeDxilFlags(opts);
         CComPtr<IDxcBlob> pRootSignatureBlob = nullptr;
         CComPtr<IDxcBlob> pPrivateBlob = nullptr;
         if (!opts.RootSignatureSource.empty()) {

@@ -31,7 +31,6 @@ class Twine;
 } // namespace llvm
 
 namespace hlsl {
-enum class SerializeDxilFlags : uint32_t;
 struct DxilShaderHash;
 class AbstractMemoryStream;
 namespace options {
@@ -41,7 +40,6 @@ class DxcOpts;
 } // namespace hlsl
 
 namespace dxcutil {
-hlsl::SerializeDxilFlags ComputeSerializeDxilFlags(const hlsl::options::DxcOpts &opts);
 struct AssembleInputs {
   AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                  CComPtr<IDxcBlob> &pOutputContainerBlob, IMalloc *pMalloc,
