@@ -23,15 +23,18 @@ void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
     spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
 }
 
-void CapabilityVisitor::addExtensionAndCapabilitiesIfEnabled(
+bool CapabilityVisitor::addExtensionAndCapabilitiesIfEnabled(
     Extension ext, llvm::ArrayRef<spv::Capability> capabilities) {
-  if (featureManager.isExtensionEnabled(ext)) {
-    addExtension(ext, "", {});
-
-    for (auto cap : capabilities) {
-      addCapability(cap);
-    }
+  if (!featureManager.isExtensionEnabled(ext)) {
+    return false;
   }
+
+  addExtension(ext, "", {});
+
+  for (auto cap : capabilities) {
+    addCapability(cap);
+  }
+  return true;
 }
 
 void CapabilityVisitor::addCapability(spv::Capability cap, SourceLocation loc) {
@@ -224,18 +227,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     }
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
-  }
-  // AccelerationStructureTypeNV and RayQueryTypeKHR type
-  // Note: Because AccelerationStructureType can be provided by both
-  // SPV_KHR_ray_query and SPV_{NV,KHR}_ray_tracing extensions, this logic will
-  // result in SPV_KHR_ray_query being unnecessarily required in some cases. If
-  // this is an issue in future (more devices are identified that support
-  // ray_tracing but not ray_query), then we should consider addressing this
-  // interaction with a spirv-opt pass instead.
-  else if (isa<AccelerationStructureTypeNV>(type) ||
-           isa<RayQueryTypeKHR>(type)) {
-    addCapability(spv::Capability::RayQueryKHR);
-    addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
 }
 
@@ -888,6 +879,18 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
           spv::Capability::FragmentShaderPixelInterlockEXT,
           spv::Capability::FragmentShaderShadingRateInterlockEXT,
       });
+
+  // AccelerationStructureType or RayQueryType can be provided by both
+  // ray_tracing and ray_query extension. By default, we select ray_query to
+  // provide it. This is an arbitrary decision. If the user wants avoid one
+  // extension (lack of support by ex), if can be done by providing the list
+  // of enabled extensions.
+  if (!addExtensionAndCapabilitiesIfEnabled(Extension::KHR_ray_query,
+                                            {spv::Capability::RayQueryKHR})) {
+    addExtensionAndCapabilitiesIfEnabled(Extension::KHR_ray_tracing,
+                                         {spv::Capability::RayTracingKHR});
+  }
+
   return true;
 }
 
