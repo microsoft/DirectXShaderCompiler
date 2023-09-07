@@ -14,11 +14,11 @@
 #include "DxcPixTypes.h"
 #include "DxilDiaSession.h"
 
-static CA2W GetTypeNameOrDefault(llvm::DIType *diType) {
+static const char * GetTypeNameOrDefault(llvm::DIType *diType) {
   auto stringRef = diType->getName();
   if (stringRef.empty())
-    return CA2W("<unnamed>");
-  return CA2W(stringRef.data());
+    return "<unnamed>";
+  return stringRef.data();
 }
 
 HRESULT dxil_debug_info::CreateDxcPixType(
