@@ -15369,7 +15369,7 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
   }
   
   // There's no way we should be adding a shader attribute
-  // to a Function Decl if it doesn't even have an identifer
+  // to a Function Decl if it doesn't even have an identifier
   if (!FD->getIdentifier()) {
     return;
   }
@@ -15396,6 +15396,12 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
     if (currentFullName == fullName) {
       return;
     }
+  }
+
+  // in the special case that the target profile is compute and the 
+  // entry decl already has a node shader attr, don't do anything
+  if (fullName == "compute" && currentShaderAttr->getStage() == "node") {
+    return;
   }
 
   HLSLShaderAttr *pShaderAttr =
