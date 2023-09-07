@@ -385,12 +385,14 @@ TEST_F(OptionsTest, TestPreprocessOption) {
   VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp ", "out.pp", Warning);
 }
 
-static void VerifySerializeDxilFalgs(llvm::StringRef command,
+static void VerifySerializeDxilFlags(llvm::StringRef command,
                                      uint32_t ExpectFlags) {
   std::string errorString;
   const llvm::opt::OptTable *optionTable = getHlslOptTable();
   llvm::SmallVector<llvm::StringRef, 4> args;
   command.split(args, " ", /*MaxSplit*/ -1, /*KeepEmpty*/ false);
+  args.emplace_back("-Tlib_6_3");
+  args.emplace_back("input.hlsl");
   MainArgs argStrings(args);
   DxcOpts dxcOpts;
   llvm::raw_string_ostream errorStream(errorString);
@@ -406,414 +408,195 @@ static void VerifySerializeDxilFalgs(llvm::StringRef command,
       ExpectFlags);
 }
 
+static uint32_t CombineFlags(llvm::ArrayRef<SerializeDxilFlags> flags) {
+  uint32_t result = 0;
+  for (SerializeDxilFlags f : flags)
+    result |= static_cast<uint32_t>(f);
+  return result;
+}
+
+struct SerializeDxilFlagsTest {
+  const char *command;
+  uint32_t flags;
+};
+
+using F = SerializeDxilFlags;
+
 TEST_F(OptionsTest, SerializeDxilFlags) {
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil "
-      "-Qstrip_reflect -Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil "
-      "-Qstrip_reflect -Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil "
-      "-Qstrip_reflect -FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil "
-      "-Qstrip_reflect -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil "
-      "-Qstrip_reflect -Zsb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil "
-      "-Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil "
-      "-Qstrip_reflect ",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil  "
-      "-Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil  "
-      "-Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil  "
-      "-FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil  "
-      "-Zsb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil  "
-      "-FdDbgName.pdb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature -Qkeep_reflect_in_dxil  ",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature  -Qstrip_reflect -Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature  -Qstrip_reflect -Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature  -Qstrip_reflect "
-      "-FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature  -Qstrip_reflect -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature  -Qstrip_reflect -Zsb "
-      "-Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature  -Qstrip_reflect "
-      "-FdDbgName.pdb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature  -Qstrip_reflect ",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature   -Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature   -Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature   -FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature   -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature   -Zsb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature   -FdDbgName.pdb "
-      "-Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl -Qstrip_rootsignature   ",
-      static_cast<uint32_t>(SerializeDxilFlags::StripRootSignature) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil -Qstrip_reflect "
-      "-FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb "
-      "-Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil -Qstrip_reflect "
-      "-FdDbgName.pdb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil -Qstrip_reflect ",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil  -Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil  -Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil  -FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil  -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil  -FdDbgName.pdb "
-      "-Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl  -Qkeep_reflect_in_dxil  ",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl   -Qstrip_reflect -Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl   -Qstrip_reflect -Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl   -Qstrip_reflect -FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl   -Qstrip_reflect -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl   -Qstrip_reflect -Zsb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl   -Qstrip_reflect -FdDbgName.pdb -Qembed_debug "
-      "-Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl   -Qstrip_reflect ",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl    -Zss -Zs",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-          static_cast<uint32_t>(SerializeDxilFlags::DebugNameDependOnSource));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl    -Zsb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl    -FdDbgName.pdb",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl    -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl    -Zsb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl    -FdDbgName.pdb -Qembed_debug -Zi",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart));
-  VerifySerializeDxilFalgs(
-      "-T lib_6_3 input.hlsl    ",
-      static_cast<uint32_t>(SerializeDxilFlags::None) |
-          static_cast<uint32_t>(
-              SerializeDxilFlags::StripReflectionFromDxilPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::IncludeReflectionPart) |
-          static_cast<uint32_t>(SerializeDxilFlags::None));
+  // Test cases for SerializeDxilFlags
+  SerializeDxilFlagsTest Tests[] = {
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
+    CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect ",
+    CombineFlags({F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zss -Zs",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::DebugNameDependOnSource, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  ",
+    CombineFlags({F::IncludeReflectionPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature  -Qstrip_reflect -Zss -Zs",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature  -Qstrip_reflect -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature  -Qstrip_reflect ",
+    CombineFlags({F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature   -Zss -Zs",
+    CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature   -Zsb",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature   -FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature   -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature   -Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature   -FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
+    },
+    {"-Qstrip_rootsignature   ",
+    CombineFlags({F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
+    },
+    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
+    CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource})
+    },
+    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
+    CombineFlags({F::IncludeDebugNamePart})
+    },
+    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart})
+    },
+    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
+    CombineFlags({F::IncludeDebugNamePart})
+    },
+    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})
+    },
+    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})
+    },
+    {"-Qkeep_reflect_in_dxil -Qstrip_reflect ",
+    CombineFlags({SerializeDxilFlags::None})
+    },
+    {"-Qkeep_reflect_in_dxil  -Zss -Zs",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::DebugNameDependOnSource})
+    },
+    {"-Qkeep_reflect_in_dxil  -Zsb",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})
+    },
+    {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})
+    },
+    {"-Qkeep_reflect_in_dxil  -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})
+    },
+    {"-Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart})
+    },
+    {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart})
+    },
+    {"-Qkeep_reflect_in_dxil  ",
+    CombineFlags({F::IncludeReflectionPart})
+    },
+    {"-Qstrip_reflect -Zss -Zs",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource})
+    },
+    {"-Qstrip_reflect -Zsb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})
+    },
+    {"-Qstrip_reflect -FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})
+    },
+    {"-Qstrip_reflect -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})
+    },
+    {"-Qstrip_reflect -Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart})
+    },
+    {"-Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart})
+    },
+    {"-Qstrip_reflect ",
+    CombineFlags({F::StripReflectionFromDxilPart})
+    },
+    {"-Zss -Zs",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource, F::IncludeReflectionPart})
+    },
+    {"-Zsb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
+    },
+    {"-FdDbgName.pdb",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
+    },
+    {"-Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
+    },
+    {"-Zsb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::IncludeReflectionPart})
+    },
+    {"-FdDbgName.pdb -Qembed_debug -Zi",
+    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::IncludeReflectionPart})
+    },
+    {"",
+    CombineFlags({F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
+    }
+  };
+
+  for (const auto &T : Tests) {
+    VerifySerializeDxilFlags(T.command, T.flags);
+  }
+
 }
