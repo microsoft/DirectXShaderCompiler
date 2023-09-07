@@ -648,7 +648,7 @@ bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I) {
 
 bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode) {
   if (!IsDxilOpFuncCallInst(I)) return false;
-  return llvm::cast<llvm::ConstantInt>(I->getOperand(0))->getZExtValue() == (unsigned)opcode;
+  return (unsigned)getOpCode(I) == (unsigned)opcode;
 }
 
 OP::OpCode OP::getOpCode(const llvm::Instruction *I) {
