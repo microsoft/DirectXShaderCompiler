@@ -1448,7 +1448,7 @@ class DxilInstructionWrapper:
             self.args = ops[1:]
 
     def __init__(self, dxil_inst):
-        self.dxil_inst = dxil_inst
+        self.dxil_inst = dxil_inst # db_dxil_inst type, defined in hctdb.py
         self.name = dxil_inst.name
         self.fn_attr = dxil_inst.fn_attr
         self.ret_type = ""
@@ -1469,7 +1469,7 @@ class HLOperationWrapper:
             self.args = [x.name + " " + x.type_name for x in ops[1:]]
 
     def __init__(self, hl_op):
-        self.hl_op = hl_op
+        self.hl_op = hl_op # db_hlsl_intrinsic type, defined in hctdb.py
         self.name = hl_op.name
         self.readnone = hl_op.readnone
         self.readonly = hl_op.readonly
@@ -1494,9 +1494,8 @@ def parse_query_hlsl(db, options):
 
     instructions = []
 
-    # The query function should be using the db_hlsl_intrinsic interface
-    # defined in hctdb.py because that is what's being loaded into 
-    # the instructions list.
+    # The query function should be using the HLOperationWrapper interface
+    # because that is what's being loaded into the instructions list.
     for hl_op in db.intrinsics:
         new_op = HLOperationWrapper(hl_op)    
         instructions.append(new_op)
@@ -1605,11 +1604,11 @@ if __name__ == "__main__":
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))
 
-    if args.query_dxil or args.query_hlsl:
+    if args.query_dxil:
         db_dxil = get_db_dxil()
-        
-        # TODO: Implement querying on hlsl
-        db_hlsl = get_db_hlsl()
-
         parse_query_dxil(db_dxil, args)
+
+
+    if args.query_hlsl:
+        db_hlsl = get_db_hlsl()
         parse_query_hlsl(db_hlsl, args)

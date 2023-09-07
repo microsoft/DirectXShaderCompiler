@@ -5,15 +5,6 @@
 ###############################################################################
 import os
 
-def parse_command_line_options():
-    import argparse
-    parser = argparse.ArgumentParser(description="A script for outputting and searching through all Dxil Instructions")
-        
-    # ex: hctdb.py --query=myquery.py
-    # The user must define myquery.py as a file in the same dir as hctdb.py
-    options = parser.parse_args()
-    return options
-
 all_stages = (
     'vertex',
     'pixel',
@@ -3253,6 +3244,7 @@ class db_hlsl(object):
         add_attr_arg("RootSignature", "f", "RootSignature doc", [{"name":"SignatureName", "type":"string"}])
         add_attr_arg("Unroll", "l", "Unroll the loop until it stops executing or a max count", [{"name":"Count", "type":"int"}])
         self.attributes = attributes
+
 
 if __name__ == "__main__":
     db = db_dxil()
