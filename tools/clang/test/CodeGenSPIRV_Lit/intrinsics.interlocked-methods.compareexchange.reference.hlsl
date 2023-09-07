@@ -4,6 +4,6 @@ groupshared uint value;
 
 [numthreads(1, 1, 1)]
 void main() {
-// CHECK: error: InterlockedCompareExchange requires a reference as output parameter.
+// CHECK: error: InterlockedCompareExchange requires a reference as output parameter
   InterlockedCompareExchange(value, 1, 2, 3);
 }
