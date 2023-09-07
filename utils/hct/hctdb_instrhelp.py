@@ -1435,10 +1435,112 @@ def RunCodeTagUpdate(file_path):
                 f.write(after)
         os.remove(file_path + ".tmp")
 
+class DxilInstructionWrapper:
+    def set_ret_type_and_args(self, dxil_inst):
+        ops = []
+        for op in dxil_inst.ops:
+            ops.append(op.llvm_type)
+        
+        if len(ops) > 0:
+            self.ret_type = ops[0] 
+        
+        if len(ops) > 1:
+            self.args = ops[1:]
+
+    def __init__(self, dxil_inst):
+        self.dxil_inst = dxil_inst
+        self.name = dxil_inst.name
+        self.fn_attr = dxil_inst.fn_attr
+        self.ret_type = ""
+        self.args = []
+        self.set_ret_type_and_args(dxil_inst)
+
+    def __str__(self):
+        str_args = ", ".join(self.args)
+        return "[{}] {} {}({})".format(self.fn_attr, self.ret_type, self.name, str_args)
+
+class HLOperationWrapper:
+    def set_ret_type_and_args(self, hl_op):
+        ops = hl_op.params
+        if len(ops) > 0:
+            self.ret_type = ops[0].type_name 
+        
+        if len(ops) > 1:
+            self.args = [x.name + " " + x.type_name for x in ops[1:]]
+
+    def __init__(self, hl_op):
+        self.hl_op = hl_op
+        self.name = hl_op.name
+        self.readnone = hl_op.readnone
+        self.readonly = hl_op.readonly
+        self.wave = hl_op.wave
+        self.ret_type = ""
+        self.args = []
+        self.set_ret_type_and_args(hl_op)
+
+    def __str__(self):
+        str_args = ", ".join(self.args)
+        rn = "" if self.readnone == False else "rn"
+        ro = "" if self.readonly == False else "ro"
+        wv = "" if self.wave == False else "wv"
+        return "[{}][{}][{}] {} {}({})".format(rn, ro, wv, self.ret_type, self.name, str_args)
+
+
+def parse_query_hlsl(db, options):
+    if not options.query_hlsl:
+        return
+
+    query_module = __import__(options.query_hlsl)
+
+    instructions = []
+
+    # The query function should be using the db_hlsl_intrinsic interface
+    # defined in hctdb.py because that is what's being loaded into 
+    # the instructions list.
+    for hl_op in db.intrinsics:
+        new_op = HLOperationWrapper(hl_op)    
+        instructions.append(new_op)
+
+    # apply the query filter
+    print("\nQUERY RESULTS:\n")
+    for instruction in instructions:
+        if query_module.inst_query_hlsl(instructions, instruction):
+            print(instruction)
+
+def parse_query_dxil(db, options):
+    if not options.query_dxil:
+        return
+        
+    query_module = __import__(options.query_dxil)
+
+    DxilInstructions = []
+
+    # The query function should use the DxilInstructionWrapper interface
+    # because that's what's being loaded into the DxilInstructions list
+    for dxil_inst in db.instr:
+        i = DxilInstructionWrapper(dxil_inst)
+        DxilInstructions.append(i)
+
+    # apply the query filter
+    print("\nQUERY RESULTS:\n")
+    for instruction in DxilInstructions:
+        if query_module.inst_query_dxil(DxilInstructions, instruction):
+            print(instruction)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate code to handle instructions.")
     parser.add_argument("-gen", choices=["docs-ref", "docs-spec", "inst-header", "enums", "oloads", "valfns"], help="Output type to generate.")
     parser.add_argument("-update-files", action="store_const", const=True)
+    parser.add_argument(
+        '--query-dxil',
+        help='If given, stores a filename of a query file (excluding the extension). The option requires that the user create the specified file \
+        that defines a function called inst_query_dxil. The file must be located in the same directory that contains hctdb_instrhelp.py. \
+        The inst_query_dxil function must take 2 parameters, the set of all instructions, and a specific instruction. \
+        The inst_query_dxil function returns true if the specific instruction should pass the query, and false otherwise.')
+    parser.add_argument(
+        '--query-hlsl',
+        help='Exactly like query-dxil, except the filename given should store a query function for hl operations. \
+        The function name should be inst_query_hlsl as well.')
     args = parser.parse_args()
 
     db = get_db_dxil() # used by all generators, also handy to have it run validation
@@ -1502,3 +1604,12 @@ if __name__ == "__main__":
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))
+
+    if args.query_dxil or args.query_hlsl:
+        db_dxil = get_db_dxil()
+        
+        # TODO: Implement querying on hlsl
+        db_hlsl = get_db_hlsl()
+
+        parse_query_dxil(db_dxil, args)
+        parse_query_hlsl(db_hlsl, args)

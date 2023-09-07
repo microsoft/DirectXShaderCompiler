@@ -8,13 +8,7 @@ import os
 def parse_command_line_options():
     import argparse
     parser = argparse.ArgumentParser(description="A script for outputting and searching through all Dxil Instructions")
-    
-    parser.add_argument(
-        '--query',
-        help='If given, stores a path to a query file. The option requires that the user create the specified file \
-        that defines a function called inst_query. The file must be located in the same directory that contains hctdb.py. \
-        The inst_query function must take 2 parameters, the set of all instructions, and a specific instruction. \
-        The inst_query function returns true if the specific instruction should pass the query, and false otherwise.')
+        
     # ex: hctdb.py --query=myquery.py
     # The user must define myquery.py as a file in the same dir as hctdb.py
     options = parser.parse_args()
@@ -3260,52 +3254,7 @@ class db_hlsl(object):
         add_attr_arg("Unroll", "l", "Unroll the loop until it stops executing or a max count", [{"name":"Count", "type":"int"}])
         self.attributes = attributes
 
-class InstructionSignature:
-    def __init__(self, fn_attr, ret_type, name, args):
-        self.fn_attr = fn_attr
-        self.ret_type = ret_type
-        self.name = name
-        self.args = args
-    def __str__(self):
-        str_args = ",".join(self.args)
-        return "[{}] {} {}({})".format(self.fn_attr, self.ret_type, self.name, str_args)
-
-def parse_query(db, options):
-    if not options.query:
-        return
-        
-    query_module = __import__(options.query)
-
-    instructions = []
-
-    for dxil_inst in db.instr:
-        ops = []
-        for op in dxil_inst.ops:            
-            ops.append(op.llvm_type)
-        ret_type = ""
-        if len(ops) > 0:
-            ret_type = ops[0]
-        args = []
-        if len(ops) > 1:
-            args = ops[1:]
-
-
-        i = InstructionSignature(dxil_inst.fn_attr, ret_type, dxil_inst.name, args)
-        instructions.append(i)
-
-    # apply the query filter
-    filtered_instructions = []
-    print("\nQUERY RESULTS:\n")
-    for instruction in instructions:
-        if query_module.inst_query(instructions, instruction):
-            print(instruction)
-
-
 if __name__ == "__main__":
     db = db_dxil()
     print(db)
     db.print_stats()
-
-    options = parse_command_line_options()
-    parse_query(db, options)
-    
