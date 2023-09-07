@@ -13754,60 +13754,28 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
                                 /*isInstr*/ true, expr->getExprLoc());
 }
 
-uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
-  if (callExpr->getNumArgs() == 1)
-    return 4;
-
-  if (callExpr->getNumArgs() > 2) {
-    emitError("number of arguments for vk::RawBufferLoad() must be 1 or 2",
-              callExpr->getExprLoc());
-    return 0;
+uint32_t SpirvEmitter::getRawBufferAlignment(const Expr *expr) {
+  llvm::APSInt value;
+  if (expr->EvaluateAsInt(value, astContext) && value.isNonNegative()) {
+    return static_cast<uint32_t>(value.getZExtValue());
   }
 
-  const Expr *alignmentArgExpr = callExpr->getArg(1);
-  if (const auto *templateParmExpr =
-          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
-    alignmentArgExpr = templateParmExpr->getReplacement();
-  }
-  const auto *intLiteral =
-      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
-  if (intLiteral == nullptr) {
-    emitError("alignment argument of vk::RawBufferLoad() must be a constant "
-              "integer",
-              callExpr->getArg(1)->getExprLoc());
-    return 0;
-  }
-  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
-}
-
-uint32_t SpirvEmitter::getAlignmentForRawBufferStore(const CallExpr *callExpr) {
-  if (callExpr->getNumArgs() == 2)
-    return 4;
-
-  if (callExpr->getNumArgs() != 2 && callExpr->getNumArgs() != 3) {
-    emitError("number of arguments for vk::RawBufferStore() must be 2 or 3",
-              callExpr->getExprLoc());
-    return 0;
-  }
-
-  const Expr *alignmentArgExpr = callExpr->getArg(2);
-  if (const auto *templateParmExpr =
-          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
-    alignmentArgExpr = templateParmExpr->getReplacement();
-  }
-  const auto *intLiteral =
-      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
-  if (intLiteral == nullptr) {
-    emitError("alignment argument of vk::RawBufferStore() must be a constant "
-              "integer",
-              callExpr->getArg(2)->getExprLoc());
-    return 0;
-  }
-  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+  // Unable to determine a valid alignment at compile time
+  emitError("alignment argument must be a constant unsigned integer",
+            expr->getExprLoc());
+  return 0;
 }
 
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
-  uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
+  if (callExpr->getNumArgs() > 2) {
+    emitError("number of arguments for vk::RawBufferLoad() must be 1 or 2",
+              callExpr->getExprLoc());
+    return nullptr;
+  }
+
+  uint32_t alignment = callExpr->getNumArgs() == 1
+                           ? 4
+                           : getRawBufferAlignment(callExpr->getArg(1));
   if (alignment == 0)
     return nullptr;
 
@@ -13900,7 +13868,15 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
 
 SpirvInstruction *
 SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
-  uint32_t alignment = getAlignmentForRawBufferStore(callExpr);
+  if (callExpr->getNumArgs() != 2 && callExpr->getNumArgs() != 3) {
+    emitError("number of arguments for vk::RawBufferStore() must be 2 or 3",
+              callExpr->getExprLoc());
+    return nullptr;
+  }
+
+  uint32_t alignment = callExpr->getNumArgs() == 2
+                           ? 4
+                           : getRawBufferAlignment(callExpr->getArg(2));
   if (alignment == 0)
     return nullptr;
 
