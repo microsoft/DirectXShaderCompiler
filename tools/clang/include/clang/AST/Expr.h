@@ -824,6 +824,7 @@ class OpaqueValueExpr : public Expr {
   friend class ASTStmtReader;
   Expr *SourceExpr;
   SourceLocation Loc;
+  bool SourceIsParent; // HLSL Change
 
 public:
   OpaqueValueExpr(SourceLocation Loc, QualType T, ExprValueKind VK,
@@ -835,8 +836,7 @@ public:
            (SourceExpr && SourceExpr->isValueDependent()),
            T->isInstantiationDependentType(),
            false),
-      SourceExpr(SourceExpr), Loc(Loc) {
-  }
+      SourceExpr(SourceExpr), Loc(Loc), SourceIsParent(false) {} // HLSL Change
 
   /// Given an expression which invokes a copy constructor --- i.e.  a
   /// CXXConstructExpr, possibly wrapped in an ExprWithCleanups ---
@@ -875,6 +875,11 @@ public:
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OpaqueValueExprClass;
   }
+
+  // HLSL Change start
+  bool sourceIsParent() const { return SourceIsParent; }
+  void setSourceIsParent(bool B = true) { SourceIsParent = B; }
+  // HLSL Change end
 };
 
 /// \brief A reference to a declared variable, function, enum, etc.
@@ -4751,6 +4756,94 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Base, &Base + 1); }
+};
+
+class HLSLOutParamExpr : public Expr {
+  Expr *Base;
+  Expr *Writeback;
+  Expr *SrcLV;
+  OpaqueValueExpr *OpaqueVal;
+  bool IsInOut;
+  bool CanElide;
+
+  HLSLOutParamExpr(QualType Ty, Expr *Base, bool IsInOut, bool CanElide)
+      : Expr(HLSLOutParamExprClass, Ty, VK_LValue, OK_Ordinary,
+             Base->isTypeDependent(), Base->isValueDependent(),
+             Base->isInstantiationDependent(),
+             Base->containsUnexpandedParameterPack()),
+        Base(Base), Writeback(nullptr), SrcLV(nullptr), OpaqueVal(nullptr),
+        IsInOut(IsInOut), CanElide(CanElide) {}
+
+public:
+  static HLSLOutParamExpr *Create(const ASTContext &C, QualType Ty, Expr *Base,
+                                  bool IsInOut = false, bool CanElide = false);
+
+  const Expr *getBase() const { return Base; }
+  Expr *getBase() { return Base; }
+  void setBase(Expr *E) { Base = E; }
+
+  const Expr *getWriteback() const { return Writeback; }
+  Expr *getWriteback() { return Writeback; }
+  void setWriteback(Expr *E) { Writeback = E; }
+
+  const Expr *getSrcLV() const { return SrcLV ? SrcLV : Base; }
+  Expr *getSrcLV() { return SrcLV ? SrcLV : Base; }
+  void setSrcLV(Expr *E) { SrcLV = E; }
+
+  const OpaqueValueExpr *getOpaqueValue() const { return OpaqueVal; }
+  OpaqueValueExpr *getOpaqueValue() { return OpaqueVal; }
+  void setOpaqueValue(OpaqueValueExpr *E) { OpaqueVal = E; }
+
+  bool isInOut() const { return IsInOut; }
+  bool canElide() const { return CanElide; }
+
+  SourceLocation getLocStart() const LLVM_READONLY {
+    return Base->getLocStart();
+  }
+
+  SourceLocation getLocEnd() const LLVM_READONLY { return Base->getLocEnd(); }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == HLSLOutParamExprClass;
+  }
+
+  // Iterators
+  child_range children() {
+    return child_range((Stmt **)&Base, (Stmt **)&Base + 1);
+  }
+};
+
+class HLSLArrayTemporaryExpr : public Expr {
+  Expr *Base;
+
+  HLSLArrayTemporaryExpr(Expr *Base)
+      : Expr(HLSLArrayTemporaryExprClass, Base->getType(), VK_RValue,
+             OK_Ordinary, Base->isTypeDependent(), Base->isValueDependent(),
+             Base->isInstantiationDependent(),
+             Base->containsUnexpandedParameterPack()),
+        Base(Base) {}
+
+public:
+  static HLSLArrayTemporaryExpr *Create(const ASTContext &C, Expr *Base);
+
+  const Expr *getBase() const { return Base; }
+  Expr *getBase() { return Base; }
+  void setBase(Expr *E) { Base = E; }
+
+  SourceLocation getLocStart() const LLVM_READONLY {
+    return Base->getLocStart();
+  }
+
+  SourceLocation getLocEnd() const LLVM_READONLY { return Base->getLocEnd(); }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == HLSLArrayTemporaryExprClass;
+  }
+
+  // Iterators
+  child_range children() {
+    return child_range((Stmt **)&Base, (Stmt **)&Base + 1);
+  }
 };
 // HLSL Change Ends
 

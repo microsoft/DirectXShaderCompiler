@@ -227,6 +227,19 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
       pointer->getAstResultType()->isSignedIntegerOrEnumerationType(), loc);
 }
 
+SpirvCopyMemory *SpirvBuilder::createCopyMemory(QualType resultType,
+                                               SpirvInstruction *src,
+                                               SpirvInstruction *dst,
+                                               SourceLocation loc) {
+  auto instruction = new (context) SpirvCopyMemory(resultType, loc, src, dst);
+  instruction->setStorageClass(dst->getStorageClass());
+  instruction->setLayoutRule(dst->getLayoutRule());
+  // The result of OpCopyMemory is always an rvalue.
+  instruction->setRValue(dst->isRValue());
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
                                                 SpirvInstruction *pointer,
                                                 SourceLocation loc) {

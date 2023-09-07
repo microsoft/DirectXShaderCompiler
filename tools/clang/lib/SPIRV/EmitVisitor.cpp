@@ -1262,6 +1262,17 @@ bool EmitVisitor::visit(SpirvCopyObject *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvCopyMemory *inst) {
+  initInstruction(inst);
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDestination()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvSampledImage *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());

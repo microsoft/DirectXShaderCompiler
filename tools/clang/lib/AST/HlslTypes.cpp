@@ -52,7 +52,7 @@ ConvertHLSLVecMatTypeToExtVectorType(const clang::ASTContext &context,
 }
 
 bool IsHLSLVecMatType(clang::QualType type) {
-  const Type *Ty = type.getCanonicalType().getTypePtr();
+  const Type *Ty = type.getNonReferenceType().getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
@@ -67,7 +67,8 @@ bool IsHLSLVecMatType(clang::QualType type) {
 }
 
 bool IsHLSLMatType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  const clang::Type *Ty =
+      type.getNonReferenceType().getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
@@ -80,7 +81,8 @@ bool IsHLSLMatType(clang::QualType type) {
 }
 
 bool IsHLSLVecType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  const clang::Type *Ty =
+      type.getNonReferenceType().getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
@@ -93,7 +95,8 @@ bool IsHLSLVecType(clang::QualType type) {
 }
 
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  const clang::Type *Ty =
+      type.getNonReferenceType().getCanonicalType().getTypePtr();
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
       return true;
@@ -108,7 +111,8 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
 }
 
 bool IsHLSLNumericUserDefinedType(clang::QualType type) {
-  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  const clang::Type *Ty =
+      type.getNonReferenceType().getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
     if (!IsUserDefinedRecordType(type))
@@ -133,7 +137,7 @@ bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT) {
 }
 
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
-  QT = QT.getCanonicalType();
+  QT = QT.getNonReferenceType().getCanonicalType();
   const clang::Type *Ty = QT.getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
@@ -146,7 +150,7 @@ bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT) {
 
 // Aggregate types are arrays and user-defined structs
 bool IsHLSLAggregateType(clang::QualType type) {
-  type = type.getCanonicalType();
+  type = type.getCanonicalType().getNonReferenceType();
   if (isa<clang::ArrayType>(type)) return true;
 
   return IsUserDefinedRecordType(type);
@@ -237,6 +241,7 @@ bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
 }
 
 bool HasHLSLGloballyCoherent(clang::QualType type) {
+  type = type.getNonReferenceType();
   const AttributedType *AT = type->getAs<AttributedType>();
   while (AT) {
     AttributedType::Kind kind = AT->getAttrKind();
@@ -439,7 +444,7 @@ clang::QualType GetHLSLMatElementType(clang::QualType type) {
 }
 // TODO: Add type cache to ASTContext.
 bool IsHLSLInputPatchType(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(
@@ -452,7 +457,7 @@ bool IsHLSLInputPatchType(QualType type) {
   return false;
 }
 bool IsHLSLOutputPatchType(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(
@@ -465,7 +470,7 @@ bool IsHLSLOutputPatchType(QualType type) {
   return false;
 }
 bool IsHLSLPointStreamType(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(
@@ -477,7 +482,7 @@ bool IsHLSLPointStreamType(QualType type) {
   return false;
 }
 bool IsHLSLLineStreamType(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(
@@ -489,7 +494,7 @@ bool IsHLSLLineStreamType(QualType type) {
   return false;
 }
 bool IsHLSLTriangleStreamType(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(
@@ -501,7 +506,7 @@ bool IsHLSLTriangleStreamType(QualType type) {
   return false;
 }
 bool IsHLSLStreamOutputType(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(
@@ -517,6 +522,7 @@ bool IsHLSLStreamOutputType(QualType type) {
   return false;
 }
 bool IsHLSLResourceType(clang::QualType type) {
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
     if (name == "Texture1D" || name == "RWTexture1D")
@@ -580,6 +586,7 @@ bool IsHLSLDynamicResourceType(clang::QualType type) {
 }
 
 bool IsHLSLBufferViewType(clang::QualType type) {
+  type = type.getNonReferenceType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
     if (name == "ConstantBuffer" || name == "TextureBuffer")
@@ -589,6 +596,7 @@ bool IsHLSLBufferViewType(clang::QualType type) {
 }
 
 bool IsHLSLStructuredBufferType(clang::QualType type) {
+  type = type.getNonReferenceType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
     if (name == "StructuredBuffer" || name == "RWStructuredBuffer")
@@ -607,6 +615,7 @@ bool IsHLSLSubobjectType(clang::QualType type) {
 }
 
 bool IsUserDefinedRecordType(clang::QualType QT) {
+  QT = QT.getNonReferenceType();
   const clang::Type *Ty = QT.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
     const RecordDecl *RD = RT->getDecl();
@@ -699,7 +708,7 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
 
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, DXIL::HitGroupType &hgType) {
   hgType = (DXIL::HitGroupType)(-1);
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
     switch (name.size()) {
@@ -737,7 +746,7 @@ bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKi
 }
 
 bool IsHLSLRayQueryType(clang::QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
             dyn_cast<ClassTemplateSpecializationDecl>(
@@ -752,6 +761,7 @@ bool IsHLSLRayQueryType(clang::QualType type) {
 
 QualType GetHLSLResourceResultType(QualType type) {
   // Don't canonicalize the type as to not lose snorm in Buffer<snorm float>
+  type = type.getNonReferenceType();
   const RecordType *RT = type->getAs<RecordType>();
   const RecordDecl* RD = RT->getDecl();
 
@@ -795,6 +805,7 @@ unsigned GetHLSLResourceTemplateUInt(clang::QualType type) {
 
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type) {
+  type = type.getNonReferenceType();
   if (type->isIncompleteArrayType()) {
     const IncompleteArrayType *IAT = context.getAsIncompleteArrayType(type);
     type = IAT->getElementType();
@@ -809,7 +820,7 @@ bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
 }
 
 QualType GetHLSLResourceTemplateParamType(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);
   const ClassTemplateSpecializationDecl *templateDecl =
       cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
@@ -821,7 +832,7 @@ QualType GetHLSLInputPatchElementType(QualType type) {
   return GetHLSLResourceTemplateParamType(type);
 }
 unsigned GetHLSLInputPatchCount(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);
   const ClassTemplateSpecializationDecl *templateDecl =
       cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
@@ -832,7 +843,7 @@ clang::QualType GetHLSLOutputPatchElementType(QualType type) {
   return GetHLSLResourceTemplateParamType(type);
 }
 unsigned GetHLSLOutputPatchCount(QualType type) {
-  type = type.getCanonicalType();
+  type = type.getNonReferenceType().getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);
   const ClassTemplateSpecializationDecl *templateDecl =
       cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());

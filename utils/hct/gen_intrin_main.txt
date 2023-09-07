@@ -356,7 +356,7 @@ p32u8 [[rn]] pack_clamp_u8(in sint16or32_only<4> v);
 void [[]] SetMeshOutputCounts(in uint numVertices, in uint numPrimitives);
 
 // Amplification shader intrinsics:
-void [[]] DispatchMesh(in uint threadGroupCountX, in uint threadGroupCountY, in uint threadGroupCountZ, in udt meshPayload);
+void [[]] DispatchMesh(in uint threadGroupCountX, in uint threadGroupCountY, in uint threadGroupCountZ, ref udt meshPayload);
 
 // Return true if the current lane is a helper lane
 bool [[ro]] IsHelperLane();

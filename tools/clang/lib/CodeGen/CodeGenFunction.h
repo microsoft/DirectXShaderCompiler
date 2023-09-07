@@ -2464,8 +2464,11 @@ public:
   LValue EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
                                 bool Accessed = false);
   LValue EmitExtVectorElementExpr(const ExtVectorElementExpr *E);
-  LValue EmitExtMatrixElementExpr(const ExtMatrixElementExpr *E); // HLSL Change
-  LValue EmitHLSLVectorElementExpr(const HLSLVectorElementExpr *E); // HLSL Change
+  // HLSL Change begin
+  LValue EmitExtMatrixElementExpr(const ExtMatrixElementExpr *E);
+  LValue EmitHLSLVectorElementExpr(const HLSLVectorElementExpr *E);
+  LValue EmitHLSLOutParamExpr(const HLSLOutParamExpr *E);
+  // HLSL Change end
   LValue EmitMemberExpr(const MemberExpr *E);
   LValue EmitObjCIsaExpr(const ObjCIsaExpr *E);
   LValue EmitCompoundLiteralLValue(const CompoundLiteralExpr *E);

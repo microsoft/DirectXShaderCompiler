@@ -334,8 +334,11 @@ public:
   Value *VisitConvertVectorExpr(ConvertVectorExpr *E);
   Value *VisitMemberExpr(MemberExpr *E);
   Value *VisitExtVectorElementExpr(Expr *E) { return EmitLoadOfLValue(E); }
-  Value *VisitExtMatrixElementExpr(Expr *E) { return EmitLoadOfLValue(E); } // HLSL Change
-  Value *VisitHLSLVectorElementExpr(Expr *E) { return EmitLoadOfLValue(E); } // HLSL Change
+
+  // HLSL Change Begin
+  Value *VisitExtMatrixElementExpr(Expr *E) { return EmitLoadOfLValue(E); }
+  Value *VisitHLSLVectorElementExpr(Expr *E) { return EmitLoadOfLValue(E); }
+  // HLSL Change end
   Value *VisitCompoundLiteralExpr(CompoundLiteralExpr *E) {
     return EmitLoadOfLValue(E);
   }

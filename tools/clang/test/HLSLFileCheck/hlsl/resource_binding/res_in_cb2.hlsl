@@ -2,8 +2,8 @@
 
 // Make sure array of struct with resource works.
 
-//CHECK: x.1.s                             sampler      NA          NA      S0             s4     1
-//CHECK: x.0.s                             sampler      NA          NA      S1             s3     1
+//CHECK: x.0.s                             sampler      NA          NA      S0             s3     1
+//CHECK: x.1.s                             sampler      NA          NA      S1             s4     1
 //CHECK: x.1.x                             texture     f32          2d      T0             t5     1
 //CHECK: x.0.y                             texture     f32          2d      T1             t4     1
 //CHECK: m                                 texture     f32          2d      T2             t9     1

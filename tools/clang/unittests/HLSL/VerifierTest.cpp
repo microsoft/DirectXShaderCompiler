@@ -55,6 +55,7 @@ public:
   TEST_METHOD(RunFunctions)
   TEST_METHOD(RunIncompleteType)
   TEST_METHOD(RunIndexingOperator)
+  TEST_METHOD(RunInOutTrunc)
   TEST_METHOD(RunIntrinsicExamples)
   TEST_METHOD(RunInvalidDeclTemplateArg)
   TEST_METHOD(RunMatrixAssignments)
@@ -112,6 +113,7 @@ public:
   TEST_METHOD(RunBitFieldAnnotations)
   TEST_METHOD(RunUDTByteAddressBufferLoad)
   TEST_METHOD(RunObjectTemplateDiagDeferred)
+  TEST_METHOD(RunVectorMatrixBinOp)
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     const char startMarker[] = "%clang_cc1";
@@ -264,6 +266,10 @@ TEST_F(VerifierTest, RunIncompleteType) {
 
 TEST_F(VerifierTest, RunIndexingOperator) {
   CheckVerifiesHLSL(L"indexing-operator.hlsl");
+}
+
+TEST_F(VerifierTest, RunInOutTrunc) {
+  CheckVerifiesHLSL(L"inout_trunc.hlsl");
 }
 
 TEST_F(VerifierTest, RunIntrinsicExamples) {
@@ -492,4 +498,8 @@ TEST_F(VerifierTest, RunUDTByteAddressBufferLoad) {
 
 TEST_F(VerifierTest, RunObjectTemplateDiagDeferred) {
   CheckVerifiesHLSL(L"object-template-diag-deferred.hlsl");
+}
+
+TEST_F(VerifierTest, RunVectorMatrixBinOp) {
+  CheckVerifiesHLSL(L"vector-matrix-binops.hlsl");
 }

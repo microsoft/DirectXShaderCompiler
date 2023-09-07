@@ -509,6 +509,8 @@ namespace  {
     void VisitExtVectorElementExpr(const ExtVectorElementExpr *Node);
     void VisitExtMatrixElementExpr(const ExtMatrixElementExpr *Node); // HLSL Change
     void VisitHLSLVectorElementExpr(const HLSLVectorElementExpr *Node); // HLSL Change
+    void VisitHLSLOutParamExpr(const HLSLOutParamExpr *Node); // HLSL Change
+    void VisitHLSLArrayTemporaryExpr(const HLSLArrayTemporaryExpr *Node);
     void VisitBinaryOperator(const BinaryOperator *Node);
     void VisitCompoundAssignOperator(const CompoundAssignOperator *Node);
     void VisitAddrLabelExpr(const AddrLabelExpr *Node);
@@ -2027,6 +2029,19 @@ void ASTDumper::VisitHLSLVectorElementExpr(const HLSLVectorElementExpr *Node) {
   VisitExpr(Node);
   OS << " " << Node->getAccessor().getNameStart();
 }
+
+void ASTDumper::VisitHLSLOutParamExpr(const HLSLOutParamExpr *Node) {
+  VisitExpr(Node);
+  OS << (Node->isInOut() ? " inout" : " out");
+  if (Node->canElide())
+    OS << " can elide";
+  if (const auto *WB = Node->getWriteback())
+    dumpStmt(WB);
+}
+
+void ASTDumper::VisitHLSLArrayTemporaryExpr(const HLSLArrayTemporaryExpr *Node) {
+  VisitExpr(Node);
+}
 // HLSL Change Ends
 
 void ASTDumper::VisitBinaryOperator(const BinaryOperator *Node) {
@@ -2051,6 +2066,11 @@ void ASTDumper::VisitBlockExpr(const BlockExpr *Node) {
 
 void ASTDumper::VisitOpaqueValueExpr(const OpaqueValueExpr *Node) {
   VisitExpr(Node);
+
+  // HLSL Change start
+  if (Node->sourceIsParent())
+    return;
+  // HLSL Change end
 
   if (Expr *Source = Node->getSourceExpr())
     dumpStmt(Source);

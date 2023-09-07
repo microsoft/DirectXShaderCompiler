@@ -9026,6 +9026,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
   case Expr::ExtVectorElementExprClass:
   case Expr::ExtMatrixElementExprClass: // HLSL Change
   case Expr::HLSLVectorElementExprClass: // HLSL Change
+  case Expr::HLSLOutParamExprClass: // HLSL Change
+  case Expr::HLSLArrayTemporaryExprClass: // HLSL Change
   case Expr::DesignatedInitExprClass:
   case Expr::NoInitExprClass:
   case Expr::DesignatedInitUpdateExprClass:

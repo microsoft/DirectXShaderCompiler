@@ -53,8 +53,8 @@ SamplerComparisonState     SampCmp SUB(15) : register(t0, space15);
 
 
 // ConstantBuffer and TextureBuffer get created first
-// CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 64, i1 false)
-// CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 61, i1 false)
+// CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 64, i1 false)
+// CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 61, i1 false)
 ConstantBuffer<MyFloat4>   CBuf SUB(16) : register(b0, space16); // 1*(3+16)*3 + 1*3 + 1 = 61
 TextureBuffer<MyFloat4>    TBuf SUB(17) : register(t0, space17); // 1*(3+17)*3 + 1*3 + 1 = 64
 
@@ -73,34 +73,34 @@ FeedbackTexture2DArray<SAMPLER_FEEDBACK_MIN_MIP> FBTex2DArr SUB(27) : register(u
 
 float4 main(int4 a : A, float4 f : F) : SV_Target {
 
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 13, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 16, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 19, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 22, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 25, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 13, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 16, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 19, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 22, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 25, i1 false)
   float4 res = Tex1D IDX(0).Load(a.x) // 1*(3+0)*3 + 1*3 + 1 = 13
   * Tex1DArr IDX(1).Load(a.xyz)       // 1*(3+1)*3 + 1*3 + 1 = 16
   * Tex2D IDX(2).Load(a.xyz)          // 1*(3+2)*3 + 1*3 + 1 = 19
   * Tex2DArr IDX(3).Load(a.xyzw)      // 1*(3+3)*3 + 1*3 + 1 = 22
   * Tex3D IDX(4).Load(a.xyzw)         // 1*(3+4)*3 + 1*3 + 1 = 25
 
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 28, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 31, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 34, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 37, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 40, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 28, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 31, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 34, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 37, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 40, i1 false)
   * RWTex1D IDX(5).Load(a.x)          // 1*(3+5)*3 + 1*3 + 1 = 28
   * RWTex1DArr IDX(6).Load(a.xy)      // 1*(3+6)*3 + 1*3 + 1 = 31
   * RWTex2D IDX(7).Load(a.xy)         // 1*(3+7)*3 + 1*3 + 1 = 34
   * RWTex2DArr IDX(8).Load(a.xyz)     // 1*(3+8)*3 + 1*3 + 1 = 37
   * RWTex3D IDX(9).Load(a.xyz)        // 1*(3+9)*3 + 1*3 + 1 = 40
 
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 43, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 46, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 49, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 55, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 52, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 58, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 43, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 46, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 49, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 55, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 52, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 58, i1 false)
   * Tex2DMS IDX(10).Load(a.xy, a.w)              // 1*(3+10)*3 + 1*3 + 1 = 43
   * Tex2DMSArr IDX(11).Load(a.xyz, a.w)          // 1*(3+11)*3 + 1*3 + 1 = 46
   * TexCube IDX(12).Sample(Samp IDX(14), f.xyz)  // 1*(3+12)*3 + 1*3 + 1 = 49; 1*(3+14)*3 + 1*3 + 1 = 55
@@ -110,29 +110,29 @@ float4 main(int4 a : A, float4 f : F) : SV_Target {
   * CBuf IDX(16).f
   * TBuf IDX(17).f
 
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 67, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 70, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 73, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 67, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 70, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 73, i1 false)
   * Buf IDX(18).Load(a.x)            // 1*(3+18)*3 + 1*3 + 1 = 67
   * SBuf IDX(19).Load(a.x)           // 1*(3+19)*3 + 1*3 + 1 = 70
   * BABuf IDX(20).Load<float4>(a.x)  // 1*(3+20)*3 + 1*3 + 1 = 73
 
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 76, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 79, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 82, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 85, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 76, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 79, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 82, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 85, i1 false)
   * RWBuf IDX(21).Load(a.x)          // 1*(3+21)*3 + 1*3 + 1 = 76
   * RWSBuf IDX(22).Load(a.x)         // 1*(3+22)*3 + 1*3 + 1 = 79
   * RWBABuf IDX(23).Load<float4>(a.x)// 1*(3+23)*3 + 1*3 + 1 = 82
   * CSBuf IDX(24).Consume();         // 1*(3+24)*3 + 1*3 + 1 = 85
 
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 88, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 91, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 19, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 55, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 94, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 22, i1 false)
-  // CHECK: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 55, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 88, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 91, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 19, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 55, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 94, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 22, i1 false)
+  // CHECK-DAG: call %dx.types.Handle @dx.op.createHandle{{.*}}i32 55, i1 false)
   ASBuf IDX(25).Append(3.0);         // 1*(3+25)*3 + 1*3 + 1 = 88
   FBTex2D IDX(26).WriteSamplerFeedback(Tex2D IDX(2), Samp IDX(14), f.xy); // 1*(3+26)*3 + 1*3 + 1 = 91; 1*(3+2)*3 + 1*3 + 1 = 19; 1*(3+14)*3 + 1*3 + 1 = 55
   FBTex2DArr IDX(27).WriteSamplerFeedback(Tex2DArr IDX(3), Samp IDX(14), f.xyz); // 1*(3+27)*3 + 1*3 + 1 = 94; 1*(3+3)*3 + 1*3 + 1 = 22; 1*(3+14)*3 + 1*3 + 1 = 55

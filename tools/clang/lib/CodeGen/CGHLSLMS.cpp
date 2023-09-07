@@ -213,6 +213,7 @@ private:
   void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
                                           QualType fieldTy,
                                           bool bDefaultRowMajor);
+  LValue EmitResourceParamAnnotation(CodeGenFunction& CGF, const CastExpr *E) override;
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
   StringSet<> m_PreciseOutputSet;
@@ -236,21 +237,9 @@ public:
   RValue EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF, const FunctionDecl *FD,
                                  const CallExpr *E,
                                  ReturnValueSlot ReturnValue) override;
-  void EmitHLSLOutParamConversionInit(
-      CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
-      llvm::SmallVector<LValue, 8> &castArgList,
-      llvm::SmallVector<const Stmt *, 8> &argList,
-      llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
-      const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap)
-      override;
-  void EmitHLSLOutParamConversionCopyBack(
-      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
-      llvm::SmallVector<LValue, 8> &lifetimeCleanupList) override;
-
   Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E,
                                      llvm::Type *RetType,
                                      ArrayRef<Value *> paramList) override;
-
   void EmitHLSLDiscard(CodeGenFunction &CGF) override;
   BranchInst *EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) override;
 
@@ -1219,9 +1208,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   if (Ty.isNull())
     return 0;
 
-  QualType paramTy = Ty.getCanonicalType();
-  if (const ReferenceType *RefType = dyn_cast<ReferenceType>(paramTy))
-    paramTy = RefType->getPointeeType();
+  QualType paramTy = Ty.getNonReferenceType().getCanonicalType();
 
   // Get size.
   llvm::Type *Type = CGM.getTypes().ConvertType(paramTy);
@@ -1272,6 +1259,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     return 0;
   } else {
     unsigned arraySize = 0;
+    Ty = Ty.getNonReferenceType();
     QualType arrayElementTy = Ty;
     if (Ty->isConstantArrayType()) {
       const ConstantArrayType *arrayTy =
@@ -1879,13 +1867,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
 
-    QualType fieldTy = parmDecl->getType();
+    QualType fieldTy = parmDecl->getType().getNonReferenceType();
     // Save object properties for parameters.
     AddValToPropertyMap(ArgIt, fieldTy);
 
     // if parameter type is a typedef, try to desugar it first.
-    if (isa<TypedefType>(fieldTy.getTypePtr()))
-      fieldTy = fieldTy.getDesugaredType(FD->getASTContext());
+    if (auto T = fieldTy->getAs<TypedefType>())
+      fieldTy = T->desugar();
     ConstructFieldAttributedAnnotation(paramAnnotation, fieldTy,
                                        bDefaultRowMajor);
     if (parmDecl->hasAttr<HLSLPreciseAttr>())
@@ -5794,348 +5782,6 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
   }
 }
 
-void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
-    CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
-    llvm::SmallVector<LValue, 8> &castArgList,
-    llvm::SmallVector<const Stmt *, 8> &argList,
-    llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
-    const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
-  // Special case: skip first argument of CXXOperatorCall (it is "this").
-  unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(E) ? 1 : 0;
-  llvm::SmallSet<llvm::Value*, 8> ArgVals;
-  for (uint32_t i = 0; i < FD->getNumParams(); i++) {
-    const ParmVarDecl *Param = FD->getParamDecl(i);
-    uint32_t ArgIdx = i+ArgsToSkip;
-    const Expr *Arg = E->getArg(ArgIdx);
-    QualType ParamTy = Param->getType().getNonReferenceType();
-    bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
-    bool bAnnotResource = false;
-    if (isObject) {
-      if (isGLCMismatch(Param->getType(), Arg->getType(), Arg,
-                        Arg->getExprLoc(), CGM.getDiags())) {
-        // NOTE: if function is noinline, resource parameter is not allowed.
-        // Here assume function will be always inlined.
-        // This can only take care resource as parameter. When parameter is
-        // struct with resource member, glc cannot mismatch because the
-        // struct type will always match.
-        // Add annotate handle here.
-        bAnnotResource = true;
-      }
-    }
-    bool isVector = hlsl::IsHLSLVecType(ParamTy);
-    bool isArray = ParamTy->isArrayType();
-    // Check for array of matrix
-    QualType ParamElTy = ParamTy;
-    while (ParamElTy->isArrayType())
-      ParamElTy = ParamElTy->getAsArrayTypeUnsafe()->getElementType();
-    bool isMatrix = hlsl::IsHLSLMatType(ParamElTy);
-    bool isAggregateType = !isObject &&
-      (isArray || (ParamTy->isRecordType() && !(isMatrix || isVector)));
-
-    bool EmitRValueAgg = false;
-    bool RValOnRef = false;
-    if (!Param->isModifierOut()) {
-      if (!isAggregateType && !isObject) {
-        if (Arg->isRValue() && Param->getType()->isReferenceType()) {
-          // RValue on a reference type.
-          if (const CStyleCastExpr *cCast = dyn_cast<CStyleCastExpr>(Arg)) {
-            // TODO: Evolving this to warn then fail in future language versions.
-            // Allow special case like cast uint to uint for back-compat.
-            if (cCast->getCastKind() == CastKind::CK_NoOp) {
-              if (const ImplicitCastExpr *cast =
-                      dyn_cast<ImplicitCastExpr>(cCast->getSubExpr())) {
-                if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
-                  // update the arg
-                  argList[ArgIdx] = cast->getSubExpr();
-                  continue;
-                }
-              }
-            }
-          }
-          // EmitLValue will report error.
-          // Mark RValOnRef to create tmpArg for it.
-          RValOnRef = true;
-        } else {
-          continue;
-        }
-      } else if (isAggregateType) {
-        // aggregate in-only - emit RValue, unless LValueToRValue cast
-        EmitRValueAgg = true;
-        if (const ImplicitCastExpr *cast =
-                dyn_cast<ImplicitCastExpr>(Arg)) {
-          if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
-            EmitRValueAgg = false;
-          }
-        }
-      } else {
-        // Must be object
-        DXASSERT(isObject, "otherwise, flow condition changed, breaking assumption");
-        // in-only objects should be skipped to preserve previous behavior.
-        if (!bAnnotResource)
-          continue;
-      }
-    }
-
-    // Skip unbounded array, since we cannot preserve copy-in copy-out
-    // semantics for these.
-    if (ParamTy->isIncompleteArrayType()) {
-      continue;
-    }
-
-    if (!Param->isModifierOut() && !RValOnRef) {
-      // No need to copy arg to in-only param for hlsl intrinsic.
-      if (const FunctionDecl *Callee = E->getDirectCallee()) {
-        if (Callee->hasAttr<HLSLIntrinsicAttr>())
-          continue;
-      }
-    }
-
-
-    // get original arg
-    // FIXME: This will not emit in correct argument order with the other
-    //        arguments. This should be integrated into
-    //        CodeGenFunction::EmitCallArg if possible.
-    RValue argRV; // emit this if aggregate arg on in-only param
-    LValue argLV; // otherwise, we may emit this
-    llvm::Value *argAddr = nullptr;
-    QualType argType = Arg->getType();
-    CharUnits argAlignment;
-    if (EmitRValueAgg) {
-      argRV = CGF.EmitAnyExprToTemp(Arg);
-      argAddr = argRV.getAggregateAddr(); // must be alloca
-      argAlignment = CharUnits::fromQuantity(cast<AllocaInst>(argAddr)->getAlignment());
-      argLV = LValue::MakeAddr(argAddr, ParamTy, argAlignment, CGF.getContext());
-    } else {
-      argLV = CGF.EmitLValue(Arg);
-      if (argLV.isSimple())
-        argAddr = argLV.getAddress();
-
-      bool mustCopy = bAnnotResource;
-
-      // If matrix orientation changes, we must copy here
-      // TODO: A high level intrinsic for matrix array copy with orientation
-      //       change would be much easier to optimize/eliminate at high level
-      //       after inline.
-      if (!mustCopy && isMatrix) {
-        mustCopy = !AreMatrixArrayOrientationMatching(
-          CGF.getContext(), *m_pHLModule, argType, ParamTy);
-      }
-
-      if (!mustCopy) {
-        // When there's argument need to lower like buffer/cbuffer load, need to
-        // copy to let the lower not happen on argument when calle is noinline
-        // or extern functions. Will do it in HLLegalizeParameter after known
-        // which functions are extern but before inline.
-        Value *Ptr = argAddr;
-        while (GEPOperator *GEP = dyn_cast_or_null<GEPOperator>(Ptr)) {
-          Ptr = GEP->getPointerOperand();
-        }
-        // Skip copy-in copy-out when safe.
-        // The unsafe case will be global variable alias with parameter.
-        // Then global variable is updated in the function, the parameter will
-        // be updated silently. For non global variable or constant global
-        // variable, it should be safe.
-        bool SafeToSkip = false;
-        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
-          SafeToSkip = ParamTy.isConstQualified() && (m_ConstVarAnnotationMap.count(GV) > 0 || GV->isConstant());
-        }
-        if (Ptr) {
-          if (isa<AllocaInst>(Ptr) && 0 == ArgVals.count(Ptr))
-            SafeToSkip = true;
-          else if (const auto *A = dyn_cast<Argument>(Ptr))
-            SafeToSkip = A->hasNoAliasAttr() && 0 == ArgVals.count(Ptr);
-        }
-
-        if (argAddr && SafeToSkip) {
-          ArgVals.insert(Ptr);
-          llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
-          if (argAddr->getType()->getPointerElementType() == ToTy &&
-              // Check clang Type for case like int cast to unsigned.
-              ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
-                  Arg->getType().getCanonicalType().getTypePtr())
-            continue;
-        }
-      }
-
-      argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
-      argAlignment = argLV.getAlignment();
-    }
-    // After emit Arg, we must update the argList[i],
-    // otherwise we get double emit of the expression.
-
-    // create temp Var
-    VarDecl *tmpArg =
-        VarDecl::Create(CGF.getContext(), const_cast<FunctionDecl *>(FD),
-                        SourceLocation(), SourceLocation(),
-                        /*IdentifierInfo*/ nullptr, ParamTy,
-                        CGF.getContext().getTrivialTypeSourceInfo(ParamTy),
-                        StorageClass::SC_Auto);
-
-    // Aggregate type will be indirect param convert to pointer type.
-    // So don't update to ReferenceType, use RValue for it.
-    const DeclRefExpr *tmpRef = DeclRefExpr::Create(
-        CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
-        /*enclosing*/ false, tmpArg->getLocation(), ParamTy,
-        (isAggregateType || isObject) ? VK_RValue : VK_LValue);
-
-    // must update the arg, since we did emit Arg, else we get double emit.
-    argList[ArgIdx] = tmpRef;
-
-    // create alloc for the tmp arg
-    Value *tmpArgAddr = nullptr;
-    BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
-    Function *F = InsertBlock->getParent();
-
-    // Make sure the alloca is in entry block to stop inline create stacksave.
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
-    tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(ParamTy));
-
-    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers) {
-      const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
-      CGF.EmitLifetimeStart(AllocaSize, tmpArgAddr);
-    }
-
-    // add it to local decl map
-    TmpArgMap(tmpArg, tmpArgAddr);
-
-    LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argAlignment,
-                                    CGF.getContext());
-
-    // save for cast after call
-    if (Param->isModifierOut()) {
-      castArgList.emplace_back(tmpLV);
-      castArgList.emplace_back(argLV);
-      if (isVector && !hlsl::IsHLSLVecType(argType)) {
-        // This assumes only implicit casts because explicit casts can only produce RValues
-        // currently and out parameters are LValues.
-        DiagnosticsEngine &Diags = CGM.getDiags();
-        Diags.Report(Param->getLocation(), diag::warn_hlsl_implicit_vector_truncation);
-      }
-    }
-
-    // save to generate lifetime end after call
-    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers)
-      lifetimeCleanupList.emplace_back(tmpLV);
-
-    // cast before the call
-    if (Param->isModifierIn() &&
-        // Don't copy object
-        !isObject) {
-      QualType ArgTy = Arg->getType();
-      Value *outVal = nullptr;
-      if (!isAggregateType) {
-        if (!IsHLSLMatType(ParamTy)) {
-          RValue outRVal = CGF.EmitLoadOfLValue(argLV, SourceLocation());
-          outVal = outRVal.getScalarVal();
-        } else {
-          DXASSERT(argAddr, "should be RV or simple LV");
-          outVal = EmitHLSLMatrixLoad(CGF, argAddr, ArgTy);
-        }
-
-        llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
-        if (HLMatrixType::isa(ToTy)) {
-          Value *castVal = CGF.Builder.CreateBitCast(outVal, ToTy);
-          EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
-        }
-        else {
-          if (outVal->getType()->isVectorTy()) {
-            Value *castVal = ConvertScalarOrVector(CGF, outVal, argType, ParamTy);
-            castVal = CGF.EmitToMemory(castVal, ParamTy);
-            CGF.Builder.CreateStore(castVal, tmpArgAddr);
-          } else {
-            // This allows for splatting, unlike the above.
-            SimpleFlatValCopy(CGF, outVal, argType, tmpArgAddr, ParamTy);
-          }
-        }
-      } else {
-        DXASSERT(argAddr, "should be RV or simple LV");
-        SmallVector<Value *, 4> idxList;
-        EmitHLSLAggregateCopy(CGF, argAddr, tmpArgAddr,
-                              idxList, ArgTy, ParamTy,
-                              argAddr->getType());
-      }
-    } else if (bAnnotResource) {
-      DxilResourceProperties RP = BuildResourceProperty(Arg->getType());
-      CopyAndAnnotateResourceArgument(argAddr, tmpArgAddr, RP, *m_pHLModule,
-                                      CGF);
-      mismatchGLCArgSet.insert(tmpArgAddr);
-    }
-  }
-}
-
-void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
-    CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
-    llvm::SmallVector<LValue, 8> &lifetimeCleanupList) {
-  for (uint32_t i = 0; i < castArgList.size(); i += 2) {
-    // cast after the call
-    LValue tmpLV = castArgList[i];
-    LValue argLV = castArgList[i + 1];
-    QualType ArgTy = argLV.getType().getNonReferenceType();
-    QualType ParamTy = tmpLV.getType().getNonReferenceType();
-
-    Value *tmpArgAddr = tmpLV.getAddress();
-    
-    Value *outVal = nullptr;
-
-    bool isAggregateTy = hlsl::IsHLSLAggregateType(ArgTy);
-
-    bool isObject = dxilutil::IsHLSLObjectType(
-       tmpArgAddr->getType()->getPointerElementType());
-    if (!isObject) {
-      if (!isAggregateTy) {
-        if (!IsHLSLMatType(ParamTy))
-          outVal = CGF.Builder.CreateLoad(tmpArgAddr);
-        else
-          outVal = EmitHLSLMatrixLoad(CGF, tmpArgAddr, ParamTy);
-
-        outVal = CGF.EmitFromMemory(outVal, ParamTy);
-
-        llvm::Type *ToTy = CGF.ConvertType(ArgTy);
-        llvm::Type *FromTy = outVal->getType();
-        Value *castVal = outVal;
-        if (ToTy == FromTy) {
-          // Don't need cast.
-        } else if (ToTy->getScalarType() == FromTy->getScalarType()) {
-          if (ToTy->getScalarType() == ToTy) {
-            DXASSERT(FromTy->isVectorTy(), "must be vector");
-            castVal = CGF.Builder.CreateExtractElement(outVal, (uint64_t)0);
-          } else {
-            DXASSERT(!FromTy->isVectorTy(), "must be scalar type");
-            DXASSERT(ToTy->isVectorTy() && ToTy->getVectorNumElements() == 1,
-                     "must be vector of 1 element");
-            castVal = UndefValue::get(ToTy);
-            castVal =
-                CGF.Builder.CreateInsertElement(castVal, outVal, (uint64_t)0);
-          }
-        } else {
-          castVal = ConvertScalarOrVector(CGF,
-            outVal, tmpLV.getType(), argLV.getType());
-        }
-        if (!HLMatrixType::isa(ToTy))
-          CGF.EmitStoreThroughLValue(RValue::get(castVal), argLV);
-        else {
-          Value *destPtr = argLV.getAddress();
-          EmitHLSLMatrixStore(CGF, castVal, destPtr, ArgTy);
-        }
-      } else {
-        SmallVector<Value *, 4> idxList;
-        EmitHLSLAggregateCopy(CGF, tmpLV.getAddress(), argLV.getAddress(),
-                              idxList, ParamTy, ArgTy,
-                              argLV.getAddress()->getType());
-      }
-    } else if (mismatchGLCArgSet.find(tmpArgAddr) == mismatchGLCArgSet.end()) {
-      tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
-    }
-  }
-
-  for (LValue &tmpLV : lifetimeCleanupList) {
-    QualType ParamTy = tmpLV.getType().getNonReferenceType();
-    Value *tmpArgAddr = tmpLV.getAddress();
-    const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
-    CGF.EmitLifetimeEnd(CGF.Builder.getInt64(AllocaSize), tmpArgAddr);
-  }
-}
-
 ScopeInfo *CGMSHLSLRuntime::GetScopeInfo(Function *F) {
   auto it = m_ScopeMap.find(F);
   if (it == m_ScopeMap.end())
@@ -6181,6 +5827,20 @@ Scope *CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
   }
 
   return nullptr;
+}
+
+LValue CGMSHLSLRuntime::EmitResourceParamAnnotation(CodeGenFunction &CGF,
+                                                    const CastExpr *E) {
+  LValue LV = CGF.EmitLValue(E->getSubExpr());
+  IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(
+      CGF.Builder.GetInsertBlock()->getParent()));
+  llvm::Value *TmpAddr =
+      Builder.CreateAlloca(CGF.ConvertTypeForMem(E->getType()));
+  DxilResourceProperties RP = BuildResourceProperty(E->getType());
+  CopyAndAnnotateResourceArgument(LV.getAddress(), TmpAddr, RP, *m_pHLModule,
+                                  CGF);
+  return LValue::MakeAddr(TmpAddr, E->getType(), LV.getAlignment(),
+                          CGF.getContext());
 }
 
 CGHLSLRuntime *CodeGen::CreateMSHLSLRuntime(CodeGenModule &CGM) {

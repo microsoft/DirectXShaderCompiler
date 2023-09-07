@@ -1,52 +1,71 @@
 // RUN: %dxc -T lib_6_6 -HV 2021 -disable-lifetime-markers -fcgl %s | FileCheck %s
 
-// CHECK-LABEL: define linkonce_odr void @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(%class.Child* %this)
-// CHECK: %[[OutArg:.+]] = alloca %class.Parent
-// CHECK: %[[OutThisPtr:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0
-// CHECK: call void @"\01?lib_func2{{[@$?.A-Za-z0-9_]+}}"(%class.Parent* %[[OutArg]])
-// Make sure copy-out.
-// CHECK: %[[OutThisCpyPtr:.+]] = bitcast %class.Parent* %[[OutThisPtr]] to i8*
-// CHECK: %[[OutArgCpyPtr:.+]] = bitcast %class.Parent* %[[OutArg]] to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[OutThisCpyPtr]], i8* %[[OutArgCpyPtr]], i64 8, i32 1, i1 false)
+// `foo` calls `lib_func2` and copies out the temporary. Derived to base copies
+// should probably always happen since HLSL doesn't have any real support for
+// dynamic typing.
 
-// CHECK-LABEL: define linkonce_odr void @"\01?bar{{[@$?.A-Za-z0-9_]+}}"(%class.Child* %this)
-// CHECK: %[[InOutArg:.+]] = alloca %class.Parent
-// CHECK: %[[InOutThisPtr:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0
+// CHECK-LABEL: define linkonce_odr void @"\01?foo@
+// CHECK-SAME: (%class.Child* [[this:%.+]])
+// Create a temporary.
+// CHECK: [[OutArg:%.+]] = alloca %class.Parent
+// CHECK: [[OutThisPtr:%.+]] = bitcast %class.Child* [[this]] to %class.Parent*
 
-// Make sure copy-in.
-// CHECK: %[[InOutArgCpyPtr:.+]] = bitcast %class.Parent* %[[InOutArg]] to i8*
-// CHECK: %[[InOutThisCpyPtr:.+]] = bitcast %class.Parent* %[[InOutThisPtr]] to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[InOutArgCpyPtr]], i8* %[[InOutThisCpyPtr]], i64 8, i32 1, i1 false)
+// Call lib_func2 with the temporary.
+// CHECK: call void @"\01?lib_func2
+// CHECK-SAME: (%class.Parent* dereferenceable(8) [[OutArg]])
 
-// The call.
-// CHECK: call void @"\01?lib_func3{{[@$?.A-Za-z0-9_]+}}"(%class.Parent* %[[InOutArg]])
+// Copy the temporary back to the `this` object.
+// CHECK: [[OutThisCpyPtr:%.+]] = bitcast %class.Parent* [[OutThisPtr]] to i8*
+// CHECK: [[OutArgCpyPtr:%.+]] = bitcast %class.Parent* [[OutArg]] to i8*
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[OutThisCpyPtr]], i8* [[OutArgCpyPtr]], i64 8, i32 1, i1 false)
 
-// Make sure copy-out.
-// CHECK: %[[InOutThisCpyOutPtr:.+]] = bitcast %class.Parent* %[[InOutThisPtr]] to i8*
-// CHECK: %[[InOutArgCpyOutPtr:.+]] = bitcast %class.Parent* %[[InOutArg]] to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[InOutThisCpyOutPtr]], i8* %[[InOutArgCpyOutPtr]], i64 8, i32 1, i1 false)
+// `bar` calls `lib_func_3` with `this` as an `inout` parameter, so it needs to
+// be initialized first, then copied back after the call.
 
-// CHECK-LABEL: define linkonce_odr i32 @"\01?foo{{[@$?.A-Za-z0-9_]+}}"(%class.Child* %this, i32 %a, i32 %b)
+// CHECK-LABEL: define linkonce_odr void @"\01?bar@
+// CHEKC-SAME: (%class.Child* [[this:%.+]])
+// CHECK: [[InOutArg:%.+]] = alloca %class.Parent
+
+// Initialize the temporary from `this`.
+// CHECK-DAG: [[ThisIPtr:%.+]] = getelementptr inbounds %class.Child, %class.Child* [[this]], i32 0, i32 0, i32 0
+// CHECK-DAG: [[ThisFPtr:%.+]] = getelementptr inbounds %class.Child, %class.Child* [[this]], i32 0, i32 0, i32 1
+// CHECK-DAG: [[ThisI:%.+]] = load i32, i32* [[ThisIPtr]]
+// CHECK-DAG: [[ThisF:%.+]] = load float, float* [[ThisFPtr]]
+// CHECK-DAG: [[TmpIPtr:%.+]] = getelementptr inbounds %class.Parent, %class.Parent* [[InOutArg]], i32 0, i32 0
+// CHECK-DAG: [[TmpFPtr:%.+]] = getelementptr inbounds %class.Parent, %class.Parent* [[InOutArg]], i32 0, i32 1
+// CHECK-DAG: store i32 [[ThisI]], i32* [[TmpIPtr]]
+// CHECK-DAG: store float [[ThisF]], float* [[TmpFPtr]]
+
+// Call lib_func3 with the temporary.
+// CHECK-DAG: call void @"\01?lib_func3@{{[@$?.A-Za-z0-9_]+}}"(%class.Parent* dereferenceable(8) [[InOutArg]])
+
+// Copy back the temporary to `this`. There is a redundant bitcast here due to
+// the aggregate copy trying to match the target type before the memcpy is
+// generated. This could be removed in the future.
+
+// CHECK-DAG: [[ThisCastParent:%.+]] = bitcast %class.Child* [[this]] to %class.Parent*
+// CHECK-DAG: [[ThisCastI8:%.+]] = bitcast %class.Parent* [[ThisCastParent]] to i8*
+// CHECK-DAG: [[TmpCastI8:%.+]] = bitcast %class.Parent* [[InOutArg]] to i8*
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[ThisCastI8]], i8* [[TmpCastI8]], i64 8, i32 1, i1 false)
+
+
+// CHECK-LABEL: define linkonce_odr i32 @"\01?foo@
+// CHECK-SAME: (%class.Child* [[this:%.+]], i32 [[a:%.+]], i32 [[b:%.+]])
 // CHECK: %[[Arg:.+]] = alloca %class.Parent
-// CHECK: %[[Tmp:.+]] = alloca %class.Parent, align 4
 
-// Make sure this is copy to agg tmp.
-// CHECK: %[[PtrI:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0, i32 0
-// CHECK: %[[PtrJ:.+]] = getelementptr inbounds %class.Child, %class.Child* %this, i32 0, i32 0, i32 1
-// CHECK: %[[I:.+]] = load i32, i32* %[[PtrI]]
-// CHECK: %[[J:.+]] = load float, float* %[[PtrJ]]
-// CHECK: %[[TmpPtrI:.+]] = getelementptr inbounds %class.Parent, %class.Parent* %[[Tmp]], i32 0, i32 0
-// CHECK: %[[TmpPtrJ:.+]] = getelementptr inbounds %class.Parent, %class.Parent* %[[Tmp]], i32 0, i32 1
-// CHECK: store i32 %[[I]], i32* %[[TmpPtrI]]
-// CHECK: store float %[[J]], float* %[[TmpPtrJ]]
+// Initialize the temporary from `this`.
+// CHECK-DAG: [[ThisIPtr:%.+]] = getelementptr inbounds %class.Child, %class.Child* [[this]], i32 0, i32 0, i32 0
+// CHECK-DAG: [[ThisFPtr:%.+]] = getelementptr inbounds %class.Child, %class.Child* [[this]], i32 0, i32 0, i32 1
+// CHECK-DAG: [[ThisI:%.+]] = load i32, i32* [[ThisIPtr]]
+// CHECK-DAG: [[ThisF:%.+]] = load float, float* [[ThisFPtr]]
+// CHECK-DAG: [[TmpIPtr:%.+]] = getelementptr inbounds %class.Parent, %class.Parent* [[InOutArg]], i32 0, i32 0
+// CHECK-DAG: [[TmpFPtr:%.+]] = getelementptr inbounds %class.Parent, %class.Parent* [[InOutArg]], i32 0, i32 1
+// CHECK-DAG: store i32 [[ThisI]], i32* [[TmpIPtr]]
+// CHECK-DAG: store float [[ThisF]], float* [[TmpFPtr]]
 
-// Make sure Tmp copy to Arg.
-// CHECK: %[[ArgPtr:.+]] = bitcast %class.Parent* %[[Arg]] to i8*
-// CHECK: %[[TmpPtr:.+]] = bitcast %class.Parent* %[[Tmp]] to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* %[[ArgPtr]], i8* %[[TmpPtr]], i64 8, i32 1, i1 false)
-
-// Use Arg to call lib_func.
-// CHECK: call i32 @"\01?lib_func{{[@$?.A-Za-z0-9_]+}}"(%class.Parent* %[[Arg]], i32 %{{.*}}, i32 %{{.*}})
+// Use the temporary to call lib_func.
+// CHECK: call i32 @"\01?lib_func@
+// CHECK-SAME: (%class.Parent* %[[Arg]], i32 %{{.*}}, i32 %{{.*}})
 
 class Parent
 {

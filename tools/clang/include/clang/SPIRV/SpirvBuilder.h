@@ -186,6 +186,9 @@ public:
   SpirvCopyObject *createCopyObject(QualType resultType,
                                     SpirvInstruction *pointer, SourceLocation);
 
+  SpirvCopyMemory *createCopyMemory(QualType resultType, SpirvInstruction *src,
+                                   SpirvInstruction *dst, SourceLocation loc);
+
   /// \brief Creates a store sequence storing the given value into the given
   /// address. Returns the instruction pointer for the store instruction.
   /// This function handles storing to bitfields.

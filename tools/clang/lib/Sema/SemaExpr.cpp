@@ -45,6 +45,7 @@
 #include "clang/Sema/Template.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
+#include "HLSLOutParamBuilder.h" // HLSL Change
 using namespace clang;
 using namespace sema;
 
@@ -515,7 +516,7 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E) {
     }
     E = ImpCastExprToType(E, Context.getPointerType(Ty),
                           CK_FunctionToPointerDecay).get();
-  } else if (Ty->isArrayType() && !getLangOpts().HLSL) { // HLSL Change - HLSL does not have pointers; do not decay arrays
+  } else if (Ty->isArrayType()) {
     // In C90 mode, arrays only promote to pointers if the array expression is
     // an lvalue.  The relevant legalese is C90 6.2.2.1p3: "an lvalue that has
     // type 'array of type' is converted to an expression that has type 'pointer
@@ -4285,27 +4286,15 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
     // wasn't promoted because of the C90 rule that doesn't
     // allow promoting non-lvalue arrays.  Warn, then
     // force the promotion here.
-    // HLSL Change Starts - arrays won't decay
-    if (getLangOpts().HLSL) {
-      BaseExpr = LHSExp;
-      IndexExpr = RHSExp;
-      ResultType = LHSTy->getAsArrayTypeUnsafe()->getElementType();
-      // We need to make sure to preserve qualifiers on array types, since these
-      // are in effect references.
-      if (LHSTy.hasQualifiers())
-        ResultType.setLocalFastQualifiers(LHSTy.getQualifiers().getFastQualifiers());
-    } else {
-    // HLSL Change Ends
-      Diag(LHSExp->getLocStart(), diag::ext_subscript_non_lvalue) <<
-          LHSExp->getSourceRange();
-      LHSExp = ImpCastExprToType(LHSExp, Context.getArrayDecayedType(LHSTy),
-                                 CK_ArrayToPointerDecay).get();
-      LHSTy = LHSExp->getType();
+    Diag(LHSExp->getLocStart(), diag::ext_subscript_non_lvalue) <<
+        LHSExp->getSourceRange();
+    LHSExp = ImpCastExprToType(LHSExp, Context.getArrayDecayedType(LHSTy),
+                               CK_ArrayToPointerDecay).get();
+    LHSTy = LHSExp->getType();
 
-      BaseExpr = LHSExp;
-      IndexExpr = RHSExp;
-      ResultType = LHSTy->getAs<PointerType>()->getPointeeType();
-    } // HLSL Change - end else block
+    BaseExpr = LHSExp;
+    IndexExpr = RHSExp;
+    ResultType = LHSTy->getAs<PointerType>()->getPointeeType();
   } else if (RHSTy->isArrayType()) {
     // Same as previous, except for 123[f().a] case
     Diag(RHSExp->getLocStart(), diag::ext_subscript_non_lvalue) <<
@@ -4640,6 +4629,7 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
   unsigned NumParams = Proto->getNumParams();
   bool Invalid = false;
   unsigned ArgIx = 0;
+  HLSLOutParamBuilder HLSLBuilder; // HLSL Change
   // Continue to check argument types (even if we have too few/many args).
   for (unsigned i = FirstParam; i < NumParams; i++) {
     QualType ProtoArgType = Proto->getParamType(i);
@@ -4676,12 +4666,27 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
       if (CFAudited)
         Entity.setParameterCFAudited();
 
-      ExprResult ArgE = PerformCopyInitialization(
-          Entity, SourceLocation(), Arg, IsListInitialization, AllowExplicit);
-      if (ArgE.isInvalid())
-        return true;
+      // HLSL Change begin
+      // If this is a constant sized array and not an oputput, generate an array
+      // temporary expression here rather than an RValue cast.
+      if (ProtoArgType->isConstantArrayType() && !Param->isModifierOut())
+        Arg = HLSLArrayTemporaryExpr::Create(getASTContext(), Arg);
+      // HLSL Change end
 
-      Arg = ArgE.getAs<Expr>();
+      // HLSL Change Begin - Optimize out parameters.
+      if (Param->isModifierOut()) {
+        ExprResult ArgE = HLSLBuilder.Create(*this, Param, Arg);
+        if (ArgE.isInvalid())
+          return true; // TODO: Emit an error!
+        Arg = ArgE.getAs<Expr>();
+      } else {
+        ExprResult ArgE = PerformCopyInitialization(
+            Entity, SourceLocation(), Arg, IsListInitialization, AllowExplicit);
+        if (ArgE.isInvalid())
+          return true;
+        Arg = ArgE.getAs<Expr>();
+      }
+      // HLSL Change End - Optimize out paramters.
     } else {
       assert(Param && "can't use default arguments without a known callee");
 

@@ -22,12 +22,15 @@ float4 main() : SV_Target {
 
 // bar should be called with a copy of st.a.
 // CHECK: define <4 x float> @main()
-// CHECK: [[a:%[0-9A-Z]+]] = getelementptr inbounds %"$Globals", %"$Globals"* {{%[0-9A-Z]+}}, i32 0, i32 0, i32 0
-// CHECK: call <4 x float> @"\01?bar{{[@$?.A-Za-z0-9_]+}}"([32 x <4 x float>]* [[a]])
+// CHECK-DAG: [[tmp:%[0-9A-Za-z.]+]] = alloca [32 x <4 x float>], align 4
+// CHECK-DAG: [[global:%[0-9]+]] = getelementptr inbounds %"$Globals", %"$Globals"* %2, i32 0, i32 0, i32 0
+// CHECK-DAG: [[dstPtr:%[0-9]+]] = bitcast [32 x <4 x float>]* [[tmp]] to i8*
+// CHECK-DAG: [[srcPtr:%[0-9]+]] = bitcast [32 x <4 x float>]* [[global]] to i8*
+// CHECK-DAG: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[dstPtr]], i8* [[srcPtr]], i64 512, i32 1, i1 false)
+// CHECK: call <4 x float> @"\01?bar{{[@$?.A-Za-z0-9_]+}}"([32 x <4 x float>]* [[tmp]])
 
-// Bug: Because a isn't marked noalias, we are generating copies for it.
 // CHECK: define internal <4 x float> @"\01?bar{{[@$?.A-Za-z0-9_]+}}"([32 x <4 x float>]* [[a:%[0-9a]+]]) #1 {
-// CHECK: [[Tmpa:%[0-9A-Z]+]] = alloca [32 x <4 x float>]
+// CHECK: [[Tmpa:%[0-9A-Za-z.]+]] = alloca [32 x <4 x float>]
 // CHECK: [[TmpaPtr:%[0-9A-Z]+]] = bitcast [32 x <4 x float>]* [[Tmpa]] to i8*
 // CHECK: [[aPtr:%[0-9A-Z]+]] = bitcast [32 x <4 x float>]* [[a]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[TmpaPtr]], i8* [[aPtr]], i64 512, i32 1, i1 false)

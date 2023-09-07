@@ -101,6 +101,7 @@ public:
     IK_CompositeExtract,         // OpCompositeExtract
     IK_CompositeInsert,          // OpCompositeInsert
     IK_CopyObject,               // OpCopyObject
+    IK_CopyMemory,               // OpCopyObject
     IK_DemoteToHelperInvocation, // OpDemoteToHelperInvocation
     IK_IsHelperInvocationEXT,    // OpIsHelperInvocationEXT
     IK_ExtInst,                  // OpExtInst
@@ -1724,6 +1725,30 @@ public:
 
 private:
   SpirvInstruction *pointer;
+};
+
+/// \brief OpCopyMemory instruction
+class SpirvCopyMemory : public SpirvInstruction {
+public:
+  SpirvCopyMemory(QualType resultType, SourceLocation loc,
+                  SpirvInstruction *src, SpirvInstruction *dst);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCopyMemory)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_CopyMemory;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getSource() const { return source; }
+
+  SpirvInstruction *getDestination() const { return destination; }
+
+private:
+  SpirvInstruction *source;
+  SpirvInstruction *destination;
 };
 
 /// \brief OpSampledImage instruction

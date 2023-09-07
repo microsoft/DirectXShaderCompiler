@@ -89,6 +89,8 @@ def PseudoObjectExpr : DStmt<Expr>;
 def ExtMatrixElementExpr : DStmt<Expr>;
 def HLSLVectorElementExpr : DStmt<Expr>;
 def DiscardStmt : Stmt;
+def HLSLOutParamExpr : DStmt<Expr>;
+def HLSLArrayTemporaryExpr : DStmt<Expr>;
 // HLSL Change Ends
 
 // Atomic expressions

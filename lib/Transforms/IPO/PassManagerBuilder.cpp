@@ -345,8 +345,6 @@ void PassManagerBuilder::populateModulePassManager(
       if (HLSLEnableDebugNops) MPM.add(createDxilInsertPreservesPass(HLSLAllowPreserveValues)); // HLSL Change - insert preserve instructions
 
     if (Inliner) {
-      MPM.add(createHLLegalizeParameter()); // HLSL Change - legalize parameters
-                                            // before inline.
       MPM.add(Inliner);
       Inliner = nullptr;
     }
@@ -406,7 +404,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
-  MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
   if (HLSLEarlyInlining && Inliner) {
     MPM.add(Inliner);
     Inliner = nullptr;

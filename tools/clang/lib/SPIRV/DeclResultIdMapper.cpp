@@ -720,7 +720,7 @@ SemanticInfo DeclResultIdMapper::getStageVarSemantic(const NamedDecl *decl) {
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
                                               SpirvInstruction *storedValue,
                                               bool forPCF) {
-  QualType type = getTypeOrFnRetType(decl);
+  QualType type = getTypeOrFnRetType(decl).getNonReferenceType();
   uint32_t arraySize = 0;
 
   // Output stream types (PointStream, LineStream, TriangleStream) are
@@ -2427,6 +2427,10 @@ bool DeclResultIdMapper::createStageVars(
     QualType type, uint32_t arraySize, const llvm::StringRef namePrefix,
     llvm::Optional<SpirvInstruction *> invocationId, SpirvInstruction **value,
     bool noWriteBack, SemanticInfo *inheritSemantic) {
+  
+  // Look through references for stage variables.
+  type = type.getNonReferenceType();
+  
   assert(value);
   // invocationId should only be used for handling HS per-vertex output.
   if (invocationId.hasValue()) {

@@ -120,9 +120,6 @@ void initializeCleanupDxBreakPass(llvm::PassRegistry&);
 FunctionPass *createDxilLoopDeletionPass(bool NoSink);
 void initializeDxilLoopDeletionPass(llvm::PassRegistry &);
 
-ModulePass *createHLLegalizeParameter();
-void initializeHLLegalizeParameterPass(llvm::PassRegistry &);
-
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 
 ModulePass *createDxilNoOptLegalizePass();

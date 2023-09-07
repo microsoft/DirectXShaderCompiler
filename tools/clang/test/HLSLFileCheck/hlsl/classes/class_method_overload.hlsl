@@ -1,11 +1,10 @@
 // RUN: %dxc -T vs_6_0 -E main %s -ast-dump | FileCheck %s
 
-// CHECK: FunctionDecl {{.*}} used CallMethod 'uint (__restrict MyClass)'
+// CHECK: FunctionDecl {{.*}} used CallMethod 'uint (MyClass &__restrict)'
 // CHECK: CXXMemberCallExpr
 // CHECK-NEXT: MemberExpr {{.*}} .Method
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'MyClass' lvalue <NoOp>
 // CHECK-NEXT: DeclRefExpr
-// CHECK-SAME: '__restrict MyClass' lvalue ParmVar 0x{{[0-9a-zA-Z]+}} 'c' '__restrict MyClass'
+// CHECK-SAME: 'MyClass' lvalue ParmVar 0x{{[0-9a-zA-Z]+}} 'c' 'MyClass &__restrict'
 
 class MyClass {
   uint Method(uint2 u2) { return u2.y * 2; }
