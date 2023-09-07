@@ -23,6 +23,17 @@ void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
     spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
 }
 
+void CapabilityVisitor::addExtensionAndCapabilitiesIfEnabled(
+    Extension ext, llvm::ArrayRef<spv::Capability> capabilities) {
+  if (featureManager.isExtensionEnabled(ext)) {
+    addExtension(ext, "", {});
+
+    for (auto cap : capabilities) {
+      addCapability(cap);
+    }
+  }
+}
+
 void CapabilityVisitor::addCapability(spv::Capability cap, SourceLocation loc) {
   if (cap != spv::Capability::Max) {
     spvBuilder.requireCapability(cap, loc);
@@ -869,6 +880,14 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // supports only some capabilities. This list should be expanded to match the
   // supported capabilities.
   addCapability(spv::Capability::MinLod);
+
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::EXT_fragment_shader_interlock,
+      {
+          spv::Capability::FragmentShaderSampleInterlockEXT,
+          spv::Capability::FragmentShaderPixelInterlockEXT,
+          spv::Capability::FragmentShaderShadingRateInterlockEXT,
+      });
   return true;
 }
 

@@ -14,6 +14,13 @@
 #include "DxcPixTypes.h"
 #include "DxilDiaSession.h"
 
+static CA2W GetTypeNameOrDefault(llvm::DIType *diType) {
+  auto stringRef = diType->getName();
+  if (stringRef.empty())
+    return CA2W("<unnamed>");
+  return CA2W(stringRef.data());
+}
+
 HRESULT dxil_debug_info::CreateDxcPixType(
     DxcPixDxilDebugInfo *pDxilDebugInfo,
     llvm::DIType *diType,
@@ -87,7 +94,9 @@ STDMETHODIMP dxil_debug_info::DxcPixConstType::GetName(BSTR *Name) {
   CComBSTR BaseName;
   IFR(BaseType->GetName(&BaseName));
 
-  *Name = CComBSTR((L"const " + std::wstring(BaseName)).c_str()).Detach();
+  *Name =
+      CComBSTR((L"const " + std::wstring(BaseName)).c_str())
+          .Detach();
   return S_OK;
 }
 
@@ -102,8 +111,10 @@ STDMETHODIMP dxil_debug_info::DxcPixConstType::UnAlias(IDxcPixType **ppType) {
   return CreateDxcPixType(m_pDxilDebugInfo, m_pBaseType, ppType);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixTypedefType::GetName(BSTR *Name) {
-  *Name = CComBSTR(CA2W(m_pType->getName().data())).Detach();
+STDMETHODIMP dxil_debug_info::DxcPixTypedefType::GetName(BSTR *Name)
+{
+  *Name =
+      CComBSTR(GetTypeNameOrDefault(m_pType)).Detach();
   return S_OK;
 }
 
@@ -118,8 +129,10 @@ STDMETHODIMP dxil_debug_info::DxcPixTypedefType::UnAlias(IDxcPixType **ppType) {
   return CreateDxcPixType(m_pDxilDebugInfo, m_pBaseType, ppType);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixScalarType::GetName(BSTR *Name) {
-  *Name = CComBSTR(CA2W(m_pType->getName().data())).Detach();
+STDMETHODIMP dxil_debug_info::DxcPixScalarType::GetName(BSTR *Name)
+{
+  *Name =
+      CComBSTR(GetTypeNameOrDefault(m_pType)).Detach();
   return S_OK;
 }
 
@@ -135,8 +148,9 @@ STDMETHODIMP dxil_debug_info::DxcPixScalarType::UnAlias(IDxcPixType **ppType) {
   return S_FALSE;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(BSTR *Name) {
-  CComBSTR name(CA2W(m_pBaseType->getName().data()));
+STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(BSTR *Name)
+{
+  CComBSTR name(GetTypeNameOrDefault(m_pBaseType));
   name.Append(L"[]");
   *Name = name.Detach();
   return S_OK;
@@ -197,8 +211,10 @@ dxil_debug_info::DxcPixArrayType::GetElementType(IDxcPixType **ppElementType) {
   return CreateDxcPixType(m_pDxilDebugInfo, m_pBaseType, ppElementType);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructType::GetName(BSTR *Name) {
-  *Name = CComBSTR(CA2W(m_pStruct->getName().data())).Detach();
+STDMETHODIMP dxil_debug_info::DxcPixStructType::GetName(BSTR *Name)
+{
+  *Name =
+      CComBSTR(GetTypeNameOrDefault(m_pStruct)).Detach();
   return S_OK;
 }
 
@@ -318,8 +334,10 @@ dxil_debug_info::DxcPixStructType::GetBaseType(IDxcPixType **ppType) {
   return E_NOINTERFACE;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructField::GetName(BSTR *Name) {
-  *Name = CComBSTR(CA2W(m_pField->getName().data())).Detach();
+STDMETHODIMP dxil_debug_info::DxcPixStructField::GetName(BSTR *Name) 
+{
+  *Name =
+      CComBSTR(GetTypeNameOrDefault(m_pField)).Detach();
   return S_OK;
 }
 

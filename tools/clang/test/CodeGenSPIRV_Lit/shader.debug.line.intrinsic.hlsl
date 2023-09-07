@@ -82,8 +82,8 @@ void main() {
 // CHECK:                     DebugLine [[src]] %uint_87 %uint_87 %uint_35 %uint_47
 // CHECK-NEXT: [[idx:%[0-9]+]] = OpIAdd %uint
 // CHECK:                     DebugLine [[src]] %uint_87 %uint_87 %uint_3 %uint_48
-// CHECK-NEXT: [[v4i_0_0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %v4i %int_0
-// CHECK-NEXT:                OpStore [[v4i_0_0]] {{%[0-9]+}}
+// CHECK-NEXT: [[v4i_1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %v4i %int_0
+// CHECK-NEXT:                OpStore [[v4i_1]] {{%[0-9]+}}
   v4i.x = NonUniformResourceIndex(v4i.y + v4i.z);
 
 // CHECK:      DebugLine [[src]] %uint_93 %uint_93 %uint_11 %uint_39

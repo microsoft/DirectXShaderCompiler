@@ -133,11 +133,33 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
 
   auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
-  for (auto * F : instrumentableFunctions) {
+  for (auto *F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        AnnotateValues(&I);
+      }
+    }
+  }
+
+  for (auto *F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        AnnotateStore(&I);
+      }
+    }
+  }
+
+  for (auto *F : instrumentableFunctions) {
     int InstructionRangeStart = InstNum;
     int InstructionRangeEnd = InstNum;
     for (auto &block : F->getBasicBlockList()) {
       for (llvm::Instruction &I : block.getInstList()) {
+        // If the instruction is part of the debug value instrumentation added by this pass, 
+        // it doesn't need to be instrumented for the PIX user.
+        uint32_t unused1, unused2;
+        if (auto *Alloca = llvm::dyn_cast<llvm::AllocaInst>(&I))
+            if (PixAllocaReg::FromInst(Alloca, &unused1, &unused2))
+                continue;
         if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
           pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
           InstructionRangeEnd = InstNum;
@@ -161,22 +183,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     if (m_DM->GetShaderModel()->GetKind() == hlsl::ShaderModel::Kind::Library)
         *OSOverride << "\nIsLibrary\n";
     *OSOverride << "\nInstructionCount:" << InstNum << "\n";
-  }
-
-  for (auto * F : instrumentableFunctions) {
-    for (auto &block : F->getBasicBlockList()) {
-      for (llvm::Instruction &I : block.getInstList()) {
-        AnnotateValues(&I);
-      }
-    }
-  }
-
-  for (auto * F : instrumentableFunctions) {
-    for (auto &block : F->getBasicBlockList()) {
-      for (llvm::Instruction &I : block.getInstList()) {
-        AnnotateStore(&I);
-      }
-    }
   }
 
   m_DM = nullptr;
