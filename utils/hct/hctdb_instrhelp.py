@@ -1451,6 +1451,7 @@ class DxilInstructionWrapper:
         self.dxil_inst = dxil_inst # db_dxil_inst type, defined in hctdb.py
         self.name = dxil_inst.name
         self.fn_attr = dxil_inst.fn_attr
+        self.wave = dxil_inst.is_wave # bool
         self.ret_type = ""
         self.args = []
         self.set_ret_type_and_args(dxil_inst)
@@ -1471,9 +1472,9 @@ class HLOperationWrapper:
     def __init__(self, hl_op):
         self.hl_op = hl_op # db_hlsl_intrinsic type, defined in hctdb.py
         self.name = hl_op.name
-        self.readnone = hl_op.readnone
-        self.readonly = hl_op.readonly
-        self.wave = hl_op.wave
+        self.fn_attr = "rn" if hl_op.readnone else ""
+        self.fn_attr += "ro" if hl_op.readonly else ""        
+        self.wave = hl_op.wave # bool
         self.ret_type = ""
         self.args = []
         self.set_ret_type_and_args(hl_op)
