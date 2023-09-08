@@ -146,7 +146,9 @@ public:
   }
 
   virtual HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName, IEnumSTATSTG** pResult) override {
-    STATSTG items[] = {{const_cast<wchar_t *>(L"filename.hlsl"),
+    wchar_t hlslName[] = L"filename.hlsl";
+    wchar_t fxName[] = L"filename2.fx";
+    STATSTG items[] = {{hlslName,
                         STGTY_STREAM,
                         {{0, 0}},
                         {0, 0},
@@ -157,7 +159,7 @@ public:
                         GUID_NULL,
                         0,
                         0},
-                       {const_cast<wchar_t *>(L"filename2.fx"),
+                       {fxName,
                         STGTY_STREAM,
                         {{0, 0}},
                         {0, 0},

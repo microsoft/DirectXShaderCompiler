@@ -374,8 +374,12 @@ if( MSVC )
       add_flag_if_supported("-Wno-unused-but-set-variable" UNUSED_BUT_SET_VARIABLE)
       append("-Wno-switch" CMAKE_CXX_FLAGS)
 
-      append("-Wno-missing-field-initializers" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-	  endif (CLANG_CL)
+      append("-Wmissing-field-initializers" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+      # enable warnings explicitly.
+      append("-Wnonportable-include-path -Wunused-function" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wtrigraphs -Wconstant-logical-operand -Wunused-variable" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    endif (CLANG_CL)
   endif (LLVM_ENABLE_WARNINGS)
   if (LLVM_ENABLE_WERROR)
     append("/WX" msvc_warning_flags)

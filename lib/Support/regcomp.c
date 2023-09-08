@@ -50,7 +50,7 @@
 #include "regcname.h"
 
 #include "llvm/Config/config.h"
-#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_FALLTHROUGH
+#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_C_FALLTHROUGH
 #if HAVE_STDINT_H
 #include <stdint.h>
 #else
@@ -63,8 +63,8 @@
  * other clumsinesses
  */
 struct parse {
-	char *next;		/* next character in RE */
-	char *end;		/* end of string (-> NUL normally) */
+	const char *next;	/* next character in RE */
+	const char *end;	/* end of string (-> NUL normally) */
 	int error;		/* has an error been seen? */
 	sop *strip;		/* malloced strip */
 	sopno ssize;		/* malloced strip size (allocated) */
@@ -202,7 +202,7 @@ llvm_regcomp(llvm_regex_t *preg, const char *pattern, int cflags)
 
 	/* set things up */
 	p->g = g;
-	p->next = (char *)pattern;	/* convenience; we do not modify it */
+	p->next = pattern;	/* convenience; we do not modify it */
 	p->end = p->next + len;
 	p->error = 0;
 	p->ncsalloc = 0;
@@ -412,7 +412,7 @@ p_ere_exp(struct parse *p)
 	case '{':		/* okay as ordinary except if digit follows */
 		REQUIRE(!MORE() || !isdigit((uch)PEEK()), REG_BADRPT);
 		/* FALLTHROUGH */
-		LLVM_FALLTHROUGH; // HLSL Change
+		LLVM_C_FALLTHROUGH; // HLSL Change
 	default:
 		ordinary(p, c);
 		break;
@@ -609,7 +609,7 @@ p_simp_re(struct parse *p,
 	case '*':
 		REQUIRE(starordinary, REG_BADRPT);
 		/* FALLTHROUGH */
-		LLVM_FALLTHROUGH; // HLSL Change
+		LLVM_C_FALLTHROUGH; // HLSL Change
 	default:
 		ordinary(p, (char)c);
 		break;
@@ -813,7 +813,7 @@ p_b_term(struct parse *p, cset *cs)
 static void
 p_b_cclass(struct parse *p, cset *cs)
 {
-	char *sp = p->next;
+	const char *sp = p->next;
 	struct cclass *cp;
 	size_t len;
 	const char *u;
@@ -877,7 +877,7 @@ static char			/* value of collating element */
 p_b_coll_elem(struct parse *p,
     int endc)			/* name ended by endc,']' */
 {
-	char *sp = p->next;
+	const char *sp = p->next;
 	struct cname *cp;
 	int len;
 
@@ -921,8 +921,8 @@ othercase(int ch)
 static void
 bothcases(struct parse *p, int ch)
 {
-	char *oldnext = p->next;
-	char *oldend = p->end;
+	const char *oldnext = p->next;
+	const char *oldend = p->end;
 	char bracket[3];
 
 	ch = (uch)ch;
@@ -963,8 +963,8 @@ ordinary(struct parse *p, int ch)
 static void
 nonnewline(struct parse *p)
 {
-	char *oldnext = p->next;
-	char *oldend = p->end;
+	const char *oldnext = p->next;
+	const char *oldend = p->end;
 	char bracket[4];
 
 	p->next = bracket;
@@ -1515,7 +1515,7 @@ findmust(struct parse *p, struct re_guts *g)
 				}
 			} while (OP(s) != O_QUEST && OP(s) != O_CH);
 			/* fallthrough */
-			LLVM_FALLTHROUGH; // HLSL Change
+			LLVM_C_FALLTHROUGH; // HLSL Change
 		default:		/* things that break a sequence */
 			if (newlen > g->mlen) {		/* ends one */
 				start = newstart;

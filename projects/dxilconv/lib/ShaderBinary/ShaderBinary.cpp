@@ -298,10 +298,10 @@ void InitInstructionInfo()
 
 void CShaderCodeParser::SetShader(CONST CShaderToken* pBuffer)
 {
-    m_pShaderCode = const_cast<CShaderToken*>(pBuffer);
-    m_pShaderEndToken = (CShaderToken*)pBuffer + pBuffer[1];
+    m_pShaderCode = const_cast<CShaderToken *>(pBuffer);
+    m_pShaderEndToken = const_cast<CShaderToken *>(pBuffer) + pBuffer[1];
     // First OpCode token
-    m_pCurrentToken = (CShaderToken*)&pBuffer[2];
+    m_pCurrentToken = const_cast<CShaderToken *>(&pBuffer[2]);
 }
 
 D3D10_SB_TOKENIZED_PROGRAM_TYPE CShaderCodeParser::ShaderType()
@@ -483,8 +483,8 @@ void CShaderCodeParser::ParseOperand(COperandBase* pOperand)
 void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
 {
     pInstruction->Clear(true);
-    CShaderToken* pStart = m_pCurrentToken;
-    CShaderToken Token = *m_pCurrentToken++;
+    const CShaderToken *pStart = m_pCurrentToken;
+    const CShaderToken Token = *m_pCurrentToken++;
     pInstruction->m_OpCode = DECODE_D3D10_SB_OPCODE_TYPE(Token);
     pInstruction->m_PreciseMask = DECODE_D3D11_SB_INSTRUCTION_PRECISE_VALUES(Token); 
     pInstruction->m_bSaturate = DECODE_IS_D3D10_SB_INSTRUCTION_SATURATE_ENABLED(Token); 
@@ -889,22 +889,22 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         break;
 
     case D3D11_SB_OPCODE_DCL_HS_MAX_TESSFACTOR:
-        pInstruction->m_HSMaxTessFactorDecl.MaxTessFactor = *(float*)m_pCurrentToken;
+        pInstruction->m_HSMaxTessFactorDecl.MaxTessFactor = *(const float*)m_pCurrentToken;
         m_pCurrentToken++;
         break;
 
     case D3D11_SB_OPCODE_DCL_HS_FORK_PHASE_INSTANCE_COUNT:
-        pInstruction->m_HSForkPhaseInstanceCountDecl.InstanceCount = *(UINT*)m_pCurrentToken;
+        pInstruction->m_HSForkPhaseInstanceCountDecl.InstanceCount = *(const UINT*)m_pCurrentToken;
         m_pCurrentToken++;
         break;
     case D3D11_SB_OPCODE_DCL_HS_JOIN_PHASE_INSTANCE_COUNT:
-        pInstruction->m_HSJoinPhaseInstanceCountDecl.InstanceCount = *(UINT*)m_pCurrentToken;
+        pInstruction->m_HSJoinPhaseInstanceCountDecl.InstanceCount = *(const UINT*)m_pCurrentToken;
         m_pCurrentToken++;
         break;
     case D3D11_SB_OPCODE_DCL_THREAD_GROUP:
-        pInstruction->m_ThreadGroupDecl.x = *(UINT*)m_pCurrentToken++;
-        pInstruction->m_ThreadGroupDecl.y = *(UINT*)m_pCurrentToken++;
-        pInstruction->m_ThreadGroupDecl.z = *(UINT*)m_pCurrentToken++;
+        pInstruction->m_ThreadGroupDecl.x = *(const UINT*)m_pCurrentToken++;
+        pInstruction->m_ThreadGroupDecl.y = *(const UINT*)m_pCurrentToken++;
+        pInstruction->m_ThreadGroupDecl.z = *(const UINT*)m_pCurrentToken++;
         break;
     case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED:
         pInstruction->m_TypedUAVDecl.Dimension = DECODE_D3D10_SB_RESOURCE_DIMENSION(Token);
@@ -933,7 +933,7 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
     case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
         pInstruction->m_StructuredUAVDecl.Flags = DECODE_D3D11_SB_RESOURCE_FLAGS(Token);
         ParseOperand(&pInstruction->m_Operands[0]);
-        pInstruction->m_StructuredUAVDecl.ByteStride = *(UINT*)m_pCurrentToken++;
+        pInstruction->m_StructuredUAVDecl.ByteStride = *(const UINT*)m_pCurrentToken++;
         pInstruction->m_StructuredUAVDecl.Space = 0;
         if(b51PlusShader)
         {
@@ -942,12 +942,12 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         break;
     case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
         ParseOperand(&pInstruction->m_Operands[0]);
-        pInstruction->m_RawTGSMDecl.ByteCount = *(UINT*)m_pCurrentToken++;
+        pInstruction->m_RawTGSMDecl.ByteCount = *(const UINT*)m_pCurrentToken++;
         break;
     case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED:
         ParseOperand(&pInstruction->m_Operands[0]);
-        pInstruction->m_StructuredTGSMDecl.StructByteStride = *(UINT*)m_pCurrentToken++;
-        pInstruction->m_StructuredTGSMDecl.StructCount = *(UINT*)m_pCurrentToken++;
+        pInstruction->m_StructuredTGSMDecl.StructByteStride = *(const UINT*)m_pCurrentToken++;
+        pInstruction->m_StructuredTGSMDecl.StructCount = *(const UINT*)m_pCurrentToken++;
         break;
     case D3D11_SB_OPCODE_DCL_RESOURCE_RAW:
         ParseOperand(&pInstruction->m_Operands[0]);       
@@ -959,7 +959,7 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         break;
     case D3D11_SB_OPCODE_DCL_RESOURCE_STRUCTURED:
         ParseOperand(&pInstruction->m_Operands[0]);       
-        pInstruction->m_StructuredSRVDecl.ByteStride = *(UINT*)m_pCurrentToken++;
+        pInstruction->m_StructuredSRVDecl.ByteStride = *(const UINT*)m_pCurrentToken++;
         pInstruction->m_StructuredSRVDecl.Space = 0;
         if(b51PlusShader)
         {

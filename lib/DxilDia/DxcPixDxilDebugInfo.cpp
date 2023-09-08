@@ -63,7 +63,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetFunctionName(
     }
   }
 
-  *ppFunctionName = CComBSTR(L"<###>").Detach();
+  *ppFunctionName = CComBSTR(L"<\?\?\?>").Detach();
   return S_FALSE;
 }
 
