@@ -434,183 +434,168 @@ TEST_F(OptionsTest, SerializeDxilFlags) {
       // ("-Zsb", {"F::IncludeDebugNamePart"}), \
       // ("-FdDbgName.pdb", {"F::IncludeDebugNamePart"}), \
       // ("-Zi", {"F::IncludeDebugNamePart"}), \
-      // ("-Zsb -Qembed_debug -Zi", {"F::IncludeDebugInfoPart","F::IncludeDebugNamePart"}), \
-      // ("-FdDbgName.pdb -Qembed_debug -Zi", {"F::IncludeDebugInfoPart","F::IncludeDebugNamePart"}), \
+      // ("-Zsb -Qembed_debug -Zi",
+  // {"F::IncludeDebugInfoPart","F::IncludeDebugNamePart"}), \
+      // ("-FdDbgName.pdb -Qembed_debug -Zi",
+  // {"F::IncludeDebugInfoPart","F::IncludeDebugNamePart"}), \
       // ("", set())]
 
   SerializeDxilFlagsTest Tests[] = {
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
-    CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect ",
-    CombineFlags({F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zss -Zs",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::DebugNameDependOnSource, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  ",
-    CombineFlags({F::IncludeReflectionPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature  -Qstrip_reflect -Zss -Zs",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature  -Qstrip_reflect -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature  -Qstrip_reflect ",
-    CombineFlags({F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature   -Zss -Zs",
-    CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature   -Zsb",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature   -FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature   -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature   -Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature   -FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::StripRootSignature})
-    },
-    {"-Qstrip_rootsignature   ",
-    CombineFlags({F::IncludeReflectionPart, F::StripReflectionFromDxilPart, F::StripRootSignature})
-    },
-    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
-    CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource})
-    },
-    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
-    CombineFlags({F::IncludeDebugNamePart})
-    },
-    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart})
-    },
-    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
-    CombineFlags({F::IncludeDebugNamePart})
-    },
-    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})
-    },
-    {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})
-    },
-    {"-Qkeep_reflect_in_dxil -Qstrip_reflect ",
-    CombineFlags({SerializeDxilFlags::None})
-    },
-    {"-Qkeep_reflect_in_dxil  -Zss -Zs",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::DebugNameDependOnSource})
-    },
-    {"-Qkeep_reflect_in_dxil  -Zsb",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})
-    },
-    {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})
-    },
-    {"-Qkeep_reflect_in_dxil  -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})
-    },
-    {"-Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart})
-    },
-    {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart, F::IncludeDebugInfoPart})
-    },
-    {"-Qkeep_reflect_in_dxil  ",
-    CombineFlags({F::IncludeReflectionPart})
-    },
-    {"-Qstrip_reflect -Zss -Zs",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource})
-    },
-    {"-Qstrip_reflect -Zsb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})
-    },
-    {"-Qstrip_reflect -FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})
-    },
-    {"-Qstrip_reflect -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})
-    },
-    {"-Qstrip_reflect -Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart})
-    },
-    {"-Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart})
-    },
-    {"-Qstrip_reflect ",
-    CombineFlags({F::StripReflectionFromDxilPart})
-    },
-    {"-Zss -Zs",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::DebugNameDependOnSource, F::IncludeReflectionPart})
-    },
-    {"-Zsb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
-    },
-    {"-FdDbgName.pdb",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
-    },
-    {"-Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
-    },
-    {"-Zsb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::IncludeReflectionPart})
-    },
-    {"-FdDbgName.pdb -Qembed_debug -Zi",
-    CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart, F::IncludeReflectionPart})
-    },
-    {"",
-    CombineFlags({F::StripReflectionFromDxilPart, F::IncludeReflectionPart})
-    }
-  };
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect "
+       "-FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb "
+       "-Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect "
+       "-FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect ",
+       CombineFlags({F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::DebugNameDependOnSource, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb "
+       "-Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  ",
+       CombineFlags({F::IncludeReflectionPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::DebugNameDependOnSource, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb -Qembed_debug "
+       "-Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect ",
+       CombineFlags({F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zss -Zs",
+       CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart,
+                     F::StripReflectionFromDxilPart, F::DebugNameDependOnSource,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart,
+                     F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart,
+                     F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature   ",
+       CombineFlags({F::IncludeReflectionPart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb -Qembed_debug "
+       "-Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect ",
+       CombineFlags({SerializeDxilFlags::None})},
+      {"-Qkeep_reflect_in_dxil  -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::DebugNameDependOnSource})},
+      {"-Qkeep_reflect_in_dxil  -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})},
+      {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})},
+      {"-Qkeep_reflect_in_dxil  -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})},
+      {"-Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil  ", CombineFlags({F::IncludeReflectionPart})},
+      {"-Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::DebugNameDependOnSource})},
+      {"-Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})},
+      {"-Qstrip_reflect -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})},
+      {"-Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})},
+      {"-Qstrip_reflect -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qstrip_reflect ", CombineFlags({F::StripReflectionFromDxilPart})},
+      {"-Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::DebugNameDependOnSource, F::IncludeReflectionPart})},
+      {"-Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeReflectionPart})},
+      {"-FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeReflectionPart})},
+      {"-Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeReflectionPart})},
+      {"-Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::IncludeReflectionPart})},
+      {"-FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::IncludeReflectionPart})},
+      {"", CombineFlags(
+               {F::StripReflectionFromDxilPart, F::IncludeReflectionPart})}};
 
   for (const auto &T : Tests) {
     VerifySerializeDxilFlags(T.command, T.flags);
   }
-
 }
