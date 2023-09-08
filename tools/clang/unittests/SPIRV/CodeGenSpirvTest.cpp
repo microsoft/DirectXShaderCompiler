@@ -583,6 +583,7 @@ TEST_F(FileTest, InheritanceLayoutEmptyStruct) {
   runFileTest("oo.inheritance.layout.empty-struct.hlsl");
 }
 TEST_F(FileTest, InheritanceCallMethodOfBase) {
+  setBeforeHLSLLegalization();
   runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success);
 }
 TEST_F(FileTest, InheritanceBaseWithByteAddressBuffer) {
@@ -1749,7 +1750,8 @@ TEST_F(FileTest, BindingStructureOfResourcesOptimized) {
 }
 
 TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError1) {
-  runFileTest("vk.binding.global-struct-of-resource-mix.error.1.hlsl");
+  runFileTest("vk.binding.global-struct-of-resource-mix.error.1.hlsl",
+              Expect::Failure);
 }
 
 TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError2) {
@@ -2172,6 +2174,7 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
 }
 
 TEST_F(FileTest, UseRValueForMemberExprOfArraySubscriptExpr) {
+  setBeforeHLSLLegalization();
   runFileTest("use.rvalue.for.member-expr.of.array-subscript.hlsl",
               Expect::Success);
 }

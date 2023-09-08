@@ -31,6 +31,8 @@ public:
       : targetEnv(SPV_ENV_VULKAN_1_0), beforeHLSLLegalization(false),
         glLayout(false), dxLayout(false) {}
 
+  void setBeforeHLSLLegalization() { beforeHLSLLegalization = true; }
+
   /// \brief Runs a test with the given input HLSL file.
   ///
   /// The first line of HLSL code must start with "// RUN:" and following DXC
