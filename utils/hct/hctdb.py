@@ -1141,7 +1141,7 @@ class db_dxil(object):
         self.add_dxil_op("WaveIsFirstLane", next_op_idx, "WaveIsFirstLane", "returns 1 for the first lane in the wave", "v", "", [
             db_dxil_param(0, "i1", "", "operation result")])
         next_op_idx += 1
-        self.add_dxil_op("WaveGetLaneIndex", next_op_idx, "WaveGetLaneIndex", "returns the index of the current lane in the wave", "v", "rn", [
+        self.add_dxil_op("WaveGetLaneIndex", next_op_idx, "WaveGetLaneIndex", "returns the index of the current lane in the wave", "v", "ro", [
             db_dxil_param(0, "i32", "", "operation result")])
         next_op_idx += 1
         self.add_dxil_op("WaveGetLaneCount", next_op_idx, "WaveGetLaneCount", "returns the number of lanes in the wave", "v", "rn", [
