@@ -866,7 +866,6 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // supports only some capabilities. This list should be expanded to match the
   // supported capabilities.
   addCapability(spv::Capability::MinLod);
-  addCapability(spv::Capability::ImageMSArray);
   return true;
 }
 
