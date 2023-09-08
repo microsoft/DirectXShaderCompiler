@@ -176,7 +176,7 @@ void main() {
 // CHECK-NEXT:                DebugLine [[src]] %uint_180 %uint_180 %uint_20 %uint_43
 // CHECK-NEXT:                OpExtInst %float {{%[0-9]+}} Sqrt [[abs]]
 // CHECK:      DebugLine [[src]] %uint_180 %uint_180 %uint_7 %uint_52
-// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindUMsb
+// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindSMsb
   max(firstbithigh(sqrt(abs(v2f.x * v4f.w)) + v4i.x),
 // CHECK:      DebugLine [[src]] %uint_183 %uint_183 %uint_7 %uint_16
 // CHECK-NEXT: OpExtInst %float {{%[0-9]+}} Cos

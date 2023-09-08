@@ -1060,8 +1060,14 @@ TEST_F(FileTest, IntrinsicsFaceForward) {
 TEST_F(FileTest, IntrinsicsFirstBitHigh) {
   runFileTest("intrinsics.firstbithigh.hlsl");
 }
+TEST_F(FileTest, IntrinsicsFirstBitHigh64bit) {
+  runFileTest("intrinsics.firstbithigh.64bit.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsFirstBitLow) {
   runFileTest("intrinsics.firstbitlow.hlsl");
+}
+TEST_F(FileTest, IntrinsicsFirstBitLow64bit) {
+  runFileTest("intrinsics.firstbitlow.64bit.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsPrintf) { runFileTest("intrinsics.printf.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
