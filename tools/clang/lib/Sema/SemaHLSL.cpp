@@ -15367,12 +15367,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
   if (EntryPointName.empty()) {
     return;
   }
-  
-  // There's no way we should be adding a shader attribute
-  // to a Function Decl if it doesn't even have an identifier
-  if (!FD->getIdentifier()) {
-    return;
-  }
 
   // if this FD isn't the entry point, then we shouldn't add
   // a shader attribute to this decl, so just return
@@ -15390,19 +15384,22 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
   }
 
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
-  // don't add the attribute if it already exists as an attribute on the decl  
+  // Don't add the attribute if it already exists as an attribute on the decl.
+  // In the special case that the target profile is compute and the
+  // entry decl already has a node shader attr, don't do anything
   if (currentShaderAttr) {
     llvm::StringRef currentFullName = currentShaderAttr->getStage();
-    if (currentFullName == fullName) {
+    if (currentFullName == fullName ||
+       (fullName == "compute" && currentFullName == "node")) {
       return;
+    } else {
+      S.Diag(currentShaderAttr->getLocation(),
+             diag::err_hlsl_attribute_mismatch);
+      S.Diag(currentShaderAttr->getLocation(),
+             diag::note_hlsl_attribute_mismatch)
+          << fullName;
     }
-
-    // in the special case that the target profile is compute and the
-    // entry decl already has a node shader attr, don't do anything
-    if (fullName == "compute" && currentShaderAttr->getStage() == "node") {
-      return;
-    }
-  }  
+  }
 
   HLSLShaderAttr *pShaderAttr =
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);

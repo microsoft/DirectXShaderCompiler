@@ -1,7 +1,7 @@
 // RUN: %dxc -T cs_6_0 -E mymain %s | FileCheck %s
 
-// CHECK-DAG: error: Invalid shader stage attribute combination
-// CHECK-DAG: note: See conflicting shader attribute
+// CHECK: error: invalid shader stage attribute combination
+// CHECK: note: implicit attribute from target profile is: compute
 
 [shader("pixel")]
 [numthreads(1, 0, 0)]
