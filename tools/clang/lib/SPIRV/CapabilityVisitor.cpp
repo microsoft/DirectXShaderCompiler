@@ -183,9 +183,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       break;
     }
 
-    if (imageType->isArrayedImage() && imageType->isMSImage())
-      addCapability(spv::Capability::ImageMSArray);
-
     if (const auto *sampledType = imageType->getSampledType()) {
       addCapabilityForType(sampledType, loc, sc);
       if (const auto *sampledIntType = dyn_cast<IntegerType>(sampledType)) {
