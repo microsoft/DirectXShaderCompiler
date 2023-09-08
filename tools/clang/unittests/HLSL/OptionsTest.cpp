@@ -401,8 +401,7 @@ static void VerifySerializeDxilFlags(llvm::StringRef command,
       ReadDxcOpts(optionTable, DxcFlags, argStrings, dxcOpts, errorStream);
   EXPECT_EQ(retVal, 0);
   errorStream.flush();
-  printf("%s\n", errorString.c_str());
-  EXPECT_TRUE(errorString.empty());
+  EXPECT_EQ(errorString.empty(), true);
   EXPECT_EQ(
       static_cast<uint32_t>(hlsl::options::ComputeSerializeDxilFlags(dxcOpts)),
       ExpectFlags);
