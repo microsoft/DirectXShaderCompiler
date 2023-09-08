@@ -121,7 +121,7 @@ STDMETHODIMP dxil_debug_info::DxcPixTypedefType::GetName(
     _Outptr_result_z_ BSTR *Name)
 {
   *Name =
-      CComBSTR(GetTypeNameOrDefault(m_pType)).Detach();
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pType))).Detach();
   return S_OK;
 }
 
@@ -144,7 +144,7 @@ STDMETHODIMP dxil_debug_info::DxcPixScalarType::GetName(
     _Outptr_result_z_ BSTR *Name)
 {
   *Name =
-      CComBSTR(GetTypeNameOrDefault(m_pType)).Detach();
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pType))).Detach();
   return S_OK;
 }
 
@@ -166,7 +166,7 @@ STDMETHODIMP dxil_debug_info::DxcPixScalarType::UnAlias(
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(
     _Outptr_result_z_ BSTR *Name)
 {
-  CComBSTR name(GetTypeNameOrDefault(m_pBaseType));
+  CComBSTR name(CA2W(GetTypeNameOrDefault(m_pBaseType)));
   name.Append(L"[]");
   *Name = name.Detach();
   return S_OK;
@@ -237,7 +237,7 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetName(
     _Outptr_result_z_ BSTR *Name)
 {
   *Name =
-      CComBSTR(GetTypeNameOrDefault(m_pStruct)).Detach();
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pStruct))).Detach();
   return S_OK;
 }
 
@@ -370,7 +370,7 @@ STDMETHODIMP dxil_debug_info::DxcPixStructField::GetName(
     _Outptr_result_z_ BSTR *Name) 
 {
   *Name =
-      CComBSTR(GetTypeNameOrDefault(m_pField)).Detach();
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pField))).Detach();
   return S_OK;
 }
 
