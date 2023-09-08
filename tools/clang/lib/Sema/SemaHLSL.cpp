@@ -15396,13 +15396,13 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
     if (currentFullName == fullName) {
       return;
     }
-  }
 
-  // in the special case that the target profile is compute and the 
-  // entry decl already has a node shader attr, don't do anything
-  if (fullName == "compute" && currentShaderAttr->getStage() == "node") {
-    return;
-  }
+    // in the special case that the target profile is compute and the
+    // entry decl already has a node shader attr, don't do anything
+    if (fullName == "compute" && currentShaderAttr->getStage() == "node") {
+      return;
+    }
+  }  
 
   HLSLShaderAttr *pShaderAttr =
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);
