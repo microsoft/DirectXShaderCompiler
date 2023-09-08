@@ -55,6 +55,11 @@
      COMPATIBLE_LANGOPT_BOOL(Name, Default, Description)
 #endif
 
+// add default LANGOPT_BOOL.
+#ifndef LANGOPT_BOOL
+  #define LANGOPT_BOOL(Name, Default, Description)
+#endif
+
 #ifndef ENUM_LANGOPT
 #  define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
      LANGOPT(Name, Bits, Default, Description)

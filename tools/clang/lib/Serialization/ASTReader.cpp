@@ -210,7 +210,6 @@ static bool checkLanguageOptions(const LangOptions &LangOpts,
     ENUM_LANGOPT(Name, Bits, Default, Description)
 
 #define BENIGN_LANGOPT(Name, Bits, Default, Description)
-#define BENIGN_LANGOPT_BOOL(Name, Default, Description)
 #define BENIGN_ENUM_LANGOPT(Name, Type, Bits, Default, Description)
 #include "clang/Basic/LangOptions.fixed.def"
 
@@ -4454,7 +4453,6 @@ bool ASTReader::ParseLanguageOptions(const RecordData &Record,
 
 #define LANGOPT(Name, Bits, Default, Description) \
   Idx++;
-#define LANGOPT_BOOL(Name, Default, Description) \
 #define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
   Idx++;
 #include "clang/Basic/LangOptions.fixed.def"

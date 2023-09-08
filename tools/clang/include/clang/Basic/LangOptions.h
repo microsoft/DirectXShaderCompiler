@@ -143,7 +143,6 @@ public:
 #else
 
 #define LANGOPT(Name, Bits, Default, Description) 
-#define LANGOPT_BOOL(Name, Default, Description)
 #define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
   Type get##Name() const { return static_cast<Type>(Default); } \
   void set##Name(Type Value) { assert(Value == Default); }  
