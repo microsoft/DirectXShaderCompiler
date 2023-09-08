@@ -583,8 +583,7 @@ TEST_F(FileTest, InheritanceLayoutEmptyStruct) {
   runFileTest("oo.inheritance.layout.empty-struct.hlsl");
 }
 TEST_F(FileTest, InheritanceCallMethodOfBase) {
-  runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success,
-              /* runValidation */ false);
+  runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success);
 }
 TEST_F(FileTest, InheritanceBaseWithByteAddressBuffer) {
   runFileTest("oo.inheritance.base-with-byte-address-buffer.hlsl");
@@ -1746,13 +1745,11 @@ TEST_F(FileTest, AutoShiftBindings) {
 
 TEST_F(FileTest, BindingStructureOfResourcesOptimized) {
   // After optimization is performed, this binary should pass validation.
-  runFileTest("vk.binding.global-struct-of-resources.optimized.hlsl",
-              Expect::Success, /*runValidation*/ true);
+  runFileTest("vk.binding.global-struct-of-resources.optimized.hlsl");
 }
 
 TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError1) {
-  runFileTest("vk.binding.global-struct-of-resource-mix.error.1.hlsl",
-              Expect::Failure, /*runValidation*/ false);
+  runFileTest("vk.binding.global-struct-of-resource-mix.error.1.hlsl");
 }
 
 TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError2) {
@@ -1767,8 +1764,7 @@ TEST_F(FileTest, BindingStructureOfResourcesContainsBufferError) {
 }
 TEST_F(FileTest, BindingStructureOfResourcesPassLegalization) {
   runFileTest("vk.binding.global-struct-of-resources.pass-legalization.hlsl",
-              Expect::Success,
-              /*runValidation*/ true);
+              Expect::Success);
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
@@ -2156,13 +2152,11 @@ TEST_F(FileTest, MeshShadingNVMeshError14) {
 }
 TEST_F(FileTest, MeshShadingNVAmplification) {
   // TODO: Re-enable spirv-val once issue#3006 is fixed.
-  runFileTest("meshshading.nv.amplification.hlsl", Expect::Success,
-              /* runValidation */ false);
+  runFileTest("meshshading.nv.amplification.hlsl", Expect::Success);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
   // TODO: Re-enable spirv-val once issue#3006 is fixed.
-  runFileTest("meshshading.nv.fncall.amplification.hlsl", Expect::Success,
-              /* runValidation */ false);
+  runFileTest("meshshading.nv.fncall.amplification.hlsl", Expect::Success);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationError1) {
   runFileTest("meshshading.nv.error1.amplification.hlsl", Expect::Failure);
@@ -2179,8 +2173,7 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
 
 TEST_F(FileTest, UseRValueForMemberExprOfArraySubscriptExpr) {
   runFileTest("use.rvalue.for.member-expr.of.array-subscript.hlsl",
-              Expect::Success,
-              /* runValidation */ false);
+              Expect::Success);
 }
 
 TEST_F(FileTest, ReduceLoadSize) { runFileTest("reduce.load.size.hlsl"); }

@@ -62,8 +62,8 @@ bool FileTest::parseCommand() {
   return true;
 }
 
-void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
-                           bool runValidation) {
+void FileTest::runFileTest(llvm::StringRef filename, Expect expect) {
+  bool runValidation = true;
   if (beforeHLSLLegalization)
     assert(runValidation);
 
