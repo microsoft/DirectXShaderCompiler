@@ -249,15 +249,20 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 // DXASSERT is disabled in free builds.
 #define DXASSERT(exp, msg)
 
-// DXASSERT_LOCALVAR is disabled in free builds, but we keep the local
-// referenced to avoid a warning.
-#define DXASSERT_LOCALVAR(local, exp, msg)
+// DXASSERT_LOCALVAR is disabled in free builds, but we keep the local referenced to avoid a warning.
+#define DXASSERT_LOCALVAR(local, exp, msg)                                     \
+  do {                                                                         \
+    (void)(local);                                                             \
+  } while (0)
 #define DXASSERT_LOCALVAR_NOMSG(local, exp) DXASSERT_LOCALVAR(local, exp, "")
 
 // DXASSERT_NOMSG is disabled in free builds.
 #define DXASSERT_NOMSG(exp)
 
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
-#define DXVERIFY_NOMSG(exp)
+#define DXVERIFY_NOMSG(exp)                                                    \
+  do {                                                                         \
+    (void)(exp);                                                               \
+  } while (0)
 
 #endif // NDEBUG
