@@ -298,10 +298,10 @@ void InitInstructionInfo()
 
 void CShaderCodeParser::SetShader(CONST CShaderToken* pBuffer)
 {
-    m_pShaderCode = const_cast<CShaderToken *>(pBuffer);
-    m_pShaderEndToken = const_cast<CShaderToken *>(pBuffer) + pBuffer[1];
+    m_pShaderCode = pBuffer;
+    m_pShaderEndToken = pBuffer + pBuffer[1];
     // First OpCode token
-    m_pCurrentToken = const_cast<CShaderToken *>(&pBuffer[2]);
+    m_pCurrentToken = &pBuffer[2];
 }
 
 D3D10_SB_TOKENIZED_PROGRAM_TYPE CShaderCodeParser::ShaderType()

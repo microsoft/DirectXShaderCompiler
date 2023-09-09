@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// ShaderBinary.h                                                          //
+// ShaderBinary.h                                                            //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -2578,7 +2578,7 @@ public:
                                        CONST CShaderToken* pBuffer,
                                        CONST CShaderToken* pBufferEnd)
     {
-        const CShaderToken* pCurTok = m_pCurrentToken;
+        const CShaderToken *pCurTok = m_pCurrentToken;
         const CShaderToken *pEndTok = m_pShaderEndToken;
         const CShaderToken *pRet;
 
