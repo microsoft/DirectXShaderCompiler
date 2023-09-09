@@ -1714,10 +1714,12 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       sz0 = getNestedLevelInStruct(a0ty);
       sz1 = getNestedLevelInStruct(a1ty);
     }
-    // If sizes are equal, tiebreak with alphabetically lesser at higher priority
-    return sz0 < sz1 || (sz0 == sz1 && isa<GlobalVariable>(a0) &&
-                         isa<GlobalVariable>(a1) &&
-                         a0->getName() > a1->getName());
+    // If sizes are equal, and the new value is a GV,
+    // replace the existing node if it isn't GV or comes later alphabetically
+    // Thus, entries are sorted by size, global variableness, and then name
+    return sz0 < sz1 || (sz0 == sz1 && isa<GlobalVariable>(a1) &&
+			 (!isa<GlobalVariable>(a0) ||
+			  a0->getName() > a1->getName()));
   };
 
   std::priority_queue<Value *, std::vector<Value *>,
