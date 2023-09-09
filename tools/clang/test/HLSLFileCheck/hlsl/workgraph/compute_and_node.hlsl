@@ -8,6 +8,7 @@
 
 
 // ==================================================================
+
 [Shader("compute")]
 [NumThreads(9,3,4)]
 void compute_only() { }
@@ -20,6 +21,7 @@ void compute_only() { }
 // CHECK: [[NUM_THREADS_2]] = !{i32 9, i32 3, i32 4}
 
 // ==================================================================
+
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
