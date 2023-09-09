@@ -291,6 +291,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     IFT(pResult->SetOutputName(DXC_OUT_SHADER_HASH, opts.OutputShaderHashFile));
     IFT(pResult->SetOutputName(DXC_OUT_ERRORS, opts.OutputWarningsFile));
     IFT(pResult->SetOutputName(DXC_OUT_ROOT_SIGNATURE, opts.OutputRootSigFile));
+    IFT(pResult->SetOutputName(DXC_OUT_OBJECT, opts.OutputObject));
 
     std::string warnings;
     //llvm::raw_string_ostream w(warnings);
