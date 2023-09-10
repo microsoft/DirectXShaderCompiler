@@ -372,8 +372,10 @@ getOpenFileImpl(int FD, const Twine &Filename, uint64_t FileSize,
     std::unique_ptr<MemoryBuffer> Result(
         new (NamedBufferAlloc(Filename))
         MemoryBufferMMapFile(RequiresNullTerminator, FD, MapSize, Offset, EC));
-    if (!EC)
-      return Result; // HLSL Change - Fix redundant move warning.
+    if (!EC) {
+      return ErrorOr(
+          std::move(Result)); // HLSL Change - Fix redundant move warning.
+    }
   }
 
   std::unique_ptr<MemoryBuffer> Buf =
@@ -413,7 +415,7 @@ getOpenFileImpl(int FD, const Twine &Filename, uint64_t FileSize,
     BufPtr += NumRead;
   }
 
-  return Buf; // HLSL Change - Fix redundant move warning.
+  return ErrorOr(std::move(Buf)); // HLSL Change - Fix redundant move warning.
 }
 
 ErrorOr<std::unique_ptr<MemoryBuffer>>
