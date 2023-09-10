@@ -24,7 +24,7 @@
 #include <string>
 #include <map>
 #include <unordered_set>
-#include <strstream>
+#include <sstream>
 #include <iomanip>
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HLSLTestData.h"
