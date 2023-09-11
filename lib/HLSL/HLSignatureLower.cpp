@@ -454,6 +454,9 @@ void HLSignatureLower::CreateDxilSignatures() {
     if (qual == hlsl::DxilParamInputQual::OutIndices ||
         qual == hlsl::DxilParamInputQual::InPayload)
       continue;
+    // Skip resource argument.
+    if (paramAnnotation.HasResourceAttribute())
+      continue;
 
     ProcessArgument(Entry, EntryAnnotation, arg, props, pSM,
                     isPatchConstantFunctionFalse, bForOutFasle, bHasClipPlane);
@@ -1144,10 +1147,13 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
       bI1Cast = true;
       Ty = i32Ty;
     }
-    if (!hlslOP->IsOverloadLegal(opcode, Ty)) {
+  
+    if (!Ty || !hlslOP->IsOverloadLegal(opcode, Ty)) {
       std::string O;
       raw_string_ostream OSS(O);
-      Ty->print(OSS);
+      if (Ty)
+        Ty->print(OSS);
+
       OSS << "(type for " << SE->GetName() << ")";
       OSS << " cannot be used as shader inputs or outputs.";
       OSS.flush();

@@ -12,7 +12,7 @@
 struct GSInOut { float value : TEXCOORD0; };
 
 [maxvertexcount(1)]
-void main(inout PointStream<GSInOut> output, point GSInOut input[1])
+void main(inout PointStream<GSInOut> output : TEST, point GSInOut input[1])
 {
     output.Append(input[0]);
 }

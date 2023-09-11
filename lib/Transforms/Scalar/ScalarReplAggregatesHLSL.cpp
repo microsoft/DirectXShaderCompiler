@@ -4474,14 +4474,22 @@ static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAn
 // Need to get 0 from s[0].m and s[1].m, get 1 from s[0].m2 and s[1].m2.
 
 
-// Allocate the argments with same semantic string from type where the
+// Allocate the arguments with same semantic string from type where the
 // semantic starts( S2 for s2.m[2] and s2.m2[2]).
 // Iterate each elements of the type, save the semantic index and update it.
 // The map from element to the arg ( s[0].m2 -> s.m2[2]) is done by argIdx.
-// ArgIdx only inc by 1 when finish a struct field.
+// ArgIdx only inc by 1 when finishing a struct field.
 static unsigned AllocateSemanticIndex(
     Type *Ty, unsigned &semIndex, unsigned argIdx, unsigned endArgIdx,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList) {
+  DXASSERT(argIdx < endArgIdx, "arg index out of bound");
+  DxilParameterAnnotation &paramAnnotation = FlatAnnotationList[argIdx];
+
+  // Skip resource arg.
+  if (paramAnnotation.HasResourceAttribute()) {
+    return argIdx + 1;
+  }
+
   if (Ty->isPointerTy()) {
     return AllocateSemanticIndex(Ty->getPointerElementType(), semIndex, argIdx,
                                  endArgIdx, FlatAnnotationList);
@@ -4500,15 +4508,9 @@ static unsigned AllocateSemanticIndex(
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
-      if (!(EltTy->isStructTy() && !HLMatrixType::isa(EltTy))) {
-        // Update argIdx only when it is a leaf node.
-        argIdx++;
-      }
     }
     return argIdx;
   } else {
-    DXASSERT(argIdx < endArgIdx, "arg index out of bound");
-    DxilParameterAnnotation &paramAnnotation = FlatAnnotationList[argIdx];
     // Get element size.
     unsigned rows = 1;
     if (paramAnnotation.HasMatrixAnnotation()) {
@@ -4527,7 +4529,7 @@ static unsigned AllocateSemanticIndex(
     // Update semIndex.
     semIndex += rows;
 
-    return argIdx;
+    return argIdx + 1;
   }
 }
 
@@ -4544,8 +4546,9 @@ void SROA_Parameter_HLSL::allocateSemanticIndex(
 
     // If semantic is undefined, an error will be emitted elsewhere.  For now,
     // we should avoid asserting.
-    if (semantic.empty())
-      continue;
+    if (semantic.empty()) {
+      continue;  
+    }
 
     StringRef baseSemName; // The 'FOO' in 'FOO1'.
     uint32_t semIndex;     // The '1' in 'FOO1'
