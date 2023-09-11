@@ -2153,11 +2153,9 @@ TEST_F(FileTest, MeshShadingNVMeshError14) {
   runFileTest("meshshading.nv.error14.mesh.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, MeshShadingNVAmplification) {
-  // TODO: Re-enable spirv-val once issue#3006 is fixed.
   runFileTest("meshshading.nv.amplification.hlsl", Expect::Success);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
-  // TODO: Re-enable spirv-val once issue#3006 is fixed.
   runFileTest("meshshading.nv.fncall.amplification.hlsl", Expect::Success);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationError1) {
