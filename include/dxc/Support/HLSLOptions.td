@@ -285,7 +285,7 @@ def pack_optimized : Flag<["-", "/"], "pack-optimized">, Group<hlslcomp_Group>, 
 def pack_optimized_ : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
-  HelpText<"HLSL version (2016, 2017, 2018, 2021). Default is 2018">;
+  HelpText<"HLSL version (2016, 2017, 2018, 2021). Default is 2021">;
 def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
