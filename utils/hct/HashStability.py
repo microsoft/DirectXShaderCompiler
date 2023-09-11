@@ -78,8 +78,9 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir, suf
     normal_out = os.path.join(working_dir, 'Output', f'{test_name}_{suffix}.normal.out')
     res = normal_compile(args, normal_out, working_dir, empty_env)
     if res != 0:
-        # strip_reflect failed, return fail.
         return True, "normal compile failed, assume this is an expected failure testing shader."
+    elif os.path.exists(normal_out) == 0:
+        return True, "normal compile doesn't generate output, assume this is an expected failure testing shader."
 
     normal_hash = extract_hash(dxa_path, normal_out, working_dir, empty_env)
     if normal_hash is None:
@@ -102,7 +103,8 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir, suf
         return True, "Hash matches."
     else:
         # hash mismatch
-        return False, f"Hash mismatches at %dxc RUN line {suffix}."
+        str_args = str(args).replace("'","")
+        return False, f"Hash mismatches on {normal_out} and {debug_out} from {str_args}."
 
 ################################################
 ################################################

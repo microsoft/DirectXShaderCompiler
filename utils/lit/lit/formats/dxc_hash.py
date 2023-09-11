@@ -23,6 +23,20 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 run_hash_stablity_test = module.run_hash_stablity_test
 
+def split_path(path):
+    all_parts = []
+    while True:
+        parts = os.path.split(path)
+        if parts[0] == path:  # sentinel for absolute paths
+            all_parts.insert(0, parts[0])
+            break
+        elif parts[1] == path: # sentinel for relative paths
+            all_parts.insert(0, parts[1])
+            break
+        else:
+            path = parts[0]
+            all_parts.insert(0, parts[1])
+    return tuple(all_parts)
 
 class DxcHashTest(TestFormat):
     def __init__(self, test_path, dxc_path, dxa_path, working_dir):
@@ -35,12 +49,20 @@ class DxcHashTest(TestFormat):
         return lit.Test.Test(testSuite, [rel_dir], localConfig, filename)
 
     def discoverTests(self, testSuite, path, litConfig, local_config_cache):
-        rel_dir = os.path.relpath(path, testSuite.source_root)
-        lc = getLocalConfig(testSuite, rel_dir, litConfig, local_config_cache)
+        lc = getLocalConfig(testSuite, split_path(path), litConfig, local_config_cache)
         for name in os.listdir(path):
+            # Ignore dot files and excluded tests.
+            if (name.startswith('.') or
+                name in lc.excludes):
+                continue
+
             full_name = os.path.join(path, name)
             if os.path.isfile(full_name):
-                if not name.endswith(".hlsl"):
+                base,ext = os.path.splitext(full_name)
+                if ext not in lc.suffixes:
+                    continue
+
+                if not name.endswith(".hlsl") and not name.endswith(".test"):
                     continue
                 rel_dir = os.path.relpath(full_name, testSuite.source_root)
                 yield self.addTest(testSuite, rel_dir, lc, full_name)
@@ -58,6 +80,7 @@ class DxcHashTest(TestFormat):
             yield self.addTest(testSuite, rel_dir, localConfig, self.test_path)
         else:
             local_config_cache = {}
+            localConfig.suffixes = {'.hlsl', '.test'}
             # add localConfig to cache
             key = (testSuite, path_in_suite)
             local_config_cache[key] = localConfig
@@ -70,12 +93,13 @@ class DxcHashTest(TestFormat):
         args = []
         for i in range(len(original_args)):
             arg = original_args[i]
-            if arg == "-Fo" or arg == "-validator-version":
+            if arg == "-Fo" or arg == "-validator-version" or arg == "-Fc":
                 # remove "-Fo", "-validator-version" and things next to it from args
                 i += 2
                 continue
-            elif arg == "-ast-dump" or arg == "-ast-dump-implicit" or \
+            elif arg == "-ast-dump" or arg == "/ast-dump" or arg == "-ast-dump-implicit" or \
                  arg == "-Zi" or arg == "-verify" or arg == "-M" or arg == "-H" or \
+                 arg == "/Odump" or \
                  arg == "-fcgl" or arg.startswith("rootsig_1_") or arg.startswith("-Trootsig_1_"):
                 # remove "-ast-dump" and "-Zi" from args
                 i += 1
