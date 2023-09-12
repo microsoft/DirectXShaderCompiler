@@ -321,4 +321,4 @@ void ParseShaderOpSetFromXml(IXmlReader *pReader, ShaderOpSet *pShaderOpSet);
 
 } // namespace st
 
-#endif __SHADEROPTEST_H__
+#endif //__SHADEROPTEST_H__

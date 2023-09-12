@@ -185,7 +185,7 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
   VERIFY_SUCCEEDED(ctx.Init());
   VERIFY_SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&pFactory));
   VERIFY_ARE_NOT_EQUAL(pFormat, Vals + _countof(Vals));
-  VERIFY_SUCCEEDED(pFactory->CreateBitmapFromMemory(m_width, m_height, pFormat->PixelFormat, m_width * pFormat->PixelSize, m_width * m_height * pFormat->PixelSize, (BYTE *)pPixels, &pBitmap));
+  VERIFY_SUCCEEDED(pFactory->CreateBitmapFromMemory(m_width, m_height, pFormat->PixelFormat, m_width * pFormat->PixelSize, m_width * m_height * pFormat->PixelSize, const_cast<BYTE *>((const BYTE*)(pPixels)), &pBitmap));
   VERIFY_SUCCEEDED(pFactory->CreateEncoder(GUID_ContainerFormatBmp, nullptr, &pEncoder));
   VERIFY_SUCCEEDED(SHCreateStreamOnFileEx(pFileName, STGM_WRITE, STGM_CREATE, 0, nullptr, &pStream));
   VERIFY_SUCCEEDED(pEncoder->Initialize(pStream, WICBitmapEncoderNoCache));
@@ -1806,7 +1806,6 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pSh
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CComPtr<ID3D12DescriptorHeap> pUavHeap;
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
-  UINT uavDescriptorSize;
   FenceObj FO;
 
   const UINT valueSizeInBytes = (UINT)values.size() * sizeof(uint32_t);
@@ -1819,7 +1818,6 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pSh
   heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
   heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
   VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
-  uavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
 
   // Create root signature.
   CComPtr<ID3D12RootSignature> pRootSignature;
@@ -2445,11 +2443,6 @@ TEST_F(ExecutionTest, SignTest) {
     "  int val = g_bab.Load(addr);\r\n"
     "  g_bab.Store(addr, (uint)(sign(val)));\r\n"
     "}";
-  static const int NumThreadsX = 8;
-  static const int NumThreadsY = 1;
-  static const int NumThreadsZ = 1;
-  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
-  static const int DispatchGroupCount = 1;
 
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice))
@@ -2595,7 +2588,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CComPtr<ID3D12DescriptorHeap> pUavHeap;
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
-  UINT uavDescriptorSize;
   FenceObj FO;
   bool dxbc = UseDxbc();
 
@@ -2609,7 +2601,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
   heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
   VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
-  uavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
 
   // Create root signature.
   CComPtr<ID3D12RootSignature> pRootSignature;
@@ -2899,7 +2890,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   CComPtr<ID3D12GraphicsCommandList> pCommandList;
   CComPtr<ID3D12PipelineState> pPSO;
   CComPtr<ID3D12Resource> pRenderTarget, pReadBuffer;
-  UINT uavDescriptorSize, rtvDescriptorSize;
+  UINT rtvDescriptorSize;
   CComPtr<ID3D12Resource> pVertexBuffer;
   D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 
@@ -2920,7 +2911,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
   heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
   VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
-  uavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
 
   CreateRtvDescriptorHeap(pDevice, 1, &pRtvHeap, &rtvDescriptorSize);
   CreateRenderTargetAndReadback(pDevice, pRtvHeap, RTHeight, RTWidth, &pRenderTarget, &pReadBuffer);
@@ -3133,9 +3123,9 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
             bool isTop[4];
             bool isLeft[4];
             PerPixelData helperData;
-            memset(&helperData, sizeof(helperData), 0);
+            memset(&helperData, 0, sizeof(helperData));
             PerPixelData *layout[4]; // tl,tr,bl,br
-            memset(layout, sizeof(layout), 0);
+            memset(layout, 0, sizeof(layout));
             auto fnToLayout = [&](bool top, bool left) -> PerPixelData ** {
               int idx = top ? 0 : 2;
               idx += left ? 0 : 1;
@@ -4075,7 +4065,26 @@ void VerifyProgOffsetResults(unsigned *pPixels, bool bCheckDeriv) {
   // Check that each element matches the expected value given the offset
   unsigned ix = 0;
   int coords[18] = {100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950};
-  int offsets[18] = {CLAMPOFFSET(-9), -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, CLAMPOFFSET(8)};
+
+  int offsets[18] = {CLAMPOFFSET((unsigned)-9),
+                     -8,
+                     -7,
+                     -6,
+                     -5,
+                     -4,
+                     -3,
+                     -2,
+                     -1,
+                     0,
+                     1,
+                     2,
+                     3,
+                     4,
+                     5,
+                     6,
+                     7,
+                     CLAMPOFFSET(8)};
+
   for (unsigned y = 0; y < _countof(coords); y++) {
     for (unsigned x = 0; x < _countof(coords); x++) {
       unsigned cmp = (coords[y] + offsets[y])*1000 + coords[x] + offsets[x];
@@ -4518,10 +4527,10 @@ struct RawFloatTexture : public ExecutionTest::RawGatherTexture {
     float a = (float)(x + y)*0.1f;
     RGBA[i].SetChannels(r, g, b, a);
   }
-  virtual void *GetElements() { return (void*)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+  void *GetElements() override { return (void*)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
 template <unsigned xdim, unsigned ydim>
@@ -4534,10 +4543,10 @@ struct RawFloatR11G11B10ATexture : public ExecutionTest::RawGatherTexture {
     float b = (float)(x + y)*0.5f;
     RGBA[i].SetChannels(r, g, b, 0);
   }
-  virtual void *GetElements() { return (void*)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override { return DXGI_FORMAT_R11G11B10_FLOAT; };
+  void *GetElements() override { return (void *)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return DXGI_FORMAT_R11G11B10_FLOAT; };
 };
 
 template <typename RGBAType, unsigned xdim, unsigned ydim>
@@ -4581,10 +4590,10 @@ struct RawIntTexture : public ExecutionTest::RawGatherTexture {
     }
     RGBA[i].SetChannels((UINT)fr, (UINT)fg, (UINT)fb, (UINT)fa);
   }
-  virtual void *GetElements() { return (void*)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+  void *GetElements() override { return (void*)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
 template <unsigned xdim, unsigned ydim>
@@ -4617,10 +4626,10 @@ struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
 
     RGBA[i].SetChannels((float)fr, (float)fg, (float)fb, (float)fa);
   }
-  virtual void *GetElements() { return (void*)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+  void *GetElements() override { return (void *)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
 //#define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to vet raw gather tests
@@ -4858,7 +4867,6 @@ TEST_F(ExecutionTest, ATORawGather) {
 
   static const int NumThreadsX = 32;
   static const int NumThreadsY = 32;
-  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY;
 
   // Create an array of texture variants with the raw texture base class
   // Then plug them into DoRawGather to perform the test and evaluate the results for each
@@ -5026,14 +5034,14 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
     return;
   }
 
-  char *pShaderModelStr;
+  std::string pShaderModelStr;
   if (shaderModel == D3D_SHADER_MODEL_6_1) {
     pShaderModelStr = "cs_6_1";
   } else if (shaderModel == D3D_SHADER_MODEL_6_3) {
     pShaderModelStr = "cs_6_3";
   } else {
     DXASSERT_NOMSG("Invalid Shader Model Parameter");
-    pShaderModelStr = nullptr;
+    pShaderModelStr = "";
   }
 
   const char shaderTemplate[] =
@@ -5048,19 +5056,23 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
   char shader[sizeof(shaderTemplate) + 50];
 
   // Run simple shader with float data types
-  char* sTy = "float";
+  const char* sTy = "float";
   float inputFloatPairs[] = { 1.5f, -2.8f, 3.23e-5f, 6.0f, 181.621f, 14.978f };
   VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
   WEX::Logging::Log::Comment(L"BasicShaderModel float");
-  RunBasicShaderModelTest<float>(pDevice, pShaderModelStr, shader, inputFloatPairs, sizeof(inputFloatPairs) / (2 * sizeof(float)));
+  RunBasicShaderModelTest<float>(pDevice, pShaderModelStr.c_str(), shader,
+                                 inputFloatPairs,
+                                 sizeof(inputFloatPairs) / (2 * sizeof(float)));
 
    // Run simple shader with double data types
   if (DoesDeviceSupportDouble(pDevice)) {
-    sTy = "double";
+    const char *sTy = "double";
     double inputDoublePairs[] = { 1.5891020, -2.8, 3.23e-5, 1 / 3, 181.91621, 14.654978 };
     VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
     WEX::Logging::Log::Comment(L"BasicShaderModel double");
-    RunBasicShaderModelTest<double>(pDevice, pShaderModelStr, shader, inputDoublePairs, sizeof(inputDoublePairs) / (2 * sizeof(double)));
+    RunBasicShaderModelTest<double>(
+        pDevice, pShaderModelStr.c_str(), shader, inputDoublePairs,
+        sizeof(inputDoublePairs) / (2 * sizeof(double)));
    }
    else {
      // Optional feature, so it's correct to not support it if declared as such.
@@ -5069,11 +5081,13 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
 
    // Run simple shader with int64 types
    if (DoesDeviceSupportInt64(pDevice)) {
-     sTy = "int64_t";
+     const char *sTy = "int64_t";
      int64_t inputInt64Pairs[] = { 1, -100, 6814684, -9814810, 654, 1021248900 };
      VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
      WEX::Logging::Log::Comment(L"BasicShaderModel int64_t");
-     RunBasicShaderModelTest<int64_t>(pDevice, pShaderModelStr, shader, inputInt64Pairs, sizeof(inputInt64Pairs) / (2 * sizeof(int64_t)));
+     RunBasicShaderModelTest<int64_t>(
+         pDevice, pShaderModelStr.c_str(), shader, inputInt64Pairs,
+         sizeof(inputInt64Pairs) / (2 * sizeof(int64_t)));
    }
    else {
      // Optional feature, so it's correct to not support it if declared as such.
@@ -5348,39 +5362,44 @@ struct SPackUnpackOpOutUnpacked {
 
 // Parameter representation for taef data-driven tests
 struct TableParameter {
-    LPCWSTR m_name;
     enum TableParameterType {
-        INT8,
-        INT16,
-        INT32,
-        UINT,
-        FLOAT,
-        HALF,
-        DOUBLE,
-        STRING,
-        BOOL,
-        INT8_TABLE,
-        INT16_TABLE,
-        INT32_TABLE,
-        FLOAT_TABLE,
-        HALF_TABLE,
-        DOUBLE_TABLE,
-        STRING_TABLE,
-        UINT8_TABLE,
-        UINT16_TABLE,
-        UINT32_TABLE,
-        BOOL_TABLE
+      INT8,
+      INT16,
+      INT32,
+      UINT,
+      FLOAT,
+      HALF,
+      DOUBLE,
+      STRING,
+      BOOL,
+      INT8_TABLE,
+      INT16_TABLE,
+      INT32_TABLE,
+      FLOAT_TABLE,
+      HALF_TABLE,
+      DOUBLE_TABLE,
+      STRING_TABLE,
+      UINT8_TABLE,
+      UINT16_TABLE,
+      UINT32_TABLE,
+      BOOL_TABLE
     };
+    TableParameter(LPCWSTR name, TableParameterType type,
+                   bool required)
+        : m_name(name), m_type(type), m_required(required) {
+
+    }
+    LPCWSTR m_name;
     TableParameterType m_type;
     bool m_required; // required parameter
-    int8_t m_int8;
-    int16_t m_int16;
-    int m_int32;
-    unsigned int m_uint;
-    float m_float;
-    uint16_t m_half; // no such thing as half type in c++. Use int16 instead
-    double m_double;
-    bool m_bool;
+    int8_t m_int8 = 0 ;
+    int16_t m_int16 = 0;
+    int m_int32 = 0;
+    unsigned int m_uint = 0;
+    float m_float = 0;
+    uint16_t m_half = 0; // no such thing as half type in c++. Use int16 instead
+    double m_double = 0;
+    bool m_bool = false;
     WEX::Common::String m_str;
     std::vector<int8_t> m_int8Table;
     std::vector<int16_t> m_int16Table;
@@ -5906,24 +5925,6 @@ static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   return S_OK;
 }
 
-static HRESULT ParseDataToInt(PCWSTR str, int &value) {
-  std::wstring wString(str);
-  wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
-  PCWSTR wstr = wString.data();
-  // evaluate the expression of string
-  if (_wcsicmp(wstr, L"0.0") == 0 || _wcsicmp(wstr, L"0") == 0) {
-      value = 0;
-      return S_OK;
-  }
-  int val = _wtoi(wstr);
-  if (val == 0) {
-      LogErrorFmt(L"Failed to parse parameter %s to int", wstr);
-      return E_FAIL;
-  }
-  value = val;
-  return S_OK;
-}
-
 static HRESULT ParseDataToUint(PCWSTR str, unsigned int &value) {
     std::wstring wString(str);
     wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
@@ -6232,13 +6233,6 @@ static void VerifyOutputWithExpectedValueInt(int output, int ref, int tolerance)
 
 static void VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref, uint32_t tolerance) {
     VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
-}
-
-static void VerifyOutputWithExpectedValueUInt4(XMUINT4 output, XMUINT4 ref) {
-  VERIFY_ARE_EQUAL(output.x, ref.x);
-  VERIFY_ARE_EQUAL(output.y, ref.y);
-  VERIFY_ARE_EQUAL(output.z, ref.z);
-  VERIFY_ARE_EQUAL(output.w, ref.w);
 }
 
 static void VerifyOutputWithExpectedValueFloat(
@@ -9254,68 +9248,68 @@ static const char RawBufferTestGraphicsPixelShaderTemplate[] =
 "};";
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
-  RawBufferLdStTestData<int32_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT32 / 2 } };
+  RawBufferLdStTestData<int32_t> data = { 1, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT32 / 2 } };
   RunComputeRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "ComputeRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStFloat)  {
-  RawBufferLdStTestData<float> data = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, -105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<float> data = { 3e-10f, { 1.5f, -1.99988f }, { 256.0f, -105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
   RunComputeRawBufferLdStTest<float>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "ComputeRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStI64)  {
-  RawBufferLdStTestData<int64_t> data = { { 1 }, { 2, -1 }, { 256, -105171532, 980 }, { 465, 13, -89, MAXUINT64 / 2 } };
+  RawBufferLdStTestData<int64_t> data = { 1, { 2, -1 }, { 256, -105171532, 980 }, { 465, 13, -89, MAXUINT64 / 2 } };
   RunComputeRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStDouble)  {
-  RawBufferLdStTestData<double> data = { { 3e-10 }, { 1.5, -1.99988 }, { 256.0, -105.17, 980.0 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
+  RawBufferLdStTestData<double> data = { 3e-10, { 1.5, -1.99988 }, { 256.0, -105.17, 980.0 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
   RunComputeRawBufferLdStTest<double>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
-  RawBufferLdStTestData<int16_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT16 / 2 } };
+  RawBufferLdStTestData<int16_t> data = { 1, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT16 / 2 } };
   RunComputeRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "ComputeRawBufferLdSt16Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStHalf)  {
-  RawBufferLdStTestData<float> floatData = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<float> floatData = { 3e-10f, { 1.5f, -1.99988f }, { 256.0f, 105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
   RawBufferLdStTestData<uint16_t> halfData;
-  for (int i = 0; i < sizeof(floatData)/sizeof(float); i++) {
+  for (unsigned i = 0; i < sizeof(floatData)/sizeof(float); i++) {
     ((uint16_t*)&halfData)[i] = ConvertFloat32ToFloat16(((float*)&floatData)[i]);
   }
   RunComputeRawBufferLdStTest<uint16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "ComputeRawBufferLdSt16Bit", halfData);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStI32)  {
-  RawBufferLdStTestData<int32_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT32 / 2 } };
+  RawBufferLdStTestData<int32_t> data = { 1, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT32 / 2 } };
   RunGraphicsRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "GraphicsRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStFloat)  {
-  RawBufferLdStTestData<float> data = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, -105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<float> data = { 3e-10f, { 1.5f, -1.99988f }, { 256.0f, -105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
   RunGraphicsRawBufferLdStTest<float>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "GraphicsRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStI64)  {
-  RawBufferLdStTestData<int64_t> data = { { 1 }, { 2, -1 }, { 256, -105171532, 980 }, { 465, 13, -89, MAXUINT64 / 2 } };
+  RawBufferLdStTestData<int64_t> data = { 1, { 2, -1 }, { 256, -105171532, 980 }, { 465, 13, -89, MAXUINT64 / 2 } };
   RunGraphicsRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "GraphicsRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStDouble)  {
-  RawBufferLdStTestData<double> data = { { 3e-10 }, { 1.5, -1.99988 }, { 256.0, -105.17, 980.0 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
+  RawBufferLdStTestData<double> data = { 3e-10, { 1.5, -1.99988 }, { 256.0, -105.17, 980.0 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
   RunGraphicsRawBufferLdStTest<double>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::Double, "GraphicsRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
-  RawBufferLdStTestData<int16_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT16 / 2 } };
+  RawBufferLdStTestData<int16_t> data = { 1, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT16 / 2 } };
   RunGraphicsRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "GraphicsRawBufferLdSt16Bit", data);
 }
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
-  RawBufferLdStTestData<float> floatData = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 105.17f, 0.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<float> floatData = { 3e-10f, { 1.5f, -1.99988f }, { 256.0f, 105.17f, 0.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
   RawBufferLdStTestData<uint16_t> halfData;
-  for (int i = 0; i < sizeof(floatData) / sizeof(float); i++) {
+  for (unsigned i = 0; i < sizeof(floatData) / sizeof(float); i++) {
     ((uint16_t*)&halfData)[i] = ConvertFloat32ToFloat16(((float*)&floatData)[i]);
   }
   RunGraphicsRawBufferLdStTest<uint16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "GraphicsRawBufferLdSt16Bit", halfData);
@@ -10195,7 +10189,7 @@ void ExecutionTest::WaveSizeTest() {
 
       VERIFY_IS_TRUE(sizeof(WaveSizeTestData)*MAX_WAVESIZE <= Data.size());
       WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
-      memset(&pInData, sizeof(WaveSizeTestData)*MAX_WAVESIZE, 0);
+      memset(pInData, 0, sizeof(WaveSizeTestData)*MAX_WAVESIZE);
     }, ShaderOpSet);
 
     // verify expected values
@@ -10248,9 +10242,9 @@ void ExecutionTest::WaveSizeTest() {
 bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
   if (memcmp(uResults, &gold, size)) {
     if (size == 4)
-      LogCommentFmt(L"  value %d is not %d", ((uint32_t*)uResults)[0], (uint32_t)gold);
+      LogCommentFmt(L"  value %d is not %d", ((const uint32_t*)uResults)[0], (uint32_t)gold);
     else
-      LogCommentFmt(L"  value %lld is not %lld", ((uint64_t*)uResults)[0], gold);
+      LogCommentFmt(L"  value %lld is not %lld", ((const uint64_t*)uResults)[0], gold);
     return false;
   }
   return true;
@@ -10392,7 +10386,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // The lower bits are compared to the location index as well.
   LogCommentFmt(L"Verifying %d-bit integer atomic cmp/xchg results", bitSize);
   for (size_t i = 0; i < 64; i++) {
-    uint64_t val = *((uint64_t*)(pXchg + i*stride));
+    uint64_t val = *((const uint64_t*)(pXchg + i*stride));
     // Verify lower bits match location index exactly
     VERIFY_ARE_EQUAL(i, val & ((1ULL << shBits) - 1ULL));
     // Verify that upper bits contain original index that transforms to location index
@@ -11760,7 +11754,7 @@ extern "C" {
       m_support.Initialize();
 
       const char *pName = nullptr;
-      CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, (UINT)strlen(pText));
+      CComPtr<IStream> pStream = SHCreateMemStream((const BYTE *)pText, (UINT)strlen(pText));
       std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
         std::make_shared<st::ShaderOpSet>();
       st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
