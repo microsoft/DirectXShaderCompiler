@@ -1460,19 +1460,6 @@ TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
 }
 
 
-TEST_F(FileTest, VulkanAttributeErrors) {
-  runFileTest("vk.attribute.error.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanAttributePushConstantInvalidUsages) {
-  runFileTest("vk.attribute.push-constant.invalid.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
-  runFileTest("vk.attribute.shader-record-nv.invalid.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanAttributeShaderRecordEXTInvalidUsages) {
-  runFileTest("vk.attribute.shader-record-ext.invalid.hlsl", Expect::Failure);
-}
-
 TEST_F(FileTest, VulkanAttributeImageFormatO3) {
   runFileTest("vk.attribute.image-format.o3.hlsl");
 }
@@ -1507,12 +1494,6 @@ TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
 }
 TEST_F(FileTest, VulkanLocationInputImplicitOutputExplicit) {
   runFileTest("vk.location.exp-out.hlsl");
-}
-TEST_F(FileTest, VulkanLocationTooLarge) {
-  runFileTest("vk.location.large.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
-  runFileTest("vk.location.mixed.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, StageVariableDuplicatedLocation) {
@@ -1561,28 +1542,6 @@ TEST_F(FileTest, VulkanGlobalsBindingRegisterBinding) {
   // Using command line option for specifying both the 1-1 register mapping as
   // well as $Globals binding.
   runFileTest("vk.binding.cl.register-and-globals.hlsl");
-}
-TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSpaceNo) {
-  runFileTest("vk.binding.cl.register.invalid-space.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSetNo) {
-  runFileTest("vk.binding.cl.register.invalid-set.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidBindNo) {
-  runFileTest("vk.binding.cl.register.invalid-bind.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingAttr) {
-  runFileTest("vk.binding.cl.register.missing-attr.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingBindGlobals) {
-  runFileTest("vk.binding.cl.register.missing-bind-globals.hlsl",
-              Expect::Failure);
-}
-TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
-  runFileTest("vk.binding.cl.register.missing-cl.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
-  runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
 }
 
 // For flattening array of resources
@@ -1638,21 +1597,6 @@ TEST_F(FileTest, BindingStructureOfResourcesOptimized) {
   runFileTest("vk.binding.global-struct-of-resources.optimized.hlsl");
 }
 
-TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError1) {
-  runFileTest("vk.binding.global-struct-of-resource-mix.error.1.hlsl",
-              Expect::Failure);
-}
-
-TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError2) {
-  runFileTest("vk.binding.global-struct-of-resource-mix.error.2.hlsl",
-              Expect::Failure);
-}
-
-TEST_F(FileTest, BindingStructureOfResourcesContainsBufferError) {
-  runFileTest(
-      "vk.binding.global-struct-of-resources.contains-buffer-error.hlsl",
-      Expect::Failure);
-}
 TEST_F(FileTest, BindingStructureOfResourcesPassLegalization) {
   runFileTest("vk.binding.global-struct-of-resources.pass-legalization.hlsl",
               Expect::Success);
@@ -1665,9 +1609,6 @@ TEST_F(FileTest, VulkanPushConstantOffset) {
 }
 TEST_F(FileTest, VulkanPushConstantAnonymousStruct) {
   runFileTest("vk.push-constant.anon-struct.hlsl");
-}
-TEST_F(FileTest, VulkanMultiplePushConstant) {
-  runFileTest("vk.push-constant.multiple.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanPushConstantOnConstantBuffer) {
@@ -1683,9 +1624,6 @@ TEST_F(FileTest, VulkanCombinedImageSamplerBindingShift) {
 TEST_F(FileTest, VulkanCombinedImageSamplerTextureArray) {
   runFileTest("vk.combined-image-sampler.texture-array.hlsl");
 }
-TEST_F(FileTest, VulkanCombinedImageSamplerError) {
-  runFileTest("vk.combined-image-sampler.error.hlsl", Expect::Failure);
-}
 
 TEST_F(FileTest, VulkanSpecConstantInit) {
   runFileTest("vk.spec-constant.init.hlsl");
@@ -1696,24 +1634,7 @@ TEST_F(FileTest, VulkanSpecConstantUsage) {
 TEST_F(FileTest, VulkanSpecConstantReuse) {
   runFileTest("vk.spec-constant.reuse.hlsl");
 }
-TEST_F(FileTest, VulkanSpecConstantError1) {
-  runFileTest("vk.spec-constant.error1.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSpecConstantError2) {
-  runFileTest("vk.spec-constant.error2.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSpecConstantError3) {
-  runFileTest("vk.spec-constant.error3.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSpecConstantError4) {
-  runFileTest("vk.spec-constant.error4.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSpecConstantError5) {
-  runFileTest("vk.spec-constant.error5.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSpecConstantErrorNotSegfault) {
-  runFileTest("vk.spec-constant.error.not.segfault.hlsl", Expect::Failure);
-}
+
 TEST_F(FileTest, VulkanSpecConstantComposite) {
   runFileTest("vk.spec-constant.composite.hlsl");
 }
@@ -1758,9 +1679,6 @@ TEST_F(FileTest, VulkanLayoutStructBitfieldAssignment) {
 TEST_F(FileTest, VulkanLayoutCBufferPackOffset) {
   runFileTest("vk.layout.cbuffer.packoffset.hlsl");
 }
-TEST_F(FileTest, VulkanLayoutCBufferPackOffsetError) {
-  runFileTest("vk.layout.cbuffer.packoffset.error.hlsl", Expect::Failure);
-}
 
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
 TEST_F(FileTest, VulkanSubpassInputUnused) {
@@ -1768,26 +1686,6 @@ TEST_F(FileTest, VulkanSubpassInputUnused) {
 }
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");
-}
-TEST_F(FileTest, VulkanSubpassInputError1) {
-  runFileTest("vk.subpass-input.missing-attr.error.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSubpassInputError2) {
-  runFileTest("vk.subpass-input.type.error.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSubpassInputError3) {
-  runFileTest("vk.subpass-input.static.error.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, VulkanSubpassInputError4) {
-  runFileTest("vk.subpass-input.shader.type.error.hlsl", Expect::Failure);
-}
-
-TEST_F(FileTest, NonFpColMajorError) {
-  runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, NonFpColMajorErrorArrayStruct) {
-  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl",
-              Expect::Failure);
 }
 
 TEST_F(FileTest, NamespaceFunctions) {
@@ -1968,14 +1866,6 @@ TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefGreaterEqualBack) {
 TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefLessEqualBack) {
   runFileTest("vk.early-and-lates-tests.stencil-ref-less-equal-back.hlsl");
 }
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefErrorFront) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-error-front.hlsl",
-              Expect::Failure);
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefErrorBack) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-error-back.hlsl",
-              Expect::Failure);
-}
 
 // === MeshShading EXT examples ===
 TEST_F(FileTest, MeshShadingEXTMeshTriangle) {
@@ -1999,65 +1889,11 @@ TEST_F(FileTest, MeshShadingNVMeshPoint) {
 TEST_F(FileTest, MeshShadingNVMeshBuffer) {
   runFileTest("meshshading.nv.buffer.mesh.hlsl", Expect::Success);
 }
-TEST_F(FileTest, MeshShadingNVMeshError1) {
-  runFileTest("meshshading.nv.error1.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError2) {
-  runFileTest("meshshading.nv.error2.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError3) {
-  runFileTest("meshshading.nv.error3.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError4) {
-  runFileTest("meshshading.nv.error4.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError5) {
-  runFileTest("meshshading.nv.error5.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError6) {
-  runFileTest("meshshading.nv.error6.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError7) {
-  runFileTest("meshshading.nv.error7.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError8) {
-  runFileTest("meshshading.nv.error8.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError9) {
-  runFileTest("meshshading.nv.error9.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError10) {
-  runFileTest("meshshading.nv.error10.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError11) {
-  runFileTest("meshshading.nv.error11.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError12) {
-  runFileTest("meshshading.nv.error12.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError13) {
-  runFileTest("meshshading.nv.error13.mesh.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVMeshError14) {
-  runFileTest("meshshading.nv.error14.mesh.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, MeshShadingNVAmplification) {
   runFileTest("meshshading.nv.amplification.hlsl", Expect::Success);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
   runFileTest("meshshading.nv.fncall.amplification.hlsl", Expect::Success);
-}
-TEST_F(FileTest, MeshShadingNVAmplificationError1) {
-  runFileTest("meshshading.nv.error1.amplification.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVAmplificationError2) {
-  runFileTest("meshshading.nv.error2.amplification.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVAmplificationError3) {
-  runFileTest("meshshading.nv.error4.amplification.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, MeshShadingNVAmplificationError4) {
-  runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, UseRValueForMemberExprOfArraySubscriptExpr) {
