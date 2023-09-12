@@ -29,7 +29,7 @@ public:
 
   FileTest()
       : targetEnv(SPV_ENV_VULKAN_1_0), beforeHLSLLegalization(false),
-        glLayout(false), dxLayout(false) {}
+        glLayout(false), dxLayout(false), scalarLayout(true) {}
 
   void setBeforeHLSLLegalization() { beforeHLSLLegalization = true; }
 
