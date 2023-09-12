@@ -13,3 +13,6 @@
 [submodule "external/DirectX-Headers"]
 	path = external/DirectX-Headers
 	url = https://github.com/microsoft/DirectX-Headers.git
+[submodule "external/SPIRV-Tools"]
+	path = external/SPIRV-Tools
+	url = git@github.com:Devsh-Graphics-Programming/SPIRV-Tools.git
