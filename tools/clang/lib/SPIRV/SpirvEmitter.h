@@ -590,6 +590,10 @@ private:
   /// Processes SM6.0 wave query intrinsic calls.
   SpirvInstruction *processWaveQuery(const CallExpr *, spv::Op opcode);
 
+  /// Processes SM6.6 IsHelperLane intrisic calls.
+  SpirvInstruction *processIsHelperLane(const CallExpr *, SourceLocation loc,
+                                        SourceRange range);
+
   /// Processes SM6.0 wave vote intrinsic calls.
   SpirvInstruction *processWaveVote(const CallExpr *, spv::Op opcode);
 
@@ -700,15 +704,17 @@ private:
                                           SourceLocation loc,
                                           SourceRange range);
 
-  /// Returns the alignment of `vk::RawBufferLoad()`.
-  uint32_t getAlignmentForRawBufferLoad(const CallExpr *callExpr);
-
-  /// Returns the alignment of `vk::RawBufferStore()`.
-  uint32_t getAlignmentForRawBufferStore(const CallExpr *callExpr);
+  /// Returns the value of the alignment argument for `vk::RawBufferLoad()` and
+  /// `vk::RawBufferStore()`.
+  uint32_t getRawBufferAlignment(const Expr *expr);
 
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
                                                   bool useIdParams);
+
+  /// Processes the 'firstbit{high|low}' intrinsic functions.
+  SpirvInstruction *processIntrinsicFirstbit(const CallExpr *,
+                                             GLSLstd450 glslOpcode);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -1182,6 +1188,14 @@ private:
   /// gets the info/warning/error messages via |messages|.
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
+
+  // \brief Calls SPIRV-Tools optimizer's, but only with the capability trimming
+  // pass. Removes unused capabilities from the given SPIR-V module |mod|, and
+  // returns info/warning/error messages via |messages|. This pass doesn't trim
+  // all capabilities. To see the list of supported capabilities, check the pass
+  // headers.
+  bool spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
+                                  std::string *messages);
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and

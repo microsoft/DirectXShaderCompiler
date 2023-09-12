@@ -3696,15 +3696,10 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
                          bool bWaveEnabledStage,
                          SmallVector<BranchInst *, 16> &DxBreaks) {
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
-    if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled(
-            "structurize-returns"))
+    if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled(hlsl::options::TOGGLE_STRUCTURIZE_RETURNS))
       return;
   } else {
-    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.count(
-            "structurize-returns") ||
-        !CGM.getCodeGenOpts()
-             .HLSLOptimizationToggles.find("structurize-returns")
-             ->second)
+    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.IsEnabled(hlsl::options::TOGGLE_STRUCTURIZE_RETURNS))
       return;
   }
 

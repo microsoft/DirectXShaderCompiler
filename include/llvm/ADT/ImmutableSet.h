@@ -645,11 +645,15 @@ public:
 //===----------------------------------------------------------------------===//
 
 template <typename ImutInfo>
-class ImutAVLTreeGenericIterator
-    : public std::iterator<std::bidirectional_iterator_tag,
-                           ImutAVLTree<ImutInfo>> {
+class ImutAVLTreeGenericIterator {
   SmallVector<uintptr_t,20> stack;
 public:
+  using iterator_category = std::bidirectional_iterator_tag;
+  using value_type = ImutAVLTree<ImutInfo>;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   enum VisitFlag { VisitedNone=0x0, VisitedLeft=0x1, VisitedRight=0x3,
                    Flags=0x3 };
 
@@ -756,13 +760,17 @@ public:
 };
 
 template <typename ImutInfo>
-class ImutAVLTreeInOrderIterator
-    : public std::iterator<std::bidirectional_iterator_tag,
-                           ImutAVLTree<ImutInfo>> {
+class ImutAVLTreeInOrderIterator {
   typedef ImutAVLTreeGenericIterator<ImutInfo> InternalIteratorTy;
   InternalIteratorTy InternalItr;
 
 public:
+  using iterator_category = std::bidirectional_iterator_tag;
+  using value_type = ImutAVLTree<ImutInfo>;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   typedef ImutAVLTree<ImutInfo> TreeTy;
 
   ImutAVLTreeInOrderIterator(const TreeTy* Root) : InternalItr(Root) {

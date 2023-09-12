@@ -15,6 +15,8 @@
 
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <algorithm>
 #include <memory>
 #include <array>
@@ -56,6 +58,7 @@
 #include <wincodec.h>
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
+// clang-format on
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")
@@ -11508,12 +11511,26 @@ st::ShaderOpTest::TShaderCallbackFn MakeShaderReplacementCallback(
     {
       CComPtr<IDxcAssembler> pAssembler;
       CComPtr<IDxcOperationResult> pResult;
-      VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-      VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(rewrittenDisassembly, &pResult));
+      CComPtr<IDxcOperationResult> pValidationResult;
+      CComPtr<IDxcValidator> pValidator;
+
       HRESULT status;
+      HRESULT validationStatus;
+      VERIFY_SUCCEEDED(
+          dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+      VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(rewrittenDisassembly, &pResult));
       VERIFY_SUCCEEDED(pResult->GetStatus(&status));
       VERIFY_SUCCEEDED(status);
       VERIFY_SUCCEEDED(pResult->GetResult(&assembledShader));
+
+      // now validate the rewritten disassembly and sign the shader
+      VERIFY_SUCCEEDED(
+          dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+      VERIFY_SUCCEEDED(pValidator->Validate(
+          assembledShader, DxcValidatorFlags_InPlaceEdit, &pValidationResult));
+      VERIFY_SUCCEEDED(pValidationResult->GetStatus(&validationStatus));
+      VERIFY_SUCCEEDED(validationStatus);
     }
 
     // Find root signature part in container
@@ -11570,7 +11587,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
 
   // The input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN, Nan, and then 4 normal float numbers.
   // Only the last 4 floats are normal, so we expect the first 8 results to be 0, and the last 4 to be 1, as defined by IsNormal.
-  std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, 122.101f, -.122101f};
+  std::vector<float> Validation_Input_Vec = {-0.0, 0.0, -(FLT_MIN / 2), FLT_MIN / 2, -(INFINITY), INFINITY, -(NAN), NAN, 530.99f, -530.99f, -122.900f, .122900f};
   std::vector<float> *Validation_Input = &Validation_Input_Vec;
 
   std::vector<unsigned int> Validation_Expected_Vec = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 1u, 1u};

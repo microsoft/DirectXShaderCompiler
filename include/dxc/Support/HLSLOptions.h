@@ -17,9 +17,14 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
-#include "dxc/dxcapi.h"
 #include "dxc/Support/HLSLVersion.h"
 #include "dxc/Support/SPIRVOptions.h"
+#include "dxc/Support/DxcOptToggles.h"
+
+#include "dxc/Support/WinIncludes.h"
+
+#include "dxc/dxcapi.h"
+
 #include <map>
 #include <set>
 
@@ -35,6 +40,8 @@ class DxcDllSupport;
 }
 
 namespace hlsl {
+
+enum class SerializeDxilFlags : uint32_t;
 
 namespace options {
 /// Flags specifically for clang options.  Must not overlap with
@@ -213,12 +220,13 @@ public:
   bool VerifyDiagnostics = false; // OPT_verify
 
   // Optimization pass enables, disables and selects
-  std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
-  std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
+  OptimizationToggles OptToggles; // OPT_opt_enable, OPT_opt_disable, OPT_opt_select
 
   std::set<std::string> IgnoreSemDefs; // OPT_ignore_semdef
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
 
+  bool PrintBeforeAll; // OPT_print_before_all
+  std::set<std::string> PrintBefore; // OPT_print_before
   bool PrintAfterAll; // OPT_print_after_all
   std::set<std::string> PrintAfter; // OPT_print_after
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
@@ -289,6 +297,9 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
 void CopyArgsToWStrings(const llvm::opt::InputArgList &inArgs,
                         unsigned flagsToInclude,
                         std::vector<std::wstring> &outArgs);
+
+SerializeDxilFlags ComputeSerializeDxilFlags(const options::DxcOpts &opts);
+
 }
 }
 

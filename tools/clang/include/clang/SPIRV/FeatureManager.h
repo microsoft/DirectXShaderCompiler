@@ -43,6 +43,7 @@ enum class Extension {
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
   EXT_fragment_invocation_density,
+  EXT_fragment_shader_interlock,
   EXT_mesh_shader,
   EXT_shader_stencil_export,
   EXT_shader_viewport_index_layer,
@@ -89,7 +90,7 @@ public:
   std::string getKnownExtensions(const char *delimiter, const char *prefix = "",
                                  const char *postfix = "");
 
-  /// Rqeusts the given target environment for translating the given feature at
+  /// Request the given target environment for translating the given feature at
   /// the given source location. Emits an error if the requested target
   /// environment does not match user's target environemnt.
   bool requestTargetEnv(spv_target_env, llvm::StringRef target, SourceLocation);

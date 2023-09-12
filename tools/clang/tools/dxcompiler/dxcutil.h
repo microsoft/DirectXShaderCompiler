@@ -31,7 +31,6 @@ class Twine;
 } // namespace llvm
 
 namespace hlsl {
-enum class SerializeDxilFlags : uint32_t;
 struct DxilShaderHash;
 class AbstractMemoryStream;
 namespace options {

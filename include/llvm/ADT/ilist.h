@@ -142,18 +142,16 @@ struct ilist_traits<const Ty> : public ilist_traits<Ty> {};
 // ilist_iterator<Node> - Iterator for intrusive list.
 //
 template<typename NodeTy>
-class ilist_iterator
-  : public std::iterator<std::bidirectional_iterator_tag, NodeTy, ptrdiff_t> {
+class ilist_iterator {
 
 public:
-  typedef ilist_traits<NodeTy> Traits;
-  typedef std::iterator<std::bidirectional_iterator_tag,
-                        NodeTy, ptrdiff_t> super;
+  using iterator_category = std::bidirectional_iterator_tag;
+  using value_type = NodeTy;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
 
-  typedef typename super::value_type value_type;
-  typedef typename super::difference_type difference_type;
-  typedef typename super::pointer pointer;
-  typedef typename super::reference reference;
+  typedef ilist_traits<NodeTy> Traits;
 private:
   pointer NodePtr;
 

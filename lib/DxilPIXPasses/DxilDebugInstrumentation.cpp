@@ -212,13 +212,15 @@ private:
       unsigned InstanceId;
     } VertexShader;
   };
+  unsigned m_FirstInstruction = 0;
+  unsigned m_LastInstruction = static_cast<unsigned>(-1);
 
   uint64_t m_UAVSize = 1024 * 1024;
   struct PerFunctionValues
   {
-    CallInst *UAVHandle;
-    Constant *CounterOffset;
-    Value *InvocationId;
+    CallInst *UAVHandle = nullptr;
+    Constant *CounterOffset = nullptr;
+    Value *InvocationId = nullptr;
     // Together these two values allow branchless writing to the UAV. An
     // invocation of the shader is either of interest or not (e.g. it writes to
     // the pixel the user selected for debugging or it doesn't). If not of
@@ -227,11 +229,11 @@ private:
     // will be written to the UAV at sequentially increasing offsets.
     // This value will either be one or zero (one if the invocation is of
     // interest, zero otherwise)
-    Value *OffsetMultiplicand;
+    Value *OffsetMultiplicand = nullptr;
     // This will either be zero (if the invocation is of interest) or
     // (UAVSize)-(SmallValue) if not.
-    Value *OffsetAddend;
-    Constant *OffsetMask;
+    Value *OffsetAddend = nullptr;
+    Constant *OffsetMask = nullptr;
     Value *SelectionCriterion = nullptr;
     Value *CurrentIndex = nullptr;
   };
@@ -290,6 +292,9 @@ private:
 };
 
 void DxilDebugInstrumentation::applyOptions(PassOptions O) {
+  GetPassOptionUnsigned(O, "FirstInstruction", &m_FirstInstruction, 0);
+  GetPassOptionUnsigned(O, "LastInstruction", &m_LastInstruction,
+                        static_cast<unsigned>(-1));
   GetPassOptionUnsigned(O, "parameter0", &m_Parameters.Parameters[0], 0);
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
@@ -341,10 +346,10 @@ DxilDebugInstrumentation::SystemValueIndices
   case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::RayGeneration:
-  //case DXIL::ShaderKind::Intersection:
-  //case DXIL::ShaderKind::AnyHit:
-  //case DXIL::ShaderKind::ClosestHit:
-  //case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
@@ -448,9 +453,11 @@ Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
   auto CompareToX = BC.Builder.CreateICmpEQ(
       RayX, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdX),
       "CompareToThreadIdX");
+
   auto CompareToY = BC.Builder.CreateICmpEQ(
       RayY, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdY),
       "CompareToThreadIdY");
+
   auto CompareToZ = BC.Builder.CreateICmpEQ(
       RayZ, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdZ),
       "CompareToThreadIdZ");
@@ -619,15 +626,15 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   Value *ParameterTestResult = nullptr;
   switch (shaderKind) {
   case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::Miss:
     ParameterTestResult = addRaygenShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
-  //case DXIL::ShaderKind::Intersection:
-  //case DXIL::ShaderKind::AnyHit:
-  //case DXIL::ShaderKind::ClosestHit:
-  //case DXIL::ShaderKind::Miss:
     ParameterTestResult = addDispatchedShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Geometry:
@@ -806,7 +813,6 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
 
   marker.Header.Details.SizeDwords =
       DebugShaderModifierRecordPayloadSizeDwords(sizeof(marker));
-  ;
   marker.Header.Details.Flags = 0;
   marker.Header.Details.Type =
       DebugShaderModifierRecordTypeInvocationStartMarker;
@@ -980,16 +986,9 @@ bool DxilDebugInstrumentation::RunOnFunction(
   DxilModule &DM,
   llvm::Function * entryFunction) 
 {
-  DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
-  if (!DM.HasDxilFunctionProps(entryFunction)) {
-    auto ShaderModel = DM.GetShaderModel();
-    shaderKind = ShaderModel->GetKind();
-  } else {
-    hlsl::DxilFunctionProps const &props =
-        DM.GetDxilFunctionProps(entryFunction);
-    shaderKind = props.shaderKind;
-  }
-
+  DXIL::ShaderKind shaderKind =
+      PIXPassHelpers::GetFunctionShaderKind(DM, entryFunction);
+  
   switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
@@ -1000,12 +999,11 @@ bool DxilDebugInstrumentation::RunOnFunction(
   case DXIL::ShaderKind::RayGeneration:
   case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
-    break;
-    //todo:
   case DXIL::ShaderKind::Intersection:
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+    break;
   default:
     return false;
   }
@@ -1015,7 +1013,13 @@ bool DxilDebugInstrumentation::RunOnFunction(
   for (inst_iterator I = inst_begin(entryFunction),
                      E = inst_end(entryFunction);
        I != E; ++I) {
-    AllInstructions.push_back(&*I);
+    std::uint32_t InstructionNumber;
+    if (pix_dxil::PixDxilInstNum::FromInst(&*I, &InstructionNumber)) {
+      if (InstructionNumber < m_FirstInstruction ||
+          InstructionNumber >= m_LastInstruction)
+        continue;
+      AllInstructions.push_back(&*I);
+    }
   }
 
   // Branchless instrumentation requires taking care of a few things:
@@ -1042,8 +1046,24 @@ bool DxilDebugInstrumentation::RunOnFunction(
 
   auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
 
+  // PIX binds two UAVs when running this instrumentation: one for raygen shaders
+  // and another for the hitgroups and miss shaders. Since PIX invokes this pass
+  // at the library level, which may contain examples of both types, PIX can't really
+  // specify which UAV index to use per-shader. This pass therefore just has to know this:
+  constexpr unsigned int RayGenUAVRegister = 0;
+  constexpr unsigned int HitGroupAndMissUAVRegister = 1;
+  unsigned int UAVRegisterId = RayGenUAVRegister;
+    switch (shaderKind) {
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::Miss:
+    UAVRegisterId = HitGroupAndMissUAVRegister;
+    break;
+  }
+
   values.UAVHandle = PIXPassHelpers::CreateUAV(
-      DM, Builder, 0,
+      DM, Builder, UAVRegisterId,
       "PIX_DebugUAV_Handle");
   values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
 
@@ -1112,6 +1132,8 @@ bool DxilDebugInstrumentation::RunOnFunction(
         if (!pix_dxil::PixDxilInstNum::FromInst(ValueNPhi.Phi, &InstNum)) {
           continue;
         }
+        if (InstNum < m_FirstInstruction || InstNum >= m_LastInstruction)
+          continue;
 
         BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
         addStepDebugEntryValue(BC, InstNum, ValueNPhi.Val, RegNum,

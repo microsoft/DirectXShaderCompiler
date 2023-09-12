@@ -10,7 +10,8 @@ RWByteAddressBuffer buf2;
 [numthreads(64, 1, 1)]
 void main(uint3 tid : SV_DispatchThreadId)
 {
-// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0:%\d+]]
+// CHECK:[[index_0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
+// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_0]]
 // CHECK:  [[word0:%\d+]] = OpLoad %uint [[ptr]]
 // CHECK:   [[val0:%\d+]] = OpBitcast %int [[word0]]
 // CHECK:[[index_1:%\d+]] = OpIAdd %uint [[index_0]] %uint_1
@@ -45,7 +46,8 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:  [[elem3:%\d+]] = OpCompositeExtract %int [[mat1]] 1 1
 // CHECK:  [[elem4:%\d+]] = OpCompositeExtract %int [[mat1]] 2 0
 // CHECK:  [[elem5:%\d+]] = OpCompositeExtract %int [[mat1]] 2 1
-// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx0:%\d+]]
+// CHECK:   [[idx0:%\d+]] = OpShiftRightLogical %uint [[addr0:%\d+]] %uint_2
+// CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf2 %uint_0 [[idx0]]
 // CHECK:    [[val:%\d+]] = OpBitcast %uint [[elem0]]
 // CHECK:                   OpStore [[ptr]] [[val]]
 // CHECK:   [[idx1:%\d+]] = OpIAdd %uint [[idx0]] %uint_1

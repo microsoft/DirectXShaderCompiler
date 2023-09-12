@@ -16,6 +16,7 @@
 #ifndef LLVM_CLANG_AST_HLSLTYPES_H
 #define LLVM_CLANG_AST_HLSLTYPES_H
 
+#include "clang/AST/DeclarationName.h"
 #include "clang/AST/Type.h"             // needs QualType
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
@@ -40,7 +41,8 @@ namespace clang {
   class Sema;
   class TypeSourceInfo;
   class TypedefDecl;
-}
+  class VarDecl;
+ }
 
 namespace hlsl {
 

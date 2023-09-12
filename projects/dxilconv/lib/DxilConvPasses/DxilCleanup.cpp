@@ -127,8 +127,9 @@ public:
     // I cannot delete these constructors, because vector depends on them, even if I never trigger them.
     // So assert if they are hit instead.
     LiveRange(const LiveRange &other)
-      : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU), pNewType(other.pNewType),
-      defs(other.defs), bitcastMap(other.bitcastMap)
+        : id(other.id), defs(other.defs),
+          bitcastMap(other.bitcastMap) ,numI(other.numI), numF(other.numF),
+          numU(other.numU), pNewType(other.pNewType)
     { DXASSERT_NOMSG(false); }
     LiveRange(LiveRange &&other)
       : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU), pNewType(other.pNewType),
@@ -1226,7 +1227,7 @@ Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigIn
 
   const unsigned kNumTypeArgs = 3;
   Type *ArgTypes[kNumTypeArgs];
-  DXIL::OpCode OpCode;
+  DXIL::OpCode OpCode = DXIL::OpCode::NumOpCodes;
   if (pType == Type::getFloatTy(*m_pCtx)) {
     IFTBOOL(pToType == Type::getInt32Ty(*m_pCtx), DXC_E_OPTIMIZATION_FAILED);
     OpCode = DXIL::OpCode::BitcastF32toI32;
@@ -1307,6 +1308,8 @@ bool DxilCleanup::IsDxilBitcast(Value *pValue) {
       case OP::OpCode::BitcastI32toF32:
       case OP::OpCode::BitcastI64toF64:
         return true;
+      default:
+        return false;
       }
     }
   }

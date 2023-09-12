@@ -1589,8 +1589,9 @@ void DeclResultIdMapper::createCounterVar(
   const SpirvType *counterType = spvContext.getACSBufferCounterType();
   QualType declType = decl->getType();
   if (declType->isArrayType()) {
-    // TODO(5440): This codes does not handle multi-dimensional arrays. We need
-    // to look at specific example to determine the best way to do it.
+    // Vulkan does not support multi-dimentional arrays of resource, so we
+    // assume the array is a single dimensional array.
+    assert(!declType->getArrayElementTypeNoTypeQual()->isArrayType());
     uint32_t arrayStride = 4;
     if (const auto *constArrayType =
             astContext.getAsConstantArrayType(declType)) {
@@ -1931,6 +1932,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
       const auto *attr = var.getLocationAttr();
       const auto loc = attr->getNumber();
+      const auto locCount = var.getLocationCount();
       const auto attrLoc = attr->getLocation(); // Attr source code location
       const auto idx = var.getIndexAttr() ? var.getIndexAttr()->getNumber() : 0;
 
@@ -1942,13 +1944,17 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       }
 
       // Make sure the same location is not assigned more than once
-      if (locSet.isLocUsed(loc, idx)) {
-        emitError("stage %select{output|input}0 location #%1 already assigned",
-                  attrLoc)
-            << forInput << loc;
-        noError = false;
+      for (uint32_t l = loc; l < loc + locCount; ++l) {
+        if (locSet.isLocUsed(l, idx)) {
+          emitError("stage %select{output|input}0 location #%1 already "
+                    "consumed by semantic '%2'",
+                    attrLoc)
+              << forInput << l << stageVars[idx].getSemanticStr();
+          noError = false;
+        }
+
+        locSet.useLoc(l, idx);
       }
-      locSet.useLoc(loc, idx);
 
       spvBuilder.decorateLocation(var.getSpirvInstr(), loc);
       if (var.getIndexAttr())
@@ -3312,6 +3318,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   spv::StorageClass sc = spv::StorageClass::Max;
   // Valid builtins supported
   switch (builtIn) {
+  case spv::BuiltIn::HelperInvocation:
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
     needsLegalization = true;

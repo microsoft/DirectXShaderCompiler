@@ -1,6 +1,9 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 cmake_minimum_required(VERSION 3.17.2) # HLSL Change - Require CMake 3.17.2.
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
   include(${DXC_CMAKE_BEGINS_INCLUDE})
 endif()
@@ -114,6 +117,11 @@ if(WIN32)
 add_compile_options(/guard:cf)
 add_link_options(/guard:cf)
 endif(WIN32)
+
+# Enable CET Shadow Stack
+if(WIN32 AND NOT (CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*"))
+add_link_options(/CETCOMPAT)
+endif(WIN32 AND NOT (CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*"))
 
 # HLSL Change Ends
 

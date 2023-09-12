@@ -25,11 +25,11 @@ RWBuffer<float> result;
 [numthreads(1,1,1)]
 void CSMain()
 {
-  // CHECK: call %"struct.MyStructA<float>"* @"dx.hl.op..%\22struct.MyStructA<float>\22* (i32, %dx.types.Handle, i32)"(i32 {{[0-9]+}}, %dx.types.Handle %{{[0-9]+}}, i32 0)
+  // CHECK: call %"struct.MyStructA<float>"* @"dx.hl.op.ro.%\22struct.MyStructA<float>\22* (i32, %dx.types.Handle, i32)"(i32 {{[0-9]+}}, %dx.types.Handle %{{[0-9]+}}, i32 0)
   MyStructA<float> a = g_bab.Load<MyStructA<float> >(0);
   result[0] = a.m_0;
 
-  // CHECK: call %struct.MyStructB* @"dx.hl.op..%struct.MyStructB* (i32, %dx.types.Handle, i32)"(i32 {{[0-9]+}}, %dx.types.Handle %{{[0-9]+}}, i32 1)
+  // CHECK: call %struct.MyStructB* @"dx.hl.op.ro.%struct.MyStructB* (i32, %dx.types.Handle, i32)"(i32 {{[0-9]+}}, %dx.types.Handle %{{[0-9]+}}, i32 1)
   MyStructB b = g_bab.Load<MyStructB>(1);
   result[1] = b.m_a.m_0;
 }

@@ -8,6 +8,10 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/Support/WinIncludes.h"
+
+#include "dxc/Support/dxcapi.use.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -15,11 +19,10 @@
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
-#include "dxc/Support/dxcapi.use.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 
 using namespace llvm::opt;
@@ -328,8 +331,8 @@ static bool hasUnsupportedSpirvOption(const InputArgList &args,
   // Note: The options checked here are non-exhaustive. A thorough audit of
   // available options and their current compatibility is needed to generate a
   // complete list.
-  std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre,
-                                               OPT_Qstrip_reflect, OPT_Gis};
+  std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre, OPT_Gec,
+                                               OPT_Gis, OPT_Qstrip_reflect};
 
   for (const auto &id : unsupportedOpts) {
     if (Arg *arg = args.getLastArg(id)) {
@@ -604,17 +607,17 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ScanLimit = std::stoul(std::string(limit));
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_disable))
-    opts.DxcOptimizationToggles[llvm::StringRef(opt).lower()] = false;
+    opts.OptToggles.Toggles[llvm::StringRef(opt).lower()] = false;
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_enable)) {
     std::string optimization = llvm::StringRef(opt).lower();
-    if (opts.DxcOptimizationToggles.count(optimization) &&
-        !opts.DxcOptimizationToggles[optimization]) {
+    if (opts.OptToggles.Toggles.count(optimization) &&
+        !opts.OptToggles.Toggles[optimization]) {
       errors << "Contradictory use of -opt-disable and -opt-enable with \""
              << llvm::StringRef(opt).lower() << "\"";
       return 1;
     }
-    opts.DxcOptimizationToggles[optimization] = true;
+    opts.OptToggles.Toggles[optimization] = true;
   }
 
   std::vector<std::string> ignoreSemDefs = Args.getAllArgValues(OPT_ignore_semdef);
@@ -638,13 +641,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   for (unsigned i = 0; i + 1 < optSelects.size(); i+=2) {
     std::string optimization = llvm::StringRef(optSelects[i]).lower();
     std::string selection = optSelects[i+1];
-    if (opts.DxcOptimizationSelects.count(optimization) &&
-        selection.compare(opts.DxcOptimizationSelects[optimization])) {
+    if (opts.OptToggles.Selects.count(optimization) &&
+        selection.compare(opts.OptToggles.Selects[optimization])) {
       errors << "Contradictory -opt-selects for \""
              << optimization << "\"";
       return 1;
     }
-    opts.DxcOptimizationSelects[optimization] = selection;
+    opts.OptToggles.Selects[optimization] = selection;
   }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
@@ -774,6 +777,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.LegacyMacroExpansion = Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
   opts.LegacyResourceReservation = Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false);
   opts.ExportShadersOnly = Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
+  opts.PrintBeforeAll = Args.hasFlag(OPT_print_before_all, OPT_INVALID, false);
   opts.PrintAfterAll = Args.hasFlag(OPT_print_after_all, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
@@ -793,6 +797,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
 
+  for (const std::string &value : Args.getAllArgValues(OPT_print_before)) {
+    opts.PrintBefore.insert(value);
+  }
   for (const std::string &value : Args.getAllArgValues(OPT_print_after)) {
     opts.PrintAfter.insert(value);
   }
@@ -1223,5 +1230,35 @@ void CopyArgsToWStrings(const InputArgList &inArgs, unsigned flagsToInclude,
     outArgs.emplace_back(Unicode::UTF8ToWideStringOrThrow(argText));
   }
 }
+
+SerializeDxilFlags ComputeSerializeDxilFlags(const options::DxcOpts &opts) {
+  SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+
+  if (opts.EmbedPDBName()) {
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+  }
+  if (opts.EmbedDebugInfo()) {
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+  }
+  if (opts.DebugNameForSource) {
+    // Implies name part
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+    SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+  } else if (opts.DebugNameForBinary) {
+    // Implies name part
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+  }
+  if (!opts.KeepReflectionInDxil) {
+    SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
+  }
+  if (!opts.StripReflection) {
+    SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
+  }
+  if (opts.StripRootSignature) {
+    SerializeFlags |= SerializeDxilFlags::StripRootSignature;
+  }
+  return SerializeFlags;
+}
+
 
 } } // hlsl::options

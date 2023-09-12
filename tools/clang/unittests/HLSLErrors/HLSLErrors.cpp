@@ -1,6 +1,9 @@
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include <atlbase.h>        // Common COM helpers.
 #include "dxc/dxcapi.h"     // Be sure to link with dxcompiler.lib.
 #include <d3d12shader.h>    // Shader reflection.
+// clang-format on
 
 // Code from https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll
 // Included here to verify compilation success. If this needs to be altered, please update the wiki as well
