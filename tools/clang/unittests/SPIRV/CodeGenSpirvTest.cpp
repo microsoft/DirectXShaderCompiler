@@ -25,12 +25,6 @@ TEST_F(FileTest, StructTypeUniqueness) {
   runFileTest("type.struct.uniqueness.hlsl");
 }
 TEST_F(FileTest, StringTypes) { runFileTest("type.string.hlsl"); }
-TEST_F(FileTest, StringTypesUninitializedError) {
-  runFileTest("type.string.uninitialized.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, StringTypesImmutableError) {
-  runFileTest("type.string.immutable.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, RuntimeArrayTypes) { runFileTest("type.runtime-array.hlsl"); }
@@ -45,20 +39,9 @@ TEST_F(FileTest, RWTextureTypesWith64bitsScalarTypes) {
   runFileTest("type.rwtexture.with.64bit.scalar.hlsl");
 }
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
-TEST_F(FileTest, BufferTypeStructError1) {
-  runFileTest("type.buffer.struct.error1.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, BufferTypeStructError2) {
-  runFileTest("type.buffer.struct.error2.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, BufferTypeStructError3) {
-  runFileTest("type.buffer.struct.error3.hlsl", Expect::Failure);
-}
+
 TEST_F(FileTest, RWBufferTypeHalfElementType) {
   runFileTest("type.rwbuffer.half.hlsl");
-}
-TEST_F(FileTest, RWBufferTypeStructError) {
-  runFileTest("type.rwbuffer.struct.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, TypeCBufferIncludingResource) {
@@ -83,18 +66,11 @@ TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
 TEST_F(FileTest, ClassEnumType) { runFileTest("class.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
-TEST_F(FileTest, RasterizerOrderedTexture2DType) {
-  runFileTest("type.rasterizer-ordered-texture-2d.unimplemented.hlsl",
-              Expect::Failure);
-}
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
 TEST_F(FileTest, StructuredBufferTypeWithVector) {
   runFileTest("type.structured-buffer.vector.hlsl");
-}
-TEST_F(FileTest, StructuredBufferArrayError) {
-  runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, RWStructuredBufferArrayNoCounter) {
   runFileTest("type.rwstructured-buffer.array.nocounter.hlsl");
@@ -125,10 +101,6 @@ TEST_F(FileTest, RWStructuredBufferArrayBindAttributes) {
 }
 TEST_F(FileTest, RWStructuredBufferUnboundedArray) {
   runFileTest("type.rwstructured-buffer.array.unbounded.counter.hlsl");
-}
-TEST_F(FileTest, RWStructuredBufferMultiDimentionalArray) {
-  runFileTest("type.rwstructured-buffer.array.multidim.counter.error.hlsl",
-              Expect::Failure);
 }
 TEST_F(FileTest, AppendStructuredBufferArrayError) {
   runFileTest("type.append-structured-buffer.array.hlsl");
@@ -213,9 +185,6 @@ TEST_F(FileTest, UninitStaticResourceVar) {
 }
 TEST_F(FileTest, ResourceArrayVar) { runFileTest("var.resource.array.hlsl"); }
 TEST_F(FileTest, GlobalsCBuffer) { runFileTest("var.globals.hlsl"); }
-TEST_F(FileTest, GlobalsCBufferError) {
-  runFileTest("var.globals.error.hlsl", Expect::Failure);
-}
 
 TEST_F(FileTest, VarVFACEInterface) {
   runFileTest("var.vface.interface.hlsl", Expect::Warning);
@@ -488,10 +457,6 @@ TEST_F(FileTest, BreakStmtMixed) { runFileTest("cf.break.mixed.hlsl"); }
 // For discard statement
 TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
 TEST_F(FileTest, DiscardToDemote) { runFileTest("cf.discard.to-demote.hlsl"); }
-TEST_F(FileTest, DiscardCS) {
-  // Using discard is only allowed in pixel shaders.
-  runFileTest("cf.discard.cs.hlsl", Expect::Failure);
-}
 
 // For return statement
 TEST_F(FileTest, EarlyReturn) { runFileTest("cf.return.early.hlsl"); }
@@ -524,10 +489,6 @@ TEST_F(FileTest, FunctionInOutParamNoNeedToCopy) {
   // Tests that referencing function scope variables as a whole with out/inout
   // annotation does not create temporary variables
   runFileTest("fn.param.inout.no-copy.hlsl");
-}
-TEST_F(FileTest, FunctionParamUnsizedArray) {
-  // Unsized ararys as function params are not supported.
-  runFileTest("fn.param.unsized-array.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, FunctionParamUnsizedOpaqueArrayO3) {
   runFileTest("fn.param.unsized-opaque-array-o3.hlsl");
@@ -621,12 +582,6 @@ TEST_F(FileTest, SemanticTargetPS) { runFileTest("semantic.target.ps.hlsl"); }
 TEST_F(FileTest, SemanticTargetDualBlend) {
   runFileTest("semantic.target.dual-blend.hlsl");
 }
-TEST_F(FileTest, SemanticTargetDualBlendError1) {
-  runFileTest("semantic.target.dual-blend.error1.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, SemanticTargetDualBlendError2) {
-  runFileTest("semantic.target.dual-blend.error2.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, SemanticDepthPS) { runFileTest("semantic.depth.ps.hlsl"); }
 TEST_F(FileTest, SemanticDepthGreaterEqualPS) {
   runFileTest("semantic.depth-greater-equal.ps.hlsl");
@@ -699,10 +654,6 @@ TEST_F(FileTest, SemanticPrimitiveIdGS) {
 }
 TEST_F(FileTest, SemanticPrimitiveIdPS) {
   runFileTest("semantic.primitive-id.ps.hlsl");
-}
-TEST_F(FileTest, SemanticOutputControlPointIdHSError) {
-  runFileTest("semantic.output-control-point-id.hs.error.hlsl",
-              Expect::Failure);
 }
 TEST_F(FileTest, SemanticGSInstanceIDGS) {
   runFileTest("semantic.gs-instance-id.gs.hlsl");
@@ -777,9 +728,6 @@ TEST_F(FileTest, SemanticCoverageTypeMismatchPS) {
 TEST_F(FileTest, SemanticInnerCoveragePS) {
   runFileTest("semantic.inner-coverage.ps.hlsl");
 }
-TEST_F(FileTest, SemanticInnerCoverageTypeError) {
-  runFileTest("semantic.inner-coverage.type-error.hlsl", Expect::Failure);
-}
 
 TEST_F(FileTest, SemanticViewIDVS) { runFileTest("semantic.view-id.vs.hlsl"); }
 TEST_F(FileTest, SemanticViewIDHS) { runFileTest("semantic.view-id.hs.hlsl"); }
@@ -793,9 +741,6 @@ TEST_F(FileTest, SemanticArbitraryDeclLocation) {
 }
 TEST_F(FileTest, SemanticArbitraryAlphaLocation) {
   runFileTest("semantic.arbitrary.location.alpha.hlsl");
-}
-TEST_F(FileTest, SemanticDuplication) {
-  runFileTest("semantic.duplication.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, SemanticOnStruct) { runFileTest("semantic.on-struct.hlsl"); }
 
@@ -852,15 +797,6 @@ TEST_F(FileTest, TextureGatherCmpRed) {
 TEST_F(FileTest, TextureArrayGatherCmpRed) {
   runFileTest("texture.array.gather-cmp-red.hlsl");
 }
-TEST_F(FileTest, TextureArrayGatherCmpGreen) {
-  runFileTest("texture.gather-cmp-green.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, TextureArrayGatherCmpBlue) {
-  runFileTest("texture.gather-cmp-blue.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, TextureArrayGatherCmpAlpha) {
-  runFileTest("texture.gather-cmp-alpha.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, TextureSampleLevel) {
   runFileTest("texture.sample-level.hlsl");
 }
@@ -884,12 +820,6 @@ TEST_F(FileTest, TextureSampleCmpLevelZero) {
 }
 TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
   runFileTest("texture.array.sample-cmp-level-zero.hlsl");
-}
-TEST_F(FileTest, TextureSampleInvalidImplicitLod) {
-  runFileTest("texture.sample-invalid-implicit-lod.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, TextureInvalidTex2D) {
-  runFileTest("texture.sample.invalid.tex2d.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, TextureSampleOffsetWithLoopUnroll) {
   runFileTest("texture.sample-offset.with.loop-unroll.hlsl");
@@ -983,11 +913,6 @@ TEST_F(FileTest, BufferGetDimensions) {
 // For RWTexture methods
 TEST_F(FileTest, RWTextureLoad) { runFileTest("method.rwtexture.load.hlsl"); }
 
-TEST_F(FileTest, RWTextureLoadInvalidResidencyCode) {
-
-  runFileTest("method.rwtexture.load.invalid-residency-arg.hlsl",
-              Expect::Failure);
-}
 
 TEST_F(FileTest, RWTextureGetDimensions) {
   runFileTest("method.rwtexture.get-dimensions.hlsl");
@@ -1060,14 +985,8 @@ TEST_F(FileTest, IntrinsicsFaceForward) {
 TEST_F(FileTest, IntrinsicsFirstBitHigh) {
   runFileTest("intrinsics.firstbithigh.hlsl");
 }
-TEST_F(FileTest, IntrinsicsFirstBitHigh64bit) {
-  runFileTest("intrinsics.firstbithigh.64bit.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, IntrinsicsFirstBitLow) {
   runFileTest("intrinsics.firstbitlow.hlsl");
-}
-TEST_F(FileTest, IntrinsicsFirstBitLow64bit) {
-  runFileTest("intrinsics.firstbitlow.64bit.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsPrintf) { runFileTest("intrinsics.printf.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
@@ -1106,19 +1025,8 @@ TEST_F(FileTest, Intrinsics64BitInterlockedMethodsPS) {
 TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
   runFileTest("intrinsics.interlocked-methods.cs.hlsl");
 }
-TEST_F(FileTest, IntrinsicsInterlockedMethodsError) {
-  runFileTest("intrinsics.interlocked-methods.error.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, IntrinsicsInterlockedMethodsStaticError) {
-  runFileTest("intrinsics.interlocked-methods.static-error.hlsl",
-              Expect::Failure);
-}
 TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzling) {
   runFileTest("intrinsics.interlocked-methods.texture.swizzling.hlsl");
-}
-TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzlingError) {
-  runFileTest("intrinsics.interlocked-methods.texture.swizzling.error.hlsl",
-              Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
@@ -1192,34 +1100,14 @@ TEST_F(FileTest, IntrinsicsAtanFp16) {
 }
 
 // Unspported intrinsic functions
-TEST_F(FileTest, IntrinsicsAbort) {
-  runFileTest("intrinsics.abort.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, IntrinsicsCheckAccessFullyMapped) {
   runFileTest("intrinsics.check-access-fully-mapped.hlsl");
 }
 TEST_F(FileTest, IntrinsicsCheckAccessFullyMappedWithoutSampler) {
   runFileTest("intrinsics.check-access-fully-mapped.without-sampler.hlsl");
 }
-TEST_F(FileTest, IntrinsicsGetRenderTargetSampleCount) {
-  runFileTest("intrinsics.get-render-target-sample-count.hlsl",
-              Expect::Failure);
-}
-TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
-  runFileTest("intrinsics.get-render-target-sample-position.hlsl",
-              Expect::Failure);
-}
 TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
   runFileTest("intrinsics.non-uniform-resource-index.hlsl");
-}
-TEST_F(FileTest, IntrinsicsMultiPrefix) {
-  runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, IntrinsicsGetAttributeAtVertex) {
-  runFileTest("intrinsics.get-attribute-at-vertex.hlsl", Expect::Failure);
-}
-TEST_F(FileTest, IntrinsicsDot4Add) {
-  runFileTest("intrinsics.dot4add.hlsl", Expect::Failure);
 }
 
 // Vulkan-specific intrinsic functions
@@ -1246,7 +1134,6 @@ TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsic.result_id.hlsl");
   runFileTest("spv.intrinsicLiteral.hlsl");
   runFileTest("spv.intrinsicTypeInteger.hlsl");
-  runFileTest("spv.intrinsic.reference.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsVkReadClock) {
   runFileTest("intrinsics.vkreadclock.hlsl");
@@ -1292,10 +1179,6 @@ TEST_F(FileTest, PrimitiveLineAdjGS) {
 TEST_F(FileTest, PrimitiveTriangleAdjGS) {
   runFileTest("primitive.triangleadj.gs.hlsl");
 }
-TEST_F(FileTest, PrimitiveErrorGS) {
-  runFileTest("primitive.error.gs.hlsl", Expect::Failure);
-}
-
 // Shader model 6.0 wave query
 TEST_F(FileTest, SM6WaveIsFirstLane) {
   runFileTest("sm6.wave-is-first-lane.hlsl");
