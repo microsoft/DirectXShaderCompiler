@@ -1,4 +1,4 @@
-// RUN: %dxc -E frag -T ps_6_4 -fspv-target-env=vulkan1.1
+// RUN: not %dxc -E frag -T ps_6_4 -fspv-target-env=vulkan1.1 -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 uint frag(float4 vertex
           : SV_POSITION) : SV_Target {

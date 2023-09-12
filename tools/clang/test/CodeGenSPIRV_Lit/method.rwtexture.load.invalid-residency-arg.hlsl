@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: not %dxc -T cs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 RWStructuredBuffer<uint> g_output : register(u1, space0);
 RWTexture2D<uint> g_rwtexture2d : register(u1, space3);

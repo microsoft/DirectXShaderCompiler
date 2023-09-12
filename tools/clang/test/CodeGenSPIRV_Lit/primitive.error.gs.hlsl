@@ -1,4 +1,4 @@
-// RUN: %dxc -T gs_6_0 -E main
+// RUN: not %dxc -T gs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 struct GS_OUT
 {

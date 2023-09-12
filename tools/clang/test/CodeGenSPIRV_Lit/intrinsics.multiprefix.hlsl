@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_5 -E main
+// RUN: not %dxc -T ps_6_5 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 StructuredBuffer<uint4> g_mask;
 

@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: not %dxc -T cs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 // According to the HLS spec, discard can only be called from a pixel shader.
 
