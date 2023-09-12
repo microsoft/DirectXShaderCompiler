@@ -61,9 +61,9 @@ getMemBufferFromStream(IStream *pStream, const llvm::Twine &BufferName) {
   size_t size = statstg.cbSize.LowPart;
   std::unique_ptr<llvm::MemoryBuffer> result(
       llvm::MemoryBuffer::getNewUninitMemBuffer(size, BufferName));
-  char *pBuffer = (char *)result.get()->getBufferStart();
+  const char *pBuffer = result.get()->getBufferStart();
   ULONG read;
-  IFT(pStream->Read(pBuffer, size, &read));
+  IFT(pStream->Read(const_cast<char *>(pBuffer), size, &read));
   return result;
 }
 } // namespace dxil_dia
@@ -128,8 +128,8 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(IStream *pInputIStream) {
         return DXC_E_MALFORMED_CONTAINER;
       }
 
-      hlsl::DxilProgramHeader *pDxilProgramHeader =
-          (hlsl::DxilProgramHeader *)pBuffer->getBufferStart();
+      const hlsl::DxilProgramHeader *pDxilProgramHeader =
+          (const hlsl::DxilProgramHeader *)pBuffer->getBufferStart();
       if (pDxilProgramHeader->BitcodeHeader.DxilMagic != hlsl::DxilMagicValue) {
         return DXC_E_MALFORMED_CONTAINER;
       }

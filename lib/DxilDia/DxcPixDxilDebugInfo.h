@@ -49,7 +49,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixDxilDebugInfo)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixDxilDebugInfo>(this, iid, ppvObject);
   }
 
@@ -94,7 +95,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixDxilInstructionOffsets)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixDxilInstructionOffsets>(this, iid,
                                                                 ppvObject);
   }
@@ -121,7 +123,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixDxilSourceLocations)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixDxilSourceLocations>(this, iid,
                                                              ppvObject);
   }

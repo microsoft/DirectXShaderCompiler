@@ -273,7 +273,7 @@ STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
   std::vector<CComPtr<Symbol>> children;
   IFR(GetChildren(&children));
 
-  if (symtag != nsNone) {
+  if (symtag != SymTagNull) {
     std::vector<CComPtr<Symbol>> tmp;
     tmp.reserve(children.size());
     for (const auto &c : children) {

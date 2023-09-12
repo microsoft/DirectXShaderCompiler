@@ -76,7 +76,7 @@ public:
 };
 
 CompilationInfo::CompilationInfo(IMalloc *pMalloc, dxil_dia::Session *pSession)
-    : m_pSession(pSession), m_pMalloc(pMalloc) {
+    : m_pMalloc(pMalloc), m_pSession(pSession) {
   auto *Module = m_pSession->DxilModuleRef().GetModule();
   m_contents =
       Module->getNamedMetadata(hlsl::DxilMDHelper::kDxilSourceContentsMDName);
