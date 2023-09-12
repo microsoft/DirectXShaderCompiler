@@ -3,7 +3,6 @@
 // Check the WaveSize attribute is accepted by work graph nodes
 // and appears in the metadata
 
-[shader("compute")]
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
@@ -12,7 +11,7 @@
 void node01() { }
 
 // CHECK: !{void ()* @node01, !"node01", null, null, [[NODE01:![0-9]+]]}
-// CHECK: [[NODE01]] = !{i32 8, i32 5, i32 13, i32 1, i32 11, [[NODE01_WS:![0-9]+]]
+// CHECK: [[NODE01]] = !{i32 8, i32 15, i32 13, i32 1, i32 11, [[NODE01_WS:![0-9]+]]
 // CHECK: [[NODE01_WS]] = !{i32 4}
 
 [Shader("node")]
