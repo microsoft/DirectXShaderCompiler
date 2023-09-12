@@ -1,4 +1,4 @@
-// RUN: %dxc -T ms_6_5 -E main
+// RUN: not %dxc -T ms_6_5 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 // CHECK: 22:9: error: 'payload' object must be an in parameter
 

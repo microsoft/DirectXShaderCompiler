@@ -1,7 +1,7 @@
 // Test that an error is emitted when a SubpassInput variable is used in
 // something other than a pixel shader.
 
-// RUN: %dxc -T cs_6_0 -E CsTest
+// RUN: not %dxc -T cs_6_0 -E CsTest -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 [[vk::input_attachment_index (0)]] SubpassInput<float4> subInput;
 [numthreads (8,1,1)]

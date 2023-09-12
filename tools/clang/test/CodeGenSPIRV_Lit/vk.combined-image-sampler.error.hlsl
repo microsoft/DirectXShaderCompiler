@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -O0
+// RUN: not %dxc -T ps_6_0 -E main -O0  %s -spirv  2>&1 | FileCheck %s
 
 // CHECK:      fatal error: Texture or Sampler with
 // CHECK-SAME: attribute is missing for descriptor set and binding: 0, 1
