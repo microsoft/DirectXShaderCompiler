@@ -8,6 +8,14 @@
 struct EMPTY { // expected-note +{{zero sized record defined here}}
 };
 
+struct EMPTY2 { // expected-note +{{zero sized record defined here}}
+  EMPTY empty;
+};
+
+struct EMPTY3 { // expected-note +{{zero sized record defined here}}
+  EMPTY2 empty;
+};
+
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
@@ -43,7 +51,7 @@ void node05(ThreadNodeInputRecord<EMPTY> input) // expected-error {{record used 
 [Shader("node")]
 [NodeLaunch("Thread")]
 [NumThreads(1,1,1)]
-void node06(RWThreadNodeInputRecord<EMPTY> input) // expected-error {{record used in RWThreadNodeInputRecord may not have zero size}}
+void node06(RWThreadNodeInputRecord<EMPTY2> input) // expected-error {{record used in RWThreadNodeInputRecord may not have zero size}}
 {}
 
 [Shader("node")]
@@ -57,5 +65,5 @@ void node07(NodeOutput<EMPTY> output) // expected-error {{record used in NodeOut
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(64, 1, 1)]
-void node08(NodeOutputArray<EMPTY> output) // expected-error {{record used in NodeOutputArray may not have zero size}}
+void node08(NodeOutputArray<EMPTY3> output) // expected-error {{record used in NodeOutputArray may not have zero size}}
 {}

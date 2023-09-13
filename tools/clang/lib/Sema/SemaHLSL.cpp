@@ -5567,37 +5567,40 @@ public:
                "otherwise the template has not been declared properly");
       // The first argument must be a user defined struct type that does not
       // contain any HLSL object
-      const TemplateArgumentLoc &argLoc = TemplateArgList[0];
-      const TemplateArgument &arg = argLoc.getArgument();
+      const TemplateArgumentLoc &ArgLoc = TemplateArgList[0];
+      const TemplateArgument &Arg = ArgLoc.getArgument();
 
-      if (arg.getKind() == TemplateArgument::ArgKind::Template) {
-        TemplateDecl *templateDecl = arg.getAsTemplate().getAsTemplateDecl();
-        SourceLocation argSrcLoc = argLoc.getLocation();
-        m_sema->Diag(argSrcLoc,
-                     diag::err_hlsl_typeintemplateargument_requires_struct)
-            << templateDecl->getName();
+      // To get here the arg must have been accepted as a type acceptable to
+      // HLSL, but that includes HLSL templates without args which we want to
+      // disallow here.
+      if (Arg.getKind() == TemplateArgument::ArgKind::Template) {
+        TemplateDecl *TD = Arg.getAsTemplate().getAsTemplateDecl();
+        SourceLocation ArgSrcLoc = ArgLoc.getLocation();
+        m_sema->Diag(ArgSrcLoc, diag::err_hlsl_node_record_type)
+            << TD->getName();
         return true;
       }
-      QualType argType = arg.getAsType();
-      UINT count;
-      // We skip the empty struct case here as a more specific diagnostic for
-      // that case is generated later
-      if ((GetTypeObjectKind(argType) != AR_TOBJ_COMPOUND) ||
-          (!IsTypeNumeric(argType, &count) && count > 0)) {
-        SourceLocation argSrcLoc = argLoc.getLocation();
-        m_sema->Diag(argSrcLoc,
-                     diag::err_hlsl_typeintemplateargument_requires_struct)
-            << argType;
+
+      QualType ArgTy = Arg.getAsType();
+      // The node record type must be compound - error if it is not.
+      if (GetTypeObjectKind(ArgTy) != AR_TOBJ_COMPOUND) {
+        m_sema->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
+            << ArgTy << ArgLoc.getSourceRange();
         return true;
       }
-      // a node input/output record can't be empty
-      if (const RecordType *recordType = argType->getAsStructureType()) {
-        RecordDecl *RD = recordType->getDecl();
-        if (RD->field_empty()) {
-          m_sema->Diag(argLoc.getLocation(), diag::err_hlsl_zero_sized_record) << templateName << argLoc.getSourceRange();
-          m_sema->Diag(RD->getLocation(), diag::note_defined_here) << "zero sized record";
-          return true;
-        }
+
+      bool EmptyStruct = true;
+      if (DiagnoseNodeStructArgument(m_sema, ArgLoc, ArgTy, EmptyStruct))
+        return true;
+      // a node input/output record can't be empty - EmptyStruct is false if
+      // any fields were found by DiagnoseNodeStructArgument()
+      if (EmptyStruct) {
+        m_sema->Diag(ArgLoc.getLocation(), diag::err_hlsl_zero_sized_record)
+            << templateName << ArgLoc.getSourceRange();
+        const RecordDecl *RD = ArgTy->getAs<RecordType>()->getDecl();
+        m_sema->Diag(RD->getLocation(), diag::note_defined_here)
+            << "zero sized record";
+        return true;
       }
       return false;
     }
@@ -5607,7 +5610,7 @@ public:
     bool isVector = Template->getCanonicalDecl() ==
                     m_vectorTemplateDecl->getCanonicalDecl();
     bool requireScalar = isMatrix || isVector;
-    
+
     // Check constraints on the type.
     for (unsigned int i = 0; i < TemplateArgList.size(); i++) {
       const TemplateArgumentLoc &argLoc = TemplateArgList[i];
@@ -11367,6 +11370,67 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
     }
   }
   return false;
+}
+
+bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
+                                      QualType ArgTy, bool &Empty,
+                                      const FieldDecl *FD) {
+  DXASSERT_NOMSG(!ArgTy.isNull());
+
+  HLSLExternalSource *source = HLSLExternalSource::FromSema(self);
+  ArTypeObjectKind shapeKind = source->GetTypeObjectKind(ArgTy);
+  switch (shapeKind) {
+  case AR_TOBJ_ARRAY:
+  case AR_TOBJ_BASIC:
+  case AR_TOBJ_MATRIX:
+  case AR_TOBJ_VECTOR:
+    Empty = false;
+    return false;
+  case AR_TOBJ_OBJECT:
+    Empty = false;
+    self->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_object)
+        << ArgTy << ArgLoc.getSourceRange();
+    if (FD)
+      self->Diag(FD->getLocation(), diag::note_field_declared_here)
+          << FD->getType() << FD->getSourceRange();
+    return true;
+  case AR_TOBJ_DEPENDENT:
+    Empty = false;
+    self->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
+        << ArgTy << ArgLoc.getSourceRange();
+    if (FD)
+      self->Diag(FD->getLocation(), diag::note_field_declared_here)
+          << FD->getType() << FD->getSourceRange();
+    return true;
+  case AR_TOBJ_COMPOUND: {
+    // TODO: Templated records are non-trivial to diagnose here, and allowing
+    // them results in asserts later in CodeGen (which need fixing), so we'll
+    // disallow them here for now as a lesser evil.
+    if (auto TTy = dyn_cast<TemplateSpecializationType>(ArgTy)) {
+      self->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_template)
+          << ArgTy << ArgLoc.getSourceRange();
+      if (FD)
+        self->Diag(FD->getLocation(), diag::note_field_declared_here)
+            << "templated" << FD->getSourceRange();
+      return true;
+    }
+    bool ErrorFound = false;
+    const RecordDecl *RD = ArgTy->getAs<RecordType>()->getDecl();
+    // Check the fields of the RecordDecl
+    RecordDecl::field_iterator begin = RD->field_begin();
+    RecordDecl::field_iterator end = RD->field_end();
+    while (begin != end) {
+      const FieldDecl *FD = *begin;
+      ErrorFound |=
+          DiagnoseNodeStructArgument(self, ArgLoc, FD->getType(), Empty, FD);
+      begin++;
+    }
+    return ErrorFound;
+  }
+  default:
+    DXASSERT(false, "unreachable");
+    return false;
+  }
 }
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {

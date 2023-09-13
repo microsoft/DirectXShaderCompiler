@@ -12,124 +12,10 @@ struct RECORD2
   bool b;
 };
 
-struct BAD_RECORD
-{
-  uint a;
-  SamplerState s;
-};
-
-struct BAD_RECORD2
-{
-  BAD_RECORD b;
-};
-
 struct [NodeTrackRWInputSharing] TRACKED_RECORD
 {
   uint a;
 };
-
-//==============================================================================
-// Check diagnostics for the various node input/output types
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_01(DispatchNodeInputRecord<int> input) /* expected-error {{'int' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Coalescing")]
-[NumThreads(8,1,1)]
-void node1_02(GroupNodeInputRecords<float> input) /* expected-error {{'float' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Coalescing")]
-[NumThreads(2,1,1)]
-void node1_03(GroupNodeInputRecords<SamplerState> input) /* expected-error {{'SamplerState' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_04(RWDispatchNodeInputRecord<RECORD[2]> input) /* expected-error {{'RECORD [2]' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Coalescing")]
-[NumThreads(8,1,1)]
-void node1_05(RWGroupNodeInputRecords<float> input) /* expected-error {{'float' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-typedef matrix<float,2,2> f2x2;
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_06(RWDispatchNodeInputRecord<f2x2,4> input) /* expected-error {{too many template arguments for class template 'RWDispatchNodeInputRecord'}}  */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_07(NodeOutput<bool> output) /* expected-error {{'bool' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_08(NodeOutput<RECORD[3]> output) /* expected-error {{'RECORD [3]' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_09(NodeOutput<float4> output) /* expected-error {{'float4' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_10(DispatchNodeInputRecord<float3> input) /* expected-error {{'float3' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_11(DispatchNodeInputRecord<BAD_RECORD> input) /* expected-error {{'BAD_RECORD' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_12(RWDispatchNodeInputRecord<BAD_RECORD2> input) /* expected-error {{'BAD_RECORD2' cannot be used as a type parameter where a struct/class is required}} */
-{ }
-
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node1_16()
-{
-  GroupNodeOutputRecords<int> outrec1; /* expected-error {{'int' cannot be used as a type parameter where a struct/class is required}} */
-
-  ThreadNodeOutputRecords<bool> outrec2; /* expected-error {{'bool' cannot be used as a type parameter where a struct/class is required}} */
-
-  GroupNodeOutputRecords<float4> outrec3; /* expected-error {{'float4' cannot be used as a type parameter where a struct/class is required}} */
-
-  ThreadNodeOutputRecords<RECORD[4]> outrec4; /* expected-error {{'RECORD [4]' cannot be used as a type parameter where a struct/class is required}} */
-}
-
 
 //==============================================================================
 // Check Get[GroupShared]NodeOutput[Array]() intrinsics don't match with invalid
@@ -222,36 +108,6 @@ void node3_04(NodeOutput<RECORD> output)
   // Initializing a GroupNodeOutputRecords<RECORD> from GetThreadNodeOutputRecords() 
   GroupNodeOutputRecords<RECORD> outrec = output.GetThreadNodeOutputRecords(1); /* expected-error {{cannot initialize a variable of type 'GroupNodeOutputRecords<RECORD>' with an rvalue of type 'ThreadNodeOutputRecords<RECORD>'}} */
 }
-
-//==============================================================================
-// Check invalid template arguments
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node4_01(DispatchNodeInputRecord<RECORD, 20> input) /* expected-error {{too many template arguments for class template 'DispatchNodeInputRecord'}}  */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Thread")]
-void node4_02(ThreadNodeInputRecord input) /* expected-error {{use of class template 'ThreadNodeInputRecord' requires template arguments}}  */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node4_03(DispatchNodeInputRecord<Texture2D> input) /* expected-error {{Texture2D cannot be used as a type parameter where a struct/class is required}}  */
-{ }
-
-[Shader("node")]
-[NodeLaunch("Broadcasting")]
-[NumThreads(8,1,1)]
-[NodeMaxDispatchGrid(8,1,1)]
-void node4_04(DispatchNodeInputRecord<RaytracingAccelerationStructure> input) /* expected-error {{'RaytracingAccelerationStructure' cannot be used as a type parameter where a struct/class is required}}  */
-{ }
-
 
 //==============================================================================
 // Check FinishedCrossGroupSharing only available for RWDispatchNodeInputRecord

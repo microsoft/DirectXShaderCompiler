@@ -122,6 +122,7 @@ public:
   TEST_METHOD(RunInvalidNodeLaunchDiags)
   TEST_METHOD(RunShaderMismatch)
   TEST_METHOD(RunMaxRecordsAttribute)
+  TEST_METHOD(RunInvalidNodeRecordTypeDiags)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -547,4 +548,8 @@ TEST_F(VerifierTest, RunWorkGraphAttributeDiags) {
 
 TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
   CheckVerifiesHLSL(L"/workgraph/invalid_nodelaunch.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeRecordTypeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_node_record_type.hlsl");
 }
