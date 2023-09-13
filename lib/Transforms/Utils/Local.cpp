@@ -335,15 +335,10 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
     if (Constant *C = dyn_cast<Constant>(CI->getArgOperand(0)))
       return C->isNullValue() || isa<UndefValue>(C);
 
-  // HLSL Change - don't force unused convergent markers to stay, 
-  // remove bad OutputCompletes
-  if (CallInst *CI = dyn_cast<CallInst>(I)) {  
-    if (hlsl::dxilutil::IsConvergentMarker(CI)) 
-      return true;
-
-    if (hlsl::dxilutil::DxilOpFunctionHasNoSideEffects(I)) 
-      return true;
-  }
+  // HLSL Change - Verify that function has no side effects
+  if (hlsl::dxilutil::FunctionHasNoSideEffects(I)) 
+    return true;
+  
   // HLSL Change End
 
   return false;
