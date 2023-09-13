@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpDecorate [[mul1:%\d+]] NoContraction
 // CHECK: OpDecorate [[add1:%\d+]] NoContraction

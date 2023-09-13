@@ -251,7 +251,7 @@ Sema::BuildPossibleImplicitMemberExpr(const CXXScopeSpec &SS,
   case IMA_Field_Uneval_Context:
     Diag(R.getNameLoc(), diag::warn_cxx98_compat_non_static_member_use)
       << R.getLookupNameInfo().getName();
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change
   case IMA_Static:
   case IMA_Abstract:
   case IMA_Mixed_StaticContext:
@@ -507,6 +507,7 @@ bool Sema::CheckQualifiedMemberReference(Expr *BaseExpr,
                                          QualType BaseType,
                                          const CXXScopeSpec &SS,
                                          const LookupResult &R) {
+  BaseType = BaseType.getNonReferenceType(); // HLSL Change
   CXXRecordDecl *BaseRecord =
     cast_or_null<CXXRecordDecl>(computeDeclContext(BaseType));
   if (!BaseRecord) {
@@ -704,6 +705,7 @@ Sema::BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
     TypoExpr *TE = nullptr;
     QualType RecordTy = BaseType;
     if (IsArrow) RecordTy = RecordTy->getAs<PointerType>()->getPointeeType();
+    RecordTy = RecordTy.getNonReferenceType(); // HLSL Change - implicit this is a reference.
     if (LookupMemberExprInRecord(*this, R, nullptr,
                                  RecordTy->getAs<RecordType>(), OpLoc, IsArrow,
                                  SS, TemplateArgs != nullptr, TE))
@@ -1049,7 +1051,13 @@ Sema::BuildMemberReferenceExpr(Expr *BaseExpr, QualType BaseExprType,
     if (SS.getRange().isValid())
       Loc = SS.getRange().getBegin();
     CheckCXXThisCapture(Loc);
-    BaseExpr = new (Context) CXXThisExpr(Loc, BaseExprType,/*isImplicit=*/true);
+
+    // HLSL Change Starts - adjust this from T* to T&-like
+    if (getLangOpts().HLSL)
+      BaseExpr = genereateHLSLThis(Loc, BaseExprType, /*isImplicit=*/true);
+    else
+      BaseExpr = new (Context) CXXThisExpr(Loc, BaseExprType,/*isImplicit=*/true);
+    // HLSL Change Ends
   }
 
   bool ShouldCheckUse = true;
@@ -1762,12 +1770,17 @@ Sema::BuildImplicitMemberExpr(const CXXScopeSpec &SS,
     if (SS.getRange().isValid())
       Loc = SS.getRange().getBegin();
     CheckCXXThisCapture(Loc);
-    baseExpr = new (Context) CXXThisExpr(loc, ThisTy, /*isImplicit=*/true);
+    if (getLangOpts().HLSL) {
+      baseExpr = genereateHLSLThis(Loc, ThisTy, /*isImplicit=*/true);
+      ThisTy = ThisTy->getPointeeType();
+    } else
+      baseExpr = new (Context) CXXThisExpr(loc, ThisTy, /*isImplicit=*/true);
   }
 
   return BuildMemberReferenceExpr(baseExpr, ThisTy,
                                   /*OpLoc*/ SourceLocation(),
-                                  /*IsArrow*/ true,
+                                  // HLSL Change - this is a reference
+                                  /*IsArrow*/ !getLangOpts().HLSL,
                                   SS, TemplateKWLoc,
                                   /*FirstQualifierInScope*/ nullptr,
                                   R, TemplateArgs);

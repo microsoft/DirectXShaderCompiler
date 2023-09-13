@@ -970,17 +970,26 @@ ExprResult Sema::ActOnCXXThis(SourceLocation Loc) {
 
   CheckCXXThisCapture(Loc);
   // HLSL Change Starts - adjust this from T* to T&-like
-  if (getLangOpts().HLSL && ThisTy.getTypePtr()->isPointerType()) {
-    // Expressions cannot be of reference type - instead, they yield
-    // an lvalue on the underlying type.
-    CXXThisExpr* ResultExpr = new (Context)CXXThisExpr(
-      Loc, ThisTy.getTypePtr()->getPointeeType(), /*isImplicit=*/false);
-    ResultExpr->setValueKind(ExprValueKind::VK_LValue);
-    return ResultExpr;
+  if (getLangOpts().HLSL) {
+    return genereateHLSLThis(Loc, ThisTy, /*isImplicit=*/false);
   }
   // HLSL Change Ends
   return new (Context) CXXThisExpr(Loc, ThisTy, /*isImplicit=*/false);
 }
+
+// HLSL Change Begin - adjust this from T* to T&-like
+CXXThisExpr *Sema::genereateHLSLThis(SourceLocation Loc, QualType ThisType,
+                                   bool isImplicit) {
+  // Expressions cannot be of reference type - instead, they yield
+  // an lvalue on the underlying type.
+  if (ThisType->isPointerType() || ThisType->isReferenceType())
+    ThisType = ThisType->getPointeeType();
+  CXXThisExpr *ResultExpr =
+      new (Context) CXXThisExpr(Loc, ThisType, isImplicit);
+  ResultExpr->setValueKind(ExprValueKind::VK_LValue);
+  return ResultExpr;
+}
+// HLSL Change End - adjust this from T* to T&-like
 
 bool Sema::isThisOutsideMemberFunctionBody(QualType BaseType) {
   // If we're outside the body of a member function, then we'll have a specified

@@ -168,7 +168,7 @@ namespace {
     bool runOnFunction(Function &F) override;
     bool doFinalization(Module &M) override;
 
-    const char *getPassName() const override {
+    StringRef getPassName() const override {
       return "Merge internal globals";
     }
 

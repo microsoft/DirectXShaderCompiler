@@ -12,6 +12,7 @@
 
 #include "dxc/DXIL/DXIL.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/Support/WinIncludes.h"
 
 namespace llvm {
 class raw_ostream;
@@ -84,6 +85,8 @@ public:
             DENY_MESH_SHADER_ROOT_ACCESS,
             ALLOW_STREAM_OUTPUT,
             LOCAL_ROOT_SIGNATURE,
+            CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED,
+            SAMPLER_HEAP_DIRECTLY_INDEXED,
 
             // Filter
             filter,
@@ -153,6 +156,8 @@ public:
             STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
             STATIC_BORDER_COLOR_OPAQUE_BLACK,
             STATIC_BORDER_COLOR_OPAQUE_WHITE,
+            STATIC_BORDER_COLOR_OPAQUE_BLACK_UINT,
+            STATIC_BORDER_COLOR_OPAQUE_WHITE_UINT,
 
             minLOD,
             maxLOD,

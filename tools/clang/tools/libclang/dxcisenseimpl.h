@@ -13,10 +13,13 @@
 #define __DXC_ISENSEIMPL__
 
 #include "clang-c/Index.h"
-#include "dxc/dxcisense.h"
-#include "dxc/dxcapi.internal.h"
-#include "dxc/Support/microcom.h"
+#include "clang/AST/Decl.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "dxc/Support/DxcLangExtensionsCommonHelper.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
+#include "dxc/Support/microcom.h"
+#include "dxc/dxcapi.internal.h"
+#include "dxc/dxcisense.h"
 
 // Forward declarations.
 class DxcCursor;
@@ -189,7 +192,7 @@ public:
       _Outptr_result_nullonfailure_ IDxcTranslationUnit** pTranslationUnit) override;
 };
 
-class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions2 {
+class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions3 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   hlsl::DxcLangExtensionsHelper m_langHelper;
@@ -201,7 +204,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcIntelliSense, IDxcLangExtensions,
-                                 IDxcLangExtensions2>(
+                                 IDxcLangExtensions2, IDxcLangExtensions3>(
         this, iid, ppvObject);
   }
 

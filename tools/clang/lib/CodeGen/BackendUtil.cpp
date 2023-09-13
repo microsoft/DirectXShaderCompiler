@@ -29,6 +29,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
@@ -43,6 +44,7 @@
 #include <memory>
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h"  // HLSL Change
+#include "dxc/Support/Global.h" // HLSL Change
 
 using namespace clang;
 using namespace llvm;
@@ -91,7 +93,11 @@ private:
   legacy::PassManager *getPerModulePasses() const {
     if (!PerModulePasses) {
       PerModulePasses = new legacy::PassManager();
+      PerModulePasses->HLSLPrintBeforeAll =
+          this->CodeGenOpts.HLSLPrintBeforeAll;
+      PerModulePasses->HLSLPrintBefore = this->CodeGenOpts.HLSLPrintBefore;
       PerModulePasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
+      PerModulePasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerModulePasses->TrackPassOS = &PerModulePassesConfigOS;
       PerModulePasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
@@ -102,7 +108,12 @@ private:
   legacy::FunctionPassManager *getPerFunctionPasses() const {
     if (!PerFunctionPasses) {
       PerFunctionPasses = new legacy::FunctionPassManager(TheModule);
-      PerFunctionPasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
+      PerFunctionPasses->HLSLPrintBeforeAll =
+          this->CodeGenOpts.HLSLPrintBeforeAll;
+      PerFunctionPasses->HLSLPrintBefore = this->CodeGenOpts.HLSLPrintBefore;
+      PerFunctionPasses->HLSLPrintAfterAll =
+          this->CodeGenOpts.HLSLPrintAfterAll;
+      PerFunctionPasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerFunctionPasses->TrackPassOS = &PerFunctionPassesConfigOS;
       PerFunctionPasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
@@ -333,14 +344,19 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
 
-  PMBuilder.EnableGVN = !CodeGenOpts.HLSLOptimizationToggles.count("gvn") ||
-                        CodeGenOpts.HLSLOptimizationToggles.find("gvn")->second;
-
-  PMBuilder.StructurizeLoopExitsForUnroll =
-                        CodeGenOpts.HLSLOptimizationToggles.count("structurize-loop-exits-for-unroll") &&
-                        CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
-
-  PMBuilder.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLEnableLifetimeMarkers;
+  // Opt toggles
+  const hlsl::options::OptimizationToggles &OptToggles =
+      CodeGenOpts.HLSLOptimizationToggles;
+  PMBuilder.EnableGVN = OptToggles.IsEnabled(hlsl::options::TOGGLE_GVN);
+  PMBuilder.HLSLNoSink = !OptToggles.IsEnabled(hlsl::options::TOGGLE_SINK);
+  PMBuilder.StructurizeLoopExitsForUnroll = OptToggles.IsEnabled(
+      hlsl::options::TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL);
+  PMBuilder.HLSLEnableDebugNops = OptToggles.IsEnabled(hlsl::options::TOGGLE_DEBUG_NOPS);
+  PMBuilder.HLSLEnableLifetimeMarkers =
+      CodeGenOpts.HLSLEnableLifetimeMarkers &&
+      OptToggles.IsEnabled(hlsl::options::TOGGLE_LIFETIME_MARKERS);
+  PMBuilder.HLSLEnablePartialLifetimeMarkers =
+      OptToggles.IsEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
@@ -430,6 +446,7 @@ void EmitAssemblyHelper::CreatePasses() {
   switch (Inlining) {
   case CodeGenOptions::NoInlining: break;
   case CodeGenOptions::NormalInlining: {
+    PMBuilder.HLSLEarlyInlining = false; // HLSL Change
     PMBuilder.Inliner =
         createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
     break;
@@ -440,7 +457,7 @@ void EmitAssemblyHelper::CreatePasses() {
       // Do not insert lifetime intrinsics at -O0.
       PMBuilder.Inliner = createAlwaysInlinerPass(false);
     else
-      PMBuilder.Inliner = createAlwaysInlinerPass();
+      PMBuilder.Inliner = createAlwaysInlinerPass(PMBuilder.HLSLEnableLifetimeMarkers); // HLSL Change
     break;
   }
 
@@ -753,7 +770,17 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
                               raw_pwrite_stream *OS) {
   EmitAssemblyHelper AsmHelper(Diags, CGOpts, TOpts, LOpts, M);
 
-  AsmHelper.EmitAssembly(Action, OS);
+  // HLSL Change - Support hierarchial time tracing.
+  TimeTraceScope TimeScope("Backend", StringRef(""));
+
+  try { // HLSL Change Starts
+    // Catch any fatal errors during optimization passes here
+    // so that future passes can be skipped.
+    AsmHelper.EmitAssembly(Action, OS);
+  } catch (const ::hlsl::Exception &hlslException) {
+    Diags.Report(Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0\n"))
+        << StringRef(hlslException.what());
+  } // HLSL Change Ends
 
   // If an optional clang TargetInfo description string was passed in, use it to
   // verify the LLVM TargetMachine's DataLayout.

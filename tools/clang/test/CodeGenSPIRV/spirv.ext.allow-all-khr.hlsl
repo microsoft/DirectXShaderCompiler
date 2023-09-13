@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_1 -E main -fspv-extension=KHR
+// RUN: %dxc -T vs_6_1 -E main -fspv-extension=KHR
 
 // CHECK: OpExtension "SPV_KHR_shader_draw_parameters"
 // CHECK: OpExtension "SPV_KHR_device_group"

@@ -55,7 +55,7 @@ namespace {
       (void) llvm::createBitTrackingDCEPass();
       (void) llvm::createAliasAnalysisCounterPass();
       (void) llvm::createAliasDebugger();
-      (void) llvm::createArgumentPromotionPass();
+      // (void) llvm::createArgumentPromotionPass(); // HLSL Change - do not link
       (void) llvm::createAlignmentFromAssumptionsPass();
       (void) llvm::createBasicAliasAnalysisPass();
       (void) llvm::createLibCallAliasAnalysisPass(nullptr);

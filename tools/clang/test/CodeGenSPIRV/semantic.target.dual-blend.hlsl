@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpDecorate %out_var_SV_Target0 Location 0
 // CHECK: OpDecorate %out_var_SV_Target0 Index 0

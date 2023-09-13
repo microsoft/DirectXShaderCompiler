@@ -20,6 +20,7 @@ add_clang_executable(dxl
   )
 
 target_link_libraries(dxl
+  dxclib
   dxcompiler
   )
 
@@ -29,7 +30,9 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
-add_dependencies(dxl dxcompiler)
+include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)
+
+add_dependencies(dxl dxclib dxcompiler)
 
 if(UNIX)
   set(CLANGXX_LINK_OR_COPY create_symlink)

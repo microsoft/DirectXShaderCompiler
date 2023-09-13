@@ -86,6 +86,11 @@ public:
     init(InputData.begin(), InputData.end(), RequiresNullTerminator);
   }
 
+  // Disable sized deallocation for MemoryByfferMem, because it has
+  // tail-allocated data.
+  // (See llvm commit 21c303e9eadfbd2d685665176159f5f4738169b1)
+  void operator delete(void *p) { ::operator delete(p); }
+
   const char *getBufferIdentifier() const override {
      // The name is stored after the class itself.
     return reinterpret_cast<const char*>(this + 1);
@@ -211,6 +216,11 @@ public:
       init(Start, Start + Len, RequiresNullTerminator);
     }
   }
+
+  // Disable sized deallocation for MemoryByfferMem, because it has
+  // tail-allocated data.
+  // (See llvm commit 21c303e9eadfbd2d685665176159f5f4738169b1)
+  void operator delete(void *p) { ::operator delete(p); }
 
   const char *getBufferIdentifier() const override {
     // The name is stored after the class itself.
@@ -363,7 +373,7 @@ getOpenFileImpl(int FD, const Twine &Filename, uint64_t FileSize,
         new (NamedBufferAlloc(Filename))
         MemoryBufferMMapFile(RequiresNullTerminator, FD, MapSize, Offset, EC));
     if (!EC)
-      return std::move(Result);
+      return Result; // HLSL Change - Fix redundant move warning.
   }
 
   std::unique_ptr<MemoryBuffer> Buf =
@@ -403,7 +413,7 @@ getOpenFileImpl(int FD, const Twine &Filename, uint64_t FileSize,
     BufPtr += NumRead;
   }
 
-  return std::move(Buf);
+  return Buf; // HLSL Change - Fix redundant move warning.
 }
 
 ErrorOr<std::unique_ptr<MemoryBuffer>>

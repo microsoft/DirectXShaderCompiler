@@ -37,7 +37,7 @@ void RayGenTestMain()
 // CHECK:     Flags: 0
 // CHECK:     FunctionCount: 1
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGenTestMain@@YAXXZ
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGenTestMain{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: RayGeneration 6.3
 // CHECK:       Flags: 0
 // CHECK:       ConstantBuffers: 1
@@ -52,7 +52,7 @@ void RayGenTestMain()
 // CHECK:           uFlags: 0
 // CHECK:           Num Variables: 3
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: scene
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: scene
 // CHECK:         Type: D3D_SIT_RTACCELERATIONSTRUCTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1

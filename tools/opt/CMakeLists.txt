@@ -5,7 +5,10 @@ set(LLVM_LINK_COMPONENTS
 #  CodeGen # HLSL Change
   Core
   DXIL # HLSL Change
+  DxcBindingTable # HLSL Change
   HLSL # HLSL Change
+  DxilContainer #  HLSL Change for DxcOptimizerPass
+  DxilRootSignature #  HLSL Change for DxcOptimizerPass
   IPA
   IPO
   IRReader
@@ -26,7 +29,7 @@ set(LLVM_LINK_COMPONENTS
 # Support plugins.
 set(LLVM_NO_DEAD_STRIP 1)
 
-set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} mssupport hlsl)  # HLSL Change
+set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} mssupport dxcbindingtable hlsl)  # HLSL Change
 
 add_llvm_tool(opt
   AnalysisWrappers.cpp
@@ -37,12 +40,11 @@ add_llvm_tool(opt
   opt.cpp
 )
 
-if(WIN32)
-target_link_libraries(opt
-   DxilConvPasses
-)
-add_dependencies(opt DxilConvPasses)
-endif(WIN32)
+if(WIN32 AND HLSL_BUILD_DXILCONV)
+  add_compile_definitions(HAS_DXILCONV)
+  target_link_libraries(opt DxilConvPasses)
+  add_dependencies(opt DxilConvPasses)
+endif(WIN32 AND HLSL_BUILD_DXILCONV)
 
 export_executable_symbols(opt)
 

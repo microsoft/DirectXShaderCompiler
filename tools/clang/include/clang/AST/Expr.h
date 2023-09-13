@@ -3910,6 +3910,13 @@ public:
     InitListExprBits.HadArrayRangeDesignator = ARD;
   }
 
+  bool isVectorInitWithCXXFunctionalCastExpr() const {
+    return InitListExprBits.VectorInitWithCXXFunctionalCastExpr != 0;
+  }
+  void sawVectorInitWithCXXFunctionalCastExpr(bool InitWithCast) {
+    InitListExprBits.VectorInitWithCXXFunctionalCastExpr = InitWithCast;
+  }
+
   SourceLocation getLocStart() const LLVM_READONLY;
   SourceLocation getLocEnd() const LLVM_READONLY;
 

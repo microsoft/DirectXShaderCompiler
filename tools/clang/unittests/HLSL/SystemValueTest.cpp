@@ -535,11 +535,13 @@ TEST_F(SystemValueTest, VerifyMissingSemanticFailure) {
       // TODO: add tests for mesh/amplification shaders to system-values.hlsl
       continue;
     }
+
     std::wstring sigDefValue(L"Def_Arb_NoSem(uint, arb0)");
     CComPtr<IDxcOperationResult> pResult;
     CompileHLSLTemplate(pResult, sp, sigDefValue);
     const char *Errors[] = {
       "error: Semantic must be defined for all parameters of an entry function or patch constant function",
+      "error: Semantic must be defined for all outputs of an entry function or patch constant function"
     };
     CheckAnyOperationResultMsg(pResult, Errors, _countof(Errors));
   }

@@ -101,7 +101,7 @@ public:
   /// RGPassManager needs RegionInfo.
   void getAnalysisUsage(AnalysisUsage &Info) const override;
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Region Pass Manager";
   }
 

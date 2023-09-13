@@ -99,7 +99,7 @@ private:
   DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcPixDxilDebugInfo> m_pDxilDebugInfo;
   CComPtr<IDxcPixType> m_pOriginalType;
-  CComPtr<IDxcPixStructType> m_pType;
+  CComPtr<IDxcPixStructType2> m_pType;
   VariableInfo const *m_pVarInfo;
   unsigned m_OffsetFromStorageStartInBits;
 
@@ -107,7 +107,7 @@ private:
       IMalloc *pMalloc,
       DxcPixDxilDebugInfo *pDxilDebugInfo,
       IDxcPixType* OriginalType,
-      IDxcPixStructType *pType,
+      IDxcPixStructType2 *pType,
       VariableInfo const *pVarInfo,
       unsigned OffsetFromStorageStartInBits)
     : m_pMalloc(pMalloc)

@@ -17,19 +17,27 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/Test/RDATDumper.h"
+#include "dxc/Test/D3DReflectionDumper.h"
 
 #include "llvm/Support/CommandLine.h"
-#include <dia2.h>
-#include <intsafe.h>
+#include "llvm/Support//MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/raw_ostream.h"
+
 
 using namespace llvm;
 using namespace llvm::opt;
 using namespace dxc;
 using namespace hlsl::options;
 
+static cl::opt<bool> Help("help", cl::desc("Print help"));
+static cl::alias Help_h("h", cl::aliasopt(Help));
+static cl::alias Help_q("?", cl::aliasopt(Help));
+
 static cl::opt<std::string> InputFilename(cl::Positional,
-                                          cl::desc("<input .llvm file>"),
-                                          cl::init("-"));
+                                          cl::desc("<input .llvm file>"));
 
 static cl::opt<std::string> OutputFilename("o",
                                            cl::desc("Override output filename"),
@@ -48,13 +56,25 @@ static cl::opt<bool> ListFiles("listfiles",
 static cl::opt<std::string>
     ExtractFile("extractfile", cl::desc("Extract file from debug information (use '*' for all files)"));
 
+static cl::opt<bool> DumpRootSig("dumprs",
+                               cl::desc("Dump root signature"),
+                               cl::init(false));
+
+static cl::opt<bool> DumpRDAT("dumprdat",
+                              cl::desc("Dump RDAT"),
+                              cl::init(false));
+
+static cl::opt<bool> DumpReflection("dumpreflection",
+                              cl::desc("Dump reflection"),
+                              cl::init(false));
 
 class DxaContext {
 
 private:
   DxcDllSupport &m_dxcSupport;
-  HRESULT GetInjectedSourcesTable(IDxcLibrary *pLibrary, IDxcBlob *pTargetBlob, IDiaTable **ppTable);
   HRESULT FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcBlob **ppTarget);
+  bool ExtractPart(uint32_t Part, IDxcBlob **ppTargetBlob);
+  bool ExtractPart(IDxcBlob* pSource, uint32_t Part, IDxcBlob **ppTargetBlob);
 public:
   DxaContext(DxcDllSupport &dxcSupport) : m_dxcSupport(dxcSupport) {}
 
@@ -63,6 +83,9 @@ public:
   bool ExtractPart(const char *pName);
   void ListFiles();
   void ListParts();
+  void DumpRS();
+  void DumpRDAT();
+  void DumpReflection();
 };
 
 void DxaContext::Assemble() {
@@ -70,7 +93,7 @@ void DxaContext::Assemble() {
 
   {
     CComPtr<IDxcBlobEncoding> pSource;
-    ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+    ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
     CComPtr<IDxcAssembler> pAssembler;
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
@@ -104,7 +127,7 @@ void DxaContext::Assemble() {
         }
       }
 
-      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
+      WriteBlobToFile(pContainer, StringRefWide(OutputFilename), DXC_CP_ACP);
       printf("Output written to \"%s\"\n", OutputFilename.c_str());
     }
   } else {
@@ -131,7 +154,7 @@ HRESULT DxaContext::FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcL
   }
   if (fourCC == pDxilPartHeader->PartFourCC) {
     UINT32 pBlobSize;
-    hlsl::DxilProgramHeader *pDxilProgramHeader = (hlsl::DxilProgramHeader*)(pDxilPartHeader + 1);
+    const hlsl::DxilProgramHeader *pDxilProgramHeader = (const hlsl::DxilProgramHeader *)(pDxilPartHeader + 1);
     hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &pBlobSize);
     UINT32 offset = (UINT32)(pBitcode - (const char *)pSource->GetBufferPointer());
     pLibrary->CreateBlobFromBlob(pSource, offset, pBlobSize, ppTargetBlob);
@@ -140,121 +163,78 @@ HRESULT DxaContext::FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcL
   return E_INVALIDARG;
 }
 
-HRESULT DxaContext::GetInjectedSourcesTable(IDxcLibrary *pLibrary, IDxcBlob *pTargetBlob, IDiaTable **ppTable) {
-  if (!pLibrary || !pTargetBlob || !ppTable)
-    return E_INVALIDARG;
-  CComPtr<IDiaDataSource> pDataSource;
-  CComPtr<IStream> pSourceStream;
-  CComPtr<IDiaSession> pSession;
-  CComPtr<IDiaEnumTables> pEnumTables;
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDataSource));
-  IFT(pLibrary->CreateStreamFromBlobReadOnly(pTargetBlob, &pSourceStream));
-  IFT(pDataSource->loadDataFromIStream(pSourceStream));
-  IFT(pDataSource->openSession(&pSession));
-  IFT(pSession->getEnumTables(&pEnumTables));
-  CComPtr<IDiaTable> pTable;
-  for (;;) {
-    ULONG fetched;
-    pTable.Release();
-    IFT(pEnumTables->Next(1, &pTable, &fetched));
-    if (fetched == 0) {
-      pTable.Release();
-      break;
-    }
-    CComBSTR name;
-    IFT(pTable->get_name(&name));
-    if (wcscmp(name, L"InjectedSource") == 0) {
-      break;
-    }
-  }
-  *ppTable = pTable.Detach();
-  return S_OK;
-}
-
 void DxaContext::ListFiles() {
   CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pTargetBlob;
-  CComPtr<IDxcLibrary> pLibrary;
-  CComPtr<IDiaTable> pTable;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
-  IFTARG(pSource->GetBufferSize() >= 4);
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  IFT(FindModule(hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL, pSource, pLibrary, &pTargetBlob));
-  IFT(GetInjectedSourcesTable(pLibrary, pTargetBlob, &pTable));
-  if (pTable == nullptr) {
-    printf("No injected sources found.\r\n");
-    return;
-  }
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
-  for (;;) {
-    CComPtr<IUnknown> pInjectedSourceUnk;
-    ULONG fetched;
-    IFT(pTable->Next(1, &pInjectedSourceUnk, &fetched));
-    if (fetched == 0) {
-      return;
-    }
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  IFT(m_dxcSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+  IFT(pPdbUtils->Load(pSource));
 
-    CComPtr<IDiaInjectedSource> pInjectedSource;
-    IFT(pInjectedSourceUnk.QueryInterface(&pInjectedSource));
+  UINT32 uNumSources = 0;
+  IFT(pPdbUtils->GetSourceCount(&uNumSources));
 
+  for (UINT32 i = 0; i < uNumSources; i++) {
     CComBSTR name;
-    IFT(pInjectedSource->get_filename(&name));
+    IFT(pPdbUtils->GetSourceName(i, &name));
     printf("%S\r\n", (LPWSTR)name);
   }
 }
 
 bool DxaContext::ExtractFile(const char *pName) {
   CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pTargetBlob;
-  CComPtr<IDxcLibrary> pLibrary;
-  CComPtr<IDiaTable> pTable;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
-  IFTARG(pSource->GetBufferSize() >= 4);
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  IFT(FindModule(hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL, pSource, pLibrary, &pTargetBlob));
-  IFT(GetInjectedSourcesTable(pLibrary, pTargetBlob, &pTable));
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  IFT(m_dxcSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+  IFT(pPdbUtils->Load(pSource));
+
+  UINT32 uNumSources = 0;
+  IFT(pPdbUtils->GetSourceCount(&uNumSources));
   bool printedAny = false;
-  if (pTable == nullptr) {
-    printf("No injected sources found.\r\n");
-    return printedAny;
-  }
 
   CA2W WideName(pName, CP_UTF8);
-  for (;;) {
-    CComPtr<IUnknown> pInjectedSourceUnk;
-    ULONG fetched;
-    IFT(pTable->Next(1, &pInjectedSourceUnk, &fetched));
-    if (fetched == 0) {
-      return printedAny;
-    }
-
-    CComPtr<IDiaInjectedSource> pInjectedSource;
-    IFT(pInjectedSourceUnk.QueryInterface(&pInjectedSource));
-
+  for (UINT32 i = 0; i < uNumSources; i++) {
     CComBSTR name;
-    IFT(pInjectedSource->get_filename(&name));
+    IFT(pPdbUtils->GetSourceName(i, &name));
     if (strcmp("*", pName) == 0 || wcscmp((LPWSTR)name, WideName) == 0) {
       printedAny = true;
-      ULONGLONG dataLenLL;
-      DWORD dataLen;
-      std::vector<BYTE> data;
-
-      IFT(pInjectedSource->get_length(&dataLenLL));
-      IFT(ULongLongToDWord(dataLenLL, &dataLen));
-      data.resize(dataLen);
-      IFT(pInjectedSource->get_source(dataLen, &dataLen, data.data()));
-      printf("%.*s", dataLen, (char *)data.data());
+      CComPtr<IDxcBlobEncoding> pFileContent;
+      IFT(pPdbUtils->GetSource(i, &pFileContent));
+      printf("%.*s", (int)pFileContent->GetBufferSize(), (char *)pFileContent->GetBufferPointer());
     }
   }
 
   return printedAny;
 }
 
-bool DxaContext::ExtractPart(const char *pName) {
-  CComPtr<IDxcContainerReflection> pReflection;
+bool DxaContext::ExtractPart(uint32_t PartKind, IDxcBlob **ppTargetBlob) {
   CComPtr<IDxcBlobEncoding> pSource;
-  UINT32 partCount;
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+  return ExtractPart(pSource, PartKind, ppTargetBlob);
+}
 
+bool DxaContext::ExtractPart(IDxcBlob* pSource, uint32_t PartKind, IDxcBlob **ppTargetBlob) {
+  CComPtr<IDxcContainerReflection> pReflection;
+  UINT32 partCount;
+  IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(pReflection->Load(pSource));
+  IFT(pReflection->GetPartCount(&partCount));
+
+    for (UINT32 i = 0; i < partCount; ++i) {
+    UINT32 curPartKind;
+    IFT(pReflection->GetPartKind(i, &curPartKind));
+    if (curPartKind == PartKind) {
+      CComPtr<IDxcBlob> pContent;
+      IFT(pReflection->GetPartContent(i, ppTargetBlob));
+      return true;
+    }
+  }
+  return false;
+
+}
+
+bool DxaContext::ExtractPart(const char *pName) {
   // If the part name is 'module', don't just extract the part,
   // but also skip the appropriate header.
   bool extractModule = strcmp("module", pName) == 0;
@@ -266,61 +246,55 @@ bool DxaContext::ExtractPart(const char *pName) {
     extractModule = true;
   }
 
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  IFT(pReflection->Load(pSource));
-  IFT(pReflection->GetPartCount(&partCount));
   IFTARG(strlen(pName) == 4);
 
-  const UINT32 matchName = ((UINT32)pName[0] | ((UINT32)pName[1] << 8) | ((UINT32)pName[2] << 16) | ((UINT32)pName[3] << 24));
-  for (UINT32 i = 0; i < partCount; ++i) {
-    UINT32 partKind;
-    IFT(pReflection->GetPartKind(i, &partKind));
-    if (partKind == matchName) {
-      CComPtr<IDxcBlob> pContent;
-      IFT(pReflection->GetPartContent(i, &pContent));
-      if (OutputFilename.empty()) {
-        if (InputFilename == "-") {
-          OutputFilename = "-";
-        }
-        else {
-          OutputFilename = InputFilename.getValue();
-          OutputFilename += ".";
-          if (extractModule) {
-            OutputFilename += "ll";
-          }
-          else {
-            OutputFilename += pName;
-          }
-        }
-      }
+  const UINT32 matchName =
+      ((UINT32)pName[0] | ((UINT32)pName[1] << 8) | ((UINT32)pName[2] << 16) |
+       ((UINT32)pName[3] << 24));
+  CComPtr<IDxcBlob> pContent;
+  if (!ExtractPart(matchName, &pContent))
+    return false;
 
+  if (OutputFilename.empty()) {
+    if (InputFilename == "-") {
+      OutputFilename = "-";
+    } else {
+      OutputFilename = InputFilename.getValue();
+      OutputFilename += ".";
       if (extractModule) {
-        char *pDxilPart = (char *)pContent->GetBufferPointer();
-        hlsl::DxilProgramHeader *pProgramHdr = (hlsl::DxilProgramHeader *)pDxilPart;
-        const char *pBitcode;
-        uint32_t bitcodeLength;
-        GetDxilProgramBitcode(pProgramHdr, &pBitcode, &bitcodeLength);
-        uint32_t offset = pBitcode - pDxilPart;
-
-        CComPtr<IDxcLibrary> pLib;
-        CComPtr<IDxcBlob> pModuleBlob;
-        IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-        IFT(pLib->CreateBlobFromBlob(pContent, offset, bitcodeLength, &pModuleBlob));
-        std::swap(pModuleBlob, pContent);
+        OutputFilename += "ll";
+      } else {
+        OutputFilename += pName;
       }
-
-      WriteBlobToFile(pContent, StringRefUtf16(OutputFilename), DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
-      printf("%Iu bytes written to %s\n", pContent->GetBufferSize(), OutputFilename.c_str());
-      return true;
     }
   }
-  return false;
+
+  if (extractModule) {
+    char *pDxilPart = (char *)pContent->GetBufferPointer();
+    hlsl::DxilProgramHeader *pProgramHdr = (hlsl::DxilProgramHeader *)pDxilPart;
+    const char *pBitcode;
+    uint32_t bitcodeLength;
+    GetDxilProgramBitcode(pProgramHdr, &pBitcode, &bitcodeLength);
+    uint32_t offset = pBitcode - pDxilPart;
+
+    CComPtr<IDxcLibrary> pLib;
+    CComPtr<IDxcBlob> pModuleBlob;
+    IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+    IFT(pLib->CreateBlobFromBlob(pContent, offset, bitcodeLength,
+                                 &pModuleBlob));
+    std::swap(pModuleBlob, pContent);
+  }
+
+  WriteBlobToFile(pContent, StringRefWide(OutputFilename),
+                  DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
+  printf("%zu bytes written to %s\n", pContent->GetBufferSize(),
+         OutputFilename.c_str());
+  return true;
 }
 
 void DxaContext::ListParts() {
   CComPtr<IDxcBlobEncoding> pSource;
-  ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
 
   CComPtr<IDxcContainerReflection> pReflection;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
@@ -344,19 +318,166 @@ void DxaContext::ListParts() {
   }
 }
 
+void DxaContext::DumpRS() {
+  const char *pName = "RTS0";
+  const UINT32 matchName =
+      ((UINT32)pName[0] | ((UINT32)pName[1] << 8) | ((UINT32)pName[2] << 16) |
+       ((UINT32)pName[3] << 24));
+  CComPtr<IDxcBlob> pContent;
+  if (!ExtractPart(matchName, &pContent)) {
+    printf("cannot find root signature part");
+    return;
+  }
+
+  const void *serializedData = pContent->GetBufferPointer();
+  uint32_t serializedSize = pContent->GetBufferSize();
+  hlsl::RootSignatureHandle rootsig;
+  rootsig.LoadSerialized(static_cast<const uint8_t *>(serializedData),
+                         serializedSize);
+  try {
+    rootsig.Deserialize();
+  } catch (const hlsl::Exception &e) {
+    printf("fail to deserialize root sig %s", e.msg.c_str());
+    return;
+  }
+
+  if (const hlsl::DxilVersionedRootSignatureDesc *pRS = rootsig.GetDesc()) {
+    std::string str;
+    llvm::raw_string_ostream os(str);
+    hlsl::printRootSignature(*pRS, os);
+    printf("%s", str.c_str());
+  }
+}
+
+void DxaContext::DumpRDAT() {
+  CComPtr<IDxcBlob> pPart;
+  CComPtr<IDxcBlobEncoding> pSource;
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+  if (pSource->GetBufferSize() < sizeof(hlsl::RDAT::RuntimeDataHeader)) {
+    printf("Invalid input file, use binary DxilContainer or raw RDAT part.");
+    return;
+  }
+
+  // If DXBC, extract part, otherwise, try to read raw RDAT binary.
+  if (hlsl::DFCC_Container == *(UINT *)pSource->GetBufferPointer()) {
+    if (!ExtractPart(pSource, hlsl::DFCC_RuntimeData, &pPart)) {
+      printf("cannot find RDAT part");
+      return;
+    }
+  } else if (hlsl::RDAT::RDAT_Version_10 != *(UINT *)pSource->GetBufferPointer()) {
+    printf("Invalid input file, use binary DxilContainer or raw RDAT part.");
+    return;
+  } else {
+    pPart = pSource;  // Try assuming the source is pure RDAT part
+  }
+
+  hlsl::RDAT::DxilRuntimeData rdat;
+  if (!rdat.InitFromRDAT(pPart->GetBufferPointer(), pPart->GetBufferSize())) {
+    // If any error occurred trying to read as RDAT, assume it's not the right kind of input.
+    printf("Invalid input file, use binary DxilContainer or raw RDAT part.");
+    return;
+  }
+
+  std::ostringstream ss;
+  hlsl::dump::DumpContext d(ss);
+  hlsl::dump::DumpRuntimeData(rdat, d);
+  printf("%s", ss.str().c_str());
+}
+
+void DxaContext::DumpReflection() {
+  CComPtr<IDxcBlobEncoding> pSource;
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+
+  CComPtr<IDxcContainerReflection> pReflection;
+  IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(pReflection->Load(pSource));
+
+  UINT32 partCount;
+  IFT(pReflection->GetPartCount(&partCount));
+
+  bool blobFound = false;
+  std::ostringstream ss;
+  hlsl::dump::D3DReflectionDumper dumper(ss);
+
+  CComPtr<ID3D12ShaderReflection> pShaderReflection;
+  CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    IFT(pReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_DXIL) {
+      blobFound = true;
+      CComPtr<IDxcBlob> pPart;
+      IFT(pReflection->GetPartContent(i, &pPart));
+      const hlsl::DxilProgramHeader *pProgramHeader =
+        reinterpret_cast<const hlsl::DxilProgramHeader*>(pPart->GetBufferPointer());
+      IFT(IsValidDxilProgramHeader(pProgramHeader, (uint32_t)pPart->GetBufferSize()));
+      hlsl::DXIL::ShaderKind SK = hlsl::GetVersionShaderType(pProgramHeader->ProgramVersion);
+      if (SK == hlsl::DXIL::ShaderKind::Library) {
+        IFT(pReflection->GetPartReflection(i,
+                                           IID_PPV_ARGS(&pLibraryReflection)));
+
+      } else {
+        IFT(pReflection->GetPartReflection(i,
+                                           IID_PPV_ARGS(&pShaderReflection)));
+      }
+      break;
+    } else if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      CComPtr<IDxcBlob> pPart;
+      IFT(pReflection->GetPartContent(i, &pPart));
+      hlsl::RDAT::DxilRuntimeData rdat(pPart->GetBufferPointer(),
+                                       pPart->GetBufferSize());
+      hlsl::dump::DumpContext d(ss);
+      DumpRuntimeData(rdat, d);
+    }
+  }
+
+  if (!blobFound) {
+    printf("Unable to find DXIL part");
+    return;
+  } else if (pShaderReflection) {
+    dumper.Dump(pShaderReflection);
+  } else if (pLibraryReflection) {
+    dumper.Dump(pLibraryReflection);
+  }
+
+  ss.flush();
+  printf("%s", ss.str().c_str());
+}
+
 using namespace hlsl::options;
 
+#ifdef _WIN32
 int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
+#else
+int main(int argc, const char **argv) {
+#endif
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
+  if (FAILED(DxcInitThreadMalloc())) return 1;
+  DxcSetThreadMallocToDefault();
+
   const char *pStage = "Operation";
   try {
+    llvm::sys::fs::MSFileSystem *msfPtr;
+    IFT(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+
     pStage = "Argument processing";
 
     // Parse command line options.
     cl::ParseCommandLineOptions(argc, argv, "dxil assembly\n");
+
+    if (InputFilename == "" || Help) {
+      cl::PrintHelpMessage();
+      return 2;
+    }
+
+
     DxcDllSupport dxcSupport;
-
-    // Read options and check errors.
-
     dxc::EnsureEnabled(dxcSupport);
     DxaContext context(dxcSupport);
     if (ListParts) {
@@ -378,8 +499,16 @@ int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
       if (!context.ExtractFile(ExtractFile.c_str())) {
         return 1;
       }
-    }
-    else {
+    } else if (DumpRootSig) {
+      pStage = "Dump root sig";
+      context.DumpRS();
+    } else if (DumpRDAT) {
+      pStage = "Dump RDAT";
+      context.DumpRDAT();
+    } else if (DumpReflection) {
+      pStage = "Dump Reflection";
+      context.DumpReflection();
+    } else {
       pStage = "Assembling";
       context.Assemble();
     }

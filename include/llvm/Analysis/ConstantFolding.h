@@ -20,7 +20,7 @@
 #ifndef LLVM_ANALYSIS_CONSTANTFOLDING_H
 #define LLVM_ANALYSIS_CONSTANTFOLDING_H
 
-#include "dxc/Support/WinAdapter.h" // HLSL Change
+#include "dxc/WinAdapter.h" // HLSL Change
 
 namespace llvm {
   class Constant;

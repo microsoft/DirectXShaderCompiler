@@ -12,8 +12,9 @@
 #ifndef __DXC_MICROCOM__
 #define __DXC_MICROCOM__
 
-#include <atomic>
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/Atomic.h"
+#include <atomic>
 
 template <typename TIface>
 class CComInterfaceArray {
@@ -76,6 +77,11 @@ public:
   }
 };
 
+template<typename T>
+void DxcCallDestructor(T *obj) {
+  obj->T::~T();
+}
+
 #define DXC_MICROCOM_REF_FIELD(m_dwRef)                                        \
   volatile std::atomic<llvm::sys::cas_flag> m_dwRef = {0};
 #define DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                      \
@@ -86,8 +92,10 @@ public:
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                            \
   ULONG STDMETHODCALLTYPE Release() override {                                 \
     ULONG result = (ULONG)--m_dwRef;                                           \
-    if (result == 0)                                                           \
-      delete this;                                                             \
+    if (result == 0) {                                                         \
+      DxcCallDestructor(this);                                                 \
+      operator delete(this);                                                   \
+    }                                                                          \
     return result;                                                             \
   }
 
@@ -97,11 +105,6 @@ inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
   try { if (P) new (P)T(pMalloc, std::forward<Args>(args)...); }
   catch (...) { pMalloc->Free(P); throw; }
   return (T *)P;
-}
-
-template<typename T>
-void DxcCallDestructor(T *obj) {
-  obj->~T();
 }
 
 // The "TM" version keep an IMalloc field that, if not null, indicate

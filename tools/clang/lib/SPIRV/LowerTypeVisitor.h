@@ -25,7 +25,7 @@ public:
   LowerTypeVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
                    const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx),
-        alignmentCalc(astCtx, opts) {}
+        alignmentCalc(astCtx, opts), useArrayForMat1xN(false) {}
 
   // Visiting different SPIR-V constructs.
   bool visit(SpirvModule *, Phase) override { return true; }
@@ -48,6 +48,8 @@ public:
   const SpirvType *lowerType(QualType type, SpirvLayoutRule,
                              llvm::Optional<bool> isRowMajor, SourceLocation);
 
+  bool useSpvArrayForHlslMat1xN() { return useArrayForMat1xN; }
+
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>
@@ -69,6 +71,16 @@ private:
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
                                      SourceLocation);
 
+  /// Lowers the fields of a RecordDecl into SPIR-V StructType field
+  /// information.
+  llvm::SmallVector<StructType::FieldInfo, 4>
+  lowerStructFields(const RecordDecl *structType, SpirvLayoutRule rule);
+
+  /// Lowers the given type defined in vk namespace into its SPIR-V type.
+  const SpirvType *lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
+                                            SpirvLayoutRule rule,
+                                            SourceLocation srcLoc);
+
   /// For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType sampledType,
@@ -83,10 +95,18 @@ private:
   populateLayoutInformation(llvm::ArrayRef<HybridStructType::FieldInfo> fields,
                             SpirvLayoutRule rule);
 
+  /// Create a clang::StructType::FieldInfo from HybridStructType::FieldInfo.
+  /// This function only considers the field as standalone.
+  /// Offset and layout constraint from the parent struct are not considered.
+  StructType::FieldInfo lowerField(const HybridStructType::FieldInfo *field,
+                                   SpirvLayoutRule rule,
+                                   const uint32_t fieldIndex);
+
 private:
   ASTContext &astContext;                /// AST context
   SpirvContext &spvContext;              /// SPIR-V context
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
+  bool useArrayForMat1xN;                /// SPIR-V array for HLSL Matrix 1xN
 };
 
 } // end namespace spirv

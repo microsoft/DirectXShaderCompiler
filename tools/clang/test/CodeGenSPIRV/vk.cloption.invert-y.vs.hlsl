@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fvk-invert-y
+// RUN: %dxc -T vs_6_0 -E main -fvk-invert-y
 
 float4 main(float4 a : A) : SV_Position {
     return a;

@@ -16,6 +16,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constants.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 namespace llvm {
 class Type;
@@ -60,6 +62,13 @@ namespace dxilutil {
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
   bool HasDynamicIndexing(llvm::Value *V);
 
+  // Cleans up unnecessary chains of GEPs and bitcasts left over from certain
+  // optimizations. This function is NOT safe to call while iterating
+  // instructions either forward or backward. If V happens to be a GEP or
+  // bitcast, the function may delete V, instructions preceding V it, and
+  // instructions following V.
+  bool MergeGepUse(llvm::Value *V);
+
   // Find alloca insertion point, given instruction
   llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I); // Considers entire parent function
   llvm::Instruction *FindAllocaInsertionPt(llvm::BasicBlock* BB); // Only considers provided block
@@ -80,10 +89,10 @@ namespace dxilutil {
 
   void EmitErrorOnInstruction(llvm::Instruction *I, llvm::Twine Msg);
   void EmitWarningOnInstruction(llvm::Instruction *I, llvm::Twine Msg);
-  void EmitErrorOnFunction(llvm::Function *F, llvm::Twine Msg);
-  void EmitWarningOnFunction(llvm::Function *F, llvm::Twine Msg);
-  void EmitErrorOnGlobalVariable(llvm::GlobalVariable *GV, llvm::Twine Msg);
-  void EmitWarningOnGlobalVariable(llvm::GlobalVariable *GV, llvm::Twine Msg);
+  void EmitErrorOnFunction(llvm::LLVMContext &Ctx, llvm::Function *F, llvm::Twine Msg);
+  void EmitWarningOnFunction(llvm::LLVMContext &Ctx, llvm::Function *F, llvm::Twine Msg);
+  void EmitErrorOnGlobalVariable(llvm::LLVMContext &Ctx, llvm::GlobalVariable *GV, llvm::Twine Msg);
+  void EmitWarningOnGlobalVariable(llvm::LLVMContext &Ctx, llvm::GlobalVariable *GV, llvm::Twine Msg);
   void EmitErrorOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
   void EmitWarningOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
   void EmitNoteOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
@@ -128,11 +137,13 @@ namespace dxilutil {
   bool IsIntegerOrFloatingPointType(llvm::Type *Ty);
   // Returns true if type contains HLSL Object type (resource)
   bool ContainsHLSLObjectType(llvm::Type *Ty);
+  std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty);
   bool IsHLSLResourceType(llvm::Type *Ty);
   bool IsHLSLObjectType(llvm::Type *Ty);
   bool IsHLSLRayQueryType(llvm::Type *Ty);
   bool IsHLSLResourceDescType(llvm::Type *Ty);
   bool IsResourceSingleComponent(llvm::Type *Ty);
+  uint8_t GetResourceComponentCount(llvm::Type *Ty);
   bool IsSplat(llvm::ConstantDataVector *cdv);
 
   llvm::Type* StripArrayTypes(llvm::Type *Ty, llvm::SmallVectorImpl<unsigned> *OuterToInnerLengths = nullptr);
@@ -148,6 +159,26 @@ namespace dxilutil {
 
   void ReplaceRawBufferLoad64Bit(llvm::Function *F, llvm::Type *EltTy, hlsl::OP *hlslOP);
   void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hlslOP);
+
+  bool IsConvergentMarker(llvm::Value *V);
+  llvm::Value *GetConvergentSource(llvm::Value *V);
+
+  /// If value is a bitcast to base class pattern, equivalent
+  /// to a getelementptr X, 0, 0, 0...  turn it into the appropriate gep.
+  /// This can enhance SROA and other transforms that want type-safe pointers,
+  /// and enables merging with other getelementptr's.
+  llvm::Value *TryReplaceBaseCastWithGep(llvm::Value *V);
+
+  llvm::Value::user_iterator mdv_users_end(llvm::Value *V);
+  llvm::Value::user_iterator mdv_users_begin(llvm::Value *V);
+  inline bool mdv_user_empty(llvm::Value *V) {
+    return mdv_users_begin(V) == mdv_users_end(V);
+  }
+
+  /// Finds all allocas that only have stores and delete them.
+  /// These allocas hold on to values that do not contribute to the
+  /// shader's results.
+  bool DeleteDeadAllocas(llvm::Function &F);
 }
 
 }

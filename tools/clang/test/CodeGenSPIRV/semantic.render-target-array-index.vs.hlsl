@@ -1,11 +1,11 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK:      OpCapability ShaderViewportIndexLayerEXT
 // CHECK:      OpExtension "SPV_EXT_shader_viewport_index_layer"
 
 // CHECK:      OpEntryPoint Vertex %main "main"
 // CHECK-SAME: %in_var_SV_RenderTargetArrayIndex
-// CHECK-SMAE: %gl_Layer
+// CHECK-SAME: %gl_Layer
 
 // CHECK:      OpDecorate %gl_Layer BuiltIn Layer
 // CHECK:      OpDecorate %in_var_SV_RenderTargetArrayIndex Location 0

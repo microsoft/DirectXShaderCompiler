@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_5 -E main -Vd -validator-version 1.5 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main -Vd -validator-version 1.6 %s | %D3DReflect %s | FileCheck %s
 // Flags needed to ensure usage flags are preserved in reflection with -Qkeep_reflect_in_dxil (implied):
 //   -T ps_6_5 -Vd -validator-version 1.5
 
@@ -54,12 +55,12 @@ float4 main() : SV_Target {
 // CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:       }
 // CHECK:   Bound Resources:
-// CHECK:     D3D12_SHADER_BUFFER_DESC: Name: $Globals
+// CHECK:     D3D12_SHADER_INPUT_BIND_DESC: Name: $Globals
 // CHECK:       BindCount: 1
 // CHECK:       BindPoint: 0
 // CHECK:       Space: 0
 // CHECK:       uFlags: (D3D_SIF_USERPACKED)
-// CHECK:     D3D12_SHADER_BUFFER_DESC: Name: CB
+// CHECK:     D3D12_SHADER_INPUT_BIND_DESC: Name: CB
 // CHECK:       BindCount: 1
 // CHECK:       BindPoint: 1
 // CHECK:       Space: 0

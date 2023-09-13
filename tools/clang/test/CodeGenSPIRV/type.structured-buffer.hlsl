@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-reflect
+// RUN: %dxc -T ps_6_0 -E main -fspv-reflect
 
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
@@ -8,8 +8,8 @@
 // CHECK: OpName %type_RWStructuredBuffer_S "type.RWStructuredBuffer.S"
 // CHECK: OpName %type_RWStructuredBuffer_T "type.RWStructuredBuffer.T"
 
-// CHECK: OpDecorateId %mySBuffer3 CounterBuffer %counter_var_mySBuffer3
-// CHECK: OpDecorateId %mySBuffer4 CounterBuffer %counter_var_mySBuffer4
+// CHECK-NOT: OpDecorateId %mySBuffer3 CounterBuffer %counter_var_mySBuffer3
+// CHECK-NOT: OpDecorateId %mySBuffer4 CounterBuffer %counter_var_mySBuffer4
 
 // CHECK: %S = OpTypeStruct %float %v3float %mat2v3float
 // CHECK: %_runtimearr_S = OpTypeRuntimeArray %S
@@ -29,9 +29,6 @@ struct S {
 // CHECK: %type_RWStructuredBuffer_S = OpTypeStruct %_runtimearr_S
 // CHECK: %_ptr_Uniform_type_RWStructuredBuffer_S = OpTypePointer Uniform %type_RWStructuredBuffer_S
 
-// CHECK: %type_ACSBuffer_counter = OpTypeStruct %int
-// CHECK: %_ptr_Uniform_type_ACSBuffer_counter = OpTypePointer Uniform %type_ACSBuffer_counter
-
 // CHECK: %type_RWStructuredBuffer_T = OpTypeStruct %_runtimearr_T
 // CHECK: %_ptr_Uniform_type_RWStructuredBuffer_T = OpTypePointer Uniform %type_RWStructuredBuffer_T
 struct T {
@@ -47,10 +44,8 @@ StructuredBuffer<S> mySBuffer1 : register(t1);
 StructuredBuffer<T> mySBuffer2 : register(t2);
 
 // CHECK: %mySBuffer3 = OpVariable %_ptr_Uniform_type_RWStructuredBuffer_S Uniform
-// CHECK: %counter_var_mySBuffer3 = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
 RWStructuredBuffer<S> mySBuffer3 : register(u3);
 // CHECK: %mySBuffer4 = OpVariable %_ptr_Uniform_type_RWStructuredBuffer_T Uniform
-// CHECK: %counter_var_mySBuffer4 = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
 RWStructuredBuffer<T> mySBuffer4 : register(u4);
 
 float4 main() : SV_Target {

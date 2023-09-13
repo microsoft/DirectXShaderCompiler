@@ -20,10 +20,12 @@
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CodeGenOptions.h"
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -204,17 +206,16 @@ public:
     if (BinaryOperator *BinOp = dyn_cast<BinaryOperator>(E)) {
       if (hlsl::IsHLSLMatType(E->getType()) ||
           hlsl::IsHLSLMatType(BinOp->getLHS()->getType())) {
-          if (BinOp->getOpcode() != BO_Assign) {
-              llvm::Value *LHS = CGF.EmitScalarExpr(BinOp->getLHS());
-              llvm::Value *RHS = CGF.EmitScalarExpr(BinOp->getRHS());
-              return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
-                  CGF, E, ConvertType(E->getType()), { LHS, RHS });
-          }
-          else {
+          if (BinOp->getOpcode() == BO_Assign) {
               LValue LHS = CGF.EmitLValue(BinOp->getLHS());
               llvm::Value *RHS = CGF.EmitScalarExpr(BinOp->getRHS());
               CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, RHS, LHS.getAddress(), BinOp->getLHS()->getType());
               return RHS;
+          } else if (BinOp->getOpcode() != BO_Comma) { // comma handled by standard Visit below
+              llvm::Value *LHS = CGF.EmitScalarExpr(BinOp->getLHS());
+              llvm::Value *RHS = CGF.EmitScalarExpr(BinOp->getRHS());
+              return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
+                  CGF, E, ConvertType(E->getType()), { LHS, RHS });
           }
       }
     } else if (UnaryOperator *UnOp = dyn_cast<UnaryOperator>(E)) {
@@ -503,7 +504,7 @@ public:
       case LangOptions::SOB_Undefined:
         if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
           return Builder.CreateNSWMul(Ops.LHS, Ops.RHS, "mul");
-        // Fall through.
+        LLVM_FALLTHROUGH; // HLSL Change
       case LangOptions::SOB_Trapping:
         return EmitOverflowCheckedBinOp(Ops);
       }
@@ -1782,7 +1783,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     } else if (E->getType()->isScalarType()) {
       return Builder.CreateExtractElement(val, (uint64_t)0);
     }
-  }
+  } break;
   case CK_HLSLCC_FloatingToIntegral:
   case CK_HLSLCC_FloatingCast: {
     return EmitScalarConversion(Visit(E), E->getType(), DestTy);
@@ -1898,7 +1899,7 @@ llvm::Value *ScalarExprEmitter::EmitIncDecConsiderOverflowBehavior(
   case LangOptions::SOB_Undefined:
     if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
       return Builder.CreateNSWAdd(InVal, Amount, Name);
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change
   case LangOptions::SOB_Trapping:
     return EmitOverflowCheckedBinOp(createBinOpInfoFromIncDec(E, InVal, IsInc));
   }
@@ -2907,7 +2908,7 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
     case LangOptions::SOB_Undefined:
       if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
         return Builder.CreateNSWAdd(op.LHS, op.RHS, "add");
-      // Fall through.
+      LLVM_FALLTHROUGH; // HLSL Change
     case LangOptions::SOB_Trapping:
       return EmitOverflowCheckedBinOp(op);
     }
@@ -2938,7 +2939,7 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
       case LangOptions::SOB_Undefined:
         if (!CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow))
           return Builder.CreateNSWSub(op.LHS, op.RHS, "sub");
-        // Fall through.
+        LLVM_FALLTHROUGH; // HLSL Change
       case LangOptions::SOB_Trapping:
         return EmitOverflowCheckedBinOp(op);
       }
@@ -3036,7 +3037,7 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
                       Ops.Ty->hasSignedIntegerRepresentation();
   bool SanitizeExponent = CGF.SanOpts.has(SanitizerKind::ShiftExponent);
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
-  if (CGF.getLangOpts().OpenCL)
+  if (CGF.getLangOpts().OpenCL || CGF.getLangOpts().HLSL) // HLSL Change
     RHS =
         Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shl.mask");
   else if ((SanitizeBase || SanitizeExponent) &&
@@ -3097,7 +3098,7 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
 
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
-  if (CGF.getLangOpts().OpenCL)
+  if (CGF.getLangOpts().OpenCL || CGF.getLangOpts().HLSL)
     RHS =
         Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shr.mask");
   else if (CGF.SanOpts.has(SanitizerKind::ShiftExponent) &&
@@ -3421,8 +3422,9 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
     // 0 && RHS: If it is safe, just elide the RHS, and return 0/false.
     if (!CGF.ContainsLabel(E->getRHS())) {
       // HLSL Change Begins.
-      if (CGF.getLangOpts().HLSL) {
-        // HLSL does not short circuit.
+      if (CGF.getLangOpts().HLSL &&
+          CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+        // HLSL does not short circuit by default.
         Visit(E->getRHS());
       }
       // HLSL Change Ends.
@@ -3431,8 +3433,9 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
   }
 
   // HLSL Change Begins.
-  if (CGF.getLangOpts().HLSL) {
-    // HLSL does not short circuit.
+  if (CGF.getLangOpts().HLSL &&
+      CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+    // HLSL does not short circuit by default.
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
     if (ResTy->isVectorTy()) {
@@ -3526,8 +3529,9 @@ Value *ScalarExprEmitter::VisitBinLOr(const BinaryOperator *E) {
     // 1 || RHS: If it is safe, just elide the RHS, and return 1/true.
     if (!CGF.ContainsLabel(E->getRHS())) {
       // HLSL Change Begins.
-      if (CGF.getLangOpts().HLSL) {
-        // HLSL does not short circuit.
+      if (CGF.getLangOpts().HLSL &&
+          CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+        // HLSL does not short circuit by default.
         Visit(E->getRHS());
       }
       // HLSL Change Ends.
@@ -3536,8 +3540,9 @@ Value *ScalarExprEmitter::VisitBinLOr(const BinaryOperator *E) {
   }
 
   // HLSL Change Begins.
-  if (CGF.getLangOpts().HLSL) {
-    // HLSL does not short circuit.
+  if (CGF.getLangOpts().HLSL &&
+      CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+    // HLSL does not short circuit by default.
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
     if (ResTy->isVectorTy()) {
@@ -3702,32 +3707,36 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
   }
   // HLSL Change Starts
   if (CGF.getLangOpts().HLSL &&
-      (hlsl::IsHLSLVecType(E->getType()) || E->getType()->isArithmeticType())) {
-    llvm::Value *CondV = CGF.EmitScalarExpr(condExpr);
-    llvm::Value *LHS = Visit(lhsExpr);
-    llvm::Value *RHS = Visit(rhsExpr);
-    if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(CondV->getType())) {
-      llvm::VectorType *ResultVT = cast<llvm::VectorType>(LHS->getType());
-      llvm::Value *result = llvm::UndefValue::get(ResultVT);
-      for (unsigned i = 0; i < VT->getNumElements(); i++) {
-        llvm::Value *EltCond = Builder.CreateExtractElement(CondV, i);
-        llvm::Value *EltL = Builder.CreateExtractElement(LHS, i);
-        llvm::Value *EltR = Builder.CreateExtractElement(RHS, i);
-        llvm::Value *EltSelect = Builder.CreateSelect(EltCond, EltL, EltR);
-        result = Builder.CreateInsertElement(result, EltSelect, i);
+      CGF.getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+    // HLSL does not short circuit by default before HLSL 2021
+    if (hlsl::IsHLSLVecType(E->getType()) || E->getType()->isArithmeticType()) {
+      llvm::Value *CondV = CGF.EmitScalarExpr(condExpr);
+      llvm::Value *LHS = Visit(lhsExpr);
+      llvm::Value *RHS = Visit(rhsExpr);
+      if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(CondV->getType())) {
+        llvm::VectorType *ResultVT = cast<llvm::VectorType>(LHS->getType());
+        llvm::Value *result = llvm::UndefValue::get(ResultVT);
+        for (unsigned i = 0; i < VT->getNumElements(); i++) {
+          llvm::Value *EltCond = Builder.CreateExtractElement(CondV, i);
+          llvm::Value *EltL = Builder.CreateExtractElement(LHS, i);
+          llvm::Value *EltR = Builder.CreateExtractElement(RHS, i);
+          llvm::Value *EltSelect = Builder.CreateSelect(EltCond, EltL, EltR);
+          result = Builder.CreateInsertElement(result, EltSelect, i);
+        }
+        return result;
+      } else {
+        return Builder.CreateSelect(CondV, LHS, RHS);
       }
-      return result;
-    } else {
-      return Builder.CreateSelect(CondV, LHS, RHS);
+    }
+    if (hlsl::IsHLSLMatType(E->getType())) {
+      llvm::Value *Cond = CGF.EmitScalarExpr(condExpr);
+      llvm::Value *LHS = Visit(lhsExpr);
+      llvm::Value *RHS = Visit(rhsExpr);
+      return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
+          CGF, E, LHS->getType(), {Cond, LHS, RHS});
     }
   }
-  if (CGF.getLangOpts().HLSL && hlsl::IsHLSLMatType(E->getType())) {
-    llvm::Value *Cond = CGF.EmitScalarExpr(condExpr);
-    llvm::Value *LHS = Visit(lhsExpr);
-    llvm::Value *RHS = Visit(rhsExpr);
-    return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
-        CGF, E, LHS->getType(), {Cond, LHS, RHS});
-  }
+
   // HLSL Change Ends
 
   // If this is a really simple expression (like x ? 4 : 5), emit this as a
@@ -3748,6 +3757,18 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
     return Builder.CreateSelect(CondV, LHS, RHS, "cond");
   }
 
+  // HLSL Change Begins
+  llvm::Instruction *ResultAlloca = nullptr;
+  if (CGF.getLangOpts().HLSL &&
+      CGF.getLangOpts().HLSLVersion >= hlsl::LangStd::v2021 &&
+      hlsl::IsHLSLMatType(E->getType())) {
+    llvm::Type *MatTy = CGF.ConvertTypeForMem(E->getType());
+    ResultAlloca = CGF.CreateTempAlloca(MatTy);
+    ResultAlloca->moveBefore(hlsl::dxilutil::FindAllocaInsertionPt(
+        Builder.GetInsertBlock()->getParent()));
+  }
+  // HLSL Change Ends
+
   llvm::BasicBlock *LHSBlock = CGF.createBasicBlock("cond.true");
   llvm::BasicBlock *RHSBlock = CGF.createBasicBlock("cond.false");
   llvm::BasicBlock *ContBlock = CGF.createBasicBlock("cond.end");
@@ -3760,6 +3781,11 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
   CGF.incrementProfileCounter(E);
   eval.begin(CGF);
   Value *LHS = Visit(lhsExpr);
+  // HLSL Change Begin - Handle matrix ternary
+  if (ResultAlloca)
+    CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, LHS, ResultAlloca,
+                                                 E->getType());
+  // HLSL Change End
   eval.end(CGF);
 
   LHSBlock = Builder.GetInsertBlock();
@@ -3768,10 +3794,21 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
   CGF.EmitBlock(RHSBlock);
   eval.begin(CGF);
   Value *RHS = Visit(rhsExpr);
+  // HLSL Change Begin - Handle matrix ternary
+  if (ResultAlloca)
+    CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, RHS, ResultAlloca,
+                                                 E->getType());
+  // HLSL Change End
   eval.end(CGF);
 
   RHSBlock = Builder.GetInsertBlock();
   CGF.EmitBlock(ContBlock);
+
+  // HLSL Change Begin - Handle matrix ternary
+  if (ResultAlloca)
+    return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, ResultAlloca,
+                                                       E->getType());
+  // HLSL Change End
 
   // If the LHS or RHS is a throw expression, it will be legitimately null.
   if (!LHS)

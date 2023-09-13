@@ -128,7 +128,9 @@ void FoldingSetNodeID::AddString(StringRef String) {
   // No need to take endianness into account here - this is always executed.
   switch (Pos - Size) {
   case 1: V = (V << 8) | (unsigned char)String[Size - 3]; // Fall thru.
+    LLVM_FALLTHROUGH; // HLSL Change
   case 2: V = (V << 8) | (unsigned char)String[Size - 2]; // Fall thru.
+    LLVM_FALLTHROUGH; // HLSL Change
   case 3: V = (V << 8) | (unsigned char)String[Size - 1]; break;
   default: return; // Nothing left.
   }

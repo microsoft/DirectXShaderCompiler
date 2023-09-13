@@ -1,19 +1,11 @@
 // RUN: %dxc -Zi -E main -Od -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_DB
 // RUN: %dxc -E main -Od -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_NODB
 
-// CHK_DB: 27:39: error: Offsets for Sample* must be immediated value
-// CHK_DB: 27:43: error: Offsets for Sample* must be immediated value
-// CHK_DB: 27:10: error: Offsets for Sample* must be immediated value
-// CHK_DB: 27:10: error: Offsets for Sample* must be immediated value
+// CHK_DB: 19:10: error: Offsets to texture access operations must be immediate values. Unrolling the loop containing the offset value manually and using -O3 may help in some cases.
+// CHK_DB: 19:10: error: Offsets to texture access operations must be immediate values. Unrolling the loop containing the offset value manually and using -O3 may help in some cases.
 
-// CHK_NODB: error: Offsets for Sample* must be immediated value.
-// CHK_NODB-SAME Use /Zi for source location.
-// CHK_NODB: error: Offsets for Sample* must be immediated value.
-// CHK_NODB-SAME Use /Zi for source location.
-// CHK_NODB: error: Offsets for Sample* must be immediated value.
-// CHK_NODB-SAME Use /Zi for source location.
-// CHK_NODB: error: Offsets for Sample* must be immediated value.
-// CHK_NODB-SAME Use /Zi for source location.
+// CHK_NODB: error: Offsets to texture access operations must be immediate values. Unrolling the loop containing the offset value manually and using -O3 may help in some cases.
+// CHK_NODB: error: Offsets to texture access operations must be immediate values. Unrolling the loop containing the offset value manually and using -O3 may help in some cases.
 
 SamplerState samp1 : register(s5);
 Texture2D<float4> text1 : register(t3);

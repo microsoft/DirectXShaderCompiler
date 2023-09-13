@@ -50,28 +50,27 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
   if (it != ptrInfoMap.end())
     return it->second;
 
-  PointerInfo &PI = ptrInfoMap[V];
   Type *Ty = V->getType()->getPointerElementType();
-  PI.isArray = Ty->isArrayTy();
+  ptrInfoMap[V].isArray = Ty->isArrayTy();
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace)
-      PI.memType = PointerInfo::MemType::Global_TGSM;
+      ptrInfoMap[V].memType = PointerInfo::MemType::Global_TGSM;
     else if (!GV->isConstant() &&
              GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
              GV->getType()->getPointerAddressSpace() == DXIL::kDefaultAddrSpace)
-      PI.memType = PointerInfo::MemType::Global_Static;
-  } else if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
-    PI.memType = PointerInfo::MemType::Alloca;
+      ptrInfoMap[V].memType = PointerInfo::MemType::Global_Static;
+  } else if (isa<AllocaInst>(V)) {
+      ptrInfoMap[V].memType = PointerInfo::MemType::Alloca;
   } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
-    PI = GetPointerInfo(GEP->getPointerOperand(), ptrInfoMap);
+    ptrInfoMap[V] = GetPointerInfo(GEP->getPointerOperand(), ptrInfoMap);
   } else if (BitCastOperator *BC = dyn_cast<BitCastOperator>(V)) {
-    PI = GetPointerInfo(BC->getOperand(0), ptrInfoMap);
+    ptrInfoMap[V] = GetPointerInfo(BC->getOperand(0), ptrInfoMap);
   } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(V)) {
-    PI = GetPointerInfo(AC->getOperand(0), ptrInfoMap);
+    ptrInfoMap[V] = GetPointerInfo(AC->getOperand(0), ptrInfoMap);
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
     if (CE->getOpcode() == LLVMAddrSpaceCast)
-      PI = GetPointerInfo(AC->getOperand(0), ptrInfoMap);
+      llvm_unreachable("address space cast is illegal in DxilCounters.");
   //} else if (PHINode *PN = dyn_cast<PHINode>(V)) {
   //  for (auto it = PN->value_op_begin(), e = PN->value_op_end(); it != e; ++it) {
   //    PI = GetPointerInfo(*it, ptrInfoMap);
@@ -79,8 +78,8 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
   //      break;
   //  }
   }
-  return PI;
-};
+  return ptrInfoMap[V];
+}
 
 struct ValueInfo {
   bool isCbuffer : 1;
@@ -174,8 +173,9 @@ bool CountDxilOp_tex_bias(unsigned op) {
   return op == 61;
 }
 bool CountDxilOp_tex_cmp(unsigned op) {
-  // Instructions: SampleCmp=64, SampleCmpLevelZero=65, TextureGatherCmp=74
-  return (64 <= op && op <= 65) || op == 74;
+  // Instructions: SampleCmp=64, SampleCmpLevelZero=65, TextureGatherCmp=74,
+  // SampleCmpLevel=224
+  return (64 <= op && op <= 65) || op == 74 || op == 224;
 }
 bool CountDxilOp_tex_grad(unsigned op) {
   // Instructions: SampleGrad=63
@@ -186,14 +186,16 @@ bool CountDxilOp_tex_load(unsigned op) {
   return op == 66 || op == 68 || op == 139;
 }
 bool CountDxilOp_tex_norm(unsigned op) {
-  // Instructions: Sample=60, SampleLevel=62, TextureGather=73
-  return op == 60 || op == 62 || op == 73;
+  // Instructions: Sample=60, SampleLevel=62, TextureGather=73,
+  // TextureGatherRaw=223
+  return op == 60 || op == 62 || op == 73 || op == 223;
 }
 bool CountDxilOp_tex_store(unsigned op) {
   // Instructions: TextureStore=67, BufferStore=69, RawBufferStore=140,
   // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175,
-  // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177
-  return op == 67 || op == 69 || op == 140 || (174 <= op && op <= 177);
+  // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177,
+  // TextureStoreSample=225
+  return op == 67 || op == 69 || op == 140 || (174 <= op && op <= 177) || op == 225;
 }
 bool CountDxilOp_uints(unsigned op) {
   // Instructions: Bfrev=30, Countbits=31, FirstbitLo=32, FirstbitHi=33,
@@ -228,7 +230,10 @@ bool CountLlvmOp_uints(unsigned op) {
 // OPCODE-COUNTERS:END
 
 void CountDxilOp(unsigned op, DxilCounters &counters) {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNT-DXIL-OPS')>['if (CountDxilOp_%s(op)) ++counters.%s;' % (c,c) for c in hctdb_instrhelp.get_dxil_op_counters()]</py>
+  // clang-format on
   // COUNT-DXIL-OPS:BEGIN
   if (CountDxilOp_atomic(op)) ++counters.atomic;
   if (CountDxilOp_barrier(op)) ++counters.barrier;
@@ -249,7 +254,10 @@ void CountDxilOp(unsigned op, DxilCounters &counters) {
 }
 
 void CountLlvmOp(unsigned op, DxilCounters &counters) {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNT-LLVM-OPS')>['if (CountLlvmOp_%s(op)) ++counters.%s;' % (c,c) for c in hctdb_instrhelp.get_llvm_op_counters()]</py>
+  // clang-format on
   // COUNT-LLVM-OPS:BEGIN
   if (CountLlvmOp_atomic(op)) ++counters.atomic;
   if (CountLlvmOp_fence(op)) ++counters.fence;
@@ -332,7 +340,10 @@ struct CounterOffsetByName {
 
 // Must be sorted case-sensitive:
 static const CounterOffsetByName CountersByName[] = {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('COUNTER-MEMBER-PTRS')>['{ "%s", &DxilCounters::%s },' % (c,c) for c in hctdb_instrhelp.get_counters()]</py>
+  // clang-format on
   // COUNTER-MEMBER-PTRS:BEGIN
   { "array_local_bytes", &DxilCounters::array_local_bytes },
   { "array_local_ldst", &DxilCounters::array_local_ldst },

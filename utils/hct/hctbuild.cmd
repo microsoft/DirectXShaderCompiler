@@ -18,30 +18,18 @@ if "%HLSL_SRC_DIR%"=="" (
   )
 )
 
-if "%1"=="-buildoutdir" (
-  echo Build output directory set to %~2
-  set "HLSL_BLD_DIR=%~2"
-  shift /1
-  shift /1
-)
-
-if "%HLSL_BLD_DIR%"=="" (
-  echo Missing build directory.
-  exit /b 1
-)
-
 if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
 
-set BUILD_GENERATOR=Visual Studio 16 2019
-set BUILD_VS_VER=2019
+set BUILD_GENERATOR=Visual Studio 17 2022
+set BUILD_VS_VER=2022
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
 set CMAKE_OPTS=
 set CMAKE_PATH=
-set SPEAK=1
+set SPEAK=0
 set PARALLEL_OPT=/m
 set ALL_DEFS=OFF
 set ANALYZE=OFF
@@ -52,88 +40,102 @@ set VENDOR=
 set SPIRV=OFF
 set SPV_TEST=OFF
 set DXILCONV=ON
+set DXC_CMAKE_SYSTEM_VERSION=
+set SHOW_CMAKE_LOG=0
+set WINSDK_MIN_VERSION=10.0.17763.0
+set INSTALL_DIR=
+set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=
+set LIT_ARGS=
 
+:parse_args
+if "%1"=="" (
+    goto :done_parsing_args
+) 
+if "%1"=="-buildoutdir" (
+  echo Build output directory set to %~2
+  set "HLSL_BLD_DIR=%~2"
+  shift /1
+  shift /1 & goto :parse_args
+)
 if "%1"=="-s" (
   set DO_BUILD=0
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-b" (
   set DO_SETUP=0
-  shift /1
+  shift /1 & goto :parse_args
 )
-
 if "%1"=="-alldef" (
   set ALL_DEFS=ON
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-analyze" (
   set ANALYZE=ON
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-official" (
   echo Will generate official version for build
   set OFFICIAL=ON
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-fv" (
   echo Fixed version flag set for build.
   set FIXED_VER=ON
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-fvloc" (
   echo Fixed version flag set for build, version file location: %~2
   set FIXED_VER=ON
   set "FIXED_LOC=%~2"
   shift /1
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-cv" (
   echo Set the CLANG_VENDOR value.
   set "VENDOR=%~2"
   shift /1
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-rel" (
   set BUILD_CONFIG=Release
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-x86" (
   set BUILD_ARCH=Win32
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-x64" (
   set BUILD_ARCH=x64
-  shift /1
+  shift /1 & goto :parse_args
 )
 if /i "%1"=="-arm" (
   set BUILD_ARCH=ARM
-  shift /1
+  shift /1 & goto :parse_args
 )
 if /i "%1"=="-arm64" (
   set BUILD_ARCH=ARM64
-  shift /1
+  shift /1 & goto :parse_args
 )
 if /i "%1"=="-arm64ec" (
   set BUILD_ARCH=ARM64EC
-  shift /1
+  shift /1 & goto :parse_args
 )
 if /i "%1"=="-Debug" (
   set BUILD_CONFIG=Debug
-  shift /1
+  shift /1 & goto :parse_args
 )
 if /i "%1"=="-Release" (
   set BUILD_CONFIG=Release
-  shift /1
-)
-if "%1"=="-vs2017" (
-  set BUILD_GENERATOR=Visual Studio 15 2017
-  set BUILD_VS_VER=2017
-  shift /1
+  shift /1 & goto :parse_args
 )
 if "%1"=="-vs2019" (
-  shift /1
+  set BUILD_GENERATOR=Visual Studio 16 2019
+  set BUILD_VS_VER=2019
+  shift /1 & goto :parse_args
 )
-
+if "%1"=="-vs2022" (
+  shift /1 & goto :parse_args
+)
 if "%1"=="-tblgen" (
   if "%~2" == "" (
     echo Missing path argument after -tblgen.
@@ -141,46 +143,115 @@ if "%1"=="-tblgen" (
   ) 
   set "BUILD_TBLGEN_PATH=%~2"
   shift /1
-  shift /1
+  shift /1 & goto :parse_args
 )
-
 if "%1"=="-dont-speak" (
-  set SPEAK=0
-  shift /1
+  shift /1 & goto :parse_args
 )
-
+if "%1"=="-speak-up" (
+  set SPEAK=1
+  shift /1 & goto :parse_args
+)
 if "%1"=="-no-parallel" (
   set PARALLEL_OPT=
-  shift /1
+  shift /1 & goto :parse_args
 )
-
 if "%1"=="-no-dxilconv" (
   set DXILCONV=OFF
-  shift /1
+  shift /1 & goto :parse_args
 )
-
 if "%1"=="-dxc-cmake-extra-args" (
   set CMAKE_OPTS=%CMAKE_OPTS% %~2
   shift /1
-  shift /1
+  shift /1 & goto :parse_args
 )
-
 if "%1"=="-dxc-cmake-begins-include" (
   set "CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_BEGINS_INCLUDE=%~2"
   shift /1
-  shift /1
+  shift /1 & goto :parse_args
 )
-
 if "%1"=="-dxc-cmake-ends-include" (
   set "CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_ENDS_INCLUDE=%~2"
   shift /1
-  shift /1
+  shift /1 & goto :parse_args
 )
-
 if "%1"=="-dxc-cmake" (
   set "CMAKE_PATH=%~2"
   shift /1
+  shift /1 & goto :parse_args
+)
+if "%1"=="-dxc-cmake-system-version" (
+  set DXC_CMAKE_SYSTEM_VERSION=%~2
   shift /1
+  shift /1 & goto :parse_args
+)
+
+if "%1"=="-show-cmake-log" (
+  set SHOW_CMAKE_LOG=1
+  shift /1 & goto :parse_args
+)
+if "%1"=="-lit-xml-output-path" (
+  set "LIT_ARGS=%LIT_ARGS% --xunit-xml-output=%~2"
+  shift /1
+  shift /1 & goto :parse_args
+)
+if "%1"=="-lit-verbose" (
+  set "LIT_ARGS=%LIT_ARGS% -v --no-progress-bar"
+  shift /1 & goto :parse_args
+)
+if "%1"=="-default-adapter" (
+  set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=%~2
+  shift /1
+  shift /1 & goto :parse_args
+)
+rem Begin SPIRV change
+if "%1"=="-spirv" (
+  echo SPIR-V codegen is enabled.
+  set SPIRV=ON
+  shift /1 & goto :parse_args
+)
+if "%1"=="-spirvtest" (
+  echo Building SPIR-V tests is enabled.
+  set SPV_TEST=ON
+  shift /1 & goto :parse_args
+)
+rem End SPIRV change
+if "%1"=="-ninja" (
+  set BUILD_GENERATOR=Ninja
+  set PARALLEL_OPT=
+  shift /1 & goto :parse_args
+)
+if "%1"=="-clang" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+  shift /1 & goto :parse_args
+)
+if "%1"=="-update-generated-sources" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_COPY_GENERATED_SOURCES=1
+  shift /1 & goto :parse_args
+)
+if "%1"=="-lto" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_ENABLE_LTO=On
+  shift /1 & goto :parse_args
+)
+if "%1"=="-installdir" (
+  echo Build install directory set to %~2
+  set "INSTALL_DIR=%~2"
+  shift /1
+  shift /1 & goto :parse_args
+)
+if "%1" NEQ "" ( 
+    echo Unrecognized argument: %1
+    exit /b 1
+)
+:done_parsing_args
+
+if "%HLSL_BLD_DIR%"=="" (
+  echo Missing build directory.
+  exit /b 1
+)
+
+if "%INSTALL_DIR%"=="" (
+  set "INSTALL_DIR=%HLSL_BLD_DIR%\install"
 )
 
 if "%CMAKE_PATH%"=="" (
@@ -193,65 +264,48 @@ if "%CMAKE_PATH%"=="" (
   set CMAKE_PATH=cmake
 )
 
-rem Begin SPIRV change
-if "%1"=="-spirv" (
-  echo SPIR-V codegen is enabled.
-  set SPIRV=ON
-  shift /1
+rem Get SDK version from VSDevCmd, strip the backslash at the end
+set ENV_SDK_VERSION=%WindowsSDKVersion%
+if "%ENV_SDK_VERSION:~-1%"=="\" (
+  set "ENV_SDK_VERSION=%ENV_SDK_VERSION:~0,-1%"
 )
-if "%1"=="-spirvtest" (
-  echo Building SPIR-V tests is enabled.
-  set SPV_TEST=ON
-  shift /1
-)
-rem End SPIRV change
 
 set BUILD_ARM_CROSSCOMPILING=0
 
 if /i "%BUILD_ARCH%"=="Win32" (
-  if "%BUILD_VS_VER%"=="2019" (
-    set VS2019ARCH=-AWin32
-  )
+  set VS_ARCH=-AWin32
 )
 
 if /i "%BUILD_ARCH%"=="x64" (
-  set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
-  if "%BUILD_VS_VER%"=="2019" (
-    set BUILD_GENERATOR=%BUILD_GENERATOR%
-    set VS2019ARCH=-Ax64
-  )
+  set VS_ARCH=-Ax64
 )
 
 if /i "%BUILD_ARCH%"=="arm" (
   set BUILD_GENERATOR_PLATFORM=ARM
   set BUILD_ARM_CROSSCOMPILING=1
-  if "%BUILD_VS_VER%"=="2019" (
-    set VS2019ARCH=-AARM
-  )
+  set VS_ARCH=-AARM
 )
 
 if /i "%BUILD_ARCH%"=="arm64" (
   set BUILD_GENERATOR_PLATFORM=ARM64
   set BUILD_ARM_CROSSCOMPILING=1
-  if "%BUILD_VS_VER%"=="2019" (
-    set VS2019ARCH=-AARM64
-  )
+  set VS_ARCH=-AARM64
 )
 
 if /i "%BUILD_ARCH%"=="arm64ec" (
-  if "%BUILD_VS_VER%" NEQ "2019" (
-    echo "ARM64EC platform is not supported on VS2017."    
-    exit /b 1
-  )
   set BUILD_GENERATOR_PLATFORM=ARM64EC
   set BUILD_ARM_CROSSCOMPILING=1
-  set VS2019ARCH=-AARM64EC
-  set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.20207.0 -DMSVC_BUILD_AS_X=1
+  set VS_ARCH=-AARM64EC
+  set WINSDK_MIN_VERSION=10.0.21330.0
+  set CMAKE_OPTS=%CMAKE_OPTS% -DMSVC_BUILD_AS_X=1
 )
 
-if "%1"=="-ninja" (
-  set BUILD_GENERATOR=Ninja
-  shift /1
+if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
+  if "%ENV_SDK_VERSION%"=="" (
+    set DXC_CMAKE_SYSTEM_VERSION=%WINSDK_MIN_VERSION%
+  ) else (
+    set DXC_CMAKE_SYSTEM_VERSION=%ENV_SDK_VERSION%
+  )
 )
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
@@ -265,14 +319,12 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=%SPIRV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=%SPV_TEST%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_STATIC_ANALYZER:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_INCLUDE_TESTS:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_INCLUDE_TESTS:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_TARGETS_TO_BUILD:STRING=None
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_INCLUDE_DOCS:BOOL=OFF -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DLIBCLANG_BUILD_STATIC:BOOL=ON
 rem set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_OPTIMIZED_TABLEGEN:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_EH:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_APPEND_VC_REV:BOOL=ON
 
 rem Enable exception handling (which requires RTTI).
@@ -283,10 +335,16 @@ rem Setup a specific, stable triple for HLSL.
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_DEFAULT_TARGET_TRIPLE:STRING=dxil-ms-dx
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_RTTI:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.14393.0
-set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_BUILD_ARCH=%BUILD_ARCH%
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR%
+
+if "%LIT_ARGS%" NEQ "" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS="%LIT_ARGS%"
+)
+
+rem Setup taef exec adapter.
+set CMAKE_OPTS=%CMAKE_OPTS% %DEFAULT_EXEC_ADAPTER%
 
 rem ARM cross-compile setup
 if %BUILD_ARM_CROSSCOMPILING% == 0 goto :after-cross-compile
@@ -322,7 +380,7 @@ if /i "%BUILD_ARCH%"=="Win32" (
   set BUILD_TOOLS=amd64_arm64
 )
 
-call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%" "%VS2019ARCH%"
+call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%" "%VS_ARCH%"
 if errorlevel 1 exit /b 1
 
 if "%BUILD_GENERATOR%"=="Ninja" (
@@ -337,7 +395,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-dont-speak] [-no-parallel] [-no-dxilconv]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc ^<path^>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-sources]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -346,13 +404,17 @@ echo   -alldef        adds optional projects to the default build
 echo   -analyze       adds /analyze option
 echo   -official      will generate official version for build
 echo   -fv            fixes the resource version for release (utils\version\version.inc)
-echo   -fvloc <path>  directory with the version.inc file
+echo   -fvloc ^<path^>  directory with the version.inc file
 echo   -rel           builds release rather than debug
-echo   -dont-speak    disables audible build confirmation
+echo   -spirv         enable SPIR-V codegen
+echo   -spirvtest     enable building SPIR-V tests
+echo   -speak-up      enables audible build confirmation
 echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
-echo   -vs2017        uses Visual Studio 2017 to build
 echo   -vs2019        uses Visual Studio 2019 to build
+echo   -vs2022        uses Visual Studio 2022 to build
+echo.
+echo   -update-generated-sources   Updates generated sources in the source tree
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -400,8 +462,14 @@ if "%DO_SETUP%"=="1" (
     "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    echo Running "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    rem but need CMAKE_BUILD_TYPE to generate lit cfg.
+    echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1  %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
     "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  )
+  if %SHOW_CMAKE_LOG%==1 (
+    echo ------- Start of %3\cmake-log.txt -------
+    type %3\cmake-log.txt
+    echo -------- End of %3\cmake-log.txt --------
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.

@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.0
+// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.0
 
 RWStructuredBuffer<uint> values;
 [numthreads(32, 1, 1)]

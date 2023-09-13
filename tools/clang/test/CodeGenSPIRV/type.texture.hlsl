@@ -1,7 +1,6 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpCapability Sampled1D
-// CHECK: OpCapability ImageMSArray
 
 // CHECK: %type_1d_image = OpTypeImage %float 1D 2 0 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_1d_image = OpTypePointer UniformConstant %type_1d_image
@@ -53,6 +52,9 @@ TextureCubeArray <float4> t7 : register(t7);
 Texture2DMS      <int3>   t8 : register(t8);
 // CHECK: %t9 = OpVariable %_ptr_UniformConstant_type_2d_image_array_0 UniformConstant
 Texture2DMSArray <uint4>  t9 : register(t9);
+
+// CHECK: %t10 = OpVariable %_ptr_UniformConstant_type_2d_image_1 UniformConstant
+Texture2D   <bool>   t10 : register(t10);
 
 struct S {
     float a;

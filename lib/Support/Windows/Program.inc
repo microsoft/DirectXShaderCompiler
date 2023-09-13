@@ -70,14 +70,17 @@ ErrorOr<std::string> sys::findProgramByName(StringRef Name,
   SmallVector<wchar_t, MAX_PATH> U16Result;
   DWORD Len = MAX_PATH;
   for (StringRef Ext : PathExts) {
-    SmallVector<wchar_t, MAX_PATH> U16Ext;
-    if (std::error_code EC = windows::UTF8ToUTF16(Ext, U16Ext))
-      return EC;
-
     do {
       U16Result.reserve(Len);
-      Len = ::SearchPathW(Path, c_str(U16Name),
-                          U16Ext.empty() ? nullptr : c_str(U16Ext),
+      // Lets attach the extension manually. That is needed for files
+      // with a point in name like aaa.bbb. SearchPathW will not add extension
+      // from its argument to such files because it thinks they already had one.
+      SmallVector<wchar_t, MAX_PATH> U16NameExt;
+      if (std::error_code EC =
+              windows::UTF8ToUTF16(Twine(Name + Ext).str(), U16NameExt))
+        return EC;
+
+      Len = ::SearchPathW(Path, c_str(U16NameExt), nullptr,
                           U16Result.capacity(), U16Result.data(), nullptr);
     } while (Len > U16Result.capacity());
 
@@ -97,7 +100,7 @@ ErrorOr<std::string> sys::findProgramByName(StringRef Name,
 
   return std::string(U8Result.begin(), U8Result.end());
 #else
-  return "";
+  return std::string("");
 #endif
 }
 
@@ -470,20 +473,16 @@ ProcessInfo sys::Wait(const ProcessInfo &PI, unsigned SecondsToWait,
 #endif // HLSL Change - MSFT_SUPPORTS_CHILD_PROCESSES
 
 std::error_code sys::ChangeStdinToBinary() {
-#ifdef MSFT_SUPPORTS_TEXTMODE_STREAMS  // HLSL Change
   int result = _setmode(_fileno(stdin), _O_BINARY);
   if (result == -1)
     return std::error_code(errno, std::generic_category());
-#endif  // HLSL Change
   return std::error_code();
 }
 
 std::error_code sys::ChangeStdoutToBinary() {
-#ifdef MSFT_SUPPORTS_TEXTMODE_STREAMS  // HLSL Change
   int result = _setmode(_fileno(stdout), _O_BINARY);
   if (result == -1)
     return std::error_code(errno, std::generic_category());
-#endif  // HLSL Change
   return std::error_code();
 }
 

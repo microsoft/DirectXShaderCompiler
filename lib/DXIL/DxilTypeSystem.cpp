@@ -9,6 +9,7 @@
 
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinFunctions.h"
 
@@ -42,9 +43,9 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 //
 DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
-, m_ResourceAttribute(nullptr)
 , m_CBufferOffset(UINT_MAX)
 , m_bCBufferVarUsed(false)
+, m_BitFieldWidth(0)
 {}
 
 bool DxilFieldAnnotation::IsPrecise() const { return m_bPrecise; }
@@ -52,14 +53,14 @@ void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
 bool DxilFieldAnnotation::HasMatrixAnnotation() const { return m_Matrix.Cols != 0; }
 const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { return m_Matrix; }
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
-bool DxilFieldAnnotation::HasResourceAttribute() const {
-  return m_ResourceAttribute;
+bool DxilFieldAnnotation::HasResourceProperties() const {
+  return m_ResourceProps.isValid();
 }
-llvm::MDNode *DxilFieldAnnotation::GetResourceAttribute() const {
-  return m_ResourceAttribute;
+const DxilResourceProperties &DxilFieldAnnotation::GetResourceProperties() const {
+  return m_ResourceProps;
 }
-void DxilFieldAnnotation::SetResourceAttribute(llvm::MDNode *MD) {
-  m_ResourceAttribute = MD;
+void DxilFieldAnnotation::SetResourceProperties(const DxilResourceProperties &RP) {
+  m_ResourceProps = RP;
 }
 bool DxilFieldAnnotation::HasCBufferOffset() const { return m_CBufferOffset != UINT_MAX; }
 unsigned DxilFieldAnnotation::GetCBufferOffset() const { return m_CBufferOffset; }
@@ -79,15 +80,91 @@ const std::string &DxilFieldAnnotation::GetFieldName() const { return m_FieldNam
 void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
 bool DxilFieldAnnotation::IsCBVarUsed() const { return m_bCBufferVarUsed; }
 void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
+bool DxilFieldAnnotation::HasBitFields() const { return !m_BitFields.empty(); }
+const std::vector<DxilFieldAnnotation> &
+DxilFieldAnnotation::GetBitFields() const {
+  return m_BitFields;
+}
+void DxilFieldAnnotation::SetBitFields(
+    const std::vector<DxilFieldAnnotation> &Fields) {
+  m_BitFields = Fields;
+}
+bool DxilFieldAnnotation::HasBitFieldWidth() const { return m_BitFieldWidth != 0; }
+unsigned DxilFieldAnnotation::GetBitFieldWidth() const { return m_BitFieldWidth; }
+void DxilFieldAnnotation::SetBitFieldWidth(const unsigned BitWidth) {
+  m_BitFieldWidth = BitWidth;
+}
 
+//------------------------------------------------------------------------------
+//
+// DxilPayloadFieldAnnotation class methods.
+//
+bool DxilPayloadFieldAnnotation::HasCompType() const { return m_CompType.GetKind() != CompType::Kind::Invalid; }
+const CompType &DxilPayloadFieldAnnotation::GetCompType() const { return m_CompType; }
+void DxilPayloadFieldAnnotation::SetCompType(CompType::Kind kind) { m_CompType = CompType(kind); }
+uint32_t DxilPayloadFieldAnnotation::GetPayloadFieldQualifierMask() const {
+  return m_bitmask;
+}
 
+unsigned DxilPayloadFieldAnnotation::GetBitOffsetForShaderStage(DXIL::PayloadAccessShaderStage shaderStage ) {
+  unsigned bitOffset = static_cast<unsigned>(shaderStage) *
+                       DXIL::PayloadAccessQualifierBitsPerStage;
+  return bitOffset;
+}
+
+void DxilPayloadFieldAnnotation::SetPayloadFieldQualifierMask(uint32_t fieldBitmask) {
+  DXASSERT((fieldBitmask & ~DXIL::PayloadAccessQualifierValidMask) == 0,
+           "Unknown payload access qualifier bits set");
+  m_bitmask = fieldBitmask & DXIL::PayloadAccessQualifierValidMask;
+}
+
+void DxilPayloadFieldAnnotation::AddPayloadFieldQualifier(
+    DXIL::PayloadAccessShaderStage shaderStage, DXIL::PayloadAccessQualifier qualifier) {
+  unsigned accessBits = static_cast<unsigned>(qualifier);
+  DXASSERT((accessBits & ~DXIL::PayloadAccessQualifierValidMaskPerStage) == 0,
+           "Unknown payload access qualifier bits set");
+  accessBits &= DXIL::PayloadAccessQualifierValidMaskPerStage;
+
+  accessBits <<= GetBitOffsetForShaderStage(shaderStage);
+  m_bitmask |= accessBits;
+}
+
+DXIL::PayloadAccessQualifier DxilPayloadFieldAnnotation::GetPayloadFieldQualifier(
+    DXIL::PayloadAccessShaderStage shaderStage) const {
+
+  int bitOffset = GetBitOffsetForShaderStage(shaderStage);
+
+  // default type is always ReadWrite
+  DXIL::PayloadAccessQualifier accessType = DXIL::PayloadAccessQualifier::ReadWrite;
+
+  const unsigned readBit = static_cast<unsigned>(DXIL::PayloadAccessQualifier::Read);
+  const unsigned writeBit = static_cast<unsigned>(DXIL::PayloadAccessQualifier::Write);
+
+  unsigned accessBits = m_bitmask >> bitOffset;
+  if (accessBits & readBit) {
+    // set Read if the first bit is set
+    accessType = DXIL::PayloadAccessQualifier::Read;
+  }
+  if (accessBits & writeBit) {
+
+    // set Write only if the second bit set, if both are set set to ReadWrite
+    accessType = accessType == DXIL::PayloadAccessQualifier::ReadWrite
+                     ? DXIL::PayloadAccessQualifier::Write
+                     : DXIL::PayloadAccessQualifier::ReadWrite;
+  }
+  return accessType;
+}
+
+bool DxilPayloadFieldAnnotation::HasAnnotations() const {
+  return m_bitmask != 0;
+}
 
 //------------------------------------------------------------------------------
 //
 // DxilStructAnnotation class methods.
 //
 DxilTemplateArgAnnotation::DxilTemplateArgAnnotation()
-    : DxilFieldAnnotation(), m_Type(nullptr), m_Integral(0)
+    : m_Type(nullptr), m_Integral(0)
 {}
 
 bool DxilTemplateArgAnnotation::IsType() const { return m_Type != nullptr; }
@@ -98,10 +175,6 @@ bool DxilTemplateArgAnnotation::IsIntegral() const { return m_Type == nullptr; }
 int64_t DxilTemplateArgAnnotation::GetIntegral() const { return m_Integral; }
 void DxilTemplateArgAnnotation::SetIntegral(int64_t i64) { m_Type = nullptr; m_Integral = i64; }
 
-//------------------------------------------------------------------------------
-//
-// DxilStructAnnotation class methods.
-//
 unsigned DxilStructAnnotation::GetNumFields() const {
   return (unsigned)m_FieldAnnotations.size();
 }
@@ -124,8 +197,26 @@ void DxilStructAnnotation::SetStructType(const llvm::StructType *Ty) {
 
 unsigned DxilStructAnnotation::GetCBufferSize() const { return m_CBufferSize; }
 void DxilStructAnnotation::SetCBufferSize(unsigned size) { m_CBufferSize = size; }
-void DxilStructAnnotation::MarkEmptyStruct() { m_FieldAnnotations.clear(); }
-bool DxilStructAnnotation::IsEmptyStruct() { return m_FieldAnnotations.empty(); }
+void DxilStructAnnotation::MarkEmptyStruct() {
+  if (m_ResourcesContained == HasResources::True)
+    m_ResourcesContained = HasResources::Only;
+  else
+    m_FieldAnnotations.clear();
+}
+bool DxilStructAnnotation::IsEmptyStruct() {
+  return m_FieldAnnotations.empty();
+}
+bool DxilStructAnnotation::IsEmptyBesidesResources() {
+  return m_ResourcesContained == HasResources::Only ||
+         m_FieldAnnotations.empty();
+}
+
+// ContainsResources is for codegen only, not meant for metadata
+void DxilStructAnnotation::SetContainsResources() {
+  if (m_ResourcesContained == HasResources::False)
+    m_ResourcesContained = HasResources::True;
+}
+bool DxilStructAnnotation::ContainsResources() const { return m_ResourcesContained != HasResources::False; }
 
 // For template args, GetNumTemplateArgs() will return 0 if not a template
 unsigned DxilStructAnnotation::GetNumTemplateArgs() const {
@@ -141,7 +232,6 @@ DxilTemplateArgAnnotation &DxilStructAnnotation::GetTemplateArgAnnotation(unsign
 const DxilTemplateArgAnnotation &DxilStructAnnotation::GetTemplateArgAnnotation(unsigned argIdx) const {
   return m_TemplateAnnotations[argIdx];
 }
-
 
 //------------------------------------------------------------------------------
 //
@@ -200,7 +290,30 @@ const Function *DxilFunctionAnnotation::GetFunction() const {
 
 //------------------------------------------------------------------------------
 //
-// DxilStructAnnotationSystem class methods.
+// DxilPayloadAnnotation class methods.
+//
+unsigned DxilPayloadAnnotation::GetNumFields() const {
+  return (unsigned)m_FieldAnnotations.size();
+}
+
+DxilPayloadFieldAnnotation &DxilPayloadAnnotation::GetFieldAnnotation(unsigned FieldIdx) {
+  return m_FieldAnnotations[FieldIdx];
+}
+
+const DxilPayloadFieldAnnotation &DxilPayloadAnnotation::GetFieldAnnotation(unsigned FieldIdx) const {
+  return m_FieldAnnotations[FieldIdx];
+}
+
+const StructType *DxilPayloadAnnotation::GetStructType() const {
+  return m_pStructType;
+}
+void DxilPayloadAnnotation::SetStructType(const llvm::StructType *Ty) {
+  m_pStructType = Ty;
+}
+
+//------------------------------------------------------------------------------
+//
+// DxilTypeSystem class methods.
 //
 DxilTypeSystem::DxilTypeSystem(Module *pModule)
     : m_pModule(pModule),
@@ -214,6 +327,21 @@ DxilStructAnnotation *DxilTypeSystem::AddStructAnnotation(const StructType *pStr
   pA->m_FieldAnnotations.resize(pStructType->getNumElements());
   pA->SetNumTemplateArgs(numTemplateArgs);
   return pA;
+}
+
+void DxilTypeSystem::FinishStructAnnotation(DxilStructAnnotation &SA) {
+  const llvm::StructType *ST = SA.GetStructType();
+  DXASSERT(SA.GetNumFields() == ST->getNumElements(), "otherwise, mismatched field count.");
+
+  // Update resource containment
+  for (unsigned i = 0; i < SA.GetNumFields() && !SA.ContainsResources(); i++) {
+    if (IsResourceContained(ST->getElementType(i)))
+      SA.SetContainsResources();
+  }
+
+  // Mark if empty
+  if (SA.GetCBufferSize() == 0)
+    SA.MarkEmptyStruct();
 }
 
 DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStructType) {
@@ -242,8 +370,106 @@ void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
           &I) { return pStructType == I.first; });
 }
 
+// Recurse type, removing any found StructType from the set
+static void RemoveUsedStructsFromSet(Type *Ty, std::unordered_set<const llvm::StructType*> &unused_structs) {
+  if (Ty->isPointerTy())
+    RemoveUsedStructsFromSet(Ty->getPointerElementType(), unused_structs);
+  else if (Ty->isArrayTy())
+    RemoveUsedStructsFromSet(Ty->getArrayElementType(), unused_structs);
+  else if (Ty->isStructTy()) {
+    StructType *ST = cast<StructType>(Ty);
+    // Only recurse first time into this struct
+    if (unused_structs.erase(ST)) {
+      for (auto &ET : ST->elements()) {
+        RemoveUsedStructsFromSet(ET, unused_structs);
+      }
+    }
+  }
+}
+
+void DxilTypeSystem::EraseUnusedStructAnnotations() {
+  // Add all structures with annotations to a set
+  // Iterate globals, resource types, and functions, recursing used structures to
+  // remove matching struct annotations from set
+  std::unordered_set<const llvm::StructType*> unused_structs;
+  for (auto &it : m_StructAnnotations) {
+    unused_structs.insert(it.first);
+  }
+  for (auto &GV : m_pModule->globals()) {
+    RemoveUsedStructsFromSet(GV.getType(), unused_structs);
+  }
+  DxilModule &DM = m_pModule->GetDxilModule();
+  for (auto &&C : DM.GetCBuffers()) {
+    RemoveUsedStructsFromSet(C->GetHLSLType(), unused_structs);
+  }
+  for (auto &&Srv : DM.GetSRVs()) {
+    RemoveUsedStructsFromSet(Srv->GetHLSLType(), unused_structs);
+  }
+  for (auto &&Uav : DM.GetUAVs()) {
+    RemoveUsedStructsFromSet(Uav->GetHLSLType(), unused_structs);
+  }
+  for (auto &F : m_pModule->functions()) {
+    FunctionType *FT = F.getFunctionType();
+    RemoveUsedStructsFromSet(FT->getReturnType(), unused_structs);
+    for (auto &argTy : FT->params()) {
+      RemoveUsedStructsFromSet(argTy, unused_structs);
+    }
+  }
+  // erase remaining structures in set
+  for (auto *ST : unused_structs) {
+    EraseStructAnnotation(ST);
+  }
+}
+
 DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
   return m_StructAnnotations;
+}
+
+const DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() const{
+  return m_StructAnnotations;
+}
+
+DxilPayloadAnnotation *DxilTypeSystem::AddPayloadAnnotation(const StructType *pStructType) {
+  DXASSERT_NOMSG(m_PayloadAnnotations.find(pStructType) == m_PayloadAnnotations.end());
+  DxilPayloadAnnotation *pA = new DxilPayloadAnnotation();
+  m_PayloadAnnotations[pStructType] = unique_ptr<DxilPayloadAnnotation>(pA);
+  pA->m_pStructType = pStructType;
+  pA->m_FieldAnnotations.resize(pStructType->getNumElements());
+  return pA;
+}
+
+DxilPayloadAnnotation *DxilTypeSystem::GetPayloadAnnotation(const StructType *pStructType) {
+  auto it = m_PayloadAnnotations.find(pStructType);
+  if (it != m_PayloadAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+const DxilPayloadAnnotation *
+DxilTypeSystem::GetPayloadAnnotation(const StructType *pStructType) const {
+  auto it = m_PayloadAnnotations.find(pStructType);
+  if (it != m_PayloadAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+void DxilTypeSystem::ErasePayloadAnnotation(const StructType *pStructType) {
+  DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
+  m_PayloadAnnotations.remove_if([pStructType](
+      const std::pair<const StructType *, std::unique_ptr<DxilPayloadAnnotation>>
+          &I) { return pStructType == I.first; });
+}
+
+DxilTypeSystem::PayloadAnnotationMap &DxilTypeSystem::GetPayloadAnnotationMap() {
+  return m_PayloadAnnotations;
+}
+
+const DxilTypeSystem::PayloadAnnotationMap &DxilTypeSystem::GetPayloadAnnotationMap() const{
+  return m_PayloadAnnotations;
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pFunction) {
@@ -253,6 +479,18 @@ DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pF
   pA->m_pFunction = pFunction;
   pA->m_parameterAnnotations.resize(pFunction->getFunctionType()->getNumParams());
   return pA;
+}
+
+void DxilTypeSystem::FinishFunctionAnnotation(DxilFunctionAnnotation &FA) {
+  auto FT = FA.GetFunction()->getFunctionType();
+
+  // Update resource containment
+  if (IsResourceContained(FT->getReturnType()))
+    FA.SetContainsResourceArgs();
+  for (unsigned i = 0; i < FT->getNumParams() && !FA.ContainsResourceArgs(); i++) {
+    if (IsResourceContained(FT->getParamType(i)))
+      FA.SetContainsResourceArgs();
+  }
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pFunction) {
@@ -301,7 +539,7 @@ StructType *DxilTypeSystem::GetNormFloatType(CompType CT, unsigned NumComps) {
   raw_string_ostream NameStream(TypeName);
   if (NumComps > 1) {
     (NameStream << "dx.types." << NumComps << "x" << CT.GetName()).flush();
-    pFieldType = VectorType::get(pFieldType, NumComps);
+    pFieldType = FixedVectorType::get(pFieldType, NumComps);
   } else {
     (NameStream << "dx.types." << CT.GetName()).flush();
   }
@@ -478,8 +716,11 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
 void RemapSemantic(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName,
   DxilParameterAnnotation &paramInfo, llvm::LLVMContext &Context) {
   // format deprecation warning
-  Context.emitWarning(Twine("DX9-style semantic \"") + oldSemName + Twine("\" mapped to DX10 system semantic \"") + newSemName +
-    Twine("\" due to -Gec flag. This functionality is deprecated in newer language versions."));
+  dxilutil::EmitWarningOnContext(
+      Context, Twine("DX9-style semantic \"") + oldSemName +
+                   Twine("\" mapped to DX10 system semantic \"") + newSemName +
+                   Twine("\" due to -Gec flag. This functionality is "
+                         "deprecated in newer language versions."));
 
   // create new semantic name with the same index
   std::string newSemNameStr(newSemName);
@@ -529,6 +770,24 @@ void DxilTypeSystem::SetMinPrecision(bool bMinPrecision) {
            "LowPrecisionMode should only be set once.");
 
   m_LowPrecisionMode = mode;
+}
+
+bool DxilTypeSystem::IsResourceContained(llvm::Type *Ty) {
+  // strip pointer/array
+  if (Ty->isPointerTy())
+    Ty = Ty->getPointerElementType();
+  if (Ty->isArrayTy())
+    Ty = Ty->getArrayElementType();
+
+  if (auto ST = dyn_cast<StructType>(Ty)) {
+    if (dxilutil::IsHLSLResourceType(Ty)) {
+      return true;
+    } else if (auto SA = GetStructAnnotation(ST)) {
+      if (SA->ContainsResources())
+        return true;
+    }
+  }
+  return false;
 }
 
 DxilStructTypeIterator::DxilStructTypeIterator(llvm::StructType *sTy, DxilStructAnnotation *sAnnotation,

@@ -27,7 +27,7 @@ typedef _Return_type_success_(return >= 0) long HRESULT;
 #include <stdarg.h>
 #include <system_error>
 #include "dxc/Support/exception.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Memory allocation support.
@@ -53,6 +53,10 @@ void DxcClearThreadMalloc() throw();
 
 // Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
+
+// Common implementation of operators new and delete
+void *DxcNew(std::size_t size) throw();
+void DxcDelete(void* ptr) throw();
 
 class DxcThreadMalloc {
 public:
@@ -167,7 +171,7 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
   va_list argList;
   va_start(argList, pszFormat);
-  int count = vsprintf_s(buffer, _countof(buffer), pszFormat, argList);
+  int count = vsnprintf_s(buffer, _countof(buffer), pszFormat, argList);
   va_end(argList);
 
   OutputDebugStringA(buffer);
@@ -178,7 +182,7 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 #endif // _MSC_VER
 
-#ifdef DBG
+#ifndef NDEBUG
 
 #ifdef _WIN32
 
@@ -226,7 +230,7 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 #endif // _WIN32
 
-#else // DBG
+#else // NDEBUG
 
 // DXASSERT_ARGS is disabled in free builds.
 #define DXASSERT_ARGS(exp, s, ...) _Analysis_assume_(exp)
@@ -244,4 +248,4 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
 #define DXVERIFY_NOMSG(exp) do { (void)(exp); _Analysis_assume_(exp); } while (0)
 
-#endif // DBG
+#endif // NDEBUG

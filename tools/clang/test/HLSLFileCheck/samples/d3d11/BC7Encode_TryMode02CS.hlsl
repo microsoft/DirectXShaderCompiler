@@ -4,9 +4,12 @@
 // CHECK: groupId
 // CHECK: bufferLoad
 // CHECK: textureLoad
-// CHECK: UMax
+
+
 // CHECK: UMin
 // CHECK: barrier
+
+// CHECK: UMax
 
 // CHECK: IMad
 // CHECK: barrier

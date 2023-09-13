@@ -140,7 +140,7 @@ class SanitizerCoverageModule : public ModulePass {
   bool runOnModule(Module &M) override;
   bool runOnFunction(Function &F);
   static char ID;  // Pass identification, replacement for typeid
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "SanitizerCoverageModule";
   }
 

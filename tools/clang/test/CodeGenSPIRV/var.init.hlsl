@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // Constants
 // CHECK: [[float4constant:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_4

@@ -1,5 +1,8 @@
 ﻿# Copyright (C) Microsoft Corporation. All rights reserved.
-# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# This file is distributed under the University of Illinois Open Source License.
+# See LICENSE.TXT for details.
+
+add_hlsl_hctgen(DxcDisassembler OUTPUT DxcDisassembler.inc BUILD_DIR)
 
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
@@ -17,6 +20,7 @@ set(LLVM_LINK_COMPONENTS
   dxilcontainer
   dxilpixpasses # for DxcOptimizerPass
   dxilrootsignature
+  dxcbindingtable
   hlsl
   instcombine
   ipa
@@ -25,7 +29,7 @@ set(LLVM_LINK_COMPONENTS
 #  libdriver
 #  lineeditor
   linker
-  lto
+#  lto
 #  mirparser # no support for LLVM codegen
   mssupport
 #  object # no support for object files (coff, elf)
@@ -38,6 +42,8 @@ set(LLVM_LINK_COMPONENTS
   target
   transformutils
   vectorize
+  dxilcompression
+  passprinters
   )
 
 if (WIN32)
@@ -54,7 +60,9 @@ set(SOURCES
   dxillib.cpp
   dxcutil.cpp
   dxcdisassembler.cpp
+  dxcpdbutils.cpp
   dxclinker.cpp
+  dxcshadersourceinfo.cpp
 )
 else ()
 set(SOURCES
@@ -66,12 +74,14 @@ set(SOURCES
   dxcfilesystem.cpp
   dxcutil.cpp
   dxcdisassembler.cpp
+  dxcpdbutils.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  dxclinker.cpp
+  dxcshadersourceinfo.cpp
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp
-  dxclinker.cpp
 )
 endif(WIN32)
 
@@ -111,6 +121,10 @@ set(GENERATED_HEADERS
   ClangStmtNodes
   )
 
+if (WIN32)
+  find_package(DiaSDK REQUIRED) # Used for constants and declarations.
+endif (WIN32)
+
 add_clang_library(dxcompiler SHARED ${SOURCES})
 add_dependencies(dxcompiler TablegenHLSLOptions) 
 if (WIN32)
@@ -121,10 +135,26 @@ target_link_libraries(dxcompiler PRIVATE ${LIBRARIES})
 if (ENABLE_SPIRV_CODEGEN)
   target_link_libraries(dxcompiler PRIVATE clangSPIRV)
 endif (ENABLE_SPIRV_CODEGEN)
-include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing)
+include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS} ${HLSL_VERSION_LOCATION})
 
 set_target_properties(dxcompiler
   PROPERTIES
   OUTPUT_NAME "dxcompiler"
   VERSION ${LIBCLANG_LIBRARY_VERSION}
   DEFINE_SYMBOL _CINDEX_LIB_)
+
+if (WIN32)
+  set(install_dest RUNTIME DESTINATION bin)
+else()
+  set(install_dest LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+endif()
+
+install(TARGETS dxcompiler
+  ${install_dest}
+  COMPONENT dxcompiler)
+
+add_custom_target(install-dxcompiler
+  DEPENDS dxcompiler
+  COMMAND "${CMAKE_COMMAND}"
+          -DCMAKE_INSTALL_COMPONENT=dxcompiler
+          -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")

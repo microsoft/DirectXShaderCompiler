@@ -16,11 +16,11 @@ uint UseBuf(int2 idx) {
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 1
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?UseBuf@@YAIV?$vector@H$01@@@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?UseBuf{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: g_buffer
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: g_buffer
 // CHECK:         Type: D3D_SIT_UAV_RWSTRUCTURED
 // CHECK:         uID: 0
 // CHECK:         BindCount: 2

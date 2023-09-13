@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/ADT/iterator.h"
 #include "llvm/Support/DataTypes.h"
 #include <iterator>
 
@@ -48,7 +49,8 @@ namespace path {
 ///   C:\foo\bar => C:,/,foo,bar
 /// @endcode
 class const_iterator
-    : public std::iterator<std::input_iterator_tag, const StringRef> {
+    : public iterator_facade_base<const_iterator, std::input_iterator_tag,
+                                  const StringRef> {
   StringRef Path;      ///< The entire path.
   StringRef Component; ///< The current component. Not necessarily in Path.
   size_t    Position;  ///< The iterators current position within Path.
@@ -59,11 +61,9 @@ class const_iterator
 
 public:
   reference operator*() const { return Component; }
-  pointer   operator->() const { return &Component; }
   const_iterator &operator++();    // preincrement
   const_iterator &operator++(int); // postincrement
   bool operator==(const const_iterator &RHS) const;
-  bool operator!=(const const_iterator &RHS) const { return !(*this == RHS); }
 
   /// @brief Difference in bytes between this and RHS.
   ptrdiff_t operator-(const const_iterator &RHS) const;
@@ -75,7 +75,8 @@ public:
 /// \a path in reverse order. The traversal order is exactly reversed from that
 /// of \a const_iterator
 class reverse_iterator
-    : public std::iterator<std::input_iterator_tag, const StringRef> {
+    : public iterator_facade_base<reverse_iterator, std::input_iterator_tag,
+                                  const StringRef> {
   StringRef Path;      ///< The entire path.
   StringRef Component; ///< The current component. Not necessarily in Path.
   size_t    Position;  ///< The iterators current position within Path.
@@ -85,11 +86,9 @@ class reverse_iterator
 
 public:
   reference operator*() const { return Component; }
-  pointer   operator->() const { return &Component; }
   reverse_iterator &operator++();    // preincrement
   reverse_iterator &operator++(int); // postincrement
   bool operator==(const reverse_iterator &RHS) const;
-  bool operator!=(const reverse_iterator &RHS) const { return !(*this == RHS); }
 };
 
 /// @brief Get begin iterator over \a path.

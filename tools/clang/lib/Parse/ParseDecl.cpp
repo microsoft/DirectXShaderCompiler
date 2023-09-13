@@ -27,8 +27,11 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "dxc/Support/Global.h"    // HLSL Change
-#include "clang/Sema/SemaHLSL.h"   // HLSL Change
+#include "dxc/Support/Global.h"       // HLSL Change
+#include "clang/Sema/SemaHLSL.h"      // HLSL Change
+#include "clang/AST/UnresolvedSet.h"  // HLSL Change
+#include "dxc/DXIL/DxilShaderModel.h" // HLSL Change
+#include "dxc/DXIL/DxilConstants.h"   // HLSL Change
 
 using namespace clang;
 
@@ -205,11 +208,10 @@ AfterAttributeParsing: // HLSL Change - skip attribute parsing
 }
 
 // HLSL Change Starts: Implementation for Semantic, Register, packoffset semantics.
-static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
+static void ParseRegisterNumberForHLSL(_In_ const StringRef name,
                                        _Out_ char *registerType,
                                        _Out_ unsigned *registerNumber,
                                        _Out_ unsigned *diagId) {
-  DXASSERT_NOMSG(name != nullptr);
   DXASSERT_NOMSG(registerType != nullptr);
   DXASSERT_NOMSG(registerNumber != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
@@ -226,16 +228,14 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
     return;
   }
 
-  *registerType = *name;
-  ++name;
+  *registerType = name[0];
 
   // It's valid to omit the register number.
-  if (*name) {
-    char *nameEnd;
-    unsigned long num;
+  if (name.size() > 1) {
+    StringRef numName = name.substr(1);
+    uint32_t num;
     errno = 0;
-    num = strtoul(name, &nameEnd, 10);
-    if (*nameEnd != '\0' || errno == ERANGE || num > UINT32_MAX) {
+    if (numName.getAsInteger(10, num)) {
       *diagId = diag::err_hlsl_unsupported_register_number;
       return;
     }
@@ -248,9 +248,8 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
 }
 
 static
-void ParsePackSubcomponent(_In_z_ const char* name, _Out_ unsigned* subcomponent, _Out_ unsigned* diagId)
+void ParsePackSubcomponent(_In_ const StringRef name, _Out_ unsigned* subcomponent, _Out_ unsigned* diagId)
 {
-  DXASSERT_NOMSG(name != nullptr);
   DXASSERT_NOMSG(subcomponent != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
 
@@ -265,13 +264,13 @@ void ParsePackSubcomponent(_In_z_ const char* name, _Out_ unsigned* subcomponent
 
 static
 void ParsePackComponent(
-  _In_z_ const char* name,
+  _In_ const StringRef name,
   _Inout_ hlsl::ConstantPacking* cp,
   _Out_ unsigned* diagId)
 {
-  DXASSERT(*name, "otherwise an empty string was parsed as an identifier");
+  DXASSERT(name.size(), "otherwise an empty string was parsed as an identifier");
   *diagId = 0;
-  if (name[0] == '\0' || name[1] != '\0') {
+  if (name.size() != 1) {
     *diagId = diag::err_hlsl_unsupported_packoffset_component;
         return;
   }
@@ -288,59 +287,55 @@ void ParsePackComponent(
 }
 
 static
-bool IsShaderProfileShort(_In_z_ const char* profile)
+bool IsShaderProfileShort(_In_ const StringRef profile)
 {
   // Look for vs, ps, gs, hs, cs.
-  if (strlen(profile) != 2) return false;
+  if (profile.size() != 2) return false;
   if (profile[1] != 's') {
     return false;
   }
-  char profileChar = *profile;
+  char profileChar = profile[0];
   return profileChar == 'v' || profileChar == 'p' || profileChar == 'g' || profileChar == 'g' || profileChar == 'c';
 }
 
 static
-bool IsShaderProfileLike(_In_z_ const char* profile)
+bool IsShaderProfileLike(_In_ const StringRef profile)
 {
   bool foundUnderscore = false;
   bool foundDigit = false;
   bool foundLetter = false;
 
-  while (*profile) {
-    if ('0' <= *profile && *profile <= '9') foundDigit = true;
-    else if ('a' <= *profile && *profile <= 'z') foundLetter = true;
-    else if (*profile == '_') foundUnderscore = true;
+  for (auto ch : profile) {
+    if ('0' <= ch && ch <= '9') foundDigit = true;
+    else if ('a' <= ch && ch <= 'z') foundLetter = true;
+    else if (ch == '_') foundUnderscore = true;
     else return false;
-    ++profile;
   }
 
   return foundUnderscore && foundDigit && foundLetter;
 }
 
-static void ParseSpaceForHLSL(_In_z_ const char *name,
-                              _Out_ unsigned *spaceValue,
+static void ParseSpaceForHLSL(_In_ const StringRef name,
+                              _Out_ uint32_t *spaceValue,
                               _Out_ unsigned *diagId) {
-  DXASSERT_NOMSG(name != nullptr);
   DXASSERT_NOMSG(spaceValue != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
 
   *diagId = 0;
   *spaceValue = 0;
 
-  if (strncmp(name, "space", strlen("space")) != 0) {
+  if (!name.substr(0, sizeof("space")-1).equals("space")) {
     *diagId = diag::err_hlsl_expected_space;
     return;
   }
 
   // Otherwise, strncmp above would have been != 0.
-  _Analysis_assume_(strlen(name) > sizeof("space"));
+  _Analysis_assume_(name.size() > sizeof("space"));
 
-  name += sizeof("space") - 1;
-  char *nameEnd;
-  errno = 0;
-  *spaceValue = strtoul(name, &nameEnd, 10);
+  StringRef numName = name.substr(sizeof("space")-1);
+
   // Disallow missing space names.
-  if (*name == '\0' || *nameEnd != '\0' || errno == ERANGE) {
+  if (numName.getAsInteger(10, *spaceValue)) {
     *diagId = diag::err_hlsl_unsupported_space_number;
     return;
   }
@@ -359,7 +354,69 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       return false;
     }
 
-    if (NextToken().is(tok::kw_register)) {
+    bool identifierIsPayloadAnnotation = false;
+    if (NextToken().is(tok::identifier)) {
+        StringRef identifier = NextToken().getIdentifierInfo()->getName();
+        identifierIsPayloadAnnotation = identifier == "read" || identifier == "write";
+    }
+
+    if (identifierIsPayloadAnnotation) {
+      hlsl::PayloadAccessAnnotation mod;
+
+      if (NextToken().getIdentifierInfo()->getName() == "read")
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::Read;
+      else
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::Write;
+
+      // : read/write ( shader stage *[,shader stage])
+      ConsumeToken(); // consume the colon.
+
+      mod.Loc = Tok.getLocation();
+      ConsumeToken(); // consume the read/write identifier
+      if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after,
+                           "payload access qualifier")) {
+        return true;
+      }
+
+      while(Tok.is(tok::identifier)) {
+        hlsl::DXIL::PayloadAccessShaderStage stage = hlsl::DXIL::PayloadAccessShaderStage::Invalid;
+        StringRef shaderStage = Tok.getIdentifierInfo()->getName();
+        if (shaderStage != "caller" && shaderStage != "anyhit" &&
+            shaderStage != "closesthit" && shaderStage != "miss") {
+          Diag(Tok.getLocation(),
+               diag::err_hlsl_payload_access_qualifier_unsupported_shader)
+              << shaderStage;
+          return true;
+        }
+
+        if (shaderStage == "caller") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Caller;
+        } else if (shaderStage == "closesthit") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Closesthit;
+        } else if (shaderStage == "miss") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Miss;
+        } else if (shaderStage == "anyhit") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Anyhit;
+        } 
+
+        mod.ShaderStages.push_back(stage);
+        ConsumeToken(); // consume shader type
+
+        if (Tok.is(tok::comma)) // check if we have a list of shader types
+          ConsumeToken();
+
+      } while (Tok.is(tok::identifier));
+
+      if (ExpectAndConsume(tok::r_paren, diag::err_expected_rparen_after,
+                           "payload access qualifier")) {
+        return true;
+      }
+
+      if (mod.ShaderStages.empty())
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::NoAccess;
+
+      target.push_back(new (context) hlsl::PayloadAccessAnnotation(mod));
+    }else if (NextToken().is(tok::kw_register)) {
       hlsl::RegisterAssignment r;
 
       // : register ([shader_profile], Type#[subcomponent] [,spaceX])
@@ -377,7 +434,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
         return true;
       }
 
-      const char* identifierText = Tok.getIdentifierInfo()->getName().data();
+      StringRef identifierText = Tok.getIdentifierInfo()->getName();
       if (IsShaderProfileLike(identifierText) || IsShaderProfileShort(identifierText)) {
         r.ShaderProfile = Tok.getIdentifierInfo()->getName();
         ConsumeToken(); // consume shader model
@@ -397,12 +454,12 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       unsigned diagId;
 
       bool hasOnlySpace = false;
-      identifierText = Tok.getIdentifierInfo()->getName().data();
-      if (strncmp(identifierText, "space", strlen("space")) == 0) {
+      identifierText = Tok.getIdentifierInfo()->getName();
+      if (identifierText.substr(0, sizeof("space")-1).equals("space")) {
         hasOnlySpace = true;
       } else {
         ParseRegisterNumberForHLSL(
-          Tok.getIdentifierInfo()->getName().data(), &r.RegisterType, &r.RegisterNumber, &diagId);
+          Tok.getIdentifierInfo()->getName(), &r.RegisterType, &r.RegisterNumber, &diagId);
         if (diagId == 0) {
           r.setIsValid(true);
         } else {
@@ -457,8 +514,8 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
         }
       }
       if (hasOnlySpace) {
-        unsigned RegisterSpaceValue = 0;
-        ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &RegisterSpaceValue, &diagId);
+        uint32_t RegisterSpaceValue = 0;
+        ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceValue, &diagId);
         if (diagId != 0) {
           Diag(Tok.getLocation(), diagId);
           r.setIsValid(false);
@@ -476,7 +533,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
             return true;
           }
           unsigned RegisterSpaceVal = 0;
-          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &RegisterSpaceVal, &diagId);
+          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceVal, &diagId);
           if (diagId != 0) {
             Diag(Tok.getLocation(), diagId);
             r.setIsValid(false);
@@ -514,7 +571,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       }
 
       unsigned diagId;
-      ParsePackSubcomponent(Tok.getIdentifierInfo()->getName().data(), &cp.Subcomponent, &diagId);
+      ParsePackSubcomponent(Tok.getIdentifierInfo()->getName(), &cp.Subcomponent, &diagId);
       if (diagId != 0) {
         cp.setIsValid(false);
         Diag(Tok.getLocation(), diagId);
@@ -530,7 +587,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
           SkipUntil(tok::r_paren, StopAtSemi); // skip through )
           return true;
         }
-        ParsePackComponent(Tok.getIdentifierInfo()->getName().data(), &cp, &diagId);
+        ParsePackComponent(Tok.getIdentifierInfo()->getName(), &cp, &diagId);
         if (diagId != 0) {
           cp.setIsValid(false);
           Diag(Tok.getLocation(), diagId);
@@ -551,6 +608,26 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       ConsumeToken(); // consume colon.
 
       StringRef semanticName = Tok.getIdentifierInfo()->getName();
+      if (semanticName.equals("VFACE")) {
+        Diag(Tok.getLocation(), diag::warn_unsupported_target_attribute)
+            << semanticName;
+      } else {
+        LookupResult R(Actions, Tok.getIdentifierInfo(), Tok.getLocation(),
+                       Sema::LookupOrdinaryName);
+        if (Actions.LookupName(R, getCurScope())) {
+          for (UnresolvedSetIterator I = R.begin(), E = R.end(); I != E; ++I) {
+            NamedDecl *D = (*I)->getUnderlyingDecl();
+            if (D->getKind() == Decl::Kind::Var) {
+              VarDecl *VD = static_cast<VarDecl *>(D);
+              if (VD->getType()->isIntegralOrEnumerationType()) {
+                Diag(Tok.getLocation(), diag::warn_hlsl_semantic_identifier_collision)
+                    << semanticName;
+                break;
+              }
+            }
+          }
+        }
+      }
       hlsl::SemanticDecl *pUA = new (context) hlsl::SemanticDecl(semanticName);
       pUA->Loc = Tok.getLocation();
       ConsumeToken(); // consume semantic
@@ -562,14 +639,15 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       return false;
     }
   }
+  return true;
 }
 // HLSL Change Ends
 
 /// \brief Normalizes an attribute name by dropping prefixed and suffixed __.
-static StringRef normalizeAttrName(StringRef Name) {
+static std::string normalizeAttrName(StringRef Name) {  // HLSL Change: return std::string
   if (Name.size() >= 4 && Name.startswith("__") && Name.endswith("__"))
     Name = Name.drop_front(2).drop_back(2);
-  return Name;
+  return Name.lower();  // HLSL Change: make lowercase
 }
 
 /// \brief Determine whether the given attribute has an identifier argument.
@@ -742,6 +820,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLPatchConstantFunc:
     case AttributeList::AT_HLSLMaxVertexCount:
     case AttributeList::AT_HLSLUnroll:
+    case AttributeList::AT_HLSLWaveSize:
     case AttributeList::AT_NoInline:
     // The following are not accepted in [attribute(param)] syntax:
     //case AttributeList::AT_HLSLCentroid:
@@ -1926,7 +2005,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   switch (Tok.getKind()) {
   case tok::kw_template:
     // HLSL Change Starts
-    if (getLangOpts().HLSL) {
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       SkipMalformedDecl();
       return DeclGroupPtrTy();
@@ -1956,11 +2036,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
     SingleDecl = ParseNamespace(Context, DeclEnd);
     break;
   case tok::kw_using:
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
-      SkipMalformedDecl();
-      return DeclGroupPtrTy();
-    }
     SingleDecl = ParseUsingDirectiveOrDeclaration(Context, ParsedTemplateInfo(),
                                                   DeclEnd, attrs, &OwnedType);
     break;
@@ -2203,7 +2278,11 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   // global variable can be inside a global structure as a static member.
   // Check if the global is a static member and skip global const pass.
   // in backcompat mode, the check for global const is deferred to later stage in CGMSHLSLRuntime::FinishCodeGen()
-  bool CheckGlobalConst = getLangOpts().HLSL && getLangOpts().EnableDX9CompatMode && getLangOpts().HLSLVersion <= 2016 ? false : true;
+  bool CheckGlobalConst =
+      getLangOpts().HLSL && getLangOpts().EnableDX9CompatMode &&
+              getLangOpts().HLSLVersion <= hlsl::LangStd::v2016
+          ? false
+          : true;
   if (NestedNameSpecifier *nameSpecifier = D.getCXXScopeSpec().getScopeRep()) {
     if (nameSpecifier->getKind() == NestedNameSpecifier::SpecifierKind::TypeSpec) {
       const Type *type = D.getCXXScopeSpec().getScopeRep()->getAsType();
@@ -2941,7 +3020,7 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
           Tok.setIdentifierInfo(II);
         }
       }
-      // Fall through.
+      LLVM_FALLTHROUGH; // HLSL Change
     }
     case tok::comma:
     case tok::equal:
@@ -4091,7 +4170,10 @@ HLSLReservedKeyword:
 
     // C++ typename-specifier:
     case tok::kw_typename:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+        goto HLSLReservedKeyword;
+      } // HLSL Change - reserved for HLSL
       if (TryAnnotateTypeOrScopeToken()) {
         DS.SetTypeSpecError();
         goto DoneWithDeclSpec;
@@ -4139,6 +4221,8 @@ HLSLReservedKeyword:
         isInvalid = true;
         break;
       };
+      ParseOpenCLQualifiers(DS.getAttributes()); // HLSL Change -
+      break; // avoid dead-code fallthrough
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -4476,7 +4560,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                 const ParsedTemplateInfo &TemplateInfo,
                                 AccessSpecifier AS, DeclSpecContext DSC) {
   // HLSL Change Starts
-  if (getLangOpts().HLSL && getLangOpts().HLSLVersion < 2017) {
+  if (getLangOpts().HLSL && getLangOpts().HLSLVersion < hlsl::LangStd::v2017) {
     Diag(Tok, diag::err_hlsl_enum);
     // Skip the rest of this declarator, up until the comma or semicolon.
     SkipUntil(tok::comma, StopAtSemi);
@@ -4536,7 +4620,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 
   bool AllowFixedUnderlyingType = AllowDeclaration &&
     (getLangOpts().CPlusPlus11 || getLangOpts().MicrosoftExt ||
-     getLangOpts().ObjC2 || getLangOpts().HLSLVersion >= 2017);
+     getLangOpts().ObjC2 || getLangOpts().HLSLVersion >= hlsl::LangStd::v2017);
 
   CXXScopeSpec &SS = DS.getTypeSpecScope();
   if (getLangOpts().CPlusPlus) {
@@ -4838,7 +4922,8 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 ///         identifier
 ///
 void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
-  assert(getLangOpts().HLSLVersion >= 2017 && "HLSL does not support enums before 2017"); // HLSL Change
+  assert(getLangOpts().HLSLVersion >= hlsl::LangStd::v2017 &&
+         "HLSL does not support enums before 2017"); // HLSL Change
 
   // Enter the scope of the enum body and start the definition.
   ParseScope EnumScope(this, Scope::DeclScope | Scope::EnumScope);
@@ -5056,7 +5141,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())
       return true;
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case tok::kw_typename:  // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
     // recurse to handle whatever we get.
@@ -5185,7 +5270,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
       return false;
     if (TryAltiVecVectorToken())
       return true;
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change.
   case tok::kw_decltype: // decltype(T())::type
   case tok::kw_typename: // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
@@ -5545,6 +5630,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
           continue; // do *not* consume the next token!
         }
         // otherwise, FALL THROUGH!
+        LLVM_FALLTHROUGH; // HLSL Change
       default:
         // If this is not a type-qualifier token, we're done reading type
         // qualifiers.  First verify that DeclSpec's are consistent.
@@ -5604,6 +5690,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         if (TryKeywordIdentFallback(false))
           continue;
       }
+    LLVM_FALLTHROUGH; // HLSL Change
     case tok::kw___sptr:
     case tok::kw___w64:
     case tok::kw___ptr64:
@@ -5653,6 +5740,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         continue; // do *not* consume the next token!
       }
       // otherwise, FALL THROUGH!
+      LLVM_FALLTHROUGH; // HLSL Change
     default:
       DoneWithTypeQuals:
       // If this is not a type-qualifier token, we're done reading type

@@ -350,6 +350,9 @@ protected:
   map<unsigned, unsigned> m_CBufferRangeMap;
   map<unsigned, unsigned> m_SamplerRangeMap;
 
+  // Cached handles for SM 5.0 or below, key: (Class, LowerBound).
+  map<std::pair<unsigned, unsigned>, Value*> m_HandleMap;
+
   // Immediate constant buffer.
   GlobalVariable *m_pIcbGV;
 
@@ -404,12 +407,9 @@ protected:
     };
     vector<pair<unsigned, BasicBlock*> > SwitchCases;  // Switch
 
-    Scope() : Kind(Kind::Function), pPreScopeBB(nullptr), pPostScopeBB(nullptr), NameIndex(0), 
-              pThenBB(nullptr), pElseBB(nullptr), pCond(nullptr),
-              pLoopBB(nullptr), ContinueIndex(0), LoopBreakIndex(0),
-              pDefaultBB(nullptr), pSelector(nullptr), CaseGroupIndex(0), SwitchBreakIndex(0),
-              LabelIdx(0), CallIdx(0), ReturnTokenOffset(0), ReturnIndex(0), bEntryFunc(false),
-              pHullLoopBB(nullptr), HullLoopBreakIndex(0), pInductionVar(nullptr), HullLoopTripCount(0) {}
+    Scope() : Kind(Kind::Function), pPreScopeBB(nullptr), pPostScopeBB(nullptr), NameIndex(0) {
+      memset(reinterpret_cast<char*>(&pThenBB), '\0', reinterpret_cast<char*>(&SwitchCases) - reinterpret_cast<char*>(&pThenBB));
+    }
 
     void SetEntry(bool b = true) { DXASSERT_NOMSG(Kind==Function); bEntryFunc = b; }
     bool IsEntry() const { DXASSERT_NOMSG(Kind==Function); return bEntryFunc; }
@@ -600,6 +600,8 @@ protected:
 
   void SetShaderGlobalFlags(unsigned GlobalFlags);
   Value *CreateHandle(DxilResourceBase::Class Class, unsigned RangeID, Value *pIndex, bool bNonUniformIndex);
+  void SetCachedHandle(const DxilResourceBase &R);
+  Value *GetCachedHandle(const DxilResourceBase &R);
 
   void Optimize();
 

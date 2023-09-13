@@ -228,7 +228,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::VariableArray:
     case Type::DependentSizedArray:
       NeedARCStrongQualifier = true;
-      // Fall through
+      LLVM_FALLTHROUGH; // HLSL Change
       
     case Type::Adjusted:
     case Type::Decayed:
@@ -983,6 +983,18 @@ void TypePrinter::printTag(TagDecl *D, raw_ostream &OS) {
       Args = TST->getArgs();
       NumArgs = TST->getNumArgs();
     } else {
+      // HLSL Change Starts
+      ClassTemplateDecl *TD = Spec->getSpecializedTemplate();
+      TemplateParameterList *Params = TD->getTemplateParameters();
+      // If this is an HLSL default template specialization, omit the template
+      // argument list, unless this is a vector or matrix type.
+      if (Policy.LangOpts.HLSL && Policy.HLSLOmitDefaultTemplateParams &&
+          Params->getLAngleLoc() == Params->getRAngleLoc() &&
+          (TD->getName() != "vector" && TD->getName() != "matrix")) {
+        spaceBeforePlaceHolder(OS);
+        return;
+      }
+      // HLSL Change Ends
       const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
       Args = TemplateArgs.data();
       NumArgs = TemplateArgs.size();

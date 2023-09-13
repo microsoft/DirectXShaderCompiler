@@ -14,6 +14,7 @@ set(LLVM_LINK_COMPONENTS
 #  debuginfodwarf # no support for DWARF files (IR debug info is OK)
 #  debuginfopdb # no support for PDB files
   dxcsupport
+  dxcbindingtable
   dxrfallback
   dxil
   dxilcontainer
@@ -26,7 +27,7 @@ set(LLVM_LINK_COMPONENTS
 #  libdriver
 #  lineeditor
   linker
-  lto
+#  lto
 #  mirparser # no support for LLVM codegen
   mssupport
 #  object # no support for object files (coff, elf)

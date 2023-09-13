@@ -134,7 +134,7 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
 // HLSL Change: HLSL Language standard declaration
 LANGSTANDARD(hlsl, "hlsl",
              "HLSL",
-             LineComment | CPlusPlus | Digraphs)
+             LineComment | CPlusPlus )
 
 // OpenCL
 LANGSTANDARD(opencl, "cl",

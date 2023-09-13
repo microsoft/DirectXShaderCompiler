@@ -61,7 +61,7 @@ bool DxilSignature::IsOutput() const {
 }
 
 unique_ptr<DxilSignatureElement> DxilSignature::CreateElement() {
-  return llvm::make_unique<DxilSignatureElement>(m_sigPointKind);
+  return std::make_unique<DxilSignatureElement>(m_sigPointKind);
 }
 
 unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID) {

@@ -110,11 +110,16 @@ public:
   unsigned size() const { return N ? N->getNumOperands() : 0u; }
   DITypeRef operator[](unsigned I) const { return DITypeRef(N->getOperand(I)); }
 
-  class iterator : std::iterator<std::input_iterator_tag, DITypeRef,
-                                 std::ptrdiff_t, void, DITypeRef> {
+  class iterator {
     MDNode::op_iterator I = nullptr;
 
   public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type = DITypeRef;
+    using difference_type = std::ptrdiff_t;
+    using pointer = void;
+    using reference = DITypeRef;
+  
     iterator() = default;
     explicit iterator(MDNode::op_iterator I) : I(I) {}
     DITypeRef operator*() const { return DITypeRef(*I); }
@@ -545,6 +550,7 @@ public:
 
 
   Metadata *getRawScope() const { return getOperand(1); }
+  void setScope(Metadata *scope) { setOperand(1, scope); } // HLSL Change
   MDString *getRawName() const { return getOperandAs<MDString>(2); }
 
   void setFlags(unsigned NewFlags) {
@@ -1826,6 +1832,7 @@ public:
     return "";
   }
 
+  void setScope(DIScope *scope) { setOperand(0, scope); } // HLSL Change
   Metadata *getRawScope() const { return getOperand(0); }
   MDString *getRawName() const { return getOperandAs<MDString>(1); }
   Metadata *getRawFile() const { return getOperand(2); }
@@ -2084,11 +2091,16 @@ public:
   };
 
   /// \brief An iterator for expression operands.
-  class expr_op_iterator
-      : public std::iterator<std::input_iterator_tag, ExprOperand> {
+  class expr_op_iterator {
     ExprOperand Op;
 
   public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type = ExprOperand;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     explicit expr_op_iterator(element_iterator I) : Op(I) {}
 
     element_iterator getBase() const { return Op.get(); }

@@ -86,8 +86,11 @@ TEST(CommandLineTest, ModifyExisitingOption) {
   cl::Option *Retrieved = Map["test-option"];
   ASSERT_EQ(&TestOption, Retrieved) << "Retrieved wrong option.";
 
-  ASSERT_EQ(&cl::GeneralCategory,Retrieved->Category) <<
+  // HLSL - Change begin
+  // No context here but HLSL changed GeneralCategory to a pointer.
+  ASSERT_EQ(cl::GeneralCategory,Retrieved->Category) << 
     "Incorrect default option category.";
+  // HLSL - Change end
 
   Retrieved->setCategory(TestCategory);
   ASSERT_EQ(&TestCategory,Retrieved->Category) <<
@@ -224,7 +227,7 @@ TEST(CommandLineTest, AliasRequired) {
   testAliasRequired(array_lengthof(opts1), opts1);
   testAliasRequired(array_lengthof(opts2), opts2);
 }
-
+/* HLSL Change begin
 TEST(CommandLineTest, HideUnrelatedOptions) {
   StackOption<int> TestOption1("hide-option-1");
   StackOption<int> TestOption2("hide-option-2", cl::cat(TestCategory));
@@ -264,5 +267,6 @@ TEST(CommandLineTest, HideUnrelatedOptionsMulti) {
   ASSERT_EQ(cl::NotHidden, Map["help"]->getOptionHiddenFlag())
       << "Hid default option that should be visable.";
 }
+HLSL Change End */
 
 }  // anonymous namespace

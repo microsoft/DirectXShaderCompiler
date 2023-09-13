@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_1 -E main
+// RUN: %dxc -T hs_6_1 -E main
 
 // CHECK:      OpCapability MultiView
 // CHECK:      OpExtension "SPV_KHR_multiview"

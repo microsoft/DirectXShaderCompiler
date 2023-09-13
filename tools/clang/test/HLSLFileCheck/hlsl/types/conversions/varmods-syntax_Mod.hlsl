@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
 // CHECK: @main
 
@@ -288,6 +288,7 @@ float4 foo_interpolation_different_decl(sample float4 val) {
 
 //////////////////////////////////////////////////////////////////////////////
 // Locals.
+[numthreads(1,1,1)]
 void main() {
     // <py::lines('GENERATED_CODE')>modify(lines, gen_code('%(mods)s float l_%(id)s;', storage_combos))</py>
     // GENERATED_CODE:BEGIN

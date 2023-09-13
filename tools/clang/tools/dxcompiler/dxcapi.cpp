@@ -17,9 +17,10 @@
 #define DXC_API_IMPORT __attribute__ ((visibility ("default")))
 #endif
 
+#include "dxc/Support/Global.h"
+#include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
-#include "dxc/Support/Global.h"
 #ifdef _WIN32
 #include "dxcetw.h"
 #endif
@@ -38,6 +39,7 @@ HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
@@ -104,22 +106,25 @@ static HRESULT ThreadMallocDxcCreateInstance(
   else if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
     hr = CreateDxcIntelliSense(riid, ppv);
   }
-// Note: The following targets are not yet enabled for non-Windows platforms.
-#ifdef _WIN32
-  else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
-    hr = CreateDxcRewriter(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcDiaDataSource)) {
-    hr = CreateDxcDiaDataSource(riid, ppv);
+  else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
+    hr = CreateDxcContainerBuilder(riid, ppv);
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcContainerReflection)) {
     hr = CreateDxcContainerReflection(riid, ppv);
   }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcPdbUtils)) {
+    hr = CreateDxcPdbUtils(riid, ppv);
+  }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
+    hr = CreateDxcRewriter(riid, ppv);
+  }
   else if (IsEqualCLSID(rclsid, CLSID_DxcLinker)) {
     hr = CreateDxcLinker(riid, ppv);
   }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
-    hr = CreateDxcContainerBuilder(riid, ppv);
+// Note: The following targets are not yet enabled for non-Windows platforms.
+#ifdef _WIN32
+  else if (IsEqualCLSID(rclsid, CLSID_DxcDiaDataSource)) {
+    hr = CreateDxcDiaDataSource(riid, ppv);
   }
 #endif
   else {
@@ -154,6 +159,11 @@ DxcCreateInstance2(
   if (ppv == nullptr) {
     return E_POINTER;
   }
+#ifdef DXC_DISABLE_ALLOCATOR_OVERRIDES
+  if (pMalloc != DxcGetThreadMallocNoRef()) {
+    return E_INVALIDARG;
+  }
+#endif // DXC_DISABLE_ALLOCATOR_OVERRIDES
 
   HRESULT hr = S_OK;
   DxcEtw_DXCompilerCreateInstance_Start();

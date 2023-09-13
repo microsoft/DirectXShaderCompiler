@@ -47,6 +47,7 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_ver;
 
   // Basic loading tests.
   TEST_METHOD(LoadDxilModule_1_0)
@@ -68,6 +69,8 @@ public:
 
   TEST_METHOD(SetValidatorVersion)
 
+  TEST_METHOD(PayloadQualifier)
+
   void VerifyValidatorVersionFails(
     LPCWSTR shaderModel, const std::vector<LPCWSTR> &arguments,
     const std::vector<LPCSTR> &expectedErrors);
@@ -79,6 +82,7 @@ public:
 bool DxilModuleTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
   }
   return true;
 }
@@ -577,4 +581,43 @@ TEST_F(DxilModuleTest, SetValidatorVersion) {
 
   VerifyValidatorVersionFails(L"lib_6_x", {L"-validator-version", L"1.3"}, {
     "Offline library profile cannot be used with non-zero -validator-version."});
+}
+
+TEST_F(DxilModuleTest, PayloadQualifier) {
+  if (m_ver.SkipDxilVersion(1, 6)) return;
+  std::vector<LPCWSTR> arguments = { L"-enable-payload-qualifiers" };
+  Compiler c(m_dllSupport);
+
+  LPCSTR shader = "struct [raypayload] Payload\n"
+                  "{\n"
+                  "  double a : read(caller, closesthit, anyhit) : write(caller, miss, closesthit);\n"
+                  "};\n\n"
+                  "[shader(\"miss\")]\n"
+                  "void Miss( inout Payload payload ) { payload.a = 4.2; }\n";
+
+  c.Compile(shader, L"lib_6_6", arguments, {});
+
+  DxilModule &DM = c.GetDxilModule();
+  const DxilTypeSystem &DTS = DM.GetTypeSystem();
+
+  for (auto &p : DTS.GetPayloadAnnotationMap()) {
+    const DxilPayloadAnnotation &plAnnotation = *p.second;
+    for (unsigned i = 0; i < plAnnotation.GetNumFields(); ++i) {
+      const DxilPayloadFieldAnnotation &fieldAnnotation =
+          plAnnotation.GetFieldAnnotation(i);
+      VERIFY_IS_TRUE(fieldAnnotation.HasAnnotations());
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::ReadWrite,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Caller));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::ReadWrite,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Closesthit));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::Write,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Miss));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::Read,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Anyhit));
+    }
+  }
 }

@@ -1,4 +1,4 @@
-// Run: %dxc -T ds_6_0 -E main -fspv-reflect
+// RUN: %dxc -T ds_6_0 -E main -fspv-reflect
 
 // CHECK: OpCapability Tessellation
 // CHECK: OpCapability ClipDistance

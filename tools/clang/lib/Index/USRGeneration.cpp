@@ -615,7 +615,11 @@ void USRGenerator::VisitType(QualType T) {
           c = '?'; break;
         case BuiltinType::LitInt:
           c = '?'; break;
-        // HLSL Change Ends
+        case BuiltinType::Int8_4Packed:
+          c = '?'; break;
+        case BuiltinType::UInt8_4Packed:
+          c = '?'; break;
+          // HLSL Change Ends
         case BuiltinType::NullPtr:
           c = 'n'; break;
 #define BUILTIN_TYPE(Id, SingletonId)
@@ -792,7 +796,7 @@ void USRGenerator::VisitTemplateArgument(const TemplateArgument &Arg) {
 
   case TemplateArgument::TemplateExpansion:
     Out << 'P'; // pack expansion of...
-    // Fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case TemplateArgument::Template:
     VisitTemplateName(Arg.getAsTemplateOrTemplatePattern());
     break;

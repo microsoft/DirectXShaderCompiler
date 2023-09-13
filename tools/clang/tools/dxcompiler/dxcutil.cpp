@@ -20,6 +20,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -28,6 +29,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 
 #include "llvm/Support/Path.h"
 
@@ -70,23 +72,25 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 IMalloc *pMalloc,
                 hlsl::SerializeDxilFlags SerializeFlags,
                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
-                bool bDebugInfo,
                 llvm::StringRef DebugName,
                 clang::DiagnosticsEngine *pDiag,
                 hlsl::DxilShaderHash *pShaderHashOut,
                 AbstractMemoryStream *pReflectionOut,
-                AbstractMemoryStream *pRootSigOut)
+                AbstractMemoryStream *pRootSigOut,
+                CComPtr<IDxcBlob> pRootSigBlob,
+                CComPtr<IDxcBlob> pPrivateBlob)
   : pM(std::move(pM)),
     pOutputContainerBlob(pOutputContainerBlob),
     pMalloc(pMalloc),
     SerializeFlags(SerializeFlags),
     pModuleBitcode(pModuleBitcode),
-    bDebugInfo(bDebugInfo),
     DebugName(DebugName),
     pDiag(pDiag),
     pShaderHashOut(pShaderHashOut),
     pReflectionOut(pReflectionOut),
-    pRootSigOut(pRootSigOut)
+    pRootSigOut(pRootSigOut),
+    pRootSigBlob(pRootSigBlob),
+    pPrivateBlob(pPrivateBlob)
 {}
 
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
@@ -109,9 +113,23 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
 void AssembleToContainer(AssembleInputs &inputs) {
   CComPtr<AbstractMemoryStream> pContainerStream;
   IFT(CreateMemoryStream(inputs.pMalloc, &pContainerStream));
-  SerializeDxilContainerForModule(&inputs.pM->GetOrCreateDxilModule(),
-                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.SerializeFlags,
-                                  inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
+  if (!(inputs.SerializeFlags & SerializeDxilFlags::StripRootSignature) && inputs.pRootSigBlob) {
+    IFT(SetRootSignature(&inputs.pM->GetOrCreateDxilModule(), inputs.pRootSigBlob));
+  } // Update the module root signature from file
+  if (inputs.pPrivateBlob) {
+    SerializeDxilContainerForModule(
+        &inputs.pM->GetOrCreateDxilModule(), inputs.pModuleBitcode,
+        inputs.pVersionInfo,
+        pContainerStream, inputs.DebugName, inputs.SerializeFlags,
+        inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut,
+        inputs.pPrivateBlob->GetBufferPointer(), inputs.pPrivateBlob->GetBufferSize());
+  } else {
+    SerializeDxilContainerForModule(
+        &inputs.pM->GetOrCreateDxilModule(), inputs.pModuleBitcode,
+        inputs.pVersionInfo,
+        pContainerStream, inputs.DebugName, inputs.SerializeFlags,
+        inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
+  }
   inputs.pOutputContainerBlob.Release();
   IFT(pContainerStream.QueryInterface(&inputs.pOutputContainerBlob));
 }
@@ -135,7 +153,7 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
     finished = true;
     return;
   }
-  DXASSERT(opts.HLSLVersion > 2015,
+  DXASSERT(opts.HLSLVersion > hlsl::LangStd::v2015,
            "else ReadDxcOpts didn't fail for non-isense");
   finished = false;
 }
@@ -151,20 +169,28 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   bool bInternalValidator = CreateValidator(pValidator);
   // Warning on internal Validator
 
+  CComPtr<IDxcValidator2> pValidator2;
+  if (!bInternalValidator) {
+    pValidator.QueryInterface(&pValidator2);
+  }
+
   if (bInternalValidator) {
     if (inputs.pDiag) {
       unsigned diagID =
           inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
-                               "DXIL.dll not found.  Resulting DXIL will not be "
+                               "DXIL signing library (dxil.dll,libdxil.so) not found.  Resulting DXIL will not be "
                                "signed for use in release environments.\r\n");
       inputs.pDiag->Report(diagID);
     }
-    // If using the internal validator, we'll use the modules directly.
-    // In this case, we'll want to make a clone to avoid
-    // SerializeDxilContainerForModule stripping all the debug info. The debug
-    // info will be stripped from the orginal module, but preserved in the cloned
-    // module.
-    if (inputs.bDebugInfo) {
+  }
+
+  if (bInternalValidator || pValidator2) {
+    // If using the internal validator or external validator supports
+    // IDxcValidator2, we'll use the modules directly. In this case, we'll want
+    // to make a clone to avoid SerializeDxilContainerForModule stripping all
+    // the debug info. The debug info will be stripped from the orginal module,
+    // but preserved in the cloned module.
+    if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0) {
       llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
     }
   }
@@ -199,8 +225,26 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
                              llvmModuleWithDebugInfo.get(), inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {
-    IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
-                             &pValResult));
+    if (pValidator2 && llvmModuleWithDebugInfo) {
+
+      // If metadata was stripped, re-serialize the input module.
+      CComPtr<AbstractMemoryStream> pDebugModuleStream;
+      IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugModuleStream));
+      raw_stream_ostream outStream(pDebugModuleStream.p);
+      WriteBitcodeToFile(llvmModuleWithDebugInfo.get(), outStream, true);
+      outStream.flush();
+
+      DxcBuffer debugModule = {};
+      debugModule.Ptr = pDebugModuleStream->GetPtr();
+      debugModule.Size = pDebugModuleStream->GetPtrSize();
+
+      IFT(pValidator2->ValidateWithDebug(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
+                                         &debugModule, &pValResult));
+    }
+    else {
+      IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
+                               &pValResult));
+    }
   }
   IFT(pValResult->GetStatus(&valHR));
   if (inputs.pDiag) {
@@ -251,6 +295,47 @@ HRESULT ValidateRootSignatureInContainer(
     }
   }
   return valHR;
+}
+
+HRESULT SetRootSignature(hlsl::DxilModule *pModule, CComPtr<IDxcBlob> pSource) {
+  const char *pName = "RTS0";
+  const UINT32 partKind =
+      ((UINT32)pName[0] | ((UINT32)pName[1] << 8) | ((UINT32)pName[2] << 16) |
+       ((UINT32)pName[3] << 24));
+
+  CComPtr<IDxcContainerReflection> pReflection;
+  UINT32 partCount;
+  IFT(DxcCreateInstance(CLSID_DxcContainerReflection,
+                    __uuidof(IDxcContainerReflection), (void **)&pReflection));
+  IFT(pReflection->Load(pSource));
+  IFT(pReflection->GetPartCount(&partCount));
+
+  CComPtr<IDxcBlob> pContent;
+  for (UINT32 i = 0; i < partCount; ++i) {
+    UINT32 curPartKind;
+    IFT(pReflection->GetPartKind(i, &curPartKind));
+    if (curPartKind == partKind) {
+      CComPtr<IDxcBlob> pContent;
+      IFT(pReflection->GetPartContent(i, &pContent));
+
+      try {
+        const void *serializedData = pContent->GetBufferPointer();
+        uint32_t serializedSize = pContent->GetBufferSize();
+        hlsl::RootSignatureHandle rootSig;
+        rootSig.LoadSerialized(static_cast<const uint8_t *>(serializedData),
+                               serializedSize);
+        std::vector<uint8_t> serializedRootSignature;
+        serializedRootSignature.assign(rootSig.GetSerializedBytes(),
+                                       rootSig.GetSerializedBytes()
+                                           +rootSig.GetSerializedSize());
+        pModule->ResetSerializedRootSignature(serializedRootSignature);
+      } catch (...) {
+        return DXC_E_INCORRECT_ROOT_SIGNATURE;
+      }
+    }
+  }
+  return S_OK;
+
 }
 
 void CreateOperationResultFromOutputs(

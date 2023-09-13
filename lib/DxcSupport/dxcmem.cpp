@@ -23,11 +23,18 @@ static llvm::sys::ThreadLocal<IMalloc> *g_ThreadMallocTls;
 static IMalloc *g_pDefaultMalloc;
 
 HRESULT DxcInitThreadMalloc() throw() {
-  DXASSERT(g_pDefaultMalloc == nullptr, "else InitThreadMalloc already called");
-
-  // We capture the default malloc early to avoid potential failures later on.
-  HRESULT hrMalloc = CoGetMalloc(1, &g_pDefaultMalloc);
-  if (FAILED(hrMalloc)) return hrMalloc;
+  // Allow a default malloc from a previous call to Init.
+  // This will not be cleaned up in the call to Cleanup because
+  // it can still be referenced after Cleanup is called.
+  if (g_pDefaultMalloc) {
+    g_pDefaultMalloc->AddRef();
+  }
+  else {
+    // We capture the default malloc early to avoid potential failures later on.
+    HRESULT hrMalloc = DxcCoGetMalloc(1, &g_pDefaultMalloc);
+    if (FAILED(hrMalloc)) return hrMalloc;
+  }
+  DXASSERT(g_ThreadMallocTls == nullptr, "else InitThreadMalloc already called");
 
   g_ThreadMallocTls = (llvm::sys::ThreadLocal<IMalloc>*)g_pDefaultMalloc->Alloc(sizeof(llvm::sys::ThreadLocal<IMalloc>));
   if (g_ThreadMallocTls == nullptr) {
@@ -43,7 +50,7 @@ HRESULT DxcInitThreadMalloc() throw() {
 void DxcCleanupThreadMalloc() throw() {
   if (g_ThreadMallocTls) {
     DXASSERT(g_pDefaultMalloc, "else DxcInitThreadMalloc didn't work/fail atomically");
-    g_ThreadMallocTls->llvm::sys::ThreadLocal<IMalloc>::~ThreadLocal();
+    g_ThreadMallocTls->~ThreadLocal();
     g_pDefaultMalloc->Free(g_ThreadMallocTls);
     g_ThreadMallocTls = nullptr;
   }
@@ -90,4 +97,32 @@ DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
 
 DxcThreadMalloc::~DxcThreadMalloc() {
     DxcSwapThreadMalloc(pPrior, nullptr);
+}
+
+void* DxcNew(std::size_t size) throw() {
+  void *ptr;
+  IMalloc* iMalloc = DxcGetThreadMallocNoRef();
+  if (iMalloc != nullptr) {
+    ptr = iMalloc->Alloc(size);
+  } else {
+    // DxcGetThreadMallocNoRef() returning null means the operator is called before DllMain
+    // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
+    // static linking is enabled. In that case fallback to the standard allocator
+    // and use CoTaskMemAlloc directly instead of CoGetMalloc, Alloc & Release for better perf.
+    ptr = CoTaskMemAlloc(size);
+  }
+  return ptr;
+}
+
+void DxcDelete(void *ptr) throw() {
+  IMalloc* iMalloc = DxcGetThreadMallocNoRef();
+  if (iMalloc != nullptr) {
+    iMalloc->Free(ptr);
+  } else {
+    // DxcGetThreadMallocNoRef() returning null means the operator is called before DllMain
+    // where the g_pDefaultMalloc is initialized, for example from CRT libraries when
+    // static linking is enabled. In that case fallback to the standard allocator
+    // and use CoTaskMemFree directly instead of CoGetMalloc, Free & Release for better perf.
+    CoTaskMemFree(ptr);
+  }
 }

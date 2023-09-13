@@ -215,7 +215,7 @@ void CandidateArray::GetArrayStores(GEPOperator *gep,
 bool CandidateArray::AllArrayUsersAreGEPOrLifetime(std::vector<GEPOperator *> &geps) {
   for (User *U : m_Alloca->users()) {
     // Allow users that are only used by lifetime intrinsics.
-    if (onlyUsedByLifetimeMarkers(U))
+    if (isa<BitCastInst>(U) && onlyUsedByLifetimeMarkers(U))
       continue;
 
     GEPOperator *gep = dyn_cast<GEPOperator>(U);

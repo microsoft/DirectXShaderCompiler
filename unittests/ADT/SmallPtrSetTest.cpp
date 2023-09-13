@@ -29,7 +29,8 @@ TEST(SmallPtrSetTest, Assignment) {
   (s2 = s1).insert(&buf[2]);
 
   // Self assign as well.
-  (s2 = s2).insert(&buf[3]);
+  // HLSL Change - silence warning
+  (s2 = static_cast<SmallPtrSet<int *, 4> &>(s2)).insert(&buf[3]);
 
   s1 = s2;
   EXPECT_EQ(4U, s1.size());

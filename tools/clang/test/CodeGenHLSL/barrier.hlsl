@@ -5,7 +5,7 @@
 // CHECK: ; Resource bind info for mats
 // CHECK: ; {
 
-// CHECK: ;   struct dx.alignment.legacy.struct.mat
+// CHECK: ;   struct hostlayout.struct.mat
 // CHECK: ;   {
 
 // CHECK: ;       row_major float2x2 f2x2;                      ; Offset:    0

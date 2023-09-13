@@ -195,6 +195,8 @@ namespace clang {
   struct DeductionFailureInfo;
   class TemplateSpecCandidateSet;
 
+  class CXXThisExpr; // HLSL Change
+
 namespace sema {
   class AccessedEntity;
   class BlockScopeInfo;
@@ -1254,10 +1256,12 @@ public:
   /// \returns A suitable function type, if there are no errors. The
   /// unqualified type will always be a FunctionProtoType.
   /// Otherwise, returns a NULL type.
-  QualType BuildFunctionType(QualType T,
-                             MutableArrayRef<QualType> ParamTypes,
+  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  QualType BuildFunctionType(QualType T, MutableArrayRef<QualType> ParamTypes,
                              SourceLocation Loc, DeclarationName Entity,
-                             const FunctionProtoType::ExtProtoInfo &EPI);
+                             const FunctionProtoType::ExtProtoInfo &EPI,
+                             ArrayRef<hlsl::ParameterModifier> ParamMods);
+  // HLSL Change - End
 
   QualType BuildMemberPointerType(QualType T, QualType Class,
                                   SourceLocation Loc,
@@ -2732,6 +2736,13 @@ private:
                              const ObjCObjectPointerType *OPT,
                              bool ErrorRecovery);
 
+  /// HLSL Change Begin - back ported from llvm-project/c601377b2376.
+  bool addInstantiatedParametersToScope(
+      FunctionDecl *Function, const FunctionDecl *PatternDecl,
+      LocalInstantiationScope &Scope,
+      const MultiLevelTemplateArgumentList &TemplateArgs);
+  /// HLSL Change End - back ported from llvm-project/c601377b2376.
+
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
@@ -3789,6 +3800,10 @@ public:
   // HLSL Change Begins
   bool CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
                                             UnaryExprOrTypeTrait ExprKind);
+  void DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A);
+  void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
+                                        QualType TargetType,
+                                        SourceLocation Loc);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
@@ -4067,10 +4082,7 @@ public:
     SourceLocation LBrace);
   void ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace);
   Decl* getActiveHLSLBuffer() const;
-  void ActOnStartHLSLBufferView();
   bool IsOnHLSLBufferView();
-  Decl *ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                        DeclGroupPtrTy &dcl, bool iscbuf);
   // HLSL Change Ends
 
   //===---------------------------- C++ Features --------------------------===//
@@ -6968,6 +6980,12 @@ public:
                       const MultiLevelTemplateArgumentList &TemplateArgs,
                       SmallVectorImpl<QualType> &ParamTypes,
                       SmallVectorImpl<ParmVarDecl *> *OutParams = nullptr);
+  /// HLSL Change Begin - back ported from llvm-project/4409a83c2935.
+  bool SubstDefaultArgument(SourceLocation Loc, ParmVarDecl *Param,
+                            const MultiLevelTemplateArgumentList &TemplateArgs,
+                            bool ForCallExpr = false);
+  /// HLSL Change End - back ported from llvm-project/4409a83c2935.
+
   ExprResult SubstExpr(Expr *E,
                        const MultiLevelTemplateArgumentList &TemplateArgs);
 
@@ -9003,7 +9021,6 @@ private:
 
   // HLSL Change Starts
   bool DiagnoseHLSLDecl(Declarator& D, DeclContext* DC, Expr *BitWidth, TypeSourceInfo* TInfo, bool isParameter);
-  bool DiagnoseHLSLLookup(const LookupResult &R);
   void TransferUnusualAttributes(Declarator& D, NamedDecl* NewDecl);
   // HLSL Change Ends
 
@@ -9073,6 +9090,12 @@ public:
       return NumArgs + 1 > NumParams; // If so, we view as an extra argument.
     return NumArgs > NumParams;
   }
+
+  // HLSL Change Begin - adjust this from T* to T&-like
+  CXXThisExpr *genereateHLSLThis(SourceLocation Loc, QualType ThisType,
+                                bool isImplicit);
+  QualType getHLSLDefaultSpecialization(TemplateDecl *Decl);
+  // HLSL Change End - adjust this from T* to T&-like
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

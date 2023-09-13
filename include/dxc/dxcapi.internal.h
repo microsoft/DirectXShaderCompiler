@@ -24,6 +24,7 @@ typedef struct ID3D10Blob ID3D10Blob;
 // Intrinsic definitions.
 #define AR_QUAL_IN             0x0000000000000010ULL
 #define AR_QUAL_OUT            0x0000000000000020ULL
+#define AR_QUAL_REF            0x0000000000000040ULL
 #define AR_QUAL_CONST          0x0000000000000200ULL
 #define AR_QUAL_ROWMAJOR       0x0000000000000400ULL
 #define AR_QUAL_COLMAJOR       0x0000000000000800ULL
@@ -52,23 +53,32 @@ enum LEGAL_INTRINSIC_TEMPLATES {
 static const BYTE INTRIN_COMPTYPE_FROM_TYPE_ELT0 = 0xff;
 
 enum LEGAL_INTRINSIC_COMPTYPES {
-  LICOMPTYPE_VOID = 0,            // void, used for function returns
-  LICOMPTYPE_BOOL = 1,            // bool
-  LICOMPTYPE_INT = 2,             // i32, int-literal
-  LICOMPTYPE_UINT = 3,            // u32, int-literal
-  LICOMPTYPE_ANY_INT = 4,         // i32, u32, i64, u64, int-literal
-  LICOMPTYPE_ANY_INT32 = 5,       // i32, u32, int-literal
-  LICOMPTYPE_UINT_ONLY = 6,       // u32, u64, int-literal; no casts allowed
-  LICOMPTYPE_FLOAT = 7,           // f32, partial-precision-f32, float-literal
-  LICOMPTYPE_ANY_FLOAT = 8,       // f32, partial-precision-f32, f64, float-literal, min10-float, min16-float, half
-  LICOMPTYPE_FLOAT_LIKE = 9,      // f32, partial-precision-f32, float-literal, min10-float, min16-float, half
-  LICOMPTYPE_FLOAT_DOUBLE = 10,   // f32, partial-precision-f32, f64, float-literal
-  LICOMPTYPE_DOUBLE = 11,         // f64, float-literal
-  LICOMPTYPE_DOUBLE_ONLY = 12,    // f64; no casts allowed
-  LICOMPTYPE_NUMERIC = 13,        // float-literal, f32, partial-precision-f32, f64, min10-float, min16-float, int-literal, i32, u32, min12-int, min16-int, min16-uint, i64, u64
-  LICOMPTYPE_NUMERIC32 = 14,      // float-literal, f32, partial-precision-f32, int-literal, i32, u32
-  LICOMPTYPE_NUMERIC32_ONLY = 15, // float-literal, f32, partial-precision-f32, int-literal, i32, u32; no casts allowed
-  LICOMPTYPE_ANY = 16,            // float-literal, f32, partial-precision-f32, f64, min10-float, min16-float, int-literal, i32, u32, min12-int, min16-int, min16-uint, bool, i64, u64
+  LICOMPTYPE_VOID = 0,       // void, used for function returns
+  LICOMPTYPE_BOOL = 1,       // bool
+  LICOMPTYPE_INT = 2,        // i32, int-literal
+  LICOMPTYPE_UINT = 3,       // u32, int-literal
+  LICOMPTYPE_ANY_INT = 4,    // i32, u32, i64, u64, int-literal
+  LICOMPTYPE_ANY_INT32 = 5,  // i32, u32, int-literal
+  LICOMPTYPE_UINT_ONLY = 6,  // u32, u64, int-literal; no casts allowed
+  LICOMPTYPE_FLOAT = 7,      // f32, partial-precision-f32, float-literal
+  LICOMPTYPE_ANY_FLOAT = 8,  // f32, partial-precision-f32, f64, float-literal,
+                             // min10-float, min16-float, half
+  LICOMPTYPE_FLOAT_LIKE = 9, // f32, partial-precision-f32, float-literal,
+                             // min10-float, min16-float, half
+  LICOMPTYPE_FLOAT_DOUBLE =
+      10,                      // f32, partial-precision-f32, f64, float-literal
+  LICOMPTYPE_DOUBLE = 11,      // f64, float-literal
+  LICOMPTYPE_DOUBLE_ONLY = 12, // f64; no casts allowed
+  LICOMPTYPE_NUMERIC = 13, // float-literal, f32, partial-precision-f32, f64,
+                           // min10-float, min16-float, int-literal, i32, u32,
+                           // min12-int, min16-int, min16-uint, i64, u64
+  LICOMPTYPE_NUMERIC32 =
+      14, // float-literal, f32, partial-precision-f32, int-literal, i32, u32
+  LICOMPTYPE_NUMERIC32_ONLY = 15, // float-literal, f32, partial-precision-f32,
+                                  // int-literal, i32, u32; no casts allowed
+  LICOMPTYPE_ANY = 16, // float-literal, f32, partial-precision-f32, f64,
+                       // min10-float, min16-float, int-literal, i32, u32,
+                       // min12-int, min16-int, min16-uint, bool, i64, u64
   LICOMPTYPE_SAMPLER1D = 17,
   LICOMPTYPE_SAMPLER2D = 18,
   LICOMPTYPE_SAMPLER3D = 19,
@@ -77,7 +87,7 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_SAMPLER = 22,
   LICOMPTYPE_STRING = 23,
   LICOMPTYPE_WAVE = 24,
-  LICOMPTYPE_UINT64 = 25,         // u64, int-literal
+  LICOMPTYPE_UINT64 = 25, // u64, int-literal
   LICOMPTYPE_FLOAT16 = 26,
   LICOMPTYPE_INT16 = 27,
   LICOMPTYPE_UINT16 = 28,
@@ -91,7 +101,15 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_TEXTURE2DARRAY = 34,
   LICOMPTYPE_RESOURCE = 35,
   LICOMPTYPE_INT32_ONLY = 36,
-  LICOMPTYPE_COUNT = 37
+  LICOMPTYPE_INT64_ONLY = 37,
+  LICOMPTYPE_ANY_INT64 = 38,
+  LICOMPTYPE_FLOAT32_ONLY = 39,
+  LICOMPTYPE_INT8_4PACKED = 40,
+  LICOMPTYPE_UINT8_4PACKED = 41,
+  LICOMPTYPE_ANY_INT16_OR_32 = 42,
+  LICOMPTYPE_SINT16_OR_32_ONLY = 43,
+  LICOMPTYPE_ANY_SAMPLER = 44,
+  LICOMPTYPE_COUNT = 45
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;
@@ -187,6 +205,13 @@ CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2, "2490C368-89EE-4491-A4B2-C6547B6C9381
 struct IDxcLangExtensions2 : public IDxcLangExtensions {
 public:
   virtual HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) = 0;
+};
+
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions3, "A1B19880-FB1F-4920-9BC5-50356483BAC1")
+struct IDxcLangExtensions3 : public IDxcLangExtensions2 {
+public:
+  /// Registers a semantic define which cannot be overriden using the flag -override-opt-semdefs
+  virtual HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcSystemAccess, "454b764f-3549-475b-958c-a7a6fcd05fbc")

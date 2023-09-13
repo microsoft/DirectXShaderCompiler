@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -fspv-reflect
+// RUN: %dxc -T ps_6_2 -E main -fspv-reflect
 
 // Make sure the same decoration is not applied twice.
 //

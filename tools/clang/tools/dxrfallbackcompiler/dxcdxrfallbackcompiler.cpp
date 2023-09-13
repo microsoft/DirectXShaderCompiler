@@ -9,6 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
+// Includes on Windows are highly order dependent.
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
@@ -38,6 +40,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 
 #include "dxc/HLSL/DxilFallbackLayerPass.h"
+// clang-format on
 
 using namespace llvm;
 using namespace hlsl;
@@ -209,7 +212,7 @@ static inline std::string GetUnmangledName(StringRef name) {
 
 static Function* getFunctionFromName(Module &M, const std::wstring& exportName) {
     for (auto F = M.begin(), E = M.end(); F != E; ++F) {
-        std::wstring functionName = Unicode::UTF8ToUTF16StringOrThrow(GetUnmangledName(F->getName()).c_str());
+        std::wstring functionName = Unicode::UTF8ToWideStringOrThrow(GetUnmangledName(F->getName()).c_str());
         if (exportName == functionName) {
             return F;
         }
@@ -331,7 +334,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
         }
 
         DiagStream.flush();
-        CComPtr<IStream> pStream = pDiagStream;
+        CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
         std::string warnings;
         dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, hasErrors, ppResult);
     }
@@ -415,7 +418,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::PatchShaderBindingTables(
         }
 
         DiagStream.flush();
-        CComPtr<IStream> pStream = pDiagStream;
+        CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
         std::string warnings;
         dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, false, ppResult);
     }
@@ -574,7 +577,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Link(
         }
 
         DiagStream.flush();
-        CComPtr<IStream> pStream = pDiagStream;
+        CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
         std::string warnings;
         dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, hasErrors, ppResult);
     }
@@ -729,7 +732,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
     }
 
     DiagStream.flush();
-    CComPtr<IStream> pStream = pDiagStream;
+    CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
     std::string warnings;
     dxcutil::CreateOperationResultFromOutputs(pResultBlob, pStream, warnings, hasErrors, ppResult);
 

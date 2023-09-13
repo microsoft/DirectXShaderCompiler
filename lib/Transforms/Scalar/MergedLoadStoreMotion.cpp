@@ -90,6 +90,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include <vector>
 using namespace llvm;
 
@@ -293,7 +294,7 @@ void MergedLoadStoreMotion::hoistInstruction(BasicBlock *BB,
 
   // Intersect optional metadata.
   HoistCand->intersectOptionalDataWith(ElseInst);
-  HoistCand->dropUnknownMetadata();
+  combineMetadata(HoistCand, ElseInst, None);     // HLSL Change: Preserve DXIL metadata
 
   // Prepend point for instruction insert
   Instruction *HoistPt = BB->getTerminator();
@@ -359,7 +360,8 @@ bool MergedLoadStoreMotion::mergeLoads(BasicBlock *BB) {
   BasicBlock *Succ0 = BI->getSuccessor(0);
   BasicBlock *Succ1 = BI->getSuccessor(1);
   // #Instructions in Succ1 for Compile Time Control
-  int Size1 = Succ1->size();
+  // int Size1 = Succ1->size(); // HLSL Change
+  int Size1 = Succ1->compute_size_no_dbg(); // HLSL Change
   int NLoads = 0;
   for (BasicBlock::iterator BBI = Succ0->begin(), BBE = Succ0->end();
        BBI != BBE;) {
@@ -479,7 +481,7 @@ bool MergedLoadStoreMotion::sinkStore(BasicBlock *BB, StoreInst *S0,
     BasicBlock::iterator InsertPt = BB->getFirstInsertionPt();
     // Intersect optional metadata.
     S0->intersectOptionalDataWith(S1);
-    S0->dropUnknownMetadata();
+    combineMetadata(S0, S1, None);      // HLSL Change: Preserve DXIL metadata
 
     // Create the new store to be inserted at the join point.
     StoreInst *SNew = (StoreInst *)(S0->clone());
@@ -529,7 +531,8 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *T) {
     return false; // No. More than 2 predecessors.
 
   // #Instructions in Succ1 for Compile Time Control
-  int Size1 = Pred1->size();
+  // int Size1 = Succ1->size(); // HLSL Change
+  int Size1 = Pred1->compute_size_no_dbg(); // HLSL Change
   int NStores = 0;
 
   for (BasicBlock::reverse_iterator RBI = Pred0->rbegin(), RBE = Pred0->rend();

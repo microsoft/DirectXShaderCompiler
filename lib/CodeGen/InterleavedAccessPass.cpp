@@ -71,7 +71,7 @@ public:
     initializeInterleavedAccessPass(*PassRegistry::getPassRegistry());
   }
 
-  const char *getPassName() const override { return "Interleaved Access Pass"; }
+  StringRef getPassName() const override { return "Interleaved Access Pass"; }
 
   bool runOnFunction(Function &F) override;
 

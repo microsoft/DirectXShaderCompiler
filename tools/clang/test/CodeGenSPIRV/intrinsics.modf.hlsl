@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // According to HLSL reference:
 // The 'modf' function can only operate on scalar/vector/matrix of float/int.

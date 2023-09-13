@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
+// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -HV 2018 -verify %s
 
 // __decltype is the GCC way of saying 'decltype', but doesn't require C++11
 // _Static_assert is the C11 way of saying 'static_assert', but doesn't require C++11
@@ -220,11 +220,11 @@ void fn_uint_oload3(inout uint u) { }
 void fn_uint_oload3(out uint u) { }
 
 // function redefinitions
-void fn_redef(min10float x) {}      /* expected-warning {{min10float is promoted to min16float}} fxc-pass {{}} */
+void fn_redef(min10float x) {}      /* expected-warning {{'min10float' is promoted to 'min16float'}} fxc-pass {{}} */
 void fn_redef(min16float x) {}
 
 
-void fn_redef2(min12int x) {}       /* expected-warning {{min12int is promoted to min16int}} fxc-pass {{}} */
+void fn_redef2(min12int x) {}       /* expected-warning {{'min12int' is promoted to 'min16int'}} fxc-pass {{}} */
 void fn_redef2(min16int x) {}
 
 void fn_redef3(half x) {}

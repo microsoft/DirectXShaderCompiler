@@ -1,6 +1,7 @@
 set(LLVM_LINK_COMPONENTS
   BitReader
   Core
+  DxilContainer
   Support
   MSSupport # HLSL Change
   )

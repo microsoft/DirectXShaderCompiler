@@ -28,6 +28,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MathExtras.h"
 
 #include "DxilDiaSession.h"
 #include "DxilDiaTableSymbols.h"
@@ -39,7 +40,7 @@ namespace hlsl_symbols {
 
 // HLSL Symbol Hierarchy
 // ---- ------ ---------
-// 
+//
 //                                  +---------------+
 //                                  | Program (EXE) |                                   Global Scope
 //                                  +------+--------+
@@ -49,14 +50,14 @@ namespace hlsl_symbols {
 //                                +--------+-----------+
 //                                         |
 //      +------------+------------+--------+-------+------------+--------------+
-//      |            |            |        |       |            |              |        
+//      |            |            |        |       |            |              |
 // +----^----+   +---^---+   +----^---+    |   +---^---+   +----^----+   +-----^-----+
 // | Details |   | Flags |   | Target |    |   | Entry |   | Defines |   | Arguments |  Synthetic Symbols
 // +---------+   +-------+   +--------+    |   +-------+   +---------+   +-----------+
 //                                         |
 //                                         |
 //       +---------------+------------+----+-----+-------------+-----------+
-//       |               |            |          |             |           | 
+//       |               |            |          |             |           |
 // +-----^-----+   +-----^-----+   +--^--+   +---^--+      +---^--+     +--^--+
 // | Function0 |   | Function1 |   | ... |   | UDT0 |      | UDT1 |     | ... |         Source Symbols
 // +-----+-----+   +-----+-----+   +-----+   +---+--+      +---+--+     +-----+
@@ -103,21 +104,21 @@ struct DISymbol : public Symbol {
 
 template <typename N>
 struct TypedSymbol : public DISymbol<N> {
-  TypedSymbol(IMalloc *M, N Node, DWORD dwTypeID, llvm::DIType *Type) : DISymbol(M, Node), m_dwTypeID(dwTypeID), m_pType(Type) {}
+  TypedSymbol(IMalloc *M, N Node, DWORD dwTypeID, llvm::DIType *Type) : DISymbol<N>(M, Node), m_dwTypeID(dwTypeID), m_pType(Type) {}
 
   STDMETHODIMP get_type(
     /* [retval][out] */ IDiaSymbol **ppRetVal) override {
     if (ppRetVal == nullptr) {
       return E_INVALIDARG;
     }
-    *ppRetVal = false;
+    *ppRetVal = nullptr;
 
     if (m_pType == nullptr) {
       return S_FALSE;
     }
 
     Symbol *ret;
-    IFR(m_pSession->SymMgr().GetSymbolByID(m_dwTypeID, &ret));
+    IFR(this->m_pSession->SymMgr().GetSymbolByID(m_dwTypeID, &ret));
 
     *ppRetVal = ret;
     return S_OK;
@@ -596,20 +597,23 @@ public:
     TypeInfo(const TypeInfo &) = delete;
     TypeInfo(TypeInfo &&) = default;
 
-    explicit TypeInfo(DWORD dwTypeID) : m_dwTypeID(dwTypeID) {}
+    TypeInfo(DWORD dwTypeID, uint64_t alignInBits) : m_dwTypeID(dwTypeID), m_alignInBytes(alignInBits / 8) {}
 
     DWORD GetTypeID() const { return m_dwTypeID; }
     DWORD GetCurrentSizeInBytes() const { return m_dwCurrentSizeInBytes; }
+    uint64_t GetAlignmentInBytes() const { return m_alignInBytes; }
     const std::vector<llvm::DIType *> &GetLayout() const { return m_Layout; }
 
     void Embed(const TypeInfo &TI);
 
     void AddBasicType(llvm::DIBasicType *BT);
+    void AppendSize(uint64_t baseSize);
 
   private:
     DWORD m_dwTypeID;
     std::vector<llvm::DIType *> m_Layout;
     DWORD m_dwCurrentSizeInBytes = 0;
+    uint64_t m_alignInBytes;
   };
   using TypeToInfoMap = llvm::DenseMap<llvm::DIType *, std::unique_ptr<TypeInfo> >;
 
@@ -662,9 +666,9 @@ private:
   HRESULT GetTypeInfo(llvm::DIType *T, TypeInfo **TI);
 
   template<typename Factory, typename... Args>
-  HRESULT AddType(DWORD dwParentID, llvm::DIType *T, DWORD *pNewSymID, Args&&... args) {
+  HRESULT AddType(DWORD dwParentID, llvm::DIType *T, DWORD *pNewSymID, uint64_t alignment, Args&&... args) {
       IFR(AddSymbol<Factory>(dwParentID, pNewSymID, std::forward<Args>(args)...));
-      if (!m_TypeToInfo.insert(std::make_pair(T, llvm::make_unique<TypeInfo>(*pNewSymID))).second) {
+      if (!m_TypeToInfo.insert(std::make_pair(T, llvm::make_unique<TypeInfo>(*pNewSymID, alignment))).second) {
           return E_FAIL;
       }
       return S_OK;
@@ -738,7 +742,6 @@ STDMETHODIMP dxil_dia::hlsl_symbols::TypeSymbol::get_baseType(
   *pRetVal = btNoType;
 
   if (auto *BT = llvm::dyn_cast<llvm::DIBasicType>(m_pNode)) {
-    const DWORD SizeInBits = BT->getSizeInBits();
     switch (BT->getEncoding()) {
     case llvm::dwarf::DW_ATE_boolean:
       *pRetVal = btBool; break;
@@ -791,7 +794,7 @@ HRESULT dxil_dia::hlsl_symbols::CompilandSymbol::Create(IMalloc *pMalloc, Sessio
   if (pSession->MainFileName()) {
     llvm::StringRef strRef = llvm::dyn_cast<llvm::MDString>(pSession->MainFileName()->getOperand(0)->getOperand(0))->getString();
     std::string str(strRef.begin(), strRef.size()); // To make sure str is null terminated
-    (*ppSym)->SetSourceFileName(_bstr_t(Unicode::UTF8ToUTF16StringOrThrow(str.data()).c_str()));
+    (*ppSym)->SetSourceFileName(_bstr_t(Unicode::UTF8ToWideStringOrThrow(str.data()).c_str()));
   }
 
   return S_OK;
@@ -972,7 +975,7 @@ STDMETHODIMP dxil_dia::hlsl_symbols::VectorTypeSymbol::get_type(
   if (ppRetVal == nullptr) {
     return E_INVALIDARG;
   }
-  *ppRetVal = false;
+  *ppRetVal = nullptr;
 
   Symbol *ret;
   IFR(m_pSession->SymMgr().GetSymbolByID(m_ElemTyID, &ret));
@@ -1141,13 +1144,28 @@ void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::Embed(const TypeInfo &
   for (const auto &E : TI.GetLayout()) {
     m_Layout.emplace_back(E);
   }
+  uint64_t alignmentInBytes = TI.GetAlignmentInBytes();
+  if (alignmentInBytes != 0) {
+    m_dwCurrentSizeInBytes =
+        llvm::RoundUpToAlignment(m_dwCurrentSizeInBytes, alignmentInBytes);
+  }
   m_dwCurrentSizeInBytes += TI.m_dwCurrentSizeInBytes;
+}
+
+void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::AppendSize(
+    uint64_t baseSize) {
+  static constexpr DWORD kNumBitsPerByte = 8;
+  m_dwCurrentSizeInBytes += baseSize / kNumBitsPerByte;
 }
 
 void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::AddBasicType(llvm::DIBasicType *BT) {
   m_Layout.emplace_back(BT);
 
   static constexpr DWORD kNumBitsPerByte = 8;
+  uint64_t alignmentInBytes = BT->getAlignInBits() / kNumBitsPerByte;
+  if (alignmentInBytes != 0) {
+    m_dwCurrentSizeInBytes = llvm::RoundUpToAlignment(m_dwCurrentSizeInBytes, alignmentInBytes);
+  }
   m_dwCurrentSizeInBytes += BT->getSizeInBits() / kNumBitsPerByte;
 }
 
@@ -1403,7 +1421,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateSubroutineType(DWORD dw
     };
   }
 
-  IFR(AddType<symbol_factory::Type>(dwParentID, ST, pNewTypeID, SymTagFunctionType, ST, LazyName));
+  IFR(AddType<symbol_factory::Type>(dwParentID, ST, pNewTypeID, 0 /*alignment*/, SymTagFunctionType, ST, LazyName));
 
   return S_OK;
 }
@@ -1419,13 +1437,40 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateBasicType(DWORD dwParen
     return S_OK;
   };
 
-  IFR(AddType<symbol_factory::Type>(dwParentID, BT, pNewTypeID, SymTagBaseType, BT, LazyName));
+  IFR(AddType<symbol_factory::Type>(dwParentID, BT, pNewTypeID, BT->getAlignInBits(), SymTagBaseType, BT, LazyName));
 
   TypeInfo *TI;
   IFR(GetTypeInfo(BT, &TI));
   TI->AddBasicType(BT);
 
   return S_OK;
+}
+
+static uint64_t getBaseClassSize(llvm::DIType * Ty)
+{
+    uint64_t sizeInBits = Ty->getSizeInBits();
+    auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty);
+    if (DerivedTy != nullptr) {
+      // Working around a bug where byte size is stored instead of bit size
+      if (sizeInBits == 4 && Ty->getSizeInBits() == 32) {
+        sizeInBits = 32;
+      }
+      if (sizeInBits == 0) {
+        const llvm::DITypeIdentifierMap EmptyMap;
+        switch (DerivedTy->getTag()) {
+        case llvm::dwarf::DW_TAG_restrict_type:
+        case llvm::dwarf::DW_TAG_reference_type:
+        case llvm::dwarf::DW_TAG_const_type:
+        case llvm::dwarf::DW_TAG_typedef: {
+          llvm::DIType *baseType = DerivedTy->getBaseType().resolve(EmptyMap);
+          if (baseType != nullptr) {
+            return getBaseClassSize(baseType);
+          }
+        }
+        }
+      }
+    }
+    return sizeInBits;
 }
 
 HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwParentID, llvm::DICompositeType *CT, DWORD *pNewTypeID) {
@@ -1478,7 +1523,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
       return S_OK;
     };
 
-    IFR(AddType<symbol_factory::Type>(dwParentID, CT, pNewTypeID, SymTagArrayType, CT, LazyName));
+    IFR(AddType<symbol_factory::Type>(dwParentID, CT, pNewTypeID, BaseType->getAlignInBits(), SymTagArrayType, CT, LazyName));
     TypeInfo *ctTI;
     IFR(GetTypeInfo(CT, &ctTI));
     TypeInfo *baseTI;
@@ -1513,18 +1558,37 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     return S_OK;
   };
 
-  IFR(AddType<symbol_factory::UDT>(dwParentID, CT, pNewTypeID, CT, LazyName));
+  IFR(AddType<symbol_factory::UDT>(dwParentID, CT, pNewTypeID, CT->getAlignInBits(), CT, LazyName));
 
   TypeInfo *udtTI;
   IFR(GetTypeInfo(CT, &udtTI));
   auto udtScope = BeginUDTScope(udtTI);
-  for (llvm::DINode *N : CT->getElements()) {
-    if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
-      DWORD dwUnusedFieldID;
-      IFR(CreateType(Field, &dwUnusedFieldID));
+  if (CT->getElements().size() == 0) {
+    // "Resources" (textures, samplers, etc.) are composite types without any elements,
+    // but they do have a size.
+    udtTI->AppendSize(CT->getSizeInBits());
+  } else {
+    for (llvm::DINode *N : CT->getElements()) {
+      if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
+        std::unique_ptr<UDTScope> UDTScopeOverride;
+        if (Field->isStaticMember()) {
+          // Static members do not contribute to sizes or offsets.
+          UDTScopeOverride.reset(new UDTScope(&m_pCurUDT, nullptr));
+        }
+        DWORD dwUnusedFieldID;
+        IFR(CreateType(Field, &dwUnusedFieldID));
+        if (Field->getTag() == llvm::dwarf::DW_TAG_inheritance) {
+          // The base class is a type of its own, so will have contributed to
+          // its own TypeInfo. But we still need to remember the size that it
+          // contributed to this type:
+          auto *DerivedType = llvm::cast<llvm::DIDerivedType>(Field);
+          const llvm::DITypeIdentifierMap EmptyMap;
+          llvm::DIType *BaseType = DerivedType->getBaseType().resolve(EmptyMap);
+          udtTI->AppendSize(getBaseClassSize(BaseType));
+        }
+      }
     }
   }
-
   return S_OK;
 }
 
@@ -1613,7 +1677,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateHLSLVectorType(llvm::DI
   }
 
   const DWORD dwParentID = HlslProgramId;
-  IFR(AddType<symbol_factory::VectorType>(dwParentID, T, pNewTypeID, T, dwElemTyID, ElemCnt->getLimitedValue()));
+  IFR(AddType<symbol_factory::VectorType>(dwParentID, T, pNewTypeID, T->getAlignInBits(), T, dwElemTyID, ElemCnt->getLimitedValue()));
 
   TypeInfo *vecTI;
   IFR(GetTypeInfo(T, &vecTI));
@@ -1677,7 +1741,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::HandleDerivedType(DWORD dwPar
       return E_FAIL;
     }
 
-    IFR(AddType<symbol_factory::TypedefType>(dwParentID, DT, pNewTypeID, DT, dwBaseTypeID));
+    IFR(AddType<symbol_factory::TypedefType>(dwParentID, DT, pNewTypeID, BaseTy->getAlignInBits(), DT, dwBaseTypeID));
 
     TypeInfo *dtTI;
     IFR(GetTypeInfo(DT, &dtTI));
@@ -1716,7 +1780,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::HandleDerivedType(DWORD dwPar
   }
   }
 
-  IFR(AddType<symbol_factory::Type>(dwParentID, DT, pNewTypeID, st, DT, LazyName));
+  IFR(AddType<symbol_factory::Type>(dwParentID, DT, pNewTypeID, DT->getAlignInBits(), st, DT, LazyName));
 
   if (DT->getTag() == llvm::dwarf::DW_TAG_const_type) {
     TypeInfo *dtTI;
@@ -1750,7 +1814,6 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLocalVariable(DWORD dwP
   for (llvm::DIType *Ty : Tys) {
     TypeInfo *TI;
     IFR(GetTypeInfo(Ty, &TI));
-    const DWORD dwTypeID = TI->GetTypeID();
     DWORD dwNewLVID;
     newVars.emplace_back(std::make_shared<symbol_factory::LocalVarInfo>());
     std::shared_ptr<symbol_factory::LocalVarInfo> VI = newVars.back();
@@ -1790,13 +1853,18 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateUDTField(DWORD dwParent
   DWORD dwLVTypeID;
   IFR(CreateType(FieldTy, &dwLVTypeID));
   if (m_pCurUDT != nullptr) {
-    const DWORD dwOffsetInBytes = CurrentUDTInfo().GetCurrentSizeInBytes();
-    DXASSERT_ARGS(dwOffsetInBytes == Field->getOffsetInBits() / 8,
-      "%d vs %d",
-      dwOffsetInBytes,
-      Field->getOffsetInBits() / 8);
     TypeInfo *lvTI;
     IFR(GetTypeInfo(FieldTy, &lvTI));
+#ifndef NDEBUG
+    const DWORD dwOffsetInBytes =
+        (lvTI->GetAlignmentInBytes() == 0)
+        ? CurrentUDTInfo().GetCurrentSizeInBytes()
+        : llvm::RoundUpToAlignment(CurrentUDTInfo().GetCurrentSizeInBytes(), lvTI->GetAlignmentInBytes());
+    DXASSERT_ARGS(dwOffsetInBytes == (unsigned)(Field->getOffsetInBits() / 8),
+      "%d vs %d",
+      dwOffsetInBytes,
+      (unsigned)(Field->getOffsetInBits() / 8));
+#endif
     CurrentUDTInfo().Embed(*lvTI);
   }
 
@@ -1815,13 +1883,15 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLocalVariables() {
     auto *LS = llvm::dyn_cast_or_null<llvm::DILocalScope>(CI->getDebugLoc()->getInlinedAtScope());
     auto SymIt = m_ScopeToSym.find(LS);
     if (SymIt == m_ScopeToSym.end()) {
-      return E_FAIL;
+        continue;
     }
 
     auto *LocalNameMetadata = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(1));
     if (auto *LV = llvm::dyn_cast<llvm::DILocalVariable>(LocalNameMetadata->getMetadata())) {
       const DWORD dwParentID = SymIt->second;
-      IFR(CreateLocalVariable(dwParentID, LV));
+      if (FAILED(CreateLocalVariable(dwParentID, LV))) {
+          continue;
+      }
     }
   }
 

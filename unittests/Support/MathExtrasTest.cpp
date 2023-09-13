@@ -163,7 +163,8 @@ TEST(MathExtras, FloatBits) {
 
 TEST(MathExtras, DoubleBits) {
   static const double kValue = 87987234.983498;
-  EXPECT_FLOAT_EQ(kValue, BitsToDouble(DoubleToBits(kValue)));
+  // HLSL Change -fix implicit cast
+  EXPECT_DOUBLE_EQ(kValue, BitsToDouble(DoubleToBits(kValue)));
 }
 
 TEST(MathExtras, MinAlign) {

@@ -292,20 +292,46 @@ void LookupResult::configure() {
   IDNS = getIDNS(LookupKind, getSema().getLangOpts().CPlusPlus,
                  isForRedeclaration());
 
-  // If we're looking for one of the allocation or deallocation
-  // operators, make sure that the implicitly-declared new and delete
-  // operators can be found.
-  switch (NameInfo.getName().getCXXOverloadedOperator()) {
-  case OO_New:
-  case OO_Delete:
-  case OO_Array_New:
-  case OO_Array_Delete:
-    getSema().DeclareGlobalNewDelete();
-    break;
+  // HLSL Change Starts - do not handle new and delete
+  //
+  // Without this if-statement, the following HLSL example will just meet the
+  // llvm_unreachable(..) in Sema::DeclareGlobalAllocationFunction(..) method:
+  //
+  //   struct S
+  //   {
+  //       float foo;
+  //       void * operator new(int size) {
+  //           return (void *)0;
+  //       }
+  //       void operator delete(void *ptr) {
+  //           (void) ptr;
+  //       }
+  //   };
+  //
+  // The llvm_unreachable(..) just prints the following message without
+  // reporting the exact HLSL code line that causes the failure:
+  //
+  //   no support for new and delete in HLSL
+  //   UNREACHABLE executed at ../../tools/clang/lib/Sema/SemaExprCXX.cpp:2163!
+  //   Aborted
+  if (!getSema().getLangOpts().HLSL ||
+      getSema().getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
+    // If we're looking for one of the allocation or deallocation
+    // operators, make sure that the implicitly-declared new and delete
+    // operators can be found.
+    switch (NameInfo.getName().getCXXOverloadedOperator()) {
+    case OO_New:
+    case OO_Delete:
+    case OO_Array_New:
+    case OO_Array_Delete:
+      getSema().DeclareGlobalNewDelete();
+      break;
 
-  default:
-    break;
+    default:
+      break;
+    }
   }
+  // HLSL Change Ends
 
   // Compiler builtins are always visible, regardless of where they end
   // up being declared.
@@ -2378,6 +2404,7 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
       for (const auto &Arg : Proto->param_types())
         Queue.push_back(Arg.getTypePtr());
       // fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
     }
     case Type::FunctionNoProto: {
       const FunctionType *FnType = cast<FunctionType>(T);

@@ -168,6 +168,18 @@ CallInst *BasicBlock::getTerminatingMustTailCall() {
   return nullptr;
 }
 
+// HLSL Change - begin
+size_t BasicBlock::compute_size_no_dbg() const {
+  size_t ret = 0;
+  for (auto it = InstList.begin(), E = InstList.end(); it != E; it++) {
+    if (isa<DbgInfoIntrinsic>(&*it))
+      continue;
+    ret++;
+  }
+  return ret;
+}
+// HLSL Change - end
+
 Instruction* BasicBlock::getFirstNonPHI() {
   for (Instruction &I : *this)
     if (!isa<PHINode>(I))
@@ -272,7 +284,7 @@ BasicBlock *BasicBlock::getUniqueSuccessor() {
 void BasicBlock::removePredecessor(BasicBlock *Pred,
                                    bool DontDeleteUselessPHIs) {
   assert((hasNUsesOrMore(16)||// Reduce cost of this assertion for complex CFGs.
-          find(pred_begin(this), pred_end(this), Pred) != pred_end(this)) &&
+          std::find(pred_begin(this), pred_end(this), Pred) != pred_end(this)) &&
          "removePredecessor: BB is not a predecessor!");
 
   if (InstList.empty()) return;

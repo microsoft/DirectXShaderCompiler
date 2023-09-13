@@ -23,7 +23,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLDeadFunctionElimination () : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "Remove all unused function except entry from HLModule"; }
+  StringRef getPassName() const override { return "Remove all unused function except entry from HLModule"; }
 
   bool runOnModule(Module &M) override {
     if (M.HasHLModule()) {
@@ -35,8 +35,11 @@ public:
       Function *EntryFunc = HLM.GetEntryFunction();
       Function *PatchConstantFunc = HLM.GetPatchConstantFunction();
 
-      return dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
-                                             IsLib);
+      bool bChanged = false;
+      while (dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
+                                             IsLib))
+        bChanged = true;
+      return bChanged;
     }
 
     return false;

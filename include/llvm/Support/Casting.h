@@ -16,6 +16,7 @@
 #define LLVM_SUPPORT_CASTING_H
 
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/type_traits.h"
 #include <cassert>
 
@@ -221,21 +222,21 @@ template <class X, class Y>
 inline typename std::enable_if<!is_simple_type<Y>::value,
                                typename cast_retty<X, const Y>::ret_type>::type
 cast(const Y &Val) {
-  assert(isa<X>(Val) && "cast<Ty>() argument of incompatible type!");
+  llvm_cast_assert(X, Val); // HLSL change
   return cast_convert_val<
       X, const Y, typename simplify_type<const Y>::SimpleType>::doit(Val);
 }
 
 template <class X, class Y>
 inline typename cast_retty<X, Y>::ret_type cast(Y &Val) {
-  assert(isa<X>(Val) && "cast<Ty>() argument of incompatible type!");
+  llvm_cast_assert(X, Val); // HLSL change
   return cast_convert_val<X, Y,
                           typename simplify_type<Y>::SimpleType>::doit(Val);
 }
 
 template <class X, class Y>
 inline typename cast_retty<X, Y *>::ret_type cast(Y *Val) {
-  assert(isa<X>(Val) && "cast<Ty>() argument of incompatible type!");
+  llvm_cast_assert(X, Val); // HLSL change
   return cast_convert_val<X, Y*,
                           typename simplify_type<Y*>::SimpleType>::doit(Val);
 }
@@ -249,7 +250,7 @@ LLVM_ATTRIBUTE_UNUSED_RESULT inline typename std::enable_if<
 cast_or_null(const Y &Val) {
   if (!Val)
     return nullptr;
-  assert(isa<X>(Val) && "cast_or_null<Ty>() argument of incompatible type!");
+  llvm_cast_assert(X, Val); // HLSL change
   return cast<X>(Val);
 }
 
@@ -259,7 +260,7 @@ LLVM_ATTRIBUTE_UNUSED_RESULT inline typename std::enable_if<
 cast_or_null(Y &Val) {
   if (!Val)
     return nullptr;
-  assert(isa<X>(Val) && "cast_or_null<Ty>() argument of incompatible type!");
+  llvm_cast_assert(X, Val); // HLSL change
   return cast<X>(Val);
 }
 
@@ -267,7 +268,7 @@ template <class X, class Y>
 LLVM_ATTRIBUTE_UNUSED_RESULT inline typename cast_retty<X, Y *>::ret_type
 cast_or_null(Y *Val) {
   if (!Val) return nullptr;
-  assert(isa<X>(Val) && "cast_or_null<Ty>() argument of incompatible type!");
+  llvm_cast_assert(X, Val); // HLSL change
   return cast<X>(Val);
 }
 

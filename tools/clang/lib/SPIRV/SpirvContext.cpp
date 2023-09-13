@@ -95,10 +95,15 @@ SpirvContext::~SpirvContext() {
 
   for (auto &typePair : typeTemplateParams)
     typePair.second->releaseMemory();
+
+  for (auto &pair : spirvIntrinsicTypes) {
+    assert(pair.second);
+    pair.second->~SpirvIntrinsicType();
+  }
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
-  assert(bitwidth >= 16 && bitwidth <= 64 && llvm::isPowerOf2_32(bitwidth));
+  assert(bitwidth >= 8 && bitwidth <= 64 && llvm::isPowerOf2_32(bitwidth));
 
   return llvm::Log2_32(bitwidth);
 }
@@ -182,6 +187,17 @@ const SpirvType *SpirvContext::getMatrixType(const SpirvType *elemType,
   matTypes[vecType].push_back(ptr);
 
   return ptr;
+}
+
+const ImageType *
+SpirvContext::getImageType(const ImageType *imageTypeWithUnknownFormat,
+                           spv::ImageFormat format) {
+  return getImageType(imageTypeWithUnknownFormat->getSampledType(),
+                      imageTypeWithUnknownFormat->getDimension(),
+                      imageTypeWithUnknownFormat->getDepth(),
+                      imageTypeWithUnknownFormat->isArrayedImage(),
+                      imageTypeWithUnknownFormat->isMSImage(),
+                      imageTypeWithUnknownFormat->withSampler(), format);
 }
 
 const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,
@@ -327,10 +343,11 @@ const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
       getRuntimeArrayType(getUIntType(32), /* ArrayStride */ 4);
 
   // Create a struct containing the runtime array as its only member.
-  return getStructType(
-      {StructType::FieldInfo(raType, /*name*/ "", /*offset*/ 0)},
-      isWritable ? "type.RWByteAddressBuffer" : "type.ByteAddressBuffer",
-      !isWritable, StructInterfaceType::StorageBuffer);
+  return getStructType({StructType::FieldInfo(raType, /*fieldIndex*/ 0,
+                                              /*name*/ "", /*offset*/ 0)},
+                       isWritable ? "type.RWByteAddressBuffer"
+                                  : "type.ByteAddressBuffer",
+                       !isWritable, StructInterfaceType::StorageBuffer);
 }
 
 const StructType *SpirvContext::getACSBufferCounterType() {
@@ -339,7 +356,8 @@ const StructType *SpirvContext::getACSBufferCounterType() {
 
   // Create a struct containing the integer counter as its only member.
   const StructType *type =
-      getStructType({StructType::FieldInfo(int32Type, "counter", /*offset*/ 0)},
+      getStructType({StructType::FieldInfo(int32Type, /*fieldIndex*/ 0,
+                                           "counter", /*offset*/ 0)},
                     "type.ACSBuffer.counter",
                     /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
 
@@ -514,6 +532,24 @@ void SpirvContext::moveDebugTypesToModule(SpirvModule *module) {
   debugTypes.clear();
   typeTemplates.clear();
   typeTemplateParams.clear();
+}
+
+const SpirvIntrinsicType *SpirvContext::getSpirvIntrinsicType(
+    unsigned typeId, unsigned typeOpCode,
+    llvm::ArrayRef<SpvIntrinsicTypeOperand> operands) {
+  if (spirvIntrinsicTypes[typeId] == nullptr) {
+    spirvIntrinsicTypes[typeId] =
+        new (this) SpirvIntrinsicType(typeOpCode, operands);
+  }
+  return spirvIntrinsicTypes[typeId];
+}
+
+SpirvIntrinsicType *
+SpirvContext::getCreatedSpirvIntrinsicType(unsigned typeId) {
+  if (spirvIntrinsicTypes.find(typeId) == spirvIntrinsicTypes.end()) {
+    return nullptr;
+  }
+  return spirvIntrinsicTypes[typeId];
 }
 
 } // end namespace spirv

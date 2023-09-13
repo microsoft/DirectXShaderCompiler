@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_1 -E main
+// RUN: %dxc -T hs_6_1 -E main
 
 // Test: Both entry point and PCF Takes ViewID
 

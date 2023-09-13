@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -auto-binding-space 77
+// RUN: %dxc -T ps_6_0 -E main -auto-binding-space 77
 
 // CHECK:      OpDecorate %sampler1 DescriptorSet 77
 // CHECK-NEXT: OpDecorate %sampler1 Binding 0
@@ -43,20 +43,18 @@ ConstantBuffer<S> myCbuffer2;
   StructuredBuffer<S> sbuffer1;
 // CHECK:      OpDecorate %sbuffer2 DescriptorSet 77
 // CHECK-NEXT: OpDecorate %sbuffer2 Binding 9
-// CHECK-NEXT: OpDecorate %counter_var_sbuffer2 DescriptorSet 77
-// CHECK-NEXT: OpDecorate %counter_var_sbuffer2 Binding 10
 RWStructuredBuffer<S> sbuffer2;
 
 // CHECK:      OpDecorate %abuffer DescriptorSet 77
-// CHECK-NEXT: OpDecorate %abuffer Binding 11
+// CHECK-NEXT: OpDecorate %abuffer Binding 10
 // CHECK-NEXT: OpDecorate %counter_var_abuffer DescriptorSet 77
-// CHECK-NEXT: OpDecorate %counter_var_abuffer Binding 12
+// CHECK-NEXT: OpDecorate %counter_var_abuffer Binding 11
 AppendStructuredBuffer<S> abuffer;
 
 // CHECK:      OpDecorate %csbuffer DescriptorSet 77
-// CHECK-NEXT: OpDecorate %csbuffer Binding 13
+// CHECK-NEXT: OpDecorate %csbuffer Binding 12
 // CHECK-NEXT: OpDecorate %counter_var_csbuffer DescriptorSet 77
-// CHECK-NEXT: OpDecorate %counter_var_csbuffer Binding 14
+// CHECK-NEXT: OpDecorate %counter_var_csbuffer Binding 13
 ConsumeStructuredBuffer<S> csbuffer;
 
 float4 main() : SV_Target {

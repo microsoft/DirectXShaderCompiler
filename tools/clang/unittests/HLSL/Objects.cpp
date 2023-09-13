@@ -49,12 +49,17 @@ ElementType first_or_default(
 }
 
 template <typename TEnumeration>
-class EnumFlagsIterator : public std::iterator<std::input_iterator_tag, TEnumeration>
-{
+class EnumFlagsIterator {
 private:
   unsigned long _value;
 
 public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = TEnumeration;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   EnumFlagsIterator(TEnumeration value) : _value(value) { }
 
   TEnumeration operator*() const
@@ -735,6 +740,7 @@ TEST_F(ObjectTest, PassToInoutArgs) {
         // Stream-output objects can only be inout. Skip other cases.
         if (std::string(iop.Keyword) != "inout")
           continue;
+        break;
       default:
         // other cases can be what they want
         break;

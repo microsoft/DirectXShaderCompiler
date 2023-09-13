@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK:                      OpDecorate %in_var_TEXCOORD0 RelaxedPrecision
 // CHECK-NEXT:                 OpDecorate %out_var_SV_Target RelaxedPrecision

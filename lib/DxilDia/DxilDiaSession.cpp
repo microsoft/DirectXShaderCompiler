@@ -11,7 +11,6 @@
 
 #include "DxilDiaSession.h"
 
-#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Function.h"
@@ -20,8 +19,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/PassRegistry.h"
 
 #include "DxilDia.h"
 #include "DxilDiaEnumTables.h"
@@ -40,13 +37,6 @@ void dxil_dia::Session::Init(
   m_context = context;
   m_finder = finder;
   m_dxilModule = llvm::make_unique<hlsl::DxilModule>(mod.get());
-
-  llvm::legacy::PassManager PM;
-  llvm::initializeDxilDbgValueToDbgDeclarePass(*llvm::PassRegistry::getPassRegistry());
-  llvm::initializeDxilAnnotateWithVirtualRegisterPass(*llvm::PassRegistry::getPassRegistry());
-  PM.add(llvm::createDxilDbgValueToDbgDeclarePass());
-  PM.add(llvm::createDxilAnnotateWithVirtualRegisterPass());
-  PM.run(*m_module);
 
   // Extract HLSL metadata.
   m_dxilModule->LoadDxilMetadata();

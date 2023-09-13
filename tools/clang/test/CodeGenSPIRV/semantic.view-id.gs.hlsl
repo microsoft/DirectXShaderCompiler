@@ -1,4 +1,4 @@
-// Run: %dxc -T gs_6_1 -E main
+// RUN: %dxc -T gs_6_1 -E main
 
 
 // GS per-vertex input

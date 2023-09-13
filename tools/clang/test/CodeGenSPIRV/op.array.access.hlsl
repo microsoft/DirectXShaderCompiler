@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // TODO: collect consecutive OpAccessChains into one
 
@@ -7,7 +7,7 @@ struct S {
     float g[4]; // nested array
 };
 
-// CHECK-LABLE: %src_main
+// CHECK-LABEL: %src_main
 float main(float val: A, uint index: B) : C {
     float r;
 

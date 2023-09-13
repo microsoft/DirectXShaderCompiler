@@ -133,6 +133,8 @@ public:
                    unsigned FlagsToInclude = 0,
                    unsigned FlagsToExclude = 0) const;
 
+  Option findOption(const char *normalizedName, unsigned FlagsToInclude = 0, unsigned FlagsToExclude = 0) const; // HLSL Change
+
   /// \brief Parse an list of arguments into an InputArgList.
   ///
   /// The resulting InputArgList will reference the strings in [\p ArgBegin,
@@ -168,7 +170,7 @@ public:
                  unsigned FlagsToInclude, unsigned FlagsToExclude) const;
 
   void PrintHelp(raw_ostream &OS, const char *Name, const char *Title,
-                 /* HLSL Change - version info */ const char *VersionInfo,
+                 /* HLSL Change - version info */ const char *VersionInfo = "",
                  bool ShowHidden = false) const;
 };
 } // end namespace opt

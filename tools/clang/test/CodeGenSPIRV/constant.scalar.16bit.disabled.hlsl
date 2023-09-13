@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 /////////////////////////////////////////////////////////////////////////////////
 /// Types with fewer than 32 bits, used without '-enable-16bit-type' options  ///

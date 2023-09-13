@@ -454,16 +454,18 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
 
         LHS = Actions.ActOnBinOp(getCurScope(), OpToken.getLocation(),
                                  OpToken.getKind(), LHS.get(), RHS.get());
-      } else
+      } else {
         LHS = Actions.ActOnConditionalOp(OpToken.getLocation(), ColonLoc,
                                          LHS.get(), TernaryMiddle.get(),
                                          RHS.get());
-    } else
+      }
+    // HLSL Change Begin - Take care TernaryMiddle.
+    } else {
       // Ensure potential typos in the RHS aren't left undiagnosed.
       Actions.CorrectDelayedTyposInExpr(RHS);
-      // HLSL Change Begin - Take care TernaryMiddle.
-      Actions.CorrectDelayedTyposInExpr(TernaryMiddle);
-      // HLSL Change End.
+    }
+    Actions.CorrectDelayedTyposInExpr(TernaryMiddle);
+    // HLSL Change End.
   }
 }
 
@@ -804,7 +806,7 @@ HLSLReservedKeyword:
     // Similarly 'indices', 'vertices', 'primitives' and 'payload' are keywords when used
     // as a type qualifer in mesh shader, but may still be used as a variable name.
     Tok.setKind(tok::identifier);
-    __fallthrough;
+    LLVM_FALLTHROUGH;
     // HLSL Change Ends
   case tok::identifier: {      // primary-expression: identifier
                                // unqualified-id: identifier
@@ -1134,7 +1136,7 @@ HLSLReservedKeyword:
   case tok::kw__Alignof:   // unary-expression: '_Alignof' '(' type-name ')'
     if (!getLangOpts().C11)
       Diag(Tok, diag::ext_c11_alignment) << Tok.getName();
-    // fallthrough
+    LLVM_FALLTHROUGH; // HLSL Change
   case tok::kw_alignof:    // unary-expression: 'alignof' '(' type-id ')'
   case tok::kw___alignof:  // unary-expression: '__alignof' unary-expression
                            // unary-expression: '__alignof' '(' type-name ')'
@@ -1218,7 +1220,7 @@ HLSLReservedKeyword:
                                            Ty.get(), nullptr);
       break;
     }
-    // Fall through
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case tok::annot_decltype:
   case tok::kw_char:
@@ -1231,12 +1233,6 @@ HLSLReservedKeyword:
   case tok::kw_long:
   case tok::kw___int64:
   case tok::kw___int128:
-  // HLSL Change Starts
-  case tok::kw_column_major:
-  case tok::kw_row_major:
-  case tok::kw_snorm:
-  case tok::kw_unorm:
-  // HLSL Change Ends
   case tok::kw_signed:
   case tok::kw_unsigned:
   case tok::kw_half:
@@ -1247,10 +1243,14 @@ HLSLReservedKeyword:
   case tok::kw_typeof:
   case tok::kw___vector: {
     // HLSL Change Starts
-    if (getLangOpts().HLSL && (
-        SavedKind == tok::kw_wchar_t || SavedKind == tok::kw_char || SavedKind == tok::kw_char16_t || SavedKind == tok::kw_char32_t ||
-        SavedKind == tok::kw_short || SavedKind == tok::kw_long || SavedKind == tok::kw___int64 || SavedKind == tok::kw___int128 ||
-        SavedKind == tok::kw_typename || SavedKind == tok::kw_typeof)) {
+    if (getLangOpts().HLSL &&
+        (SavedKind == tok::kw_wchar_t || SavedKind == tok::kw_char ||
+         SavedKind == tok::kw_char16_t || SavedKind == tok::kw_char32_t ||
+         SavedKind == tok::kw_short || SavedKind == tok::kw_long ||
+         SavedKind == tok::kw___int64 || SavedKind == tok::kw___int128 ||
+         (SavedKind == tok::kw_typename &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v2021) ||
+         SavedKind == tok::kw_typeof)) {
       // the vector/image/sampler/event keywords aren't returned by the lexer for HLSL
       goto HLSLReservedKeyword;
     }
@@ -1289,6 +1289,14 @@ HLSLReservedKeyword:
     Res = ParseCXXTypeConstructExpression(DS);
     break;
   }
+
+  // HLSL Change Starts
+  case tok::kw_column_major:
+  case tok::kw_row_major:
+  case tok::kw_snorm:
+  case tok::kw_unorm:
+    goto tok_default_case;
+  // HLSL Change Ends
 
   case tok::annot_cxxscope: { // [C++] id-expression: qualified-id
     // If TryAnnotateTypeOrScopeToken annotates the token, tail recurse.
@@ -1332,10 +1340,15 @@ HLSLReservedKeyword:
     }
 
     // Fall through to treat the template-id as an id-expression.
+    LLVM_FALLTHROUGH; // HLSL Change
   }
 
   case tok::kw_operator: // [C++] id-expression: operator/conversion-function-id
-    if (getLangOpts().HLSL && SavedKind == tok::kw_operator) goto HLSLReservedKeyword; // HLSL Change - 'operator' is reserved
+    if (getLangOpts().HLSL &&
+        getLangOpts().HLSLVersion < hlsl::LangStd::v2021 &&
+        SavedKind == tok::kw_operator) {
+      goto HLSLReservedKeyword; // HLSL Change - 'operator' is reserved
+    }
     Res = ParseCXXIdExpression(isAddressOfOperand);
     break;
 
@@ -1449,9 +1462,9 @@ HLSLReservedKeyword:
       Res = ParseObjCMessageExpression();
       break;
     }
-    // FALL THROUGH.
-  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
+    LLVM_FALLTHROUGH; // HLSL Change
   default:
+  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
     NotCastExpr = true;
     return ExprError();
   }
@@ -1507,6 +1520,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       }
         
       // Fall through; this isn't a message send.
+      LLVM_FALLTHROUGH; // HLSL Change
                 
     default:  // Not a postfix-expression suffix.
       return LHS;
@@ -2775,8 +2789,19 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
     } else
       Expr = ParseAssignmentExpression();
 
-    if (Tok.is(tok::ellipsis))
-      Expr = Actions.ActOnPackExpansion(Expr.get(), ConsumeToken());    
+    if (Tok.is(tok::ellipsis)) {
+      // HLSL Change Starts
+      if (getLangOpts().HLSL) {
+        Diag(Tok, diag::err_hlsl_variadic_templates);
+        SkipUntil(tok::r_paren, StopBeforeMatch);
+        Actions.CorrectDelayedTyposInExpr(Expr);
+        Expr = ExprError();
+        SawError = true;
+        break;
+      }
+      // HLSL Change Ends
+      Expr = Actions.ActOnPackExpansion(Expr.get(), ConsumeToken());
+    }
     if (Expr.isInvalid()) {
       SkipUntil(tok::comma, tok::r_paren, StopBeforeMatch);
       SawError = true;

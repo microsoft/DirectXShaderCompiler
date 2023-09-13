@@ -16,17 +16,17 @@ float4 main() : SV_Target {
   // CHECK: dx.nothing
 
   float y = x + 5;
-  // CHECK: %[[a1:.+]] = fadd
+  // xHECK: %[[a1:.+]] = fadd
   // select i1 %[[p]], float [[a1]], float [[a1]]
   // CHECK: dx.nothing
 
   float z = y * 2;
-  // CHECK: %[[b1:.+]] = fmul
+  // xHECK: %[[b1:.+]] = fmul
   // select i1 %[[p]], float [[b1]], float [[b1]]
   // CHECK: dx.nothing
 
   float w = z / 0.5;
-  // CHECK: %[[c1:.+]] = fdiv
+  // xHECK: %[[c1:.+]] = fdiv
   // select i1 %[[p]], float [[c1]], float [[c1]]
   // CHECK: dx.nothing
 

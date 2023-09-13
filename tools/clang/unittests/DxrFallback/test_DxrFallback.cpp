@@ -157,7 +157,7 @@ public:
     , m_path(path)
   {
     dxc::EnsureEnabled(m_dxcSupport);
-    m_dxrFallbackSupport.InitializeForDll(L"DxrFallbackCompiler.dll", "DxcCreateDxrFallbackCompiler");
+    m_dxrFallbackSupport.InitializeForDll("DxrFallbackCompiler.dll", "DxcCreateDxrFallbackCompiler");
   }
 
   void setFiles(const std::vector<std::string>& files)

@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // Memory scope : Workgroup = 0x2 = 2
 // Semantics: WorkgroupMemory | AcquireRelease = 0x100 | 0x8 = 264

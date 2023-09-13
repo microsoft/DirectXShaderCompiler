@@ -99,7 +99,6 @@ public:
       CComPtr<IDxcBlob> pContainer;
 
       VERIFY_SUCCEEDED(pResult->GetResult(&pContainer));
-#ifdef _WIN32 // No reflection support
       VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
       VERIFY_SUCCEEDED(pReflection->Load(pContainer));
       UINT count;
@@ -114,7 +113,6 @@ public:
         }
       }
       VERIFY_IS_TRUE(found);
-#endif // _WIN32 - No reflection support
     }
   }
 
@@ -454,6 +452,8 @@ TEST_F(FunctionTest, ParseRootSignature) {
   TestHLSLRootSignatureCase("StaticSampler(BorderColor = STATIC_BORDER_COLOR_TRANSPARENT_BLACK, s2)", S_OK);
   TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_BLACK)", S_OK);
   TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE)", S_OK);
+  TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_BLACK_UINT)", S_OK);
+  TestHLSLRootSignatureCase("StaticSampler(s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE_UINT)", S_OK);
   TestHLSLRootSignatureCase("StaticSampler(BorderColor = STATIC_BORDER_COLOR_TRANSPARENT_BLACK, s2, BorderColor = STATIC_BORDER_COLOR_OPAQUE_WHITE)", E_FAIL);
 
   // MinLOD

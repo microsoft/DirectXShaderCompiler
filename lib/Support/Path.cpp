@@ -1017,6 +1017,7 @@ file_magic identify_magic(StringRef Magic) {
     case 0xc4: // ARMNT Windows
       if (Magic[1] == 0x01)
         return file_magic::coff_object;
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case 0x90: // PA-RISC Windows
     case 0x68: // mc68K Windows
@@ -1066,6 +1067,31 @@ std::error_code directory_entry::status(file_status &result) const {
 } // end namespace fs
 } // end namespace sys
 } // end namespace llvm
+
+// HLSL Change begin - Create implicit filesystem
+#ifdef MS_IMPLICIT_DISK_FILESYSTEM
+
+#include "dxc/Support/WinIncludes.h"
+#include "llvm/Support/MSFileSystem.h"
+
+struct ImplicitFilesystem {
+  ImplicitFilesystem() {
+    llvm::sys::fs::SetupPerThreadFileSystem();
+    sys::fs::MSFileSystem *pFSPtr;
+    CreateMSFileSystemForDisk(&pFSPtr);
+    pFS.reset(pFSPtr);
+    llvm::sys::fs::SetCurrentThreadFileSystem(pFS.get());
+  }
+
+  std::unique_ptr<sys::fs::MSFileSystem> pFS;
+};
+
+static ImplicitFilesystem &getImplicitFilesystem() {
+  static ImplicitFilesystem ImpFS;
+  return ImpFS;
+}
+#endif
+// HLSL Change end - Create implicit filesystem
 
 // Include the truly platform-specific parts.
 #if defined(LLVM_ON_UNIX)

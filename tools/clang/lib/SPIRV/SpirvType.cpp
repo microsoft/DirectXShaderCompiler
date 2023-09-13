@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvType.h"
-
+#include "clang/SPIRV/SpirvInstruction.h"
 #include <sstream>
 
 namespace clang {
@@ -167,14 +167,19 @@ bool RuntimeArrayType::operator==(const RuntimeArrayType &that) const {
          (!stride.hasValue() || stride.getValue() == that.stride.getValue());
 }
 
+SpirvIntrinsicType::SpirvIntrinsicType(
+    unsigned typeOp, llvm::ArrayRef<SpvIntrinsicTypeOperand> inOps)
+    : SpirvType(TK_SpirvIntrinsicType, "spirvIntrinsicType"),
+      typeOpCode(typeOp), operands(inOps.begin(), inOps.end()) {}
+
 StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
                        llvm::StringRef name, bool isReadOnly,
                        StructInterfaceType iface)
     : SpirvType(TK_Struct, name), fields(fieldsVec.begin(), fieldsVec.end()),
       readOnly(isReadOnly), interfaceType(iface) {}
 
-bool StructType::FieldInfo::
-operator==(const StructType::FieldInfo &that) const {
+bool StructType::FieldInfo::operator==(
+    const StructType::FieldInfo &that) const {
   return type == that.type && offset.hasValue() == that.offset.hasValue() &&
          matrixStride.hasValue() == that.matrixStride.hasValue() &&
          isRowMajor.hasValue() == that.isRowMajor.hasValue() &&

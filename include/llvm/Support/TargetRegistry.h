@@ -545,13 +545,18 @@ struct TargetRegistry {
   // function).
   TargetRegistry() = delete;
 
-  class iterator
-      : public std::iterator<std::forward_iterator_tag, Target, ptrdiff_t> {
+  class iterator {
     const Target *Current;
     explicit iterator(Target *T) : Current(T) {}
     friend struct TargetRegistry;
 
   public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = Target;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     iterator() : Current(nullptr) {}
 
     bool operator==(const iterator &x) const { return Current == x.Current; }

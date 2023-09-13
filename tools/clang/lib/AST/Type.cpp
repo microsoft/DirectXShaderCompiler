@@ -2497,13 +2497,13 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Char_S:            return "char";
   case Char_U:            return "char";
   case SChar:             return "signed char";
-  case Short:             return "short";
+  case Short:             return /* "short" */ "int16_t" /* HLSL Change */;
   case Int:               return "int";
   case Long:              return "long";
   case LongLong:          return "long long";
   case Int128:            return "__int128";
   case UChar:             return "unsigned char";
-  case UShort:            return "unsigned short";
+  case UShort:            return /* "unsigned short" */ "uint16_t" /* HLSL Change */;
   case UInt:              return "unsigned int";
   case ULong:             return "unsigned long";
   case ULongLong:         return "unsigned long long";
@@ -2546,6 +2546,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Min12Int:          return "min12int";
   case LitFloat:          return "literal float";
   case LitInt:            return "literal int";
+  case Int8_4Packed:      return "int8_t4_packed";
+  case UInt8_4Packed:     return "uint8_t4_packed";
   // HLSL Change Ends
   }
   
@@ -3159,7 +3161,7 @@ public:
   friend CachedProperties merge(CachedProperties L, CachedProperties R) {
     Linkage MergedLinkage = minLinkage(L.L, R.L);
     return CachedProperties(MergedLinkage,
-                         L.hasLocalOrUnnamedType() | R.hasLocalOrUnnamedType());
+                         L.hasLocalOrUnnamedType() || R.hasLocalOrUnnamedType());
   }
 };
 }
@@ -3472,8 +3474,8 @@ bool Type::canHaveNullability() const {
   case Type::Builtin:
     switch (cast<BuiltinType>(type.getTypePtr())->getKind()) {
       // Signed, unsigned, and floating-point types cannot have nullability.
-#define SIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
-#define UNSIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
+#define SIGNED_TYPE(Id, SingletonId) case BuiltinType::Id: LLVM_C_FALLTHROUGH;
+#define UNSIGNED_TYPE(Id, SingletonId) case BuiltinType::Id: LLVM_C_FALLTHROUGH;
 #define FLOATING_TYPE(Id, SingletonId) case BuiltinType::Id:
 #define BUILTIN_TYPE(Id, SingletonId)
 #include "clang/AST/BuiltinTypes.def"

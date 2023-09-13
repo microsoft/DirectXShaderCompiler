@@ -292,7 +292,7 @@ namespace MyNs {
 // namespace alias definition.
 namespace NamespaceAlias = MyNs; // expected-error {{expected identifier}}
 
-using MyNS; // expected-error {{'using' is a reserved keyword in HLSL}}
+using namespace MyNS;  // expected-warning {{keyword 'using' is a HLSL 2021 feature, and is available in older versions as a non-portable extension}}
 int using; // expected-error {{'using' is a reserved keyword in HLSL}}
 
 struct my_struct { };
@@ -336,7 +336,7 @@ struct s_with_template_member {
 };
 
 struct s_with_using {
-  using MyNS; // expected-error {{'using' is a reserved keyword in HLSL}}
+  using namespace MyNS; // expected-error {{'using namespace' is not allowed in classes}}
 };
 
 struct s_with_init {
@@ -499,7 +499,7 @@ my_label: local_i = 1; // expected-error {{label is unsupported in HLSL}}
   // for without initialization
   for (int j;;) { break; }
   // ranged for is disallowed
-  for (int n : local_i) { // expected-error {{expected ';' in 'for' statement specifier}} expected-error {{expected ';' in 'for' statement specifier}} expected-error {{semantic is not a valid modifier for a local variable}}
+  for (int n : local_i) { // expected-error {{expected ';' in 'for' statement specifier}} expected-error {{expected ';' in 'for' statement specifier}} expected-warning {{'local_i' interpreted as semantic; previous definition(s) ignored}} expected-error {{semantic is not a valid modifier for a local variable}}
     break;
   }
   for (int n_again in local_i) { // expected-error {{expected ';' in 'for' statement specifier}} expected-error {{expected unqualified-id}} expected-error {{unknown type name 'local_i'}} expected-error {{variable declaration in condition must have an initializer}}
@@ -576,7 +576,9 @@ void expressions()
   internal->fn();                 // expected-error {{operator is not supported}}
   local_i = (int3) { 1, 2, 3 };   // expected-error {{compound literal is unsupported in HLSL}}
 
-  Texture2D<::c_outer_fn> local_texture; // expected-error {{'::c_outer_fn' cannot be used as a type parameter}}
+  // `class` ok, but component count should be checked earlier (1 to 4 uniform components):
+  Texture2D<::c_outer_fn> local_texture;
+
   ::new local_new; // expected-error {{new' is a reserved keyword in HLSL}}
   ::template foo local_template; // expected-error {{'template' is a reserved keyword in HLSL}} expected-error {{unknown type name 'foo'}}
 

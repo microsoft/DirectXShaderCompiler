@@ -19,6 +19,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Support/CBindingWrapping.h"
+#include <set> // HLSL change
 
 namespace llvm {
 
@@ -35,7 +36,10 @@ class FunctionPassManagerImpl;
 /// it is.
 class PassManagerBase {
 public:
+  bool HLSLPrintBeforeAll = false; // HLSL Change
+  std::set<std::string> HLSLPrintBefore; // HLSL Change
   bool HLSLPrintAfterAll = false; // HLSL Change
+  std::set<std::string> HLSLPrintAfter; // HLSL Change
 
   virtual ~PassManagerBase();
 

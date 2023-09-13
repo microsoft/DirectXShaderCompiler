@@ -22,7 +22,7 @@ class SpirvBuilder;
 class LowerTypeVisitor;
 
 /// The class responsible to translate SPIR-V types into DebugType*
-/// types as defined in the OpenCL.DebugInfo.100 spec.
+/// types as defined in the rich DebugInfo spec.
 /// This visitor must be run after the LowerTypeVisitor pass.
 class DebugTypeVisitor : public Visitor {
 public:
@@ -44,6 +44,8 @@ public:
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
   bool visitInstruction(SpirvInstruction *);
+
+  using Visitor::visit;
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
@@ -85,7 +87,7 @@ private:
                          SpirvDebugTypeComposite *debugTypeComposite);
 
   /// Set the result type of debug instructions to OpTypeVoid.
-  /// According to the OpenCL.DebugInfo.100 spec, all debug instructions are
+  /// According to the rich DebugInfo spec, all debug instructions are
   /// OpExtInst with result type of void.
   void setDefaultDebugInfo(SpirvDebugInstruction *instr);
 

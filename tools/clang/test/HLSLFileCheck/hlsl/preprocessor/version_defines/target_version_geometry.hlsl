@@ -9,11 +9,15 @@ struct Out
   float4 pos : SV_Position;
 };
 
+cbuffer cb : register(b0) {
+  float foo;
+};
+
 [maxvertexcount(3)]
 void main(inout PointStream<Out> OutputStream0)
 {
   Out output = (Out)0;
-  float x = 0;
+  float x = foo;
 
   // Version should be as specified by -HV
 #if defined(__HLSL_VERSION) && __HLSL_VERSION == 2017

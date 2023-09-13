@@ -44,9 +44,9 @@ namespace llvm {
 
 /// \brief Create and return a pass that tranform the module into a DXIL module
 /// Note that this pass is designed for use with the legacy pass manager.
-ModulePass *createDxilCondenseResourcesPass();
 ModulePass *createDxilLowerCreateHandleForLibPass();
 ModulePass *createDxilAllocateResourcesForLibPass();
+ModulePass *createDxilCleanupDynamicResourceHandlePass();
 ModulePass *createDxilEliminateOutputDynamicIndexingPass();
 ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper);
 ModulePass *createHLEmitMetadataPass();
@@ -77,9 +77,9 @@ FunctionPass *createMatrixBitcastLowerPass();
 ModulePass *createDxilCleanupAddrSpaceCastPass();
 ModulePass *createDxilRenameResourcesPass();
 
-void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
 void initializeDxilLowerCreateHandleForLibPass(llvm::PassRegistry&);
 void initializeDxilAllocateResourcesForLibPass(llvm::PassRegistry&);
+void initializeDxilCleanupDynamicResourceHandlePass(llvm::PassRegistry &);
 void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
 void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
@@ -117,7 +117,7 @@ void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry&);
 FunctionPass *createCleanupDxBreakPass();
 void initializeCleanupDxBreakPass(llvm::PassRegistry&);
 
-FunctionPass *createDxilLoopDeletionPass();
+FunctionPass *createDxilLoopDeletionPass(bool NoSink);
 void initializeDxilLoopDeletionPass(llvm::PassRegistry &);
 
 ModulePass *createHLLegalizeParameter();
@@ -130,5 +130,17 @@ void initializeDxilNoOptLegalizePass(llvm::PassRegistry&);
 
 ModulePass *createDxilNoOptSimplifyInstructionsPass();
 void initializeDxilNoOptSimplifyInstructionsPass(llvm::PassRegistry&);
+
+ModulePass *createDxilMutateResourceToHandlePass();
+void initializeDxilMutateResourceToHandlePass(llvm::PassRegistry&);
+
+ModulePass *createDxilDeleteRedundantDebugValuesPass();
+void initializeDxilDeleteRedundantDebugValuesPass(llvm::PassRegistry&);
+
+FunctionPass *createDxilSimpleGVNEliminateRegionPass();
+void initializeDxilSimpleGVNEliminateRegionPass(llvm::PassRegistry&);
+
+ModulePass *createDxilModuleInitPass();
+void initializeDxilModuleInitPass(llvm::PassRegistry &);
 
 }

@@ -1,9 +1,13 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Gec | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -Gec | FileCheck -check-prefix=OUT %s
 
-// CHECK: COLOR                    0   xyzw        0     NONE   float
-// CHECK: TEXCOORD                 0   xy          1     NONE   float
-// CHECK: SV_Position              0   xyzw        2      POS   float
-// CHECK: SV_Target                1   xyzw        1   TARGET   float   xyzw
+// RUN: %dxc -E main -T ps_6_0 %s -Gec | FileCheck -input-file=stderr -check-prefix=ERROR %s
+
+// OUT: COLOR                    0   xyzw        0     NONE   float
+// OUT: TEXCOORD                 0   xy          1     NONE   float
+// OUT: SV_Position              0   xyzw        2      POS   float
+// OUT: SV_Target                1   xyzw        1   TARGET   float   xyzw
+
+//ERROR: warning: DX9-style semantic "CoLoR" mapped to DX10 system semantic "SV_Target" due to -Gec flag. This functionality is deprecated in newer language versions.
 
 struct VOut
 {

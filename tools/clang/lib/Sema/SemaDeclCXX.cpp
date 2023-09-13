@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/OperatorKinds.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -3402,7 +3403,7 @@ BuildImplicitBaseInitializer(Sema &SemaRef, CXXConstructorDecl *Constructor,
       break;
     }
   }
-  // Fall through.
+  LLVM_FALLTHROUGH; // HLSL Change
   case IIK_Default: {
     InitializationKind InitKind
       = InitializationKind::CreateDefault(Constructor->getLocation());
@@ -7021,7 +7022,7 @@ void Sema::CheckConversionDeclarator(Declarator &D, QualType &R,
           PastFunctionChunk = true;
           break;
         }
-        // Fall through.
+        LLVM_FALLTHROUGH; // HLSL Change
       case DeclaratorChunk::Array:
         NeedsTypedef = true;
         extendRight(After, Chunk.getSourceRange());
@@ -11317,7 +11318,7 @@ static bool hasOneRealArgument(MultiExprArg Args) {
     if (!Args[1]->isDefaultArgument())
       return false;
     
-    // fall through
+    LLVM_FALLTHROUGH; // HLSL Change
   case 1:
     return !Args[0]->isDefaultArgument();
   }
@@ -11634,6 +11635,20 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
          "Expected an overloaded operator declaration");
 
   OverloadedOperatorKind Op = FnDecl->getOverloadedOperator();
+
+  // HLSL Change Starts
+  if (LangOpts.HLSL) {
+    if (Op == OO_Delete || Op == OO_Array_Delete || Op == OO_New ||
+        Op == OO_Array_New || Op == OO_Equal ||
+        (Op >= OO_PlusEqual && Op <= OO_GreaterGreaterEqual) ||
+        Op == OO_PlusPlus || Op == OO_MinusMinus || Op == OO_ArrowStar ||
+        Op == OO_Arrow) {
+      return Diag(FnDecl->getLocation(),
+                  diag::err_hlsl_overloading_new_delete_operator)
+             << FnDecl->getDeclName();
+    }
+  }
+  // HLSL Change Ends
 
   // C++ [over.oper]p5:
   //   The allocation and deallocation functions, operator new,
@@ -13583,6 +13598,7 @@ bool Sema::checkThisInStaticMemberFunctionExceptionSpec(CXXMethodDecl *Method) {
   case EST_ComputedNoexcept:
     if (!Finder.TraverseStmt(Proto->getNoexceptExpr()))
       return true;
+      LLVM_FALLTHROUGH; // HLSL Change
     
   case EST_Dynamic:
     for (const auto &E : Proto->exceptions()) {

@@ -259,7 +259,7 @@ Value *HLMatrixSubscriptUseReplacer::loadVector(IRBuilder<> &Builder) {
 
 void HLMatrixSubscriptUseReplacer::storeVector(Value *Vec, IRBuilder<> &Builder) {
   // We can't shuffle vectors of different sizes together, so insert one by one.
-  DXASSERT(Vec->getType()->getVectorNumElements() == ElemIndices.size(),
+  DXASSERT(cast<FixedVectorType>(Vec->getType())->getNumElements() == ElemIndices.size(),
     "Matrix subscript stored vector element count mismatch.");
 
   for (unsigned SubIdx = 0; SubIdx < ElemIndices.size(); ++SubIdx) {

@@ -881,8 +881,12 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
   // get a location. Fix it here by giving it a dummy location so the debug
   // info is well-formed.
   if (!TheCallDL) {
+    // If no debug metadata, don't bother trying to find the subprog
+    if (!getDebugMetadataVersionFromModule(*Fn->getParent()))
+      return;
     if (DISubprogram *Subprogram = getDISubprogram(Fn)) {
-      TheCallDL = DebugLoc(llvm::DILocation::get(Fn->getContext(), 0, 0, Subprogram));
+      // Just give it the submodule's line, so it doesn't have line number 0
+      TheCallDL = DebugLoc(llvm::DILocation::get(Fn->getContext(), Subprogram->getLine(), 0, Subprogram));
       TheCall->setDebugLoc(TheCallDL);
     }
     else {

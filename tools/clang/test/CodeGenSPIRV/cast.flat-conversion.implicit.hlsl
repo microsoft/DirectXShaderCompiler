@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 struct VSOutput {
   float4   sv_pos     : SV_POSITION;

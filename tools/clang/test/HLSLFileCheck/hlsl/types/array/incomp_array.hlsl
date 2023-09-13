@@ -23,7 +23,7 @@ static const Special s_special = { { 1, 2, 3, 4}, { 5, 6, 7 } };
 
 // CHECK: define <4 x float>
 // CHECK: fn1
-// @"\01?fn1@@YA?AV?$vector@M$03@@USpecial@@@Z"
+// @"\01?fn1{{[@$?.A-Za-z0-9_]+}}"
 float4 fn1(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(
   // CHECK: i32 0)
@@ -38,7 +38,7 @@ float4 fn1(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
 
 // CHECK: define <4 x float>
 // CHECK: fn2
-// @"\01?fn2@@YA?AV?$vector@M$03@@USpecial@@@Z"
+// @"\01?fn2{{[@$?.A-Za-z0-9_]+}}"
 float4 fn2(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(
   // CHECK: i32 0)
@@ -53,7 +53,7 @@ float4 fn2(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
 
 // CHECK: define <4 x float>
 // CHECK: fn3
-// @"\01?fn3@@YA?AV?$vector@M$03@@USpecial@@@Z"
+// @"\01?fn3{{[@$?.A-Za-z0-9_]+}}"
 float4 fn3(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(
   // CHECK: i32 0)
@@ -68,7 +68,7 @@ float4 fn3(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
 
 // CHECK: define <4 x float>
 // CHECK: fn4
-// @"\01?fn4@@YA?AV?$vector@M$03@@USpecial@@@Z"
+// @"\01?fn4{{[@$?.A-Za-z0-9_]+}}"
 float4 fn4(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(
   // CHECK: i32 0)

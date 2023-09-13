@@ -28,6 +28,32 @@ clang::DiagnosticBuilder emitError(const clang::ASTContext &astContext,
 namespace clang {
 namespace spirv {
 
+std::string getFunctionOrOperatorName(const FunctionDecl *fn,
+                                      bool addClassNameWithOperator) {
+  auto operatorKind = fn->getOverloadedOperator();
+  if (operatorKind == OO_None)
+    return fn->getNameAsString();
+
+  if (const auto *cxxMethodDecl = dyn_cast<CXXMethodDecl>(fn)) {
+    std::string prefix =
+        addClassNameWithOperator
+            ? cxxMethodDecl->getParent()->getNameAsString() + "."
+            : "";
+    switch (operatorKind) {
+#ifdef OVERLOADED_OPERATOR
+#undef OVERLOADED_OPERATOR
+#endif
+#define OVERLOADED_OPERATOR(Name, Spelling, Token, Unary, Binary, MemberOnly)  \
+  case OO_##Name:                                                              \
+    return prefix + "operator." #Name;
+#include "clang/Basic/OperatorKinds.def"
+    default:
+      break;
+    }
+  }
+  llvm_unreachable("unknown overloaded operator type");
+}
+
 std::string getAstTypeName(QualType type) {
   {
     QualType ty = {};
@@ -251,6 +277,20 @@ bool isMxNMatrix(QualType type, QualType *elemType, uint32_t *numRows,
   return false;
 }
 
+bool isInputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "InputPatch";
+
+  return false;
+}
+
+bool isOutputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "OutputPatch";
+
+  return false;
+}
+
 bool isSubpassInput(QualType type) {
   if (const auto *rt = type->getAs<RecordType>())
     return rt->getDecl()->getName() == "SubpassInput";
@@ -262,6 +302,17 @@ bool isSubpassInputMS(QualType type) {
   if (const auto *rt = type->getAs<RecordType>())
     return rt->getDecl()->getName() == "SubpassInputMS";
 
+  return false;
+}
+
+bool isArrayType(QualType type, QualType *elemType, uint32_t *elemCount) {
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    if (elemType)
+      *elemType = arrayType->getElementType();
+    if (elemCount)
+      *elemCount = hlsl::GetArraySize(type);
+    return true;
+  }
   return false;
 }
 
@@ -297,7 +348,8 @@ bool isResourceType(QualType type) {
     type = type->getAsArrayTypeUnsafe()->getElementType();
   }
 
-  if (isSubpassInput(type) || isSubpassInputMS(type))
+  if (isSubpassInput(type) || isSubpassInputMS(type) || isInputPatch(type) ||
+      isOutputPatch(type))
     return true;
 
   return hlsl::IsHLSLResourceType(type);
@@ -438,7 +490,11 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
     case BuiltinType::Bool:
     case BuiltinType::Int:
     case BuiltinType::UInt:
+    case BuiltinType::Int8_4Packed:
+    case BuiltinType::UInt8_4Packed:
     case BuiltinType::Float:
+    case BuiltinType::Long:
+    case BuiltinType::ULong:
       return 32;
     case BuiltinType::Double:
     case BuiltinType::LongLong:
@@ -456,6 +512,11 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
     // if -enable-16bit-types is false.
     case BuiltinType::HalfFloat:
       return 32;
+    case BuiltinType::UChar:
+    case BuiltinType::Char_U:
+    case BuiltinType::SChar:
+    case BuiltinType::Char_S:
+      return 8;
     // The following types are treated as 16-bit if '-enable-16bit-types' option
     // is enabled. They are treated as 32-bit otherwise.
     case BuiltinType::Min12Int:
@@ -485,20 +546,29 @@ bool canTreatAsSameScalarType(QualType type1, QualType type2) {
   type2.removeLocalConst();
 
   return (type1.getCanonicalType() == type2.getCanonicalType()) ||
+         // Treat uint8_t4_packed and int8_t4_packed as the same because they
+         // are both repressented as 32-bit unsigned integers in SPIR-V.
+         (type1->isSpecificBuiltinType(BuiltinType::Int8_4Packed) &&
+          type2->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::Int8_4Packed) &&
+          type1->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         // Treat uint8_t4_packed and uint32_t as the same because they
+         // are both repressented as 32-bit unsigned integers in SPIR-V.
+         (type1->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type2->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type1->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         // Treat int8_t4_packed and uint32_t as the same because they
+         // are both repressented as 32-bit unsigned integers in SPIR-V.
+         (type1->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type2->isSpecificBuiltinType(BuiltinType::Int8_4Packed)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type1->isSpecificBuiltinType(BuiltinType::Int8_4Packed)) ||
          // Treat 'literal float' and 'float' as the same
          (type1->isSpecificBuiltinType(BuiltinType::LitFloat) &&
           type2->isFloatingType()) ||
          (type2->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-          type1->isFloatingType()) ||
-         // Treat 'literal int' and 'int'/'uint' as the same
-         (type1->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type2->isIntegerType() &&
-          // Disallow boolean types
-          !type2->isSpecificBuiltinType(BuiltinType::Bool)) ||
-         (type2->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type1->isIntegerType() &&
-          // Disallow boolean types
-          !type1->isSpecificBuiltinType(BuiltinType::Bool));
+          type1->isFloatingType());
 }
 
 bool canFitIntoOneRegister(const ASTContext &astContext, QualType structType,
@@ -582,6 +652,12 @@ QualType getTypeWithCustomBitwidth(const ASTContext &ctx, QualType type,
     }
   }
 
+  // It could be a vector of size 1, which is treated as a scalar.
+  if (hlsl::IsHLSLVecType(type)) {
+    assert(hlsl::GetHLSLVecSize(type) == 1);
+    type = hlsl::GetHLSLVecElementType(type);
+  }
+
   // Scalar cases.
   assert(!type->isBooleanType());
   assert(type->isIntegerType() || type->isFloatingType());
@@ -659,9 +735,26 @@ bool isSameScalarOrVecType(QualType type1, QualType type2) {
   { // Vector types
     QualType elemType1 = {}, elemType2 = {};
     uint32_t count1 = {}, count2 = {};
-    if (isVectorType(type1, &elemType1, &count1) &&
-        isVectorType(type2, &elemType2, &count2))
-      return count1 == count2 && canTreatAsSameScalarType(elemType1, elemType2);
+    if (!isVectorType(type1, &elemType1, &count1) ||
+        !isVectorType(type2, &elemType2, &count2))
+      return false;
+
+    if (count1 != count2)
+      return false;
+
+    // That's a corner case we had to add to solve #4727.
+    // Normally, clang doesn't have the 'literal type', thus we can rely on
+    // direct type check. But this flavor of the AST has this 'literal int' type
+    // that is sign-less (nor signed or unsigned), until usage. Obviously,
+    // int(3) == literal int (3), but since they are considered different in the
+    // AST, we must check explicitly. Note: this is only valid here, as this is
+    // related to a vector size. Considering int == literal int elsewhere could
+    // break codegen, as SPIR-V does need explicit signedness.
+    return canTreatAsSameScalarType(elemType1, elemType2) ||
+           (elemType1->isIntegerType() &&
+            elemType2->isSpecificBuiltinType(BuiltinType::LitInt)) ||
+           (elemType2->isIntegerType() &&
+            elemType1->isSpecificBuiltinType(BuiltinType::LitInt));
   }
 
   return false;
@@ -853,6 +946,10 @@ bool isRWByteAddressBuffer(QualType type) {
 }
 
 bool isAppendStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
     return false;
@@ -861,6 +958,10 @@ bool isAppendStructuredBuffer(QualType type) {
 }
 
 bool isConsumeStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
     return false;
@@ -868,13 +969,20 @@ bool isConsumeStructuredBuffer(QualType type) {
   return name == "ConsumeStructuredBuffer";
 }
 
-bool isRWAppendConsumeSBuffer(QualType type) {
+bool isRWStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
-    return name == "RWStructuredBuffer" || name == "AppendStructuredBuffer" ||
-           name == "ConsumeStructuredBuffer";
+    return name == "RWStructuredBuffer";
   }
   return false;
+}
+
+bool isRWAppendConsumeSBuffer(QualType type) {
+  return isRWStructuredBuffer(type) || isConsumeStructuredBuffer(type) || isAppendStructuredBuffer(type);
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {
@@ -893,6 +1001,9 @@ bool isAKindOfStructuredOrByteBuffer(QualType type) {
 }
 
 bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
@@ -903,6 +1014,14 @@ bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
     for (const auto *field : recordType->getDecl()->fields()) {
       if (isOrContainsAKindOfStructuredOrByteBuffer(field->getType()))
         return true;
+    }
+
+    if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+      for (const auto &base : cxxDecl->bases()) {
+        if (isOrContainsAKindOfStructuredOrByteBuffer(base.getType())) {
+          return true;
+        }
+      }
     }
   }
   return false;
@@ -969,7 +1088,13 @@ std::string getHlslResourceTypeName(QualType type) {
         name == "RWTexture2DArray" || name == "Buffer" || name == "RWBuffer" ||
         name == "SubpassInput" || name == "SubpassInputMS" ||
         name == "InputPatch" || name == "OutputPatch") {
-      return name;
+      // Get resource type name with template params. Operation is safe because
+      // type has already been null checked.
+      return type.getLocalUnqualifiedType().getAsString();
+    } else if (name == "ConstantBuffer") {
+      return "cbuffer";
+    } else if (name == "TextureBuffer") {
+      return "tbuffer";
     }
   }
 
@@ -1024,12 +1149,14 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
         }
   }
 
-  // Vector & Matrix types could use relaxed precision based on their element
-  // type.
+  // Vector, Matrix and Array types could use relaxed precision based on their
+  // element type.
   {
     QualType elemType = {};
-    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
+    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType) ||
+        isArrayType(type, &elemType)) {
       return isRelaxedPrecisionType(elemType, opts);
+    }
   }
 
   // Images with RelaxedPrecision sampled type.
@@ -1047,6 +1174,14 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
       return isRelaxedPrecisionType(sampledType, opts);
     }
   }
+
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>())
+    return isRelaxedPrecisionType(refType->getPointeeType(), opts);
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>())
+    return isRelaxedPrecisionType(ptrType->getPointeeType(), opts);
 
   return false;
 }
@@ -1117,21 +1252,19 @@ bool isFloatOrVecMatOfFloatType(QualType type) {
 bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
                                      const SpirvCodeGenOptions &spirvOptions,
                                      QualType type, const Decl *decl) {
-  const auto isColMajorDecl = [&spirvOptions](const Decl *decl) {
-    return decl->hasAttr<clang::HLSLColumnMajorAttr>() ||
-           (!decl->hasAttr<clang::HLSLRowMajorAttr>() &&
-            !spirvOptions.defaultRowMajor);
+  const auto isColMajorDecl = [&spirvOptions](QualType matTy) {
+    return !hlsl::IsHLSLMatRowMajor(matTy, spirvOptions.defaultRowMajor);
   };
 
   QualType elemType = {};
   if (isMxNMatrix(type, &elemType) && !elemType->isFloatingType()) {
-    return isColMajorDecl(decl);
+    return isColMajorDecl(type);
   }
 
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
     if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
         !elemType->isFloatingType())
-      return isColMajorDecl(decl);
+      return isColMajorDecl(arrayType->getElementType());
     if (const auto *structType =
             arrayType->getElementType()->getAs<RecordType>()) {
       return isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
@@ -1149,6 +1282,25 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
     }
   }
 
+  return false;
+}
+
+bool isTypeInVkNamespace(const RecordType *type) {
+  if (const auto *nameSpaceDecl =
+          dyn_cast<NamespaceDecl>(type->getDecl()->getDeclContext())) {
+    return nameSpaceDecl->getName() == "vk";
+  }
+  return false;
+}
+
+bool isExtResultIdType(QualType type) {
+  if (const auto *elaboratedType = type->getAs<ElaboratedType>()) {
+    if (const auto *recordType = elaboratedType->getAs<RecordType>()) {
+      if (!isTypeInVkNamespace(recordType))
+        return false;
+      return recordType->getDecl()->getName() == "ext_result_id";
+    }
+  }
   return false;
 }
 
@@ -1327,6 +1479,23 @@ bool isStructureContainingAnyKindOfBuffer(QualType type) {
       }
     }
   }
+  return false;
+}
+
+bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type) {
+  // Remove arrayness if present.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  QualType elemType = {};
+  if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
+      isMxNMatrix(type, &elemType)) {
+    // Return true if the basic elemen type is a float or non-boolean integer
+    // type.
+    return elemType->isFloatingType() ||
+           (elemType->isIntegerType() && !elemType->isBooleanType());
+  }
+
   return false;
 }
 

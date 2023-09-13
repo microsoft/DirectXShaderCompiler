@@ -14,10 +14,10 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -76,7 +76,7 @@ GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
   unsigned compSize = compType.Is64Bit() ? 8 : compType.Is16Bit() && !typeSys.UseMinPrecision() ? 2 : 4;
   unsigned fieldSize = compSize;
   if (Ty->isVectorTy()) {
-    fieldSize *= Ty->getVectorNumElements();
+    fieldSize *= cast<FixedVectorType>(Ty)->getNumElements();
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     DxilStructAnnotation *EltAnnotation = typeSys.GetStructAnnotation(ST);
     if (EltAnnotation) {
@@ -120,7 +120,8 @@ bool RemoveUnusedFunctions(Module &M, Function *EntryFunc,
   for (auto &F : M.functions()) {
     if (&F == EntryFunc || &F == PatchConstantFunc)
       continue;
-    if (F.isDeclaration() || !IsLib) {
+    if (F.isDeclaration() || !IsLib ||
+        F.hasInternalLinkage()) {
       if (F.user_empty())
         deadList.emplace_back(&F);
     }
@@ -189,178 +190,6 @@ void PrintUnescapedString(StringRef Name, raw_ostream &Out) {
     }
     Out << C;
   }
-}
-
-std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
-  llvm::LLVMContext &Ctx,
-  std::string &DiagStr) {
-  // Note: the DiagStr is not used.
-  auto pModule = llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx);
-  if (!pModule) {
-    return nullptr;
-  }
-  return std::unique_ptr<llvm::Module>(pModule.get().release());
-}
-
-std::unique_ptr<llvm::Module> LoadModuleFromBitcodeLazy(std::unique_ptr<llvm::MemoryBuffer> &&MB,
-  llvm::LLVMContext &Ctx, std::string &DiagStr)
-{
-  // Note: the DiagStr is not used.
-  auto pModule = llvm::getLazyBitcodeModule(std::move(MB), Ctx, nullptr, true);
-  if (!pModule) {
-    return nullptr;
-  }
-  return std::unique_ptr<llvm::Module>(pModule.get().release());
-}
-
-std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
-  llvm::LLVMContext &Ctx,
-  std::string &DiagStr) {
-  std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf(
-    llvm::MemoryBuffer::getMemBuffer(BC, "", false));
-  return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
-}
-
-
-DIGlobalVariable *FindGlobalVariableDebugInfo(GlobalVariable *GV,
-                                              DebugInfoFinder &DbgInfoFinder) {
-  struct GlobalFinder {
-    GlobalVariable *GV;
-    bool operator()(llvm::DIGlobalVariable *const arg) const {
-      return arg->getVariable() == GV;
-    }
-  };
-  GlobalFinder F = {GV};
-  DebugInfoFinder::global_variable_iterator Found =
-      std::find_if(DbgInfoFinder.global_variables().begin(),
-                   DbgInfoFinder.global_variables().end(), F);
-  if (Found != DbgInfoFinder.global_variables().end()) {
-    return *Found;
-  }
-  return nullptr;
-}
-
-static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
-                                            DiagnosticSeverity severity);
-
-// If we don't have debug location and this is select/phi,
-// try recursing users to find instruction with debug info.
-// Only recurse phi/select and limit depth to prevent doing
-// too much work if no debug location found.
-static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
-                                                           Twine Msg,
-                                                           DiagnosticSeverity severity,
-                                                           unsigned depth = 0) {
-  if (depth > 4)
-    return false;
-  if (I->getDebugLoc().get()) {
-    EmitWarningOrErrorOnInstruction(I, Msg, severity);
-    return true;
-  }
-  if (isa<PHINode>(I) || isa<SelectInst>(I)) {
-    for (auto U : I->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U))
-        if (EmitWarningOrErrorOnInstructionFollowPhiSelect(UI, Msg, severity,
-                                                           depth + 1))
-          return true;
-  }
-  return false;
-}
-
-static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
-                                            DiagnosticSeverity severity) {
-  const DebugLoc &DL = I->getDebugLoc();
-  if (!DL.get() && (isa<PHINode>(I) || isa<SelectInst>(I))) {
-    if (EmitWarningOrErrorOnInstructionFollowPhiSelect(I, Msg, severity))
-      return;
-  }
-
-  I->getContext().diagnose(DiagnosticInfoDxil(I->getParent()->getParent(),
-                                              DL.get(), Msg, severity));
-}
-
-void EmitErrorOnInstruction(Instruction *I, Twine Msg) {
-  EmitWarningOrErrorOnInstruction(I, Msg, DiagnosticSeverity::DS_Error);
-}
-
-void EmitWarningOnInstruction(Instruction *I, Twine Msg) {
-  EmitWarningOrErrorOnInstruction(I, Msg, DiagnosticSeverity::DS_Warning);
-}
-
-static void EmitWarningOrErrorOnFunction(Function *F, Twine Msg,
-                                         DiagnosticSeverity severity) {
-  DISubprogram *DISP = getDISubprogram(F);
-  DILocation *DLoc = nullptr;
-  if (DISP) {
-    DLoc = DILocation::get(F->getContext(), DISP->getLine(), 0,
-                           DISP, nullptr /*InlinedAt*/);
-  }
-  F->getContext().diagnose(DiagnosticInfoDxil(F, DLoc, Msg, severity));
-}
-
-void EmitErrorOnFunction(Function *F, Twine Msg) {
-  EmitWarningOrErrorOnFunction(F, Msg, DiagnosticSeverity::DS_Error);
-}
-
-void EmitWarningOnFunction(Function *F, Twine Msg) {
-  EmitWarningOrErrorOnFunction(F, Msg, DiagnosticSeverity::DS_Warning);
-}
-
-static void EmitWarningOrErrorOnGlobalVariable(GlobalVariable *GV,
-                                               Twine Msg, DiagnosticSeverity severity) {
-  DIVariable *DIV = nullptr;
-  if (!GV) return;
-
-  Module &M = *GV->getParent();
-  DILocation *DLoc = nullptr;
-
-  if (getDebugMetadataVersionFromModule(M) != 0) {
-    DebugInfoFinder FinderObj;
-    DebugInfoFinder &Finder = FinderObj;
-    // Debug modules have no dxil modules. Use it if you got it.
-    if (M.HasDxilModule())
-      Finder = M.GetDxilModule().GetOrCreateDebugInfoFinder();
-    else
-      Finder.processModule(M);
-    DIV = FindGlobalVariableDebugInfo(GV, Finder);
-    if (DIV)
-      DLoc = DILocation::get(GV->getContext(), DIV->getLine(), 0,
-                             DIV->getScope(), nullptr /*InlinedAt*/);
-  }
-
-  GV->getContext().diagnose(DiagnosticInfoDxil(nullptr /*Function*/, DLoc, Msg, severity));
-}
-
-void EmitErrorOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(GV, Msg, DiagnosticSeverity::DS_Error);
-}
-
-void EmitWarningOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(GV, Msg, DiagnosticSeverity::DS_Warning);
-}
-
-const char *kResourceMapErrorMsg =
-    "local resource not guaranteed to map to unique global resource.";
-void EmitResMappingError(Instruction *Res) {
-  EmitErrorOnInstruction(Res, kResourceMapErrorMsg);
-}
-
-// Mostly just a locationless diagnostic output
-static void EmitWarningOrErrorOnContext(LLVMContext &Ctx, Twine Msg, DiagnosticSeverity severity) {
-  Ctx.diagnose(DiagnosticInfoDxil(nullptr /*Func*/, nullptr /*DLoc*/,
-                                  Msg, severity));
-}
-
-void EmitErrorOnContext(LLVMContext &Ctx, Twine Msg) {
-  EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Error);
-}
-
-void EmitWarningOnContext(LLVMContext &Ctx, Twine Msg) {
-  EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Warning);
-}
-
-void EmitNoteOnContext(LLVMContext &Ctx, Twine Msg) {
-  EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Note);
 }
 
 void CollectSelect(llvm::Instruction *Inst,
@@ -438,75 +267,6 @@ llvm::BasicBlock *GetSwitchSuccessorForCond(llvm::SwitchInst *Switch,llvm::Const
     }
   }
   return Switch->getDefaultDest();
-}
-
-static DbgValueInst *FindDbgValueInst(Value *Val) {
-  if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
-    if (auto *ValMDAsVal = MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
-      for (User *ValMDUser : ValMDAsVal->users()) {
-        if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(ValMDUser))
-          return DbgValInst;
-      }
-    }
-  }
-  return nullptr;
-}
-
-void MigrateDebugValue(Value *Old, Value *New) {
-  DbgValueInst *DbgValInst = FindDbgValueInst(Old);
-  if (DbgValInst == nullptr) return;
-  
-  DbgValInst->setOperand(0, MetadataAsValue::get(New->getContext(), ValueAsMetadata::get(New)));
-
-  // Move the dbg value after the new instruction
-  if (Instruction *NewInst = dyn_cast<Instruction>(New)) {
-    if (NewInst->getNextNode() != DbgValInst) {
-      DbgValInst->removeFromParent();
-      DbgValInst->insertAfter(NewInst);
-    }
-  }
-}
-
-// Propagates any llvm.dbg.value instruction for a given vector
-// to the elements that were used to create it through a series
-// of insertelement instructions.
-//
-// This is used after lowering a vector-returning intrinsic.
-// If we just keep the debug info on the recomposed vector,
-// we will lose it when we break it apart again during later
-// optimization stages.
-void TryScatterDebugValueToVectorElements(Value *Val) {
-  if (!isa<InsertElementInst>(Val) || !Val->getType()->isVectorTy()) return;
-
-  DbgValueInst *VecDbgValInst = FindDbgValueInst(Val);
-  if (VecDbgValInst == nullptr) return;
-
-  Type *ElemTy = Val->getType()->getVectorElementType();
-  DIBuilder DbgInfoBuilder(*VecDbgValInst->getModule());
-  unsigned ElemSizeInBits = VecDbgValInst->getModule()->getDataLayout().getTypeSizeInBits(ElemTy);
-
-  DIExpression *ParentBitPiece = VecDbgValInst->getExpression();
-  if (ParentBitPiece != nullptr && !ParentBitPiece->isBitPiece())
-    ParentBitPiece = nullptr;
-
-  while (InsertElementInst *InsertElt = dyn_cast<InsertElementInst>(Val)) {
-    Value *NewElt = InsertElt->getOperand(1);
-    unsigned EltIdx = static_cast<unsigned>(cast<ConstantInt>(InsertElt->getOperand(2))->getLimitedValue());
-    unsigned OffsetInBits = EltIdx * ElemSizeInBits;
-
-    if (ParentBitPiece) {
-      assert(OffsetInBits + ElemSizeInBits <= ParentBitPiece->getBitPieceSize()
-        && "Nested bit piece expression exceeds bounds of its parent.");
-      OffsetInBits += ParentBitPiece->getBitPieceOffset();
-    }
-
-    DIExpression *DIExpr = DbgInfoBuilder.createBitPieceExpression(OffsetInBits, ElemSizeInBits);
-    // Offset is basically unused and deprecated in later LLVM versions.
-    // Emit it as zero otherwise later versions of the bitcode reader will drop the intrinsic.
-    DbgInfoBuilder.insertDbgValueIntrinsic(NewElt, /* Offset */ 0, VecDbgValInst->getVariable(),
-      DIExpr, VecDbgValInst->getDebugLoc(), InsertElt);
-    Val = InsertElt->getOperand(0);
-  }
 }
 
 Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
@@ -597,75 +357,138 @@ bool IsResourceSingleComponent(Type *Ty) {
       return false;
     }
     return IsResourceSingleComponent(structType->getStructElementType(0));
-  } else if (llvm::VectorType *vectorType =
-                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
+  } else if (llvm::FixedVectorType *vectorType =
+                 llvm::dyn_cast<llvm::FixedVectorType>(Ty)) {
     if (vectorType->getNumElements() > 1) {
       return false;
     }
-    return IsResourceSingleComponent(vectorType->getVectorElementType());
+    return IsResourceSingleComponent(vectorType->getElementType());
   }
   return true;
 }
 
+uint8_t GetResourceComponentCount(llvm::Type *Ty) {
+  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
+    return arrType->getArrayNumElements() *
+           GetResourceComponentCount(arrType->getArrayElementType());
+  } else if (llvm::StructType *structType =
+                 llvm::dyn_cast<llvm::StructType>(Ty)) {
+    uint32_t Count = 0;
+    for (Type *EltTy : structType->elements())  {
+      Count += GetResourceComponentCount(EltTy);
+    }
+    DXASSERT(Count <= 4, "Component Count out of bound.");
+    return Count;
+  } else if (llvm::FixedVectorType *vectorType =
+                 llvm::dyn_cast<llvm::FixedVectorType>(Ty)) {
+    return vectorType->getNumElements();
+  }
+  return 1;
+}
+
 bool IsHLSLResourceType(llvm::Type *Ty) {
+  return GetHLSLResourceProperties(Ty).first;
+}
+
+static DxilResourceProperties MakeResourceProperties(hlsl::DXIL::ResourceKind Kind, bool UAV, bool ROV, bool Cmp) {
+  DxilResourceProperties Ret = {};
+  Ret.Basic.IsROV = ROV;
+  Ret.Basic.SamplerCmpOrHasCounter = Cmp;
+  Ret.Basic.IsUAV = UAV;
+  Ret.Basic.ResourceKind = (uint8_t)Kind;
+  return Ret;
+}
+
+std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty)
+{
+   using RetType = std::pair<bool, DxilResourceProperties>;
+   RetType FalseRet(false, DxilResourceProperties{});
+
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
-      return false;
+      return FalseRet;
+
     StringRef name = ST->getName();
     ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     if (name == "SamplerState")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, false));
+
     if (name == "SamplerComparisonState")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, /*cmp or counter*/true));
 
     if (name.startswith("AppendStructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
+
     if (name.startswith("ConsumeStructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
 
     if (name == "RaytracingAccelerationStructure")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RTAccelerationStructure, false, false, false));
+
+    if (name.startswith("ConstantBuffer<"))
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::CBuffer, false, false, false));
+
+    if (name.startswith("TextureBuffer<"))
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TBuffer, false, false, false));
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
-      ConsumePrefix(name, "Array");
-      return name.startswith("<");
+      hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
+      if (ConsumePrefix(name, "Array"))
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2DArray;
+      else
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2D;
+
+      if (name.startswith("<"))
+        return RetType(true, MakeResourceProperties(kind, false, false, false));
+
+      return FalseRet;
     }
 
-    ConsumePrefix(name, "RasterizerOrdered");
-    ConsumePrefix(name, "RW");
+    bool ROV = ConsumePrefix(name, "RasterizerOrdered");
+    bool UAV = ConsumePrefix(name, "RW");
+
     if (name == "ByteAddressBuffer")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RawBuffer, UAV, ROV, false));
 
     if (name.startswith("Buffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TypedBuffer, UAV, ROV, false));
+
     if (name.startswith("StructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, UAV, ROV, false));
 
     if (ConsumePrefix(name, "Texture")) {
       if (name.startswith("1D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1D, UAV, ROV, false));
+
       if (name.startswith("1DArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1DArray, UAV, ROV, false));
+
       if (name.startswith("2D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2D, UAV, ROV, false));
+
       if (name.startswith("2DArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DArray, UAV, ROV, false));
+
       if (name.startswith("3D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture3D, UAV, ROV, false));
+
       if (name.startswith("Cube<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCube, UAV, ROV, false));
+
       if (name.startswith("CubeArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCubeArray, UAV, ROV, false));
+
       if (name.startswith("2DMS<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMS, UAV, ROV, false));
+
       if (name.startswith("2DMSArray<"))
-        return true;
-      return false;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMSArray, UAV, ROV, false));
+      return FalseRet;
     }
   }
-  return false;
+  return FalseRet;
 }
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
@@ -677,6 +500,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     StringRef name = ST->getName();
     // TODO: don't check names.
     if (name.startswith("dx.types.wave_t"))
+      return true;
+
+    if (name.compare("dx.types.Handle") == 0)
       return true;
 
     if (name.endswith("_slice_type"))
@@ -719,6 +545,9 @@ bool IsHLSLResourceDescType(llvm::Type *Ty) {
 
     // TODO: don't check names.
     if (name == ("struct..Resource"))
+      return true;
+
+    if (name == "struct..Sampler")
       return true;
   }
   return false;
@@ -1101,34 +930,157 @@ void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hl
   }
 }
 
+bool IsConvergentMarker(const char *Name) {
+  StringRef RName = Name;
+  return RName.startswith(kConvergentFunctionPrefix);
 }
+
+bool IsConvergentMarker(const Function *F) {
+  return F && F->getName().startswith(kConvergentFunctionPrefix);
 }
 
-///////////////////////////////////////////////////////////////////////////////
+bool IsConvergentMarker(Value *V) {
+  CallInst *CI = dyn_cast<CallInst>(V);
+  if (!CI)
+    return false;
+  return IsConvergentMarker(CI->getCalledFunction());
+}
 
-namespace {
-class DxilLoadMetadata : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  explicit DxilLoadMetadata () : ModulePass(ID) {}
+Value *GetConvergentSource(Value *V) {
+  return cast<CallInst>(V)->getOperand(0);
+}
 
-  const char *getPassName() const override { return "HLSL load DxilModule from metadata"; }
+bool isCompositeType(Type *Ty) {
+  return isa<ArrayType>(Ty) || isa<StructType>(Ty) || isa<VectorType>(Ty);
+}
 
-  bool runOnModule(Module &M) override {
-    if (!M.HasDxilModule()) {
-      (void)M.GetOrCreateDxilModule();
-      return true;
+/// If value is a bitcast to base class pattern, equivalent
+/// to a getelementptr X, 0, 0, 0...  turn it into the appropriate gep.
+/// This can enhance SROA and other transforms that want type-safe pointers,
+/// and enables merging with other getelementptr's.
+Value *TryReplaceBaseCastWithGep(Value *V) {
+  if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+    if (!BCO->getSrcTy()->isPointerTy())
+      return nullptr;
+
+    Type *SrcElTy = BCO->getSrcTy()->getPointerElementType();
+    Type *DstElTy = BCO->getDestTy()->getPointerElementType();
+
+    // Adapted from code in InstCombiner::visitBitCast
+    unsigned NumZeros = 0;
+    while (SrcElTy != DstElTy && isCompositeType(SrcElTy) &&
+           SrcElTy->getNumContainedTypes() /* not "{}" */) {
+      SrcElTy = SrcElTy->getContainedType(0);
+      ++NumZeros;
     }
 
-    return false;
+    // If we found a path from the src to dest, create the getelementptr now.
+    if (SrcElTy == DstElTy) {
+      IRBuilder<> Builder(BCO->getContext());
+      StringRef Name = "";
+      if (Instruction *I = dyn_cast<Instruction>(BCO)) {
+        Builder.SetInsertPoint(I);
+        Name = I->getName();
+      }
+      SmallVector<Value *, 8> Indices(NumZeros + 1, Builder.getInt32(0));
+      Value *newGEP = Builder.CreateInBoundsGEP(nullptr, BCO->getOperand(0), Indices, Name);
+      V->replaceAllUsesWith(newGEP);
+      if (auto *I = dyn_cast<Instruction>(V))
+        I->eraseFromParent();
+      return newGEP;
+    }
+  }
+
+  return nullptr;
+}
+
+struct AllocaDeleter {
+  SmallVector<Value *, 10> WorkList;
+  std::unordered_set<Value *> Seen;
+
+  void Add(Value *V) {
+    if (!Seen.count(V)) {
+      Seen.insert(V);
+      WorkList.push_back(V);
+    }
+  }
+
+  bool TryDeleteUnusedAlloca(AllocaInst *AI) {
+    Seen.clear();
+    WorkList.clear();
+
+    Add(AI);
+    while (WorkList.size()) {
+      Value *V = WorkList.pop_back_val();
+      // Keep adding users if we encounter one of these.
+      // None of them imply the alloca is being read.
+      if (isa<GEPOperator>(V) ||
+          isa<BitCastOperator>(V) ||
+          isa<AllocaInst>(V) ||
+          isa<StoreInst>(V))
+      {
+        for (User *U : V->users())
+          Add(U);
+      }
+      else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
+        // If the memcopy's source is anything we've encountered in the
+        // seen set, then the alloca is being read.
+        if (Seen.count(MC->getSource()))
+          return false;
+      }
+      // If it's anything else, we'll assume it's reading the
+      // alloca. Give up.
+      else {
+        return false;
+      }
+    }
+
+    if (!Seen.size())
+      return false;
+
+    // Delete all the instructions associated with the
+    // alloca.
+    for (Value *V : Seen) {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (I) {
+        I->dropAllReferences();
+      }
+    }
+    for (Value *V : Seen) {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (I) {
+        I->eraseFromParent();
+      }
+    }
+
+    return true;
   }
 };
+
+bool DeleteDeadAllocas(llvm::Function &F) {
+  if (F.empty())
+    return false;
+
+  AllocaDeleter Deleter;
+  BasicBlock &Entry = *F.begin();
+  bool Changed = false;
+
+  while (1) {
+    bool LocalChanged = false;
+    for (Instruction *it = &Entry.back(); it;) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(it);
+      it = it->getPrevNode();
+      if (!AI)
+        continue;
+      LocalChanged |= Deleter.TryDeleteUnusedAlloca(AI);
+    }
+    Changed |= LocalChanged;
+    if (!LocalChanged)
+      break;
+  }
+
+  return Changed;
 }
 
-char DxilLoadMetadata::ID = 0;
-
-ModulePass *llvm::createDxilLoadMetadataPass() {
-  return new DxilLoadMetadata();
 }
-
-INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
+}

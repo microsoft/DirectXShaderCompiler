@@ -3,15 +3,14 @@
 // lib_6_x allows phi/select of resource in lib.
 // phi/select of handle should not be produced in this case, but would be allowed if it were.
 
-// CHECK: define <4 x float> @"\01?test@@YA?AV?$vector@M$03@@HHH@Z"(i32 %i, i32 %j, i32 %m)
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
-// CHECK: phi %"class.
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
-// CHECK: select i1 %{{[^,]+}}, %"class.
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
+// CHECK: define <4 x float> @"\01?test{{[@$?.A-Za-z0-9_]+}}"(i32 %i, i32 %j, i32 %m)
+
+// CHECK: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+
 // CHECK: ret <4 x float>
 
 RWBuffer<float4> BufArray[2][2][3];

@@ -11,8 +11,13 @@
 
 #pragma once
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/Support/DxcOptToggles.h"
 #include <vector>
 #include <string>
+
+namespace clang {
+class CodeGenOptions;
+}
 
 namespace llvm {
 class CallInst;
@@ -61,11 +66,11 @@ public:
   typedef std::vector<SemanticDefineError> SemanticDefineErrorList;
 
   // Write semantic defines as metadata in the module.
-  virtual SemanticDefineErrorList WriteSemanticDefines(llvm::Module *M) = 0;
-
+  virtual void WriteSemanticDefines(llvm::Module *M) = 0;
+  virtual void UpdateCodeGenOptions(clang::CodeGenOptions &CGO) = 0;
   // Query the named option enable
   // Needed because semantic defines may have set it since options were copied
-  virtual bool IsOptionEnabled(std::string option) = 0;
+  virtual bool IsOptionEnabled(hlsl::options::Toggle toggle) = 0;
 
   // Get the name to use for the dxil intrinsic function.
   virtual std::string GetIntrinsicName(unsigned opcode) = 0;

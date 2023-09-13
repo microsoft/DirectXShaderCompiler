@@ -52,6 +52,8 @@ namespace clang {
     TST_min16uint,
     TST_min10float,
     TST_min12int,
+    TST_int8_4packed,
+    TST_uint8_4packed,
     // HLSL Changes end
     TST_half,         // OpenCL half, ARM NEON __fp16
     TST_halffloat, // HLSL Change
@@ -275,7 +277,7 @@ namespace hlsl {
   /// In/inout/out/uniform parameter modifier.
   class ParameterModifier {
   public:
-    enum Kind { In, InOut, Out, Uniform, Invalid };
+    enum Kind { In, InOut, Out, Uniform, Ref, Invalid };
 
     ParameterModifier() : m_Kind(Kind::In) { }
     ParameterModifier(enum Kind Kind) : m_Kind(Kind) { }

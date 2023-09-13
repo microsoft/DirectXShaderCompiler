@@ -1,5 +1,11 @@
-// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=uint -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=uint64_t -T cs_6_6 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int64_t -T cs_6_6 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int -T cs_6_0 -ast-dump-implicit %s | FileCheck %s -check-prefix=AST
 
+// CHECK: Compute Shader
+// CHECK: NumThreads=(8,8,1)
 // CHECK: atomicrmw add
 // CHECK: atomicrmw add
 // CHECK: cmpxchg
@@ -20,19 +26,21 @@
 
 RWByteAddressBuffer rawBuf0 : register( u0 );
 
+#define _TOTUPLE(type) type##2
+#define TOTUPLE(type) _TOTUPLE(type)
+
 struct Foo
 {
   float2 a;
   float3 b;
-  uint   u;
-  int2 c[4];
-  int d[4];
+  TYPE   u;
+  TOTUPLE(TYPE) c[4];
+  TYPE d[4];
 };
 RWStructuredBuffer<Foo> structBuf1 : register( u1 );
-RWTexture2D<uint> rwTex2: register( u2 );
+RWTexture2D<TYPE> rwTex2: register( u2 );
 
-
-groupshared uint shareMem[256];
+groupshared TYPE shareMem[256];
 
 [numthreads( 8, 8, 1 )]
 void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
@@ -40,7 +48,7 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
     shareMem[GI] = 0;
 
     GroupMemoryBarrierWithGroupSync();
-    uint v;
+    TYPE v;
 
     InterlockedAdd( shareMem[DTid.x], 1 );
     InterlockedAdd( shareMem[DTid.x], 1, v );
@@ -80,3 +88,51 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
 	// CHECK: atomicrmw
 	InterlockedAdd(shareMem[DTid.z].r, 1);
 }
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedAdd 'void (unsigned long long &, unsigned long long)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedAdd 'void (int &, unsigned int)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedAdd 'void (unsigned long long &, unsigned long long, long long &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'long long &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedAdd 'void (int &, unsigned int, int &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'int &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedCompareStore 'void (unsigned long long &, unsigned long long, unsigned long long)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedCompareStore 'void (int &, unsigned int, unsigned int)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedCompareExchange 'void (unsigned long long &, unsigned long long, unsigned long long, long long &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'long long &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedCompareExchange 'void (int &, unsigned int, unsigned int, int &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'int &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""

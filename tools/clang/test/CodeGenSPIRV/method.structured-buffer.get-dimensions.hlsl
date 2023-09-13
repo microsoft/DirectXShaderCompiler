@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-use-gl-layout
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-gl-layout
 
 struct SBuffer {
   float4   f1;

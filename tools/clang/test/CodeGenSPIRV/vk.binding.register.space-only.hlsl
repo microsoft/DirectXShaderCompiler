@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK:      OpDecorate %sampler1 DescriptorSet 1
 // CHECK-NEXT: OpDecorate %sampler1 Binding 0
@@ -61,7 +61,7 @@ RWStructuredBuffer<S> sbuffer2 : register(space3);
 AppendStructuredBuffer<S> abuffer : register(space2);
 
 // CHECK:      OpDecorate %csbuffer DescriptorSet 3
-// CHECK-NEXT: OpDecorate %csbuffer Binding 4
+// CHECK-NEXT: OpDecorate %csbuffer Binding 3
 ConsumeStructuredBuffer<S> csbuffer : register(space3);
 
 float4 main() : SV_Target {

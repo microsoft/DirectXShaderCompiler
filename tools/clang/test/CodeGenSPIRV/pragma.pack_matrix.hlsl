@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 
 // CHECK: OpMemberDecorate %type_StructuredBuffer_mat2v3float 0 ColMajor

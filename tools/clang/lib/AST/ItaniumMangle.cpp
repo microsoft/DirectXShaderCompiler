@@ -1081,7 +1081,7 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
         if (!MD->isStatic())
           Arity++;
     }
-  // FALLTHROUGH
+    LLVM_FALLTHROUGH; // HLSL Change
   case DeclarationName::CXXConversionFunctionName:
   case DeclarationName::CXXLiteralOperatorName:
     mangleOperatorName(Name, Arity);
@@ -2048,6 +2048,8 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::Min16Int: Out << "min16_int"; break;
   case BuiltinType::Min16UInt: Out << "min16_uint"; break;
   case BuiltinType::HalfFloat: Out << "half_float"; break;
+  case BuiltinType::Int8_4Packed: Out << "int8_t4_packed"; break;
+  case BuiltinType::UInt8_4Packed: Out << "uint8_t4_packed"; break;
     // HLSL Change ends
   }
 }
@@ -3175,6 +3177,7 @@ recurse:
     Out << "v1U" << Kind.size() << Kind;
   }
   // Fall through to mangle the cast itself.
+  LLVM_FALLTHROUGH; // HLSL Change
       
   case Expr::CStyleCastExprClass:
     mangleCastExpression(E, "cv");

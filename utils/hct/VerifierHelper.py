@@ -1,10 +1,10 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 r"""VerifierHelper.py - help with test content used with:
-    clang-hlsl-tests /name:VerifierTest.*
+    ClangHLSLTests /name:VerifierTest.*
 
     This script will produce an HLSL file with expected-error and expected-warning
-    statements corresponding to actual errors/warnings produced from clang-hlsl-tests.
+    statements corresponding to actual errors/warnings produced from ClangHLSLTests.
     The new file will be located in %TEMP%, named after the original file, but with
     the added extension '.result'.
     This can then be compared with the original file (such as varmods-syntax.hlsl)
@@ -20,14 +20,14 @@ r"""VerifierHelper.py - help with test content used with:
     a line containing only: "/*verify-ast", and insert a stripped subtree between this marker
     and a line containing only: "*/".  This relies on clang.exe in the build directory.
 
-    This tool expects clang.exe and clang-hlsl-tests.dll to be in %HLSL_BLD_DIR%\bin\Debug.
+    This tool expects clang.exe and ClangHLSLTests.dll to be in %HLSL_BLD_DIR%\bin\Debug.
 
 Usage:
-    VerifierHelper.py clang <testname>  - run test through clang-hlsl-tests and show differences
+    VerifierHelper.py clang <testname>  - run test through ClangHLSLTests and show differences
     VerifierHelper.py fxc <testname>    - run test through fxc and show differences
     VerifierHelper.py ast <testname>    - run test through ast-dump and show differences
-    VerifierHelper.py all <testname>    - run test through clang-hlsl-tests, ast-dump, and fxc, then show differences
-<testname> - name of verifier test as passed to "te clang-hlsl-tests.dll /name:VerifierTest::<testname>":
+    VerifierHelper.py all <testname>    - run test through ClangHLSLTests, ast-dump, and fxc, then show differences
+<testname> - name of verifier test as passed to "te ClangHLSLTests.dll /name:VerifierTest::<testname>":
     Example: RunVarmodsSyntax
     Can also specify * to run all tests
 
@@ -39,6 +39,7 @@ Environment variables - set these to ensure this tool works properly:
 """
 
 import os, sys, re
+import subprocess
 
 try:    DiffTool = os.environ['HLSL_DIFF_TOOL']
 except: DiffTool = None
@@ -48,67 +49,101 @@ HlslVerifierTestCpp = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\unittests
 HlslDataDir = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\test\HLSL')
 HlslBinDir = os.path.expandvars(r'${HLSL_BLD_DIR}\Debug\bin')
 VerifierTests = {
-    'RunAttributes': 'attributes.hlsl',
-    'RunBadInclude': 'bad-include.hlsl',
-    'RunBinopDims': 'binop-dims.hlsl',
-    'RunCXX11Attributes': 'cxx11-attributes.hlsl',
-    'RunConstAssign': 'const-assign.hlsl',
-    'RunConstDefault': 'const-default.hlsl',
-    'RunConstExpr': 'const-expr.hlsl',
-    'RunCppErrors': 'cpp-errors.hlsl',
-    'RunCppErrorsHV2015': 'cpp-errors-hv2015.hlsl',
-    'RunDerivedToBaseCasts': 'derived-to-base.hlsl',
-    'RunEffectsSyntax': 'effects-syntax.hlsl',
-    'RunEnums': 'enums.hlsl',
-    'RunFunctions': 'functions.hlsl',
-    'RunImplicitCasts': 'implicit-casts.hlsl',
-    'RunIndexingOperator': 'indexing-operator.hlsl',
-    'RunIntrinsicExamples': 'intrinsic-examples.hlsl',
-    'RunLiterals': 'literals.hlsl',
-    'RunMatrixAssignments': 'matrix-assignments.hlsl',
-    'RunMatrixSyntax': 'matrix-syntax.hlsl',
-    'RunMatrixSyntaxExactPrecision': 'matrix-syntax-exact-precision.hlsl',
-    'RunMoreOperators': 'more-operators.hlsl',
-    'RunObjectOperators': 'object-operators.hlsl',
-    'RunPackReg': 'packreg.hlsl',
-    'RunRayTracings': "raytracing.hlsl",
-    'RunScalarAssignments': 'scalar-assignments.hlsl',
-    'RunScalarAssignmentsExactPrecision': 'scalar-assignments-exact-precision.hlsl',
-    'RunScalarOperators': 'scalar-operators.hlsl',
-    'RunScalarOperatorsAssign': 'scalar-operators-assign.hlsl',
-    'RunScalarOperatorsAssignExactPrecision': 'scalar-operators-assign-exact-precision.hlsl',
-    'RunScalarOperatorsExactPrecision': 'scalar-operators-exact-precision.hlsl',
-    'RunSemantics': 'semantics.hlsl',
-    'RunString': 'string.hlsl',
-    'RunStructAssignments': 'struct-assignments.hlsl',
-    'RunSubobjects': 'subobjects-syntax.hlsl',
-    'RunTemplateChecks': 'template-checks.hlsl',
-    'RunTypemodsSyntax': 'typemods-syntax.hlsl',
-    'RunUint4Add3': 'uint4_add3.hlsl',
-    'RunVarmodsSyntax': 'varmods-syntax.hlsl',
-    'RunVectorAssignments': 'vector-assignments.hlsl',
-    'RunVectorConditional': 'vector-conditional.hlsl',
-    'RunVectorSyntax': 'vector-syntax.hlsl',
-    'RunVectorSyntaxExactPrecision': 'vector-syntax-exact-precision.hlsl',
-    'RunVectorSyntaxMix': 'vector-syntax-mix.hlsl',
-    'RunWave': 'wave.hlsl',
+    'RunArrayConstAssign':                       'array-const-assign.hlsl',
+    'RunArrayIndexOutOfBounds':                  'array-index-out-of-bounds-HV-2016.hlsl',
+    'RunArrayLength':                            'array-length.hlsl',
+    'RunAttributes':                             'attributes.hlsl',
+    'RunBadInclude':                             'bad-include.hlsl',
+    'RunBinopDims':                              'binop-dims.hlsl',
+    'RunBitfields':                              'bitfields.hlsl',
+    'RunBuiltinTypesNoInheritance':              'builtin-types-no-inheritance.hlsl',
+    'RunCXX11Attributes':                        'cxx11-attributes.hlsl',
+    'RunConstAssign':                            'const-assign.hlsl',
+    'RunConstDefault':                           'const-default.hlsl',
+    'RunConstExpr':                              'const-expr.hlsl',
+    'RunConversionsBetweenTypeShapes':           'conversions-between-type-shapes.hlsl',
+    'RunConversionsBetweenTypeShapesStrictUDT':  'conversions-between-type-shapes-strictudt.hlsl',
+    'RunConversionsNonNumericAggregates':        'conversions-non-numeric-aggregates.hlsl',
+    'RunCppErrors':                              'cpp-errors.hlsl',
+    'RunCppErrorsHV2015':                        'cpp-errors-hv2015.hlsl',
+    'RunDerivedToBaseCasts':                     'derived-to-base.hlsl',
+    'RunEffectsSyntax':                          'effects-syntax.hlsl',
+    'RunEnums':                                  'enums.hlsl',
+    'RunFunctions':                              'functions.hlsl',
+    'RunImplicitCasts':                          'implicit-casts.hlsl',
+    'RunIncompleteArray':                        'incomp_array_err.hlsl',
+    'RunIncompleteType':                         'incomplete-type.hlsl',
+    'RunIndexingOperator':                       'indexing-operator.hlsl',
+    'RunInputPatchConst':                        'InputPatch-const.hlsl',
+    'RunIntrinsicExamples':                      'intrinsic-examples.hlsl',
+    'RunLiterals':                               'literals.hlsl',
+    'RunMatrixAssignments':                      'matrix-assignments.hlsl',
+    'RunMatrixSyntax':                           'matrix-syntax.hlsl',
+    'RunMatrixSyntaxExactPrecision':             'matrix-syntax-exact-precision.hlsl',
+    'RunMintypesPromotionWarnings':              'mintypes-promotion-warnings.hlsl',
+    'RunMoreOperators':                          'more-operators.hlsl',
+    'RunObjectOperators':                        'object-operators.hlsl',
+    'RunObjectTemplateDiagDeferred':             'object-template-diag-deferred.hlsl',
+    'RunOperatorOverloadingForNewDelete':        'overloading-new-delete-errors.hlsl',
+    'RunOperatorOverloadingNotDefinedBinaryOp':  'use-undefined-overloaded-operator.hlsl',
+    'RunPackReg':                                'packreg.hlsl',
+    'RunRayTracings':                            'raytracings.hlsl',
+    'RunScalarAssignments':                      'scalar-assignments.hlsl',
+    'RunScalarAssignmentsExactPrecision':        'scalar-assignments-exact-precision.hlsl',
+    'RunScalarOperators':                        'scalar-operators.hlsl',
+    'RunScalarOperatorsAssign':                  'scalar-operators-assign.hlsl',
+    'RunScalarOperatorsAssignExactPrecision':    'scalar-operators-assign-exact-precision.hlsl',
+    'RunScalarOperatorsExactPrecision':          'scalar-operators-exact-precision.hlsl',
+    'RunSemantics':                              'semantics.hlsl',
+    'RunSizeof':                                 'sizeof.hlsl',
+    'RunString':                                 'string.hlsl',
+    'RunStructAssignments':                      'struct-assignments.hlsl',
+    'RunSubobjects':                             'subobjects-syntax.hlsl',
+    'RunTemplateChecks':                         'template-checks.hlsl',
+    'RunTemplateLiteralSubstitutionFailure':     'template-literal-substitution-failure.hlsl',
+    'RunTypemodsSyntax':                         'typemods-syntax.hlsl',
+    'RunUint4Add3':                              'uint4_add3.hlsl',
+    'RunVarmodsSyntax':                          'varmods-syntax.hlsl',
+    'RunVectorAnd':                              'vector-and.hlsl',
+    'RunVectorAssignments':                      'vector-assignments.hlsl',
+    'RunVectorConditional':                      'vector-conditional.hlsl',
+    'RunVectorOr':                               'vector-or.hlsl',
+    'RunVectorSelect':                           'vector-select.hlsl',
+    'RunVectorSyntax':                           'vector-syntax.hlsl',
+    'RunVectorSyntaxExactPrecision':             'vector-syntax-exact-precision.hlsl',
+    'RunVectorSyntaxMix':                        'vector-syntax-mix.hlsl',
+    'RunWave':                                   'wave.hlsl',
+    'RunWriteConstArrays':                       'write-const-arrays.hlsl',
+    'RunAtomicsOnBitfields':                     'atomics-on-bitfields.hlsl',
+    'RunUnboundedResourceArrays':                'invalid-unbounded-resource-arrays.hlsl',
 }
 
 # The following test(s) do not work in fxc mode:
 fxcExcludedTests = [
+    'RunArrayLength',
+    'RunBitfields',
     'RunCppErrors',
     'RunCppErrorsHV2015',
     'RunCXX11Attributes',
+    'RunConversionsBetweenTypeShapesStrictUDT',
     'RunEnums',
+    'RunIncompleteType',
     'RunIntrinsicExamples',
     'RunMatrixSyntaxExactPrecision',
+    'RunObjectTemplateDiagDeferred',
+    'RunOperatorOverloadingForNewDelete',
+    'RunOperatorOverloadingNotDefinedBinaryOp',
     'RunRayTracings',
     'RunScalarAssignmentsExactPrecision',
     'RunScalarOperatorsAssignExactPrecision',
     'RunScalarOperatorsExactPrecision',
+    'RunSizeof',
     'RunSubobjects',
+    'RunTemplateChecks',
+    'RunTemplateLiteralSubstitutionFailure',
     'RunVectorSyntaxExactPrecision',
     'RunWave',
+    'RunAtomicsOnBitfields',
 ]
 
 # rxRUN = re.compile(r'[ RUN      ] VerifierTest.(\w+)')	# gtest syntax
@@ -540,11 +575,15 @@ class File(object):
                 if verify_arguments is None:
                     fout.write("\n[numthreads(1,1,1)] void _test_main() {  }\n")
             if verify_arguments is None:
-                args = '/E _test_main /T cs_5_1'
+                args = '/E _test_main /T cs_5_1'.split()
             else:
-                args = verify_arguments
-            os.system('%s /nologo "%s.fxc_temp" %s /DVERIFY_FXC=1 /Fo "%s.fxo" /Fe "%s.err" 1> "%s.log" 2>&1' % 
-                      (FxcPath, temp_filename, args, temp_filename, temp_filename, temp_filename))
+                args = verify_arguments.split()
+            fxcres = subprocess.run(['%s' % FxcPath,
+                                     temp_filename + '.fxc_temp',
+                                     *args, "/nologo", "/DVERIFY_FXC=1",
+                                     "/Fo", temp_filename + '.fxo',
+                                     "/Fe", temp_filename + '.err'],
+                                    capture_output=True, text=True)
             with open(temp_filename+'.err', 'rt') as f:
                 errors = [m for m in map(rxFxcErr.match, f.readlines()) if m]
             errors = sorted(errors, key=lambda m: int(m.group(2)))
@@ -578,35 +617,30 @@ class File(object):
             result[i] = line, diag_col, expected
 
         with open(result_filename, 'wt') as f:
-            f.write('\n'.join(map(lambda (line, diag_col, expected): line, result)))
+            f.write('\n'.join(map((lambda res: res[0]), result)))
 
     def TryAst(self, result_filename=None):
         temp_filename = os.path.expandvars(r'${TEMP}\%s' % os.path.split(self.filename)[1])
         if result_filename is None:
             result_filename = temp_filename + '.ast'
-        try:    os.unlink(temp_filename+'.ast_dump')
-        except: pass
         try:    os.unlink(result_filename)
         except: pass
-##        result = os.system('%s\\clang.exe -cc1 -fsyntax-only -ast-dump %s 1>"%s.ast_dump" 2>"%s.log"' %
-        result = os.system('%s\\dxc.exe -ast-dump %s -E main -T ps_5_0 1>"%s.ast_dump" 2>"%s.log"' %
-                           (HlslBinDir, self.filename, temp_filename, temp_filename))
+        result = subprocess.run(['%s\\dxc.exe' % HlslBinDir,
+                                 "-ast-dump", "-E", "main", "-T", "ps_5_0",
+                                 self.filename],
+                                capture_output=True, text=True)
         # dxc dumps ast even if there exists any syntax error. If there is any error, dxc returns some nonzero errorcode.
-        if not os.path.isfile(temp_filename+'.ast_dump'):
-            print('ast-dump failed, see log:\n  %s.log' % (temp_filename))
+        if not result.stdout:
+            with open("%s.log" % temp_filename, "wt") as f:
+                f.write(result.stderr)
+            print('ast-dump failed, see log:\n  "%s.log"' % (temp_filename))
             return
-##        elif result:
-##            print('ast-dump succeeded, but exited with error code %d, see log:\n  %s.log' % (result, temp_filename))
-        astlines = []
-        with open(temp_filename+'.ast_dump', 'rt') as fin:
-            for line in fin.readlines():
-                if line[-1] == '\n':
-                    line = line[:-1]
-                astlines.append(line)
         try:
-            ast_root = ParseAst(astlines)
+            ast_root = ParseAst(result.stdout.splitlines())
         except:
-            print('ParseAst failed on "%s"' % (temp_filename + '.ast_dump'))
+            with open("%s" % result_filename, "wt") as f:
+                f.write(result.stdout)
+            print('ParseAst failed on "%s"' % (result_filename))
             raise
         inlines = []
         with open(self.filename, 'rt') as fin:
@@ -658,19 +692,19 @@ def ProcessVerifierOutput(lines):
             files[cur_filename] = File(cur_filename)
             state = 'WaitingForCategory'
             continue
-        if state is 'WaitingForFile':
+        if state == 'WaitingForFile':
             m = rxEndGroup.match(line)
             if m and m.group(2) == 'Failed':
                 # This usually happens when compiler crashes
                 print('Fatal Error: test %s failed without verifier results.' % cur_test)
-        if state is 'WaitingForCategory' or state is 'ReadingErrors':
+        if state == 'WaitingForCategory' or state == 'ReadingErrors':
             m = rxExpected.match(line)
             if m:
                 ew = m.group(1)
                 expected = m.group(2) == 'expected but not seen'
                 state = 'ReadingErrors'
                 continue
-        if state is 'ReadingErrors':
+        if state == 'ReadingErrors':
             m = rxDiagReport.match(line)
             if m:
                 line_num = int(m.group(2))
@@ -692,7 +726,8 @@ def maybe_compare(filename1, filename2):
     if before.strip() != after.strip():
         print('Differences found.  Compare:\n  %s\nwith:\n  %s' % (filename1, filename2))
         if DiffTool:
-            os.system('%s %s %s' % (DiffTool, filename1, filename2))
+            subprocess.Popen([DiffTool, filename1, filename2],
+                             creationflags=subprocess.DETACHED_PROCESS)
         return True
     return False
 
@@ -710,7 +745,7 @@ def PrintUsage():
 def RunVerifierTest(test, HlslDataDir=HlslDataDir):
     import codecs
     temp_filename = os.path.expandvars(r'${TEMP}\VerifierHelper_temp.txt')
-    cmd = ('te %s\\clang-hlsl-tests.dll /p:"HlslDataDir=%s" /name:VerifierTest::%s > %s' %
+    cmd = ('te %s\\ClangHLSLTests.dll /p:"HlslDataDir=%s" /name:VerifierTest::%s > %s' %
            (HlslBinDir, HlslDataDir, test, temp_filename))
     print(cmd)
     os.system(cmd)      # TAEF test

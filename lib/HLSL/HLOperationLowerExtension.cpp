@@ -51,6 +51,7 @@ ExtensionLowering::Strategy ExtensionLowering::GetStrategy(StringRef strategy) {
     case 'p': return Strategy::Pack;
     case 'm': return Strategy::Resource;
     case 'd': return Strategy::Dxil;
+    case 'c': return Strategy::Custom;
     default: break;
   }
   return Strategy::Unknown;
@@ -63,6 +64,7 @@ llvm::StringRef ExtensionLowering::GetStrategyName(Strategy strategy) {
     case Strategy::Pack:          return "p";
     case Strategy::Resource:      return "m"; // m for resource method
     case Strategy::Dxil:          return "d";
+    case Strategy::Custom:        return "c";
     default: break;
   }
   return "?";
@@ -91,6 +93,7 @@ llvm::Value *ExtensionLowering::Translate(llvm::CallInst *CI) {
   case Strategy::Pack:          return Pack(CI);
   case Strategy::Resource:      return Resource(CI);
   case Strategy::Dxil:          return Dxil(CI);
+  case Strategy::Custom:        return Custom(CI);
   default: break;
   }
   return Unknown(CI);
@@ -189,6 +192,7 @@ protected:
     copyAttribute(Attribute::AttrKind::ReadOnly);
     copyAttribute(Attribute::AttrKind::ReadNone);
     copyAttribute(Attribute::AttrKind::ArgMemOnly);
+    copyAttribute(Attribute::AttrKind::NoUnwind);
 
     return attributes;
   }
@@ -373,6 +377,51 @@ Value *ExtensionLowering::Replicate(CallInst *CI) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Helper functions
+static VectorType* ConvertStructTypeToVectorType(Type* structTy) {
+  assert(structTy->isStructTy());
+  return VectorType::get(structTy->getStructElementType(0), structTy->getStructNumElements());
+}
+
+static Value* PackStructIntoVector(IRBuilder<>& builder, Value* strukt) {
+  Type* vecTy = ConvertStructTypeToVectorType(strukt->getType());
+  Value* packed = UndefValue::get(vecTy);
+
+  unsigned numElements = vecTy->getVectorNumElements();
+  for (unsigned i = 0; i < numElements; ++i) {
+    Value* element = builder.CreateExtractValue(strukt, i);
+    packed = builder.CreateInsertElement(packed, element, i);
+  }
+
+  return packed;
+}
+
+static StructType* ConvertVectorTypeToStructType(Type* vecTy) {
+  assert(vecTy->isVectorTy());
+  Type* elementTy = vecTy->getVectorElementType();
+  unsigned numElements = vecTy->getVectorNumElements();
+  SmallVector<Type*, 4> elements;
+  for (unsigned i = 0; i < numElements; ++i)
+    elements.push_back(elementTy);
+
+  return StructType::get(vecTy->getContext(), elements);
+}
+
+
+static Value* PackVectorIntoStruct(IRBuilder<>& builder, Value* vec) {
+  StructType* structTy = ConvertVectorTypeToStructType(vec->getType());
+  Value* packed = UndefValue::get(structTy);
+
+  unsigned numElements = structTy->getStructNumElements();
+  for (unsigned i = 0; i < numElements; ++i) {
+    Value* element = builder.CreateExtractElement(vec, i);
+    packed = builder.CreateInsertValue(packed, element, { i });
+  }
+
+  return packed;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Packed Lowering.
 class PackCall {
 public:
@@ -387,17 +436,6 @@ public:
     PackArgs(args);
     Value *result = CreateCall(args);
     return UnpackResult(result);
-  }
-  
-  static StructType *ConvertVectorTypeToStructType(Type *vecTy) {
-    assert(vecTy->isVectorTy());
-    Type *elementTy = vecTy->getVectorElementType();
-    unsigned numElements = vecTy->getVectorNumElements();
-    SmallVector<Type *, 4> elements;
-    for (unsigned i = 0; i < numElements; ++i)
-      elements.push_back(elementTy);
-
-    return StructType::get(vecTy->getContext(), elements);
   }
 
 private:
@@ -424,37 +462,6 @@ private:
     }
     return result;
   }
-
-  static VectorType *ConvertStructTypeToVectorType(Type *structTy) {
-    assert(structTy->isStructTy());
-    return VectorType::get(structTy->getStructElementType(0), structTy->getStructNumElements());
-  }
-
-  static Value *PackVectorIntoStruct(IRBuilder<> &builder, Value *vec) {
-    StructType *structTy = ConvertVectorTypeToStructType(vec->getType());
-    Value *packed = UndefValue::get(structTy);
-
-    unsigned numElements = structTy->getStructNumElements();
-    for (unsigned i = 0; i < numElements; ++i) {
-      Value *element = builder.CreateExtractElement(vec, i);
-      packed = builder.CreateInsertValue(packed, element, { i });
-    }
-
-    return packed;
-  }
-
-  static Value *PackStructIntoVector(IRBuilder<> &builder, Value *strukt) {
-    Type *vecTy = ConvertStructTypeToVectorType(strukt->getType());
-    Value *packed = UndefValue::get(vecTy);
-
-    unsigned numElements = vecTy->getVectorNumElements();
-    for (unsigned i = 0; i < numElements; ++i) {
-      Value *element = builder.CreateExtractValue(strukt, i);
-      packed = builder.CreateInsertElement(packed, element, i);
-    }
-
-    return packed;
-  }
 };
 
 class PackedFunctionTypeTranslator : public FunctionTypeTranslator {
@@ -467,7 +474,7 @@ class PackedFunctionTypeTranslator : public FunctionTypeTranslator {
 
   Type *TranslateIfVector(Type *ty) {
     if (ty->isVectorTy())
-      ty = PackCall::ConvertVectorTypeToStructType(ty);
+      ty = ConvertVectorTypeToStructType(ty);
     return ty;
   }
 };
@@ -712,10 +719,30 @@ Value *ExtensionLowering::Resource(CallInst *CI) {
 //  dxil: @MyTextureOp(17, handle, a.x, a.y, undef, c.x, c.y)
 //
 // 
-class CustomResourceLowering
+class CustomLowering
 {
 public:
-    CustomResourceLowering(StringRef LoweringInfo, CallInst *CI, HLResourceLookup &ResourceLookup)
+    CustomLowering(StringRef LoweringInfo, CallInst* CI)
+    {
+        // Parse lowering info json format.
+        std::map<ResourceKindName, std::vector<DxilArgInfo>> LoweringInfoMap =
+            ParseLoweringInfo(LoweringInfo, CI->getContext());
+
+        // Find the default lowering kind
+        std::vector<DxilArgInfo> *pArgInfo = nullptr;
+        if (LoweringInfoMap.count(m_DefaultInfoName))
+        {
+            pArgInfo = &LoweringInfoMap.at(m_DefaultInfoName);
+        }
+        else
+        {
+            ThrowExtensionError("Unable to find lowering info for custom function");
+        }
+        // Don't explode vectors for custom functions
+        GenerateLoweredArgs(CI, *pArgInfo);
+    }
+
+   CustomLowering(StringRef LoweringInfo, CallInst *CI, HLResourceLookup &ResourceLookup)
     {
         // Parse lowering info json format.
         std::map<ResourceKindName, std::vector<DxilArgInfo>> LoweringInfoMap =
@@ -731,15 +758,14 @@ public:
         std::string Name(pName);
 
         // Select lowering info to use based on resource kind.
-        const char *DefaultInfoName = "default";
         std::vector<DxilArgInfo> *pArgInfo = nullptr;
         if (LoweringInfoMap.count(Name))
         {
             pArgInfo = &LoweringInfoMap.at(Name);
         }
-        else if (LoweringInfoMap.count(DefaultInfoName))
+        else if (LoweringInfoMap.count(m_DefaultInfoName))
         {
-            pArgInfo = &LoweringInfoMap.at(DefaultInfoName);
+            pArgInfo = &LoweringInfoMap.at(m_DefaultInfoName);
         }
         else
         {
@@ -774,6 +800,7 @@ private:
             {"?half",  Type::getHalfTy(Ctx)},
             {"?i8",    Type::getInt8Ty(Ctx)},
             {"?i16",   Type::getInt16Ty(Ctx)},
+            {"?i1",    Type::getInt1Ty(Ctx)},
         };
         DXASSERT(m_OptionalTypes.empty(), "Init should only be called once");
         m_OptionalTypes.clear();
@@ -893,7 +920,7 @@ private:
         SmallVector<StringRef, 14> Splits;
         ArgSpec.split(Splits, ",");
 
-        for (const StringRef Split : Splits)
+        for (const StringRef &Split : Splits)
         {
             StringRef Field = Split.trim();
             StringRef HighLevelArgInfo;
@@ -964,6 +991,13 @@ private:
                         }
                     }
                 }
+                else
+                {
+                    // If the vector isn't exploded, use structs for DXIL Intrinsics
+                    if (Arg->getType()->isVectorTy()) {
+                      Arg = PackVectorIntoStruct(builder, Arg);
+                    }
+                }
 
                 m_LoweredArgs.push_back(Arg);
             }
@@ -983,27 +1017,28 @@ private:
     
     std::vector<Value *> m_LoweredArgs;
     SmallVector<OptionalTypeSpec, 5> m_OptionalTypes;
+    const char* m_DefaultInfoName = "default";
 };
 
 // Boilerplate to reuse exising logic as much as possible.
 // We just want to overload GetFunctionType here.
-class CustomResourceFunctionTranslator : public FunctionTranslator {
+class CustomFunctionTranslator : public FunctionTranslator {
 public:
   static Function *GetLoweredFunction(
-        const CustomResourceLowering &CustomLowering,
-        ResourceFunctionTypeTranslator &typeTranslator,
+        const CustomLowering &CustomLowering,
+        FunctionTypeTranslator &typeTranslator,
         CallInst *CI,
         ExtensionLowering &lower
     )
   {
-      CustomResourceFunctionTranslator T(CustomLowering, typeTranslator, lower);
+      CustomFunctionTranslator T(CustomLowering, typeTranslator, lower);
       return T.FunctionTranslator::GetLoweredFunction(CI);
   }
 
 private:
-    CustomResourceFunctionTranslator(
-        const CustomResourceLowering &CustomLowering,
-        ResourceFunctionTypeTranslator &typeTranslator,
+    CustomFunctionTranslator(
+        const CustomLowering &CustomLowering,
+        FunctionTypeTranslator &typeTranslator,
         ExtensionLowering &lower
     )
         : FunctionTranslator(typeTranslator, lower)
@@ -1022,7 +1057,7 @@ private:
     }
 
 private:
-    const CustomResourceLowering &m_CustomLowering;
+    const CustomLowering &m_CustomLowering;
 };
 
 // Boilerplate to reuse exising logic as much as possible.
@@ -1030,7 +1065,7 @@ private:
 class CustomResourceMethodCall : public ResourceMethodCall
 {
 public:
-    CustomResourceMethodCall(CallInst *CI, const CustomResourceLowering &CustomLowering)
+    CustomResourceMethodCall(CallInst *CI, const CustomLowering &CustomLowering)
         : ResourceMethodCall(CI)
         , m_CustomLowering(CustomLowering)
     {}
@@ -1042,14 +1077,14 @@ public:
     }
 
 private:
-    const CustomResourceLowering &m_CustomLowering;
+    const CustomLowering &m_CustomLowering;
 };
 
 // Support custom lowering logic for resource functions.
 Value *ExtensionLowering::CustomResource(CallInst *CI) {
-    CustomResourceLowering CustomLowering(m_extraStrategyInfo, CI, m_hlResourceLookup);
+    CustomLowering CustomLowering(m_extraStrategyInfo, CI, m_hlResourceLookup);
     ResourceFunctionTypeTranslator ResourceTypeTranslator(m_hlslOp);
-    Function *ResourceFunction = CustomResourceFunctionTranslator::GetLoweredFunction(
+    Function *ResourceFunction = CustomFunctionTranslator::GetLoweredFunction(
         CustomLowering,
         ResourceTypeTranslator,
         CI,
@@ -1061,6 +1096,30 @@ Value *ExtensionLowering::CustomResource(CallInst *CI) {
     CustomResourceMethodCall custom(CI, CustomLowering);
     Value *Result = custom.Generate(ResourceFunction);
     return Result;
+}
+
+// Support custom lowering logic for arbitrary functions.
+Value *ExtensionLowering::Custom(CallInst *CI) {
+    CustomLowering CustomLowering(m_extraStrategyInfo, CI);
+    PackedFunctionTypeTranslator TypeTranslator;
+    Function *CustomFunction = CustomFunctionTranslator::GetLoweredFunction(
+        CustomLowering,
+        TypeTranslator,
+        CI,
+        *this
+    );
+    if (!CustomFunction)
+        return NoTranslation(CI);
+
+    IRBuilder<> builder(CI);
+    Value* result = builder.CreateCall(CustomFunction, CustomLowering.GetLoweredArgs());
+
+    // Arbitrary functions will expect vectors, not structs
+    if (CustomFunction->getReturnType()->isStructTy()) {
+      return PackStructIntoVector(builder, result);
+    }
+
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1142,13 +1201,21 @@ private:
     return name.size() > 0;
   }
 
+  typedef unsigned OverloadArgIndex;
+  static constexpr OverloadArgIndex DefaultOverloadIndex = std::numeric_limits<OverloadArgIndex>::max();
+
   // Choose the (return value or argument) type that determines the overload type
   // for the intrinsic call.
-  // For now we take the return type as the overload. If the return is void we
-  // take the first (non-opcode) argument as the overload type. We could extend the
-  // $o sytnax in the extension name to explicitly specify the overload slot (e.g.
-  // $o:3 would say the overload type is determined by parameter 3.
-  static Type *SelectOverloadSlot(CallInst *CI) {
+  // If the overload arg index was explicitly specified (see ParseOverloadArgIndex)
+  // then we use that arg to pick the overload name. Otherwise we pick a default
+  // where we take the return type as the overload. If the return is void we
+  // take the first (non-opcode) argument as the overload type.
+  static Type *SelectOverloadSlot(CallInst *CI, OverloadArgIndex ArgIndex) {
+   if (ArgIndex != DefaultOverloadIndex)
+    {
+      return CI->getArgOperand(ArgIndex)->getType();
+    }
+
     Type *ty = CI->getType();
     if (ty->isVoidTy()) {
       if (CI->getNumArgOperands() > 1)
@@ -1158,8 +1225,8 @@ private:
     return ty;
   }
 
-  static Type *GetOverloadType(CallInst *CI) {
-    Type *ty = SelectOverloadSlot(CI);
+  static Type *GetOverloadType(CallInst *CI, OverloadArgIndex ArgIndex) {
+    Type *ty = SelectOverloadSlot(CI, ArgIndex);
     if (ty->isVectorTy())
       ty = ty->getVectorElementType();
 
@@ -1174,19 +1241,77 @@ private:
       return typeName;
   }
 
-  static std::string GetOverloadTypeName(CallInst *CI) {
-    Type *ty = GetOverloadType(CI);
+  static std::string GetOverloadTypeName(CallInst *CI, OverloadArgIndex ArgIndex) {
+    Type *ty = GetOverloadType(CI, ArgIndex);
     return GetTypeName(ty);
+  }
+
+  // Parse the arg index out of the overload marker (if any).
+  //
+  // The function names use a $o to indicate that the function is overloaded
+  // and we should replace $o with the overload type. The extension name can
+  // explicitly set which arg to use for the overload type by adding a colon
+  // and a number after the $o (e.g. $o:3 would say the overload type is
+  // determined by parameter 3).
+  //
+  // If we find an arg index after the overload marker we update the size
+  // of the marker to include the full parsed string size so that it can
+  // be replaced with the selected overload type.
+  //
+  static OverloadArgIndex ParseOverloadArgIndex(
+      const std::string& functionName,
+      size_t OverloadMarkerStartIndex,
+      size_t *pOverloadMarkerSize)
+  {
+      assert(OverloadMarkerStartIndex != std::string::npos);
+      size_t StartIndex = OverloadMarkerStartIndex + *pOverloadMarkerSize;
+
+      // Check if we have anything after the overload marker to parse.
+      if (StartIndex >= functionName.size())
+      {
+          return DefaultOverloadIndex;
+      }
+
+      // Does it start with a ':' ?
+      if (functionName[StartIndex] != ':')
+      {
+          return DefaultOverloadIndex;
+      }
+
+      // Skip past the :
+      ++StartIndex;
+
+      // Collect all the digits.
+      std::string Digits;
+      Digits.reserve(functionName.size() - StartIndex);
+      for (size_t i = StartIndex; i < functionName.size(); ++i)
+      {
+          char c = functionName[i];
+          if (!isdigit(c))
+          {
+              break;
+          }
+          Digits.push_back(c);
+      }
+
+      if (Digits.empty())
+      {
+          return DefaultOverloadIndex;
+      }
+
+      *pOverloadMarkerSize = *pOverloadMarkerSize + std::strlen(":") + Digits.size();
+      return std::stoi(Digits);
   }
 
   // Find the occurence of the overload marker $o and replace it the the overload type name.
   static void ReplaceOverloadMarkerWithTypeName(std::string &functionName, CallInst *CI) {
     const char *OverloadMarker = "$o";
-    const size_t OverloadMarkerLength = 2;
+    size_t OverloadMarkerLength = 2;
 
     size_t pos = functionName.find(OverloadMarker);
     if (pos != std::string::npos) {
-      std::string typeName = GetOverloadTypeName(CI);
+      OverloadArgIndex ArgIndex = ParseOverloadArgIndex(functionName, pos, &OverloadMarkerLength);
+      std::string typeName = GetOverloadTypeName(CI, ArgIndex);
       functionName.replace(pos, OverloadMarkerLength, typeName);
     }
   }

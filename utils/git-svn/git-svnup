@@ -8,7 +8,7 @@ fi
 
 git fetch
 OLD_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-git checkout master 2> /dev/null
+git checkout main 2> /dev/null
 git svn rebase -l
 git checkout $OLD_BRANCH 2> /dev/null
 

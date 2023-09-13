@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 struct S {
     float4 f;
@@ -34,19 +34,15 @@ cbuffer impBindVsReg2 : register(space1) {
 // CHECK-NEXT: OpDecorate %impBindVsReg2 Binding 9
 
 // explicit set vk::binding + explict counter > :register
-[[vk::binding(4,1), vk::counter_binding(5)]]
+[[vk::binding(4,1)]]
 RWStructuredBuffer<S> exBindVsRegExCt : register(u4, space9);
 // CHECK:      OpDecorate %exBindVsRegExCt DescriptorSet 1
 // CHECK-NEXT: OpDecorate %exBindVsRegExCt Binding 4
-// CHECK-NEXT: OpDecorate %counter_var_exBindVsRegExCt DescriptorSet 1
-// CHECK-NEXT: OpDecorate %counter_var_exBindVsRegExCt Binding 5
 
-[[vk::binding(6,1), vk::counter_binding(7)]]
+[[vk::binding(6,1)]]
 RWStructuredBuffer<S> exBindVsRegExCt2 : register(space9);
 // CHECK:      OpDecorate %exBindVsRegExCt2 DescriptorSet 1
 // CHECK-NEXT: OpDecorate %exBindVsRegExCt2 Binding 6
-// CHECK-NEXT: OpDecorate %counter_var_exBindVsRegExCt2 DescriptorSet 1
-// CHECK-NEXT: OpDecorate %counter_var_exBindVsRegExCt2 Binding 7
 
 // implicit set vk::binding + explict counter > :register
 [[vk::binding(2), vk::counter_binding(5)]]
@@ -91,13 +87,6 @@ RWStructuredBuffer<S> impBindVsRegImpCt2 : register(u2, space4);
 
 // CHECK:      OpDecorate %counter_var_exBindVsRegImpCt2 DescriptorSet 3
 // CHECK-NEXT: OpDecorate %counter_var_exBindVsRegImpCt2 Binding 1
-
-// implicit set vk::binding > :register implicit counter (counter part)
-// CHECK:      OpDecorate %counter_var_impBindVsRegImpCt DescriptorSet 0
-// CHECK-NEXT: OpDecorate %counter_var_impBindVsRegImpCt Binding 0
-
-// CHECK:      OpDecorate %counter_var_impBindVsRegImpCt2 DescriptorSet 0
-// CHECK-NEXT: OpDecorate %counter_var_impBindVsRegImpCt2 Binding 1
 
 float4 main() : SV_Target {
     return 1.0;

@@ -174,6 +174,8 @@ public:
   typedef IRBuilder<true, TargetFolder, InstCombineIRInserter> BuilderTy;
   BuilderTy *Builder;
 
+  bool m_HLSLNoSinks = false; // HLSL Change
+
 private:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;

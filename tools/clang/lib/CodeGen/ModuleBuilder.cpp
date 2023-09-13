@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include <memory>
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
 #include "llvm/Support/Path.h"
 using namespace clang;
 
@@ -210,14 +211,52 @@ namespace {
         M.reset();
         return;
       }
+      // HLSL Change Begins.
+      if (&Ctx == this->Ctx) {
+        if (Builder) {
+          // Add semantic defines for extensions if any are available.
+          auto &CodeGenOpts =
+              const_cast<CodeGenOptions &>(Builder->getCodeGenOpts());
+          if (CodeGenOpts.HLSLExtensionsCodegen) {
+            CodeGenOpts.HLSLExtensionsCodegen->WriteSemanticDefines(
+                    M.get());
+            // Builder->CodeGenOpts is a copy. So update it for every Builder.
+            CodeGenOpts.HLSLExtensionsCodegen->UpdateCodeGenOptions(
+                CodeGenOpts);
+          }
+        }
+      }
+      // HLSL Change Ends.
       if (Builder)
         Builder->Release();
+
       // HLSL Change Begins
+
+      if (CodeGenOpts.BindingTableParser) {
+        hlsl::DxcBindingTable bindingTable;
+        std::string errors;
+        llvm::raw_string_ostream os(errors);
+
+        if (!CodeGenOpts.BindingTableParser->Parse(os, &bindingTable)) {
+          os.flush();
+          unsigned DiagID = Diags.getCustomDiagID(
+                DiagnosticsEngine::Error, "%0");
+          Diags.Report(DiagID) << errors;
+        }
+        else {
+          hlsl::WriteBindingTableToMetadata(*M, bindingTable);
+        }
+      }
+      else {
+        // Add resource binding overrides to the metadata.
+        hlsl::WriteBindingTableToMetadata(*M, CodeGenOpts.HLSLBindingTable);
+      }
+
       // Error may happen in Builder->Release for HLSL
-      if (CodeGenOpts.getDebugInfo() == CodeGenOptions::DebugInfoKind::FullDebugInfo) {
+      if (CodeGenOpts.HLSLEmbedSourcesInModule) {
+        llvm::LLVMContext &LLVMCtx = M->getContext();
         // Add all file contents in a list of filename/content pairs.
         llvm::NamedMDNode *pContents = nullptr;
-        llvm::LLVMContext &LLVMCtx = M->getContext();
         auto AddFile = [&](StringRef name, StringRef content) {
           if (pContents == nullptr) {
             pContents = M->getOrInsertNamedMetadata(
@@ -269,8 +308,10 @@ namespace {
         // Add main file name to debug info
         llvm::NamedMDNode *pSourceFilename = M->getOrInsertNamedMetadata(
             hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName);
+        llvm::SmallString<128> NormalizedPath;
+        llvm::sys::path::native(CodeGenOpts.MainFileName, NormalizedPath);
         llvm::MDTuple *pFileName = llvm::MDNode::get(
-          LLVMCtx, llvm::MDString::get(LLVMCtx, CodeGenOpts.MainFileName));
+            LLVMCtx, llvm::MDString::get(LLVMCtx, NormalizedPath));
         pSourceFilename->addOperand(pFileName);
 
         // Pass in any other arguments to debug info

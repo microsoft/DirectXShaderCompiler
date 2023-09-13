@@ -45,7 +45,8 @@ static
 DWORD WIN32_FROM_HRESULT(HRESULT hr)
 {
   if (SUCCEEDED(hr)) return ERROR_SUCCESS;
-  if ((hr & 0xFFFF0000) == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, 0))
+  if ((HRESULT)(hr & 0xFFFF0000) ==
+      MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, 0))
   {
     // Could have come from many values, but we choose this one
     return HRESULT_CODE(hr);
@@ -88,11 +89,6 @@ void ClearStatStg(_Inout_ STATSTG* statStg)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // IDxcSystemAccess-based MSFileSystem implementation.
 
-static const int FirstAllocFD = 10;
-static const int LastAllocFD = 8 * 1024;
-static const HANDLE FirstAllocHandle = (HANDLE)(uintptr_t)FirstAllocFD;
-static const HANDLE LastAllocHandle = (HANDLE)(uintptr_t)LastAllocFD;
-
 struct MSFileSystemHandle
 {
   enum MSFileSystemHandleKind
@@ -109,27 +105,28 @@ struct MSFileSystemHandle
   int fd;                   // For a file handle, its file descriptor.
 
   MSFileSystemHandle(int knownFD)
-    : fd(knownFD)
-    , kind(MSFileSystemHandleKind_FileHandle)
+      : kind(MSFileSystemHandleKind_FileHandle),
+      fd(knownFD)
   {
   }
 
   MSFileSystemHandle(IUnknown* pMapping)
-    : storage(pMapping)
-    , kind(MSFileSystemHandleKind_FileMappingHandle)
+      : kind(MSFileSystemHandleKind_FileMappingHandle)
+    , storage(pMapping)
     , fd(0)
   {
   }
 
   MSFileSystemHandle(IUnknown* pStorage, IStream* pStream)
-    : storage(pStorage)
+      : kind(MSFileSystemHandleKind_FileHandle) ,
+      storage(pStorage)
     , stream(pStream)
-    , kind(MSFileSystemHandleKind_FileHandle)
     , fd(0)
   {
   }
 
-  MSFileSystemHandle(IEnumSTATSTG* pEnumSTATG) : storage(pEnumSTATG), kind(MSFileSystemHandleKind_FindHandle)
+  MSFileSystemHandle(IEnumSTATSTG *pEnumSTATG)
+      : kind(MSFileSystemHandleKind_FindHandle) ,storage(pEnumSTATG)
   {
   }
 
@@ -445,7 +442,6 @@ BOOL MSFileSystemForIface::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lp
 {
   HRESULT hr = S_OK;
   CComPtr<IEnumSTATSTG> enumStatStg;
-  BOOL resultValue = FALSE;
   STATSTG elt;
   ULONG fetched;
 
@@ -462,7 +458,6 @@ BOOL MSFileSystemForIface::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lp
   else
   {
     IFC(CopyStatStg(&elt, lpFindFileData));
-    resultValue = TRUE;
   }
 
 Cleanup:
@@ -971,7 +966,7 @@ int MSFileSystemForIface::Fstat(int FD, struct stat *Status) throw() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Blocked MSFileSystem implementation.
 
-#ifdef DBG
+#ifndef NDEBUG
 static void MSFileSystemBlockedCalled() { DebugBreak(); }
 #else
 static void MSFileSystemBlockedCalled() { }

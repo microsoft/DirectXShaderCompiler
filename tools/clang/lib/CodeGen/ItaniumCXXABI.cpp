@@ -2376,6 +2376,8 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
     case BuiltinType::Min16Float:
     case BuiltinType::HalfFloat:
     case BuiltinType::LitFloat:
+    case BuiltinType::Int8_4Packed:
+    case BuiltinType::UInt8_4Packed:
       llvm_unreachable("FIXME: HLSL types are unsupported!");
       break;
   }
@@ -2601,7 +2603,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     }
 
     assert(isa<ObjCInterfaceType>(Ty));
-    // Fall through.
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case Type::ObjCInterface:
     if (cast<ObjCInterfaceType>(Ty)->getDecl()->getSuperClass()) {
@@ -3478,7 +3480,7 @@ static void InitCatchParam(CodeGenFunction &CGF,
       switch (CatchType.getQualifiers().getObjCLifetime()) {
       case Qualifiers::OCL_Strong:
         CastExn = CGF.EmitARCRetainNonBlock(CastExn);
-        // fallthrough
+        LLVM_FALLTHROUGH; // HLSL Change
 
       case Qualifiers::OCL_None:
       case Qualifiers::OCL_ExplicitNone:

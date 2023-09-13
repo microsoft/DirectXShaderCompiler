@@ -35,9 +35,14 @@ namespace llvm {
 template <typename DerivedT, typename IteratorCategoryT, typename T,
           typename DifferenceTypeT = std::ptrdiff_t, typename PointerT = T *,
           typename ReferenceT = T &>
-class iterator_facade_base
-    : public std::iterator<IteratorCategoryT, T, DifferenceTypeT, PointerT,
-                           ReferenceT> {
+class iterator_facade_base {
+public:
+  using iterator_category = IteratorCategoryT;
+  using value_type = T;
+  using difference_type = DifferenceTypeT;
+  using pointer = PointerT;
+  using reference = ReferenceT;
+
 protected:
   enum {
     IsRandomAccess =
@@ -152,15 +157,7 @@ protected:
 
   iterator_adaptor_base() = default;
 
-  template <typename U>
-  explicit iterator_adaptor_base(
-      U &&u,
-      typename std::enable_if<
-          !std::is_base_of<typename std::remove_cv<
-                               typename std::remove_reference<U>::type>::type,
-                           DerivedT>::value,
-          int>::type = 0)
-      : I(std::forward<U &&>(u)) {}
+  explicit iterator_adaptor_base(WrappedIteratorT u) : I(std::move(u)) {}
 
   const WrappedIteratorT &wrapped() const { return I; }
 
@@ -239,6 +236,23 @@ struct pointee_iterator
       : pointee_iterator::iterator_adaptor_base(std::forward<U &&>(u)) {}
 
   T &operator*() const { return **this->I; }
+};
+
+template <typename WrappedIteratorT,
+          typename T = decltype(&*std::declval<WrappedIteratorT>())>
+class pointer_iterator
+    : public iterator_adaptor_base<pointer_iterator<WrappedIteratorT>,
+                                   WrappedIteratorT, T> {
+  mutable T Ptr;
+
+public:
+  pointer_iterator() {}
+
+  explicit pointer_iterator(WrappedIteratorT u)
+      : pointer_iterator::iterator_adaptor_base(std::move(u)) {}
+
+  T &operator*() { return Ptr = &*this->I; }
+  const T &operator*() const { return Ptr = &*this->I; }
 };
 
 }

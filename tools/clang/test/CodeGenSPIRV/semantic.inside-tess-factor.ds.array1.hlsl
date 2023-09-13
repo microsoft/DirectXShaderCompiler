@@ -1,4 +1,4 @@
-// Run: %dxc -T ds_6_0 -E main
+// RUN: %dxc -T ds_6_0 -E main
 
 // CHECK: %gl_TessLevelInner = OpVariable %_ptr_Input__arr_float_uint_2 Input
 

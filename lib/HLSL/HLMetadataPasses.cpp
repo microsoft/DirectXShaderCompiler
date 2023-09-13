@@ -21,7 +21,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLEmitMetadata() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL High-Level Metadata Emit"; }
+  StringRef getPassName() const override { return "HLSL High-Level Metadata Emit"; }
 
   bool runOnModule(Module &M) override {
     if (M.HasHLModule()) {
@@ -51,7 +51,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLEnsureMetadata() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL High-Level Metadata Ensure"; }
+  StringRef getPassName() const override { return "HLSL High-Level Metadata Ensure"; }
 
   bool runOnModule(Module &M) override {
     if (!M.HasHLModule()) {

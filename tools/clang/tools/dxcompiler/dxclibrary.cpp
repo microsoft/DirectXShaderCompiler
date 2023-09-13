@@ -28,13 +28,11 @@
 using namespace llvm;
 using namespace hlsl;
 
-#ifdef _WIN32
 // Temporary: Define these here until a better header location is found.
 namespace hlsl {
-HRESULT CreateDxilShaderReflection(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject);
-HRESULT CreateDxilLibraryReflection(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject);
+HRESULT CreateDxilShaderOrLibraryReflectionFromProgramHeader(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject);
+HRESULT CreateDxilShaderOrLibraryReflectionFromModulePart(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject);
 }
-#endif
 
 class DxcIncludeHandlerForFS : public IDxcIncludeHandler {
 private:
@@ -214,7 +212,7 @@ public:
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IStream **ppStream) override;
   HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override;
-  HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
+  HRESULT STDMETHODCALLTYPE GetBlobAsWide(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override;
 };
 
@@ -279,10 +277,7 @@ public:
     _In_z_ LPCWSTR pFileName, _In_opt_ UINT32* pCodePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
-    try {
-      return ::hlsl::DxcCreateBlobFromFile(pFileName, pCodePage, pBlobEncoding);
-    }
-    CATCH_CPP_RETURN_HRESULT();
+    return ::hlsl::DxcCreateBlobFromFile(pFileName, pCodePage, pBlobEncoding);
   }
 
   HRESULT STDMETHODCALLTYPE CreateReadOnlyStreamFromBlob(
@@ -311,11 +306,12 @@ public:
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcGetBlobAsUtf8(pBlob, m_pMalloc, pBlobEncoding);
   }
-  virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobUtf16 **pBlobEncoding) override {
+
+  virtual HRESULT STDMETHODCALLTYPE GetBlobAsWide(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobWide **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     try {
-      return ::hlsl::DxcGetBlobAsUtf16(pBlob, m_pMalloc, pBlobEncoding);
+      return ::hlsl::DxcGetBlobAsWide(pBlob, m_pMalloc, pBlobEncoding);
     }
     CATCH_CPP_RETURN_HRESULT();
   }
@@ -344,18 +340,29 @@ public:
 
   virtual HRESULT STDMETHODCALLTYPE CreateReflection(
     _In_ const DxcBuffer *pData, REFIID iid, void **ppvReflection) override {
-#ifdef _WIN32
     if (!pData || !pData->Ptr || pData->Size < 8 || pData->Encoding != DXC_CP_ACP ||
         !ppvReflection)
       return E_INVALIDARG;
 
     DxcThreadMalloc TM(m_pMalloc);
     try {
+      CComPtr<IDxcBlob> pPdbContainerBlob;
       const DxilPartHeader *pModulePart = nullptr;
       const DxilPartHeader *pRDATPart = nullptr;
 
+      const DxilContainerHeader *pHeader = IsDxilContainerLike(pData->Ptr, pData->Size);
+      if (!pHeader) {
+        CComPtr<IDxcBlobEncoding> pBlob;
+        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(pData->Ptr, pData->Size, pData->Size, &pBlob));
+        CComPtr<IStream> pStream;
+        IFR(hlsl::CreateReadOnlyBlobStream(pBlob, &pStream));
+        if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &pPdbContainerBlob))) {
+          pHeader = IsDxilContainerLike(pPdbContainerBlob->GetBufferPointer(), pPdbContainerBlob->GetBufferSize());
+        }
+      }
+
       // Is this a valid DxilContainer?
-      if (const DxilContainerHeader *pHeader = IsDxilContainerLike(pData->Ptr, pData->Size)) {
+      if (pHeader) {
         if (!IsValidDxilContainer(pHeader, pData->Size))
           return E_INVALIDARG;
 
@@ -389,6 +396,9 @@ public:
         pModulePart = pStatsPart ? pStatsPart : pDebugDXILPart ? pDebugDXILPart : pDXILPart;
         if (nullptr == pModulePart)
           return DXC_E_MISSING_PART;
+      } else if (hlsl::IsValidDxilProgramHeader((const hlsl::DxilProgramHeader *)pData->Ptr, pData->Size)) {
+
+        return hlsl::CreateDxilShaderOrLibraryReflectionFromProgramHeader((const hlsl::DxilProgramHeader *)pData->Ptr, pRDATPart, iid, ppvReflection);
 
       } else {
         // Not a container, try a statistics part that holds a valid program part.
@@ -403,7 +413,7 @@ public:
         UINT32 SizeRemaining = pData->Size - (sizeof(DxilPartHeader) + pPart->PartSize);
         if (SizeRemaining > sizeof(DxilPartHeader)) {
           // Looks like we also have an RDAT part
-          pPart = (DxilPartHeader*)(GetDxilPartData(pPart) + pPart->PartSize);
+          pPart = (const DxilPartHeader*)(GetDxilPartData(pPart) + pPart->PartSize);
           if (pPart->PartSize < /*sizeof(RuntimeDataHeader)*/8 ||
               pPart->PartSize + sizeof(DxilPartHeader) > SizeRemaining)
             return E_INVALIDARG;
@@ -413,42 +423,9 @@ public:
         }
       }
 
-      bool bIsLibrary = false;
-
-      if (pModulePart) {
-        if (pModulePart->PartFourCC != DFCC_DXIL &&
-            pModulePart->PartFourCC != DFCC_ShaderDebugInfoDXIL &&
-            pModulePart->PartFourCC != DFCC_ShaderStatistics) {
-          return E_INVALIDARG;
-        }
-        const DxilProgramHeader *pProgramHeader =
-          reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pModulePart));
-        if (!IsValidDxilProgramHeader(pProgramHeader, pModulePart->PartSize))
-          return E_INVALIDARG;
-
-        // If bitcode is too small, it's probably been stripped, and we cannot create reflection with it.
-        if (pModulePart->PartSize - pProgramHeader->BitcodeHeader.BitcodeOffset < 4)
-          return DXC_E_MISSING_PART;
-
-        // Detect whether library, or if unrecognized program version.
-        DXIL::ShaderKind SK = GetVersionShaderType(pProgramHeader->ProgramVersion);
-        if (!(SK < DXIL::ShaderKind::Invalid))
-          return E_INVALIDARG;
-        bIsLibrary = DXIL::ShaderKind::Library == SK;
-      }
-
-      if (bIsLibrary) {
-        IFR(hlsl::CreateDxilLibraryReflection(pModulePart, pRDATPart, iid, ppvReflection));
-      } else {
-        IFR(hlsl::CreateDxilShaderReflection(pModulePart, pRDATPart, iid, ppvReflection));
-      }
-
-      return S_OK;
+      return hlsl::CreateDxilShaderOrLibraryReflectionFromModulePart(pModulePart, pRDATPart, iid, ppvReflection);
     }
     CATCH_CPP_RETURN_HRESULT();
-#else
-    return E_NOTIMPL;
-#endif
   }
 
   virtual HRESULT STDMETHODCALLTYPE BuildArguments(
@@ -582,10 +559,10 @@ HRESULT STDMETHODCALLTYPE DxcLibrary::GetBlobAsUtf8(
   return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE DxcLibrary::GetBlobAsUtf16(
+HRESULT STDMETHODCALLTYPE DxcLibrary::GetBlobAsWide(
   _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
-  CComPtr<IDxcBlobUtf16> pBlobUtf16;
-  IFR(self.GetBlobAsUtf16(pBlob, &pBlobUtf16));
+  CComPtr<IDxcBlobWide> pBlobUtf16;
+  IFR(self.GetBlobAsWide(pBlob, &pBlobUtf16));
   IFR(pBlobUtf16->QueryInterface(pBlobEncoding));
   return S_OK;
 }

@@ -3,10 +3,10 @@
 void dead()
 {
     int array[2];
-    array[-1] = 0;                                          /* expected-warning {{array index -1 is before the beginning of the array}} fxc-pass */
+    array[-1] = 0;                                          /* expected-warning {{array index -1 is before the beginning of the array}} fxc-pass {{}} */
     array[0] = 0;
     array[1] = 0;
-    array[2] = 0;                                           /* expected-warning {{array index 2 is past the end of the array (which contains 2 elements)}} fxc-pass */
+    array[2] = 0;                                           /* expected-warning {{array index 2 is past the end of the array (which contains 2 elements)}} fxc-pass {{}} */
 }
 
 void main() {}

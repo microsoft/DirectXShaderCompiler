@@ -198,7 +198,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   DxilPreserveAllOutputs() : FunctionPass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL preserve all outputs";
   }
 

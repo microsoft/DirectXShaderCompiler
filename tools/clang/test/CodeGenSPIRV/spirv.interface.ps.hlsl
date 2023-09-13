@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-reflect
+// RUN: %dxc -T ps_6_0 -E main -fspv-reflect
 
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance

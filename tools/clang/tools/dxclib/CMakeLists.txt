@@ -22,6 +22,7 @@ add_clang_library(dxclib
 
 if(ENABLE_SPIRV_CODEGEN)
   target_link_libraries(dxclib PRIVATE SPIRV-Tools)
+  target_link_libraries(dxclib PRIVATE clangSPIRV)
 endif()
 
 if (WIN32)
@@ -30,5 +31,5 @@ endif (WIN32)
 
 target_compile_definitions(dxclib
     PRIVATE VERSION_STRING_SUFFIX=" for ${CMAKE_SYSTEM_NAME}")
-    
+
 add_dependencies(dxclib TablegenHLSLOptions dxcompiler)

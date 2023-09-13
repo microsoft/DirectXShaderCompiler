@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -HV 2018 -E main
 
 // CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
 SamplerState gSS1;
@@ -16,6 +16,7 @@ void main() {
   // CHECK: %temp_var_ternary = OpVariable %_ptr_Function_mat2v3float Function
   // CHECK: %temp_var_ternary_0 = OpVariable %_ptr_Function_mat2v3float Function
   // CHECK: %temp_var_ternary_1 = OpVariable %_ptr_Function_type_sampler Function
+  // CHECK: %temp_var_ternary_2 = OpVariable %_ptr_Function_type_sampler Function
 
   bool b0;
   int m, n, o;
@@ -62,9 +63,9 @@ void main() {
   w = cond3 ? u : v;
 
   // CHECK:       [[cond:%\d+]] = OpLoad %bool %cond
+  // CHECK-NEXT: [[splat:%\d+]] = OpCompositeConstruct %v3bool [[cond]] [[cond]] [[cond]]
   // CHECK-NEXT:     [[u:%\d+]] = OpLoad %v3int %u
   // CHECK-NEXT:     [[v:%\d+]] = OpLoad %v3int %v
-  // CHECK-NEXT: [[splat:%\d+]] = OpCompositeConstruct %v3bool [[cond]] [[cond]] [[cond]]
   // CHECK-NEXT:       {{%\d+}} = OpSelect %v3int [[splat]] [[u]] [[v]]
   w = cond ? u : v;
 
@@ -113,7 +114,8 @@ void main() {
   // CHECK:      [[c_long:%\d+]] = OpSelect %long {{%\d+}} %long_3000000000 %long_4000000000
   double c = cond ? 3000000000 : 4000000000;
 
-  // CHECK:      [[d_int:%\d+]] = OpSelect %uint {{%\d+}} %uint_1 %uint_0
+  // CHECK:      [[d_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
+  // CHECK:      {{%\d+}} = OpBitcast %uint [[d_int]]
   uint d = cond ? 1 : 0;
 
   float2x3 e;
@@ -134,8 +136,9 @@ void main() {
   // CHECK-NEXT:                OpStore %g [[temp]]
   float2x3 g = cond ? e : f;
 
-  // CHECK:      [[inner:%\d+]] = OpSelect %uint {{%\d+}} %uint_1 %uint_2
-  // CHECK-NEXT:       {{%\d+}} = OpSelect %uint {{%\d+}} %uint_9 [[inner]]
+  // CHECK:       [[inner:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_2
+  // CHECK-NEXT: [[outter:%\d+]] = OpSelect %int {{%\d+}} %int_9 [[inner]]
+  // CHECK-NEXT:        {{%\d+}} = OpBitcast %uint [[outter]]
   uint h = cond ? 9 : (cond ? 1 : 2);
 
   //CHECK:      [[i_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
@@ -191,12 +194,37 @@ void main() {
   bool2x3 cond2x3;
   float2x3 true2x3, false2x3;
   float2x3 result2x3 = cond2x3 ? true2x3 : false2x3;
+
+  // Note that AST does not have a ImplicitCastExpr around intCond for this case:
+  // | `-VarDecl 0x2a90094e0d0 <col:3, col:37> col:16 s 'SamplerState' cinit
+  // |   `-ConditionalOperator 0x2a90094e1b8 <col:20, col:37> 'SamplerState'
+  // |     |-DeclRefExpr 0x2a90094e140 <col:20> 'int' lvalue Var 0x2a90051e1c0 'intCond' 'int'
+  // |     |-DeclRefExpr 0x2a90094e168 <col:30> 'SamplerState' lvalue Var 0x2a9004c6f40 'gSS1' 'SamplerState'
+  // |     `-DeclRefExpr 0x2a90094e190 <col:37> 'SamplerState' lvalue Var 0x2a9004c7000 'gSS2' 'SamplerState'
+
+  // CHECK:       [[intCond:%\d+]] = OpLoad %int %intCond
+  // CHECK-NEXT:     [[gSS1:%\d+]] = OpLoad %type_sampler %gSS1
+  // CHECK-NEXT:     [[gSS2:%\d+]] = OpLoad %type_sampler %gSS2
+  // CHECK-NEXT: [[boolCond:%\d+]] = OpINotEqual %bool [[intCond]] %int_0
+  // CHECK-NEXT:                     OpSelectionMerge %if_merge_2 None
+  // CHECK-NEXT:                     OpBranchConditional [[boolCond]] %if_true_2 %if_false_2
+  // CHECK-NEXT:        %if_true_2 = OpLabel
+  // CHECK-NEXT:                     OpStore %temp_var_ternary_2 [[gSS1]]
+  // CHECK-NEXT:                     OpBranch %if_merge_2
+  // CHECK-NEXT:       %if_false_2 = OpLabel
+  // CHECK-NEXT:                     OpStore %temp_var_ternary_2 [[gSS2]]
+  // CHECK-NEXT:                     OpBranch %if_merge_2
+  // CHECK-NEXT:       %if_merge_2 = OpLabel
+  // CHECK-NEXT:  [[tempVar:%\d+]] = OpLoad %type_sampler %temp_var_ternary_2
+  // CHECK-NEXT:                     OpStore %s [[tempVar]]
+  SamplerState s = intCond ? gSS1 : gSS2;
 }
 
 //
 // The literal integer type should be deduced from the function return type.
 //
-// CHECK: OpSelect %uint {{%\d+}} %uint_1 %uint_2
+// CHECK:      [[result:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_2
+// CHECK-NEXT:                   OpBitcast %uint [[result]]
 uint zoo() {
   bool cond;
   return cond ? 1 : 2;

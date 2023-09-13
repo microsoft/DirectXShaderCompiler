@@ -7,7 +7,7 @@
 float main() {
 
 // redefinition of %0 shadows declaration in the outer scope; most recent declaration will be used
-// CHECK-NOT: redefinition
+// CHECK-NOT: redefinition of
   for (int i=0; i<4; i++);
   for (int i=0; i<4; i++);
 

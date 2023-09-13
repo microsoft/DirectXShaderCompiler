@@ -36,9 +36,9 @@
 using namespace llvm;
 
 // HLSL Change
-#define NOMINMAX
-#include <windows.h>
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
 // End HLSL Change
 
 static cl::opt<std::string>
@@ -51,6 +51,12 @@ InputFilename("input-file", cl::desc("File to check (defaults to stdin)"),
 static cl::list<std::string>
 CheckPrefixes("check-prefix",
               cl::desc("Prefix to use from check file (defaults to 'CHECK')"));
+
+static cl::alias CheckPrefixesAlias(
+    "check-prefixes", cl::aliasopt(CheckPrefixes), cl::CommaSeparated,
+    cl::NotHidden,
+    cl::desc(
+        "Alias for -check-prefix permitting multiple comma separated values"));
 
 static cl::opt<bool>
 NoCanonicalizeWhiteSpace("strict-whitespace",

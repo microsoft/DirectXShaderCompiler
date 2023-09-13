@@ -46,6 +46,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change - special handling of convergent marker
 using namespace llvm;
 
 #define DEBUG_TYPE "local"
@@ -330,6 +331,10 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
   if (CallInst *CI = isFreeCall(I, TLI))
     if (Constant *C = dyn_cast<Constant>(CI->getArgOperand(0)))
       return C->isNullValue() || isa<UndefValue>(C);
+
+  // HLSL change - don't force unused convergenet markers to stay
+  if (CallInst *CI = dyn_cast<CallInst>(I))
+    if (hlsl::dxilutil::IsConvergentMarker(CI)) return true;
 
   return false;
 }

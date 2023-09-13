@@ -164,6 +164,10 @@ lets you to specify the descriptor for the source at a certain register.
 ``-fvk-{b|s|t|u}-shift`` lets you to apply shifts to all register numbers
 of a certain register type. They cannot be used together, though.
 
+When the ``[[vk::combinedImageSampler]]`` attribute is applied, only the
+``-fvk-t-shift`` value will be used to apply shifts to combined texture and
+sampler resource bindings and any ``-fvk-s-shift`` value will be ignored.
+
 Without attribute and command-line option, ``:register(xX, spaceY)`` will be
 mapped to binding ``X`` in descriptor set ``Y``. Note that register type ``x``
 is ignored, so this may cause overlap.
@@ -247,6 +251,10 @@ Please note as per the requirements of VK_NV_ray_tracing, "there must be no
 more than one shader_record_nv block statically used per shader entry point
 otherwise results are undefined."
 
+The official Khronos ray tracing extension also comes with a SPIR-V storage class
+that has the same functionality. The ``[[vk::shader_record_ext]]`` annotation can 
+be used when targeting the SPV_KHR_ray_tracing extension.
+
 Builtin variables
 ~~~~~~~~~~~~~~~~~
 
@@ -255,7 +263,13 @@ language. To support them, ``[[vk::builtin("<builtin>")]]`` is introduced.
 Right now the following ``<builtin>`` are supported:
 
 * ``PointSize``: The GLSL equivalent is ``gl_PointSize``.
-* ``HelperInvocation``: The GLSL equivalent is ``gl_HelperInvocation``.
+* ``HelperInvocation``: For Vulkan 1.3 or above, we use its GLSL equivalent
+  ``gl_HelperInvocation`` and decorate it with ``HelperInvocation`` builtin
+  since Vulkan 1.3 or above supports ``Volatile`` decoration for builtin
+  variables. For Vulkan 1.2 or earlier, we do not create a builtin variable for
+  ``HelperInvocation``. Instead, we create a variable with ``Private`` storage
+  class and set its value as the result of `OpIsHelperInvocationEXT <https://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/EXT/SPV_EXT_demote_to_helper_invocation.html#OpIsHelperInvocationEXT>`_
+  instruction.
 * ``BaseVertex``: The GLSL equivalent is ``gl_BaseVertexARB``.
   Need ``SPV_KHR_shader_draw_parameters`` extension.
 * ``BaseInstance``: The GLSL equivalent is ``gl_BaseInstanceARB``.
@@ -274,15 +288,18 @@ Supported extensions
 
 * SPV_KHR_16bit_storage
 * SPV_KHR_device_group
+* SPV_KHR_fragment_shading_rate
 * SPV_KHR_multivew
 * SPV_KHR_post_depth_coverage
 * SPV_KHR_shader_draw_parameters
 * SPV_EXT_descriptor_indexing
 * SPV_EXT_fragment_fully_covered
-* SPV_EXT_fragment_invocation_density
+* SPV_EXT_mesh_shader
 * SPV_EXT_shader_stencil_support
+* SPV_AMD_shader_early_and_late_fragment_tests
 * SPV_AMD_shader_explicit_vertex_parameter
 * SPV_GOOGLE_hlsl_functionality1
+* SPV_GOOGLE_user_type
 * SPV_NV_mesh_shader
 
 Vulkan specific attributes
@@ -320,6 +337,45 @@ The namespace ``vk`` will be used for all Vulkan attributes:
   location. Used for dual-source blending.
 - ``post_depth_coverage``: The input variable decorated with SampleMask will
   reflect the result of the EarlyFragmentTests. Only valid on pixel shader entry points.
+- ``combinedImageSampler``: For specifying a Texture (e.g., ``Texture2D``,
+  ``Texture1DArray``, ``TextureCube``) and ``SamplerState`` to use the combined image
+  sampler (or sampled image) type with the same descriptor set and binding numbers (see
+  `wiki page <https://github.com/microsoft/DirectXShaderCompiler/wiki/Vulkan-combined-image-sampler-type>`_
+  for more detail).
+- ``early_and_late_tests``: Marks an entry point as enabling early and late depth
+  tests. If depth is written via ``SV_Depth``, ``depth_unchanged`` must also be specified
+  (``SV_DepthLess`` and ``SV_DepthGreater`` can be written freely). If a stencil reference
+  value is written via ``SV_StencilRef``, one of ``stencil_ref_unchanged_front``,
+  ``stencil_ref_greater_equal_front``, or ``stencil_ref_less_equal_front`` and
+  one of ``stencil_ref_unchanged_back``, ``stencil_ref_greater_equal_back``, or
+  ``stencil_ref_less_equal_back`` must be specified.
+- ``depth_unchanged``: Specifies that any depth written to ``SV_Depth`` will not
+  invalidate the result of early depth tests. Sets the ``DepthUnchanged`` execution
+  mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_unchanged_front``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will not invalidate the result of early stencil tests when
+  the fragment is front facing. Sets the ``StencilRefUnchangedFrontAMD`` execution
+  mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_greater_equal_front``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be greater than or equal to the stencil reference value
+  set by the API when the fragment is front facing. Sets the ``StencilRefGreaterFrontAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_less_equal_front``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be less than or equal to the stencil reference value
+  set by the API when the fragment is front facing. Sets the ``StencilRefLessFrontAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_unchanged_back``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will not invalidate the result of early stencil tests when
+  the fragment is back facing. Sets the ``StencilRefUnchangedBackAMD`` execution
+  mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_greater_equal_back``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be greater than or equal to the stencil reference value
+  set by the API when the fragment is back facing. Sets the ``StencilRefGreaterBackAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
+- ``stencil_ref_less_equal_back``: Specifies that any stencil ref written to
+  ``SV_StencilRef`` will be less than or equal to the stencil reference value
+  set by the API when the fragment is back facing. Sets the ``StencilRefLessBackAMD``
+  execution mode in SPIR-V. Only valid on pixel shader entry points.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
@@ -339,6 +395,21 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
+Macro for SPIR-V
+----------------
+
+If SPIR-V CodeGen is enabled and ``-spirv`` flag is used as one of the command
+line options (meaning that "generates SPIR-V code"), it defines an implicit
+macro ``__spirv__``. For example, this macro definition can be used for SPIR-V
+specific part of the HLSL code:
+
+.. code:: hlsl
+
+  #ifdef __spirv__
+  [[vk::binding(X, Y), vk::counter_binding(Z)]]
+  #endif
+  RWStructuredBuffer<S> mySBuffer;
+
 SPIR-V version and extension
 ----------------------------
 
@@ -348,11 +419,11 @@ environment (hence SPIR-V version) and SPIR-V extension control:
 - ``-fspv-target-env=``: for specifying SPIR-V target environment
 - ``-fspv-extension=``: for specifying allowed SPIR-V extensions
 
-``-fspv-target-env=`` only accepts ``vulkan1.0`` and ``vulkan1.1`` right now.
-If such an option is not given, the CodeGen defaults to ``vulkan1.0``. When
-targeting ``vulkan1.0``, trying to use features that are only available
-in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_, will
-trigger a compiler error.
+``-fspv-target-env=`` accepts a Vulkan target environment (see ``-help`` for
+supported values). If such an option is not given, the CodeGen defaults to
+``vulkan1.0``. When targeting ``vulkan1.0``, trying to use features that are only
+available in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_,
+will trigger a compiler error.
 
 If ``-fspv-extension=`` is not specified, the CodeGen will select suitable
 SPIR-V extensions to translate the source code. Otherwise, only extensions
@@ -509,10 +580,15 @@ information, you can use ``-fspv-debug=``. It accepts:
 * ``line``: for emitting line information (turns on ``source`` implicitly)
 * ``tool``: for emitting DXC Git commit hash and command-line options
 
-``-fspv-debug=`` overrules ``-Zi``. And you can provide multiple instances of
-``-fspv-debug=``. For example, you can use ``-fspv-debug=file -fspv-debug=tool``
-to turn on emitting file path and DXC information; source code and line
-information will not be emitted.
+These ``-fspv-debug=`` options overrule ``-Zi``. And you can provide multiple
+instances of ``-fspv-debug=``. For example, you can use ``-fspv-debug=file
+-fspv-debug=tool`` to turn on emitting file path and DXC information; source
+code and line information will not be emitted.
+
+If you want to generate `NonSemantic.Shader.DebugInfo.100 <http://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/main/nonsemantic/NonSemantic.Shader.DebugInfo.100.html>`_ extended instructions, you can use
+``-fspv-debug=vulkan-with-source``. These instructions support source-level
+shader debugging with tools such as RenderDoc, even if the SPIR-V is optimized.
+This option overrules the other ``-fspv-debug`` options above.
 
 Reflection
 ----------
@@ -542,6 +618,18 @@ HLSL semantic strings are by default not emitted into the SPIR-V binary module.
 If you need them, by specifying ``-fspv-reflect``, the compiler will use
 the ``Op*DecorateStringGOOGLE`` instruction in `SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
 extension to emit them.
+
+HLSL User Types
+~~~~~~~~~~~~~~~
+
+HLSL type information is by default not emitted into the SPIR-V binary module.
+If you need them, by specifying ``-fspv-reflect``, the compiler will emit
+``OpDecorateString*`` instructions with a ``UserTypeGOOGLE`` decoration and the
+`SPV_GOOGLE_user_type <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/GOOGLE/SPV_GOOGLE_user_type.asciidoc>`_
+extension. A string name for the unambiguous type of the decorated object will
+be included in the user's source using the lowercase type name followed by
+template params. For example, ``Texture2DMSArray<float4, 64> arr`` would be
+decorated with ``OpDecorateString %arr UserTypeGOOGLE "texture2dmsarray:<float4,64>"``.
 
 Counter buffers for RW/Append/Consume StructuredBuffer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -768,7 +856,7 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 ``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      2       1    0    1     ``Unknown``
 ``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    0    1     ``Unknown``
 ``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    1    1     ``Unknown``
-``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``      ``ImageMSArray``
+``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``
 ``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      2       1    0    1     ``Unknown``
 ``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  2       0    0    1     Depends on ``T`` ``SampledBuffer``
 ``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  2       0    0    2     Depends on ``T`` ``SampledBuffer``
@@ -781,6 +869,74 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
+
+Vulkan specific Image Formats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since HLSL lacks the syntax for fully specifying image formats for textures in
+SPIR-V, we introduce ``[[vk::image_format("FORMAT")]]`` attribute for texture types.
+For example,
+
+.. code:: hlsl
+
+  [[vk::image_format("rgba8")]]
+  RWBuffer<float4> Buf;
+
+  [[vk::image_format("rg16f")]]
+  RWTexture2D<float2> Tex;
+
+  RWTexture2D<float2> Tex2; // Works like before
+
+``rgba8`` means ``Rgba8`` `SPIR-V Image Format <https://www.khronos.org/registry/spir-v/specs/unified1/SPIRV.html#_a_id_image_format_a_image_format>`_.
+The following table lists the mapping between ``FORMAT`` of
+``[[vk::image_format("FORMAT")]]`` and its corresponding SPIR-V Image Format.
+
+======================= ============================================
+       FORMAT                   SPIR-V Image Format
+======================= ============================================
+``unknown``             ``Unknown``
+``rgba32f``             ``Rgba32f``
+``rgba16f``             ``Rgba16f``
+``r32f``                ``R32f``
+``rgba8``               ``Rgba8``
+``rgba8snorm``          ``Rgba8Snorm``
+``rg32f``               ``Rg32f``
+``rg16f``               ``Rg16f``
+``r11g11b10f``          ``R11fG11fB10f``
+``r16f``                ``R16f``
+``rgba16``              ``Rgba16``
+``rgb10a2``             ``Rgb10A2``
+``rg16``                ``Rg16``
+``rg8``                 ``Rg8``
+``r16``                 ``R16``
+``r8``                  ``R8``
+``rgba16snorm``         ``Rgba16Snorm``
+``rg16snorm``           ``Rg16Snorm``
+``rg8snorm``            ``Rg8Snorm``
+``r16snorm``            ``R16Snorm``
+``r8snorm``             ``R8Snorm``
+``rgba32i``             ``Rgba32i``
+``rgba16i``             ``Rgba16i``
+``rgba8i``              ``Rgba8i``
+``r32i``                ``R32i``
+``rg32i``               ``Rg32i``
+``rg16i``               ``Rg16i``
+``rg8i``                ``Rg8i``
+``r16i``                ``R16i``
+``r8i``                 ``R8i``
+``rgba32ui``            ``Rgba32ui``
+``rgba16ui``            ``Rgba16ui``
+``rgba8ui``             ``Rgba8ui``
+``r32ui``               ``R32ui``
+``rgb10a2ui``           ``Rgb10a2ui``
+``rg32ui``              ``Rg32ui``
+``rg16ui``              ``Rg16ui``
+``rg8ui``               ``Rg8ui``
+``r16ui``               ``R16ui``
+``r8ui``                ``R8ui``
+``r64ui``               ``R64ui``
+``r64i``                ``R64i``
+======================= ============================================
 
 Constant/Texture/Structured/Byte Buffers
 ----------------------------------------
@@ -1264,165 +1420,183 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 
 .. table:: Mapping from HLSL SV semantic to SPIR-V builtin and execution mode
 
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| HLSL Semantic             | SigPoint    | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |   SPIR-V Capability         |
-+===========================+=============+==========================+=======================+=============================+
-|                           | VSOut       | ``Position``             | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSCPIn      | ``Position``             | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSCPOut     | ``Position``             | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | DSCPIn      | ``Position``             | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_Position               | DSOut       | ``Position``             | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSVIn       | ``Position``             | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSOut       | ``Position``             | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``FragCoord``            | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``Position``             | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | VSOut       | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSCPIn      | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSCPOut     | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | DSCPIn      | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_ClipDistance           | DSOut       | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSVIn       | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSOut       | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``ClipDistance``         | N/A                   | ``ClipDistance``            |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | VSOut       | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSCPIn      | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSCPOut     | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | DSCPIn      | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_CullDistance           | DSOut       | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSVIn       | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSOut       | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``CullDistance``         | N/A                   | ``CullDistance``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``CullDistance``         | N/A                   | ``CullDistance``            |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_VertexID               | VSIn        | ``VertexIndex``          | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_InstanceID             | VSIn        | ``InstanceIndex``        | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_Depth                  | PSOut       | ``FragDepth``            | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_DepthGreaterEqual      | PSOut       | ``FragDepth``            | ``DepthGreater``      | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_DepthLessEqual         | PSOut       | ``FragDepth``            | ``DepthLess``         | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_IsFrontFace            | PSIn        | ``FrontFacing``          | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | CSIn        | ``GlobalInvocationId``   | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_DispatchThreadID       | MSIn        | ``GlobalInvocationId``   | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | ASIn        | ``GlobalInvocationId``   | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | CSIn        | ``WorkgroupId``          | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_GroupID                | MSIn        | ``WorkgroupId``          | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | ASIn        | ``WorkgroupId``          | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | CSIn        | ``LocalInvocationId``    | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_GroupThreadID          | MSIn        | ``LocalInvocationId``    | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | ASIn        | ``LocalInvocationId``    | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | CSIn        | ``LocalInvocationIndex`` | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_GroupIndex             | MSIn        | ``LocalInvocationIndex`` | N/A                   | ``Shader``                  |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | ASIn        | ``LocalInvocationIndex`` | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_OutputControlPointID   | HSIn        | ``InvocationId``         | N/A                   | ``Tessellation``            |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_GSInstanceID           | GSIn        | ``InvocationId``         | N/A                   | ``Geometry``                |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_DomainLocation         | DSIn        | ``TessCoord``            | N/A                   | ``Tessellation``            |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSIn        | ``PrimitiveId``          | N/A                   | ``Tessellation``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PCIn        | ``PrimitiveId``          | N/A                   | ``Tessellation``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | DsIn        | ``PrimitiveId``          | N/A                   | ``Tessellation``            |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_PrimitiveID            | GSIn        | ``PrimitiveId``          | N/A                   | ``Geometry``                |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSOut       | ``PrimitiveId``          | N/A                   | ``Geometry``                |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``PrimitiveId``          | N/A                   | ``Geometry``                |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``PrimitiveId``          | N/A                   | ``MeshShadingNV``           |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PCOut       | ``TessLevelOuter``       | N/A                   | ``Tessellation``            |
-| SV_TessFactor             +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | DSIn        | ``TessLevelOuter``       | N/A                   | ``Tessellation``            |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PCOut       | ``TessLevelInner``       | N/A                   | ``Tessellation``            |
-| SV_InsideTessFactor       +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | DSIn        | ``TessLevelInner``       | N/A                   | ``Tessellation``            |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_SampleIndex            | PSIn        | ``SampleId``             | N/A                   | ``SampleRateShading``       |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_StencilRef             | PSOut       | ``FragStencilRefEXT``    | N/A                   | ``StencilExportEXT``        |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_Barycentrics           | PSIn        | ``BaryCoord*AMD``        | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSOut       | ``Layer``                | N/A                   | ``Geometry``                |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_RenderTargetArrayIndex | PSIn        | ``Layer``                | N/A                   | ``Geometry``                |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``Layer``                | N/A                   | ``MeshShadingNV``           |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSOut       | ``ViewportIndex``        | N/A                   | ``MultiViewport``           |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-| SV_ViewportArrayIndex     | PSIn        | ``ViewportIndex``        | N/A                   | ``MultiViewport``           |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | MSOut       | ``ViewportIndex``        | N/A                   | ``MeshShadingNV``           |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``SampleMask``           | N/A                   | ``Shader``                  |
-| SV_Coverage               +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PSOut       | ``SampleMask``           | N/A                   | ``Shader``                  |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_InnerCoverage          | PSIn        | ``FullyCoveredEXT``      | N/A                   | ``FragmentFullyCoveredEXT`` |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-|                           | VSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | HSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | DSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
-| SV_ViewID                 +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | GSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
-|                           +-------------+--------------------------+-----------------------+-----------------------------+
-|                           | MSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
-| SV_ShadingRate            | PSIn        | ``FragSizeEXT``          | N/A                   | ``FragmentDensityEXT``      |
-+---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| HLSL Semantic             | SigPoint    | SPIR-V ``BuiltIn``                     | SPIR-V Execution Mode |   SPIR-V Capability         |
++===========================+=============+========================================+=======================+=============================+
+|                           | VSOut       | ``Position``                           | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSCPIn      | ``Position``                           | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSCPOut     | ``Position``                           | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | DSCPIn      | ``Position``                           | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_Position               | DSOut       | ``Position``                           | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSVIn       | ``Position``                           | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSOut       | ``Position``                           | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``FragCoord``                          | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | MSOut       | ``Position``                           | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | VSOut       | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSCPIn      | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSCPOut     | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | DSCPIn      | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_ClipDistance           | DSOut       | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSVIn       | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSOut       | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | MSOut       | ``ClipDistance``                       | N/A                   | ``ClipDistance``            |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | VSOut       | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSCPIn      | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSCPOut     | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | DSCPIn      | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_CullDistance           | DSOut       | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSVIn       | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSOut       | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``CullDistance``                       | N/A                   | ``CullDistance``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | MSOut       | ``CullDistance``                       | N/A                   | ``CullDistance``            |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_VertexID               | VSIn        | ``VertexIndex``                        | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_InstanceID             | VSIn        | ``InstanceIndex`` or                   | N/A                   | ``Shader``                  |
+|                           |             | ``InstanceIndex - BaseInstance``       |                       |                             |
+|                           |             | with                                   |                       |                             |
+|                           |             | ``-fvk-support-nonzero-base-instance`` |                       |                             |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_Depth                  | PSOut       | ``FragDepth``                          | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_DepthGreaterEqual      | PSOut       | ``FragDepth``                          | ``DepthGreater``      | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_DepthLessEqual         | PSOut       | ``FragDepth``                          | ``DepthLess``         | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_IsFrontFace            | PSIn        | ``FrontFacing``                        | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | CSIn        | ``GlobalInvocationId``                 | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_DispatchThreadID       | MSIn        | ``GlobalInvocationId``                 | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | ASIn        | ``GlobalInvocationId``                 | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | CSIn        | ``WorkgroupId``                        | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_GroupID                | MSIn        | ``WorkgroupId``                        | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | ASIn        | ``WorkgroupId``                        | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | CSIn        | ``LocalInvocationId``                  | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_GroupThreadID          | MSIn        | ``LocalInvocationId``                  | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | ASIn        | ``LocalInvocationId``                  | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | CSIn        | ``LocalInvocationIndex``               | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_GroupIndex             | MSIn        | ``LocalInvocationIndex``               | N/A                   | ``Shader``                  |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | ASIn        | ``LocalInvocationIndex``               | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_OutputControlPointID   | HSIn        | ``InvocationId``                       | N/A                   | ``Tessellation``            |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_GSInstanceID           | GSIn        | ``InvocationId``                       | N/A                   | ``Geometry``                |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_DomainLocation         | DSIn        | ``TessCoord``                          | N/A                   | ``Tessellation``            |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSIn        | ``PrimitiveId``                        | N/A                   | ``Tessellation``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PCIn        | ``PrimitiveId``                        | N/A                   | ``Tessellation``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | DsIn        | ``PrimitiveId``                        | N/A                   | ``Tessellation``            |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSIn        | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
+| SV_PrimitiveID            +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSOut       | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           |             |                                        |                       | ``MeshShadingNV``           |
+|                           | MSOut       | ``PrimitiveId``                        | N/A                   |                             |
+|                           |             |                                        |                       | ``MeshShadingEXT``          |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PCOut       | ``TessLevelOuter``                     | N/A                   | ``Tessellation``            |
+| SV_TessFactor             +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | DSIn        | ``TessLevelOuter``                     | N/A                   | ``Tessellation``            |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PCOut       | ``TessLevelInner``                     | N/A                   | ``Tessellation``            |
+| SV_InsideTessFactor       +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | DSIn        | ``TessLevelInner``                     | N/A                   | ``Tessellation``            |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_SampleIndex            | PSIn        | ``SampleId``                           | N/A                   | ``SampleRateShading``       |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_StencilRef             | PSOut       | ``FragStencilRefEXT``                  | N/A                   | ``StencilExportEXT``        |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_Barycentrics           | PSIn        | ``BaryCoord*AMD``                      | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSOut       | ``Layer``                              | N/A                   | ``Geometry``                |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``Layer``                              | N/A                   | ``Geometry``                |
+| SV_RenderTargetArrayIndex +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           |             |                                        |                       | ``MeshShadingNV``           |
+|                           | MSOut       | ``Layer``                              | N/A                   |                             |
+|                           |             |                                        |                       | ``MeshShadingEXT``          |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSOut       | ``ViewportIndex``                      | N/A                   | ``MultiViewport``           |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``ViewportIndex``                      | N/A                   | ``MultiViewport``           |
+| SV_ViewportArrayIndex     +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           |             |                                        |                       | ``MeshShadingNV``           |
+|                           | MSOut       | ``ViewportIndex``                      | N/A                   |                             |
+|                           |             |                                        |                       | ``MeshShadingEXT``          |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``SampleMask``                         | N/A                   | ``Shader``                  |
+| SV_Coverage               +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSOut       | ``SampleMask``                         | N/A                   | ``Shader``                  |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_InnerCoverage          | PSIn        | ``FullyCoveredEXT``                    | N/A                   | ``FragmentFullyCoveredEXT`` |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | VSIn        | ``ViewIndex``                          | N/A                   | ``MultiView``               |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | HSIn        | ``ViewIndex``                          | N/A                   | ``MultiView``               |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | DSIn        | ``ViewIndex``                          | N/A                   | ``MultiView``               |
+| SV_ViewID                 +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSIn        | ``ViewIndex``                          | N/A                   | ``MultiView``               |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``ViewIndex``                          | N/A                   | ``MultiView``               |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | MSIn        | ``ViewIndex``                          | N/A                   | ``MultiView``               |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | VSOut       | ``PrimitiveShadingRateKHR``            | N/A                   | ``FragmentShadingRate``     |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | GSOut       | ``PrimitiveShadingRateKHR``            | N/A                   | ``FragmentShadingRate``     |
+| SV_ShadingRate            +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | PSIn        | ``ShadingRateKHR``                     | N/A                   | ``FragmentShadingRate``     |
+|                           +-------------+----------------------------------------+-----------------------+-----------------------------+
+|                           | MSOut       | ``PrimitiveShadingRateKHR``            | N/A                   | ``FragmentShadingRate``     |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+| SV_CullPrimitive          | MSOut       | ``CullPrimitiveEXT``                   | N/A                   | ``MeshShadingEXT ``         |
++---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+
 
 For entities (function parameters, function return values, struct fields) with
 the above SV semantic strings attached, SPIR-V variables of the
@@ -1473,6 +1647,23 @@ call. So annotating a variable or struct member with ``SV_ClipDistanceX`` means
 requiring the ``ClipDistance`` capability in the generated SPIR-V.
 
 Variables decorated with ``SV_CullDistanceX`` are mapped similarly as above.
+
+Signature packing
+~~~~~~~~~~~~~~~~~
+
+In usual, Vulkan drivers have a limitation of the number of available locations.
+It varies depending on the device. To avoid the driver crash caused by the
+limitation, we added an experimental signature packing support using Component
+decoration (see the Vulkan spec "15.1.5. Component Assignment").
+``-pack-optimized`` is the command line option to enable it.
+
+In a high level, for a stage variable that needs ``M`` components in ``N``
+locations e.g., stage variable ``float3 foo[2]`` needs 3 components in 2
+locations, we find a minimum ``K`` where each of ``N`` continuous locations in
+``[K, K + N)`` has ``M`` continuous unused Component slots. We create a Location
+decoration instruction for the stage variable with ``K`` and a Component
+decoration instruction with the first unused component number of the
+``M`` continuous unused Component slots.
 
 HLSL register and Vulkan binding
 --------------------------------
@@ -1563,6 +1754,54 @@ automatically be applied according to ``-fvk-*shift N M``.
       CBUFFER
       CONSTANTBUFFER
 
+Binding number assignment for resources in cbuffer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Basically, we use the same binding assignment rule described above for a
+cbuffer, but when a cbuffer contains one or more resources, it is inevitable
+to use multiple binding numbers for a single cbuffer. For this type of
+cbuffers, we first assign the next available binding number to the resources.
+Based the order of the appearance in the cbuffer, a resource that appears early
+uses a smaller (earlier available) binding number than a resource that appears
+later. After assigning binding numbers to all resource members, if the cbuffer
+contains one or more members with non-resource types, it creates a struct for
+the remaining members and assign the next available binding number to the
+variable with the struct type.
+
+For example, the binding numbers for the following resources and cbuffers
+
+.. code:: hlsl
+
+  cbuffer buf0 : register(b0) {
+    float4 non_resource0;
+  };
+  cbuffer buf1 : register(b4) {
+    float4 non_resource1;
+  };
+  cbuffer buf2 {
+    float4 non_resource2;
+    Texture2D resource0;
+    SamplerState resource1;
+  };
+  cbuffer buf3 : register(b2) {
+    SamplerState resource2;
+  }
+
+will be
+
+- ``buf0``: 0 because of ``register(b0)``
+
+- ``buf1``: 4 because of ``register(b4)``
+
+- ``resource2``: 2 because of ``register(b2)``. Note that ``buf3`` is empty
+  without ``resource2``. We do not assign a binding number to an empty struct.
+
+- ``resource0``: 1 because it is the next available binding number.
+
+- ``resource1``: 3 because it is the next available binding number.
+
+- ``buf2`` including only ``non_resource2``: 5 because it is the next available
+  binding number.
 
 Summary
 ~~~~~~~
@@ -2170,14 +2409,14 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``log10``               ``Log2`` (scaled by ``1/log2(10)``)
 ``log2``                ``Log2``
 ``mad``                 ``Fma``
-``max``                 ``SMax``/``UMax``/``FMax``
-``min``                 ``SMin``/``UMin``/``FMin``
+``max``                 ``SMax``/``UMax``/``NMax``/``FMax``
+``min``                 ``SMin``/``UMin``/``NMin``/``FMin``
 ``modf``                ``ModfStruct``
 ``normalize``           ``Normalize``
 ``pow``                 ``Pow``
 ``reflect``             ``Reflect``
 ``refract``             ``Refract``
-``round``               ``Round``
+``round``               ``RoundEven``
 ``rsqrt``               ``InverseSqrt``
 ``saturate``            ``FClamp``
 ``sign``                ``SSign``/``FSign``
@@ -2191,6 +2430,13 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``tanh``                ``Tanh``
 ``trunc``               ``Trunc``
 ======================= ===================================
+
+Note on NMax,Nmin,FMax & FMin:
+
+This compiler supports the ``--ffinite-math-only`` option, which allows
+assuming non-NaN parameters to some operations. ``min`` & ``max`` intrinsics
+will by default generate ``NMin`` & ``NMax`` instructions, but if this option
+is enabled, ``FMin`` & ``FMax`` can be generated instead.
 
 Synchronization intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2859,8 +3105,12 @@ patch constant function. This would include information about each of the ``N``
 vertices that are input to the tessellation control shader.
 
 OutputPatch is an array containing ``N`` elements (where ``N`` is the number of
-output vertices). Each element of the array contains information about an
-output vertex. OutputPatch may also be passed to the patch constant function.
+output vertices). Each element of the array is the hull shader output for each
+output vertex. For example, each element of ``OutputPatch<HSOutput, 3>`` is each
+output value of the hull shader function for each ``SV_OutputControlPointID``.
+It is shared between threads i.e., in the patch constant function, threads for
+the same patch must see the same values for the elements of
+``OutputPatch<HSOutput, 3>``.
 
 The SPIR-V ``InvocationID`` (``SV_OutputControlPointID`` in HLSL) is used to index
 into the InputPatch and OutputPatch arrays to read/write information for the given
@@ -2882,7 +3132,11 @@ As mentioned above, the patch constant function is to be invoked only once per p
 As a result, in the SPIR-V module, the `entry function wrapper`_ will first invoke the
 main entry function, and then use an ``OpControlBarrier`` to wait for all vertex
 processing to finish. After the barrier, *only* the first thread (with InvocationID of 0)
-will invoke the patch constant function.
+will invoke the patch constant function. Since the first thread has to see the
+OutputPatch that contains output of the hull shader function for other threads,
+we have to use the output stage variable (with Output storage class) of the
+hull shader function for OutputPatch that can be an input to the patch constant
+function.
 
 The information resulting from the patch constant function will also be returned
 as stage output variables. The output struct of the patch constant function must include
@@ -3177,26 +3431,34 @@ shaders and are translated to SPIR-V execution modes according to the table belo
 
 .. table:: Mapping from HLSL attribute to SPIR-V execution mode
 
-+-------------------+--------------------+-------------------------+
-|  HLSL Attribute   |   Value            | SPIR-V Execution Mode   |
-+===================+====================+=========================+
-|``outputtopology`` | ``point``          | ``OutputPoints``        |
-|                   +--------------------+-------------------------+
-|``(Mesh shader)``  | ``line``           | ``OutputLinesNV``       |
-|                   +--------------------+-------------------------+
-|                   | ``triangle``       | ``OutputTrianglesNV``   |
-+-------------------+--------------------+-------------------------+
-| ``numthreads``    | ``X, Y, Z``        | ``LocalSize X, Y, Z``   |
-|                   |                    |                         |
-|                   | ``(X*Y*Z <= 128)`` |                         |
-+-------------------+--------------------+-------------------------+
++-----------------------+--------------------+-------------------------+
+|  HLSL Attribute       |   Value            | SPIR-V Execution Mode   |
++=======================+====================+=========================+
+|``outputtopology``     | ``point``          | ``OutputPoints``        |
+|                       +--------------------+-------------------------+
+| (SPV_NV_mesh_shader)  | ``line``           | ``OutputLinesNV``       |
+|                       |                    |                         |
+|                       +--------------------+-------------------------+
+|                       | ``triangle``       | ``OutputTrianglesNV``   |
++-----------------------+--------------------+-------------------------+
+|``outputtopology``     | ``point``          | ``OutputPoints``        |
+|                       +--------------------+-------------------------+
+| (SPV_EXT_mesh_shader) | ``line``           | ``OutputLinesEXT``      |
+|                       |                    |                         |
+|                       +--------------------+-------------------------+
+|                       | ``triangle``       | ``OutputTrianglesEXT``  |
++-----------------------+--------------------+-------------------------+
+| ``numthreads``        | ``X, Y, Z``        | ``LocalSize X, Y, Z``   |
+|                       |                    |                         |
+|                       | ``(X*Y*Z <= 128)`` |                         |
++-----------------------+--------------------+-------------------------+
 
 Intrinsics
 ~~~~~~~~~~
 The following HLSL intrinsics are used in Mesh or Amplification shaders
 and are translated to SPIR-V intrinsics according to the table below:
 
-.. table:: Mapping from HLSL intrinsics to SPIR-V intrinsics
+.. table:: Mapping from HLSL intrinsics to SPIR-V intrinsics for SPV_NV_mesh_shader
 
 +---------------------------+--------------------+-----------------------------------------+
 |  HLSL Intrinsic           |  Parameters        | SPIR-V Intrinsic                        |
@@ -3213,6 +3475,24 @@ and are translated to SPIR-V intrinsics according to the table below:
 |                           |                    |                                         |
 |                           | ``MeshPayload``    |                                         |
 +---------------------------+--------------------+-----------------------------------------+
+
+.. table:: Mapping from HLSL intrinsics to SPIR-V intrinsics for SPV_EXT_mesh_shader
+
++---------------------------+--------------------+--------------------------------------------------------------+
+|  HLSL Intrinsic           |  Parameters        | SPIR-V Intrinsic                                             |
++===========================+====================+==============================================================+
+| ``SetMeshOutputCounts``   | ``numVertices``    | ``OpSetMeshOutputsEXT``                                      |
+|                           |                    |                                                              |
+| ``(Mesh shader)``         | ``numPrimitives``  |                                                              |
++---------------------------+--------------------+--------------------------------------------------------------+
+| ``DispatchMesh``          | ``ThreadX``        | ``OpEmitMeshTasksEXT ThreadX ThreadY ThreadZ MeshPayload``   |
+|                           |                    |                                                              |
+| ``(Amplification shader)``| ``ThreadY``        | ``TaskCountNV ThreadX*ThreadY*ThreadZ``                      |
+|                           |                    |                                                              |
+|                           | ``ThreadZ``        |                                                              |
+|                           |                    |                                                              |
+|                           | ``MeshPayload``    |                                                              |
++---------------------------+--------------------+--------------------------------------------------------------+
 
 | Note : For ``DispatchMesh`` intrinsic, we also emit ``MeshPayload`` as output block with ``PerTaskNV`` decoration
 
@@ -3552,6 +3832,139 @@ Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
 ============= ============================ =================================== ======================
 
+The Implicit ``vk`` Namespace
+=============================
+
+Overview
+--------
+We have introduced an implicit namepace (called ``vk``) that will be home to all
+Vulkan-specific functions, enums, etc. Given the similarity between HLSL and
+C++, developers are likely familiar with namespaces -- and implicit namespaces
+(e.g. ``std::`` in C++). The ``vk`` namespace provides an interface for expressing
+Vulkan-specific features (core spec and KHR extensions).
+
+**The compiler will generate the proper error message (** ``unknown 'vk' identifier`` **)
+if** ``vk::`` **is used for compiling to DXIL.**
+
+Any intrinsic function or enum in the vk namespace will be deprecated if an
+equivalent one is added to the default namepsace.
+
+Current Features
+----------------
+The following intrinsic functions and constants are currently defined in the
+implicit ``vk`` namepsace.
+
+.. code:: hlsl
+
+  // Implicitly defined when compiling to SPIR-V.
+  namespace vk {
+  
+    const uint CrossDeviceScope = 0;
+    const uint DeviceScope      = 1;
+    const uint WorkgroupScope   = 2;
+    const uint SubgroupScope    = 3;
+    const uint InvocationScope  = 4;
+    const uint QueueFamilyScope = 5;
+  
+    uint64_t ReadClock(in uint scope);
+    T        RawBufferLoad<T = uint>(in uint64_t deviceAddress,
+                                     in uint alignment = 4);
+  } // end namespace
+
+
+Intrinsic Constants
+-------------------
+The following constants are currently defined:
+
+========================  ============================================
+  Constant                value   (SPIR-V constant equivalent, if any)
+========================  ============================================
+``vk::CrossDeviceScope``    ``0`` (``CrossDevice``)
+``vk::DeviceScope``         ``1`` (``Device``)
+``vk::WorkgroupScope``      ``2`` (``Workgroup``)
+``vk::SubgroupScope``       ``3`` (``Subgroup``)
+``vk::InvocationScope``     ``4`` (``Invocation``)
+``vk::QueueFamilyScope``    ``5`` (``QueueFamily``)
+========================  ============================================
+
+Intrinsic Functions
+-------------------
+
+ReadClock
+~~~~~~~~~
+This intrinsic funcion has the following signature:
+
+.. code:: hlsl
+
+  uint64_t ReadClock(in uint scope);
+
+It translates to performing ``OpReadClockKHR`` defined in `VK_KHR_shader_clock <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_shader_clock.html>`_.
+One can use the predefined scopes in the ``vk`` namepsace to specify the scope argument.
+For example:
+
+.. code:: hlsl
+
+  uint64_t clock = vk::ReadClock(vk::SubgroupScope);
+
+RawBufferLoad and RawBufferStore
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The Vulkan extension `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+supports getting the 64-bit address of a buffer and passing it to SPIR-V as a
+Uniform buffer. SPIR-V can use the address to load and store data without a descriptor.
+We add the following intrinsic functions to expose a subset of the
+`VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_
+functionality to HLSL:
+
+.. code:: hlsl
+
+  // RawBufferLoad and RawBufferStore use 'uint' for the default template argument. 
+  // The default alignment is 4. Note that 'alignment' must be a constant integer.
+  T RawBufferLoad<T = uint>(in uint64_t deviceAddress, in uint alignment = 4);
+  void RawBufferStore<T = uint>(in uint64_t deviceAddress, in T value, in uint alignment = 4);
+
+
+These intrinsics allow the shader program to load and store a single value with type T (int, float2, struct, etc...) 
+from GPU accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
+Additionally, these intrinsics allow users to set the memory alignment for the underlying data. 
+We assume a 'uint' type when the template argument is missing, and we use a value of '4' for the default alignment. 
+Note that the alignment argument must be a constant integer if it is given.
+
+Though we do support setting the `alignment` of the data load and store, we do not currently 
+support setting the memory layout for the data. Since these intrinsics are supposed to load 
+"arbitrary" data to or from a random device address, we assume that the program loads/stores some "bytes of data",
+but that its format or layout is unknown. Therefore, keep in mind that these intrinsics
+load or store ``sizeof(T)`` bytes of data, and that loading/storing data with a struct
+with a custom memory alignment may yield undefined behavior due to the missing custom memory layout support.
+Loading data with customized memory layouts is future work.
+
+Using either of these intrinsics adds ``PhysicalStorageBufferAddresses`` capability and
+``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing
+the addressing model to ``PhysicalStorageBuffer64``.
+
+Example:
+
+.. code:: hlsl
+
+  uint64_t address;
+  [numthreads(32, 1, 1)]
+  void main(uint3 tid : SV_DispatchThreadID) {
+    double foo = vk::RawBufferLoad<double>(address, 8);
+    uint bar = vk::RawBufferLoad(address + 8);
+    ...
+    vk::RawBufferStore<uint>(address + tid.x, bar + tid.x);
+  }
+
+Inline SPIR-V (HLSL version of GL_EXT_spirv_intrinsics)
+=======================================================
+
+GL_EXT_spirv_intrinsics is an extension of GLSL that allows users to embed
+arbitrary SPIR-V instructions in the GLSL code similar to the concept of
+inline assembly in the C code. We support the HLSL version of
+GL_EXT_spirv_intrinsics. See
+`wiki <https://github.com/microsoft/DirectXShaderCompiler/wiki/GL_EXT_spirv_intrinsics-for-SPIR-V-code-gen>`_
+for the details.
+
 Supported Command-line Options
 ==============================
 
@@ -3612,7 +4025,8 @@ codegen for Vulkan:
   option cannot be used together with other binding assignment options.
   It requires all source code resources have ``:register()`` attribute and
   all registers have corresponding Vulkan descriptors specified using this
-  option.
+  option. If the ``$Globals`` cbuffer resource is used, it must also be bound
+  with ``-fvk-bind-globals``.
 - ``-fvk-bind-globals N M``: Places the ``$Globals`` cbuffer at
   descriptor set #M and binding #N. See `HLSL global variables and Vulkan binding`_
   for explanation and examples.
@@ -3649,6 +4063,12 @@ codegen for Vulkan:
   SPIR-V backend. Also note that this requires the optimizer to be able to
   resolve all array accesses with constant indeces. Therefore, all loops using
   the resource arrays must be marked with ``[unroll]``.
+- ``-fspv-entrypoint-name=<name>``: Specify the SPIR-V entry point name. Defaults
+  to the HLSL entry point name.
+- ``-fspv-use-legacy-buffer-matrix-order``: Assumes the legacy matrix order (row
+  major) when accessing raw buffers (e.g., ByteAdddressBuffer).
+- ``-fspv-preserve-interface``: Preserves all interface variables in the entry
+  point, even when those variables are unused.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

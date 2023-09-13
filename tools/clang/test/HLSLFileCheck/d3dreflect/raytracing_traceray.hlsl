@@ -29,7 +29,7 @@ float4 emit(inout float2 f2, RayDesc Ray:R, inout Payload p )  {
 // CHECK:     Flags: 0
 // CHECK:     FunctionCount: 1
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?emit@@YA?AV?$vector@M$03@@AIAV?$vector@M$01@@URayDesc@@UPayload@@@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?emit{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       Flags: 0
 // CHECK:       ConstantBuffers: 1
@@ -37,7 +37,7 @@ float4 emit(inout float2 f2, RayDesc Ray:R, inout Payload p )  {
 // CHECK:       FunctionParameterCount: 0
 // CHECK:       HasReturn: FALSE
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: Acc
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: Acc
 // CHECK:         Type: D3D_SIT_RTACCELERATIONSTRUCTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1

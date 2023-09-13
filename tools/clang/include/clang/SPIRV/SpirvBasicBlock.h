@@ -90,6 +90,12 @@ public:
   /// block.
   void addInstruction(SpirvInstruction *inst) { instructions.push_back(inst); }
 
+  /// Adds the given instruction as the first instruction of this SPIR-V basic
+  /// block.
+  void addFirstInstruction(SpirvInstruction *inst) {
+    instructions.push_front(inst);
+  }
+
   /// Return true if instructions is empty. Otherwise, return false.
   bool empty() { return instructions.empty(); }
 
@@ -100,7 +106,13 @@ public:
   /// Handle SPIR-V basic block visitors.
   /// If a basic block is the first basic block in a function, it must include
   /// all the variable definitions of the entire function.
+  ///
+  /// For NonSemantic.Shader.DebugInfo.100 we also pass in the function scope
+  /// and function-level debug declares, since these can't appear outside of
+  /// basic blocks.
   bool invokeVisitor(Visitor *, llvm::ArrayRef<SpirvVariable *> vars,
+                     SpirvDebugScope *functionScope,
+                     llvm::ArrayRef<SpirvDebugDeclare *> debugDeclares,
                      bool reverseOrder = false);
 
   /// \brief Adds the given basic block as a successsor to this basic block.

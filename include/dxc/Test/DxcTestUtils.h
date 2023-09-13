@@ -11,13 +11,18 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-#include <map>
+
+#include "dxc/Support/WinIncludes.h"
+
 #include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
+
+#include <string>
+#include <vector>
+#include <map>
 
 namespace hlsl {
 namespace options {
@@ -46,6 +51,9 @@ public:
   /// checks that some error message does not occur, for example.
   bool AllowEmptyInput;
 
+  /// VariableTable - This holds all the current filecheck variables.
+  llvm::StringMap<std::string> VariableTable;
+
   /// String to read in place of standard input.
   std::string InputForStdin;
   /// Output stream.
@@ -55,6 +63,9 @@ public:
 
   int Run();
 };
+
+// wstring because most uses need UTF-16: IDxcResult output names, include handler
+typedef std::map<std::wstring, CComPtr<IDxcBlob>> FileMap;
 
 // The result of running a single command in a run pipeline
 struct FileRunCommandResult {
@@ -105,14 +116,17 @@ public:
   std::string Command;      // Command to run, eg %dxc
   std::string Arguments;    // Arguments to command
   LPCWSTR CommandFileName;  // File name replacement for %s
+  FileMap *pVFS = nullptr;  // Files in virtual file system
 
 private:
   FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior, LPCWSTR dumpName = nullptr);
   FileRunCommandResult RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunListParts(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunLink(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
   FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxilVer(dxc::DxcDllSupport& DllSupport, const FileRunCommandResult* Prior);
@@ -135,7 +149,7 @@ void ParseCommandPartsFromFile(LPCWSTR fileName, std::vector<FileRunCommandPart>
 class FileRunTestResult {
 public:
   std::string ErrorMessage;
-  int RunResult;
+  int RunResult = -1;
   static FileRunTestResult RunHashTestFromFileCommands(LPCWSTR fileName);
   static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
                                                PluginToolsPaths *pPluginToolsPaths = nullptr,
@@ -148,7 +162,7 @@ public:
 
 void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);
 std::string BlobToUtf8(_In_ IDxcBlob *pBlob);
-std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob);
+std::wstring BlobToWide(_In_ IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               llvm::ArrayRef<LPCSTR> pErrorMsgs,
@@ -168,8 +182,8 @@ void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &va
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
+void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
+void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, LPCWSTR pArgs,
                      _Outptr_ IDxcBlob **ppResult);

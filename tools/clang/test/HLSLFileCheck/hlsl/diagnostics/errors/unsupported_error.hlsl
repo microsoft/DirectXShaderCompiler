@@ -4,7 +4,7 @@
 // Regression test for a crash when lowering unsupported intrinsics
 
 // CHK_DB: 10:50: error: Unsupported intrinsic
-// CHK_NODB: error: Unsupported intrinsic. Use /Zi for source location.
+// CHK_NODB: 10:50: error: Unsupported intrinsic
 
 sampler TextureSampler;
 float4 main(float2 uv	: UV) : SV_Target { return tex2D(TextureSampler, uv); }

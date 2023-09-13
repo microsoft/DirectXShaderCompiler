@@ -2,7 +2,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_NODB
 
 // CHK_DB: 8:12: error: AddUint64 can only be applied to uint2 and uint4 operands.
-// CHK_NODB: error: AddUint64 can only be applied to uint2 and uint4 operands. Use /Zi for source location.
+// CHK_NODB: 8:12: error: AddUint64 can only be applied to uint2 and uint4 operands.
 
 float4 main(uint4 a : A, uint4 b :B) : SV_TARGET {
   uint c = AddUint64(a.x, b.x);

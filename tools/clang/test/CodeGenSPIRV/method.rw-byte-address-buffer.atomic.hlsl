@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // Note: According to HLSL reference (https://msdn.microsoft.com/en-us/library/windows/desktop/ff471475(v=vs.85).aspx),
 // all RWByteAddressBuffer atomic methods must take unsigned integers as parameters.
@@ -8,6 +8,7 @@ RWByteAddressBuffer myBuffer;
 float4 main() : SV_Target
 {
     uint originalVal;
+    int  originalValAsInt;
 
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
@@ -101,6 +102,13 @@ float4 main() : SV_Target
 // CHECK-NEXT:    [[val:%\d+]] = OpAtomicCompareExchange %uint [[ptr]] %uint_1 %uint_0 %uint_0 %uint_42 %uint_30
 // CHECK-NEXT:                   OpStore %originalVal [[val]]
     myBuffer.InterlockedCompareExchange(/*offset=*/16, /*compare_value=*/30, /*value=*/42, originalVal);
+
+// CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
+// CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
+// CHECK-NEXT:    [[val:%\d+]] = OpAtomicCompareExchange %uint [[ptr]] %uint_1 %uint_0 %uint_0 %uint_42 %uint_30
+// CHECK-NEXT:   [[cast:%\d+]] = OpBitcast %int [[val]]
+// CHECK-NEXT:                   OpStore %originalValAsInt [[cast]]
+    myBuffer.InterlockedCompareExchange(/*offset=*/16, /*compare_value=*/30, /*value=*/42, originalValAsInt);
 
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]

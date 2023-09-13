@@ -82,6 +82,7 @@ public:
   const llvm::Function *GetPatchConstantFunction() const;
   void SetPatchConstantFunction(llvm::Function *pFunc);
   bool IsEntryOrPatchConstantFunction(const llvm::Function* pFunc) const;
+  llvm::SmallVector<llvm::Function *, 64> GetExportedFunctions();
 
   // Flags.
   unsigned GetGlobalFlags() const;
@@ -107,10 +108,6 @@ public:
   DxilResource &GetUAV(unsigned idx);
   const DxilResource &GetUAV(unsigned idx) const;
   const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
-
-  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
-  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
-  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   void RemoveUnusedResources();
   void RemoveResourcesWithUnusedSymbols();
@@ -153,6 +150,9 @@ public:
   // Is an entry function that uses input/output signature conventions?
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
   bool IsEntryThatUsesSignatures(const llvm::Function *F) const ;
+  // Is F an entry?
+  // Includes: IsEntryThatUsesSignatures and all ray tracing shaders.
+  bool IsEntry(const llvm::Function *F) const;
 
   // Remove Root Signature from module metadata, return true if changed
   bool StripRootSignatureFromMetadata();
@@ -163,6 +163,7 @@ public:
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
+  const DxilTypeSystem &GetTypeSystem() const;
 
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();
@@ -201,6 +202,15 @@ public:
 
   bool StripReflection();
   void StripDebugRelatedCode();
+  void RemoveUnusedTypeAnnotations();
+
+  // Copy resource reflection back to this module's resources.
+  void RestoreResourceReflection(const DxilModule &SourceDM);
+
+  // Helper to remove dx.* metadata with source and compile options.
+  // If the parameter `bReplaceWithDummyData` is true, the named metadata
+  // are replaced with valid empty data that satisfy tools.
+  void StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData=false);
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 
   static DxilModule *TryGetDxilModule(llvm::Module *pModule);
@@ -239,6 +249,10 @@ public:
   void SetNumThreads(unsigned x, unsigned y, unsigned z);
   unsigned GetNumThreads(unsigned idx) const;
 
+  // Compute shader
+  void SetWaveSize(unsigned size);
+  unsigned GetWaveSize() const;
+
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;
   void SetInputPrimitive(DXIL::InputPrimitive IP);
@@ -262,6 +276,8 @@ public:
   bool GetDisableOptimization() const;
   void SetAllResourcesBound(bool resourcesBound);
   bool GetAllResourcesBound() const;
+  void SetResMayAlias(bool resMayAlias);
+  bool GetResMayAlias() const;
 
   // Intermediate options that do not make it to DXIL
   void SetLegacyResourceReservation(bool legacyResourceReservation);
@@ -317,30 +333,27 @@ private:
   std::vector<std::unique_ptr<DxilSampler> > m_Samplers;
 
   // Geometry shader.
-  DXIL::PrimitiveTopology m_StreamPrimitiveTopology;
-  unsigned m_ActiveStreamMask;
+  DXIL::PrimitiveTopology m_StreamPrimitiveTopology = DXIL::PrimitiveTopology::Undefined;
+  unsigned m_ActiveStreamMask = 0;
 
-private:
   enum IntermediateFlags : uint32_t {
     LegacyResourceReservation = 1 << 0,
   };
 
-private:
   llvm::LLVMContext &m_Ctx;
-  llvm::Module *m_pModule;
-  llvm::Function *m_pEntryFunc;
-  std::string m_EntryName;
+  llvm::Module *m_pModule = nullptr;
+  llvm::Function *m_pEntryFunc = nullptr;
+  std::string m_EntryName = "";
   std::unique_ptr<DxilMDHelper> m_pMDHelper;
   std::unique_ptr<llvm::DebugInfoFinder> m_pDebugInfoFinder;
-  const ShaderModel *m_pSM;
-  unsigned m_DxilMajor;
-  unsigned m_DxilMinor;
-  unsigned m_ValMajor;
-  unsigned m_ValMinor;
-  bool m_ForceZeroStoreLifetimes;
+  const ShaderModel *m_pSM = nullptr;
+  unsigned m_DxilMajor = DXIL::kDxilMajor;
+  unsigned m_DxilMinor = DXIL::kDxilMinor;
+  unsigned m_ValMajor = 1;
+  unsigned m_ValMinor = 0;
+  bool m_ForceZeroStoreLifetimes = false;
 
   std::unique_ptr<OP> m_pOP;
-  size_t m_pUnused;
 
   // LLVM used.
   std::vector<llvm::GlobalVariable*> m_LLVMUsed;
@@ -357,6 +370,22 @@ private:
   // Serialized ViewId state.
   std::vector<unsigned> m_SerializedState;
 
+  // properties from HLModule preserved as ShaderFlags
+  bool m_bDisableOptimizations = false;
+  bool m_bUseMinPrecision = true; // use min precision by default;
+  bool m_bAllResourcesBound = false;
+  bool m_bResMayAlias = false;
+
+  // properties from HLModule that should not make it to the final DXIL
+  uint32_t m_IntermediateFlags = 0;
+  uint32_t m_AutoBindingSpace = UINT_MAX;
+
+  std::unique_ptr<DxilSubobjects> m_pSubobjects;
+
+  // m_bMetadataErrors is true if non-fatal metadata errors were encountered.
+  // Validator will fail in this case, but should not block module load.
+  bool m_bMetadataErrors = false;
+
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();
   void LoadDxilResources(const llvm::MDOperand &MDO);
@@ -365,20 +394,6 @@ private:
   template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
   void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig, bool bInput);
 
-  // properties from HLModule preserved as ShaderFlags
-  bool m_bDisableOptimizations;
-  bool m_bUseMinPrecision;
-  bool m_bAllResourcesBound;
-
-  // properties from HLModule that should not make it to the final DXIL
-  uint32_t m_IntermediateFlags;
-  uint32_t m_AutoBindingSpace;
-
-  std::unique_ptr<DxilSubobjects> m_pSubobjects;
-
-  // m_bMetadataErrors is true if non-fatal metadata errors were encountered.
-  // Validator will fail in this case, but should not block module load.
-  bool m_bMetadataErrors;
 };
 
 } // namespace hlsl

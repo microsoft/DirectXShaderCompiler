@@ -14,6 +14,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/ADT/STLExtras.h"
@@ -25,6 +26,7 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/Support/Global.h"
@@ -34,6 +36,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
+#include "dxc/DxilContainer/DxilRDATBuilder.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DXIL/DxilCounters.h"
 #include <algorithm>
@@ -99,7 +102,7 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
   case Semantic::Kind::DepthLessEqual: return DxilProgramSigSemantic::DepthLE;
   case Semantic::Kind::DepthGreaterEqual: return DxilProgramSigSemantic::DepthGE;
   case Semantic::Kind::StencilRef:
-    __fallthrough;
+    LLVM_FALLTHROUGH;
   default:
     DXASSERT(kind == Semantic::Kind::StencilRef, "else Invalid or switch is missing a case");
     return DxilProgramSigSemantic::StencilRef;
@@ -124,7 +127,7 @@ static DxilProgramSigCompType CompTypeToSigCompType(hlsl::CompType value, bool i
   case CompType::Kind::U64: return DxilProgramSigCompType::UInt64;
   case CompType::Kind::F16: return DxilProgramSigCompType::Float16;
   case CompType::Kind::F64: return DxilProgramSigCompType::Float64;
-  case CompType::Kind::Invalid: __fallthrough;
+  case CompType::Kind::Invalid: LLVM_FALLTHROUGH;
   default:
     return DxilProgramSigCompType::Unknown;
   }
@@ -136,13 +139,13 @@ static DxilProgramSigMinPrecision CompTypeToSigMinPrecision(hlsl::CompType value
   case CompType::Kind::U32: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::F32: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::I1: return DxilProgramSigMinPrecision::Default;
-  case CompType::Kind::U64: __fallthrough;
-  case CompType::Kind::I64: __fallthrough;
+  case CompType::Kind::U64: LLVM_FALLTHROUGH;
+  case CompType::Kind::I64: LLVM_FALLTHROUGH;
   case CompType::Kind::F64: return DxilProgramSigMinPrecision::Default;
   case CompType::Kind::I16: return DxilProgramSigMinPrecision::SInt16;
   case CompType::Kind::U16: return DxilProgramSigMinPrecision::UInt16;
   case CompType::Kind::F16: return DxilProgramSigMinPrecision::Float16; // Float2_8 is not supported in DXIL.
-  case CompType::Kind::Invalid: __fallthrough;
+  case CompType::Kind::Invalid: LLVM_FALLTHROUGH;
   default:
     return DxilProgramSigMinPrecision::Default;
   }
@@ -177,10 +180,14 @@ private:
   bool   m_isInput;
   bool   m_useMinPrecision;
   bool m_bCompat_1_4;
+  bool m_bCompat_1_6; // unaligned size, no dedup for < 1.7
   size_t m_fixedSize;
-  typedef std::pair<const char *, uint32_t> NameOffsetPair;
-  typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap;
+  typedef std::pair<const char *, uint32_t> NameOffsetPair_nodedup;
+  typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap_nodedup;
+  typedef std::pair<llvm::StringRef, uint32_t> NameOffsetPair;
+  typedef llvm::SmallMapVector<llvm::StringRef, uint32_t, 8> NameOffsetMap;
   uint32_t m_lastOffset;
+  NameOffsetMap_nodedup m_semanticNameOffsets_nodedup;
   NameOffsetMap m_semanticNameOffsets;
   unsigned m_paramCount;
 
@@ -190,14 +197,31 @@ private:
     return pElement->GetName();
   }
 
-  uint32_t GetSemanticOffset(const hlsl::DxilSignatureElement *pElement) {
+  uint32_t GetSemanticOffset_nodedup(const hlsl::DxilSignatureElement *pElement) {
     const char *pName = GetSemanticName(pElement);
-    NameOffsetMap::iterator nameOffset = m_semanticNameOffsets.find(pName);
+    NameOffsetMap_nodedup::iterator nameOffset = m_semanticNameOffsets_nodedup.find(pName);
+    uint32_t result;
+    if (nameOffset == m_semanticNameOffsets_nodedup.end()) {
+      result = m_lastOffset;
+      m_semanticNameOffsets_nodedup.insert(NameOffsetPair_nodedup(pName, result));
+      m_lastOffset += strlen(pName) + 1;
+    }
+    else {
+      result = nameOffset->second;
+    }
+    return result;
+  }
+  uint32_t GetSemanticOffset(const hlsl::DxilSignatureElement *pElement) {
+    if (m_bCompat_1_6)
+      return GetSemanticOffset_nodedup(pElement);
+
+    StringRef name = GetSemanticName(pElement);
+    NameOffsetMap::iterator nameOffset = m_semanticNameOffsets.find(name);
     uint32_t result;
     if (nameOffset == m_semanticNameOffsets.end()) {
       result = m_lastOffset;
-      m_semanticNameOffsets.insert(NameOffsetPair(pName, result));
-      m_lastOffset += strlen(pName) + 1;
+      m_semanticNameOffsets.insert(NameOffsetPair(name, result));
+      m_lastOffset += name.size() + 1;
     }
     else {
       result = nameOffset->second;
@@ -281,15 +305,20 @@ public:
   DxilProgramSignatureWriter(const DxilSignature &signature,
                              DXIL::TessellatorDomain domain,
                              bool isInput, bool UseMinPrecision,
-                             bool bCompat_1_4)
+                             bool bCompat_1_4,
+                             bool bCompat_1_6)
       : m_signature(signature), m_domain(domain),
         m_isInput(isInput), m_useMinPrecision(UseMinPrecision),
-        m_bCompat_1_4(bCompat_1_4) {
+        m_bCompat_1_4(bCompat_1_4),
+        m_bCompat_1_6(bCompat_1_6) {
     calcSizes();
   }
 
   uint32_t size() const override {
-    return m_lastOffset;
+    if (m_bCompat_1_6)
+      return m_lastOffset;
+    else
+      return PSVALIGN4(m_lastOffset);
   }
 
   void write(AbstractMemoryStream *pStream) override {
@@ -317,19 +346,30 @@ public:
 
     // Write strings in the offset order.
     std::vector<NameOffsetPair> ordered;
-    ordered.assign(m_semanticNameOffsets.begin(), m_semanticNameOffsets.end());
+    if (m_bCompat_1_6) {
+      ordered.assign(m_semanticNameOffsets_nodedup.begin(), m_semanticNameOffsets_nodedup.end());
+    } else {
+      ordered.assign(m_semanticNameOffsets.begin(), m_semanticNameOffsets.end());
+    }
     std::sort(ordered.begin(), ordered.end(), sort_second<NameOffsetPair>());
     for (size_t i = 0; i < ordered.size(); ++i) {
-      const char *pName = ordered[i].first;
+      StringRef name = ordered[i].first;
       ULONG cbWritten;
       UINT64 offsetPos = pStream->GetPosition();
       DXASSERT_LOCALVAR(offsetPos, offsetPos - startPos == ordered[i].second, "else str offset is incorrect");
-      IFT(pStream->Write(pName, strlen(pName) + 1, &cbWritten));
+      IFT(pStream->Write(name.data(), name.size() + 1, &cbWritten));
     }
 
-    // Verify we wrote the bytes we though we would.
-    UINT64 endPos = pStream->GetPosition();
-    DXASSERT_LOCALVAR(endPos - startPos, endPos - startPos == size(), "else size is incorrect");
+    // Align, and verify we wrote the same number of bytes we though we would.
+    UINT64 bytesWritten = pStream->GetPosition() - startPos;
+    if (!m_bCompat_1_6 && (bytesWritten % 4 != 0)) {
+      unsigned paddingToAdd = 4 - (bytesWritten % 4);
+      char padding[4] = {0};
+      ULONG cbWritten = 0;
+      IFT(pStream->Write(padding, paddingToAdd, &cbWritten));
+      bytesWritten += cbWritten;
+    }
+    DXASSERT(bytesWritten == size(), "else size is incorrect");
   }
 };
 
@@ -340,23 +380,24 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
   unsigned ValMajor, ValMinor;
   M.GetValidatorVersion(ValMajor, ValMinor);
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  bool bCompat_1_6 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
   switch (Kind) {
   case DXIL::SignatureKind::Input:
     return new DxilProgramSignatureWriter(
         M.GetInputSignature(), domain, true,
         M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bCompat_1_6);
   case DXIL::SignatureKind::Output:
     return new DxilProgramSignatureWriter(
         M.GetOutputSignature(), domain, false,
         M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bCompat_1_6);
   case DXIL::SignatureKind::PatchConstOrPrim:
     return new DxilProgramSignatureWriter(
         M.GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
         /*UseMinPrecision*/M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bCompat_1_6);
   case DXIL::SignatureKind::Invalid:
     return nullptr;
   }
@@ -400,6 +441,180 @@ public:
 DxilPartWriter *hlsl::NewFeatureInfoWriter(const DxilModule &M) {
   return new DxilFeatureInfoWriter(M);
 }
+
+
+//////////////////////////////////////////////////////////
+// Utility code for serializing/deserializing ViewID state
+
+// Code for ComputeSeriaizedViewIDStateSizeInUInts copied from
+// ComputeViewIdState. It could be moved into some common location if this
+// ViewID serialization/deserialization code were moved out of here.
+static unsigned RoundUpToUINT(unsigned x) { return (x + 31) / 32; }
+static unsigned ComputeSeriaizedViewIDStateSizeInUInts(
+    const PSVShaderKind SK, const bool bUsesViewID,
+    const unsigned InputScalars, const unsigned OutputScalars[4],
+    const unsigned PCScalars) {
+  // Compute serialized state size in UINTs.
+  unsigned NumStreams = SK == PSVShaderKind::Geometry ? 4 : 1;
+  unsigned Size = 0;
+  Size += 1; // #Inputs.
+  for (unsigned StreamId = 0; StreamId < NumStreams; StreamId++) {
+    Size += 1; // #Outputs for stream StreamId.
+    unsigned NumOutputs = OutputScalars[StreamId];
+    unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
+    if (bUsesViewID) {
+      Size += NumOutUINTs; // m_OutputsDependentOnViewId[StreamId]
+    }
+    Size += InputScalars * NumOutUINTs; // m_InputsContributingToOutputs[StreamId]
+  }
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Domain || SK == PSVShaderKind::Mesh) {
+    Size += 1; // #PatchConstant.
+    unsigned NumPCUINTs = RoundUpToUINT(PCScalars);
+    if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
+      if (bUsesViewID) {
+        Size += NumPCUINTs; // m_PCOrPrimOutputsDependentOnViewId
+      }
+      Size += InputScalars * NumPCUINTs; // m_InputsContributingToPCOrPrimOutputs
+    } else {
+      unsigned NumOutputs = OutputScalars[0];
+      unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
+      Size += PCScalars * NumOutUINTs; // m_PCInputsContributingToOutputs
+    }
+  }
+  return Size;
+}
+
+static const uint32_t *CopyViewIDStateForOutputToPSV(
+    const uint32_t *pSrc, uint32_t InputScalars, uint32_t OutputScalars,
+    PSVComponentMask ViewIDMask, PSVDependencyTable IOTable) {
+  unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
+  if (ViewIDMask.IsValid()) {
+    DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
+    memcpy(ViewIDMask.Mask, pSrc, 4 * MaskDwords);
+    pSrc += MaskDwords;
+  }
+  if (IOTable.IsValid() && IOTable.InputVectors && IOTable.OutputVectors) {
+    DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
+    DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
+    memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
+    pSrc += MaskDwords * InputScalars;
+  }
+  return pSrc;
+}
+
+static uint32_t *CopyViewIDStateForOutputFromPSV(uint32_t *pOutputData,
+                                                 const unsigned InputScalars,
+                                                 const unsigned OutputScalars,
+                                                 PSVComponentMask ViewIDMask,
+                                                 PSVDependencyTable IOTable) {
+  unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
+  if (ViewIDMask.IsValid()) {
+    DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
+    for (unsigned i = 0; i < MaskDwords; i++)
+      *(pOutputData++) = ViewIDMask.Mask[i];
+  }
+  if (IOTable.IsValid() && IOTable.InputVectors && IOTable.OutputVectors) {
+    DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
+    DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
+    for (unsigned i = 0; i < MaskDwords * InputScalars; i++)
+      *(pOutputData++) = IOTable.Table[i];
+  }
+  return pOutputData;
+}
+
+void hlsl::StoreViewIDStateToPSV(const uint32_t *pInputData,
+                           unsigned InputSizeInUInts,
+                           DxilPipelineStateValidation &PSV) {
+  PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
+  DXASSERT(pInfo1, "otherwise, PSV does not meet version requirement.");
+  PSVShaderKind SK = static_cast<PSVShaderKind>(pInfo1->ShaderStage);
+  const unsigned OutputStreams = SK == PSVShaderKind::Geometry ? 4 : 1;
+  const uint32_t *pSrc = pInputData;
+  const uint32_t InputScalars = *(pSrc++);
+  uint32_t OutputScalars[4];
+  for (unsigned streamIndex = 0; streamIndex < OutputStreams; streamIndex++) {
+    OutputScalars[streamIndex] = *(pSrc++);
+    pSrc = CopyViewIDStateForOutputToPSV(
+        pSrc, InputScalars, OutputScalars[streamIndex],
+        PSV.GetViewIDOutputMask(streamIndex),
+        PSV.GetInputToOutputTable(streamIndex));
+  }
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
+    const uint32_t PCScalars = *(pSrc++);
+    pSrc = CopyViewIDStateForOutputToPSV(pSrc, InputScalars, PCScalars,
+                                         PSV.GetViewIDPCOutputMask(),
+                                         PSV.GetInputToPCOutputTable());
+  } else if (SK == PSVShaderKind::Domain) {
+    const uint32_t PCScalars = *(pSrc++);
+    pSrc = CopyViewIDStateForOutputToPSV(pSrc, PCScalars, OutputScalars[0],
+                                         PSVComponentMask(),
+                                         PSV.GetPCInputToOutputTable());
+  }
+  DXASSERT(pSrc - pInputData == InputSizeInUInts,
+           "otherwise, different amout of data written than expected.");
+}
+
+// This function is defined close to the serialization code in DxilPSVWriter to
+// reduce the chance of a mismatch.  It could be defined elsewhere, but it would
+// make sense to move both the serialization and deserialization out of here and
+// into a common location.
+unsigned hlsl::LoadViewIDStateFromPSV(unsigned *pOutputData,
+                                      unsigned OutputSizeInUInts,
+                                      const DxilPipelineStateValidation &PSV) {
+  PSVRuntimeInfo1 *pInfo1 = PSV.GetPSVRuntimeInfo1();
+  if (!pInfo1) {
+    return 0;
+  }
+  PSVShaderKind SK = static_cast<PSVShaderKind>(pInfo1->ShaderStage);
+  const unsigned OutputStreams = SK == PSVShaderKind::Geometry ? 4 : 1;
+  const unsigned InputScalars = pInfo1->SigInputVectors * 4;
+  unsigned OutputScalars[4];
+  for (unsigned streamIndex = 0; streamIndex < OutputStreams; streamIndex++) {
+    OutputScalars[streamIndex] = pInfo1->SigOutputVectors[streamIndex] * 4;
+  }
+  unsigned PCScalars = 0;
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh ||
+      SK == PSVShaderKind::Domain) {
+    PCScalars = pInfo1->SigPatchConstOrPrimVectors * 4;
+  }
+  if (pOutputData == nullptr) {
+    return ComputeSeriaizedViewIDStateSizeInUInts(
+        SK, pInfo1->UsesViewID != 0, InputScalars, OutputScalars, PCScalars);
+  }
+
+  // Fill in serialized viewid buffer.
+  DXASSERT(ComputeSeriaizedViewIDStateSizeInUInts(
+               SK, pInfo1->UsesViewID != 0, InputScalars, OutputScalars,
+               PCScalars) == OutputSizeInUInts,
+           "otherwise, OutputSize doesn't match computed size.");
+  unsigned *pStartOutputData = pOutputData;
+  *(pOutputData++) = InputScalars;
+  for (unsigned streamIndex = 0; streamIndex < OutputStreams; streamIndex++) {
+    *(pOutputData++) = OutputScalars[streamIndex];
+    pOutputData = CopyViewIDStateForOutputFromPSV(
+        pOutputData, InputScalars, OutputScalars[streamIndex],
+        PSV.GetViewIDOutputMask(streamIndex),
+        PSV.GetInputToOutputTable(streamIndex));
+  }
+  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
+    *(pOutputData++) = PCScalars;
+    pOutputData = CopyViewIDStateForOutputFromPSV(
+        pOutputData, InputScalars, PCScalars, PSV.GetViewIDPCOutputMask(),
+        PSV.GetInputToPCOutputTable());
+  } else if (SK == PSVShaderKind::Domain) {
+    *(pOutputData++) = PCScalars;
+    pOutputData = CopyViewIDStateForOutputFromPSV(
+        pOutputData, PCScalars, OutputScalars[0], PSVComponentMask(),
+        PSV.GetPCInputToOutputTable());
+  }
+  DXASSERT(pOutputData - pStartOutputData == OutputSizeInUInts,
+           "otherwise, OutputSizeInUInts didn't match size written.");
+  return pOutputData - pStartOutputData;
+}
+
+
+//////////////////////////////////////////////////////////
+// DxilPSVWriter - Writes PSV0 part
 
 class DxilPSVWriter : public DxilPartWriter  {
 private:
@@ -468,35 +683,19 @@ private:
     E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
   }
 
-  const uint32_t *CopyViewIDState(const uint32_t *pSrc, uint32_t InputScalars, uint32_t OutputScalars, PSVComponentMask ViewIDMask, PSVDependencyTable IOTable) {
-    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
-    if (ViewIDMask.IsValid()) {
-      DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
-      memcpy(ViewIDMask.Mask, pSrc, 4 * MaskDwords);
-      pSrc += MaskDwords;
-    }
-    if (IOTable.IsValid() && IOTable.InputVectors && IOTable.OutputVectors) {
-      DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
-      DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
-      memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
-      pSrc += MaskDwords * InputScalars;
-    }
-    return pSrc;
-  }
-
 public:
-  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = 0)
+  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = UINT_MAX)
   : m_Module(mod),
     m_PSVInitInfo(PSVVersion)
   {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
-    // Allow PSVVersion to be upgraded
-    if (m_ValMajor == 0 && m_ValMinor == 0) {
-      // Validation disabled upgrades to maximum PSVVersion
-      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
-    } else if (m_PSVInitInfo.PSVVersion < 1 && (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
+    // Constraint PSVVersion based on validator version
+    if (PSVVersion > 0 && DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 1) < 0)
+      m_PSVInitInfo.PSVVersion = 0;
+    else if (PSVVersion > 1 && DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
       m_PSVInitInfo.PSVVersion = 1;
-    }
+    else if (PSVVersion > MAX_PSV_VERSION)
+      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
 
     const ShaderModel *SM = m_Module.GetShaderModel();
     UINT uCBuffers = m_Module.GetCBuffers().size();
@@ -558,9 +757,10 @@ public:
     }
     DXASSERT_NOMSG(m_PSVBuffer.size() == m_PSVBufferSize);
 
-    // Set DxilRuntimInfo
+    // Set DxilRuntimeInfo
     PSVRuntimeInfo0* pInfo = m_PSV.GetPSVRuntimeInfo0();
     PSVRuntimeInfo1* pInfo1 = m_PSV.GetPSVRuntimeInfo1();
+    PSVRuntimeInfo2* pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     const ShaderModel* SM = m_Module.GetShaderModel();
     pInfo->MinimumExpectedWaveLaneCount = 0;
     pInfo->MaximumExpectedWaveLaneCount = (UINT)-1;
@@ -645,34 +845,52 @@ public:
         }
         break;
       }
-    case ShaderModel::Kind::Compute:
-    case ShaderModel::Kind::Library:
-    case ShaderModel::Kind::Invalid:
-      // Compute, Library, and Invalid not relevant to PSVRuntimeInfo0
-      break;
-    case ShaderModel::Kind::Mesh: {
-      pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
-      pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
-      pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
-      Module *mod = m_Module.GetModule();
-      const DataLayout &DL = mod->getDataLayout();
-      unsigned totalByteSize = 0;
-      for (GlobalVariable &GV : mod->globals()) {
-        PointerType *gvPtrType = cast<PointerType>(GV.getType());
-        if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
-          Type *gvType = gvPtrType->getPointerElementType();
-          unsigned byteSize = DL.getTypeAllocSize(gvType);
-          totalByteSize += byteSize;
+      case ShaderModel::Kind::Compute: {
+        UINT waveSize = (UINT)m_Module.GetWaveSize();
+        if (waveSize != 0) {
+          pInfo->MinimumExpectedWaveLaneCount = waveSize;
+          pInfo->MaximumExpectedWaveLaneCount = waveSize;
         }
+        break;
       }
-      pInfo->MS.GroupSharedBytesUsed = totalByteSize;
-      pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
+      case ShaderModel::Kind::Library:
+      case ShaderModel::Kind::Invalid:
+        // Library and Invalid not relevant to PSVRuntimeInfo0
+        break;
+      case ShaderModel::Kind::Mesh: {
+        pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
+        pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
+        pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
+        Module *mod = m_Module.GetModule();
+        const DataLayout &DL = mod->getDataLayout();
+        unsigned totalByteSize = 0;
+        for (GlobalVariable &GV : mod->globals()) {
+          PointerType *gvPtrType = cast<PointerType>(GV.getType());
+          if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
+            Type *gvType = gvPtrType->getPointerElementType();
+            unsigned byteSize = DL.getTypeAllocSize(gvType);
+            totalByteSize += byteSize;
+          }
+        }
+        pInfo->MS.GroupSharedBytesUsed = totalByteSize;
+        pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
+      case ShaderModel::Kind::Amplification: {
+        pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
     }
-    case ShaderModel::Kind::Amplification: {
-      pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
-    }
+    if (pInfo2) {
+      switch (SM->GetKind()) {
+      case ShaderModel::Kind::Compute:
+      case ShaderModel::Kind::Mesh:
+      case ShaderModel::Kind::Amplification:
+        pInfo2->NumThreadsX = m_Module.GetNumThreads(0);
+        pInfo2->NumThreadsY = m_Module.GetNumThreads(1);
+        pInfo2->NumThreadsZ = m_Module.GetNumThreads(2);
+        break;
+      }
     }
 
     // Set resource binding information
@@ -680,26 +898,35 @@ public:
     for (auto &&R : m_Module.GetCBuffers()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       pBindInfo->ResType = (UINT)PSVResourceType::CBV;
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSamplers()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       pBindInfo->ResType = (UINT)PSVResourceType::Sampler;
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSRVs()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       if (R->IsStructuredBuffer()) {
         pBindInfo->ResType = (UINT)PSVResourceType::SRVStructured;
@@ -711,11 +938,15 @@ public:
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetUAVs()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       if (R->IsStructuredBuffer()) {
         if (R->HasCounter())
@@ -730,6 +961,10 @@ public:
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+        pBindInfo1->ResFlags |= R->HasAtomic64Use()? (UINT)PSVResourceFlag::UsedByAtomic64 : 0;
+      }
       uResIndex++;
     }
     DXASSERT_NOMSG(uResIndex == m_PSVInitInfo.ResourceCount);
@@ -763,23 +998,7 @@ public:
       // Gather ViewID dependency information
       auto &viewState = m_Module.GetSerializedViewIdState();
       if (!viewState.empty()) {
-        const uint32_t *pSrc = viewState.data();
-        const uint32_t InputScalars = *(pSrc++);
-        uint32_t OutputScalars[4];
-        for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
-          OutputScalars[streamIndex] = *(pSrc++);
-          pSrc = CopyViewIDState(pSrc, InputScalars, OutputScalars[streamIndex], m_PSV.GetViewIDOutputMask(streamIndex), m_PSV.GetInputToOutputTable(streamIndex));
-          if (!SM->IsGS())
-            break;
-        }
-        if (SM->IsHS() || SM->IsMS()) {
-          const uint32_t PCScalars = *(pSrc++);
-          pSrc = CopyViewIDState(pSrc, InputScalars, PCScalars, m_PSV.GetViewIDPCOutputMask(), m_PSV.GetInputToPCOutputTable());
-        } else if (SM->IsDS()) {
-          const uint32_t PCScalars = *(pSrc++);
-          pSrc = CopyViewIDState(pSrc, PCScalars, OutputScalars[0], PSVComponentMask(), m_PSV.GetPCInputToOutputTable());
-        }
-        DXASSERT_NOMSG(viewState.data() + viewState.size() == pSrc);
+        StoreViewIDStateToPSV(viewState.data(), (unsigned)viewState.size(), m_PSV);
       }
     }
 
@@ -789,256 +1008,102 @@ public:
   }
 };
 
-// Size-checked writer
-//  on overrun: throw buffer_overrun{};
-//  on overlap: throw buffer_overlap{};
-class CheckedWriter {
-  char *Ptr;
-  size_t Size;
-  size_t Offset;
-
+//////////////////////////////////////////////////////////
+// DxilVersionWriter - Writes VERS part
+class DxilVersionWriter : public DxilPartWriter {
+  hlsl::DxilCompilerVersion m_Header = {};
+  CComHeapPtr<char> m_CommitShaStorage;
+  llvm::StringRef m_CommitSha = "";
+  CComHeapPtr<char> m_CustomStringStorage;
+  llvm::StringRef m_CustomString = "";
 public:
-  class exception : public std::exception {};
-  class buffer_overrun : public exception {
-  public:
-    buffer_overrun() noexcept {}
-    virtual const char * what() const noexcept override {
-      return ("buffer_overrun");
+  DxilVersionWriter(IDxcVersionInfo *pVersion)
+  {
+    Init(pVersion);
+  }
+
+  void Init(IDxcVersionInfo *pVersionInfo) {
+    m_Header = {};
+
+    UINT32 Major = 0, Minor = 0;
+    UINT32 Flags = 0;
+    IFT(pVersionInfo->GetVersion(&Major, &Minor));
+    IFT(pVersionInfo->GetFlags(&Flags));
+
+    m_Header.Major = Major;
+    m_Header.Minor = Minor;
+    m_Header.VersionFlags = Flags;
+    CComPtr<IDxcVersionInfo2> pVersionInfo2;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
+      UINT32 CommitCount = 0;
+      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
+      m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
+      m_Header.CommitCount = CommitCount;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size();
     }
-  };
-  class buffer_overlap : public exception {
-  public:
-    buffer_overlap() noexcept {}
-    virtual const char * what() const noexcept override {
-      return ("buffer_overlap");
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
+
+    CComPtr<IDxcVersionInfo3> pVersionInfo3;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
+      IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
+      m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size();
     }
-  };
-
-  CheckedWriter(void *ptr, size_t size) :
-    Ptr(reinterpret_cast<char*>(ptr)), Size(size), Offset(0) {}
-
-  size_t GetOffset() const { return Offset; }
-  void Reset(size_t offset = 0) {
-    if (offset >= Size) throw buffer_overrun{};
-    Offset = offset;
-  }
-  // offset is absolute, ensure offset is >= current offset
-  void Advance(size_t offset = 0) {
-    if (offset < Offset) throw buffer_overlap{};
-    if (offset >= Size) throw buffer_overrun{};
-    Offset = offset;
-  }
-  void CheckBounds(size_t size) const {
-    assert(Offset <= Size && "otherwise, offset larger than size");
-    if (size > Size - Offset)
-      throw buffer_overrun{};
-  }
-  template <typename T>
-  T *Cast(size_t size = 0) {
-    if (0 == size) size = sizeof(T);
-    CheckBounds(size);
-    return reinterpret_cast<T*>(Ptr + Offset);
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
   }
 
-  // Map and Write advance Offset:
-  template <typename T>
-  T &Map() {
-    const size_t size = sizeof(T);
-    T * p = Cast<T>(size);
-    Offset += size;
-    return *p;
-  }
-  template <typename T>
-  T *MapArray(size_t count = 1) {
-    const size_t size = sizeof(T) * count;
-    T *p = Cast<T>(size);
-    Offset += size;
-    return p;
-  }
-  template <typename T>
-  void Write(const T &obj) {
-    const size_t size = sizeof(T);
-    *Cast<T>(size) = obj;
-    Offset += size;
-  }
-  template <typename T>
-  void WriteArray(const T *pArray, size_t count = 1) {
-    const size_t size = sizeof(T) * count;
-    memcpy(Cast<T>(size), pArray, size);
-    Offset += size;
-  }
-};
-
-// Like DXIL container, RDAT itself is a mini container that contains multiple RDAT parts
-class RDATPart {
-public:
-  virtual uint32_t GetPartSize() const { return 0; }
-  virtual void Write(void *ptr) {}
-  virtual RuntimeDataPartType GetType() const { return RuntimeDataPartType::Invalid; }
-  virtual ~RDATPart() {}
-};
-
-// Most RDAT parts are tables each containing a list of structures of same type.
-// Exceptions are string table and index table because each string or list of
-// indicies can be of different sizes.
-template <class T>
-class RDATTable : public RDATPart {
-protected:
-  std::vector<T> m_rows;
-public:
-  virtual void Insert(T *data) {}
-  virtual ~RDATTable() {}
-
-  void Insert(const T &data) {
-    m_rows.push_back(data);
-  }
-
-  void Write(void *ptr) {
-    char *pCur = (char*)ptr;
-    RuntimeDataTableHeader &header = *reinterpret_cast<RuntimeDataTableHeader*>(pCur);
-    header.RecordCount = m_rows.size();
-    header.RecordStride = sizeof(T);
-    pCur += sizeof(RuntimeDataTableHeader);
-    memcpy(pCur, m_rows.data(), header.RecordCount * header.RecordStride);
-  };
-
-  uint32_t GetPartSize() const {
-    if (m_rows.empty())
-      return 0;
-    return sizeof(RuntimeDataTableHeader) + m_rows.size() * sizeof(T);
-  }
-};
-
-// Resource table will contain a list of RuntimeDataResourceInfo in order of
-// CBuffer, Sampler, SRV, and UAV resource classes.
-class ResourceTable : public RDATTable<RuntimeDataResourceInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::ResourceTable; }
-};
-
-class FunctionTable : public RDATTable<RuntimeDataFunctionInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::FunctionTable; }
-};
-
-class StringBufferPart : public RDATPart {
-private:
-  StringMap<uint32_t> m_StringMap;
-  SmallVector<char, 256> m_StringBuffer;
-public:
-  StringBufferPart() : m_StringMap(), m_StringBuffer() {
-    // Always start string table with null so empty/null strings have offset of zero
-    m_StringBuffer.push_back('\0');
-  }
-  // returns the offset of the name inserted
-  uint32_t Insert(StringRef name) {
-    if (name.empty())
-      return 0;
-
-    // Don't add duplicate strings
-    auto found = m_StringMap.find(name);
-    if (found != m_StringMap.end())
-      return found->second;
-
-    uint32_t prevIndex = (uint32_t)m_StringBuffer.size();
-    m_StringMap[name] = prevIndex;
-    m_StringBuffer.reserve(m_StringBuffer.size() + name.size() + 1);
-    m_StringBuffer.append(name.begin(), name.end());
-    m_StringBuffer.push_back('\0');
-    return prevIndex;
-  }
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::StringBuffer; }
-  uint32_t GetPartSize() const { return m_StringBuffer.size(); }
-  void Write(void *ptr) { memcpy(ptr, m_StringBuffer.data(), m_StringBuffer.size()); }
-};
-
-struct IndexArraysPart : public RDATPart {
-private:
-  std::vector<uint32_t> m_IndexBuffer;
-
-  // Use m_IndexSet with CmpIndices to avoid duplicate index arrays
-  struct CmpIndices {
-    const IndexArraysPart &Table;
-    CmpIndices(const IndexArraysPart &table) : Table(table) {}
-    bool operator()(uint32_t left, uint32_t right) const {
-      const uint32_t *pLeft = Table.m_IndexBuffer.data() + left;
-      const uint32_t *pRight = Table.m_IndexBuffer.data() + right;
-      if (*pLeft != *pRight)
-        return (*pLeft < *pRight);
-      uint32_t count = *pLeft;
-      for (unsigned i = 0; i < count; i++) {
-        ++pLeft; ++pRight;
-        if (*pLeft != *pRight)
-          return (*pLeft < *pRight);
-      }
-      return false;
+  static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
+    uint32_t rem = size % 4;
+    if (rem) {
+      uint32_t padding = (4 - rem);
+      if (outNumPadding)
+        *outNumPadding = padding;
+      return size + padding;
     }
-  };
-  std::set<uint32_t, CmpIndices> m_IndexSet;
-
-public:
-  IndexArraysPart() : m_IndexBuffer(), m_IndexSet(*this) {}
-  template <class iterator>
-  uint32_t AddIndex(iterator begin, iterator end) {
-    uint32_t newOffset = m_IndexBuffer.size();
-    m_IndexBuffer.push_back(0); // Size: update after insertion
-    m_IndexBuffer.insert(m_IndexBuffer.end(), begin, end);
-    m_IndexBuffer[newOffset] = (m_IndexBuffer.size() - newOffset) - 1;
-    // Check for duplicate, return new offset if not duplicate
-    auto insertResult = m_IndexSet.insert(newOffset);
-    if (insertResult.second)
-      return newOffset;
-    // Otherwise it was a duplicate, so chop off the size and return the original
-    m_IndexBuffer.resize(newOffset);
-    return *insertResult.first;
+    if (outNumPadding)
+      *outNumPadding = 0;
+    return size;
   }
 
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::IndexArrays; }
-  uint32_t GetPartSize() const {
-    return sizeof(uint32_t) * m_IndexBuffer.size();
+  UINT32 size() const override {
+    return PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes);
   }
 
-  void Write(void *ptr) {
-    memcpy(ptr, m_IndexBuffer.data(), m_IndexBuffer.size() * sizeof(uint32_t));
+  void write(AbstractMemoryStream *pStream) override {
+    const uint8_t padByte = 0;
+    UINT32 uPadding = 0;
+    UINT32 uSize = PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes, &uPadding);
+    (void)uSize;
+
+    ULONG cbWritten = 0;
+    IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
+
+    // Write a null terminator even if the string is empty
+    IFT(pStream->Write(m_CommitSha.data(), m_CommitSha.size(), &cbWritten));
+    // Null terminator for the commit sha
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write the custom version string.
+    IFT(pStream->Write(m_CustomString.data(), m_CustomString.size(), &cbWritten));
+    // Null terminator for the custom version string.
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write padding
+    for (unsigned i = 0; i < uPadding; i++) {
+      IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+    }
   }
-};
-
-class RawBytesPart : public RDATPart {
-private:
-  std::unordered_map<const void *, uint32_t> m_PtrMap;
-  std::vector<char> m_DataBuffer;
-public:
-  RawBytesPart() : m_DataBuffer() {}
-  uint32_t Insert(const void *pData, size_t dataSize) {
-    auto it = m_PtrMap.find(pData);
-    if (it != m_PtrMap.end())
-      return it->second;
-
-    if (dataSize + m_DataBuffer.size() > UINT_MAX)
-      return UINT_MAX;
-    uint32_t offset = (uint32_t)m_DataBuffer.size();
-    m_DataBuffer.reserve(m_DataBuffer.size() + dataSize);
-    m_DataBuffer.insert(m_DataBuffer.end(),
-      (const char*)pData, (const char*)pData + dataSize);
-    return offset;
-  }
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::RawBytes; }
-  uint32_t GetPartSize() const { return m_DataBuffer.size(); }
-  void Write(void *ptr) { memcpy(ptr, m_DataBuffer.data(), m_DataBuffer.size()); }
-};
-
-class SubobjectTable : public RDATTable<RuntimeDataSubobjectInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::SubobjectTable; }
 };
 
 using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
 private:
-  SmallVector<char, 1024> m_RDATBuffer;
+  DxilRDATBuilder Builder;
+  RDATTable *m_pResourceTable;
+  RDATTable *m_pFunctionTable;
+  RDATTable *m_pSubobjectTable;
 
-  std::vector<std::unique_ptr<RDATPart>> m_Parts;
   typedef llvm::SmallSetVector<uint32_t, 8> Indices;
   typedef std::unordered_map<const llvm::Function *, Indices> FunctionIndexMap;
   FunctionIndexMap m_FuncToResNameOffset; // list of resources used
@@ -1057,7 +1122,8 @@ private:
   FunctionShaderCompatMap m_FuncToShaderCompat;
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
-    for (const auto &user : dxilFunc->users()) {
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
+    for (const llvm::User *user : dxilFunc->users()) {
       if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
         const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
@@ -1075,22 +1141,38 @@ private:
           info.minMinor = minor;
         }
         info.mask &= mask;
+      } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
+        // If loading a groupshared variable, limit to CS/AS/MS
+        if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(LI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
+      } else if (const llvm::StoreInst *SI = dyn_cast<StoreInst>(user)) {
+        // If storing to a groupshared variable, limit to CS/AS/MS
+        if (SI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(SI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
       }
     }
+#undef SFLAG
   }
 
-  const llvm::Function *FindUsingFunction(const llvm::Value *User) {
+  void
+  FindUsingFunctions(const llvm::Value *User,
+                    llvm::SmallVectorImpl<const llvm::Function *> &functions) {
     if (const llvm::Instruction *I = dyn_cast<const llvm::Instruction>(User)) {
       // Instruction should be inside a basic block, which is in a function
-      return cast<const llvm::Function>(I->getParent()->getParent());
+      functions.push_back(cast<const llvm::Function>(I->getParent()->getParent()));
+      return;
     }
     // User can be either instruction, constant, or operator. But User is an
     // operator only if constant is a scalar value, not resource pointer.
     const llvm::Constant *CU = cast<const llvm::Constant>(User);
-    if (!CU->user_empty())
-      return FindUsingFunction(*CU->user_begin());
-    else
-      return nullptr;
+    for (auto U : CU->users())
+      FindUsingFunctions(U, functions);
   }
 
   void UpdateFunctionToResourceInfo(const DxilResourceBase *resource,
@@ -1098,14 +1180,15 @@ private:
     Constant *var = resource->GetGlobalSymbol();
     if (var) {
       for (auto user : var->users()) {
-        // Find the function.
-        const llvm::Function *F = FindUsingFunction(user);
-        if (!F)
-          continue;
-        if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
-          m_FuncToResNameOffset[F] = Indices();
+        // Find the function(s).
+        llvm::SmallVector<const llvm::Function*, 8> functions;
+        FindUsingFunctions(user, functions);
+        for (const llvm::Function *F : functions) {
+          if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
+            m_FuncToResNameOffset[F] = Indices();
+          }
+          m_FuncToResNameOffset[F].insert(offset);
         }
-        m_FuncToResNameOffset[F].insert(offset);
       }
     }
   }
@@ -1113,7 +1196,7 @@ private:
   void InsertToResourceTable(DxilResourceBase &resource,
                              ResourceClass resourceClass,
                              uint32_t &resourceIndex) {
-    uint32_t stringIndex = m_pStringBufferPart->Insert(resource.GetGlobalName());
+    uint32_t stringIndex = Builder.InsertString(resource.GetGlobalName());
     UpdateFunctionToResourceInfo(&resource, resourceIndex++);
     RuntimeDataResourceInfo info = {};
     info.ID = resource.GetID();
@@ -1132,6 +1215,8 @@ private:
         info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVGloballyCoherent);
       if (pRes->IsROV())
         info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVRasterizerOrderedView);
+      if (pRes->HasAtomic64Use())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::Atomics64Use);
       // TODO: add dynamic index flag
     }
     m_pResourceTable->Insert(info);
@@ -1157,27 +1242,32 @@ private:
   }
 
   void UpdateFunctionDependency(llvm::Function *F) {
-    for (const auto &user : F->users()) {
-      const llvm::Function *userFunction = FindUsingFunction(user);
-      uint32_t index = m_pStringBufferPart->Insert(F->getName());
-      if (m_FuncToDependencies.find(userFunction) ==
-          m_FuncToDependencies.end()) {
-        m_FuncToDependencies[userFunction] =
-            Indices();
+    for (const llvm::User *user : F->users()) {
+      llvm::SmallVector<const llvm::Function*, 8> functions;
+      FindUsingFunctions(user, functions);
+      for (const llvm::Function *userFunction : functions) {
+        uint32_t index = Builder.InsertString(F->getName());
+        if (m_FuncToDependencies.find(userFunction) ==
+            m_FuncToDependencies.end()) {
+          m_FuncToDependencies[userFunction] =
+              Indices();
+        }
+        m_FuncToDependencies[userFunction].insert(index);
       }
-      m_FuncToDependencies[userFunction].insert(index);
     }
   }
 
   void UpdateFunctionInfo(const DxilModule &DM) {
+    llvm::Module *M = DM.GetModule();
     // We must select the appropriate shader mask for the validator version,
     // so we don't set any bits the validator doesn't recognize.
     unsigned ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Amplification + 1)) - 1;
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
       ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Callable + 1)) - 1;
     }
-    for (auto &function : DM.GetModule()->getFunctionList()) {
-      if (function.isDeclaration() && !function.isIntrinsic()) {
+    for (auto &function : M->getFunctionList()) {
+      if (function.isDeclaration() && !function.isIntrinsic() &&
+          function.getLinkage() == llvm::GlobalValue::LinkageTypes::ExternalLinkage) {
         if (OP::IsDxilOpFunc(&function)) {
           // update min shader model and shader stage mask per function
           UpdateFunctionToShaderCompat(&function);
@@ -1187,29 +1277,33 @@ private:
         }
       }
     }
-    for (auto &function : DM.GetModule()->getFunctionList()) {
+
+
+    for (auto &function : M->getFunctionList()) {
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
         StringRef unmangled = hlsl::dxilutil::DemangleFunctionName(function.getName());
-        uint32_t mangledIndex = m_pStringBufferPart->Insert(mangled);
-        uint32_t unmangledIndex = m_pStringBufferPart->Insert(unmangled);
+        uint32_t mangledIndex = Builder.InsertString(mangled);
+        uint32_t unmangledIndex = Builder.InsertString(unmangled);
         // Update resource Index
-        uint32_t resourceIndex = UINT_MAX;
-        uint32_t functionDependencies = UINT_MAX;
+        uint32_t resourceIndex = RDAT_NULL_REF;
+        uint32_t functionDependencies = RDAT_NULL_REF;
         uint32_t payloadSizeInBytes = 0;
         uint32_t attrSizeInBytes = 0;
         uint32_t shaderKind = static_cast<uint32_t>(DXIL::ShaderKind::Library);
 
         if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
           resourceIndex =
-          m_pIndexArraysPart->AddIndex(m_FuncToResNameOffset[&function].begin(),
+          Builder.InsertArray(m_FuncToResNameOffset[&function].begin(),
                                   m_FuncToResNameOffset[&function].end());
         if (m_FuncToDependencies.find(&function) != m_FuncToDependencies.end())
           functionDependencies =
-              m_pIndexArraysPart->AddIndex(m_FuncToDependencies[&function].begin(),
+              Builder.InsertArray(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
+        RuntimeDataFunctionInfo info = {};
+        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
         if (DM.HasDxilFunctionProps(&function)) {
-          auto props = DM.GetDxilFunctionProps(&function);
+          const auto &props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
             payloadSizeInBytes = props.ShaderProps.Ray.payloadSizeInBytes;
             attrSizeInBytes = props.ShaderProps.Ray.attributeSizeInBytes;
@@ -1222,8 +1316,6 @@ private:
           }
           shaderKind = (uint32_t)props.shaderKind;
         }
-        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
-        RuntimeDataFunctionInfo info = {};
         info.Name = mangledIndex;
         info.UnmangledName = unmangledIndex;
         info.ShaderKind = shaderKind;
@@ -1231,9 +1323,7 @@ private:
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
         info.AttributeSizeInBytes = attrSizeInBytes;
-        uint64_t featureFlags = flags.GetFeatureInfo();
-        info.FeatureInfo1 = featureFlags & 0xffffffff;
-        info.FeatureInfo2 = (featureFlags >> 32) & 0xffffffff;
+        info.SetFeatureFlags(flags.GetFeatureInfo());
         // Init min target 6.0
         unsigned minMajor = 6, minMinor = 0;
         // Increase min target based on feature flags:
@@ -1272,7 +1362,7 @@ private:
     for (auto &it : DM.GetSubobjects()->GetSubobjects()) {
       auto &obj = *it.second;
       RuntimeDataSubobjectInfo info = {};
-      info.Name = m_pStringBufferPart->Insert(obj.GetName());
+      info.Name = Builder.InsertString(obj.GetName());
       info.Kind = (uint32_t)obj.GetKind();
       bool bLocalRS = false;
       switch (obj.GetKind()) {
@@ -1281,12 +1371,12 @@ private:
         break;
       case DXIL::SubobjectKind::LocalRootSignature:
         bLocalRS = true;
-        __fallthrough;
+        LLVM_FALLTHROUGH;
       case DXIL::SubobjectKind::GlobalRootSignature: {
         const void *Data;
-        obj.GetRootSignature(bLocalRS, Data, info.RootSignature.SizeInBytes);
-        info.RootSignature.RawBytesOffset =
-          m_pRawBytesPart->Insert(Data, info.RootSignature.SizeInBytes);
+        obj.GetRootSignature(bLocalRS, Data, info.RootSignature.Data.Size);
+        info.RootSignature.Data.Offset =
+          Builder.GetRawBytesPart().Insert(Data, info.RootSignature.Data.Size);
         break;
       }
       case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
@@ -1296,13 +1386,13 @@ private:
         std::vector<uint32_t> ExportIndices;
         obj.GetSubobjectToExportsAssociation(Subobject, Exports, NumExports);
         info.SubobjectToExportsAssociation.Subobject =
-          m_pStringBufferPart->Insert(Subobject);
+          Builder.InsertString(Subobject);
         ExportIndices.resize(NumExports);
         for (unsigned i = 0; i < NumExports; ++i) {
-          ExportIndices[i] = m_pStringBufferPart->Insert(Exports[i]);
+          ExportIndices[i] = Builder.InsertString(Exports[i]);
         }
         info.SubobjectToExportsAssociation.Exports =
-          m_pIndexArraysPart->AddIndex(
+          Builder.InsertArray(
             ExportIndices.begin(), ExportIndices.end());
         break;
       }
@@ -1323,9 +1413,9 @@ private:
         StringRef Intersection;
         obj.GetHitGroup(hgType, AnyHit, ClosestHit, Intersection);
         info.HitGroup.Type = (uint32_t)hgType;
-        info.HitGroup.AnyHit = m_pStringBufferPart->Insert(AnyHit);
-        info.HitGroup.ClosestHit = m_pStringBufferPart->Insert(ClosestHit);
-        info.HitGroup.Intersection = m_pStringBufferPart->Insert(Intersection);
+        info.HitGroup.AnyHit = Builder.InsertString(AnyHit);
+        info.HitGroup.ClosestHit = Builder.InsertString(ClosestHit);
+        info.HitGroup.Intersection = Builder.InsertString(Intersection);
         break;
       }
       case DXIL::SubobjectKind::RaytracingPipelineConfig1:
@@ -1338,86 +1428,52 @@ private:
     }
   }
 
-  void CreateParts() {
-#define ADD_PART(type) \
-    m_Parts.emplace_back(llvm::make_unique<type>()); \
-    m_p##type = reinterpret_cast<type*>(m_Parts.back().get());
-    ADD_PART(StringBufferPart);
-    ADD_PART(ResourceTable);
-    ADD_PART(FunctionTable);
-    ADD_PART(IndexArraysPart);
-    ADD_PART(RawBytesPart);
-    ADD_PART(SubobjectTable);
-#undef ADD_PART
+  static bool GetRecordDuplicationAllowed(const DxilModule &mod) {
+    unsigned valMajor, valMinor;
+    mod.GetValidatorVersion(valMajor, valMinor);
+    const bool bRecordDeduplicationEnabled = DXIL::CompareVersions(valMajor, valMinor, 1, 7) >= 0;
+    return bRecordDeduplicationEnabled;
   }
 
-  StringBufferPart *m_pStringBufferPart;
-  IndexArraysPart *m_pIndexArraysPart;
-  RawBytesPart *m_pRawBytesPart;
-  FunctionTable *m_pFunctionTable;
-  ResourceTable *m_pResourceTable;
-  SubobjectTable *m_pSubobjectTable;
-
 public:
-  DxilRDATWriter(const DxilModule &mod, uint32_t InfoVersion = 0)
-      : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
+  DxilRDATWriter(const DxilModule &mod) :
+    Builder(GetRecordDuplicationAllowed(mod))
+  {
     // Keep track of validator version so we can make a compatible RDAT
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
+    RDAT::RuntimeDataPartType maxAllowedType = RDAT::MaxPartTypeForValVer(m_ValMajor, m_ValMinor);
 
-    CreateParts();
+  // Instantiate the parts in the order that validator expects.
+  Builder.GetStringBufferPart();
+  m_pResourceTable = Builder.GetOrAddTable<RuntimeDataResourceInfo>();
+  m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
+  Builder.GetIndexArraysPart();
+  Builder.GetRawBytesPart();
+  if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::PartType() <= maxAllowedType)
+    m_pSubobjectTable = Builder.GetOrAddTable<RuntimeDataSubobjectInfo>();
+
+// Once per table.
+#define RDAT_STRUCT_TABLE(type, table) \
+  if (RDAT::RecordTraits<type>::PartType() <= maxAllowedType) \
+    (void)Builder.GetOrAddTable<type>();
+
+#define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
+#include "dxc/DxilContainer/RDAT_Macros.inl"
+
     UpdateResourceInfo(mod);
     UpdateFunctionInfo(mod);
-    UpdateSubobjectInfo(mod);
-
-    // Delete any empty parts:
-    std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();
-    while (it != m_Parts.end()) {
-      if (it->get()->GetPartSize() == 0) {
-        it = m_Parts.erase(it);
-      }
-      else
-        it++;
-    }
+    if (m_pSubobjectTable)
+      UpdateSubobjectInfo(mod);
   }
 
   uint32_t size() const override {
-    // header + offset array
-    uint32_t total = sizeof(RuntimeDataHeader) + m_Parts.size() * sizeof(uint32_t);
-    // For each part: part header + part size
-    for (auto &part : m_Parts)
-      total += sizeof(RuntimeDataPartHeader) + PSVALIGN4(part->GetPartSize());
-    return total;
+    return Builder.size();
   }
 
   void write(AbstractMemoryStream *pStream) override {
-    try {
-      m_RDATBuffer.resize(size(), 0);
-      CheckedWriter W(m_RDATBuffer.data(), m_RDATBuffer.size());
-      // write RDAT header
-      RuntimeDataHeader &header = W.Map<RuntimeDataHeader>();
-      header.Version = RDAT_Version_10;
-      header.PartCount = m_Parts.size();
-      // map offsets
-      uint32_t *offsets = W.MapArray<uint32_t>(header.PartCount);
-      // write parts
-      unsigned i = 0;
-      for (auto &part : m_Parts) {
-        offsets[i++] = W.GetOffset();
-        RuntimeDataPartHeader &partHeader = W.Map<RuntimeDataPartHeader>();
-        partHeader.Type = part->GetType();
-        partHeader.Size = PSVALIGN4(part->GetPartSize());
-        DXASSERT(partHeader.Size, "otherwise, failed to remove empty part");
-        char *bytes = W.MapArray<char>(partHeader.Size);
-        part->Write(bytes);
-      }
-    }
-    catch (CheckedWriter::exception e) {
-      throw hlsl::Exception(DXC_E_GENERAL_INTERNAL_ERROR, e.what());
-    }
-
-    ULONG cbWritten;
-    IFT(pStream->Write(m_RDATBuffer.data(), m_RDATBuffer.size(), &cbWritten));
-    DXASSERT_NOMSG(cbWritten == m_RDATBuffer.size());
+    StringRef data = Builder.FinalizeAndGetData();
+    ULONG uWritten = 0;
+    IFT(pStream->Write(data.data(), data.size(), &uWritten));
   }
 };
 
@@ -1425,8 +1481,12 @@ DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
   return new DxilPSVWriter(M, PSVVersion);
 }
 
-DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M, uint32_t InfoVersion) {
-  return new DxilRDATWriter(M, InfoVersion);
+DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
+  return new DxilRDATWriter(M);
+}
+
+DxilPartWriter *hlsl::NewVersionWriter(IDxcVersionInfo *DXCVersionInfo) {
+  return new DxilVersionWriter(DXCVersionInfo);
 }
 
 class DxilContainerWriter_impl : public DxilContainerWriter  {
@@ -1442,9 +1502,20 @@ private:
   };
 
   llvm::SmallVector<DxilPart, 8> m_Parts;
+  bool m_bUnaligned;
+  bool m_bHasPrivateData;
 
 public:
+  DxilContainerWriter_impl(bool bUnaligned) : m_bUnaligned(bUnaligned), m_bHasPrivateData(false) {}
+
   void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) override {
+    // Alignment required for all parts except private data, which must be last.
+    IFTBOOL(!m_bHasPrivateData && "private data must be last, and cannot be added twice.", DXC_E_CONTAINER_INVALID);
+    if (FourCC == DFCC_PrivateData) {
+      m_bHasPrivateData = true;
+    } else if (!m_bUnaligned) {
+      IFTBOOL((Size % sizeof(uint32_t)) == 0, DXC_E_CONTAINER_INVALID);
+    }
     m_Parts.emplace_back(FourCC, Size, Write);
   }
 
@@ -1478,19 +1549,14 @@ public:
   }
 };
 
-DxilContainerWriter *hlsl::NewDxilContainerWriter() {
-  return new DxilContainerWriter_impl();
+DxilContainerWriter *hlsl::NewDxilContainerWriter(bool bUnaligned) {
+  return new DxilContainerWriter_impl(bUnaligned);
 }
 
-static bool HasDebugInfo(const Module &M) {
-  for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
-                                             NME = M.named_metadata_end();
-       NMI != NME; ++NMI) {
-    if (NMI->getName().startswith("llvm.dbg.")) {
-      return true;
-    }
-  }
-  return false;
+static bool HasDebugInfoOrLineNumbers(const Module &M) {
+  return
+    llvm::getDebugMetadataVersionFromModule(M) != 0 ||
+    llvm::hasDebugInfo(M);
 }
 
 static void GetPaddedProgramPartSize(AbstractMemoryStream *pStream,
@@ -1501,9 +1567,9 @@ static void GetPaddedProgramPartSize(AbstractMemoryStream *pStream,
   bitcodeInUInt32 = (bitcodeInUInt32 / 4) + (bitcodePaddingBytes ? 1 : 0);
 }
 
-static void WriteProgramPart(const ShaderModel *pModel,
+void hlsl::WriteProgramPart(const ShaderModel *pModel,
                              AbstractMemoryStream *pModuleBitcode,
-                             AbstractMemoryStream *pStream) {
+                             IStream *pStream) {
   DXASSERT(pModel != nullptr, "else generation should have failed");
   DxilProgramHeader programHeader;
   uint32_t shaderVersion =
@@ -1544,14 +1610,69 @@ public:
 
 } // namespace
 
-void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
-                                           AbstractMemoryStream *pModuleBitcode,
-                                           AbstractMemoryStream *pFinalStream,
-                                           llvm::StringRef DebugName,
-                                           SerializeDxilFlags Flags,
-                                           DxilShaderHash *pShaderHashOut,
-                                           AbstractMemoryStream *pReflectionStreamOut,
-                                           AbstractMemoryStream *pRootSigStreamOut) {
+
+void hlsl::ReEmitLatestReflectionData(llvm::Module *pM) {
+  // Retain usage information in metadata for reflection by:
+  // Upgrade validator version, re-emit metadata
+  // 0,0 = Not meant to be validated, support latest
+
+  DxilModule &DM = pM->GetOrCreateDxilModule();
+
+  DM.SetValidatorVersion(0, 0);
+  DM.ReEmitDxilResources();
+  DM.EmitDxilCounters();
+}
+
+static std::unique_ptr<Module> CloneModuleForReflection(Module *pM) {
+  DxilModule &DM = pM->GetOrCreateDxilModule();
+
+  unsigned ValMajor = 0, ValMinor = 0;
+  DM.GetValidatorVersion(ValMajor, ValMinor);
+
+  // Emit the latest reflection metadata
+  hlsl::ReEmitLatestReflectionData(pM);
+
+  // Clone module
+  std::unique_ptr<Module> reflectionModule( llvm::CloneModule(pM) );
+
+  // Now restore validator version on main module and re-emit metadata.
+  DM.SetValidatorVersion(ValMajor, ValMinor);
+  DM.ReEmitDxilResources();
+
+  return reflectionModule;
+}
+
+void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut) {
+  for (Function &F : pReflectionM->functions()) {
+    if (!F.isDeclaration()) {
+      F.deleteBody();
+    }
+  }
+
+  uint32_t reflectPartSizeInBytes = 0;
+  CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
+
+  IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
+  raw_stream_ostream outStream(pReflectionBitcodeStream.p);
+  WriteBitcodeToFile(pReflectionM, outStream, false);
+  outStream.flush();
+  uint32_t reflectInUInt32 = 0, reflectPaddingBytes = 0;
+  GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
+  reflectPartSizeInBytes = reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader);
+
+  *pReflectionPartSizeInBytes = reflectPartSizeInBytes;
+  *ppReflectionStreamOut = pReflectionBitcodeStream.Detach();
+}
+
+void hlsl::SerializeDxilContainerForModule(
+    DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    IDxcVersionInfo *DXCVersionInfo,
+    AbstractMemoryStream *pFinalStream, llvm::StringRef DebugName,
+    SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut,
+    AbstractMemoryStream *pReflectionStreamOut,
+    AbstractMemoryStream *pRootSigStreamOut,
+    void *pPrivateData,
+    size_t PrivateDataSize) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -1561,14 +1682,16 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   unsigned ValMajor, ValMinor;
   pModule->GetValidatorVersion(ValMajor, ValMinor);
+  bool bValidatorAtLeast_1_8 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) >= 0;
   if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0)
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
   bool bSupportsShaderHash = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) >= 0;
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  bool bUnaligned = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  DxilContainerWriter_impl writer;
+  DxilContainerWriter_impl writer(bUnaligned);
 
   // Write the feature part.
   DxilFeatureInfoWriter featureInfoWriter(*pModule);
@@ -1587,12 +1710,12 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         pModule->GetInputSignature(), domain,
         /*IsInput*/ true,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     pOutputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
         pModule->GetOutputSignature(), domain,
         /*IsInput*/ false,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     // Write the input and output signature parts.
     writer.AddPart(DFCC_InputSignature, pInputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
@@ -1607,7 +1730,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         pModule->GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ pModule->GetShaderModel()->IsDS(),
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     if (pModule->GetPatchConstOrPrimSignature().GetElements().size()) {
       writer.AddPart(DFCC_PatchConstantSignature,
                      pPatchConstOrPrimSigWriter->size(),
@@ -1616,8 +1739,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                      });
     }
   }
+
+  std::unique_ptr<DxilVersionWriter> pVERSWriter = nullptr;
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
+
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
   RootSignatureWriter rootSigWriter(std::move(pModule->GetSerializedRootSignature())); // Grab RS here
@@ -1627,6 +1753,22 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   if (pModule->GetShaderModel()->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
+    // Write the DxilCompilerVersion (VERS) part.
+    if (DXCVersionInfo && bValidatorAtLeast_1_8) {
+
+      pVERSWriter = llvm::make_unique<DxilVersionWriter>(DXCVersionInfo);
+
+      writer.AddPart(
+        hlsl::DFCC_CompilerVersion,
+        pVERSWriter->size(),
+        [&pVERSWriter](AbstractMemoryStream *pStream) {
+          pVERSWriter->write(pStream);
+          return S_OK;
+        }
+      );
+    }
+    
+
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(
@@ -1645,7 +1787,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     if (rootSigWriter.size()) {
       if (pRootSigStreamOut) {
         // Write root signature wrapped in container for separate output
-        DxilContainerWriter_impl rootSigContainerWriter;
+        // Root signature container should never be unaligned.
+        DxilContainerWriter_impl rootSigContainerWriter(false);
         rootSigContainerWriter.AddPart(
           DFCC_RootSignature, rootSigWriter.size(),
           [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
@@ -1673,13 +1816,12 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
   bool bModuleStripped = false;
-  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
-  if (bHasDebugInfo) {
+  if (HasDebugInfoOrLineNumbers(*pModule->GetModule())) {
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
       writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-        WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
+        hlsl::WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });
     }
 
@@ -1692,43 +1834,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     Flags &= ~SerializeDxilFlags::DebugNameDependOnSource;
   }
 
-  // Clone module for reflection, strip function defs
-  std::unique_ptr<Module> reflectionModule;
-  if (bEmitReflection) {
-    // Retain usage information in metadata for reflection by:
-    // Upgrade validator version, re-emit metadata, then clone module for reflection.
-    // 0,0 = Not meant to be validated, support latest
-    pModule->SetValidatorVersion(0, 0);
-    pModule->ReEmitDxilResources();
-    pModule->EmitDxilCounters();
-
-    reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
-
-    // Now restore validator version on main module and re-emit metadata.
-    pModule->SetValidatorVersion(ValMajor, ValMinor);
-    pModule->ReEmitDxilResources();
-
-    for (Function &F : reflectionModule->functions()) {
-      if (!F.isDeclaration()) {
-        F.deleteBody();
-      }
-    }
-    // Just make sure this doesn't crash/assert on debug build:
-    DXASSERT_NOMSG(&reflectionModule->GetOrCreateDxilModule());
-  }
-
+  uint32_t reflectPartSizeInBytes = 0;
   CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
 
-  uint32_t reflectPartSizeInBytes = 0;
-  if (bEmitReflection)
-  {
-    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
-    raw_stream_ostream outStream(pReflectionBitcodeStream.p);
-    WriteBitcodeToFile(reflectionModule.get(), outStream, false);
-    outStream.flush();
-    uint32_t reflectInUInt32 = 0, reflectPaddingBytes = 0;
-    GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
-    reflectPartSizeInBytes = reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader);
+  if (bEmitReflection) {
+    // Clone module for reflection
+    std::unique_ptr<Module> reflectionModule = CloneModuleForReflection(pModule->GetModule());
+    hlsl::StripAndCreateReflectionStream(reflectionModule.get(), &reflectPartSizeInBytes, &pReflectionBitcodeStream);
   }
 
   if (pReflectionStreamOut) {
@@ -1844,6 +1956,16 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     WriteProgramPart(pModule->GetShaderModel(), pProgramStream, pStream);
   });
 
+  // Private data part should be added last when assembling the container becasue there is no garuntee of aligned size
+  if (pPrivateData) {
+    writer.AddPart(
+        hlsl::DFCC_PrivateData, PrivateDataSize,
+        [&](AbstractMemoryStream *pStream) {
+          ULONG cbWritten;
+          IFT(pStream->Write(pPrivateData, PrivateDataSize, &cbWritten));
+        });
+  }
+
   writer.write(pFinalStream);
 }
 
@@ -1851,7 +1973,8 @@ void hlsl::SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRo
                                      AbstractMemoryStream *pFinalStream) {
   DXASSERT_NOMSG(pRootSigHandle != nullptr);
   DXASSERT_NOMSG(pFinalStream != nullptr);
-  DxilContainerWriter_impl writer;
+  // Root signature container should never be unaligned.
+  DxilContainerWriter_impl writer(false);
   // Write the root signature (RTS0) part.
   DxilProgramRootSignatureWriter rootSigWriter(*pRootSigHandle);
   if (!pRootSigHandle->IsEmpty()) {

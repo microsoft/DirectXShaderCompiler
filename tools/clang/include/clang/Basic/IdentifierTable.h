@@ -326,8 +326,8 @@ private:
   /// change to it should be reflected here.
   void RecomputeNeedsHandleIdentifier() {
     NeedsHandleIdentifier =
-      (isPoisoned() | hasMacroDefinition() | isCPlusPlusOperatorKeyword() |
-       isExtensionToken() | isFutureCompatKeyword() || isOutOfDate() ||
+      (isPoisoned() || hasMacroDefinition() || isCPlusPlusOperatorKeyword() ||
+       isExtensionToken() || isFutureCompatKeyword() || isOutOfDate() ||
        isModulesImport());
   }
 };

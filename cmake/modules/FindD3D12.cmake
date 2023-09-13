@@ -1,8 +1,7 @@
-# Find the win10 SDK path.
+# Find the Win10 SDK path.
 if ("$ENV{WIN10_SDK_PATH}$ENV{WIN10_SDK_VERSION}" STREQUAL "" )
-  get_filename_component(WIN10_SDK_PATH "[HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Microsoft SDKs\\Windows\\v10.0;InstallationFolder]" ABSOLUTE CACHE)
-  get_filename_component(TEMP_WIN10_SDK_VERSION "[HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Microsoft SDKs\\Windows\\v10.0;ProductVersion]" ABSOLUTE CACHE)
-  get_filename_component(WIN10_SDK_VERSION ${TEMP_WIN10_SDK_VERSION} NAME)
+  get_filename_component(WIN10_SDK_PATH "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]" ABSOLUTE CACHE)
+  set (WIN10_SDK_VERSION ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION})
 elseif(TRUE)
   set (WIN10_SDK_PATH $ENV{WIN10_SDK_PATH})
   set (WIN10_SDK_VERSION $ENV{WIN10_SDK_VERSION})
@@ -35,26 +34,8 @@ find_path(DXGI_INCLUDE_DIR    # Set variable DXGI_INCLUDE_DIR
           )
 set(D3D12_INCLUDE_DIRS ${D3D12_INCLUDE_DIR} ${DXGI_INCLUDE_DIR})
 
-# Find D3D libraries
-set(D3D12_LIB_NAMES d3d12.lib dxgi.lib d3dcompiler.lib)
-
-if ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
-    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x64)
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM")
-    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm)
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" OR "${DXC_BUILD_ARCH}" MATCHES "ARM64.*")
-    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm64)
-elseif ("${DXC_BUILD_ARCH}" STREQUAL "Win32" )
-    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x86)
-else ("${DXC_BUILD_ARCH}" STREQUAL "x64")
-   message(FATAL_ERROR "Cannot match platform.")
-endif ("${DXC_BUILD_ARCH}" STREQUAL "x64")
-
-set(D3D12_LIBRARIES)
-foreach (D3D12_LIB_NAME ${D3D12_LIB_NAMES})
-  find_library(${D3D12_LIB_NAME}_LOC NAMES ${D3D12_LIB_NAME} HINTS ${D3D12_HINTS_PATH})
-  set(D3D12_LIBRARIES ${D3D12_LIBRARIES} ${${D3D12_LIB_NAME}_LOC})
-endforeach(D3D12_LIB_NAME)
+# List of D3D libraries
+set(D3D12_LIBRARIES d3d12.lib dxgi.lib d3dcompiler.lib)
 
 include(FindPackageHandleStandardArgs)
 # handle the QUIETLY and REQUIRED arguments and set D3D12_FOUND to TRUE

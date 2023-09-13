@@ -2,7 +2,7 @@
 // RUN: %dxilver 1.6 | %dxc -E main -T cs_6_0 %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_NODB
 
 // CHK_DB: 18:17: error: Assignment of undefined values to UAV.
-// CHK_NODB: Function: main: error: Assignment of undefined values to UAV. Use /Zi for source location.
+// CHK_NODB: 18:17: error: Assignment of undefined values to UAV.
 
 RWBuffer<uint> output;
 

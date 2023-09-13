@@ -281,8 +281,9 @@ class db_instrhelp_gen:
                         print("  llvm::Value *get_%s() const { return Instr->getOperand(%d); }" % (o.name, o.pos - 1))
                         print("  void set_%s(llvm::Value *val) { Instr->setOperand(%d, val); }" % (o.name, o.pos - 1))
                         if o.is_const:
-                            print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
-                            print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
+                            if o.llvm_type in self.llvm_type_map:
+                                print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
+                                print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
             print("};")
             print("")
 
@@ -334,6 +335,14 @@ class db_enumhelp_gen:
             print("  " + lastName + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
         print("};")
 
+    def print_rdat_enum(self, e, **kwargs):
+        nodef = kwargs.get("nodef", False)
+        for v in e.values:
+            line_format = "RDAT_ENUM_VALUE_NODEF({name})" if nodef else "RDAT_ENUM_VALUE({value}, {name})"
+            if v.doc:
+                line_format += " // {doc}"
+            print(line_format.format(name=v.name, value=v.value, doc=v.doc))
+
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e : e.name):
             self.print_enum(e)
@@ -345,13 +354,18 @@ class db_oload_gen:
         instrs = [i for i in self.db.instr if i.is_dxil_op]
         self.instrs = sorted(instrs, key=lambda i : i.dxil_opid)
 
+        # Allow these to be overridden by external scripts.
+        self.OP  = "OP"
+        self.OC  = "OC"
+        self.OCC = "OCC"
+
     def print_content(self):
         self.print_opfunc_props()
         print("...")
         self.print_opfunc_table()
 
     def print_opfunc_props(self):
-        print("const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {")
+        print("const {OP}::OpCodeProperty {OP}::m_OpCodeProps[(unsigned){OP}::OpCode::NumOpCodes] = {{".format(OP=self.OP))
         print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute")
         # Example formatted string:
         #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
@@ -371,9 +385,10 @@ class db_oload_gen:
                     print("")
                 print("  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute".format(category=i.category))
                 last_category = i.category
-            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
+            print("  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
-                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i)))
+                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i),
+                OC=self.OC, OCC=self.OCC))
         print("};")
 
     def print_opfunc_table(self):
@@ -404,15 +419,19 @@ class db_oload_gen:
             "threef32": "A(p3F32);",
             "fouri32": "A(p4I32);",
             "fourf32": "A(p4F32);",
+            "fouri16": "A(p4I16);",
+            "fourf16": "A(p4F16);",
             "u32": "A(pI32);",
             "u64": "A(pI64);",
             "u8": "A(pI8);",
             "v": "A(pV);",
+            "$vec4" : "VEC4(pETy);",
             "w": "A(pWav);",
             "SamplePos": "A(pPos);",
             "udt": "A(udt);",
             "obj": "A(obj);",
             "resproperty": "A(resProperty);",
+            "resbind": "A(resBind);",
         }
         last_category = None
         for i in self.instrs:
@@ -439,7 +458,7 @@ class db_oload_gen:
         cb_ret_ty = "$cb"
         udt_ty = "udt"
         obj_ty = "obj"
-
+        vec_ty = "$vec"
         last_category = None
 
         index_dict = collections.OrderedDict()
@@ -458,6 +477,10 @@ class db_oload_gen:
 
             if ret_ty == cb_ret_ty:
                 struct_list.append(instr.name)
+                continue
+
+            if ret_ty.startswith(vec_ty):
+                struct_list.append(instr.name);
                 continue
 
             in_param_ty = False
@@ -659,9 +682,34 @@ def get_hlsl_intrinsic_stats():
         v = db.namespaces[k]
         result += "static const UINT g_u%sCount = %d;\n" % (k, len(v.intrinsics))
     result += "\n"
-    result += "static const int g_MaxIntrinsicName = %d; // Count of characters for longest intrinsic name - '%s'\n" % (len(longest_fn.name), longest_fn.name)
-    result += "static const int g_MaxIntrinsicParamName = %d; // Count of characters for longest intrinsic parameter name - '%s'\n" % (len(longest_param.name), longest_param.name)
-    result += "static const int g_MaxIntrinsicParamCount = %d; // Count of parameters (without return) for longest intrinsic argument list - '%s'\n" % (len(longest_arglist_fn.params) - 1, longest_arglist_fn.name)
+    #NOTE:The min limits are needed to support allowing intrinsics in the extension mechanism that use longer values than the builtin hlsl intrisics.
+    #TODO: remove code which dependent on g_MaxIntrinsic*.
+    MIN_FUNCTION_NAME_LENTH = 44
+    MIN_PARAM_NAME_LENTH = 48
+    MIN_PARAM_COUNT = 29
+
+    max_fn_name = longest_fn.name
+    max_fn_name_len = len(longest_fn.name)
+    max_param_name = longest_param.name
+    max_param_name_len = len(longest_param.name)
+    max_param_count_name = longest_arglist_fn.name
+    max_param_count = len(longest_arglist_fn.params) - 1
+
+    if max_fn_name_len < MIN_FUNCTION_NAME_LENTH:
+        max_fn_name_len = MIN_FUNCTION_NAME_LENTH
+        max_fn_name = "MIN_FUNCTION_NAME_LENTH"
+
+    if max_param_name_len < MIN_PARAM_NAME_LENTH:
+        max_param_name_len = MIN_PARAM_NAME_LENTH
+        max_param_name = "MIN_PARAM_NAME_LENTH"
+
+    if max_param_count < MIN_PARAM_COUNT:
+        max_param_count = MIN_PARAM_COUNT
+        max_param_count_name = "MIN_PARAM_COUNT"
+
+    result += "static const int g_MaxIntrinsicName = %d; // Count of characters for longest intrinsic name - '%s'\n" % (max_fn_name_len, max_fn_name)
+    result += "static const int g_MaxIntrinsicParamName = %d; // Count of characters for longest intrinsic parameter name - '%s'\n" % (max_param_name_len, max_param_name)
+    result += "static const int g_MaxIntrinsicParamCount = %d; // Count of parameters (without return) for longest intrinsic argument list - '%s'\n" % (max_param_count, max_param_count_name)
     return result
 
 def get_hlsl_intrinsics():
@@ -676,7 +724,7 @@ def get_hlsl_intrinsics():
     for i in sorted(db.intrinsics, key=lambda x: x.key):
         if last_ns != i.ns:
             last_ns = i.ns
-            id_prefix = "IOP" if last_ns == "Intrinsics" else "MOP"
+            id_prefix = "IOP" if last_ns == "Intrinsics" or last_ns == "VkIntrinsics" else "MOP" # SPIRV Change
             if (len(ns_table)):
                 result += ns_table + "};\n"
                 # SPIRV Change Starts
@@ -782,6 +830,11 @@ def get_enum_decl(name, **kwargs):
     db = get_db_dxil()
     gen = db_enumhelp_gen(db)
     return run_with_stdout(lambda: gen.print_enum(db.enum_idx[name], **kwargs))
+
+def get_rdat_enum_decl(name, **kwargs):
+    db = get_db_dxil()
+    gen = db_enumhelp_gen(db)
+    return run_with_stdout(lambda: gen.print_rdat_enum(db.enum_idx[name], **kwargs))
 
 def get_valrule_enum():
     return get_enum_decl("ValidationRule", hide_val=True)
@@ -1105,7 +1158,7 @@ def get_interpretation_table():
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
 highest_major = 6
-highest_minor = 6
+highest_minor = 7
 highest_shader_models = {4:1, 5:1, 6:highest_minor}
 
 def getShaderModels():
@@ -1123,6 +1176,9 @@ static const unsigned kHighestMinor = %d;"""%(highest_major, highest_minor)
 
 def get_dxil_version_minor():
     return "const unsigned kDxilMinor = %d;"%highest_minor
+
+def get_dxil_version_minor_int():
+    return highest_minor
 
 def get_is_shader_model_plus():
     result = ""
@@ -1157,7 +1213,7 @@ shader_profiles = [ shader_profile(0, "ps", "Kind::Pixel", "4_0", 32, 8),
 
 def getShaderProfiles():
     # order match DXIL::ShaderKind.
-    profiles = {"ps":"4_0", "vs":"4_0", "gs":"4_0", "hs":"5_0", "ds":"5_0", "cs":"4_0", "lib":"6_1", "ms":"6_5", "as":"6_5"}
+    profiles = (("ps", "4_0"), ("vs", "4_0"), ("gs", "4_0"), ("hs", "5_0"), ("ds", "5_0"), ("cs", "4_0"), ("lib", "6_1"), ("ms", "6_5"), ("as", "6_5"))
     return profiles;
 
 def get_shader_models():
@@ -1237,7 +1293,7 @@ def get_num_shader_models():
 
 def build_shader_model_hash_idx_map():
     #must match get_shader_models.
-    result = "const static std::unordered_map<unsigned, unsigned> hashToIdxMap = {\n"
+    result = "const static std::pair<unsigned, unsigned> hashToIdxMap[] = {\n"
     count = 0
     for profile in shader_profiles:
         min_sm = profile.start_sm
@@ -1298,7 +1354,7 @@ def get_target_profiles():
     shader_models = getShaderModels()
 
     base_sm = "%d_0"%highest_major
-    for profile, min_sm in profiles.items():
+    for profile, min_sm in profiles:
         for shader_model in shader_models:
             if (base_sm > shader_model):
                 continue
@@ -1330,11 +1386,12 @@ def get_dxil_version():
     return result
 
 def get_shader_model_get():
-    # const static std::unordered_map<unsigned, unsigned> hashToIdxMap = {};
+    # const static std::pair<unsigned, unsigned> hashToIdxMap[] = {};
     result = build_shader_model_hash_idx_map()
     result += "unsigned hash = (unsigned)Kind << 16 | Major << 8 | Minor;\n"
-    result += "auto it = hashToIdxMap.find(hash);\n"
-    result += "if (it == hashToIdxMap.end())\n"
+    result += "auto pred = [](const std::pair<unsigned, unsigned>& elem, unsigned val){ return elem.first < val;};\n"
+    result += "auto it = std::lower_bound(std::begin(hashToIdxMap), std::end(hashToIdxMap), hash, pred);\n"
+    result += "if (it == std::end(hashToIdxMap) || it->first != hash)\n"
     result += "  return GetInvalid();\n"
     result += "return &ms_ShaderModels[it->second];"
     return result
@@ -1424,10 +1481,10 @@ if __name__ == "__main__":
         pj = lambda *parts: os.path.abspath(os.path.join(*parts))
         files = [
             'docs/DXIL.rst',
-            'lib/DXIL/DXILOperations.cpp',
-            'lib/DXIL/DXILShaderModel.cpp',
-            'include/dxc/DXIL/DXILConstants.h',
-            'include/dxc/DXIL/DXILShaderModel.h',
+            'lib/DXIL/DxilOperations.cpp',
+            'lib/DXIL/DxilShaderModel.cpp',
+            'include/dxc/DXIL/DxilConstants.h',
+            'include/dxc/DXIL/DxilShaderModel.h',
             'include/dxc/HLSL/DxilValidation.h',
             'include/dxc/Support/HLSLOptions.td',
             'include/dxc/DXIL/DxilInstructions.h',
@@ -1441,6 +1498,7 @@ if __name__ == "__main__":
             'include/dxc/DXIL/DxilCounters.h',
             'lib/DXIL/DxilCounters.cpp',
             'lib/DXIL/DxilMetadataHelper.cpp',
+            'include/dxc/DxilContainer/RDAT_LibraryTypes.inl',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

@@ -371,7 +371,7 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
           if (onlyBlockPointers)
             continue;
 
-          // fallthrough
+          LLVM_FALLTHROUGH; // HLSL Change
 
         case DeclaratorChunk::BlockPointer:
           result = &ptrChunk;
@@ -645,8 +645,8 @@ static void distributeTypeAttrsFromDeclarator(TypeProcessingState &state,
     case AttributeList::AT_NSReturnsRetained:
       if (!state.getSema().getLangOpts().ObjCAutoRefCount)
         break;
-      // fallthrough
-
+      distributeFunctionTypeAttrFromDeclarator(state, *attr, declSpecType); // HLSL Change
+      break; // HLSL Change - avoid fallthrough
     FUNCTION_TYPE_ATTRS_CASELIST:
       distributeFunctionTypeAttrFromDeclarator(state, *attr, declSpecType);
       break;
@@ -1280,7 +1280,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       }
     }
 
-    // FALL THROUGH.
+    LLVM_FALLTHROUGH; // HLSL CHANGE
   case DeclSpec::TST_int: {
     if (DS.getTypeSpecSign() != DeclSpec::TSS_unsigned) {
       switch (DS.getTypeSpecWidth()) {
@@ -1340,6 +1340,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   case DeclSpec::TST_min16uint: Result = Context.Min16UIntTy; break;
   case DeclSpec::TST_min10float: Result = Context.Min10FloatTy; break;
   case DeclSpec::TST_min12int: Result = Context.Min12IntTy; break;
+  case DeclSpec::TST_int8_4packed: Result = Context.Int8_4PackedTy; break;
+  case DeclSpec::TST_uint8_4packed: Result = Context.UInt8_4PackedTy; break;
     // HLSL Change Ends
   case DeclSpec::TST_double:
     if (DS.getTypeSpecWidth() == DeclSpec::TSW_long)
@@ -2238,10 +2240,13 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
   return false;
 }
 
+// HLSL Change - FIX - We should move param mods to parameter QualTypes
 QualType Sema::BuildFunctionType(QualType T,
                                  MutableArrayRef<QualType> ParamTypes,
                                  SourceLocation Loc, DeclarationName Entity,
-                                 const FunctionProtoType::ExtProtoInfo &EPI) {
+                                 const FunctionProtoType::ExtProtoInfo &EPI,
+                                 ArrayRef<hlsl::ParameterModifier> ParamMods) {
+// HLSL Change - End
   bool Invalid = false;
 
   Invalid |= CheckFunctionReturnType(T, Loc);
@@ -2265,8 +2270,9 @@ QualType Sema::BuildFunctionType(QualType T,
   if (Invalid)
     return QualType();
 
-  // HLSL Change - FIX - current contexts specialize templates with always-in parameters
-  return Context.getFunctionType(T, ParamTypes, EPI, None);
+  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  return Context.getFunctionType(T, ParamTypes, EPI, ParamMods);
+  // HLSL Change End
 }
 
 /// \brief Build a member pointer type \c T Class::*.
@@ -3398,14 +3404,14 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case Declarator::PrototypeContext:
     case Declarator::TrailingReturnContext:
       isFunctionOrMethod = true;
-      // fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case Declarator::MemberContext:
       if (state.getDeclarator().isObjCIvar() && !isFunctionOrMethod) {
         complainAboutMissingNullability = CAMN_No;
         break;
       }
-      // fallthrough
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case Declarator::FileContext:
     case Declarator::KNRTypeListContext:
@@ -3532,7 +3538,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case CAMN_InnerPointers:
       if (NumPointersRemaining == 0)
         break;
-      // Fallthrough.
+      LLVM_FALLTHROUGH; // HLSL Change
 
     case CAMN_Yes:
       checkNullabilityConsistency(state, pointerKind, pointerLoc);
@@ -4252,6 +4258,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       // Note: core issue 778 clarifies that, if there are any unexpanded
       // parameter packs in the type of the non-type template parameter, then
       // it expands those parameter packs.
+      // HLSL Change Starts
+      if (LangOpts.HLSL) {
+        S.Diag(D.getEllipsisLoc(), diag::err_hlsl_variadic_templates);
+        break;
+      }
+      // HLSL Change Ends
       if (T->containsUnexpandedParameterPack())
         T = Context.getPackExpansionType(T, None);
       else
@@ -5785,11 +5797,6 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
               !hlsl::GetOriginalElementType(&S, Type)->isFloatingType()) {
     S.Diag(Attr.getLoc(), diag::err_hlsl_norm_float_only) << Attr.getRange();
     return true;
-  } else if (Kind == AttributeList::AT_HLSLGloballyCoherent &&
-             !hlsl::IsObjectType(&S, Type)) {
-    S.Diag(Attr.getLoc(), diag::err_hlsl_varmodifierna) <<
-        Attr.getName() << "non-UAV type";
-    return true;
   }
 
   const AttributedType *pMatrixOrientation = nullptr;
@@ -6409,9 +6416,21 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       break;
 
     case AttributeList::AT_NSReturnsRetained:
-      if (!state.getSema().getLangOpts().ObjCAutoRefCount)
-        break;
-      // fallthrough into the function attrs
+      // Begin HLSL Change - avoid dead-code fallthrough
+      if (state.getSema().getLangOpts().ObjCAutoRefCount) {
+        attr.setUsedAsTypeAttr();
+
+        // Never process function type attributes as part of the
+        // declaration-specifiers.
+        if (TAL == TAL_DeclSpec)
+          distributeFunctionTypeAttrFromDeclSpec(state, attr, type);
+
+        // Otherwise, handle the possible delays.
+        else if (!handleFunctionTypeAttr(state, attr, type))
+          distributeFunctionTypeAttr(state, attr, type);
+      }
+      break;
+      // End HLSL Change - avoid dead-code fallthrough
 
     FUNCTION_TYPE_ATTRS_CASELIST:
       attr.setUsedAsTypeAttr();
@@ -6722,6 +6741,17 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
   while (const ConstantArrayType *Array
            = Context.getAsConstantArrayType(MaybeTemplate))
     MaybeTemplate = Array->getElementType();
+
+  // HLSL Change - Begin
+  // In HLSL we don't decay arrays to pointers, so we need to require complete
+  // types for array elements.
+  if (LangOpts.HLSL) {
+    if (const TagType *Tag = MaybeTemplate->getAs<TagType>()) {
+      if (auto *Source = Context.getExternalSource())
+        Source->CompleteType(Tag->getDecl());
+    }
+  }
+  // HLSL Change - End
   if (const RecordType *Record = MaybeTemplate->getAs<RecordType>()) {
     if (ClassTemplateSpecializationDecl *ClassTemplateSpec
           = dyn_cast<ClassTemplateSpecializationDecl>(Record->getDecl())) {

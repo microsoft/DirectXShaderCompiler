@@ -188,6 +188,35 @@ static unsigned matchOption(const OptTable::Info *I, StringRef Str,
   return 0;
 }
 
+// HLSL Change - begin
+Option OptTable::findOption(const char *normalizedName, unsigned FlagsToInclude, unsigned FlagsToExclude) const {
+  const Info *Start = OptionInfos + FirstSearchableIndex;
+  const Info *End = OptionInfos + getNumOptions();
+
+  StringRef Str(normalizedName);
+
+  for (; Start != End; ++Start) {
+    // Scan for first option which is a proper prefix.
+    for (; Start != End; ++Start)
+      if (Str.startswith(Start->Name))
+        break;
+    if (Start == End)
+      break;
+
+    Option Opt(Start, this);
+
+    if (FlagsToInclude && !Opt.hasFlag(FlagsToInclude))
+      continue;
+    if (Opt.hasFlag(FlagsToExclude))
+      continue;
+
+    return Opt;
+  }
+
+  return Option(nullptr, this);
+}
+// HLSL Change - end
+
 Arg *OptTable::ParseOneArg(const ArgList &Args, unsigned &Index,
                            unsigned FlagsToInclude,
                            unsigned FlagsToExclude) const {
@@ -319,7 +348,7 @@ static std::string getOptionHelpName(const OptTable &Opts, OptSpecifier Id) {
   case Option::SeparateClass: case Option::JoinedOrSeparateClass:
   case Option::RemainingArgsClass:
     Name += ' ';
-    // FALLTHROUGH
+    LLVM_FALLTHROUGH; // HLSL Change
   case Option::JoinedClass: case Option::CommaJoinedClass:
   case Option::JoinedAndSeparateClass:
     if (const char *MetaVarName = Opts.getOptionMetaVar(Id))

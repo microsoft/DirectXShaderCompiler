@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-LABEL: %bb_entry = OpLabel

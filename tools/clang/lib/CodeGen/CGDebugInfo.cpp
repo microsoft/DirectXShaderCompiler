@@ -292,7 +292,8 @@ unsigned CGDebugInfo::getColumnNumber(SourceLocation Loc, bool Force) {
 }
 
 StringRef CGDebugInfo::getCurrentDirname() {
-  if (!CGM.getCodeGenOpts().DebugCompilationDir.empty())
+  if (!CGM.getCodeGenOpts().DebugCompilationDir.empty()
+      || CGM.getLangOpts().HLSL) // HLSL Change
     return CGM.getCodeGenOpts().DebugCompilationDir;
 
   if (!CWDName.empty())
@@ -465,9 +466,6 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::OCLSampler:
   case BuiltinType::OCLEvent:
     llvm_unreachable("No ObjC or OpenCL support");
-  case BuiltinType::LitInt:
-  case BuiltinType::LitFloat:
-    llvm_unreachable("Unsupported HLSL types");
 #endif // HLSL Change - no ObjC or OpenCL support
 
   case BuiltinType::UChar:
@@ -483,7 +481,9 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
     Encoding = llvm::dwarf::DW_ATE_UTF;
     break;
   case BuiltinType::UShort:
-  case BuiltinType::Min16UInt: // HLSL Change
+  case BuiltinType::Min16UInt:      // HLSL Change
+  case BuiltinType::Int8_4Packed:   // HLSL Change
+  case BuiltinType::UInt8_4Packed:  // HLSL Change
   case BuiltinType::UInt:
   case BuiltinType::UInt128:
   case BuiltinType::ULong:
@@ -501,6 +501,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Long:
   case BuiltinType::WChar_S:
   case BuiltinType::LongLong:
+  case BuiltinType::LitInt:
     Encoding = llvm::dwarf::DW_ATE_signed;
     break;
   case BuiltinType::Bool:
@@ -515,6 +516,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Float:
   case BuiltinType::LongDouble:
   case BuiltinType::Double:
+  case BuiltinType::LitFloat:
     Encoding = llvm::dwarf::DW_ATE_float;
     break;
   }
@@ -524,13 +526,15 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
     BTName = "long int";
     break;
   case BuiltinType::LongLong:
-    BTName = "long long int";
+    // BTName = "long long int"; // HLSL Change
+    BTName = "int64_t"; // HLSL Change
     break;
   case BuiltinType::ULong:
     BTName = "long unsigned int";
     break;
   case BuiltinType::ULongLong:
-    BTName = "long long unsigned int";
+    // BTName = "long long unsigned int"; // HLSL Change
+    BTName = "uint64_t"; // HLSL Change
     break;
   default:
     BTName = BT->getName(CGM.getLangOpts());
@@ -1112,11 +1116,12 @@ llvm::DISubroutineType *CGDebugInfo::getOrCreateInstanceMethodType(
   const CXXRecordDecl *RD = ThisPtr->getPointeeCXXRecordDecl();
   if (isa<ClassTemplateSpecializationDecl>(RD)) {
     // Create pointer type directly in this case.
-    const PointerType *ThisPtrTy = cast<PointerType>(ThisPtr);
-    QualType PointeeTy = ThisPtrTy->getPointeeType();
+    // HLSL Change Begin - This is a reference.
+    QualType PointeeTy = ThisPtr->getPointeeType();
     unsigned AS = CGM.getContext().getTargetAddressSpace(PointeeTy);
     uint64_t Size = CGM.getTarget().getPointerWidth(AS);
-    uint64_t Align = CGM.getContext().getTypeAlign(ThisPtrTy);
+    uint64_t Align = CGM.getContext().getTypeAlign(ThisPtr.getTypePtr());
+    // HLSL Change End - This is a reference.
     llvm::DIType *PointeeType = getOrCreateType(PointeeTy, Unit);
     llvm::DIType *ThisPtrType =
         DBuilder.createPointerType(PointeeType, Size, Align);

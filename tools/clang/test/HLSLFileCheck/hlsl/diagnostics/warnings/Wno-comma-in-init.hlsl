@@ -7,7 +7,7 @@
 float main() {
 
 // comma expression used where a constructor list may have been intended
-// CHECK-NOT: comma
+// CHECK-NOT: comma expression
   int a = 1, b = 2;
   int c = (a, b);
 

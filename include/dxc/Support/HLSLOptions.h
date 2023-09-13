@@ -17,9 +17,16 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
-#include "dxc/dxcapi.h"
+#include "dxc/Support/HLSLVersion.h"
 #include "dxc/Support/SPIRVOptions.h"
+#include "dxc/Support/DxcOptToggles.h"
+
+#include "dxc/Support/WinIncludes.h"
+
+#include "dxc/dxcapi.h"
+
 #include <map>
+#include <set>
 
 namespace llvm {
 namespace opt {
@@ -33,6 +40,8 @@ class DxcDllSupport;
 }
 
 namespace hlsl {
+
+enum class SerializeDxilFlags : uint32_t;
 
 namespace options {
 /// Flags specifically for clang options.  Must not overlap with
@@ -97,6 +106,7 @@ struct RewriterOpts {
   bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
   bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
   bool WithLineDirective = false;       // OPT_rw_line_directive
+  bool DeclGlobalCB = false;          // OPT_rw_decl_global_cb
 };
 
 /// Use this class to capture all options.
@@ -119,7 +129,8 @@ public:
   llvm::StringRef OutputReflectionFile; // OPT_Fre
   llvm::StringRef OutputRootSigFile; // OPT_Frs
   llvm::StringRef OutputShaderHashFile; // OPT_Fsh
-  llvm::StringRef Preprocess; // OPT_P
+  llvm::StringRef OutputFileForDependencies; // OPT_write_dependencies_to
+  std::string Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
   llvm::StringRef PrivateSource; // OPT_setprivate
@@ -130,10 +141,14 @@ public:
   std::vector<std::string> Exports; // OPT_exports
   std::vector<std::string> PreciseOutputs; // OPT_precise_output
   llvm::StringRef DefaultLinkage; // OPT_default_linkage
+  llvm::StringRef ImportBindingTable;    // OPT_import_binding_table
+  llvm::StringRef BindingTableDefine; // OPT_binding_table_define
   unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
 
   bool AllResourcesBound = false; // OPT_all_resources_bound
+  bool IgnoreOptSemDefs = false; // OPT_ignore_opt_semdefs
   bool AstDump = false; // OPT_ast_dump
+  bool AstDumpImplicit = false; // OPT_ast_dump_implicit
   bool ColorCodeAssembly = false; // OPT_Cc
   bool CodeGenHighLevel = false; // OPT_fcgl
   bool AllowPreserveValues = false; // OPT_preserve_intermediate_values
@@ -141,6 +156,9 @@ public:
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
   bool DumpBin = false;        // OPT_dumpbin
+  bool DumpDependencies = false;  // OPT_dump_dependencies
+  bool WriteDependencies = false; // OPT_write_dependencies
+  bool Link = false;        // OPT_link
   bool WarningAsError = false; // OPT__SLASH_WX
   bool IEEEStrict = false;     // OPT_Gis
   bool IgnoreLineDirectives = false; // OPT_ignore_line_directives
@@ -154,13 +172,14 @@ public:
   bool EnableStrictMode = false;     // OPT_Ges
   bool EnableDX9CompatMode = false;     // OPT_Gec
   bool EnableFXCCompatMode = false;     // internal flag
-  unsigned long HLSLVersion = 0; // OPT_hlsl_version (2015-2018)
+  LangStd HLSLVersion = LangStd::vUnset; // OPT_hlsl_version (2015-2021)
   bool Enable16BitTypes = false; // OPT_enable_16bit_types
   bool OptDump = false; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
   bool ShowHelpHidden = false; // OPT__help_hidden
   bool ShowOptionNames = false; // OPT_fdiagnostics_show_option
+  bool ShowVersion = false; // OPT_version
   bool UseColor = false; // OPT_Cc
   bool UseHexLiterals = false; // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
@@ -172,6 +191,9 @@ public:
   bool RecompileFromBinary = false; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
   bool StripDebug = false; // OPT Qstrip_debug
   bool EmbedDebug = false; // OPT Qembed_debug
+  bool SourceInDebugModule = false; // OPT Zs
+  bool SourceOnlyDebug = false; // OPT Qsource_only_debug
+  bool PdbInPrivate = false; // OPT Qpdb_in_private
   bool StripRootSignature = false; // OPT_Qstrip_rootsignature
   bool StripPrivate = false; // OPT_Qstrip_priv
   bool StripReflection = false; // OPT_Qstrip_reflect
@@ -191,27 +213,40 @@ public:
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
   bool ForceZeroStoreLifetimes = false; // OPT_force_zero_store_lifetimes
   bool EnableLifetimeMarkers = false; // OPT_enable_lifetime_markers
+  bool ForceDisableLocTracking = false; // OPT_fdisable_loc_tracking
+  bool NewInlining = false; // OPT_fnew_inlining_behavior
+  bool TimeReport = false; // OPT_ftime_report
+  std::string TimeTrace = ""; // OPT_ftime_trace[EQ]
+  bool VerifyDiagnostics = false; // OPT_verify
 
   // Optimization pass enables, disables and selects
-  std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
-  std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
+  OptimizationToggles OptToggles; // OPT_opt_enable, OPT_opt_disable, OPT_opt_select
 
+  std::set<std::string> IgnoreSemDefs; // OPT_ignore_semdef
+  std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
+
+  bool PrintBeforeAll; // OPT_print_before_all
+  std::set<std::string> PrintBefore; // OPT_print_before
   bool PrintAfterAll; // OPT_print_after_all
+  std::set<std::string> PrintAfter; // OPT_print_after
+  bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
+  bool HandleExceptions = false; // OPT_disable_exception_handling
 
   // Rewriter Options
   RewriterOpts RWOpt;
 
   std::vector<std::string> Warnings;
 
-  bool IsRootSignatureProfile();
-  bool IsLibraryProfile();
+  bool IsRootSignatureProfile() const;
+  bool IsLibraryProfile() const;
 
   // Helpers to clarify interpretation of flags for behavior in implementation
-  bool IsDebugInfoEnabled();    // Zi
-  bool EmbedDebugInfo();        // Qembed_debug
-  bool EmbedPDBName();          // Zi or Fd
-  bool DebugFileIsDirectory();  // Fd ends in '\\'
-  llvm::StringRef GetPDBName(); // Fd name
+  bool GenerateFullDebugInfo() const; // Zi
+  bool GeneratePDB() const;           // Zi or Zs
+  bool EmbedDebugInfo() const;        // Qembed_debug
+  bool EmbedPDBName() const;          // Zi or Fd
+  bool DebugFileIsDirectory() const;  // Fd ends in '\\'
+  llvm::StringRef GetPDBName() const; // Fd name
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -240,12 +275,12 @@ public:
 };
 
 /// Use this class to convert a StringRef into a wstring, handling empty values as nulls.
-class StringRefUtf16 {
+class StringRefWide {
 private:
   std::wstring m_value;
 
 public:
-  StringRefUtf16(llvm::StringRef value);
+  StringRefWide(llvm::StringRef value);
   operator LPCWSTR() const { return m_value.size() ? m_value.data() : nullptr; }
 };
 
@@ -262,6 +297,9 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
 void CopyArgsToWStrings(const llvm::opt::InputArgList &inArgs,
                         unsigned flagsToInclude,
                         std::vector<std::wstring> &outArgs);
+
+SerializeDxilFlags ComputeSerializeDxilFlags(const options::DxcOpts &opts);
+
 }
 }
 

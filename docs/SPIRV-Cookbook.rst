@@ -41,7 +41,7 @@ does not support structured buffer aliasing yet, so many of these
 examples will not work with Glslang.
 
 All of the examples are available in the DXC repository, at
-https://github.com/Microsoft/DirectXShaderCompiler/tree/master/tools/clang/test/CodeGenSPIRV/legal-examples
+https://github.com/Microsoft/DirectXShaderCompiler/tree/main/tools/clang/test/CodeGenSPIRV/legal-examples
 . To open a link to Tim Jones' Shader Playground for an example, you can
 follow the url in the comments of each example.
 

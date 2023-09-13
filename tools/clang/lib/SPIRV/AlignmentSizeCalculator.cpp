@@ -9,7 +9,6 @@
 
 #include "AlignmentSizeCalculator.h"
 #include "clang/AST/Attr.h"
-#include "clang/SPIRV/AstTypeProbe.h"
 
 namespace {
 
@@ -37,7 +36,7 @@ namespace spirv {
 
 void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
     QualType fieldType, uint32_t fieldSize, uint32_t fieldAlignment,
-    uint32_t *currentOffset) {
+    uint32_t *currentOffset) const {
   QualType vecElemType = {};
   const bool fieldIsVecType = isVectorType(fieldType, &vecElemType);
 
@@ -65,7 +64,7 @@ void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
 
 std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     QualType type, SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
-    uint32_t *stride) {
+    uint32_t *stride) const {
   // std140 layout rules:
 
   // 1. If the member is a scalar consuming N basic machine units, the base
@@ -129,13 +128,19 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
   // - Vector base alignment is set as its element type's base alignment.
   // - Arrays/structs do not need to have padding at the end; arrays/structs do
   //   not affect the base offset of the member following them.
+  // - For typeNxM matrix, if M > 1,
+  //   - It must be alinged to 16 bytes.
+  //   - Its size must be (16 * (M - 1)) + N * sizeof(type).
+  //   - We have the same rule for column_major typeNxM and row_major typeMxN.
   //
   // FxcSBuffer:
   // - Vector/matrix/array base alignment is set as its element type's base
   //   alignment.
-  // - Arrays/structs do not need to have padding at the end; arrays/structs do
-  //   not affect the base offset of the member following them.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
+  // - Struct base alignment is set as the maximum of its component's
+  //   alignment.
+  // - Size of vector/matrix/array is set as the number of its elements times
+  //   the size of its element.
+  // - Size of struct must be aligned to its alignment.
 
   const auto desugaredType = desugarType(type, &isRowMajor);
   if (desugaredType != type) {
@@ -186,6 +191,27 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
         }
   }
 
+  // FxcCTBuffer for typeNxM matrix where M > 1,
+  // - It must be alinged to 16 bytes.
+  // - Its size must be (16 * (M - 1)) + N * sizeof(type).
+  // - We have the same rule for column_major typeNxM and row_major typeMxN.
+  if (rule == SpirvLayoutRule::FxcCTBuffer && hlsl::IsHLSLMatType(type)) {
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+    if (!useRowMajor(isRowMajor, type))
+      std::swap(rowCount, colCount);
+    if (colCount > 1) {
+      auto elemType = hlsl::GetHLSLMatElementType(type);
+      uint32_t alignment = 0, size = 0;
+      std::tie(alignment, size) =
+          getAlignmentAndSize(elemType, rule, isRowMajor, stride);
+      alignment = roundToPow2(alignment * (rowCount == 3 ? 4 : rowCount),
+                              kStd140Vec4Alignment);
+      *stride = alignment;
+      return {alignment, 16 * (colCount - 1) + rowCount * size};
+    }
+  }
+
   { // Rule 2 and 3
     QualType elemType = {};
     uint32_t elemCount = {};
@@ -215,9 +241,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
       // The base alignment and array stride are set to match the base alignment
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
-      bool rowMajor = isRowMajor.hasValue()
-                          ? isRowMajor.getValue()
-                          : isRowMajorMatrix(spvOptions, type);
+      bool rowMajor = useRowMajor(isRowMajor, type);
 
       const uint32_t vecStorageSize = rowMajor ? rowCount : colCount;
 
@@ -244,9 +268,12 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
 
   // Rule 9
   if (const auto *structType = type->getAs<RecordType>()) {
+    bool hasBaseStructs = type->getAsCXXRecordDecl() &&
+                          type->getAsCXXRecordDecl()->getNumBases() > 0;
+
     // Special case for handling empty structs, whose size is 0 and has no
     // requirement over alignment (thus 1).
-    if (structType->getDecl()->field_empty())
+    if (structType->getDecl()->field_empty() && !hasBaseStructs)
       return {1, 0};
 
     uint32_t maxAlignment = 0;
@@ -255,7 +282,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     // If this struct is derived from some other structs, place an implicit
     // field at the very beginning for the base struct.
     if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(structType->getDecl())) {
-      for (const auto base : cxxDecl->bases()) {
+      for (const auto &base : cxxDecl->bases()) {
         uint32_t memberAlignment = 0, memberSize = 0;
         std::tie(memberAlignment, memberSize) =
             getAlignmentAndSize(base.getType(), rule, isRowMajor, stride);
@@ -317,10 +344,9 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
       maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
     }
 
-    if (rule != SpirvLayoutRule::FxcCTBuffer &&
-        rule != SpirvLayoutRule::FxcSBuffer) {
-      // The base offset of the member following the sub-structure is rounded up
-      // to the next multiple of the base alignment of the structure.
+    if (rule != SpirvLayoutRule::FxcCTBuffer) {
+      // The base offset of the member following the sub-structure is rounded
+      // up to the next multiple of the base alignment of the structure.
       structSize = roundToPow2(structSize, maxAlignment);
     }
     return {maxAlignment, structSize};
@@ -348,6 +374,8 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
       alignment = roundToPow2(alignment, kStd140Vec4Alignment);
+      if (size == 0)
+        size = alignment;
     }
     if (rule == SpirvLayoutRule::FxcCTBuffer) {
       // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data

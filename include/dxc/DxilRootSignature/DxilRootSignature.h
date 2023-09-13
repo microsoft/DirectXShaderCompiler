@@ -16,7 +16,8 @@
 
 #include <stdint.h>
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 struct IDxcBlob;
 struct IDxcBlobEncoding;
@@ -109,8 +110,10 @@ enum class DxilRootSignatureFlags : uint32_t {
   LocalRootSignature = 0x80,
   DenyAmplificationShaderRootAccess = 0x100,
   DenyMeshShaderRootAccess = 0x200,
+  CBVSRVUAVHeapDirectlyIndexed = 0x400,
+  SamplerHeapDirectlyIndexed = 0x800,
   AllowLowTierReservedHwCbLimit = 0x80000000,
-  ValidFlags = 0x800003ff
+  ValidFlags = 0x80000fff
 };
 enum class DxilRootParameterType {
   DescriptorTable = 0,
@@ -173,7 +176,9 @@ enum class DxilShaderVisibility {
 enum class DxilStaticBorderColor {
   TransparentBlack = 0,
   OpaqueBlack = 1,
-  OpaqueWhite = 2
+  OpaqueWhite = 2,
+  OpaqueBlackUint = 3,
+  OpaqueWhiteUint = 4
 };
 enum class DxilTextureAddressMode {
   Wrap = 1,
@@ -323,6 +328,8 @@ struct DxilVersionedRootSignatureDesc {
   };
 };
 
+void printRootSignature(const DxilVersionedRootSignatureDesc &RS, llvm::raw_ostream &os);
+
 // Use this class to represent a root signature that may be in memory or serialized.
 // There is just enough API surface to help callers not take a dependency on Windows headers.
 class RootSignatureHandle {
@@ -378,6 +385,43 @@ bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
                          _In_ llvm::raw_ostream &DiagStream,
                          _In_ bool bAllowReservedRegisterSpace);
 
+class DxilVersionedRootSignature {
+  DxilVersionedRootSignatureDesc *m_pRootSignature;
+
+public:
+    // Non-copyable:
+  DxilVersionedRootSignature(DxilVersionedRootSignature const &) = delete;
+  DxilVersionedRootSignature const &
+  operator=(DxilVersionedRootSignature const &) = delete;
+
+  // but movable:
+  DxilVersionedRootSignature(DxilVersionedRootSignature &&) = default;
+  DxilVersionedRootSignature &
+  operator=(DxilVersionedRootSignature &&) = default;
+
+  DxilVersionedRootSignature() : m_pRootSignature(nullptr) {}
+  explicit DxilVersionedRootSignature(
+      const DxilVersionedRootSignatureDesc *pRootSignature)
+      : m_pRootSignature(
+            const_cast<DxilVersionedRootSignatureDesc *> (pRootSignature)) {}
+  ~DxilVersionedRootSignature() { 
+      DeleteRootSignature(m_pRootSignature);
+  }
+  const DxilVersionedRootSignatureDesc* operator -> () const {
+    return m_pRootSignature;
+  }
+  const DxilVersionedRootSignatureDesc ** get_address_of() {
+    if (m_pRootSignature != nullptr)
+      return nullptr; // You're probably about to leak...
+    return const_cast<const DxilVersionedRootSignatureDesc **> (&m_pRootSignature);
+  }
+  const DxilVersionedRootSignatureDesc* get() const { 
+      return m_pRootSignature;
+  }
+  DxilVersionedRootSignatureDesc* get_mutable() const { 
+      return m_pRootSignature;
+  }
+};
 } // namespace hlsl
 
 #endif // __DXC_ROOTSIGNATURE__

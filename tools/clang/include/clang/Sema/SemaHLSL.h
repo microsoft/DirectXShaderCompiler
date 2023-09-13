@@ -86,12 +86,26 @@ void DiagnoseUnusualAnnotationsForHLSL(
   clang::Sema& S,
   std::vector<hlsl::UnusualAnnotation *>& annotations);
 
+void DiagnosePayloadAccessQualifierAnnotations(
+  clang::Sema &S,
+  clang::Declarator& D,
+  const clang::QualType& T,
+  const std::vector<hlsl::UnusualAnnotation *> &annotations);
+
+void DiagnoseRaytracingPayloadAccess(
+  clang::Sema &S,
+  clang::TranslationUnitDecl* TU);
+
+void DiagnoseRaytracingEntry(clang::Sema &S, clang::FunctionDecl *FD);
+
 /// <summary>Finds the best viable function on this overload set, if it exists.</summary>
 clang::OverloadingResult GetBestViableFunction(
   clang::Sema &S,
   clang::SourceLocation Loc,
   clang::OverloadCandidateSet& set,
   clang::OverloadCandidateSet::iterator& Best);
+
+bool ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType, clang::VarDecl *VD, clang::FunctionDecl *FD);
 
 /// <summary>Processes an attribute for a declaration.</summary>
 /// <param name="S">Sema with context.</param>

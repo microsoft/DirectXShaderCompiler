@@ -25,11 +25,9 @@ static llvm::sys::Mutex *cs = nullptr;
 // This function is to prevent multiple attempts to load dxil.dll 
 HRESULT DxilLibInitialize() {
   cs = new llvm::sys::Mutex;
-#if LLVM_ON_WIN32
   cs->lock();
-  g_DllLibResult = g_DllSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+  g_DllLibResult = g_DllSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
   cs->unlock();
-#endif
   return S_OK;
 }
 
@@ -53,19 +51,14 @@ HRESULT DxilLibCleanup(DxilLibCleanUpType type) {
 // If we fail to load dxil.dll, set g_DllLibResult to E_FAIL so that we don't
 // have multiple attempts to load dxil.dll
 bool DxilLibIsEnabled() {
-#if LLVM_ON_WIN32
   cs->lock();
   if (SUCCEEDED(g_DllLibResult)) {
     if (!g_DllSupport.IsEnabled()) {
-      g_DllLibResult = g_DllSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+      g_DllLibResult = g_DllSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
     }
   }
   cs->unlock();
   return SUCCEEDED(g_DllLibResult);
-#else
-  g_DllLibResult = (HRESULT)-1;
-  return false;
-#endif
 }
 
 

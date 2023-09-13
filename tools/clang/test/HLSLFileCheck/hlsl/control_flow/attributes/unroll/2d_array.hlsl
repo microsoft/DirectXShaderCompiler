@@ -1,4 +1,6 @@
 // RUN: %dxc -Od -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -Od -E main -T ps_6_6 %s | FileCheck %s
+
 // CHECK: call i32 @dx.op.bufferUpdateCounter
 // CHECK: call i32 @dx.op.bufferUpdateCounter
 // CHECK: call i32 @dx.op.bufferUpdateCounter

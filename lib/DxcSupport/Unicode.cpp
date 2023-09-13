@@ -120,25 +120,25 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
 namespace Unicode {
 
 _Success_(return != false)
-bool UTF16ToEncodedString(_In_z_ const wchar_t* text, size_t cUTF16, DWORD cp, DWORD flags, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
+bool WideToEncodedString(_In_z_ const wchar_t* text, size_t cWide, DWORD cp, DWORD flags, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
   BOOL usedDefaultChar;
   LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
   if (lossy != nullptr) *lossy = false;
 
   // Handle zero-length as a special case; it's a special value to indicate errors in WideCharToMultiByte.
-  if (cUTF16 == 0) {
+  if (cWide == 0) {
     pValue->resize(0);
     DXASSERT(lossy == nullptr || *lossy == false, "otherwise earlier initialization in this function was updated");
     return true;
   }
 
-  int cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cUTF16, nullptr, 0, nullptr, pUsedDefaultChar);
+  int cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cWide, nullptr, 0, nullptr, pUsedDefaultChar);
   if (cbUTF8 == 0)
     return false;
 
   pValue->resize(cbUTF8);
 
-  cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cUTF16, &(*pValue)[0], pValue->size(), nullptr, pUsedDefaultChar);
+  cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cWide, &(*pValue)[0], pValue->size(), nullptr, pUsedDefaultChar);
   DXASSERT(cbUTF8 > 0, "otherwise contents have changed");
   DXASSERT((*pValue)[pValue->size()] == '\0', "otherwise string didn't null-terminate after resize() call");
 
@@ -147,40 +147,40 @@ bool UTF16ToEncodedString(_In_z_ const wchar_t* text, size_t cUTF16, DWORD cp, D
 }
 
 _Use_decl_annotations_
-bool UTF8ToUTF16String(const char *pUTF8, std::wstring *pUTF16) {
+bool UTF8ToWideString(const char *pUTF8, std::wstring *pWide) {
   size_t cbUTF8 = (pUTF8 == nullptr) ? 0 : strlen(pUTF8);
-  return UTF8ToUTF16String(pUTF8, cbUTF8, pUTF16);
+  return UTF8ToWideString(pUTF8, cbUTF8, pWide);
 }
 
 _Use_decl_annotations_
-bool UTF8ToUTF16String(const char *pUTF8, size_t cbUTF8, std::wstring *pUTF16) {
-  DXASSERT_NOMSG(pUTF16 != nullptr);
+bool UTF8ToWideString(const char *pUTF8, size_t cbUTF8, std::wstring *pWide) {
+  DXASSERT_NOMSG(pWide != nullptr);
 
   // Handle zero-length as a special case; it's a special value to indicate
   // errors in MultiByteToWideChar.
   if (cbUTF8 == 0) {
-    pUTF16->resize(0);
+    pWide->resize(0);
     return true;
   }
 
-  int cUTF16 = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8,
+  int cWide = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8,
                                      cbUTF8, nullptr, 0);
-  if (cUTF16 == 0)
+  if (cWide == 0)
     return false;
 
-  pUTF16->resize(cUTF16);
+  pWide->resize(cWide);
 
-  cUTF16 = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, cbUTF8,
-                                 &(*pUTF16)[0], pUTF16->size());
-  DXASSERT(cUTF16 > 0, "otherwise contents changed");
-  DXASSERT((*pUTF16)[pUTF16->size()] == L'\0',
+  cWide = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, cbUTF8,
+                                 &(*pWide)[0], pWide->size());
+  DXASSERT(cWide > 0, "otherwise contents changed");
+  DXASSERT((*pWide)[pWide->size()] == L'\0',
            "otherwise wstring didn't null-terminate after resize() call");
   return true;
 }
 
-std::wstring UTF8ToUTF16StringOrThrow(_In_z_ const char *pUTF8) {
+std::wstring UTF8ToWideStringOrThrow(_In_z_ const char *pUTF8) {
   std::wstring result;
-  if (!UTF8ToUTF16String(pUTF8, &result)) {
+  if (!UTF8ToWideString(pUTF8, &result)) {
     throw hlsl::Exception(DXC_E_STRING_ENCODING_FAILED);
   }
   return result;
@@ -192,10 +192,10 @@ bool UTF8ToConsoleString(_In_z_ const char* text, _In_ size_t textLen, _Inout_ s
   DXASSERT_NOMSG(pValue != nullptr);
   std::wstring text16;
   if (lossy != nullptr) *lossy = false;
-  if (!UTF8ToUTF16String(text, textLen, &text16)) {
+  if (!UTF8ToWideString(text, textLen, &text16)) {
     return false;
   }
-  return UTF16ToConsoleString(text16.c_str(), text16.length(), pValue, lossy);
+  return WideToConsoleString(text16.c_str(), text16.length(), pValue, lossy);
 }
 
 _Use_decl_annotations_
@@ -204,43 +204,43 @@ bool UTF8ToConsoleString(_In_z_ const char* text, _Inout_ std::string* pValue, _
 }
 
 _Use_decl_annotations_
-bool UTF16ToConsoleString(const wchar_t* text, _In_ size_t textLen, std::string* pValue, bool* lossy) {
+bool WideToConsoleString(const wchar_t* text, _In_ size_t textLen, std::string* pValue, bool* lossy) {
   DXASSERT_NOMSG(text != nullptr);
   DXASSERT_NOMSG(pValue != nullptr);
   UINT cp = GetConsoleOutputCP();
-  return UTF16ToEncodedString(text, textLen, cp, 0, pValue, lossy);
+  return WideToEncodedString(text, textLen, cp, 0, pValue, lossy);
 }
 
 _Use_decl_annotations_
-bool UTF16ToConsoleString(const wchar_t* text, std::string* pValue, bool* lossy) {
-  return UTF16ToConsoleString(text, wcslen(text), pValue, lossy);
+bool WideToConsoleString(const wchar_t* text, std::string* pValue, bool* lossy) {
+  return WideToConsoleString(text, wcslen(text), pValue, lossy);
 }
 
 _Use_decl_annotations_
-bool UTF16ToUTF8String(const wchar_t *pUTF16, size_t cUTF16, std::string *pUTF8) {
-  DXASSERT_NOMSG(pUTF16 != nullptr);
+bool WideToUTF8String(const wchar_t *pWide, size_t cWide, std::string *pUTF8) {
+  DXASSERT_NOMSG(pWide != nullptr);
   DXASSERT_NOMSG(pUTF8 != nullptr);
-  return UTF16ToEncodedString(pUTF16, cUTF16, CP_UTF8, 0, pUTF8, nullptr);
+  return WideToEncodedString(pWide, cWide, CP_UTF8, 0, pUTF8, nullptr);
 }
 
 _Use_decl_annotations_
-bool UTF16ToUTF8String(const wchar_t *pUTF16, std::string *pUTF8) {
-  DXASSERT_NOMSG(pUTF16 != nullptr);
+bool WideToUTF8String(const wchar_t *pWide, std::string *pUTF8) {
+  DXASSERT_NOMSG(pWide != nullptr);
   DXASSERT_NOMSG(pUTF8 != nullptr);
-  return UTF16ToEncodedString(pUTF16, wcslen(pUTF16), CP_UTF8, 0, pUTF8, nullptr);
+  return WideToEncodedString(pWide, wcslen(pWide), CP_UTF8, 0, pUTF8, nullptr);
 }
 
-std::string UTF16ToUTF8StringOrThrow(_In_z_ const wchar_t *pUTF16) {
+std::string WideToUTF8StringOrThrow(_In_z_ const wchar_t *pWide) {
   std::string result;
-  if (!UTF16ToUTF8String(pUTF16, &result)) {
+  if (!WideToUTF8String(pWide, &result)) {
     throw hlsl::Exception(DXC_E_STRING_ENCODING_FAILED);
   }
   return result;
 }
 
 _Use_decl_annotations_
-bool UTF8BufferToUTF16ComHeap(const char *pUTF8, wchar_t **ppUTF16) throw() {
-  *ppUTF16 = nullptr;
+bool UTF8BufferToWideComHeap(const char *pUTF8, wchar_t **ppWide) throw() {
+  *ppWide = nullptr;
   int c = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, -1,
                                 nullptr, 0);
   if (c == 0)
@@ -250,21 +250,21 @@ bool UTF8BufferToUTF16ComHeap(const char *pUTF8, wchar_t **ppUTF16) throw() {
     return false;
   DXVERIFY_NOMSG(0 < ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8,
                                            -1, p.m_pData, c));
-  *ppUTF16 = p.Detach();
+  *ppWide = p.Detach();
   return true;
 }
 
 _Use_decl_annotations_
-bool UTF8BufferToUTF16Buffer(const char *pUTF8, int cbUTF8, wchar_t **ppUTF16, size_t *pcUTF16) throw() {
-  *ppUTF16 = nullptr;
-  *pcUTF16 = 0;
+bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide, size_t *pcWide) throw() {
+  *ppWide = nullptr;
+  *pcWide = 0;
 
   if (cbUTF8 == 0 || (cbUTF8 == -1 && *pUTF8 == '\0')) {
-    *ppUTF16 = new (std::nothrow) wchar_t[1];
-    if (*ppUTF16 == nullptr)
+    *ppWide = new (std::nothrow) wchar_t[1];
+    if (*ppWide == nullptr)
       return false;
-    (*ppUTF16)[0] = L'\0';
-    *pcUTF16 = 1;
+    (*ppWide)[0] = L'\0';
+    *pcWide = 1;
     return true;
   }
 
@@ -288,18 +288,18 @@ bool UTF8BufferToUTF16Buffer(const char *pUTF8, int cbUTF8, wchar_t **ppUTF16, s
   DXASSERT(converted > 0, "otherwise contents have changed");
   p[c - 1] = L'\0';
 
-  *ppUTF16 = p;
-  *pcUTF16 = c;
+  *ppWide = p;
+  *pcWide = c;
 
   return true;
 }
 
 _Use_decl_annotations_
-bool UTF16BufferToUTF8Buffer(const wchar_t *pUTF16, int cUTF16, char **ppUTF8, size_t *pcUTF8) throw() {
+bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cWide, char **ppUTF8, size_t *pcUTF8) throw() {
   *ppUTF8 = nullptr;
   *pcUTF8 = 0;
 
-  if (cUTF16 == 0 || (cUTF16 == -1 && *pUTF16 == '\0')) {
+  if (cWide == 0 || (cWide == -1 && *pWide == '\0')) {
     *ppUTF8 = new (std::nothrow) char[1];
     if (*ppUTF8 == nullptr)
       return false;
@@ -310,8 +310,8 @@ bool UTF16BufferToUTF8Buffer(const wchar_t *pUTF16, int cUTF16, char **ppUTF8, s
 
   int c1 = ::WideCharToMultiByte(CP_UTF8, // code page
                                  0,       // flags
-                                 pUTF16,  // string to convert
-                                 cUTF16,  // size, in chars, of string to convert
+                                 pWide,  // string to convert
+                                 cWide,  // size, in chars, of string to convert
                                  nullptr, // output buffer
                                  0,       // size of output buffer
                                  nullptr, nullptr);
@@ -319,7 +319,7 @@ bool UTF16BufferToUTF8Buffer(const wchar_t *pUTF16, int cUTF16, char **ppUTF8, s
     return false;
 
   // add space for null-terminator if we're not accounting for it
-  if (cUTF16 != -1)
+  if (cWide != -1)
     c1 += 1;
 
   char *p = new (std::nothrow) char[c1];
@@ -327,7 +327,7 @@ bool UTF16BufferToUTF8Buffer(const wchar_t *pUTF16, int cUTF16, char **ppUTF8, s
     return false;
 
   int converted = ::WideCharToMultiByte(CP_UTF8, 0,
-                            pUTF16, cUTF16,
+                            pWide, cWide,
                             p, c1,
                             nullptr, nullptr);
   (void)converted;
@@ -376,7 +376,7 @@ bool IsStarMatchUTF8(const char *pMask, size_t maskLen, const char *pName, size_
 }
 
 _Use_decl_annotations_
-bool IsStarMatchUTF16(const wchar_t *pMask, size_t maskLen, const wchar_t *pName, size_t nameLen) {
+bool IsStarMatchWide(const wchar_t *pMask, size_t maskLen, const wchar_t *pName, size_t nameLen) {
   return IsStarMatchT<wchar_t>(pMask, maskLen, pName, nameLen, L'*');
 }
 

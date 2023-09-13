@@ -25,6 +25,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/HlslIntrinsicOp.h"
 
 using namespace clang;
 using namespace hlsl;
@@ -69,7 +70,9 @@ const char* HLSLScalarTypeNames[] = {
   "uint64_t",
   "float16_t",
   "float32_t",
-  "float64_t"
+  "float64_t",
+  "int8_t4_packed",
+  "uint8_t4_packed"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
@@ -129,6 +132,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           return HLSLScalarType_int64;
         }
       }
+      break;
     case 8: // min12int, min16int, uint64_t
       if (typeName[0] == 'm' && typeName[1] == 'i') {
         if (typeName[4] == '2') {
@@ -171,12 +175,26 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
         }
       }
       break;
+    case 14: // int8_t4_packed
+      if (typeName[0] == 'i' && typeName[1] == 'n') {
+        if (strncmp(typeName, "int8_t4_packed", 14))
+          break;
+        return HLSLScalarType_int8_4packed;
+      }
+      break;
+    case 15: // uint8_t4_packed
+      if (typeName[0] == 'u' && typeName[1] == 'i') {
+        if (strncmp(typeName, "uint8_t4_packed", 15))
+          break;
+        return HLSLScalarType_uint8_4packed;
+      }
+      break;
     default:
       break;
   }
   // fixed width types (int16_t, uint16_t, int32_t, uint32_t, float16_t, float32_t, float64_t)
   // are only supported in HLSL 2018
-  if (langOptions.HLSLVersion >= 2018) {
+  if (langOptions.HLSLVersion >= hlsl::LangStd::v2018) {
     switch (typeLen) {
     case 7: // int16_t, int32_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {
@@ -193,6 +211,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           return HLSLScalarType_int32;
         }
       }
+      break;
     case 8: // uint16_t, uint32_t
       if (!langOptions.UseMinPrecision) {
         if (typeName[0] == 'u' && typeName[1] == 'i') {
@@ -208,6 +227,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           break;
         return HLSLScalarType_uint32;
       }
+      break;
     case 9: // float16_t, float32_t, float64_t
       if (typeName[0] == 'f' && typeName[1] == 'l') {
         if (!langOptions.UseMinPrecision) {
@@ -271,10 +291,11 @@ void AddSubscriptOperator(
     vectorType = context.getConstType(vectorType);
 
   QualType indexType = intType;
-  CreateObjectFunctionDeclarationWithParams(
-    context, templateRecordDecl, vectorType,
-    ArrayRef<QualType>(indexType), ArrayRef<StringRef>(StringRef("index")),
-    context.DeclarationNames.getCXXOperatorName(OO_Subscript), forConst);
+  auto methodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, templateRecordDecl, vectorType, ArrayRef<QualType>(indexType),
+      ArrayRef<StringRef>(StringRef("index")),
+      context.DeclarationNames.getCXXOperatorName(OO_Subscript), forConst);
+  methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 /// <summary>Adds up-front support for HLSL matrix types (just the template declaration).</summary>
@@ -331,7 +352,10 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
 
 static void AddHLSLVectorSubscriptAttr(Decl *D, ASTContext &context) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
-  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
+  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, group, "",
+      static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
+  D->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 /// <summary>Adds up-front support for HLSL vector types (just the template declaration).</summary>
@@ -390,7 +414,7 @@ CXXRecordDecl* hlsl::DeclareRecordTypeWithHandle(ASTContext& context, StringRef 
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name, TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 // creates a global static constant unsigned integer with value.
@@ -649,13 +673,27 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
   uint8_t templateArgCount, 
   _In_opt_ TypeSourceInfo* defaultTypeArgValue)
 {
+  return DeclareTemplateTypeWithHandleInDeclContext(context,
+                                                    context.getTranslationUnitDecl(),
+                                                    name,
+                                                    templateArgCount,
+                                                    defaultTypeArgValue);
+}
+
+CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
+  ASTContext& context,
+  DeclContext *declContext,
+  StringRef name,
+  uint8_t templateArgCount,
+  _In_opt_ TypeSourceInfo* defaultTypeArgValue)
+{
   DXASSERT(templateArgCount != 0, "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated for a different template pattern");
 
   // Create an object template declaration in translation unit scope.
   // templateArgCount=1: template<typename element> typeName { ... }
   // templateArgCount=2: template<typename element, int count> typeName { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, name);
   TemplateTypeParmDecl* elementTemplateParamDecl = typeDeclBuilder.addTypeTemplateParam("element", defaultTypeArgValue);
   NonTypeTemplateParmDecl* countTemplateParamDecl = nullptr;
   if (templateArgCount > 1)
@@ -672,7 +710,7 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
       // Only need array type for inputpatch and outputpatch.
       // Avoid Texture2DMS which may use 0 count.
       // TODO: use hlsl types to do the check.
-      !name.startswith("Texture")) {
+      !name.startswith("Texture") && !name.startswith("RWTexture")) {
     Expr *countExpr = DeclRefExpr::Create(
         context, NestedNameSpecifierLoc(), NoLoc, countTemplateParamDecl, false,
         DeclarationNameInfo(countTemplateParamDecl->getDeclName(), NoLoc),
@@ -694,7 +732,7 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
 
   typeDeclBuilder.addField("h", elementType);
 
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 FunctionTemplateDecl* hlsl::CreateFunctionTemplateDecl(
@@ -785,7 +823,8 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
   ArrayRef<QualType> paramTypes,
   ArrayRef<StringRef> paramNames,
   DeclarationName declarationName,
-  bool isConst)
+  bool isConst,
+  bool isTemplateFunction)
 {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(!resultType.isNull());
@@ -816,19 +855,29 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
                                            parmVarDecls.size());
   }
 
-  recordDecl->addDecl(functionDecl);
+  // If this is going to be part of a template function decl, don't add it to
+  // the record because the template function decl will be added instead.
+  if (!isTemplateFunction)
+    recordDecl->addDecl(functionDecl);
 
   return functionDecl;
 }
 
 CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
   ASTContext& context, StringRef typeName, StringRef templateParamName) {
+  return DeclareUIntTemplatedTypeWithHandleInDeclContext(
+      context, context.getTranslationUnitDecl(), typeName, templateParamName);
+}
+
+CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
+    ASTContext &context, DeclContext *declContext, StringRef typeName,
+    StringRef templateParamName) {
   // template<uint kind> FeedbackTexture2D[Array] { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), typeName);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName);
   typeDeclBuilder.addIntegerTemplateParam(templateParamName, context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
 clang::CXXRecordDecl *
@@ -849,7 +898,7 @@ hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
   typeDeclBuilder.addField(
       "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
 
-  typeDeclBuilder.completeDefinition();
+  typeDeclBuilder.getRecordDecl();
 
   return templateRecordDecl;
 }
@@ -869,19 +918,51 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   CreateConstructorDeclaration(context, typeDeclBuilder.getRecordDecl(), context.VoidTy, {}, context.DeclarationNames.getCXXConstructorName(canQualType), false, &pConstructorDecl, &pTypeSourceInfo);
   typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
 
-  return typeDeclBuilder.completeDefinition();
+  return typeDeclBuilder.getRecordDecl();
 }
 
-CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context) {
+CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
   // struct ResourceDescriptor { uint8 desc; }
+  StringRef Name = bSampler?".Sampler":".Resource";
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
-                                         ".Resource",
+                                         Name,
                                          TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
 
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
-  return typeDeclBuilder.completeDefinition();
+  CXXRecordDecl *recordDecl = typeDeclBuilder.getRecordDecl();
+
+  QualType indexType = context.UnsignedIntTy;
+  QualType resultType = context.getRecordType(recordDecl);
+  resultType = context.getConstType(resultType);
+
+  CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
+        context, recordDecl, resultType, ArrayRef<QualType>(indexType),
+        ArrayRef<StringRef>(StringRef("index")),
+      context.DeclarationNames.getCXXOperatorName(OO_Subscript), true);
+  // Mark function as createResourceFromHeap intrinsic.
+  functionDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::IOP_CreateResourceFromHeap)));
+  functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+  return recordDecl;
+}
+
+VarDecl *hlsl::DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                              clang::ASTContext &context) {
+  IdentifierInfo &II = context.Idents.get(name);
+
+  auto *curDeclCtx =context.getTranslationUnitDecl();
+
+  VarDecl *varDecl = VarDecl::Create(context, curDeclCtx,
+                         SourceLocation(), SourceLocation(), &II, Ty,
+                         context.getTrivialTypeSourceInfo(Ty),
+                         StorageClass::SC_Extern);
+  // Mark implicit to avoid print it when rewrite.
+  varDecl->setImplicit();
+  curDeclCtx->addDecl(varDecl);
+  return varDecl;
 }
 
 bool hlsl::IsIntrinsicOp(const clang::FunctionDecl *FD) {
@@ -1121,6 +1202,9 @@ UnusualAnnotation* hlsl::UnusualAnnotation::CopyToASTContext(ASTContext& Context
     break;
   case UA_ConstantPacking:
     instanceSize = sizeof(hlsl::ConstantPacking);
+    break;  
+  case UA_PayloadAccessQualifier:
+    instanceSize = sizeof(hlsl::PayloadAccessAnnotation);
     break;
   default:
     DXASSERT(Kind == UA_SemanticDecl, "Kind == UA_SemanticDecl -- otherwise switch is incomplete");
@@ -1133,53 +1217,6 @@ UnusualAnnotation* hlsl::UnusualAnnotation::CopyToASTContext(ASTContext& Context
   return (UnusualAnnotation*)result;
 }
 
-static bool HasTessFactorSemantic(const ValueDecl *decl) {
-  for (const UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    if (it->getKind() == UnusualAnnotation::UA_SemanticDecl) {
-      const SemanticDecl *sd = cast<SemanticDecl>(it);
-      const Semantic *pSemantic = Semantic::GetByName(sd->SemanticName);
-      if (pSemantic && pSemantic->GetKind() == Semantic::Kind::TessFactor)
-        return true;
-    }
-  }
-  return false;
-}
-
-static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
-  if (Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty))
-    return false;
-
-  if (const RecordType *RT = Ty->getAsStructureType()) {
-    RecordDecl *RD = RT->getDecl();
-    for (FieldDecl *fieldDecl : RD->fields()) {
-      if (HasTessFactorSemanticRecurse(fieldDecl, fieldDecl->getType()))
-        return true;
-    }
-    return false;
-  }
-
-  if (Ty->getAsArrayTypeUnsafe())
-    return HasTessFactorSemantic(decl);
-
-  return false;
-}
-
 bool ASTContext::IsPatchConstantFunctionDecl(const FunctionDecl *FD) const {
-  // This checks whether the function is structurally capable of being a patch
-  // constant function, not whether it is in fact the patch constant function
-  // for the entry point of a compiled hull shader (which may not have been
-  // seen yet). So the answer is conservative.
-  if (!FD->getReturnType()->isVoidType()) {
-    // Try to find TessFactor in return type.
-    if (HasTessFactorSemanticRecurse(FD, FD->getReturnType()))
-      return true;
-  }
-  // Try to find TessFactor in out param.
-  for (const ParmVarDecl *param : FD->params()) {
-    if (param->hasAttr<HLSLOutAttr>()) {
-      if (HasTessFactorSemanticRecurse(param, param->getType()))
-        return true;
-    }
-  }
-  return false;
+  return hlsl::IsPatchConstantFunctionDecl(FD);
 }

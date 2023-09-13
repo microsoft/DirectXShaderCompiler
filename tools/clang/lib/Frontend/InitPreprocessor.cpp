@@ -374,7 +374,8 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__DXC_VERSION_RELEASE", STRINGIFY(RC_VERSION_FIELD_3));
     Builder.defineMacro("__DXC_VERSION_COMMITS", STRINGIFY(RC_VERSION_FIELD_4));
     // HLSL Version
-    Builder.defineMacro("__HLSL_VERSION", Twine(LangOpts.HLSLVersion));
+    Builder.defineMacro("__HLSL_VERSION",
+                        Twine((unsigned int)LangOpts.HLSLVersion));
     // Shader target information
     // "enums" for shader stages
     Builder.defineMacro("__SHADER_STAGE_VERTEX",  Twine((unsigned)hlsl::DXIL::ShaderKind::Vertex));
@@ -392,6 +393,13 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // Add target versions
     Builder.defineMacro("__SHADER_TARGET_MAJOR", Twine(SM->GetMajor()));
     Builder.defineMacro("__SHADER_TARGET_MINOR", Twine(SM->GetMinor()));
+    // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (LangOpts.SPIRV) {
+      Builder.defineMacro("__spirv__");
+    }
+#endif // ENABLE_SPIRV_CODEGEN
+    // SPIRV Change Ends
   }
   return;
 #else

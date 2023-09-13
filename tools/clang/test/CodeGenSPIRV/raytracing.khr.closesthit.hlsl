@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
 // CHECK:  OpCapability RayTracingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 // CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV
@@ -16,6 +16,7 @@
 // CHECK:  OpDecorate [[k:%\d+]] BuiltIn WorldToObjectNV
 // CHECK:  OpDecorate [[l:%\d+]] BuiltIn HitKindNV
 // CHECK:  OpDecorate [[m:%\d+]] BuiltIn RayGeometryIndexKHR
+// CHECK:  OpDecorate [[n:%\d+]] BuiltIn RayTmaxNV
 
 // CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
 struct Payload
@@ -75,6 +76,8 @@ void main(inout Payload MyPayload, in Attribute MyAttr) {
   uint _16 = HitKind();
 // CHECK:  OpLoad %uint [[m]]
   uint _17 = GeometryIndex();
+// CHECK:  OpLoad %float [[n]]
+  uint _18 = RayTCurrent();
 
   Payload myPayload = { float4(0.0f,0.0f,0.0f,0.0f) };
   CallData myCallData = { float4(0.0f,0.0f,0.0f,0.0f) };

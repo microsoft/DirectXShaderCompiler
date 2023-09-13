@@ -20,22 +20,7 @@
 #include <unistd.h>
 
 #include "dxc/Support/WinFunctions.h"
-
-HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
-                        LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags) {
-  assert(dwFlags == 0 && "dwFlag values not supported in StringCchCopyEx");
-  char *zPtr = 0;
-
-  zPtr = stpncpy(pszDest, pszSrc, cchDest);
-
-  if (ppszDestEnd)
-    *ppszDestEnd = zPtr;
-
-  if (pcchRemaining)
-    *pcchRemaining = cchDest - (zPtr - pszDest);
-
-  return S_OK;
-}
+#include "dxc/Support/microcom.h"
 
 
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
@@ -152,12 +137,6 @@ unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask) {
   for (l=0; !(Mask&1); l++) Mask >>= 1;
   *Index = l;
   return 1;
-}
-
-HRESULT CoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc) {
-  *ppMalloc = new IMalloc;
-  (*ppMalloc)->AddRef();
-  return S_OK;
 }
 
 HANDLE CreateFile2(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,

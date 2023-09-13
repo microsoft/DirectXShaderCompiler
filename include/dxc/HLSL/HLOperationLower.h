@@ -14,7 +14,6 @@
 
 namespace llvm {
 class Instruction;
-class LoadInst;
 class Function;
 }
 
@@ -25,5 +24,5 @@ class HLSLExtensionsCodegenHelper;
 
 void TranslateBuiltinOperations(
     HLModule &HLM, HLSLExtensionsCodegenHelper *extCodegenHelper,
-    std::unordered_set<llvm::LoadInst *> &UpdateCounterSet);
+    std::unordered_set<llvm::Instruction *> &UpdateCounterSet);
 }

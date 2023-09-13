@@ -909,6 +909,9 @@ EOF
     crisv32:Linux:*:*)
 	echo crisv32-axis-linux-gnu
 	exit ;;
+    e2k:Linux:*:*)
+	echo ${UNAME_MACHINE}-unknown-linux-gnu
+	exit ;;
     frv:Linux:*:*)
 	echo frv-unknown-linux-gnu
 	exit ;;
@@ -976,6 +979,9 @@ EOF
 	exit ;;
     ppc:Linux:*:*)
 	echo powerpc-unknown-linux-gnu
+	exit ;;
+    riscv64:Linux:*:*)
+	echo ${UNAME_MACHINE}-unknown-linux-gnu
 	exit ;;
     s390:Linux:*:* | s390x:Linux:*:*)
 	echo ${UNAME_MACHINE}-ibm-linux

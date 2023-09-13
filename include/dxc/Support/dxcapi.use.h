@@ -16,6 +16,9 @@
 
 namespace dxc {
 
+  extern const char* kDxCompilerLib;
+  extern const char* kDxilLib;
+
 // Helper class to dynamically load the dxcompiler or a compatible libraries.
 class DxcDllSupport {
 protected:
@@ -23,35 +26,31 @@ protected:
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
 
-  HRESULT InitializeInternal(LPCWSTR dllName, LPCSTR fnName) {
+  HRESULT InitializeInternal(LPCSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr) return S_OK;
 
 #ifdef _WIN32
-    m_dll = LoadLibraryW(dllName);
-#else
-    char nameStr[256];
-    std::wcstombs(nameStr, dllName, 256);
-    m_dll = ::dlopen(nameStr, RTLD_LAZY);
-#endif
-
+    m_dll = LoadLibraryA(dllName);
     if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
-
-#ifdef _WIN32
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
-#else
-    m_createFn = (DxcCreateInstanceProc)::dlsym(m_dll, fnName);
-#endif
-
+    
     if (m_createFn == nullptr) {
       HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
-#ifdef _WIN32
       FreeLibrary(m_dll);
-#else
-      ::dlclose(m_dll);
-#endif
       m_dll = nullptr;
       return hr;
     }
+#else
+    m_dll = ::dlopen(dllName, RTLD_LAZY);
+    if (m_dll == nullptr) return E_FAIL;
+    m_createFn = (DxcCreateInstanceProc)::dlsym(m_dll, fnName);
+    
+    if (m_createFn == nullptr) {
+      ::dlclose(m_dll);
+      m_dll = nullptr;
+      return E_FAIL;
+    }
+#endif
 
     // Only basic functions used to avoid requiring additional headers.
     m_createFn2 = nullptr;
@@ -86,16 +85,10 @@ public:
   }
 
   HRESULT Initialize() {
-    #ifdef _WIN32
-    return InitializeInternal(L"dxcompiler.dll", "DxcCreateInstance");
-    #elif __APPLE__
-    return InitializeInternal(L"libdxcompiler.dylib", "DxcCreateInstance");
-    #else
-    return InitializeInternal(L"libdxcompiler.so", "DxcCreateInstance");
-    #endif
+    return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT InitializeForDll(_In_z_ const wchar_t* dll, _In_z_ const char* entryPoint) {
+  HRESULT InitializeForDll(_In_z_ LPCSTR dll, _In_z_ LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 

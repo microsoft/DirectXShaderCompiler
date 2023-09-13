@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2
 
 // Some wave ops translates into SPIR-V builtin variables.
 // Test that we are not generating duplicated builtins for multiple calls of
@@ -6,7 +6,8 @@
 RWStructuredBuffer<uint> values;
 
 // CHECK: OpEntryPoint GLCompute
-// CHECK-SAME: %SubgroupSize %SubgroupLocalInvocationId
+// CHECK-DAG: %SubgroupSize
+// CHECK-DAG: %SubgroupLocalInvocationId
 
 // CHECK: OpDecorate %SubgroupSize BuiltIn SubgroupSize
 // CHECK-NOT: OpDecorate {{%\w+}} BuiltIn SubgroupSize

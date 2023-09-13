@@ -13,14 +13,16 @@
 // llvm/Function part so first part may be have shared use without llvm
 
 #pragma once
-#include <vector>
-#include <set>
-#include <unordered_set>
-#include <string>
+
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/MapVector.h"
+
+#include <vector>
+#include <set>
+#include <unordered_set>
+#include <string>
 
 namespace llvm {
 class Function;
@@ -38,9 +40,12 @@ namespace dxilutil {
     typedef ExportMapByString::iterator iterator;
     typedef ExportMapByString::const_iterator const_iterator;
 
-    ExportMap() {}
+    ExportMap():m_ExportShadersOnly(false) {}
     void clear();
     bool empty() const;
+
+    void setExportShadersOnly(bool v) { m_ExportShadersOnly = v; }
+    bool isExportShadersOnly() const { return m_ExportShadersOnly; }
 
     // Iterate export map by string name
     iterator begin() { return m_ExportMap.begin(); }
@@ -100,6 +105,7 @@ namespace dxilutil {
     NameSet m_ExportNames;
     NameSet m_NameCollisions;
     NameSet m_UnusedExports;
+    bool    m_ExportShadersOnly;
   };
 }
 

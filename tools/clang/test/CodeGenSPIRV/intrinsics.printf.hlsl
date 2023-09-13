@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // CHECK:                OpExtension "SPV_KHR_non_semantic_info"
 // CHECK: [[set:%\d+]] = OpExtInstImport "NonSemantic.DebugPrintf"

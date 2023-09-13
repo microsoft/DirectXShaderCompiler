@@ -988,17 +988,13 @@ static llvm::Value *CreateCoercedLoad(llvm::Value *SrcPtr,
 // FIXME: Do we need to recurse here?
 static void BuildAggStore(CodeGenFunction &CGF, llvm::Value *Val,
                           llvm::Value *DestPtr, bool DestIsVolatile,
-                          CharUnits DestAlign,
-                          QualType QTy // HLSL Change
-                          ) {
+                          CharUnits DestAlign) {
   // Prefer scalar stores to first-class aggregate stores.
   if (llvm::StructType *STy =
         dyn_cast<llvm::StructType>(Val->getType())) {
     // HLSL Change Begins
-    if (CGF.getLangOpts().HLSL) {
-      CGF.CGM.getHLSLRuntime().EmitHLSLAggregateStore(CGF, Val, DestPtr, QTy);
-      return;
-    }
+    assert(!CGF.getLangOpts().HLSL &&
+           "HLSL uses SRet so this should not be possible to reach.");
     // HLSL Change Ends
     const llvm::StructLayout *Layout =
       CGF.CGM.getDataLayout().getStructLayout(STy);
@@ -1028,9 +1024,7 @@ static void CreateCoercedStore(llvm::Value *Src,
                                llvm::Value *DstPtr,
                                bool DstIsVolatile,
                                CharUnits DstAlign,
-                               CodeGenFunction &CGF,
-                               QualType QTy // HLSL Change
-                               ) {
+                               CodeGenFunction &CGF) {
   llvm::Type *SrcTy = Src->getType();
   llvm::Type *DstTy =
     cast<llvm::PointerType>(DstPtr->getType())->getElementType();
@@ -1063,7 +1057,7 @@ static void CreateCoercedStore(llvm::Value *Src,
   if (SrcSize <= DstSize) {
     llvm::Value *Casted =
       CGF.Builder.CreateBitCast(DstPtr, llvm::PointerType::getUnqual(SrcTy));
-    BuildAggStore(CGF, Src, Casted, DstIsVolatile, DstAlign, QTy);  // HLSL Change - Add QTy
+    BuildAggStore(CGF, Src, Casted, DstIsVolatile, DstAlign);
   } else {
     // Otherwise do coercion through memory. This is stupid, but
     // simple.
@@ -1479,7 +1473,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
       FuncAttrs.addAttribute(llvm::Attribute::NoBuiltin);
     if (!CodeGenOpts.TrapFuncName.empty())
       FuncAttrs.addAttribute("trap-func-name", CodeGenOpts.TrapFuncName);
-  } else {
+  } else if (!getLangOpts().HLSL) {
     // Attributes that should go on the function, but not the call site.
     if (!CodeGenOpts.DisableFPElim) {
       FuncAttrs.addAttribute("no-frame-pointer-elim", "false");
@@ -1590,7 +1584,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
       RetAttrs.addAttribute(llvm::Attribute::SExt);
     else if (RetTy->hasUnsignedIntegerRepresentation())
       RetAttrs.addAttribute(llvm::Attribute::ZExt);
-    // FALL THROUGH
+    LLVM_FALLTHROUGH; // HLSL Change
   case ABIArgInfo::Direct:
     if (RetAI.getInReg())
       RetAttrs.addAttribute(llvm::Attribute::InReg);
@@ -1672,7 +1666,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
         else
           Attrs.addAttribute(llvm::Attribute::ZExt);
       }
-      // FALL THROUGH
+      LLVM_FALLTHROUGH; // HLSL Change
     case ABIArgInfo::Direct:
       if (ArgNo == 0 && FI.isChainCall())
         Attrs.addAttribute(llvm::Attribute::Nest);
@@ -2082,7 +2076,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
         assert(NumIRArgs == 1);
         auto AI = FnArgs[FirstIRArg];
         AI->setName(Arg->getName() + ".coerce");
-        CreateCoercedStore(AI, Ptr, /*DestIsVolatile=*/false, PtrAlign, *this, Ty); // HLSL Change - Add Ty.
+        CreateCoercedStore(AI, Ptr, /*DestIsVolatile=*/false, PtrAlign, *this);
       }
 
 
@@ -2895,6 +2889,12 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
     for (int I = ArgTypes.size() - 1; I >= 0; --I) {
       CallExpr::const_arg_iterator Arg = ArgBeg + I;
       EmitCallArg(Args, *Arg, ArgTypes[I]);
+      // HLSL Change begin.
+      RValue CallArg = Args.back().RV;
+      if (CallArg.isAggregate())
+        CGM.getHLSLRuntime().MarkPotentialResourceTemp(
+            *this, CallArg.getAggregateAddr(), ArgTypes[I]);
+      // HLSL Change end.
       EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
                           CalleeDecl, ParamsToSkip + I);
     }
@@ -3277,7 +3277,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       }
     }
     // HLSL Change begin.
-    CGM.getHLSLRuntime().MarkRetTemp(*this, SRetPtr, RetTy);
+    CGM.getHLSLRuntime().MarkPotentialResourceTemp(*this, SRetPtr, RetTy);
     // HLSL Change end.
     if (IRFunctionArgs.hasSRetArg()) {
       IRCallArgs[IRFunctionArgs.getSRetArgNo()] = SRetPtr;
@@ -3606,6 +3606,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
   llvm::CallSite CS;
   if (!InvokeDest) {
+    // HLSL changes begin
+    // When storing a matrix to memory, make sure to change its orientation to match in-memory
+    // orientation.
+    if (getLangOpts().HLSL && CGM.getHLSLRuntime().NeedHLSLMartrixCastForStoreOp(TargetDecl, IRCallArgs)) {
+      llvm::SmallVector<clang::QualType, 16> tyList;
+      for (CallArgList::const_iterator I = CallArgs.begin(), E = CallArgs.end(); I != E; ++I) {
+        tyList.emplace_back(I->Ty);
+      }
+      CGM.getHLSLRuntime().EmitHLSLMartrixCastForStoreOp(*this, IRCallArgs, tyList);
+    }
+    // HLSL changes end
     CS = Builder.CreateCall(Callee, IRCallArgs);
   } else {
     llvm::BasicBlock *Cont = createBasicBlock("invoke.cont");
@@ -3707,7 +3718,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             DestPtr = CreateMemTemp(RetTy, "agg.tmp");
             DestIsVolatile = false;
           }
-          BuildAggStore(*this, CI, DestPtr, DestIsVolatile, DestAlign, RetTy); // HLSL Change - Add QualTy.
+          BuildAggStore(*this, CI, DestPtr, DestIsVolatile, DestAlign);
           return RValue::getAggregate(DestPtr);
         }
         case TEK_Scalar: {
@@ -3743,7 +3754,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         StoreAlign =
           StoreAlign.alignmentAtOffset(CharUnits::fromQuantity(Offs));
       }
-      CreateCoercedStore(CI, StorePtr, DestIsVolatile, StoreAlign, *this, RetTy); // HLSL Change - Add QTy.
+      CreateCoercedStore(CI, StorePtr, DestIsVolatile, StoreAlign, *this);
 
       return convertTempToRValue(DestPtr, RetTy, SourceLocation());
     }

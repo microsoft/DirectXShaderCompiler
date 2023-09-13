@@ -3773,7 +3773,7 @@ DependenceAnalysis::depends(Instruction *Src, Instruction *Dst,
 
   auto Final = make_unique<FullDependence>(Result);
   Result.DV = nullptr;
-  return std::move(Final);
+  return Final;
 }
 
 

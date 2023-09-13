@@ -62,10 +62,7 @@ class db_dxil_inst(object):
         self.name = name                # short, unique name
         self.llvm_id = 0                # ID of LLVM instruction
         self.llvm_name = ""             # name of LLVM instruction type
-        self.is_bb_terminator = False   # whether this is a basic block terminator
-        self.is_binary = False          # whether this is an arithmetic binary/logical operator
-        self.is_memory = False          # whether this is a memory manipulator operator
-        self.is_cast = False            # whether this is a casting operator
+
         self.is_dxil_op = False         # whether this is a call into a built-in DXIL function
         self.dxil_op = ""               # name of DXIL operation
         self.dxil_opid = 0              # ID of DXIL operation 
@@ -288,21 +285,21 @@ class db_dxil(object):
             self.name_idx[i].category = "Quaternary"
         for i in "Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
-        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(","):
+        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].category = "Resources"
-        for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
+        for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,SampleCmpLevel,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
         for i in "Sample,SampleBias,SampleCmp".split(","):
-            self.name_idx[i].shader_stages = ("library", "pixel")
+            self.name_idx[i].shader_stages = ("library", "pixel", "compute", "amplification", "mesh")
         for i in "RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].shader_stages = ("pixel",)
-        for i in "TextureGather,TextureGatherCmp".split(","):
+        for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
-            self.name_idx[i].category = "Pixel shader"
-            self.name_idx[i].shader_stages = ("library", "pixel")
+            self.name_idx[i].category = "Derivatives"
+            self.name_idx[i].shader_stages = ("library", "pixel", "compute", "amplification", "mesh")
         for i in "Discard,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_stages = ("pixel",)
@@ -408,9 +405,11 @@ class db_dxil(object):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
             self.name_idx[i].shader_model_translated = 6,0
-        for i in "CreateHandleFromHeap,AnnotateHandle".split(","):
+        for i in "AnnotateHandle,CreateHandleFromBinding,CreateHandleFromHeap".split(","):
             self.name_idx[i].category = "Get handle from heap"
             self.name_idx[i].shader_model = 6,6
+        for i in "AnnotateHandle,CreateHandleFromBinding".split(","):
+            self.name_idx[i].shader_model_translated = 6,0
         for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
             self.name_idx[i].category = "Dot product with accumulate"
             self.name_idx[i].shader_model = 6,4
@@ -443,6 +442,19 @@ class db_dxil(object):
                  "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4,RayQuery_CandidateInstanceContributionToHitGroupIndex,RayQuery_CommittedInstanceContributionToHitGroupIndex").split(","):
             self.name_idx[i].category = "Inline Ray Query"
             self.name_idx[i].shader_model = 6,5
+        for i in "Unpack4x8".split(","):
+            self.name_idx[i].category = "Unpacking intrinsics"
+            self.name_idx[i].shader_model = 6,6
+        for i in "Pack4x8".split(","):
+            self.name_idx[i].category = "Packing intrinsics"
+            self.name_idx[i].shader_model = 6,6
+        for i in "IsHelperLane".split(","):
+            self.name_idx[i].category = "Helper Lanes"
+            self.name_idx[i].shader_model = 6,6
+        for i in "QuadVote,TextureGatherRaw,SampleCmpLevel,TextureStoreSample".split(","):
+            self.name_idx[i].shader_model = 6,7
+        for i in "QuadVote".split(","):
+            self.name_idx[i].shader_model_translated = 6,0
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -752,7 +764,7 @@ class db_dxil(object):
             db_dxil_param(2, "res", "handle", "cbuffer handle"),
             db_dxil_param(3, "u32", "regIndex", "0-based index into cbuffer instance")])
         next_op_idx += 1
-        self.add_dxil_op("Sample", next_op_idx, "Sample", "samples a texture", "hf", "ro", [
+        self.add_dxil_op("Sample", next_op_idx, "Sample", "samples a texture", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -766,7 +778,7 @@ class db_dxil(object):
             db_dxil_param(11, "f", "clamp", "clamp value")],
             counters=('tex_norm',))
         next_op_idx += 1
-        self.add_dxil_op("SampleBias", next_op_idx, "SampleBias", "samples a texture after applying the input bias to the mipmap level", "hf", "ro", [
+        self.add_dxil_op("SampleBias", next_op_idx, "SampleBias", "samples a texture after applying the input bias to the mipmap level", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -781,7 +793,7 @@ class db_dxil(object):
             db_dxil_param(12, "f", "clamp", "clamp value")],
             counters=('tex_bias',))
         next_op_idx += 1
-        self.add_dxil_op("SampleLevel", next_op_idx, "SampleLevel", "samples a texture using a mipmap-level offset", "hf", "ro", [
+        self.add_dxil_op("SampleLevel", next_op_idx, "SampleLevel", "samples a texture using a mipmap-level offset", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -795,7 +807,7 @@ class db_dxil(object):
             db_dxil_param(11, "f", "LOD", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")],
             counters=('tex_norm',))
         next_op_idx += 1
-        self.add_dxil_op("SampleGrad", next_op_idx, "SampleGrad", "samples a texture using a gradient to influence the way the sample location is calculated", "hf", "ro", [
+        self.add_dxil_op("SampleGrad", next_op_idx, "SampleGrad", "samples a texture using a gradient to influence the way the sample location is calculated", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -815,7 +827,7 @@ class db_dxil(object):
             db_dxil_param(17, "f", "clamp", "clamp value")],
             counters=('tex_grad',))
         next_op_idx += 1
-        self.add_dxil_op("SampleCmp", next_op_idx, "SampleCmp", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
+        self.add_dxil_op("SampleCmp", next_op_idx, "SampleCmp", "samples a texture and compares a single component against the specified comparison value", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -830,7 +842,7 @@ class db_dxil(object):
             db_dxil_param(12, "f", "clamp", "clamp value")],
             counters=('tex_cmp',))
         next_op_idx += 1
-        self.add_dxil_op("SampleCmpLevelZero", next_op_idx, "SampleCmpLevelZero", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
+        self.add_dxil_op("SampleCmpLevelZero", next_op_idx, "SampleCmpLevelZero", "samples a texture and compares a single component against the specified comparison value", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -927,7 +939,7 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "channel", "channel to sample"),
-            db_dxil_param(11, "f", "compareVale", "value to compare with")],
+            db_dxil_param(11, "f", "compareValue", "value to compare with")],
             counters=('tex_cmp',))
         next_op_idx += 1
 
@@ -945,24 +957,24 @@ class db_dxil(object):
         next_op_idx += 1
 
         # Atomics. Note that on TGSM, atomics are performed with LLVM instructions.
-        self.add_dxil_op("AtomicBinOp", next_op_idx, "AtomicBinOp", "performs an atomic operation on two operands", "i", "", [
-            db_dxil_param(0, "i32", "", "the original value in the location updated"),
+        self.add_dxil_op("AtomicBinOp", next_op_idx, "AtomicBinOp", "performs an atomic operation on two operands", "li", "", [
+            db_dxil_param(0, "$o", "", "the original value in the location updated"),
             db_dxil_param(2, "res", "handle", "typed int or uint UAV handle"),
             db_dxil_param(3, "i32", "atomicOp", "atomic operation as per DXIL::AtomicBinOpCode"),
             db_dxil_param(4, "i32", "offset0", "offset in elements"),
             db_dxil_param(5, "i32", "offset1", "offset"),
             db_dxil_param(6, "i32", "offset2", "offset"),
-            db_dxil_param(7, "i32", "newValue", "new value")],
+            db_dxil_param(7, "$o", "newValue", "new value")],
             counters=('atomic',))
         next_op_idx += 1
-        self.add_dxil_op("AtomicCompareExchange", next_op_idx, "AtomicCompareExchange", "atomic compare and exchange to memory", "i", "", [
-            db_dxil_param(0, "i32", "", "the original value in the location updated"),
+        self.add_dxil_op("AtomicCompareExchange", next_op_idx, "AtomicCompareExchange", "atomic compare and exchange to memory", "li", "", [
+            db_dxil_param(0, "$o", "", "the original value in the location updated"),
             db_dxil_param(2, "res", "handle", "typed int or uint UAV handle"),
             db_dxil_param(3, "i32", "offset0", "offset in elements"),
             db_dxil_param(4, "i32", "offset1", "offset"),
             db_dxil_param(5, "i32", "offset2", "offset"),
-            db_dxil_param(6, "i32", "compareValue", "value to compare for exchange"),
-            db_dxil_param(7, "i32", "newValue", "new value")],
+            db_dxil_param(6, "$o", "compareValue", "value to compare for exchange"),
+            db_dxil_param(7, "$o", "newValue", "new value")],
             counters=('atomic',))
         next_op_idx += 1
 
@@ -1148,7 +1160,7 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "value", "value to compare")])
         next_op_idx += 1
         self.add_dxil_op("WaveActiveBallot", next_op_idx, "WaveActiveBallot", "returns a struct with a bit set for each lane where the condition is true", "v", "", [
-            db_dxil_param(0, "$u4", "", "operation result"),
+            db_dxil_param(0, "fouri32", "", "operation result"),
             db_dxil_param(2, "i1", "cond", "condition to ballot on")])
         next_op_idx += 1
         self.add_dxil_op("WaveReadLaneAt", next_op_idx, "WaveReadLaneAt", "returns the value from the specified lane", "hfd18wil", "", [
@@ -1192,7 +1204,7 @@ class db_dxil(object):
         self.add_dxil_op("QuadReadLaneAt", next_op_idx, "QuadReadLaneAt", "reads from a lane in the quad", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read"),
-            db_dxil_param(3, "u32", "quadLane", "lane to read from (0-4)", max_value = 3, is_const=True)])
+            db_dxil_param(3, "u32", "quadLane", "lane to read from (0-4)", max_value = 3)])
         next_op_idx += 1
         self.add_enum_type("QuadOpKind", "Kind of quad-level operation", [
             (0, "ReadAcrossX", "returns the value from the other lane in the quad in the horizontal direction"), 
@@ -1464,7 +1476,7 @@ class db_dxil(object):
         assert next_op_idx == 165, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
 
         self.add_dxil_op("WaveMatch", next_op_idx, "WaveMatch", "returns the bitmask of active lanes that have the same value", "hfd8wil", "", [
-            db_dxil_param(0, "$u4", "", "operation result"),
+            db_dxil_param(0, "fouri32", "", "operation result"),
             db_dxil_param(2, "$o", "value", "input value")])
         next_op_idx += 1
 
@@ -1817,23 +1829,105 @@ class db_dxil(object):
         self.set_op_count_for_version(1, 5, next_op_idx)
         assert next_op_idx == 216, "216 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
-        self.add_dxil_op("CreateHandleFromHeap", next_op_idx, "CreateHandleFromHeap", "create resource handle from heap", "v", "ro", [
-            db_dxil_param(0, "res", "", "result"),
-            db_dxil_param(2, "i32", "index", "heap index"),
-            db_dxil_param(3, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
-        next_op_idx += 1
-
         self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "annotate handle with resource properties", "v", "rn", [
             db_dxil_param(0, "res", "", "annotated handle"),
             db_dxil_param(2, "res", "res", "input handle"),
-            db_dxil_param(3, "i8", "resourceClass", "the class of resource to create (SRV, UAV, CBuffer, Sampler)", is_const=True), # maps to DxilResourceBase::Class
-            db_dxil_param(4, "i8", "resourceKind", "the kind of resource to create (Texture1D/2D/..., Buffer...)", is_const=True), # maps to DxilResourceBase::Kind
-            db_dxil_param(5, "resproperty", "props", "details like component type, strutrure stride...")])
+            db_dxil_param(3, "resproperty", "props", "details like component type, strutrure stride...", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("CreateHandleFromBinding", next_op_idx, "CreateHandleFromBinding", "create resource handle from binding", "v", "rn", [
+            db_dxil_param(0, "res", "", "result"),
+            db_dxil_param(2, "resbind", "bind", "resource binding", is_const=True), #{ rangeLowerBound, rangeUpperBound, spaceID, resourceClass }
+            db_dxil_param(3, "i32", "index", "index"),
+            db_dxil_param(4, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("CreateHandleFromHeap", next_op_idx, "CreateHandleFromHeap", "create resource handle from heap", "v", "rn", [
+            db_dxil_param(0, "res", "", "result"),
+            db_dxil_param(2, "i32", "index", "heap index"),
+            db_dxil_param(3, "i1", "samplerHeap", "If samplerHeap is 1, the heap indexed is the sampler descriptor heap, otherwise it is the CBV_SRV_UAV (resource) descriptor heap", is_const=True),
+            db_dxil_param(4, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("Unpack4x8", next_op_idx, "Unpack4x8", "unpacks 4 8-bit signed or unsigned values into int32 or int16 vector", "iw", "rn", [
+            db_dxil_param(0, "$vec4", "", "result"),
+            db_dxil_param(2, "i8", "unpackMode", "signed/unsigned"),
+            db_dxil_param(3, "i32", "pk", "packed 4 x i8")])
+        next_op_idx += 1
+
+        self.add_dxil_op("Pack4x8", next_op_idx, "Pack4x8", "packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits", "iw", "rn", [
+            db_dxil_param(0, "i32", "", "result packed 4 x i8"),
+            db_dxil_param(2, "i8", "packMode", "trunc/unsigned clamp/signed clamp"),
+            db_dxil_param(3, "$o", "x", "the first component of the vector"),
+            db_dxil_param(4, "$o", "y", "the second component of the vector"),
+            db_dxil_param(5, "$o", "z", "the third component of the vector"),
+            db_dxil_param(6, "$o", "w", "the fourth component of the vector")])
+        next_op_idx += 1
+
+        self.add_dxil_op("IsHelperLane", next_op_idx, "IsHelperLane", "returns true on helper lanes in pixel shaders", "1", "ro", [
+            db_dxil_param(0, "i1", "", "result")])
         next_op_idx += 1
 
         # End of DXIL 1.6 opcodes.
         self.set_op_count_for_version(1, 6, next_op_idx)
-        assert next_op_idx == 218, "218 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 222, "222 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
+
+        self.add_enum_type("QuadVoteOpKind", "Kind of cross-quad vote operation", [
+            (0, "Any", "true if any condition is true in this quad"),
+            (1, "All", "true if all conditions are true in this quad")])
+        self.add_dxil_op("QuadVote", next_op_idx, "QuadVote", "compares boolean accross a quad", "1", "", [
+            db_dxil_param(0, "i1", "", "result - uniform across quad"),
+            db_dxil_param(2, "i1", "cond", "condition"),
+            db_dxil_param(3, "i8", "op", "QuadVoteOpKind: 0=Any, 1=All", enum_name="QuadVoteOpKind", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("TextureGatherRaw", next_op_idx, "TextureGatherRaw", "Gather raw elements from 4 texels with no type conversions (SRV type is constrained)", "wil", "ro", [
+            db_dxil_param(0, "$r", "", "four raw texture elements gathered"),
+            db_dxil_param(2, "res", "srv", "handle of type-matched SRV to gather from"),
+            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
+            db_dxil_param(4, "f", "coord0", "coordinate"),
+            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
+            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
+            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
+            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
+            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray")],
+            counters=('tex_norm',))
+        next_op_idx += 1
+
+        self.add_dxil_op("SampleCmpLevel", next_op_idx, "SampleCmpLevel", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
+            db_dxil_param(0, "$r", "", "the result of the filtered comparisons"),
+            db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
+            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
+            db_dxil_param(4, "f", "coord0", "coordinate"),
+            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
+            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
+            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
+            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
+            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
+            db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
+            db_dxil_param(11, "f", "compareValue", "the value to compare with"),
+            db_dxil_param(12, "f", "lod", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")],
+            counters=('tex_cmp',))
+        next_op_idx += 1
+
+        self.add_dxil_op("TextureStoreSample", next_op_idx, "TextureStoreSample", "stores texel data at specified sample index", "hfwi", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "srv", "handle of Texture2DMS[Array] UAV to store to"),
+            db_dxil_param(3, "i32", "coord0", "coordinate"),
+            db_dxil_param(4, "i32", "coord1", "coordinate"),
+            db_dxil_param(5, "i32", "coord2", "coordinate"),
+            db_dxil_param(6, "$o", "value0", "value"),
+            db_dxil_param(7, "$o", "value1", "value"),
+            db_dxil_param(8, "$o", "value2", "value"),
+            db_dxil_param(9, "$o", "value3", "value"),
+            db_dxil_param(10,"i8", "mask", "written value mask", is_const=True),
+            db_dxil_param(11, "i32", "sampleIdx", "sample index")],
+            counters=('tex_store',))
+        next_op_idx += 1
+
+        # End of DXIL 1.7 opcodes.
+        self.set_op_count_for_version(1, 7, next_op_idx)
+        assert next_op_idx == 226, "226 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -2031,18 +2125,27 @@ class db_dxil(object):
         add_pass('hlsl-dxil-remove-discards', 'DxilRemoveDiscards', 'HLSL DXIL Remove all discard instructions', [])
         add_pass('hlsl-dxil-force-early-z', 'DxilForceEarlyZ', 'HLSL DXIL Force the early Z global flag, if shader has no discard calls', [])
         add_pass('hlsl-dxil-pix-meshshader-output-instrumentation', 'DxilPIXMeshShaderOutputInstrumentation', 'DXIL mesh shader output instrumentation for PIX', [
+            {'n':'expand-payload','t':'int','c':1},
             {'n':'UAVSize','t':'int','c':1}])
         add_pass('hlsl-dxil-pix-shader-access-instrumentation', 'DxilShaderAccessTracking', 'HLSL DXIL shader access tracking for PIX', [
             {'n':'config','t':'int','c':1},
             {'n':'checkForDynamicIndexing','t':'bool','c':1}])
         add_pass('hlsl-dxil-debug-instrumentation', 'DxilDebugInstrumentation', 'HLSL DXIL debug instrumentation for PIX', [
             {'n':'UAVSize','t':'int','c':1},
+            {'n':'FirstInstruction','t':'int','c':1},
+            {'n':'LastInstruction','t':'int','c':1},
             {'n':'parameter0','t':'int','c':1},
             {'n':'parameter1','t':'int','c':1},
             {'n':'parameter2','t':'int','c':1}])
-        add_pass('dxil-annotate-with-virtual-regs', 'DxilAnnotateWithVirtualRegister', 'Annotates each instruction in the DXIL module with a virtual register number', [])
+        add_pass('dxil-annotate-with-virtual-regs', 'DxilAnnotateWithVirtualRegister', 'Annotates each instruction in the DXIL module with a virtual register number', [
+            {'n':'startInstruction','t':'int','c':1}])
         add_pass('dxil-dbg-value-to-dbg-declare', 'DxilDbgValueToDbgDeclare', 'Converts llvm.dbg.value uses to llvm.dbg.declare.', [])
         add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [])
+        add_pass('hlsl-dxil-PIX-add-tid-to-as-payload', 'DxilPIXAddTidToAmplificationShaderPayload', 'HLSL DXIL Add flat thread id to payload from AS to MS', [
+            {'n':'dispatchArgY','t':'int','c':1},
+            {'n':'dispatchArgZ','t':'int','c':1}])
+        add_pass('hlsl-dxil-pix-dxr-invocations-log', 'DxilPIXDXRInvocationsLog', 'HLSL DXIL Logs all non-RayGen DXR 1.0 invocations into a UAV', [
+            {'n':'maxNumEntriesInLog','t':'int','c':1}])
 
         category_lib="dxil_gen"
 
@@ -2067,18 +2170,20 @@ class db_dxil(object):
         add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
         add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
         add_pass('dxil-gvn-hoist', 'DxilSimpleGVNHoist', 'DXIL simple gvn hoist', [])
+        add_pass('dxil-gvn-eliminate-region', 'DxilSimpleGVNEliminateRegion', 'DXIL simple eliminate region', [])
         add_pass('hlsl-hlensure', 'HLEnsureMetadata', 'HLSL High-Level Metadata Ensure', [])
         add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
         add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
         add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [])
         add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
         add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
-        add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
+        add_pass('hlsl-dxil-cleanup-dynamic-resource-handle', 'DxilCleanupDynamicResourceHandle', 'DXIL Cleanup dynamic resource handle calls', [])
         add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])
         add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [])
         add_pass('hlsl-dxil-convergent-clear', 'DxilConvergentClear', 'Clear convergent before dxil emit', [])
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
+        add_pass('dxil-delete-redundant-debug-values', 'DxilDeleteRedundantDebugValues', 'Dxil Delete Redundant Debug Values', [])
         add_pass('hlsl-dxilfinalize', 'DxilFinalizeModule', 'HLSL DXIL Finalize Module', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
@@ -2097,6 +2202,7 @@ class db_dxil(object):
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
         add_pass('dxil-rewrite-output-arg-debug-info', 'DxilRewriteOutputArgDebugInfo', 'Dxil Rewrite Output Arg Debug Info', [])
         add_pass('dxil-finalize-preserves', 'DxilFinalizePreserves', 'Dxil Finalize Preserves', [])
+        add_pass('dxil-reinsert-nops', 'DxilReinsertNops', 'Dxil Reinsert Nops', [])
         add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [
                 {'n':'AllowPreserves', 't':'bool', 'c':1},
             ])
@@ -2109,6 +2215,7 @@ class db_dxil(object):
                 {'n':'from-binding', 'i':'FromBinding', 't':'bool', 'c':1, 'd':'Append binding to name when bound'},
                 {'n':'keep-name', 'i':'KeepName', 't':'bool', 'c':1, 'd':'Keep name when appending binding'},
             ])
+        add_pass('hlsl-dxil-resources-to-handle', 'DxilMutateResourceToHandle', 'Mutate resource to handle',[])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
@@ -2116,11 +2223,13 @@ class db_dxil(object):
         add_pass('deadargelim', 'DAE', 'Dead Argument Elimination', [])
         # Should we get rid of this, or invest in bugpoint support?
         add_pass('deadarghaX0r', 'DAH', 'Dead Argument Hacking (BUGPOINT USE ONLY; DO NOT USE)', [])
-        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [])
+        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [
+            {'n':'NoSink', 't':'bool', 'c':1},
+        ])
         add_pass('prune-eh', 'PruneEH', 'Remove unused exception handling info', [])
         add_pass('functionattrs', 'FunctionAttrs', 'Deduce function attributes', [])
-        add_pass('argpromotion', 'ArgPromotion', "Promote 'by reference' arguments to scalars", [
-            {'n':'maxElements', 't':'unsigned', 'c':1}])
+        # add_pass('argpromotion', 'ArgPromotion', "Promote 'by reference' arguments to scalars", [
+        #     {'n':'maxElements', 't':'unsigned', 'c':1}])
         add_pass('jump-threading', 'JumpThreading', 'Jump Threading', [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'jump-threading-threshold', 'i':'BBDuplicateThreshold', 't':'unsigned', 'd':'Max block size to duplicate for jump threading'}])
@@ -2146,6 +2255,9 @@ class db_dxil(object):
         add_pass('dxil-remove-dead-blocks', 'DxilRemoveDeadBlocks', 'DxilRemoveDeadBlocks', [])
         add_pass('dxil-o0-legalize', 'DxilNoOptLegalize', 'DXIL No-Opt Legalize', [])
         add_pass('dxil-o0-simplify-inst', 'DxilNoOptSimplifyInstructions', 'DXIL No-Opt Simplify Inst', [])
+        add_pass('dxil-loop-deletion', 'DxilLoopDeletion', "Dxil Delete dead loops", [
+            {'n':'NoSink', 't':'bool', 'c':1},
+        ])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
         add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [
@@ -2373,7 +2485,7 @@ class db_dxil(object):
         self.interpretation_table = table
 
     def build_valrules(self):
-        self.add_valrule_msg("Bitcode.Valid", "TODO - Module must be bitcode-valid", "Module bitcode is invalid.")
+        self.add_valrule_msg("Bitcode.Valid", "Module must be bitcode-valid", "Module bitcode is invalid.")
 
         self.add_valrule_msg("Container.PartMatches", "DXIL Container Parts must match Module", "Container part '%0' does not match expected for module.")
         self.add_valrule_msg("Container.PartRepeated", "DXIL Container must have only one of each part type", "More than one container part '%0'.")
@@ -2381,11 +2493,12 @@ class db_dxil(object):
         self.add_valrule_msg("Container.PartInvalid", "DXIL Container must not contain unknown parts", "Unknown part '%0' found in DXIL container.")
         self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
 
-        self.add_valrule("Meta.Required", "TODO - Required metadata missing.")
+        self.add_valrule("Meta.Required", "Required metadata missing.")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown.")
         self.add_valrule("Meta.Used", "All metadata must be used by dxil.")
         self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'.")
-        self.add_valrule("Meta.WellFormed", "TODO - Metadata must be well-formed in operand count and types.")
+        self.add_valrule("Meta.WellFormed", "Metadata must be well-formed in operand count and types.") # TODO: add string arg for what metadata is malformed (this is emitted from a lot of places and provides no context whatsoever)
+        self.add_valrule_msg("Meta.VersionSupported", "Version in metadata must be supported.", "%0 version in metadata (%1.%2) is not supported; maximum: (%3.%4).")
         self.add_valrule("Meta.SemanticLen", "Semantic length must be at least 1 and at most 64.")
         self.add_valrule_msg("Meta.InterpModeValid", "Interpolation mode must be valid", "Invalid interpolation mode for '%0'.")
         self.add_valrule_msg("Meta.SemaKindValid", "Semantic kind must be valid", "Semantic kind for '%0' is invalid.")
@@ -2480,6 +2593,7 @@ class db_dxil(object):
         self.add_valrule("Instr.BarrierModeNoMemory", "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.")
         self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).")
         self.add_valrule("Instr.WriteMaskForTypedUAVStore", "store on typed uav must write to all four components of the UAV.")
+        self.add_valrule("Instr.WriteMaskGapForUAV", "UAV write mask must be contiguous, starting at x: .x, .xy, .xyz, or .xyzw.")
         self.add_valrule("Instr.ResourceKindForCalcLOD","lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray.")
         self.add_valrule("Instr.ResourceKindForSample", "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray.")
         self.add_valrule("Instr.ResourceKindForSampleC", "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.")
@@ -2521,6 +2635,9 @@ class db_dxil(object):
         self.add_valrule("Instr.MultipleGetMeshPayload", "GetMeshPayload cannot be called multiple times.")
         self.add_valrule("Instr.NotOnceDispatchMesh", "DispatchMesh must be called exactly once in an Amplification shader.")
         self.add_valrule("Instr.NonDominatingDispatchMesh", "Non-Dominating DispatchMesh call.")
+        self.add_valrule("Instr.AtomicOpNonGroupshared", "Non-groupshared destination to atomic operation.")
+        self.add_valrule("Instr.AtomicIntrinNonUAV", "Non-UAV destination to atomic intrinsic.")
+        self.add_valrule("Instr.AtomicConst", "Constant destination to atomic.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -2534,10 +2651,10 @@ class db_dxil(object):
         self.add_valrule_msg("Types.IntWidth", "Int type must be of valid width", "Int type '%0' has an invalid width.")
         self.add_valrule("Types.NoMultiDim", "Only one dimension allowed for array type.")
         self.add_valrule("Types.NoPtrToPtr", "Pointers to pointers, or pointers in structures are not allowed.")
-        self.add_valrule("Types.I8", "I8 can only be used as immediate value for intrinsic.")
+        self.add_valrule("Types.I8", "I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'.")
-        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0,%1.")
+        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0.%1.")
         self.add_valrule_msg("Sm.Opcode", "Opcode must be defined in target shader model", "Opcode %0 not valid in shader model %1.")
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model.")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2.")
@@ -2548,6 +2665,9 @@ class db_dxil(object):
         self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3].")
         self.add_valrule("Sm.MaxTheadGroup", "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.")
         self.add_valrule("Sm.MaxTGSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1.")
+        self.add_valrule("Sm.TGSMUnsupported", "Thread Group Shared Memory not supported %0.")
+        self.add_valrule("Sm.WaveSizeValue", "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.")
+        self.add_valrule("Sm.WaveSizeNeedsDxil16Plus", "WaveSize is valid only for DXIL version 1.6 and higher.")
         self.add_valrule("Sm.ROVOnlyInPS", "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.")
         self.add_valrule("Sm.TessFactorForDomain", "Required TessFactor for domain not found declared anywhere in Patch Constant data.")
         self.add_valrule("Sm.TessFactorSizeMatchDomain", "TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.")
@@ -2574,7 +2694,7 @@ class db_dxil(object):
         self.add_valrule("Sm.GSValidInputPrimitive", "GS input primitive unrecognized.")
         self.add_valrule("Sm.GSValidOutputPrimitiveTopology", "GS output primitive topology unrecognized.")
         self.add_valrule("Sm.AppendAndConsumeOnSameUAV", "BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.")
-        self.add_valrule("Sm.InvalidTextureKindOnUAV", "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs.")
+        self.add_valrule("Sm.InvalidTextureKindOnUAV", "TextureCube[Array] resources are not supported with UAVs.")
         self.add_valrule("Sm.InvalidResourceKind", "Invalid resources kind.")
         self.add_valrule("Sm.InvalidResourceCompType","Invalid resource return type.")
         self.add_valrule("Sm.InvalidSamplerFeedbackType","Invalid sampler feedback type.")
@@ -2587,6 +2707,7 @@ class db_dxil(object):
         self.add_valrule("Sm.CSNoSignatures", "Compute shaders must not have shader signatures.")
         self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct.")
         self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5.")
+        self.add_valrule_msg("Sm.CBufferSize", "CBuffer size must not exceed 65536 bytes", "CBuffer size is %0 bytes, exceeding maximum of 65536 bytes.")
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1.")
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1.")
         self.add_valrule_msg("Sm.CBufferArrayOffsetAlignment", "CBuffer array offset must be aligned to 16-bytes", "CBuffer %0 has unaligned array offset at %1.")
@@ -2679,10 +2800,6 @@ class db_dxil(object):
 
     def add_llvm_instr(self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props):
         i = db_dxil_inst(name, llvm_id=llvm_id, llvm_name=llvm_name, doc=doc, ops=op_params, oload_types=oload_types)
-        if kind == "TERM": i.is_bb_terminator=True
-        if kind == "BINARY": i.is_binary=True
-        if kind == "MEMORY": i.is_memory=True
-        if kind == "CAST": i.is_cast=True
         i.props = props
         self.instr.append(i)
 
@@ -2742,6 +2859,12 @@ class db_hlsl_intrinsic(object):
         self.ns_idx = ns_idx                            # Namespace index
         self.doc = doc                                  # Documentation
         id_prefix = "IOP" if ns == "Intrinsics" else "MOP"
+        # SPIR-V Change Starts
+        if ns == "VkIntrinsics":
+            name = "Vk" + name
+            self.name = "Vk" + self.name
+            id_prefix = "IOP"
+        # SPIR-V Change Ends
         self.enum_name = "%s_%s" % (id_prefix, name)    # enum name
         self.readonly = ro                              # Only read memory
         self.readnone = rn                              # Not read memory
@@ -2783,15 +2906,20 @@ class db_hlsl(object):
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
             "int32_only": "LICOMPTYPE_INT32_ONLY",
+            "int64_only": "LICOMPTYPE_INT64_ONLY",
             "int16_t": "LICOMPTYPE_INT16",
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",
             "u64": "LICOMPTYPE_UINT64",
             "any_int": "LICOMPTYPE_ANY_INT",
             "any_int32": "LICOMPTYPE_ANY_INT32",
+            "any_int64": "LICOMPTYPE_ANY_INT64",
             "uint_only": "LICOMPTYPE_UINT_ONLY",
+            "int8_t4_packed": "LICOMPTYPE_INT8_4PACKED",
+            "uint8_t4_packed": "LICOMPTYPE_UINT8_4PACKED",
             "float16_t": "LICOMPTYPE_FLOAT16",
             "float": "LICOMPTYPE_FLOAT",
+            "float32_only": "LICOMPTYPE_FLOAT32_ONLY",
             "fldbl": "LICOMPTYPE_FLOAT_DOUBLE",
             "any_float": "LICOMPTYPE_ANY_FLOAT",
             "float_like": "LICOMPTYPE_FLOAT_LIKE",
@@ -2816,7 +2944,13 @@ class db_hlsl(object):
             "string": "LICOMPTYPE_STRING",
             "Texture2D": "LICOMPTYPE_TEXTURE2D",
             "Texture2DArray": "LICOMPTYPE_TEXTURE2DARRAY",
-            "wave": "LICOMPTYPE_WAVE"}
+            "wave": "LICOMPTYPE_WAVE",
+            "p32i8" : "LICOMPTYPE_INT8_4PACKED",
+            "p32u8" : "LICOMPTYPE_UINT8_4PACKED",
+            "any_int16or32": "LICOMPTYPE_ANY_INT16_OR_32",
+            "sint16or32_only": "LICOMPTYPE_SINT16_OR_32_ONLY",
+            "any_sampler": "LICOMPTYPE_ANY_SAMPLER",
+            }
         self.trans_rowcol = {
             "r": "IA_R",
             "c": "IA_C",
@@ -2825,6 +2959,7 @@ class db_hlsl(object):
         self.param_qual = {
             "in": "AR_QUAL_IN",
             "inout": "AR_QUAL_IN | AR_QUAL_OUT",
+            "ref" : "AR_QUAL_REF",
             "out": "AR_QUAL_OUT",
             "col_major": "AR_QUAL_COLMAJOR",
             "row_major": "AR_QUAL_ROWMAJOR"}
@@ -2944,7 +3079,7 @@ class db_hlsl(object):
                         template_list = "LITEMPLATE_ANY"
                     else:
                         base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
+                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc") or base_type.startswith("any_sampler"):
                             template_list = "LITEMPLATE_OBJECT"
                         else:
                             template_list = "LITEMPLATE_SCALAR"

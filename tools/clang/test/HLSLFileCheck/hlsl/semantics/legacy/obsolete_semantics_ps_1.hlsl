@@ -1,8 +1,12 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Gec | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -Gec | FileCheck -check-prefix=OUT %s
 
-// CHECK: SV_Position              0   xyzw        0      POS   float
-// CHECK: SV_Target                1   xyzw        1   TARGET   float   xyzw
-// CHECK: SV_Depth                 0    N/A   oDepth    DEPTH   float    YES
+// RUN: %dxc -E main -T ps_6_0 %s -Gec | FileCheck -input-file=stderr -check-prefix=ERROR %s
+
+// OUT: SV_Position              0   xyzw        0      POS   float
+// OUT: SV_Target                1   xyzw        1   TARGET   float   xyzw
+// OUT: SV_Depth                 0    N/A   oDepth    DEPTH   float    YES
+
+// ERROR: warning: DX9-style semantic "VPOS" mapped to DX10 system semantic "SV_Position" due to -Gec flag. This functionality is deprecated in newer language versions.
 
 struct PSIn
 {

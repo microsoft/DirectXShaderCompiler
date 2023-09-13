@@ -409,7 +409,7 @@ static bool hasDirectVisibilityAttribute(const NamedDecl *D,
   case LVForExplicitType:
     if (D->hasAttr<TypeVisibilityAttr>())
       return true;
-    // fallthrough
+    LLVM_FALLTHROUGH; // HLSL Change
   case LVForValue:
   case LVForExplicitValue:
     if (D->hasAttr<VisibilityAttr>())
@@ -1414,6 +1414,10 @@ void NamedDecl::printQualifiedName(raw_ostream &OS,
         OS << "(anonymous namespace)";
       else
         OS << *ND;
+    // HLSL Change Begin - not add cbuffer name to qualified name.
+    } else if (isa<HLSLBufferDecl>(*I)) {
+      continue;
+    // HLSL Change End.
     } else if (const RecordDecl *RD = dyn_cast<RecordDecl>(*I)) {
       if (!RD->getIdentifier())
         OS << "(anonymous " << RD->getKindName() << ')';
@@ -3406,7 +3410,7 @@ SourceRange FieldDecl::getSourceRange() const {
   case ISK_InClassListInit:
     if (const Expr *E = static_cast<const Expr *>(InitStorage.getPointer()))
       return SourceRange(getInnerLocStart(), E->getLocEnd());
-    // FALLTHROUGH
+    LLVM_FALLTHROUGH; // HLSL Change
 
   case ISK_CapturedVLAType:
     return DeclaratorDecl::getSourceRange();

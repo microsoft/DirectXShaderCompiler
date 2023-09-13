@@ -20,6 +20,7 @@
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/Visibility.h"
+#include "dxc/Support/HLSLVersion.h"
 #include <string>
 #include <vector>
 
@@ -149,15 +150,19 @@ public:
 #endif
 
   // HLSL Change Starts
-  unsigned HLSLVersion; 
+  hlsl::LangStd HLSLVersion = hlsl::LangStd::vLatest;
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
-  unsigned RootSigMajor;
-  unsigned RootSigMinor;
-  bool IsHLSLLibrary;
-  bool UseMinPrecision; // use min precision, not native precision.
-  bool EnableDX9CompatMode;
-  bool EnableFXCCompatMode;
+  unsigned RootSigMajor = 1;
+  unsigned RootSigMinor = 1;
+  bool IsHLSLLibrary = false;
+  bool UseMinPrecision = true; // use min precision, not native precision.
+  bool EnableDX9CompatMode = false;
+  bool EnableFXCCompatMode = false;
+  bool EnablePayloadAccessQualifiers = false;
+  bool DumpImplicitTopLevelDecls = true;
+  /// Whether use row major as default matrix major.
+  bool HLSLDefaultRowMajor = false;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change

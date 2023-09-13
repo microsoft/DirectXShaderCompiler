@@ -7,6 +7,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "llvm/ADT/STLExtras.h"
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
@@ -97,6 +98,27 @@ static const HLSL_INTRINSIC_ARGUMENT TestMyBufferOp[] = {
   { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// float2 = CustomLoadOp(uint2 addr)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOp[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+};
+
+// float2 = CustomLoadOp(uint2 addr, bool val)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpBool[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+  { "val",  AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
+};
+
+// float2 = CustomLoadOp(uint2 addr, bool val, uint2 subscript)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpSubscript[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr",         AR_QUAL_IN,  1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+  { "val",          AR_QUAL_IN,  2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
+  { "subscript",    AR_QUAL_IN,  3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_UINT, 1, 2},
+};
+
 // bool<> = test_isinf(float<> x)
 static const HLSL_INTRINSIC_ARGUMENT TestIsInf[] = {
   { "test_isinf", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_BOOL, 1, IA_C },
@@ -145,6 +167,15 @@ static const HLSL_INTRINSIC_ARGUMENT TestMyTexture2DOp[] = {
   { "val", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// float = test_overload(float a, uint b, double c)
+static const HLSL_INTRINSIC_ARGUMENT TestOverloadArgs[] = {
+  { "test_overload", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, IA_C },
+  { "a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, 1, IA_C },
+  { "b", AR_QUAL_IN, 2, LITEMPLATE_ANY, 2, LICOMPTYPE_UINT, 1, IA_C },
+  { "c", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_DOUBLE, 1, IA_C },
+};
+
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -174,11 +205,23 @@ Intrinsic Intrinsics[] = {
   // Make this intrinsic have the same opcode as an hlsl intrinsic with an unsigned
   // counterpart for testing purposes.
   {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, -1, countof(TestUnsigned), TestUnsigned}},
-  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1, countof(WaveProcArgs), WaveProcArgs }},
+  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1,  countof(WaveProcArgs), WaveProcArgs }},
+  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  // custom lowering with both optional arguments and vector exploding.
+  // Arg 0 = Opcode
+  // Arg 1 = Pass as is
+  // Arg 2:?i1 = Optional boolean argument
+  // Arg 3.0:?i32 = Optional x component (in i32) of 3rd HLSL arg
+  // Arg 3.1:?i32 = Optional y component (in i32) of 3rd HLSL arg
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpBool), TestCustomLoadOpBool}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpSubscript), TestCustomLoadOpSubscript}},
 };
 
 Intrinsic BufferIntrinsics[] = {
-  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+  {L"MyBufferOp",     "MyBufferOp",   "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState will do).
@@ -284,13 +327,16 @@ private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::vector<IntrinsicTable> m_tables;
 public:
-  TestIntrinsicTable() : m_dwRef(0) { 
-    m_tables.push_back(IntrinsicTable(L"",       std::begin(Intrinsics), std::end(Intrinsics)));
+  TestIntrinsicTable(Intrinsic *Intrinsics, unsigned IntrinsicsCount) : m_dwRef(0) { 
+    m_tables.push_back(IntrinsicTable(L"",       Intrinsics, Intrinsics+IntrinsicsCount));
     m_tables.push_back(IntrinsicTable(L"Buffer", std::begin(BufferIntrinsics), std::end(BufferIntrinsics)));
     m_tables.push_back(IntrinsicTable(L"SamplerState", std::begin(SamplerIntrinsics), std::end(SamplerIntrinsics)));
     m_tables.push_back(IntrinsicTable(L"Texture1D", std::begin(Texture1DIntrinsics), std::end(Texture1DIntrinsics)));
     m_tables.push_back(IntrinsicTable(L"Texture2D", std::begin(Texture2DIntrinsics), std::end(Texture2DIntrinsics)));
   }
+
+  TestIntrinsicTable() : TestIntrinsicTable(::Intrinsics, _countof(::Intrinsics)) {}
+
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IDxcIntrinsicTable>(this, iid, ppvObject);
@@ -463,10 +509,13 @@ public:
     return Compile(program, {}, {});
   }
 
-  IDxcOperationResult *Compile(const char *program, const std::vector<LPCWSTR> &arguments, const std::vector<DxcDefine> defs ) {
+  IDxcOperationResult *Compile(const char *program,
+                               const std::vector<LPCWSTR> &arguments,
+                               const std::vector<DxcDefine> defs,
+                               LPCWSTR target = L"ps_6_0") {
     Utf8ToBlob(m_dllSupport, program, &pCodeBlob);
     VERIFY_SUCCEEDED(pCompiler->Compile(pCodeBlob, L"hlsl.hlsl", L"main",
-      L"ps_6_0",
+      target,
       const_cast<LPCWSTR *>(arguments.data()), arguments.size(),
       defs.data(), defs.size(),
       nullptr, &pCompileResult));
@@ -482,7 +531,7 @@ public:
 
   dxc::DxcDllSupport &m_dllSupport;
   CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLangExtensions2> pLangExtensions;
+  CComPtr<IDxcLangExtensions3> pLangExtensions;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
   CComPtr<IDxcOperationResult> pCompileResult;
   CComPtr<IDxcSemanticDefineValidator> pTestSemanticDefineValidator;
@@ -505,14 +554,23 @@ public:
 
   dxc::DxcDllSupport m_dllSupport;
 
+  TEST_METHOD(EvalAttributeCollision)
+  TEST_METHOD(NoUnwind)
+  TEST_METHOD(DCE)
   TEST_METHOD(DefineWhenRegisteredThenPreserved)
   TEST_METHOD(DefineValidationError)
   TEST_METHOD(DefineValidationWarning)
   TEST_METHOD(DefineNoValidatorOk)
   TEST_METHOD(DefineFromMacro)
   TEST_METHOD(DefineContradictionFail)
+  TEST_METHOD(DefineOverrideSource)
+  TEST_METHOD(DefineOverrideDefinesList)
+  TEST_METHOD(DefineOverrideCommandLine)
+  TEST_METHOD(DefineOverrideNone)
+  TEST_METHOD(DefineOverrideDeterministicOutput)
   TEST_METHOD(OptionFromDefineGVN)
   TEST_METHOD(OptionFromDefineStructurizeReturns)
+  TEST_METHOD(OptionFromDefineLifetimeMarkers)
   TEST_METHOD(TargetTriple)
   TEST_METHOD(IntrinsicWhenAvailableThenUsed)
   TEST_METHOD(CustomIntrinsicName)
@@ -530,6 +588,8 @@ public:
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering1)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering2)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering3)
+  TEST_METHOD(CustomOverloadArg1)
+  TEST_METHOD(CustomLoadOp)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -712,6 +772,269 @@ TEST_F(ExtensionTest, DefineContradictionFail) {
     errors.find("Contradictory -opt-selects for \"yook\""));
 }
 
+// Test that the override-semdef flag can override a define from the source.
+TEST_F(ExtensionTest, DefineOverrideSource) {
+
+  // Compile baseline without the override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "#define FOO_A 1\n"
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"1\"}"));
+  }
+
+  // Compile with an override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "#define FOO_A 1\n"
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+// Test that the override-semdef flag can override a define from the compile defines list.
+TEST_F(ExtensionTest, DefineOverrideDefinesList) {
+  // Compile baseline without the override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd"},
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"1\"}"));
+  }
+
+  // Compile with an override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7"},
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+// Test that the override-semdef flag can override a define from the command line.
+TEST_F(ExtensionTest, DefineOverrideCommandLine) {
+  // Compile baseline without the override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"/DFOO_A=1"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"1\"}"));
+  }
+
+  // Compile with an override after the /D define.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"/DFOO_A=1", L"-override-semdef", L"FOO_A=7"},
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+  
+  // Compile with an override before the /D define.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7",  L"/DFOO_A=1" },
+        { { L"FOO_A", L"1"} }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+// Test that the override-semdef flag can override a define when there is no previous def.
+TEST_F(ExtensionTest, DefineOverrideNone) {
+  // Compile baseline without the define.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos ==
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos ==
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+
+  // Compile with an override.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n",
+        {L"/Vd", L"-override-semdef", L"FOO_A=7"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Check for root named md node. It contains pointers to md nodes for each define.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!test.defs"));
+      // Make sure we get the overrriden value.
+      VERIFY_IS_TRUE(
+        disassembly.npos !=
+        disassembly.find("!{!\"FOO_A\", !\"7\"}"));
+  }
+}
+
+TEST_F(ExtensionTest, DefineOverrideDeterministicOutput) {
+
+    std::string source =
+        "#define FOO_B 1\n"
+        "#define FOO_A 1\n"
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n";
+
+  std::string baselineOutput;
+  // Compile baseline.
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        source.data(),
+        {L"/Vd", L"-override-semdef", L"FOO_A=7", L"-override-semdef", L"FOO_B=7"},
+        { }
+      );
+      baselineOutput = c.Disassemble();
+  }
+
+  // Compile NUM_COMPILES times and make sure the output always matches.
+  enum {NUM_COMPILES = 10};
+  for (int i = 0; i < NUM_COMPILES; ++i)
+  {
+      Compiler c(m_dllSupport);
+      c.RegisterSemanticDefine(L"FOO*");
+      c.SetSemanticDefineMetaDataName("test.defs");
+      c.Compile(
+        source.data(),
+        {L"/Vd", L"-override-semdef", L"FOO_A=7", L"-override-semdef", L"FOO_B=7"},
+        { }
+      );
+      std::string disassembly = c.Disassemble();
+      // Make sure the outputs are the same.
+      VERIFY_ARE_EQUAL(baselineOutput, disassembly);
+  }
+}
+
 // Test setting of codegen options from semantic defines
 TEST_F(ExtensionTest, OptionFromDefineGVN) {
 
@@ -763,6 +1086,32 @@ TEST_F(ExtensionTest, OptionFromDefineStructurizeReturns) {
   std::string regexErrors;
   VERIFY_IS_TRUE(regex.isValid(regexErrors));
   VERIFY_IS_TRUE(regex.match(disassembly));
+}
+
+// Test setting of codegen options from semantic defines
+TEST_F(ExtensionTest, OptionFromDefineLifetimeMarkers) {
+  std::string shader = "\n"
+      "float foo(float a) {\n"
+    "float res[2] = {a, 2 * 2};\n"
+    "return res[a];\n"
+    "}\n"
+  "float4 main(float a : A) : SV_Target { return foo(a); }\n";
+
+  Compiler c(m_dllSupport);
+  c.RegisterSemanticDefine(L"FOO*");
+  c.Compile(shader.data(), {L"/Vd", L"-DFOO_DISABLE_LIFETIME_MARKERS"}, {},
+            L"ps_6_6");
+
+  std::string disassembly = c.Disassemble();
+  Compiler c2(m_dllSupport);
+  c2.Compile(shader.data(), {L"/Vd", L""}, {}, L"ps_6_6");
+  std::string disassembly2 = c2.Disassemble();
+  // Make sure lifetime marker not exist with FOO_DISABLE_LIFETIME_MARKERS.
+  VERIFY_IS_TRUE(disassembly.find("lifetime") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("FOO_DISABLE_LIFETIME_MARKERS\", !\"1\"") !=
+                 std::string::npos);
+  // Make sure lifetime marker exist by default.
+  VERIFY_IS_TRUE(disassembly2.find("lifetime") != std::string::npos);
 }
 
 
@@ -964,6 +1313,41 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
   VERIFY_IS_TRUE(regex.match(disassembly));
 }
 
+ TEST_F(ExtensionTest, CustomLoadOp) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "float2 main(uint2 v1 : V1) : SV_Target {\n"
+    "  float2 a = CustomLoadOp(uint2(1,2));\n"
+    "  float2 b = CustomLoadOp(uint2(3,4),1);\n"
+    "  float2 c = CustomLoadOp(uint2(5,6),1,uint2(7,8));\n"
+    "  return a+b+c;\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // - return type is 2xfloat
+  // - input type is 2x struct
+  // - function overload handles variable arguments (and replaces them with undefs)
+  // - output struct gets converted to vector
+  LPCSTR expected[] = {
+    "%1 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 1, i32 2 }, i1 undef, i32 undef, i32 undef)",
+    "%2 = extractvalue { float, float } %1, 0",
+    "%3 = extractvalue { float, float } %1, 1",
+    "%4 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 3, i32 4 }, i1 true, i32 undef, i32 undef)",
+    "%5 = extractvalue { float, float } %4, 0",
+    "%6 = extractvalue { float, float } %4, 1",
+    "%7 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 5, i32 6 }, i1 true, i32 7, i32 8)",
+    "%8 = extractvalue { float, float } %7, 0",
+    "%9 = extractvalue { float, float } %7, 1"
+  };
+
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, llvm::array_lengthof(expected), false);
+ }
+
 TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable());
@@ -1061,6 +1445,114 @@ TEST_F(ExtensionTest, SamplerExtensionIntrinsic) {
     "call %dx.types.ResRet.f32 @MySamplerOp\\(i32 15, %dx.types.Handle %.*, i32 1, i32 2\\)"
   };
   CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+
+// Takes a string to match, and a regex pattern string, returns the first match at index [0],
+// as well as sub expressions starting at index [1]
+static std::vector<std::string> Match(const std::string &str, const std::string pattern) {
+  std::vector<std::string> ret;
+  llvm::Regex regex(pattern);
+  std::string err;
+  VERIFY_IS_TRUE(regex.isValid(err));
+  llvm::SmallVector<llvm::StringRef, 4> matches;
+  if (!regex.match(str, &matches))
+    return ret;
+  ret.assign(matches.begin(), matches.end());
+  return ret;
+}
+
+//
+// Regression test for extension functions having the same opcode as the following
+// HLSL intrinsics, and triggering DxilLegalizeEvalOperations to make incorrect
+// assumptions about allocas associated with it, causing them to be removed.
+//
+TEST_F(ExtensionTest, EvalAttributeCollision) {
+  static const HLSL_INTRINSIC_ARGUMENT Args[] = {
+    { "collide_proc",  AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C },
+    { "value",         AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
+  };
+
+  hlsl::IntrinsicOp ops[] ={
+    hlsl::IntrinsicOp::IOP_GetAttributeAtVertex,
+    hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped,
+    hlsl::IntrinsicOp::IOP_EvaluateAttributeCentroid,
+    hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample,
+  };
+
+  for (hlsl::IntrinsicOp op : ops) {
+    Intrinsic Intrinsic = {L"collide_proc", "collide_proc",     "r", { static_cast<unsigned>(op),      true,false,false,-1, countof(Args), Args }};
+    Compiler c(m_dllSupport);
+    c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
+    c.Compile(R"(
+        float2 main(float2 a  : A, float2 b : B) : SV_Target {
+            float2 ret = b;
+            ret.x = collide_proc(ret.x);
+            return ret;
+        }
+      )",
+      {L"/Vd", L"/Od"}, {}
+    );
+
+    std::string disassembly = c.Disassemble();
+
+    auto match1 = Match(disassembly, std::string("%([0-9.a-zA-Z]*) = call float @collide_proc\\(i32 ") + std::to_string(Intrinsic.hlsl.Op));
+    VERIFY_IS_TRUE(match1.size() == 2U);
+    VERIFY_IS_TRUE(Match(disassembly, std::string("call void @dx.op.storeOutput.f32\\(i32 5, i32 0, i32 0, i8 0, float %") + match1[1]).size() != 0U);
+  }
+}
+
+// Regression test for extension functions having no 'nounwind' attribute
+TEST_F(ExtensionTest, NoUnwind) {
+  static const HLSL_INTRINSIC_ARGUMENT Args[] = {
+    { "test_proc",  AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C },
+    { "value",      AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
+  };
+
+  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1,      false,false,false,-1, countof(Args), Args }};
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
+  c.Compile(R"(
+      float main(float a : A) : SV_Target {
+          return test_proc(a);
+      }
+    )",
+    {L"/Vd", L"/Od"}, {});
+
+  std::string disassembly = c.Disassemble();
+
+  /*
+  * We're looking for this:
+  *   declare float @test_proc(i32, float) #1
+  *   attributes #1 = { nounwind }
+  */
+  auto m1 = Match(disassembly, std::string("declare float @test_proc\\(i32, float\\) #([0-9]*)"));
+  VERIFY_IS_TRUE(m1.size() == 2U);
+  VERIFY_IS_TRUE(Match(disassembly, std::string("attributes #") + m1[1] + " = { nounwind").size() != 0U);
+}
+
+// Regression test for extension function calls not getting DCE'ed becuase they had no 'nounwind' attribute
+TEST_F(ExtensionTest, DCE) {
+  static const HLSL_INTRINSIC_ARGUMENT Args[] = {
+    { "test_proc",  AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C },
+    { "value",      AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
+  };
+
+  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1,      true,true,false,-1, countof(Args), Args }};
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
+  c.Compile(R"(
+      float main(float a : A) : SV_Target {
+          float dce = test_proc(a);
+          return 0;
+      }
+    )",
+    {L"/Vd", L"/Od"}, {});
+
+  std::string disassembly = c.Disassemble();
+
+  VERIFY_IS_TRUE(
+    disassembly.npos ==
+    disassembly.find("call float @test_proc"));
 }
 
 TEST_F(ExtensionTest, WaveIntrinsic) {
@@ -1181,4 +1673,29 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsicCustomLowering3) {
     "call %dx.types.ResRet.i32 @MyTextureOp\\(i32 17, %dx.types.Handle %.*, i32 1, i32 undef, i32 2, i32 undef, i32 undef\\)",
   };
   CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+
+TEST_F(ExtensionTest, CustomOverloadArg1) {
+  // Test that we pick the overload name based on the first arg.
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "float main() : SV_Target {\n"
+    "  float o1 = test_o_1(1.0f, 2u, 4.0);\n"
+    "  float o2 = test_o_2(1.0f, 2u, 4.0);\n"
+    "  float o3 = test_o_3(1.0f, 2u, 4.0);\n"
+    "  return o1 + o2 + o3;\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // The function name should match the first arg (float)
+  LPCSTR expected[] = {
+    "call float @test_o_1.float(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+    "call float @test_o_2.i32(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+    "call float @test_o_3.double(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, false);
 }

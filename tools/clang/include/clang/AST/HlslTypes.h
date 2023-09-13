@@ -16,11 +16,12 @@
 #ifndef LLVM_CLANG_AST_HLSLTYPES_H
 #define LLVM_CLANG_AST_HLSLTYPES_H
 
+#include "clang/AST/DeclarationName.h"
 #include "clang/AST/Type.h"             // needs QualType
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
@@ -40,7 +41,8 @@ namespace clang {
   class Sema;
   class TypeSourceInfo;
   class TypedefDecl;
-}
+  class VarDecl;
+ }
 
 namespace hlsl {
 
@@ -76,12 +78,14 @@ enum HLSLScalarType {
   HLSLScalarType_float16,
   HLSLScalarType_float32,
   HLSLScalarType_float64,
+  HLSLScalarType_int8_4packed,
+  HLSLScalarType_uint8_4packed
 };
 
 HLSLScalarType MakeUnsigned(HLSLScalarType T);
 
 static const HLSLScalarType HLSLScalarType_minvalid = HLSLScalarType_bool;
-static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_float64;
+static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_uint8_4packed;
 static const size_t HLSLScalarTypeCount = static_cast<size_t>(HLSLScalarType_max) + 1;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -197,7 +201,8 @@ public:
   enum UnusualAnnotationKind {
     UA_RegisterAssignment,
     UA_ConstantPacking,
-    UA_SemanticDecl
+    UA_SemanticDecl,
+    UA_PayloadAccessQualifier
   };
 private:
   const UnusualAnnotationKind Kind;
@@ -241,6 +246,21 @@ struct RegisterAssignment : public UnusualAnnotation
   }
 };
 
+// <summary>Use this structure to capture a ': in/out' definiton.</summary>
+struct PayloadAccessAnnotation: public UnusualAnnotation {
+  /// <summary>Initializes a new PayloadAccessAnnotation in invalid state.</summary>
+  PayloadAccessAnnotation() : UnusualAnnotation(UA_PayloadAccessQualifier){};
+
+  DXIL::PayloadAccessQualifier qualifier = DXIL::PayloadAccessQualifier::NoAccess;
+  
+  llvm::SmallVector<DXIL::PayloadAccessShaderStage, 4> ShaderStages;
+
+  static bool classof(const UnusualAnnotation *UA) {
+    return UA->getKind() == UA_PayloadAccessQualifier;
+  }
+};
+
+
 /// <summary>Use this structure to capture a ': packoffset' definition.</summary>
 struct ConstantPacking : public UnusualAnnotation
 {
@@ -283,10 +303,6 @@ struct SemanticDecl : public UnusualAnnotation
 ParameterModifier
 ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
 
-/// Returns a ParameterModifier initialized as per the attribute list.
-ParameterModifier
-ParamModFromAttrs(llvm::ArrayRef<clang::InheritableAttr *> attributes);
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AST manipulation functions.
 
@@ -320,11 +336,24 @@ clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
             uint8_t templateArgCount,
   _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
 
+clang::CXXRecordDecl* DeclareTemplateTypeWithHandleInDeclContext(
+            clang::ASTContext& context,
+            clang::DeclContext *declContext,
+            llvm::StringRef name,
+            uint8_t templateArgCount,
+  _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
+
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
+clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    llvm::StringRef typeName, llvm::StringRef templateParamName);
 clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext& context, bool bTBuf);
 clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
-clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context);
+clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
+                                          bool bSampler);
+clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                                     clang::ASTContext &context);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>
@@ -372,13 +401,18 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLDynamicResourceType(clang::QualType type);
 bool IsHLSLBufferViewType(clang::QualType type);
+bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
 bool IsHLSLNumericUserDefinedType(clang::QualType type);
+bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
+bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
 unsigned GetHLSLResourceTemplateUInt(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext& context, clang::QualType type);
+clang::QualType GetHLSLResourceTemplateParamType(clang::QualType type);
 clang::QualType GetHLSLInputPatchElementType(clang::QualType type);
 unsigned GetHLSLInputPatchCount(clang::QualType type);
 clang::QualType GetHLSLOutputPatchElementType(clang::QualType type);
@@ -409,6 +443,12 @@ bool GetIntrinsicOp(const clang::FunctionDecl *FD, unsigned &opcode,
                     llvm::StringRef &group);
 bool GetIntrinsicLowering(const clang::FunctionDecl *FD, llvm::StringRef &S);
 
+bool IsUserDefinedRecordType(clang::QualType type);
+bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
+                                      clang::OverloadedOperatorKind opc,
+                                      clang::QualType paramType);
+bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
+
 /// <summary>Adds a function declaration to the specified class record.</summary>
 /// <param name="context">ASTContext that owns declarations.</param>
 /// <param name="recordDecl">Record declaration in which to add function.</param>
@@ -425,7 +465,8 @@ clang::CXXMethodDecl* CreateObjectFunctionDeclarationWithParams(
   llvm::ArrayRef<clang::QualType> paramTypes,
   llvm::ArrayRef<clang::StringRef> paramNames,
   clang::DeclarationName declarationName,
-  bool isConst);
+  bool isConst,
+  bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,
                                             clang::QualType Ty);

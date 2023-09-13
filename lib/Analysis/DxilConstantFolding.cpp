@@ -363,6 +363,20 @@ static Constant *ConstantFoldBinaryIntIntrinsic(OP::OpCode opcode, Type *Ty, Con
   return nullptr;
 }
 
+// Constant fold MakeDouble
+static Constant *ConstantFoldMakeDouble(Type *Ty, const DxilIntrinsicOperands &IntrinsicOperands) {
+  assert(IntrinsicOperands.Size() == 2);
+  ConstantInt *Op1 = IntrinsicOperands.GetConstantInt(0);
+  ConstantInt *Op2 = IntrinsicOperands.GetConstantInt(1);
+  if (!Op1 || !Op2)
+    return nullptr;
+  uint64_t C1 = Op1->getZExtValue();
+  uint64_t C2 = Op2->getZExtValue();
+  uint64_t dbits = C2 << 32 | C1;
+  double dval = *(double*)&dbits;
+  return ConstantFP::get(Ty, dval);
+}
+
 // Compute bit field extract for ibfe and ubfe.
 // The comptuation for ibfe and ubfe is the same except for the right shift,
 // which is an arithemetic shift for ibfe and logical shift for ubfe.
@@ -477,6 +491,8 @@ static Constant *ConstantFoldFPIntrinsic(OP::OpCode opcode, Type *Ty, const Dxil
   case OP::OpCodeClass::Dot3:
   case OP::OpCodeClass::Dot4:
     return ConstantFoldDot(opcode, Ty, IntrinsicOperands);
+  case OP::OpCodeClass::MakeDouble:
+    return ConstantFoldMakeDouble(Ty, IntrinsicOperands);
   }
 
   return nullptr;
@@ -530,6 +546,8 @@ static Constant *ConstantFoldIntIntrinsic(OP::OpCode opcode, Type *Ty, const Dxi
 
     return ConstantFoldQuaternaryIntInstrinsic(opcode, Ty, Op1, Op2, Op3, Op4);
   }
+  case OP::OpCodeClass::IsHelperLane:
+    return ConstantInt::get(Ty, (uint64_t)0);
   }
 
   return nullptr;
@@ -587,7 +605,13 @@ bool hlsl::CanConstantFoldCallTo(const Function *F) {
     case OP::OpCodeClass::Dot2:
     case OP::OpCodeClass::Dot3:
     case OP::OpCodeClass::Dot4:
+    case OP::OpCodeClass::MakeDouble:
       return true;
+    case OP::OpCodeClass::IsHelperLane: {
+      const hlsl::ShaderModel *pSM =
+          F->getParent()->GetDxilModule().GetShaderModel();
+      return !pSM->IsPS() && !pSM->IsLib();
+    }
     }
   }
 

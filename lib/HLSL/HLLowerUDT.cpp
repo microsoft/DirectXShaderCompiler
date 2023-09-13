@@ -56,9 +56,9 @@ StructType *hlsl::GetLoweredUDT(StructType *structTy, DxilTypeSystem *pTypeSys) 
     Type *NewTy = EltTy;
 
     // Lower element if necessary
-    if (EltTy->isVectorTy()) {
-      NewTy = ArrayType::get(EltTy->getVectorElementType(),
-                             EltTy->getVectorNumElements());
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(EltTy)) {
+      NewTy = ArrayType::get(VT->getElementType(),
+                             VT->getNumElements());
     } else if (HLMatrixType Mat = HLMatrixType::dyn_cast(EltTy)) {
       NewTy = ArrayType::get(Mat.getElementType(/*MemRepr*/true),
                              Mat.getNumElements());
@@ -137,10 +137,10 @@ Constant *hlsl::TranslateInitForLoweredUDT(
           NewTy->getArrayElementType(),
           pTypeSys, matOrientation));
     return ConstantArray::get(cast<ArrayType>(NewTy), values);
-  } else if (Ty->isVectorTy()) {
-    values.reserve(Ty->getVectorNumElements());
+  } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+    values.reserve(VT->getNumElements());
     ConstantVector *CV = cast<ConstantVector>(Init);
-    for (unsigned i = 0; i < Ty->getVectorNumElements(); ++i)
+    for (unsigned i = 0; i < VT->getNumElements(); ++i)
       values.emplace_back(CV->getAggregateElement(i));
     return ConstantArray::get(cast<ArrayType>(NewTy), values);
   } else if (HLMatrixType Mat = HLMatrixType::dyn_cast(Ty)) {
@@ -201,17 +201,19 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
   while (!V->use_empty()) {
     Use &use = *V->use_begin();
     User *user = use.getUser();
-    // Clear use to prevent infinite loop on unhandled case.
-    use.set(UndefValue::get(V->getType()));
+    if (Instruction *I = dyn_cast<Instruction>(user)) {
+      use.set(UndefValue::get(I->getType()));
+    }
 
     if (LoadInst *LI = dyn_cast<LoadInst>(user)) {
       // Load for non-matching type should only be vector
-      DXASSERT(Ty->isVectorTy() && NewTy->isArrayTy() &&
-        Ty->getVectorNumElements() == NewTy->getArrayNumElements(),
+      FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
+      DXASSERT(VT && NewTy->isArrayTy() &&
+        VT->getNumElements() == NewTy->getArrayNumElements(),
         "unexpected load of non-matching type");
       IRBuilder<> Builder(LI);
       Value *result = UndefValue::get(Ty);
-      for (unsigned i = 0; i < Ty->getVectorNumElements(); ++i) {
+      for (unsigned i = 0; i < VT->getNumElements(); ++i) {
         Value *GEP = Builder.CreateInBoundsGEP(NewV,
           {Builder.getInt32(0), Builder.getInt32(i)});
         Value *El = Builder.CreateLoad(GEP);
@@ -222,11 +224,12 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
 
     } else if (StoreInst *SI = dyn_cast<StoreInst>(user)) {
       // Store for non-matching type should only be vector
-      DXASSERT(Ty->isVectorTy() && NewTy->isArrayTy() &&
-        Ty->getVectorNumElements() == NewTy->getArrayNumElements(),
+      FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
+      DXASSERT(VT && NewTy->isArrayTy() &&
+        VT->getNumElements() == NewTy->getArrayNumElements(),
         "unexpected load of non-matching type");
       IRBuilder<> Builder(SI);
-      for (unsigned i = 0; i < Ty->getVectorNumElements(); ++i) {
+      for (unsigned i = 0; i < VT->getNumElements(); ++i) {
         Value *EE = Builder.CreateExtractElement(SI->getValueOperand(), i);
         Value *GEP = Builder.CreateInBoundsGEP(
           NewV, {Builder.getInt32(0), Builder.getInt32(i)});
@@ -248,7 +251,6 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
       Constant *NewGEP = ConstantExpr::getGetElementPtr(
         nullptr, cast<Constant>(NewV), idxList, true);
       ReplaceUsesForLoweredUDT(GEP, NewGEP);
-      GEP->dropAllReferences();
 
     } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
       // Address space cast
@@ -265,6 +267,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         // if alreday bitcast to new type, just replace the bitcast
         // with the new value (already translated user function)
         BC->replaceAllUsesWith(NewV);
+        BC->eraseFromParent();
       } else {
         // Could be i8 for memcpy?
         // Replace bitcast argument with new value
@@ -286,11 +289,13 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         } else {
           // Could be i8 for memcpy?
           // Replace bitcast argument with new value
-          use.set(NewV);
+          CE->replaceAllUsesWith(
+              ConstantExpr::getBitCast(cast<Constant>(NewV), CE->getType()));
         }
       } else {
-        DXASSERT(0, "unhandled constant expr for lowered UTD");
-        CE->dropAllReferences();  // better than infinite loop on release
+        DXASSERT(0, "unhandled constant expr for lowered UDT");
+        // better than infinite loop on release
+        CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
       }
 
     } else if (CallInst *CI = dyn_cast<CallInst>(user)) {
@@ -311,7 +316,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         switch (opcode) {
         case HLMatLoadStoreOpcode::ColMatLoad:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLMatLoadStoreOpcode::RowMatLoad: {
           Value *val = UndefValue::get(
             VectorType::get(NewTy->getArrayElementType(),
@@ -349,7 +354,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         } break;
         case HLMatLoadStoreOpcode::ColMatStore:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLMatLoadStoreOpcode::RowMatStore: {
           // HLCast matrix value to vector
           unsigned newOpcode = (unsigned)(bColMajor ?
@@ -386,7 +391,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
           break;
         case HLSubscriptOpcode::ColMatElement:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLSubscriptOpcode::RowMatElement: {
           ConstantDataSequential *cIdx = cast<ConstantDataSequential>(
             CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx));
@@ -396,7 +401,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         } break;
         case HLSubscriptOpcode::ColMatSubscript:
           bColMajor = true;
-          __fallthrough;
+          LLVM_FALLTHROUGH;
         case HLSubscriptOpcode::RowMatSubscript: {
           for (unsigned Idx = HLOperandIndex::kMatSubscriptSubOpIdx; Idx < CI->getNumArgOperands(); ++Idx) {
             ElemIndices.emplace_back(CI->getArgOperand(Idx));
@@ -428,10 +433,17 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
 
       default:
         DXASSERT(0, "invalid opcode");
+        // Replace user with undef to prevent infinite loop on unhandled case.
+        user->replaceAllUsesWith(UndefValue::get(user->getType()));
       }
     } else {
       // What else?
       DXASSERT(false, "case not handled.");
+      // Replace user with undef to prevent infinite loop on unhandled case.
+      user->replaceAllUsesWith(UndefValue::get(user->getType()));
     }
+    // Clean up dead constant users to prevent infinite loop
+    if (Constant *CV = dyn_cast<Constant>(V))
+      CV->removeDeadConstantUsers();
   }
 }

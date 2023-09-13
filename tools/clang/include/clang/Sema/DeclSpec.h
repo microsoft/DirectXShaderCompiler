@@ -296,6 +296,8 @@ public:
   static const TST TST_min16uint = clang::TST_min16uint;
   static const TST TST_min10float = clang::TST_min10float;
   static const TST TST_min12int = clang::TST_min12int;
+  static const TST TST_int8_4packed = clang::TST_int8_4packed;
+  static const TST TST_uint8_4packed = clang::TST_uint8_4packed;
   // HLSL Change Ends
   static const TST TST_half = clang::TST_half;
   static const TST TST_float = clang::TST_float;

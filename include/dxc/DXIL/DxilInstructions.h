@@ -12,11 +12,11 @@
 
 #pragma once
 
+#include "dxc/DXIL/DxilOperations.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 
-// TODO: add correct include directives
 // TODO: add accessors with values
 // TODO: add validation support code, including calling into right fn
 // TODO: add type hierarchy
@@ -3042,7 +3042,7 @@ struct DxilInst_TextureGatherCmp {
     arg_offset0 = 7,
     arg_offset1 = 8,
     arg_channel = 9,
-    arg_compareVale = 10,
+    arg_compareValue = 10,
   };
   // Accessors
   llvm::Value *get_srv() const { return Instr->getOperand(1); }
@@ -3063,8 +3063,8 @@ struct DxilInst_TextureGatherCmp {
   void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
   llvm::Value *get_channel() const { return Instr->getOperand(9); }
   void set_channel(llvm::Value *val) { Instr->setOperand(9, val); }
-  llvm::Value *get_compareVale() const { return Instr->getOperand(10); }
-  void set_compareVale(llvm::Value *val) { Instr->setOperand(10, val); }
+  llvm::Value *get_compareValue() const { return Instr->getOperand(10); }
+  void set_compareValue(llvm::Value *val) { Instr->setOperand(10, val); }
 };
 
 /// This instruction gets the position of the specified sample
@@ -4318,8 +4318,6 @@ struct DxilInst_QuadReadLaneAt {
   void set_value(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_quadLane() const { return Instr->getOperand(2); }
   void set_quadLane(llvm::Value *val) { Instr->setOperand(2, val); }
-  uint32_t get_quadLane_val() const { return (uint32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
-  void set_quadLane_val(uint32_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 32), llvm::APInt(32, (uint64_t)val))); }
 };
 
 /// This instruction returns the result of a quad-level operation
@@ -6988,36 +6986,6 @@ struct DxilInst_RayQuery_CommittedInstanceContributionToHitGroupIndex {
   void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction create resource handle from heap
-struct DxilInst_CreateHandleFromHeap {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_CreateHandleFromHeap(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromHeap);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_index = 1,
-    arg_nonUniformIndex = 2,
-  };
-  // Accessors
-  llvm::Value *get_index() const { return Instr->getOperand(1); }
-  void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(2); }
-  void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(2, val); }
-  bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
-  void set_nonUniformIndex_val(bool val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
-};
-
 /// This instruction annotate handle with resource properties
 struct DxilInst_AnnotateHandle {
   llvm::Instruction *Instr;
@@ -7029,7 +6997,7 @@ struct DxilInst_AnnotateHandle {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
   // Metadata
@@ -7037,23 +7005,349 @@ struct DxilInst_AnnotateHandle {
   // Operand indexes
   enum OperandIdx {
     arg_res = 1,
-    arg_resourceClass = 2,
-    arg_resourceKind = 3,
-    arg_props = 4,
+    arg_props = 2,
   };
   // Accessors
   llvm::Value *get_res() const { return Instr->getOperand(1); }
   void set_res(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_resourceClass() const { return Instr->getOperand(2); }
-  void set_resourceClass(llvm::Value *val) { Instr->setOperand(2, val); }
-  int8_t get_resourceClass_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
-  void set_resourceClass_val(int8_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_resourceKind() const { return Instr->getOperand(3); }
-  void set_resourceKind(llvm::Value *val) { Instr->setOperand(3, val); }
-  int8_t get_resourceKind_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
-  void set_resourceKind_val(int8_t val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_props() const { return Instr->getOperand(4); }
-  void set_props(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_props() const { return Instr->getOperand(2); }
+  void set_props(llvm::Value *val) { Instr->setOperand(2, val); }
+};
+
+/// This instruction create resource handle from binding
+struct DxilInst_CreateHandleFromBinding {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_CreateHandleFromBinding(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromBinding);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_bind = 1,
+    arg_index = 2,
+    arg_nonUniformIndex = 3,
+  };
+  // Accessors
+  llvm::Value *get_bind() const { return Instr->getOperand(1); }
+  void set_bind(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_index() const { return Instr->getOperand(2); }
+  void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(3); }
+  void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(3, val); }
+  bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
+  void set_nonUniformIndex_val(bool val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+};
+
+/// This instruction create resource handle from heap
+struct DxilInst_CreateHandleFromHeap {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_CreateHandleFromHeap(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromHeap);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_index = 1,
+    arg_samplerHeap = 2,
+    arg_nonUniformIndex = 3,
+  };
+  // Accessors
+  llvm::Value *get_index() const { return Instr->getOperand(1); }
+  void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_samplerHeap() const { return Instr->getOperand(2); }
+  void set_samplerHeap(llvm::Value *val) { Instr->setOperand(2, val); }
+  bool get_samplerHeap_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
+  void set_samplerHeap_val(bool val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+  llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(3); }
+  void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(3, val); }
+  bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
+  void set_nonUniformIndex_val(bool val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+};
+
+/// This instruction unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
+struct DxilInst_Unpack4x8 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Unpack4x8(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Unpack4x8);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_unpackMode = 1,
+    arg_pk = 2,
+  };
+  // Accessors
+  llvm::Value *get_unpackMode() const { return Instr->getOperand(1); }
+  void set_unpackMode(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_pk() const { return Instr->getOperand(2); }
+  void set_pk(llvm::Value *val) { Instr->setOperand(2, val); }
+};
+
+/// This instruction packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
+struct DxilInst_Pack4x8 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Pack4x8(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Pack4x8);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_packMode = 1,
+    arg_x = 2,
+    arg_y = 3,
+    arg_z = 4,
+    arg_w = 5,
+  };
+  // Accessors
+  llvm::Value *get_packMode() const { return Instr->getOperand(1); }
+  void set_packMode(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_x() const { return Instr->getOperand(2); }
+  void set_x(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_y() const { return Instr->getOperand(3); }
+  void set_y(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_z() const { return Instr->getOperand(4); }
+  void set_z(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_w() const { return Instr->getOperand(5); }
+  void set_w(llvm::Value *val) { Instr->setOperand(5, val); }
+};
+
+/// This instruction returns true on helper lanes in pixel shaders
+struct DxilInst_IsHelperLane {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_IsHelperLane(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IsHelperLane);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction compares boolean accross a quad
+struct DxilInst_QuadVote {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_QuadVote(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::QuadVote);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_cond = 1,
+    arg_op = 2,
+  };
+  // Accessors
+  llvm::Value *get_cond() const { return Instr->getOperand(1); }
+  void set_cond(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_op() const { return Instr->getOperand(2); }
+  void set_op(llvm::Value *val) { Instr->setOperand(2, val); }
+  int8_t get_op_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
+  void set_op_val(int8_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
+};
+
+/// This instruction Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
+struct DxilInst_TextureGatherRaw {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_TextureGatherRaw(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::TextureGatherRaw);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (9 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_sampler = 2,
+    arg_coord0 = 3,
+    arg_coord1 = 4,
+    arg_coord2 = 5,
+    arg_coord3 = 6,
+    arg_offset0 = 7,
+    arg_offset1 = 8,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(2); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(3); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(4); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_coord2() const { return Instr->getOperand(5); }
+  void set_coord2(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_coord3() const { return Instr->getOperand(6); }
+  void set_coord3(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_offset0() const { return Instr->getOperand(7); }
+  void set_offset0(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_offset1() const { return Instr->getOperand(8); }
+  void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
+};
+
+/// This instruction samples a texture and compares a single component against the specified comparison value
+struct DxilInst_SampleCmpLevel {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_SampleCmpLevel(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SampleCmpLevel);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (12 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_sampler = 2,
+    arg_coord0 = 3,
+    arg_coord1 = 4,
+    arg_coord2 = 5,
+    arg_coord3 = 6,
+    arg_offset0 = 7,
+    arg_offset1 = 8,
+    arg_offset2 = 9,
+    arg_compareValue = 10,
+    arg_lod = 11,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(2); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(3); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(4); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_coord2() const { return Instr->getOperand(5); }
+  void set_coord2(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_coord3() const { return Instr->getOperand(6); }
+  void set_coord3(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_offset0() const { return Instr->getOperand(7); }
+  void set_offset0(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_offset1() const { return Instr->getOperand(8); }
+  void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_offset2() const { return Instr->getOperand(9); }
+  void set_offset2(llvm::Value *val) { Instr->setOperand(9, val); }
+  llvm::Value *get_compareValue() const { return Instr->getOperand(10); }
+  void set_compareValue(llvm::Value *val) { Instr->setOperand(10, val); }
+  llvm::Value *get_lod() const { return Instr->getOperand(11); }
+  void set_lod(llvm::Value *val) { Instr->setOperand(11, val); }
+};
+
+/// This instruction stores texel data at specified sample index
+struct DxilInst_TextureStoreSample {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_TextureStoreSample(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::TextureStoreSample);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (11 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_coord0 = 2,
+    arg_coord1 = 3,
+    arg_coord2 = 4,
+    arg_value0 = 5,
+    arg_value1 = 6,
+    arg_value2 = 7,
+    arg_value3 = 8,
+    arg_mask = 9,
+    arg_sampleIdx = 10,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(2); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(3); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_coord2() const { return Instr->getOperand(4); }
+  void set_coord2(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_value0() const { return Instr->getOperand(5); }
+  void set_value0(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_value1() const { return Instr->getOperand(6); }
+  void set_value1(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_value2() const { return Instr->getOperand(7); }
+  void set_value2(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_value3() const { return Instr->getOperand(8); }
+  void set_value3(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_mask() const { return Instr->getOperand(9); }
+  void set_mask(llvm::Value *val) { Instr->setOperand(9, val); }
+  int8_t get_mask_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(9))->getZExtValue()); }
+  void set_mask_val(int8_t val) { Instr->setOperand(9, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
+  llvm::Value *get_sampleIdx() const { return Instr->getOperand(10); }
+  void set_sampleIdx(llvm::Value *val) { Instr->setOperand(10, val); }
 };
 // INSTR-HELPER:END
 } // namespace hlsl

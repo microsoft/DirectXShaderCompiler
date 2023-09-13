@@ -71,7 +71,8 @@ TEST(raw_ostreamTest, Types_Buffered) {
   // void*
   EXPECT_EQ("0x0", printToString((void*) nullptr));
   EXPECT_EQ("0xbeef", printToString((void*) 0xbeef));
-  EXPECT_EQ("0xdeadbeef", printToString((void*) 0xdeadbeef));
+  // HLSL Change - fix conversion
+  EXPECT_EQ("0xdeadbeef", printToString((void*) 0xdeadbeefull));
 
   // Min and max.
   EXPECT_EQ("18446744073709551615", printToString(UINT64_MAX));
@@ -102,7 +103,8 @@ TEST(raw_ostreamTest, Types_Unbuffered) {
   // void*
   EXPECT_EQ("0x0", printToStringUnbuffered((void*) nullptr));
   EXPECT_EQ("0xbeef", printToStringUnbuffered((void*) 0xbeef));
-  EXPECT_EQ("0xdeadbeef", printToStringUnbuffered((void*) 0xdeadbeef));
+  // HLSL Change - fix conversion
+  EXPECT_EQ("0xdeadbeef", printToStringUnbuffered((void*) 0xdeadbeefull));
 
   // Min and max.
   EXPECT_EQ("18446744073709551615", printToStringUnbuffered(UINT64_MAX));

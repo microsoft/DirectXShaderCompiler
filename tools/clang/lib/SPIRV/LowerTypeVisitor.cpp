@@ -14,6 +14,9 @@
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvFunction.h"
 
+namespace clang {
+namespace spirv {
+
 namespace {
 /// Returns the :packoffset() annotation on the given decl. Returns nullptr if
 /// the decl does not have one.
@@ -32,8 +35,74 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 
 } // end anonymous namespace
 
-namespace clang {
-namespace spirv {
+// This method sorts a field list in the following order:
+//  - fields with register annotation first, sorted by register index.
+//  - then fields without annotation, in order of declaration.
+static std::vector<const HybridStructType::FieldInfo *>
+sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
+  std::vector<const HybridStructType::FieldInfo *> output;
+  output.resize(fields.size());
+
+  auto back_inserter = output.rbegin();
+  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
+  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
+    if (it->registerC) {
+      fixed_fields.insert({it->registerC->RegisterNumber, &*it});
+    } else {
+      *back_inserter = &*it;
+      back_inserter++;
+    }
+  }
+
+  auto front_inserter = output.begin();
+  for (const auto &item : fixed_fields) {
+    *front_inserter = item.second;
+    front_inserter++;
+  }
+  return output;
+}
+
+static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
+                                const SpirvLayoutRule rule,
+                                const HybridStructType::FieldInfo *currentField,
+                                StructType::FieldInfo *field) {
+
+  const auto &fieldType = currentField->astType;
+  uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
+  std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
+      fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
+  field->sizeInBytes = memberSize;
+  return;
+}
+
+// Correctly determine a field offset/size/padding depending on its neighbors
+// and other rules.
+static void
+setDefaultFieldOffset(const AlignmentSizeCalculator &alignmentCalc,
+                      const SpirvLayoutRule rule,
+                      const uint32_t previousFieldEnd,
+                      const HybridStructType::FieldInfo *currentField,
+                      StructType::FieldInfo *field) {
+
+  const auto &fieldType = currentField->astType;
+  uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
+  std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
+      fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
+
+  const uint32_t baseOffset = previousFieldEnd;
+  // The next avaiable location after laying out the previous members
+  if (rule != SpirvLayoutRule::RelaxedGLSLStd140 &&
+      rule != SpirvLayoutRule::RelaxedGLSLStd430 &&
+      rule != SpirvLayoutRule::FxcCTBuffer) {
+    field->offset = roundToPow2(baseOffset, memberAlignment);
+    return;
+  }
+
+  uint32_t newOffset = previousFieldEnd;
+  alignmentCalc.alignUsingHLSLRelaxedLayout(fieldType, memberSize,
+                                            memberAlignment, &newOffset);
+  field->offset = newOffset;
+}
 
 bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
   if (phase == Visitor::Phase::Done) {
@@ -42,7 +111,7 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
         lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
                   /*isRowMajor*/ llvm::None,
                   /*SourceLocation*/ {});
-    fn->setReturnType(const_cast<SpirvType *>(spirvReturnType));
+    fn->setReturnType(spirvReturnType);
 
     // Lower the function parameter types.
     auto params = fn->getParameters();
@@ -57,6 +126,9 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
 }
 
 bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
+  if (spvContext.hasLoweredType(instr))
+    return true;
+
   const QualType astType = instr->getAstResultType();
   const SpirvType *hybridType = instr->getResultType();
 
@@ -121,6 +193,24 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
       if (var->hasBinding() && var->getHlslUserType().empty()) {
         var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
       }
+
+      auto vkImgFeatures = spvContext.getVkImageFeaturesForSpirvVariable(var);
+      if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+        if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
+          resultType = spvContext.getImageType(imageType, vkImgFeatures.format);
+          instr->setResultType(resultType);
+        } else if (const auto *arrayType = dyn_cast<ArrayType>(resultType)) {
+          if (const auto *imageType =
+                  dyn_cast<ImageType>(arrayType->getElementType())) {
+            auto newImgType =
+                spvContext.getImageType(imageType, vkImgFeatures.format);
+            resultType = spvContext.getArrayType(newImgType,
+                                                 arrayType->getElementCount(),
+                                                 arrayType->getStride());
+            instr->setResultType(resultType);
+          }
+        }
+      }
     }
     const SpirvType *pointerType =
         spvContext.getPointerType(resultType, instr->getStorageClass());
@@ -155,8 +245,8 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpImageSparseRead: {
     const auto *uintType = spvContext.getUIntType(32);
     const auto *sparseResidencyStruct = spvContext.getStructType(
-        {StructType::FieldInfo(uintType, "Residency.Code"),
-         StructType::FieldInfo(resultType, "Result.Type")},
+        {StructType::FieldInfo(uintType, /* fieldIndex*/ 0, "Residency.Code"),
+         StructType::FieldInfo(resultType, /* fieldIndex*/ 1, "Result.Type")},
         "SparseResidencyStruct");
     instr->setResultType(sparseResidencyStruct);
     break;
@@ -284,6 +374,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
           return spvContext.getSIntType(32);
         case BuiltinType::UInt:
         case BuiltinType::ULong:
+        // The 'int8_t4_packed' and 'uint8_t4_packed' types are in fact 32-bit
+        // unsigned integers.
+        case BuiltinType::Int8_4Packed:
+        case BuiltinType::UInt8_4Packed:
           return spvContext.getUIntType(32);
 
           // void and bool
@@ -315,6 +409,14 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
           return spvContext.getSIntType(16);
         case BuiltinType::UShort: // uint16_t
           return spvContext.getUIntType(16);
+
+        // 8-bit integer types
+        case BuiltinType::UChar:
+        case BuiltinType::Char_U:
+          return spvContext.getUIntType(8);
+        case BuiltinType::SChar:
+        case BuiltinType::Char_S:
+          return spvContext.getSIntType(8);
 
           // Relaxed precision types
         case BuiltinType::Min10Float:
@@ -350,6 +452,26 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
   // AST vector/matrix types are TypedefType of TemplateSpecializationType. We
   // handle them via HLSL type inspection functions.
+
+  // When the memory layout rule is FxcCTBuffer, typeNxM matrix with M > 1 and
+  // N == 1 consists of M vectors where each vector has a single element. Since
+  // SPIR-V does not have a vector with single element, we have to use an
+  // OpTypeArray with ArrayStride 16 instead of OpTypeVector. We have the same
+  // rule for column_major typeNxM and row_major typeMxN.
+  if (rule == SpirvLayoutRule::FxcCTBuffer && hlsl::IsHLSLMatType(type)) {
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+    if (!alignmentCalc.useRowMajor(isRowMajor, type))
+      std::swap(rowCount, colCount);
+    if (rowCount == 1) {
+      useArrayForMat1xN = true;
+      auto elemType = hlsl::GetHLSLMatElementType(type);
+      uint32_t stride = 0;
+      alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
+      return spvContext.getArrayType(
+          lowerType(elemType, rule, isRowMajor, srcLoc), colCount, stride);
+    }
+  }
 
   { // Vector types
     QualType elemType = {};
@@ -397,28 +519,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       return spvType;
     }
 
-    // Collect all fields' information.
-    llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
-
-    // If this struct is derived from some other struct, place an implicit
-    // field at the very beginning for the base struct.
-    if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl)) {
-      for (const auto base : cxxDecl->bases()) {
-        fields.push_back(HybridStructType::FieldInfo(base.getType()));
-      }
-    }
-
-    // Create fields for all members of this struct
-    for (const auto *field : decl->fields()) {
-      fields.push_back(HybridStructType::FieldInfo(
-          field->getType(), field->getName(),
-          /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
-          /*packoffset*/ getPackOffset(field),
-          /*RegisterAssignment*/ nullptr,
-          /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>()));
-    }
-
-    auto loweredFields = populateLayoutInformation(fields, rule);
+    auto loweredFields = lowerStructFields(decl, rule);
 
     const auto *spvStructType =
         spvContext.getStructType(loweredFields, decl->getName());
@@ -429,26 +530,51 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   // Array type
   if (const auto *arrayType = astContext.getAsArrayType(type)) {
     const auto elemType = arrayType->getElementType();
-    const auto *loweredElemType =
-        lowerType(arrayType->getElementType(), rule, isRowMajor, srcLoc);
-    llvm::Optional<uint32_t> arrayStride = llvm::None;
 
+    // If layout rule is void, it means these resource types are used for
+    // declaring local resources. This should be lowered to a pointer to the
+    // array.
+    //
+    // The pointer points to the Uniform storage class, and the element type
+    // should have the corresponding layout.
+    bool isLocalStructuredOrByteBuffer =
+        isAKindOfStructuredOrByteBuffer(elemType) &&
+        rule == SpirvLayoutRule::Void;
+
+    SpirvLayoutRule elementLayoutRule =
+        (isLocalStructuredOrByteBuffer ? getCodeGenOptions().sBufferLayoutRule
+                                       : rule);
+    const SpirvType *loweredElemType =
+        lowerType(elemType, elementLayoutRule, isRowMajor, srcLoc);
+
+    llvm::Optional<uint32_t> arrayStride = llvm::None;
     if (rule != SpirvLayoutRule::Void &&
         // We won't have stride information for structured/byte buffers since
         // they contain runtime arrays.
-        !isAKindOfStructuredOrByteBuffer(elemType)) {
+        !isAKindOfStructuredOrByteBuffer(elemType) &&
+        !isConstantTextureBuffer(elemType)) {
       uint32_t stride = 0;
       alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
       arrayStride = stride;
     }
 
+    const SpirvType *spirvArrayType = nullptr;
     if (const auto *caType = astContext.getAsConstantArrayType(type)) {
       const auto size = static_cast<uint32_t>(caType->getSize().getZExtValue());
-      return spvContext.getArrayType(loweredElemType, size, arrayStride);
+      spirvArrayType =
+          spvContext.getArrayType(loweredElemType, size, arrayStride);
+    } else {
+      assert(type->isIncompleteArrayType());
+      spirvArrayType =
+          spvContext.getRuntimeArrayType(loweredElemType, arrayStride);
     }
 
-    assert(type->isIncompleteArrayType());
-    return spvContext.getRuntimeArrayType(loweredElemType, arrayStride);
+    if (isLocalStructuredOrByteBuffer) {
+      return spvContext.getPointerType(spirvArrayType,
+                                       spv::StorageClass::Uniform);
+    }
+
+    return spirvArrayType;
   }
 
   // Reference types
@@ -478,6 +604,22 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   return 0;
 }
 
+const SpirvType *
+LowerTypeVisitor::lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
+                                           SpirvLayoutRule rule,
+                                           SourceLocation srcLoc) {
+  if (name == "ext_type") {
+    auto typeId = hlsl::GetHLSLResourceTemplateUInt(type);
+    return spvContext.getCreatedSpirvIntrinsicType(typeId);
+  }
+  if (name == "ext_result_id") {
+    QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
+    return lowerType(realType, rule, llvm::None, srcLoc);
+  }
+  emitError("unknown type %0 in vk namespace", srcLoc) << type;
+  return nullptr;
+}
+
 const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
                                                      SpirvLayoutRule rule,
                                                      SourceLocation srcLoc) {
@@ -491,6 +633,10 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();
+
+  if (isTypeInVkNamespace(recordType)) {
+    return lowerVkTypeInVkNamespace(type, name, rule, srcLoc);
+  }
 
   // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
 
@@ -509,10 +655,15 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
         (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-      return spvContext.getImageType(
+      auto loweredType =
           lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc),
-          dim, ImageType::WithDepth::Unknown, isArray, isMS,
+                    /*isRowMajor*/ llvm::None, srcLoc);
+      // Treat bool textures as uint for compatibility with OpTypeImage.
+      if (loweredType == spvContext.getBoolType()) {
+        loweredType = spvContext.getUIntType(32);
+      }
+      return spvContext.getImageType(
+          loweredType, dim, ImageType::WithDepth::Unknown, isArray, isMS,
           ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     }
 
@@ -594,8 +745,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
     const std::string typeName = "type." + name.str() + "." + getAstTypeName(s);
     const auto *valType = spvContext.getStructType(
-        {StructType::FieldInfo(raType, /*name*/ "", /*offset*/ 0, matrixStride,
-                               isRowMajor)},
+        {StructType::FieldInfo(raType, /* fieldIndex*/ 0, /*name*/ "",
+                               /*offset*/ 0, matrixStride, isRowMajor)},
         typeName, isReadOnly, StructInterfaceType::StorageBuffer);
 
     if (asAlias) {
@@ -604,6 +755,43 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     }
 
     return valType;
+  }
+
+  if (name == "ConstantBuffer" || name == "TextureBuffer") {
+    // ConstantBuffer<T> and TextureBuffer<T> are lowered as T
+
+    const bool forTBuffer = name == "TextureBuffer";
+
+    if (rule == SpirvLayoutRule::Void) {
+      rule = forTBuffer ? getCodeGenOptions().tBufferLayoutRule
+                        : getCodeGenOptions().cBufferLayoutRule;
+    }
+
+    const auto *bufferType = type->getAs<RecordType>();
+    assert(bufferType);
+    const auto *bufferDecl = bufferType->getDecl();
+
+    // Get the underlying resource type.
+    const auto underlyingType = hlsl::GetHLSLResourceResultType(type);
+
+    const auto *underlyingStructType = underlyingType->getAs<RecordType>();
+    assert(underlyingStructType &&
+           "T in ConstantBuffer<T> or TextureBuffer<T> must be a struct type");
+
+    const auto *underlyingStructDecl = underlyingStructType->getDecl();
+
+    auto loweredFields = lowerStructFields(underlyingStructDecl, rule);
+
+    const std::string structName = "type." + bufferDecl->getName().str() + "." +
+                                   underlyingStructDecl->getName().str();
+
+    const auto *spvStructType = spvContext.getStructType(
+        loweredFields, structName, /*isReadOnly*/ forTBuffer,
+        forTBuffer ? StructInterfaceType::StorageBuffer
+                   : StructInterfaceType::UniformBuffer);
+
+    spvContext.registerStructDeclForSpirvType(spvStructType, bufferDecl);
+    return spvStructType;
   }
 
   // ByteAddressBuffer types.
@@ -687,62 +875,244 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   return nullptr;
 }
 
+llvm::SmallVector<StructType::FieldInfo, 4>
+LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
+                                    SpirvLayoutRule rule) {
+  assert(decl);
+
+  // Collect all fields' information.
+  llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
+
+  // If this struct is derived from some other struct, place an implicit
+  // field at the very beginning for the base struct.
+  if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl)) {
+    for (const auto &base : cxxDecl->bases()) {
+      fields.push_back(HybridStructType::FieldInfo(base.getType()));
+    }
+  }
+
+  // Create fields for all members of this struct
+  for (const auto *field : decl->fields()) {
+    llvm::Optional<BitfieldInfo> bitfieldInfo;
+    if (field->isBitField()) {
+      bitfieldInfo = BitfieldInfo();
+      bitfieldInfo->sizeInBits =
+          field->getBitWidthValue(field->getASTContext());
+    }
+
+    fields.push_back(HybridStructType::FieldInfo(
+        field->getType(), field->getName(),
+        /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
+        /*packoffset*/ getPackOffset(field),
+        /*RegisterAssignment*/ nullptr,
+        /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
+        /*bitfield*/ bitfieldInfo));
+  }
+
+  return populateLayoutInformation(fields, rule);
+}
+
 spv::ImageFormat
 LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
   uint32_t elemCount = 1;
   QualType ty = {};
-  if (isScalarType(sampledType, &ty) ||
-      isVectorType(sampledType, &ty, &elemCount) ||
-      canFitIntoOneRegister(astContext, sampledType, &ty, &elemCount)) {
-    if (const auto *builtinType = ty->getAs<BuiltinType>()) {
-      switch (builtinType->getKind()) {
-      case BuiltinType::Int:
-        return elemCount == 1 ? spv::ImageFormat::R32i
-                              : elemCount == 2 ? spv::ImageFormat::Rg32i
-                                               : spv::ImageFormat::Rgba32i;
-      case BuiltinType::UInt:
-        return elemCount == 1 ? spv::ImageFormat::R32ui
-                              : elemCount == 2 ? spv::ImageFormat::Rg32ui
-                                               : spv::ImageFormat::Rgba32ui;
-      case BuiltinType::Float:
-      case BuiltinType::HalfFloat:
-        return elemCount == 1 ? spv::ImageFormat::R32f
-                              : elemCount == 2 ? spv::ImageFormat::Rg32f
-                                               : spv::ImageFormat::Rgba32f;
-      default:
-        // Other sampled types unimplemented or irrelevant.
-        break;
-      }
-    }
+  if (!isScalarType(sampledType, &ty) &&
+      !isVectorType(sampledType, &ty, &elemCount) &&
+      !canFitIntoOneRegister(astContext, sampledType, &ty, &elemCount)) {
+    return spv::ImageFormat::Unknown;
   }
-  emitError(
-      "cannot translate resource type parameter %0 to proper image format",
-      srcLoc)
-      << sampledType;
+
+  const auto *builtinType = ty->getAs<BuiltinType>();
+  if (builtinType == nullptr) {
+    return spv::ImageFormat::Unknown;
+  }
+
+  switch (builtinType->getKind()) {
+  case BuiltinType::Int:
+    return elemCount == 1   ? spv::ImageFormat::R32i
+           : elemCount == 2 ? spv::ImageFormat::Rg32i
+           : elemCount == 4 ? spv::ImageFormat::Rgba32i
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Min12Int:
+  case BuiltinType::Min16Int:
+    return elemCount == 1   ? spv::ImageFormat::R16i
+           : elemCount == 2 ? spv::ImageFormat::Rg16i
+           : elemCount == 4 ? spv::ImageFormat::Rgba16i
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::UInt:
+    return elemCount == 1   ? spv::ImageFormat::R32ui
+           : elemCount == 2 ? spv::ImageFormat::Rg32ui
+           : elemCount == 4 ? spv::ImageFormat::Rgba32ui
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Min16UInt:
+    return elemCount == 1   ? spv::ImageFormat::R16ui
+           : elemCount == 2 ? spv::ImageFormat::Rg16ui
+           : elemCount == 4 ? spv::ImageFormat::Rgba16ui
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::Float:
+    return elemCount == 1   ? spv::ImageFormat::R32f
+           : elemCount == 2 ? spv::ImageFormat::Rg32f
+           : elemCount == 4 ? spv::ImageFormat::Rgba32f
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::HalfFloat:
+  case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
+    return elemCount == 1   ? spv::ImageFormat::R16f
+           : elemCount == 2 ? spv::ImageFormat::Rg16f
+           : elemCount == 4 ? spv::ImageFormat::Rgba16f
+                            : spv::ImageFormat::Unknown;
+  case BuiltinType::LongLong:
+    return elemCount == 1 ? spv::ImageFormat::R64i : spv::ImageFormat::Unknown;
+  case BuiltinType::ULongLong:
+    return elemCount == 1 ? spv::ImageFormat::R64ui : spv::ImageFormat::Unknown;
+  default:
+    // Other sampled types unimplemented or irrelevant.
+    break;
+  }
 
   return spv::ImageFormat::Unknown;
+}
+
+StructType::FieldInfo
+LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
+                             SpirvLayoutRule rule, const uint32_t fieldIndex) {
+  auto fieldType = field->astType;
+  // Lower the field type fist. This call will populate proper matrix
+  // majorness information.
+  StructType::FieldInfo loweredField(
+      lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), fieldIndex,
+      field->name);
+
+  // Set RelaxedPrecision information for the lowered field.
+  if (isRelaxedPrecisionType(fieldType, spvOptions)) {
+    loweredField.isRelaxedPrecision = true;
+  }
+  if (field->isPrecise) {
+    loweredField.isPrecise = true;
+  }
+  loweredField.bitfield = field->bitfield;
+
+  // We only need layout information for structures with non-void layout rule.
+  if (rule == SpirvLayoutRule::Void) {
+    return loweredField;
+  }
+
+  // Each structure-type member that is a matrix or array-of-matrices must be
+  // decorated with
+  // * A MatrixStride decoration, and
+  // * one of the RowMajor or ColMajor Decorations.
+  if (const auto *arrayType = astContext.getAsConstantArrayType(fieldType)) {
+    // We have an array of matrices as a field, we need to decorate
+    // MatrixStride on the field. So skip possible arrays here.
+    fieldType = arrayType->getElementType();
+  }
+
+  // Non-floating point matrices are represented as arrays of vectors, and
+  // therefore ColMajor and RowMajor decorations should not be applied to
+  // them.
+  QualType elemType = {};
+  if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
+    uint32_t stride = 0;
+    alignmentCalc.getAlignmentAndSize(fieldType, rule,
+                                      /*isRowMajor*/ llvm::None, &stride);
+    loweredField.matrixStride = stride;
+    loweredField.isRowMajor = isRowMajorMatrix(spvOptions, fieldType);
+  }
+  return loweredField;
 }
 
 llvm::SmallVector<StructType::FieldInfo, 4>
 LowerTypeVisitor::populateLayoutInformation(
     llvm::ArrayRef<HybridStructType::FieldInfo> fields, SpirvLayoutRule rule) {
 
-  // The resulting vector of fields with proper layout information.
-  llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
-  llvm::SmallVector<StructType::FieldInfo, 4> result;
+  auto fieldVisitor = [this,
+                       &rule](const StructType::FieldInfo *previousField,
+                              const HybridStructType::FieldInfo *currentField,
+                              const uint32_t nextFieldIndex) {
+    StructType::FieldInfo loweredField =
+        lowerField(currentField, rule, nextFieldIndex);
+    setDefaultFieldSize(alignmentCalc, rule, currentField, &loweredField);
 
-  using RegisterFieldPair =
-      std::pair<uint32_t, const HybridStructType::FieldInfo *>;
-  struct RegisterFieldPairLess {
-    bool operator()(const RegisterFieldPair &obj1,
-                    const RegisterFieldPair &obj2) const {
-      return obj1.first < obj2.first;
+    // We only need size information for structures with non-void layout &
+    // non-bitfield fields.
+    if (rule == SpirvLayoutRule::Void && !currentField->bitfield.hasValue())
+      return loweredField;
+
+    // We only need layout information for structures with non-void layout rule.
+    if (rule != SpirvLayoutRule::Void) {
+      const uint32_t previousFieldEnd =
+          previousField ? previousField->offset.getValue() +
+                              previousField->sizeInBytes.getValue()
+                        : 0;
+      setDefaultFieldOffset(alignmentCalc, rule, previousFieldEnd, currentField,
+                            &loweredField);
+
+      // The vk::offset attribute takes precedence over all.
+      if (currentField->vkOffsetAttr) {
+        loweredField.offset = currentField->vkOffsetAttr->getOffset();
+        return loweredField;
+      }
+
+      // The :packoffset() annotation takes precedence over normal layout
+      // calculation.
+      if (currentField->packOffsetAttr) {
+        const uint32_t offset =
+            currentField->packOffsetAttr->Subcomponent * 16 +
+            currentField->packOffsetAttr->ComponentOffset * 4;
+        // Do minimal check to make sure the offset specified by packoffset does
+        // not cause overlap.
+        if (offset < previousFieldEnd) {
+          emitError("packoffset caused overlap with previous members",
+                    currentField->packOffsetAttr->Loc);
+        }
+
+        loweredField.offset = offset;
+        return loweredField;
+      }
+
+      // The :register(c#) annotation takes precedence over normal layout
+      // calculation.
+      if (currentField->registerC) {
+        const uint32_t offset = 16 * currentField->registerC->RegisterNumber;
+        // Do minimal check to make sure the offset specified by :register(c#)
+        // does not cause overlap.
+        if (offset < previousFieldEnd) {
+          emitError(
+              "found offset overlap when processing register(c%0) assignment",
+              currentField->registerC->Loc)
+              << currentField->registerC->RegisterNumber;
+        }
+
+        loweredField.offset = offset;
+        return loweredField;
+      }
     }
+
+    if (!currentField->bitfield.hasValue())
+      return loweredField;
+
+    // Previous field is a full type, cannot merge.
+    if (!previousField || !previousField->bitfield.hasValue())
+      return loweredField;
+
+    // Bitfields can only be merged if they have the exact base type.
+    // (SPIR-V cannot handle mixed-types bitfields).
+    if (previousField->type != loweredField.type)
+      return loweredField;
+
+    const uint32_t basetypeSize = previousField->sizeInBytes.getValue() * 8;
+    const auto &previousBitfield = previousField->bitfield.getValue();
+    const uint32_t nextAvailableBit =
+        previousBitfield.offsetInBits + previousBitfield.sizeInBits;
+    if (nextAvailableBit + currentField->bitfield->sizeInBits > basetypeSize)
+      return loweredField;
+
+    loweredField.bitfield->offsetInBits = nextAvailableBit;
+    loweredField.offset = previousField->offset;
+    loweredField.fieldIndex = previousField->fieldIndex;
+    return loweredField;
   };
-  std::set<RegisterFieldPair, RegisterFieldPairLess> registerCSet;
-  std::vector<const HybridStructType::FieldInfo *> sortedFields;
-  llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
   // First, check to see if any of the structure members had 'register(c#)'
   // location semantics. If so, members that do not have the 'register(c#)'
@@ -751,128 +1121,39 @@ LowerTypeVisitor::populateLayoutInformation(
   // float x : register(c10);   // Offset = 160 (10 * 16)
   // float y;                   // Offset = 164 (160 + 4)
   // float z: register(c1);     // Offset = 16  (1  * 16)
-  for (const auto &field : fields)
-    if (field.registerC)
-      registerCSet.insert(
-          RegisterFieldPair(field.registerC->RegisterNumber, &field));
-  for (const auto &pair : registerCSet)
-    sortedFields.push_back(pair.second);
-  for (const auto &field : fields)
-    if (!field.registerC)
-      sortedFields.push_back(&field);
+  //
+  // This step is only here to simplify the struct layout generation.
+  std::vector<const HybridStructType::FieldInfo *> sortedFields =
+      sortFields(fields);
 
-  uint32_t offset = 0;
-  for (const auto *fieldPtr : sortedFields) {
-    // The field can only be FieldDecl (for normal structs) or VarDecl (for
-    // HLSLBufferDecls).
-    const auto field = *fieldPtr;
-    auto fieldType = field.astType;
-    fieldToIndexMap[fieldPtr] = loweredFields.size();
+  // The resulting vector of fields with proper layout information.
+  // Second, build each field, and determine their actual offset in the
+  // structure (explicit layout, bitfield merging, etc).
+  llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
+  llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
-    // Lower the field type fist. This call will populate proper matrix
-    // majorness information.
-    StructType::FieldInfo loweredField(
-        lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), field.name);
+  // This stores the index of the field in the actual SPIR-V construct.
+  // When bitfields are merged, this index will be the same for merged fields.
+  uint32_t fieldIndexInConstruct = 0;
+  for (size_t i = 0, iPrevious = -1; i < sortedFields.size(); iPrevious = i++) {
+    const size_t fieldIndexForMap = loweredFields.size();
 
-    // Set RelaxedPrecision information for the lowered field.
-    if (isRelaxedPrecisionType(fieldType, spvOptions)) {
-      loweredField.isRelaxedPrecision = true;
+    loweredFields.emplace_back(fieldVisitor(
+        (iPrevious < loweredFields.size() ? &loweredFields[iPrevious]
+                                          : nullptr),
+        sortedFields[i], fieldIndexInConstruct));
+    if (!(iPrevious < loweredFields.size()) ||
+        loweredFields[iPrevious].fieldIndex !=
+            loweredFields.back().fieldIndex) {
+      fieldIndexInConstruct++;
     }
-
-    // Set 'precise' information for the lowered field.
-    if (field.isPrecise) {
-      loweredField.isPrecise = true;
-    }
-
-    // We only need layout information for strcutres with non-void layout rule.
-    if (rule == SpirvLayoutRule::Void) {
-      loweredFields.push_back(loweredField);
-      continue;
-    }
-
-    uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
-    std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
-        fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
-
-    // The next avaiable location after laying out the previous members
-    const uint32_t nextLoc = offset;
-
-    if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      alignmentCalc.alignUsingHLSLRelaxedLayout(fieldType, memberSize,
-                                                memberAlignment, &offset);
-    } else {
-      offset = roundToPow2(offset, memberAlignment);
-    }
-
-    // The vk::offset attribute takes precedence over all.
-    if (field.vkOffsetAttr) {
-      offset = field.vkOffsetAttr->getOffset();
-    }
-    // The :packoffset() annotation takes precedence over normal layout
-    // calculation.
-    else if (field.packOffsetAttr) {
-      const uint32_t packOffset = field.packOffsetAttr->Subcomponent * 16 +
-                                  field.packOffsetAttr->ComponentOffset * 4;
-      // Do minimal check to make sure the offset specified by packoffset does
-      // not cause overlap.
-      if (packOffset < nextLoc) {
-        emitError("packoffset caused overlap with previous members",
-                  field.packOffsetAttr->Loc);
-      } else {
-        offset = packOffset;
-      }
-    }
-    // The :register(c#) annotation takes precedence over normal layout
-    // calculation.
-    else if (field.registerC) {
-      offset = 16 * field.registerC->RegisterNumber;
-      // Do minimal check to make sure the offset specified by :register(c#)
-      // does not cause overlap.
-      if (offset < nextLoc) {
-        emitError(
-            "found offset overlap when processing register(c%0) assignment",
-            field.registerC->Loc)
-            << field.registerC->RegisterNumber;
-      }
-    }
-
-    // Each structure-type member must have an Offset Decoration.
-    loweredField.offset = offset;
-    loweredField.sizeInBytes = memberSize;
-    offset += memberSize;
-
-    // Each structure-type member that is a matrix or array-of-matrices must be
-    // decorated with
-    // * A MatrixStride decoration, and
-    // * one of the RowMajor or ColMajor Decorations.
-    if (const auto *arrayType = astContext.getAsConstantArrayType(fieldType)) {
-      // We have an array of matrices as a field, we need to decorate
-      // MatrixStride on the field. So skip possible arrays here.
-      fieldType = arrayType->getElementType();
-    }
-
-    // Non-floating point matrices are represented as arrays of vectors, and
-    // therefore ColMajor and RowMajor decorations should not be applied to
-    // them.
-    QualType elemType = {};
-    if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
-      memberAlignment = memberSize = stride = 0;
-      std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
-          fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
-
-      loweredField.matrixStride = stride;
-      loweredField.isRowMajor = isRowMajorMatrix(spvOptions, fieldType);
-    }
-
-    loweredFields.push_back(loweredField);
+    fieldToIndexMap[sortedFields[i]] = fieldIndexForMap;
   }
 
   // Re-order the sorted fields back to their original order.
+  llvm::SmallVector<StructType::FieldInfo, 4> result;
   for (const auto &field : fields)
     result.push_back(loweredFields[fieldToIndexMap[&field]]);
-
   return result;
 }
 

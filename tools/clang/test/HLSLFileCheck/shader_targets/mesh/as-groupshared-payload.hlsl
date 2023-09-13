@@ -1,13 +1,14 @@
 // RUN: %dxc -E amplification -T as_6_5 %s | FileCheck %s
 
-// Make sure we pass constant gep of groupshared mesh payload directly
+// Make sure we pass groupshared mesh payload directly
 // in to DispatchMesh, with no alloca involved.
 
 // CHECK: define void @amplification
 // CHECK-NOT: alloca
 // CHECK-NOT: addrspacecast
 // CHECK-NOT: bitcast
-// CHECK: call void @dx.op.dispatchMesh.struct.MeshPayload{{[^ ]*}}(i32 173, i32 1, i32 1, i32 1, %struct.MeshPayload{{[^ ]*}} addrspace(3)* getelementptr inbounds (%struct.GSStruct{{[^ ]*}}, %struct.GSStruct{{[^ ]*}} addrspace(3)* @"\01?gs@@3UGSStruct@@A{{[^ ]*}}", i32 0, i32 1))
+// CHECK: call void @dx.op.dispatchMesh.struct.MeshPayload{{[^ ]*}}(i32 173, i32 1, i32 1, i32 1, %struct.MeshPayload{{[^ ]*}} addrspace(3)*
+// CHECK-NOT: addrspacecast
 // CHECK: ret void
 
 struct MeshPayload

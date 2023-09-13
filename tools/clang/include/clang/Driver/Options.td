@@ -677,7 +677,7 @@ def fms_volatile : Joined<["-"], "fms-volatile">, Group<f_Group>, Flags<[CC1Opti
 def fmsc_version : Joined<["-"], "fmsc-version=">, Group<f_Group>, Flags<[DriverOption, CoreOption]>,
   HelpText<"Microsoft compiler version number to report in _MSC_VER (0 = don't define it (default))">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<f_Group>, Flags<[DriverOption, CoreOption, CC1Option]>,
-  HelpText<"HLSL version (2015, 2016, 2017)">; // HLSL Change - mimic the HLSLOptions.td flag
+  HelpText<"HLSL version (2015, 2016, 2017, 2018, 2021). Default is 2018">; // HLSL Change - mimic the HLSLOptions.td flag
 def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Enable 16bit types and disable min precision types.">; // HLSL Change - mimic the HLSLOptions.td flag
 def fms_compatibility_version
@@ -1011,6 +1011,8 @@ def Wframe_larger_than_EQ : Joined<["-"], "Wframe-larger-than=">, Group<f_Group>
 def : Flag<["-"], "fterminated-vtables">, Alias<fapple_kext>;
 def fthreadsafe_statics : Flag<["-"], "fthreadsafe-statics">, Group<f_Group>;
 def ftime_report : Flag<["-"], "ftime-report">, Group<f_Group>, Flags<[CC1Option]>;
+// HLSL Change - Support hierarchial time tracing.
+def ftime_trace : Flag<["-"], "ftime-trace">, Group<f_Group>, Flags<[CC1Option]>;
 def ftlsmodel_EQ : Joined<["-"], "ftls-model=">, Group<f_Group>, Flags<[CC1Option]>;
 def ftrapv : Flag<["-"], "ftrapv">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Trap on integer overflow">;

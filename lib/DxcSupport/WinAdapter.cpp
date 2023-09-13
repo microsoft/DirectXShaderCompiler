@@ -7,35 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
+#include "assert.h"
 #ifndef _WIN32
 
-#include "dxc/Support/WinAdapter.h"
-#include "dxc/Support/WinFunctions.h"
-
-//===--------------------------- IUnknown ---------------------------------===//
-
-ULONG IUnknown::AddRef() {
-  ++m_count;
-  return m_count;
-}
-ULONG IUnknown::Release() {
-  ULONG result = --m_count;
-  if (m_count == 0) {
-    delete this;
-  }
-  return result;
-}
-IUnknown::~IUnknown() {}
-
-//===--------------------------- IMalloc ----------------------------------===//
-
-void *IMalloc::Alloc(size_t size) { return malloc(size); }
-void *IMalloc::Realloc(void *ptr, size_t size) { return realloc(ptr, size); }
-void IMalloc::Free(void *ptr) { free(ptr); }
-HRESULT IMalloc::QueryInterface(REFIID riid, void **ppvObject) {
-  assert(false && "QueryInterface not implemented for IMalloc.");
-  return E_NOINTERFACE;
-}
+#include "dxc/Support/Unicode.h"
 
 //===--------------------------- CAllocator -------------------------------===//
 
@@ -99,5 +76,41 @@ const char *CPToLocale(uint32_t CodePage) {
 CHandle::CHandle(HANDLE h) { m_h = h; }
 CHandle::~CHandle() { CloseHandle(m_h); }
 CHandle::operator HANDLE() const throw() { return m_h; }
+
+// CComBSTR
+CComBSTR::CComBSTR(_In_ int nSize, LPCWSTR sz) {
+  if (nSize < 0) {
+    throw  std::invalid_argument("CComBSTR must have size >= 0");
+  }
+
+  if (nSize == 0) {
+    m_str = NULL;
+  } else {
+    m_str = SysAllocStringLen(sz, nSize);
+    if (!*this) {
+      std::runtime_error("out of memory");
+    }
+  }
+}
+
+bool CComBSTR::operator==(_In_ const CComBSTR &bstrSrc) const throw() {
+  return wcscmp(m_str, bstrSrc.m_str) == 0;
+}
+
+//===--------------------------- WArgV -------------------------------===//
+WArgV::WArgV(int argc, const char **argv)
+    : WStringVector(argc), WCharPtrVector(argc) {
+  for (int i = 0; i < argc; ++i) {
+    std::string S(argv[i]);
+    const int wideLength = ::MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(), nullptr, 0);
+    assert(wideLength > 0 &&
+           "else it should have failed during size calculation");
+    WStringVector[i].resize(wideLength);
+    ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, S.data(), S.size(),
+                          &(WStringVector[i])[0], WStringVector[i].size());
+    WCharPtrVector[i] = WStringVector[i].data();
+  }
+}
 
 #endif

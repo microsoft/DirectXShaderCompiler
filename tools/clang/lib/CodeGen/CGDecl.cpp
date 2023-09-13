@@ -142,10 +142,11 @@ void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
   }
   // HLSL Change Begin - treat local constant as static.
   // Global variable will be generated instead of alloca.
-  if (D.getType().isConstQualified() && D.isLocalVarDecl()) {
-    llvm::Constant *Init = CGM.EmitConstantInit(D, this);
+  if (D.getType().isConstQualified() &&
+      (D.isLocalVarDecl() && D.getKind() != Decl::ParmVar &&
+       !D.isNRVOVariable())) {
     // Only create global when has constant init.
-    if (Init) {
+    if (!isTrivialInitializer(D.getInit()) && CGM.EmitConstantInit(D, this)) {
       llvm::GlobalValue::LinkageTypes Linkage =
           CGM.getLLVMLinkageVarDefinition(&D, /*isConstant=*/false);
       return EmitStaticVarDecl(D, Linkage);
@@ -890,6 +891,7 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
   llvm::CallInst *C =
       Builder.CreateCall(CGM.getLLVMLifetimeStartFn(), {SizeV, Addr});
   C->setDoesNotThrow();
+  if (CGM.getCodeGenOpts().HLSLOptimizationToggles.IsEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS)) return nullptr; // HLSL Change - Returning nullptr prevents generating lifetime.end
   return SizeV;
 }
 

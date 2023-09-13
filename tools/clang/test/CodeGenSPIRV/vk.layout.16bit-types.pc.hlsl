@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types
 
 // CHECK: OpCapability StoragePushConstant16
 

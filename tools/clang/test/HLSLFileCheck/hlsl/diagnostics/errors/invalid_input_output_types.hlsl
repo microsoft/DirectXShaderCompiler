@@ -3,8 +3,8 @@
 
 // CHK_DB: 9:1: error: i64(type for I) cannot be used as shader inputs or outputs.
 // CHK_DB: 9:1: error: double(type for SV_Target) cannot be used as shader inputs or outputs.
-// CHK_NODB: cannot be used as shader inputs or outputs. Use /Zi for source location.
-// CHK_NODB: cannot be used as shader inputs or outputs. Use /Zi for source location.
+// CHK_NODB: 9:1: error: i64(type for I) cannot be used as shader inputs or outputs.
+// CHK_NODB: 9:1: error: double(type for SV_Target) cannot be used as shader inputs or outputs.
 
 double main(uint64_t i:I) : SV_Target {
     return 1;

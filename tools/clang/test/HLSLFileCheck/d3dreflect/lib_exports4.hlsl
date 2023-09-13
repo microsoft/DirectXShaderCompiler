@@ -22,11 +22,11 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 4
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?PSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?PSMain{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T1
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 1
 // CHECK:         BindCount: 1
@@ -37,11 +37,11 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         NumSamples (or stride): 4294967295
 // CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?VSMain@@YA?AV?$vector@M$03@@H@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?VSMain{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T0
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
@@ -51,7 +51,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:         NumSamples (or stride): 4294967295
 // CHECK:         uFlags: 0
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T2
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T2
 // CHECK:         Type: D3D_SIT_STRUCTURED
 // CHECK:         uID: 2
 // CHECK:         BindCount: 1
@@ -66,7 +66,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Shader Version: Vertex 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T1
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 1
 // CHECK:         BindCount: 1
@@ -81,7 +81,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Shader Version: Pixel 6.3
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T0
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
@@ -91,7 +91,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:         NumSamples (or stride): 4294967295
 // CHECK:         uFlags: 0
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T2
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T2
 // CHECK:         Type: D3D_SIT_STRUCTURED
 // CHECK:         uID: 2
 // CHECK:         BindCount: 1

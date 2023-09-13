@@ -189,11 +189,11 @@ Retry:
     // punctuator, then we are using them as identifers. Need to change
     // the token type to tok::identifier and fall through to the next case.
     // E.g., center = <RHS>.
-    if (tok::isPunctuator(NextToken().getKind())) {
-      Tok.setKind(tok::identifier);
-      __fallthrough;
-    } else {
+    if (!tok::isPunctuator(NextToken().getKind())) {
       goto tok_default_case;
+    } else {
+      Tok.setKind(tok::identifier);
+      LLVM_FALLTHROUGH;
     }
   }
     // HLSL Change Ends
@@ -235,9 +235,9 @@ Retry:
 
     // Fall through
   }
-
-  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
+  LLVM_FALLTHROUGH; // HLSL Change
   default: {
+  tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL
     if ((getLangOpts().CPlusPlus || !OnlyStatement) && isDeclarationStatement()) {
       SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
       DeclGroupPtrTy Decl = ParseDeclaration(Declarator::BlockContext,
@@ -1582,7 +1582,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   // HLSL Change Starts - leak declarations in for control parts into outer scope
-  if (getLangOpts().HLSL) {
+  if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     ScopeFlags = Scope::ForDeclScope;
   }
   // HLSL Change Ends
