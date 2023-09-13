@@ -7470,7 +7470,7 @@ def err_hlsl_attribute_expects_string_literal: Error<
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
 def err_hlsl_conflicting_shader_attribute: Error<
-  "invalid shader stage attribute combination">;
+  "shader attribute type '%0' conflicts with previous shader attribute type '%1'">;
 def note_hlsl_shader_attribute_here: Note<
   "shader attribute is here">;
 def err_hlsl_profile_conflicts_with_shader_attribute : Error<

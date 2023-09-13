@@ -1,19 +1,19 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
-[shader("compute")]/* expected-note {{conflicting attribute is here}} */ /* expected-error {{invalid shader stage attribute combination}} */
+[shader("compute")]/* expected-note {{conflicting attribute is here}} */ /* expected-error {{shader attribute type 'compute' conflicts with previous shader attribute type 'vertex'}} */
 [shader("vertex")]  /* expected-note {{conflicting attribute is here}} */ 
 [ numthreads( 64, 2, 2 ) ] 
 
 void CVMain() {
 }
 
-[shader("vertex")] /* expected-error {{invalid shader stage attribute combination}} */ /* expected-note {{conflicting attribute is here}} */ 
+[shader("vertex")] /* expected-error {{shader attribute type 'vertex' conflicts with previous shader attribute type 'pixel'}} */ /* expected-note {{conflicting attribute is here}} */ 
 [shader("pixel")] /* expected-note {{conflicting attribute is here}} */ 
 [ numthreads( 64, 2, 2 ) ] 
 void VGMain() {
 }
 
-[shader("vertex")] /* expected-note {{conflicting attribute is here}} */ /* expected-error {{invalid shader stage attribute combination}} */
+[shader("vertex")] /* expected-note {{conflicting attribute is here}} */ /* expected-error {{shader attribute type 'vertex' conflicts with previous shader attribute type 'node'}} */
 [shader("node")] /* expected-note {{conflicting attribute is here}} */ 
 [NodeDispatchGrid(2,1,1)]
 [ numthreads( 64, 2, 2 ) ] 
@@ -21,28 +21,28 @@ void VNMain() {
 }
 
 [shader("compute")] 
-[shader("vertex")]  /* expected-error {{invalid shader stage attribute combination}} */ /* expected-note {{conflicting attribute is here}} */
+[shader("vertex")]  /* expected-error {{shader attribute type 'vertex' conflicts with previous shader attribute type 'node'}} */ /* expected-note {{conflicting attribute is here}} */
 [shader("node")] /* expected-note {{conflicting attribute is here}} */ 
 [NodeDispatchGrid(2,1,1)]
 [ numthreads( 64, 2, 2 ) ] 
 void CVNMain() {
 }
 
-[shader("mesh")] /* expected-note {{conflicting attribute is here}} */ /* expected-error {{invalid shader stage attribute combination}} */
+[shader("mesh")] /* expected-note {{conflicting attribute is here}} */ /* expected-error {{shader attribute type 'mesh' conflicts with previous shader attribute type 'pixel'}} */
 [shader("pixel")]  /* expected-note {{conflicting attribute is here}} */
 [ numthreads( 64, 2, 2 ) ]
 void MPMain() {
 }
 
 [shader("compute")] 
-[shader("vertex")]  /* expected-error {{invalid shader stage attribute combination}} */  /* expected-note {{conflicting attribute is here}} */
+[shader("vertex")]  /* expected-error {{shader attribute type 'vertex' conflicts with previous shader attribute type 'compute'}} */  /* expected-note {{conflicting attribute is here}} */
 [shader("compute")]  /* expected-note {{conflicting attribute is here}} */
 [ numthreads( 64, 2, 2 ) ]
 void CVCMain() {
 }
 
-[shader("node")]   /* expected-note {{conflicting attribute is here}} */ /* expected-error {{invalid shader stage attribute combination}} */
-[shader("vertex")] /* expected-error {{invalid shader stage attribute combination}} */ /* expected-note {{conflicting attribute is here}} */
+[shader("node")]   /* expected-note {{conflicting attribute is here}} */ /* expected-error {{shader attribute type 'node' conflicts with previous shader attribute type 'pixel'}} */
+[shader("vertex")] /* expected-error {{shader attribute type 'vertex' conflicts with previous shader attribute type 'pixel'}} */ /* expected-note {{conflicting attribute is here}} */
 [shader("pixel")]  /* expected-note {{conflicting attribute is here}} */  /* expected-note {{conflicting attribute is here}} */ 
 void NVPMain() {
 }
