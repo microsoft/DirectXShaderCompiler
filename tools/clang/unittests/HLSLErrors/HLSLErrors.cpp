@@ -4,6 +4,7 @@
 #include "dxc/dxcapi.h"     // Be sure to link with dxcompiler.lib.
 #include <d3d12shader.h>    // Shader reflection.
 // clang-format on
+#include <array>            // for std::size.
 
 // Code from
 // https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll
@@ -184,7 +185,7 @@ int main() {
       pHash != nullptr) {
     wprintf(L"Hash: ");
     DxcShaderHash *pHashBuf = (DxcShaderHash *)pHash->GetBufferPointer();
-    for (int i = 0; i < _countof(pHashBuf->HashDigest); i++)
+    for (unsigned i = 0; i < std::size(pHashBuf->HashDigest); i++)
       wprintf(L"%x", pHashBuf->HashDigest[i]);
     wprintf(L"\n");
   }
