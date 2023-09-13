@@ -47,6 +47,9 @@
 
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
 #include "dxc/DXIL/DxilUtil.h" // HLSL Change - special handling of convergent marker
+#include "dxc/DXIL/DxilInstructions.h" // HLSL Change - DxilInst_OutputComplete usage
+#include "dxc/DXIL/DxilOperations.h" // HLSL Change - Get HLSL Opcodes
+
 using namespace llvm;
 
 #define DEBUG_TYPE "local"
@@ -332,9 +335,11 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
     if (Constant *C = dyn_cast<Constant>(CI->getArgOperand(0)))
       return C->isNullValue() || isa<UndefValue>(C);
 
-  // HLSL change - don't force unused convergenet markers to stay
-  if (CallInst *CI = dyn_cast<CallInst>(I))
-    if (hlsl::dxilutil::IsConvergentMarker(CI)) return true;
+  // HLSL Change - Verify that function has no side effects
+  if (hlsl::dxilutil::FunctionHasNoSideEffects(I)) 
+    return true;
+  
+  // HLSL Change End
 
   return false;
 }
