@@ -52,7 +52,7 @@ class IncPathIncludeHandler : public IDxcIncludeHandler {
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   virtual ~IncPathIncludeHandler() {}
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override {
     return DoBasicQueryInterface<::IDxcIncludeHandler>(this, riid, ppvObject);
   }
   IncPathIncludeHandler(IDxcIncludeHandler *handler,

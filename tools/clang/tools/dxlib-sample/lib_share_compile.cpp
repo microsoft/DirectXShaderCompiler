@@ -235,7 +235,7 @@ HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
     *ppErrorMsgs = nullptr;
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
+  IFR(library->CreateBlobWithEncodingFromPinned(pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
   HRESULT hr = S_OK;
   CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());
@@ -337,7 +337,7 @@ HRESULT WINAPI DxilD3DCompile2(
   *ppOperationResult = nullptr;
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
+  IFR(library->CreateBlobWithEncodingFromPinned(pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
   HRESULT hr = S_OK;
   CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());

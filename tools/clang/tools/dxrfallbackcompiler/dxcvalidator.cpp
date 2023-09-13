@@ -63,7 +63,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcValidator)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid,
                                                                  ppvObject);
   }
@@ -79,17 +79,16 @@ public:
   );
 
   // IDxcValidator
-  __override HRESULT STDMETHODCALLTYPE Validate(
+  HRESULT STDMETHODCALLTYPE Validate(
       IDxcBlob *pShader, // Shader to validate.
       UINT32 Flags,      // Validation flags.
       IDxcOperationResult *
           *ppResult // Validation output status, buffer, and errors
-  );
+      ) override;
 
   // IDxcVersionInfo
-  __override HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor,
-                                                  UINT32 *pMinor);
-  __override HRESULT STDMETHODCALLTYPE GetFlags(UINT32 *pFlags);
+  HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor, UINT32 *pMinor) override;
+  HRESULT STDMETHODCALLTYPE GetFlags(UINT32 *pFlags) override;
 };
 
 // Compile a single entry point to the target shader model

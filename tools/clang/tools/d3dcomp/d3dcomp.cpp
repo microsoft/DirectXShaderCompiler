@@ -156,7 +156,7 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
     *ppErrorMsgs = nullptr;
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
+  IFR(library->CreateBlobWithEncodingFromPinned(pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
 
   // Until we actually wrap the include handler, fail if there's a user-supplied
@@ -240,7 +240,7 @@ HRESULT WINAPI BridgeD3DDisassemble(LPCVOID pSrcData, SIZE_T SrcDataSize,
   UNREFERENCED_PARAMETER(Flags);
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
+  IFR(library->CreateBlobWithEncodingFromPinned(pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
   IFR(CreateCompiler(&compiler));
   IFR(compiler->Disassemble(source, &disassemblyText));
@@ -259,7 +259,7 @@ HRESULT WINAPI BridgeD3DReflect(LPCVOID pSrcData, SIZE_T SrcDataSize,
   *ppReflector = nullptr;
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingOnHeapCopy((LPBYTE)pSrcData, SrcDataSize,
+  IFR(library->CreateBlobWithEncodingOnHeapCopy(pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
   IFR(CreateContainerReflection(&reflection));
   IFR(reflection->Load(source));
@@ -353,7 +353,7 @@ HRESULT WINAPI BridgeD3DPreprocess(LPCVOID pSrcData, SIZE_T SrcDataSize,
     *ppErrorMsgs = nullptr;
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
+  IFR(library->CreateBlobWithEncodingFromPinned(pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
 
   // Until we actually wrap the include handler, fail if there's a user-supplied
