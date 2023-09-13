@@ -3014,15 +3014,24 @@ SpirvEmitter::processByteAddressBufferStructuredBufferGetDimensions(
 SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
     hlsl::IntrinsicOp opcode, const CXXMemberCallExpr *expr) {
   // The signature of RWByteAddressBuffer atomic methods are largely:
-  // void Interlocked*(in UINT dest, in UINT value);
-  // void Interlocked*(in UINT dest, in UINT value, out UINT original_value);
+  // void Interlocked*(in UINT dest, in T value);
+  // void Interlocked*(in UINT dest, in T value, out T original_value);
 
   const auto *object = expr->getImplicitObjectArgument();
   auto *objectInfo = loadIfAliasVarRef(object);
 
   auto *zero =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *offset = doExpr(expr->getArg(0));
+  const auto *dest = expr->getArg(0);
+  const auto baseType = dest->getType()->getCanonicalTypeUnqualified();
+  
+  if (!baseType->isIntegerType()) {
+    emitError("can only perform atomic operations on scalar integer values",
+              dest->getLocStart());
+    return nullptr;
+  }
+
+  auto *offset = doExpr(dest);
 
   // Right shift by 2 to convert the byte offset to uint32_t offset
   auto *address = spvBuilder.createBinaryOp(
@@ -3049,13 +3058,23 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
                              expr->getArg(3)->getLocStart());
   } else {
     auto *value = doExpr(expr->getArg(1));
+
+    spv::Op atomicOp = translateAtomicHlslOpcodeToSpirvOpcode(opcode);
+    if (atomicOp == spv::Op::OpAtomicUMax && baseType->isSignedIntegerType())
+      atomicOp = spv::Op::OpAtomicSMax;
+    if (atomicOp == spv::Op::OpAtomicSMax && baseType->isUnsignedIntegerType())
+      atomicOp = spv::Op::OpAtomicUMax;
+    if (atomicOp == spv::Op::OpAtomicUMin && baseType->isSignedIntegerType())
+      atomicOp = spv::Op::OpAtomicSMin;
+    if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
+      atomicOp = spv::Op::OpAtomicUMin;
+
     SpirvInstruction *originalVal = spvBuilder.createAtomicOp(
-        translateAtomicHlslOpcodeToSpirvOpcode(opcode),
-        astContext.UnsignedIntTy, ptr, spv::Scope::Device,
+        atomicOp, baseType, ptr, spv::Scope::Device,
         spv::MemorySemanticsMask::MaskNone, value,
         expr->getCallee()->getExprLoc());
     if (expr->getNumArgs() > 2) {
-      originalVal = castToType(originalVal, astContext.UnsignedIntTy,
+      originalVal = castToType(originalVal, baseType,
                                expr->getArg(2)->getType(),
                                expr->getArg(2)->getLocStart());
       spvBuilder.createStore(doExpr(expr->getArg(2)), originalVal,
