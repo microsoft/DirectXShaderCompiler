@@ -1,7 +1,7 @@
 // RUN: %dxc -T cs_6_0 -E mymain %s | FileCheck %s
 
-// CHECK: error: invalid shader stage attribute combination
-// CHECK: note: implicit attribute from target profile is: compute
+// CHECK: error: entry type 'compute' from profile 'cs_6_0' conflicts with shader attribute type 'pixel' on entry function 'mymain'.
+
 
 [shader("pixel")]
 [numthreads(1, 0, 0)]

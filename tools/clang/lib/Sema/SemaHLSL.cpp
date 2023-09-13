@@ -12836,7 +12836,7 @@ HLSLShaderAttr* ValidateShaderAttributes(Sema &S, Decl *D,
          Stage != DXIL::ShaderKind::Node) ||
         (NewStage != DXIL::ShaderKind::Compute &&
          NewStage != DXIL::ShaderKind::Node)) {
-      S.Diag(A.getLoc(), diag::err_hlsl_attribute_mismatch);
+      S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute);
       S.Diag(A.getLoc(), diag::note_conflicting_attribute);
       S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
       return nullptr;
@@ -15389,16 +15389,14 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
   // entry decl already has a node shader attr, don't do anything
   if (currentShaderAttr) {
     llvm::StringRef currentFullName = currentShaderAttr->getStage();
-    if (currentFullName == fullName ||
-       (fullName == "compute" && currentFullName == "node")) {
-      return;
-    } else {
+    if (currentFullName != fullName) {     
       S.Diag(currentShaderAttr->getLocation(),
-             diag::err_hlsl_attribute_mismatch);
-      S.Diag(currentShaderAttr->getLocation(),
-             diag::note_hlsl_attribute_mismatch)
-          << fullName;
+             diag::err_hlsl_profile_conflicts_with_shader_attribute)
+          << fullName << profile << currentFullName << EntryPointName;      
     }
+    // Don't add another attr if one exists, to prevent
+    // more unrelated errors down the line.
+    return;
   }
 
   HLSLShaderAttr *pShaderAttr =
