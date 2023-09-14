@@ -13,6 +13,8 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 
+#include <cstddef>
+
 #define RDAT_NULL_REF ((uint32_t)0xFFFFFFFF)
 
 namespace hlsl {
