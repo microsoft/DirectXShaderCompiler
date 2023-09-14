@@ -2449,22 +2449,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
-  // If InputNodes is empty, add an implicit input.
-  // - If MaxDispatchGrid is specified, we need a default record type with a
-  // single uint3 field for SV_DispatchGrid.
-  // - Otherwise, we use EmptyNodeInput
-  if (funcProps->InputNodes.size() == 0) {
-    if (funcProps->Node.MaxDispatchGrid[0] > 0) {
-      hlsl::NodeIOProperties defaultInput(DXIL::NodeIOKind::DispatchNodeInputRecord);
-      defaultInput.RecordType.size = 12;
-      defaultInput.RecordType.SV_DispatchGrid.ByteOffset = 0;
-      defaultInput.RecordType.SV_DispatchGrid.ComponentType = DXIL::ComponentType::U32;
-      defaultInput.RecordType.SV_DispatchGrid.NumComponents = 3;
-      funcProps->InputNodes.push_back(defaultInput);
-    } else {
-      hlsl::NodeIOProperties emptyInput(DXIL::NodeIOKind::EmptyInput);
-      funcProps->InputNodes.push_back(emptyInput);
-    }
+  // If InputNodes is empty, add an EmptyNodeInput
+  if (funcProps->InputNodes.size() == 0) {    
+    hlsl::NodeIOProperties emptyInput(DXIL::NodeIOKind::EmptyInput);
+    funcProps->InputNodes.push_back(emptyInput);
   }
 
   // All output decls and param names are available and errors can be generated
