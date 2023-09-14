@@ -14,6 +14,7 @@
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <algorithm>
 
@@ -422,6 +423,47 @@ DXIL::ShaderKind ShaderModel::KindFromFullName(llvm::StringRef Name) {
       .Case("amplification", DXIL::ShaderKind::Amplification)
       .Case("node", DXIL::ShaderKind::Node)
       .Default(DXIL::ShaderKind::Invalid);
+}
+
+const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
+  switch (sk) {
+  case DXIL::ShaderKind::Pixel:
+    return "pixel";
+  case DXIL::ShaderKind::Vertex:
+    return "vertex";
+  case DXIL::ShaderKind::Geometry:
+    return "geometry";
+  case DXIL::ShaderKind::Hull:
+    return "hull";
+  case DXIL::ShaderKind::Domain:
+    return "domain";
+  case DXIL::ShaderKind::Compute:
+    return "compute";
+  // Library has no full name for use with shader attribute.
+  case DXIL::ShaderKind::Library:
+  case DXIL::ShaderKind::Invalid:
+    return llvm::StringRef();
+  case DXIL::ShaderKind::RayGeneration:
+    return "raygeneration";
+  case DXIL::ShaderKind::Intersection:
+    return "intersection";
+  case DXIL::ShaderKind::AnyHit:
+    return "anyhit";
+  case DXIL::ShaderKind::ClosestHit:
+    return "closesthit";
+  case DXIL::ShaderKind::Miss:
+    return "miss";
+  case DXIL::ShaderKind::Callable:
+    return "callable";
+  case DXIL::ShaderKind::Mesh:
+    return "mesh";
+  case DXIL::ShaderKind::Amplification:
+    return "amplification";
+  case DXIL::ShaderKind::Node:
+    return "node";
+  default:
+    llvm_unreachable("unknown ShaderKind");
+  }
 }
 
 typedef ShaderModel SM;

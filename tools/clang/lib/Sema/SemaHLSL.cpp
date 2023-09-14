@@ -12853,8 +12853,8 @@ HLSLShaderAttr* ValidateShaderAttributes(Sema &S, Decl *D,
          Stage != DXIL::ShaderKind::Node) ||
         (NewStage != DXIL::ShaderKind::Compute &&
          NewStage != DXIL::ShaderKind::Node)) {
-      S.Diag(A.getLoc(), diag::err_hlsl_attribute_mismatch);
-      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
+      S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute)
+          << ShaderModel::FullNameFromKind(Stage) << ShaderModel::FullNameFromKind(NewStage);
       S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
       return nullptr;
     }
@@ -15375,10 +15375,61 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   return;
 }
 
-void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
-  auto Attr = FD->getAttr<HLSLShaderAttr>();
-  if (!Attr)
+// if this is the Entry FD, then try adding the target profile
+// shader attribute to the FD and carry on with validation
+void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
+  const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;  
+  
+  // if there's no defined entry point, just return
+  if (EntryPointName.empty()) {
     return;
+  }
+
+  // if this FD isn't the entry point, then we shouldn't add
+  // a shader attribute to this decl, so just return
+  if (EntryPointName != FD->getIdentifier()->getName()) {
+    return;
+  }
+
+  std::string profile = S.getLangOpts().HLSLProfile;
+  const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+  const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
+
+  // don't add the attribute for an invalid profile, like library
+  if (fullName.empty()) {
+    return;
+  }
+
+  HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
+  // Don't add the attribute if it already exists as an attribute on the decl.
+  // In the special case that the target profile is compute and the
+  // entry decl already has a node shader attr, don't do anything
+  if (currentShaderAttr) {
+    llvm::StringRef currentFullName = currentShaderAttr->getStage();
+    if (currentFullName != fullName) {     
+      S.Diag(currentShaderAttr->getLocation(),
+             diag::err_hlsl_profile_conflicts_with_shader_attribute)
+          << fullName << profile << currentFullName << EntryPointName;      
+    }
+    // Don't add another attr if one exists, to prevent
+    // more unrelated errors down the line.
+    return;
+  }
+
+  HLSLShaderAttr *pShaderAttr =
+      HLSLShaderAttr::CreateImplicit(S.Context, fullName);
+  
+  FD->addAttr(pShaderAttr);
+  return;
+}
+
+void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
+  TryAddShaderAttrFromTargetProfile(S, FD);
+
+  auto Attr = FD->getAttr<HLSLShaderAttr>();
+  if (!Attr) {         
+    return;     
+  }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
   switch (Stage) {

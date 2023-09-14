@@ -7469,8 +7469,12 @@ def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
-def err_hlsl_attribute_mismatch: Error<
-  "invalid shader stage attribute combination">;
+def err_hlsl_conflicting_shader_attribute: Error<
+  "shader attribute type '%0' conflicts with shader attribute type '%1'">;
+def note_hlsl_shader_attribute_here: Note<
+  "shader attribute is here">;
+def err_hlsl_profile_conflicts_with_shader_attribute : Error<
+  "entry type '%0' from profile '%1' conflicts with shader attribute type '%2' on entry function '%3'.">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_bitfields: Error<
