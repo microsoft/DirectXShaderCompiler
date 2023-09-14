@@ -710,6 +710,7 @@ float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
 $classT [[ro]] Load(in int<3> x, in int s) : texture2darray_ms;
 $classT [[ro]] Load(in int<3> x, in int s, in int<2> o) : texture2darray_ms_o;
 $classT [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : texture2darray_ms_o_s;
+
 } namespace
 
 namespace Texture3DMethods {
