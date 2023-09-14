@@ -7833,7 +7833,7 @@ def err_hlsl_maxrecursiondepth_exceeded : Error<
 def err_hlsl_too_many_node_inputs : Error<
    "Node shader '%0' may not have more than one input record">;
 def err_hlsl_node_record_type : Error<
-   "%0 is not valid as a node record type">;
+   "%0 is not valid as a node record type - struct/class required">;
 def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
 def err_hlsl_node_record_template : Error<

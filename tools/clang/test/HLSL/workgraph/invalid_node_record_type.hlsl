@@ -33,41 +33,41 @@ typedef BAD_RECORD2 MyBadRecord;
 [NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeMaxDispatchGrid(8,1,1)]
-void node01(DispatchNodeInputRecord<int> input) // expected-error {{'int' is not valid as a node record type}}
+void node01(DispatchNodeInputRecord<int> input) // expected-error {{'int' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
 [NumThreads(8,1,1)]
-void node02(GroupNodeInputRecords<float4> input) // expected-error {{'float4' is not valid as a node record type}}
+void node02(GroupNodeInputRecords<float4> input) // expected-error {{'float4' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("thread")]
-void node03(ThreadNodeInputRecord<int2x2> input) // expected-error {{'int2x2' is not valid as a node record type}}
+void node03(ThreadNodeInputRecord<int2x2> input) // expected-error {{'int2x2' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeMaxDispatchGrid(8,1,1)]
-void node04(RWDispatchNodeInputRecord<int[8]> input) // expected-error {{'int [8]' is not valid as a node record type}}
+void node04(RWDispatchNodeInputRecord<int[8]> input) // expected-error {{'int [8]' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
 [NumThreads(2,1,1)]
-void node05(RWGroupNodeInputRecords<SamplerState> input) // expected-error {{'SamplerState' is not valid as a node record type}}
+void node05(RWGroupNodeInputRecords<SamplerState> input) // expected-error {{'SamplerState' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("thread")]
-void node06(RWThreadNodeInputRecord<matrix<float,4,4> > input) // expected-error {{'matrix<float, 4, 4>' is not valid as a node record type}}
+void node06(RWThreadNodeInputRecord<matrix<float,4,4> > input) // expected-error {{'matrix<float, 4, 4>' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("thread")]
-void node07(RWThreadNodeInputRecord<f2x2> input) // expected-error {{'f2x2' (aka 'matrix<float, 2, 2>') is not valid as a node record type}}
+void node07(RWThreadNodeInputRecord<f2x2> input) // expected-error {{'f2x2' (aka 'matrix<float, 2, 2>') is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
@@ -77,7 +77,7 @@ void node08(ThreadNodeInputRecord<BAD_RECORD> input) // expected-error {{object 
 
 [Shader("node")]
 [NodeLaunch("thread")]
-void node09(ThreadNodeInputRecord<BAD_RECORD[4]> input) // expected-error {{'BAD_RECORD [4]' is not valid as a node record type}}
+void node09(ThreadNodeInputRecord<BAD_RECORD[4]> input) // expected-error {{'BAD_RECORD [4]' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
@@ -97,19 +97,19 @@ void node12(NodeOutputArray<MyBadRecord> output) // expected-error {{object 'Sam
 
 [Shader("node")]
 [NodeLaunch("thread")]
-void node13(NodeOutputArray<DispatchNodeInputRecord<RECORD> > output) // expected-error {{'DispatchNodeInputRecord<RECORD>' is not valid as a node record type}}
+void node13(NodeOutputArray<DispatchNodeInputRecord<RECORD> > output) // expected-error {{'DispatchNodeInputRecord<RECORD>' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("thread")]
-void node14(ThreadNodeInputRecord<matrix<float,4,4> > input) // expected-error {{'matrix<float, 4, 4>' is not valid as a node record type}}
+void node14(ThreadNodeInputRecord<matrix<float,4,4> > input) // expected-error {{'matrix<float, 4, 4>' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeMaxDispatchGrid(8,1,1)]
-void node15(NodeOutputArray<RaytracingAccelerationStructure> output) // expected-error {{'RaytracingAccelerationStructure' is not valid as a node record type}}
+void node15(NodeOutputArray<RaytracingAccelerationStructure> output) // expected-error {{'RaytracingAccelerationStructure' is not valid as a node record type - struct/class required}}
 { }
 
 [Shader("node")]
@@ -118,13 +118,13 @@ void node15(NodeOutputArray<RaytracingAccelerationStructure> output) // expected
 [NodeMaxDispatchGrid(8,1,1)]
 void node16()
 {
-  GroupNodeOutputRecords<int> outrec1; // expected-error {{'int' is not valid as a node record type}}
+  GroupNodeOutputRecords<int> outrec1; // expected-error {{'int' is not valid as a node record type - struct/class required}}
 
-  ThreadNodeOutputRecords<f2x2> outrec2; // expected-error {{'f2x2' (aka 'matrix<float, 2, 2>') is not valid as a node record type}}
+  ThreadNodeOutputRecords<f2x2> outrec2; // expected-error {{'f2x2' (aka 'matrix<float, 2, 2>') is not valid as a node record type - struct/class required}}
 
   GroupNodeOutputRecords<MyBadRecord> outrec3; // expected-error {{object 'SamplerState' may not appear in a node record}}
 
-  ThreadNodeOutputRecords<SamplerState> outrec4; // expected-error {{'SamplerState' is not valid as a node record type}}
+  ThreadNodeOutputRecords<SamplerState> outrec4; // expected-error {{'SamplerState' is not valid as a node record type - struct/class required}}
 }
 
 
