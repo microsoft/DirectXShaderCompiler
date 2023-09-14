@@ -688,7 +688,7 @@ public:
   template <class Ty>
   const wchar_t* BasicShaderModelTest_GetFormatString();
 
-  CComPtr<ID3D12Device> WaveMatrixTestCommon(
+  CComPtr<ID3D12Device> WaveMatrixTestCommonSetup(
       std::vector<int> &dimMs, std::vector<int> &dimNs,
       std::shared_ptr<st::ShaderOpSet> &shaderOpSet) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -8165,7 +8165,7 @@ void PlaceholderSumAccumulateRightRowAcc(int DIM_N, int k, TYPE_ACC *rightRow,
 }
 
 template <typename T>
-void PlaceholderScalarMultiplyAccumulator(int DIM_M, int DIM_N, T scalar,
+void Matrix_MultiplyByScalar(int DIM_M, int DIM_N, T scalar,
                                           T *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
     for (int j = 0; j < DIM_N; ++j) {
@@ -8176,7 +8176,7 @@ void PlaceholderScalarMultiplyAccumulator(int DIM_M, int DIM_N, T scalar,
 }
 
 template<>
-void PlaceholderScalarMultiplyAccumulator<DirectX::PackedVector::HALF>(
+void Matrix_MultiplyByScalar<DirectX::PackedVector::HALF>(
     int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
@@ -8190,7 +8190,7 @@ void PlaceholderScalarMultiplyAccumulator<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void PlaceholderScalarDivideAccumulator(int DIM_M, int DIM_N, T scalar,
+void Matrix_DivideByScalar(int DIM_M, int DIM_N, T scalar,
                                         T *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
     for (int j = 0; j < DIM_N; ++j) {
@@ -8201,7 +8201,7 @@ void PlaceholderScalarDivideAccumulator(int DIM_M, int DIM_N, T scalar,
 }
 
 template<>
-void PlaceholderScalarDivideAccumulator<DirectX::PackedVector::HALF>(
+void Matrix_DivideByScalar<DirectX::PackedVector::HALF>(
     int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
@@ -8215,7 +8215,7 @@ void PlaceholderScalarDivideAccumulator<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void PlaceholderScalarAddAccumulator(int DIM_M, int DIM_N, T scalar,
+void Matrix_AddScalar(int DIM_M, int DIM_N, T scalar,
                                      T *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
     for (int j = 0; j < DIM_N; ++j) {
@@ -8226,7 +8226,7 @@ void PlaceholderScalarAddAccumulator(int DIM_M, int DIM_N, T scalar,
 }
 
 template<>
-void PlaceholderScalarAddAccumulator<DirectX::PackedVector::HALF>(
+void Matrix_AddScalar<DirectX::PackedVector::HALF>(
     int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
@@ -8240,7 +8240,7 @@ void PlaceholderScalarAddAccumulator<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void PlaceholderScalarSubtractAccumulator(int DIM_M, int DIM_N, T scalar,
+void Matrix_SubtractScalar(int DIM_M, int DIM_N, T scalar,
                                           T *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
     for (int j = 0; j < DIM_N; ++j) {
@@ -8251,7 +8251,7 @@ void PlaceholderScalarSubtractAccumulator(int DIM_M, int DIM_N, T scalar,
 }
 
 template<>
-void PlaceholderScalarSubtractAccumulator<DirectX::PackedVector::HALF>(
+void Matrix_SubtractScalar<DirectX::PackedVector::HALF>(
     int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *resultMatrix) {
   for (int i = 0; i < DIM_M; ++i) {
@@ -8265,14 +8265,14 @@ void PlaceholderScalarSubtractAccumulator<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void PlaceholderScalarMultiplyRowCol(int DIM, T scalar, T *rowCol) {
+void MatrixRowCol_MultiplyByScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] *= scalar;
   }
 }
 
 template <>
-void PlaceholderScalarMultiplyRowCol<DirectX::PackedVector::HALF>(
+void MatrixRowCol_MultiplyByScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -8282,14 +8282,14 @@ void PlaceholderScalarMultiplyRowCol<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void PlaceholderScalarDivideRowCol(int DIM, T scalar, T *rowCol) {
+void MatrixRowCol_DivideByScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] /= scalar;
   }
 }
 
 template <>
-void PlaceholderScalarDivideRowCol<DirectX::PackedVector::HALF>(
+void MatrixRowCol_DivideByScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -8299,14 +8299,14 @@ void PlaceholderScalarDivideRowCol<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void PlaceholderScalarAddRowCol(int DIM, T scalar, T *rowCol) {
+void MatrixRowCol_AddScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] += scalar;
   }
 }
 
 template <>
-void PlaceholderScalarAddRowCol<DirectX::PackedVector::HALF>(
+void MatrixRowCol_AddScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -8316,14 +8316,14 @@ void PlaceholderScalarAddRowCol<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void PlaceholderScalarSubtractRowCol(int DIM, T scalar, T *rowCol) {
+void MatrixRowCol_SubtractScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] -= scalar;
   }
 }
 
 template <>
-void PlaceholderScalarSubtractRowCol<DirectX::PackedVector::HALF>(
+void MatrixRowCol_SubtractScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -8378,6 +8378,8 @@ void ConvertRangeHalfToFloat(float *dst, DirectX::PackedVector::HALF *src,
   }
 }
 
+#if 0
+// Fuction to print out a matrix, used for debugging
 template <typename T> void PrintMat(T *mat, int rows = 16, int cols = 16) {
   std::cout << "====================\n";
   for (int i = 0; i < rows; ++i) {
@@ -8396,6 +8398,7 @@ template <typename T> void PrintMat(T *mat, int rows = 16, int cols = 16) {
 
   std::cout << "====================\n";
 }
+#endif
 
 template <typename T>
 void LoadStoreRowCol(int M, int N, bool LEFT, int MEM_TYPE, size_t start,
@@ -9356,7 +9359,7 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
   WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
       L"Wmma_DisableFragmentTests", disableFragmentTests);
 
-  // Convert scalars to template typ (This is not used in half test).
+  // Convert scalars to template type (This is not used in half test).
   std::vector<T> scalars(floatScalars.size());
 
   for (size_t i = 0; i < scalars.size(); ++i) {
@@ -9384,15 +9387,14 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
   // We store left/right matrices in the same array so we just assume a
   // maximum size. This size applies to accumulators as well.
   uint32_t numElements = DIM_M * DIM_N;
-  std::vector<std::vector<T>> expectedMatrices(
-      SCALAR_NUM_OUTPUTS * scalars.size(),
-      std::vector<T>(numElements, (T)0));
-  std::vector<std::vector<T>> expectedLeftCols(
-      SCALAR_NUM_OUTPUTS * scalars.size(), std::vector<T>(DIM_M, (T)0));
-  std::vector<std::vector<T>> expectedRightRows(
-      SCALAR_NUM_OUTPUTS * scalars.size(), std::vector<T>(DIM_N, (T)0));
+  std::vector<std::vector<T>> matrices(SCALAR_NUM_OUTPUTS * scalars.size(),
+                                       std::vector<T>(numElements, (T)0));
+  std::vector<std::vector<T>> leftCols(SCALAR_NUM_OUTPUTS * scalars.size(),
+                                       std::vector<T>(DIM_M, (T)0));
+  std::vector<std::vector<T>> rightRows(SCALAR_NUM_OUTPUTS * scalars.size(),
+                                        std::vector<T>(DIM_N, (T)0));
 
-  // Generate inputs and place into the expected outputs array for now
+  // Generate inputs
   for (size_t i = 0; i < scalars.size(); ++i) {
     for (size_t j = 0; j < SCALAR_NUM_OUTPUTS; ++j) {
       size_t curr = i * SCALAR_NUM_OUTPUTS + j;
@@ -9401,13 +9403,16 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
       size_t end = numElements - start;
 
       if (typeid(T) == typeid(DirectX::PackedVector::HALF)) {
-        GenerateMatrix<T>(expectedMatrices[curr].data(), numElements, (float)start, (float)end);
-        GenerateMatrix<T>(expectedLeftCols[curr].data(), DIM_M, (float)start, (float)end);
-        GenerateMatrix<T>(expectedRightRows[curr].data(), DIM_N, (float)start, (float)end);
+        GenerateMatrix<T>(matrices[curr].data(), numElements, (float)start,
+                          (float)end);
+        GenerateMatrix<T>(leftCols[curr].data(), DIM_M, (float)start,
+                          (float)end);
+        GenerateMatrix<T>(rightRows[curr].data(), DIM_N, (float)start,
+                          (float)end);
       } else {
-        GenerateMatrix<T>(expectedMatrices[curr].data(), numElements, (T)start, (T)end);
-        GenerateMatrix<T>(expectedLeftCols[curr].data(), DIM_M, (T)start, (T)end);
-        GenerateMatrix<T>(expectedRightRows[curr].data(), DIM_N, (T)start, (T)end);
+        GenerateMatrix<T>(matrices[curr].data(), numElements, (T)start, (T)end);
+        GenerateMatrix<T>(leftCols[curr].data(), DIM_M, (T)start, (T)end);
+        GenerateMatrix<T>(rightRows[curr].data(), DIM_N, (T)start, (T)end);
       }
     }
   }
@@ -9415,18 +9420,26 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
   if (typeid(T) == typeid(HALF)) {
     tolerance = 3;
     Validation_type = L"ulp";
-    expectedMatrices[0][0] = expectedLeftCols[0][0] = expectedRightRows[0][0] = ConvertFloat32ToFloat16(std::numeric_limits<float>::infinity());
-    expectedMatrices[1][0] = expectedLeftCols[1][0] = expectedRightRows[1][0] = ConvertFloat32ToFloat16(-std::numeric_limits<float>::infinity());
-    expectedMatrices[2][0] = expectedLeftCols[2][0] = expectedRightRows[2][0] = ConvertFloat32ToFloat16(std::numeric_limits<float>::quiet_NaN());
-    expectedMatrices[3][0] = expectedLeftCols[3][0] = expectedRightRows[3][0] = ConvertFloat32ToFloat16(-0.0f);
-    expectedMatrices[4][0] = expectedLeftCols[4][0] = expectedRightRows[4][0] = ConvertFloat32ToFloat16(std::numeric_limits<float>::denorm_min());
-  }
-  else if (typeid(T) == typeid(float)) {
-    expectedMatrices[0][0] = expectedLeftCols[0][0] = expectedRightRows[0][0] = (T)std::numeric_limits<float>::infinity();
-    expectedMatrices[1][0] = expectedLeftCols[1][0] = expectedRightRows[1][0] = (T)-std::numeric_limits<float>::infinity();
-    expectedMatrices[2][0] = expectedLeftCols[2][0] = expectedRightRows[2][0] = (T)std::numeric_limits<float>::quiet_NaN();
-    expectedMatrices[3][0] = expectedLeftCols[3][0] = expectedRightRows[3][0] = (T)-0.0f;
-    expectedMatrices[4][0] = expectedLeftCols[4][0] = expectedRightRows[4][0] = std::numeric_limits<T>::denorm_min();
+    matrices[0][0] = leftCols[0][0] = rightRows[0][0] =
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::infinity());
+    matrices[1][0] = leftCols[1][0] = rightRows[1][0] =
+        ConvertFloat32ToFloat16(-std::numeric_limits<float>::infinity());
+    matrices[2][0] = leftCols[2][0] = rightRows[2][0] =
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::quiet_NaN());
+    matrices[3][0] = leftCols[3][0] = rightRows[3][0] =
+        ConvertFloat32ToFloat16(-0.0f);
+    matrices[4][0] = leftCols[4][0] = rightRows[4][0] =
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::denorm_min());
+  } else if (typeid(T) == typeid(float)) {
+    matrices[0][0] = leftCols[0][0] = rightRows[0][0] =
+        (T)std::numeric_limits<float>::infinity();
+    matrices[1][0] = leftCols[1][0] = rightRows[1][0] =
+        (T)-std::numeric_limits<float>::infinity();
+    matrices[2][0] = leftCols[2][0] = rightRows[2][0] =
+        (T)std::numeric_limits<float>::quiet_NaN();
+    matrices[3][0] = leftCols[3][0] = rightRows[3][0] = (T)-0.0f;
+    matrices[4][0] = leftCols[4][0] = rightRows[4][0] =
+        std::numeric_limits<T>::denorm_min();
   }
 
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
@@ -9440,82 +9453,76 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
           }
         } else if (0 == _stricmp(Name, "g_bufInAccumulator")) {
           // Copy input values to buffer
-          size_t mtxSize =
-              expectedMatrices[0].size() * sizeof(*expectedMatrices[0].data());
-          for (size_t i = 0; i < expectedMatrices.size(); ++i) {
-            memcpy(Data.data() + mtxSize * i, expectedMatrices[i].data(),
-                   mtxSize);
+          size_t mtxSize = matrices[0].size() * sizeof(*matrices[0].data());
+          for (size_t i = 0; i < matrices.size(); ++i) {
+            memcpy(Data.data() + mtxSize * i, matrices[i].data(), mtxSize);
           }
 
-          // Process CPU side input values into expected values
+          // Process CPU side input values in place into expected values
           for (size_t i = 0; i < scalars.size(); ++i) {
-            PlaceholderScalarMultiplyAccumulator<T>(
+            Matrix_MultiplyByScalar<T>(
                 DIM_M, DIM_N, scalars[i],
-                expectedMatrices[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
-            PlaceholderScalarDivideAccumulator<T>(
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
+            Matrix_DivideByScalar<T>(
                 DIM_M, DIM_N, scalars[i],
-                expectedMatrices[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
-            PlaceholderScalarAddAccumulator<T>(
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
+            Matrix_AddScalar<T>(
                 DIM_M, DIM_N, scalars[i],
-                expectedMatrices[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
-            PlaceholderScalarSubtractAccumulator<T>(
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
+            Matrix_SubtractScalar<T>(
                 DIM_M, DIM_N, scalars[i],
-                expectedMatrices[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
-            FillMatrix<T>(
-                expectedMatrices[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
-                DIM_M * DIM_N, scalars[i]);
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
+            FillMatrix<T>(matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
+                          DIM_M * DIM_N, scalars[i]);
           }
         } else if (0 == _stricmp(Name, "g_bufInLeftColAcc")) {
           // Copy input values to buffer
-          size_t lcSize =
-              expectedLeftCols[0].size() * sizeof(*expectedLeftCols[0].data());
-          for (size_t i = 0; i < expectedLeftCols.size(); ++i) {
-            memcpy(Data.data() + lcSize * i, expectedLeftCols[i].data(),
-                   lcSize);
+          size_t lcSize = leftCols[0].size() * sizeof(*leftCols[0].data());
+          for (size_t i = 0; i < leftCols.size(); ++i) {
+            memcpy(Data.data() + lcSize * i, leftCols[i].data(), lcSize);
           }
 
-          // Process CPU side input values into expected values
+          // Process CPU side input values in place into expected values
           for (size_t i = 0; i < scalars.size(); ++i) {
-            PlaceholderScalarMultiplyRowCol<T>(
+            MatrixRowCol_MultiplyByScalar<T>(
                 DIM_M, scalars[i],
-                expectedLeftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
-            PlaceholderScalarDivideRowCol<T>(
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
+            MatrixRowCol_DivideByScalar<T>(
                 DIM_M, scalars[i],
-                expectedLeftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
-            PlaceholderScalarAddRowCol<T>(
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
+            MatrixRowCol_AddScalar<T>(
                 DIM_M, scalars[i],
-                expectedLeftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
-            PlaceholderScalarSubtractRowCol<T>(
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
+            MatrixRowCol_SubtractScalar<T>(
                 DIM_M, scalars[i],
-                expectedLeftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
-            FillMatrix<T>(
-                expectedLeftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
-                DIM_M, scalars[i]);
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
+            FillMatrix<T>(leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
+                          DIM_M, scalars[i]);
           }
         } else if (0 == _stricmp(Name, "g_bufInRightRowAcc")) {
           // Copy input values to buffer
-          size_t rrSize = expectedRightRows[0].size() * sizeof(*expectedRightRows[0].data());
-          for (size_t i = 0; i < expectedRightRows.size(); ++i) {
-            memcpy(Data.data() + rrSize * i, expectedRightRows[i].data(), rrSize);
+          size_t rrSize = rightRows[0].size() * sizeof(*rightRows[0].data());
+          for (size_t i = 0; i < rightRows.size(); ++i) {
+            memcpy(Data.data() + rrSize * i, rightRows[i].data(), rrSize);
           }
 
-          // Process CPU side input values into expected values
+          // Process CPU side input values in place into expected values
           for (size_t i = 0; i < scalars.size(); ++i) {
-            PlaceholderScalarMultiplyRowCol<T>(
+            MatrixRowCol_MultiplyByScalar<T>(
                 DIM_N, scalars[i],
-                expectedRightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
-            PlaceholderScalarDivideRowCol<T>(
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
+            MatrixRowCol_DivideByScalar<T>(
                 DIM_N, scalars[i],
-                expectedRightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
-            PlaceholderScalarAddRowCol<T>(
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
+            MatrixRowCol_AddScalar<T>(
                 DIM_N, scalars[i],
-                expectedRightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
-            PlaceholderScalarSubtractRowCol<T>(
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
+            MatrixRowCol_SubtractScalar<T>(
                 DIM_N, scalars[i],
-                expectedRightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
             FillMatrix<T>(
-                expectedRightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
-                DIM_N, scalars[i]);
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(), DIM_N,
+                scalars[i]);
           }
         } else {
           std::fill(Data.begin(), Data.end(), (BYTE)0);
@@ -9540,18 +9547,17 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
 
   // For verifying that both waves produce the same output
   T *readBackRightRowData2 =
-      readBackRightRowData +
-      expectedRightRows.size() * expectedRightRows[0].size();
+      readBackRightRowData + rightRows.size() * rightRows[0].size();
   T *readBackLeftColData2 =
-      readBackLeftColData +
-      expectedLeftCols.size() * expectedLeftCols[0].size();
+      readBackLeftColData + leftCols.size() * leftCols[0].size();
   T *readBackMatrixData2 =
-      readBackMatrixData + expectedMatrices.size() * expectedMatrices[0].size();
+      readBackMatrixData + matrices.size() * matrices[0].size();
 
   WEX::TestExecution::DisableVerifyExceptions dve;
-  for (size_t i = 0; i < expectedMatrices.size(); ++i) {
-    auto &expectedMatrix = expectedMatrices[i];
-    std::string comment = std::string("Matrix/") + scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
+  for (size_t i = 0; i < matrices.size(); ++i) {
+    auto &expectedMatrix = matrices[i];
+    std::string comment =
+        std::string("Matrix/") + scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
     WEX::Logging::Log::Comment(CA2W(comment.c_str()));
 
     VerifyArrayWithExpectedValue(readBackMatrixData, expectedMatrix.data(),
@@ -9568,9 +9574,10 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
   }
 
   if (disableFragmentTests == 0) {
-    for (size_t i = 0; i < expectedLeftCols.size(); ++i) {
-      auto &expectedLeftColAcc = expectedLeftCols[i];
-      std::string comment = std::string("LeftCol/") + scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
+    for (size_t i = 0; i < leftCols.size(); ++i) {
+      auto &expectedLeftColAcc = leftCols[i];
+      std::string comment = std::string("LeftCol/") +
+                            scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
       WEX::Logging::Log::Comment(CA2W(comment.c_str()));
 
       VerifyArrayWithExpectedValue(
@@ -9586,9 +9593,10 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
       readBackLeftColData2 += expectedLeftColAcc.size();
     }
 
-    for (size_t i = 0; i < expectedRightRows.size(); ++i) {
-      auto &expectedRightRowAcc = expectedRightRows[i];
-      std::string comment = std::string("RightRow/") + scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
+    for (size_t i = 0; i < rightRows.size(); ++i) {
+      auto &expectedRightRowAcc = rightRows[i];
+      std::string comment = std::string("RightRow/") +
+                            scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
       WEX::Logging::Log::Comment(CA2W(comment.c_str()));
 
       VerifyArrayWithExpectedValue(
@@ -9628,7 +9636,7 @@ TEST_F(ExecutionTest, WaveMatrixLoadStoreTests) {
   std::vector<int> dimNs; 
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
 
-  CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommon(dimMs, dimNs, ShaderOpSet);
+  CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommonSetup(dimMs, dimNs, ShaderOpSet);
   
   if (pDevice == nullptr) {
     return;
@@ -9697,56 +9705,56 @@ TEST_F(ExecutionTest, WaveMatrixScalarTests) {
   using namespace DirectX::PackedVector;
 
   std::vector<int> dimMs;
-  std::vector<int> dimNs; 
+  std::vector<int> dimNs;
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
-  CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommon(dimMs, dimNs, ShaderOpSet);
-  
+  CComPtr<ID3D12Device> pDevice =
+      WaveMatrixTestCommonSetup(dimMs, dimNs, ShaderOpSet);
+
   if (pDevice == nullptr) {
     return;
   }
-
-  PCWSTR validationType = L"epsilon";
-  double tolerance = 0.008;
-
-  //////////
-  // SCALAR
-  //////////
 
   int disableScalarTests = 0;
   WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
       L"Wmma_DisableScalarTests", disableScalarTests);
 
-  if (disableScalarTests == 0) {
-    std::vector<float> scalars = { -100.0f, 20.0f, -50.0f, -0.0f, 0.0f, 42.0f };
+  if (disableScalarTests == 1) {
+    LogCommentFmt(L"Wave matrix scalar tests are disabled, skipping.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
 
-    for (uint32_t dimM : dimMs) {
-      for (uint32_t dimN : dimNs) {
-        std::string hlslType = "float32_t";
-        WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
-                                    hlslType,
+  PCWSTR validationType = L"epsilon";
+  double tolerance = 0.008;
+  std::vector<float> scalars = { -100.0f, 20.0f, -50.0f, -0.0f, 0.0f, 42.0f };
+
+  for (uint32_t dimM : dimMs) {
+    for (uint32_t dimN : dimNs) {
+      std::string hlslType = "float32_t";
+      WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                  hlslType,
+                                  validationType, tolerance, scalars);
+
+      // hlslType is used for the CheckFeatureSupport query.
+      // Only one of the two below scalar tests will run, depending on the
+      // accumulator precision returned by CheckFeatureSupport.
+      hlslType = "float16_t";
+      WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                  hlslType,
+                                  validationType, tolerance, scalars);
+      WaveMatrixScalarTest<HALF>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                  hlslType,
+                                  validationType, tolerance, scalars);
+
+      hlslType = "uint8_t4_packed";
+      WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet,
+                                    m_support, hlslType,
                                     validationType, tolerance, scalars);
 
-        // hlslType is used for the CheckFeatureSupport query.
-        // Only one of the two below scalar tests will run, depending on the
-        // accumulator precision returned by CheckFeatureSupport.
-        hlslType = "float16_t";
-        WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
-                                    hlslType,
+      hlslType = "int8_t4_packed";
+      WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet,
+                                    m_support, hlslType,
                                     validationType, tolerance, scalars);
-        WaveMatrixScalarTest<HALF>(dimM, dimN, pDevice, ShaderOpSet, m_support,
-                                   hlslType,
-                                   validationType, tolerance, scalars);
-
-        hlslType = "uint8_t4_packed";
-        WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet,
-                                      m_support, hlslType,
-                                      validationType, tolerance, scalars);
-
-        hlslType = "int8_t4_packed";
-        WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet,
-                                      m_support, hlslType,
-                                      validationType, tolerance, scalars);
-      }
     }
   }
 }
@@ -9758,7 +9766,7 @@ TEST_F(ExecutionTest, WaveMatrixMathTests) {
   std::vector<int> dimMs;
   std::vector<int> dimNs;
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
-  CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommon(dimMs, dimNs, ShaderOpSet);
+  CComPtr<ID3D12Device> pDevice = WaveMatrixTestCommonSetup(dimMs, dimNs, ShaderOpSet);
 
   if (pDevice == nullptr) {
     return;
