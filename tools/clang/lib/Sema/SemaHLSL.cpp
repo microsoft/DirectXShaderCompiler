@@ -7378,7 +7378,7 @@ UINT64 HLSLExternalSource::ScoreCast(QualType pLType, QualType pRType)
 #undef SCORE_COND
 
   // Make sure our scores fit in a UINT64.
-  C_ASSERT(SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * 8 <= 64);
+  static_assert(SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * 8 <= 64);
 
   return uScore;
 }

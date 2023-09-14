@@ -22,7 +22,7 @@
 #include "DxcPixLiveVariables.h"
 #include "DxcPixDxilDebugInfo.h"
 #include "DxcPixBase.h"
-#include "dxc/DxilPixPasses/DxilPixVirtualRegisters.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetLiveVariablesAt(
     DWORD InstructionOffset, IDxcPixDxilLiveVariables **ppLiveVariables) {
@@ -58,7 +58,7 @@ dxil_debug_info::DxcPixDxilDebugInfo::GetFunctionName(DWORD InstructionOffset,
     }
   }
 
-  *ppFunctionName = CComBSTR(L"<???>").Detach();
+  *ppFunctionName = CComBSTR(L"<\?\?\?>").Detach();
   return S_FALSE;
 }
 

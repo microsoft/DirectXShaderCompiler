@@ -985,8 +985,8 @@ private: // ScopeNestIterator Implementation
         }
 
         void StartNewScope(Block *startOfScopeBlock, BranchKind startOfScopeKind) {
-            Scope::Type scopeType;
-            ScopeNestEvent::Type nestType;
+            Scope::Type scopeType = Scope::Type::TopLevel;
+            ScopeNestEvent::Type nestType = ScopeNestEvent::Type::Invalid;
             switch (startOfScopeKind) {
             case BranchKind::IfBegin:
             case BranchKind::IfNoEnd:

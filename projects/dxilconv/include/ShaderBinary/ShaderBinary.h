@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// ShaderBinary.h                                                          //
+// ShaderBinary.h                                                            //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -2579,12 +2579,12 @@ public:
                                        CONST CShaderToken* pBuffer,
                                        CONST CShaderToken* pBufferEnd)
     {
-        CShaderToken* pCurTok = m_pCurrentToken;
-        CShaderToken* pEndTok = m_pShaderEndToken;
-        CShaderToken* pRet;
+        const CShaderToken *pCurTok = m_pCurrentToken;
+        const CShaderToken *pEndTok = m_pShaderEndToken;
+        const CShaderToken *pRet;
 
-        m_pCurrentToken = (CShaderToken*)pBuffer;
-        m_pShaderEndToken = (CShaderToken*)pBufferEnd;
+        m_pCurrentToken = (pBuffer);
+        m_pShaderEndToken = (pBufferEnd);
 
         ParseOperand(pOperand);
         pRet = m_pCurrentToken;
@@ -2596,10 +2596,10 @@ public:
     }
     
 protected:
-    CShaderToken*   m_pCurrentToken;
-    CShaderToken*   m_pShaderCode;
+    const CShaderToken*   m_pCurrentToken;
+    const CShaderToken*   m_pShaderCode;
     // Points to the last token of the current shader
-    CShaderToken*   m_pShaderEndToken;
+    const CShaderToken*   m_pShaderEndToken;
 };
 
 }; // name space D3D10ShaderBinary
