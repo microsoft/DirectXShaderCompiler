@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "dxc/Support/WinIncludes.h"
+#include "dxc/WinAdapter.h"
 
 #include "dxc/Support/D3DReflection.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
