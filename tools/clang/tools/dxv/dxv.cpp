@@ -126,7 +126,7 @@ void DxvContext::Validate() {
 }
 
 #ifdef _WIN32
-int __cdecl main(int argc,  _In_reads_z_(argc) const char **argv) {
+int __cdecl main(int argc, const char **argv) {
 #else
 int main(int argc, const char **argv) {
 #endif

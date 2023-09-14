@@ -2422,7 +2422,8 @@ public:
         {
             Reserve(FullSizeInUINTs);
         }
-        __analysis_assume(m_Index + FullSizeInUINTs < m_BufferSize);  // Otherwise there's a bug in Reserve()
+        assert(m_Index + FullSizeInUINTs <
+               m_BufferSize); // Otherwise there's a bug in Reserve()
         m_dwFunc[m_Index++] = ENCODE_D3D10_SB_CUSTOMDATA_CLASS(CustomDataClass);
         m_dwFunc[m_Index++] = FullSizeInUINTs;
         memcpy(&m_dwFunc[m_Index],pCustomData,sizeof(UINT)*SizeInUINTs);
@@ -2469,8 +2470,8 @@ protected:
             }
             if( bExtendedLength )
             {
-                __analysis_assume(m_StartOpIndex + 1 < m_Index);
-                m_dwFunc[m_StartOpIndex + 1] = m_Index - m_StartOpIndex;
+              assert(m_StartOpIndex + 1 < m_Index);
+              m_dwFunc[m_StartOpIndex + 1] = m_Index - m_StartOpIndex;
             }
             Reserve(MAX_INSTRUCTION_LENGTH);
             m_StatementIndex++;

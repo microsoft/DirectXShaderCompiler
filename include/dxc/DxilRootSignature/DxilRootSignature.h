@@ -245,7 +245,7 @@ struct DxilDescriptorRange {
 };
 struct DxilRootDescriptorTable {
   uint32_t NumDescriptorRanges;
-  _Field_size_full_(NumDescriptorRanges)  DxilDescriptorRange *pDescriptorRanges;
+  DxilDescriptorRange *pDescriptorRanges;
 };
 struct DxilRootConstants {
   uint32_t ShaderRegister;
@@ -280,7 +280,7 @@ struct DxilDescriptorRange1 {
 };
 struct DxilRootDescriptorTable1 {
   uint32_t NumDescriptorRanges;
-  _Field_size_full_(NumDescriptorRanges)  DxilDescriptorRange1 *pDescriptorRanges;
+  DxilDescriptorRange1 *pDescriptorRanges;
 };
 struct DxilRootParameter1 {
   DxilRootParameterType ParameterType;
@@ -293,9 +293,9 @@ struct DxilRootParameter1 {
 };
 struct DxilRootSignatureDesc {
   uint32_t NumParameters;
-  _Field_size_full_(NumParameters) DxilRootParameter *pParameters;
+  DxilRootParameter *pParameters;
   uint32_t NumStaticSamplers;
-  _Field_size_full_(NumStaticSamplers) DxilStaticSamplerDesc *pStaticSamplers;
+  DxilStaticSamplerDesc *pStaticSamplers;
   DxilRootSignatureFlags Flags;
 };
 struct DxilStaticSamplerDesc {
@@ -315,9 +315,9 @@ struct DxilStaticSamplerDesc {
 };
 struct DxilRootSignatureDesc1 {
   uint32_t NumParameters;
-  _Field_size_full_(NumParameters) DxilRootParameter1 *pParameters;
+  DxilRootParameter1 *pParameters;
   uint32_t NumStaticSamplers;
-  _Field_size_full_(NumStaticSamplers) DxilStaticSamplerDesc *pStaticSamplers;
+  DxilStaticSamplerDesc *pStaticSamplers;
   DxilRootSignatureFlags Flags;
 };
 struct DxilVersionedRootSignatureDesc {
@@ -365,25 +365,23 @@ void ConvertRootSignature(const DxilVersionedRootSignatureDesc* pRootSignatureIn
                           DxilRootSignatureVersion RootSignatureVersionOut,  
                           const DxilVersionedRootSignatureDesc ** ppRootSignatureOut);
 
-void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
-                            _Outptr_ IDxcBlob **ppBlob, _Outptr_ IDxcBlobEncoding **ppErrorBlob,
-                            bool bAllowReservedRegisterSpace);
+void SerializeRootSignature(
+    const DxilVersionedRootSignatureDesc *pRootSignature, IDxcBlob **ppBlob,
+    IDxcBlobEncoding **ppErrorBlob, bool bAllowReservedRegisterSpace);
 
-void DeserializeRootSignature(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
-                              _In_ uint32_t SrcDataSizeInBytes,
-                              _Out_ const DxilVersionedRootSignatureDesc **ppRootSignature);
+void DeserializeRootSignature(
+    const void *pSrcData, uint32_t SrcDataSizeInBytes,
+    const DxilVersionedRootSignatureDesc **ppRootSignature);
 
 // Takes PSV - pipeline state validation data, not shader container.
-bool VerifyRootSignatureWithShaderPSV(_In_ const DxilVersionedRootSignatureDesc *pDesc,
-                                      _In_ DXIL::ShaderKind ShaderKind,
-                                      _In_reads_bytes_(PSVSize) const void *pPSVData,
-                                      _In_ uint32_t PSVSize,
-                                      _In_ llvm::raw_ostream &DiagStream);
+bool VerifyRootSignatureWithShaderPSV(
+    const DxilVersionedRootSignatureDesc *pDesc, DXIL::ShaderKind ShaderKind,
+    const void *pPSVData, uint32_t PSVSize, llvm::raw_ostream &DiagStream);
 
 // standalone verification
-bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
-                         _In_ llvm::raw_ostream &DiagStream,
-                         _In_ bool bAllowReservedRegisterSpace);
+bool VerifyRootSignature(const DxilVersionedRootSignatureDesc *pDesc,
+                         llvm::raw_ostream &DiagStream,
+                         bool bAllowReservedRegisterSpace);
 
 class DxilVersionedRootSignature {
   DxilVersionedRootSignatureDesc *m_pRootSignature;

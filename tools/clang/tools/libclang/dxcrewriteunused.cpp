@@ -411,8 +411,9 @@ void WriteMacroDefines(ParsedSemanticDefineList &macros,
 
 } // namespace
 
-ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
-    CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper) {
+ParsedSemanticDefineList
+hlsl::CollectSemanticDefinesParsedByCompiler(CompilerInstance &compiler,
+                                             DxcLangExtensionsHelper *helper) {
   ParsedSemanticDefineList parsedDefines;
   const llvm::SmallVector<std::string, 2> &defines =
       helper->GetSemanticDefines();
@@ -516,15 +517,13 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   return parsedDefines;
 }
 
-
 namespace {
 
 void SetupCompilerCommon(CompilerInstance &compiler,
-                         _In_ DxcLangExtensionsHelper *helper,
-                         _In_ LPCSTR pMainFile,
-                         _In_ TextDiagnosticPrinter *diagPrinter,
-                         _In_opt_ ASTUnit::RemappedFile *rewrite,
-                         _In_ hlsl::options::DxcOpts &opts) {
+                         DxcLangExtensionsHelper *helper, LPCSTR pMainFile,
+                         TextDiagnosticPrinter *diagPrinter,
+                         ASTUnit::RemappedFile *rewrite,
+                         hlsl::options::DxcOpts &opts) {
   // Setup a compiler instance.
   std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
   targetOptions->Triple = llvm::sys::getDefaultTargetTriple();
@@ -576,14 +575,14 @@ void SetupCompilerCommon(CompilerInstance &compiler,
       HSOpts.AddPath(s, frontend::Angled, IsFrameworkFalse, IgnoreSysRoot);
     }
   }
-
 }
 
-void SetupCompilerForRewrite(
-    CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper,
-    _In_ LPCSTR pMainFile, _In_ TextDiagnosticPrinter *diagPrinter,
-    _In_opt_ ASTUnit::RemappedFile *rewrite, _In_ hlsl::options::DxcOpts &opts,
-    _In_opt_ LPCSTR pDefines, _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
+void SetupCompilerForRewrite(CompilerInstance &compiler,
+                             DxcLangExtensionsHelper *helper, LPCSTR pMainFile,
+                             TextDiagnosticPrinter *diagPrinter,
+                             ASTUnit::RemappedFile *rewrite,
+                             hlsl::options::DxcOpts &opts, LPCSTR pDefines,
+                             dxcutil::DxcArgsFileSystem *msfPtr) {
 
   SetupCompilerCommon(compiler, helper, pMainFile, diagPrinter, rewrite, opts);
 
@@ -613,13 +612,14 @@ void SetupCompilerForRewrite(
                                                SrcMgr::C_User));
 }
 
-
-void SetupCompilerForPreprocess(
-    CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper,
-    _In_ LPCSTR pMainFile, _In_ TextDiagnosticPrinter *diagPrinter,
-    _In_opt_ ASTUnit::RemappedFile *rewrite, _In_ hlsl::options::DxcOpts &opts,
-    _In_ DxcDefine *pDefines, _In_ UINT32 defineCount,
-    _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
+void SetupCompilerForPreprocess(CompilerInstance &compiler,
+                                DxcLangExtensionsHelper *helper,
+                                LPCSTR pMainFile,
+                                TextDiagnosticPrinter *diagPrinter,
+                                ASTUnit::RemappedFile *rewrite,
+                                hlsl::options::DxcOpts &opts,
+                                DxcDefine *pDefines, UINT32 defineCount,
+                                dxcutil::DxcArgsFileSystem *msfPtr) {
 
   SetupCompilerCommon(compiler, helper, pMainFile, diagPrinter, rewrite, opts);
 
@@ -636,9 +636,7 @@ void SetupCompilerForPreprocess(
   }
 }
 
-
-std::string DefinesToString(_In_count_(defineCount) DxcDefine *pDefines,
-                            _In_ UINT32 defineCount) {
+std::string DefinesToString(DxcDefine *pDefines, UINT32 defineCount) {
   std::string defineStr;
   for (UINT32 i = 0; i < defineCount; i++) {
     CW2A utf8Name(pDefines[i].Name, CP_UTF8);
@@ -826,10 +824,9 @@ HRESULT CollectRewriteHelper(TranslationUnitDecl *tu, LPCSTR pEntryPoint,
 
 } // namespace
 
-static
-HRESULT ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
-                            hlsl::options::DxcOpts &opts,
-                            _COM_Outptr_ IDxcOperationResult **ppResult) {
+static HRESULT ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
+                                   hlsl::options::DxcOpts &opts,
+                                   IDxcOperationResult **ppResult) {
   const llvm::opt::OptTable *table = ::options::getHlslOptTable();
 
   CComPtr<AbstractMemoryStream> pOutputStream;
@@ -964,13 +961,13 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
   return S_OK;
 }
 
-static HRESULT
-DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper, _In_ LPCSTR pFileName,
-                _In_ ASTUnit::RemappedFile *pRemap, _In_ LPCSTR pEntryPoint,
-                _In_ DxcDefine *pDefines, _In_ UINT32 defineCount,
-                bool bRemoveGlobals, bool bRemoveFunctions,
-                std::string &warnings, std::string &result,
-                _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
+static HRESULT DoRewriteUnused(DxcLangExtensionsHelper *pHelper,
+                               LPCSTR pFileName, ASTUnit::RemappedFile *pRemap,
+                               LPCSTR pEntryPoint, DxcDefine *pDefines,
+                               UINT32 defineCount, bool bRemoveGlobals,
+                               bool bRemoveFunctions, std::string &warnings,
+                               std::string &result,
+                               dxcutil::DxcArgsFileSystem *msfPtr) {
 
   raw_string_ostream o(result);
   raw_string_ostream w(warnings);
@@ -1050,16 +1047,12 @@ static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
   }
 }
 
-
-static
-HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
-               _In_ LPCSTR pFileName,
-               _In_ ASTUnit::RemappedFile *pRemap,
-                _In_ hlsl::options::DxcOpts &opts, _In_ DxcDefine *pDefines,
-                _In_ UINT32 defineCount,
-               std::string &warnings,
-               std::string &result,
-               _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
+static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
+                               LPCSTR pFileName, ASTUnit::RemappedFile *pRemap,
+                               hlsl::options::DxcOpts &opts,
+                               DxcDefine *pDefines, UINT32 defineCount,
+                               std::string &warnings, std::string &result,
+                               dxcutil::DxcArgsFileSystem *msfPtr) {
   raw_string_ostream o(result);
   raw_string_ostream w(warnings);
 
@@ -1228,12 +1221,14 @@ private:
 };
 
 // Preprocess rewritten files.
-HRESULT preprocessRewrittenFiles(
-    _In_ DxcLangExtensionsHelper *pExtHelper, Rewriter &R,
-    _In_ LPCSTR pFileName, _In_ ASTUnit::RemappedFile *pRemap,
-    _In_ hlsl::options::DxcOpts &opts, _In_ DxcDefine *pDefines,
-    _In_ UINT32 defineCount, raw_string_ostream &w, raw_string_ostream &o,
-    _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr, IMalloc *pMalloc) {
+HRESULT preprocessRewrittenFiles(DxcLangExtensionsHelper *pExtHelper,
+                                 Rewriter &R, LPCSTR pFileName,
+                                 ASTUnit::RemappedFile *pRemap,
+                                 hlsl::options::DxcOpts &opts,
+                                 DxcDefine *pDefines, UINT32 defineCount,
+                                 raw_string_ostream &w, raw_string_ostream &o,
+                                 dxcutil::DxcArgsFileSystem *msfPtr,
+                                 IMalloc *pMalloc) {
 
   CComPtr<AbstractMemoryStream> pOutputStream;
   IFT(CreateMemoryStream(pMalloc, &pOutputStream));
@@ -1294,11 +1289,10 @@ HRESULT preprocessRewrittenFiles(
 }
 
 HRESULT DoReWriteWithLineDirective(
-    _In_ DxcLangExtensionsHelper *pExtHelper, _In_ LPCSTR pFileName,
-    _In_ ASTUnit::RemappedFile *pRemap, _In_ hlsl::options::DxcOpts &opts,
-    _In_ DxcDefine *pDefines, _In_ UINT32 defineCount, std::string &warnings,
-    std::string &result, _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr,
-    IMalloc *pMalloc) {
+    DxcLangExtensionsHelper *pExtHelper, LPCSTR pFileName,
+    ASTUnit::RemappedFile *pRemap, hlsl::options::DxcOpts &opts,
+    DxcDefine *pDefines, UINT32 defineCount, std::string &warnings,
+    std::string &result, dxcutil::DxcArgsFileSystem *msfPtr, IMalloc *pMalloc) {
   raw_string_ostream o(result);
   raw_string_ostream w(warnings);
 
@@ -1428,14 +1422,12 @@ private:
   PrintingPolicy declP;
 };
 
-
-HRESULT DoRewriteGlobalCB(_In_ DxcLangExtensionsHelper *pExtHelper,
-                          _In_ LPCSTR pFileName,
-                          _In_ ASTUnit::RemappedFile *pRemap,
-                          _In_ hlsl::options::DxcOpts &opts,
-                          _In_ DxcDefine *pDefines, _In_ UINT32 defineCount,
-                          std::string &warnings, std::string &result,
-                          _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr,
+HRESULT DoRewriteGlobalCB(DxcLangExtensionsHelper *pExtHelper, LPCSTR pFileName,
+                          ASTUnit::RemappedFile *pRemap,
+                          hlsl::options::DxcOpts &opts, DxcDefine *pDefines,
+                          UINT32 defineCount, std::string &warnings,
+                          std::string &result,
+                          dxcutil::DxcArgsFileSystem *msfPtr,
                           IMalloc *pMalloc) {
   raw_string_ostream o(result);
   raw_string_ostream w(warnings);
@@ -1547,7 +1539,6 @@ HRESULT DoRewriteGlobalCB(_In_ DxcLangExtensionsHelper *pExtHelper,
   return S_OK;
 }
 
-
 } // namespace
 
 class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions3 {
@@ -1566,13 +1557,10 @@ public:
         this, iid, ppvObject);
   }
 
-  HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
-                                                _In_z_ LPCWSTR pEntryPoint,
-                                                _In_count_(defineCount) DxcDefine *pDefines,
-                                                _In_ UINT32 defineCount,
-                                                _COM_Outptr_ IDxcOperationResult **ppResult) override
-  {
-    
+  HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(
+      IDxcBlobEncoding *pSource, LPCWSTR pEntryPoint, DxcDefine *pDefines,
+      UINT32 defineCount, IDxcOperationResult **ppResult) override {
+
     if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
       return E_INVALIDARG;
 
@@ -1615,11 +1603,9 @@ public:
     CATCH_CPP_RETURN_HRESULT();
   }
 
-  HRESULT STDMETHODCALLTYPE 
-  RewriteUnchanged(_In_ IDxcBlobEncoding *pSource,
-                   _In_count_(defineCount) DxcDefine *pDefines,
-                   _In_ UINT32 defineCount,
-                   _COM_Outptr_ IDxcOperationResult **ppResult) override {
+  HRESULT STDMETHODCALLTYPE RewriteUnchanged(
+      IDxcBlobEncoding *pSource, DxcDefine *pDefines, UINT32 defineCount,
+      IDxcOperationResult **ppResult) override {
     if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
       return E_POINTER;
 
@@ -1658,18 +1644,15 @@ public:
         }, ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
-
   }
 
   HRESULT STDMETHODCALLTYPE RewriteUnchangedWithInclude(
-      _In_ IDxcBlobEncoding *pSource,
+      IDxcBlobEncoding *pSource,
       // Optional file name for pSource. Used in errors and include handlers.
-      _In_opt_ LPCWSTR pSourceName, _In_count_(defineCount) DxcDefine *pDefines,
-      _In_ UINT32 defineCount,
+      LPCWSTR pSourceName, DxcDefine *pDefines, UINT32 defineCount,
       // user-provided interface to handle #include directives (optional)
-      _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-      _In_ UINT32 rewriteOption,
-      _COM_Outptr_ IDxcOperationResult **ppResult) override {
+      IDxcIncludeHandler *pIncludeHandler, UINT32 rewriteOption,
+      IDxcOperationResult **ppResult) override {
     if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
       return E_POINTER;
 
@@ -1716,20 +1699,19 @@ public:
         }, ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
-
   }
 
-    HRESULT STDMETHODCALLTYPE RewriteWithOptions(
-        _In_ IDxcBlobEncoding *pSource,
-        // Optional file name for pSource. Used in errors and include handlers.
-        _In_opt_ LPCWSTR pSourceName, 
-        // Compiler arguments
-        _In_count_(argCount) LPCWSTR *pArguments, _In_ UINT32 argCount, 
-        // Defines
-        _In_count_(defineCount) DxcDefine *pDefines, _In_ UINT32 defineCount,
-        // user-provided interface to handle #include directives (optional)
-        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-        _COM_Outptr_ IDxcOperationResult **ppResult) override {
+  HRESULT STDMETHODCALLTYPE RewriteWithOptions(
+      IDxcBlobEncoding *pSource,
+      // Optional file name for pSource. Used in errors and include handlers.
+      LPCWSTR pSourceName,
+      // Compiler arguments
+      LPCWSTR *pArguments, UINT32 argCount,
+      // Defines
+      DxcDefine *pDefines, UINT32 defineCount,
+      // user-provided interface to handle #include directives (optional)
+      IDxcIncludeHandler *pIncludeHandler,
+      IDxcOperationResult **ppResult) override {
 
     if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr) ||
@@ -1804,10 +1786,9 @@ public:
     }
     CATCH_CPP_RETURN_HRESULT();
   }
-
 };
 
-HRESULT CreateDxcRewriter(_In_ REFIID riid, _Out_ LPVOID* ppv) {
+HRESULT CreateDxcRewriter(REFIID riid, LPVOID *ppv) {
   CComPtr<DxcRewriter> isense = DxcRewriter::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(isense.p);
   return isense.p->QueryInterface(riid, ppv);

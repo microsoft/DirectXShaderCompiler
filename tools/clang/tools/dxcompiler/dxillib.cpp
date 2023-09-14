@@ -61,8 +61,8 @@ bool DxilLibIsEnabled() {
   return SUCCEEDED(g_DllLibResult);
 }
 
-
-HRESULT DxilLibCreateInstance(_In_ REFCLSID rclsid, _In_ REFIID riid, _In_ IUnknown **ppInterface) {
+HRESULT DxilLibCreateInstance(REFCLSID rclsid, REFIID riid,
+                              IUnknown **ppInterface) {
   DXASSERT_NOMSG(ppInterface != nullptr);
   HRESULT hr = E_FAIL;
   if (DxilLibIsEnabled()) {

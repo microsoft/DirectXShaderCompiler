@@ -13,6 +13,8 @@
 #ifdef _WIN32
 
 #include "dxc/Support/WinIncludes.h"
+
+#include <assert.h>
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
@@ -33,10 +35,13 @@
 // Externally visible functions.
 
 /// <summary>Creates an implementation based on IDxcSystemAccess.</summary>
-HRESULT CreateMSFileSystemForIface(_In_ IUnknown* pService, _COM_Outptr_ ::llvm::sys::fs::MSFileSystem** pResult) throw();
+HRESULT
+CreateMSFileSystemForIface(IUnknown *pService,
+                           ::llvm::sys::fs::MSFileSystem **pResult) throw();
 
 /// <summary>Creates an implementation with no access to system resources.</summary>
-HRESULT CreateMSFileSystemBlocked(_COM_Outptr_ ::llvm::sys::fs::MSFileSystem** pResult) throw();
+HRESULT
+CreateMSFileSystemBlocked(::llvm::sys::fs::MSFileSystem **pResult) throw();
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Helper functions.
@@ -56,9 +61,8 @@ DWORD WIN32_FROM_HRESULT(HRESULT hr)
   return ERROR_FUNCTION_FAILED;
 }
 
-static
-HRESULT CopyStatStg(_In_ const STATSTG* statStg, _Out_ LPWIN32_FIND_DATAW lpFindFileData)
-{
+static HRESULT CopyStatStg(const STATSTG *statStg,
+                           LPWIN32_FIND_DATAW lpFindFileData) {
   HRESULT hr = S_OK;
   lpFindFileData->dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
   lpFindFileData->ftCreationTime = statStg->ctime;
@@ -75,9 +79,7 @@ Cleanup:
   return hr;
 }
 
-static
-void ClearStatStg(_Inout_ STATSTG* statStg)
-{
+static void ClearStatStg(STATSTG *statStg) {
   DXASSERT_NOMSG(statStg != nullptr);
   if (statStg->pwcsName != nullptr)
   {
@@ -160,49 +162,71 @@ private:
   MSFileSystemHandle m_knownHandle1;
   MSFileSystemHandle m_knownHandle2;
 
-  HRESULT AddFindHandle(_In_ IEnumSTATSTG* enumStatStg, _Out_ HANDLE* pResult) throw();
-  HRESULT AddFileHandle(_In_ IUnknown* storage, _In_ IStream* stream, _Out_ HANDLE* pResult) throw();
-  HRESULT AddMappingHandle(_In_ IUnknown* mapping, _Out_ HANDLE* pResult) throw();
-  HRESULT AddMappingView(_In_ ID3D10Blob* blob) throw();
+  HRESULT AddFindHandle(IEnumSTATSTG *enumStatStg, HANDLE *pResult) throw();
+  HRESULT AddFileHandle(IUnknown *storage, IStream *stream,
+                        HANDLE *pResult) throw();
+  HRESULT AddMappingHandle(IUnknown *mapping, HANDLE *pResult) throw();
+  HRESULT AddMappingView(ID3D10Blob *blob) throw();
   HRESULT EnsureFDAvailable(int fd);
   HANDLE GetHandleForFD(int fd) throw();
-  void GetFindHandle(HANDLE findHandle, _Outptr_ IEnumSTATSTG** enumStatStg) throw();
+  void GetFindHandle(HANDLE findHandle, IEnumSTATSTG **enumStatStg) throw();
   int GetHandleFD(HANDLE fileHandle) throw();
-  void GetHandleMapping(HANDLE fileHandle, _Outptr_ IUnknown** pResult) throw();
-  void GetHandleStorage(HANDLE fileHandle, _Outptr_ IUnknown** pResult) throw();
-  void GetHandleStream(HANDLE fileHandle, _Outptr_ IStream** pResult) throw();
+  void GetHandleMapping(HANDLE fileHandle, IUnknown **pResult) throw();
+  void GetHandleStorage(HANDLE fileHandle, IUnknown **pResult) throw();
+  void GetHandleStream(HANDLE fileHandle, IStream **pResult) throw();
   void CloseInternalHandle(HANDLE findHandle) throw();
-  void RemoveMappingView(_In_ LPCVOID address) throw();
+  void RemoveMappingView(LPCVOID address) throw();
 
 public:
-  MSFileSystemForIface(_In_ IDxcSystemAccess* access);
+  MSFileSystemForIface(IDxcSystemAccess *access);
 
-  virtual BOOL FindNextFileW(_In_ HANDLE hFindFile, _Out_ LPWIN32_FIND_DATAW lpFindFileData) throw() override;
-  virtual HANDLE FindFirstFileW(_In_ LPCWSTR lpFileName, _Out_ LPWIN32_FIND_DATAW lpFindFileData) throw() override;
+  virtual BOOL
+  FindNextFileW(HANDLE hFindFile,
+                LPWIN32_FIND_DATAW lpFindFileData) throw() override;
+  virtual HANDLE
+  FindFirstFileW(LPCWSTR lpFileName,
+                 LPWIN32_FIND_DATAW lpFindFileData) throw() override;
   virtual void FindClose(HANDLE findHandle) throw() override;
-  virtual HANDLE CreateFileW(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess, _In_ DWORD dwShareMode, _In_ DWORD dwCreationDisposition, _In_ DWORD dwFlagsAndAttributes) throw() override;
-  virtual BOOL SetFileTime(_In_ HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime) throw() override;
-  virtual BOOL GetFileInformationByHandle(_In_ HANDLE hFile, _Out_ LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override;
-  virtual DWORD GetFileType(_In_ HANDLE hFile) throw() override;
-  virtual BOOL CreateHardLinkW(_In_ LPCWSTR lpFileName, _In_ LPCWSTR lpExistingFileName) throw() override;
-  virtual BOOL MoveFileExW(_In_ LPCWSTR lpExistingFileName, _In_opt_ LPCWSTR lpNewFileName, _In_ DWORD dwFlags) throw() override;
-  virtual DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() override;
-  virtual BOOL CloseHandle(_In_ HANDLE hObject) throw() override;
-  virtual BOOL DeleteFileW(_In_ LPCWSTR lpFileName) throw() override;
-  virtual BOOL RemoveDirectoryW(_In_ LPCWSTR lpFileName) throw() override;
-  virtual BOOL CreateDirectoryW(_In_ LPCWSTR lpPathName) throw() override;
-  _Success_(return != 0 && return < nBufferLength)
-  virtual DWORD GetCurrentDirectoryW(_In_ DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override;
-  _Success_(return != 0 && return < nSize)
-  virtual DWORD GetMainModuleFileNameW(__out_ecount_part(nSize, return +1) LPWSTR lpFilename, DWORD nSize) throw() override;
-  virtual DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override;
-  virtual BOOLEAN CreateSymbolicLinkW(_In_ LPCWSTR lpSymlinkFileName, _In_ LPCWSTR lpTargetFileName, DWORD dwFlags) throw() override;
+  virtual HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess,
+                             DWORD dwShareMode, DWORD dwCreationDisposition,
+                             DWORD dwFlagsAndAttributes) throw() override;
+  virtual BOOL SetFileTime(HANDLE hFile, const FILETIME *lpCreationTime,
+                           const FILETIME *lpLastAccessTime,
+                           const FILETIME *lpLastWriteTime) throw() override;
+  virtual BOOL GetFileInformationByHandle(
+      HANDLE hFile,
+      LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override;
+  virtual DWORD GetFileType(HANDLE hFile) throw() override;
+  virtual BOOL CreateHardLinkW(LPCWSTR lpFileName,
+                               LPCWSTR lpExistingFileName) throw() override;
+  virtual BOOL MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName,
+                           DWORD dwFlags) throw() override;
+  virtual DWORD GetFileAttributesW(LPCWSTR lpFileName) throw() override;
+  virtual BOOL CloseHandle(HANDLE hObject) throw() override;
+  virtual BOOL DeleteFileW(LPCWSTR lpFileName) throw() override;
+  virtual BOOL RemoveDirectoryW(LPCWSTR lpFileName) throw() override;
+  virtual BOOL CreateDirectoryW(LPCWSTR lpPathName) throw() override;
+  virtual DWORD GetCurrentDirectoryW(DWORD nBufferLength,
+                                     LPWSTR lpBuffer) throw() override;
+  virtual DWORD GetMainModuleFileNameW(LPWSTR lpFilename,
+                                       DWORD nSize) throw() override;
+  virtual DWORD GetTempPathW(DWORD nBufferLength,
+                             LPWSTR lpBuffer) throw() override;
+  virtual BOOLEAN CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName,
+                                      LPCWSTR lpTargetFileName,
+                                      DWORD dwFlags) throw() override;
   virtual bool SupportsCreateSymbolicLink() throw() override;
-  virtual BOOL ReadFile(_In_ HANDLE hFile, _Out_ LPVOID lpBuffer, _In_ DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw() override;
-  virtual HANDLE CreateFileMappingW(_In_ HANDLE hFile, _In_ DWORD flProtect, _In_ DWORD dwMaximumSizeHigh, _In_ DWORD dwMaximumSizeLow) throw() override;
-  virtual LPVOID MapViewOfFile(_In_ HANDLE hFileMappingObject, _In_ DWORD dwDesiredAccess, _In_ DWORD dwFileOffsetHigh, _In_ DWORD dwFileOffsetLow, _In_ SIZE_T dwNumberOfBytesToMap) throw() override;
-  virtual BOOL UnmapViewOfFile(_In_ LPCVOID lpBaseAddress) throw() override;
-  
+  virtual BOOL ReadFile(HANDLE hFile, LPVOID lpBuffer,
+                        DWORD nNumberOfBytesToRead,
+                        LPDWORD lpNumberOfBytesRead) throw() override;
+  virtual HANDLE CreateFileMappingW(HANDLE hFile, DWORD flProtect,
+                                    DWORD dwMaximumSizeHigh,
+                                    DWORD dwMaximumSizeLow) throw() override;
+  virtual LPVOID MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess,
+                               DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow,
+                               SIZE_T dwNumberOfBytesToMap) throw() override;
+  virtual BOOL UnmapViewOfFile(LPCVOID lpBaseAddress) throw() override;
+
   // Console APIs.
   virtual bool FileDescriptorIsDisplayed(int fd) throw() override;
   virtual unsigned GetColumnCount(DWORD nStdHandle) throw() override;
@@ -216,9 +240,10 @@ public:
   virtual int close(int fd) throw() override;
   virtual long lseek(int fd, long offset, int origin) throw() override;
   virtual int setmode(int fd, int mode) throw() override;
-  virtual errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() override;
-  virtual int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() override;
-  virtual int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() override;
+  virtual errno_t resize_file(LPCWSTR path, uint64_t size) throw() override;
+  virtual int Read(int fd, void *buffer, unsigned int count) throw() override;
+  virtual int Write(int fd, const void *buffer,
+                    unsigned int count) throw() override;
 #ifndef _WIN32
   virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override;
   virtual int Stat(const char *lpFileName, struct stat *Status) throw() override;
@@ -226,7 +251,6 @@ public:
 #endif
 };
 
-_Use_decl_annotations_
 MSFileSystemForIface::MSFileSystemForIface(IDxcSystemAccess* systemAccess)
   : m_system(systemAccess)
   , m_knownHandle0(0)
@@ -235,7 +259,6 @@ MSFileSystemForIface::MSFileSystemForIface(IDxcSystemAccess* systemAccess)
 {
 }
 
-_Use_decl_annotations_
 HRESULT MSFileSystemForIface::AddMappingHandle(IUnknown* mapping, HANDLE* pResult) throw()
 {
   DXASSERT_NOMSG(mapping != nullptr);
@@ -252,7 +275,6 @@ Cleanup:
   return hr;
 }
 
-_Use_decl_annotations_
 HRESULT MSFileSystemForIface::AddMappingView(ID3D10Blob* blob) throw()
 {
   DXASSERT_NOMSG(blob != nullptr);
@@ -269,7 +291,6 @@ HRESULT MSFileSystemForIface::AddMappingView(ID3D10Blob* blob) throw()
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT MSFileSystemForIface::AddFindHandle(IEnumSTATSTG* enumStatStg, HANDLE* pResult) throw()
 {
   DXASSERT_NOMSG(enumStatStg != nullptr);
@@ -286,7 +307,6 @@ Cleanup:
   return hr;
 }
 
-_Use_decl_annotations_
 HRESULT MSFileSystemForIface::AddFileHandle(IUnknown* storage, IStream* stream, HANDLE* pResult) throw()
 {
   DXASSERT_NOMSG(storage != nullptr);
@@ -319,7 +339,6 @@ void MSFileSystemForIface::CloseInternalHandle(HANDLE handle) throw()
   }
 }
 
-_Use_decl_annotations_
 void MSFileSystemForIface::RemoveMappingView(LPCVOID address) throw()
 {
   TViewMap::iterator i = m_mappingViews.find(address);
@@ -329,7 +348,6 @@ void MSFileSystemForIface::RemoveMappingView(LPCVOID address) throw()
   m_mappingViews.erase(i);
 }
 
-_Use_decl_annotations_
 void MSFileSystemForIface::GetFindHandle(HANDLE findHandle, IEnumSTATSTG** enumStatStg) throw()
 {
   DXASSERT_NOMSG(findHandle != nullptr);
@@ -354,9 +372,8 @@ int MSFileSystemForIface::GetHandleFD(HANDLE fileHandle) throw()
   return fsHandle->fd;
 }
 
-_Use_decl_annotations_
-void MSFileSystemForIface::GetHandleMapping(HANDLE mapping, _Outptr_ IUnknown** pResult) throw()
-{
+void MSFileSystemForIface::GetHandleMapping(HANDLE mapping,
+                                            IUnknown **pResult) throw() {
   DXASSERT_NOMSG(mapping != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
 
@@ -369,9 +386,8 @@ void MSFileSystemForIface::GetHandleMapping(HANDLE mapping, _Outptr_ IUnknown** 
   (*pResult)->AddRef();
 }
 
-_Use_decl_annotations_
-void MSFileSystemForIface::GetHandleStorage(HANDLE fileHandle, _Outptr_ IUnknown** pResult) throw()
-{
+void MSFileSystemForIface::GetHandleStorage(HANDLE fileHandle,
+                                            IUnknown **pResult) throw() {
   DXASSERT_NOMSG(fileHandle != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
 
@@ -384,9 +400,8 @@ void MSFileSystemForIface::GetHandleStorage(HANDLE fileHandle, _Outptr_ IUnknown
   (*pResult)->AddRef();
 }
 
-_Use_decl_annotations_
-void MSFileSystemForIface::GetHandleStream(HANDLE fileHandle, _Outptr_ IStream** pResult) throw()
-{
+void MSFileSystemForIface::GetHandleStream(HANDLE fileHandle,
+                                           IStream **pResult) throw() {
   DXASSERT_NOMSG(fileHandle != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
 
@@ -399,8 +414,6 @@ void MSFileSystemForIface::GetHandleStream(HANDLE fileHandle, _Outptr_ IStream**
   (*pResult)->AddRef();
 }
 
-
-_Use_decl_annotations_
 HANDLE MSFileSystemForIface::FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
   HRESULT hr = S_OK;
@@ -437,7 +450,6 @@ Cleanup:
   return resultValue;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
   HRESULT hr = S_OK;
@@ -475,7 +487,6 @@ void MSFileSystemForIface::FindClose(HANDLE findHandle) throw()
   CloseInternalHandle(findHandle);
 }
 
-_Use_decl_annotations_
 HANDLE MSFileSystemForIface::CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes) throw()
 {
   HRESULT hr = S_OK;
@@ -497,9 +508,9 @@ Cleanup:
   return resultHandle;
 }
 
-_Use_decl_annotations_
-BOOL MSFileSystemForIface::SetFileTime(HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime) throw()
-{
+BOOL MSFileSystemForIface::SetFileTime(
+    HANDLE hFile, const FILETIME *lpCreationTime,
+    const FILETIME *lpLastAccessTime, const FILETIME *lpLastWriteTime) throw() {
   HRESULT hr = S_OK;
   CComPtr<IUnknown> storage;
 
@@ -516,7 +527,6 @@ Cleanup:
   return TRUE;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::GetFileInformationByHandle(HANDLE hFile, LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw()
 {
   HRESULT hr = S_OK;
@@ -535,7 +545,6 @@ Cleanup:
   return TRUE;
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemForIface::GetFileType(HANDLE hFile) throw()
 {
   HRESULT hr = S_OK;
@@ -559,21 +568,18 @@ Cleanup:
   return fileType;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::CreateHardLinkW(LPCWSTR lpFileName, LPCWSTR lpExistingFileName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, DWORD dwFlags) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemForIface::GetFileAttributesW(LPCWSTR lpFileName) throw()
 {
   HRESULT hr = S_OK;
@@ -591,35 +597,30 @@ Cleanup:
   return attributes;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::CloseHandle(HANDLE hObject) throw()
 {
   this->CloseInternalHandle(hObject);
   return TRUE;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::DeleteFileW(LPCWSTR lpFileName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::RemoveDirectoryW(LPCWSTR lpFileName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::CreateDirectoryW(LPCWSTR lpPathName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemForIface::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   DWORD written = 0;
@@ -637,7 +638,6 @@ Cleanup:
   return written;
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemForIface::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize) throw()
 {
   DWORD written = 0;
@@ -655,7 +655,6 @@ Cleanup:
   return written;
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemForIface::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   DWORD written = 0;
@@ -673,7 +672,6 @@ Cleanup:
   return written;
 }
 
-_Use_decl_annotations_
 BOOLEAN MSFileSystemForIface::CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName, LPCWSTR lpTargetFileName, DWORD dwFlags) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
@@ -685,9 +683,9 @@ bool MSFileSystemForIface::SupportsCreateSymbolicLink() throw()
   return false;
 }
 
-_Use_decl_annotations_
-BOOL MSFileSystemForIface::ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw()
-{
+BOOL MSFileSystemForIface::ReadFile(HANDLE hFile, LPVOID lpBuffer,
+                                    DWORD nNumberOfBytesToRead,
+                                    LPDWORD lpNumberOfBytesRead) throw() {
   HRESULT hr = S_OK;
   CComPtr<IStream> stream;
   GetHandleStream(hFile, &stream);
@@ -708,7 +706,6 @@ Cleanup:
   return TRUE;
 }
 
-_Use_decl_annotations_
 HANDLE MSFileSystemForIface::CreateFileMappingW(HANDLE hFile, DWORD flProtect, DWORD dwMaximumSizeHigh, DWORD dwMaximumSizeLow) throw()
 {
   HRESULT hr = S_OK;
@@ -730,7 +727,6 @@ Cleanup:
   return result;
 }
 
-_Use_decl_annotations_
 LPVOID MSFileSystemForIface::MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess, DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow, SIZE_T dwNumberOfBytesToMap) throw()
 {
   HRESULT hr = S_OK;
@@ -751,7 +747,6 @@ Cleanup:
   return blob->GetBufferPointer();
 }
 
-_Use_decl_annotations_
 BOOL MSFileSystemForIface::UnmapViewOfFile(LPCVOID lpBaseAddress) throw()
 {
   RemoveMappingView(lpBaseAddress);
@@ -886,13 +881,11 @@ int MSFileSystemForIface::setmode(int fd, int mode) throw()
   return 0;
 }
 
-_Use_decl_annotations_
 errno_t MSFileSystemForIface::resize_file(LPCWSTR path, uint64_t size) throw()
 {
   return EBADF;
 }
 
-_Use_decl_annotations_
 int MSFileSystemForIface::Read(int fd, void* buffer, unsigned int count) throw()
 {
   HRESULT hr = S_OK;
@@ -917,7 +910,6 @@ Cleanup:
   return (int)cbRead;
 }
 
-_Use_decl_annotations_
 int MSFileSystemForIface::Write(int fd, const void* buffer, unsigned int count) throw()
 {
   HRESULT hr = S_OK;
@@ -1009,72 +1001,111 @@ private:
 public:
   MSFileSystemBlocked();
 
-  virtual BOOL FindNextFileW(_In_ HANDLE , _Out_ LPWIN32_FIND_DATAW ) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL FindNextFileW(HANDLE, LPWIN32_FIND_DATAW) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  virtual HANDLE FindFirstFileW(_In_ LPCWSTR lpFileName, _Out_ LPWIN32_FIND_DATAW lpFindFileData) throw() override
-  { return MSFileSystemBlockedHandle(); }
+  virtual HANDLE
+  FindFirstFileW(LPCWSTR lpFileName,
+                 LPWIN32_FIND_DATAW lpFindFileData) throw() override {
+    return MSFileSystemBlockedHandle();
+  }
 
   virtual void FindClose(HANDLE findHandle) throw() override
   { MSFileSystemBlockedCalled(); }
 
-  virtual HANDLE CreateFileW(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess, _In_ DWORD dwShareMode, _In_ DWORD dwCreationDisposition, _In_ DWORD dwFlagsAndAttributes) throw() override
-  { return MSFileSystemBlockedHandle(); }
+  virtual HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess,
+                             DWORD dwShareMode, DWORD dwCreationDisposition,
+                             DWORD dwFlagsAndAttributes) throw() override {
+    return MSFileSystemBlockedHandle();
+  }
 
-  virtual BOOL SetFileTime(_In_ HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL SetFileTime(HANDLE hFile, const FILETIME *lpCreationTime,
+                           const FILETIME *lpLastAccessTime,
+                           const FILETIME *lpLastWriteTime) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  virtual BOOL GetFileInformationByHandle(_In_ HANDLE hFile, _Out_ LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL GetFileInformationByHandle(
+      HANDLE hFile,
+      LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  virtual DWORD GetFileType(_In_ HANDLE hFile) throw() override
-  { MSFileSystemBlockedErrWin32(); return FILE_TYPE_UNKNOWN; }
+  virtual DWORD GetFileType(HANDLE hFile) throw() override {
+    MSFileSystemBlockedErrWin32();
+    return FILE_TYPE_UNKNOWN;
+  }
 
-  virtual BOOL CreateHardLinkW(_In_ LPCWSTR lpFileName, _In_ LPCWSTR lpExistingFileName) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL CreateHardLinkW(LPCWSTR lpFileName,
+                               LPCWSTR lpExistingFileName) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  virtual BOOL MoveFileExW(_In_ LPCWSTR lpExistingFileName, _In_opt_ LPCWSTR lpNewFileName, _In_ DWORD dwFlags) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName,
+                           DWORD dwFlags) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  virtual DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() override
-  { MSFileSystemBlockedErrWin32(); return 0; }
+  virtual DWORD GetFileAttributesW(LPCWSTR lpFileName) throw() override {
+    MSFileSystemBlockedErrWin32();
+    return 0;
+  }
 
-  virtual BOOL CloseHandle(_In_ HANDLE hObject) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL CloseHandle(HANDLE hObject) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  virtual BOOL DeleteFileW(_In_ LPCWSTR lpFileName) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL DeleteFileW(LPCWSTR lpFileName) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
   virtual BOOL RemoveDirectoryW(LPCWSTR lpFileName) throw() override
   { return MSFileSystemBlockedErrWin32(); }
 
-  virtual BOOL CreateDirectoryW(_In_ LPCWSTR lpPathName) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL CreateDirectoryW(LPCWSTR lpPathName) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  _Success_(return != 0 && return < nBufferLength)
-  virtual DWORD GetCurrentDirectoryW(_In_ DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override;
-  virtual DWORD GetMainModuleFileNameW(__out_ecount_part(nSize, return +1) LPWSTR lpFilename, DWORD nSize) throw() override;
-  _Success_(return != 0 && return < nBufferLength)
-  virtual DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override;
+  virtual DWORD GetCurrentDirectoryW(DWORD nBufferLength,
+                                     LPWSTR lpBuffer) throw() override;
+  virtual DWORD GetMainModuleFileNameW(LPWSTR lpFilename,
+                                       DWORD nSize) throw() override;
+  virtual DWORD GetTempPathW(DWORD nBufferLength,
+                             LPWSTR lpBuffer) throw() override;
 
-  virtual BOOLEAN CreateSymbolicLinkW(_In_ LPCWSTR lpSymlinkFileName, _In_ LPCWSTR lpTargetFileName, DWORD dwFlags) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOLEAN CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName,
+                                      LPCWSTR lpTargetFileName,
+                                      DWORD dwFlags) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
   virtual bool SupportsCreateSymbolicLink() throw() override
   { MSFileSystemBlockedErrWin32(); return false; }
 
-  virtual BOOL ReadFile(_In_ HANDLE hFile, _Out_ LPVOID lpBuffer, _In_ DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
+  virtual BOOL ReadFile(HANDLE hFile, LPVOID lpBuffer,
+                        DWORD nNumberOfBytesToRead,
+                        LPDWORD lpNumberOfBytesRead) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
 
-  virtual HANDLE CreateFileMappingW(_In_ HANDLE hFile, _In_ DWORD flProtect, _In_ DWORD dwMaximumSizeHigh, _In_ DWORD dwMaximumSizeLow) throw() override
-  { return MSFileSystemBlockedHandle(); }
+  virtual HANDLE CreateFileMappingW(HANDLE hFile, DWORD flProtect,
+                                    DWORD dwMaximumSizeHigh,
+                                    DWORD dwMaximumSizeLow) throw() override {
+    return MSFileSystemBlockedHandle();
+  }
 
-  virtual LPVOID MapViewOfFile(_In_ HANDLE hFileMappingObject, _In_ DWORD dwDesiredAccess, _In_ DWORD dwFileOffsetHigh, _In_ DWORD dwFileOffsetLow, _In_ SIZE_T dwNumberOfBytesToMap) throw() override
-  { MSFileSystemBlockedErrWin32(); return nullptr; }
+  virtual LPVOID MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess,
+                               DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow,
+                               SIZE_T dwNumberOfBytesToMap) throw() override {
+    MSFileSystemBlockedErrWin32();
+    return nullptr;
+  }
 
-  virtual BOOL UnmapViewOfFile(_In_ LPCVOID lpBaseAddress) throw() override
-  { return MSFileSystemBlockedErrWin32(); }
-  
+  virtual BOOL UnmapViewOfFile(LPCVOID lpBaseAddress) throw() override {
+    return MSFileSystemBlockedErrWin32();
+  }
+
   // Console APIs.
   virtual bool FileDescriptorIsDisplayed(int fd) throw() override
   { MSFileSystemBlockedCalled(); return false; }
@@ -1107,8 +1138,9 @@ public:
   virtual int setmode(int fd, int mode) throw() override
   { return MSFileSystemBlockedErrno(); }
 
-  virtual errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() override
-  { return MSFileSystemBlockedErrnoT(); }
+  virtual errno_t resize_file(LPCWSTR path, uint64_t size) throw() override {
+    return MSFileSystemBlockedErrnoT();
+  }
 
   virtual int Read(int fd, void* buffer, unsigned int count) throw() override
   { return MSFileSystemBlockedErrno(); }
@@ -1134,7 +1166,6 @@ MSFileSystemBlocked::MSFileSystemBlocked()
 {
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemBlocked::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   if (nBufferLength > 1)
@@ -1145,14 +1176,12 @@ DWORD MSFileSystemBlocked::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBu
   return 1;
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemBlocked::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize) throw()
 {
   SetLastError(NO_ERROR);
   return 0;
 }
 
-_Use_decl_annotations_
 DWORD MSFileSystemBlocked::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   if (nBufferLength > 1)
@@ -1171,7 +1200,6 @@ DWORD MSFileSystemBlocked::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) th
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Externally visible functions.
 
-_Use_decl_annotations_
 HRESULT CreateMSFileSystemForIface(IUnknown* pService, ::llvm::sys::fs::MSFileSystem** pResult) throw()
 {
   DXASSERT_NOMSG(pService != nullptr);
@@ -1185,7 +1213,6 @@ HRESULT CreateMSFileSystemForIface(IUnknown* pService, ::llvm::sys::fs::MSFileSy
   return (*pResult != nullptr) ? S_OK : E_OUTOFMEMORY;
 }
 
-_Use_decl_annotations_
 HRESULT CreateMSFileSystemBlocked(::llvm::sys::fs::MSFileSystem** pResult) throw()
 {
   DXASSERT_NOMSG(pResult != nullptr);

@@ -24,4 +24,8 @@
 #include "ShaderBinary/ShaderBinary.h"
 // clang-format on
 
-#define ASSUME( _exp ) { assert( _exp ); __analysis_assume( _exp ); __assume( _exp ); }
+#define ASSUME(_exp)                                                           \
+  {                                                                            \
+    assert(_exp);                                                              \
+    __assume(_exp);                                                            \
+  }

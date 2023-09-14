@@ -231,8 +231,9 @@ public:
   CComPtr<IDxcIncludeHandler> pInnerIncludeHandler;
 
   HRESULT STDMETHODCALLTYPE LoadSource(
-      _In_ LPCWSTR pFilename,                                   // Candidate filename.
-      _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource  // Resultant source object for included file, nullptr if not found.
+      LPCWSTR pFilename,         // Candidate filename.
+      IDxcBlob **ppIncludeSource // Resultant source object for included file,
+                                 // nullptr if not found.
       ) override {
     if (!ppIncludeSource)
       return E_INVALIDARG;

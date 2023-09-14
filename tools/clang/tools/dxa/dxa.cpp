@@ -447,7 +447,7 @@ void DxaContext::DumpReflection() {
 using namespace hlsl::options;
 
 #ifdef _WIN32
-int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
+int __cdecl main(int argc, char **argv) {
 #else
 int main(int argc, const char **argv) {
 #endif

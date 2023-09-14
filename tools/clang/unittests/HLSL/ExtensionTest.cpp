@@ -342,15 +342,15 @@ public:
     return DoBasicQueryInterface<IDxcIntrinsicTable>(this, iid, ppvObject);
   }
 
-  HRESULT STDMETHODCALLTYPE
-  GetTableName(_Outptr_ LPCSTR *pTableName) override {
+  HRESULT STDMETHODCALLTYPE GetTableName(LPCSTR *pTableName) override {
     *pTableName = "test";
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE LookupIntrinsic(
-      LPCWSTR typeName, LPCWSTR functionName, const HLSL_INTRINSIC **pIntrinsic,
-      _Inout_ UINT64 *pLookupCookie) override {
+  HRESULT STDMETHODCALLTYPE LookupIntrinsic(LPCWSTR typeName,
+                                            LPCWSTR functionName,
+                                            const HLSL_INTRINSIC **pIntrinsic,
+                                            UINT64 *pLookupCookie) override {
     if (typeName == nullptr)
       return E_FAIL;
 
@@ -375,8 +375,8 @@ public:
     return result.intrinsic ? S_OK : E_FAIL;
   }
 
-  HRESULT STDMETHODCALLTYPE
-  GetLoweringStrategy(UINT opcode, _Outptr_ LPCSTR *pStrategy) override {
+  HRESULT STDMETHODCALLTYPE GetLoweringStrategy(UINT opcode,
+                                                LPCSTR *pStrategy) override {
     Intrinsic *intrinsic = FindByOpcode(opcode);
     
     if (!intrinsic)
@@ -386,8 +386,8 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE
-  GetIntrinsicName(UINT opcode, _Outptr_ LPCSTR *pName) override {
+  HRESULT STDMETHODCALLTYPE GetIntrinsicName(UINT opcode,
+                                             LPCSTR *pName) override {
     Intrinsic *intrinsic = FindByOpcode(opcode);
 
     if (!intrinsic)
@@ -397,8 +397,8 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE
-  GetDxilOpCode(UINT opcode, _Outptr_ UINT *pDxilOpcode) override {
+  HRESULT STDMETHODCALLTYPE GetDxilOpCode(UINT opcode,
+                                          UINT *pDxilOpcode) override {
     if (opcode == 13) {
       *pDxilOpcode = static_cast<UINT>(hlsl::OP::OpCode::IsInf);
       return S_OK;

@@ -196,7 +196,7 @@ namespace llvm {
  * \return true on success.
  */
 bool ConvertUTF8toWide(unsigned WideCharWidth, llvm::StringRef Source,
-                       _Out_cap_x_(WideCharWidth * (Source.Size() + 1)) char *&ResultPtr, const UTF8 *&ErrorPtr); // HLSL Change
+                       char *&ResultPtr, const UTF8 *&ErrorPtr);
 
 /**
  * Convert an Unicode code point to UTF8 sequence.
@@ -208,7 +208,7 @@ bool ConvertUTF8toWide(unsigned WideCharWidth, llvm::StringRef Source,
  *
  * \returns true on success.
  */
-bool ConvertCodePointToUTF8(unsigned Source, _Inout_cap_(UNI_MAX_UTF8_BYTES_PER_CODE_POINT) char *&ResultPtr); // HLSL Change
+bool ConvertCodePointToUTF8(unsigned Source, char *&ResultPtr);
 
 /**
  * Convert the first UTF8 sequence in the given source buffer to a UTF32

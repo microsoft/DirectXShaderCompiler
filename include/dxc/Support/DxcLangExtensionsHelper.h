@@ -79,8 +79,8 @@ inline bool IsMacroMatch(StringRef name, const std::string &mask) {
 
 // Return the collection of semantic defines parsed by the compiler instance.
 ParsedSemanticDefineList
-  CollectSemanticDefinesParsedByCompiler(clang::CompilerInstance &compiler,
-                                         _In_ DxcLangExtensionsHelper *helper);
+CollectSemanticDefinesParsedByCompiler(clang::CompilerInstance &compiler,
+                                       DxcLangExtensionsHelper *helper);
 
 } // namespace hlsl
 

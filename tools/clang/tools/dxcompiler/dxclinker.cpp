@@ -42,7 +42,7 @@ using namespace hlsl;
 using namespace llvm;
 
 // This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 
 struct DeserializedDxilCompilerVersion {
   const hlsl::DxilCompilerVersion DCV;
@@ -92,25 +92,21 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcLinker)
 
   // Register a library with name to ref it later.
-  HRESULT RegisterLibrary(
-      _In_opt_ LPCWSTR pLibName, // Name of the library.
-      _In_ IDxcBlob *pLib        // Library to add.
-  ) override;
+  HRESULT RegisterLibrary(LPCWSTR pLibName, // Name of the library.
+                          IDxcBlob *pLib    // Library to add.
+                          ) override;
 
   // Links the shader and produces a shader blob that the Direct3D runtime can
   // use.
   HRESULT STDMETHODCALLTYPE Link(
-      _In_opt_ LPCWSTR pEntryName, // Entry point name
-      _In_ LPCWSTR pTargetProfile, // shader profile to link
-      _In_count_(libCount)
-          const LPCWSTR *pLibNames, // Array of library names to link
-      UINT32 libCount,              // Number of libraries to link
-      _In_count_(argCount)
-          const LPCWSTR *pArguments, // Array of pointers to arguments
-      _In_ UINT32 argCount,          // Number of arguments
-      _COM_Outptr_ IDxcOperationResult *
-          *ppResult // Linker output status, buffer, and errors
-  ) override;
+      LPCWSTR pEntryName,            // Entry point name
+      LPCWSTR pTargetProfile,        // shader profile to link
+      const LPCWSTR *pLibNames,      // Array of library names to link
+      UINT32 libCount,               // Number of libraries to link
+      const LPCWSTR *pArguments,     // Array of pointers to arguments
+      UINT32 argCount,               // Number of arguments
+      IDxcOperationResult **ppResult // Linker output status, buffer, and errors
+      ) override;
 
   HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
@@ -180,8 +176,8 @@ private:
 };
 
 HRESULT
-DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
-                           _In_ IDxcBlob *pBlob       // Library to add.
+DxcLinker::RegisterLibrary(LPCWSTR pLibName, // Name of the library.
+                           IDxcBlob *pBlob   // Library to add.
 ) {
   if (!pLibName || !pBlob)
     return E_INVALIDARG;
@@ -236,16 +232,13 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
 // Links the shader and produces a shader blob that the Direct3D runtime can
 // use.
 HRESULT STDMETHODCALLTYPE DxcLinker::Link(
-    _In_opt_ LPCWSTR pEntryName, // Entry point name
-    _In_ LPCWSTR pTargetProfile, // shader profile to link
-    _In_count_(libCount)
-        const LPCWSTR *pLibNames, // Array of library names to link
-    UINT32 libCount,              // Number of libraries to link
-    _In_count_(argCount)
-        const LPCWSTR *pArguments, // Array of pointers to arguments
-    _In_ UINT32 argCount,          // Number of arguments
-    _COM_Outptr_ IDxcOperationResult *
-        *ppResult // Linker output status, buffer, and errors
+    LPCWSTR pEntryName,            // Entry point name
+    LPCWSTR pTargetProfile,        // shader profile to link
+    const LPCWSTR *pLibNames,      // Array of library names to link
+    UINT32 libCount,               // Number of libraries to link
+    const LPCWSTR *pArguments,     // Array of pointers to arguments
+    UINT32 argCount,               // Number of arguments
+    IDxcOperationResult **ppResult // Linker output status, buffer, and errors
 ) {
   if (!pTargetProfile || !pLibNames || libCount == 0 || !ppResult)
     return E_INVALIDARG;
@@ -487,7 +480,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
   return hr;
 }
 
-HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcLinker(REFIID riid, LPVOID *ppv) {
   *ppv = nullptr;
   try {
     CComPtr<DxcLinker> result(DxcLinker::Alloc(DxcGetThreadMallocNoRef()));

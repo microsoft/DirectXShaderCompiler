@@ -14,6 +14,7 @@
 #else
 #include <clocale>
 #endif
+#include <assert.h>
 #include <string>
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
@@ -119,8 +120,8 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
 
 namespace Unicode {
 
-_Success_(return != false)
-bool WideToEncodedString(_In_z_ const wchar_t* text, size_t cWide, DWORD cp, DWORD flags, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
+bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
+                         DWORD flags, std::string *pValue, bool *lossy) {
   BOOL usedDefaultChar;
   LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
   if (lossy != nullptr) *lossy = false;
@@ -146,13 +147,11 @@ bool WideToEncodedString(_In_z_ const wchar_t* text, size_t cWide, DWORD cp, DWO
   return true;
 }
 
-_Use_decl_annotations_
 bool UTF8ToWideString(const char *pUTF8, std::wstring *pWide) {
   size_t cbUTF8 = (pUTF8 == nullptr) ? 0 : strlen(pUTF8);
   return UTF8ToWideString(pUTF8, cbUTF8, pWide);
 }
 
-_Use_decl_annotations_
 bool UTF8ToWideString(const char *pUTF8, size_t cbUTF8, std::wstring *pWide) {
   DXASSERT_NOMSG(pWide != nullptr);
 
@@ -178,7 +177,7 @@ bool UTF8ToWideString(const char *pUTF8, size_t cbUTF8, std::wstring *pWide) {
   return true;
 }
 
-std::wstring UTF8ToWideStringOrThrow(_In_z_ const char *pUTF8) {
+std::wstring UTF8ToWideStringOrThrow(const char *pUTF8) {
   std::wstring result;
   if (!UTF8ToWideString(pUTF8, &result)) {
     throw hlsl::Exception(DXC_E_STRING_ENCODING_FAILED);
@@ -186,8 +185,8 @@ std::wstring UTF8ToWideStringOrThrow(_In_z_ const char *pUTF8) {
   return result;
 }
 
-_Use_decl_annotations_
-bool UTF8ToConsoleString(_In_z_ const char* text, _In_ size_t textLen, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
+bool UTF8ToConsoleString(const char *text, size_t textLen, std::string *pValue,
+                         bool *lossy) {
   DXASSERT_NOMSG(text != nullptr);
   DXASSERT_NOMSG(pValue != nullptr);
   std::wstring text16;
@@ -198,39 +197,35 @@ bool UTF8ToConsoleString(_In_z_ const char* text, _In_ size_t textLen, _Inout_ s
   return WideToConsoleString(text16.c_str(), text16.length(), pValue, lossy);
 }
 
-_Use_decl_annotations_
-bool UTF8ToConsoleString(_In_z_ const char* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
+bool UTF8ToConsoleString(const char *text, std::string *pValue, bool *lossy) {
   return UTF8ToConsoleString(text, strlen(text), pValue, lossy);
 }
 
-_Use_decl_annotations_
-bool WideToConsoleString(const wchar_t* text, _In_ size_t textLen, std::string* pValue, bool* lossy) {
+bool WideToConsoleString(const wchar_t *text, size_t textLen,
+                         std::string *pValue, bool *lossy) {
   DXASSERT_NOMSG(text != nullptr);
   DXASSERT_NOMSG(pValue != nullptr);
   UINT cp = GetConsoleOutputCP();
   return WideToEncodedString(text, textLen, cp, 0, pValue, lossy);
 }
 
-_Use_decl_annotations_
 bool WideToConsoleString(const wchar_t* text, std::string* pValue, bool* lossy) {
   return WideToConsoleString(text, wcslen(text), pValue, lossy);
 }
 
-_Use_decl_annotations_
 bool WideToUTF8String(const wchar_t *pWide, size_t cWide, std::string *pUTF8) {
   DXASSERT_NOMSG(pWide != nullptr);
   DXASSERT_NOMSG(pUTF8 != nullptr);
   return WideToEncodedString(pWide, cWide, CP_UTF8, 0, pUTF8, nullptr);
 }
 
-_Use_decl_annotations_
 bool WideToUTF8String(const wchar_t *pWide, std::string *pUTF8) {
   DXASSERT_NOMSG(pWide != nullptr);
   DXASSERT_NOMSG(pUTF8 != nullptr);
   return WideToEncodedString(pWide, wcslen(pWide), CP_UTF8, 0, pUTF8, nullptr);
 }
 
-std::string WideToUTF8StringOrThrow(_In_z_ const wchar_t *pWide) {
+std::string WideToUTF8StringOrThrow(const wchar_t *pWide) {
   std::string result;
   if (!WideToUTF8String(pWide, &result)) {
     throw hlsl::Exception(DXC_E_STRING_ENCODING_FAILED);
@@ -238,7 +233,6 @@ std::string WideToUTF8StringOrThrow(_In_z_ const wchar_t *pWide) {
   return result;
 }
 
-_Use_decl_annotations_
 bool UTF8BufferToWideComHeap(const char *pUTF8, wchar_t **ppWide) throw() {
   *ppWide = nullptr;
   int c = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, -1,
@@ -254,7 +248,6 @@ bool UTF8BufferToWideComHeap(const char *pUTF8, wchar_t **ppWide) throw() {
   return true;
 }
 
-_Use_decl_annotations_
 bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide, size_t *pcWide) throw() {
   *ppWide = nullptr;
   *pcWide = 0;
@@ -294,7 +287,6 @@ bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide, siz
   return true;
 }
 
-_Use_decl_annotations_
 bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cWide, char **ppUTF8, size_t *pcUTF8) throw() {
   *ppUTF8 = nullptr;
   *pcUTF8 = 0;
@@ -370,12 +362,10 @@ bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName, size_t
   }
 }
 
-_Use_decl_annotations_
 bool IsStarMatchUTF8(const char *pMask, size_t maskLen, const char *pName, size_t nameLen) {
   return IsStarMatchT<char>(pMask, maskLen, pName, nameLen, '*');
 }
 
-_Use_decl_annotations_
 bool IsStarMatchWide(const wchar_t *pMask, size_t maskLen, const wchar_t *pName, size_t nameLen) {
   return IsStarMatchT<wchar_t>(pMask, maskLen, pName, nameLen, L'*');
 }
