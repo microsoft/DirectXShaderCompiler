@@ -97,8 +97,6 @@ bool CComBSTR::operator==(_In_ const CComBSTR &bstrSrc) const throw() {
   return wcscmp(m_str, bstrSrc.m_str) == 0;
 }
 
-#endif
-
 //===--------------------------- WArgV -------------------------------===//
 WArgV::WArgV(int argc, const char **argv)
     : WStringVector(argc), WCharPtrVector(argc) {
@@ -115,9 +113,4 @@ WArgV::WArgV(int argc, const char **argv)
   }
 }
 
-WArgV::WArgV(int argc, const wchar_t **argv)
-    : WCharPtrVector(argc) {
-  for (int i = 0; i < argc; ++i) {
-    WCharPtrVector[i] = argv[i];
-  }
-}
+#endif

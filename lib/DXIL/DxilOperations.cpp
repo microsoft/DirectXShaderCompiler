@@ -648,17 +648,25 @@ bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I) {
 
 bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode) {
   if (!IsDxilOpFuncCallInst(I)) return false;
-  return llvm::cast<llvm::ConstantInt>(I->getOperand(0))->getZExtValue() == (unsigned)opcode;
+  return (unsigned)getOpCode(I) == (unsigned)opcode;
+}
+
+OP::OpCode OP::getOpCode(const llvm::Instruction *I) {
+  return (OP::OpCode)llvm::cast<llvm::ConstantInt>(I->getOperand(0))
+      ->getZExtValue();
 }
 
 OP::OpCode OP::GetDxilOpFuncCallInst(const llvm::Instruction *I) {
   DXASSERT(IsDxilOpFuncCallInst(I), "else caller didn't call IsDxilOpFuncCallInst to check");
-  return (OP::OpCode)llvm::cast<llvm::ConstantInt>(I->getOperand(0))->getZExtValue();
+  return getOpCode(I);
 }
 
 bool OP::IsDxilOpWave(OpCode C) {
   unsigned op = (unsigned)C;
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('OPCODE-WAVE')>hctdb_instrhelp.get_instrs_pred("op", "is_wave")</py>*/
+  // clang-format on
   // OPCODE-WAVE:BEGIN
   // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
   // WaveGetLaneCount=112, WaveAnyTrue=113, WaveAllTrue=114,
@@ -678,7 +686,10 @@ bool OP::IsDxilOpWave(OpCode C) {
 
 bool OP::IsDxilOpGradient(OpCode C) {
   unsigned op = (unsigned)C;
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('OPCODE-GRADIENT')>hctdb_instrhelp.get_instrs_pred("op", "is_gradient")</py>*/
+  // clang-format on
   // OPCODE-GRADIENT:BEGIN
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
@@ -689,7 +700,10 @@ bool OP::IsDxilOpGradient(OpCode C) {
 
 bool OP::IsDxilOpFeedback(OpCode C) {
   unsigned op = (unsigned)C;
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('OPCODE-FEEDBACK')>hctdb_instrhelp.get_instrs_pred("op", "is_feedback")</py>*/
+  // clang-format on
   // OPCODE-FEEDBACK:BEGIN
   // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175,
   // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177
@@ -705,7 +719,10 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Default is 6.0, all stages
   major = 6;  minor = 0;
   mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('OPCODE-SMMASK')>hctdb_instrhelp.get_min_sm_and_mask_text()</py>*/
+  // clang-format on
   // OPCODE-SMMASK:BEGIN
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
@@ -1734,7 +1751,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   Type *Ty = F->getReturnType();
   FunctionType *FT = F->getFunctionType();
   LLVMContext &Ctx = F->getContext();
-/* <py::lines('OPCODE-OLOAD-TYPES')>hctdb_instrhelp.get_funcs_oload_type()</py>*/
+  // clang-format off
+  // Python lines need to be not formatted.
+  /* <py::lines('OPCODE-OLOAD-TYPES')>hctdb_instrhelp.get_funcs_oload_type()</py>*/
+  // clang-format on
   switch (opCode) {            // return     OpCode
   // OPCODE-OLOAD-TYPES:BEGIN
   case OpCode::TempRegStore:

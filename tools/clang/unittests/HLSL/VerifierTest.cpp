@@ -116,7 +116,6 @@ public:
   TEST_METHOD(RunWorkGraphMemberWriteDiags)
   TEST_METHOD(RunWorkGraphNodeSVDispatchGridDiags)
   TEST_METHOD(RunWorkGraphDispatchGridDiags)
-  TEST_METHOD(RunNodeComputeCompatibilityDiags)
   TEST_METHOD(RunNodeInputCompatibilityDiags)
   TEST_METHOD(RunNodeZeroSizedRecordDiags)
   TEST_METHOD(RunWorkGraphAttributeDiags)
@@ -533,10 +532,6 @@ TEST_F(VerifierTest, RunWorkGraphNodeSVDispatchGridDiags) {
 
 TEST_F(VerifierTest, RunWorkGraphDispatchGridDiags) {
   CheckVerifiesHLSL(L"/workgraph/dispatchgrid_diags.hlsl");
-}
-
-TEST_F(VerifierTest, RunNodeComputeCompatibilityDiags) {
-  CheckVerifiesHLSL(L"/workgraph/node_compute_compatibility.hlsl");
 }
 
 TEST_F(VerifierTest, RunNodeInputCompatibilityDiags) {

@@ -7995,6 +7995,20 @@ void TranslateStructBufSubscriptUser(
         handle, ResKind, bufIdx, baseOffset, status, OP, DL);
     }
     BCI->eraseFromParent();
+  } else if (PHINode* Phi = dyn_cast<PHINode>(user)) {
+    if (Phi->getNumIncomingValues() != 1) {
+        dxilutil::EmitErrorOnInstruction(Phi, "Phi not supported for buffer subscript");
+        return;
+    }
+    // Since the phi only has a single value we can safely process its
+    // users to translate the subscript. These single-value phis are
+    // inserted by the lcssa pass.
+    for (auto U = Phi->user_begin(); U != Phi->user_end();) {
+      Value *PhiUser = *(U++);
+      TranslateStructBufSubscriptUser(cast<Instruction>(PhiUser),
+        handle, ResKind, bufIdx, baseOffset, status, OP, DL);
+    }
+    Phi->eraseFromParent();
   } else {
     // should only used by GEP
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);

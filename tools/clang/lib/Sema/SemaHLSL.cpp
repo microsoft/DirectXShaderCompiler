@@ -1026,6 +1026,7 @@ static const ArTypeObjectKind g_AnyTT[] =
 static const ArTypeObjectKind g_ObjectTT[] =
 {
   AR_TOBJ_OBJECT,
+  AR_TOBJ_STRING,
   AR_TOBJ_UNKNOWN
 };
 
@@ -1229,6 +1230,13 @@ static const ArBasicKind g_AnyCT[] =
   AR_BASIC_BOOL,
   AR_BASIC_INT64,
   AR_BASIC_UINT64,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnySamplerCT[] =
+{
+  AR_OBJECT_SAMPLER,
+  AR_OBJECT_SAMPLERCOMPARISON,
   AR_BASIC_UNKNOWN
 };
 
@@ -1512,64 +1520,64 @@ static const ArBasicKind g_AnyOutputRecordCT[] =
 };
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
-const ArBasicKind* g_LegalIntrinsicCompTypes[] =
-{
-  g_NullCT,             // LICOMPTYPE_VOID
-  g_BoolCT,             // LICOMPTYPE_BOOL
-  g_IntCT,              // LICOMPTYPE_INT
-  g_UIntCT,             // LICOMPTYPE_UINT
-  g_AnyIntCT,           // LICOMPTYPE_ANY_INT
-  g_AnyInt32CT,         // LICOMPTYPE_ANY_INT32
-  g_UIntOnlyCT,         // LICOMPTYPE_UINT_ONLY
-  g_FloatCT,            // LICOMPTYPE_FLOAT
-  g_AnyFloatCT,         // LICOMPTYPE_ANY_FLOAT
-  g_FloatLikeCT,        // LICOMPTYPE_FLOAT_LIKE
-  g_FloatDoubleCT,      // LICOMPTYPE_FLOAT_DOUBLE
-  g_DoubleCT,           // LICOMPTYPE_DOUBLE
-  g_DoubleOnlyCT,       // LICOMPTYPE_DOUBLE_ONLY
-  g_NumericCT,          // LICOMPTYPE_NUMERIC
-  g_Numeric32CT,        // LICOMPTYPE_NUMERIC32
-  g_Numeric32OnlyCT,    // LICOMPTYPE_NUMERIC32_ONLY
-  g_AnyCT,              // LICOMPTYPE_ANY
-  g_Sampler1DCT,        // LICOMPTYPE_SAMPLER1D
-  g_Sampler2DCT,        // LICOMPTYPE_SAMPLER2D
-  g_Sampler3DCT,        // LICOMPTYPE_SAMPLER3D
-  g_SamplerCUBECT,      // LICOMPTYPE_SAMPLERCUBE
-  g_SamplerCmpCT,       // LICOMPTYPE_SAMPLERCMP
-  g_SamplerCT,          // LICOMPTYPE_SAMPLER
-  g_StringCT,           // LICOMPTYPE_STRING
-  g_WaveCT,             // LICOMPTYPE_WAVE
-  g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_Float16CT,          // LICOMPTYPE_FLOAT16
-  g_Int16CT,            // LICOMPTYPE_INT16
-  g_UInt16CT,           // LICOMPTYPE_UINT16
-  g_Numeric16OnlyCT,    // LICOMPTYPE_NUMERIC16_ONLY
-  g_RayDescCT,          // LICOMPTYPE_RAYDESC
-  g_AccelerationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
-  g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
-  g_Texture2DCT,        // LICOMPTYPE_TEXTURE2D
-  g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
-  g_ResourceCT,         // LICOMPTYPE_RESOURCE
-  g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
-  g_Int64OnlyCT,        // LICOMPTYPE_INT64_ONLY
-  g_AnyInt64CT,         // LICOMPTYPE_ANY_INT64
-  g_Float32OnlyCT,      // LICOMPTYPE_FLOAT32_ONLY
-  g_Int8_4PackedCT,     // LICOMPTYPE_INT8_4PACKED
-  g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
-  g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
-  g_SInt16Or32OnlyCT,   // LICOMPTYPE_SINT16_OR_32_ONLY
+const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
+    g_NullCT,               // LICOMPTYPE_VOID
+    g_BoolCT,               // LICOMPTYPE_BOOL
+    g_IntCT,                // LICOMPTYPE_INT
+    g_UIntCT,               // LICOMPTYPE_UINT
+    g_AnyIntCT,             // LICOMPTYPE_ANY_INT
+    g_AnyInt32CT,           // LICOMPTYPE_ANY_INT32
+    g_UIntOnlyCT,           // LICOMPTYPE_UINT_ONLY
+    g_FloatCT,              // LICOMPTYPE_FLOAT
+    g_AnyFloatCT,           // LICOMPTYPE_ANY_FLOAT
+    g_FloatLikeCT,          // LICOMPTYPE_FLOAT_LIKE
+    g_FloatDoubleCT,        // LICOMPTYPE_FLOAT_DOUBLE
+    g_DoubleCT,             // LICOMPTYPE_DOUBLE
+    g_DoubleOnlyCT,         // LICOMPTYPE_DOUBLE_ONLY
+    g_NumericCT,            // LICOMPTYPE_NUMERIC
+    g_Numeric32CT,          // LICOMPTYPE_NUMERIC32
+    g_Numeric32OnlyCT,      // LICOMPTYPE_NUMERIC32_ONLY
+    g_AnyCT,                // LICOMPTYPE_ANY
+    g_Sampler1DCT,          // LICOMPTYPE_SAMPLER1D
+    g_Sampler2DCT,          // LICOMPTYPE_SAMPLER2D
+    g_Sampler3DCT,          // LICOMPTYPE_SAMPLER3D
+    g_SamplerCUBECT,        // LICOMPTYPE_SAMPLERCUBE
+    g_SamplerCmpCT,         // LICOMPTYPE_SAMPLERCMP
+    g_SamplerCT,            // LICOMPTYPE_SAMPLER
+    g_StringCT,             // LICOMPTYPE_STRING
+    g_WaveCT,               // LICOMPTYPE_WAVE
+    g_UInt64CT,             // LICOMPTYPE_UINT64
+    g_Float16CT,            // LICOMPTYPE_FLOAT16
+    g_Int16CT,              // LICOMPTYPE_INT16
+    g_UInt16CT,             // LICOMPTYPE_UINT16
+    g_Numeric16OnlyCT,      // LICOMPTYPE_NUMERIC16_ONLY
+    g_RayDescCT,            // LICOMPTYPE_RAYDESC
+    g_AccelerationStructCT, // LICOMPTYPE_ACCELERATION_STRUCT,
+    g_UDTCT,                // LICOMPTYPE_USER_DEFINED_TYPE
+    g_Texture2DCT,          // LICOMPTYPE_TEXTURE2D
+    g_Texture2DArrayCT,     // LICOMPTYPE_TEXTURE2DARRAY
+    g_ResourceCT,           // LICOMPTYPE_RESOURCE
+    g_Int32OnlyCT,          // LICOMPTYPE_INT32_ONLY
+    g_Int64OnlyCT,          // LICOMPTYPE_INT64_ONLY
+    g_AnyInt64CT,           // LICOMPTYPE_ANY_INT64
+    g_Float32OnlyCT,        // LICOMPTYPE_FLOAT32_ONLY
+    g_Int8_4PackedCT,       // LICOMPTYPE_INT8_4PACKED
+    g_UInt8_4PackedCT,      // LICOMPTYPE_UINT8_4PACKED
+    g_AnyInt16Or32CT,       // LICOMPTYPE_ANY_INT16_OR_32
+    g_SInt16Or32OnlyCT,     // LICOMPTYPE_SINT16_OR_32_ONLY
+    g_AnySamplerCT,         // LICOMPTYPE_ANY_SAMPLER
 
-  g_ByteAddressBufferCT,      // LICOMPTYPE_BYTEADDRESSBUFFER
-  g_RWByteAddressBufferCT,    // LICOMPTYPE_RWBYTEADDRESSBUFFER
-  g_WaveMatrixLeftCT,         // LICOMPTYPE_WAVE_MATRIX_LEFT
-  g_WaveMatrixRightCT,        // LICOMPTYPE_WAVE_MATRIX_RIGHT
-  g_WaveMatrixLeftColAccCT,      // LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC
-  g_WaveMatrixRightRowAccCT,     // LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC
-  g_WaveMatrixAccumulatorCT,  // LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR
-  g_NodeRecordOrUAVCT,  // LICOMPTYPE_NODE_RECORD_OR_UAV
-  g_AnyOutputRecordCT,  // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
-  g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
-  g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
+    g_ByteAddressBufferCT,  // LICOMPTYPE_BYTEADDRESSBUFFER
+    g_RWByteAddressBufferCT,// LICOMPTYPE_RWBYTEADDRESSBUFFER
+    g_WaveMatrixLeftCT,     // LICOMPTYPE_WAVE_MATRIX_LEFT
+    g_WaveMatrixRightCT,    // LICOMPTYPE_WAVE_MATRIX_RIGHT
+    g_WaveMatrixLeftColAccCT,// LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC
+    g_WaveMatrixRightRowAccCT,// LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC
+    g_WaveMatrixAccumulatorCT,// LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR
+    g_NodeRecordOrUAVCT,    // LICOMPTYPE_NODE_RECORD_OR_UAV
+    g_AnyOutputRecordCT,    // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
+    g_GroupNodeOutputRecordsCT,// LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
+    g_ThreadNodeOutputRecordsCT,// LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -2426,14 +2434,21 @@ static bool CombineBasicTypes(ArBasicKind LeftKind,
                               ArBasicKind RightKind,
                               _Out_ ArBasicKind* pOutKind)
 {
-  if ((LeftKind < 0 || LeftKind >= AR_BASIC_COUNT) ||
-    (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
+  // Make sure the kinds are both valid
+  if ((LeftKind < 0 || LeftKind >= AR_BASIC_MAXIMUM_COUNT) ||
+      (RightKind < 0 || RightKind >= AR_BASIC_MAXIMUM_COUNT)) {
     return false;
   }
 
+  // If kinds match perfectly, succeed without requiring they be basic
   if (LeftKind == RightKind) {
     *pOutKind = LeftKind;
     return true;
+  }
+
+  // More complicated combination requires that the kinds be basic
+  if (LeftKind >= AR_BASIC_COUNT || RightKind >= AR_BASIC_COUNT) {
+    return false;
   }
 
   UINT uLeftProps = GetBasicKindProps(LeftKind);
@@ -6789,11 +6804,7 @@ bool HLSLExternalSource::MatchArguments(
     if (AR_TOBJ_UNKNOWN != Template[i]) {
       if ((AR_TOBJ_SCALAR == Template[i]) && (AR_TOBJ_VECTOR == *pTT || AR_TOBJ_MATRIX == *pTT)) {
         Template[i] = *pTT;
-      }
-      else if(AR_TOBJ_STRING == Template[i] && *pTT == AR_TOBJ_OBJECT) {
-        Template[i] = *pTT;
-      }
-      else {
+      } else {
         while (AR_TOBJ_UNKNOWN != *pTT) {
           if (Template[i] == *pTT)
             break;
@@ -6956,9 +6967,9 @@ bool HLSLExternalSource::MatchArguments(
         badArgIdx = std::min(badArgIdx, i);
       }
       pNewType = objectElement;
-    }
-    else if (pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2D
-      || pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2DARRAY) {
+    } else if (i != 0 && Template[pArgument->uTemplateId] == AR_TOBJ_OBJECT) {
+      // For object parameters, just use the argument type
+      // Return type is assigned below
       pNewType = Args[i - 1]->getType().getNonReferenceType();
     } else if (pArgument->uLegalComponentTypes ==
                LICOMPTYPE_NODE_RECORD_OR_UAV) {
@@ -7136,6 +7147,12 @@ bool HLSLExternalSource::MatchArguments(
              "In the absence of varargs, a successful match would indicate we "
              "have as many arguments and types as the intrinsic template");
   }
+
+  // For object return types that need to match arguments, we need to slot in
+  // the full type here Can't do it sooner because when return is encountered
+  // above, the other arg types haven't been set
+  if (Template[pIntrinsic->pArgs[0].uTemplateId] == AR_TOBJ_OBJECT)
+    argTypes[0] = argTypes[pIntrinsic->pArgs[0].uComponentTypeId];
 
   return badArgIdx == MaxIntrinsicArgs;
 #undef CAB
@@ -15159,3 +15176,261 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   }
   return QualType();
 }
+
+namespace hlsl {
+
+static bool nodeInputIsCompatible(StringRef& typeName,
+                                  DXIL::NodeLaunchType launchType) {
+  return llvm::StringSwitch<bool>(typeName)
+         .Case("DispatchNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Broadcasting)
+         .Case("RWDispatchNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Broadcasting)
+         .Case("GroupNodeInputRecords",
+               launchType == DXIL::NodeLaunchType::Coalescing)
+         .Case("RWGroupNodeInputRecords",
+               launchType == DXIL::NodeLaunchType::Coalescing)
+         .Case("EmptyNodeInput",
+               launchType == DXIL::NodeLaunchType::Coalescing)
+         .Case("ThreadNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Thread)
+         .Case("RWThreadNodeInputRecord",
+               launchType == DXIL::NodeLaunchType::Thread)
+         .Default(false);
+}
+
+void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
+
+  SourceLocation ComputeLoc = SourceLocation();
+  SourceLocation NodeLoc = SourceLocation();
+  SourceLocation NodeLaunchLoc = SourceLocation();
+  DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
+  unsigned InputCount = 0;
+
+  // a function may be both compute and work-graph node
+  for (auto *pAttr : FD->specific_attrs<HLSLShaderAttr>()) {
+    DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(pAttr->getStage());
+    if (shaderKind == DXIL::ShaderKind::Node) {
+      NodeLoc = pAttr->getLocation();
+    } else if (shaderKind == DXIL::ShaderKind::Compute) {
+      ComputeLoc = pAttr->getLocation();
+    }
+  }
+  // if this isn't a work-graph node we can quit now
+  if (!NodeLoc.isValid())
+    return;
+
+  // save NodeLaunch type for use later
+  if (auto NodeLaunchAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
+    NodeLaunchTy =
+      ShaderModel::NodeLaunchTypeFromName(NodeLaunchAttr->getLaunchType());
+    NodeLaunchLoc = NodeLaunchAttr->getLocation();
+  } else {
+    NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
+    NodeLaunchLoc = SourceLocation();
+  }
+
+  // If this is both a compute shader and work-graph node, it may only have
+  // broadcasting launch mode
+  if (ComputeLoc.isValid() &&
+      NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting) {
+    S.Diags.Report(NodeLaunchLoc, diag::err_hlsl_compute_launch_compatibility)
+      << FD->getName() << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy);
+    S.Diags.Report(ComputeLoc, diag::note_defined_here) << "compute";
+  }
+
+  // Check that if a Thread launch node has the NumThreads attribute the
+  // thread group size is (1,1,1)
+  if (NodeLaunchTy == DXIL::NodeLaunchType::Thread) {
+    if (auto NumThreads = FD->getAttr<HLSLNumThreadsAttr>()) {
+      if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
+          NumThreads->getZ() != 1) {
+        S.Diags.Report(NumThreads->getLocation(),
+                       diag::err_hlsl_wg_thread_launch_group_size)
+          << NumThreads->getRange();
+        // Only output the note if the source location is valid
+        if (NodeLaunchLoc.isValid())
+          S.Diags.Report(NodeLaunchLoc, diag::note_defined_here)
+              << "Launch type";
+      }
+    }
+  } else if (!FD->hasAttr<HLSLNumThreadsAttr>()) {
+    // All other launch types require the NumThreads attribute.
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_node_attr)
+      << FD->getName() << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
+      << "numthreads";
+  }
+
+  auto *NodeDG = FD->getAttr<HLSLNodeDispatchGridAttr>();
+  auto *NodeMDG = FD->getAttr<HLSLNodeMaxDispatchGridAttr>();
+  if (NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting) {
+    // NodeDispatchGrid is only valid for Broadcasting nodes
+    if (NodeDG) {
+      S.Diags.Report(NodeDG->getLocation(), diag::err_hlsl_launch_type_attr)
+        << NodeDG->getSpelling()
+        << ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType::Broadcasting)
+        << NodeDG->getRange();
+      // Only output the note if the source location is valid
+      if (NodeLaunchLoc.isValid())
+          S.Diags.Report(NodeLaunchLoc, diag::note_defined_here)
+              << "Launch type";
+    }
+    // NodeMaxDispatchGrid is only valid for Broadcasting nodes
+    if (NodeMDG) {
+      S.Diags.Report(NodeMDG->getLocation(), diag::err_hlsl_launch_type_attr)
+        << NodeMDG->getSpelling()
+        << ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType::Broadcasting)
+        << NodeMDG->getRange();
+      // Only output the note if the source location is valid
+      if (NodeLaunchLoc.isValid())
+          S.Diags.Report(NodeLaunchLoc, diag::note_defined_here)
+              << "Launch type";
+    }
+  } else {
+    // A Broadcasting node must have one of NodeDispatchGrid or
+    // NodeMaxDispatchGrid
+    if (!NodeMDG && ! NodeDG)
+      S.Diags.Report(FD->getLocation(),
+        diag::err_hlsl_missing_dispatchgrid_attr) << FD->getName();
+    // NodeDispatchGrid and NodeMaxDispatchGrid may not be used together
+    if (NodeMDG && NodeDG) {
+      S.Diags.Report(NodeMDG->getLocation(),
+                     diag::err_hlsl_incompatible_node_attr)
+        << FD->getName() << NodeMDG->getSpelling() << NodeDG->getSpelling()
+        << NodeMDG->getRange();
+      S.Diags.Report(NodeDG->getLocation(), diag::note_defined_here)
+        << NodeDG->getSpelling();
+    }
+  }
+
+  if (!FD->getReturnType()->isVoidType())
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
+      << Attr->getStage();
+
+  // Check parameter constraints
+  for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {
+    ParmVarDecl *Param = FD->getParamDecl(Idx);
+    clang::QualType ParamTy = Param->getType();
+
+    // compute is incompatible with node input/output
+    if (ComputeLoc.isValid() && hlsl::IsHLSLNodeType(ParamTy)) {
+      S.Diags.Report(Param->getLocation(),
+                     diag::err_hlsl_compute_io_compatibility)
+        << FD->getName() << "node input/output" << Param->getSourceRange();
+      S.Diags.Report(ComputeLoc, diag::note_defined_here) << "compute";
+    }
+
+    // Check any node input is compatible with the node launch type
+    if (hlsl::IsHLSLNodeInputType(ParamTy)) {
+      InputCount++;
+      const RecordType* RT = ParamTy->getAs<RecordType>();
+      StringRef TypeName = RT->getDecl()->getName();
+      if (NodeLaunchTy != DXIL::NodeLaunchType::Invalid &&
+          !nodeInputIsCompatible(TypeName, NodeLaunchTy)) {
+        S.Diags.Report(Param->getLocation(), diag::err_hlsl_wg_input_kind)
+          << TypeName << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
+          << (static_cast<unsigned>(NodeLaunchTy) - 1)
+          << Param->getSourceRange();
+        if (NodeLaunchLoc.isValid())
+          S.Diags.Report(NodeLaunchLoc, diag::note_defined_here)
+            << "Launch type";
+      }
+      if (InputCount > 1)
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_too_many_node_inputs)
+          << FD->getName() << Param->getSourceRange();
+    }
+
+    // arrays of NodeOutput or EmptyNodeOutput are not supported as node
+    // parameters
+    if (ParamTy->isArrayType()) {
+      const ArrayType* AT = dyn_cast<ArrayType>(ParamTy);
+      if (hlsl::IsHLSLNodeType(AT->getElementType(), "NodeOutput")) {
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_nodeoutput_array_parameter)
+          << "NodeOutput" << Param->getSourceRange();
+        Param->setInvalidDecl();
+      }
+      if (hlsl::IsHLSLNodeType(AT->getElementType(), "EmptyNodeOutput")) {
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_nodeoutput_array_parameter)
+          << "EmptyNodeOutput" << Param->getSourceRange();
+        Param->setInvalidDecl();
+      }
+    }
+
+    HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
+        Param->getAttr<HLSLMaxRecordsSharedWithAttr>();
+    if (ExistingMRSWA) {
+      StringRef sharedName = ExistingMRSWA->getName()->getName();
+      unsigned int ArgIdx = 0;
+      bool Found = false;
+      while (ArgIdx < FD->getNumParams()) {
+        const ParmVarDecl *ParamDecl = FD->getParamDecl(ArgIdx);
+        // validation that MRSW doesn't reference its own parameter is
+        // already done at
+        // SemaHLSL.cpp:ValidateMaxRecordsSharedWithAttributes so we don't
+        // need to check that ArgIdx != Idx.
+        if (ParamDecl->getName() == sharedName) {
+          // now we need to check that this parameter has an output record type.
+          hlsl::NodeFlags nodeFlags;
+          if (GetHLSLNodeIORecordType(ParamDecl, nodeFlags)) {
+            hlsl::NodeIOProperties node(nodeFlags);
+            if (node.Flags.IsOutputNode()) {
+              Found = true;
+              break;
+            }
+          }
+        }
+        ArgIdx++;
+      }
+
+      if (!Found) {
+        S.Diag(ExistingMRSWA->getLocation(),
+               diag::err_hlsl_maxrecordssharedwith_references_invalid_arg);
+      }
+    }
+  }
+  return;
+}
+
+void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
+  auto Attr = FD->getAttr<HLSLShaderAttr>();
+  if (!Attr)
+    return;
+
+  DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
+  switch (Stage) {
+  case DXIL::ShaderKind::Pixel:
+  case DXIL::ShaderKind::Vertex:
+  case DXIL::ShaderKind::Geometry:
+  case DXIL::ShaderKind::Hull:
+  case DXIL::ShaderKind::Domain:
+  case DXIL::ShaderKind::Library:
+  case DXIL::ShaderKind::Mesh:
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Invalid:
+    return;
+  case DXIL::ShaderKind::Callable: {
+    return DiagnoseCallableEntry(S, FD, Attr);
+  }
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::AnyHit: {
+    return DiagnoseMissOrAnyHitEntry(S, FD, Attr, Stage);
+  }
+  case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::Intersection: {
+    return DiagnoseRayGenerationOrIntersectionEntry(S, FD, Attr);
+  }
+  case DXIL::ShaderKind::ClosestHit: {
+    return DiagnoseClosestHitEntry(S, FD, Attr);
+  }
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Node: {
+    // A compute shader may also be a node, so we check it here
+    return DiagnoseNodeEntry(S, FD, Attr);
+  }
+  }
+}
+} // namespace hlsl
+ 

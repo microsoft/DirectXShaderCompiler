@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
+// RUN: %dxc -T lib_6_8 -Od %s | FileCheck %s
 //
 // Verify that NodeInputRecord can be passed to a called function and used."
 
@@ -11,7 +12,7 @@ void loadStressWorker(
     inout DispatchNodeInputRecord<loadStressRecord> inputData,
     GroupNodeOutputRecords<loadStressRecord> outRec)
 {
-    // CHECK: getelementptr %struct.loadStressRecord, %struct.loadStressRecord
+    // CHECK: getelementptr inbounds %struct.loadStressRecord, %struct.loadStressRecord
     uint val =  inputData.Get().data[0]; // problem line
 
     outRec.Get().data[0] = val + 61;

@@ -115,13 +115,7 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
     return RunDxr(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxl")) {
-#ifdef _WIN32 // Linking unsupported
     return RunLink(DllSupport, Prior);
-#else
-    FileRunCommandResult result = FileRunCommandResult::Success("Can't run dxl on non-windows, so just assuming success");
-    result.AbortPipeline = true;
-    return result;
-#endif // WIN32 - Linking unsupported
   }
   else if (pPluginToolsPaths != nullptr) {
     auto it = pPluginToolsPaths->find(Command.c_str());
@@ -425,7 +419,7 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
     return FileRunCommandResult::Error("Adding Qstrip_reflect and Zi failed compilation.");
   }
 
-  if (pHash0->GetBufferSize() != pHash1->GetBufferSize() || 0 != memcmp(pHash0->GetBufferPointer(), pHash0->GetBufferPointer(), pHash1->GetBufferSize())) {
+  if (pHash0->GetBufferSize() != pHash1->GetBufferSize() || 0 != memcmp(pHash0->GetBufferPointer(), pHash1->GetBufferPointer(), pHash1->GetBufferSize())) {
     StdErr = "Hashes do not match between normal and debug!!!\n";
     StdErr += Output0;
     StdErr += Output1;

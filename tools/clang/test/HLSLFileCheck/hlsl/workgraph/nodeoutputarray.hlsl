@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
+// RUN: %dxc -T lib_6_8 -Od %s | FileCheck %s -check-prefixes=CHECK,CHECKOD
 // Tests for NodeOutputArray/EmptyNodeOutputArray/IndexNodeHandle
 struct RECORD1
 {
@@ -15,7 +16,7 @@ void node_1_0(
 )
 {
 }
-// CHECK: define void @node_1_0()
+// CHECK-LABEL: define void @node_1_0()
 // CHECK: ret void
 
 [Shader("node")]
@@ -29,7 +30,7 @@ void node_1_1(
     ThreadNodeOutputRecords<RECORD1> outRec = OutputArray[1].GetThreadNodeOutputRecords(2);
     outRec.OutputComplete();
 }
-// CHECK: define void @node_1_1()
+// CHECK-LABEL: define void @node_1_1()
 // CHECK: [[IDXNH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.indexNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle {{%[0-9]+}}, i32 1)  ; IndexNodeHandle(NodeOutputHandle,ArrayIndex)
 // CHECK: [[ANH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[IDXNH]], %dx.types.NodeInfo { i32 22, i32 8 })
 // CHECK: call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANH]], i32 2, i1 true)
@@ -45,7 +46,7 @@ void node_1_2(
     GroupNodeOutputRecords<RECORD1> outRec = OutputArray[1].GetGroupNodeOutputRecords(2);
     outRec.OutputComplete();
 }
-// CHECK: define void @node_1_2()
+// CHECK-LABEL: define void @node_1_2()
 // CHECK: [[IDXNH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.indexNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle {{%[0-9]+}}, i32 1)  ; IndexNodeHandle(NodeOutputHandle,ArrayIndex)
 // CHECK: [[ANH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[IDXNH]], %dx.types.NodeInfo { i32 22, i32 8 })
 // CHECK: call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANH]], i32 2, i1 false)
@@ -64,7 +65,7 @@ void node_1_3(
     	outRec.OutputComplete();
 	}
 }
-// CHECK: define void @node_1_3()
+// CHECK-LABEL: define void @node_1_3()
 // CHECK: [[IDXNH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.indexNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle {{%[0-9]+}}, i32 1)
 // CHECK: [[ANH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[IDXNH]], %dx.types.NodeInfo { i32 22, i32 8 })
 // CHECK: call i1 @dx.op.nodeOutputIsValid(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANH]])
@@ -78,7 +79,7 @@ void node_2_0(
 )
 {
 }
-// CHECK: define void @node_2_0()
+// CHECK-LABEL: define void @node_2_0()
 // CHECK: ret void
 
 [Shader("node")]
@@ -94,8 +95,11 @@ void node_2_1(
 		EmptyOutputArray[1].GroupIncrementOutputCount(10);
 	}
 }
-// CHECK: define void @node_2_1()
+// CHECK-LABEL: define void @node_2_1()
 // CHECK: [[IDXNH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.indexNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle {{%[0-9]+}}, i32 1)
 // CHECK: [[ANH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[IDXNH]], %dx.types.NodeInfo { i32 26, i32 0 })
 // CHECK: call i1 @dx.op.nodeOutputIsValid(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANH]])
+// CHECKOD-LABEL: {{if\.then|\<label\>}}:
+// CHECKOD: [[IDXNH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.indexNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle {{%[0-9]+}}, i32 1)
+// CHECKOD: [[ANH:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[IDXNH]], %dx.types.NodeInfo { i32 26, i32 0 })
 // CHECK: call void @dx.op.incrementOutputCount(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANH]], i32 10, i1 false)

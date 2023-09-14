@@ -28,7 +28,18 @@
 #include <memory>
 #include <utility> // for std::pair
 
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/iterator.h"
+#include "llvm/ADT/iterator_range.h"
+#include "llvm/Support/Compiler.h"
+
 namespace llvm {
+namespace detail {
+
+template <typename RangeT>
+using IterOfRange = decltype(std::begin(std::declval<RangeT>()));
+
+} // End detail namespace
 
 //===----------------------------------------------------------------------===//
 //     Extra additions to <functional>
@@ -198,6 +209,227 @@ operator+(typename mapped_iterator<Iterator, Func>::difference_type N,
 template <class ItTy, class FuncTy>
 inline mapped_iterator<ItTy, FuncTy> map_iterator(const ItTy &I, FuncTy F) {
   return mapped_iterator<ItTy, FuncTy>(I, F);
+}
+
+/// Helper to determine if type T has a member called rbegin().
+template <typename Ty> class has_rbegin_impl {
+  typedef char yes[1];
+  typedef char no[2];
+
+  template <typename Inner>
+  static yes& test(Inner *I, decltype(I->rbegin()) * = nullptr);
+
+  template <typename>
+  static no& test(...);
+
+public:
+  static const bool value = sizeof(test<Ty>(nullptr)) == sizeof(yes);
+};
+
+/// Metafunction to determine if T& or T has a member called rbegin().
+template <typename Ty>
+struct has_rbegin : has_rbegin_impl<typename std::remove_reference<Ty>::type> {
+};
+
+// Returns an iterator_range over the given container which iterates in reverse.
+// Note that the container must have rbegin()/rend() methods for this to work.
+template <typename ContainerTy>
+auto reverse(ContainerTy &&C,
+             typename std::enable_if<has_rbegin<ContainerTy>::value>::type * =
+                 nullptr) -> decltype(make_range(C.rbegin(), C.rend())) {
+  return make_range(C.rbegin(), C.rend());
+}
+
+// Returns a std::reverse_iterator wrapped around the given iterator.
+template <typename IteratorTy>
+std::reverse_iterator<IteratorTy> make_reverse_iterator(IteratorTy It) {
+  return std::reverse_iterator<IteratorTy>(It);
+}
+
+// Returns an iterator_range over the given container which iterates in reverse.
+// Note that the container must have begin()/end() methods which return
+// bidirectional iterators for this to work.
+template <typename ContainerTy>
+auto reverse(
+    ContainerTy &&C,
+    typename std::enable_if<!has_rbegin<ContainerTy>::value>::type * = nullptr)
+    -> decltype(make_range(make_reverse_iterator(std::end(C)),
+                           make_reverse_iterator(std::begin(C)))) {
+  return make_range(make_reverse_iterator(std::end(C)),
+                    make_reverse_iterator(std::begin(C)));
+}
+
+/// An iterator adaptor that filters the elements of given inner iterators.
+///
+/// The predicate parameter should be a callable object that accepts the wrapped
+/// iterator's reference type and returns a bool. When incrementing or
+/// decrementing the iterator, it will call the predicate on each element and
+/// skip any where it returns false.
+///
+/// \code
+///   int A[] = { 1, 2, 3, 4 };
+///   auto R = make_filter_range(A, [](int N) { return N % 2 == 1; });
+///   // R contains { 1, 3 }.
+/// \endcode
+template <typename WrappedIteratorT, typename PredicateT>
+class filter_iterator
+    : public iterator_adaptor_base<
+          filter_iterator<WrappedIteratorT, PredicateT>, WrappedIteratorT,
+          typename std::common_type<
+              std::forward_iterator_tag,
+              typename std::iterator_traits<
+                  WrappedIteratorT>::iterator_category>::type> {
+  using BaseT = iterator_adaptor_base<
+      filter_iterator<WrappedIteratorT, PredicateT>, WrappedIteratorT,
+      typename std::common_type<
+          std::forward_iterator_tag,
+          typename std::iterator_traits<WrappedIteratorT>::iterator_category>::
+          type>;
+
+  struct PayloadType {
+    WrappedIteratorT End;
+    PredicateT Pred;
+  };
+
+  Optional<PayloadType> Payload;
+
+  void findNextValid() {
+    assert(Payload && "Payload should be engaged when findNextValid is called");
+    while (this->I != Payload->End && !Payload->Pred(*this->I))
+      BaseT::operator++();
+  }
+
+  // Construct the begin iterator. The begin iterator requires to know where end
+  // is, so that it can properly stop when it hits end.
+  filter_iterator(WrappedIteratorT Begin, WrappedIteratorT End, PredicateT Pred)
+      : BaseT(std::move(Begin)),
+        Payload(PayloadType{std::move(End), std::move(Pred)}) {
+    findNextValid();
+  }
+
+  // Construct the end iterator. It's not incrementable, so Payload doesn't
+  // have to be engaged.
+  filter_iterator(WrappedIteratorT End) : BaseT(End) {}
+
+public:
+  using BaseT::operator++;
+
+  filter_iterator &operator++() {
+    BaseT::operator++();
+    findNextValid();
+    return *this;
+  }
+
+  template <typename RT, typename PT>
+  friend iterator_range<filter_iterator<detail::IterOfRange<RT>, PT>>
+  make_filter_range(RT &&, PT);
+};
+
+/// Convenience function that takes a range of elements and a predicate,
+/// and return a new filter_iterator range.
+///
+/// FIXME: Currently if RangeT && is a rvalue reference to a temporary, the
+/// lifetime of that temporary is not kept by the returned range object, and the
+/// temporary is going to be dropped on the floor after the make_iterator_range
+/// full expression that contains this function call.
+template <typename RangeT, typename PredicateT>
+iterator_range<filter_iterator<detail::IterOfRange<RangeT>, PredicateT>>
+make_filter_range(RangeT &&Range, PredicateT Pred) {
+  using FilterIteratorT =
+      filter_iterator<detail::IterOfRange<RangeT>, PredicateT>;
+  return make_range(FilterIteratorT(std::begin(std::forward<RangeT>(Range)),
+                                    std::end(std::forward<RangeT>(Range)),
+                                    std::move(Pred)),
+                    FilterIteratorT(std::end(std::forward<RangeT>(Range))));
+}
+
+// forward declarations required by zip_shortest/zip_first
+template <typename R, class UnaryPredicate>
+bool all_of(R &&range, UnaryPredicate &&P);
+
+template <size_t... I> struct index_sequence;
+
+template <class... Ts> struct index_sequence_for;
+
+namespace detail {
+template <typename... Iters> class zip_first {
+public:
+  typedef std::input_iterator_tag iterator_category;
+  typedef std::tuple<decltype(*std::declval<Iters>())...> value_type;
+  std::tuple<Iters...> iterators;
+
+private:
+  template <size_t... Ns> value_type deres(index_sequence<Ns...>) {
+    return value_type(*std::get<Ns>(iterators)...);
+  }
+
+  template <size_t... Ns> decltype(iterators) tup_inc(index_sequence<Ns...>) {
+    return std::tuple<Iters...>(std::next(std::get<Ns>(iterators))...);
+  }
+
+public:
+  value_type operator*() { return deres(index_sequence_for<Iters...>{}); }
+
+  void operator++() { iterators = tup_inc(index_sequence_for<Iters...>{}); }
+
+  bool operator!=(const zip_first<Iters...> &other) const {
+    return std::get<0>(iterators) != std::get<0>(other.iterators);
+  }
+  zip_first(Iters &&... ts) : iterators(std::forward<Iters>(ts)...) {}
+};
+
+template <typename... Iters> class zip_shortest : public zip_first<Iters...> {
+  template <size_t... Ns>
+  bool test(const zip_first<Iters...> &other, index_sequence<Ns...>) const {
+    return all_of(std::initializer_list<bool>{std::get<Ns>(this->iterators) !=
+                                              std::get<Ns>(other.iterators)...},
+                  identity<bool>{});
+  }
+
+public:
+  bool operator!=(const zip_first<Iters...> &other) const {
+    return test(other, index_sequence_for<Iters...>{});
+  }
+  zip_shortest(Iters &&... ts)
+      : zip_first<Iters...>(std::forward<Iters>(ts)...) {}
+};
+
+template <template <typename...> class ItType, typename... Args> class zippy {
+public:
+  typedef ItType<decltype(std::begin(std::declval<Args>()))...> iterator;
+
+private:
+  std::tuple<Args...> ts;
+
+  template <size_t... Ns> iterator begin_impl(index_sequence<Ns...>) {
+    return iterator(std::begin(std::get<Ns>(ts))...);
+  }
+  template <size_t... Ns> iterator end_impl(index_sequence<Ns...>) {
+    return iterator(std::end(std::get<Ns>(ts))...);
+  }
+
+public:
+  iterator begin() { return begin_impl(index_sequence_for<Args...>{}); }
+  iterator end() { return end_impl(index_sequence_for<Args...>{}); }
+  zippy(Args &&... ts_) : ts(std::forward<Args>(ts_)...) {}
+};
+} // End detail namespace
+
+/// zip iterator for two or more iteratable types.
+template <typename T, typename U, typename... Args>
+detail::zippy<detail::zip_shortest, T, U, Args...> zip(T &&t, U &&u,
+                                                       Args &&... args) {
+  return detail::zippy<detail::zip_shortest, T, U, Args...>(
+      std::forward<T>(t), std::forward<U>(u), std::forward<Args>(args)...);
+}
+
+/// zip iterator that, for the sake of efficiency, assumes the first iteratee to
+/// be the shortest.
+template <typename T, typename U, typename... Args>
+detail::zippy<detail::zip_first, T, U, Args...> zip_first(T &&t, U &&u,
+                                                          Args &&... args) {
+  return detail::zippy<detail::zip_first, T, U, Args...>(
+      std::forward<T>(t), std::forward<U>(u), std::forward<Args>(args)...);
 }
 
 //===----------------------------------------------------------------------===//

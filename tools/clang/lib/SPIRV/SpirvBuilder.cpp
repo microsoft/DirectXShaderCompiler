@@ -369,10 +369,13 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
                                           SpirvInstruction *operand,
                                           SourceLocation loc,
                                           SourceRange range) {
+  if (!operand)
+    return nullptr;
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvUnaryOp(op, resultType, loc, operand, range);
   insertPoint->addInstruction(instruction);
+  instruction->setLayoutRule(operand->getLayoutRule());
   return instruction;
 }
 
@@ -380,8 +383,11 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op,
                                           const SpirvType *resultType,
                                           SpirvInstruction *operand,
                                           SourceLocation loc) {
+  if (!operand)
+    return nullptr;
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvUnaryOp(op, resultType, loc, operand);
+  instruction->setLayoutRule(operand->getLayoutRule());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -1540,13 +1546,6 @@ void SpirvBuilder::decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
   mod->addDecoration(decor);
   decor = new (context)
       SpirvDecoration(srcLoc, target, spv::Decoration::Offset, {offset});
-  mod->addDecoration(decor);
-}
-
-void SpirvBuilder::decoratePerVertexKHR(SpirvInstruction *target,
-                                          SourceLocation srcLoc) {
-  auto *decor = new (context)
-      SpirvDecoration(srcLoc, target, spv::Decoration::PerVertexKHR);
   mod->addDecoration(decor);
 }
 

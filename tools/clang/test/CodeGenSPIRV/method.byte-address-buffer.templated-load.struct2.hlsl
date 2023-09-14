@@ -114,28 +114,29 @@ void main(uint3 tid : SV_DispatchThreadId) {
 //  ...
 // }
 
-// CHECK: OpAccessChain %_ptr_Function_uint %tid %int_0
-// CHECK: [[basePtr:%\d+]] = OpShiftRightLogical %uint {{%\d+}} %uint_2
+// CHECK:    [[tidX:%\d+]] = OpAccessChain %_ptr_Function_uint %tid %int_0
+// CHECK: [[basePtr:%\d+]] = OpLoad %uint [[tidX]]
+// CHECK:   [[index:%\d+]] = OpShiftRightLogical %uint [[basePtr]] %uint_2
 //
 // Access to member 0 starts at offset 0.
-// 
-// CHECK: OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[basePtr]]
 //
-// Access to member 1 starts at offset 24 bytest (6 words).
-// 
-// CHECK: OpIAdd %uint [[basePtr]] %uint_6
+// CHECK: OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index]]
 //
-// Access to member 2 starts at offset 32 bytest (8 words).
-// 
-// CHECK: OpIAdd %uint [[basePtr]] %uint_8
+// Access to member 1 starts at offset 24 bytes (6 words).
 //
-// Access to member 3 starts at offset 48 bytest (12 words).
-// 
-// CHECK: OpIAdd %uint [[basePtr]] %uint_12
+// CHECK: OpIAdd %uint [[basePtr]] %uint_24
 //
-// Access to member 4 starts at offset 56 bytest (14 words).
-// 
-// CHECK: OpIAdd %uint [[basePtr]] %uint_14
+// Access to member 2 starts at offset 32 bytes (8 words).
+//
+// CHECK: OpIAdd %uint [[basePtr]] %uint_32
+//
+// Access to member 3 starts at offset 48 bytes (12 words).
+//
+// CHECK: OpIAdd %uint [[basePtr]] %uint_48
+//
+// Access to member 4 starts at offset 56 bytes (14 words).
+//
+// CHECK: OpIAdd %uint [[basePtr]] %uint_56
 //
 // The offset at the end of the last member is 58 bytes
 // (the last member is fp16, so 56+2=58).
@@ -143,15 +144,15 @@ void main(uint3 tid : SV_DispatchThreadId) {
 // should start at an aligned offset. Since the struct alignment is 8,
 // the first member of the next struct should start at offset 64.
 //
-// Member 0 of the second struct starts at offset 64 bytest (16 words).
-// 
-// CHECK: [[secondStructPtr:%\d+]] = OpIAdd %uint [[basePtr]] %uint_16
+// Member 0 of the second struct starts at offset 64 bytes (16 words).
+//
+// CHECK: [[secondStructPtr:%\d+]] = OpIAdd %uint [[basePtr]] %uint_64
 //
 // The rest of the members have offsets similar to the previous struct,
 // But the base addres is different.
 //
-// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_6
-// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_8
-// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_12
-// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_14
+// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_24
+// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_32
+// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_48
+// CHECK: OpIAdd %uint [[secondStructPtr]] %uint_56
 

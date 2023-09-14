@@ -8,6 +8,7 @@ add_llvm_library(LLVMDxcSupport
   HLSLOptions.cpp
   Unicode.cpp
   WinAdapter.cpp
+  WinIncludes.cpp
   WinFunctions.cpp
   )
 
@@ -17,4 +18,6 @@ ${LLVM_MAIN_SRC_DIR}/lib/DxcSupport/SharedLibAffix.inc
 ${LLVM_INCLUDE_DIR}/dxc/Support/SharedLibAffix.h
 )
 
-add_dependencies(LLVMDxcSupport TablegenHLSLOptions)
+target_link_libraries(LLVMDxcSupport PUBLIC LLVMSupport)
+
+add_dependencies(LLVMDxcSupport LLVMSupport TablegenHLSLOptions)

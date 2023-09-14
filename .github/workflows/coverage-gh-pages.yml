@@ -41,6 +41,8 @@ jobs:
         run: ninja -C build check-all
       - name: Generate Report
         run: ninja -C build generate-coverage-report
+      - name: Force artifact permissions
+        run: chmod -c -R +rX ${{github.workspace}}/build/report
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:

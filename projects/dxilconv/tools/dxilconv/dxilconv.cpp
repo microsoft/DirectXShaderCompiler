@@ -12,16 +12,19 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
+
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
+
 #include "Tracing/DxcRuntimeEtw.h"
 
 #define DXC_API_IMPORT
 
+#include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 #include "dxcetw.h"
-#include "Tracing/DxcRuntimeEtw.h"
+
 #include "DxbcConverter.h"
 
 // Defined in DxbcConverter.lib (projects/dxilconv/lib/DxbcConverter/DxbcConverter.cpp)
@@ -67,6 +70,12 @@ DxcCreateInstance2(_In_ IMalloc *pMalloc,
     if (ppv == nullptr) {
         return E_POINTER;
     }
+#ifdef DXC_DISABLE_ALLOCATOR_OVERRIDES
+    if (pMalloc != DxcGetThreadMallocNoRef()) {
+      return E_INVALIDARG;
+    }
+#endif // DXC_DISABLE_ALLOCATOR_OVERRIDES
+
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerCreateInstance_Start();
     DxcThreadMalloc TM(pMalloc);

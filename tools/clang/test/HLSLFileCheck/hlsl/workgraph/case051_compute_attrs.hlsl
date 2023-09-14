@@ -11,7 +11,6 @@
 // CHECK:   ret void
 // CHECK: }
 
-[Shader("compute")]
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeDispatchGrid(2,3,2)]

@@ -391,7 +391,6 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     # Colorize GCC output even with ninja's stdout redirection.
     if (CMAKE_COMPILER_IS_GNUCXX)
        append("-fdiagnostics-color" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-       append("-std=c++11" CMAKE_CXX_FLAGS)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
     # Turn off missing field initializer warnings for gcc to avoid noise from
@@ -453,23 +452,7 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
   if (NOT LLVM_ENABLE_TIMESTAMPS)
     add_flag_if_supported("-Werror=date-time" WERROR_DATE_TIME)
   endif ()
-  if (LLVM_ENABLE_CXX1Y)
-    check_cxx_compiler_flag("-std=c++1y" CXX_SUPPORTS_CXX1Y)
-    append_if(CXX_SUPPORTS_CXX1Y "-std=c++1y" CMAKE_CXX_FLAGS)
-  else()
-    check_cxx_compiler_flag("-std=c++14" CXX_SUPPORTS_CXX14)
-    if (CXX_SUPPORTS_CXX14)
-      if (CYGWIN OR MINGW)
-        # MinGW and Cygwin are a bit stricter and lack things like
-        # 'strdup', 'stricmp', etc in c++11 mode.
-        append("-std=gnu++14" CMAKE_CXX_FLAGS)
-      else()
-        append("-std=c++14" CMAKE_CXX_FLAGS)
-      endif()
-    else()
-      message(FATAL_ERROR "LLVM requires C++11 support but the '-std=c++14' flag isn't supported.")
-    endif()
-  endif()
+
   if (LLVM_ENABLE_MODULES)
     set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fmodules -fcxx-modules")

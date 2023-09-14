@@ -14,6 +14,7 @@
 #define LLVM_CLANG_SEMA_SEMAHLSL_H
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/Overload.h"
 #include "clang/Sema/SemaDiagnostic.h"
@@ -95,6 +96,20 @@ void DiagnosePayloadAccessQualifierAnnotations(
 void DiagnoseRaytracingPayloadAccess(
   clang::Sema &S,
   clang::TranslationUnitDecl* TU);
+
+void DiagnoseCallableEntry(clang::Sema &S, clang::FunctionDecl *FD,
+                           clang::HLSLShaderAttr *Attr);
+
+void DiagnoseMissOrAnyHitEntry(clang::Sema &S, clang::FunctionDecl *FD,
+                               clang::HLSLShaderAttr *Attr,
+                               DXIL::ShaderKind Stage);
+
+void DiagnoseRayGenerationOrIntersectionEntry(clang::Sema &S,
+                                              clang::FunctionDecl *FD,
+                                              clang::HLSLShaderAttr *Attr);
+
+void DiagnoseClosestHitEntry(clang::Sema &S, clang::FunctionDecl *FD,
+                             clang::HLSLShaderAttr *Attr);
 
 void DiagnoseEntry(clang::Sema &S, clang::FunctionDecl *FD);
 

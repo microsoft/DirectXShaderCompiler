@@ -1,6 +1,6 @@
 // RUN: %dxc -T hs_6_0 -E main
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 // Test: PCF takes the output (OutputPatch) of the main entry point function.
 

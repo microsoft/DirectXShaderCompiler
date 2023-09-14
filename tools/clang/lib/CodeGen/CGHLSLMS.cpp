@@ -1521,16 +1521,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
                                     "be compiled to compute shader target");
       Diags.Report(diagLoc, DiagID);
     }
-    if (isNode) {
-      if (isPS || isVS || isGS || isHS || isDS || isMS || isAS || isRay) {
-        DiagShaderStage(diagLoc, shaderStage, source, true);
-        unsigned DiagID = Diags.getCustomDiagID(
-            DiagnosticsEngine::Note,
-            "'node' shader attribute is only compatible with 'compute' "
-            "shader attribute");
-        Diags.Report(priorShaderAttrLoc, DiagID);
-      }
-    } else if (funcProps->shaderKind != DXIL::ShaderKind::Invalid &&
+    if (funcProps->shaderKind != DXIL::ShaderKind::Invalid &&
                funcProps->shaderKind != shaderKind) {
       // Different kinds and not the node case, so it's a conflict.
       DiagShaderStage(diagLoc, shaderStage, source, true);
@@ -1566,11 +1557,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isEntry) {
     // Set shaderKind from the shader target profile
     SetShaderKind(FD->getLocation(), SM->GetKind(), "", ShaderStageSource::Profile);
-  }
-
-  if (isNode && isCS) {
-    DXASSERT(funcProps->shaderKind == DXIL::ShaderKind::Compute,
-      "If both Compute and Node are set, shaderKind should be set to Compute");
   }
 
   // Save patch constant function to patchConstantFunctionMap.
@@ -1644,13 +1630,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Populate numThreads
-  if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
-    if (!(isMS || isAS)) {
-      // Compute and/or node shader
-      if (isCS || funcProps->shaderKind == DXIL::ShaderKind::Invalid)
-        funcProps->shaderKind = DXIL::ShaderKind::Compute;
-      isCS = true;
-    }
+  if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {    
 
     funcProps->numThreads[0] = Attr->getX();
     funcProps->numThreads[1] = Attr->getY();
@@ -1933,7 +1913,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay + isMS + isAS + isNode;
 
   // TODO: check this in front-end and report error.
-  if (profileAttributes > 1 && profileAttributes != isNode + isCS)
+  if (profileAttributes > 1)
     Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
       DiagnosticsEngine::Error,
       "Invalid shader stage attribute combination"));

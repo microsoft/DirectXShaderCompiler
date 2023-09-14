@@ -273,26 +273,7 @@ public:
           }
         }
       }
-    }
-
-    // Remove Redundant OutputComplete
-    //call void @dx.op.outputComplete(i32 241, %dx.types.Handle zeroinitializer)
-    const bool SkipInit = true;
-    hlsl::DxilModule& DxilMod = M.GetOrCreateDxilModule(SkipInit);
-    hlsl::OP* hlslOP = DxilMod.GetOP();
-    for (auto& it : hlslOP->GetOpFuncList(DXIL::OpCode::OutputComplete)) {
-      Function* F = it.second;
-      if (!F)
-        continue;
-      for (auto itU = F->user_begin(); itU != F->user_end(); ) {
-        User* U = *(itU++);
-        CallInst* CI = cast<CallInst>(U);
-        Value* NodeRecHandle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-        Constant* C = dyn_cast<Constant>(NodeRecHandle);
-        if ( C && C->isZeroValue())
-          CI->eraseFromParent();
-      }
-    }
+    }  
 
     // Translate precise on allocas into function call to keep the information after mem2reg.
     // The function calls will be removed after propagate precise attribute.
@@ -303,6 +284,9 @@ public:
     if (!SM->IsLib()) {
       pProps = &EntryPropsMap.begin()->second->props;
     }
+
+    const bool SkipInit = true;
+    hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);  
     InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, m_HasDbgInfo);
     DxilMod.ResetEntryPropsMap(std::move(EntryPropsMap));
     if (!SM->IsLib()) {
@@ -581,8 +565,7 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataL
         NodeOutputHandle = CastI->getArgOperand(HLOperandIndex::kHandleOpIdx);
       }
       CI->replaceAllUsesWith(NodeOutputHandle);
-      LLVM_FALLTHROUGH;
-    }
+    } break;
     case HLCastOpcode::NodeRecordToHandleCast: {
       Value *OutputRecordHandle =
           CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
@@ -596,8 +579,7 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataL
         OutputRecordHandle = CastI->getArgOperand(HLOperandIndex::kHandleOpIdx);
       }
       CI->replaceAllUsesWith(OutputRecordHandle);
-      LLVM_FALLTHROUGH;
-    }
+    } break;
     case HLCastOpcode::HandleToResCast: {
       Value *Handle = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
       for (auto HandleU = CI->user_begin(); HandleU != CI->user_end();) {
@@ -612,10 +594,10 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataL
           HandleCI->eraseFromParent();
         }
       }
-      if (CI->user_empty()) {
-        CI->eraseFromParent();
-      }
     } break;
+    }
+    if (CI->user_empty()) {
+      CI->eraseFromParent();
     }
   }
 }

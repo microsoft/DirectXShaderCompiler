@@ -18,6 +18,9 @@
 #define _WCHAR_H_CPLUSPLUS_98_CONFORMANCE_
 #endif
 
+// clang-format off
+// Includes on Windows are highly order dependent.
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -62,6 +65,8 @@
 #include <chrono>
 
 #include <codecvt>
+
+// clang-format on
 
 
 using namespace std;
@@ -604,7 +609,6 @@ bool DxilContainerTest::InitSupport() {
   return true;
 }
 
-#ifdef _WIN32 // - No reflection support
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
@@ -661,7 +665,6 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   // Source hash and bin hash should be different
   VERIFY_IS_FALSE(0 == strcmp(binHash1Zss.c_str(), binHash1.c_str()));
 }
-#endif // WIN32 - No reflection support
 
 TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   if (m_ver.SkipDxilVersion(1, 7)) return;
@@ -2012,7 +2015,7 @@ TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
 }
 
 // Test to see if the Compiler Version (VERS) part gets added to library shaders
-// with SM >= 6.8
+// with validator version >= 1.8
 TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
   if (m_ver.SkipDxilVersion(1, 8))
     return;
@@ -2027,7 +2030,7 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
                      &pSource);
   // Test DxilContainer with ShaderDebugInfoDXIL
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
-                                      L"lib_6_7", nullptr, 0, nullptr, 0,
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
                                       nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
 
@@ -2037,7 +2040,7 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
       hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
   VERIFY_IS_NOT_NULL(
       hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
-  VERIFY_IS_NULL(
+  VERIFY_IS_NOT_NULL(
       hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion));
 
   pResult.Release();
@@ -2085,7 +2088,6 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
       pVersionInfo3->GetCustomVersionString(&pCustomVersionStrRef));
 
   // test the "true" information against what's in the blob
-
   VERIFY_IS_TRUE(pVersionHeader->PartFourCC ==
                  hlsl::DxilFourCC::DFCC_CompilerVersion);
   // test the rest of the contents (major, minor, etc.)
@@ -2111,8 +2113,8 @@ TEST_F(DxilContainerTest, DxilContainerCompilerVersionTest) {
   if (pDCV->VersionStringListSizeInBytes != 0) {
     LPCSTR pCommitHashStr = (LPCSTR)pDCV + sizeof(hlsl::DxilCompilerVersion);
     uint32_t uCommitHashLen = (uint32_t)strlen(pCommitHashStr);
-
     VERIFY_ARE_EQUAL_STR(pCommitHashStr, pCommitHashRef);
+
     // + 2 for the two null terminators that are included in this size:
     if (pDCV->VersionStringListSizeInBytes > uCommitHashLen + 2) {
       LPCSTR pCustomVersionString = pCommitHashStr + uCommitHashLen + 1;

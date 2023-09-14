@@ -31,7 +31,6 @@ int _wcsicmp(const wchar_t *str1, const wchar_t *str2);
 int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n);
 int wsprintf(wchar_t *wcs, const wchar_t *fmt, ...);
 unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask);
-HRESULT CoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc);
 
 HANDLE CreateFile2(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
                    _In_ DWORD dwShareMode, _In_ DWORD dwCreationDisposition,

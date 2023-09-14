@@ -52,6 +52,8 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %myASBuffer %uint_0 {{%\d+}}
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %type_ConstantBuffer_S %myCBuffer
 // CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
+// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[tmp]] 0
 // CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S [[vec]]
 // CHECK-NEXT:                OpStore [[ptr]] [[tmp]]
     myASBuffer.Append(myCBuffer);
@@ -68,9 +70,7 @@ S retStuff() {
 // Returning a ConstantBuffer<T> as a T is a copy
 // CHECK:      [[val:%\d+]] = OpLoad %type_ConstantBuffer_S %myCBuffer
 // CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
-// CHECK-NEXT:                OpStore %temp_var_ret [[tmp]]
-// CHECK-NEXT: [[ret:%\d+]] = OpLoad %S_0 %temp_var_ret
+// CHECK-NEXT: [[ret:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT:                OpReturnValue [[ret]]
     return myCBuffer;
 }

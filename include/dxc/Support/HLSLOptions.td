@@ -307,12 +307,16 @@ def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[C
   HelpText<"Set default encoding for source inputs and text outputs (utf8|utf16(win)|utf32(*nix)|wide) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
+def print_before_all : Flag<["-", "/"], "print-before-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Print LLVM IR before each pass.">;
+def print_before : Separate<["-", "/"], "print-before">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Print LLVM IR before a specific pass. May be specificied multiple times.">;
 def select_validator : Separate<["-", "/"], "select-validator">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Select validator: auto: (default) use DXIL.dll if found, otherwise use internal;  internal: internal non-signing validator;  external: use DXIL.dll if found, otherwise fail compilation.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Print LLVM IR after a specific pass.">;
+  HelpText<"Print LLVM IR after a specific pass. May be specificied multiple times.">;
 def ignore_opt_semdefs : Flag<["-", "/"], "ignore-opt-semdefs">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Ignore optional semantic defines which are not required to ensure program correctness.">;
 def ignore_semdef : Separate<["-", "/"], "ignore-semdef">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -396,6 +400,10 @@ def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOpt
   HelpText<"Specify a comma-separated list of SPIRV-Tools passes to customize optimization configuration (see http://khr.io/hlsl2spirv#optimization)">;
 def fspv_preserve_bindings : Flag<["-"], "fspv-preserve-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Preserves all bindings declared within the module, even when those bindings are unused">;
+def fspv_preserve_interface : Flag<["-"], "fspv-preserve-interface">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Preserves all interface variables in the entry point, even when those variables are unused">;
+def fvk_allow_rwstructuredbuffer_arrays: Flag<["-"], "fvk-allow-rwstructuredbuffer-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Allow arrays of RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers. This is in development, and the option will be removed when the feature is complete.">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////

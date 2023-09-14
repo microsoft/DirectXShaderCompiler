@@ -959,7 +959,11 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
       if (!m_exportMap.ProcessFunction(F, true)) {
         // Remove Function not in exportMap.
         DM.RemoveFunction(F);
-        F->eraseFromParent();
+
+        // Only erase function if user is empty. The function can still be
+        // used by @llvm.global_ctors
+        if (F->user_empty())
+          F->eraseFromParent();
       }
     }
 
@@ -1237,6 +1241,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   const ShaderModel *pSM = DM.GetShaderModel();
 
   legacy::PassManager PM;
+  PM.add(createDxilReinsertNopsPass());
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
   // Remove unused functions.
@@ -1276,6 +1281,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilDeadFunctionEliminationPass());
   PM.add(createNoPausePassesPass());
   PM.add(createDxilEmitMetadataPass());
+  PM.add(createDxilFinalizePreservesPass());
 
   PM.run(M);
 }

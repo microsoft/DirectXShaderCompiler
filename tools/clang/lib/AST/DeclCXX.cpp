@@ -1603,8 +1603,17 @@ QualType CXXMethodDecl::getThisType(ASTContext &C) const {
   QualType ClassTy = C.getTypeDeclType(getParent());
   ClassTy = C.getQualifiedType(ClassTy,
                                Qualifiers::fromCVRMask(getTypeQualifiers()));
-  return C.getPointerType(ClassTy);
+  return C.getLangOpts().HLSL ? C.getLValueReferenceType(ClassTy) : C.getPointerType(ClassTy);
 }
+
+// HLSL Change Begin - This is a reference.
+QualType CXXMethodDecl::getThisObjectType(ASTContext &C) const {
+  QualType ClassTy = C.getTypeDeclType(getParent());
+  ClassTy = C.getQualifiedType(ClassTy,
+                               Qualifiers::fromCVRMask(getTypeQualifiers()));
+  return ClassTy;
+}
+// HLSL Change End - This is a reference.
 
 bool CXXMethodDecl::hasInlineBody() const {
   // If this function is a template instantiation, look at the template from 

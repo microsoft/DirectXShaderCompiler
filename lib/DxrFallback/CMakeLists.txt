@@ -1,3 +1,7 @@
+set(LLVM_LINK_COMPONENTS
+  passprinters
+)
+
 add_llvm_library(LLVMDxrFallback
   DxrFallbackCompiler.cpp
   FunctionBuilder.h

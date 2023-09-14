@@ -16,6 +16,8 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilInstructions.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/StringExtras.h"
@@ -677,10 +679,6 @@ bool IsHLSLNodeInputRecordType(llvm::Type *Ty) {
   return false;
 }
 
-bool IsHLSLNodeIOType(llvm::Type* Ty) {
-  return IsHLSLNodeInputRecordType(Ty) || IsHLSLNodeOutputType(Ty);
-}
-
 bool IsHLSLNodeEmptyInputRecordType(llvm::Type* Ty) {
   if (llvm::StructType* ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
@@ -762,6 +760,11 @@ bool IsHLSLGSNodeOutputRecordType(llvm::Type* Ty) {
 bool IsHLSLNodeRecordType(llvm::Type *Ty) {
   return IsHLSLNodeOutputRecordType(Ty) ||
     IsHLSLNodeInputRecordType(Ty);
+}
+
+bool IsHLSLNodeIOType(llvm::Type* Ty) {
+  return IsHLSLNodeRecordType(Ty) || IsHLSLNodeOutputType(Ty) ||
+         IsHLSLNodeOutputArrayType(Ty);
 }
 
 bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
@@ -1212,6 +1215,38 @@ Value *TryReplaceBaseCastWithGep(Value *V) {
   }
 
   return nullptr;
+}
+
+// returns true if the function call is an intermediate or DXIL op 
+// that has no side effects, for functions not marked ReadNone or ReadOnly.
+bool FunctionHasNoSideEffects(Instruction *I) {
+  if (CallInst *CI = dyn_cast<CallInst>(I)) {
+    // don't force unused convergent markers to stay, 
+    if (hlsl::dxilutil::IsConvergentMarker(CI))
+      return true;
+
+    if (CI->onlyReadsMemory()) return false;
+
+    if (!hlsl::OP::IsDxilOpFunc(CI->getCalledFunction()))
+      return false;
+    switch (hlsl::OP::getOpCode(I)) {
+    
+    // remove bad OutputCompletes
+    case hlsl::OP::OpCode::OutputComplete: {
+      hlsl::DxilInst_OutputComplete OutputComplete(CI);
+      Value *NodeRecHandle = OutputComplete.get_output();
+      Constant *C = dyn_cast<Constant>(NodeRecHandle);
+      if (C && C->isZeroValue())
+        return true;
+      break;
+    }
+
+    // TODO: Add Wave Ops
+    default:
+      return false;
+    }
+  }
+  return false;
 }
 
 // Calculate Offset
