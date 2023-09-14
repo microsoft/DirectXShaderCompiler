@@ -186,7 +186,7 @@ namespace dxilutil {
   /// This can enhance SROA and other transforms that want type-safe pointers,
   /// and enables merging with other getelementptr's.
   llvm::Value *TryReplaceBaseCastWithGep(llvm::Value *V);
-
+  bool FunctionHasNoSideEffects(llvm::Instruction *I);
   llvm::Value::user_iterator mdv_users_end(llvm::Value *V);
   llvm::Value::user_iterator mdv_users_begin(llvm::Value *V);
   inline bool mdv_user_empty(llvm::Value *V) {

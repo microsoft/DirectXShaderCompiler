@@ -652,6 +652,12 @@ QualType getTypeWithCustomBitwidth(const ASTContext &ctx, QualType type,
     }
   }
 
+  // It could be a vector of size 1, which is treated as a scalar.
+  if (hlsl::IsHLSLVecType(type)) {
+    assert(hlsl::GetHLSLVecSize(type) == 1);
+    type = hlsl::GetHLSLVecElementType(type);
+  }
+
   // Scalar cases.
   assert(!type->isBooleanType());
   assert(type->isIntegerType() || type->isFloatingType());
@@ -940,6 +946,10 @@ bool isRWByteAddressBuffer(QualType type) {
 }
 
 bool isAppendStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
     return false;
@@ -948,6 +958,10 @@ bool isAppendStructuredBuffer(QualType type) {
 }
 
 bool isConsumeStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
     return false;
@@ -956,6 +970,10 @@ bool isConsumeStructuredBuffer(QualType type) {
 }
 
 bool isRWStructuredBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     return name == "RWStructuredBuffer";
@@ -964,12 +982,7 @@ bool isRWStructuredBuffer(QualType type) {
 }
 
 bool isRWAppendConsumeSBuffer(QualType type) {
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    return name == "RWStructuredBuffer" || name == "AppendStructuredBuffer" ||
-           name == "ConsumeStructuredBuffer";
-  }
-  return false;
+  return isRWStructuredBuffer(type) || isConsumeStructuredBuffer(type) || isAppendStructuredBuffer(type);
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {
@@ -988,6 +1001,9 @@ bool isAKindOfStructuredOrByteBuffer(QualType type) {
 }
 
 bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
@@ -1075,6 +1091,10 @@ std::string getHlslResourceTypeName(QualType type) {
       // Get resource type name with template params. Operation is safe because
       // type has already been null checked.
       return type.getLocalUnqualifiedType().getAsString();
+    } else if (name == "ConstantBuffer") {
+      return "cbuffer";
+    } else if (name == "TextureBuffer") {
+      return "tbuffer";
     }
   }
 

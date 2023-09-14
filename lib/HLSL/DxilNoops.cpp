@@ -95,6 +95,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/ADT/StringRef.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HLSL/DxilNoops.h"
@@ -581,6 +582,93 @@ Pass *llvm::createDxilRewriteOutputArgDebugInfoPass() {
 }
 
 INITIALIZE_PASS(DxilRewriteOutputArgDebugInfo, "dxil-rewrite-output-arg-debug-info", "Dxil Rewrite Output Arg Debug Info", false, false)
+
+//==========================================================
+// Reader pass
+//
+
+namespace {
+
+class DxilReinsertNops : public ModulePass {
+public:
+  static char ID;
+
+  DxilReinsertNops() : ModulePass(ID) {
+    initializeDxilReinsertNopsPass(*PassRegistry::getPassRegistry());
+  }
+
+  // In various linking scenarios, the dx.nothing.a variable might be prefixed
+  // and/or suffixed with something:
+  //
+  //   <library_name>.dx.nothing.a.<another_thing>
+  //
+  // This routine looks for the "dx.nothing.a" string inside of it, and as long
+  // as it's used in the expected way:
+  // 
+  // %0 = load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.nothing.a, i32 0, i32 0)
+  // 
+  // ...it is deemed a valid nop.
+  //
+  static bool IsLegalNothingVarName(StringRef Name) {
+    // There should be a single instance of the name in this GV.
+    if (1 != Name.count(hlsl::kNothingName))
+      return false;
+    size_t Loc = Name.find(hlsl::kNothingName);
+    StringRef Prefix = Name.substr(0, Loc);
+    StringRef Suffix = Name.substr(Loc+Name.size());
+    // There should be either no prefix or a prefix that ends with .
+    if (!Prefix.empty() && !Prefix.endswith(".")) {
+      return false;
+    }
+    // There should be either no suffix or a prefix that begins with with .
+    if (!Suffix.empty() && !Suffix.startswith(".")) {
+      return false;
+    }
+    return true;
+  }
+
+  bool runOnModule(Module& M) override {
+    bool Changed = false;
+    for (GlobalVariable &GV : M.globals()) {
+      if (!IsLegalNothingVarName(GV.getName()))
+        continue;
+
+      const bool IsValidType = GV.getValueType()->isArrayTy() &&
+                               GV.getValueType()->getArrayElementType() ==
+                                   Type::getInt32Ty(M.getContext()) &&
+                               GV.getValueType()->getArrayNumElements() == 1;
+      if (!IsValidType)
+        return false;
+
+      for (User *GVU : GV.users()) {
+        ConstantExpr *CE = dyn_cast<ConstantExpr>(GVU);
+        if (!CE || CE->getOpcode() != Instruction::GetElementPtr)
+          continue;
+
+        for (auto it = CE->user_begin(), end = CE->user_end(); it != end;) {
+          User *U = *(it++);
+          LoadInst *LI = dyn_cast<LoadInst>(U);
+          if (!LI)
+            continue;
+          InsertNoopAt(LI);
+          LI->eraseFromParent();
+          Changed = true;
+        }
+      }
+    }
+
+    return Changed;
+  }
+  StringRef getPassName() const override { return "Dxil Reinsert Nops"; }
+};
+
+char DxilReinsertNops::ID;
+}
+Pass *llvm::createDxilReinsertNopsPass() {
+  return new DxilReinsertNops();
+}
+
+INITIALIZE_PASS(DxilReinsertNops, "dxil-reinsert-nops", "Dxil Reinsert Nops", false, false)
 
 
 //==========================================================

@@ -1,6 +1,6 @@
 // RUN: %dxc -T hs_6_0 -E main
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 // CHECK: [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT
 // CHECK:          %main = OpFunction %void None {{%\d+}}

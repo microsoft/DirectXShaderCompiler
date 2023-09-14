@@ -12,8 +12,10 @@
 #include "llvm/IR/Instructions.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilNoops.h"
+#include "dxc/Support/Global.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 
 using namespace llvm;
 
@@ -118,6 +120,15 @@ public:
             if (Value *C = DVC->GetValue(I)) {
               I->replaceAllUsesWith(C);
               I->eraseFromParent();
+              Changed = true;
+            }
+          } else if (PHINode* Phi = dyn_cast<PHINode>(I)) {
+            // Replace all simple phi values (such as those inserted by lcssa) with the
+            // value itself. This avoids phis in places they are not expected because
+            // the normal simplify passes will clean them up.
+            if (Value *NewPhi = llvm::SimplifyInstruction(Phi, M.getDataLayout())) {
+              Phi->replaceAllUsesWith(NewPhi);
+              Phi->eraseFromParent();
               Changed = true;
             }
           }

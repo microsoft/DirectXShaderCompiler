@@ -60,23 +60,32 @@ static const BYTE INTRIN_COMPTYPE_FROM_TYPE_ELT0 = 0xff;
 static const BYTE INTRIN_COMPTYPE_FROM_NODEOUTPUT = 0xfe;
 
 enum LEGAL_INTRINSIC_COMPTYPES {
-  LICOMPTYPE_VOID = 0,            // void, used for function returns
-  LICOMPTYPE_BOOL = 1,            // bool
-  LICOMPTYPE_INT = 2,             // i32, int-literal
-  LICOMPTYPE_UINT = 3,            // u32, int-literal
-  LICOMPTYPE_ANY_INT = 4,         // i32, u32, i64, u64, int-literal
-  LICOMPTYPE_ANY_INT32 = 5,       // i32, u32, int-literal
-  LICOMPTYPE_UINT_ONLY = 6,       // u32, u64, int-literal; no casts allowed
-  LICOMPTYPE_FLOAT = 7,           // f32, partial-precision-f32, float-literal
-  LICOMPTYPE_ANY_FLOAT = 8,       // f32, partial-precision-f32, f64, float-literal, min10-float, min16-float, half
-  LICOMPTYPE_FLOAT_LIKE = 9,      // f32, partial-precision-f32, float-literal, min10-float, min16-float, half
-  LICOMPTYPE_FLOAT_DOUBLE = 10,   // f32, partial-precision-f32, f64, float-literal
-  LICOMPTYPE_DOUBLE = 11,         // f64, float-literal
-  LICOMPTYPE_DOUBLE_ONLY = 12,    // f64; no casts allowed
-  LICOMPTYPE_NUMERIC = 13,        // float-literal, f32, partial-precision-f32, f64, min10-float, min16-float, int-literal, i32, u32, min12-int, min16-int, min16-uint, i64, u64
-  LICOMPTYPE_NUMERIC32 = 14,      // float-literal, f32, partial-precision-f32, int-literal, i32, u32
-  LICOMPTYPE_NUMERIC32_ONLY = 15, // float-literal, f32, partial-precision-f32, int-literal, i32, u32; no casts allowed
-  LICOMPTYPE_ANY = 16,            // float-literal, f32, partial-precision-f32, f64, min10-float, min16-float, int-literal, i32, u32, min12-int, min16-int, min16-uint, bool, i64, u64
+  LICOMPTYPE_VOID = 0,       // void, used for function returns
+  LICOMPTYPE_BOOL = 1,       // bool
+  LICOMPTYPE_INT = 2,        // i32, int-literal
+  LICOMPTYPE_UINT = 3,       // u32, int-literal
+  LICOMPTYPE_ANY_INT = 4,    // i32, u32, i64, u64, int-literal
+  LICOMPTYPE_ANY_INT32 = 5,  // i32, u32, int-literal
+  LICOMPTYPE_UINT_ONLY = 6,  // u32, u64, int-literal; no casts allowed
+  LICOMPTYPE_FLOAT = 7,      // f32, partial-precision-f32, float-literal
+  LICOMPTYPE_ANY_FLOAT = 8,  // f32, partial-precision-f32, f64, float-literal,
+                             // min10-float, min16-float, half
+  LICOMPTYPE_FLOAT_LIKE = 9, // f32, partial-precision-f32, float-literal,
+                             // min10-float, min16-float, half
+  LICOMPTYPE_FLOAT_DOUBLE =
+      10,                      // f32, partial-precision-f32, f64, float-literal
+  LICOMPTYPE_DOUBLE = 11,      // f64, float-literal
+  LICOMPTYPE_DOUBLE_ONLY = 12, // f64; no casts allowed
+  LICOMPTYPE_NUMERIC = 13, // float-literal, f32, partial-precision-f32, f64,
+                           // min10-float, min16-float, int-literal, i32, u32,
+                           // min12-int, min16-int, min16-uint, i64, u64
+  LICOMPTYPE_NUMERIC32 =
+      14, // float-literal, f32, partial-precision-f32, int-literal, i32, u32
+  LICOMPTYPE_NUMERIC32_ONLY = 15, // float-literal, f32, partial-precision-f32,
+                                  // int-literal, i32, u32; no casts allowed
+  LICOMPTYPE_ANY = 16, // float-literal, f32, partial-precision-f32, f64,
+                       // min10-float, min16-float, int-literal, i32, u32,
+                       // min12-int, min16-int, min16-uint, bool, i64, u64
   LICOMPTYPE_SAMPLER1D = 17,
   LICOMPTYPE_SAMPLER2D = 18,
   LICOMPTYPE_SAMPLER3D = 19,
@@ -85,7 +94,7 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_SAMPLER = 22,
   LICOMPTYPE_STRING = 23,
   LICOMPTYPE_WAVE = 24,
-  LICOMPTYPE_UINT64 = 25,         // u64, int-literal
+  LICOMPTYPE_UINT64 = 25, // u64, int-literal
   LICOMPTYPE_FLOAT16 = 26,
   LICOMPTYPE_INT16 = 27,
   LICOMPTYPE_UINT16 = 28,
@@ -106,22 +115,23 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_UINT8_4PACKED = 41,
   LICOMPTYPE_ANY_INT16_OR_32 = 42,
   LICOMPTYPE_SINT16_OR_32_ONLY = 43,
+  LICOMPTYPE_ANY_SAMPLER = 44,
 
-  LICOMPTYPE_BYTEADDRESSBUFFER = 44,
-  LICOMPTYPE_RWBYTEADDRESSBUFFER = 45,
+  LICOMPTYPE_BYTEADDRESSBUFFER = 45,
+  LICOMPTYPE_RWBYTEADDRESSBUFFER = 46,
 
-  LICOMPTYPE_WAVE_MATRIX_LEFT = 46,
-  LICOMPTYPE_WAVE_MATRIX_RIGHT = 47,
-  LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC = 48,
-  LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC = 49,
-  LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR = 50,
+  LICOMPTYPE_WAVE_MATRIX_LEFT = 47,
+  LICOMPTYPE_WAVE_MATRIX_RIGHT = 48,
+  LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC = 49,
+  LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC = 50,
+  LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR = 51,
 
-  LICOMPTYPE_NODE_RECORD_OR_UAV = 51,
-  LICOMPTYPE_ANY_NODE_OUTPUT_RECORD = 52,
-  LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS = 53,
-  LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS = 54,
+  LICOMPTYPE_NODE_RECORD_OR_UAV = 52,
+  LICOMPTYPE_ANY_NODE_OUTPUT_RECORD = 53,
+  LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS = 54,
+  LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS = 55,
 
-  LICOMPTYPE_COUNT = 55
+  LICOMPTYPE_COUNT = 56
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;

@@ -45,6 +45,7 @@ namespace hlsl {
       Pack,           // Convert the vector arguments into structs.
       Resource,       // Convert return value to resource return and explode vectors.
       Dxil,           // Convert call to a dxil intrinsic.
+      Custom,         // Custom lowering based on flexible json string.      
     };
 
     // Create the lowering using the given strategy and custom codegen helper.
@@ -86,5 +87,6 @@ namespace hlsl {
     llvm::Value *Resource(llvm::CallInst *CI);
     llvm::Value *Dxil(llvm::CallInst *CI);
     llvm::Value *CustomResource(llvm::CallInst *CI);
+    llvm::Value *Custom(llvm::CallInst *CI);
   };
 }

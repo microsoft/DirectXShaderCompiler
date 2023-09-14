@@ -268,6 +268,7 @@ void initializeDxilEliminateVectorPass(PassRegistry&);
 void initializeDxilConditionalMem2RegPass(PassRegistry&);
 void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 void initializeDxilInsertPreservesPass(PassRegistry&);
+void initializeDxilReinsertNopsPass(PassRegistry&);
 void initializeDxilFinalizePreservesPass(PassRegistry&);
 void initializeDxilPreserveToSelectPass(PassRegistry&);
 void initializeDxilRemoveDeadBlocksPass(PassRegistry&);

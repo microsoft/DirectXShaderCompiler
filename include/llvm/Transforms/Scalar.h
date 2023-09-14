@@ -144,6 +144,9 @@ void initializeDxilInsertPreservesPass(PassRegistry&);
 Pass *createDxilFinalizePreservesPass();
 void initializeDxilFinalizePreservesPass(PassRegistry&);
 
+Pass *createDxilReinsertNopsPass();
+void initializeDxilReinsertNopsPass(PassRegistry&);
+
 Pass *createDxilPreserveToSelectPass();
 void initializeDxilPreserveToSelectPass(PassRegistry&);
 

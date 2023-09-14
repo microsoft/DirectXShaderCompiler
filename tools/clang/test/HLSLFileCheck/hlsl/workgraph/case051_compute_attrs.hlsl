@@ -10,7 +10,6 @@
 // CHECK:   ret void
 // CHECK: }
 
-[Shader("compute")]
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2,3,2)]

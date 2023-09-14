@@ -141,11 +141,16 @@ public:
   /// bundle_iterator - MachineBasicBlock iterator that automatically skips over
   /// MIs that are inside bundles (i.e. walk top level MIs only).
   template<typename Ty, typename IterTy>
-  class bundle_iterator
-    : public std::iterator<std::bidirectional_iterator_tag, Ty, ptrdiff_t> {
+  class bundle_iterator {
     IterTy MII;
 
   public:
+    using iterator_category = std::bidirectional_iterator_tag;
+    using value_type = Ty;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     bundle_iterator(IterTy mii) : MII(mii) {}
 
     bundle_iterator(Ty &mi) : MII(mi) {

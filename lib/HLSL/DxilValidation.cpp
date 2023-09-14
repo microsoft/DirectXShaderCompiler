@@ -61,7 +61,9 @@
 #include <deque>
 
 using namespace llvm;
-using namespace std;
+using std::unique_ptr;
+using std::unordered_set;
+using std::vector;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Error messages.
@@ -534,69 +536,28 @@ struct ValidationContext {
     return I;
   }
 
-  void EmitInstrNote(Instruction *I, std::string Msg) {
-    Instruction *DbgI = GetDebugInstr(I);
-    const DebugLoc L = DbgI->getDebugLoc();
-    if (L) {
-      LastDebugLocEmit = L;
-    }
-
+  // Emit Error or note on instruction `I` with `Msg`.
+  // If `isError` is true, `Rule` may omit repeated errors
+  void EmitInstrDiagMsg(Instruction *I, ValidationRule Rule, std::string Msg,
+                        bool isError = true) {
     BasicBlock *BB = I->getParent();
     Function *F = BB->getParent();
 
-    dxilutil::EmitErrorOnInstruction(DbgI, Msg);
-
-    // Add llvm information as a note to instruction string
-    std::string InstrStr;
-    raw_string_ostream InstrStream(InstrStr);
-    I->print(InstrStream, slotTracker);
-    InstrStream.flush();
-    StringRef InstrStrRef = InstrStr;
-    InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation
-    Msg = "at '" + InstrStrRef.str() + "'";
-
-    // Print the parent block name
-    Msg += " in block '";
-    if (!BB->getName().empty()) {
-      Msg += BB->getName();
-    }
-    else {
-      unsigned idx = 0;
-      for (auto i = F->getBasicBlockList().begin(),
-        e = F->getBasicBlockList().end(); i != e; ++i) {
-        if (BB == &(*i)) {
-          break;
+    Instruction *DbgI = GetDebugInstr(I);
+    if (isError) {
+      if (const DebugLoc L = DbgI->getDebugLoc()) {
+        // Instructions that get scalarized will likely hit
+        // this case. Avoid redundant diagnostic messages.
+        if (Rule == LastRuleEmit && L == LastDebugLocEmit) {
+          return;
         }
-        idx++;
+        LastRuleEmit = Rule;
+        LastDebugLocEmit = L;
       }
-      Msg += "#" + std::to_string(idx);
+      dxilutil::EmitErrorOnInstruction(DbgI, Msg);
+    } else {
+      dxilutil::EmitNoteOnContext(DbgI->getContext(), Msg);
     }
-    Msg += "'";
-
-    // Print the function name
-    Msg += " of function '" + F->getName().str() + "'.";
-
-    dxilutil::EmitNoteOnContext(DbgI->getContext(), Msg);
-
-  }
-
-  void EmitInstrErrorMsg(Instruction *I, ValidationRule Rule, std::string Msg) {
-    Instruction *DbgI = GetDebugInstr(I);
-    const DebugLoc L = DbgI->getDebugLoc();
-    if (L) {
-      // Instructions that get scalarized will likely hit
-      // this case. Avoid redundant diagnostic messages.
-      if (Rule == LastRuleEmit && L == LastDebugLocEmit) {
-        return;
-      }
-      LastRuleEmit = Rule;
-      LastDebugLocEmit = L;
-    }
-
-    BasicBlock *BB = I->getParent();
-    Function *F = BB->getParent();
-
-    dxilutil::EmitErrorOnInstruction(DbgI, Msg);
 
     // Add llvm information as a note to instruction string
     std::string InstrStr;
@@ -634,13 +595,17 @@ struct ValidationContext {
   }
 
   void EmitInstrError(Instruction *I, ValidationRule rule) {
-    EmitInstrErrorMsg(I, rule, GetValidationRuleText(rule));
+    EmitInstrDiagMsg(I, rule, GetValidationRuleText(rule));
+  }
+
+  void EmitInstrNote(Instruction *I, std::string Msg) {
+    EmitInstrDiagMsg(I, LastRuleEmit, Msg, false);
   }
 
   void EmitInstrFormatError(Instruction *I, ValidationRule rule, ArrayRef<StringRef> args) {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
-    EmitInstrErrorMsg(I, rule, ruleText);
+    EmitInstrDiagMsg(I, rule, ruleText);
   }
 
   void EmitSignatureError(DxilSignatureElement *SE, ValidationRule rule) {
@@ -5597,7 +5562,7 @@ static void ValidateFlowControl(ValidationContext &ValCtx) {
                     useInstr,
                     ValidationRule::InstrNodeRecordHandleUseAfterComplete);
                 ValCtx.EmitInstrNote(
-                    *ocIt, "record handle invalidated by OutputComplete here");
+                    *ocIt, "record handle invalidated by OutputComplete");
                 break;
               }
             }
@@ -5848,14 +5813,16 @@ bool ValidateCompilerVersionPart(const void *pBlobPtr, UINT blobSize) {
   // The hlsl::DxilCompilerVersion struct is always 16 bytes. (2 2-byte
   // uint16's, 3 4-byte uint32's) The blob size should absolutely never be less
   // than 16 bytes.
-  if (blobSize < sizeof(hlsl::DxilCompilerVersion))
+  if (blobSize < sizeof(hlsl::DxilCompilerVersion)) {
     return false;
+  }
 
   const hlsl::DxilCompilerVersion *pDCV =
       (const hlsl::DxilCompilerVersion *)pBlobPtr;
-  if (pDCV->VersionStringListSizeInBytes == 0)
+  if (pDCV->VersionStringListSizeInBytes == 0) {
     // No version strings, just make sure there is no extra space.
     return blobSize == sizeof(hlsl::DxilCompilerVersion);
+  }
 
   // after this point, we know VersionStringListSizeInBytes >= 1, because it is
   // a UINT
@@ -5864,8 +5831,9 @@ bool ValidateCompilerVersionPart(const void *pBlobPtr, UINT blobSize) {
       sizeof(hlsl::DxilCompilerVersion) + pDCV->VersionStringListSizeInBytes;
   // Make sure that the buffer size is large enough to contain both the DCV
   // struct and the version string but not any larger than necessary
-  if (PSVALIGN4(EndOfVersionStringIndex) != blobSize)
+  if (PSVALIGN4(EndOfVersionStringIndex) != blobSize) {
     return false;
+  }
 
   const char *VersionStringsListData =
       (const char *)pBlobPtr + sizeof(hlsl::DxilCompilerVersion);
@@ -5873,15 +5841,18 @@ bool ValidateCompilerVersionPart(const void *pBlobPtr, UINT blobSize) {
 
   // now make sure that any pad bytes that were added are null-terminators.
   for (UINT i = VersionStringListSizeInBytes;
-       i < blobSize - sizeof(hlsl::DxilCompilerVersion); i++)
-    if (VersionStringsListData[i] != '\0')
+       i < blobSize - sizeof(hlsl::DxilCompilerVersion); i++) {
+    if (VersionStringsListData[i] != '\0') {
       return false;
+    }
+  }
 
   // Now, version string validation
   // first, the final byte of the string should always be null-terminator so
   // that the string ends
-  if (VersionStringsListData[VersionStringListSizeInBytes - 1] != '\0')
+  if (VersionStringsListData[VersionStringListSizeInBytes - 1] != '\0') {
     return false;
+  }
 
   // construct the first string
   // data format for VersionString can be see in the definition for the
@@ -5896,13 +5867,15 @@ bool ValidateCompilerVersionPart(const void *pBlobPtr, UINT blobSize) {
     // the VersionStringListSizeInBytes member should be exactly equal to the
     // two string lengths, plus the 2 null terminator bytes.
     if (VersionStringListSizeInBytes !=
-        firstStr.size() + secondStr.size() + 2)
+        firstStr.size() + secondStr.size() + 2) {
       return false;
+    }
   } else {
     // the VersionStringListSizeInBytes member should be exactly equal to the
     // first string length, plus the 1 null terminator byte.
-    if (VersionStringListSizeInBytes != firstStr.size() + 1)
+    if (VersionStringListSizeInBytes != firstStr.size() + 1) {
       return false;
+    }
   }
 
   return true;
@@ -6023,13 +5996,16 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
       VerifyFeatureInfoMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       break;
     case DFCC_CompilerVersion:
-      // Either this blob is a PDB, or it is a library with shader model at
-      // least 6.8
-      if (pDxilModule->GetShaderModel()->IsSM68Plus() && ValCtx.isLibProfile)
-        if (!ValidateCompilerVersionPart((void *)GetDxilPartData(pPart),
-                                         pPart->PartSize))
-          ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid,
-                                 {szFourCC});
+      // This blob is either a PDB, or a library profile
+      if (ValCtx.isLibProfile) {
+        if (!ValidateCompilerVersionPart((void *)GetDxilPartData(pPart), pPart->PartSize))
+        {
+          ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+        }
+      }
+      else {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      }
       break;
 
     case DFCC_RootSignature:

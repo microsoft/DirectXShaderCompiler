@@ -17,9 +17,10 @@
 #define DXC_API_IMPORT __attribute__ ((visibility ("default")))
 #endif
 
+#include "dxc/Support/Global.h"
+#include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
-#include "dxc/Support/Global.h"
 #ifdef _WIN32
 #include "dxcetw.h"
 #endif
@@ -158,6 +159,11 @@ DxcCreateInstance2(
   if (ppv == nullptr) {
     return E_POINTER;
   }
+#ifdef DXC_DISABLE_ALLOCATOR_OVERRIDES
+  if (pMalloc != DxcGetThreadMallocNoRef()) {
+    return E_INVALIDARG;
+  }
+#endif // DXC_DISABLE_ALLOCATOR_OVERRIDES
 
   HRESULT hr = S_OK;
   DxcEtw_DXCompilerCreateInstance_Start();

@@ -55,7 +55,11 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // TODO: The underlying struct type has the same layout but %type_TextureBuffer_S
 // has an additional BufferBlock decoration. So this causes an validation error.
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %myASBuffer %uint_0 {{%\d+}}
-// CHECK-NEXT: [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
+// CHECK-NEXT:  [[tb:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
+// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[tb]] 0
+// CHECK-NEXT: [[loc:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[loc]] 0
+// CHECK-NEXT: [[val:%\d+]] = OpCompositeConstruct %S [[vec]]
 // CHECK-NEXT:                OpStore [[ptr]] [[val]]
     myASBuffer.Append(myTBuffer);
 
@@ -71,9 +75,7 @@ S retStuff() {
 // Returning a TextureBuffer<T> as a T is a copy
 // CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
 // CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
-// CHECK-NEXT:                OpStore %temp_var_ret [[tmp]]
-// CHECK-NEXT: [[ret:%\d+]] = OpLoad %S_0 %temp_var_ret
+// CHECK-NEXT: [[ret:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT:                OpReturnValue [[ret]]
     return myTBuffer;
 }

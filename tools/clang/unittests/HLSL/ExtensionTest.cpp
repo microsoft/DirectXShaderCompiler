@@ -7,6 +7,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "llvm/ADT/STLExtras.h"
 #include "dxc/Test/CompilationResult.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
@@ -97,6 +98,27 @@ static const HLSL_INTRINSIC_ARGUMENT TestMyBufferOp[] = {
   { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// float2 = CustomLoadOp(uint2 addr)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOp[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+};
+
+// float2 = CustomLoadOp(uint2 addr, bool val)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpBool[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+  { "val",  AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
+};
+
+// float2 = CustomLoadOp(uint2 addr, bool val, uint2 subscript)
+static const HLSL_INTRINSIC_ARGUMENT TestCustomLoadOpSubscript[] = {
+  { "CustomLoadOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr",         AR_QUAL_IN,  1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+  { "val",          AR_QUAL_IN,  2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_BOOL, 1, 1},
+  { "subscript",    AR_QUAL_IN,  3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_UINT, 1, 2},
+};
+
 // bool<> = test_isinf(float<> x)
 static const HLSL_INTRINSIC_ARGUMENT TestIsInf[] = {
   { "test_isinf", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_BOOL, 1, IA_C },
@@ -183,14 +205,23 @@ Intrinsic Intrinsics[] = {
   // Make this intrinsic have the same opcode as an hlsl intrinsic with an unsigned
   // counterpart for testing purposes.
   {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, -1, countof(TestUnsigned), TestUnsigned}},
-  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1, countof(WaveProcArgs), WaveProcArgs }},
-  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1,  countof(WaveProcArgs), WaveProcArgs }},
+  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1,  countof(TestOverloadArgs), TestOverloadArgs }},
+  // custom lowering with both optional arguments and vector exploding.
+  // Arg 0 = Opcode
+  // Arg 1 = Pass as is
+  // Arg 2:?i1 = Optional boolean argument
+  // Arg 3.0:?i32 = Optional x component (in i32) of 3rd HLSL arg
+  // Arg 3.1:?i32 = Optional y component (in i32) of 3rd HLSL arg
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOp), TestCustomLoadOp}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpBool), TestCustomLoadOpBool}},
+  {L"CustomLoadOp", "CustomLoadOp",    "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}", { 21, true,  false, false, -1, countof(TestCustomLoadOpSubscript), TestCustomLoadOpSubscript}},
 };
 
 Intrinsic BufferIntrinsics[] = {
-  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+  {L"MyBufferOp",     "MyBufferOp",   "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState will do).
@@ -558,6 +589,7 @@ public:
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering2)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering3)
   TEST_METHOD(CustomOverloadArg1)
+  TEST_METHOD(CustomLoadOp)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -1280,6 +1312,41 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
   VERIFY_IS_TRUE(regex.isValid(regexErrors));
   VERIFY_IS_TRUE(regex.match(disassembly));
 }
+
+ TEST_F(ExtensionTest, CustomLoadOp) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "float2 main(uint2 v1 : V1) : SV_Target {\n"
+    "  float2 a = CustomLoadOp(uint2(1,2));\n"
+    "  float2 b = CustomLoadOp(uint2(3,4),1);\n"
+    "  float2 c = CustomLoadOp(uint2(5,6),1,uint2(7,8));\n"
+    "  return a+b+c;\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // - return type is 2xfloat
+  // - input type is 2x struct
+  // - function overload handles variable arguments (and replaces them with undefs)
+  // - output struct gets converted to vector
+  LPCSTR expected[] = {
+    "%1 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 1, i32 2 }, i1 undef, i32 undef, i32 undef)",
+    "%2 = extractvalue { float, float } %1, 0",
+    "%3 = extractvalue { float, float } %1, 1",
+    "%4 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 3, i32 4 }, i1 true, i32 undef, i32 undef)",
+    "%5 = extractvalue { float, float } %4, 0",
+    "%6 = extractvalue { float, float } %4, 1",
+    "%7 = call { float, float } @CustomLoadOp(i32 21, { i32, i32 } { i32 5, i32 6 }, i1 true, i32 7, i32 8)",
+    "%8 = extractvalue { float, float } %7, 0",
+    "%9 = extractvalue { float, float } %7, 1"
+  };
+
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, llvm::array_lengthof(expected), false);
+ }
 
 TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
   Compiler c(m_dllSupport);

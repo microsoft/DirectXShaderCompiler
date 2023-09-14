@@ -43,9 +43,11 @@ define void @loadStress_16() {
   ; test duplicate output complete call
   ; CHECK: error: Invalid use of completed record handle.
   ; CHECK: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
+  ; CHECK: note: record handle invalidated by OutputComplete
+  ; CHECK: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)'
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)
 
-  
+
   %bad.idx.handle = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle %5, i32 0)
 
   %18 = icmp eq i32 %6, 0
@@ -55,6 +57,8 @@ define void @loadStress_16() {
   ; test usage of output completed handle in a different block  
   ; CHECK: error: Invalid use of completed record handle. 
   ; CHECK: %bad.idx.handle2 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle %5, i32 0)
+  ; CHECK: note: record handle invalidated by OutputComplete
+  ; CHECK: note: at 'call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5)'
   %bad.idx.handle2 = call %struct.loadStressRecord.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.loadStressRecord.0(i32 239, %dx.types.NodeRecordHandle %5, i32 0)
   
   call void @dx.op.outputComplete(i32 241, %dx.types.NodeRecordHandle %5) 

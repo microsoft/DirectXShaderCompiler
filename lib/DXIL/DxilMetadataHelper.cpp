@@ -2682,7 +2682,10 @@ void DxilMDHelper::EmitDxilCounters(const DxilCounters &counters) {
     m_pModule->eraseNamedMetadata(pDxilCountersMD);
 
   vector<Metadata*> MDVals;
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('OPCODE-COUNTERS')>['AddCounterIfNonZero(counters.%s, "%s", MDVals);' % (c,c) for c in hctdb_instrhelp.get_counters()]</py>
+  // clang-format on
   // OPCODE-COUNTERS:BEGIN
   AddCounterIfNonZero(counters.array_local_bytes, "array_local_bytes", MDVals);
   AddCounterIfNonZero(counters.array_local_ldst, "array_local_ldst", MDVals);

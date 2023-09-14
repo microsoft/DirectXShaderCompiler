@@ -40,7 +40,7 @@ namespace hlsl_symbols {
 
 // HLSL Symbol Hierarchy
 // ---- ------ ---------
-// 
+//
 //                                  +---------------+
 //                                  | Program (EXE) |                                   Global Scope
 //                                  +------+--------+
@@ -50,14 +50,14 @@ namespace hlsl_symbols {
 //                                +--------+-----------+
 //                                         |
 //      +------------+------------+--------+-------+------------+--------------+
-//      |            |            |        |       |            |              |        
+//      |            |            |        |       |            |              |
 // +----^----+   +---^---+   +----^---+    |   +---^---+   +----^----+   +-----^-----+
 // | Details |   | Flags |   | Target |    |   | Entry |   | Defines |   | Arguments |  Synthetic Symbols
 // +---------+   +-------+   +--------+    |   +-------+   +---------+   +-----------+
 //                                         |
 //                                         |
 //       +---------------+------------+----+-----+-------------+-----------+
-//       |               |            |          |             |           | 
+//       |               |            |          |             |           |
 // +-----^-----+   +-----^-----+   +--^--+   +---^--+      +---^--+     +--^--+
 // | Function0 |   | Function1 |   | ... |   | UDT0 |      | UDT1 |     | ... |         Source Symbols
 // +-----+-----+   +-----+-----+   +-----+   +---+--+      +---+--+     +-----+
@@ -111,14 +111,14 @@ struct TypedSymbol : public DISymbol<N> {
     if (ppRetVal == nullptr) {
       return E_INVALIDARG;
     }
-    *ppRetVal = false;
+    *ppRetVal = nullptr;
 
     if (m_pType == nullptr) {
       return S_FALSE;
     }
 
     Symbol *ret;
-    IFR(m_pSession->SymMgr().GetSymbolByID(m_dwTypeID, &ret));
+    IFR(this->m_pSession->SymMgr().GetSymbolByID(m_dwTypeID, &ret));
 
     *ppRetVal = ret;
     return S_OK;
@@ -975,7 +975,7 @@ STDMETHODIMP dxil_dia::hlsl_symbols::VectorTypeSymbol::get_type(
   if (ppRetVal == nullptr) {
     return E_INVALIDARG;
   }
-  *ppRetVal = false;
+  *ppRetVal = nullptr;
 
   Symbol *ret;
   IFR(m_pSession->SymMgr().GetSymbolByID(m_ElemTyID, &ret));
@@ -1570,7 +1570,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
   } else {
     for (llvm::DINode *N : CT->getElements()) {
       if (auto *Field = llvm::dyn_cast<llvm::DIType>(N)) {
-        std::unique_ptr<UDTScope> UDTScopeOverride; 
+        std::unique_ptr<UDTScope> UDTScopeOverride;
         if (Field->isStaticMember()) {
           // Static members do not contribute to sizes or offsets.
           UDTScopeOverride.reset(new UDTScope(&m_pCurUDT, nullptr));

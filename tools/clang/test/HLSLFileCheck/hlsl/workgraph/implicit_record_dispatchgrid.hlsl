@@ -27,7 +27,6 @@
 // REFL:   }
 // REFL: }
 
-[Shader("compute")]
 [Shader("node")]
 [NodeMaxDispatchGrid(3, 1, 1)]
 [NumThreads(16, 1, 1)]
