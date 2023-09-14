@@ -6,15 +6,10 @@
 
 // CHECK: = !{void ()* @cs_and_node, !"cs_and_node", null, null, [[ExtAttrs:![0-9]+]]}
 // CHECK: [[ExtAttrs]] =
-// CHECK-SAME: i32 20, [[InputNodes:![0-9]+]],
-// CHECK: [[InputNodes]] = !{[[InputNode:![0-9]+]]}
-// CHECK: [[InputNode]] = !{i32 1, i32 9}
+// CHECK-SAME: i32 22, [[NodeMaxDispatchGrid:![0-9]+]],
+// CHECK: [[NodeMaxDispatchGrid]] = !{i32 3, i32 1, i32 1}
 
-// REFL: Inputs: <13:RecordArrayRef<IONode>[1]>  = {
-// REFL:   [0]: <0:IONode> = {
-// REFL:     IOFlagsAndKind: 9
-// REFL:     Attribs: <RecordArrayRef<NodeShaderIOAttrib>[0]> = {}
-// REFL:   }
+// REFL:   Inputs: <RecordArrayRef<IONode>[0]> = {}
 // REFL: }
 
 [Shader("node")]

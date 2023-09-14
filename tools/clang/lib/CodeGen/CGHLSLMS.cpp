@@ -2449,12 +2449,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
-  // If InputNodes is empty, add an EmptyNodeInput
-  if (funcProps->InputNodes.size() == 0) {    
-    hlsl::NodeIOProperties emptyInput(DXIL::NodeIOKind::EmptyInput);
-    funcProps->InputNodes.push_back(emptyInput);
-  }
-
   // All output decls and param names are available and errors can be generated
   // and parameter output array indices that correspond to param names can be added to the properties
   auto outIt = outputDecls.begin();

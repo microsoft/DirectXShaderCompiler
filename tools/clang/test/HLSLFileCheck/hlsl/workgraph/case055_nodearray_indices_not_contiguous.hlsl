@@ -55,14 +55,12 @@ void node055b_nodearray_indices_not_contiguous()
 // Arg #10: Index (-1)
 // Arg #11: NodeDispatchGrid Tag (18)
 // Arg #12: NodeDispatchGrid (xyz metadata)
-// Arg #13: NodeInputs Tag (20)
-// Arg #14: NodeInputs (NodeInput metadata)
-// Arg #15: NumThreads Tag (4)
-// Arg #16: NumThreads (xyz metadata)
+// Arg #13: NumThreads Tag (4)
+// Arg #14: NumThreads (xyz metadata)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS0]] = !{
-// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID0:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 20, !12, i32 4, [[NUMTHREADS:![0-9]+]]
+// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID0:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 4, [[NUMTHREADS:![0-9]+]]
 // CHECK-SAME: }
 
 // NodeID
@@ -102,14 +100,12 @@ void node055b_nodearray_indices_not_contiguous()
 // Arg #10: Index (-1)
 // Arg #11: NodeDispatchGrid Tag (18)
 // Arg #12: NodeDispatchGrid (xyz metadata)
-// Arg #13: NodeInputs Tag (20)
-// Arg #14: NodeInputs (NodeInput metadata)
-// Arg #15: NumThreads Tag (4)
-// Arg #16: NumThreads (xyz metadata)
+// Arg #13: NumThreads Tag (4)
+// Arg #14: NumThreads (xyz metadata)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS1]] = !{
-// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID1:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 20, !12, i32 4, [[NUMTHREADS]]
+// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID1:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 4, [[NUMTHREADS]]
 // CHECK-SAME: }
 
 // DispatchGrid

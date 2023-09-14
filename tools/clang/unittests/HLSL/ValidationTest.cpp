@@ -4066,18 +4066,18 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
     "Node node01 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!18 = !{i32 8, i32 15"},  // original: node shader
-    {"!18 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!16 = !{i32 8, i32 15"},  // original: node shader
+    {"!16 = !{i32 8, i32 5"},   // changed to: compute shader
     "Node node02 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!24 = !{i32 8, i32 15"},  // original: node shader
-    {"!24 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!22 = !{i32 8, i32 15"},  // original: node shader
+    {"!22 = !{i32 8, i32 5"},   // changed to: compute shader
     "Node node03 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!29 = !{i32 8, i32 15"},  // original: node shader
-    {"!29 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!27 = !{i32 8, i32 15"},  // original: node shader
+    {"!27 = !{i32 8, i32 5"},   // changed to: compute shader
     "Node node04 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
