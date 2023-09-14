@@ -12838,7 +12838,6 @@ HLSLShaderAttr* ValidateShaderAttributes(Sema &S, Decl *D,
          NewStage != DXIL::ShaderKind::Node)) {
       S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute)
           << ShaderModel::FullNameFromKind(Stage) << ShaderModel::FullNameFromKind(NewStage);
-      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
       S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
       return nullptr;
     }
