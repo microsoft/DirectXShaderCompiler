@@ -443,6 +443,14 @@ $classT [[ro]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> 
 $classT [[]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_o_cl_s;
 $classT [[]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp) : tex1d_t_dd_o_cl;
 $classT [[]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_o_cl_s;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<1> x, in float compareValue, in float bias) : tex1d_t_comp_bias;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<1> x, in float compareValue, in float bias, in int<1> o) : tex1d_t_comp_bias_o;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<1> x, in float compareValue, in float bias, in int<1> o, in float clamp) : tex1d_t_comp_bias_o_cl;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<1> x, in float compareValue, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_bias_o_cl_s;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<1> x, in float compareValue, in $type2 ddx, in $type2 ddy) : tex1d_t_comp_dd;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<1> x, in float compareValue, in $type2 ddx, in $type2 ddy, in int<1> o) : tex1d_t_comp_dd_o;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<1> x, in float compareValue, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp) : tex1d_t_comp_dd_o_cl;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<1> x, in float compareValue, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_dd_o_cl_s;
 } namespace
 
 namespace Texture1DArrayMethods {
@@ -481,6 +489,14 @@ $classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> 
 $classT [[]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_array_o_cl_s;
 $classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp) : tex1d_t_dd_array_o_cl;
 $classT [[]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_array_o_cl_s;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias) : tex1d_t_comp_bias_array;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias, in int<1> o) : tex1d_t_comp_bias_array_o;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias, in int<1> o, in float clamp) : tex1d_t_comp_bias_array_o_cl;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_bias_array_o_cl_s;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy) : tex1d_t_comp_dd_array;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o) : tex1d_t_comp_dd_array_o;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp) : tex1d_t_comp_dd_array_o_cl;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_dd_array_o_cl_s;
 } namespace
 
 namespace Texture2DMethods {
@@ -570,6 +586,14 @@ $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<2> x, in fl
 $match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<2> x);
 $match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<2> x, in int<2> o);
 $match<0, -1> void<4> [[]] GatherRaw(in sampler s, in float<2> x, in int<2> o, out uint_only status);
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias) : tex2d_t_comp_bias;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias, in int<2> o) : tex2d_t_comp_bias_o;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias, in int<2> o, in float clamp) : tex2d_t_comp_bias_o_cl;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<2> x, in float compareValue, in float bias, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_bias_o_cl_s;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $type2 ddx, in $type2 ddy) : tex2d_t_comp_dd;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $type2 ddx, in $type2 ddy, in int<2> o) : tex2d_t_comp_dd_o;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $type2 ddx, in $type2 ddy, in int<2> o, in float clamp) : tex2d_t_comp_dd_o_cl;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<2> x, in float compareValue, in $type2 ddx, in $type2 ddy, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_dd_o_cl_s;
 } namespace
 
 namespace Texture2DMSMethods {
@@ -668,6 +692,14 @@ $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<3> x, in fl
 $match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<3> x);
 $match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<3> x, in int<2> o);
 $match<0, -1> void<4> [[]] GatherRaw(in sampler s, in float<3> x, in int<2> o, out uint_only status);
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias) : tex2d_t_comp_bias_array;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias, in int<2> o) : tex2d_t_comp_bias_array_o;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias, in int<2> o, in float clamp) : tex2d_t_comp_bias_array_o_cl;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_bias_array_o_cl_s;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy) : tex2d_t_comp_dd_array;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o) : tex2d_t_comp_dd_array_o;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o, in float clamp) : tex2d_t_comp_dd_array_o_cl;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_dd_array_o_cl_s;
 } namespace
 
 namespace Texture2DArrayMSMethods {
@@ -678,7 +710,6 @@ float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
 $classT [[ro]] Load(in int<3> x, in int s) : texture2darray_ms;
 $classT [[ro]] Load(in int<3> x, in int s, in int<2> o) : texture2darray_ms_o;
 $classT [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : texture2darray_ms_o_s;
-
 } namespace
 
 namespace Texture3DMethods {
@@ -707,6 +738,14 @@ $classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> 
 $classT [[]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> o, in float clamp, out uint_only status) : tex3d_t_bias_o_cl_s;
 $classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o, in float clamp) : tex3d_t_dd_o_cl;
 $classT [[]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o, in float clamp, out uint_only status) : tex3d_t_dd_o_cl_s;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias) : tex3d_t_comp_bias;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias,in int<3> o) : tex3d_t_comp_bias_o;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias, in int<3> o, in float clamp) : tex3d_t_comp_bias_o_cl;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias, in int<3> o, in float clamp, out uint_only status) : tex3d_t_comp_bias_o_cl_s;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $type2 ddx, in $type2 ddy) : tex3d_t_comp_dd;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $type2 ddx, in $type2 ddy,in int<3> o) : tex3d_t_comp_dd_o;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $type2 ddx, in $type2 ddy,in int<3> o, in float clamp) : tex3d_t_comp_dd_o_cl;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $type2 ddx, in $type2 ddy,in int<3> o, in float clamp, out uint_only status) : tex3d_t_comp_dd_o_cl_s;
 } namespace
 
 namespace TextureCUBEMethods {
@@ -755,6 +794,12 @@ $match<0, -1> void<4> [[]] GatherCmpRed(in sampler_cmp s, in float<3> x, in floa
 $match<0, -1> void<4> [[]] GatherCmpGreen(in sampler_cmp s, in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_green_s;
 $match<0, -1> void<4> [[]] GatherCmpBlue(in sampler_cmp s, in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_blue_s;
 $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_alpha_s;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias) : texcube_t_comp_bias;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias, in float clamp) : texcube_t_comp_bias_cl;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<3> x, in float compareValue, in float bias, in float clamp, out uint_only status) : texcube_t_comp_bias_cl_s;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $type2 ddx, in $type2 ddy) : texcube_t_comp_dd;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $type2 ddx, in $type2 ddy, in float clamp) : texcube_t_comp_dd_o_cl;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<3> x, in float compareValue, in $type2 ddx, in $type2 ddy, in float clamp, out uint_only status) : texcube_t_comp_dd_o_cl_s;
 } namespace
 
 namespace TextureCUBEArrayMethods {
@@ -803,6 +848,13 @@ $match<0, -1> void<4> [[]] GatherCmpRed(in sampler_cmp s, in float<4> x, in floa
 $match<0, -1> void<4> [[]] GatherCmpGreen(in sampler_cmp s, in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_green_array_s;
 $match<0, -1> void<4> [[]] GatherCmpBlue(in sampler_cmp s, in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_blue_array_s;
 $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_alpha_array_s;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<4> x, in float compareValue, in float bias) : texcube_t_comp_bias_array;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<4> x, in float compareValue, in float bias, in float clamp) : texcube_t_comp_bias_array_cl;
+float_like [[]] SampleCmpBias(in sampler_cmp s, in float<4> x, in float compareValue, in float bias, in float clamp, out uint_only status) : texcube_t_comp_bias_array_cl_s;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<4> x, in float compareValue, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy) : texcube_t_comp_dd_array;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<4> x, in float compareValue, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp) : texcube_t_comp_dd_array_cl;
+float_like [[]] SampleCmpGrad(in sampler_cmp s, in float<4> x, in float compareValue, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp, out uint_only status) : texcube_t_comp_dd_array_cl_s;
+
 } namespace
 
 namespace BufferMethods {

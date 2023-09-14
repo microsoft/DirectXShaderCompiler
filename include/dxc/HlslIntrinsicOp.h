@@ -252,6 +252,8 @@ enum class IntrinsicOp {
   MOP_Sample,
   MOP_SampleBias,
   MOP_SampleCmp,
+  MOP_SampleCmpBias,
+  MOP_SampleCmpGrad,
   MOP_SampleCmpLevel,
   MOP_SampleCmpLevelZero,
   MOP_SampleGrad,
