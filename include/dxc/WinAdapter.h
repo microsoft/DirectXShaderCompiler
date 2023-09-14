@@ -748,6 +748,13 @@ public:
     return *this;
   }
 
+  // NOTE: This conversion constructor is not part of the official CComPtr spec;
+  // however, it is needed to convert CComPtr<Q> to CComPtr<T> where T derives from Q on Clang.
+  // MSVC compiles this conversion as first a call to CComPtr<Q>::operator T*, followed by CComPtr<T>(T*),
+  // but Clang fails to compile with error: no viable conversion from 'CComPtr<Q>' to 'CComPtr<T>'.
+  template <typename Q>
+  CComPtr(const CComPtr<Q> &lp) throw() : CComPtrBase<T>(lp.p) {}
+
   T *operator=(const CComPtr<T> &lp) throw() {
     if (*this != lp) {
       CComPtr(lp).Swap(*this);
