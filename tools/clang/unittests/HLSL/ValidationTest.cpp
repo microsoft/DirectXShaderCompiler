@@ -4061,58 +4061,58 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
   std::vector<LPCWSTR> pArguments = { L"-HV", L"2021" };
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!11 = !{i32 8, i32 15"},  // original: node shader
-    {"!11 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node01 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!16 = !{i32 8, i32 15"},  // original: node shader
-    {"!16 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node02 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!22 = !{i32 8, i32 15"},  // original: node shader
-    {"!22 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node03 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!27 = !{i32 8, i32 15"},  // original: node shader
-    {"!27 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node04 Coalescing launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!32 = !{i32 8, i32 15"},  // original: node shader
-    {"!32 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node05 Thread launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!36 = !{i32 8, i32 15"},  // original: node shader
-    {"!36 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node06 Thread launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!41 = !{i32 8, i32 15"},  // original: node shader
-    {"!41 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node07 Thread launch type is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!46 = !{i32 8, i32 15"},  // original: node shader
-    {"!46 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node08 with input/outputs is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!52 = !{i32 8, i32 15"},  // original: node shader
-    {"!52 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node09 with input/outputs is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!57 = !{i32 8, i32 15"},  // original: node shader
-    {"!57 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node10 with input/outputs is not compatible with Compute");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
     pArguments.data(), 2, nullptr, 0,
-    {"!63 = !{i32 8, i32 15"},  // original: node shader
-    {"!63 = !{i32 8, i32 5"},   // changed to: compute shader
+    {"!{i32 8, i32 15"},  // original: node shader
+    {"!{i32 8, i32 5"},   // changed to: compute shader
     "Node node11 with input/outputs is not compatible with Compute");
 }
 
