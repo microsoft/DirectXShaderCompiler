@@ -15198,24 +15198,20 @@ static bool nodeInputIsCompatible(StringRef& typeName,
 
 void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 
-  SourceLocation ComputeLoc = SourceLocation();
   SourceLocation NodeLoc = SourceLocation();
   SourceLocation NodeLaunchLoc = SourceLocation();
   DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
   unsigned InputCount = 0;
-
-  // a function may be both compute and work-graph node
-  for (auto *pAttr : FD->specific_attrs<HLSLShaderAttr>()) {
-    DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(pAttr->getStage());
-    if (shaderKind == DXIL::ShaderKind::Node) {
-      NodeLoc = pAttr->getLocation();
-    } else if (shaderKind == DXIL::ShaderKind::Compute) {
-      ComputeLoc = pAttr->getLocation();
-    }
+  
+  auto pAttr = FD->getAttr<HLSLShaderAttr>();
+  DXIL::ShaderKind shaderKind =
+      ShaderModel::KindFromFullName(pAttr->getStage());
+  if (shaderKind == DXIL::ShaderKind::Node) {
+    NodeLoc = pAttr->getLocation();
   }
-  // if this isn't a work-graph node we can quit now
-  if (!NodeLoc.isValid())
+  if (NodeLoc.isInvalid()) {
     return;
+  }
 
   // save NodeLaunch type for use later
   if (auto NodeLaunchAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
@@ -15225,15 +15221,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   } else {
     NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
     NodeLaunchLoc = SourceLocation();
-  }
-
-  // If this is both a compute shader and work-graph node, it may only have
-  // broadcasting launch mode
-  if (ComputeLoc.isValid() &&
-      NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting) {
-    S.Diags.Report(NodeLaunchLoc, diag::err_hlsl_compute_launch_compatibility)
-      << FD->getName() << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy);
-    S.Diags.Report(ComputeLoc, diag::note_defined_here) << "compute";
   }
 
   // Check that if a Thread launch node has the NumThreads attribute the
@@ -15306,15 +15293,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 
   // Check parameter constraints
   for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {
-    ParmVarDecl *Param = FD->getParamDecl(Idx);
-
-    // compute is incompatible with node input/output
-    if (ComputeLoc.isValid() && hlsl::IsHLSLNodeType(Param->getType())) {
-      S.Diags.Report(Param->getLocation(),
-                     diag::err_hlsl_compute_io_compatibility)
-        << FD->getName() << "node input/output" << Param->getSourceRange();
-      S.Diags.Report(ComputeLoc, diag::note_defined_here) << "compute";
-    }
+    ParmVarDecl *Param = FD->getParamDecl(Idx);   
 
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(Param->getType())) {
