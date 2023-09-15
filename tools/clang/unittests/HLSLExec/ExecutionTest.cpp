@@ -8265,14 +8265,14 @@ void MatrixSubtractScalar<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void MatrixRowCol_MultiplyByScalar(int DIM, T scalar, T *rowCol) {
+void VectorMultiplyByScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] *= scalar;
   }
 }
 
 template <>
-void MatrixRowCol_MultiplyByScalar<DirectX::PackedVector::HALF>(
+void VectorMultiplyByScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -8282,14 +8282,14 @@ void MatrixRowCol_MultiplyByScalar<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void MatrixRowCol_DivideByScalar(int DIM, T scalar, T *rowCol) {
+void VectorDivideByScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] /= scalar;
   }
 }
 
 template <>
-void MatrixRowCol_DivideByScalar<DirectX::PackedVector::HALF>(
+void VectorDivideByScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -8299,14 +8299,14 @@ void MatrixRowCol_DivideByScalar<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void MatrixRowCol_AddScalar(int DIM, T scalar, T *rowCol) {
+void VectorAddScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] += scalar;
   }
 }
 
 template <>
-void MatrixRowCol_AddScalar<DirectX::PackedVector::HALF>(
+void VectorAddScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -8316,14 +8316,14 @@ void MatrixRowCol_AddScalar<DirectX::PackedVector::HALF>(
 }
 
 template <typename T>
-void MatrixRowCol_SubtractScalar(int DIM, T scalar, T *rowCol) {
+void VectorSubtractScalar(int DIM, T scalar, T *rowCol) {
   for (int i = 0; i < DIM; ++i) {
     rowCol[i] -= scalar;
   }
 }
 
 template <>
-void MatrixRowCol_SubtractScalar<DirectX::PackedVector::HALF>(
+void VectorSubtractScalar<DirectX::PackedVector::HALF>(
     int DIM, DirectX::PackedVector::HALF scalar,
     DirectX::PackedVector::HALF *rowCol) {
   for (int i = 0; i < DIM; ++i) {
@@ -9497,16 +9497,16 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
 
           // Process CPU side input values in place into expected values
           for (size_t i = 0; i < scalars.size(); ++i) {
-            MatrixRowCol_MultiplyByScalar<T>(
+            VectorMultiplyByScalar<T>(
                 DIM_M, scalars[i],
                 leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
-            MatrixRowCol_DivideByScalar<T>(
+            VectorDivideByScalar<T>(
                 DIM_M, scalars[i],
                 leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
-            MatrixRowCol_AddScalar<T>(
+            VectorAddScalar<T>(
                 DIM_M, scalars[i],
                 leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
-            MatrixRowCol_SubtractScalar<T>(
+            VectorSubtractScalar<T>(
                 DIM_M, scalars[i],
                 leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
             FillMatrix<T>(leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
@@ -9521,16 +9521,16 @@ void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
 
           // Process CPU side input values in place into expected values
           for (size_t i = 0; i < scalars.size(); ++i) {
-            MatrixRowCol_MultiplyByScalar<T>(
+            VectorMultiplyByScalar<T>(
                 DIM_N, scalars[i],
                 rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
-            MatrixRowCol_DivideByScalar<T>(
+            VectorDivideByScalar<T>(
                 DIM_N, scalars[i],
                 rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
-            MatrixRowCol_AddScalar<T>(
+            VectorAddScalar<T>(
                 DIM_N, scalars[i],
                 rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
-            MatrixRowCol_SubtractScalar<T>(
+            VectorSubtractScalar<T>(
                 DIM_N, scalars[i],
                 rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
             FillMatrix<T>(
