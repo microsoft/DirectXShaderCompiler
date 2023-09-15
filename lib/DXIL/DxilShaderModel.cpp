@@ -49,7 +49,7 @@ bool ShaderModel::IsValidForDxil() const {
   switch (m_Major) {
   case 6: {
     switch (m_Minor) {
-    // clang-format off
+      // clang-format off
       // Python lines need to be not formatted.
       /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_is_valid_for_dxil()</py>*/
     // clang-format on
