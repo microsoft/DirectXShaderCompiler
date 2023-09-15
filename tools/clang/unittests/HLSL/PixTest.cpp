@@ -4032,8 +4032,9 @@ void main()
             VERIFY_ARE_EQUAL(4u, Testables.OffsetAndSizes[0].countOfMembers);
             VERIFY_ARE_EQUAL(0u, Testables.OffsetAndSizes[0].offset);
             // 8 bytes align for uint64_t:
-            VERIFY_ARE_EQUAL(32 + 16 + 16 /*alignment for next field*/ + 32 + 32/*alignment for max align*/ + 64,
-                (int)Testables.OffsetAndSizes[0].size);
+            VERIFY_ARE_EQUAL(32u + 16u + 16u /*alignment for next field*/ +
+                                 32u + 32u /*alignment for max align*/ + 64u,
+                             Testables.OffsetAndSizes[0].size);
         }
         else {
             VERIFY_ARE_EQUAL(4u, Testables.OffsetAndSizes.size());
