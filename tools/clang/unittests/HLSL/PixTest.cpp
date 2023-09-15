@@ -1280,7 +1280,7 @@ TEST_F(PixTest, CompileDebugDisasmPDB) {
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pProgram;
   CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
@@ -1316,7 +1316,7 @@ TEST_F(PixTest, CompileDebugPDB) {
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pProgram;
   CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
