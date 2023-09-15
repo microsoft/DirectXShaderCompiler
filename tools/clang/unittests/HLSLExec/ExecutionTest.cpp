@@ -8378,7 +8378,7 @@ void ConvertRangeHalfToFloat(float *dst, DirectX::PackedVector::HALF *src,
   }
 }
 
-#if 0
+#ifndef NDEBUG
 // Fuction to print out a matrix, used for debugging
 template <typename T> void PrintMat(T *mat, int rows = 16, int cols = 16) {
   std::cout << "====================\n";
@@ -8389,7 +8389,10 @@ template <typename T> void PrintMat(T *mat, int rows = 16, int cols = 16) {
       else if (typeid(T) == typeid(signed char))
         std::cout << (signed)mat[i * cols + j] << ", ";
       else if (typeid(T) == typeid(DirectX::PackedVector::HALF))
-        std::cout << ConvertFloat16ToFloat32(mat[i * cols + j]) << ", ";
+        std::cout << ConvertFloat16ToFloat32(
+                         static_cast<DirectX::PackedVector::HALF>(
+                             mat[i * cols + j]))
+                  << ", ";
       else
         std::cout << mat[i * cols + j] << ", ";
     }
@@ -8398,6 +8401,16 @@ template <typename T> void PrintMat(T *mat, int rows = 16, int cols = 16) {
 
   std::cout << "====================\n";
 }
+// Force instantion to enable calling of PrintMat from debugger
+template void PrintMat<float>(float *mat, int rows, int cols);
+template void PrintMat<int32_t>(int32_t *mat, int rows, int cols);
+template void PrintMat<unsigned char>(unsigned char *mat, int rows,
+                                      int cols);
+template void PrintMat<signed char>(signed char *mat, int rows,
+                                      int cols);
+template void
+PrintMat<DirectX::PackedVector::HALF>(DirectX::PackedVector::HALF *mat,
+                                      int rows, int cols);
 #endif
 
 template <typename T>
