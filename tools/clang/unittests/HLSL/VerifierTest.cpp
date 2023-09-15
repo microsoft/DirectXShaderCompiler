@@ -550,5 +550,5 @@ TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
   CheckVerifiesHLSL(L"/workgraph/invalid_nodelaunch.hlsl");
 }
 TEST_F(VerifierTest, RunInvalidNodeOutputCompleteDiags) {
-  CheckVerifiesHLSL(L"/workgraph/outputcomplete_unsupported_nodio.hlsl");
+  CheckVerifiesHLSL(L"/workgraph/outputcomplete_unsupported_nodeio.hlsl");
 }

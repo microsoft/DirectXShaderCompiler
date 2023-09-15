@@ -11,7 +11,7 @@ struct RECORD {
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
-void node127_a(DispatchNodeInputRecord<RECORD> nodeInputRecord)
+void node_dispatchinputrecord(DispatchNodeInputRecord<RECORD> nodeInputRecord)
 {
   nodeInputRecord.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'DispatchNodeInputRecord<RECORD>'}}
 }
@@ -20,7 +20,7 @@ void node127_a(DispatchNodeInputRecord<RECORD> nodeInputRecord)
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
-void node127_c(RWDispatchNodeInputRecord<RECORD> rwNodeInputRecord)
+void node_rwdispatchinputrecord(RWDispatchNodeInputRecord<RECORD> rwNodeInputRecord)
 {
   rwNodeInputRecord.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'RWDispatchNodeInputRecord<RECORD>'}}
 }
@@ -28,7 +28,7 @@ void node127_c(RWDispatchNodeInputRecord<RECORD> rwNodeInputRecord)
 [Shader("node")]
 [NodeLaunch("Coalescing")]
 [NumThreads(1,1,1)]
-void node127_a(GroupNodeInputRecords<RECORD> nodeInputRecord)
+void node_groupinputrecords(GroupNodeInputRecords<RECORD> nodeInputRecord)
 {
   nodeInputRecord.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'GroupNodeInputRecords<RECORD>'}}
 }
@@ -36,7 +36,7 @@ void node127_a(GroupNodeInputRecords<RECORD> nodeInputRecord)
 [Shader("node")]
 [NodeLaunch("Coalescing")]
 [NumThreads(1,1,1)]
-void node127_c(RWGroupNodeInputRecords<RECORD> rwNodeInputRecord)
+void node_rwgroupinputrecords(RWGroupNodeInputRecords<RECORD> rwNodeInputRecord)
 {
   rwNodeInputRecord.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'RWGroupNodeInputRecords<RECORD>'}}
 }
@@ -44,7 +44,7 @@ void node127_c(RWGroupNodeInputRecords<RECORD> rwNodeInputRecord)
 [Shader("node")]
 [NodeLaunch("Thread")]
 [NumThreads(1,1,1)]
-void node127_a(ThreadNodeInputRecord<RECORD> nodeInputRecord)
+void node_threadinputrecord(ThreadNodeInputRecord<RECORD> nodeInputRecord)
 {
   nodeInputRecord.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'ThreadNodeInputRecord<RECORD>'}}
 }
@@ -52,16 +52,24 @@ void node127_a(ThreadNodeInputRecord<RECORD> nodeInputRecord)
 [Shader("node")]
 [NodeLaunch("Thread")]
 [NumThreads(1,1,1)]
-void node127_c(RWThreadNodeInputRecord<RECORD> rwNodeInputRecord)
+void node_rwthreadinputrecord(RWThreadNodeInputRecord<RECORD> rwNodeInputRecord)
 {
   rwNodeInputRecord.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'RWThreadNodeInputRecord<RECORD>'}}
+}
+
+[Shader("node")]
+[NodeLaunch("Coalescing")]
+[NumThreads(1,1,1)]
+void node_emptynodeinput([MaxRecords(5)] EmptyNodeInput emptyNodeInput)
+{
+  emptyNodeInput.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'EmptyNodeInput'}}
 }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
-void node127_f(NodeOutput<RECORD> nodeOutput)
+void node_nodeoutput(NodeOutput<RECORD> nodeOutput)
 {
   nodeOutput.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'NodeOutput<RECORD>'}}
 }
@@ -70,7 +78,7 @@ void node127_f(NodeOutput<RECORD> nodeOutput)
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
-void node127_g(EmptyNodeOutput emptyNodeOutput)
+void node127_emptynodeoutput(EmptyNodeOutput emptyNodeOutput)
 {
   emptyNodeOutput.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'EmptyNodeOutput'}}
 }
