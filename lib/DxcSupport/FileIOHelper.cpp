@@ -598,6 +598,10 @@ HRESULT DxcCreateBlob(
     InternalDxcBlobEncoding *pInternalEncoding;
     IFR(InternalDxcBlobEncoding::CreateFromMalloc(nullptr, pMalloc, 0, encodingKnown, codePage, &pInternalEncoding));
     *ppBlobEncoding = pInternalEncoding;
+    if (pPtr && !(bCopy || bPinned)) {
+      // Free memory as we're not taking ownership of it
+      pMalloc->Free(const_cast<void*>(pPtr));
+    }
     return S_OK;
   }
 
