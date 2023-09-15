@@ -20,9 +20,9 @@ void VGMain() {
 void VNMain() {
 }
 
-[shader("compute")] 
-[shader("vertex")]  /* expected-error {{shader attribute type 'vertex' conflicts with shader attribute type 'node'}} */
-[shader("node")]    /* expected-note {{conflicting attribute is here}} */ 
+[shader("compute")] /* expected-error {{shader attribute type 'compute' conflicts with shader attribute type 'node'}} */
+[shader("vertex")]  /* expected-error {{shader attribute type 'vertex' conflicts with shader attribute type 'node'}} */ 
+[shader("node")]    /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */ 
 [NodeDispatchGrid(2,1,1)]
 [ numthreads( 64, 2, 2 ) ] 
 void CVNMain() {
