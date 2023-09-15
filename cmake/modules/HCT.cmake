@@ -4,8 +4,11 @@ add_custom_target(HCTGen)
 
 find_program(CLANG_FORMAT_EXE NAMES clang-format)
 
-if (NOT CLANG_FORMAT_EXE AND HLSL_COPY_GENERATED_SOURCES)
-  message(FATAL_ERROR "Generating sources requires clang-format")
+if (NOT CLANG_FORMAT_EXE)
+  message(WARNING "Clang-format is not available. Generating included sources is not supported.")
+  if (HLSL_COPY_GENERATED_SOURCES)
+    message(FATAL_ERROR "Generating sources requires clang-format")
+  endif ()
 endif ()
 
 if (WIN32 AND NOT DEFINED HLSL_AUTOCRLF)
