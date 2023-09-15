@@ -183,35 +183,30 @@ HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject) {
   return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
 }
 
-template <typename T>
-HRESULT AssignToOut(T value, _Out_ T* pResult) {
+template <typename T> HRESULT AssignToOut(T value, T *pResult) {
   if (pResult == nullptr)
     return E_POINTER;
   *pResult = value;
   return S_OK;
 }
-template <typename T>
-HRESULT AssignToOut(nullptr_t value, _Out_ T* pResult) {
+template <typename T> HRESULT AssignToOut(nullptr_t value, T *pResult) {
   if (pResult == nullptr)
     return E_POINTER;
   *pResult = value;
   return S_OK;
 }
-template <typename T>
-HRESULT ZeroMemoryToOut(_Out_ T* pResult) {
+template <typename T> HRESULT ZeroMemoryToOut(T *pResult) {
   if (pResult == nullptr)
     return E_POINTER;
   ZeroMemory(pResult, sizeof(*pResult));
   return S_OK;
 }
 
-template <typename T>
-void AssignToOutOpt(T value, _Out_opt_ T* pResult) {
+template <typename T> void AssignToOutOpt(T value, T *pResult) {
   if (pResult != nullptr)
     *pResult = value;
 }
-template <typename T>
-void AssignToOutOpt(nullptr_t value, _Out_opt_ T* pResult) {
+template <typename T> void AssignToOutOpt(nullptr_t value, T *pResult) {
   if (pResult != nullptr)
     *pResult = value;
 }

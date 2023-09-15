@@ -16,7 +16,8 @@
 
 namespace hlsl {
 
-HRESULT DxilContainerReader::Load(_In_ const void* pContainer, _In_ uint32_t containerSizeInBytes) {
+HRESULT DxilContainerReader::Load(const void *pContainer,
+                                  uint32_t containerSizeInBytes) {
   if (pContainer == nullptr) {
     return E_FAIL;
   }
@@ -36,21 +37,22 @@ HRESULT DxilContainerReader::Load(_In_ const void* pContainer, _In_ uint32_t con
   return S_OK;
 }
 
-HRESULT DxilContainerReader::GetVersion(_Out_ DxilContainerVersion *pResult) {
+HRESULT DxilContainerReader::GetVersion(DxilContainerVersion *pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
   *pResult = m_pHeader->Version;
   return S_OK;
 }
 
-HRESULT DxilContainerReader::GetPartCount(_Out_ uint32_t *pResult) {
+HRESULT DxilContainerReader::GetPartCount(uint32_t *pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
   *pResult = m_pHeader->PartCount;
   return S_OK;
 }
 
-HRESULT DxilContainerReader::GetPartContent(uint32_t idx, _Outptr_ const void **ppResult, _Out_ uint32_t *pResultSize) {
+HRESULT DxilContainerReader::GetPartContent(uint32_t idx, const void **ppResult,
+                                            uint32_t *pResultSize) {
   if (ppResult == nullptr) return E_POINTER;
   *ppResult = nullptr;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
@@ -63,7 +65,7 @@ HRESULT DxilContainerReader::GetPartContent(uint32_t idx, _Outptr_ const void **
   return S_OK;
 }
 
-HRESULT DxilContainerReader::GetPartFourCC(uint32_t idx, _Out_ uint32_t *pResult) {
+HRESULT DxilContainerReader::GetPartFourCC(uint32_t idx, uint32_t *pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
   if (idx >= m_pHeader->PartCount) return E_BOUNDS;
@@ -72,7 +74,8 @@ HRESULT DxilContainerReader::GetPartFourCC(uint32_t idx, _Out_ uint32_t *pResult
   return S_OK;
 }
 
-HRESULT DxilContainerReader::FindFirstPartKind(uint32_t kind, _Out_ uint32_t *pResult) {
+HRESULT DxilContainerReader::FindFirstPartKind(uint32_t kind,
+                                               uint32_t *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = 0;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
@@ -80,5 +83,5 @@ HRESULT DxilContainerReader::FindFirstPartKind(uint32_t kind, _Out_ uint32_t *pR
   *pResult = (it == end(m_pHeader)) ? DXIL_CONTAINER_BLOB_NOT_FOUND : it.index;
   return S_OK;
 }
-  
+
 } // namespace hlsl

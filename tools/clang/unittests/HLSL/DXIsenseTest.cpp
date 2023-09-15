@@ -49,9 +49,9 @@ protected:
     VERIFY_SUCCEEDED(TU->GetCursorForLocation(location, pResult));
   }
 
-  void ExpectCursorAt(IDxcTranslationUnit* TU, unsigned line, unsigned col,
-    DxcCursorKind expectedKind, _COM_Outptr_opt_ IDxcCursor** pResult = nullptr)
-  {
+  void ExpectCursorAt(IDxcTranslationUnit *TU, unsigned line, unsigned col,
+                      DxcCursorKind expectedKind,
+                      IDxcCursor **pResult = nullptr) {
     CComPtr<IDxcCursor> cursor;
     DxcCursorKind actualKind;
     GetCursorAt(TU, line, col, &cursor);

@@ -28,7 +28,7 @@
 #include "DxbcConverter.h"
 
 // Defined in DxbcConverter.lib (projects/dxilconv/lib/DxbcConverter/DxbcConverter.cpp)
-HRESULT CreateDxbcConverter(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxbcConverter(REFIID riid, LPVOID *ppv);
 
 /// <summary>
 /// Creates a single uninitialized object of the class associated with a specified CLSID.
@@ -39,37 +39,31 @@ HRESULT CreateDxbcConverter(_In_ REFIID riid, _Out_ LPVOID *ppv);
 /// <remarks>
 /// While this function is similar to CoCreateInstance, there is no COM involvement.
 /// </remarks>
-static HRESULT ThreadMallocDxcCreateInstance(
-    _In_ REFCLSID rclsid,
-    _In_ REFIID riid,
-    _Out_ LPVOID *ppv) {
-    *ppv = nullptr;
-    if (IsEqualCLSID(rclsid, CLSID_DxbcConverter)) {
-      return CreateDxbcConverter(riid, ppv);
-    }
-    return REGDB_E_CLASSNOTREG;
+static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                             LPVOID *ppv) {
+  *ppv = nullptr;
+  if (IsEqualCLSID(rclsid, CLSID_DxbcConverter)) {
+    return CreateDxbcConverter(riid, ppv);
+  }
+  return REGDB_E_CLASSNOTREG;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateInstance(_In_ REFCLSID   rclsid,
-    _In_ REFIID     riid,
-    _Out_ LPVOID   *ppv) {
-    HRESULT hr = S_OK;
-    DxcEtw_DXCompilerCreateInstance_Start();
-    DxcThreadMalloc TM(nullptr);
-    hr = ThreadMallocDxcCreateInstance(rclsid, riid, ppv);
-    DxcEtw_DXCompilerCreateInstance_Stop(hr);
-    return hr;
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                                   LPVOID *ppv) {
+  HRESULT hr = S_OK;
+  DxcEtw_DXCompilerCreateInstance_Start();
+  DxcThreadMalloc TM(nullptr);
+  hr = ThreadMallocDxcCreateInstance(rclsid, riid, ppv);
+  DxcEtw_DXCompilerCreateInstance_Stop(hr);
+  return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateInstance2(_In_ IMalloc *pMalloc,
-    _In_ REFCLSID   rclsid,
-    _In_ REFIID     riid,
-    _Out_ LPVOID   *ppv) {
-    if (ppv == nullptr) {
-        return E_POINTER;
-    }
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
+                                                    REFCLSID rclsid,
+                                                    REFIID riid, LPVOID *ppv) {
+  if (ppv == nullptr) {
+    return E_POINTER;
+  }
 #ifdef DXC_DISABLE_ALLOCATOR_OVERRIDES
     if (pMalloc != DxcGetThreadMallocNoRef()) {
       return E_INVALIDARG;
@@ -83,7 +77,6 @@ DxcCreateInstance2(_In_ IMalloc *pMalloc,
     DxcEtw_DXCompilerCreateInstance_Stop(hr);
     return hr;
 }
-
 
 // C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
 static HRESULT InitMaybeFail() throw() {

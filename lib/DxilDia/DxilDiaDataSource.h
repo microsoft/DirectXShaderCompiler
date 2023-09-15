@@ -46,39 +46,36 @@ public:
 
   STDMETHODIMP get_lastError(BSTR *pRetVal) override;
 
-  STDMETHODIMP loadDataFromPdb(_In_ LPCOLESTR pdbPath) override { return ENotImpl(); }
+  STDMETHODIMP loadDataFromPdb(LPCOLESTR pdbPath) override {
+    return ENotImpl();
+  }
 
-  STDMETHODIMP loadAndValidateDataFromPdb(
-    _In_ LPCOLESTR pdbPath,
-    _In_ GUID *pcsig70,
-    _In_ DWORD sig,
-    _In_ DWORD age) override { return ENotImpl(); }
+  STDMETHODIMP loadAndValidateDataFromPdb(LPCOLESTR pdbPath, GUID *pcsig70,
+                                          DWORD sig, DWORD age) override {
+    return ENotImpl();
+  }
 
-  STDMETHODIMP loadDataForExe(
-    _In_ LPCOLESTR executable,
-    _In_ LPCOLESTR searchPath,
-    _In_ IUnknown *pCallback) override { return ENotImpl(); }
+  STDMETHODIMP loadDataForExe(LPCOLESTR executable, LPCOLESTR searchPath,
+                              IUnknown *pCallback) override {
+    return ENotImpl();
+  }
 
-  STDMETHODIMP loadDataFromIStream(_In_ IStream *pIStream) override;
+  STDMETHODIMP loadDataFromIStream(IStream *pIStream) override;
 
-  STDMETHODIMP openSession(_COM_Outptr_ IDiaSession **ppSession) override;
+  STDMETHODIMP openSession(IDiaSession **ppSession) override;
 
   HRESULT STDMETHODCALLTYPE loadDataFromCodeViewInfo(
-    _In_ LPCOLESTR executable,
-    _In_ LPCOLESTR searchPath,
-    _In_ DWORD cbCvInfo,
-    _In_ BYTE *pbCvInfo,
-    _In_ IUnknown *pCallback) override { return ENotImpl(); }
+      LPCOLESTR executable, LPCOLESTR searchPath, DWORD cbCvInfo,
+      BYTE *pbCvInfo, IUnknown *pCallback) override {
+    return ENotImpl();
+  }
 
   HRESULT STDMETHODCALLTYPE loadDataFromMiscInfo(
-    _In_ LPCOLESTR executable,
-    _In_ LPCOLESTR searchPath,
-    _In_ DWORD timeStampExe,
-    _In_ DWORD timeStampDbg,
-    _In_ DWORD sizeOfExe,
-    _In_ DWORD cbMiscInfo,
-    _In_ BYTE *pbMiscInfo,
-    _In_ IUnknown *pCallback) override { return ENotImpl(); }
+      LPCOLESTR executable, LPCOLESTR searchPath, DWORD timeStampExe,
+      DWORD timeStampDbg, DWORD sizeOfExe, DWORD cbMiscInfo, BYTE *pbMiscInfo,
+      IUnknown *pCallback) override {
+    return ENotImpl();
+  }
 };
 
 }  // namespace dxil_dia

@@ -22,91 +22,85 @@
 
 namespace hlsl {
 
-__override HRESULT STDMETHODCALLTYPE DxbcConverter::Convert(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
-                                               _In_ UINT32 DxbcSize,
-                                               _In_opt_z_ LPCWSTR pExtraOptions,
-                                               _Outptr_result_bytebuffer_maybenull_(*pDxilSize) LPVOID *ppDxil,
-                                               _Out_ UINT32 *pDxilSize,
-                                               _Outptr_result_maybenull_z_ LPWSTR *ppDiag) {
-    DxcThreadMalloc TM(m_pMalloc);
-    LARGE_INTEGER start, end;
-    QueryPerformanceCounter(&start);
-    DxcRuntimeEtw_DxcTranslate_Start();
-    HRESULT hr = S_OK;
-    try {
-      sys::fs::MSFileSystem *pFSPtr;
-      IFT(CreateMSFileSystemForDisk(&pFSPtr));
-      unique_ptr<sys::fs::MSFileSystem> pFS(pFSPtr);
-      sys::fs::AutoPerThreadSystem pTS(pFS.get());
-      IFTLLVM(pTS.error_code());
+__override HRESULT STDMETHODCALLTYPE
+DxbcConverter::Convert(LPCVOID pDxbc, UINT32 DxbcSize, LPCWSTR pExtraOptions,
+                       LPVOID *ppDxil, UINT32 *pDxilSize, LPWSTR *ppDiag) {
+  DxcThreadMalloc TM(m_pMalloc);
+  LARGE_INTEGER start, end;
+  QueryPerformanceCounter(&start);
+  DxcRuntimeEtw_DxcTranslate_Start();
+  HRESULT hr = S_OK;
+  try {
+    sys::fs::MSFileSystem *pFSPtr;
+    IFT(CreateMSFileSystemForDisk(&pFSPtr));
+    unique_ptr<sys::fs::MSFileSystem> pFS(pFSPtr);
+    sys::fs::AutoPerThreadSystem pTS(pFS.get());
+    IFTLLVM(pTS.error_code());
 
-      struct StdErrFlusher {
-        ~StdErrFlusher() { dbgs().flush(); }
-      } S;
+    struct StdErrFlusher {
+      ~StdErrFlusher() { dbgs().flush(); }
+    } S;
 
-      ConvertImpl(pDxbc, DxbcSize, pExtraOptions, ppDxil, pDxilSize, ppDiag);
+    ConvertImpl(pDxbc, DxbcSize, pExtraOptions, ppDxil, pDxilSize, ppDiag);
 
-      DxcRuntimeEtw_DxcTranslate_TranslateStats(DxbcSize, DxbcSize, (const BYTE *)pDxbc, *pDxilSize);
-      hr = S_OK;
-    }
-    CATCH_CPP_ASSIGN_HRESULT();
-    DxcRuntimeEtw_DxcTranslate_Stop(hr);
-    QueryPerformanceCounter(&end);
-    LogConvertResult(false, &start, &end, pDxbc, DxbcSize, pExtraOptions, *ppDxil, *pDxilSize, hr);
-    return hr;
+    DxcRuntimeEtw_DxcTranslate_TranslateStats(DxbcSize, DxbcSize,
+                                              (const BYTE *)pDxbc, *pDxilSize);
+    hr = S_OK;
+  }
+  CATCH_CPP_ASSIGN_HRESULT();
+  DxcRuntimeEtw_DxcTranslate_Stop(hr);
+  QueryPerformanceCounter(&end);
+  LogConvertResult(false, &start, &end, pDxbc, DxbcSize, pExtraOptions, *ppDxil,
+                   *pDxilSize, hr);
+  return hr;
 }
 
-__override HRESULT STDMETHODCALLTYPE DxbcConverter::ConvertInDriver(_In_reads_bytes_(8) const UINT32 *pBytecode,
-                                                       _In_opt_z_ LPCVOID pInputSignature,
-                                                       _In_ UINT32 NumInputSignatureElements,
-                                                       _In_opt_z_ LPCVOID pOutputSignature,
-                                                       _In_ UINT32 NumOutputSignatureElements,
-                                                       _In_opt_z_ LPCVOID pPatchConstantSignature,
-                                                       _In_ UINT32 NumPatchConstantSignatureElements,
-                                                       _In_opt_z_ LPCWSTR pExtraOptions,
-                                                       _Out_ IDxcBlob **ppDxilModule,
-                                                       _Outptr_result_maybenull_z_ LPWSTR *ppDiag) {
-    DxcThreadMalloc TM(m_pMalloc);
-    LARGE_INTEGER start, end;
-    QueryPerformanceCounter(&start);
-    DxcRuntimeEtw_DxcTranslate_Start();
-    HRESULT hr = S_OK;
-    UINT32 bcSize = pBytecode[1] * sizeof(UINT32);
-    const BYTE *pDxilBytes = nullptr;
-    UINT32 DxilByteCount = 0;
-    try {
-      sys::fs::MSFileSystem *pFSPtr;
-      IFT(CreateMSFileSystemForDisk(&pFSPtr));
-      unique_ptr<sys::fs::MSFileSystem> pFS(pFSPtr);
-      sys::fs::AutoPerThreadSystem pTS(pFS.get());
-      IFTLLVM(pTS.error_code());
+__override HRESULT STDMETHODCALLTYPE DxbcConverter::ConvertInDriver(
+    const UINT32 *pBytecode, LPCVOID pInputSignature,
+    UINT32 NumInputSignatureElements, LPCVOID pOutputSignature,
+    UINT32 NumOutputSignatureElements, LPCVOID pPatchConstantSignature,
+    UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
+    IDxcBlob **ppDxilModule, LPWSTR *ppDiag) {
+  DxcThreadMalloc TM(m_pMalloc);
+  LARGE_INTEGER start, end;
+  QueryPerformanceCounter(&start);
+  DxcRuntimeEtw_DxcTranslate_Start();
+  HRESULT hr = S_OK;
+  UINT32 bcSize = pBytecode[1] * sizeof(UINT32);
+  const BYTE *pDxilBytes = nullptr;
+  UINT32 DxilByteCount = 0;
+  try {
+    sys::fs::MSFileSystem *pFSPtr;
+    IFT(CreateMSFileSystemForDisk(&pFSPtr));
+    unique_ptr<sys::fs::MSFileSystem> pFS(pFSPtr);
+    sys::fs::AutoPerThreadSystem pTS(pFS.get());
+    IFTLLVM(pTS.error_code());
 
-      struct StdErrFlusher {
-        ~StdErrFlusher() { dbgs().flush(); }
-      } S;
+    struct StdErrFlusher {
+      ~StdErrFlusher() { dbgs().flush(); }
+    } S;
 
-      ConvertInDriverImpl(pBytecode,
-                          (const D3D12DDIARG_SIGNATURE_ENTRY_0012 *)pInputSignature,
-                          NumInputSignatureElements,
-                          (const D3D12DDIARG_SIGNATURE_ENTRY_0012 *)pOutputSignature,
-                          NumOutputSignatureElements,
-                          (const D3D12DDIARG_SIGNATURE_ENTRY_0012 *)pPatchConstantSignature,
-                          NumPatchConstantSignatureElements,
-                          pExtraOptions,
-                          ppDxilModule,
-                          ppDiag);
+    ConvertInDriverImpl(
+        pBytecode, (const D3D12DDIARG_SIGNATURE_ENTRY_0012 *)pInputSignature,
+        NumInputSignatureElements,
+        (const D3D12DDIARG_SIGNATURE_ENTRY_0012 *)pOutputSignature,
+        NumOutputSignatureElements,
+        (const D3D12DDIARG_SIGNATURE_ENTRY_0012 *)pPatchConstantSignature,
+        NumPatchConstantSignatureElements, pExtraOptions, ppDxilModule, ppDiag);
 
-      pDxilBytes = (const BYTE *)(*ppDxilModule)->GetBufferPointer();
-      DxilByteCount = (*ppDxilModule)->GetBufferSize();
-      DxcRuntimeEtw_DxcTranslate_TranslateStats(bcSize, bcSize, (const BYTE *)pBytecode, DxilByteCount);
+    pDxilBytes = (const BYTE *)(*ppDxilModule)->GetBufferPointer();
+    DxilByteCount = (*ppDxilModule)->GetBufferSize();
+    DxcRuntimeEtw_DxcTranslate_TranslateStats(
+        bcSize, bcSize, (const BYTE *)pBytecode, DxilByteCount);
 
-      hr = S_OK;
-    }
-    CATCH_CPP_ASSIGN_HRESULT();
-    DxcRuntimeEtw_DxcTranslate_Stop(hr);
-    QueryPerformanceCounter(&end);
-    LogConvertResult(true, &start, &end, pBytecode, bcSize, pExtraOptions, pDxilBytes, DxilByteCount, hr);
-    return hr;
+    hr = S_OK;
+  }
+  CATCH_CPP_ASSIGN_HRESULT();
+  DxcRuntimeEtw_DxcTranslate_Stop(hr);
+  QueryPerformanceCounter(&end);
+  LogConvertResult(true, &start, &end, pBytecode, bcSize, pExtraOptions,
+                   pDxilBytes, DxilByteCount, hr);
+  return hr;
 }
 
 DxbcConverter::DxbcConverter()
@@ -161,12 +155,9 @@ void WritePart(AbstractMemoryStream *pStream, const SmallVectorImpl<char> &Data)
   WritePart(pStream, Data.data(), Data.size());
 }
 
-void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
-                                _In_ UINT32 DxbcSize,
-                                _In_opt_z_ LPCWSTR pExtraOptions,
-                                _Outptr_result_bytebuffer_maybenull_(*pDxilSize) LPVOID *ppDxil,
-                                _Out_ UINT32 *pDxilSize,
-                                _Outptr_result_maybenull_z_ LPWSTR *ppDiag) {
+void DxbcConverter::ConvertImpl(LPCVOID pDxbc, UINT32 DxbcSize,
+                                LPCWSTR pExtraOptions, LPVOID *ppDxil,
+                                UINT32 *pDxilSize, LPWSTR *ppDiag) {
   IFTARG(pDxbc);
   IFTARG(ppDxil);
   IFTARG(pDxilSize);
@@ -346,16 +337,15 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
     *ppDiag = nullptr;
 }
 
-void DxbcConverter::ConvertInDriverImpl(_In_reads_bytes_(8) const UINT32 *pByteCode,
-                                        _In_opt_z_ const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pInputSignature,
-                                        _In_ UINT32 NumInputSignatureElements,
-                                        _In_opt_z_ const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pOutputSignature,
-                                        _In_ UINT32 NumOutputSignatureElements,
-                                        _In_opt_z_ const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pPatchConstantSignature,
-                                        _In_ UINT32 NumPatchConstantSignatureElements,
-                                        _In_opt_z_ LPCWSTR pExtraOptions,
-                                        _Out_ IDxcBlob **ppDxcBlob,
-                                        _Outptr_result_maybenull_z_ LPWSTR *ppDiag) {
+void DxbcConverter::ConvertInDriverImpl(
+    const UINT32 *pByteCode,
+    const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pInputSignature,
+    UINT32 NumInputSignatureElements,
+    const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pOutputSignature,
+    UINT32 NumOutputSignatureElements,
+    const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pPatchConstantSignature,
+    UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
+    IDxcBlob **ppDxcBlob, LPWSTR *ppDiag) {
   IFTARG(pByteCode);
   IFTARG(ppDxcBlob);
   UINT SizeInUINTs = pByteCode[1];
@@ -4514,10 +4504,12 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
   CleanupGEP();
 }
 
-void DxbcConverter::LogConvertResult(bool InDriver, _In_ const LARGE_INTEGER *pQPCConvertStart,
-  _In_ const LARGE_INTEGER *pQPCConvertEnd, _In_reads_bytes_(DxbcSize) LPCVOID pDxbc, _In_ UINT32 DxbcSize,
-  _In_opt_z_ LPCWSTR pExtraOptions, _In_reads_bytes_(ConvertedSize) LPCVOID pConverted, _In_opt_ UINT32 ConvertedSize,
-  HRESULT hr) {
+void DxbcConverter::LogConvertResult(bool InDriver,
+                                     const LARGE_INTEGER *pQPCConvertStart,
+                                     const LARGE_INTEGER *pQPCConvertEnd,
+                                     LPCVOID pDxbc, UINT32 DxbcSize,
+                                     LPCWSTR pExtraOptions, LPCVOID pConverted,
+                                     UINT32 ConvertedSize, HRESULT hr) {
   // intentionaly empty - override to report conversion results
 }
 
@@ -7362,7 +7354,7 @@ void DxbcConverter::SerializeDxil(SmallVectorImpl<char> &DxilBitcode) {
 
 } // namespace hlsl
 
-HRESULT CreateDxbcConverter(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxbcConverter(REFIID riid, LPVOID *ppv) {
   try {
     CComPtr<hlsl::DxbcConverter> result(hlsl::DxbcConverter::Alloc(DxcGetThreadMallocNoRef()));
     IFROOM(result.p);
@@ -7370,5 +7362,3 @@ HRESULT CreateDxbcConverter(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   }
   CATCH_CPP_RETURN_HRESULT();
 }
-
-

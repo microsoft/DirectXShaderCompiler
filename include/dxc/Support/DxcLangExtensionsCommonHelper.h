@@ -93,8 +93,7 @@ public:
     return RegisterIntoVector(name, m_defines);
   }
 
-  HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(_In_ IDxcIntrinsicTable* pTable)
-  {
+  HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(IDxcIntrinsicTable *pTable) {
     try {
       IFTPTR(pTable);
       LPCSTR tableName = nullptr;
@@ -115,7 +114,8 @@ public:
 
   // Set the validator used to validate semantic defines.
   // Only one validator stored and used to run validation.
-  HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) {
+  HRESULT STDMETHODCALLTYPE
+  SetSemanticDefineValidator(IDxcSemanticDefineValidator *pValidator) {
     if (pValidator == nullptr)
       return E_POINTER;
 
@@ -228,38 +228,43 @@ public:
 
 // Use this macro to embed an implementation that will delegate to a field.
 // Note that QueryInterface still needs to return the vtable.
-#define DXC_LANGEXTENSIONS_HELPER_IMPL(_helper_field_) \
-  HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(_In_ IDxcIntrinsicTable *pTable) override { \
-    DxcThreadMalloc TM(m_pMalloc); \
-    return (_helper_field_).RegisterIntrinsicTable(pTable); \
-  } \
-  HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) override { \
-    DxcThreadMalloc TM(m_pMalloc); \
-    return (_helper_field_).RegisterSemanticDefine(name); \
-  } \
-  HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) override { \
-    DxcThreadMalloc TM(m_pMalloc); \
-    return (_helper_field_).RegisterSemanticDefineExclusion(name); \
-  } \
-  HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name) override { \
-    DxcThreadMalloc TM(m_pMalloc); \
-    return (_helper_field_).RegisterNonOptSemanticDefine(name); \
-  } \
-  HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) override { \
-    DxcThreadMalloc TM(m_pMalloc); \
-    return (_helper_field_).RegisterDefine(name); \
-  } \
-  HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) override { \
-    DxcThreadMalloc TM(m_pMalloc); \
-    return (_helper_field_).SetSemanticDefineValidator(pValidator); \
-  } \
-  HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) override { \
-    DxcThreadMalloc TM(m_pMalloc); \
-    return (_helper_field_).SetSemanticDefineMetaDataName(name); \
-  } \
-  HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name)  override { \
-    DxcThreadMalloc TM(m_pMalloc);                                   \
-    return (_helper_field_).SetTargetTriple(name);                   \
-  } \
+#define DXC_LANGEXTENSIONS_HELPER_IMPL(_helper_field_)                         \
+  HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(IDxcIntrinsicTable *pTable) \
+      override {                                                               \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).RegisterIntrinsicTable(pTable);                    \
+  }                                                                            \
+  HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) override {    \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).RegisterSemanticDefine(name);                      \
+  }                                                                            \
+  HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name)      \
+      override {                                                               \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).RegisterSemanticDefineExclusion(name);             \
+  }                                                                            \
+  HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name)         \
+      override {                                                               \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).RegisterNonOptSemanticDefine(name);                \
+  }                                                                            \
+  HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) override {            \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).RegisterDefine(name);                              \
+  }                                                                            \
+  HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(                        \
+      IDxcSemanticDefineValidator *pValidator) override {                      \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).SetSemanticDefineValidator(pValidator);            \
+  }                                                                            \
+  HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name)         \
+      override {                                                               \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).SetSemanticDefineMetaDataName(name);               \
+  }                                                                            \
+  HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) override {            \
+    DxcThreadMalloc TM(m_pMalloc);                                             \
+    return (_helper_field_).SetTargetTriple(name);                             \
+  }
 
 } // namespace hlsl

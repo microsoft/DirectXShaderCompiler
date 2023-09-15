@@ -35,16 +35,14 @@ using namespace llvm;
 using namespace hlsl;
 
 // This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 // This internal call allows the validator to avoid having to re-deserialize
 // the module. It trusts that the caller didn't make any changes and is
 // kept internal because the layout of the module class may change based
 // on changes across modules, or picking a different compiler version or CRT.
-HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
-                             _In_ llvm::Module *pModule,
-                             _In_ llvm::Module *pDebugModule,
-                             _In_ IDxcBlob *pShader, UINT32 Flags,
-                             _In_ IDxcOperationResult **ppResult);
+HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
+                             llvm::Module *pDebugModule, IDxcBlob *pShader,
+                             UINT32 Flags, IDxcOperationResult **ppResult);
 
 namespace {
 // AssembleToContainer helper functions.
@@ -119,8 +117,7 @@ void AssembleToContainer(AssembleInputs &inputs) {
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                          hlsl::options::DxcOpts &opts,
                          AbstractMemoryStream *pOutputStream,
-                         _COM_Outptr_ IDxcOperationResult **ppResult,
-                         bool &finished) {
+                         IDxcOperationResult **ppResult, bool &finished) {
   const llvm::opt::OptTable *table = ::options::getHlslOptTable();
   raw_stream_ostream outStream(pOutputStream);
   if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::CompilerFlags,
@@ -262,10 +259,9 @@ HRESULT ValidateRootSignatureInContainer(
 }
 
 void CreateOperationResultFromOutputs(
-    DXC_OUT_KIND resultKind, UINT32 textEncoding,
-    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
-    const std::string &warnings, bool hasErrorOccurred,
-    _COM_Outptr_ IDxcOperationResult **ppResult) {
+    DXC_OUT_KIND resultKind, UINT32 textEncoding, IDxcBlob *pResultBlob,
+    CComPtr<IStream> &pErrorStream, const std::string &warnings,
+    bool hasErrorOccurred, IDxcOperationResult **ppResult) {
   CComPtr<DxcResult> pResult = DxcResult::Alloc(DxcGetThreadMallocNoRef());
   IFT(pResult->SetEncoding(textEncoding));
   IFT(pResult->SetStatusAndPrimaryResult(hasErrorOccurred ? E_FAIL : S_OK, resultKind));
@@ -280,10 +276,11 @@ void CreateOperationResultFromOutputs(
   IFT(pResult.QueryInterface(ppResult));
 }
 
-void CreateOperationResultFromOutputs(
-    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
-    const std::string &warnings, bool hasErrorOccurred,
-    _COM_Outptr_ IDxcOperationResult **ppResult) {
+void CreateOperationResultFromOutputs(IDxcBlob *pResultBlob,
+                                      CComPtr<IStream> &pErrorStream,
+                                      const std::string &warnings,
+                                      bool hasErrorOccurred,
+                                      IDxcOperationResult **ppResult) {
   CreateOperationResultFromOutputs(DXC_OUT_OBJECT, DXC_CP_UTF8,
     pResultBlob, pErrorStream, warnings, hasErrorOccurred, ppResult);
 }

@@ -111,20 +111,26 @@ void CheckLLVMErrorCode(const std::error_code &ec);
 #define IFTBOOLMSG(x, y, msg) { if (!(x)) throw ::hlsl::Exception(y, msg); }
 
 // Propagate an C++ exception into an HRESULT.
-#define CATCH_CPP_ASSIGN_HRESULT() \
-  catch (std::bad_alloc&)                   { hr = E_OUTOFMEMORY; } \
-  catch (hlsl::Exception& _hlsl_exception_) {                       \
-    _Analysis_assume_(DXC_FAILED(_hlsl_exception_.hr));             \
-    hr = _hlsl_exception_.hr;                                       \
-  }                                                                 \
-  catch (...)                               { hr = E_FAIL; }
-#define CATCH_CPP_RETURN_HRESULT() \
-  catch (std::bad_alloc&)                   { return E_OUTOFMEMORY; } \
-  catch (hlsl::Exception& _hlsl_exception_) {                         \
-    _Analysis_assume_(DXC_FAILED(_hlsl_exception_.hr));               \
-    return _hlsl_exception_.hr;                                       \
-  }                                                                   \
-  catch (...)                               { return E_FAIL; }
+#define CATCH_CPP_ASSIGN_HRESULT()                                             \
+  catch (std::bad_alloc &) {                                                   \
+    hr = E_OUTOFMEMORY;                                                        \
+  }                                                                            \
+  catch (hlsl::Exception & _hlsl_exception_) {                                 \
+    hr = _hlsl_exception_.hr;                                                  \
+  }                                                                            \
+  catch (...) {                                                                \
+    hr = E_FAIL;                                                               \
+  }
+#define CATCH_CPP_RETURN_HRESULT()                                             \
+  catch (std::bad_alloc &) {                                                   \
+    return E_OUTOFMEMORY;                                                      \
+  }                                                                            \
+  catch (hlsl::Exception & _hlsl_exception_) {                                 \
+    return _hlsl_exception_.hr;                                                \
+  }                                                                            \
+  catch (...) {                                                                \
+    return E_FAIL;                                                             \
+  }
 
 template<typename T> T *VerifyNullAndThrow(T *p) {
   if (p == nullptr)
@@ -135,7 +141,8 @@ template<typename T> T *VerifyNullAndThrow(T *p) {
 
 #ifdef _MSC_VER
 
-extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(_In_opt_ const char *msg);
+extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(
+    const char *msg);
 
 inline void OutputDebugBytes(const void *ptr, size_t len) {
   const char digits[] = "0123456789abcdef";
@@ -166,7 +173,7 @@ inline void OutputDebugBytes(const void *ptr, size_t len) {
   }
 }
 
-inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ const char* pszFormat, ...) {
+inline void OutputDebugFormatA(const char *pszFormat, ...) {
   char buffer[1024];
 
   va_list argList;
@@ -198,11 +205,15 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 // This prints 'Hello World (i > 10)' and breaks in the debugger if the
 // assertion doesn't hold.
 //
-#define DXASSERT_ARGS(exp, fmt, ...)\
-  do { _Analysis_assume_(exp); if(!(exp)) {                              \
-    OutputDebugFormatA("Error: \t%s\nFile:\n%s(%d)\nFunc:\t%s.\n\t" fmt "\n", "!(" #exp ")", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
-    __debugbreak();\
-  } } while(0)
+#define DXASSERT_ARGS(exp, fmt, ...)                                           \
+  do {                                                                         \
+    if (!(exp)) {                                                              \
+      OutputDebugFormatA(                                                      \
+          "Error: \t%s\nFile:\n%s(%d)\nFunc:\t%s.\n\t" fmt "\n",               \
+          "!(" #exp ")", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__);       \
+      __debugbreak();                                                          \
+    }                                                                          \
+  } while (0)
 #define DXASSERT(exp, msg) DXASSERT_ARGS(exp, msg)
 
 #define DXASSERT_LOCALVAR(local, exp, msg) DXASSERT(exp, msg)
@@ -233,19 +244,25 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 #else // NDEBUG
 
 // DXASSERT_ARGS is disabled in free builds.
-#define DXASSERT_ARGS(exp, s, ...) _Analysis_assume_(exp)
+#define DXASSERT_ARGS(exp, s, ...)
 
 // DXASSERT is disabled in free builds.
-#define DXASSERT(exp, msg) _Analysis_assume_(exp)
+#define DXASSERT(exp, msg)
 
 // DXASSERT_LOCALVAR is disabled in free builds, but we keep the local referenced to avoid a warning.
-#define DXASSERT_LOCALVAR(local, exp, msg) do { (void)(local); _Analysis_assume_(exp); } while (0)
+#define DXASSERT_LOCALVAR(local, exp, msg)                                     \
+  do {                                                                         \
+    (void)(local);                                                             \
+  } while (0)
 #define DXASSERT_LOCALVAR_NOMSG(local, exp) DXASSERT_LOCALVAR(local, exp, "")
 
 // DXASSERT_NOMSG is disabled in free builds.
-#define DXASSERT_NOMSG(exp) _Analysis_assume_(exp)
+#define DXASSERT_NOMSG(exp)
 
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
-#define DXVERIFY_NOMSG(exp) do { (void)(exp); _Analysis_assume_(exp); } while (0)
+#define DXVERIFY_NOMSG(exp)                                                    \
+  do {                                                                         \
+    (void)(exp);                                                               \
+  } while (0)
 
 #endif // NDEBUG

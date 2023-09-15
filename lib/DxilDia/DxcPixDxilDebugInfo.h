@@ -61,32 +61,26 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilDebugInfo>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetLiveVariablesAt(
-      _In_ DWORD InstructionOffset,
-      _COM_Outptr_ IDxcPixDxilLiveVariables **ppLiveVariables) override;
+  STDMETHODIMP
+  GetLiveVariablesAt(DWORD InstructionOffset,
+                     IDxcPixDxilLiveVariables **ppLiveVariables) override;
 
-  STDMETHODIMP IsVariableInRegister(
-      _In_ DWORD InstructionOffset,
-      _In_ const wchar_t *VariableName) override;
+  STDMETHODIMP IsVariableInRegister(DWORD InstructionOffset,
+                                    const wchar_t *VariableName) override;
 
-  STDMETHODIMP GetFunctionName(
-      _In_ DWORD InstructionOffset,
-      _Outptr_result_z_ BSTR *ppFunctionName) override;
+  STDMETHODIMP GetFunctionName(DWORD InstructionOffset,
+                               BSTR *ppFunctionName) override;
 
-  STDMETHODIMP GetStackDepth(
-      _In_ DWORD InstructionOffset,
-      _Outptr_ DWORD *StackDepth) override;
-
+  STDMETHODIMP GetStackDepth(DWORD InstructionOffset,
+                             DWORD *StackDepth) override;
 
   STDMETHODIMP InstructionOffsetsFromSourceLocation(
-      _In_ const wchar_t *FileName, 
-      _In_ DWORD SourceLine,
-      _In_ DWORD SourceColumn, 
-      _COM_Outptr_ IDxcPixDxilInstructionOffsets **ppOffsets) override;
+      const wchar_t *FileName, DWORD SourceLine, DWORD SourceColumn,
+      IDxcPixDxilInstructionOffsets **ppOffsets) override;
 
-  STDMETHODIMP  SourceLocationsFromInstructionOffset(
-      _In_ DWORD InstructionOffset,
-      _COM_Outptr_ IDxcPixDxilSourceLocations** ppSourceLocations) override;
+  STDMETHODIMP SourceLocationsFromInstructionOffset(
+      DWORD InstructionOffset,
+      IDxcPixDxilSourceLocations **ppSourceLocations) override;
 
   llvm::Module *GetModuleRef();
 
@@ -120,7 +114,7 @@ public:
   }
 
   virtual STDMETHODIMP_(DWORD) GetCount() override;
-  virtual STDMETHODIMP_(DWORD) GetOffsetByIndex(_In_ DWORD Index) override;
+  virtual STDMETHODIMP_(DWORD) GetOffsetByIndex(DWORD Index) override;
 };
 
 class DxcPixDxilSourceLocations : public IDxcPixDxilSourceLocations
@@ -150,10 +144,9 @@ public:
   }
 
   virtual STDMETHODIMP_(DWORD) GetCount() override;
-  virtual STDMETHODIMP_(DWORD) GetLineNumberByIndex(_In_ DWORD Index) override;
-  virtual STDMETHODIMP_(DWORD) GetColumnByIndex(_In_ DWORD Index)override;
-  virtual STDMETHODIMP GetFileNameByIndex(_In_ DWORD Index,
-                                          _Outptr_result_z_ BSTR *Name) override;
+  virtual STDMETHODIMP_(DWORD) GetLineNumberByIndex(DWORD Index) override;
+  virtual STDMETHODIMP_(DWORD) GetColumnByIndex(DWORD Index) override;
+  virtual STDMETHODIMP GetFileNameByIndex(DWORD Index, BSTR *Name) override;
 };
 
 }  // namespace dxil_debug_info

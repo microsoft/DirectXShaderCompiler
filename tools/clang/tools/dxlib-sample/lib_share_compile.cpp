@@ -78,7 +78,7 @@ HRESULT CompileToLib(IDxcBlob *pSource, std::vector<DxcDefine> &defines,
 static void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                                 hlsl::options::DxcOpts &opts,
                                 AbstractMemoryStream *pOutputStream,
-                                _COM_Outptr_ IDxcOperationResult **ppResult,
+                                IDxcOperationResult **ppResult,
                                 bool &finished) {
   const llvm::opt::OptTable *table = ::options::getHlslOptTable();
   raw_stream_ostream outStream(pOutputStream);

@@ -125,23 +125,16 @@ private:
                                     unsigned int dataOffsetInShaderRecord);
 
   void PatchCreateHandleToUseDescriptorIndex(
-      _In_ Module &M,
-      _In_ IRBuilder<> &Builder,
-      _In_ DXIL::ResourceKind &resourceKind,
-      _In_ DXIL::ResourceClass &resourceClass,
-      _In_ llvm::Type *resourceType,
-      _In_ llvm::Value *descriptorIndex,
-      _Inout_ DxilInst_CreateHandleForLib &createHandleInstr);
+      Module &M, IRBuilder<> &Builder, DXIL::ResourceKind &resourceKind,
+      DXIL::ResourceClass &resourceClass, llvm::Type *resourceType,
+      llvm::Value *descriptorIndex,
+      DxilInst_CreateHandleForLib &createHandleInstr);
 
-
-  bool GetHandleInfo(
-    Module &M, 
-    DxilInst_CreateHandleForLib &createHandleStructForLib, 
-    _Out_ unsigned int &shaderRegister, 
-    _Out_ unsigned int &registerSpace, 
-    _Out_ DXIL::ResourceKind &kind, 
-    _Out_ DXIL::ResourceClass &resClass,
-    _Out_ llvm::Type *&resType);
+  bool GetHandleInfo(Module &M,
+                     DxilInst_CreateHandleForLib &createHandleStructForLib,
+                     unsigned int &shaderRegister, unsigned int &registerSpace,
+                     DXIL::ResourceKind &kind, DXIL::ResourceClass &resClass,
+                     llvm::Type *&resType);
 
   llvm::Value * GetAliasedDescriptorHeapHandle(Module &M, llvm::Type *, DXIL::ResourceClass resClass, DXIL::ResourceKind resKind);
 
@@ -704,14 +697,10 @@ unsigned int GetResolvedRangeID(DXIL::ResourceClass resClass, Value *rangeIdVal)
 
 // TODO: This code is quite inefficient
 bool DxilPatchShaderRecordBindings::GetHandleInfo(
-  Module &M,
-  DxilInst_CreateHandleForLib &createHandleStructForLib,
-  _Out_ unsigned int &shaderRegister,
-  _Out_ unsigned int &registerSpace,
-  _Out_ DXIL::ResourceKind &kind,
-  _Out_ DXIL::ResourceClass &resClass,
-  _Out_ llvm::Type *&resType)
-{
+    Module &M, DxilInst_CreateHandleForLib &createHandleStructForLib,
+    unsigned int &shaderRegister, unsigned int &registerSpace,
+    DXIL::ResourceKind &kind, DXIL::ResourceClass &resClass,
+    llvm::Type *&resType) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   LoadInst *loadRangeId = cast<LoadInst>(createHandleStructForLib.get_Resource());
   Value *ResourceSymbol = loadRangeId->getPointerOperand();
@@ -800,27 +789,25 @@ llvm::Value *DxilPatchShaderRecordBindings::LoadShaderRecordData(
 }
 
 void DxilPatchShaderRecordBindings::PatchCreateHandleToUseDescriptorIndex(
-    _In_ Module &M,
-    _In_ IRBuilder<> &Builder,
-    _In_ DXIL::ResourceKind &resourceKind,
-    _In_ DXIL::ResourceClass &resourceClass,
-    _In_ llvm::Type *resourceType,
-    _In_ llvm::Value *descriptorIndex,
-    _Inout_ DxilInst_CreateHandleForLib &createHandleInstr)
-{
-    DxilModule &DM = M.GetOrCreateDxilModule();
-    OP *HlslOP = DM.GetOP();
+    Module &M, IRBuilder<> &Builder, DXIL::ResourceKind &resourceKind,
+    DXIL::ResourceClass &resourceClass, llvm::Type *resourceType,
+    llvm::Value *descriptorIndex,
+    DxilInst_CreateHandleForLib &createHandleInstr) {
+  DxilModule &DM = M.GetOrCreateDxilModule();
+  OP *HlslOP = DM.GetOP();
 
-    llvm::Value *descriptorHeapSymbol = GetAliasedDescriptorHeapHandle(M, resourceType, resourceClass, resourceKind);
-    llvm::Value *viewSymbol = Builder.CreateGEP(descriptorHeapSymbol, { HlslOP->GetU32Const(0), descriptorIndex }, "IndexIntoDH");
-    DxilMDHelper::MarkNonUniform(cast<Instruction>(viewSymbol));
-    llvm::Value *handle = Builder.CreateLoad(viewSymbol);
+  llvm::Value *descriptorHeapSymbol = GetAliasedDescriptorHeapHandle(
+      M, resourceType, resourceClass, resourceKind);
+  llvm::Value *viewSymbol = Builder.CreateGEP(
+      descriptorHeapSymbol, {HlslOP->GetU32Const(0), descriptorIndex},
+      "IndexIntoDH");
+  DxilMDHelper::MarkNonUniform(cast<Instruction>(viewSymbol));
+  llvm::Value *handle = Builder.CreateLoad(viewSymbol);
 
-    auto callInst = cast<CallInst>(createHandleInstr.Instr);
-    callInst->setCalledFunction(HlslOP->GetOpFunc(
-        DXIL::OpCode::CreateHandleForLib,
-        handle->getType()));
-    createHandleInstr.set_Resource(handle);
+  auto callInst = cast<CallInst>(createHandleInstr.Instr);
+  callInst->setCalledFunction(
+      HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, handle->getType()));
+  createHandleInstr.set_Resource(handle);
 }
 
 void DxilPatchShaderRecordBindings::InitializeViewTable() {

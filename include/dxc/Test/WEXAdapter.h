@@ -102,9 +102,8 @@ bool moduleTeardown();
   bool moduleTeardown() { return method(); }
 
 // No need to expand env vars on Unix platforms, so convert the slashes instead.
-inline DWORD ExpandEnvironmentStringsW(_In_ LPCWSTR lpSrc,
-                                       _Out_opt_ LPWSTR lpDst,
-                                       _In_ DWORD nSize) {
+inline DWORD ExpandEnvironmentStringsW(LPCWSTR lpSrc, LPWSTR lpDst,
+                                       DWORD nSize) {
   unsigned i;
   bool wasSlash = false;
   for (i = 0; i < nSize && *lpSrc; i++, lpSrc++) {

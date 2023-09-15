@@ -66,20 +66,13 @@ public:
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) final {
     return DoBasicQueryInterface<IDxcPixCompilationInfo>(this, iid, ppvObject);
   }
-  virtual STDMETHODIMP
-  GetSourceFile(_In_ DWORD SourceFileOrdinal,
-                _Outptr_result_z_ BSTR *pSourceName,
-                _Outptr_result_z_ BSTR *pSourceContents) override;
-  virtual STDMETHODIMP
-  GetArguments(_Outptr_result_z_ BSTR *pArguments) override;
-  virtual STDMETHODIMP
-  GetMacroDefinitions(_Outptr_result_z_ BSTR *pMacroDefinitions) override;
-  virtual STDMETHODIMP
-  GetEntryPointFile(_Outptr_result_z_ BSTR *pEntryPointFile) override;
-  virtual STDMETHODIMP
-  GetHlslTarget(_Outptr_result_z_ BSTR *pHlslTarget) override;
-  virtual STDMETHODIMP
-  GetEntryPoint(_Outptr_result_z_ BSTR *pEntryPoint) override;
+  virtual STDMETHODIMP GetSourceFile(DWORD SourceFileOrdinal, BSTR *pSourceName,
+                                     BSTR *pSourceContents) override;
+  virtual STDMETHODIMP GetArguments(BSTR *pArguments) override;
+  virtual STDMETHODIMP GetMacroDefinitions(BSTR *pMacroDefinitions) override;
+  virtual STDMETHODIMP GetEntryPointFile(BSTR *pEntryPointFile) override;
+  virtual STDMETHODIMP GetHlslTarget(BSTR *pHlslTarget) override;
+  virtual STDMETHODIMP GetEntryPoint(BSTR *pEntryPoint) override;
 };
 
 CompilationInfo::CompilationInfo(IMalloc *pMalloc, dxil_dia::Session *pSession)
@@ -120,9 +113,8 @@ static void MDStringOperandToBSTR(llvm::MDOperand const &mdOperand,
 }
 
 STDMETHODIMP
-CompilationInfo::GetSourceFile(_In_ DWORD SourceFileOrdinal,
-                               _Outptr_result_z_ BSTR *pSourceName,
-                               _Outptr_result_z_ BSTR *pSourceContents) {
+CompilationInfo::GetSourceFile(DWORD SourceFileOrdinal, BSTR *pSourceName,
+                               BSTR *pSourceContents) {
   *pSourceName = nullptr;
   *pSourceContents = nullptr;
 
@@ -139,7 +131,7 @@ CompilationInfo::GetSourceFile(_In_ DWORD SourceFileOrdinal,
   return S_OK;
 }
 
-STDMETHODIMP CompilationInfo::GetArguments(_Outptr_result_z_ BSTR *pArguments) {
+STDMETHODIMP CompilationInfo::GetArguments(BSTR *pArguments) {
   llvm::MDNode *argsNode = m_arguments->getOperand(0);
 
   // Don't return any arguments that denote things that are returned via
@@ -185,8 +177,7 @@ STDMETHODIMP CompilationInfo::GetArguments(_Outptr_result_z_ BSTR *pArguments) {
   return S_OK;
 }
 
-STDMETHODIMP CompilationInfo::GetMacroDefinitions(
-    _Outptr_result_z_ BSTR *pMacroDefinitions) {
+STDMETHODIMP CompilationInfo::GetMacroDefinitions(BSTR *pMacroDefinitions) {
   llvm::MDNode *definesNode = m_defines->getOperand(0);
   // Concatenate definitions into one string separated by spaces
   CComBSTR pBSTR;
@@ -221,7 +212,7 @@ STDMETHODIMP CompilationInfo::GetMacroDefinitions(
 }
 
 STDMETHODIMP
-CompilationInfo::GetEntryPointFile(_Outptr_result_z_ BSTR *pEntryPointFile) {
+CompilationInfo::GetEntryPointFile(BSTR *pEntryPointFile) {
   llvm::StringRef strRef = llvm::dyn_cast<llvm::MDString>(
                                m_mainFileName->getOperand(0)->getOperand(0))
                                ->getString();
@@ -235,7 +226,7 @@ CompilationInfo::GetEntryPointFile(_Outptr_result_z_ BSTR *pEntryPointFile) {
 }
 
 STDMETHODIMP
-CompilationInfo::GetHlslTarget(_Outptr_result_z_ BSTR *pHlslTarget) {
+CompilationInfo::GetHlslTarget(BSTR *pHlslTarget) {
   CA2W cv(m_pSession->DxilModuleRef().GetShaderModel()->GetName(), CP_UTF8);
   CComBSTR pBSTR;
   pBSTR.Append(cv);
@@ -244,7 +235,7 @@ CompilationInfo::GetHlslTarget(_Outptr_result_z_ BSTR *pHlslTarget) {
 }
 
 STDMETHODIMP
-CompilationInfo::GetEntryPoint(_Outptr_result_z_ BSTR *pEntryPoint) {
+CompilationInfo::GetEntryPoint(BSTR *pEntryPoint) {
   auto name = m_pSession->DxilModuleRef().GetEntryFunctionName();
   CA2W cv(name.c_str(), CP_UTF8);
   CComBSTR pBSTR;
