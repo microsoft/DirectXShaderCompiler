@@ -254,8 +254,7 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
-  void PixTest::TestUnnamedTypeCase(const char *hlsl,
-                                    const wchar_t *expectedTypeName);
+  void TestUnnamedTypeCase(const char *hlsl, const wchar_t *expectedTypeName);
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, IDxcBlobEncoding **ppBlob) {
@@ -4200,7 +4199,7 @@ void main()
           VERIFY_ARE_EQUAL(1u, Testables.OffsetAndSizes.size());
           VERIFY_ARE_EQUAL(6u, Testables.OffsetAndSizes[0].countOfMembers);
           VERIFY_ARE_EQUAL(0u, Testables.OffsetAndSizes[0].offset);
-          VERIFY_ARE_EQUAL((2 * 3 * 32)u, Testables.OffsetAndSizes[0].size);
+          VERIFY_ARE_EQUAL(2u * 3u * 32u, Testables.OffsetAndSizes[0].size);
       }
       else {
           VERIFY_ARE_EQUAL(6u, Testables.OffsetAndSizes.size());
@@ -4261,7 +4260,7 @@ void main()
           VERIFY_ARE_EQUAL(1u, Testables.OffsetAndSizes.size());
           VERIFY_ARE_EQUAL(5u, Testables.OffsetAndSizes[0].countOfMembers);
           VERIFY_ARE_EQUAL(0u, Testables.OffsetAndSizes[0].offset);
-          VERIFY_ARE_EQUAL(5u * 32u, intTestables.OffsetAndSizes[0].size);
+          VERIFY_ARE_EQUAL(5u * 32u, Testables.OffsetAndSizes[0].size);
       }
       else {
           VERIFY_ARE_EQUAL(5u, Testables.OffsetAndSizes.size());
