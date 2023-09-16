@@ -4111,7 +4111,7 @@ void main()
           VERIFY_ARE_EQUAL(4u, Testables.OffsetAndSizes.size());
           for (unsigned i = 0; i < 4; i++) {
               VERIFY_ARE_EQUAL(1u, Testables.OffsetAndSizes[i].countOfMembers);
-              VERIFY_ARE_EQUAL(i * 32u, (Testables.OffsetAndSizes[i].offset);
+              VERIFY_ARE_EQUAL(i * 32u, Testables.OffsetAndSizes[i].offset);
               VERIFY_ARE_EQUAL(32u, Testables.OffsetAndSizes[i].size);
           }
       }
