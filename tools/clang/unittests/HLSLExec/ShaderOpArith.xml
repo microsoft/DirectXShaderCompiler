@@ -3017,8 +3017,8 @@
         <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
       </RenderTarget>
     </RenderTargets>
-    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" />
-    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain" Arguments="-opt-disable sink">
         <![CDATA[
 #ifdef ISHELPERLANE_PLACEHOLDER
         bool ph_IsHelperLane(float4 pos, bool first_call) {
