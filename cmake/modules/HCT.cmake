@@ -60,13 +60,8 @@ function(add_hlsl_hctgen mode)
 
   get_filename_component(output_extension ${full_output} LAST_EXT)
 
-  if (output_extension MATCHES "\.h|\.cpp|\.inl")
+  if (CLANG_FORMAT_EXE AND output_extension MATCHES "\.h|\.cpp|\.inl")
     set(format_cmd COMMAND ${CLANG_FORMAT_EXE} -i ${temp_output})
-    if (NOT CLANG_FORMAT_EXE)
-      add_custom_target(${mode})
-      add_dependencies(HCTGen ${mode})
-      return()
-    endif ()
   endif ()
 
   set(copy_sources Off)
@@ -97,7 +92,9 @@ function(add_hlsl_hctgen mode)
   # file, and define the verification command
   if(NOT copy_sources)
     set(output ${temp_output})
-    set(verification COMMAND ${CMAKE_COMMAND} -E compare_files ${temp_output} ${full_output})
+    if (CLANG_FORMAT_EXE) # Only verify sources if clang-format is available.
+      set(verification COMMAND ${CMAKE_COMMAND} -E compare_files ${temp_output} ${full_output})
+    endif()
   endif()
   if(WIN32 AND NOT HLSL_AUTOCRLF)
     set(force_lf "--force-lf")
