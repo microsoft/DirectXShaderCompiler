@@ -210,12 +210,9 @@ HRESULT WINAPI BridgeD3DCompileFromFile(
                          pTarget, Flags1, Flags2, ppCode, ppErrorMsgs);
 }
 
-HRESULT WINAPI BridgeD3DDisassemble(
-  _In_reads_bytes_(SrcDataSize) LPCVOID pSrcData,
-  _In_ SIZE_T SrcDataSize,
-  _In_ UINT Flags,
-  _In_opt_ LPCSTR szComments,
-  _Out_ ID3DBlob** ppDisassembly) {
+HRESULT WINAPI BridgeD3DDisassemble(LPCVOID pSrcData, SIZE_T SrcDataSize,
+                                    UINT Flags, LPCSTR szComments,
+                                    ID3DBlob **ppDisassembly) {
   CComPtr<IDxcLibrary> library;
   CComPtr<IDxcCompiler> compiler;
   CComPtr<IDxcBlobEncoding> source;
@@ -236,11 +233,8 @@ HRESULT WINAPI BridgeD3DDisassemble(
   return S_OK;
 }
 
-HRESULT WINAPI BridgeD3DReflect(
-  _In_reads_bytes_(SrcDataSize) LPCVOID pSrcData,
-  _In_ SIZE_T SrcDataSize,
-  _In_ REFIID pInterface,
-  _Out_ void** ppReflector) {
+HRESULT WINAPI BridgeD3DReflect(LPCVOID pSrcData, SIZE_T SrcDataSize,
+                                REFIID pInterface, void **ppReflector) {
   CComPtr<IDxcLibrary> library;
   CComPtr<IDxcBlobEncoding> source;
   CComPtr<IDxcContainerReflection> reflection;
@@ -259,9 +253,7 @@ HRESULT WINAPI BridgeD3DReflect(
   return S_OK;
 }
 
-HRESULT WINAPI
-BridgeReadFileToBlob(_In_ LPCWSTR pFileName,
-                     _Out_ ID3DBlob** ppContents) {
+HRESULT WINAPI BridgeReadFileToBlob(LPCWSTR pFileName, ID3DBlob **ppContents) {
   if (!ppContents)
     return E_INVALIDARG;
   *ppContents = nullptr;
@@ -329,13 +321,11 @@ HRESULT PreprocessFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
   }
 }
 
-HRESULT WINAPI BridgeD3DPreprocess(_In_reads_bytes_(SrcDataSize) LPCVOID pSrcData,
-                             _In_ SIZE_T SrcDataSize,
-                             _In_opt_ LPCSTR pSourceName,
-                             _In_opt_ const D3D_SHADER_MACRO *pDefines,
-                             _In_opt_ ID3DInclude *pInclude,
-                             _Out_ ID3DBlob **ppCodeText,
-                             _Out_opt_ ID3DBlob **ppErrorMsgs) {
+HRESULT WINAPI BridgeD3DPreprocess(LPCVOID pSrcData, SIZE_T SrcDataSize,
+                                   LPCSTR pSourceName,
+                                   const D3D_SHADER_MACRO *pDefines,
+                                   ID3DInclude *pInclude, ID3DBlob **ppCodeText,
+                                   ID3DBlob **ppErrorMsgs) {
   CComPtr<IDxcLibrary> library;
   CComPtr<IDxcBlobEncoding> source;
   CComPtr<IDxcIncludeHandler> includeHandler;

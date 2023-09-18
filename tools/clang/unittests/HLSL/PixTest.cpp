@@ -258,22 +258,21 @@ public:
                                     const wchar_t *expectedTypeName);
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
-                        UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
+                        UINT32 codePage, IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
-  void CreateBlobFromFile(LPCWSTR name, _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobFromFile(LPCWSTR name, IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     const std::wstring path = hlsl_test::GetPathToHlslDataFile(name);
     IFT(library->CreateBlobFromFile(path.c_str(), nullptr, ppBlob));
   }
 
-  void CreateBlobFromText(_In_z_ const char *pText,
-                          _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobFromText(const char *pText, IDxcBlobEncoding **ppBlob) {
     CreateBlobPinned(pText, strlen(pText) + 1, CP_UTF8, ppBlob);
   }
 
@@ -328,7 +327,7 @@ public:
     }
   }
 
-  std::wstring GetDebugInfoAsText(_In_ IDiaDataSource* pDataSource) {
+  std::wstring GetDebugInfoAsText(IDiaDataSource *pDataSource) {
     CComPtr<IDiaSession> pSession;
     CComPtr<IDiaTable> pTable;
     CComPtr<IDiaEnumTables> pEnumTables;
@@ -478,7 +477,7 @@ public:
 
     return o.str();
   }
-  std::wstring GetDebugFileContent(_In_ IDiaDataSource *pDataSource) {
+  std::wstring GetDebugFileContent(IDiaDataSource *pDataSource) {
     CComPtr<IDiaSession> pSession;
     CComPtr<IDiaTable> pTable;
 
@@ -1281,7 +1280,7 @@ TEST_F(PixTest, CompileDebugDisasmPDB) {
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pProgram;
   CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
@@ -1317,7 +1316,7 @@ TEST_F(PixTest, CompileDebugPDB) {
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pProgram;
   CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
@@ -1869,8 +1868,9 @@ TEST_F(PixTest, PixDebugCompileInfo) {
 static LPCWSTR defaultFilename = L"source.hlsl";
 
 static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
-                     LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
-                     _Outptr_ IDxcBlob **ppResult) {
+                                LPCWSTR pTargetProfile,
+                                std::vector<LPCWSTR> &args,
+                                IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcOperationResult> pResult;

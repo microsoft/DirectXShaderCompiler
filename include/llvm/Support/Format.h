@@ -43,7 +43,7 @@ protected:
   virtual void home(); // Out of line virtual method.
 
   /// Call snprintf() for this object, on the given buffer and size.
-  virtual int snprint(_Out_ char *Buffer, unsigned BufferSize) const = 0;   // HLSL Change - SAL
+  virtual int snprint(char *Buffer, unsigned BufferSize) const = 0;
 
 public:
   format_object_base(const char *fmt) : Fmt(fmt) {}
@@ -51,7 +51,7 @@ public:
   /// Format the object into the specified buffer.  On success, this returns
   /// the length of the formatted string.  If the buffer is too small, this
   /// returns a length to retry with, which will be larger than BufferSize.
-  unsigned print(_Out_ char *Buffer, unsigned BufferSize) const {   // HLSL Change - SAL
+  unsigned print(char *Buffer, unsigned BufferSize) const {
     assert(BufferSize && "Invalid buffer size!");
 
     // Print the string, leaving room for the terminating null.

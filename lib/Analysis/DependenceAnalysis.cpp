@@ -245,7 +245,7 @@ FullDependence::FullDependence(Instruction *Source, Instruction *Destination,
 // getDirection - Returns the direction associated with a particular level.
 unsigned FullDependence::getDirection(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= Levels);    // HLSL Change - TVS
+  assert(0 < Level && Level <= Levels);    // HLSL Change - TVS
   return DV[Level - 1].Direction;
 }
 
@@ -253,7 +253,7 @@ unsigned FullDependence::getDirection(unsigned Level) const {
 // Returns the distance (or NULL) associated with a particular level.
 const SCEV *FullDependence::getDistance(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= Levels);    // HLSL Change - TVS
+  assert(0 < Level && Level <= Levels);    // HLSL Change - TVS
   return DV[Level - 1].Distance;
 }
 
@@ -263,7 +263,7 @@ const SCEV *FullDependence::getDistance(unsigned Level) const {
 // variable associated with the loop at this level.
 bool FullDependence::isScalar(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= Levels);    // HLSL Change - TVS
+  assert(0 < Level && Level <= Levels);    // HLSL Change - TVS
   return DV[Level - 1].Scalar;
 }
 
@@ -272,7 +272,7 @@ bool FullDependence::isScalar(unsigned Level) const {
 // will break this dependence.
 bool FullDependence::isPeelFirst(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= Levels);    // HLSL Change - TVS
+  assert(0 < Level && Level <= Levels);    // HLSL Change - TVS
   return DV[Level - 1].PeelFirst;
 }
 
@@ -281,7 +281,7 @@ bool FullDependence::isPeelFirst(unsigned Level) const {
 // will break this dependence.
 bool FullDependence::isPeelLast(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= Levels);    // HLSL Change - TVS
+  assert(0 < Level && Level <= Levels);    // HLSL Change - TVS
   return DV[Level - 1].PeelLast;
 }
 
@@ -289,7 +289,7 @@ bool FullDependence::isPeelLast(unsigned Level) const {
 // Returns true if splitting this loop will break the dependence.
 bool FullDependence::isSplitable(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= Levels);    // HLSL Change - TVS
+  assert(0 < Level && Level <= Levels);    // HLSL Change - TVS
   return DV[Level - 1].Splitable;
 }
 
@@ -1099,8 +1099,8 @@ bool DependenceAnalysis::strongSIVtest(const SCEV *Coeff,
   DEBUG(dbgs() << ", " << *DstConst->getType() << "\n");
   ++StrongSIVapplications;
   assert(0 < Level && Level <= CommonLevels && "level out of range");
-  _Analysis_assume_(0 < Level && Level <= CommonLevels);    // HLSL Change - TVS
-  _Analysis_assume_(Result.Levels == CommonLevels);   // HLSL Change - TVS
+  assert(0 < Level && Level <= CommonLevels);    // HLSL Change - TVS
+  assert(Result.Levels == CommonLevels);   // HLSL Change - TVS
   Level--;
 
   const SCEV *Delta = SE->getMinusSCEV(SrcConst, DstConst);
@@ -1238,8 +1238,8 @@ bool DependenceAnalysis::weakCrossingSIVtest(const SCEV *Coeff,
   DEBUG(dbgs() << "\t    DstConst = " << *DstConst << "\n");
   ++WeakCrossingSIVapplications;
   assert(0 < Level && Level <= CommonLevels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= CommonLevels);    // HLSL Change - TVS
-  _Analysis_assume_(Result.Levels == CommonLevels);   // HLSL Change - TVS
+  assert(0 < Level && Level <= CommonLevels);    // HLSL Change - TVS
+  assert(Result.Levels == CommonLevels);   // HLSL Change - TVS
   Level--;
   Result.Consistent = false;
   const SCEV *Delta = SE->getMinusSCEV(DstConst, SrcConst);
@@ -1463,8 +1463,8 @@ bool DependenceAnalysis::exactSIVtest(const SCEV *SrcCoeff,
   DEBUG(dbgs() << "\t    DstConst = " << *DstConst << "\n");
   ++ExactSIVapplications;
   assert(0 < Level && Level <= CommonLevels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= CommonLevels);    // HLSL Change - TVS
-  _Analysis_assume_(Result.Levels == CommonLevels);   // HLSL Change - TVS
+  assert(0 < Level && Level <= CommonLevels);    // HLSL Change - TVS
+  assert(Result.Levels == CommonLevels);   // HLSL Change - TVS
   Level--;
   Result.Consistent = false;
   const SCEV *Delta = SE->getMinusSCEV(DstConst, SrcConst);
@@ -1678,8 +1678,8 @@ bool DependenceAnalysis::weakZeroSrcSIVtest(const SCEV *DstCoeff,
   DEBUG(dbgs() << "\t    DstConst = " << *DstConst << "\n");
   ++WeakZeroSIVapplications;
   assert(0 < Level && Level <= MaxLevels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= MaxLevels);   // HLSL Change - TVS
-  _Analysis_assume_(Result.Levels == CommonLevels);   // HLSL Change - TVS
+  assert(0 < Level && Level <= MaxLevels);   // HLSL Change - TVS
+  assert(Result.Levels == CommonLevels);   // HLSL Change - TVS
   Level--;
   Result.Consistent = false;
   const SCEV *Delta = SE->getMinusSCEV(SrcConst, DstConst);
@@ -1790,8 +1790,8 @@ bool DependenceAnalysis::weakZeroDstSIVtest(const SCEV *SrcCoeff,
   DEBUG(dbgs() << "\t    DstConst = " << *DstConst << "\n");
   ++WeakZeroSIVapplications;
   assert(0 < Level && Level <= SrcLevels && "Level out of range");
-  _Analysis_assume_(0 < Level && Level <= SrcLevels);   // HLSL Change - TVS
-  _Analysis_assume_(Result.Levels == CommonLevels);   // HLSL Change - TVS
+  assert(0 < Level && Level <= SrcLevels);   // HLSL Change - TVS
+  assert(Result.Levels == CommonLevels);   // HLSL Change - TVS
   Level--;
   Result.Consistent = false;
   const SCEV *Delta = SE->getMinusSCEV(DstConst, SrcConst);
@@ -2474,7 +2474,7 @@ bool DependenceAnalysis::gcdMIVtest(const SCEV *Src,
       if (Remainder != 0) {
         unsigned Level = mapSrcLoop(CurLoop);
         assert(0 < Level && Level <= Result.Levels && "Level out of range");
-        _Analysis_assume_(0 < Level && Level <= Result.Levels);    // HLSL Change - TVS
+        assert(0 < Level && Level <= Result.Levels);    // HLSL Change - TVS
         Result.DV[Level - 1].Direction &= unsigned(~Dependence::DVEntry::EQ);
         Improved = true;
       }
@@ -2567,8 +2567,8 @@ bool DependenceAnalysis::banerjeeMIVtest(const SCEV *Src,
       bool Improved = false;
       for (unsigned K = 1; K <= CommonLevels; ++K) {
         if (Loops[K]) {
-          _Analysis_assume_(Result.Levels == CommonLevels);   // HLSL Change - TVS
-          _Analysis_assume_(K <= MaxLevels);    // HLSL Change - TVS
+          assert(Result.Levels == CommonLevels);   // HLSL Change - TVS
+          assert(K <= MaxLevels);    // HLSL Change - TVS
           unsigned Old = Result.DV[K - 1].Direction;
           Result.DV[K - 1].Direction = Old & Bound[K].DirSet;
           Improved |= Old != Result.DV[K - 1].Direction;
@@ -3407,7 +3407,7 @@ DependenceAnalysis::depends(Instruction *Src, Instruction *Dst,
   DEBUG(dbgs() << "    maximum nesting levels = " << MaxLevels << "\n");
 
   FullDependence Result(Src, Dst, PossiblyLoopIndependent, CommonLevels);
-  _Analysis_assume_(Result.Levels == CommonLevels);   // HLSL Change - TVS
+  assert(Result.Levels == CommonLevels);   // HLSL Change - TVS
   ++TotalArrayPairs;
 
   // See if there are GEPs we can use.

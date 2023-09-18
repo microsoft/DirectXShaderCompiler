@@ -1714,10 +1714,12 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       sz0 = getNestedLevelInStruct(a0ty);
       sz1 = getNestedLevelInStruct(a1ty);
     }
-    // If sizes are equal, tiebreak with alphabetically lesser at higher priority
-    return sz0 < sz1 || (sz0 == sz1 && isa<GlobalVariable>(a0) &&
-                         isa<GlobalVariable>(a1) &&
-                         a0->getName() > a1->getName());
+    // If sizes are equal, and the new value is a GV,
+    // replace the existing node if it isn't GV or comes later alphabetically
+    // Thus, entries are sorted by size, global variableness, and then name
+    return sz0 < sz1 || (sz0 == sz1 && isa<GlobalVariable>(a1) &&
+			 (!isa<GlobalVariable>(a0) ||
+			  a0->getName() > a1->getName()));
   };
 
   std::priority_queue<Value *, std::vector<Value *>,
@@ -1729,6 +1731,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
 
   DenseMap<GlobalVariable *, GVDbgOffset> GVDbgOffsetMap;
   for (GlobalVariable &GV : M.globals()) {
+    if (GV.user_empty())
+      continue;
     if (dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV)) {
       staticGVs.insert(&GV);
       GVDbgOffset &dbgOffset = GVDbgOffsetMap[&GV];
@@ -1895,6 +1899,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       // Handle dead GVs trivially. These can be formed by RAUWing one GV
       // with another, leaving the original in the worklist
       if (GV->use_empty()) {
+        staticGVs.remove(GV);
         GV->eraseFromParent();
         Changed = true;
         continue;
@@ -1945,6 +1950,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
             // Remove GV when it is replaced by NewEltGV and is not a base GV.
             GV->removeDeadConstantUsers();
             GV->eraseFromParent();
+            staticGVs.remove(GV);
           }
           GV = NewEltGV;
         }

@@ -19,25 +19,21 @@ inline void ThrowIfFailed(HRESULT hr)
 	}
 }
 
-inline void GetAssetsPath(_Out_writes_(pathSize) WCHAR* path, UINT pathSize)
-{
-	if (path == nullptr)
-	{
-		throw std::exception();
-	}
+inline void GetAssetsPath(WCHAR *path, UINT pathSize) {
+  if (path == nullptr) {
+    throw std::exception();
+  }
 
-	DWORD size = GetModuleFileName(nullptr, path, pathSize);
-	if (size == 0 || size == pathSize)
-	{
-		// Method failed or path was truncated.
-		throw std::exception();
-	}
+  DWORD size = GetModuleFileName(nullptr, path, pathSize);
+  if (size == 0 || size == pathSize) {
+    // Method failed or path was truncated.
+    throw std::exception();
+  }
 
-	WCHAR* lastSlash = wcsrchr(path, L'\\');
-	if (lastSlash)
-	{
-		*(lastSlash + 1) = L'\0';
-	}
+  WCHAR *lastSlash = wcsrchr(path, L'\\');
+  if (lastSlash) {
+    *(lastSlash + 1) = L'\0';
+  }
 }
 
 inline HRESULT ReadDataFromFile(LPCWSTR filename, byte** data, UINT* size)

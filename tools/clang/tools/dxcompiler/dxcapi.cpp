@@ -28,25 +28,25 @@
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include <memory>
 
-HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcDiaDataSource(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcCompilerArgs(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcUtils(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcRewriter(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcCompiler(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcDiaDataSource(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcIntelliSense(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcCompilerArgs(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcUtils(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcRewriter(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcAssembler(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcOptimizer(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcLinker(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcPdbUtils(REFIID riid, _Out_ LPVOID *ppv);
 
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 void CreateDxcLinker(IDxcContainerReflection **ppResult);
 }
 
-HRESULT CreateDxcContainerReflection(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcContainerReflection(REFIID riid, _Out_ LPVOID *ppv) {
   try {
     CComPtr<IDxcContainerReflection> pReflection;
     hlsl::CreateDxcContainerReflection(&pReflection);
@@ -57,7 +57,7 @@ HRESULT CreateDxcContainerReflection(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   }
 }
 
-HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv) {
   // Call dxil.dll's containerbuilder
   *ppv = nullptr;
   const char *warning;
@@ -75,10 +75,8 @@ HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   return Result->QueryInterface(riid, ppv);
 }
 
-static HRESULT ThreadMallocDxcCreateInstance(
-  _In_ REFCLSID   rclsid,
-                  _In_ REFIID     riid,
-                  _Out_ LPVOID   *ppv) {
+static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                             _Out_ LPVOID *ppv) {
   HRESULT hr = S_OK;
   *ppv = nullptr;
   if (IsEqualCLSID(rclsid, CLSID_DxcCompiler)) {
@@ -133,11 +131,8 @@ static HRESULT ThreadMallocDxcCreateInstance(
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateInstance(
-  _In_ REFCLSID   rclsid,
-  _In_ REFIID     riid,
-  _Out_ LPVOID   *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                                   _Out_ LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }
@@ -150,12 +145,10 @@ DxcCreateInstance(
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateInstance2(
-  _In_ IMalloc    *pMalloc,
-  _In_ REFCLSID   rclsid,
-  _In_ REFIID     riid,
-  _Out_ LPVOID   *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
+                                                    REFCLSID rclsid,
+                                                    REFIID riid,
+                                                    _Out_ LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }

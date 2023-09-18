@@ -171,7 +171,8 @@ static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
   return retVal;
 }
 
-static void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, llvm::StringRef FName, UINT32 defaultTextCodePage) {
+static void WriteBlobToFile(IDxcBlob *pBlob, llvm::StringRef FName,
+                            UINT32 defaultTextCodePage) {
   ::dxc::WriteBlobToFile(pBlob, StringRefWide(FName), defaultTextCodePage);
 }
 
@@ -537,8 +538,8 @@ public:
     return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
   }
 
-  HRESULT insertIncludeFile(_In_ LPCWSTR pFilename,
-                            _In_ IDxcBlobEncoding *pBlob, _In_ UINT32 dataLen) {
+  HRESULT insertIncludeFile(LPCWSTR pFilename, IDxcBlobEncoding *pBlob,
+                            UINT32 dataLen) {
     try {
       includeFiles.try_emplace(std::wstring(pFilename), pBlob);
     }
@@ -546,9 +547,8 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE
-  LoadSource(_In_ LPCWSTR pFilename,
-             _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource) override {
+  HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
+                                       IDxcBlob **ppIncludeSource) override {
     try {
       *ppIncludeSource = includeFiles.at(std::wstring(pFilename));
       (*ppIncludeSource)->AddRef();
@@ -693,7 +693,7 @@ void DxcContext::Preprocess() {
   }
 }
 
-static void WriteString(HANDLE hFile, _In_z_ LPCSTR value, LPCWSTR pFileName) {
+static void WriteString(HANDLE hFile, LPCSTR value, LPCWSTR pFileName) {
   DWORD written;
   if (FALSE == WriteFile(hFile, value, strlen(value) * sizeof(value[0]),
                          &written, nullptr))

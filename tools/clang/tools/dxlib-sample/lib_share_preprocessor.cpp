@@ -58,13 +58,13 @@ public:
   IncPathIncludeHandler(IDxcIncludeHandler *handler, std::vector<std::string> &includePathList)
       : m_dwRef(0), m_pIncludeHandler(handler), m_includePathList(includePathList) {}
   HRESULT STDMETHODCALLTYPE LoadSource(
-      _In_ LPCWSTR pFilename, // Candidate filename.
-      _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource // Resultant
-                                                               // source object
-                                                               // for included
-                                                               // file, nullptr
-                                                               // if not found.
-  ) override {
+      LPCWSTR pFilename,         // Candidate filename.
+      IDxcBlob **ppIncludeSource // Resultant
+                                 // source object
+                                 // for included
+                                 // file, nullptr
+                                 // if not found.
+      ) override {
     CW2A pUtf8Filename(pFilename);
     if (m_loadedFileNames.find(pUtf8Filename.m_psz) !=
         m_loadedFileNames.end()) {

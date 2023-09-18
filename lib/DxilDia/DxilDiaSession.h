@@ -84,8 +84,7 @@ public:
   STDMETHODIMP get_globalScope(
     /* [retval][out] */ IDiaSymbol **pRetVal) override;
 
-  STDMETHODIMP getEnumTables(
-    _COM_Outptr_ IDiaEnumTables **ppEnumTables) override;
+  STDMETHODIMP getEnumTables(IDiaEnumTables **ppEnumTables) override;
 
   STDMETHODIMP getSymbolsByAddr(
     /* [out] */ IDiaEnumSymbolsByAddr **ppEnumbyAddr) override { return ENotImpl(); }
@@ -376,11 +375,11 @@ public:
     /* [in] */ IDiaSymbol *pSymbol,
     /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
 
-  STDMETHODIMP NewDxcPixDxilDebugInfo(
-      _COM_Outptr_ IDxcPixDxilDebugInfo** ppDxilDebugInfo) override;
+  STDMETHODIMP
+  NewDxcPixDxilDebugInfo(IDxcPixDxilDebugInfo **ppDxilDebugInfo) override;
 
-  STDMETHODIMP NewDxcPixCompilationInfo(
-      _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo) override;
+  STDMETHODIMP
+  NewDxcPixCompilationInfo(IDxcPixCompilationInfo **ppCompilationInfo) override;
 
 private:
   DXC_MICROCOM_TM_REF_FIELDS()

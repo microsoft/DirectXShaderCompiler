@@ -29,77 +29,66 @@ namespace hlsl {
 #include "dxc/HLSL/DxilValidation.inc"
 
 const char *GetValidationRuleText(ValidationRule value);
-void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor);
-HRESULT ValidateDxilModule(_In_ llvm::Module *pModule,
-                           _In_opt_ llvm::Module *pDebugModule);
+void GetValidationVersion(unsigned *pMajor, unsigned *pMinor);
+HRESULT ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule);
 
 // DXIL Container Verification Functions (return false on failure)
 
-bool VerifySignatureMatches(_In_ llvm::Module *pModule,
+bool VerifySignatureMatches(llvm::Module *pModule,
                             hlsl::DXIL::SignatureKind SigKind,
-                            _In_reads_bytes_(SigSize) const void *pSigData,
-                            _In_ uint32_t SigSize);
+                            const void *pSigData, uint32_t SigSize);
 
 // PSV = data for Pipeline State Validation
-bool VerifyPSVMatches(_In_ llvm::Module *pModule,
-                      _In_reads_bytes_(PSVSize) const void *pPSVData,
-                      _In_ uint32_t PSVSize);
+bool VerifyPSVMatches(llvm::Module *pModule, const void *pPSVData,
+                      uint32_t PSVSize);
 
 // PSV = data for Pipeline State Validation
-bool VerifyRDATMatches(_In_ llvm::Module *pModule,
-                       _In_reads_bytes_(RDATSize) const void *pRDATData,
-                       _In_ uint32_t RDATSize);
+bool VerifyRDATMatches(llvm::Module *pModule, const void *pRDATData,
+                       uint32_t RDATSize);
 
-bool VerifyFeatureInfoMatches(_In_ llvm::Module *pModule,
-                              _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
-                              _In_ uint32_t FeatureInfoSize);
+bool VerifyFeatureInfoMatches(llvm::Module *pModule,
+                              const void *pFeatureInfoData,
+                              uint32_t FeatureInfoSize);
 
 // Validate the container parts, assuming supplied module is valid, loaded from the container provided
 struct DxilContainerHeader;
-HRESULT ValidateDxilContainerParts(_In_ llvm::Module *pModule,
-                                   _In_opt_ llvm::Module *pDebugModule,
-                                   _In_reads_bytes_(ContainerSize) const DxilContainerHeader *pContainer,
-                                   _In_ uint32_t ContainerSize);
+HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
+                                   llvm::Module *pDebugModule,
+                                   const DxilContainerHeader *pContainer,
+                                   uint32_t ContainerSize);
 
 // Loads module, validating load, but not module.
-HRESULT ValidateLoadModule(_In_reads_bytes_(ILLength) const char *pIL,
-                           _In_ uint32_t ILLength,
-                           _In_ std::unique_ptr<llvm::Module> &pModule,
-                           _In_ llvm::LLVMContext &Ctx,
-                           _In_ llvm::raw_ostream &DiagStream,
-                           _In_ unsigned bLazyLoad);
+HRESULT ValidateLoadModule(const char *pIL, uint32_t ILLength,
+                           std::unique_ptr<llvm::Module> &pModule,
+                           llvm::LLVMContext &Ctx,
+                           llvm::raw_ostream &DiagStream, unsigned bLazyLoad);
 
 // Loads module from container, validating load, but not module.
 HRESULT ValidateLoadModuleFromContainer(
-    _In_reads_bytes_(ContainerSize) const void *pContainer,
-    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
-    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
-    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
-    _In_ llvm::raw_ostream &DiagStream);
+    const void *pContainer, uint32_t ContainerSize,
+    std::unique_ptr<llvm::Module> &pModule,
+    std::unique_ptr<llvm::Module> &pDebugModule, llvm::LLVMContext &Ctx,
+    llvm::LLVMContext &DbgCtx, llvm::raw_ostream &DiagStream);
 // Lazy loads module from container, validating load, but not module.
 HRESULT ValidateLoadModuleFromContainerLazy(
-    _In_reads_bytes_(ContainerSize) const void *pContainer,
-    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
-    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
-    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
-    _In_ llvm::raw_ostream &DiagStream);
+    const void *pContainer, uint32_t ContainerSize,
+    std::unique_ptr<llvm::Module> &pModule,
+    std::unique_ptr<llvm::Module> &pDebugModule, llvm::LLVMContext &Ctx,
+    llvm::LLVMContext &DbgCtx, llvm::raw_ostream &DiagStream);
 
 // Load and validate Dxil module from bitcode.
-HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,
-                            _In_ uint32_t ILLength,
-                            _In_ llvm::raw_ostream &DiagStream);
+HRESULT ValidateDxilBitcode(const char *pIL, uint32_t ILLength,
+                            llvm::raw_ostream &DiagStream);
 
 // Full container validation, including ValidateDxilModule
-HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
-                              _In_ uint32_t ContainerSize,
-                              _In_ llvm::raw_ostream &DiagStream);
+HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
+                              llvm::raw_ostream &DiagStream);
 
 // Full container validation, including ValidateDxilModule, with debug module
-HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
-                              _In_ uint32_t ContainerSize,
+HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
                               const void *pOptDebugBitcode,
                               uint32_t OptDebugBitcodeSize,
-                              _In_ llvm::raw_ostream &DiagStream);
+                              llvm::raw_ostream &DiagStream);
 
 class PrintDiagnosticContext {
 private:

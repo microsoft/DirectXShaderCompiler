@@ -103,9 +103,9 @@ public:
   size_t callIndex;
 
   HRESULT STDMETHODCALLTYPE LoadSource(
-    _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
-    _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
-    ) override {
+      LPCWSTR pFilename,         // Filename as written in #include statement
+      IDxcBlob **ppIncludeSource // Resultant source object for included file
+      ) override {
     CallInfos.push_back(LoadSourceCallInfo(pFilename));
 
     *ppIncludeSource = nullptr;
@@ -276,23 +276,22 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
-  void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
-                        UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobPinned(LPCVOID data, SIZE_T size, UINT32 codePage,
+                        IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
-  void CreateBlobFromFile(LPCWSTR name, _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobFromFile(LPCWSTR name, IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     const std::wstring path = hlsl_test::GetPathToHlslDataFile(name);
     IFT(library->CreateBlobFromFile(path.c_str(), nullptr, ppBlob));
   }
 
-  void CreateBlobFromText(_In_z_ const char *pText,
-                          _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobFromText(const char *pText, IDxcBlobEncoding **ppBlob) {
     CreateBlobPinned(pText, strlen(pText) + 1, CP_UTF8, ppBlob);
   }
 
@@ -1560,7 +1559,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
   pInclude->CallResults.emplace_back(included_File.c_str());
 
   const WCHAR *pArgs[] = { L"/Zi", L"/Od", L"-flegacy-macro-expansion", L"-Qstrip_debug", L"/DTHIS_IS_A_DEFINE=HELLO" };
-  const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
+  const DxcDefine pDefines[] = {{L"THIS_IS_ANOTHER_DEFINE", L"1"}};
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"PSMain",
     L"ps_6_0", pArgs, _countof(pArgs), pDefines, _countof(pDefines), pInclude, &pOperationResult));
@@ -1668,7 +1667,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
 
   AddArg(L"-D", L"THIS_IS_A_DEFINE=HELLO", true);
 
-  const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
+  const DxcDefine pDefines[] = {{L"THIS_IS_ANOTHER_DEFINE", L"1"}};
   expectedDefines.push_back(L"THIS_IS_ANOTHER_DEFINE=1");
   expectedDefines.push_back(L"THIS_IS_A_DEFINE=HELLO");
 
@@ -2138,9 +2137,9 @@ void CompilerTest::TestResourceBindingImpl(
     IncludeHandler() : m_dwRef(0) {}
 
     HRESULT STDMETHODCALLTYPE LoadSource(
-      _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
-      _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
-      ) override {
+        LPCWSTR pFilename,         // Filename as written in #include statement
+        IDxcBlob **ppIncludeSource // Resultant source object for included file
+        ) override {
 
       if (0 == wcscmp(pFilename, L"binding-file.txt")) {
         return pBindingFileBlob.QueryInterface(ppIncludeSource);
@@ -3336,7 +3335,7 @@ public:
   STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
-  virtual void *STDMETHODCALLTYPE Alloc(_In_ SIZE_T cb) override {
+  virtual void *STDMETHODCALLTYPE Alloc(SIZE_T cb) override {
     ++m_AllocCount;
     if (m_FailAlloc && m_AllocCount >= m_FailAlloc) {
       return nullptr; // breakpoint for i failure - m_FailAlloc == 1+VAL
@@ -3360,7 +3359,7 @@ public:
     return P + 1;
   }
 
-  virtual void *STDMETHODCALLTYPE Realloc(_In_opt_ void *pv, _In_ SIZE_T cb) override {
+  virtual void *STDMETHODCALLTYPE Realloc(void *pv, SIZE_T cb) override {
     SIZE_T priorSize = pv == nullptr ? (SIZE_T)0 : GetSize(pv);
     void *R = Alloc(cb);
     if (!R)
@@ -3371,7 +3370,7 @@ public:
     return R;
   }
 
-  virtual void STDMETHODCALLTYPE Free(_In_opt_ void *pv) override {
+  virtual void STDMETHODCALLTYPE Free(void *pv) override {
     if (!pv)
       return;
     PtrData *P = DataFromPtr(pv);
@@ -3387,16 +3386,12 @@ public:
 #endif // __ANDROID__
   }
 
-  virtual SIZE_T STDMETHODCALLTYPE GetSize(
-    /* [annotation][in] */
-    _In_opt_ _Post_writable_byte_size_(return)  void *pv) override
-  {
+  virtual SIZE_T STDMETHODCALLTYPE GetSize(void *pv) override {
     if (pv == nullptr) return 0;
     return DataFromPtr(pv)->Size;
   }
 
-  virtual int STDMETHODCALLTYPE DidAlloc(
-      _In_opt_ void *pv) override {
+  virtual int STDMETHODCALLTYPE DidAlloc(void *pv) override {
     return -1; // don't know
   }
 

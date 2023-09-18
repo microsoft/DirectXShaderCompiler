@@ -137,8 +137,7 @@ STDMETHODIMP dxil_dia::Session::get_globalScope(
   return S_OK;
 }
 
-STDMETHODIMP dxil_dia::Session::getEnumTables(
-    /* [out] */ _COM_Outptr_ IDiaEnumTables **ppEnumTables) {
+STDMETHODIMP dxil_dia::Session::getEnumTables(IDiaEnumTables **ppEnumTables) {
   if (!m_pEnumTables) {
     DxcThreadMalloc TM(m_pMalloc);
     IFR(EnumTables::Create(this, &m_pEnumTables));

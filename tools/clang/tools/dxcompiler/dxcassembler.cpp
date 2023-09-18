@@ -32,7 +32,7 @@ using namespace llvm;
 using namespace hlsl;
 
 // This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 
 static bool HasDebugInfo(const Module &M) {
   for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
@@ -58,16 +58,17 @@ public:
 
   // Assemble dxil in ll or llvm bitcode to dxbc container.
   HRESULT STDMETHODCALLTYPE AssembleToContainer(
-      _In_ IDxcBlob *pShader, // Shader to assemble.
-      _COM_Outptr_ IDxcOperationResult **ppResult // Assemble output status, buffer, and errors
+      IDxcBlob *pShader, // Shader to assemble.
+      IDxcOperationResult *
+          *ppResult // Assemble output status, buffer, and errors
       ) override;
 };
 
 // Assemble dxil in ll or llvm bitcode to dxbc container.
 HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
-    _In_ IDxcBlob *pShader, // Shader to assemble.
-    _COM_Outptr_ IDxcOperationResult **ppResult // Assemble output status, buffer, and errors
-    ) {
+    IDxcBlob *pShader,             // Shader to assemble.
+    IDxcOperationResult **ppResult // Assemble output status, buffer, and errors
+) {
   if (pShader == nullptr || ppResult == nullptr)
     return E_POINTER;
 
@@ -171,7 +172,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
   return hr;
 }
 
-HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcAssembler(REFIID riid, LPVOID *ppv) {
   CComPtr<DxcAssembler> result = DxcAssembler::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;

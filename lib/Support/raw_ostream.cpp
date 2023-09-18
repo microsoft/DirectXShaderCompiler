@@ -88,7 +88,7 @@ void raw_ostream::SetBuffered() {
     SetUnbuffered();
 }
 
-void raw_ostream::SetBufferAndMode(_In_opt_ char *BufferStart, size_t Size,
+void raw_ostream::SetBufferAndMode(char *BufferStart, size_t Size,
                                    BufferKind Mode) {
   assert(((Mode == Unbuffered && !BufferStart && Size == 0) ||
           (Mode != Unbuffered && BufferStart && Size != 0)) &&
@@ -454,7 +454,7 @@ raw_ostream &raw_ostream::operator<<(const FormattedNumber &FN) {
     while (N) {
       uintptr_t x = N % 16;
       assert(CurPtr > NumberBuffer && "else FN values inconsistent"); // HLSL Change
-      _Analysis_assume_(CurPtr > NumberBuffer); // HLSL Change
+      assert(CurPtr > NumberBuffer); // HLSL Change
       *--CurPtr = (x < 10 ? '0' + x : A + x - 10);
       N /= 16;
     }

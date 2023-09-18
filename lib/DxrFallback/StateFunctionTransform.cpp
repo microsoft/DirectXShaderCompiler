@@ -671,8 +671,8 @@ void StateFunctionTransform::setDumpFilename(const std::string& dumpFilename)
   m_dumpFilename = dumpFilename;
 }
 
-void StateFunctionTransform::run(std::vector<Function*>& stateFunctions, _Out_ unsigned int &shaderStackSize)
-{
+void StateFunctionTransform::run(std::vector<Function *> &stateFunctions,
+                                 unsigned int &shaderStackSize) {
   printFunction("Initial");
 
   init();
@@ -861,9 +861,8 @@ static void extendAllocaLifetimes(LiveValues& lv)
   }
 }
 
-
-void StateFunctionTransform::preserveLiveValuesAcrossCallsites(_Out_ unsigned int &shaderStackSize)
-{
+void StateFunctionTransform::preserveLiveValuesAcrossCallsites(
+    unsigned int &shaderStackSize) {
   if (m_callSites.empty())
   {
     // No stack frame. Nothing to do.

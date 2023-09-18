@@ -139,18 +139,15 @@ unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask) {
   return 1;
 }
 
-HANDLE CreateFile2(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
-                   _In_ DWORD dwShareMode, _In_ DWORD dwCreationDisposition,
-                   _In_opt_ void *pCreateExParams) {
+HANDLE CreateFile2(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+                   DWORD dwCreationDisposition, void *pCreateExParams) {
   return CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, pCreateExParams,
                      dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, nullptr);
 }
 
-HANDLE CreateFileW(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
-                   _In_ DWORD dwShareMode, _In_opt_ void *lpSecurityAttributes,
-                   _In_ DWORD dwCreationDisposition,
-                   _In_ DWORD dwFlagsAndAttributes,
-                   _In_opt_ HANDLE hTemplateFile) {
+HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+                   void *lpSecurityAttributes, DWORD dwCreationDisposition,
+                   DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
   CW2A pUtf8FileName(lpFileName);
   size_t fd = -1;
   int flags = 0;
@@ -187,7 +184,7 @@ HANDLE CreateFileW(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
   return (HANDLE)fd;
 }
 
-BOOL GetFileSizeEx(_In_ HANDLE hFile, _Out_ PLARGE_INTEGER lpFileSize) {
+BOOL GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize) {
   int fd = (size_t)hFile;
   struct stat fdstat;
   int rv = fstat(fd, &fdstat);
@@ -198,10 +195,8 @@ BOOL GetFileSizeEx(_In_ HANDLE hFile, _Out_ PLARGE_INTEGER lpFileSize) {
   return false;
 }
 
-BOOL ReadFile(_In_ HANDLE hFile, _Out_ LPVOID lpBuffer,
-              _In_ DWORD nNumberOfBytesToRead,
-              _Out_opt_ LPDWORD lpNumberOfBytesRead,
-              _Inout_opt_ void *lpOverlapped) {
+BOOL ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
+              LPDWORD lpNumberOfBytesRead, void *lpOverlapped) {
   size_t fd = (size_t)hFile;
   ssize_t rv = -1;
 
@@ -215,10 +210,8 @@ BOOL ReadFile(_In_ HANDLE hFile, _Out_ LPVOID lpBuffer,
   return true;
 }
 
-BOOL WriteFile(_In_ HANDLE hFile, _In_ LPCVOID lpBuffer,
-               _In_ DWORD nNumberOfBytesToWrite,
-               _Out_opt_ LPDWORD lpNumberOfBytesWritten,
-               _Inout_opt_ void *lpOverlapped) {
+BOOL WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite,
+               LPDWORD lpNumberOfBytesWritten, void *lpOverlapped) {
   size_t fd = (size_t)hFile;
   ssize_t rv = -1;
 
@@ -232,7 +225,7 @@ BOOL WriteFile(_In_ HANDLE hFile, _In_ LPCVOID lpBuffer,
   return true;
 }
 
-BOOL CloseHandle(_In_ HANDLE hObject) {
+BOOL CloseHandle(HANDLE hObject) {
   int fd = (size_t)hObject;
   return !close(fd);
 }

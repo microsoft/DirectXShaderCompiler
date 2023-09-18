@@ -252,8 +252,7 @@ bool HasHLSLGloballyCoherent(clang::QualType type) {
 
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
-bool IsParamAttributedAsOut(_In_opt_ clang::AttributeList *pAttributes,
-  _Out_opt_ bool *pIsIn);
+bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn);
 
 /// <summary>Gets the type with structural information (elements and shape) for
 /// the given type.</summary>
@@ -840,7 +839,6 @@ unsigned GetHLSLOutputPatchCount(QualType type) {
   return argList[1].getAsIntegral().getLimitedValue();
 }
 
-_Use_decl_annotations_
 bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn) {
   bool anyFound = false;
   bool inFound = false;
@@ -871,7 +869,6 @@ bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn) {
   return outFound;
 }
 
-_Use_decl_annotations_
 hlsl::ParameterModifier ParamModFromAttributeList(clang::AttributeList *pAttributes) {
   bool isIn, isOut;
   isOut = IsParamAttributedAsOut(pAttributes, &isIn);
