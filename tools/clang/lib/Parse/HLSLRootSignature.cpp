@@ -1686,7 +1686,6 @@ Cleanup:
     return hr;
 }
 
-_Use_decl_annotations_
 bool clang::ParseHLSLRootSignature(
     const char *pData, unsigned Len, hlsl::DxilRootSignatureVersion Ver,
     hlsl::DxilRootSignatureCompilationFlags Flags, hlsl::DxilVersionedRootSignatureDesc **ppDesc, 
@@ -1714,7 +1713,6 @@ bool clang::ParseHLSLRootSignature(
   }
 }
 
-_Use_decl_annotations_
 void clang::ReportHLSLRootSigError(clang::DiagnosticsEngine &Diags,
                             clang::SourceLocation Loc, const char *pData,
                             unsigned Len) {

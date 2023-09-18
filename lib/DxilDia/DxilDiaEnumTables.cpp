@@ -15,7 +15,7 @@
 #include "DxilDiaSession.h"
 #include "DxilDiaTable.h"
 
-STDMETHODIMP dxil_dia::EnumTables::get_Count(_Out_ LONG *pRetVal) {
+STDMETHODIMP dxil_dia::EnumTables::get_Count(LONG *pRetVal) {
   *pRetVal = ((unsigned)Table::LastKind - (unsigned)Table::FirstKind) + 1;
   return S_OK;
 }

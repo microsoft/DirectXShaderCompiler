@@ -12,7 +12,8 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/Support/WinIncludes.h"
+
+#include <cstddef>
 
 #define RDAT_NULL_REF ((uint32_t)0xFFFFFFFF)
 
@@ -241,8 +242,6 @@ public:
     m_size = size;
   }
   const char *Get(uint32_t offset) const {
-    _Analysis_assume_(offset < m_size && m_table &&
-                      m_table[m_size - 1] == '\0');
     (void)m_size; // avoid unused private warning if use above is ignored.
     return m_table + offset;
   }
@@ -262,8 +261,6 @@ public:
   }
   uint32_t Size() const { return m_size; }
   const void *Get(uint32_t offset) const {
-    _Analysis_assume_(offset < m_size && m_table);
-    (void)m_size; // avoid unused private warning if use above is ignored.
     return (const void*)(((const char*)m_table) + offset);
   }
 };

@@ -116,8 +116,7 @@ struct MatrixMemberAccessPositions {
                       (R3_Row == R2_Row && R3_Col == R2_Col)))   );
   }
 
-  void GetPosition(uint32_t index, _Out_ uint32_t* row, _Out_ uint32_t* col) const
-  {
+  void GetPosition(uint32_t index, uint32_t *row, uint32_t *col) const {
     assert(index < 4);
     switch (index)
     {
@@ -167,8 +166,7 @@ struct VectorMemberAccessPositions {
                       (Swz3 == Swz2)))   );
   }
 
-  void GetPosition(uint32_t index, _Out_ uint32_t* col) const
-  {
+  void GetPosition(uint32_t index, uint32_t *col) const {
     assert(index < 4);
     switch (index)
     {
@@ -301,20 +299,17 @@ struct SemanticDecl : public UnusualAnnotation
 };
 
 /// Returns a ParameterModifier initialized as per the attribute list.
-ParameterModifier
-ParamModFromAttributeList(_In_opt_ clang::AttributeList *pAttributes);
+ParameterModifier ParamModFromAttributeList(clang::AttributeList *pAttributes);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AST manipulation functions.
 
-void AddHLSLMatrixTemplate(
-  clang::ASTContext& context,
-  _In_ clang::ClassTemplateDecl* vectorTemplateDecl,
-  _Outptr_ clang::ClassTemplateDecl** matrixTemplateDecl);
+void AddHLSLMatrixTemplate(clang::ASTContext &context,
+                           clang::ClassTemplateDecl *vectorTemplateDecl,
+                           clang::ClassTemplateDecl **matrixTemplateDecl);
 
-void AddHLSLVectorTemplate(
-  clang::ASTContext& context, 
-  _Outptr_ clang::ClassTemplateDecl** vectorTemplateDecl);
+void AddHLSLVectorTemplate(clang::ASTContext &context,
+                           clang::ClassTemplateDecl **vectorTemplateDecl);
 
 void AddHLSLNodeOutputRecordTemplate(
     clang::ASTContext &context, llvm::StringRef templateName,
@@ -337,18 +332,15 @@ void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
 /// <parm name="context">AST context to which template will be added.</param>
 /// <parm name="templateArgCount">Number of template arguments (one or two).</param>
 /// <parm name="defaultTypeArgValue">If assigned, the default argument for the element template.</param>
-clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
-            clang::ASTContext& context,
-            llvm::StringRef name,
-            uint8_t templateArgCount = 1,
-  _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue = nullptr);
+clang::CXXRecordDecl *
+DeclareTemplateTypeWithHandle(clang::ASTContext &context, llvm::StringRef name,
+                              uint8_t templateArgCount = 1,
+                              clang::TypeSourceInfo *defaultTypeArgValue = nullptr);
 
-clang::CXXRecordDecl* DeclareTemplateTypeWithHandleInDeclContext(
-            clang::ASTContext& context,
-            clang::DeclContext *declContext,
-            llvm::StringRef name,
-            uint8_t templateArgCount,
-  _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
+clang::CXXRecordDecl *DeclareTemplateTypeWithHandleInDeclContext(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    llvm::StringRef name, uint8_t templateArgCount,
+    clang::TypeSourceInfo *defaultTypeArgValue);
 
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName, 
@@ -383,12 +375,12 @@ clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
 /// <param name="templateParamNamedDecls">Declarations for templates to the function.</param>
 /// <param name="templateParamNamedDeclsCount">Count of template declarations.</param>
 /// <returns>A new function template declaration already declared in the class scope.</returns>
-clang::FunctionTemplateDecl* CreateFunctionTemplateDecl(
-  clang::ASTContext& context,
-  _In_ clang::CXXRecordDecl* recordDecl,
-  _In_ clang::CXXMethodDecl* functionDecl,
-  _In_count_(templateParamNamedDeclsCount) clang::NamedDecl** templateParamNamedDecls,
-  size_t templateParamNamedDeclsCount);
+clang::FunctionTemplateDecl *
+CreateFunctionTemplateDecl(clang::ASTContext &context,
+                           clang::CXXRecordDecl *recordDecl,
+                           clang::CXXMethodDecl *functionDecl,
+                           clang::NamedDecl **templateParamNamedDecls,
+                           size_t templateParamNamedDeclsCount);
 
 clang::TypedefDecl* CreateMatrixSpecializationShorthand(
   clang::ASTContext& context,
@@ -488,71 +480,39 @@ bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
 /// <param name="declarationName">Name for function.</param>
 /// <param name="isConst">Whether the function is a const function.</param>
 /// <returns>The method declaration for the function.</returns>
-clang::CXXMethodDecl* CreateObjectFunctionDeclarationWithParams(
-  clang::ASTContext& context,
-  _In_ clang::CXXRecordDecl* recordDecl,
-  clang::QualType resultType,
-  llvm::ArrayRef<clang::QualType> paramTypes,
-  llvm::ArrayRef<clang::StringRef> paramNames,
-  clang::DeclarationName declarationName,
-  bool isConst,
-  bool isTemplateFunction = false);
+clang::CXXMethodDecl *CreateObjectFunctionDeclarationWithParams(
+    clang::ASTContext &context, clang::CXXRecordDecl *recordDecl,
+    clang::QualType resultType, llvm::ArrayRef<clang::QualType> paramTypes,
+    llvm::ArrayRef<clang::StringRef> paramNames,
+    clang::DeclarationName declarationName, bool isConst,
+    bool isTemplateFunction = false);
 
 DXIL::ResourceClass GetResourceClassForType(const clang::ASTContext &context,
                                             clang::QualType Ty);
 
-_Success_(return != false)
-bool TryParseMatrixShorthand(
-  _In_count_(typeNameLen)
-            const char* typeName,
-            size_t typeNameLen,
-  _Out_     HLSLScalarType* parsedType,
-  _Out_     int* rowCount,
-  _Out_     int* colCount,
-  _In_      const clang::LangOptions& langOption);
+bool TryParseMatrixShorthand(const char *typeName, size_t typeNameLen,
+                             HLSLScalarType *parsedType, int *rowCount,
+                             int *colCount,
+                             const clang::LangOptions &langOption);
 
-_Success_(return != false)
-bool TryParseVectorShorthand(
-  _In_count_(typeNameLen)
-            const char* typeName,
-            size_t typeNameLen,
-  _Out_     HLSLScalarType* parsedType,
-  _Out_     int* elementCount,
-  _In_      const clang::LangOptions& langOption);
+bool TryParseVectorShorthand(const char *typeName, size_t typeNameLen,
+                             HLSLScalarType *parsedType, int *elementCount,
+                             const clang::LangOptions &langOption);
 
-_Success_(return != false)
-bool TryParseScalar(
-  _In_count_(typenameLen)
-  const char* typeName,
-  size_t typeNameLen,
-  _Out_     HLSLScalarType *parsedType,
-  _In_      const clang::LangOptions& langOption);
+bool TryParseScalar(const char *typeName, size_t typeNameLen,
+                    HLSLScalarType *parsedType,
+                    const clang::LangOptions &langOption);
 
-_Success_(return != false)
-bool TryParseAny(
-  _In_count_(typenameLen)
-  const char* typeName,
-  size_t typeNameLen,
-  _Out_ HLSLScalarType *parsedType,
-  _Out_ int *rowCount,
-  _Out_ int *colCount,
-  _In_      const clang::LangOptions& langOption);
+bool TryParseAny(const char *typeName, size_t typeNameLen,
+                 HLSLScalarType *parsedType, int *rowCount, int *colCount,
+                 const clang::LangOptions &langOption);
 
-_Success_(return != false)
-bool TryParseString(
-  _In_count_(typenameLen)
-  const char* typeName,
-  size_t typeNameLen,
-  _In_ const clang::LangOptions& langOptions);
+bool TryParseString(const char *typeName, size_t typeNameLen,
+                    const clang::LangOptions &langOptions);
 
-_Success_(return != false)
-bool TryParseMatrixOrVectorDimension(
-  _In_count_(typeNameLen)
-  const char *typeName,
-  size_t typeNameLen,
-  _Out_opt_ int *rowCount,
-  _Out_opt_ int *colCount,
-  _In_      const clang::LangOptions& langOption);
+bool TryParseMatrixOrVectorDimension(const char *typeName, size_t typeNameLen,
+                                     int *rowCount, int *colCount,
+                                     const clang::LangOptions &langOption);
 
 } // end hlsl namespace
 #endif

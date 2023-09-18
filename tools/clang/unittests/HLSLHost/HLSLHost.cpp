@@ -13,6 +13,7 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/microcom.h"
+#include "llvm/Support/Compiler.h" // for LLVM_FALLTHROUGH
 #include <vector>
 #include <string>
 #include <comdef.h>
@@ -723,6 +724,7 @@ public:
       WriteRequestResultReply(MsgKind,
         m_renderer.SetSize(pSetSize->Width, pSetSize->Height));
     }
+    LLVM_FALLTHROUGH;
     case SetParentWndMsgId: {
       if (cb < sizeof(HhSetParentWndMessage)) {
         WriteRequestResultReply(MsgKind, E_INVALIDARG);

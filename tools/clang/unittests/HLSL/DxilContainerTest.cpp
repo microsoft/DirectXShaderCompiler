@@ -127,16 +127,15 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
-  void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
-                        UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobPinned(LPCVOID data, SIZE_T size, UINT32 codePage,
+                        IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
-  void CreateBlobFromText(_In_z_ const char *pText,
-                          _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobFromText(const char *pText, IDxcBlobEncoding **ppBlob) {
     CreateBlobPinned(pText, strlen(pText), CP_UTF8, ppBlob);
   }
 
@@ -1867,7 +1866,7 @@ public:
   LPCWSTR GetMode() const { return m_Mode.c_str(); }
   LPCWSTR GetTarget() const { return m_Target.c_str(); }
   void Reset();
-  HRESULT SetFromText(_In_count_(len) const char *pText, size_t len);
+  HRESULT SetFromText(const char *pText, size_t len);
 };
 
 void HlslFileVariables::Reset() {
@@ -1884,7 +1883,7 @@ static bool wcsneq(const wchar_t *pValue, const wchar_t *pCheck) {
   return 0 == wcsncmp(pValue, pCheck, wcslen(pCheck));
 }
 
-HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t len) {
+HRESULT HlslFileVariables::SetFromText(const char *pText, size_t len) {
   // Look for the line of interest.
   const char *pEnd = pText + len;
   const char *pLineEnd = pText;

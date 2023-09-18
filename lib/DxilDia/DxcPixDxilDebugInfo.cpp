@@ -22,28 +22,23 @@
 #include "DxcPixLiveVariables.h"
 #include "DxcPixDxilDebugInfo.h"
 #include "DxcPixBase.h"
-#include "dxc/DxilPixPasses/DxilPixVirtualRegisters.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetLiveVariablesAt(
-  _In_ DWORD InstructionOffset,
-  _COM_Outptr_ IDxcPixDxilLiveVariables **ppLiveVariables)
-{
+    DWORD InstructionOffset, IDxcPixDxilLiveVariables **ppLiveVariables) {
   return m_LiveVars->GetLiveVariablesAtInstruction(
       FindInstruction(InstructionOffset),
       ppLiveVariables);
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::IsVariableInRegister(
-    _In_ DWORD InstructionOffset,
-    _In_ const wchar_t *VariableName)
-{
+    DWORD InstructionOffset, const wchar_t *VariableName) {
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetFunctionName(
-    _In_ DWORD InstructionOffset,
-    _Outptr_result_z_ BSTR *ppFunctionName)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilDebugInfo::GetFunctionName(DWORD InstructionOffset,
+                                                      BSTR *ppFunctionName) {
   llvm::Instruction *IP = FindInstruction(InstructionOffset);
 
   const llvm::DITypeIdentifierMap EmptyMap;
@@ -63,15 +58,13 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetFunctionName(
     }
   }
 
-  *ppFunctionName = CComBSTR(L"<???>").Detach();
+  *ppFunctionName = CComBSTR(L"<\?\?\?>").Detach();
   return S_FALSE;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetStackDepth(
-    _In_ DWORD InstructionOffset,
-    _Outptr_ DWORD *StackDepth
-)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilDebugInfo::GetStackDepth(DWORD InstructionOffset,
+                                                    DWORD *StackDepth) {
   llvm::Instruction *IP = FindInstruction(InstructionOffset);
 
   DWORD Depth = 0;
@@ -121,10 +114,8 @@ llvm::Instruction* dxil_debug_info::DxcPixDxilDebugInfo::FindInstruction(
 
 STDMETHODIMP
 dxil_debug_info::DxcPixDxilDebugInfo::InstructionOffsetsFromSourceLocation(
-    _In_ const wchar_t *FileName, _In_ DWORD SourceLine,
-    _In_ DWORD SourceColumn,
-    _COM_Outptr_ IDxcPixDxilInstructionOffsets **ppOffsets) 
-{
+    const wchar_t *FileName, DWORD SourceLine, DWORD SourceColumn,
+    IDxcPixDxilInstructionOffsets **ppOffsets) {
   return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<
       dxil_debug_info::DxcPixDxilInstructionOffsets>(
       ppOffsets, m_pMalloc, m_pSession, FileName, SourceLine, SourceColumn);
@@ -132,8 +123,7 @@ dxil_debug_info::DxcPixDxilDebugInfo::InstructionOffsetsFromSourceLocation(
 
 STDMETHODIMP
 dxil_debug_info::DxcPixDxilDebugInfo::SourceLocationsFromInstructionOffset(
-    _In_ DWORD InstructionOffset,
-    _COM_Outptr_ IDxcPixDxilSourceLocations **ppSourceLocations) {
+    DWORD InstructionOffset, IDxcPixDxilSourceLocations **ppSourceLocations) {
 
   llvm::Instruction *IP = FindInstruction(InstructionOffset);
 
@@ -259,9 +249,9 @@ STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetCount()
     return static_cast<DWORD>(m_locations.size());
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilSourceLocations::GetFileNameByIndex(
-    _In_ DWORD Index, _Outptr_result_z_ BSTR *Name)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilSourceLocations::GetFileNameByIndex(DWORD Index,
+                                                               BSTR *Name) {
   if (Index >= static_cast<DWORD>(m_locations.size()))
   {
     return E_BOUNDS;
@@ -270,9 +260,8 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilSourceLocations::GetFileNameByIndex(
   return S_OK;
 }
 
-STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetColumnByIndex(
-    _In_ DWORD Index) 
-{
+STDMETHODIMP_(DWORD)
+dxil_debug_info::DxcPixDxilSourceLocations::GetColumnByIndex(DWORD Index) {
   if (Index >= static_cast<DWORD>(m_locations.size()))
   {
     return E_BOUNDS;
@@ -280,13 +269,10 @@ STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetColumnByInde
   return m_locations[Index].Column;
 }
 
-STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetLineNumberByIndex(
-    _In_ DWORD Index) 
-{
-    if (Index >= static_cast<DWORD>(m_locations.size()))
-    {
-        return E_BOUNDS;
-    }
-    return m_locations[Index].Line;
+STDMETHODIMP_(DWORD)
+dxil_debug_info::DxcPixDxilSourceLocations::GetLineNumberByIndex(DWORD Index) {
+  if (Index >= static_cast<DWORD>(m_locations.size())) {
+    return E_BOUNDS;
+  }
+  return m_locations[Index].Line;
 }
-

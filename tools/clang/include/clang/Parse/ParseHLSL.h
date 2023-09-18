@@ -27,15 +27,15 @@ class  RootSignatureHandle;
 namespace clang {
 class DiagnosticsEngine;
 
-bool ParseHLSLRootSignature(_In_count_(Len) const char *pData, unsigned Len,
+bool ParseHLSLRootSignature(const char *pData, unsigned Len,
                             hlsl::DxilRootSignatureVersion Ver,
                             hlsl::DxilRootSignatureCompilationFlags Flags,
                             hlsl::DxilVersionedRootSignatureDesc **ppDesc,
                             clang::SourceLocation Loc,
                             clang::DiagnosticsEngine &Diags);
 void ReportHLSLRootSigError(clang::DiagnosticsEngine &Diags,
-                            clang::SourceLocation Loc,
-                            _In_count_(Len) const char *pData, unsigned Len);
+                            clang::SourceLocation Loc, const char *pData,
+                            unsigned Len);
 void CompileRootSignature(StringRef rootSigStr, DiagnosticsEngine &Diags,
                           SourceLocation SLoc, 
                           hlsl::DxilRootSignatureVersion rootSigVer,

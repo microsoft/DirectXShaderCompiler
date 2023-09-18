@@ -704,15 +704,17 @@ private:
                                           SourceLocation loc,
                                           SourceRange range);
 
-  /// Returns the alignment of `vk::RawBufferLoad()`.
-  uint32_t getAlignmentForRawBufferLoad(const CallExpr *callExpr);
-
-  /// Returns the alignment of `vk::RawBufferStore()`.
-  uint32_t getAlignmentForRawBufferStore(const CallExpr *callExpr);
+  /// Returns the value of the alignment argument for `vk::RawBufferLoad()` and
+  /// `vk::RawBufferStore()`.
+  uint32_t getRawBufferAlignment(const Expr *expr);
 
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
                                                   bool useIdParams);
+
+  /// Processes the 'firstbit{high|low}' intrinsic functions.
+  SpirvInstruction *processIntrinsicFirstbit(const CallExpr *,
+                                             GLSLstd450 glslOpcode);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

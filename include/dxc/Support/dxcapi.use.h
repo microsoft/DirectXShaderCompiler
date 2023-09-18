@@ -88,16 +88,16 @@ public:
     return InitializeInternal(kDxCompilerLib, "DxcCreateInstance");
   }
 
-  HRESULT InitializeForDll(_In_z_ LPCSTR dll, _In_z_ LPCSTR entryPoint) {
+  HRESULT InitializeForDll(LPCSTR dll, LPCSTR entryPoint) {
     return InitializeInternal(dll, entryPoint);
   }
 
   template <typename TInterface>
-  HRESULT CreateInstance(REFCLSID clsid, _Outptr_ TInterface** pResult) {
+  HRESULT CreateInstance(REFCLSID clsid, TInterface **pResult) {
     return CreateInstance(clsid, __uuidof(TInterface), (IUnknown**)pResult);
   }
 
-  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, _Outptr_ IUnknown **pResult) {
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, IUnknown **pResult) {
     if (pResult == nullptr) return E_POINTER;
     if (m_dll == nullptr) return E_FAIL;
     HRESULT hr = m_createFn(clsid, riid, (LPVOID*)pResult);
@@ -105,11 +105,13 @@ public:
   }
 
   template <typename TInterface>
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, _Outptr_ TInterface** pResult) {
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid,
+                          TInterface **pResult) {
     return CreateInstance2(pMalloc, clsid, __uuidof(TInterface), (IUnknown**)pResult);
   }
 
-  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid, _Outptr_ IUnknown **pResult) {
+  HRESULT CreateInstance2(IMalloc *pMalloc, REFCLSID clsid, REFIID riid,
+                          IUnknown **pResult) {
     if (pResult == nullptr) return E_POINTER;
     if (m_dll == nullptr) return E_FAIL;
     if (m_createFn2 == nullptr) return E_FAIL;
@@ -145,7 +147,7 @@ public:
   }
 };
 
-inline DxcDefine GetDefine(_In_ LPCWSTR name, LPCWSTR value) {
+inline DxcDefine GetDefine(LPCWSTR name, LPCWSTR value) {
   DxcDefine result;
   result.Name = name;
   result.Value = value;
@@ -153,21 +155,22 @@ inline DxcDefine GetDefine(_In_ LPCWSTR name, LPCWSTR value) {
 }
 
 // Checks an HRESULT and formats an error message with the appended data.
-void IFT_Data(HRESULT hr, _In_opt_ LPCWSTR data);
+void IFT_Data(HRESULT hr, LPCWSTR data);
 
 void EnsureEnabled(DxcDllSupport &dxcSupport);
-void ReadFileIntoBlob(DxcDllSupport &dxcSupport, _In_ LPCWSTR pFileName,
-                      _Outptr_ IDxcBlobEncoding **ppBlobEncoding);
-void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
-void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName, _In_ UINT32 textCodePage);
-void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile, _In_opt_ LPCWSTR pFileName, _In_ UINT32 textCodePage);
-void WriteUtf8ToConsole(_In_opt_count_(charCount) const char *pText,
-                        int charCount, DWORD streamType = STD_OUTPUT_HANDLE);
-void WriteUtf8ToConsoleSizeT(_In_opt_count_(charCount) const char *pText,
-                             size_t charCount, DWORD streamType = STD_OUTPUT_HANDLE);
-void WriteOperationErrorsToConsole(_In_ IDxcOperationResult *pResult,
+void ReadFileIntoBlob(DxcDllSupport &dxcSupport, LPCWSTR pFileName,
+                      IDxcBlobEncoding **ppBlobEncoding);
+void WriteBlobToConsole(IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
+void WriteBlobToFile(IDxcBlob *pBlob, LPCWSTR pFileName, UINT32 textCodePage);
+void WriteBlobToHandle(IDxcBlob *pBlob, HANDLE hFile, LPCWSTR pFileName,
+                       UINT32 textCodePage);
+void WriteUtf8ToConsole(const char *pText, int charCount,
+                        DWORD streamType = STD_OUTPUT_HANDLE);
+void WriteUtf8ToConsoleSizeT(const char *pText, size_t charCount,
+                             DWORD streamType = STD_OUTPUT_HANDLE);
+void WriteOperationErrorsToConsole(IDxcOperationResult *pResult,
                                    bool outputWarnings);
-void WriteOperationResultToConsole(_In_ IDxcOperationResult *pRewriteResult,
+void WriteOperationResultToConsole(IDxcOperationResult *pRewriteResult,
                                    bool outputWarnings);
 
 } // namespace dxc

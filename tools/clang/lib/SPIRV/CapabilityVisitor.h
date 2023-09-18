@@ -64,6 +64,12 @@ private:
   /// the given extension to the SPIR-V module in memory.
   void addExtension(Extension ext, llvm::StringRef target, SourceLocation loc);
 
+  /// Checks that the given extension is enabled based on command line arguments
+  /// before calling addExtension and addCapability.
+  /// Returns `true` if the extension was enabled, `false` otherwise.
+  bool addExtensionAndCapabilitiesIfEnabled(
+      Extension ext, llvm::ArrayRef<spv::Capability> capabilities);
+
   /// Checks that the given capability is a valid capability. And if so,
   /// utilizes the SpirvBuilder to add the given capability to the SPIR-V module
   /// in memory.

@@ -30,17 +30,17 @@ IMalloc *GetGlobalHeapMalloc() throw();
 
 class CDxcThreadMallocAllocator {
 public:
-  _Ret_maybenull_ _Post_writable_byte_size_(nBytes) _ATL_DECLSPEC_ALLOCATOR
-  static void *Reallocate(_In_ void *p, _In_ size_t nBytes) throw() {
+  _ATL_DECLSPEC_ALLOCATOR
+  static void *Reallocate(void *p, size_t nBytes) throw() {
     return DxcGetThreadMallocNoRef()->Realloc(p, nBytes);
   }
 
-  _Ret_maybenull_ _Post_writable_byte_size_(nBytes) _ATL_DECLSPEC_ALLOCATOR
-  static void *Allocate(_In_ size_t nBytes) throw() {
+  _ATL_DECLSPEC_ALLOCATOR
+  static void *Allocate(size_t nBytes) throw() {
     return DxcGetThreadMallocNoRef()->Alloc(nBytes);
   }
 
-  static void Free(_In_ void *p) throw() {
+  static void Free(void *p) throw() {
     return DxcGetThreadMallocNoRef()->Free(p);
   }
 };
@@ -55,10 +55,8 @@ public:
   {
   }
 
-  explicit CDxcTMHeapPtr(_In_ T* pData) throw() :
-    CHeapPtr<T, CDxcThreadMallocAllocator>(pData)
-  {
-  }
+  explicit CDxcTMHeapPtr(T *pData) throw()
+      : CHeapPtr<T, CDxcThreadMallocAllocator>(pData) {}
 };
 
 // Like CComHeapPtr, but with a stateful allocator.
@@ -82,7 +80,7 @@ public:
 
   IMalloc* GetMallocNoRef() const throw() { return m_pMalloc.p; }
 
-  bool Allocate(_In_ SIZE_T ElementCount) throw() {
+  bool Allocate(SIZE_T ElementCount) throw() {
     ATLASSERT(m_pData == NULL);
     SIZE_T nBytes = ElementCount * sizeof(T);
     m_pData = static_cast<T *>(m_pMalloc->Alloc(nBytes));
@@ -91,14 +89,14 @@ public:
     return true;
   }
 
-  void AllocateBytes(_In_ SIZE_T ByteCount) throw() {
+  void AllocateBytes(SIZE_T ByteCount) throw() {
     if (m_pData)
       m_pMalloc->Free(m_pData);
     m_pData = static_cast<T *>(m_pMalloc->Alloc(ByteCount));
   }
 
   // Attach to an existing pointer (takes ownership)
-  void Attach(_In_ T *pData) throw() {
+  void Attach(T *pData) throw() {
     m_pMalloc->Free(m_pData);
     m_pData = pData;
   }
@@ -117,22 +115,17 @@ public:
   }
 };
 
-HRESULT ReadBinaryFile(_In_opt_ IMalloc *pMalloc,
-                    _In_z_ LPCWSTR pFileName,
-                    _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
-                    _Out_ DWORD *pDataSize) throw();
-HRESULT ReadBinaryFile(_In_z_ LPCWSTR pFileName,
-                    _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
-                    _Out_ DWORD *pDataSize) throw();
-HRESULT WriteBinaryFile(_In_z_ LPCWSTR pFileName,
-                     _In_reads_bytes_(DataSize) const void *pData,
-                     _In_ DWORD DataSize) throw();
+HRESULT ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
+                       DWORD *pDataSize) throw();
+HRESULT ReadBinaryFile(LPCWSTR pFileName, void **ppData,
+                       DWORD *pDataSize) throw();
+HRESULT WriteBinaryFile(LPCWSTR pFileName, const void *pData,
+                        DWORD DataSize) throw();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Blob and encoding manipulation functions.
 
-UINT32 DxcCodePageFromBytes(_In_count_(byteLen) const char *bytes,
-                            size_t byteLen) throw();
+UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw();
 
 // More general create blob functions, used by other functions
 // Null pMalloc means use current thread malloc.
@@ -154,77 +147,73 @@ HRESULT DxcCreateBlobEncodingFromBlob(
     IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw();
 
 // Load files
-HRESULT DxcCreateBlobFromFile(_In_opt_ IMalloc *pMalloc, LPCWSTR pFileName,
-                      _In_opt_ UINT32 *pCodePage,
-                      _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+HRESULT DxcCreateBlobFromFile(IMalloc *pMalloc, LPCWSTR pFileName,
+                              UINT32 *pCodePage,
+                              IDxcBlobEncoding **pBlobEncoding) throw();
 
-HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, _In_opt_ UINT32 *pCodePage,
-                              _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
+HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, UINT32 *pCodePage,
+                              IDxcBlobEncoding **ppBlobEncoding) throw();
 
 // Given a blob, creates a subrange view.
-HRESULT DxcCreateBlobFromBlob(_In_ IDxcBlob *pBlob, UINT32 offset,
-                              UINT32 length,
-                              _COM_Outptr_ IDxcBlob **ppResult) throw();
+HRESULT DxcCreateBlobFromBlob(IDxcBlob *pBlob, UINT32 offset, UINT32 length,
+                              IDxcBlob **ppResult) throw();
 
 // Creates a blob wrapping a buffer to be freed with the provided IMalloc
 HRESULT
-DxcCreateBlobOnMalloc(_In_bytecount_(size) LPCVOID pData, _In_ IMalloc* pIMalloc,
-                      UINT32 size, _COM_Outptr_ IDxcBlob **ppResult) throw();
+DxcCreateBlobOnMalloc(LPCVOID pData, IMalloc *pIMalloc, UINT32 size,
+                      IDxcBlob **ppResult) throw();
 
 // Creates a blob with a copy of the provided data
 HRESULT
-DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
-                        _COM_Outptr_ IDxcBlob **ppResult) throw();
+DxcCreateBlobOnHeapCopy(LPCVOID pData, UINT32 size,
+                        IDxcBlob **ppResult) throw();
 
 // Given a blob, creates a new instance with a specific code page set.
 HRESULT
-DxcCreateBlobWithEncodingSet(_In_ IDxcBlob *pBlob, UINT32 codePage,
-                             _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
+DxcCreateBlobWithEncodingSet(IDxcBlob *pBlob, UINT32 codePage,
+                             IDxcBlobEncoding **ppBlobEncoding) throw();
 HRESULT
-DxcCreateBlobWithEncodingSet(
-    _In_ IMalloc *pMalloc, _In_ IDxcBlob *pBlob, UINT32 codePage,
-    _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
+DxcCreateBlobWithEncodingSet(IMalloc *pMalloc, IDxcBlob *pBlob, UINT32 codePage,
+                             IDxcBlobEncoding **ppBlobEncoding) throw();
 
 // Creates a blob around encoded text without ownership transfer
-HRESULT DxcCreateBlobWithEncodingFromPinned(
-    _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
-    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+HRESULT
+DxcCreateBlobWithEncodingFromPinned(LPCVOID pText, UINT32 size, UINT32 codePage,
+                                    IDxcBlobEncoding **pBlobEncoding) throw();
 
-HRESULT DxcCreateBlobFromPinned(
-    _In_bytecount_(size) LPCVOID pText, UINT32 size,
-    _COM_Outptr_ IDxcBlob **pBlob) throw();
+HRESULT DxcCreateBlobFromPinned(LPCVOID pText, UINT32 size,
+                                IDxcBlob **pBlob) throw();
 
 HRESULT
-DxcCreateBlobWithEncodingFromStream(
-    IStream *pStream, bool newInstanceAlways, UINT32 codePage,
-    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+DxcCreateBlobWithEncodingFromStream(IStream *pStream, bool newInstanceAlways,
+                                    UINT32 codePage,
+                                    IDxcBlobEncoding **pBlobEncoding) throw();
 
 // Creates a blob with a copy of the encoded text
 HRESULT
-DxcCreateBlobWithEncodingOnHeapCopy(
-    _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
-    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+DxcCreateBlobWithEncodingOnHeapCopy(LPCVOID pText, UINT32 size, UINT32 codePage,
+                                    IDxcBlobEncoding **pBlobEncoding) throw();
 
 // Creates a blob wrapping encoded text to be freed with the provided IMalloc
 HRESULT
-DxcCreateBlobWithEncodingOnMalloc(
-  _In_bytecount_(size) LPCVOID pText, _In_ IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
-  _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+DxcCreateBlobWithEncodingOnMalloc(LPCVOID pText, IMalloc *pIMalloc, UINT32 size,
+                                  UINT32 codePage,
+                                  IDxcBlobEncoding **pBlobEncoding) throw();
 
 // Creates a blob with a copy of encoded text, allocated using the provided IMalloc
 HRESULT
-DxcCreateBlobWithEncodingOnMallocCopy(
-  _In_ IMalloc *pIMalloc, _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
-  _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText,
+                                      UINT32 size, UINT32 codePage,
+                                      IDxcBlobEncoding **pBlobEncoding) throw();
 
-HRESULT DxcGetBlobAsUtf8(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
-                         _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding,
+HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc,
+                         IDxcBlobUtf8 **pBlobEncoding,
                          UINT32 defaultCodePage = CP_ACP) throw();
 HRESULT
-DxcGetBlobAsWide(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
-                  _COM_Outptr_ IDxcBlobWide **pBlobEncoding) throw();
+DxcGetBlobAsWide(IDxcBlob *pBlob, IMalloc *pMalloc,
+                 IDxcBlobWide **pBlobEncoding) throw();
 
-bool IsBlobNullOrEmpty(_In_opt_ IDxcBlob *pBlob) throw();
+bool IsBlobNullOrEmpty(IDxcBlob *pBlob) throw();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Stream implementations.
@@ -236,9 +225,11 @@ public:
   virtual UINT64 GetPosition() throw() = 0;
   virtual HRESULT Reserve(ULONG targetSize) throw() = 0;
 };
-HRESULT CreateMemoryStream(_In_ IMalloc *pMalloc, _COM_Outptr_ AbstractMemoryStream** ppResult) throw();
-HRESULT CreateReadOnlyBlobStream(_In_ IDxcBlob *pSource, _COM_Outptr_ IStream** ppResult) throw();
-HRESULT CreateFixedSizeMemoryStream(_In_ LPBYTE pBuffer, size_t size, _COM_Outptr_ AbstractMemoryStream** ppResult) throw();
+HRESULT CreateMemoryStream(IMalloc *pMalloc,
+                           AbstractMemoryStream **ppResult) throw();
+HRESULT CreateReadOnlyBlobStream(IDxcBlob *pSource, IStream **ppResult) throw();
+HRESULT CreateFixedSizeMemoryStream(LPBYTE pBuffer, size_t size,
+                                    AbstractMemoryStream **ppResult) throw();
 
 template <typename T>
 HRESULT WriteStreamValue(IStream *pStream, const T& value) {

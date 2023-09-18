@@ -114,14 +114,14 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE GetOptionName(_COM_Outptr_ LPWSTR *ppResult) override {
+  HRESULT STDMETHODCALLTYPE GetOptionName(LPWSTR *ppResult) override {
     return Utf8ToWideCoTaskMalloc(m_pOptionName, ppResult);
   }
-  HRESULT STDMETHODCALLTYPE GetDescription(_COM_Outptr_ LPWSTR *ppResult) override {
+  HRESULT STDMETHODCALLTYPE GetDescription(LPWSTR *ppResult) override {
     return Utf8ToWideCoTaskMalloc(m_pDescription, ppResult);
   }
 
-  HRESULT STDMETHODCALLTYPE GetOptionArgCount(_Out_ UINT32 *pCount) override {
+  HRESULT STDMETHODCALLTYPE GetOptionArgCount(UINT32 *pCount) override {
     if (!pCount) return E_INVALIDARG;
     *pCount = m_pArgDescriptions.size();
     return S_OK;
@@ -155,14 +155,14 @@ public:
   HRESULT Initialize();
   const PassInfo *getPassByID(llvm::AnalysisID PassID);
   const PassInfo *getPassByName(const char *pName);
-  HRESULT STDMETHODCALLTYPE GetAvailablePassCount(_Out_ UINT32 *pCount) override {
+  HRESULT STDMETHODCALLTYPE GetAvailablePassCount(UINT32 *pCount) override {
     return AssignToOut<UINT32>(m_passes.size(), pCount);
   }
-  HRESULT STDMETHODCALLTYPE GetAvailablePass(UINT32 index, _COM_Outptr_ IDxcOptimizerPass** ppResult) override;
-  HRESULT STDMETHODCALLTYPE RunOptimizer(IDxcBlob *pBlob,
-    _In_count_(optionCount) LPCWSTR *ppOptions, UINT32 optionCount,
-    _COM_Outptr_ IDxcBlob **ppOutputModule,
-    _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) override;
+  HRESULT STDMETHODCALLTYPE
+  GetAvailablePass(UINT32 index, IDxcOptimizerPass **ppResult) override;
+  HRESULT STDMETHODCALLTYPE RunOptimizer(
+      IDxcBlob *pBlob, LPCWSTR *ppOptions, UINT32 optionCount,
+      IDxcBlob **ppOutputModule, IDxcBlobEncoding **ppOutputText) override;
 };
 
 class CapturePassManager : public llvm::legacy::PassManagerBase {
@@ -213,8 +213,8 @@ const PassInfo *DxcOptimizer::getPassByName(const char *pName) {
   return m_registry->getPassInfo(StringRef(pName));
 }
 
-HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
-    UINT32 index, _COM_Outptr_ IDxcOptimizerPass **ppResult) {
+HRESULT STDMETHODCALLTYPE
+DxcOptimizer::GetAvailablePass(UINT32 index, IDxcOptimizerPass **ppResult) {
   IFR(AssignToOut(nullptr, ppResult));
   if (index >= m_passes.size())
     return E_INVALIDARG;
@@ -226,9 +226,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
 }
 
 HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
-    IDxcBlob *pBlob, _In_count_(optionCount) LPCWSTR *ppOptions,
-    UINT32 optionCount, _COM_Outptr_ IDxcBlob **ppOutputModule,
-    _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) {
+    IDxcBlob *pBlob, LPCWSTR *ppOptions, UINT32 optionCount,
+    IDxcBlob **ppOutputModule, IDxcBlobEncoding **ppOutputText) {
   AssignToOutOpt(nullptr, ppOutputModule);
   AssignToOutOpt(nullptr, ppOutputText);
   if (pBlob == nullptr)
@@ -556,7 +555,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
   return S_OK;
 }
 
-HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcOptimizer(REFIID riid, LPVOID *ppv) {
   CComPtr<DxcOptimizer> result = DxcOptimizer::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;

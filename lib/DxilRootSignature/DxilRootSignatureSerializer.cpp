@@ -54,7 +54,7 @@ public:
   HRESULT AddBlock(void *pData, unsigned cbSize, unsigned *pOffset);
   HRESULT ReserveBlock(void **ppData, unsigned cbSize, unsigned *pOffset);
 
-  HRESULT Compact(_Out_writes_bytes_(cbSize) char *pData, unsigned cbSize);
+  HRESULT Compact(char *pData, unsigned cbSize);
   unsigned GetSize();
 
 protected:
@@ -142,8 +142,7 @@ Cleanup:
   return hr;
 }
 
-HRESULT SimpleSerializer::Compact(_Out_writes_bytes_(cbSize) char *pData,
-                                  unsigned cbSize) {
+HRESULT SimpleSerializer::Compact(char *pData, unsigned cbSize) {
   unsigned cb = GetSize();
   IFRBOOL(cb <= cbSize, E_FAIL);
   DXASSERT_NOMSG(cb <= UINT32_MAX / 2);
@@ -154,13 +153,13 @@ HRESULT SimpleSerializer::Compact(_Out_writes_bytes_(cbSize) char *pData,
   for (Segment *pSegment = m_pSegment; pSegment; pSegment = pSegment->pNext) {
     unsigned cbAlign = ((cb + 3) & ~3) - cb;
 
-    _Analysis_assume_(p + cbAlign <= pData + cbSize);
+    assert(p + cbAlign <= pData + cbSize);
     memset(p, 0xab, cbAlign);
 
     p += cbAlign;
     cb += cbAlign;
 
-    _Analysis_assume_(p + pSegment->cbSize <= pData + cbSize);
+    assert(p + pSegment->cbSize <= pData + cbSize);
     memcpy(p, pSegment->pData, pSegment->cbSize);
 
     p += pSegment->cbSize;
@@ -168,7 +167,7 @@ HRESULT SimpleSerializer::Compact(_Out_writes_bytes_(cbSize) char *pData,
   }
 
   // Trailing zeros
-  _Analysis_assume_(p + cbSize - cb <= pData + cbSize);
+  assert(p + cbSize - cb <= pData + cbSize);
   memset(p, 0xab, cbSize - cb);
 
   return S_OK;
@@ -179,15 +178,14 @@ unsigned SimpleSerializer::GetSize() {
   return ((m_cbSegments + 3) >> 2) * 4;
 }
 
-template<typename T_ROOT_SIGNATURE_DESC,
-  typename T_ROOT_PARAMETER,
-  typename T_ROOT_DESCRIPTOR_INTERNAL,
-  typename T_DESCRIPTOR_RANGE_INTERNAL>
-void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSignature,
+template <typename T_ROOT_SIGNATURE_DESC, typename T_ROOT_PARAMETER,
+          typename T_ROOT_DESCRIPTOR_INTERNAL,
+          typename T_DESCRIPTOR_RANGE_INTERNAL>
+void SerializeRootSignatureTemplate(const T_ROOT_SIGNATURE_DESC *pRootSignature,
                                     DxilRootSignatureVersion DescVersion,
-                                    _COM_Outptr_ IDxcBlob** ppBlob,
+                                    IDxcBlob **ppBlob,
                                     DiagnosticPrinter &DiagPrinter,
-                                    _In_ bool bAllowReservedRegisterSpace) {
+                                    bool bAllowReservedRegisterSpace) {
   DxilContainerRootSignatureDesc RS;
   uint32_t Offset;
   SimpleSerializer Serializer;
@@ -275,7 +273,6 @@ void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSigna
   bytes.Detach(); // Ownership transfered to ppBlob.
 }
 
-_Use_decl_annotations_
 void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
                             IDxcBlob **ppBlob, IDxcBlobEncoding **ppErrorBlob,
                             bool bAllowReservedRegisterSpace) {
@@ -332,16 +329,13 @@ void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature
   }
 }
 
-template<typename T_ROOT_SIGNATURE_DESC,
-         typename T_ROOT_PARAMETER,
-         typename T_ROOT_DESCRIPTOR,
-         typename T_ROOT_DESCRIPTOR_INTERNAL,
-         typename T_DESCRIPTOR_RANGE,
-         typename T_DESCRIPTOR_RANGE_INTERNAL>
-void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
-                                      _In_ uint32_t SrcDataSizeInBytes,
-                                      DxilRootSignatureVersion DescVersion,
-                                      T_ROOT_SIGNATURE_DESC &RootSignatureDesc) {
+template <typename T_ROOT_SIGNATURE_DESC, typename T_ROOT_PARAMETER,
+          typename T_ROOT_DESCRIPTOR, typename T_ROOT_DESCRIPTOR_INTERNAL,
+          typename T_DESCRIPTOR_RANGE, typename T_DESCRIPTOR_RANGE_INTERNAL>
+void DeserializeRootSignatureTemplate(
+    const void *pSrcData, uint32_t SrcDataSizeInBytes,
+    DxilRootSignatureVersion DescVersion,
+    T_ROOT_SIGNATURE_DESC &RootSignatureDesc) {
   // Note that in case of failure, outside code must deallocate memory.
   T_ROOT_SIGNATURE_DESC *pRootSignature = &RootSignatureDesc;
   const char *pData = (const char *)pSrcData;
@@ -428,7 +422,6 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   }
 }
 
-_Use_decl_annotations_
 void DeserializeRootSignature(const void *pSrcData,
                               uint32_t SrcDataSizeInBytes,
                               const DxilVersionedRootSignatureDesc **ppRootSignature) {

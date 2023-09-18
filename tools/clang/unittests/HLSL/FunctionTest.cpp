@@ -72,8 +72,8 @@ public:
       "[RootSignature(\"%s\")]\r\n"
       "float4 main() : SV_Target { return 0; }";
     size_t len = strlen(pStr) + strlen(pFormat) + 1; // Actually bigger than needed because of '%s'
-    rootSigText.reserve(len);
-    sprintf_s(rootSigText.data(), rootSigText.capacity(), pFormat, pStr);
+    rootSigText.resize(len);
+    sprintf_s(rootSigText.data(), rootSigText.size(), pFormat, pStr);
     Utf8ToBlob(m_support, rootSigText.data(), &pSource);
     VERIFY_SUCCEEDED(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcCompiler, &pCompiler));

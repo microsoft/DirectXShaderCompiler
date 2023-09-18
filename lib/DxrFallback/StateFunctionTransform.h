@@ -189,7 +189,8 @@ public:
 
   // Generates state functions from func into the same module. The original function
   // is left only as a declaration.
-  void run(std::vector<llvm::Function*>& stateFunctions, _Out_ unsigned int &shaderStackSize);
+  void run(std::vector<llvm::Function *> &stateFunctions,
+           unsigned int &shaderStackSize);
 
   // candidateFuncEntryStateIds corresponding to the candidateFuncNames passed to
   // the constructor. stateIDs are computed as candidateFuncEntryStateIds[functionIdx]
@@ -262,7 +263,7 @@ private:
   void init();
   void findCallSitesIntrinsicsAndReturns();
   void changeCallingConvention();
-  void preserveLiveValuesAcrossCallsites(_Out_ unsigned int &shaderStackSize);
+  void preserveLiveValuesAcrossCallsites(unsigned int &shaderStackSize);
   void createSubstateFunctions(std::vector<llvm::Function*>& stateFunctions);
   void lowerStackFuncs();
 

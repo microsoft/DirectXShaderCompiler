@@ -237,6 +237,10 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_StructContainedResource)
   TEST_METHOD(DxcPixDxilDebugInfo_StructStaticInit)
   TEST_METHOD(DxcPixDxilDebugInfo_StructMemberFnFirst)
+  TEST_METHOD(DxcPixDxilDebugInfo_UnnamedConstStruct)
+  TEST_METHOD(DxcPixDxilDebugInfo_UnnamedStruct)
+  TEST_METHOD(DxcPixDxilDebugInfo_UnnamedArray)
+  TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -250,23 +254,25 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
+  void PixTest::TestUnnamedTypeCase(const char *hlsl,
+                                    const wchar_t *expectedTypeName);
+
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
-                        UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
+                        UINT32 codePage, IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
-  void CreateBlobFromFile(LPCWSTR name, _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobFromFile(LPCWSTR name, IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     const std::wstring path = hlsl_test::GetPathToHlslDataFile(name);
     IFT(library->CreateBlobFromFile(path.c_str(), nullptr, ppBlob));
   }
 
-  void CreateBlobFromText(_In_z_ const char *pText,
-                          _Outptr_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobFromText(const char *pText, IDxcBlobEncoding **ppBlob) {
     CreateBlobPinned(pText, strlen(pText) + 1, CP_UTF8, ppBlob);
   }
 
@@ -321,7 +327,7 @@ public:
     }
   }
 
-  std::wstring GetDebugInfoAsText(_In_ IDiaDataSource* pDataSource) {
+  std::wstring GetDebugInfoAsText(IDiaDataSource *pDataSource) {
     CComPtr<IDiaSession> pSession;
     CComPtr<IDiaTable> pTable;
     CComPtr<IDiaEnumTables> pEnumTables;
@@ -471,7 +477,7 @@ public:
 
     return o.str();
   }
-  std::wstring GetDebugFileContent(_In_ IDiaDataSource *pDataSource) {
+  std::wstring GetDebugFileContent(IDiaDataSource *pDataSource) {
     CComPtr<IDiaSession> pSession;
     CComPtr<IDiaTable> pTable;
 
@@ -1274,7 +1280,7 @@ TEST_F(PixTest, CompileDebugDisasmPDB) {
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pProgram;
   CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
@@ -1310,7 +1316,7 @@ TEST_F(PixTest, CompileDebugPDB) {
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pProgram;
   CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
@@ -1862,8 +1868,9 @@ TEST_F(PixTest, PixDebugCompileInfo) {
 static LPCWSTR defaultFilename = L"source.hlsl";
 
 static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
-                     LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
-                     _Outptr_ IDxcBlob **ppResult) {
+                                LPCWSTR pTargetProfile,
+                                std::vector<LPCWSTR> &args,
+                                IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcOperationResult> pResult;
@@ -3048,6 +3055,155 @@ void main()
     }
   }
   VERIFY_IS_TRUE(FoundTheStruct);
+}
+
+void PixTest::TestUnnamedTypeCase(const char* hlsl, const wchar_t* expectedTypeName) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_0");
+  auto liveVariables =
+      GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
+  DWORD count;
+  VERIFY_SUCCEEDED(liveVariables->GetCount(&count));
+  bool FoundTheVariable = false;
+  for (DWORD i = 0; i < count; ++i) {
+    CComPtr<IDxcPixVariable> variable;
+    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &variable));
+    CComBSTR name;
+    variable->GetName(&name);
+    if (0 == wcscmp(name, L"glbl")) {
+      FoundTheVariable = true;
+      CComPtr<IDxcPixType> type;
+      VERIFY_SUCCEEDED(variable->GetType(&type));
+      CComBSTR typeName;
+      VERIFY_SUCCEEDED(type->GetName(&typeName));
+      VERIFY_ARE_EQUAL(typeName, expectedTypeName);
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(FoundTheVariable);
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_UnnamedConstStruct) {
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  const struct
+  {
+    float fg;
+    RWStructuredBuffer<float> buf;
+  } glbl = {42.f, floatRWUAV};
+
+  float f = glbl.fg + glbl.buf[1]; // InterestingLine
+  floatRWUAV[0] = f;
+}
+
+)";
+
+  TestUnnamedTypeCase(hlsl, L"const <unnamed>");
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_UnnamedStruct) {
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  struct
+  {
+    float fg;
+    RWStructuredBuffer<float> buf;
+  } glbl = {42.f, floatRWUAV};
+  glbl.fg = 41.f;
+  float f = glbl.fg + glbl.buf[1]; // InterestingLine
+  floatRWUAV[0] = f;
+}
+
+)";
+
+  TestUnnamedTypeCase(hlsl, L"<unnamed>");
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_UnnamedArray) {
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  struct
+  {
+    float fg;
+    RWStructuredBuffer<float> buf;
+  } glbl[2] = {{42.f, floatRWUAV},{43.f, floatRWUAV}};
+  float f = glbl[0].fg + glbl[1].buf[1]; // InterestingLine
+  floatRWUAV[0] = f;
+}
+
+)";
+
+  TestUnnamedTypeCase(hlsl, L"<unnamed>[]");
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_UnnamedField) {
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  struct
+  {
+    struct {
+      float fg;
+      RWStructuredBuffer<float> buf;
+    } contained;
+  } glbl = { {42.f, floatRWUAV} };
+  float f = glbl.contained.fg + glbl.contained.buf[1]; // InterestingLine
+  floatRWUAV[0] = f;
+}
+
+)";
+
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_0");
+  auto liveVariables =
+      GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
+  DWORD count;
+  VERIFY_SUCCEEDED(liveVariables->GetCount(&count));
+  bool FoundTheVariable = false;
+  for (DWORD i = 0; i < count; ++i) {
+    CComPtr<IDxcPixVariable> variable;
+    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &variable));
+    CComBSTR name;
+    variable->GetName(&name);
+    if (0 == wcscmp(name, L"glbl")) {
+      CComPtr<IDxcPixType> type;
+      VERIFY_SUCCEEDED(variable->GetType(&type));
+      CComPtr<IDxcPixStructType> structType;
+      VERIFY_SUCCEEDED(type->QueryInterface(IID_PPV_ARGS(&structType)));
+      DWORD fieldCount = 0;
+      VERIFY_SUCCEEDED(structType->GetNumFields(&fieldCount));
+      VERIFY_ARE_EQUAL(fieldCount, 1);
+      //Just a crash test:
+      CComPtr<IDxcPixStructField> structField;
+      structType->GetFieldByName(L"", & structField);
+      VERIFY_SUCCEEDED(structType->GetFieldByIndex(0, &structField));
+      FoundTheVariable = true;
+      CComPtr<IDxcPixType> fieldType;
+      VERIFY_SUCCEEDED(structField->GetType(&fieldType));
+      CComBSTR typeName;
+      VERIFY_SUCCEEDED(fieldType->GetName(&typeName));
+      VERIFY_ARE_EQUAL(typeName, L"<unnamed>");
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(FoundTheVariable);
 }
 
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {

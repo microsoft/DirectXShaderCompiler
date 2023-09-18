@@ -231,8 +231,9 @@ public:
   CComPtr<IDxcIncludeHandler> pInnerIncludeHandler;
 
   HRESULT STDMETHODCALLTYPE LoadSource(
-      _In_ LPCWSTR pFilename,                                   // Candidate filename.
-      _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource  // Resultant source object for included file, nullptr if not found.
+      LPCWSTR pFilename,         // Candidate filename.
+      IDxcBlob **ppIncludeSource // Resultant source object for included file,
+                                 // nullptr if not found.
       ) override {
     if (!ppIncludeSource)
       return E_INVALIDARG;
@@ -255,7 +256,7 @@ public:
   }
 };
 
-static IncludeHandlerVFSOverlayForTest *AllocVFSIncludeHandler(IUnknown *pUnkLibrary, const FileMap *pVFS) {
+static CComPtr<IncludeHandlerVFSOverlayForTest> AllocVFSIncludeHandler(IUnknown *pUnkLibrary, const FileMap *pVFS) {
   CComPtr<IncludeHandlerVFSOverlayForTest> pVFSIncludeHandler = IncludeHandlerVFSOverlayForTest::Alloc(DxcGetThreadMallocNoRef());
   IFTBOOL(pVFSIncludeHandler, E_OUTOFMEMORY);
   if (pUnkLibrary) {
@@ -272,7 +273,7 @@ static IncludeHandlerVFSOverlayForTest *AllocVFSIncludeHandler(IUnknown *pUnkLib
     pVFSIncludeHandler->pInnerIncludeHandler = pInnerIncludeHandler;
   }
   pVFSIncludeHandler->pVFS = pVFS;
-  return pVFSIncludeHandler.Detach();
+  return pVFSIncludeHandler;
 }
 
 static void AddOutputsToFileMap(IUnknown *pUnkResult, FileMap *pVFS) {
@@ -302,7 +303,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   CComPtr<IDxcBlob> pCompiledBlob;
   CComPtr<IDxcBlob> pCompiledName;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
   CComPtr<IDxcBlob> pPDBBlob;
 
   std::wstring entry =

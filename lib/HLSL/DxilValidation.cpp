@@ -5654,9 +5654,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
   }
 }
 
-_Use_decl_annotations_ HRESULT ValidateDxilModule(
-    llvm::Module *pModule,
-    llvm::Module *pDebugModule) {
+HRESULT ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
   if (!pDxilModule) {
     return DXC_E_IR_VERIFICATION_FAILED;
@@ -5701,11 +5699,9 @@ _Use_decl_annotations_ HRESULT ValidateDxilModule(
 
 // DXIL Container Verification Functions
 
-static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
-                                  _In_ LPCSTR pName,
-                                  DxilPartWriter *pWriter,
-                                  _In_reads_bytes_opt_(Size) const void *pData,
-                                  _In_ uint32_t Size) {
+static void VerifyBlobPartMatches(ValidationContext &ValCtx, LPCSTR pName,
+                                  DxilPartWriter *pWriter, const void *pData,
+                                  uint32_t Size) {
   if (!pData && pWriter->size()) {
     // No blob part, but writer says non-zero size is expected.
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {pName});
@@ -5737,10 +5733,9 @@ static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
   return;
 }
 
-static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
+static void VerifySignatureMatches(ValidationContext &ValCtx,
                                    DXIL::SignatureKind SigKind,
-                                   _In_reads_bytes_opt_(SigSize) const void *pSigData,
-                                   _In_ uint32_t SigSize) {
+                                   const void *pSigData, uint32_t SigSize) {
   // Generate corresponding signature from module and memcmp
 
   const char *pName = nullptr;
@@ -5766,7 +5761,6 @@ static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, pName, pWriter.get(), pSigData, SigSize);
 }
 
-_Use_decl_annotations_
 bool VerifySignatureMatches(llvm::Module *pModule,
                             DXIL::SignatureKind SigKind,
                             const void *pSigData,
@@ -5776,9 +5770,8 @@ bool VerifySignatureMatches(llvm::Module *pModule,
   return !ValCtx.Failed;
 }
 
-static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
-                             _In_reads_bytes_(PSVSize) const void *pPSVData,
-                             _In_ uint32_t PSVSize) {
+static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
+                             uint32_t PSVSize) {
   uint32_t PSVVersion = MAX_PSV_VERSION;  // This should be set to the newest version
   unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod, PSVVersion));
   // Try each version in case an earlier version matches module
@@ -5790,7 +5783,6 @@ static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, "Pipeline State Validation", pWriter.get(), pPSVData, PSVSize);
 }
 
-_Use_decl_annotations_
 bool VerifyPSVMatches(llvm::Module *pModule,
                       const void *pPSVData,
                       uint32_t PSVSize) {
@@ -5799,9 +5791,9 @@ bool VerifyPSVMatches(llvm::Module *pModule,
   return !ValCtx.Failed;
 }
 
-static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
-                                     _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
-                                     _In_ uint32_t FeatureInfoSize) {
+static void VerifyFeatureInfoMatches(ValidationContext &ValCtx,
+                                     const void *pFeatureInfoData,
+                                     uint32_t FeatureInfoSize) {
   // generate Feature Info data from module and memcmp
   unique_ptr<DxilPartWriter> pWriter(NewFeatureInfoWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, "Feature Info", pWriter.get(), pFeatureInfoData, FeatureInfoSize);
@@ -5881,9 +5873,8 @@ bool ValidateCompilerVersionPart(const void *pBlobPtr, UINT blobSize) {
   return true;
 }
 
-static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
-                              _In_reads_bytes_(RDATSize) const void *pRDATData,
-                              _In_ uint32_t RDATSize) {
+static void VerifyRDATMatches(ValidationContext &ValCtx, const void *pRDATData,
+                              uint32_t RDATSize) {
   const char *PartName = "Runtime Data (RDAT)";
   RDAT::DxilRuntimeData rdat(pRDATData, RDATSize);
   if (!rdat.Validate()) {
@@ -5908,7 +5899,6 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
 }
 
-_Use_decl_annotations_
 bool VerifyRDATMatches(llvm::Module *pModule,
                        const void *pRDATData,
                        uint32_t RDATSize) {
@@ -5917,7 +5907,6 @@ bool VerifyRDATMatches(llvm::Module *pModule,
   return !ValCtx.Failed;
 }
 
-_Use_decl_annotations_
 bool VerifyFeatureInfoMatches(llvm::Module *pModule,
                               const void *pFeatureInfoData,
                               uint32_t FeatureInfoSize) {
@@ -5926,7 +5915,6 @@ bool VerifyFeatureInfoMatches(llvm::Module *pModule,
   return !ValCtx.Failed;
 }
 
-_Use_decl_annotations_
 HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
                                    llvm::Module *pDebugModule,
                                    const DxilContainerHeader *pContainer,
@@ -6110,10 +6098,8 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   return S_OK;
 }
 
-static HRESULT FindDxilPart(_In_reads_bytes_(ContainerSize) const void *pContainerBytes,
-                            _In_ uint32_t ContainerSize,
-                            _In_ DxilFourCC FourCC,
-                            _In_ const DxilPartHeader **ppPart) {
+static HRESULT FindDxilPart(const void *pContainerBytes, uint32_t ContainerSize,
+                            DxilFourCC FourCC, const DxilPartHeader **ppPart) {
 
   const DxilContainerHeader *pContainer =
     IsDxilContainerLike(pContainerBytes, ContainerSize);
@@ -6141,7 +6127,6 @@ static HRESULT FindDxilPart(_In_reads_bytes_(ContainerSize) const void *pContain
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT ValidateLoadModule(const char *pIL,
                            uint32_t ILLength,
                            unique_ptr<llvm::Module> &pModule,
@@ -6171,10 +6156,8 @@ HRESULT ValidateLoadModule(const char *pIL,
   return S_OK;
 }
 
-HRESULT ValidateDxilBitcode(
-  _In_reads_bytes_(ILLength) const char *pIL,
-  _In_ uint32_t ILLength,
-  _In_ llvm::raw_ostream &DiagStream) {
+HRESULT ValidateDxilBitcode(const char *pIL, uint32_t ILLength,
+                            llvm::raw_ostream &DiagStream) {
 
   LLVMContext Ctx;
   std::unique_ptr<llvm::Module> pModule;
@@ -6225,11 +6208,10 @@ HRESULT ValidateDxilBitcode(
 }
 
 static HRESULT ValidateLoadModuleFromContainer(
-    _In_reads_bytes_(ILLength) const void *pContainer,
-    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
-    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
-    _In_ llvm::LLVMContext &Ctx, LLVMContext &DbgCtx,
-    _In_ llvm::raw_ostream &DiagStream, _In_ unsigned bLazyLoad) {
+    const void *pContainer, uint32_t ContainerSize,
+    std::unique_ptr<llvm::Module> &pModule,
+    std::unique_ptr<llvm::Module> &pDebugModule, llvm::LLVMContext &Ctx,
+    LLVMContext &DbgCtx, llvm::raw_ostream &DiagStream, unsigned bLazyLoad) {
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
   DiagRestore DR(Ctx, &DiagContext);
@@ -6267,29 +6249,26 @@ static HRESULT ValidateLoadModuleFromContainer(
   return S_OK;
 }
 
-_Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainer(
-    _In_reads_bytes_(ContainerSize) const void *pContainer,
-    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
-    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
-    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
-    _In_ llvm::raw_ostream &DiagStream) {
+HRESULT ValidateLoadModuleFromContainer(
+    const void *pContainer, uint32_t ContainerSize,
+    std::unique_ptr<llvm::Module> &pModule,
+    std::unique_ptr<llvm::Module> &pDebugModule, llvm::LLVMContext &Ctx,
+    llvm::LLVMContext &DbgCtx, llvm::raw_ostream &DiagStream) {
   return ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
                                          pDebugModule, Ctx, DbgCtx, DiagStream,
                                          /*bLazyLoad*/ false);
 }
 // Lazy loads module from container, validating load, but not module.
-_Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainerLazy(
-    _In_reads_bytes_(ContainerSize) const void *pContainer,
-    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
-    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
-    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
-    _In_ llvm::raw_ostream &DiagStream) {
+HRESULT ValidateLoadModuleFromContainerLazy(
+    const void *pContainer, uint32_t ContainerSize,
+    std::unique_ptr<llvm::Module> &pModule,
+    std::unique_ptr<llvm::Module> &pDebugModule, llvm::LLVMContext &Ctx,
+    llvm::LLVMContext &DbgCtx, llvm::raw_ostream &DiagStream) {
   return ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
                                          pDebugModule, Ctx, DbgCtx, DiagStream,
                                          /*bLazyLoad*/ true);
 }
 
-_Use_decl_annotations_
 HRESULT ValidateDxilContainer(const void *pContainer,
                               uint32_t ContainerSize,
                               const void *pOptDebugBitcode,
@@ -6325,7 +6304,6 @@ HRESULT ValidateDxilContainer(const void *pContainer,
     IsDxilContainerLike(pContainer, ContainerSize), ContainerSize);
 }
 
-_Use_decl_annotations_
 HRESULT ValidateDxilContainer(const void *pContainer,
                               uint32_t ContainerSize,
                               llvm::raw_ostream &DiagStream) {
