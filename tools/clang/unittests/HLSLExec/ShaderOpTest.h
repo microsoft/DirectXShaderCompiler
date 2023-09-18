@@ -218,6 +218,18 @@ public:
     }
     return result;
   }
+  LPCSTR GetShaderArguments(ShaderOpShader *pShader) {
+    if (!pShader || !pShader->Arguments) return nullptr;
+    LPCSTR result = pShader->Arguments;
+    if (result[0] == '@') {
+      for (auto && S : Shaders) {
+        if (S.Name && 0 == strcmp(S.Name, result + 1))
+          return S.Arguments;
+      }
+      result = nullptr;
+    }
+    return result;
+  }
   ShaderOpDescriptorHeap *GetDescriptorHeapByName(LPCSTR pName) {
     for (auto && R : DescriptorHeaps) {
       if (R.Name && 0 == strcmp(R.Name, pName))
