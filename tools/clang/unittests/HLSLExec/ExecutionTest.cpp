@@ -10894,12 +10894,6 @@ TEST_F(ExecutionTest, HelperLaneTest) {
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-#ifdef ISHELPERLANE_PLACEHOLDER
-  string args = "-DISHELPERLANE_PLACEHOLDER";
-#else 
-  string args = "";
-#endif
-
   D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_6 };
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
@@ -10914,8 +10908,7 @@ TEST_F(ExecutionTest, HelperLaneTest) {
       [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
         VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
         std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
-        pShaderOp->Shaders.at(0).Arguments = args.c_str();
-        pShaderOp->Shaders.at(1).Arguments = args.c_str();
+        UNREFERENCED_PARAMETER(pShaderOp);
       }, ShaderOpSet);
 
     struct HelperLaneTestResult {
@@ -11233,17 +11226,6 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("HelperLaneTestWave");
-
-#ifdef ISHELPERLANE_PLACEHOLDER
-  LPCSTR args = "/Od -DISHELPERLANE_PLACEHOLDER";
-#else 
-  LPCSTR args = "/Od";
-#endif
-
-  if (args[0]) {
-    for (st::ShaderOpShader& S : pShaderOp->Shaders)
-      S.Arguments = args;
-  }
 
   bool testPassed = true;
 
