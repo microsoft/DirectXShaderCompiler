@@ -184,15 +184,18 @@ TEST_F(StringMapTest, IterationTest) {
   }
 }
 
+// HLSL Change begin
 // Test StringMapEntry::Create() method.
 TEST_F(StringMapTest, StringMapEntryTest) {
+  MallocAllocator A;
   StringMap<uint32_t>::value_type* entry =
       StringMap<uint32_t>::value_type::Create(
-          StringRef(testKeyFirst, testKeyLength), 1u);
+          StringRef(testKeyFirst, testKeyLength), A, 1u);
   EXPECT_STREQ(testKey, entry->first().data());
   EXPECT_EQ(1u, entry->second);
-  free(entry);
+  entry->Destroy(A);
 }
+// HLSL Change end
 
 // Test insert() method.
 TEST_F(StringMapTest, InsertTest) {
