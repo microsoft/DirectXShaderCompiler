@@ -256,7 +256,7 @@ public:
   }
 };
 
-static IncludeHandlerVFSOverlayForTest *AllocVFSIncludeHandler(IUnknown *pUnkLibrary, const FileMap *pVFS) {
+static CComPtr<IncludeHandlerVFSOverlayForTest> AllocVFSIncludeHandler(IUnknown *pUnkLibrary, const FileMap *pVFS) {
   CComPtr<IncludeHandlerVFSOverlayForTest> pVFSIncludeHandler = IncludeHandlerVFSOverlayForTest::Alloc(DxcGetThreadMallocNoRef());
   IFTBOOL(pVFSIncludeHandler, E_OUTOFMEMORY);
   if (pUnkLibrary) {
@@ -273,7 +273,7 @@ static IncludeHandlerVFSOverlayForTest *AllocVFSIncludeHandler(IUnknown *pUnkLib
     pVFSIncludeHandler->pInnerIncludeHandler = pInnerIncludeHandler;
   }
   pVFSIncludeHandler->pVFS = pVFS;
-  return pVFSIncludeHandler.Detach();
+  return pVFSIncludeHandler;
 }
 
 static void AddOutputsToFileMap(IUnknown *pUnkResult, FileMap *pVFS) {
