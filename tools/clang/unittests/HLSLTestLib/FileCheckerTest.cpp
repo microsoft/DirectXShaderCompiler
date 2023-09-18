@@ -303,7 +303,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   CComPtr<IDxcBlob> pCompiledBlob;
   CComPtr<IDxcBlob> pCompiledName;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
-  WCHAR *pDebugName = nullptr;
+  CComHeapPtr<WCHAR> pDebugName;
   CComPtr<IDxcBlob> pPDBBlob;
 
   std::wstring entry =
